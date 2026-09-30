@@ -21,6 +21,17 @@ pub fn find_project_root(start: &Path) -> Option<PathBuf> {
     }
 }
 
+/// The extension a `specforge.json` `extensions` entry names: `name`, or
+/// `name@version` as older `specforge add`s wrote it (`@acme/foo@1.2.0`
+/// names `@acme/foo`). A path entry is returned whole.
+pub fn extension_entry_name(entry: &str) -> &str {
+    let entry = entry.trim();
+    match entry.rfind('@') {
+        Some(at) if at > 0 && !entry[at + 1..].contains('/') => &entry[..at],
+        _ => entry,
+    }
+}
+
 /// Parsed project configuration from specforge.json.
 #[derive(Debug, Clone, Default)]
 pub struct ProjectConfig {

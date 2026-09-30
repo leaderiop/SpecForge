@@ -228,6 +228,11 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     resolution is delegated to parse_extension_specifier from the wasm
     behaviors. If no version is specified, the system MUST resolve to the
     latest compatible version.
+    An installed extension MUST be enabled by its bare name; specforge.lock
+    records the version the extension itself declares (its handshake), with
+    source "registry", or "local:<path>" for a local .wasm file, so peer
+    and diamond checks compare real versions and update never replaces a
+    local build from a registry.
     The system MUST NOT duplicate an already-installed extension.
     The system MUST NOT modify any other field in specforge.json.
     When adding an extension, the compiler MUST check peer dependencies
@@ -257,6 +262,7 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   verify unit "add extension with unsatisfied peer dependencies emits error diagnostics and rejects"
   verify unit "a peer locked outside the new extension's range fails R-RES-006 naming a version that satisfies every requirer"
   verify unit "a peer no single version satisfies for every requirer fails R-RES-005"
+  verify integration "a local .wasm install is locked at its declared version with source local:<path> and enabled by its bare name"
   verify integration "add extension preserves all other config fields"
   verify contract "Add Extension to Existing Project: adding extension to existing project holds — existing_project_found, extension_resolvable, extension_appended, no_duplicate_added, other_fields_preserved, peer_deps_satisfied, extension_added_emitted"
 }

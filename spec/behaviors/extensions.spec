@@ -50,8 +50,14 @@ behavior load_extension_manifests "Load Extension Manifests" {
     and locate each extension's Wasm manifest. The manifest MUST declare
     entity types, edge types, validation rules, wasmPath to the .wasm
     binary, and optional peer dependencies. Missing extensions or unloadable
-    .wasm binaries MUST produce a diagnostic, not a crash. This behavior
-    orchestrates: for each extension, it calls load_extension_manifest to
+    .wasm binaries MUST produce a diagnostic, not a crash. A builtin loads
+    from the binary. Any other entry names an installed extension by its
+    bare name (a legacy name@version entry names the same extension): it
+    MUST load from .specforge/extensions/<name>/extension.wasm under that
+    name, on every surface, only when the binary's hash is the one its
+    specforge.lock entry records; a mismatch MUST be refused with E033, and
+    an extension enabled but not installed MUST produce E028 naming the
+    command that installs it. This behavior orchestrates: for each extension, it calls load_extension_manifest to
     locate and parse the manifest, then validate_extension_manifest for
     schema validation. Once all manifests are loaded and the
     extension_manifests_loaded event is produced,
@@ -62,6 +68,8 @@ behavior load_extension_manifests "Load Extension Manifests" {
     register_body_parser_contributions.
   """
   verify unit "installed extension manifest is loaded"
+  verify integration "an extension installed from a registry loads through check"
+  verify integration "an enabled extension with no installed binary produces E028 naming the command that installs it"
   verify unit "missing extension produces diagnostic"
   verify unit "manifest declares entity types and validations"
   verify unit "manifest includes wasmPath to .wasm binary"

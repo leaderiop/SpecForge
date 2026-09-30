@@ -4,8 +4,8 @@ use super::{Origin, builtin_name, check_diamonds, extensions_dir, lock_path};
 use crate::OpError;
 use crate::registry::Registry;
 use specforge_wasm::{
-    ExtensionSpecifier, install_extension, install_from_local, parse_extension_specifier,
-    read_lock_file, write_lock_file,
+    ExtensionSpecifier, install_extension, parse_extension_specifier, read_lock_file,
+    write_lock_file,
 };
 use std::path::{Path, PathBuf};
 
@@ -97,6 +97,9 @@ pub enum AddOutcome {
         key_id: Option<String>,
         origin: Origin,
     },
+    /// Already installed at this version (or, from a local file, with
+    /// these exact bytes) and enabled: nothing changed.
+    AlreadyPresent { name: String, version: String },
     /// A dry run: what would be installed or enabled.
     Planned {
         name: String,
@@ -109,11 +112,19 @@ pub enum AddOutcome {
 ///
 /// - A builtin is enabled in `specforge.json`, after the builtins it
 ///   requires as non-optional peers.
-/// - A local `.wasm` is copied under `.specforge/extensions/` and locked.
+/// - A local `.wasm` is validated by its handshake, copied under
+///   `.specforge/extensions/`, locked with the version it declares and
+///   `source: "local:<path>"`, and enabled.
 /// - A registry package is resolved, downloaded, integrity- and
-///   signature-checked, checked against the ADR-0001 diamond gate,
-///   installed, locked and enabled.
+///   signature-checked, validated by its handshake, checked against the
+///   ADR-0001 diamond gate, installed, locked and enabled.
+///
+/// An installed extension is enabled by its bare name, which the runtime
+/// loads from the lock (ADR 0004 D3-b).
 pub fn add(req: &AddRequest, registry: &dyn Registry) -> Result<AddOutcome, OpError> {
+    // The project must exist, with a config the writer can edit, before
+    // anything is installed into it.
+    crate::config::edit_extensions(req.root, |_| false).map_err(config_error)?;
     match &req.source {
         Source::Builtin(name) => add_builtin(req, name),
         Source::Local(path) => add_local(req, path),
@@ -166,38 +177,35 @@ fn config_error(e: OpError) -> OpError {
 }
 
 fn add_local(req: &AddRequest, path: &Path) -> Result<AddOutcome, OpError> {
-    if !path.exists() {
-        return Err(OpError::new(
-            "E054",
-            format!("file not found: {}", path.display()),
-        ));
-    }
-    let name = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("unknown")
-        .to_string();
+    let wasm = std::fs::read(path).map_err(|e| {
+        let message = if path.exists() {
+            format!("cannot read {}: {e}", path.display())
+        } else {
+            format!("file not found: {}", path.display())
+        };
+        OpError::new("E054", message)
+    })?;
+    let declared = Declared::of(&wasm)?;
     let origin = Origin::Installed {
-        source: "local".to_string(),
+        source: format!("local:{}", shown_path(req.root, path)),
     };
     if req.dry_run {
         return Ok(AddOutcome::Planned {
-            name,
-            version: Some("local".to_string()),
+            name: declared.name,
+            version: Some(declared.version),
             origin,
         });
     }
+    let sha256 = specforge_wasm::hex_sha256(&wasm);
     let mut lock = read_lock_file(&lock_path(req.root)).unwrap_or_default();
-    let result = install_from_local(&name, "local", path, &extensions_dir(req.root), &mut lock)
-        .map_err(OpError::from)?;
-    write_lock_file(&lock, &lock_path(req.root)).map_err(OpError::from)?;
-    Ok(AddOutcome::Installed {
-        name: result.name,
-        version: result.version,
-        sha256: result.wasm_hash,
-        key_id: None,
-        origin,
-    })
+    if let Some(present) = already_present(req.root, &lock, &declared.name, |e| {
+        e.wasm_hash == sha256 && e.source.starts_with("local:")
+    }) {
+        return Ok(present);
+    }
+    install(
+        req.root, &mut lock, &declared, &wasm, &sha256, None, &origin,
+    )
 }
 
 fn add_from_registry(
@@ -210,6 +218,12 @@ fn add_from_registry(
     let origin = Origin::Installed {
         source: "registry".to_string(),
     };
+    let mut lock = read_lock_file(&lock_path(req.root)).unwrap_or_default();
+    if let Some(present) = already_present(req.root, &lock, name, |e| {
+        e.version == version && e.source == "registry"
+    }) {
+        return Ok(present);
+    }
     if req.dry_run {
         return Ok(AddOutcome::Planned {
             name: name.to_string(),
@@ -237,35 +251,157 @@ fn add_from_registry(
     )
     .map_err(OpError::from)?;
 
-    let mut lock = read_lock_file(&lock_path(req.root)).unwrap_or_default();
+    // The peers the published manifest declares decide the diamond gate
+    // before anything is loaded; the binary must then be the package it
+    // claims to be.
     check_diamonds(&lock, &package.name, &package.peers, &|peer| {
         registry.versions(peer)
     })?;
-
-    let result = install_extension(
-        &package.name,
-        &package.version,
+    let declared = Declared::of(&package.wasm)?;
+    if declared.name != package.name || declared.version != package.version {
+        return Err(OpError::new(
+            "E028",
+            format!(
+                "registry package {}@{} declares itself {}@{}",
+                package.name, package.version, declared.name, declared.version
+            ),
+        ));
+    }
+    install(
+        req.root,
+        &mut lock,
+        &declared,
         &package.wasm,
         &package.sha256,
-        &extensions_dir(req.root),
-        &mut lock,
-        trust.key_id.as_deref(),
-        package.peers.clone(),
+        trust.key_id,
+        &origin,
+    )
+}
+
+/// What an extension binary's handshake declares.
+struct Declared {
+    name: String,
+    version: String,
+    peers: Vec<specforge_registry::PeerDependency>,
+}
+
+impl Declared {
+    /// Load `wasm` and read its handshake: a binary that isn't a loadable
+    /// extension, or that claims a builtin's name, is refused.
+    fn of(wasm: &[u8]) -> Result<Self, OpError> {
+        const CANDIDATE: &str = "__candidate";
+        let runtime = specforge_component::ComponentRuntime::new();
+        let invalid = |why: String| {
+            OpError::new("E028", format!("not a loadable SpecForge extension: {why}"))
+                .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
+        };
+        runtime
+            .load_module_bytes(CANDIDATE, wasm)
+            .map_err(invalid)?;
+        let handshake = specforge_wasm::protocol::ProtocolHost::new(&runtime)
+            .handshake(CANDIDATE)
+            .map_err(|e| invalid(e.to_string()))?;
+        if super::builtin_name(&handshake.name).is_some() {
+            return Err(OpError::new(
+                "extension_conflict",
+                format!(
+                    "the extension declares the name of the builtin '{}'",
+                    handshake.name
+                ),
+            )
+            .with_suggestion(format!(
+                "enable the builtin instead: specforge add {}",
+                handshake.name
+            )));
+        }
+        Ok(Declared {
+            name: handshake.name,
+            version: handshake.version,
+            peers: handshake
+                .peer_dependencies
+                .into_iter()
+                .map(|p| specforge_registry::PeerDependency {
+                    name: p.name,
+                    version: p.version,
+                    optional: p.optional,
+                })
+                .collect(),
+        })
+    }
+}
+
+/// `AlreadyPresent` when the lock holds `name` as `same` accepts, its
+/// binary is in place and `specforge.json` enables it.
+fn already_present(
+    root: &Path,
+    lock: &specforge_wasm::LockFile,
+    name: &str,
+    same: impl Fn(&specforge_wasm::LockFileEntry) -> bool,
+) -> Option<AddOutcome> {
+    let entry = lock.entries.iter().find(|e| e.name == name && same(e))?;
+    let installed = specforge_wasm::installed_wasm_path(&extensions_dir(root), name).is_file();
+    let enabled = specforge_common::load_project_config(root)
+        .extensions
+        .iter()
+        .any(|e| specforge_common::extension_entry_name(e) == name);
+    (installed && enabled).then(|| AddOutcome::AlreadyPresent {
+        name: name.to_string(),
+        version: entry.version.clone(),
+    })
+}
+
+/// Place the binary, lock it as `origin` with its declared version and
+/// peers, and enable it by its bare name.
+fn install(
+    root: &Path,
+    lock: &mut specforge_wasm::LockFile,
+    declared: &Declared,
+    wasm: &[u8],
+    sha256: &str,
+    key_id: Option<String>,
+    origin: &Origin,
+) -> Result<AddOutcome, OpError> {
+    let result = install_extension(
+        &declared.name,
+        &declared.version,
+        wasm,
+        sha256,
+        &extensions_dir(root),
+        lock,
+        key_id.as_deref(),
+        declared.peers.clone(),
     )
     .map_err(OpError::from)?;
-    write_lock_file(&lock, &lock_path(req.root)).map_err(OpError::from)?;
-
-    let entry = format!("{}@{version}", package.name);
-    // The install stands even when the config can't be edited: the
-    // surface reports that it was not enabled.
-    let _ = crate::config::add_extension(req.root, &package.name, &entry);
+    if let Some(entry) = lock.entries.iter_mut().find(|e| e.name == declared.name) {
+        if let Origin::Installed { source } = origin {
+            entry.source = source.clone();
+        }
+        entry.peer_dependencies = declared.peers.clone();
+    }
+    write_lock_file(lock, &lock_path(root)).map_err(OpError::from)?;
+    crate::config::add_extension(root, &declared.name, &declared.name).map_err(config_error)?;
     Ok(AddOutcome::Installed {
         name: result.name,
         version: result.version,
         sha256: result.wasm_hash,
-        key_id: trust.key_id,
-        origin,
+        key_id,
+        origin: origin.clone(),
     })
+}
+
+/// `path` as the lock records it: relative to the project root when it
+/// is under it, absolute otherwise.
+fn shown_path(root: &Path, path: &Path) -> String {
+    let absolute = |p: &Path| {
+        std::path::absolute(p)
+            .map(|p| p.canonicalize().unwrap_or(p))
+            .unwrap_or_else(|_| p.to_path_buf())
+    };
+    let (root, path) = (absolute(root), absolute(path));
+    path.strip_prefix(&root)
+        .unwrap_or(&path)
+        .display()
+        .to_string()
 }
 
 #[cfg(test)]

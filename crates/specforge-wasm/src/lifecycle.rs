@@ -4,7 +4,7 @@ use specforge_common::{Diagnostic, Severity};
 use specforge_registry::ManifestV2;
 use std::path::Path;
 
-/// Load a Wasm component from the manifest's wasm_path.
+/// Load a Wasm component from `wasm_path` under `extension_name`.
 ///
 /// `expected_hash` enforces the lockfile pin (spec #21, T4): when it carries
 /// a hash (from `specforge.lock`), the on-disk binary must match it — a
@@ -69,16 +69,18 @@ pub fn load_wasm_module(
         });
     }
 
-    runtime.load_module(wasm_path).map_err(|e| Diagnostic {
-        code: "E028".to_string(),
-        severity: Severity::Error,
-        message: format!(
-            "extension '{}': failed to load Wasm module: {}",
-            extension_name, e
-        ),
-        span: None,
-        suggestion: None,
-    })?;
+    runtime
+        .load_module_named(extension_name, wasm_path)
+        .map_err(|e| Diagnostic {
+            code: "E028".to_string(),
+            severity: Severity::Error,
+            message: format!(
+                "extension '{}': failed to load Wasm module: {}",
+                extension_name, e
+            ),
+            span: None,
+            suggestion: None,
+        })?;
 
     Ok(LoadedModule {
         extension_name: extension_name.to_string(),

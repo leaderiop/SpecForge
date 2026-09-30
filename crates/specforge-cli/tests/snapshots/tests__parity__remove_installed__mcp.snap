@@ -29,8 +29,8 @@ expression: mcp_snap
   "ok": true,
   "payload": {
     "orphan_warnings": [],
-    "removed_extension": "specforge_ext_product",
+    "removed_extension": "@sdk/greet",
     "success": true,
-    "version": "local"
+    "version": "0.1.0"
   }
 }

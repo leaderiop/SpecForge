@@ -52,6 +52,20 @@ pub trait WasmRuntime: Send + Sync {
     /// Runtimes that cannot enforce wall-clock limits (mocks, test doubles)
     /// ignore this (audit C7-10).
     fn set_execution_deadline_ms(&self, _extension_name: &str, _max_execution_ms: u64) {}
+
+    /// Load a .wasm component binary under `extension_name`, the name its
+    /// exports are then called by. Runtimes that key modules by path
+    /// (mocks) load it as [`WasmRuntime::load_module`] does.
+    fn load_module_named(&self, _extension_name: &str, wasm_path: &Path) -> Result<(), String> {
+        self.load_module(wasm_path)
+    }
+
+    /// Why `extension_name` failed to load when the runtime was built (a
+    /// missing or tampered installed binary), so compile can report that
+    /// diagnostic instead of a bare "not loaded".
+    fn load_failure(&self, _extension_name: &str) -> Option<specforge_common::Diagnostic> {
+        None
+    }
 }
 
 /// A mock runtime for testing — records calls and returns configured results.

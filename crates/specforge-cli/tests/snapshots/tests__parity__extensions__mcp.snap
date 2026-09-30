@@ -4,12 +4,15 @@ expression: mcp_snap
 ---
 {
   "check": {
-    "diagnostics": [],
+    "diagnostics": [
+      "Warning W112"
+    ],
     "ok": true
   },
   "config": {
     "extensions": [
-      "@specforge/software"
+      "@specforge/software",
+      "@sdk/greet"
     ],
     "name": "demo",
     "registries": [
@@ -23,9 +26,9 @@ expression: mcp_snap
     "version": "0.1.0"
   },
   "files": {
-    ".specforge/extensions/specforge_ext_product/extension.wasm": "<binary>",
+    ".specforge/extensions/@sdk/greet/extension.wasm": "<binary>",
     "spec/main.spec": "behavior alpha \"Alpha\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n",
-    "specforge.lock": "{\n  \"lockfile_version\": 1,\n  \"entries\": [\n    {\n      \"name\": \"specforge_ext_product\",\n      \"version\": \"local\",\n      \"source\": \"registry\",\n      \"wasm_hash\": \"[SHA256]\"\n    }\n  ]\n}"
+    "specforge.lock": "{\n  \"lockfile_version\": 1,\n  \"entries\": [\n    {\n      \"name\": \"@sdk/greet\",\n      \"version\": \"0.1.0\",\n      \"source\": \"local:[BLOB]\",\n      \"wasm_hash\": \"[SHA256]\"\n    }\n  ]\n}"
   },
   "ok": true,
   "payload": {
@@ -45,12 +48,21 @@ expression: mcp_snap
         "status": "loaded",
         "validation_rules": 11,
         "version": "1.0.0"
+      },
+      {
+        "entity_kinds": [
+          "greeting"
+        ],
+        "name": "@sdk/greet",
+        "status": "loaded",
+        "validation_rules": 1,
+        "version": "0.1.0"
       }
     ],
     "lock_file_entries": [
       {
-        "name": "specforge_ext_product",
-        "version": "local"
+        "name": "@sdk/greet",
+        "version": "0.1.0"
       }
     ]
   }

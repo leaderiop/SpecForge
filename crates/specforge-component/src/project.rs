@@ -28,6 +28,18 @@ pub fn project_runtime(path: &Path) -> ComponentRuntime {
     builtins::load_builtins_for(&runtime, &config.extensions)
         .expect("failed to load builtin extensions");
 
+    // Installed extensions load from the lock file (ADR 0004 D3-b).
+    let lock = specforge_wasm::read_lock_file(&path.join("specforge.lock")).ok();
+    for ext in &config.extensions {
+        let name = specforge_common::extension_entry_name(ext);
+        if ext.ends_with(".wasm") || builtins::is_builtin(name) {
+            continue;
+        }
+        if let Err(diagnostic) = load_installed(&runtime, path, name, lock.as_ref()) {
+            runtime.record_load_failure(name, diagnostic);
+        }
+    }
+
     // Load any additional Wasm extensions from project config
     for ext in &config.extensions {
         if ext.ends_with(".wasm") {
@@ -52,6 +64,32 @@ pub fn project_runtime(path: &Path) -> ComponentRuntime {
     }
 
     runtime
+}
+
+/// Load the installed extension `name` from
+/// `.specforge/extensions/<name>/extension.wasm` under the name itself,
+/// refusing a binary whose hash is not the one its lock entry records
+/// (E033). Not in the lock, or no binary: E028, with the command that
+/// installs it.
+fn load_installed(
+    runtime: &ComponentRuntime,
+    root: &Path,
+    name: &str,
+    lock: Option<&specforge_wasm::LockFile>,
+) -> Result<(), specforge_common::Diagnostic> {
+    let Some(entry) = lock.and_then(|lock| lock.entries.iter().find(|e| e.name == name)) else {
+        return Err(specforge_common::Diagnostic {
+            code: "E028".to_string(),
+            severity: specforge_common::Severity::Error,
+            message: format!(
+                "extension '{name}' is enabled in specforge.json but not installed (no specforge.lock entry)"
+            ),
+            span: None,
+            suggestion: Some(format!("install it with: specforge add {name}")),
+        });
+    };
+    let wasm = specforge_wasm::installed_wasm_path(&root.join(".specforge/extensions"), name);
+    specforge_wasm::load_wasm_module(name, &wasm, runtime, Some(&entry.wasm_hash)).map(|_| ())
 }
 
 /// Per-user Wasmtime compilation cache directory.

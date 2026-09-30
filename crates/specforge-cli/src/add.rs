@@ -94,7 +94,7 @@ fn present(outcome: &AddOutcome, format: OutputFormat) {
             });
             match origin {
                 Origin::Installed { source } if source != "registry" => {
-                    output["source"] = json!("local");
+                    output["source"] = json!(source);
                 }
                 _ => output["key_id"] = json!(key_id),
             }
@@ -121,6 +121,15 @@ fn present(outcome: &AddOutcome, format: OutputFormat) {
                 }
             }
         },
+        (AddOutcome::AlreadyPresent { name, version }, OutputFormat::Json) => print_json(json!({
+            "action": "none",
+            "name": name,
+            "version": version,
+            "already_present": true,
+        })),
+        (AddOutcome::AlreadyPresent { name, version }, OutputFormat::Human) => {
+            println!("{name} {version} is already installed");
+        }
         // `specforge add` has no dry run.
         (AddOutcome::Planned { .. }, _) => {}
     }

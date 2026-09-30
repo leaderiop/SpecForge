@@ -2272,7 +2272,7 @@ fn mcp_tool_add_extension_returns_installed() {
         .unwrap()
         .parent()
         .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm");
+        .join("fixtures/greet-extension/greet.wasm");
     let dir = setup_project(&[("main.spec", BASIC_SPEC)]);
     let responses = mcp_session_in(
         &dir,
@@ -2289,7 +2289,7 @@ fn mcp_tool_add_extension_returns_installed() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    assert_eq!(content["extension"], "specforge_ext_product");
+    assert_eq!(content["extension"], "@sdk/greet");
     assert_eq!(content["installed"], true);
 
     // The project's config now lists the extension (it listed none before)...
@@ -2298,13 +2298,13 @@ fn mcp_tool_add_extension_returns_installed() {
             .expect("specforge.json is JSON");
     assert_eq!(
         config["extensions"],
-        serde_json::json!(["specforge_ext_product@0.0.0"]),
+        serde_json::json!(["@sdk/greet"]),
         "{config}"
     );
     // ...and its module is installed where the compiler loads it.
     assert!(
         dir.path()
-            .join(".specforge/extensions/specforge_ext_product/extension.wasm")
+            .join(".specforge/extensions/@sdk/greet/extension.wasm")
             .is_file(),
         "extension module installed"
     );

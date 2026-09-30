@@ -14,11 +14,7 @@ pub const CONFIG_FILE: &str = "specforge.json";
 /// The extension an `extensions` entry names: `name` or `name@version`
 /// (`@acme/foo@1.2.0` names `@acme/foo`). A path entry is returned whole.
 pub fn entry_name(entry: &str) -> &str {
-    let entry = entry.trim();
-    match entry.rfind('@') {
-        Some(at) if at > 0 && !entry[at + 1..].contains('/') => &entry[..at],
-        _ => entry,
-    }
+    specforge_common::extension_entry_name(entry)
 }
 
 /// Write `config` as the project's `specforge.json`: pretty-printed, with

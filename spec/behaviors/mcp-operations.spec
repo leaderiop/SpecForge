@@ -195,7 +195,11 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
     response indicating the extension is already present without modifying
     specforge.json. A registry specifier with no registry configured in
     specforge.json MUST make no network call and MUST return an E063 error
-    whose suggestion names the registries key.
+    whose suggestion names the registries key. The tool MUST run the add
+    specforge add runs: a builtin is enabled offline with its required
+    builtin peers, and a registry package passes the same integrity,
+    signature and version-diamond checks (a key change is refused, since
+    no one can be asked).
   """
   verify unit "with no registry configured, add_extension makes no network call and reports how to configure one"
   verify unit "specforge.add_extension adds extension to config"
@@ -205,6 +209,8 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
   verify unit "dry_run returns preview without modifying files"
   verify contract "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
   verify unit "invalid specifier format returns error"
+  verify integration "a builtin is enabled with no registry and no network"
+  verify integration "a version diamond with a locked peer is refused with R-RES-006, as specforge add refuses it"
 }
 
 behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {

@@ -450,14 +450,14 @@ fn doctor_contract() {
 
 // --- specforge.doctor: real checks ---
 
-const PRODUCT: &str = "specforge_ext_product";
+const GREET: &str = "@sdk/greet";
 
 /// `test_server` with the product blob installed in its project.
 fn server_with_product() -> (McpServer, std::path::PathBuf) {
     let mut server = test_server();
     let root = server.state().project_root.clone().unwrap();
     let blob = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../extensions/product/wasm/specforge_ext_product.wasm");
+        .join("../../fixtures/greet-extension/greet.wasm");
     let resp = call_tool(
         &mut server,
         "specforge.add_extension",
@@ -469,7 +469,7 @@ fn server_with_product() -> (McpServer, std::path::PathBuf) {
 
 /// Overwrite the installed binary, as a corrupted cache would.
 fn tamper_with_installed_binary(root: &std::path::Path) {
-    let dir = root.join(".specforge/extensions").join(PRODUCT);
+    let dir = root.join(".specforge/extensions").join(GREET);
     let wasm = std::fs::read_dir(&dir)
         .unwrap()
         .map(|e| e.unwrap().path())
@@ -506,7 +506,7 @@ fn doctor_flags_an_installed_binary_that_no_longer_matches_the_lock() {
         .unwrap_or_else(|| panic!("no stale_hash finding: {report}"));
     assert_eq!(finding["status"], "error");
     assert!(
-        finding["check"].as_str().unwrap().contains(PRODUCT),
+        finding["check"].as_str().unwrap().contains(GREET),
         "{finding}"
     );
 }

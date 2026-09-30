@@ -1156,9 +1156,14 @@ fn add_rejects_invalid_specifier() {
 fn add_validates_local_specifier() {
     let dir = TempDir::new().unwrap();
 
-    // Create a real wasm file at the local path
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
+    // A real extension at the local path.
     let wasm_path = dir.path().join("my-extension.wasm");
-    std::fs::write(&wasm_path, b"\x00asm\x01\x00\x00\x00").unwrap();
+    std::fs::write(&wasm_path, crate::registry::greet_wasm()).unwrap();
 
     let output = specforge_cmd()
         .args(["add", wasm_path.to_str().unwrap(), "--path"])
@@ -1172,7 +1177,8 @@ fn add_validates_local_specifier() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
     assert_eq!(json["action"], "add");
-    assert_eq!(json["source"], "local");
+    assert_eq!(json["name"], "@sdk/greet", "{json}");
+    assert_eq!(json["source"], "local:my-extension.wasm", "{json}");
 }
 
 // ===============================================================

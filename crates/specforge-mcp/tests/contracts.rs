@@ -273,7 +273,7 @@ fn product_wasm() -> PathBuf {
         .unwrap()
         .parent()
         .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm")
+        .join("fixtures/greet-extension/greet.wasm")
 }
 
 /// A project on disk with `config` as its specforge.json and one spec file.
@@ -1940,7 +1940,7 @@ fn contract_doctor() {
     assert_eq!(finding["status"], "error");
     assert_eq!(
         finding["remediation"],
-        "run `specforge add specforge_ext_product@0.0.0` to reinstall it"
+        "run `specforge add @sdk/greet@0.1.0` to reinstall it"
     );
     assert_eq!(tool(&mut server, "specforge.doctor", json!({})), report);
 
@@ -2449,6 +2449,11 @@ fn contract_add_extension() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
     server.state_mut().project_root = Some(dir.path().to_path_buf());
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
     // Real offline install of the vendored product blob.
     let blob = product_wasm();
     let resp = call_tool(
@@ -2461,7 +2466,7 @@ fn contract_add_extension() {
     assert_eq!(parsed["installed"], true);
     // Truthful install is observable on disk.
     let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
-    assert!(lock.contains("specforge_ext_product"));
+    assert!(lock.contains("@sdk/greet"));
 }
 
 #[test]
@@ -2469,6 +2474,11 @@ fn contract_remove_extension() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
     server.state_mut().project_root = Some(dir.path().to_path_buf());
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
     // Removing something that is not installed must refuse.
     let resp = call_tool(
         &mut server,

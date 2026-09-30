@@ -51,42 +51,6 @@ const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
         Aspect::Config,
         "MCP config lacks $schema and spec_root",
     ),
-    // add (O4): MCP has no builtin path; it asks the registry, which fails.
-    (
-        "add_builtin",
-        Aspect::Outcome,
-        "MCP sends builtins to the registry",
-    ),
-    (
-        "add_builtin",
-        Aspect::Config,
-        "MCP sends builtins to the registry",
-    ),
-    (
-        "add_builtin",
-        Aspect::Check,
-        "MCP never enabled the builtin",
-    ),
-    // add (O4.4, D3-b): the lock labels a local install "local" in the CLI
-    // and "0.0.0" in MCP.
-    (
-        "add_local",
-        Aspect::Files,
-        "local install labelled 0.0.0 by MCP",
-    ),
-    // add (O4.4, D3-b): MCP writes `name@0.0.0` into specforge.json; the
-    // CLI leaves the config alone.
-    (
-        "add_local",
-        Aspect::Config,
-        "MCP enables name@0.0.0 in the config",
-    ),
-    // add (O4.4): that config entry is not loadable, so check reports E028.
-    (
-        "add_local",
-        Aspect::Check,
-        "MCP's config entry fails with E028",
-    ),
     // export: both surfaces export through `specforge_ops::export` (O2), but
     // only the CLI keeps `.specforge/schema-cache.json` for its W053 check.
     // The MCP export tool is a read-only query with nowhere to show W053: if
@@ -116,14 +80,15 @@ const CONFIG: &str = r#"{
 const MAIN_SPEC: &str =
     "behavior alpha \"Alpha\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n";
 
-fn product_blob() -> PathBuf {
+/// A third-party extension (`@sdk/greet` 0.1.0, contributing `greeting`).
+fn greet_blob() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../extensions/product/wasm/specforge_ext_product.wasm")
+        .join("../../fixtures/greet-extension/greet.wasm")
         .canonicalize()
-        .expect("the product blob is vendored")
+        .expect("the greet fixture is vendored")
 }
 
-const PRODUCT_LOCAL: &str = "specforge_ext_product";
+const GREET: &str = "@sdk/greet";
 
 fn project(root: &Path) {
     std::fs::create_dir_all(root.join("spec")).unwrap();
@@ -142,10 +107,10 @@ fn project_with_product_enabled(root: &Path) {
     std::fs::write(root.join("specforge.json"), config).unwrap();
 }
 
-fn project_with_product_installed(root: &Path) {
+fn project_with_greet_installed(root: &Path) {
     project(root);
     let out = cli()
-        .args(["add", product_blob().to_str().unwrap(), "--path"])
+        .args(["add", greet_blob().to_str().unwrap(), "--path"])
         .arg(root)
         .args(["--format", "json"])
         .output()
@@ -228,7 +193,7 @@ const SCENARIOS: &[Scenario] = &[
         cli: |root| {
             args(&[
                 "add",
-                &s(&product_blob()),
+                &s(&greet_blob()),
                 "--path",
                 &s(root),
                 "--format",
@@ -238,7 +203,7 @@ const SCENARIOS: &[Scenario] = &[
         mcp: |_| {
             (
                 "specforge.add_extension",
-                json!({"specifier": s(&product_blob())}),
+                json!({"specifier": s(&greet_blob())}),
             )
         },
         mcp_rooted: true,
@@ -266,23 +231,14 @@ const SCENARIOS: &[Scenario] = &[
     },
     Scenario {
         name: "remove_installed",
-        setup: project_with_product_installed,
-        cli: |root| {
-            args(&[
-                "remove",
-                PRODUCT_LOCAL,
-                "--path",
-                &s(root),
-                "--format",
-                "json",
-            ])
-        },
-        mcp: |_| ("specforge.remove_extension", json!({"name": PRODUCT_LOCAL})),
+        setup: project_with_greet_installed,
+        cli: |root| args(&["remove", GREET, "--path", &s(root), "--format", "json"]),
+        mcp: |_| ("specforge.remove_extension", json!({"name": GREET})),
         mcp_rooted: true,
     },
     Scenario {
         name: "extensions",
-        setup: project_with_product_installed,
+        setup: project_with_greet_installed,
         cli: |root| args(&["extensions", "--path", &s(root), "--format", "json"]),
         mcp: |_| ("specforge.extensions", json!({})),
         mcp_rooted: true,
@@ -517,7 +473,7 @@ fn without_hashes(text: &str) -> String {
 /// `value` as pretty JSON with the machine-specific parts replaced.
 fn normalized(value: &Value, root: &Path) -> String {
     let mut text = without_hashes(&serde_json::to_string_pretty(&redacted(value)).unwrap());
-    let blob = s(&product_blob());
+    let blob = s(&greet_blob());
     text = text.replace(&blob, "[BLOB]");
     let canonical = s(&root.canonicalize().unwrap());
     text = text.replace(&canonical, "[ROOT]");

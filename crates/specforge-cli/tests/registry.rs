@@ -32,12 +32,10 @@ fn add_local_nonexistent_file_fails() {
 
 #[test]
 fn add_local_file_succeeds() {
-    let dir = TempDir::new().unwrap();
+    let dir = project_without_registry();
 
-    // Create a minimal wasm file (valid magic bytes)
-    let wasm = b"\x00asm\x01\x00\x00\x00";
     let wasm_path = dir.path().join("test-ext.wasm");
-    std::fs::write(&wasm_path, wasm).unwrap();
+    std::fs::write(&wasm_path, greet_wasm()).unwrap();
 
     specforge_cmd()
         .arg("add")
@@ -53,11 +51,10 @@ fn add_local_file_succeeds() {
 
 #[test]
 fn add_local_file_json_output() {
-    let dir = TempDir::new().unwrap();
+    let dir = project_without_registry();
 
-    let wasm = b"\x00asm\x01\x00\x00\x00";
     let wasm_path = dir.path().join("my-ext.wasm");
-    std::fs::write(&wasm_path, wasm).unwrap();
+    std::fs::write(&wasm_path, greet_wasm()).unwrap();
 
     let output = specforge_cmd()
         .arg("add")
@@ -72,7 +69,7 @@ fn add_local_file_json_output() {
     assert!(output.status.success());
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(json["action"], "add");
-    assert_eq!(json["source"], "local");
+    assert_eq!(json["source"], "local:my-ext.wasm");
 }
 
 #[test]
@@ -381,7 +378,7 @@ fn builtins_and_local_wasm_install_without_registry() {
     let spy = NetSpy::start();
     let dir = project_without_registry();
     let wasm = dir.path().join("local-ext.wasm");
-    std::fs::write(&wasm, b"\x00asm\x01\x00\x00\x00").unwrap();
+    std::fs::write(&wasm, greet_wasm()).unwrap();
 
     for specifier in ["@specforge/product", wasm.to_str().unwrap()] {
         let output = spy
@@ -398,7 +395,7 @@ fn builtins_and_local_wasm_install_without_registry() {
     let config = std::fs::read_to_string(dir.path().join("specforge.json")).unwrap();
     assert!(config.contains("@specforge/product"), "{config}");
     let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
-    assert!(lock.contains("local-ext"), "{lock}");
+    assert!(lock.contains("local:local-ext.wasm"), "{lock}");
     assert_eq!(spy.hits(), 0, "offline installs reached the network");
 }
 
@@ -434,8 +431,8 @@ pub(crate) fn project_on(registry: &crate::fake_registry::FakeRegistry) -> TempD
 fn add_without_a_version_installs_the_latest() {
     use crate::fake_registry::{FakeRegistry, Package};
     let registry = FakeRegistry::serve(vec![
+        Package::new("@sdk/greet", "0.0.1", greet_wasm()),
         Package::new("@sdk/greet", "0.1.0", greet_wasm()),
-        Package::new("@sdk/greet", "0.2.0", greet_wasm()),
     ]);
     let dir = project_on(&registry);
     let home = TempDir::new().unwrap();
@@ -455,9 +452,9 @@ fn add_without_a_version_installs_the_latest() {
     );
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(json["name"], "@sdk/greet", "{json}");
-    assert_eq!(json["version"], "0.2.0", "{json}");
+    assert_eq!(json["version"], "0.1.0", "{json}");
     let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
-    assert!(lock.contains("\"0.2.0\""), "{lock}");
+    assert!(lock.contains("\"0.1.0\""), "{lock}");
 }
 
 // ---------------------------------------------------------------

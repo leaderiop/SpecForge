@@ -133,6 +133,9 @@ pub struct ComponentRuntime {
     default_deadline_ms: u64,
     /// Drives epoch interruption; must outlive every `Store`.
     _ticker: EpochTicker,
+    /// Why an extension the project enables failed to load (a missing or
+    /// tampered installed binary), by name: compile reports it.
+    load_failures: Mutex<HashMap<String, specforge_common::Diagnostic>>,
 }
 
 impl ComponentRuntime {
@@ -181,7 +184,16 @@ impl ComponentRuntime {
             plugins: Mutex::new(HashMap::new()),
             fuel: DEFAULT_FUEL_LIMIT,
             default_deadline_ms,
+            load_failures: Mutex::new(HashMap::new()),
         }
+    }
+
+    /// Record why `name` could not be loaded, for [`WasmRuntime::load_failure`].
+    pub fn record_load_failure(&self, name: &str, diagnostic: specforge_common::Diagnostic) {
+        self.load_failures
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(name.to_string(), diagnostic);
     }
 
     /// Deterministic per-call instruction budget, enforced by the engine.
@@ -390,6 +402,18 @@ impl WasmRuntime for ComponentRuntime {
 
     fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult {
         self.call(extension_name, export_name, input)
+    }
+
+    fn load_module_named(&self, extension_name: &str, wasm_path: &Path) -> Result<(), String> {
+        ComponentRuntime::load_module_as(self, extension_name, wasm_path)
+    }
+
+    fn load_failure(&self, extension_name: &str) -> Option<specforge_common::Diagnostic> {
+        self.load_failures
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(extension_name)
+            .cloned()
     }
 }
 

@@ -7,10 +7,7 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
 use specforge_common::find_project_root;
-use specforge_registry::{
-    HttpRegistryClient, resolve_from_registry, resolve_version, verify_registry_integrity,
-};
-use specforge_wasm::{install_extension, install_from_local, read_lock_file, write_lock_file};
+use specforge_wasm::read_lock_file;
 
 use crate::protocol::error_codes;
 use crate::state::McpState;
@@ -88,14 +85,6 @@ fn err_op(_id: Option<Value>, error: specforge_ops::OpError) -> ToolOutcome {
         }
     }
     ToolOutcome::refused_with_data(error_codes::INVALID_PARAMS, error.message, data)
-}
-
-/// Enable `name@version` in the project's specforge.json (idempotent: an
-/// entry naming exactly `name` already there is left alone). A config the
-/// writer can't edit is left as it is, as before: the install itself
-/// succeeded.
-fn enable_in_config(root: &Path, name: &str, version: &str) {
-    let _ = specforge_ops::config::add_extension(root, name, &format!("{name}@{version}"));
 }
 
 /// The session's graph exported through the shared operation, with the
@@ -441,6 +430,8 @@ fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome 
 // ── add / remove ────────────────────────────────────────────────────────────
 
 fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+    use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
+
     let specifier = match args.get("specifier").and_then(|v| v.as_str()) {
         Some(s) => s.to_string(),
         None => return err_invalid(id, "Missing required parameter: specifier"),
@@ -457,174 +448,85 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOut
     let Some(root) = project_root_of(state, &args) else {
         return err_invalid(id, "add needs a project root (pass {\"path\": ...})");
     };
-
-    let extensions_dir = root.join(".specforge").join("extensions");
-    let lock_path = root.join("specforge.lock");
-
-    let mut lock = read_lock_file(&lock_path).unwrap_or_default();
-
-    // Local .wasm path install (offline).
-    if specifier.ends_with(".wasm") {
-        let local = PathBuf::from(&specifier);
-        if !local.exists() {
-            return err_invalid(id, format!("file not found: {}", local.display()));
-        }
-        let name = local
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("unknown")
-            .to_string();
-        if dry_run {
-            return ok(
-                id,
-                json!({
-                    "extension": name,
-                    "installed": false,
-                    "dry_run": true,
-                    "version": "0.0.0",
-                    "source": "local",
-                }),
-            );
-        }
-        return match install_from_local(&name, "0.0.0", &local, &extensions_dir, &mut lock) {
-            Ok(result) => {
-                if let Err(diag) = write_lock_file(&lock, &lock_path) {
-                    return err_invalid(id, diag.message);
-                }
-                enable_in_config(&root, &result.name, &result.version);
-                ok(
-                    id,
-                    json!({
-                        "extension": result.name,
-                        "installed": true,
-                        "version": result.version,
-                        "sha256": result.wasm_hash,
-                        "source": "local",
-                        "note": "re-run specforge.analyze (use_cached=false) to load it",
-                    }),
-                )
-            }
-            Err(diag) => err_invalid(id, format!("{}: {}", diag.code, diag.message)),
-        };
-    }
-
-    if !specifier.starts_with('@') || !specifier.contains('/') {
-        return err_invalid(
-            id,
-            "specifier must be @scope/name[@version] or a .wasm path",
-        );
-    }
-
-    // Registry install: resolve → download → integrity → trust → install.
-    let (name, version) = match specifier.split_once('@') {
-        // "@scope/name" or "@scope/name@version" (scope carries the first @)
-        _ if specifier.matches('@').count() > 1 => {
-            let (n, v) = specifier.rsplit_once('@').unwrap();
-            (n.to_string(), v.to_string())
-        }
-        _ => (specifier.clone(), "latest".to_string()),
-    };
-
-    // No registry configured: fail before any network call (ADR 0004 N1).
-    let registries = match specforge_ops::registry::configured(&root, "add_extension") {
-        Ok(registries) => registries,
+    let source = match extension::parse(&specifier) {
+        Ok(source) => source,
         Err(error) => return err_op(id, error),
     };
-    let client = HttpRegistryClient::new();
 
-    let resolved_version = if version == "latest"
-        || version.starts_with('^')
-        || version.starts_with('~')
-        || version.starts_with('>')
-        || version == "*"
-    {
-        let Some(registry) = specforge_registry::find_registry_for_specifier(&name, &registries)
-            .or_else(|| registries.first())
-        else {
-            return err_invalid(id, "no registries configured");
-        };
-        match resolve_version(&name, &version, &client, registry) {
-            Ok(v) => v,
-            Err(diag) => return err_invalid(id, format!("{}: {}", diag.code, diag.message)),
-        }
-    } else {
-        version.clone()
+    // The shared operation `specforge add` runs. An agent can't be asked,
+    // so a publisher key change is refused rather than re-pinned.
+    let request = AddRequest {
+        root: &root,
+        source,
+        allow_unsigned,
+        trust: Trust::Refuse,
+        dry_run,
     };
-
-    let spec = format!("{name}@{resolved_version}");
-    let response = match resolve_from_registry(&spec, &registries, &client) {
-        Ok(r) => r,
-        Err(diag) => return err_invalid(id, format!("{}: {}", diag.code, diag.message)),
+    let registry = specforge_ops::registry::HttpRegistry::for_project(&root, "add_extension");
+    let source_of = |origin: &Origin| match origin {
+        Origin::Builtin => "builtin".to_string(),
+        Origin::Installed { source } => source.clone(),
     };
-    if dry_run {
-        // Resolved, not downloaded: nothing on disk changes.
-        return ok(
+    match extension::add(&request, &registry) {
+        Ok(AddOutcome::Builtin {
+            name,
+            changed,
+            peers_enabled,
+        }) => ok(
             id,
             json!({
-                "extension": response.name,
+                "extension": name,
+                "installed": changed,
+                "source": "builtin",
+                "changed": changed,
+                "peers_enabled": peers_enabled,
+                "note": "re-run specforge.analyze (use_cached=false) to load it",
+            }),
+        ),
+        Ok(AddOutcome::Installed {
+            name,
+            version,
+            sha256,
+            key_id,
+            origin,
+        }) => ok(
+            id,
+            json!({
+                "extension": name,
+                "installed": true,
+                "version": version,
+                "sha256": sha256,
+                "key_id": key_id,
+                "source": source_of(&origin),
+                "note": "re-run specforge.analyze (use_cached=false) to load it",
+            }),
+        ),
+        // Already installed and enabled: an info response, nothing changed.
+        Ok(AddOutcome::AlreadyPresent { name, version }) => ok(
+            id,
+            json!({
+                "extension": name,
+                "installed": false,
+                "already_present": true,
+                "version": version,
+                "message": format!("{name} {version} is already installed; specforge.json is unchanged"),
+            }),
+        ),
+        Ok(AddOutcome::Planned {
+            name,
+            version,
+            origin,
+        }) => ok(
+            id,
+            json!({
+                "extension": name,
                 "installed": false,
                 "dry_run": true,
-                "version": response.version,
-                "source": "registry",
+                "version": version,
+                "source": source_of(&origin),
             }),
-        );
-    }
-    let wasm_bytes = match client.download_wasm(&response.wasm_url) {
-        Ok(bytes) => bytes,
-        Err(e) => return err_invalid(id, e.to_diagnostic().message),
-    };
-    if let Err(diag) = verify_registry_integrity(&wasm_bytes, &response.sha256) {
-        return err_invalid(id, format!("{}: {}", diag.code, diag.message));
-    }
-
-    // Publisher signature verification + TOFU pin policy (single shared
-    // implementation with the CLI). assume_yes=false: a key change refuses
-    // instead of prompting (an agent must not silently re-pin trust).
-    let trust = match specforge_registry::client::trust_flow::check_and_pin(
-        &response.name,
-        &response,
-        &wasm_bytes,
-        allow_unsigned,
-        false,
-        "json",
-        None,
-    ) {
-        Ok(t) => t,
-        Err(diag) => return err_invalid(id, format!("{}: {}", diag.code, diag.message)),
-    };
-
-    let peer_dependencies: Vec<specforge_registry::PeerDependency> =
-        serde_json::from_str::<specforge_registry::ManifestV2>(&response.manifest)
-            .map(|m| m.peer_dependencies)
-            .unwrap_or_default();
-    match install_extension(
-        &response.name,
-        &response.version,
-        &wasm_bytes,
-        &response.sha256,
-        &extensions_dir,
-        &mut lock,
-        trust.key_id.as_deref(),
-        peer_dependencies,
-    ) {
-        Ok(result) => {
-            if let Err(diag) = write_lock_file(&lock, &lock_path) {
-                return err_invalid(id, diag.message);
-            }
-            enable_in_config(&root, &result.name, &result.version);
-            ok(
-                id,
-                json!({
-                    "extension": result.name,
-                    "installed": true,
-                    "version": result.version,
-                    "sha256": result.wasm_hash,
-                    "key_id": trust.key_id,
-                    "note": "re-run specforge.analyze (use_cached=false) to load it",
-                }),
-            )
-        }
-        Err(diag) => err_invalid(id, format!("{}: {}", diag.code, diag.message)),
+        ),
+        Err(error) => err_op(id, error),
     }
 }
 
