@@ -182,8 +182,8 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.add_extension
-    tool that accepts extension (required, name or path) and dry_run?
-    (optional boolean, default false). When dry_run is true, the tool MUST
+    tool that accepts specifier (required, @scope/name[@version] or a .wasm
+    path) and dry_run? (optional boolean, default false). When dry_run is true, the tool MUST
     return a preview of the changes without modifying specforge.json or
     downloading any Wasm modules. The tool MUST add
     the extension to specforge.json, download the Wasm module if remote, and
@@ -225,16 +225,16 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.remove_extension
-    tool that accepts extension (required, name) and dry_run? (optional
-    boolean, default false). When dry_run is true, the tool MUST return a
+    tool that accepts name (required), force? and dry_run? (optional
+    booleans, default false). When dry_run is true, the tool MUST return a
     preview of the removal (including orphan warnings) without modifying
     specforge.json. The tool MUST remove the
     extension from specforge.json. If removing the extension would leave
     orphan entities (entities of kinds only defined by that extension), the
     tool MUST include a warning in the response but still proceed.
     If the specified extension is not installed (not listed in specforge.json),
-    the tool MUST return an error response with code "extension_not_found"
-    and a message identifying the unknown extension name.
+    the tool MUST return an error response whose data carries the code
+    "extension_not_found" and whose message names the unknown extension.
   """
   verify unit "specforge.remove_extension removes extension from config"
   verify unit "orphan entities produce a warning"

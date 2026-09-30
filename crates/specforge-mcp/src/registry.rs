@@ -438,6 +438,7 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                 "type": "object",
                 "properties": {
                     "specifier": { "type": "string", "description": "Extension specifier" },
+                    "dry_run": { "type": "boolean", "description": "Preview the install without changing any file", "default": false },
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
                 },
                 "required": ["specifier"]
@@ -452,6 +453,7 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                 "properties": {
                     "name": { "type": "string", "description": "Extension name" },
                     "force": { "type": "boolean", "description": "Force removal", "default": false },
+                    "dry_run": { "type": "boolean", "description": "Preview the removal, orphan warnings included, without changing any file", "default": false },
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
                 },
                 "required": ["name"]

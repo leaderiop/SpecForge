@@ -74,6 +74,25 @@ fn test_server() -> McpServer {
     server
 }
 
+fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
+    specforge_registry::KindRegistryEntry {
+        kind_name: kind.into(),
+        description: None,
+        source_extension: "@test/ext".into(),
+        testable,
+        singleton: false,
+        supports_verify: testable,
+        allowed_verify_kinds: Vec::new(),
+        has_body_parser: false,
+        semantic_token: None,
+        lsp_icon: None,
+        dot_shape: None,
+        dot_color: None,
+        dot_fillcolor: None,
+        open_fields: false,
+    }
+}
+
 fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
     let req = json!({
         "jsonrpc": "2.0", "id": 1,
@@ -237,34 +256,186 @@ fn add_extension_missing_specifier() {
 
 // --- specforge.remove_extension ---
 
-// B:provide_mcp_remove_extension_tool — verify unit "returns removal result"
+/// The product blob the build vendors; a local `.wasm` install names the
+/// extension after its file stem.
+fn product_blob() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../extensions/product/wasm/specforge_ext_product.wasm")
+}
+
+const PRODUCT: &str = "specforge_ext_product";
+
+/// `test_server` with the product blob installed in its project.
+fn server_with_product() -> (McpServer, std::path::PathBuf) {
+    let mut server = test_server();
+    let root = server.state().project_root.clone().unwrap();
+    let resp = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": product_blob().to_str().unwrap()}),
+    );
+    assert!(resp["result"].is_object(), "install failed: {resp}");
+    (server, root)
+}
+
+/// Every file under `root` with its content.
+fn files_under(root: &Path) -> std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> {
+    fn walk(dir: &Path, out: &mut std::collections::BTreeMap<std::path::PathBuf, Vec<u8>>) {
+        for entry in std::fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                walk(&path, out);
+            } else {
+                out.insert(path.clone(), std::fs::read(&path).unwrap());
+            }
+        }
+    }
+    let mut out = std::collections::BTreeMap::new();
+    walk(root, &mut out);
+    out
+}
+
+fn config_extensions(root: &Path) -> Vec<String> {
+    let config: Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("specforge.json")).unwrap())
+            .unwrap();
+    config["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e.as_str().unwrap().to_string())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_add_extension_tool",
+    verify = "dry_run returns preview without modifying files"
+)]
+fn add_extension_dry_run_writes_nothing() {
+    let mut server = test_server();
+    let root = server.state().project_root.clone().unwrap();
+    let before = files_under(&root);
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": product_blob().to_str().unwrap(), "dry_run": true}),
+    );
+
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed["dry_run"], true, "{parsed}");
+    assert_eq!(parsed["extension"], PRODUCT, "{parsed}");
+    assert_eq!(parsed["installed"], false, "{parsed}");
+    assert_eq!(files_under(&root), before, "a dry run writes nothing");
+}
+
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
     verify = "specforge.remove_extension removes extension from config"
 )]
-fn remove_extension_returns_result() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
-    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm");
-    let _install = call_tool(
-        &mut server,
-        "specforge.add_extension",
-        json!({"specifier": blob.to_str().unwrap()}),
+fn remove_extension_removes_it_from_config_lock_and_disk() {
+    let (mut server, root) = server_with_product();
+    assert!(
+        config_extensions(&root)
+            .iter()
+            .any(|e| e.starts_with(PRODUCT))
     );
+
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
-        json!({"name": "specforge_ext_product"}),
+        json!({"name": PRODUCT}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed["success"], true);
+
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed["success"], true, "{parsed}");
+    assert_eq!(parsed["removed_extension"], PRODUCT);
+    assert!(
+        !config_extensions(&root)
+            .iter()
+            .any(|e| e.starts_with(PRODUCT)),
+        "specforge.json still lists it: {:?}",
+        config_extensions(&root)
+    );
+    let lock = std::fs::read_to_string(root.join("specforge.lock")).unwrap();
+    assert!(!lock.contains(PRODUCT), "{lock}");
+    assert!(!root.join(".specforge/extensions").join(PRODUCT).exists());
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_remove_extension_tool",
+    verify = "dry_run returns preview without modifying files"
+)]
+fn remove_extension_dry_run_writes_nothing() {
+    let (mut server, root) = server_with_product();
+    let before = files_under(&root);
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.remove_extension",
+        json!({"name": PRODUCT, "dry_run": true}),
+    );
+
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed["dry_run"], true, "{parsed}");
+    assert_eq!(parsed["removed_extension"], PRODUCT, "{parsed}");
+    assert!(parsed["orphan_warnings"].is_array(), "{parsed}");
+    assert_eq!(files_under(&root), before, "a dry run writes nothing");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_remove_extension_tool",
+    verify = "orphan entities produce a warning"
+)]
+fn remove_extension_warns_about_orphaned_entities() {
+    let (mut server, root) = server_with_product();
+    // The compiled project: `beta` is a feature, a kind only the product
+    // extension defines; `alpha` is a behavior from elsewhere.
+    let mut feature = kind_entry("feature", false);
+    feature.source_extension = PRODUCT.into();
+    server.state_mut().kind_registry.register(feature);
+    server
+        .state_mut()
+        .kind_registry
+        .register(kind_entry("behavior", true));
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.remove_extension",
+        json!({"name": PRODUCT}),
+    );
+
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let warnings = parsed["orphan_warnings"].as_array().unwrap();
+    assert_eq!(warnings.len(), 1, "{parsed}");
+    let warning = warnings[0].as_str().unwrap();
+    assert!(
+        warning.contains("'beta'") && warning.contains("feature"),
+        "{warning}"
+    );
+    assert_eq!(parsed["success"], true, "removal still proceeds");
+    assert!(!root.join(".specforge/extensions").join(PRODUCT).exists());
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_remove_extension_tool",
+    verify = "non-installed extension returns extension_not_found error"
+)]
+fn remove_extension_not_installed_is_extension_not_found() {
+    let (mut server, _root) = server_with_product();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.remove_extension",
+        json!({"name": "@acme/missing"}),
+    );
+
+    assert_eq!(
+        resp["error"]["data"]["code"], "extension_not_found",
+        "{resp}"
+    );
+    let message = resp["error"]["message"].as_str().unwrap();
+    assert!(message.contains("@acme/missing"), "{message}");
 }
 
 // --- specforge.migrate ---
@@ -430,32 +601,6 @@ fn add_extension_invalid_manifest_placeholder() {
     assert!(resp["error"].is_object());
     let msg = resp["error"]["message"].as_str().unwrap();
     assert!(msg.contains("@scope/name"));
-}
-
-#[test]
-fn remove_extension_orphan_warning_placeholder() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
-    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm");
-    let _install = call_tool(
-        &mut server,
-        "specforge.add_extension",
-        json!({"specifier": blob.to_str().unwrap()}),
-    );
-    let resp = call_tool(
-        &mut server,
-        "specforge.remove_extension",
-        json!({"name": "specforge_ext_product"}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["orphan_warnings"].is_array() || parsed["success"].is_boolean());
 }
 
 // B:provide_mcp_rename_tool — verify unit "invalid new_name format returns validation error"

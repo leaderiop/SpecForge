@@ -126,6 +126,33 @@ fn update_config_extensions(config_path: &Path, name: &str, version: &str) {
     }
 }
 
+/// Drop `name` (bare or `name@version`) from specforge.json's extensions list.
+fn remove_config_extension(config_path: &Path, name: &str) {
+    let Ok(content) = std::fs::read_to_string(config_path) else {
+        return;
+    };
+    let Ok(mut json) = serde_json::from_str::<Value>(&content) else {
+        return;
+    };
+    let Some(exts) = json.get_mut("extensions").and_then(|e| e.as_array_mut()) else {
+        return;
+    };
+    let before = exts.len();
+    exts.retain(|e| {
+        e.as_str().is_none_or(|entry| {
+            entry != name
+                && entry
+                    .strip_prefix(name)
+                    .is_none_or(|rest| !rest.starts_with('@'))
+        })
+    });
+    if exts.len() != before
+        && let Ok(pretty) = serde_json::to_string_pretty(&json)
+    {
+        let _ = std::fs::write(config_path, pretty);
+    }
+}
+
 // ── format ──────────────────────────────────────────────────────────────────
 
 fn format_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
@@ -320,6 +347,10 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
         .get("allow_unsigned")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    let dry_run = args
+        .get("dry_run")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     let Some(root) = project_root_of(state, &args) else {
         return err_invalid(id, "add needs a project root (pass {\"path\": ...})");
@@ -342,6 +373,18 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
             .to_string();
+        if dry_run {
+            return ok(
+                id,
+                json!({
+                    "extension": name,
+                    "installed": false,
+                    "dry_run": true,
+                    "version": "0.0.0",
+                    "source": "local",
+                }),
+            );
+        }
         return match install_from_local(&name, "0.0.0", &local, &extensions_dir, &mut lock) {
             Ok(result) => {
                 if let Err(diag) = write_lock_file(&lock, &lock_path) {
@@ -408,6 +451,19 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
         Ok(r) => r,
         Err(diag) => return err_invalid(id, format!("{}: {}", diag.code, diag.message)),
     };
+    if dry_run {
+        // Resolved, not downloaded: nothing on disk changes.
+        return ok(
+            id,
+            json!({
+                "extension": response.name,
+                "installed": false,
+                "dry_run": true,
+                "version": response.version,
+                "source": "registry",
+            }),
+        );
+    }
     let wasm_bytes = match client.download_wasm(&response.wasm_url) {
         Ok(bytes) => bytes,
         Err(e) => return err_invalid(id, e.to_diagnostic().message),
@@ -473,6 +529,10 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Json
         None => return err_invalid(id, "Missing required parameter: name"),
     };
     let force = args.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
+    let dry_run = args
+        .get("dry_run")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     let Some(root) = project_root_of(state, &args) else {
         return err_invalid(id, "remove needs a project root (pass {\"path\": ...})");
@@ -481,17 +541,54 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Json
     let lock_path = root.join("specforge.lock");
     let extensions_dir = root.join(".specforge").join("extensions");
 
+    let not_found = |id, message: String| {
+        JsonRpcResponse::error_with_data(
+            id,
+            error_codes::INVALID_PARAMS,
+            message,
+            json!({"code": "extension_not_found", "extension": name}),
+        )
+    };
     let mut lock = match read_lock_file(&lock_path) {
         Ok(lock) => lock,
         Err(_) => {
-            return err_invalid(
+            return not_found(
                 id,
                 format!("extension '{name}' is not installed (no lock file found)"),
             );
         }
     };
-    if !lock.entries.iter().any(|e| e.name == name) {
-        return err_invalid(id, format!("extension '{name}' is not installed"));
+    let Some(version) = lock
+        .entries
+        .iter()
+        .find(|e| e.name == name)
+        .map(|e| e.version.clone())
+    else {
+        return not_found(id, format!("extension '{name}' is not installed"));
+    };
+
+    let orphan_warnings = orphan_warnings(state, &name);
+    if dry_run {
+        let dependents = specforge_wasm::check_dependents(&name, &state.manifests);
+        if !dependents.is_empty() && !force {
+            return err_invalid(
+                id,
+                format!(
+                    "E027: cannot uninstall '{name}': required by {}",
+                    dependents.join(", ")
+                ),
+            );
+        }
+        return ok(
+            id,
+            json!({
+                "removed_extension": name,
+                "success": true,
+                "dry_run": true,
+                "version": version,
+                "orphan_warnings": orphan_warnings,
+            }),
+        );
     }
 
     match uninstall_extension(&name, &state.manifests, &extensions_dir, &mut lock, force) {
@@ -499,17 +596,42 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Json
             if let Err(diag) = write_lock_file(&lock, &lock_path) {
                 return err_invalid(id, diag.message);
             }
+            remove_config_extension(&root.join("specforge.json"), &name);
             ok(
                 id,
                 json!({
                     "removed_extension": name,
                     "success": true,
                     "version": result.version,
+                    "orphan_warnings": orphan_warnings,
                 }),
             )
         }
         Err(diag) => err_invalid(id, format!("{}: {}", diag.code, diag.message)),
     }
+}
+
+/// One warning per entity whose kind only `extension` defines.
+fn orphan_warnings(state: &McpState, extension: &str) -> Vec<String> {
+    let mut warnings: Vec<String> = state
+        .graph
+        .nodes()
+        .into_iter()
+        .filter(|node| {
+            state
+                .kind_registry
+                .get(node.kind.raw.as_str())
+                .is_some_and(|kind| kind.source_extension == extension)
+        })
+        .map(|node| {
+            format!(
+                "{} '{}' uses a kind only {extension} defines",
+                node.kind.raw, node.id.raw
+            )
+        })
+        .collect();
+    warnings.sort();
+    warnings
 }
 
 // ── migrate ─────────────────────────────────────────────────────────────────
