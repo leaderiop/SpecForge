@@ -29,10 +29,24 @@ pub fn run(
     }
     let extensions = extensions.as_slice();
 
-    // Check for existing project
-    if let Some(existing) = find_project_root(path) {
-        eprintln!("error: project already exists at {}", existing.display());
+    // Only a project in this very directory blocks init. One further up
+    // doesn't: the new project is separate, and commands run inside it
+    // resolve to it because the nearest project wins.
+    if ["specforge.json", "specforge.spec"]
+        .iter()
+        .any(|marker| path.join(marker).exists())
+    {
+        eprintln!("error: project already exists at {}", path.display());
         return 1;
+    }
+    if let Some(enclosing) = path.parent().and_then(find_project_root)
+        && format != OutputFormat::Json
+    {
+        eprintln!(
+            "note: {} is inside the project at {}; the new project is separate",
+            path.display(),
+            enclosing.display()
+        );
     }
 
     // Determine project name: --name flag, or directory name

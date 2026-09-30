@@ -26,7 +26,7 @@ behavior scaffold_new_project "Scaffold New Project" {
   produces   [project_initialized]
   requires {
     filesystem_available "FileSystem port is available for writing project files"
-    no_existing_project  "No specforge.json or specforge.spec exists in the current directory or any ancestor directory"
+    no_existing_project  "No specforge.json or specforge.spec exists in the directory being initialized"
   }
   ensures {
     valid_config_created        "A syntactically valid specforge.json is created with the user-provided project name and version"
@@ -40,10 +40,12 @@ behavior scaffold_new_project "Scaffold New Project" {
     $schema field pointing to the SpecForge JSON schema URL to enable
     IDE autocomplete. The generated config MUST be syntactically valid
     and parseable by the compiler. If a specforge.json or specforge.spec
-    already exists in the current directory OR in any ancestor directory (as resolved
-    by find_project_root()), the system MUST reject the operation with
-    an error message and exit code 1. The full init-check-export cycle
-    MUST complete in under 60 seconds on commodity hardware, enforcing
+    already exists in the directory being initialized, the system MUST
+    reject the operation with an error message and exit code 1. A project
+    in an ancestor directory MUST NOT block init: the new project is
+    separate, and commands run inside it resolve to it because the
+    nearest project wins. Init notes the enclosing project on stderr. The
+    full init-check-export cycle MUST complete in under 60 seconds on commodity hardware, enforcing
     Principle 8 (seconds to value). In interactive mode, the project name
     MUST default to the directory name and prompt the user for confirmation
     or override.
@@ -51,7 +53,7 @@ behavior scaffold_new_project "Scaffold New Project" {
   verify unit "scaffold creates valid specforge.json"
   verify unit "scaffold includes $schema field in generated config"
   verify unit "scaffold rejects when specforge.json already exists"
-  verify unit "scaffold rejects when a parent directory contains specforge.json"
+  verify unit "scaffold inside another project creates a separate project"
   verify performance "full init-check-export cycle completes in under 60 seconds"
   verify integration "scaffold in non-empty directory preserves existing files"
   verify integration "scaffolded project passes init-check-export cycle"
@@ -157,7 +159,7 @@ behavior non_interactive_init "Non-Interactive Init" {
   requires {
     name_flag_provided   "--name flag is provided with a valid project name"
     filesystem_available "FileSystem port is available for writing project files"
-    no_existing_project  "No specforge.json or specforge.spec exists in the current directory or any ancestor directory"
+    no_existing_project  "No specforge.json or specforge.spec exists in the directory being initialized"
   }
   ensures {
     config_identical_to_interactive "Generated specforge.json is structurally identical to one created interactively with the same inputs"

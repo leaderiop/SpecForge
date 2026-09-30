@@ -192,9 +192,9 @@ fn init_rejects_existing_project() {
 
 #[specforge_test(
     behavior = "scaffold_new_project",
-    verify = "scaffold rejects when a parent directory contains specforge.json"
+    verify = "scaffold inside another project creates a separate project"
 )]
-fn init_rejects_when_parent_has_config() {
+fn init_inside_another_project_creates_a_separate_one() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
 
@@ -205,8 +205,23 @@ fn init_rejects_when_parent_has_config() {
         .args(["init", "--name", "nested"])
         .current_dir(&child)
         .assert()
-        .failure()
-        .stderr(predicates::str::contains("already exists"));
+        .success()
+        .stderr(predicates::str::contains("is inside the project at"));
+    let config: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(child.join("specforge.json")).unwrap()).unwrap();
+    assert_eq!(config["name"], "nested");
+
+    // Commands run inside it resolve to the nearest project.
+    specforge_cmd()
+        .arg("check")
+        .current_dir(&child)
+        .assert()
+        .success();
+    assert_eq!(
+        fs::read_to_string(dir.path().join("specforge.json")).unwrap(),
+        "{}",
+        "the enclosing project is untouched"
+    );
 }
 
 #[specforge_test(
