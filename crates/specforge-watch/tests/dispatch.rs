@@ -72,40 +72,45 @@ fn non_incremental_extension_receives_full_graph_input() {
     verify = "dispatch follows topological order"
 )]
 fn dispatch_preserves_topological_order() {
+    // Validators arrive in topological extension order (dependencies first,
+    // as specforge-wasm's topological_sort_extensions yields them). The order
+    // is deliberately neither alphabetical nor grouped by input type, and
+    // the deltas below list kinds in other orders: the plan must keep the
+    // topological order regardless of delta content.
+    let ext = |name: &str, kind: &str, incremental: bool| ValidatorDescriptor {
+        extension_name: name.to_string(),
+        kinds: vec![KindDescriptor {
+            kind_name: kind.to_string(),
+            incremental,
+        }],
+    };
     let validators = vec![
-        ValidatorDescriptor {
-            extension_name: "first".to_string(),
-            kinds: vec![KindDescriptor {
-                kind_name: "a".to_string(),
-                incremental: true,
-            }],
-        },
-        ValidatorDescriptor {
-            extension_name: "second".to_string(),
-            kinds: vec![KindDescriptor {
-                kind_name: "b".to_string(),
-                incremental: false,
-            }],
-        },
-        ValidatorDescriptor {
-            extension_name: "third".to_string(),
-            kinds: vec![KindDescriptor {
-                kind_name: "c".to_string(),
-                incremental: true,
-            }],
-        },
+        ext("@specforge/software", "behavior", true),    // base
+        ext("@specforge/governance", "decision", false), // depends on software
+        ext("@specforge/product", "journey", true),      // depends on software
+        ext("@specforge/formal", "refinement", false),   // depends on governance
     ];
-
-    let delta = delta_with_kinds(&["a", "b", "c"]);
+    let topological = vec![
+        "@specforge/software",
+        "@specforge/governance",
+        "@specforge/product",
+        "@specforge/formal",
+    ];
     let graph = Graph::new();
-    let plan = plan_incremental_dispatch(&validators, &delta, &graph);
 
-    let names: Vec<&str> = plan
-        .entries
-        .iter()
-        .map(|e| e.extension_name.as_str())
-        .collect();
-    assert_eq!(names, vec!["first", "second", "third"]);
+    for kinds in [
+        &["refinement", "journey", "decision", "behavior"][..],
+        &["journey"][..],
+        &["refinement", "behavior"][..],
+    ] {
+        let plan = plan_incremental_dispatch(&validators, &delta_with_kinds(kinds), &graph);
+        let names: Vec<&str> = plan
+            .entries
+            .iter()
+            .map(|e| e.extension_name.as_str())
+            .collect();
+        assert_eq!(names, topological, "delta kinds {kinds:?}");
+    }
 }
 
 #[spec(

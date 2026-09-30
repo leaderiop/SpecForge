@@ -27,13 +27,28 @@ fn rapid_successive_changes_coalesced_into_single_batch() {
     verify = "single isolated change triggers after debounce window"
 )]
 fn single_isolated_change_triggers_after_debounce_window() {
+    let window = Duration::from_millis(40);
     let (tx, rx) = mpsc::channel();
-    let debouncer = Debouncer::new(Duration::from_millis(20));
+    let debouncer = Debouncer::new(window);
 
     tx.send("only.spec".to_string()).unwrap();
 
+    // `tx` stays alive, so only the window of silence can end the batch.
+    let start = std::time::Instant::now();
     let batch = debouncer.coalesce(&rx).unwrap();
+    let elapsed = start.elapsed();
+
     assert_eq!(batch, vec!["only.spec"]);
+    assert!(
+        elapsed >= window,
+        "batch emitted after {elapsed:?}, before the {window:?} debounce window elapsed"
+    );
+    // ...and it does fire once the window is over (bounded; generous CI margin).
+    assert!(
+        elapsed < window + Duration::from_millis(400),
+        "batch took {elapsed:?}, far past the {window:?} window"
+    );
+    drop(tx);
 }
 
 #[spec(behavior = "debounce_file_changes")]

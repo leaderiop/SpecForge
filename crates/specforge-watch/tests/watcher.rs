@@ -122,9 +122,11 @@ fn watch_detects_changes_within_latency_target() {
     let spec_path = dir.path().join("latency.spec");
     fs::write(&spec_path, r#"behavior init "Init" { contract "x" }"#).unwrap();
 
+    // A short debounce window so the measurement is dominated by detection,
+    // not by coalescing.
+    let debounce = Duration::from_millis(10);
     let (tx, rx) = mpsc::channel();
-    let _watcher =
-        SpecWatcher::new(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
+    let _watcher = SpecWatcher::new(dir.path(), tx, debounce).unwrap();
 
     std::thread::sleep(Duration::from_millis(200));
 
@@ -134,12 +136,17 @@ fn watch_detects_changes_within_latency_target() {
     let event = wait_for_event(&rx, Duration::from_secs(2));
     let elapsed = start.elapsed();
 
-    assert!(event.is_some(), "should receive change event");
-    // Generous CI headroom: spec target is 100ms detection + 50ms debounce
+    let events = event.expect("should receive change event");
     assert!(
-        elapsed < Duration::from_millis(500),
-        "change detection took {:?}, expected < 500ms",
-        elapsed
+        events.iter().any(|e| e.path == "latency.spec"),
+        "{events:?}"
+    );
+    // Obligation: detected within 100ms. The batch is emitted after the
+    // debounce window of silence, so the bound is 100ms + that window.
+    let bound = Duration::from_millis(100) + debounce;
+    assert!(
+        elapsed < bound,
+        "change detection took {elapsed:?}, expected < {bound:?}"
     );
 }
 
