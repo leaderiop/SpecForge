@@ -162,11 +162,7 @@ fn rename_unknown_entity() {
     assert!(resp["error"].is_object());
 }
 
-// B:provide_mcp_rename_tool — verify unit "missing params returns error"
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "invalid new_name returns validation error"
-)]
+#[test]
 fn rename_missing_params() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.rename", json!({}));
@@ -201,11 +197,7 @@ fn init_returns_result() {
 
 // --- specforge.add_extension ---
 
-// B:provide_mcp_add_extension_tool — verify unit "returns install result"
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "specforge.add_extension adds extension to config"
-)]
+#[test]
 fn add_extension_returns_result() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
@@ -236,11 +228,7 @@ fn add_extension_returns_result() {
     assert!(lock.contains("specforge_ext_product"));
 }
 
-// B:provide_mcp_add_extension_tool — verify unit "missing specifier returns error"
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "invalid manifest returns error"
-)]
+#[test]
 fn add_extension_missing_specifier() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.add_extension", json!({}));
@@ -281,11 +269,7 @@ fn remove_extension_returns_result() {
 
 // --- specforge.migrate ---
 
-// B:provide_mcp_migrate_tool — verify unit "returns migration result"
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "specforge.migrate applies pending migrations"
-)]
+#[test]
 fn migrate_returns_result() {
     let mut server = test_server();
     // The fixture is already at the current format version — an honest
@@ -301,11 +285,7 @@ fn migrate_returns_result() {
     assert!(parsed.get("message").is_some());
 }
 
-// B:provide_mcp_format_tool — verify unit "diff mode returns FormatDiff entries"
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "diff mode returns FormatDiff entries"
-)]
+#[test]
 fn format_diff_mode_placeholder() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.format", json!({"check": true}));
@@ -314,11 +294,7 @@ fn format_diff_mode_placeholder() {
     assert_eq!(parsed["check_only"], true);
 }
 
-// B:provide_mcp_format_tool — verify unit "paths filter restricts to specified files"
-#[specforge_test(
-    behavior = "provide_mcp_format_tool",
-    verify = "paths filter restricts to specified files"
-)]
+#[test]
 fn format_paths_filter() {
     let mut server = test_server();
     let resp = call_tool(
@@ -331,11 +307,7 @@ fn format_paths_filter() {
     assert!(parsed["all_clean"].is_boolean() || parsed["total_checked"].is_number());
 }
 
-// B:provide_mcp_rename_tool — verify unit "dry_run returns rename plan"
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "dry_run returns rename plan without applying changes"
-)]
+#[test]
 fn rename_invalid_new_name() {
     let mut server = test_server();
     let resp = call_tool(
@@ -347,11 +319,7 @@ fn rename_invalid_new_name() {
     assert!(resp["result"].is_object() || resp["error"].is_object());
 }
 
-// B:provide_mcp_rename_tool — verify unit "dry_run returns rename plan without applying"
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "dry_run returns rename plan without applying changes"
-)]
+#[test]
 fn rename_dry_run_placeholder() {
     let mut server = test_server();
     let resp = call_tool(
@@ -364,11 +332,7 @@ fn rename_dry_run_placeholder() {
     assert!(parsed["edits"].is_array() || parsed["affected_files"].is_number());
 }
 
-// B:provide_mcp_init_tool — verify unit "extensions installed when specified"
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "extensions installed when specified"
-)]
+#[test]
 fn init_extensions_installed() {
     let dir = fresh_project_dir();
     let mut server = test_server();
@@ -382,11 +346,7 @@ fn init_extensions_installed() {
     assert!(parsed["extensions_installed"].is_array() || parsed["config_file"].is_string());
 }
 
-// B:provide_mcp_init_tool — verify unit "default version"
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "default version is 0.1.0"
-)]
+#[test]
 fn init_default_version() {
     let dir = fresh_project_dir();
     let mut server = test_server();
@@ -400,11 +360,7 @@ fn init_default_version() {
     assert!(parsed["config_file"].is_string());
 }
 
-// B:provide_mcp_init_tool — verify unit "version parameter overrides"
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "version parameter overrides default 0.1.0"
-)]
+#[test]
 fn init_version_override() {
     let dir = fresh_project_dir();
     let mut server = test_server();
@@ -418,11 +374,7 @@ fn init_version_override() {
     assert!(parsed["project_path"].is_string() || parsed["config_file"].is_string());
 }
 
-// B:provide_mcp_init_tool — verify unit "result includes starter file path"
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "specforge.init result includes the starter file path and installed extensions"
-)]
+#[test]
 fn init_starter_file_path() {
     let dir = fresh_project_dir();
     let mut server = test_server();
@@ -436,11 +388,7 @@ fn init_starter_file_path() {
     assert!(parsed["starter_file"].is_string() || parsed["config_file"].is_string());
 }
 
-// B:provide_mcp_add_extension_tool — verify unit "already-installed returns info"
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "already-installed extension returns info without modifying config"
-)]
+#[test]
 fn add_extension_already_installed_placeholder() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
@@ -471,11 +419,7 @@ fn add_extension_already_installed_placeholder() {
     assert!(lock.contains("specforge_ext_product"));
 }
 
-// B:provide_mcp_add_extension_tool — verify unit "wasm module downloaded for remote extensions"
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "wasm module downloaded for remote extensions"
-)]
+#[test]
 fn add_extension_invalid_manifest_placeholder() {
     let mut server = test_server();
     let resp = call_tool(
@@ -488,11 +432,7 @@ fn add_extension_invalid_manifest_placeholder() {
     assert!(msg.contains("@scope/name"));
 }
 
-// B:provide_mcp_remove_extension_tool — verify unit "orphan entities produce warning"
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "orphan entities produce a warning"
-)]
+#[test]
 fn remove_extension_orphan_warning_placeholder() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
@@ -603,11 +543,7 @@ fn init_version_override_value() {
     assert_eq!(parsed["version"], "1.0.0");
 }
 
-// B:provide_mcp_init_tool — verify integration "MCP init followed by check produces zero errors"
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "MCP init followed by check produces zero errors"
-)]
+#[test]
 fn init_then_check_integration() {
     let dir = fresh_project_dir();
     let mut server = test_server();
@@ -639,11 +575,7 @@ fn add_extension_invalid_specifier() {
     assert!(msg.contains("@scope/name"));
 }
 
-// B:provide_mcp_remove_extension_tool — verify unit "non-installed extension returns extension_not_found error"
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "non-installed extension returns extension_not_found error"
-)]
+#[test]
 fn remove_extension_not_installed() {
     let mut server = test_server();
     let resp = call_tool(
@@ -656,11 +588,7 @@ fn remove_extension_not_installed() {
     assert!(resp["error"].is_object() || resp["result"].is_object());
 }
 
-// B:provide_mcp_migrate_tool — verify unit "dry_run returns diff without modifying files"
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "dry_run returns diff without modifying files"
-)]
+#[test]
 fn migrate_dry_run() {
     let mut server = test_server();
     let resp = call_tool(
@@ -674,11 +602,7 @@ fn migrate_dry_run() {
     assert_eq!(parsed["migrated"], false);
 }
 
-// B:provide_mcp_migrate_tool — verify unit "post-migration validation reports errors"
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "post-migration validation reports errors"
-)]
+#[test]
 fn migrate_post_validation() {
     let mut server = test_server();
     let resp = call_tool(
@@ -693,11 +617,7 @@ fn migrate_post_validation() {
 
 // --- Missing verify statements ---
 
-// B:provide_mcp_init_tool — verify unit "path inside current project returns error"
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "path inside current project returns error"
-)]
+#[test]
 fn init_path_inside_current_project() {
     let mut server = test_server();
     let resp = call_tool(
@@ -709,11 +629,7 @@ fn init_path_inside_current_project() {
     assert!(resp["error"].is_object() || resp["result"].is_object());
 }
 
-// B:provide_mcp_init_tool — verify unit "invalid project name returns error"
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "invalid project name returns error"
-)]
+#[test]
 fn init_invalid_project_name() {
     let mut server = test_server();
     let resp = call_tool(
@@ -725,11 +641,7 @@ fn init_invalid_project_name() {
     assert!(resp["error"].is_object() || resp["result"].is_object());
 }
 
-// B:provide_mcp_init_tool — verify unit "unknown extension returns error with diagnostic"
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "unknown extension returns error with diagnostic"
-)]
+#[test]
 fn init_unknown_extension() {
     let mut server = test_server();
     let resp = call_tool(
@@ -741,11 +653,7 @@ fn init_unknown_extension() {
     assert!(resp["error"].is_object() || resp["result"].is_object());
 }
 
-// B:provide_mcp_add_extension_tool — verify unit "dry_run returns preview without modifying files"
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "dry_run returns preview without modifying files"
-)]
+#[test]
 fn add_extension_dry_run() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
@@ -767,11 +675,7 @@ fn add_extension_dry_run() {
     assert!(parsed["dry_run"] == true || parsed["installed"].is_boolean());
 }
 
-// B:provide_mcp_remove_extension_tool — verify unit "dry_run returns preview without modifying files"
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "dry_run returns preview without modifying files"
-)]
+#[test]
 fn remove_extension_dry_run() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
@@ -900,11 +804,7 @@ fn add_extension_contract() {
     assert!(invalid["error"].is_object());
 }
 
-// B:provide_mcp_remove_extension_tool — verify contract
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "Provide MCP Remove Extension Tool: MCP remove extension tool holds — filesystem_available, extension_removed, orphan_warning_produced, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
-)]
+#[test]
 fn remove_extension_contract() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();

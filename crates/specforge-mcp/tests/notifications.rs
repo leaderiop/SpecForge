@@ -100,11 +100,7 @@ fn node(id: &str) -> Node {
     }
 }
 
-// B:notify_graph_delta_via_mcp — verify unit "detects added nodes"
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "graph_changed notification sent after incremental rebuild"
-)]
+#[test]
 fn graph_delta_detects_added_nodes() {
     let old = Graph::new();
     let mut new = Graph::new();
@@ -116,11 +112,7 @@ fn graph_delta_detects_added_nodes() {
     assert!(delta.removed_nodes.is_empty());
 }
 
-// B:notify_graph_delta_via_mcp — verify unit "detects removed nodes"
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "notification includes GraphDelta payload"
-)]
+#[test]
 fn graph_delta_detects_removed_nodes() {
     let mut old = Graph::new();
     old.add_node(node("alpha"));
@@ -148,11 +140,7 @@ fn graph_notification_format() {
     assert!(notification["params"]["added_nodes"].is_array());
 }
 
-// B:notify_diagnostics_delta_via_mcp — verify unit "detects added diagnostics"
-#[specforge_test(
-    behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "diagnostics_changed notification sent after validation"
-)]
+#[test]
 fn diagnostics_delta_detects_added() {
     let old: Vec<Diagnostic> = vec![];
     let new = vec![Diagnostic {
@@ -168,11 +156,7 @@ fn diagnostics_delta_detects_added() {
     assert!(delta.removed.is_empty());
 }
 
-// B:notify_diagnostics_delta_via_mcp — verify unit "detects removed diagnostics"
-#[specforge_test(
-    behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "payload includes added and removed diagnostics"
-)]
+#[test]
 fn diagnostics_delta_detects_removed() {
     let old = vec![Diagnostic {
         code: "E001".into(),
@@ -210,11 +194,7 @@ fn diagnostics_notification_format() {
     assert!(notification["params"]["added"].is_array());
 }
 
-// B:notify_graph_delta_via_mcp — verify unit "no notification when no clients subscribed"
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "no notification when no clients subscribed"
-)]
+#[test]
 fn no_notification_when_no_subscribers() {
     let mut g1 = Graph::new();
     g1.add_node(node("alpha"));
@@ -226,11 +206,7 @@ fn no_notification_when_no_subscribers() {
     assert!(delta.removed_nodes.is_empty());
 }
 
-// B:notify_graph_delta_via_mcp — verify unit "unsubscribed clients do not receive notifications"
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "unsubscribed clients do not receive notifications"
-)]
+#[test]
 fn no_notification_when_graph_unchanged() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha"));
@@ -259,11 +235,7 @@ fn diagnostics_no_notification_when_unchanged() {
     assert!(delta.removed.is_empty());
 }
 
-// B:notify_diagnostics_delta_via_mcp — verify unit "unsubscribed clients do not receive notifications"
-#[specforge_test(
-    behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "unsubscribed clients do not receive notifications"
-)]
+#[test]
 fn diagnostics_unsubscribed_no_notification() {
     let empty: Vec<Diagnostic> = vec![];
 

@@ -189,11 +189,7 @@ fn schema_version_ord() {
     assert_eq!(v1, SchemaVersion::new(1, 0, 0));
 }
 
-// B:generate_schema_from_registries — verify unit "empty schema round-trips through serde"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "zero extensions produces valid empty schema"
-)]
+#[test]
 fn empty_schema_serde_round_trip() {
     let schema = GraphProtocolSchema::empty();
     let json = serde_json::to_string(&schema).unwrap();
@@ -431,11 +427,7 @@ fn emit_json_with_schema_includes_schema() {
     assert_eq!(parsed["nodes"].as_array().unwrap().len(), 1);
 }
 
-// B:embed_schema_in_export — verify unit "existing emit_json has no schema key"
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "--no-schema suppresses schema and keeps format_version 1.0"
-)]
+#[test]
 fn existing_emit_json_has_no_schema_key() {
     let graph = Graph::new();
     let json = emit_json(&graph);
@@ -1027,11 +1019,7 @@ fn publish_json_schema_required_properties() {
     assert!(required_strs.contains(&"edges"));
 }
 
-// B:publish_schema_specification — verify unit "empty schema produces valid JSON Schema"
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "third-party validator can use published schema"
-)]
+#[test]
 fn publish_json_schema_empty_schema() {
     let schema = GraphProtocolSchema::empty();
     let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
@@ -1363,11 +1351,7 @@ fn cache_load_diff_version_pipeline() {
 // Gap coverage: CLI integration (--no-schema, --schema-version)
 // ===========================================================================
 
-// B:embed_schema_in_export — verify unit "--no-schema suppresses schema and keeps format_version 1.0"
-#[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "--no-schema suppresses schema and keeps format_version 1.0"
-)]
+#[test]
 fn no_schema_flag_suppresses_schema() {
     // When --no-schema is set, the existing emit_json() is used (V1 format)
     // V1 format has no "schema" key and no "format_version" key
@@ -1388,11 +1372,7 @@ fn no_schema_flag_suppresses_schema() {
     );
 }
 
-// B:negotiate_schema_version — verify unit "--schema-version CLI flag selects requested version"
-#[specforge_test(
-    behavior = "negotiate_schema_version",
-    verify = "--schema-version CLI flag selects requested version"
-)]
+#[test]
 fn schema_version_cli_flag_selects_version() {
     let requested: SchemaVersion = "1.2.0".parse().unwrap();
     let min = SchemaVersion::new(1, 0, 0);
@@ -1402,11 +1382,7 @@ fn schema_version_cli_flag_selects_version() {
     assert_eq!(result.unwrap().resolved, SchemaVersion::new(1, 2, 0));
 }
 
-// B:negotiate_schema_version — verify unit "schema_version MCP query parameter selects requested version"
-#[specforge_test(
-    behavior = "negotiate_schema_version",
-    verify = "schema_version MCP query parameter selects requested version"
-)]
+#[test]
 fn schema_version_mcp_query_parameter() {
     let requested: SchemaVersion = "1.3.0".parse().unwrap();
     let min = SchemaVersion::new(1, 0, 0);
@@ -1495,11 +1471,7 @@ fn detect_breaking_migration_record_emitted() {
 // Gap coverage: Runtime/lifecycle
 // ===========================================================================
 
-// B:generate_schema_from_registries — verify unit "schema generated once per compilation and cached"
-#[specforge_test(
-    behavior = "generate_schema_from_registries",
-    verify = "schema generated once per compilation and cached"
-)]
+#[test]
 fn schema_generated_deterministically_for_caching() {
     let mut kinds = KindRegistry::new();
     kinds.register(make_kind_entry("behavior", "@specforge/software", true));
@@ -1869,11 +1841,7 @@ fn publish_schema_contract() {
 // Gap coverage: MCP resource (specforge://schema)
 // ===========================================================================
 
-// B:serve_schema_resource — verify unit "MCP resource specforge://schema returns schema"
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "MCP resource specforge://schema returns schema"
-)]
+#[test]
 fn mcp_schema_resource_returns_graph_protocol_schema() {
     let schema = GraphProtocolSchema::empty();
     let json = emit_schema(&schema).unwrap();
@@ -1970,11 +1938,7 @@ fn scoped_v2_nonexistent_scope_error() {
 // Gap coverage: compute_schema_version — metadata-only change
 // ===========================================================================
 
-// B:compute_schema_version — verify unit "field metadata change triggers patch version bump"
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "field metadata change triggers patch version bump"
-)]
+#[test]
 fn compute_version_metadata_only_no_bump() {
     let old = sample_schema();
     let mut new = sample_schema();

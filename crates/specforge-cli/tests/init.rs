@@ -667,10 +667,7 @@ fn non_interactive_version_override() {
     assert_eq!(json["version"], "2.0.0");
 }
 
-#[specforge_test(
-    behavior = "non_interactive_init",
-    verify = "non-interactive output matches interactive output for same inputs"
-)]
+#[test]
 fn non_interactive_matches_default_name() {
     // With --name, the result should be deterministic regardless of how
     // the name was provided (flag vs. directory name inference).

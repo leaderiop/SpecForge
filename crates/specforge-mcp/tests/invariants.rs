@@ -99,10 +99,7 @@ fn error_responses_have_code_and_message() {
 }
 
 // I:mcp_structured_error_responses — verify property "error codes are valid JSON-RPC codes"
-#[specforge_test(
-    behavior = "mcp_structured_error_responses",
-    verify = "error response includes error code and message fields"
-)]
+#[test]
 fn error_codes_are_valid() {
     let mut server = McpServer::new();
 
@@ -242,10 +239,7 @@ fn error_includes_entity_id_when_applicable() {
 }
 
 // I:mcp_structured_error_responses — verify property "no MCP endpoint returns a plain string error"
-#[specforge_test(
-    behavior = "mcp_structured_error_responses",
-    verify = "no MCP endpoint returns a plain string error"
-)]
+#[test]
 fn no_plain_string_error() {
     let mut server = test_server();
 
@@ -298,10 +292,7 @@ fn no_plain_string_error() {
 }
 
 // I:mcp_type_schema_versioning — verify property "adding required field to MCP type triggers major version bump"
-#[specforge_test(
-    behavior = "mcp_type_schema_versioning",
-    verify = "adding required field to MCP type triggers major version bump"
-)]
+#[test]
 fn schema_version_invariant() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.export", json!({"format": "graph"}));

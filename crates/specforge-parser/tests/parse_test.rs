@@ -520,10 +520,7 @@ invariant third {
     assert_eq!(result.entities[2].id.raw, "third");
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "parse string field values correctly"
-)]
+#[test]
 fn parse_list_with_trailing_comma() {
     let source = r#"
 behavior trailing "Trailing Comma" {
@@ -546,10 +543,7 @@ behavior trailing "Trailing Comma" {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_ref_blocks",
-    verify = "ref block extracts scheme, kind, and identifier components"
-)]
+#[test]
 fn parse_mixed_list_with_scheme_refs() {
     let source = r#"
 behavior with_refs "Refs" {
@@ -924,10 +918,7 @@ type JsonRpcErrorCode = -32700 | -32600 | -32601
     assert_eq!(result.entities[0].id.raw, "JsonRpcErrorCode");
 }
 
-#[specforge_test(
-    behavior = "parse_use_imports",
-    verify = "reject use import with .spec extension"
-)]
+#[test]
 fn reject_use_import_with_spec_extension() {
     let source = "use \"behaviors/parsing.spec\"\n";
     let result = parse(source, "test.spec");
@@ -1091,10 +1082,7 @@ fn malformed_ref_missing_scheme_produces_error() {
     );
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "generic block preserves kind, name, title, and fields"
-)]
+#[test]
 fn entity_preserves_raw_body() {
     let source = r#"
 behavior parse_things "Parse Things" {
@@ -1128,10 +1116,7 @@ behavior parse_things "Parse Things" {
     );
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "generic block preserves kind, name, title, and fields"
-)]
+#[test]
 fn empty_block_has_empty_raw_body() {
     let source = "behavior empty \"Empty\" {\n}\n";
     let result = parse(source, "test.spec");
@@ -1375,10 +1360,7 @@ fn triple_quoted_relative_indentation_preserved() {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "parse string field values correctly"
-)]
+#[test]
 fn parse_empty_reference_list() {
     let source = r#"
 behavior foo "T" {
@@ -1433,10 +1415,7 @@ behavior foo "T" {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "spec block uses dedicated grammar rule"
-)]
+#[test]
 fn spec_block_preserves_raw_body() {
     let source = r#"
 spec "MyProject" {

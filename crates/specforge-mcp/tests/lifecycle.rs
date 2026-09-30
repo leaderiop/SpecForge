@@ -158,11 +158,7 @@ fn initialize_registers_resources() {
     assert!(uris.contains(&"specforge://diagnostics"));
 }
 
-// B:mcp_initialize — verify unit "registers prompts"
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialization registers all tools from installed extensions"
-)]
+#[test]
 fn initialize_registers_prompts() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "initialize", json!({}));
@@ -187,11 +183,7 @@ fn initialize_compiles_project() {
     assert!(server.state().graph.node_count() > 0);
 }
 
-// B:mcp_shutdown — verify unit "clears state on shutdown"
-#[specforge_test(
-    behavior = "mcp_shutdown",
-    verify = "shutdown unsubscribes all active subscriptions"
-)]
+#[test]
 fn shutdown_clears_state() {
     let mut server = init_server();
     let resp = call(&mut server, "shutdown", json!({}));
@@ -199,11 +191,7 @@ fn shutdown_clears_state() {
     assert!(!server.state().is_initialized());
 }
 
-// B:mcp_shutdown — verify unit "returns success response"
-#[specforge_test(
-    behavior = "mcp_shutdown",
-    verify = "shutdown completes within 5 seconds"
-)]
+#[test]
 fn shutdown_returns_success() {
     let mut server = init_server();
     let resp = call(&mut server, "shutdown", json!({}));
@@ -223,11 +211,7 @@ fn rejects_calls_after_shutdown() {
     assert!(resp["error"].is_object());
 }
 
-// B:mcp_shutdown — verify unit "double shutdown returns error"
-#[specforge_test(
-    behavior = "mcp_shutdown",
-    verify = "shutdown releases Wasm engine instances"
-)]
+#[test]
 fn double_shutdown_returns_error() {
     let mut server = init_server();
     call(&mut server, "shutdown", json!({}));
@@ -246,11 +230,7 @@ fn duplicate_initialize_returns_error() {
     assert_eq!(resp["error"]["code"], -32600);
 }
 
-// B:guard_mcp_reinitialization — verify unit "can reinitialize after shutdown"
-#[specforge_test(
-    behavior = "guard_mcp_reinitialization",
-    verify = "can reinitialize after shutdown"
-)]
+#[test]
 fn can_reinitialize_after_shutdown() {
     let mut server = init_server();
     call(&mut server, "shutdown", json!({}));
@@ -263,11 +243,7 @@ fn can_reinitialize_after_shutdown() {
     assert!(resp["error"].is_null());
 }
 
-// B:list_mcp_tools — verify unit "returns registered tool descriptors"
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "returns all registered tool descriptors after extension load"
-)]
+#[test]
 fn list_tools_returns_descriptors() {
     let mut server = init_server();
     let resp = call(&mut server, "tools/list", json!({}));
@@ -298,22 +274,14 @@ fn tools_have_categories() {
     assert!(categories.contains(&"management"));
 }
 
-// B:list_mcp_tools — verify unit "returns error when not initialized"
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialization rejects tool calls before completion"
-)]
+#[test]
 fn list_tools_error_when_not_initialized() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "tools/list", json!({}));
     assert!(resp["error"].is_object());
 }
 
-// B:list_mcp_resources — verify unit "returns registered resource descriptors"
-#[specforge_test(
-    behavior = "list_mcp_resources",
-    verify = "returns all registered resource descriptors after extension load"
-)]
+#[test]
 fn list_resources_returns_descriptors() {
     let mut server = init_server();
     let resp = call(&mut server, "resources/list", json!({}));
@@ -326,22 +294,14 @@ fn list_resources_returns_descriptors() {
     }
 }
 
-// B:list_mcp_resources — verify unit "returns error when not initialized"
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialization rejects tool calls before completion"
-)]
+#[test]
 fn list_resources_error_when_not_initialized() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "resources/list", json!({}));
     assert!(resp["error"].is_object());
 }
 
-// B:list_mcp_prompts — verify unit "returns registered prompt descriptors"
-#[specforge_test(
-    behavior = "list_mcp_prompts",
-    verify = "returns all registered prompt descriptors after extension load"
-)]
+#[test]
 fn list_prompts_returns_descriptors() {
     let mut server = init_server();
     let resp = call(&mut server, "prompts/list", json!({}));
@@ -354,11 +314,7 @@ fn list_prompts_returns_descriptors() {
     }
 }
 
-// B:list_mcp_prompts — verify unit "returns error when not initialized"
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialization rejects tool calls before completion"
-)]
+#[test]
 fn list_prompts_error_when_not_initialized() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "prompts/list", json!({}));
@@ -381,11 +337,7 @@ fn initialize_rejects_tool_calls_before_completion() {
     assert!(resp["error"].is_object());
 }
 
-// B:mcp_shutdown — verify unit "shutdown flushes pending notifications"
-#[specforge_test(
-    behavior = "mcp_shutdown",
-    verify = "shutdown flushes pending notifications"
-)]
+#[test]
 fn shutdown_events_recorded() {
     let mut server = init_server();
     call(&mut server, "shutdown", json!({}));
@@ -548,11 +500,7 @@ fn cancel_state_consistent() {
     assert!(resp["result"]["tools"].is_array());
 }
 
-// B:handle_mcp_request_cancellation — verify unit "cancel returns acknowledgment for long-running operations"
-#[specforge_test(
-    behavior = "handle_mcp_request_cancellation",
-    verify = "cancelled long-running export returns partial result or acknowledgment"
-)]
+#[test]
 fn cancel_long_running_acknowledgment() {
     let mut server = init_server();
     // Simulate cancellation of a hypothetical long-running request
@@ -564,11 +512,7 @@ fn cancel_long_running_acknowledgment() {
     assert!(tools_resp["result"]["tools"].is_array());
 }
 
-// B:handle_mcp_request_cancellation — verify unit "cancellation of in-progress request stops operation"
-#[specforge_test(
-    behavior = "handle_mcp_request_cancellation",
-    verify = "cancellation of in-progress request stops operation"
-)]
+#[test]
 fn cancel_in_progress_best_effort() {
     let mut server = init_server();
     // Best-effort cancel: synchronous server cannot truly cancel in-progress work,

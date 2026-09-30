@@ -72,10 +72,7 @@ fn mcp_server_responds_to_initialize() {
     assert!(!tools.is_empty(), "core tools registered");
 }
 
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "all core tools registered before accepting requests"
-)]
+#[test]
 fn mcp_initialize_without_project_root_compiles_cli_path() {
     let responses = mcp_session(
         r#"behavior alpha "A" { contract "first" }"#,
@@ -98,10 +95,7 @@ fn mcp_initialize_without_project_root_compiles_cli_path() {
     );
 }
 
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "returns all registered tool descriptors after extension load"
-)]
+#[test]
 fn mcp_server_lists_tools() {
     let dir = setup_project(&[("main.spec", r#"behavior alpha "A" { contract "first" }"#)]);
 
@@ -140,10 +134,7 @@ fn mcp_server_lists_tools() {
     );
 }
 
-#[specforge_test(
-    behavior = "mcp_shutdown",
-    verify = "shutdown flushes pending notifications"
-)]
+#[test]
 fn mcp_server_handles_eof_gracefully() {
     let dir = setup_project(&[("main.spec", r#"behavior alpha "A" { contract "first" }"#)]);
 
@@ -243,10 +234,7 @@ fn mcp_tool_call_missing_name_returns_error() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "all core resources registered before accepting requests"
-)]
+#[test]
 fn mcp_ping_returns_empty_object() {
     let responses = mcp_session(BASIC_SPEC, &[mcp_request(1, "ping", serde_json::json!({}))]);
 
@@ -462,10 +450,7 @@ fn mcp_tool_stats_returns_counts() {
     );
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "server remains operational after protocol error"
-)]
+#[test]
 fn mcp_tool_unknown_returns_error() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -492,10 +477,7 @@ fn mcp_tool_unknown_returns_error() {
 
 // --- Resource Reads ---
 
-#[specforge_test(
-    behavior = "list_mcp_resources",
-    verify = "returns all registered resource descriptors after extension load"
-)]
+#[test]
 fn mcp_resource_list_returns_six_resources() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -587,10 +569,7 @@ fn mcp_resource_read_entity_subgraph() {
 
 // --- Prompts listing ---
 
-#[specforge_test(
-    behavior = "list_mcp_prompts",
-    verify = "returns all registered prompt descriptors after extension load"
-)]
+#[test]
 fn mcp_prompts_list_returns_prompts() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -611,10 +590,7 @@ fn mcp_prompts_list_returns_prompts() {
 
 // --- Multiple requests in one session ---
 
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialization registers all tools from installed extensions"
-)]
+#[test]
 fn mcp_multiple_requests_in_single_session() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -643,10 +619,7 @@ fn mcp_multiple_requests_in_single_session() {
 // Phase 1: Navigation Tools
 // ============================================================
 
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "specforge.validate tool triggers compilation"
-)]
+#[test]
 fn mcp_tool_validate_returns_diagnostics() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -960,10 +933,7 @@ fn mcp_tool_query_format_context() {
         .unwrap_or_else(|e| panic!("context output not valid JSON: {}\ntext: {}", e, text));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_query_tool",
-    verify = "depth parameter limits traversal depth"
-)]
+#[test]
 fn mcp_tool_query_format_brief() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1249,10 +1219,7 @@ fn mcp_resource_read_brief() {
     );
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "returns -32600 for invalid request"
-)]
+#[test]
 fn mcp_resource_read_unknown_uri_returns_error() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1268,10 +1235,7 @@ fn mcp_resource_read_unknown_uri_returns_error() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "error response does not leak internal state"
-)]
+#[test]
 fn mcp_resource_read_missing_uri_returns_error() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1283,10 +1247,7 @@ fn mcp_resource_read_missing_uri_returns_error() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[specforge_test(
-    behavior = "expose_entity_as_mcp_resource",
-    verify = "non-existent entity_id returns 404 error"
-)]
+#[test]
 fn mcp_resource_read_entity_not_found() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1305,10 +1266,7 @@ fn mcp_resource_read_entity_not_found() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[specforge_test(
-    behavior = "expose_graph_as_mcp_resource",
-    verify = "output includes embedded schema and schema_version"
-)]
+#[test]
 fn mcp_resource_contents_format() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1505,10 +1463,7 @@ fn mcp_prompt_explore_returns_starting_points() {
     );
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_protocol_error",
-    verify = "returns -32603 for internal error"
-)]
+#[test]
 fn mcp_prompt_unknown_returns_error() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1530,10 +1485,7 @@ fn mcp_prompt_unknown_returns_error() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_context_prompt",
-    verify = "non-existent entity returns error"
-)]
+#[test]
 fn mcp_prompt_context_missing_entity_returns_error() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1557,7 +1509,7 @@ fn mcp_prompt_context_missing_entity_returns_error() {
 
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
-    verify = "context prompt works with zero extensions installed"
+    verify = "non-existent entity returns error"
 )]
 fn mcp_prompt_context_entity_not_found() {
     let responses = mcp_session(
@@ -1782,10 +1734,7 @@ fn mcp_tool_add_extension_returns_installed() {
     assert_eq!(content["installed"], true);
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_add_extension_tool",
-    verify = "invalid manifest returns error"
-)]
+#[test]
 fn mcp_tool_add_extension_invalid_specifier() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1807,10 +1756,7 @@ fn mcp_tool_add_extension_invalid_specifier() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "specforge.remove_extension removes extension from config"
-)]
+#[test]
 fn mcp_tool_remove_extension_returns_success() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1833,10 +1779,7 @@ fn mcp_tool_remove_extension_returns_success() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_migrate_tool",
-    verify = "specforge.migrate applies pending migrations"
-)]
+#[test]
 fn mcp_tool_migrate_returns_result() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1860,10 +1803,7 @@ fn mcp_tool_migrate_returns_result() {
     assert!(content["message"].is_string());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_extensions_tool",
-    verify = "specforge.extensions lists all installed extensions"
-)]
+#[test]
 fn mcp_tool_extensions_returns_list() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1891,10 +1831,7 @@ fn mcp_tool_extensions_returns_list() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_providers_tool",
-    verify = "specforge.providers lists all configured providers"
-)]
+#[test]
 fn mcp_tool_providers_returns_list() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1917,10 +1854,7 @@ fn mcp_tool_providers_returns_list() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "specforge.doctor detects extension conflicts"
-)]
+#[test]
 fn mcp_tool_doctor_returns_health() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1970,10 +1904,7 @@ fn mcp_tool_collect_without_collector_errors() {
     assert!(msg.starts_with("E058"), "expected E058, got: {resp}");
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "specforge.render writes output files to out_dir"
-)]
+#[test]
 fn mcp_tool_render_returns_output() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -2027,10 +1958,7 @@ fn mcp_tool_suggest_fixes_returns_array() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "severity_filter restricts returned diagnostics"
-)]
+#[test]
 fn mcp_tool_validate_severity_filter() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -2064,10 +1992,7 @@ fn mcp_tool_validate_severity_filter() {
     }
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_coverage_tool",
-    verify = "kind filter restricts to matching entity kinds"
-)]
+#[test]
 fn mcp_tool_coverage_kind_filter() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -2130,10 +2055,7 @@ fn mcp_tool_schema_kind_filter() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "max_tokens truncates output to fit token budget"
-)]
+#[test]
 fn mcp_tool_export_format_brief() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -2211,10 +2133,7 @@ fn mcp_tool_render_invalid_format() {
 // Phase 7: Lifecycle & Protocol
 // ============================================================
 
-#[specforge_test(
-    behavior = "mcp_shutdown",
-    verify = "shutdown releases Wasm engine instances"
-)]
+#[test]
 fn mcp_lifecycle_shutdown() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -2229,10 +2148,7 @@ fn mcp_lifecycle_shutdown() {
     assert!(resp["error"].is_null(), "shutdown should not return error");
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_request_cancellation",
-    verify = "cancellation of completed request is a no-op"
-)]
+#[test]
 fn mcp_lifecycle_cancel_request() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -2277,10 +2193,7 @@ fn mcp_lifecycle_double_init_error() {
     assert_eq!(resp["error"]["code"], -32600, "should be INVALID_REQUEST");
 }
 
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialization rejects tool calls before completion"
-)]
+#[test]
 fn mcp_lifecycle_notifications_initialized() {
     let responses = mcp_session(
         BASIC_SPEC,

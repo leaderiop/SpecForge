@@ -206,10 +206,7 @@ fn extensions_lists_alphabetically() {
     );
 }
 
-#[specforge_test(
-    behavior = "list_installed_extensions",
-    verify = "list includes entity counts and entity types"
-)]
+#[test]
 fn extensions_json_format() {
     let dir = TempDir::new().unwrap();
 
@@ -536,10 +533,7 @@ fn doctor_reports_health_check() {
     assert!(json["issues"].is_array());
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor reports conflicts with resolution suggestions"
-)]
+#[test]
 fn doctor_missing_binary() {
     let dir = TempDir::new().unwrap();
 
@@ -589,10 +583,7 @@ fn doctor_no_lock_file() {
     assert_eq!(json["status"], "healthy");
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor lists all enhancements grouped by entity kind"
-)]
+#[test]
 fn doctor_lists_enhancements() {
     let dir = TempDir::new().unwrap();
 
@@ -645,10 +636,7 @@ fn doctor_lists_enhancements() {
     assert_eq!(json["extensions_checked"], 2);
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor detects shadowed grammar-level constructs"
-)]
+#[test]
 fn doctor_detects_stale_hash() {
     let dir = TempDir::new().unwrap();
 
@@ -813,10 +801,7 @@ fn add_validates_local_specifier() {
 // Behavior: remove_extension (remaining verify statements)
 // ===============================================================
 
-#[specforge_test(
-    behavior = "remove_extension",
-    verify = "removed extension keywords produce E024 on next compile"
-)]
+#[test]
 fn remove_extension_keywords_produce_e024() {
     let dir = TempDir::new().unwrap();
 

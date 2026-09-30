@@ -279,10 +279,7 @@ fn resource_read_unknown_uri() {
 }
 
 // Resource read when not initialized
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialization rejects tool calls before completion"
-)]
+#[test]
 fn resource_read_not_initialized() {
     let mut server = McpServer::new();
     let resp = call(
@@ -293,11 +290,7 @@ fn resource_read_not_initialized() {
     assert!(resp["error"].is_object());
 }
 
-// B:expose_graph_as_mcp_resource — verify unit "output includes valid JSON with nodes"
-#[specforge_test(
-    behavior = "expose_graph_as_mcp_resource",
-    verify = "output includes embedded schema and schema_version"
-)]
+#[test]
 fn graph_includes_schema_version() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph");
@@ -340,11 +333,7 @@ fn graph_refreshes_after_recompilation() {
     assert_eq!(count2, count1 + 1);
 }
 
-// B:expose_schema_as_mcp_resource — verify unit "schema updates when graph changes"
-#[specforge_test(
-    behavior = "expose_schema_as_mcp_resource",
-    verify = "schema updates when extensions change"
-)]
+#[test]
 fn schema_updates_when_graph_changes() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://schema");

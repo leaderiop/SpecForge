@@ -158,11 +158,7 @@ fn init_server_with_surfaces() -> (McpServer, TempDir) {
     (server, dir)
 }
 
-// B:surface_wiring — verify unit "extension MCP tools appear in tool registry after init"
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialization registers all tools from installed extensions"
-)]
+#[test]
 fn extension_mcp_tools_in_registry() {
     let (mut server, _dir) = init_server_with_surfaces();
     let resp = call(&mut server, "tools/list", json!({}));
@@ -183,11 +179,7 @@ fn extension_mcp_tools_in_registry() {
     );
 }
 
-// B:surface_wiring — verify unit "extension MCP resources appear in resource registry after init"
-#[specforge_test(
-    behavior = "list_mcp_resources",
-    verify = "returns all registered resource descriptors after extension load"
-)]
+#[test]
 fn extension_mcp_resources_in_registry() {
     let (mut server, _dir) = init_server_with_surfaces();
     let resp = call(&mut server, "resources/list", json!({}));
@@ -211,11 +203,7 @@ fn extension_mcp_resources_in_registry() {
     );
 }
 
-// B:surface_wiring — verify unit "capabilities response includes extension tool/resource counts"
-#[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "returns all registered tool descriptors after extension load"
-)]
+#[test]
 fn capabilities_include_extension_counts() {
     use specforge_mcp::types::McpToolDescriptor;
 
@@ -343,11 +331,7 @@ fn list_tool_registered() {
 
 // --- Extension tool dispatch ---
 
-// B:dispatch_surface_mcp_tool — verify unit "calling extension tool dispatches rather than METHOD_NOT_FOUND"
-#[specforge_test(
-    behavior = "dispatch_surface_mcp_tool",
-    verify = "input JSON passed to mcp__ export"
-)]
+#[test]
 fn extension_tool_dispatches() {
     let (mut server, _dir) = init_server_with_surfaces();
     let resp = call_tool(&mut server, "test.list_items", json!({"kind": "feature"}));

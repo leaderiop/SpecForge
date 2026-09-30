@@ -159,10 +159,7 @@ fn field_names_differ_by_kind() {
     assert_ne!(behavior_fields, type_fields);
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "no field name suggestions outside entity blocks"
-)]
+#[test]
 fn no_field_names_for_unknown_kind() {
     let fields = specforge_lsp::complete_field_names("__nonexistent__", None);
     assert!(fields.is_empty());
@@ -209,10 +206,7 @@ fn complete_field_names_from_registry() {
     assert_eq!(fields.len(), 2);
 }
 
-#[spec(
-    behavior = "complete_field_names",
-    verify = "suggestions are filtered by entity kind"
-)]
+#[test]
 fn complete_field_names_empty_when_registry_has_no_fields() {
     use specforge_registry::FieldRegistry;
     let reg = FieldRegistry::new();
@@ -243,10 +237,7 @@ fn keyword_completion_includes_structural() {
     assert!(keywords.contains(&"define".to_string()));
 }
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "no keyword suggestions inside entity blocks"
-)]
+#[test]
 fn keyword_completion_no_duplicates() {
     // Even if "use" is passed as a registered kind, it should appear only once
     let keywords = specforge_lsp::complete_keywords(&["use", "behavior"]);
@@ -254,10 +245,7 @@ fn keyword_completion_no_duplicates() {
     assert_eq!(use_count, 1);
 }
 
-#[spec(
-    behavior = "complete_keywords",
-    verify = "snippet templates based on kind field definitions"
-)]
+#[test]
 fn keyword_completion_snippet_template() {
     // Keywords should come with snippet templates
     let keywords = specforge_lsp::complete_keywords(&["behavior"]);

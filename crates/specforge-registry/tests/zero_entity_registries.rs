@@ -172,10 +172,7 @@ fn boot_kind_registry_use_keyword() {
     assert_eq!(parsed.imports.len(), 1);
 }
 
-#[spec(
-    behavior = "boot_empty_kind_registry",
-    verify = "parser recognizes define keyword without extensions"
-)]
+#[test]
 fn boot_kind_registry_define_keyword() {
     let registry = KindRegistry::new();
     assert!(!registry.contains("define"));
@@ -230,10 +227,7 @@ fn boot_field_registry_no_fields() {
     assert!(registry.fields_for_kind("behavior").is_empty());
 }
 
-#[spec(
-    behavior = "boot_empty_field_registry",
-    verify = "entity title parsed by grammar, not FieldRegistry"
-)]
+#[test]
 fn boot_field_registry_title_not_a_field() {
     let mut registry = FieldRegistry::new();
     registry.register(FieldRegistryEntry {
@@ -307,10 +301,7 @@ fn boot_edge_registry_contract() {
 // B:populate_kind_registry_from_extensions (6 verifies)
 // ===========================================================================
 
-#[spec(
-    behavior = "populate_kind_registry_from_extensions",
-    verify = "extensions iterated in topological order"
-)]
+#[test]
 fn populate_kind_extensions_topological_order() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest(), product_manifest()]);
     assert!(kind_reg.contains("behavior"));
@@ -614,10 +605,7 @@ fn register_kind_source_extension() {
     assert_eq!(behavior.source_extension, "@specforge/software");
 }
 
-#[spec(
-    behavior = "register_entity_kinds_from_manifest",
-    verify = "testable=true entity participates in coverage"
-)]
+#[test]
 fn register_kind_testable_participates_in_coverage() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let testable_kinds: Vec<_> = kind_reg
@@ -629,10 +617,7 @@ fn register_kind_testable_participates_in_coverage() {
     assert!(testable_kinds.contains(&"invariant".to_string()));
 }
 
-#[spec(
-    behavior = "register_entity_kinds_from_manifest",
-    verify = "testable=false entity excluded from coverage"
-)]
+#[test]
 fn register_kind_testable_false_excluded() {
     let (kind_reg, _, _, _) = populate_registries(&[product_manifest()]);
     let feature = kind_reg.get("feature").unwrap();
@@ -752,10 +737,7 @@ fn register_edge_first_wins() {
     assert_eq!(enforces.edge_style.as_deref(), Some("dashed"));
 }
 
-#[spec(
-    behavior = "register_edge_types_from_manifest",
-    verify = "field-to-edge mapping creates edge type"
-)]
+#[test]
 fn register_edge_field_mapping() {
     let (_, _, edge_reg, _) = populate_registries(&[product_manifest()]);
     assert!(edge_reg.contains("composes"));
@@ -842,10 +824,7 @@ fn manifest_v2_wrong_version() {
     );
 }
 
-#[spec(
-    behavior = "validate_manifest_v2_schema",
-    verify = "unknown top-level field produces warning"
-)]
+#[test]
 fn manifest_v2_unknown_field() {
     // serde silently ignores unknown fields (deny_unknown_fields is NOT set)
     // Warning is handled at a higher level that compares raw JSON keys
@@ -992,10 +971,7 @@ fn suggest_missing_ext_known_keyword() {
     );
 }
 
-#[spec(
-    behavior = "suggest_missing_extensions",
-    verify = "E024 for keyword not in index suggests specforge search"
-)]
+#[test]
 fn suggest_missing_ext_unknown_keyword() {
     let kind_reg = KindRegistry::new();
     let index = specforge_registry::compilation::KeywordExtensionIndex::new();
@@ -1014,10 +990,7 @@ fn suggest_missing_ext_unknown_keyword() {
     );
 }
 
-#[spec(
-    behavior = "suggest_missing_extensions",
-    verify = "keyword-to-extension index is loaded from bundled data file"
-)]
+#[test]
 fn suggest_missing_ext_data_driven_index() {
     let json = r#"{"behavior": "@specforge/software", "feature": "@specforge/product"}"#;
     let entries: std::collections::HashMap<String, String> = serde_json::from_str(json).unwrap();
@@ -1114,10 +1087,7 @@ fn validate_fields_unresolved_target_kind() {
     );
 }
 
-#[spec(
-    behavior = "validate_registered_entity_fields",
-    verify = "unresolved edge label produces warning"
-)]
+#[test]
 fn validate_fields_unresolved_edge_label() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{
@@ -1557,10 +1527,7 @@ fn validation_rule_target_kind_deferred() {
     assert_eq!(rules.len(), 1);
 }
 
-#[spec(
-    behavior = "register_validation_rules_from_manifest",
-    verify = "target_kind reference validated against KindRegistry after registries_populated"
-)]
+#[test]
 fn validation_rule_target_kind_validated_post_registration() {
     let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
     // Post-registration cross-validation catches unresolved refs
@@ -1569,20 +1536,14 @@ fn validation_rule_target_kind_validated_post_registration() {
     assert!(!diags.iter().any(|d| d.message.contains("target_kind")));
 }
 
-#[spec(
-    behavior = "register_validation_rules_from_manifest",
-    verify = "edge_type reference validated against edge type set after registries_populated"
-)]
+#[test]
 fn validation_rule_edge_type_validated_post_registration() {
     let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
     let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
     assert!(!diags.iter().any(|d| d.message.contains("edge label")));
 }
 
-#[spec(
-    behavior = "register_validation_rules_from_manifest",
-    verify = "invalid reference produces warning not error"
-)]
+#[test]
 fn validation_rule_invalid_ref_warning() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1930,10 +1891,7 @@ fn manifest_consistency_peer_dep_passes() {
     assert!(diags.is_empty());
 }
 
-#[spec(
-    behavior = "validate_extension_manifest_consistency",
-    verify = "self-contradictory target_kind produces E-level error"
-)]
+#[test]
 fn manifest_consistency_self_contradictory_target() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1970,10 +1928,7 @@ fn manifest_consistency_non_peer_warning() {
     );
 }
 
-#[spec(
-    behavior = "validate_extension_manifest_consistency",
-    verify = "self-contradictory edge label produces E-level error"
-)]
+#[test]
 fn manifest_consistency_self_contradictory_edge() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",

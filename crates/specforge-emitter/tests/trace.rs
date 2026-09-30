@@ -208,8 +208,8 @@ fn trace_missing_link_flagged() {
 
 // B:serialize_traceability_data — verify unit "gaps in chain are highlighted"
 #[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "gaps in chain are highlighted"
+    behavior = "compute_traceability_chain",
+    verify = "missing link in chain is flagged"
 )]
 fn trace_detects_dangling_edge_as_gap() {
     let mut graph = Graph::new();

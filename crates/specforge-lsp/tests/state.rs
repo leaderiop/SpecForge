@@ -30,10 +30,7 @@ fn did_close_removes_document() {
     assert!(state.document("file:///a.spec").is_none());
 }
 
-#[spec(
-    behavior = "document_open_close",
-    verify = "only open documents participate in incremental compilation"
-)]
+#[test]
 fn only_open_documents_tracked() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///a.spec", "a");

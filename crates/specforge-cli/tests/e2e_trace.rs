@@ -57,10 +57,7 @@ fn trace_linear_chain_shows_correct_depths() {
     assert_eq!(beh.unwrap()["depth"], 1);
 }
 
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "trace from entity shows upstream and downstream connections"
-)]
+#[test]
 fn trace_includes_edge_labels() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
 
@@ -240,10 +237,7 @@ feature beta "B" { problem "p" solution "s" behaviors [alpha] }
     );
 }
 
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "trace from entity shows upstream and downstream connections"
-)]
+#[test]
 fn trace_multi_kind_chain_preserves_entity_kind() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
 

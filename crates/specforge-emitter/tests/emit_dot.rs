@@ -76,11 +76,7 @@ fn dot_edges_labeled_with_type() {
     assert!(dot.contains("behaviors"), "edge label in DOT");
 }
 
-// B:serialize_dot_visualization — verify unit "node shapes use extension-defined dot_shape"
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "node shapes use extension-defined dot_shape"
-)]
+#[test]
 fn dot_node_default_shape_is_box() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha")));

@@ -1,12 +1,8 @@
 use specforge_common::{Diagnostic, Severity};
-use specforge_test_macros::test as spec;
 
 // -- live_diagnostics ---------------------------------------------------------
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "diagnostics update after file change"
-)]
+#[test]
 fn diagnostics_update_after_change() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///a.spec", "behavior a \"A\" {}\n");
@@ -26,10 +22,7 @@ fn diagnostics_update_after_change() {
     assert!(current[0].message.contains("E003"));
 }
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "only changed file diagnostics are refreshed"
-)]
+#[test]
 fn only_changed_file_diagnostics_refreshed() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///a.spec", "a");
@@ -63,10 +56,7 @@ fn only_changed_file_diagnostics_refreshed() {
     assert_eq!(state.diagnostics("file:///b.spec").len(), 1);
 }
 
-#[spec(
-    behavior = "emit_live_diagnostics",
-    verify = "diagnostics appear within 100ms"
-)]
+#[test]
 fn diagnostics_appear_within_latency_budget() {
     use std::time::Instant;
 

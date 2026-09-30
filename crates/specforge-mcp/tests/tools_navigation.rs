@@ -394,11 +394,7 @@ fn outline_returns_entities_in_file() {
     }
 }
 
-// B:provide_mcp_outline_tool — verify unit "empty for unknown file"
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "non-existent file returns error response"
-)]
+#[test]
 fn outline_empty_for_unknown_file() {
     let mut server = test_server();
     let resp = call_tool(
@@ -516,11 +512,7 @@ fn find_references_empty_list() {
     assert!(parsed["locations"].as_array().unwrap().is_empty());
 }
 
-// B:provide_mcp_outline_tool — verify unit "nested entries included for complex entities"
-#[specforge_test(
-    behavior = "provide_mcp_outline_tool",
-    verify = "nested entries included for complex entities"
-)]
+#[test]
 fn outline_nested_entries_placeholder() {
     let mut server = test_server();
     let resp = call_tool(
@@ -533,11 +525,7 @@ fn outline_nested_entries_placeholder() {
     assert!(parsed.is_array());
 }
 
-// B:provide_mcp_suggest_fixes_tool — verify unit "diagnostic_code filter restricts to matching diagnostics"
-#[specforge_test(
-    behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "diagnostic_code filter restricts to matching diagnostics"
-)]
+#[test]
 fn suggest_fixes_diagnostic_code_filter() {
     let mut server = test_server();
     use specforge_common::{Diagnostic, Severity};

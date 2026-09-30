@@ -86,12 +86,7 @@ fn scoped_context_returns_only_reachable_subgraph() {
     assert!(!ids.contains(&"d"));
 }
 
-// B:export_agent_context_format — verify unit "non-existent scope entity produces E003 and exit code 1"
-// B:export_agent_graph_format — verify unit "non-existent scope entity produces E003 and exit code 1"
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "non-existent scope entity produces E003 and exit code 1"
-)]
+#[test]
 fn scoped_export_on_nonexistent_entity_returns_error() {
     let graph = build_chain_graph();
     let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");

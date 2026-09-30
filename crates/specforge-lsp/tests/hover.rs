@@ -30,10 +30,7 @@ fn edge(source: &str, target: &str, label: &str) -> Edge {
     }
 }
 
-#[spec(
-    behavior = "hover_information",
-    verify = "hover delegates to provide_extension_entity_hover"
-)]
+#[test]
 fn hover_returns_entity_info() {
     let mut g = Graph::new();
     g.add_node(node("user_login", "behavior", Some("User Login")));

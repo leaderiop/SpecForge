@@ -445,11 +445,7 @@ fn schema_tool_kind_filter() {
 
 // --- specforge.coverage ---
 
-// B:provide_mcp_coverage_tool — verify unit "returns coverage per entity"
-#[specforge_test(
-    behavior = "provide_mcp_coverage_tool",
-    verify = "entity_id filter returns single entity coverage"
-)]
+#[test]
 fn coverage_returns_per_entity() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.coverage", json!({}));
@@ -874,11 +870,7 @@ fn trace_without_entity_or_plan_errors() {
     assert!(message.contains("entity_id or plan"), "{message}");
 }
 
-// B:provide_mcp_trace_tool — verify unit "missing links flagged in trace output"
-#[specforge_test(
-    behavior = "provide_mcp_trace_tool",
-    verify = "response includes upstream and downstream links"
-)]
+#[test]
 fn trace_missing_links() {
     let mut server = test_server();
     let resp = call_tool(
@@ -1248,11 +1240,7 @@ fn validate_updates_graph() {
     assert!(resp["result"]["isError"].is_boolean());
 }
 
-// B:provide_mcp_validate_tool — verify unit "validate with use_cached=false triggers fresh compilation"
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "validate with use_cached=false triggers fresh compilation"
-)]
+#[test]
 fn validate_use_cached_false_triggers_fresh() {
     let mut server = test_server();
     let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -1292,11 +1280,7 @@ fn validate_use_cached_true_returns_existing() {
     );
 }
 
-// B:provide_mcp_trace_tool — verify unit "missing links flagged in trace output"
-#[specforge_test(
-    behavior = "provide_mcp_trace_tool",
-    verify = "missing links flagged in trace output"
-)]
+#[test]
 fn trace_missing_links_flagged() {
     let mut server = test_server();
     // Trace with a plan that has references to nonexistent entities
@@ -1309,11 +1293,7 @@ fn trace_missing_links_flagged() {
     assert!(resp["result"].is_object() || resp["error"].is_object());
 }
 
-// B:provide_mcp_stats_tool — verify unit "response includes diagnostic summary by severity"
-#[specforge_test(
-    behavior = "provide_mcp_stats_tool",
-    verify = "response includes diagnostic summary by severity"
-)]
+#[test]
 fn stats_includes_diagnostic_summary() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.stats", json!({}));

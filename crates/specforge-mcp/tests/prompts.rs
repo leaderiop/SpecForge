@@ -282,11 +282,7 @@ fn trace_prompt_identifies_unverified() {
     assert!(unverified.contains(&json!("beta")));
 }
 
-// B:provide_mcp_trace_prompt — verify unit "unknown entity returns error"
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "affected entities are listed"
-)]
+#[test]
 fn trace_prompt_unknown_entity() {
     let mut server = test_server();
     let resp = call_prompt(
@@ -360,10 +356,7 @@ fn unknown_prompt_returns_error() {
 }
 
 // Prompt when not initialized
-#[specforge_test(
-    behavior = "mcp_initialize",
-    verify = "initialization rejects tool calls before completion"
-)]
+#[test]
 fn prompt_not_initialized() {
     let mut server = McpServer::new();
     let resp = call_prompt(
@@ -418,11 +411,7 @@ fn context_zero_extensions() {
     assert!(resp["result"]["messages"].is_array());
 }
 
-// B:provide_mcp_review_prompt — verify unit "depth parameter controls neighbor traversal depth"
-#[specforge_test(
-    behavior = "provide_mcp_review_prompt",
-    verify = "depth parameter controls neighbor traversal depth"
-)]
+#[test]
 fn review_depth_parameter() {
     let mut server = test_server();
     let resp = call_prompt(
@@ -433,11 +422,7 @@ fn review_depth_parameter() {
     assert!(resp["result"]["messages"].is_array());
 }
 
-// B:provide_mcp_review_prompt — verify unit "review returns empty findings when no testable entities in graph"
-#[specforge_test(
-    behavior = "provide_mcp_review_prompt",
-    verify = "review prompt returns empty findings when no testable entities exist"
-)]
+#[test]
 fn review_empty_findings_no_testable() {
     let mut server = McpServer::new();
     let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
@@ -484,11 +469,7 @@ fn review_empty_findings() {
     assert!(parsed["findings"].as_array().unwrap().is_empty());
 }
 
-// B:provide_mcp_trace_prompt — verify unit "malformed plan JSON returns validation error"
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "malformed plan JSON returns validation error"
-)]
+#[test]
 fn trace_malformed_plan() {
     let mut server = test_server();
     let resp = call_prompt(
@@ -643,11 +624,7 @@ fn review_coverage_matches_the_coverage_tool() {
     assert_eq!(alpha["linked"], true);
 }
 
-// B:provide_mcp_review_prompt — verify unit "review prompt returns empty findings when no testable entities exist"
-#[specforge_test(
-    behavior = "provide_mcp_review_prompt",
-    verify = "review prompt returns empty findings when no testable entities exist"
-)]
+#[test]
 fn review_empty_findings_no_testable_entities() {
     // Create a server with only non-testable entities (no verify statements)
     let mut server = McpServer::new();

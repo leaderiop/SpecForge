@@ -61,10 +61,7 @@ fn graph_one_edge_per_reference() {
     assert_eq!(graph.edges()[0].target, "alpha");
 }
 
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "edge types match relationship semantics"
-)]
+#[test]
 fn graph_edges_connect_existing_nodes() {
     let mut graph = Graph::new();
     graph.add_node(make_node("feat", "feature"));
@@ -136,10 +133,7 @@ fn graph_consistency_after_batch_mutations() {
 
 // --- subgraph ---
 
-#[specforge_test(
-    behavior = "compute_subgraph_for_invalidation",
-    verify = "changed file and direct dependents are invalidated"
-)]
+#[test]
 fn subgraph_for_file() {
     let mut graph = Graph::new();
 
@@ -742,10 +736,7 @@ fn ref_with_unknown_scheme_emits_i005() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_external_ref_declarations",
-    verify = "ref with known scheme is registered and marked for provider validation"
-)]
+#[test]
 fn ref_with_no_providers_configured_skips_i005() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -826,10 +817,7 @@ fn unknown_keyword_matching_known_extension_emits_i004() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_soft_cross_extension_references",
-    verify = "installed extension with missing entity emits E003"
-)]
+#[test]
 fn installed_keyword_does_not_emit_i004() {
     use specforge_graph::{GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -852,10 +840,7 @@ fn installed_keyword_does_not_emit_i004() {
     );
 }
 
-#[specforge_test(
-    behavior = "resolve_soft_cross_extension_references",
-    verify = "unknown keyword matching known extension emits I004"
-)]
+#[test]
 fn unknown_keyword_with_no_catalog_match_no_i004() {
     use specforge_graph::{GraphConfig, build_graph_with_config};
     use specforge_parser::parse;

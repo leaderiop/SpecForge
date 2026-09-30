@@ -91,11 +91,7 @@ fn brief_includes_only_ids_kinds_titles_and_edges() {
     assert!(parsed["schema_version"].is_string());
 }
 
-// B:export_agent_brief_format — verify unit "brief format is smaller than context format"
-#[specforge_test(
-    behavior = "export_agent_brief_format",
-    verify = "brief format is smaller than context format"
-)]
+#[test]
 fn brief_is_smaller_than_full_json() {
     let mut graph = Graph::new();
     graph.add_node(node_with_contract(

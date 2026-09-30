@@ -172,10 +172,7 @@ fn missing_version_header_defaults_to_current() {
 }
 
 // B3: Unsupported version in header → E019
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "unsupported format version produces E019 with upgrade guidance"
-)]
+#[test]
 fn unsupported_version_in_header() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -271,10 +268,7 @@ fn backup_created_before_modification() {
 }
 
 // C3: Atomic write via temp+rename — no .spec.tmp remains
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "interrupted migration leaves no partially written files"
-)]
+#[test]
 fn no_tmp_file_remains_after_migration() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -591,10 +585,7 @@ fn rollback_failure_isolation() {
 // ===================================================================
 
 // F1: Capture pre-migration schema snapshot
-#[specforge_test(
-    behavior = "capture_pre_migration_schema_snapshot",
-    verify = "pre-migration schema snapshot captured on migration_starting event"
-)]
+#[test]
 fn capture_pre_migration_snapshot_captures_schema() {
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
     use specforge_migrate::capture_pre_migration_snapshot;
@@ -774,10 +765,7 @@ fn non_breaking_schema_change_no_w053() {
 // ===================================================================
 
 // G1: Extension without migration_hook → skip silently
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "extension without migration_hook field is skipped silently"
-)]
+#[test]
 fn extension_without_hook_skipped() {
     use specforge_migrate::{FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner};
 
@@ -792,10 +780,7 @@ fn extension_without_hook_skipped() {
 }
 
 // G2: Hook error → diagnostic collected
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "hook returning error collects diagnostic and continues"
-)]
+#[test]
 fn hook_error_produces_diagnostic() {
     use specforge_migrate::{FormatVersion, MigrationHookRunner};
 
@@ -824,10 +809,7 @@ fn hook_error_produces_diagnostic() {
 }
 
 // G3: Hook timeout → trap diagnostic (structural test)
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "hook exceeding timeout treated as trap"
-)]
+#[test]
 fn hook_timeout_produces_trap() {
     use specforge_migrate::{FormatVersion, MigrationHookRunner};
 
@@ -947,10 +929,7 @@ fn double_migrate_is_idempotent() {
 }
 
 // H3: Failure in one file does not block others
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "failure in one file does not block others"
-)]
+#[test]
 fn failure_in_one_file_does_not_block_others() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -987,10 +966,7 @@ fn failure_in_one_file_does_not_block_others() {
 }
 
 // H3b: JSON summary output
-#[specforge_test(
-    behavior = "migrate_spec_files_in_place",
-    verify = "pre-migration snapshot captured before migration_starting event"
-)]
+#[test]
 fn json_summary_contains_results_and_backups() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -1261,10 +1237,7 @@ fn diff_format_compatible_with_patch() {
     );
 }
 
-#[specforge_test(
-    behavior = "generate_migration_diff",
-    verify = "failure in one file does not block diff generation for others"
-)]
+#[test]
 fn dry_run_failure_isolation() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -1360,10 +1333,7 @@ fn migration_diff_contract() {
 // Phase L: validate_post_migration_integrity — additional coverage
 // ===================================================================
 
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "post-migration check runs automatically"
-)]
+#[test]
 fn post_migration_check_runs_automatically() {
     use specforge_graph::{EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
     use specforge_migrate::compare_graphs;
@@ -1419,10 +1389,7 @@ fn post_migration_check_runs_automatically() {
     );
 }
 
-#[specforge_test(
-    behavior = "validate_post_migration_integrity",
-    verify = "new diagnostics from migration reported"
-)]
+#[test]
 fn new_entities_after_migration_reported() {
     use specforge_graph::{EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
     use specforge_migrate::compare_graphs;
@@ -1575,10 +1542,7 @@ fn snapshot_includes_all_schema_components() {
     assert_eq!(snapshot.schema.entity_kinds[0].fields[0].name, "contract");
 }
 
-#[specforge_test(
-    behavior = "capture_pre_migration_schema_snapshot",
-    verify = "snapshot persists in memory across migration_starting to extension_migration_hooks_complete"
-)]
+#[test]
 fn snapshot_persists_across_lifecycle() {
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
     use specforge_migrate::capture_pre_migration_snapshot;
@@ -1608,10 +1572,7 @@ fn snapshot_persists_across_lifecycle() {
     assert_eq!(snapshot.schema, snapshot_clone.schema);
 }
 
-#[specforge_test(
-    behavior = "capture_pre_migration_schema_snapshot",
-    verify = "Capture Pre-Migration Schema Snapshot: pre-migration schema capture holds — migration_starting_fired, snapshot_captured, pre_migration_snapshot_captured_emitted"
-)]
+#[test]
 fn pre_migration_snapshot_contract() {
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaVersion};
     use specforge_migrate::capture_pre_migration_snapshot;
@@ -1636,10 +1597,7 @@ fn pre_migration_snapshot_contract() {
 // Phase N: verify_graph_protocol_compatibility — additional coverage
 // ===================================================================
 
-#[specforge_test(
-    behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "migration that changes entity structure triggers schema check"
-)]
+#[test]
 fn entity_structure_change_triggers_check() {
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
     use specforge_migrate::check_schema_compatibility;
@@ -1688,10 +1646,7 @@ fn entity_structure_change_triggers_check() {
     );
 }
 
-#[specforge_test(
-    behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "migration that only changes formatting skips schema check"
-)]
+#[test]
 fn formatting_only_change_no_schema_diff() {
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
     use specforge_migrate::check_schema_compatibility;
@@ -2193,10 +2148,7 @@ fn rollback_contract() {
 // Phase P: invoke_extension_migration_hooks — additional coverage
 // ===================================================================
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "extension with migration_hook field has it invoked during migrate"
-)]
+#[test]
 fn extension_with_hook_gets_invoked() {
     use specforge_migrate::{FormatVersion, MigrationHookRunner};
     use std::sync::{Arc, Mutex};
@@ -2239,10 +2191,7 @@ fn extension_with_hook_gets_invoked() {
     assert_eq!(calls[0], "@specforge/software:migrate_v1_to_v2");
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "extension with empty migration_hook field is skipped silently"
-)]
+#[test]
 fn extension_with_empty_hook_skipped() {
     use specforge_migrate::{FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner};
 
@@ -2258,10 +2207,7 @@ fn extension_with_empty_hook_skipped() {
     assert!(result.is_ok(), "empty hook should be silently skipped");
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "hooks invoked in deterministic extension load order"
-)]
+#[test]
 fn hooks_invoked_in_deterministic_order() {
     use specforge_migrate::{FormatVersion, MigrationHookRunner};
     use std::sync::{Arc, Mutex};
@@ -2323,10 +2269,7 @@ fn hooks_invoked_in_deterministic_order() {
     assert_eq!(calls2.as_slice(), &extensions);
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "extension in failed lifecycle state has hook skipped"
-)]
+#[test]
 fn failed_extension_hook_skipped() {
     use specforge_migrate::{FormatVersion, MigrationHookRunner};
 
@@ -2372,10 +2315,7 @@ fn failed_extension_hook_skipped() {
     );
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "Invoke Extension Migration Hooks: extension migration hooks holds for the declared obligations"
-)]
+#[test]
 fn extension_hooks_contract() {
     use specforge_migrate::{FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner};
 
@@ -2423,10 +2363,7 @@ fn extension_hooks_contract() {
 // Phase Q: Remaining uncovered verify statements
 // ===================================================================
 
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "spec root format_version field detected correctly"
-)]
+#[test]
 fn spec_root_format_version_field_detected() {
     use specforge_migrate::detect_format_version;
 
@@ -2441,10 +2378,7 @@ fn spec_root_format_version_field_detected() {
     assert!(diags.is_empty());
 }
 
-#[specforge_test(
-    behavior = "detect_format_version_mismatch",
-    verify = "mismatched header and root format_version produces E-level diagnostic"
-)]
+#[test]
 fn mismatched_header_and_root_format_version() {
     use specforge_migrate::detect_format_version;
 
@@ -2463,10 +2397,7 @@ fn mismatched_header_and_root_format_version() {
     );
 }
 
-#[specforge_test(
-    behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "comparison runs once after extension_migration_hooks_complete"
-)]
+#[test]
 fn schema_comparison_runs_once() {
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
     use specforge_migrate::check_schema_compatibility;
@@ -2496,10 +2427,7 @@ fn schema_comparison_runs_once() {
     assert!(diags1.is_empty());
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "hook that traps collects WasmTrapInfo and continues"
-)]
+#[test]
 fn hook_trap_collects_wasm_trap_info() {
     use specforge_migrate::{FormatVersion, MigrationHookRunner};
 
@@ -2532,10 +2460,7 @@ fn hook_trap_collects_wasm_trap_info() {
     );
 }
 
-#[specforge_test(
-    behavior = "invoke_extension_migration_hooks",
-    verify = "validation runs once after both core and extension hooks complete"
-)]
+#[test]
 fn validation_runs_after_core_and_hooks() {
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaVersion};
     use specforge_migrate::{

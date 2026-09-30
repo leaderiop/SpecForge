@@ -550,10 +550,7 @@ fn diagnostic_json_valid_parseable() {
     assert!(result.is_ok(), "output must be valid JSON");
 }
 
-#[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "exit code unaffected by format flag"
-)]
+#[test]
 fn diagnostic_exit_code_unaffected_by_format() {
     let diags = vec![Diagnostic {
         code: "E001".into(),
@@ -719,10 +716,7 @@ fn dot_edges_labeled() {
     );
 }
 
-#[specforge_test(
-    behavior = "serialize_dot_visualization",
-    verify = "node shapes use extension-defined dot_shape"
-)]
+#[test]
 fn dot_node_shapes() {
     let graph = build_graph();
     let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());

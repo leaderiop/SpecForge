@@ -3,10 +3,7 @@ use specforge_test_macros::test as specforge_test;
 
 // --- Phase 1b: All entity kinds through check/export/query/trace/stats ---
 
-#[specforge_test(
-    behavior = "check_mode_for_ci",
-    verify = "check mode produces no output files"
-)]
+#[test]
 fn check_accepts_all_software_entity_kinds() {
     let dir = setup_project(&[("main.spec", SOFTWARE_SPEC)]);
 
@@ -17,10 +14,7 @@ fn check_accepts_all_software_entity_kinds() {
         .success();
 }
 
-#[specforge_test(
-    behavior = "check_mode_for_ci",
-    verify = "check mode prints diagnostics to stderr"
-)]
+#[test]
 fn check_accepts_all_product_entity_kinds() {
     // Product spec references parse_input from software, include it
     let combined = format!("{}\n{}", SOFTWARE_SPEC, PRODUCT_SPEC);
@@ -33,10 +27,7 @@ fn check_accepts_all_product_entity_kinds() {
         .success();
 }
 
-#[specforge_test(
-    behavior = "check_mode_for_ci",
-    verify = "check mode works in CI environment"
-)]
+#[test]
 fn check_accepts_all_governance_entity_kinds() {
     // Governance references parse_input via mitigations
     let combined = format!("{}\n{}", SOFTWARE_SPEC, GOVERNANCE_SPEC);
@@ -158,10 +149,7 @@ fn export_context_shows_contracts_for_all_kinds() {
     );
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "output conforms to Graph Protocol schema"
-)]
+#[test]
 fn query_by_kind_filter_product_entities() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 
@@ -179,10 +167,7 @@ fn query_by_kind_filter_product_entities() {
     assert_eq!(nodes[0]["kind"], "feature");
 }
 
-#[specforge_test(
-    behavior = "query_graph_multi_resolution",
-    verify = "querying same entity at same depth produces identical subgraph"
-)]
+#[test]
 fn query_by_kind_filter_governance_entities() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 
@@ -236,10 +221,7 @@ fn stats_entities_by_kind_counts_all_kinds() {
     assert_eq!(by_kind["behavior"], 2, "expected 2 behaviors");
 }
 
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "stats reports coverage percentage"
-)]
+#[test]
 fn stats_human_format_lists_all_kinds() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 
@@ -268,10 +250,7 @@ fn stats_human_format_lists_all_kinds() {
     }
 }
 
-#[specforge_test(
-    behavior = "check_mode_for_ci",
-    verify = "check mode produces no output files"
-)]
+#[test]
 fn multi_file_project_with_use_imports() {
     let dir = setup_project(&[
         (

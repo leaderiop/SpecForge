@@ -100,11 +100,7 @@ fn providers_returns_list() {
 
 // --- specforge.doctor ---
 
-// B:provide_mcp_doctor_tool — verify unit "returns doctor report"
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "specforge.doctor detects extension conflicts"
-)]
+#[test]
 fn doctor_returns_report() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.doctor", json!({}));
@@ -231,11 +227,7 @@ fn collect_contract() {
 
 // --- specforge.render ---
 
-// B:provide_mcp_render_tool — verify unit "returns render result"
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "specforge.render writes output files to out_dir"
-)]
+#[test]
 fn render_returns_result() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.render", json!({"format": "dot"}));
@@ -245,11 +237,7 @@ fn render_returns_result() {
     assert!(parsed["output"].is_string());
 }
 
-// B:provide_mcp_extensions_tool — verify unit "each entry includes name, version, entity kinds, status"
-#[specforge_test(
-    behavior = "provide_mcp_extensions_tool",
-    verify = "each entry includes name, version, entity kinds, and status"
-)]
+#[test]
 fn extensions_entry_fields() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.extensions", json!({}));
@@ -259,11 +247,7 @@ fn extensions_entry_fields() {
     assert!(parsed["entity_kinds_in_graph"].is_array() || parsed["extensions"].is_array());
 }
 
-// B:provide_mcp_providers_tool — verify unit "each entry includes scheme, alias, extension, status"
-#[specforge_test(
-    behavior = "provide_mcp_providers_tool",
-    verify = "each entry includes scheme, alias, extension, and status"
-)]
+#[test]
 fn providers_entry_fields() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.providers", json!({}));
@@ -272,11 +256,7 @@ fn providers_entry_fields() {
     assert!(parsed["providers"].is_array());
 }
 
-// B:provide_mcp_doctor_tool — verify unit "checks wasm cache integrity"
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "response checks wasm cache integrity"
-)]
+#[test]
 fn doctor_cache_integrity() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.doctor", json!({}));
@@ -326,11 +306,7 @@ fn render_unrecognized_format_placeholder() {
     assert!(resp["error"].is_object());
 }
 
-// B:provide_mcp_doctor_tool — verify unit "cache_checks included in response"
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "response checks wasm cache integrity"
-)]
+#[test]
 fn doctor_cache_checks() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.doctor", json!({}));

@@ -616,11 +616,7 @@ fn live_diagnostics_contract() {
     );
 }
 
-// B:shared_incremental_pipeline — verify contract "requires/ensures consistency for shared incremental pipeline"
-#[specforge_test(
-    behavior = "shared_incremental_pipeline",
-    verify = "Shared Incremental Pipeline: shared incremental pipeline holds — incremental_rebuild_complete_fired, shared_graph_updated, diagnostics_pushed, pipeline_parity_enforced"
-)]
+#[test]
 fn shared_incremental_pipeline_contract() {
     // Requires: incremental_rebuild_complete event has fired
     // Ensures: shared graph updated, diagnostics pushed, pipeline parity enforced
@@ -665,11 +661,7 @@ fn shared_incremental_pipeline_contract() {
     );
 }
 
-// B:load_extension_grammars_for_highlighting — verify contract "requires/ensures consistency for extension grammar loading"
-#[specforge_test(
-    behavior = "load_extension_grammars_for_highlighting",
-    verify = "Load Extension Grammars for Highlighting: extension grammar loading holds — extensions_loaded, wasm_runtime_available, grammars_cached, grammar_kind_association, loading_failures_isolated"
-)]
+#[test]
 fn load_extension_grammars_for_highlighting_contract() {
     // Requires: grammar contributions registered for entity kinds
     // Ensures: grammars available for registered kinds; failures isolated

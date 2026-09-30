@@ -26,11 +26,7 @@ fn subscribe_adds_subscription() {
     assert_eq!(subs, vec!["client1"]);
 }
 
-// B:mcp_subscription_cleanup — verify unit "duplicate subscribe returns false"
-#[specforge_test(
-    behavior = "notify_graph_delta_via_mcp",
-    verify = "clients can subscribe and unsubscribe from delta notifications"
-)]
+#[test]
 fn duplicate_subscribe_returns_false() {
     let mut server = init_server();
     subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
@@ -54,11 +50,7 @@ fn unsubscribe_removes_subscription() {
     assert!(subs.is_empty());
 }
 
-// B:mcp_subscription_cleanup — verify unit "unsubscribe_all removes all for client"
-#[specforge_test(
-    behavior = "mcp_subscription_cleanup",
-    verify = "client disconnect removes all subscriptions for that client"
-)]
+#[test]
 fn unsubscribe_all_removes_all() {
     let mut server = init_server();
     subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
@@ -88,11 +80,7 @@ fn shutdown_clears_subscriptions() {
     assert!(server.state().subscriptions.is_empty());
 }
 
-// B:mcp_subscription_cleanup — verify unit "rapid connect/disconnect cycles leave zero subscriptions"
-#[specforge_test(
-    behavior = "mcp_subscription_cleanup",
-    verify = "rapid connect/disconnect cycles leave zero subscriptions"
-)]
+#[test]
 fn rapid_connect_disconnect_zero_subscriptions() {
     let mut server = init_server();
     for i in 0..10 {

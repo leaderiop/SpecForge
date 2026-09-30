@@ -199,10 +199,7 @@ fn valid_one_of_rule_still_parses() {
     assert_eq!(pattern.check, ValidationPatternKind::FieldValueConstraint);
 }
 
-#[specforge_test(
-    behavior = "parse_validation_rule_pattern",
-    verify = "all required fields validated on each rule"
-)]
+#[test]
 fn all_required_fields_validated_on_each_rule() {
     let rule = ManifestValidationRule {
         code: "W100".to_string(),
@@ -401,10 +398,7 @@ fn field_value_constraint_rejects_invalid_field_value() {
     assert!(diags[0].message.contains("b1"));
 }
 
-#[specforge_test(
-    behavior = "execute_validation_pattern",
-    verify = "cycle_detection finds cycles in edge type"
-)]
+#[test]
 fn cycle_detection_finds_cycles_in_edge_type() {
     // Cycle detection requires full graph — current implementation defers to caller.
     // The pattern parses correctly but execution returns no violations (graph needed).

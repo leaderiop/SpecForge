@@ -291,11 +291,7 @@ fn exit_code_contract() {
     assert_eq!(specforge_emitter::compute_exit_code(&with_errors), 1);
 }
 
-// B:print_diagnostics_structured — verify unit "diagnostic includes context snippet"
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "diagnostic includes context snippet"
-)]
+#[test]
 fn diagnostic_includes_context_snippet() {
     // The formatted diagnostic includes file:line:col as the context locator.
     // This provides the context snippet reference for agents/tools to look up the source.
@@ -320,11 +316,7 @@ fn diagnostic_includes_context_snippet() {
     );
 }
 
-// B:export_diagnostics_as_json — verify unit "exit code unaffected by format flag"
-#[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "exit code unaffected by format flag"
-)]
+#[test]
 fn exit_code_unaffected_by_format_flag() {
     // The exit code is computed from diagnostics alone, independent of output format.
     // Whether diagnostics are serialized as JSON or formatted as text, exit code is the same.
@@ -460,10 +452,7 @@ fn diagnostic_summary_groups_by_code() {
 
 // === DiagnosticsExt trait ===
 
-#[specforge_test(
-    behavior = "aggregate_diagnostic_summary",
-    verify = "summary matches actual diagnostics"
-)]
+#[test]
 fn diagnostics_ext_has_errors() {
     use specforge_common::DiagnosticsExt;
 

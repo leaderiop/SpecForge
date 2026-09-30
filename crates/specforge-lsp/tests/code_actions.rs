@@ -49,10 +49,7 @@ fn missing_verify_produces_stub() {
     assert!(actions[0].edit_text.contains("verify"));
 }
 
-#[spec(
-    behavior = "code_actions_for_missing_verify",
-    verify = "verify stub uses allowed_verify_kinds from KindRegistry"
-)]
+#[test]
 fn verify_stub_uses_unit_kind() {
     let mut g = Graph::new();
     g.add_node(node("my_behavior", "behavior", "a.spec", 5));
@@ -116,10 +113,7 @@ fn add_import_offered_for_resolvable_entity() {
     assert!(action.edit_text.contains("use \"types/auth\""));
 }
 
-#[spec(
-    behavior = "code_action_add_missing_import",
-    verify = "import is inserted after existing use statements"
-)]
+#[test]
 fn add_import_position() {
     let mut g = Graph::new();
     g.add_node(node("auth_token", "type", "types/auth.spec", 1));

@@ -207,10 +207,7 @@ fn verify_incremental_performs_cold_rebuild_comparison() {
     );
 }
 
-#[spec(
-    behavior = "rebuild_affected_subgraph",
-    verify = "debug --verify-incremental performs cold rebuild comparison"
-)]
+#[test]
 fn verify_incremental_disabled_skips_comparison() {
     let (mut pipeline, mut sources) =
         cold_build(&[("a.spec", r#"behavior foo "Foo" { contract "x" }"#)]);

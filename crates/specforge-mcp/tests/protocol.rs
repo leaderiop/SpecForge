@@ -113,11 +113,7 @@ fn success_response_includes_request_id() {
     assert!(parsed["result"].is_object());
 }
 
-// B:handle_mcp_request_cancellation — verify unit "cancel request returns success"
-#[specforge_test(
-    behavior = "handle_mcp_request_cancellation",
-    verify = "cancellation of completed request is a no-op"
-)]
+#[test]
 fn cancel_request_returns_success() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "$/cancelRequest", json!({"id": 1}));

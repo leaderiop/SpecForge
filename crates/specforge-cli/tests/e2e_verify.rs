@@ -132,10 +132,7 @@ behavior parse_input "Parse Input" {
     );
 }
 
-#[specforge_test(
-    behavior = "export_agent_context_format",
-    verify = "context format includes entity IDs and contracts"
-)]
+#[test]
 fn context_export_includes_verify() {
     let dir = setup_project(&[(
         "main.spec",
@@ -164,10 +161,7 @@ behavior parse_input "Parse Input" {
     );
 }
 
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "stats reports correct entity counts"
-)]
+#[test]
 fn stats_verified_count_matches() {
     let dir = setup_project(&[(
         "main.spec",

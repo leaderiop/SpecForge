@@ -75,10 +75,7 @@ behavior alpha "A" { contract "first" }
     );
 }
 
-#[specforge_test(
-    behavior = "detect_orphan_refs",
-    verify = "structural node with at least one incoming edge suppresses W012"
-)]
+#[test]
 fn non_structural_kind_does_not_produce_w012() {
     // Extension-defined kinds (behavior, feature) are NOT structural —
     // their orphan detection is extension-defined, not core
@@ -568,10 +565,7 @@ fn summary_red_when_errors_exist() {
 
 // === validate_file_reference_paths: relative path ===
 
-#[specforge_test(
-    behavior = "validate_file_reference_paths",
-    verify = "relative path resolved from spec file directory"
-)]
+#[test]
 fn relative_path_resolved_from_spec_root() {
     use specforge_validator::ValidatorConfig;
 
@@ -847,10 +841,7 @@ behavior login_flow "Login" {
 
 // === detect_dangling_references ===
 
-#[specforge_test(
-    behavior = "detect_dangling_references",
-    verify = "reference without corresponding graph edge indicates resolver bug"
-)]
+#[test]
 fn dangling_ref_without_edge_indicates_resolver_bug() {
     // A reference list entry that resolves (target exists) should always
     // produce a corresponding graph edge. If it doesn't, that's a resolver bug.
@@ -876,10 +867,7 @@ behavior alpha "A" {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_dangling_references",
-    verify = "reference with corresponding graph edge passes"
-)]
+#[test]
 fn resolved_ref_has_corresponding_edge() {
     let source = r#"
 behavior alpha "A" {
@@ -908,10 +896,7 @@ invariant inv_one "Invariant One" {
     );
 }
 
-#[specforge_test(
-    behavior = "detect_dangling_references",
-    verify = "empty graph with zero edges produces no dangling reference diagnostic"
-)]
+#[test]
 fn empty_graph_no_dangling_diagnostics() {
     let source = r#"
 behavior alpha "A" { contract "first" }
@@ -928,10 +913,7 @@ behavior alpha "A" { contract "first" }
     );
 }
 
-#[specforge_test(
-    behavior = "detect_dangling_references",
-    verify = "Detect Dangling References: dangling reference detection holds — graph_built_fired, resolver_integrity_verified, no_duplicate_diagnostics"
-)]
+#[test]
 fn dangling_ref_contract_consistency() {
     // Requires: graph_built event has fired (graph is fully constructed)
     // Ensures: every reference list entry has a corresponding graph edge,

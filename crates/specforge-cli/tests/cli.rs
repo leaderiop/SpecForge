@@ -573,10 +573,7 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     assert_eq!(output.status.code(), Some(1));
 }
 
-#[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "suggestion field included when available"
-)]
+#[test]
 fn json_diagnostics_include_suggestion_when_available() {
     let dir = setup_project(&[(
         "main.spec",

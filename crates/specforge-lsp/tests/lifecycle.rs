@@ -12,10 +12,7 @@ fn init_includes_semantic_legend() {
     assert!(caps.semantic_token_types.contains(&"keyword".to_string()));
 }
 
-#[spec(
-    behavior = "lsp_initialize",
-    verify = "semantic token legend includes extension-defined token types"
-)]
+#[test]
 fn init_legend_includes_extension_types() {
     let caps = specforge_lsp::server_capabilities(&["behavior", "type"]);
     // Extension kinds should appear in the legend as "keyword" type
@@ -78,17 +75,14 @@ fn shutdown_clears_state() {
     assert!(state.is_shutdown());
 }
 
-#[spec(behavior = "lsp_shutdown", verify = "shutdown releases Wasm engines")]
+#[test]
 fn shutdown_sets_flag() {
     let mut state = specforge_lsp::LspState::new();
     state.shutdown();
     assert!(state.is_shutdown());
 }
 
-#[spec(
-    behavior = "lsp_shutdown",
-    verify = "requests after shutdown return InvalidRequest"
-)]
+#[test]
 fn requests_after_shutdown_rejected() {
     let mut state = specforge_lsp::LspState::new();
     state.shutdown();
@@ -206,10 +200,7 @@ fn graph_update_serves_all_features() {
     assert!(!completions.is_empty(), "completions must use shared graph");
 }
 
-#[spec(
-    behavior = "shared_incremental_pipeline",
-    verify = "CLI and LSP share identical debounce window"
-)]
+#[test]
 fn cli_and_lsp_share_debounce_window() {
     // The debounce window is a constant shared between CLI watch and LSP.
     // Both must use the same value to ensure pipeline parity.
@@ -221,10 +212,7 @@ fn cli_and_lsp_share_debounce_window() {
     );
 }
 
-#[spec(
-    behavior = "shared_incremental_pipeline",
-    verify = "CLI and LSP share identical validator dispatch order"
-)]
+#[test]
 fn cli_and_lsp_share_validator_dispatch_order() {
     // The validator dispatch order is a shared constant/function between CLI and LSP.
     // Both must produce the same ordering to ensure deterministic diagnostics.

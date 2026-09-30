@@ -447,10 +447,7 @@ fn contract_guard_reinit() {
     assert!(resp["error"].is_object());
 }
 
-#[specforge_test(
-    behavior = "handle_mcp_request_cancellation",
-    verify = "Handle MCP Request Cancellation: MCP request cancellation holds — mcp_protocol_available, cancellation_safe, request_cancelled_emitted"
-)]
+#[test]
 fn contract_cancel() {
     let mut server = test_server();
     let resp = call(&mut server, "$/cancelRequest", json!({"id": 1}));
@@ -469,10 +466,7 @@ fn contract_protocol_error() {
     assert!(resp["error"]["message"].is_string());
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted"
-)]
+#[test]
 fn contract_validate() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.validate", json!({}));
@@ -722,10 +716,7 @@ fn contract_add_extension() {
     assert!(lock.contains("specforge_ext_product"));
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_remove_extension_tool",
-    verify = "Provide MCP Remove Extension Tool: MCP remove extension tool holds — filesystem_available, extension_removed, orphan_warning_produced, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
-)]
+#[test]
 fn contract_remove_extension() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();

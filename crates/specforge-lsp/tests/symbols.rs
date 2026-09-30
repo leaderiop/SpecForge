@@ -58,10 +58,7 @@ fn outline_shows_details() {
     assert_eq!(symbols[0].title.as_deref(), Some("User Login"));
 }
 
-#[spec(
-    behavior = "outline_view",
-    verify = "outline uses extension-defined SymbolKind from KindRegistry lsp_icon"
-)]
+#[test]
 fn outline_uses_kind_for_icon() {
     let mut g = Graph::new();
     g.add_node(node("a", "behavior", None, "test.spec", 0));
@@ -121,10 +118,7 @@ fn search_by_title_fragment() {
     assert_eq!(results[0].id, "user_login");
 }
 
-#[spec(
-    behavior = "workspace_symbol_search",
-    verify = "search results use extension-defined SymbolKind"
-)]
+#[test]
 fn search_results_include_kind() {
     let mut g = Graph::new();
     g.add_node(node("a", "behavior", Some("A"), "a.spec", 0));

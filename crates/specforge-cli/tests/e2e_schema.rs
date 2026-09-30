@@ -33,10 +33,7 @@ fn schema_command_outputs_valid_json() {
     );
 }
 
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "--kind filter restricts to single entity kind"
-)]
+#[test]
 fn schema_kind_filter_returns_single_kind() {
     // Note: with GraphProtocolSchema::empty(), entity_kinds is empty.
     // This test verifies the --kind flag behavior: unknown kind exits 1
@@ -50,10 +47,7 @@ fn schema_kind_filter_returns_single_kind() {
         .code(1);
 }
 
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "schema reflects current compilation state"
-)]
+#[test]
 fn schema_kind_filter_unknown_exits_one() {
     let dir = setup_project(&[("main.spec", SOFTWARE_SPEC)]);
 
