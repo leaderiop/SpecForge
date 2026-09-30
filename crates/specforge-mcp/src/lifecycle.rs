@@ -11,6 +11,25 @@ use crate::types::{
     McpToolCapability,
 };
 
+/// The protocol revisions the server speaks, latest first.
+pub const PROTOCOL_VERSIONS: [&str; 3] = ["2025-11-25", "2025-06-18", "2025-03-26"];
+/// The revision the server answers a client it can't match with.
+pub const LATEST_PROTOCOL_VERSION: &str = PROTOCOL_VERSIONS[0];
+/// The one revision with JSON-RPC batching; 2025-06-18 removed it.
+pub const BATCHING_PROTOCOL_VERSION: &str = "2025-03-26";
+/// The first revision with `structuredContent` in tool results.
+pub const STRUCTURED_CONTENT_PROTOCOL_VERSION: &str = "2025-06-18";
+
+/// The revision to speak with a client that asked for `requested`: that
+/// one when the server speaks it, else the latest (MCP lifecycle, version
+/// negotiation).
+pub fn negotiate_protocol_version(requested: Option<&str>) -> &'static str {
+    PROTOCOL_VERSIONS
+        .into_iter()
+        .find(|v| Some(*v) == requested)
+        .unwrap_or(LATEST_PROTOCOL_VERSION)
+}
+
 pub fn handle_initialize(
     state: &mut McpState,
     params: Value,
@@ -76,9 +95,11 @@ pub fn handle_initialize(
     }
     state.project_root = project_root;
     state.phase = ServerPhase::Initialized;
+    state.protocol_version =
+        negotiate_protocol_version(params.get("protocolVersion").and_then(Value::as_str));
 
     let capabilities = McpCapabilities {
-        protocol_version: "2025-03-26".into(),
+        protocol_version: state.protocol_version.into(),
         capabilities: McpCapabilityFlags {
             tools: McpToolCapability {
                 list_changed: false,

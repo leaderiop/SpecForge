@@ -1,18 +1,7 @@
-use serde_json::Value;
-
-use crate::protocol::JsonRpcResponse;
+use crate::resources::{ReadOutcome, ResourceText};
 use crate::state::McpState;
 
-pub fn read(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
+pub fn read(state: &McpState) -> ReadOutcome {
     let json_str = specforge_emitter::serialize_diagnostics(&state.diagnostics);
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "contents": [{
-                "uri": "specforge://diagnostics",
-                "mimeType": "application/json",
-                "text": json_str
-            }]
-        }),
-    )
+    Ok(ResourceText::json("specforge://diagnostics", json_str))
 }

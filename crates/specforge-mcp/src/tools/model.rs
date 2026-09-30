@@ -5,10 +5,10 @@ use specforge_emitter::model::{
     filter_fields, render,
 };
 
-use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
@@ -35,14 +35,10 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         "json" => ModelFormat::Json,
         "dbml" => ModelFormat::Dbml,
         _ => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!(
-                    "Unknown format: {}. Expected: markdown, mermaid, dot, json, dbml",
-                    format
-                ),
-            );
+            return ToolOutcome::invalid_params(format!(
+                "Unknown format: {}. Expected: markdown, mermaid, dot, json, dbml",
+                format
+            ));
         }
     };
 
@@ -50,11 +46,10 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         "extension" => GroupBy::Extension,
         "none" => GroupBy::None,
         _ => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!("Unknown group_by: {}. Expected: extension, none", group_by),
-            );
+            return ToolOutcome::invalid_params(format!(
+                "Unknown group_by: {}. Expected: extension, none",
+                group_by
+            ));
         }
     };
 
@@ -63,11 +58,10 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         "keys" => FieldLevel::Keys,
         "all" => FieldLevel::All,
         _ => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!("Unknown fields: {}. Expected: none, keys, all", fields),
-            );
+            return ToolOutcome::invalid_params(format!(
+                "Unknown fields: {}. Expected: none, keys, all",
+                fields
+            ));
         }
     };
 
@@ -99,13 +93,5 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     let model = filter_fields(&model, options.fields);
     let output = render(&model, &options);
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": output
-            }]
-        }),
-    )
+    ToolOutcome::text(output)
 }

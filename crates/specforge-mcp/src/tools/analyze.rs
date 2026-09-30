@@ -1,16 +1,16 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
-use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::registry::register_extension_surfaces;
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 use specforge_emitter::analyze::{AnalysisContext, TestReport, run_pass};
 
 /// `specforge.analyze` — run the analysis passes (coverage, contracts) plus
 /// extension-owned compiler passes over the project and return structured
 /// findings. Extension passes execute through the same Wasm runtime the CLI
 /// uses (WASM-only migration, Phase 4).
-pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
     let path = args
         .get("path")
         .and_then(|v| v.as_str())
@@ -63,7 +63,7 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
     };
     let parsed_report: Option<TestReport> = match read {
         Ok(report) => report,
-        Err(e) => return super::coverage::report_error_result(id, &e, "specforge.analyze"),
+        Err(e) => return super::coverage::report_error_result(&e, "specforge.analyze"),
     };
 
     let proved_claims: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -95,14 +95,10 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
         // `<extension>:<pass>` selects an extension pass only.
         Vec::new()
     } else {
-        return JsonRpcResponse::error(
-            id,
-            error_codes::INVALID_PARAMS,
-            format!(
-                "Unknown analysis pass '{requested}' (available: all, coverage, {})",
-                specforge_emitter::analyze::PASS_NAMES.join(", ")
-            ),
-        );
+        return ToolOutcome::invalid_params(format!(
+            "Unknown analysis pass '{requested}' (available: all, coverage, {})",
+            specforge_emitter::analyze::PASS_NAMES.join(", ")
+        ));
     };
 
     let mut passes = Vec::new();
@@ -167,14 +163,5 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
     }
 
     let doc = serde_json::json!({ "ok": !has_errors, "passes": passes });
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": serde_json::to_string_pretty(&doc).unwrap_or_default()
-            }],
-            "isError": has_errors
-        }),
-    )
+    ToolOutcome::ok(doc).flagged(has_errors)
 }

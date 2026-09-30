@@ -15,6 +15,9 @@ pub enum ServerPhase {
 
 pub struct McpState {
     pub phase: ServerPhase,
+    /// The protocol revision `initialize` negotiated (the latest one the
+    /// server speaks until then).
+    pub protocol_version: &'static str,
     pub graph: Graph,
     pub diagnostics: Vec<Diagnostic>,
     pub project_root: Option<PathBuf>,
@@ -111,6 +114,7 @@ impl McpState {
     pub fn new() -> Self {
         Self {
             phase: ServerPhase::Uninitialized,
+            protocol_version: crate::lifecycle::LATEST_PROTOCOL_VERSION,
             graph: Graph::new(),
             diagnostics: Vec::new(),
             project_root: None,
@@ -154,6 +158,18 @@ impl McpState {
 
     pub fn is_initialized(&self) -> bool {
         self.phase == ServerPhase::Initialized
+    }
+
+    /// Whether the session accepts JSON-RPC batches: only a 2025-03-26
+    /// session does, since later revisions removed batching.
+    pub fn accepts_batches(&self) -> bool {
+        self.is_initialized()
+            && self.protocol_version == crate::lifecycle::BATCHING_PROTOCOL_VERSION
+    }
+
+    /// Whether tool results carry `structuredContent` (2025-06-18 on).
+    pub fn sends_structured_content(&self) -> bool {
+        self.protocol_version >= crate::lifecycle::STRUCTURED_CONTENT_PROTOCOL_VERSION
     }
 
     /// Record an event. Object payloads without a `timestamp` get one (RFC

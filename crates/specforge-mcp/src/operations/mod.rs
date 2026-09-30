@@ -12,33 +12,32 @@ use specforge_registry::{
 };
 use specforge_wasm::{install_extension, install_from_local, read_lock_file, write_lock_file};
 
-use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::protocol::error_codes;
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
+/// Run the operation `name`. `id` is not used; the operations keep it in
+/// their signatures until the tool table (plan 04 T3) replaces this match.
 pub fn handle_operation(
     state: &mut McpState,
     name: &str,
     args: Value,
     id: Option<Value>,
-) -> JsonRpcResponse {
+) -> ToolOutcome {
     match name {
         "specforge.format" => format_op(state, args, id),
         "specforge.rename" => rename_op(state, args, id),
         "specforge.init" => init_op(state, args, id),
         "specforge.add_extension" => {
-            let response = add_extension_op(state, args, id);
-            let outcome = response
-                .result
-                .as_ref()
-                .and_then(|r| r["content"][0]["text"].as_str())
-                .and_then(|text| serde_json::from_str::<Value>(text).ok());
-            if let Some(outcome) = outcome.filter(|o| o["installed"] == true) {
-                state.push_event(
-                    "extension_added",
-                    json!({"extension": outcome["extension"], "version": outcome["version"]}),
-                );
+            let outcome = add_extension_op(state, args, id);
+            let added = outcome
+                .success_payload()
+                .filter(|o| o["installed"] == true)
+                .map(|o| json!({"extension": o["extension"], "version": o["version"]}));
+            match added {
+                Some(event) => outcome.with_event("extension_added", event),
+                None => outcome,
             }
-            response
         }
         "specforge.remove_extension" => remove_extension_op(state, args, id),
         "specforge.migrate" => migrate_op(state, args, id),
@@ -47,8 +46,7 @@ pub fn handle_operation(
         "specforge.doctor" => doctor_op(state, args, id),
         "specforge.collect" => collect_op(state, args, id),
         "specforge.render" => render_op(state, args, id),
-        _ => JsonRpcResponse::error(
-            id,
+        _ => ToolOutcome::refused(
             error_codes::METHOD_NOT_FOUND,
             format!("Unknown operation: {}", name),
         ),
@@ -65,20 +63,17 @@ fn project_root_of(state: &McpState, args: &Value) -> Option<PathBuf> {
         .or_else(|| state.project_root.clone())
 }
 
-fn err_invalid(id: Option<Value>, message: impl Into<String>) -> JsonRpcResponse {
-    JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, message.into())
+fn err_invalid(_id: Option<Value>, message: impl Into<String>) -> ToolOutcome {
+    ToolOutcome::invalid_params(message)
 }
 
-fn ok(id: Option<Value>, result: Value) -> JsonRpcResponse {
-    JsonRpcResponse::success(
-        id,
-        json!({ "content": [{ "type": "text", "text": result.to_string() }] }),
-    )
+fn ok(_id: Option<Value>, result: Value) -> ToolOutcome {
+    ToolOutcome::ok(result)
 }
 
 /// An operation's failure as an invalid-params error whose `data` carries
 /// the diagnostic code and its suggestion, plus the operation's own data.
-fn err_op(id: Option<Value>, error: specforge_ops::OpError) -> JsonRpcResponse {
+fn err_op(_id: Option<Value>, error: specforge_ops::OpError) -> ToolOutcome {
     let mut data = json!({
         "code": error.code,
         "diagnostic": {
@@ -92,7 +87,7 @@ fn err_op(id: Option<Value>, error: specforge_ops::OpError) -> JsonRpcResponse {
             data[key] = value;
         }
     }
-    JsonRpcResponse::error_with_data(id, error_codes::INVALID_PARAMS, error.message, data)
+    ToolOutcome::refused_with_data(error_codes::INVALID_PARAMS, error.message, data)
 }
 
 /// Enable `name@version` in the project's specforge.json (idempotent: an
@@ -127,7 +122,7 @@ pub(crate) fn export_graph(
 
 // ── format ──────────────────────────────────────────────────────────────────
 
-fn format_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+fn format_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     let check = args.get("check").and_then(|v| v.as_bool()).unwrap_or(false);
     let diff = args.get("diff").and_then(|v| v.as_bool()).unwrap_or(false);
     let write = args
@@ -215,7 +210,7 @@ fn format_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
 
 // ── rename ──────────────────────────────────────────────────────────────────
 
-fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
         Some(e) => e,
         None => {
@@ -303,7 +298,7 @@ fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcRes
 
 // ── init ────────────────────────────────────────────────────────────────────
 
-fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     let Some(path) = args.get("path").and_then(|v| v.as_str()).map(PathBuf::from) else {
         return err_invalid(id, "Missing required parameter: path");
     };
@@ -343,8 +338,7 @@ fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcRespo
         .collect();
     if let Some(unknown) = extensions.iter().find(|e| !builtins.contains(&e.as_str())) {
         let message = format!("unknown extension '{unknown}': not a builtin extension");
-        return JsonRpcResponse::error_with_data(
-            id,
+        return ToolOutcome::refused_with_data(
             error_codes::INVALID_PARAMS,
             message.clone(),
             json!({
@@ -444,7 +438,7 @@ fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcRespo
 
 // ── add / remove ────────────────────────────────────────────────────────────
 
-fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     let specifier = match args.get("specifier").and_then(|v| v.as_str()) {
         Some(s) => s.to_string(),
         None => return err_invalid(id, "Missing required parameter: specifier"),
@@ -632,7 +626,7 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
     }
 }
 
-fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     let name = match args.get("name").and_then(|v| v.as_str()) {
         Some(n) => n.to_string(),
         None => return err_invalid(id, "Missing required parameter: name"),
@@ -681,7 +675,7 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Json
 
 // ── migrate ─────────────────────────────────────────────────────────────────
 
-fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     let Some(path) = project_root_of(state, &args) else {
         return err_invalid(id, "migrate needs a project root (pass {\"path\": ...})");
     };
@@ -776,7 +770,7 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespon
 
 // ── extensions ──────────────────────────────────────────────────────────────
 
-fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcResponse {
+fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcome {
     // Real state: what the session actually loaded, checked against the
     // extensions specforge.json configures now, plus on-disk lock data.
     let configured: Vec<(String, Option<String>)> = state
@@ -853,7 +847,7 @@ fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRe
 
 // ── providers ───────────────────────────────────────────────────────────────
 
-fn providers_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcResponse {
+fn providers_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcome {
     let Some(root) = &state.project_root else {
         return err_invalid(id, "no project root available");
     };
@@ -889,7 +883,7 @@ fn providers_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRes
 
 // ── doctor ──────────────────────────────────────────────────────────────────
 
-fn doctor_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcResponse {
+fn doctor_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcome {
     let Some(root) = &state.project_root else {
         return err_invalid(id, "doctor needs a project root");
     };
@@ -917,7 +911,7 @@ fn doctor_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespon
 
 // ── collect ─────────────────────────────────────────────────────────────────
 
-fn collect_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+fn collect_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     use specforge_emitter::collect::{self, Mode, Request, RunnerOutput};
 
     let Some(root) = project_root_of(state, &args) else {
@@ -978,7 +972,7 @@ fn collect_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespon
 
 // ── render ──────────────────────────────────────────────────────────────────
 
-fn render_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+fn render_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
@@ -993,8 +987,7 @@ fn render_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
     ];
     let Some((_, file_name)) = RENDERERS.iter().find(|(name, _)| *name == format) else {
         let available: Vec<&str> = RENDERERS.iter().map(|(name, _)| *name).collect();
-        return JsonRpcResponse::error_with_data(
-            id,
+        return ToolOutcome::refused_with_data(
             error_codes::INVALID_PARAMS,
             format!(
                 "Unrecognized renderer format: {format} (available: {})",

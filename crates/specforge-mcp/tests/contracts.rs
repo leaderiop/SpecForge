@@ -307,7 +307,8 @@ fn contract_initialize() {
         json!({"projectRoot": dir.path().to_str().unwrap()}),
     );
     let result = &resp["result"];
-    assert_eq!(result["protocolVersion"], "2025-03-26");
+    // No version asked for: the latest the server speaks.
+    assert_eq!(result["protocolVersion"], "2025-11-25");
     assert_eq!(result["serverInfo"]["name"], "specforge-mcp");
     assert_eq!(result["serverInfo"]["version"], env!("CARGO_PKG_VERSION"));
     assert_eq!(result["capabilities"]["resources"]["subscribe"], true);
@@ -502,7 +503,7 @@ fn contract_query() {
     let filtered_args =
         json!({"entity_id": "alpha", "kinds": ["behavior", "behaviour", "nonexistent"]});
     let filtered = call_tool(&mut server, "specforge.query", filtered_args.clone());
-    assert!(filtered["result"]["isError"].is_null(), "{filtered}");
+    assert_ne!(filtered["result"]["isError"], true, "{filtered}");
     assert_eq!(node_ids(&tool_json(&filtered)), ["alpha"]);
     assert_eq!(
         filtered["result"]["_meta"]["diagnostics"],
@@ -728,7 +729,7 @@ fn contract_search() {
         "specforge.search",
         json!({"query": "", "kinds": ["featur", "nonexistent"]}),
     );
-    assert!(unknown["result"]["isError"].is_null(), "{unknown}");
+    assert_ne!(unknown["result"]["isError"], true, "{unknown}");
     assert_eq!(ids(&unknown), Vec::<String>::new());
     assert_eq!(
         unknown["result"]["_meta"]["diagnostics"],
@@ -1478,26 +1479,43 @@ fn contract_list_resources() {
         .collect();
     uris.sort();
     // complete_list_returned: every core resource plus the enabled
-    // extension's; disabled_excluded: not the disabled one.
+    // extension's, templated ones under resources/templates/list;
+    // disabled_excluded: not the disabled one.
     assert_eq!(
         uris,
         [
             "specforge://brief",
             "specforge://context",
-            "specforge://context/{entity_id}",
             "specforge://diagnostics",
-            "specforge://entities/{kind}",
             "specforge://ext/on",
             "specforge://graph",
-            "specforge://graph/{entity_id}",
             "specforge://schema",
+        ]
+    );
+    let templates = call(&mut server, "resources/templates/list", json!({}));
+    let mut uri_templates: Vec<&str> = templates["result"]["resourceTemplates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["uriTemplate"].as_str().unwrap())
+        .collect();
+    uri_templates.sort();
+    assert_eq!(
+        uri_templates,
+        [
+            "specforge://context/{entity_id}",
+            "specforge://entities/{kind}",
+            "specforge://graph/{entity_id}",
         ]
     );
 
     // The count is what the client got: disabled surfaces excluded.
     assert_eq!(
         events(&server, "mcp_discovery_invoked"),
-        [json!({"discoveryType": "resources", "resultCount": uris.len()})]
+        [
+            json!({"discoveryType": "resources", "resultCount": uris.len()}),
+            json!({"discoveryType": "resource_templates", "resultCount": uri_templates.len()}),
+        ]
     );
 
     // server_initialized: an uninitialized server lists nothing.

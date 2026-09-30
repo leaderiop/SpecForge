@@ -1,18 +1,14 @@
 use serde_json::Value;
 use specforge_emitter::{EmitFormat, EmitOptions, emit};
 
-use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
         Some(e) => e,
         None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Missing required parameter: entity_id",
-            );
+            return ToolOutcome::invalid_params("Missing required parameter: entity_id");
         }
     };
 
@@ -61,7 +57,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
                 let report = match super::coverage::recorded_report(state) {
                     Ok(report) => report,
                     Err(e) => {
-                        return super::coverage::report_error_result(id, &e, "specforge.query");
+                        return super::coverage::report_error_result(&e, "specforge.query");
                     }
                 };
                 for node in nodes.iter_mut() {
@@ -77,20 +73,8 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
                 }
             }
 
-            super::with_diagnostics_meta(tool_result(id, result), &unknown_kinds)
+            ToolOutcome::ok(result).with_diagnostics(unknown_kinds)
         }
-        Err(err) => JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, err.to_string()),
+        Err(err) => ToolOutcome::invalid_params(err.to_string()),
     }
-}
-
-fn tool_result(id: Option<Value>, content: Value) -> JsonRpcResponse {
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": content.to_string()
-            }]
-        }),
-    )
 }

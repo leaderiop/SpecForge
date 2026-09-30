@@ -2,8 +2,8 @@ use serde_json::Value;
 use specforge_graph::FieldValue;
 use strsim::jaro_winkler;
 
-use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
 /// Score an entity whose string fields (its contract, guarantee, ...) contain
 /// the query: a match, ranked below a close name match.
@@ -22,15 +22,11 @@ fn text_field_score(node: &specforge_graph::Node, query_lower: &str) -> f64 {
     if found { TEXT_FIELD_MATCH_SCORE } else { 0.0 }
 }
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let query = match args.get("query").and_then(|v| v.as_str()) {
         Some(q) => q,
         None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Missing required parameter: query",
-            );
+            return ToolOutcome::invalid_params("Missing required parameter: query");
         }
     };
 
@@ -64,15 +60,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
             })
             .collect();
 
-        return JsonRpcResponse::success(
-            id,
-            serde_json::json!({
-                "content": [{
-                    "type": "text",
-                    "text": serde_json::to_string_pretty(&results).unwrap()
-                }]
-            }),
-        );
+        return ToolOutcome::ok(Value::Array(results));
     }
 
     let query_lower = query.to_lowercase();
@@ -135,16 +123,5 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         })
         .collect();
 
-    super::with_diagnostics_meta(
-        JsonRpcResponse::success(
-            id,
-            serde_json::json!({
-                "content": [{
-                    "type": "text",
-                    "text": serde_json::to_string_pretty(&results).unwrap()
-                }]
-            }),
-        ),
-        &unknown_kinds,
-    )
+    ToolOutcome::ok(Value::Array(results)).with_diagnostics(unknown_kinds)
 }

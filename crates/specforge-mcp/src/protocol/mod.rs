@@ -27,12 +27,27 @@ pub struct JsonRpcResponse {
     pub error: Option<JsonRpcError>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct JsonRpcError {
     pub code: i64,
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
+}
+
+impl JsonRpcError {
+    pub fn new(code: i64, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+            data: None,
+        }
+    }
+
+    pub fn with_data(mut self, data: Value) -> Self {
+        self.data = Some(data);
+        self
+    }
 }
 
 impl JsonRpcResponse {
@@ -46,15 +61,15 @@ impl JsonRpcResponse {
     }
 
     pub fn error(id: Option<Value>, code: i64, message: impl Into<String>) -> Self {
+        Self::from_error(id, JsonRpcError::new(code, message))
+    }
+
+    pub fn from_error(id: Option<Value>, error: JsonRpcError) -> Self {
         Self {
             jsonrpc: "2.0",
             id,
             result: None,
-            error: Some(JsonRpcError {
-                code,
-                message: message.into(),
-                data: None,
-            }),
+            error: Some(error),
         }
     }
 
@@ -64,23 +79,19 @@ impl JsonRpcResponse {
         message: impl Into<String>,
         data: Value,
     ) -> Self {
-        Self {
-            jsonrpc: "2.0",
-            id,
-            result: None,
-            error: Some(JsonRpcError {
-                code,
-                message: message.into(),
-                data: Some(data),
-            }),
-        }
+        Self::from_error(id, JsonRpcError::new(code, message).with_data(data))
     }
 }
 
 pub fn parse_request(input: &str) -> Result<JsonRpcRequest, JsonRpcResponse> {
     let value: Value = serde_json::from_str(input)
         .map_err(|_| JsonRpcResponse::error(None, error_codes::PARSE_ERROR, "Parse error"))?;
+    parse_request_value(value)
+}
 
+/// Read one JSON-RPC request object (a whole message, or one member of a
+/// batch).
+pub fn parse_request_value(value: Value) -> Result<JsonRpcRequest, JsonRpcResponse> {
     // Validate jsonrpc field
     if value.get("jsonrpc").and_then(|v| v.as_str()) != Some("2.0") {
         let id = value.get("id").cloned();

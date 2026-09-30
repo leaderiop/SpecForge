@@ -2,43 +2,28 @@ use serde_json::{Value, json};
 
 use specforge_common::inference::anchors;
 
-use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
         Some(id) => id,
         None => {
-            return JsonRpcResponse::success(
-                id,
-                json!({
-                    "content": [{ "type": "text", "text": json!({"error": "Missing required parameter: entity_id"}).to_string() }]
-                }),
-            );
+            return ToolOutcome::ok(json!({"error": "Missing required parameter: entity_id"}));
         }
     };
 
     let project_root = match &state.project_root {
         Some(p) => p.clone(),
         None => {
-            return JsonRpcResponse::success(
-                id,
-                json!({
-                    "content": [{ "type": "text", "text": json!({"error": "No project root available"}).to_string() }]
-                }),
-            );
+            return ToolOutcome::ok(json!({"error": "No project root available"}));
         }
     };
 
     let manifest = match anchors::load_anchor_manifest(&project_root) {
         Ok(m) => m,
         Err(e) => {
-            return JsonRpcResponse::success(
-                id,
-                json!({
-                    "content": [{ "type": "text", "text": json!({"error": e}).to_string() }]
-                }),
-            );
+            return ToolOutcome::ok(json!({"error": e}));
         }
     };
 
@@ -63,10 +48,5 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         "count": sources.len(),
     });
 
-    JsonRpcResponse::success(
-        id,
-        json!({
-            "content": [{ "type": "text", "text": result.to_string() }]
-        }),
-    )
+    ToolOutcome::ok(result)
 }

@@ -105,7 +105,12 @@ fn event_mcp_initialized() {
             .len()
     };
     assert_eq!(listed(&mut server, "tools/list", "tools"), 33);
-    assert_eq!(listed(&mut server, "resources/list", "resources"), 8);
+    // Eight resources: five plain, three templated.
+    assert_eq!(listed(&mut server, "resources/list", "resources"), 5);
+    assert_eq!(
+        listed(&mut server, "resources/templates/list", "resourceTemplates"),
+        3
+    );
     assert_eq!(listed(&mut server, "prompts/list", "prompts"), 5);
 }
 
@@ -246,7 +251,7 @@ fn event_mcp_discovery_invoked() {
         vec![
             ("tools".to_string(), 33),
             ("prompts".to_string(), 5),
-            ("resources".to_string(), 8),
+            ("resources".to_string(), 5),
         ]
     );
 }

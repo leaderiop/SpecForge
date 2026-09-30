@@ -18,6 +18,7 @@ pub fn route(
         // Listing
         "tools/list" => crate::registry::handle_list_tools(state, id),
         "resources/list" => crate::registry::handle_list_resources(state, id),
+        "resources/templates/list" => crate::registry::handle_list_resource_templates(state, id),
         "prompts/list" => crate::registry::handle_list_prompts(state, id),
 
         // Resources

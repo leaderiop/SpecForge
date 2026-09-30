@@ -1,13 +1,13 @@
 use serde_json::Value;
 use specforge_ops::export::{self, Format, Schema};
 
-use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
 /// `specforge.export`: the export `specforge export` writes, through the
 /// same function and schema policy (ADR 0004 D3-a). `with_schema` and
 /// `no_schema` are the CLI's `--with-schema` and `--no-schema`.
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
@@ -15,11 +15,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     // The tool serves the agent formats; dot is `specforge.render`'s.
     let format = match format.parse::<Format>() {
         Ok(Format::Dot) | Err(_) => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!("Unknown format: {}", format),
-            );
+            return ToolOutcome::invalid_params(format!("Unknown format: {}", format));
         }
         Ok(format) => format,
     };
@@ -42,15 +38,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     };
 
     match crate::operations::export_graph(state, &request) {
-        Ok(json_str) => JsonRpcResponse::success(
-            id,
-            serde_json::json!({
-                "content": [{
-                    "type": "text",
-                    "text": json_str
-                }]
-            }),
-        ),
-        Err(err) => JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, err.message),
+        Ok(json_str) => ToolOutcome::text(json_str),
+        Err(err) => ToolOutcome::invalid_params(err.message),
     }
 }

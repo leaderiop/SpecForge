@@ -4,10 +4,10 @@ use specforge_emitter::outline::{
     OutlineOptions, render,
 };
 
-use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
@@ -27,14 +27,10 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         "dot" => OutlineFormat::Dot,
         "json" => OutlineFormat::Json,
         _ => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!(
-                    "Unknown format: {}. Expected: markdown, mermaid, dot, json",
-                    format
-                ),
-            );
+            return ToolOutcome::invalid_params(format!(
+                "Unknown format: {}. Expected: markdown, mermaid, dot, json",
+                format
+            ));
         }
     };
 
@@ -43,11 +39,10 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         "keys" => OutlineDetail::Keys,
         "all" => OutlineDetail::All,
         _ => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!("Unknown fields: {}. Expected: none, keys, all", fields),
-            );
+            return ToolOutcome::invalid_params(format!(
+                "Unknown fields: {}. Expected: none, keys, all",
+                fields
+            ));
         }
     };
 
@@ -56,11 +51,10 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         "effective" => DependencyDepth::Effective,
         "full" => DependencyDepth::Full,
         _ => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!("Unknown deps: {}. Expected: direct, effective, full", deps),
-            );
+            return ToolOutcome::invalid_params(format!(
+                "Unknown deps: {}. Expected: direct, effective, full",
+                deps
+            ));
         }
     };
 
@@ -73,13 +67,5 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     let outline = OutlineIntermediate_from_manifests(&state.manifests);
     let output = render(&outline, &options);
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": output
-            }]
-        }),
-    )
+    ToolOutcome::text(output)
 }

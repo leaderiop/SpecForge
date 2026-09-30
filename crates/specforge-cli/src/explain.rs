@@ -1926,7 +1926,13 @@ mod tests {
                 if !is_rust || !parts.contains(&"src") {
                     continue;
                 }
-                "core".to_string()
+                // The coverage rule is a shared crate owned by the testing
+                // extension (ADR 0004, D2-f); its codes are that extension's.
+                if rel_str.starts_with("crates/specforge-coverage/") {
+                    "@specforge/testing".to_string()
+                } else {
+                    "core".to_string()
+                }
             };
             if file_name == "tests.rs"
                 || file_name.ends_with("_tests.rs")

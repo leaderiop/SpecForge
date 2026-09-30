@@ -4,39 +4,29 @@ use specforge_common::AnalyzerConfig;
 use specforge_common::inference;
 use specforge_common::inference::discovery::SourceDiscoveryConfig;
 
-use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, _args: Value) -> ToolOutcome {
     let project_root = match &state.project_root {
         Some(p) => p.clone(),
         None => {
-            return JsonRpcResponse::success(
-                id,
-                json!({
-                    "content": [{ "type": "text", "text": json!({
-                        "summary": { "files_total": 0, "files_analyzed": 0, "entities_produced": 0 },
-                        "unanalyzed": [],
-                        "stale": [],
-                        "deleted": [],
-                        "message": "No project root available"
-                    }).to_string() }]
-                }),
-            );
+            return ToolOutcome::ok(json!({
+                "summary": { "files_total": 0, "files_analyzed": 0, "entities_produced": 0 },
+                "unanalyzed": [],
+                "stale": [],
+                "deleted": [],
+                "message": "No project root available"
+            }));
         }
     };
 
     let manifest = match inference::load_inference_manifest(&project_root) {
         Ok(m) => m,
         Err(e) => {
-            return JsonRpcResponse::success(
-                id,
-                json!({
-                    "content": [{ "type": "text", "text": json!({
-                        "error": e,
-                    }).to_string() }]
-                }),
-            );
+            return ToolOutcome::ok(json!({
+                "error": e,
+            }));
         }
     };
 
@@ -75,10 +65,5 @@ pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespons
         "deleted": deleted,
     });
 
-    JsonRpcResponse::success(
-        id,
-        json!({
-            "content": [{ "type": "text", "text": result.to_string() }]
-        }),
-    )
+    ToolOutcome::ok(result)
 }

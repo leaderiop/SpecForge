@@ -198,9 +198,18 @@ fn initialize_registers_resources() {
             "specforge://schema",
         ]
     );
-    // Registered before the first request is served.
+    // Registered before the first request is served: five plain resources,
+    // three templated ones.
     let listed = call(&mut server, "resources/list", json!({}));
-    assert_eq!(listed["result"]["resources"].as_array().unwrap().len(), 8);
+    assert_eq!(listed["result"]["resources"].as_array().unwrap().len(), 5);
+    let templates = call(&mut server, "resources/templates/list", json!({}));
+    assert_eq!(
+        templates["result"]["resourceTemplates"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
 }
 
 #[test]
@@ -529,8 +538,19 @@ fn list_resources_reflects_extension_resources() {
         .iter()
         .map(|r| r["uri"].as_str().unwrap())
         .collect();
-    assert!(uris.contains(&"specforge://ext/hello/{name}"), "{uris:?}");
     assert!(uris.contains(&"specforge://graph"), "core resources stay");
+    // The extension's resource is templated.
+    let resp = call(&mut server, "resources/templates/list", json!({}));
+    let templates: Vec<&str> = resp["result"]["resourceTemplates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["uriTemplate"].as_str().unwrap())
+        .collect();
+    assert!(
+        templates.contains(&"specforge://ext/hello/{name}"),
+        "{templates:?}"
+    );
 }
 
 // B:list_mcp_prompts — verify unit "returns core-provided descriptors when no extensions"
@@ -642,13 +662,23 @@ fn list_resources_core_only() {
     let mut server = init_server();
     // No extensions installed — should still return core resources
     let resp = call(&mut server, "resources/list", json!({}));
-    let resources = resp["result"]["resources"].as_array().unwrap();
-    let mut uris: Vec<&str> = resources
+    let resp_templates = call(&mut server, "resources/templates/list", json!({}));
+    let mut uris: Vec<&str> = resp["result"]["resources"]
+        .as_array()
+        .unwrap()
         .iter()
         .map(|r| r["uri"].as_str().unwrap())
+        .chain(
+            resp_templates["result"]["resourceTemplates"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|t| t["uriTemplate"].as_str().unwrap()),
+        )
         .collect();
     uris.sort_unstable();
-    // Exactly the core resources: none contributed by an extension.
+    // Exactly the core resources, plain and templated: none contributed by
+    // an extension.
     assert_eq!(
         uris,
         vec![

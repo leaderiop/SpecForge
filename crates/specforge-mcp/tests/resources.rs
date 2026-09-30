@@ -813,12 +813,12 @@ fn context_entity_template_with_kinds_query() {
 #[test]
 fn context_entity_template_registered() {
     let mut server = test_server();
-    let resp = call(&mut server, "resources/list", json!({}));
-    let uris: Vec<&str> = resp["result"]["resources"]
+    let resp = call(&mut server, "resources/templates/list", json!({}));
+    let uris: Vec<&str> = resp["result"]["resourceTemplates"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|r| r["uri"].as_str().unwrap())
+        .map(|r| r["uriTemplate"].as_str().unwrap())
         .collect();
     assert!(
         uris.contains(&"specforge://context/{entity_id}"),
