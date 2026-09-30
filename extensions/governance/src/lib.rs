@@ -25,7 +25,9 @@ impl Contributions for Governance {
         c.meta.peer_dependencies.push(PeerDependency {
             name: "@specforge/software".to_string(),
             version: "^1.0".to_string(),
-            optional: false,
+            // Only ConstrainsBehavior targets a software kind (behavior):
+            // governance works without software (its manifest spec).
+            optional: true,
         });
         c.meta.peer_dependencies.push(PeerDependency {
             name: "@specforge/product".to_string(),

@@ -196,6 +196,60 @@ fn all_failed_extensions_leave_a_structural_compile() {
     );
 }
 
+/// `@specforge/formal` requires `@specforge/software`: without it the
+/// compile fails with E027, which says what to install.
+#[specforge_test(
+    invariant = "peer_dependency_satisfaction",
+    verify = "unsatisfied peer dependency produces an error diagnostic"
+)]
+fn a_missing_required_peer_fails_the_compile() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "extensions": ["@specforge/formal"]
+        }),
+        &[("a.spec", "term alpha \"Alpha\" {\n}\n")],
+    );
+
+    let diagnostics = compile(dir.path()).diagnostics();
+
+    let e027: Vec<_> = diagnostics.iter().filter(|d| d.code == "E027").collect();
+    assert_eq!(e027.len(), 1, "{diagnostics:?}");
+    assert!(
+        e027[0].message.contains("'@specforge/formal'")
+            && e027[0].message.contains("'@specforge/software'"),
+        "{e027:?}"
+    );
+    assert_eq!(
+        e027[0].suggestion.as_deref(),
+        Some("install it with: specforge add @specforge/software")
+    );
+}
+
+/// Optional peers may be absent: software (optional product) and testing
+/// (optional software, governance) load alone without a peer error.
+#[specforge_test(
+    invariant = "peer_dependency_satisfaction",
+    verify = "satisfied peer dependencies pass validation"
+)]
+fn missing_optional_peers_are_not_reported() {
+    for extension in ["@specforge/software", "@specforge/testing"] {
+        let dir = project(
+            serde_json::json!({
+                "name": "p", "version": "0.1.0", "extensions": [extension]
+            }),
+            &[("a.spec", "spec \"p\" {\n}\n")],
+        );
+
+        let diagnostics = compile(dir.path()).diagnostics();
+
+        assert!(
+            !codes(&diagnostics).contains(&"E027"),
+            "{extension}: {diagnostics:?}"
+        );
+    }
+}
+
 /// A project with an extension loaded is not in structural-only mode.
 #[test]
 fn a_loaded_extension_means_no_i002() {

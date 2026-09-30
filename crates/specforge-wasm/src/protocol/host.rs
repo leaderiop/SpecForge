@@ -1,5 +1,3 @@
-use specforge_common::Diagnostic;
-
 use crate::runtime::{WasmCallResult, WasmRuntime};
 
 use super::PROTOCOL_VERSION;
@@ -167,36 +165,6 @@ impl<'a> ProtocolHost<'a> {
         }
 
         Ok(descs)
-    }
-
-    /// Validate that all required peer dependencies are satisfied.
-    pub fn validate_peer_dependencies(
-        &self,
-        response: &HandshakeResponse,
-        loaded_extensions: &[&str],
-    ) -> Vec<Diagnostic> {
-        let mut diagnostics = Vec::new();
-        for dep in &response.peer_dependencies {
-            if dep.optional {
-                continue;
-            }
-            if !loaded_extensions.contains(&dep.name.as_str()) {
-                diagnostics.push(Diagnostic {
-                    code: "E028".to_string(),
-                    severity: specforge_common::Severity::Error,
-                    message: format!(
-                        "extension '{}' requires peer dependency '{}' ({}), but it is not loaded",
-                        response.name, dep.name, dep.version
-                    ),
-                    span: None,
-                    suggestion: Some(format!(
-                        "add '{}' to the extensions list in specforge.json",
-                        dep.name
-                    )),
-                });
-            }
-        }
-        diagnostics
     }
 
     /// Helper: describe a category and parse items into typed Vec<T>.

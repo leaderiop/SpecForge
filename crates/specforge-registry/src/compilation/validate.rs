@@ -77,7 +77,10 @@ pub fn detect_duplicate_entity_kinds(manifests: &[ManifestV2]) -> Vec<Diagnostic
     diagnostics
 }
 
-/// Validate peer dependencies against installed extensions.
+/// Validate peer dependencies against installed extensions: a required
+/// peer must be installed (E027), and every installed peer, optional or
+/// not, must satisfy its range (E027; W062 for malformed semver). An
+/// optional peer that is not installed is fine.
 pub fn validate_peer_dependencies(manifests: &[ManifestV2]) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
@@ -89,6 +92,7 @@ pub fn validate_peer_dependencies(manifests: &[ManifestV2]) -> Vec<Diagnostic> {
     for manifest in manifests {
         for peer in &manifest.peer_dependencies {
             match installed.get(peer.name.as_str()) {
+                None if peer.optional => {}
                 None => {
                     diagnostics.push(Diagnostic {
                         code: "E027".to_string(),

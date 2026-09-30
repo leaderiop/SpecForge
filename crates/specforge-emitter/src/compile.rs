@@ -7,7 +7,7 @@ use specforge_registry::{
         EntityView, detect_identifier_length_violations, detect_mistyped_references,
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
     },
-    validate_manifest, validate_manifest_consistency_with_peers,
+    validate_manifest, validate_manifest_consistency_with_peers, validate_peer_dependencies,
     validation_engine::{ValidationEntity, ValidationRulePattern, execute_pattern},
 };
 use specforge_resolver::{ResolvedProject, resolve_project};
@@ -250,6 +250,10 @@ pub fn load_extensions(
             manifest, &manifests,
         ));
     }
+    // Every required peer is loaded, and every loaded peer is in range
+    // (E027). The extension still registers: an error here fails the
+    // check without turning each of its entities into an E024.
+    diagnostics.extend(validate_peer_dependencies(&manifests));
 
     manifests
 }

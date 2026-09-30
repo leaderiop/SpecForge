@@ -26,7 +26,8 @@ invariant extension_load_order_determinism "Extension Load Order Determinism" {
 invariant peer_dependency_satisfaction "Peer Dependency Satisfaction" {
   guarantee """
     If an extension declares peer dependencies, the compiler MUST verify that
-    all declared peers are installed and satisfy the declared semver ranges.
+    all declared required peers are installed, and that every installed peer
+    satisfies its declared semver range. An optional peer may be absent.
     Unsatisfied peer dependencies MUST produce an error diagnostic (E-level), not
     a silent degradation.
   """

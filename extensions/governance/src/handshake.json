@@ -15,7 +15,7 @@
   "peer_dependencies": [
     {
       "name": "@specforge/software",
-      "optional": false,
+      "optional": true,
       "version": "^1.0"
     },
     {

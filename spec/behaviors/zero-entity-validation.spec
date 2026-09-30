@@ -307,21 +307,27 @@ behavior validate_peer_dependencies "Validate Peer Dependencies" {
   }
   ensures {
     dependencies_validated "Every peer dependency checked against installed extensions for semver compatibility"
-    unsatisfied_blocked    "Unsatisfied peer dependencies produce hard error diagnostics and prevent registry population"
+    unsatisfied_blocked    "Unsatisfied peer dependencies produce hard error diagnostics that fail the check"
     loading_failed_emitted "extension_loading_failed event emitted for extensions with unmet dependencies"
   }
   contract   """
-    During extension loading, the compiler MUST validate that every
-    peer dependency declared in an extension's manifest is satisfied by
-    an installed extension at a compatible semver version. Unsatisfied
-    peer dependencies MUST produce a hard error diagnostic naming the
-    missing extension and required version range. This check MUST occur
-    before registry population to prevent partial registration from
-    extensions with unmet dependencies.
+    During extension loading, once every extension is loaded, the compiler
+    MUST validate that every required peer dependency declared in an
+    extension's manifest is satisfied by an installed extension at a
+    compatible semver version. An optional peer that is not installed is
+    not an error; an optional peer that is installed MUST satisfy its
+    range. Unsatisfied peer dependencies MUST produce a hard error
+    diagnostic (E027) naming the missing extension and required version
+    range, which fails the check. The extension's kinds are still
+    registered, so its entities are checked rather than each reported as
+    an unknown kind (E024).
   """
   verify unit "satisfied peer dependency passes validation"
   verify unit "missing peer dependency produces hard error"
   verify unit "incompatible version produces hard error with required range"
+  verify unit "missing optional peer dependency passes validation"
+  verify unit "installed optional peer outside its range produces hard error"
+  verify integration "specforge check reports a missing required peer dependency"
   verify contract "Validate Peer Dependencies: peer dependency validation holds — manifests_available, dependencies_validated, unsatisfied_blocked, loading_failed_emitted"
 }
 

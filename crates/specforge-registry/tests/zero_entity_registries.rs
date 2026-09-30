@@ -1476,6 +1476,62 @@ fn peer_deps_incompatible_version() {
 
 #[spec(
     behavior = "validate_peer_dependencies",
+    verify = "missing optional peer dependency passes validation"
+)]
+fn peer_deps_missing_optional_peer_passes() {
+    let m: ManifestV2 = serde_json::from_str(
+        r#"{"name":"@specforge/software","version":"1.0.0","manifestVersion":2,"wasmPath":"software.wasm",
+            "peerDependencies":[{"name":"@specforge/product","version":"^1.0","optional":true}]}"#,
+    )
+    .unwrap();
+    let diags = validate_peer_dependencies(&[m]);
+    assert!(diags.is_empty(), "{diags:?}");
+}
+
+/// Governance works without software (only ConstrainsBehavior targets a
+/// software kind), so its peer on software is optional; with the peer
+/// check on compile, a required one would fail governance-only projects.
+#[spec(
+    behavior = "ge_declare_manifest",
+    verify = "peer_dependencies includes optional @specforge/software"
+)]
+fn governance_peer_on_software_is_optional() {
+    let handshake = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../extensions/governance/src/handshake.json");
+    let handshake: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(handshake).unwrap()).unwrap();
+    let software = handshake["peer_dependencies"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["name"] == "@specforge/software")
+        .expect("governance declares a peer on software");
+    assert_eq!(software["version"], "^1.0");
+    assert_eq!(software["optional"], true);
+}
+
+#[spec(
+    behavior = "validate_peer_dependencies",
+    verify = "installed optional peer outside its range produces hard error"
+)]
+fn peer_deps_installed_optional_peer_is_range_checked() {
+    let product: ManifestV2 = serde_json::from_str(
+        r#"{"name":"@specforge/product","version":"2.0.0","manifestVersion":2,"wasmPath":"product.wasm"}"#,
+    )
+    .unwrap();
+    let software: ManifestV2 = serde_json::from_str(
+        r#"{"name":"@specforge/software","version":"1.0.0","manifestVersion":2,"wasmPath":"software.wasm",
+            "peerDependencies":[{"name":"@specforge/product","version":"^1.0","optional":true}]}"#,
+    )
+    .unwrap();
+    let diags = validate_peer_dependencies(&[product, software]);
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert_eq!(diags[0].code, "E027");
+    assert!(diags[0].message.contains("^1.0") && diags[0].message.contains("2.0.0"));
+}
+
+#[spec(
+    behavior = "validate_peer_dependencies",
     verify = "Validate Peer Dependencies: peer dependency validation holds — manifests_available, dependencies_validated, unsatisfied_blocked, loading_failed_emitted"
 )]
 fn peer_deps_contract() {

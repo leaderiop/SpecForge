@@ -154,6 +154,45 @@ fn check_with_every_extension_unavailable_exits_cleanly() {
     assert_eq!(codes, ["E028", "E028", "I002"]);
 }
 
+// === validate_peer_dependencies ===
+
+#[specforge_test(
+    behavior = "validate_peer_dependencies",
+    verify = "specforge check reports a missing required peer dependency"
+)]
+fn check_reports_a_missing_required_peer() {
+    // @specforge/cargo-test requires @specforge/testing.
+    let dir = setup_project(&[
+        (
+            "specforge.json",
+            r#"{ "name": "p", "version": "0.1.0", "extensions": ["@specforge/cargo-test"] }"#,
+        ),
+        ("main.spec", "spec \"p\" {\n}\n"),
+    ]);
+
+    let output = specforge_cmd()
+        .arg("check")
+        .arg("--format=json")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1));
+    let diagnostics: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let e027: Vec<&serde_json::Value> = diagnostics
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|d| d["code"] == "E027")
+        .collect();
+    assert_eq!(e027.len(), 1, "{diagnostics}");
+    assert_eq!(e027[0]["severity"], "Error");
+    assert_eq!(
+        e027[0]["suggestion"],
+        "install it with: specforge add @specforge/testing"
+    );
+}
+
 // === check_mode_for_ci ===
 
 #[specforge_test(
