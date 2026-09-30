@@ -1,0 +1,11 @@
+{
+  "name": "fx1",
+  "version": "0.1.0",
+  "spec_root": "spec",
+  "extensions": [
+    "@specforge/software",
+    "@specforge/testing",
+    "@specforge/formal",
+    "@specforge/product"
+  ]
+}
