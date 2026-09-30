@@ -5,12 +5,11 @@
 //! events. Rebuilds run through `build_graph_with_config` with the extension
 //! registries, so watch diagnostics match `specforge check` byte for byte.
 
-use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 
 use specforge_common::Severity;
-use specforge_graph::{GraphConfig, build_graph_with_config};
+use specforge_graph::build_graph_with_config;
 use specforge_watch::{ImportDag, IncrementalPipeline, SpecWatcher};
 
 pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
@@ -274,56 +273,7 @@ fn cold_build(
     IncrementalPipeline,
 ) {
     let (ctx, runtime) = crate::pipeline::compile_with_runtime(path);
-    let known_extension_keywords: HashMap<String, String> = ctx
-        .manifests
-        .iter()
-        .flat_map(|m| {
-            m.entity_kinds
-                .iter()
-                .map(move |k| (k.keyword.clone(), m.name.clone()))
-        })
-        .collect();
-    let body_parser_kinds: HashSet<String> = ctx
-        .manifests
-        .iter()
-        .flat_map(|m| m.entity_kinds.iter())
-        .filter(|k| k.has_body_parser)
-        .map(|k| k.keyword.clone())
-        .collect();
-    let suppressed_parse_error_ranges: Vec<(String, usize, usize)> = ctx
-        .resolved
-        .files
-        .iter()
-        .flat_map(|f| f.spec_file.entities.iter())
-        .filter(|e| body_parser_kinds.contains(e.kind.raw.as_str()))
-        .map(|e| {
-            (
-                e.span.file.as_str().to_string(),
-                e.span.start_line,
-                e.span.end_line,
-            )
-        })
-        .collect();
-    let single_reference_fields: std::collections::HashSet<(String, String)> = ctx
-        .field_registry
-        .iter()
-        .filter(|(_, _, entry)| {
-            entry.field_type == specforge_registry::ManifestFieldType::Reference
-        })
-        .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
-        .collect();
-    let graph_config = GraphConfig {
-        installed_keywords: ctx.kind_registry.keywords().cloned().collect(),
-        known_provider_schemes: HashSet::new(),
-        known_extension_keywords,
-        bidirectional_pairs: ctx.field_registry.bidirectional_pairs(),
-        suppressed_parse_error_ranges,
-        single_reference_fields,
-        absent_reference_targets: ctx
-            .field_registry
-            .absent_reference_targets(&ctx.kind_registry),
-        field_coercions: specforge_emitter::field_types::field_coercions(&ctx.field_registry),
-    };
+    let graph_config = ctx.graph_config.clone();
     let mut dag = ImportDag::new();
     for f in &ctx.resolved.files {
         let imports: Vec<String> = f

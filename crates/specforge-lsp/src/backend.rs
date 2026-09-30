@@ -7,7 +7,7 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
 use specforge_common::Sym;
-use specforge_graph::{GraphConfig, build_graph_with_config};
+use specforge_graph::build_graph_with_config;
 use specforge_registry::{KindRegistry, build_registries};
 use specforge_watch::{ImportDag, IncrementalPipeline};
 
@@ -172,45 +172,7 @@ impl Backend {
         // uses, seeded from the loaded extension registries — so LSP
         // diagnostics (duplicates, unresolved references, cycles) match.
         let mut state = state.write().await;
-        let single_reference_fields: std::collections::HashSet<(String, String)> = state
-            .field_registry()
-            .iter()
-            .filter(|(_, _, entry)| {
-                entry.field_type == specforge_registry::ManifestFieldType::Reference
-            })
-            .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
-            .collect();
-        // Body-parser kinds own syntax the core grammar does not parse;
-        // their E001s are suppressed exactly as the CLI suppresses them.
-        let body_parser_kinds: std::collections::HashSet<String> = state
-            .kind_registry()
-            .iter()
-            .filter(|(_, e)| e.has_body_parser)
-            .map(|(k, _)| k.clone())
-            .collect();
-        let suppressed_parse_error_ranges: Vec<(String, usize, usize)> = parsed
-            .iter()
-            .flat_map(|(path, sf)| {
-                sf.entities
-                    .iter()
-                    .filter(|e| body_parser_kinds.contains(e.kind.raw.as_str()))
-                    .map(move |e| (path.clone(), e.span.start_line, e.span.end_line))
-            })
-            .collect();
-        let graph_config = GraphConfig {
-            installed_keywords: state.kind_registry().keywords().cloned().collect(),
-            known_provider_schemes: std::collections::HashSet::new(),
-            known_extension_keywords: state.known_extension_keywords().clone(),
-            bidirectional_pairs: state.field_registry().bidirectional_pairs(),
-            suppressed_parse_error_ranges,
-            single_reference_fields,
-            absent_reference_targets: state
-                .field_registry()
-                .absent_reference_targets(state.kind_registry()),
-            field_coercions: specforge_emitter::field_types::field_coercions(
-                state.field_registry(),
-            ),
-        };
+        let graph_config = specforge_emitter::compile::graph_config(state.registries());
         let spec_files: Vec<specforge_parser::SpecFile> =
             parsed.iter().map(|(_, sf)| sf.clone()).collect();
         let (graph, build_diagnostics) = build_graph_with_config(&spec_files, &graph_config);

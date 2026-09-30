@@ -178,6 +178,43 @@ port Broken "Broken" {
     );
 }
 
+// Syntax the core grammar really fails on (a parenthesised annotation, a
+// literal union, an inline object): the E001s it produces inside a `type`
+// body are suppressed because `type` declares a body parser (plan 01, D10:
+// the suppression was dead code, filtering a vector that held no E001).
+#[specforge_test(
+    behavior = "delegate_body_parsing_to_extension",
+    verify = "extension-owned body syntax does not surface E001 parse errors"
+)]
+fn type_body_syntax_the_grammar_rejects_does_not_surface_parse_errors() {
+    let ctx = compile_with_builtins(
+        &["@specforge/software"],
+        &[(
+            "main.spec",
+            r#"type Money "Money" {
+  amount   Decimal @min(0)
+  currency "USD" | "EUR"
+  meta     { key: string }
+}
+"#,
+        )],
+    );
+
+    let e001: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "E001")
+        .collect();
+    assert!(
+        e001.is_empty(),
+        "a body-parser kind's body must not produce E001 parse errors, got: {e001:?}"
+    );
+    assert!(
+        ctx.graph.node("Money").is_some(),
+        "the type itself is still in the graph"
+    );
+}
+
 // B:parse_all_block_types — verify unit "a domain field named `kind` on a type is not flagged as an invalid meta-kind"
 #[specforge_test(
     behavior = "parse_all_block_types",

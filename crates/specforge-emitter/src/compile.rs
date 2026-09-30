@@ -37,6 +37,8 @@ pub struct CompilationContext {
     /// Raw extension manifests (needed for outline rendering).
     pub manifests: Vec<ManifestV2>,
     pub spec_root: std::path::PathBuf,
+    /// The inputs the graph was built with, for rebuilding it (watch).
+    pub graph_config: GraphConfig,
 }
 
 /// Run the full compilation pipeline.
@@ -75,7 +77,7 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
     };
     let resolved = resolve_project(&spec_root);
     diagnostics.extend(resolved.diagnostics.clone());
-    let graph_config = graph_config_for(&build, &resolved);
+    let graph_config = graph_config(&build);
 
     // 5. Build graph
     let spec_files: Vec<_> = resolved.files.iter().map(|f| f.spec_file.clone()).collect();
@@ -111,25 +113,14 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
         manifest_surfaces: build.manifest_surfaces,
         manifests: build.manifests,
         spec_root,
+        graph_config,
     }
 }
 
-/// The graph build's inputs from a registry build and the resolved files.
-fn graph_config_for(build: &RegistryBuild, resolved: &ResolvedProject) -> GraphConfig {
-    // Body-parser kinds own syntax the core grammar does not parse.
-    let suppressed_parse_error_ranges: Vec<(String, usize, usize)> = resolved
-        .files
-        .iter()
-        .flat_map(|f| f.spec_file.entities.iter())
-        .filter(|e| build.body_parser_kinds.contains(e.kind.raw.as_str()))
-        .map(|e| {
-            (
-                e.span.file.as_str().to_string(),
-                e.span.start_line,
-                e.span.end_line,
-            )
-        })
-        .collect();
+/// The graph build's inputs, from a registry build. Every surface that
+/// builds a graph (`check`, watch, the LSP) takes its `GraphConfig` from
+/// here, so none can drift.
+pub fn graph_config(build: &RegistryBuild) -> GraphConfig {
     GraphConfig {
         installed_keywords: build.kinds.keywords().cloned().collect(),
         known_provider_schemes: HashSet::new(),
@@ -139,7 +130,7 @@ fn graph_config_for(build: &RegistryBuild, resolved: &ResolvedProject) -> GraphC
         // so I004 can never fire (removed in plan 05, step R4).
         known_extension_keywords: build.keyword_owners.clone(),
         bidirectional_pairs: build.bidirectional_pairs.clone(),
-        suppressed_parse_error_ranges,
+        body_parser_kinds: build.body_parser_kinds.clone(),
         single_reference_fields: build.single_reference_fields.clone(),
         absent_reference_targets: build.absent_reference_targets.clone(),
         field_coercions: crate::field_types::field_coercions(&build.fields),
@@ -319,6 +310,7 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
         manifest_surfaces: Vec::new(),
         manifests: Vec::new(),
         spec_root,
+        graph_config: GraphConfig::default(),
     }
 }
 

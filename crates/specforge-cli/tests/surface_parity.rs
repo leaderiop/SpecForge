@@ -232,23 +232,6 @@ const EXPECTED_DIVERGENCES: &[Divergence] = &[
         extra: &[INCREMENTAL_MISMATCH],
         unstable: false,
     },
-    // D10: E001 suppression for body-parser kinds is dead code, so every
-    // surface reports the E001s inside the `type` body. On top of that the
-    // LSP's syntax-only fast path (C4-07) publishes only the E001 layer
-    // while the edited file has parse errors, so it drops the rest. Once
-    // D10 is closed the file parses cleanly and this row goes with it.
-    Divergence {
-        id: "D10",
-        fixture: "body_parser_type",
-        surface: Surface::Lsp,
-        missing: &[
-            "W002 warning main.spec:4",
-            "W004 warning main.spec:4",
-            "W010 warning main.spec:4",
-        ],
-        extra: &[],
-        unstable: false,
-    },
 ];
 
 // ── Normalized diagnostics ──────────────────────────────────────────────

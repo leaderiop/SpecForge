@@ -3,7 +3,7 @@ use specforge_common::{Diagnostic, Sym};
 use specforge_parser::{FieldValue, SpecFile};
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct GraphConfig {
     /// Provider schemes that are installed (e.g., "gh", "jira").
     /// Refs with schemes not in this set emit I005.
@@ -19,10 +19,12 @@ pub struct GraphConfig {
     /// Example: `("invariants", "enforced_by")` means an invariants/enforced_by 2-hop
     /// cycle is a known bidirectional relationship, not a real circular dependency.
     pub bidirectional_pairs: Vec<(String, String)>,
-    /// (file, start_line, end_line) ranges whose E001 parse errors are
-    /// suppressed: entity kinds that declare a body parser carry
-    /// extension-owned syntax the core grammar deliberately does not parse.
-    pub suppressed_parse_error_ranges: Vec<(String, usize, usize)>,
+    /// Entity kinds that declare a body parser: they carry extension-owned
+    /// syntax the core grammar deliberately does not parse, so E001 parse
+    /// errors inside their entities are not reported. Applied wherever
+    /// parse errors are collected, so an incremental rebuild uses the
+    /// file's current entities.
+    pub body_parser_kinds: HashSet<String>,
     /// (kind, field) pairs registered as single Reference fields. When
     /// non-empty, references are re-resolved with single-reference awareness
     /// (replacing the initial E003 diagnostics), creating edges for fields
@@ -84,10 +86,14 @@ where
 {
     let mut diagnostics = Vec::new();
 
-    // Surface parse errors as diagnostics so CLI/MCP consumers see them
+    // Surface parse errors as diagnostics so CLI/MCP consumers see them,
+    // except E001s inside a body-parser kind's entity.
     for spec_file in spec_files.clone() {
         for error in &spec_file.errors {
-            diagnostics.push(Diagnostic::from(error));
+            let diagnostic = Diagnostic::from(error);
+            if !inside_body_parser_entity(&diagnostic, spec_file, &config.body_parser_kinds) {
+                diagnostics.push(diagnostic);
+            }
         }
     }
 
@@ -200,8 +206,28 @@ where
     diagnostics
 }
 
-/// Link reference edges, resolve E003s (single-reference aware), emit W061
-/// cycle warnings, and apply the E001 suppression filter. Operates on a
+/// Whether `diagnostic` is an E001 that starts inside an entity of `spec_file`
+/// whose kind declares a body parser.
+fn inside_body_parser_entity(
+    diagnostic: &Diagnostic,
+    spec_file: &SpecFile,
+    body_parser_kinds: &HashSet<String>,
+) -> bool {
+    if diagnostic.code != "E001" || body_parser_kinds.is_empty() {
+        return false;
+    }
+    let Some(span) = &diagnostic.span else {
+        return false;
+    };
+    spec_file.entities.iter().any(|e| {
+        body_parser_kinds.contains(e.kind.raw.as_str())
+            && e.span.file == span.file
+            && (e.span.start_line..=e.span.end_line).contains(&span.start_line)
+    })
+}
+
+/// Link reference edges, resolve E003s (single-reference aware) and emit
+/// W061 cycle warnings. Operates on a
 /// live graph — the incremental pipeline reuses it after red-green node
 /// updates instead of rebuilding (C4-01).
 pub fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnostic> {
@@ -225,24 +251,6 @@ pub fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnos
             )
             .with_suggestion("break the cycle by removing or inverting one reference"),
         );
-    }
-
-    // Suppress E001 parse errors inside body-parser entity ranges.
-    if !config.suppressed_parse_error_ranges.is_empty() {
-        diagnostics.retain(|d| {
-            if d.code != "E001" {
-                return true;
-            }
-            let Some(span) = &d.span else { return true };
-            let file = span.file.as_str();
-            // Keep the parse error unless it lies within a suppressed range.
-            !config
-                .suppressed_parse_error_ranges
-                .iter()
-                .any(|(f, start, end)| {
-                    f == file && span.start_line >= *start && span.start_line <= *end
-                })
-        });
     }
 
     // Re-resolve references with single-reference field awareness. Replaces
