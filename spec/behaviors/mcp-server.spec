@@ -104,12 +104,13 @@ behavior list_mcp_resources "List MCP Resources" {
     Extension-contributed MCP resources (from manifest surfaces.mcp_resources)
     MUST be included alongside core resources. Disabled surface contributions
     MUST be excluded. The list MUST be complete and reflect the current set
-    of loaded extensions.
+    of loaded extensions. Every core resource it lists MUST be readable.
   """
   verify unit "returns all registered resource descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects resources from newly loaded extension"
   verify contract "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
+  verify unit "every listed core resource is readable"
 }
 
 behavior list_mcp_tools "List MCP Tools" {
@@ -132,13 +133,18 @@ behavior list_mcp_tools "List MCP Tools" {
     Extension-contributed MCP tools (from manifest surfaces.mcp_tools)
     and auto-promoted CLI commands MUST be included alongside core tools.
     Disabled surface contributions MUST be excluded. The list MUST be
-    complete and reflect the current set of loaded extensions.
+    complete and reflect the current set of loaded extensions. Every core
+    tool it lists MUST be callable: a call never fails as an unknown tool
+    or operation. Each core tool's inputSchema MUST advertise exactly the
+    arguments its handler reads.
   """
   verify unit "returns all registered tool descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects tools from newly loaded extension"
   verify contract "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
   verify unit "tools have categories"
+  verify unit "every listed core tool dispatches to its handler"
+  verify unit "each core tool's input schema advertises exactly the arguments its handler reads"
 }
 
 behavior list_mcp_prompts "List MCP Prompts" {
@@ -158,11 +164,13 @@ behavior list_mcp_prompts "List MCP Prompts" {
     The MCP server MUST return all registered prompt descriptors,
     including both core-provided and extension-contributed capabilities.
     The list MUST be complete and reflect the current set of loaded extensions.
+    Every core prompt it lists MUST resolve to a handler.
   """
   verify unit "returns all registered prompt descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects prompts from newly loaded extension"
   verify contract "List MCP Prompts: listing MCP prompts holds — server_initialized, complete_list_returned, discovery_emitted"
+  verify unit "every listed core prompt resolves to a handler"
 }
 
 // ---------------------------------------------------------------------------
