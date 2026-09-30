@@ -40,6 +40,36 @@ fn load_extension_surfaces(server: &mut McpServer) {
     );
 }
 
+/// What a cancellation must leave untouched: the registries, the graph, the
+/// diagnostics and the subscriptions.
+fn state_snapshot(server: &McpServer) -> Value {
+    let state = server.state();
+    let mut nodes: Vec<String> = state
+        .graph
+        .nodes()
+        .iter()
+        .map(|n| n.id.raw.to_string())
+        .collect();
+    nodes.sort();
+    let mut subscriptions: Vec<(String, String)> = state
+        .subscriptions
+        .values()
+        .flatten()
+        .map(|s| (s.client_id.clone(), s.channel.clone()))
+        .collect();
+    subscriptions.sort();
+    json!({
+        "tools": state.tool_registry,
+        "resources": state.resource_registry,
+        "prompts": state.prompt_registry,
+        "nodes": nodes,
+        "edges": state.graph.edge_count(),
+        "diagnostics": state.diagnostics.iter().map(|d| d.code.clone()).collect::<Vec<_>>(),
+        "subscriptions": subscriptions,
+        "initialized": state.is_initialized(),
+    })
+}
+
 fn init_server_with_project() -> (McpServer, TempDir) {
     let dir = TempDir::new().unwrap();
     let spec_dir = dir.path().join("spec");
@@ -150,12 +180,27 @@ fn initialize_registers_resources() {
     let resources = resp["result"]["resources"].as_array().unwrap();
     assert!(!resources.is_empty());
 
-    let uris: Vec<&str> = resources
+    let mut uris: Vec<&str> = resources
         .iter()
         .map(|r| r["uri"].as_str().unwrap())
         .collect();
-    assert!(uris.contains(&"specforge://graph"));
-    assert!(uris.contains(&"specforge://diagnostics"));
+    uris.sort_unstable();
+    assert_eq!(
+        uris,
+        vec![
+            "specforge://brief",
+            "specforge://context",
+            "specforge://context/{entity_id}",
+            "specforge://diagnostics",
+            "specforge://entities/{kind}",
+            "specforge://graph",
+            "specforge://graph/{entity_id}",
+            "specforge://schema",
+        ]
+    );
+    // Registered before the first request is served.
+    let listed = call(&mut server, "resources/list", json!({}));
+    assert_eq!(listed["result"]["resources"].as_array().unwrap().len(), 8);
 }
 
 #[test]
@@ -503,12 +548,27 @@ fn list_prompts_core_descriptors_no_extensions() {
     verify = "server state remains consistent after cancellation"
 )]
 fn cancel_state_consistent() {
-    let mut server = init_server();
-    // Cancel a non-existent request
+    let (mut server, _dir) = init_server_with_project();
+    specforge_mcp::subscriptions::subscribe(
+        server.state_mut(),
+        "client1",
+        "specforge/graphChanged",
+    );
+    let before = state_snapshot(&server);
+    assert_eq!(before["nodes"], json!(["greeting", "hello_world"]));
+
+    // Cancel a completed request, an unknown one, and one by MCP's
+    // notification.
+    call(&mut server, "ping", json!({}));
+    call(&mut server, "$/cancelRequest", json!({"id": 1}));
     call(&mut server, "$/cancelRequest", json!({"id": 999}));
-    // Server should still function normally after cancel
-    let resp = call(&mut server, "tools/list", json!({}));
-    assert!(resp["result"]["tools"].is_array());
+    server.handle_message(
+        &json!({"jsonrpc": "2.0", "method": "notifications/cancelled",
+            "params": {"requestId": 1}})
+        .to_string(),
+    );
+
+    assert_eq!(state_snapshot(&server), before);
 }
 
 #[test]
@@ -539,25 +599,27 @@ fn cancel_in_progress_best_effort() {
     verify = "server state remains consistent after cancellation"
 )]
 fn cancel_server_state_consistent() {
-    let mut server = init_server();
-    // Cancel a request
-    let _cancel = call(&mut server, "$/cancelRequest", json!({"id": 99}));
-    // Server should remain fully functional — tools, resources, prompts all available
-    let tools_resp = call(&mut server, "tools/list", json!({}));
+    let (mut server, _dir) = init_server_with_project();
+    let query = json!({"name": "specforge.query", "arguments": {"entity_id": "hello_world"}});
+    let answer = call(&mut server, "tools/call", query.clone());
     assert!(
-        tools_resp["result"]["tools"].is_array(),
-        "tools must still be listable after cancel"
+        answer["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("greeting")
     );
-    let resources_resp = call(&mut server, "resources/list", json!({}));
-    assert!(
-        resources_resp["result"]["resources"].is_array(),
-        "resources must still be listable after cancel"
-    );
-    let prompts_resp = call(&mut server, "prompts/list", json!({}));
-    assert!(
-        prompts_resp["result"]["prompts"].is_array(),
-        "prompts must still be listable after cancel"
-    );
+    let lists = |server: &mut McpServer| {
+        ["tools/list", "resources/list", "prompts/list"]
+            .map(|method| call(server, method, json!({}))["result"].clone())
+    };
+    let lists_before = lists(&mut server);
+
+    // Cancel the query that already answered.
+    call(&mut server, "$/cancelRequest", json!({"id": 1}));
+
+    // The same request gets the same answer, and every listing is unchanged.
+    assert_eq!(call(&mut server, "tools/call", query), answer);
+    assert_eq!(lists(&mut server), lists_before);
 }
 
 // B:list_mcp_resources — verify unit "returns core-provided descriptors when no extensions installed"
@@ -570,9 +632,24 @@ fn list_resources_core_only() {
     // No extensions installed — should still return core resources
     let resp = call(&mut server, "resources/list", json!({}));
     let resources = resp["result"]["resources"].as_array().unwrap();
-    assert!(
-        !resources.is_empty(),
-        "core resources must be provided even without extensions"
+    let mut uris: Vec<&str> = resources
+        .iter()
+        .map(|r| r["uri"].as_str().unwrap())
+        .collect();
+    uris.sort_unstable();
+    // Exactly the core resources: none contributed by an extension.
+    assert_eq!(
+        uris,
+        vec![
+            "specforge://brief",
+            "specforge://context",
+            "specforge://context/{entity_id}",
+            "specforge://diagnostics",
+            "specforge://entities/{kind}",
+            "specforge://graph",
+            "specforge://graph/{entity_id}",
+            "specforge://schema",
+        ]
     );
 }
 
@@ -585,10 +662,12 @@ fn list_tools_core_only() {
     let mut server = init_server();
     let resp = call(&mut server, "tools/list", json!({}));
     let tools = resp["result"]["tools"].as_array().unwrap();
-    assert!(
-        !tools.is_empty(),
-        "core tools must be provided even without extensions"
-    );
+    assert_eq!(tools.len(), 33, "the 33 core tools");
+    for tool in tools {
+        let name = tool["name"].as_str().unwrap();
+        assert!(name.starts_with("specforge."), "{name} is not core");
+        assert_ne!(tool["category"], "extension", "{tool}");
+    }
 }
 
 // B:list_mcp_prompts — verify unit "returns core-provided descriptors when no extensions installed"
@@ -600,9 +679,20 @@ fn list_prompts_core_only() {
     let mut server = init_server();
     let resp = call(&mut server, "prompts/list", json!({}));
     let prompts = resp["result"]["prompts"].as_array().unwrap();
-    assert!(
-        !prompts.is_empty(),
-        "core prompts must be provided even without extensions"
+    let mut names: Vec<&str> = prompts
+        .iter()
+        .map(|p| p["name"].as_str().unwrap())
+        .collect();
+    names.sort_unstable();
+    assert_eq!(
+        names,
+        vec![
+            "specforge://prompts/context",
+            "specforge://prompts/explore",
+            "specforge://prompts/infer",
+            "specforge://prompts/review",
+            "specforge://prompts/trace",
+        ]
     );
 }
 
@@ -612,19 +702,29 @@ fn list_prompts_core_only() {
     verify = "existing session continues after rejected reinitialization"
 )]
 fn reinit_existing_session_continues() {
-    let mut server = init_server();
-    // Try to initialize again
-    let resp2 = call(&mut server, "initialize", json!({}));
-    // Should be rejected
-    assert!(
-        resp2["error"].is_object(),
-        "second initialize should be rejected"
+    let (mut server, _dir) = init_server_with_project();
+    let before = state_snapshot(&server);
+    let other = TempDir::new().unwrap();
+    // Try to initialize again, even onto another project
+    let resp2 = call(
+        &mut server,
+        "initialize",
+        json!({"projectRoot": other.path().to_str().unwrap()}),
     );
-    // But existing session should still work
-    let tools_resp = call(&mut server, "tools/list", json!({}));
+    assert_eq!(resp2["error"]["code"], -32600, "{resp2}");
+    // The session keeps its project, graph and registries, and serves it.
+    assert_eq!(state_snapshot(&server), before);
+    let answer = call(
+        &mut server,
+        "tools/call",
+        json!({"name": "specforge.query", "arguments": {"entity_id": "hello_world"}}),
+    );
+    assert_ne!(answer["result"]["isError"], true, "{answer}");
     assert!(
-        tools_resp["result"]["tools"].is_array(),
-        "session must continue after rejected reinit"
+        answer["result"]["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("hello_world")
     );
 }
 

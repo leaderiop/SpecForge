@@ -137,7 +137,23 @@ fn graph_notification_format() {
     let notification = format_graph_notification(&delta);
     assert_eq!(notification["jsonrpc"], "2.0");
     assert_eq!(notification["method"], "specforge/graphChanged");
-    assert!(notification["params"]["added_nodes"].is_array());
+    assert_eq!(
+        notification["params"],
+        serde_json::json!({
+            "added_nodes": ["alpha"],
+            "removed_nodes": [],
+            "added_edges": 0,
+            "removed_edges": 0
+        })
+    );
+
+    // And the other way round: alpha removed.
+    let back = format_graph_notification(&compute_graph_delta(&new, &old));
+    assert_eq!(back["params"]["added_nodes"], serde_json::json!([]));
+    assert_eq!(
+        back["params"]["removed_nodes"],
+        serde_json::json!(["alpha"])
+    );
 }
 
 #[test]
@@ -191,7 +207,23 @@ fn diagnostics_notification_format() {
     let notification = format_diagnostics_notification(&delta);
     assert_eq!(notification["jsonrpc"], "2.0");
     assert_eq!(notification["method"], "specforge/diagnosticsChanged");
-    assert!(notification["params"]["added"].is_array());
+    assert_eq!(
+        notification["params"],
+        serde_json::json!({
+            "added": [{"code": "W001", "severity": "Warning", "message": "test warning"}],
+            "removed": []
+        })
+    );
+
+    // A fixed warning shows up as removed.
+    let fixed = format_diagnostics_notification(&compute_diagnostics_delta(&new, &old));
+    assert_eq!(
+        fixed["params"],
+        serde_json::json!({
+            "added": [],
+            "removed": [{"code": "W001", "severity": "Warning", "message": "test warning"}]
+        })
+    );
 }
 
 #[test]
@@ -233,6 +265,22 @@ fn diagnostics_no_notification_when_unchanged() {
     let delta = compute_diagnostics_delta(&diags, &diags);
     assert!(delta.added.is_empty());
     assert!(delta.removed.is_empty());
+
+    // A subscribed client gets nothing when a compile leaves the
+    // diagnostics as they were ...
+    let mut state = McpState::new();
+    subscriptions::subscribe(&mut state, "c1", DIAGNOSTICS_CHANNEL);
+    state.diagnostics = diags.clone();
+    enqueue_compile_notifications(&mut state, &Graph::new(), &diags);
+    assert!(
+        state.notification_outbox.is_empty(),
+        "{:?}",
+        state.notification_outbox
+    );
+    // ... and one notification when they change.
+    enqueue_compile_notifications(&mut state, &Graph::new(), &[]);
+    assert_eq!(state.notification_outbox.len(), 1);
+    assert_eq!(state.notification_outbox[0]["method"], DIAGNOSTICS_CHANNEL);
 }
 
 #[test]
