@@ -1121,6 +1121,10 @@ mod tests {
         code: String,
         owner: String,
         location: String,
+        /// The literal is compared against (`d.code == "E059"`, a
+        /// `matches!` pattern, a `const` list of codes to look for), so it
+        /// doesn't keep a catalog entry alive.
+        consumer: bool,
     }
 
     /// Replace test-only items (`#[cfg(test)]` / `#[test]` and the item that
@@ -1162,8 +1166,9 @@ mod tests {
         out
     }
 
-    /// Find `"E###"`-style literals on a line.
-    fn code_literals(line: &str) -> Vec<&str> {
+    /// Find `"E###"`-style literals on a line, each with the byte range of
+    /// the quoted literal.
+    fn code_literals(line: &str) -> Vec<(&str, std::ops::Range<usize>)> {
         let b = line.as_bytes();
         let mut found = Vec::new();
         for i in 0..b.len().saturating_sub(5) {
@@ -1172,10 +1177,30 @@ mod tests {
                 && b[i + 2..i + 5].iter().all(u8::is_ascii_digit)
                 && b[i + 5] == b'"'
             {
-                found.push(&line[i + 1..i + 5]);
+                found.push((&line[i + 1..i + 5], i..i + 6));
             }
         }
         found
+    }
+
+    /// Whether the code literal on `line` at `range` is only compared
+    /// against (a consumer) rather than emitted: an operand of `==`/`!=`,
+    /// a match or `matches!` pattern (`"E003" | "E025" =>`), or an item of
+    /// a `const` array of codes to look for (`[&str; N]`). A value after
+    /// `=>`, in a struct field, a call or a `&str` constant is emitted.
+    fn is_consumer(line: &str, range: &std::ops::Range<usize>) -> bool {
+        let before = line[..range.start].trim_end();
+        let after = line[range.end..].trim_start();
+        let alternative = |s: &str| s.starts_with('|') && !s.starts_with("||");
+        before.ends_with("==")
+            || before.ends_with("!=")
+            || after.starts_with("==")
+            || after.starts_with("!=")
+            || (before.ends_with('|') && !before.ends_with("||"))
+            || alternative(after)
+            || (after.starts_with("=>") && !before.ends_with("=>"))
+            || line.contains("matches!(")
+            || (line.contains("const ") && line.contains(": [&str"))
     }
 
     fn walk(dir: &Path, files: &mut Vec<PathBuf>) {
@@ -1247,7 +1272,7 @@ mod tests {
                 src.lines().collect()
             };
             for (index, line) in lines.iter().enumerate() {
-                for code in code_literals(line) {
+                for (code, range) in code_literals(line) {
                     if is_third_party(code) {
                         continue;
                     }
@@ -1255,11 +1280,47 @@ mod tests {
                         code: code.to_string(),
                         owner: owner.clone(),
                         location: format!("{rel_str}:{}", index + 1),
+                        consumer: is_consumer(line, &range),
                     });
                 }
             }
         }
         sites
+    }
+
+    /// C2: a code that is only compared against isn't emitted, so a catalog
+    /// entry can't outlive its last emitter through a consumer.
+    #[test]
+    fn consumer_references_do_not_count_as_emitting() {
+        let consumers = [
+            r#"        Err(e) if e.code == "E059" => err_invalid("#,
+            r#"            if d.code != "E001" {"#,
+            r#"        if !matches!(diag.code.as_str(), "E003" | "E025") {"#,
+            r#"        if matches!(diag.code.as_str(), "E003") {"#,
+            r#"            "E003" | "E025" => fix(diag),"#,
+            r#"pub const CONFLICT_CODES: [&str; 2] = ["E017", "W018"];"#,
+        ];
+        for line in consumers {
+            for (code, range) in code_literals(line) {
+                assert!(
+                    is_consumer(line, &range),
+                    "{code} in `{line}` is a consumer"
+                );
+            }
+        }
+        let emitters = [
+            r#"            Diagnostic::warning("E047", format!("claim"))"#,
+            r#"                code: "E028".to_string(),"#,
+            r#"      "code": "W041","#,
+            r#"const BUDGET_TOO_SMALL: &str = "E062";"#,
+            r#"            Kind::Missing => "E025","#,
+            r#"        fail("E034", "bad")"#,
+        ];
+        for line in emitters {
+            for (code, range) in code_literals(line) {
+                assert!(!is_consumer(line, &range), "{code} in `{line}` is emitted");
+            }
+        }
     }
 
     /// The catalog is enforced: every emitted code is registered under the
@@ -1279,6 +1340,17 @@ mod tests {
         let mut problems = Vec::new();
         let mut emitted = BTreeSet::new();
         for site in &sites {
+            if site.consumer {
+                // A consumer may test for another owner's code, but the code
+                // it looks for must exist.
+                if !catalog.contains_key(site.code.as_str()) {
+                    problems.push(format!(
+                        "{} compared against at {} is not in explain.rs CATALOG; nothing emits it",
+                        site.code, site.location
+                    ));
+                }
+                continue;
+            }
             emitted.insert(site.code.as_str());
             match catalog.get(site.code.as_str()) {
                 None => problems.push(format!(
