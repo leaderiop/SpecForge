@@ -29,3 +29,4 @@ tests/spec/
 # SpecForge: test results written by `specforge collect`, and runner reports
 /specforge-report.json
 .specforge/
+.claude/worktrees/

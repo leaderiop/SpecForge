@@ -15,7 +15,7 @@ use specforge_watch::{ImportDag, IncrementalPipeline, SpecWatcher};
 
 pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     // 1. Cold build via the standard compile pipeline (extensions, registries).
-    let (ctx, mut pipeline) = cold_build(path);
+    let (mut ctx, mut runtime, mut pipeline) = cold_build(path);
     pipeline.set_verify_incremental(verify_incremental);
     let spec_root: PathBuf =
         std::fs::canonicalize(&ctx.spec_root).unwrap_or_else(|_| ctx.spec_root.clone());
@@ -52,7 +52,7 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     };
 
     let file_count = ctx.resolved.files.len();
-    let diags = pipeline.diagnostics();
+    let diags = full_diagnostics(&pipeline, &ctx, &runtime);
     let errors = diags
         .iter()
         .filter(|d| d.severity == Severity::Error)
@@ -135,12 +135,13 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
             if debug {
                 eprintln!("[watch] reload branch entered");
             }
-            let (new_ctx, new_pipeline) = cold_build(path);
+            let (new_ctx, new_runtime, new_pipeline) = cold_build(path);
             if debug {
                 eprintln!("[watch] reload cold_build done");
             }
             pipeline = new_pipeline;
             pipeline.set_verify_incremental(verify_incremental);
+            runtime = new_runtime;
             if json {
                 println!(
                     "{}",
@@ -159,6 +160,7 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
                     new_ctx.resolved.files.len()
                 );
             }
+            ctx = new_ctx;
             continue;
         }
 
@@ -171,13 +173,12 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
             std::fs::read_to_string(spec_root.join(f)).ok()
         });
 
-        let errors = result
-            .diagnostics
+        let diagnostics = full_diagnostics(&pipeline, &ctx, &runtime);
+        let errors = diagnostics
             .iter()
             .filter(|d| d.severity == Severity::Error)
             .count();
-        let warnings = result
-            .diagnostics
+        let warnings = diagnostics
             .iter()
             .filter(|d| d.severity == Severity::Warning)
             .count();
@@ -262,8 +263,14 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
 /// Cold-build the project: full compile pipeline + seeded incremental
 /// pipeline. Used at startup AND whenever the extension environment changes
 /// (specforge.json / .wasm edits) — hardening-plan H3 / R-5.
-fn cold_build(path: &Path) -> (crate::pipeline::CompilationContext, IncrementalPipeline) {
-    let ctx = crate::pipeline::compile(path);
+fn cold_build(
+    path: &Path,
+) -> (
+    crate::pipeline::CompilationContext,
+    specforge_component::ComponentRuntime,
+    IncrementalPipeline,
+) {
+    let (ctx, runtime) = crate::pipeline::compile_with_runtime(path);
     let known_extension_keywords: HashMap<String, String> = ctx
         .manifests
         .iter()
@@ -339,5 +346,27 @@ fn cold_build(path: &Path) -> (crate::pipeline::CompilationContext, IncrementalP
         build_diagnostics,
         graph_config,
     );
-    (ctx, pipeline)
+    (ctx, runtime, pipeline)
+}
+
+/// What `specforge check` reports for the pipeline's graph: its parse and
+/// resolution layer plus the registry and extension-rule checks.
+fn full_diagnostics(
+    pipeline: &IncrementalPipeline,
+    ctx: &crate::pipeline::CompilationContext,
+    runtime: &specforge_component::ComponentRuntime,
+) -> Vec<specforge_common::Diagnostic> {
+    let mut diagnostics = pipeline.diagnostics().to_vec();
+    diagnostics.extend(specforge_emitter::compile::check_graph(
+        pipeline.graph(),
+        &specforge_emitter::compile::GraphChecks {
+            spec_root: &ctx.spec_root,
+            kind_registry: &ctx.kind_registry,
+            field_registry: &ctx.field_registry,
+            manifests: &ctx.manifests,
+            rules: &ctx.extension_rules,
+            runtime: Some(runtime),
+        },
+    ));
+    diagnostics
 }

@@ -31,6 +31,9 @@ pub struct CompilationContext {
     pub diagnostics: Vec<Diagnostic>,
     pub resolved: ResolvedProject,
     pub validation_patterns: Vec<ValidationRulePattern>,
+    /// The same rules with the extension that owns each (empty for
+    /// host-generated ones), for re-running them on a rebuilt graph.
+    pub extension_rules: Vec<(ValidationRulePattern, String)>,
     pub extension_info: Vec<(String, String)>,
     pub surface_entries: Vec<SurfaceRegistryEntry>,
     /// Raw surface contributions from manifests (needed for MCP descriptor generation).
@@ -159,7 +162,85 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
     let (graph, build_diags) = build_graph_with_config(&spec_files, &graph_config);
     diagnostics.extend(build_diags);
 
-    // 9. Run core validation (with file reference fields from registries).
+    // 9-12. Core validation, registry checks and extension rules.
+    diagnostics.extend(check_graph(
+        &graph,
+        &GraphChecks {
+            spec_root: &spec_root,
+            kind_registry: &kind_reg,
+            field_registry: &field_reg,
+            manifests: &manifests,
+            rules: &patterns,
+            runtime,
+        },
+    ));
+
+    // 13. (Conditional field validation now handled by extension validation rules
+    //     via the ConditionalFieldRequired pattern kind — no hardcoded rules.)
+
+    // 14. Build extension info for schema generation
+    let extension_info: Vec<(String, String)> = manifests
+        .iter()
+        .map(|m| (m.name.clone(), m.version.clone()))
+        .collect();
+
+    // 15. Register surface contributions (MCP tools, resources, CLI commands)
+    let surface_inputs: Vec<(String, Option<_>)> = manifests
+        .iter()
+        .map(|m| (m.name.clone(), m.surfaces.clone()))
+        .collect();
+    let (surface_entries, surface_diags) = register_surface_contributions(&surface_inputs);
+    diagnostics.extend(surface_diags);
+
+    // Collect raw manifest surfaces for MCP descriptor generation
+    let manifest_surfaces: Vec<(String, SurfaceContributions)> = manifests
+        .iter()
+        .filter_map(|m| m.surfaces.as_ref().map(|s| (m.name.clone(), s.clone())))
+        .collect();
+
+    CompilationContext {
+        graph,
+        kind_registry: kind_reg,
+        field_registry: field_reg,
+        edge_registry: edge_reg,
+        diagnostics,
+        resolved,
+        validation_patterns: patterns.iter().map(|(p, _)| p.clone()).collect(),
+        extension_rules: patterns,
+        extension_info,
+        surface_entries,
+        manifest_surfaces,
+        manifests,
+        spec_root,
+    }
+}
+
+/// What a project's registries and extension rules need to check a built
+/// graph.
+pub struct GraphChecks<'a> {
+    pub spec_root: &'a Path,
+    pub kind_registry: &'a KindRegistry,
+    pub field_registry: &'a FieldRegistry,
+    pub manifests: &'a [ManifestV2],
+    /// Validation rules with their owning extension.
+    pub rules: &'a [(ValidationRulePattern, String)],
+    pub runtime: Option<&'a dyn WasmRuntime>,
+}
+
+/// The checks that run on a built graph: core validation, unknown kinds,
+/// fields and identifiers, mistyped references (E022) and the extensions'
+/// validation rules. `specforge check` runs them once; watch after every
+/// rebuild, so both report the same diagnostics.
+pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let spec_root = checks.spec_root.to_path_buf();
+    let kind_reg = checks.kind_registry;
+    let field_reg = checks.field_registry;
+    let manifests = checks.manifests;
+    let patterns = checks.rules;
+    let runtime = checks.runtime;
+
+    // Core validation (with file reference fields from registries).
     // BTreeSet: the field list must be ordered, not HashSet-random (R-6 /
     // hardening-plan D2).
     let file_ref_fields: Vec<String> = field_reg
@@ -173,7 +254,7 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
         spec_root: spec_root.clone(),
         file_reference_fields: file_ref_fields,
     };
-    let validation_diags = validate_with_config(&graph, &validator_config);
+    let validation_diags = validate_with_config(graph, &validator_config);
     diagnostics.extend(validation_diags);
 
     // 10. Run strict field validation against extension registries
@@ -189,12 +270,12 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
                 )
             })
             .collect();
-        let kind_diags = detect_unknown_entity_kinds(&entity_kind_info, &kind_reg, None);
+        let kind_diags = detect_unknown_entity_kinds(&entity_kind_info, kind_reg, None);
         diagnostics.extend(kind_diags);
 
         // E013 / E014: the documented identifier contract, now enforced —
         // reserved words and the 2-60 length bound from entity-model.md.
-        let reserved_diags = detect_reserved_entity_ids(&entity_kind_info, &kind_reg);
+        let reserved_diags = detect_reserved_entity_ids(&entity_kind_info, kind_reg);
         diagnostics.extend(reserved_diags);
         let length_diags = detect_identifier_length_violations(&entity_kind_info);
         diagnostics.extend(length_diags);
@@ -217,7 +298,7 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
                 )
             })
             .collect();
-        let field_diags = detect_unknown_entity_fields(&entity_field_info, &kind_reg, &field_reg);
+        let field_diags = detect_unknown_entity_fields(&entity_field_info, kind_reg, field_reg);
         diagnostics.extend(field_diags);
 
         // 10a. Validate reference fields against target_kind constraints (E022)
@@ -254,7 +335,7 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
             })
             .collect();
         let ref_diags =
-            detect_mistyped_references(&entity_ref_info, &field_reg, &kind_reg, &node_kind_index);
+            detect_mistyped_references(&entity_ref_info, field_reg, kind_reg, &node_kind_index);
         diagnostics.extend(ref_diags);
     }
 
@@ -267,47 +348,10 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
         .collect();
 
     // 12. Run extension validation rules (declarative + custom via wasm)
-    let extension_diags =
-        run_extension_validation(&patterns, &graph, runtime, &edge_label_to_field);
+    let extension_diags = run_extension_validation(patterns, graph, runtime, &edge_label_to_field);
     diagnostics.extend(extension_diags);
 
-    // 13. (Conditional field validation now handled by extension validation rules
-    //     via the ConditionalFieldRequired pattern kind — no hardcoded rules.)
-
-    // 14. Build extension info for schema generation
-    let extension_info: Vec<(String, String)> = manifests
-        .iter()
-        .map(|m| (m.name.clone(), m.version.clone()))
-        .collect();
-
-    // 15. Register surface contributions (MCP tools, resources, CLI commands)
-    let surface_inputs: Vec<(String, Option<_>)> = manifests
-        .iter()
-        .map(|m| (m.name.clone(), m.surfaces.clone()))
-        .collect();
-    let (surface_entries, surface_diags) = register_surface_contributions(&surface_inputs);
-    diagnostics.extend(surface_diags);
-
-    // Collect raw manifest surfaces for MCP descriptor generation
-    let manifest_surfaces: Vec<(String, SurfaceContributions)> = manifests
-        .iter()
-        .filter_map(|m| m.surfaces.as_ref().map(|s| (m.name.clone(), s.clone())))
-        .collect();
-
-    CompilationContext {
-        graph,
-        kind_registry: kind_reg,
-        field_registry: field_reg,
-        edge_registry: edge_reg,
-        diagnostics,
-        resolved,
-        validation_patterns: patterns.into_iter().map(|(p, _)| p).collect(),
-        extension_info,
-        surface_entries,
-        manifest_surfaces,
-        manifests,
-        spec_root,
-    }
+    diagnostics
 }
 
 /// Lightweight compilation: resolve + build graph + core validation only.
@@ -336,6 +380,7 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
         diagnostics,
         resolved,
         validation_patterns: Vec::new(),
+        extension_rules: Vec::new(),
         extension_info: Vec::new(),
         surface_entries: Vec::new(),
         manifest_surfaces: Vec::new(),

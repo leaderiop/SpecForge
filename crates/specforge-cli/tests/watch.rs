@@ -171,3 +171,59 @@ fn watch_verify_incremental_checks_each_rebuild_against_a_cold_one() {
     let event: serde_json::Value = serde_json::from_str(&line).unwrap();
     assert_eq!(event["verification"], "passed", "{line}");
 }
+
+#[test]
+fn watch_rebuild_reports_what_check_reports() {
+    let project = TempDir::new().unwrap();
+    fs::write(
+        project.path().join("specforge.json"),
+        r#"{"name":"w","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+    )
+    .unwrap();
+    fs::write(
+        project.path().join("main.spec"),
+        "behavior login \"L\" {\n  category command\n  contract \"c\"\n  verify unit \"v\"\n}\n",
+    )
+    .unwrap();
+
+    let (rx, mut child) = spawn_watch(&project);
+    assert!(
+        wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60)).is_some(),
+        "watch never reported ready"
+    );
+    std::thread::sleep(Duration::from_millis(300));
+    // Drop the required contract: software's rule reports E006.
+    let broken = "behavior login \"L\" {\n  category command\n  verify unit \"v\"\n}\n";
+    fs::write(project.path().join("main.spec"), broken).unwrap();
+
+    let rebuilt = wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60));
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let check = specforge_cmd()
+        .args(["check", "--format", "json"])
+        .arg(project.path())
+        .output()
+        .unwrap();
+    let check: serde_json::Value = serde_json::from_slice(&check.stdout).unwrap();
+    let check_errors = check
+        .as_array()
+        .unwrap_or_else(|| panic!("{check}"))
+        .iter()
+        .filter(|d| {
+            d["severity"]
+                .as_str()
+                .is_some_and(|s| s.eq_ignore_ascii_case("error"))
+        })
+        .count();
+    assert!(
+        check_errors >= 1,
+        "check sees the missing contract: {check}"
+    );
+
+    let event: serde_json::Value = serde_json::from_str(&rebuilt.expect("no rebuild")).unwrap();
+    assert_eq!(
+        event["errors"], check_errors,
+        "watch: {event}\ncheck: {check}"
+    );
+}
