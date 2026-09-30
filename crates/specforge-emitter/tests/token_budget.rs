@@ -116,7 +116,7 @@ fn sorted_node_ids(parsed: &serde_json::Value) -> Vec<String> {
 fn output_within_budget_includes_all_entities() {
     let graph = build_large_graph();
     // Large budget — everything fits
-    let result = specforge_emitter::emit_json_with_budget(&graph, 100_000);
+    let result = specforge_emitter::emit_json_with_budget(&graph, 100_000).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
 
     let nodes = parsed["nodes"].as_array().unwrap();
@@ -137,7 +137,7 @@ fn output_exceeding_budget_truncates_low_priority_entities() {
     let degree = |id: &str| HUB_DEGREES.iter().find(|(n, _)| *n == id).unwrap().1;
 
     // Room for about half the entities.
-    let result = specforge_emitter::emit_json_with_budget(&graph, 300);
+    let result = specforge_emitter::emit_json_with_budget(&graph, 300).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
     let kept = sorted_node_ids(&parsed);
     let truncated: Vec<&str> = parsed["token_budget"]["truncated_entities"]
@@ -170,7 +170,7 @@ fn output_exceeding_budget_truncates_low_priority_entities() {
 )]
 fn token_budget_result_included_in_metadata() {
     let graph = build_large_graph();
-    let result = specforge_emitter::emit_json_with_budget(&graph, 500);
+    let result = specforge_emitter::emit_json_with_budget(&graph, 500).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
 
     let budget = &parsed["token_budget"];
@@ -189,7 +189,7 @@ fn token_budget_result_included_in_metadata() {
 )]
 fn truncated_entities_list_contains_omitted_ids() {
     let graph = build_large_graph();
-    let result = specforge_emitter::emit_json_with_budget(&graph, 500);
+    let result = specforge_emitter::emit_json_with_budget(&graph, 500).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
 
     let truncated = parsed["token_budget"]["truncated_entities"]
@@ -262,7 +262,7 @@ fn no_max_tokens_skips_budget_enforcement() {
 #[specforge_test(behavior = "enforce_token_budget")]
 fn no_dangling_edges_after_truncation() {
     let graph = build_large_graph();
-    let result = specforge_emitter::emit_json_with_budget(&graph, 500);
+    let result = specforge_emitter::emit_json_with_budget(&graph, 500).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
 
     let node_ids: std::collections::HashSet<&str> = parsed["nodes"]
@@ -316,7 +316,8 @@ fn error_strategy_rejects_export_exceeding_budget() {
 fn export_with_max_tokens_within_budget_includes_metadata() {
     let graph = build_large_graph();
     // The graph export as the MCP export tool (and `specforge export
-    // --no-schema`) runs it, with a budget that forces truncation.
+    // --max-tokens` without --with-schema) runs it, with a budget that
+    // forces truncation.
     let export = |budget: usize| -> serde_json::Value {
         let out = specforge_emitter::emit(
             &graph,

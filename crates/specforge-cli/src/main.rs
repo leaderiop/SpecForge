@@ -194,9 +194,11 @@ enum Commands {
         #[arg(long)]
         no_schema: bool,
 
-        /// Embed the schema in `context` and `brief` exports too. They
-        /// leave it out by default: an agent reading the context needs the
-        /// entities, and the schema is most of the bytes.
+        /// Embed the schema in `context` and `brief` exports, and in a
+        /// `graph` export under --max-tokens. They leave it out by default:
+        /// an agent reading the export needs the entities, and the schema is
+        /// most of the bytes. Under --max-tokens an embedded schema counts
+        /// toward the budget, and a budget it doesn't fit in fails (E062).
         #[arg(long, conflicts_with = "no_schema")]
         with_schema: bool,
 
@@ -204,7 +206,12 @@ enum Commands {
         #[arg(long)]
         schema_version: Option<String>,
 
-        /// token budget for JSON export (truncates to the most central entities)
+        /// Token budget for the export: keeps the most central entities that
+        /// fit. The schema is left out unless --with-schema is given, and
+        /// then counts toward the budget. A `graph` export lists the dropped
+        /// entities under `token_budget`; below one entity it is the envelope
+        /// with no entities, and below even that it fails (E062). Ignored by
+        /// `dot`.
         #[arg(long)]
         max_tokens: Option<usize>,
     },
@@ -875,8 +882,12 @@ fn main() {
             &path,
             format,
             scope.as_deref(),
+            // context, brief and a budgeted graph export leave the schema
+            // out unless asked for it.
             no_schema
-                || (matches!(format, ExportFormat::Context | ExportFormat::Brief) && !with_schema),
+                || (!with_schema
+                    && (matches!(format, ExportFormat::Context | ExportFormat::Brief)
+                        || max_tokens.is_some())),
             schema_version.as_deref(),
             max_tokens,
         ),

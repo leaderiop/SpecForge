@@ -619,11 +619,13 @@ fn contract_export_max_tokens() {
         "export descriptor must declare max_tokens"
     );
 
-    // Tool truncates graph output when max_tokens is set
+    // Tool truncates graph output when max_tokens is set. The budget holds
+    // the envelope and its truncation marker but not both entities; below
+    // the envelope the export fails with E062.
     let resp = call_tool(
         &mut server,
         "specforge.export",
-        json!({"format": "graph", "max_tokens": 5}),
+        json!({"format": "graph", "max_tokens": 50}),
     );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();

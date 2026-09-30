@@ -124,13 +124,18 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
     };
 
     // Token budget: agent-consumed formats (Json/Context/Brief) honor it by
-    // truncating to the most central subgraph that fits (C1-10). Schema
-    // definitions and DOT are not budgeted.
+    // truncating to the most central subgraph that fits (C1-10). DOT is not
+    // budgeted.
     let g = match options.token_budget {
-        // Schemaless JSON keeps its richer budget path: the payload embeds
-        // token_budget metadata (budget/estimate/truncated entities).
-        Some(budget) if options.format == EmitFormat::Json && options.schema.is_none() => {
-            return Ok(crate::budget::emit_json_with_budget(g, budget));
+        // The graph export embeds token_budget metadata (budget/estimate/
+        // truncated entities); an attached schema counts toward the budget
+        // and is never truncated.
+        Some(budget) if options.format == EmitFormat::Json => {
+            let envelope = match options.schema {
+                Some(schema) => crate::budget::Envelope::attached(schema, attach),
+                None => crate::budget::Envelope::schemaless(),
+            };
+            return crate::budget::emit_graph_within_budget(g, budget, &envelope);
         }
         // Context/brief truncate to the most central subgraph that fits.
         Some(budget) if matches!(options.format, EmitFormat::Context | EmitFormat::Brief) => {

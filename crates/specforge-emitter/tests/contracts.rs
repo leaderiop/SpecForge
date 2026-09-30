@@ -504,7 +504,8 @@ fn budget_contract_within_budget_no_truncation() {
     // Requires: graph + budget
     let graph = build_graph(); // a -> b -> c: b is the most central
     let emit = |budget: usize| -> serde_json::Value {
-        serde_json::from_str(&specforge_emitter::emit_json_with_budget(&graph, budget)).unwrap()
+        serde_json::from_str(&specforge_emitter::emit_json_with_budget(&graph, budget).unwrap())
+            .unwrap()
     };
 
     // Within budget: everything, and no truncation metadata.
@@ -1114,11 +1115,17 @@ fn budget_truncates_context_and_brief() {
             },
         )
         .unwrap();
+        // Far below the full render; the graph export gets just under it,
+        // since it can't shrink past its envelope (E062 below that).
+        let budget = match format {
+            specforge_emitter::EmitFormat::Json => specforge_emitter::estimate_tokens(&full) - 1,
+            _ => 20,
+        };
         let truncated = specforge_emitter::emit(
             &graph,
             &specforge_emitter::EmitOptions {
                 format,
-                token_budget: Some(20), // far below the full render
+                token_budget: Some(budget),
                 ..Default::default()
             },
         )

@@ -362,3 +362,178 @@ fn export_context_keeps_an_invariants_guarantee() {
         "risk isn't normative: {node}"
     );
 }
+
+// ── --max-tokens on the graph export ──────────────────────────────────
+
+/// Nine entities, each well over 100 tokens: eight behaviors with long
+/// contracts and a feature linking them all. Two extensions give the export
+/// a schema of real size.
+fn budget_project() -> TempDir {
+    const CONFIG: &str = r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/product"]}"#;
+    let mut spec = String::new();
+    for i in 0..8 {
+        spec.push_str(&format!(
+            "behavior b{i} \"Behavior {i}\" {{\n  contract \"The system MUST {}\"\n}}\n",
+            "handle this case with care ".repeat(20)
+        ));
+    }
+    spec.push_str(
+        "feature f \"All behaviors\" {\n  behaviors [b0, b1, b2, b3, b4, b5, b6, b7]\n}\n",
+    );
+    setup_project(&[("specforge.json", CONFIG), ("main.spec", &spec)])
+}
+
+/// `specforge export <dir> --format=graph <args>`: the exit code, stdout and
+/// stderr.
+fn export_graph(dir: &TempDir, args: &[&str]) -> (i32, String, String) {
+    let output = specforge_cmd()
+        .args(["export", "--format=graph"])
+        .args(args)
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    (
+        output.status.code().unwrap_or(-1),
+        String::from_utf8_lossy(&output.stdout).into_owned(),
+        String::from_utf8_lossy(&output.stderr).into_owned(),
+    )
+}
+
+/// The embedded schema of this project's graph export, and what it costs by
+/// the estimator the budget uses.
+fn schema_tokens(dir: &TempDir) -> (serde_json::Value, usize) {
+    let (code, stdout, stderr) = export_graph(dir, &["--with-schema"]);
+    assert_eq!(code, 0, "{stderr}");
+    let full: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let schema = full["schema"].clone();
+    assert!(schema.is_object(), "{full}");
+    let tokens = specforge_emitter::estimate_tokens(&serde_json::to_string(&schema).unwrap());
+    (schema, tokens)
+}
+
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "the graph export honours --max-tokens with the schema left out unless --with-schema is given"
+)]
+fn graph_export_honours_max_tokens_without_the_schema() {
+    let dir = budget_project();
+    let budget = 500;
+
+    let (code, stdout, stderr) = export_graph(&dir, &["--max-tokens", &budget.to_string()]);
+    assert_eq!(code, 0, "{stderr}");
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+    let used = specforge_emitter::estimate_tokens(&stdout);
+    assert!(used <= budget, "{used} tokens over the {budget} budget");
+    assert!(parsed.get("schema").is_none(), "{parsed}");
+    assert_eq!(parsed["format_version"], "1.0", "{parsed}");
+    let kept = parsed["nodes"].as_array().unwrap().len();
+    assert!(kept > 0 && kept < 9, "kept {kept} of 9: {parsed}");
+    let truncated = parsed["token_budget"]["truncated_entities"]
+        .as_array()
+        .unwrap();
+    assert_eq!(kept + truncated.len(), 9, "{parsed}");
+}
+
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "an embedded schema counts toward the token budget"
+)]
+fn embedded_schema_counts_toward_the_budget() {
+    let dir = budget_project();
+    let (schema, schema_cost) = schema_tokens(&dir);
+    // The schema plus room for a few entities, not all nine.
+    let budget = schema_cost + 400;
+
+    let (code, stdout, stderr) = export_graph(
+        &dir,
+        &["--with-schema", "--max-tokens", &budget.to_string()],
+    );
+    assert_eq!(code, 0, "{stderr}");
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+    let used = specforge_emitter::estimate_tokens(&stdout);
+    assert!(used <= budget, "{used} tokens over the {budget} budget");
+    assert_eq!(parsed["format_version"], "2.0", "{parsed}");
+    assert_eq!(parsed["schema"], schema, "the schema travels whole");
+    let kept = parsed["nodes"].as_array().unwrap().len();
+    assert!(kept > 0 && kept < 9, "kept {kept} of 9");
+    assert_eq!(
+        parsed["token_budget"]["truncated_entities"]
+            .as_array()
+            .unwrap()
+            .len(),
+        9 - kept
+    );
+}
+
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "a budget smaller than the embedded schema fails with E062 instead of truncating the schema"
+)]
+fn budget_smaller_than_the_schema_fails() {
+    let dir = budget_project();
+    let (_, schema_cost) = schema_tokens(&dir);
+    let budget = schema_cost - 1;
+
+    let (code, stdout, stderr) = export_graph(
+        &dir,
+        &["--with-schema", "--max-tokens", &budget.to_string()],
+    );
+    assert_eq!(code, 1, "stdout: {stdout}");
+    assert!(stdout.trim().is_empty(), "no partial export: {stdout}");
+    assert!(stderr.contains("E062"), "{stderr}");
+    assert!(stderr.contains("schema"), "{stderr}");
+
+    // Without --with-schema the same budget is plenty.
+    let (code, _, stderr) = export_graph(&dir, &["--max-tokens", &budget.to_string()]);
+    assert_eq!(code, 0, "{stderr}");
+}
+
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "a budget below one entity yields the envelope with no entities and the truncation marker"
+)]
+fn budget_below_one_entity_yields_an_empty_envelope() {
+    let dir = budget_project();
+    // Every entity costs more than 100 tokens; the empty envelope less.
+    let budget = 100;
+
+    let (code, stdout, stderr) = export_graph(&dir, &["--max-tokens", &budget.to_string()]);
+    assert_eq!(code, 0, "{stderr}");
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+    let used = specforge_emitter::estimate_tokens(&stdout);
+    assert!(used <= budget, "{used} tokens over the {budget} budget");
+    assert_eq!(parsed["format_version"], "1.0", "{parsed}");
+    assert!(parsed["schema_version"].is_string(), "{parsed}");
+    assert_eq!(parsed["nodes"], serde_json::json!([]), "{parsed}");
+    assert_eq!(parsed["edges"], serde_json::json!([]), "{parsed}");
+    let meta = &parsed["token_budget"];
+    assert_eq!(meta["strategy"], "prioritize", "{parsed}");
+    assert_eq!(meta["budget_tokens"], budget, "{parsed}");
+    let mut truncated: Vec<&str> = meta["truncated_entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    truncated.sort();
+    assert_eq!(
+        truncated,
+        vec!["b0", "b1", "b2", "b3", "b4", "b5", "b6", "b7", "f"]
+    );
+}
+
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "a budget below the empty envelope fails with E062"
+)]
+fn budget_below_the_empty_envelope_fails() {
+    let dir = budget_project();
+
+    let (code, stdout, stderr) = export_graph(&dir, &["--max-tokens", "5"]);
+    assert_eq!(code, 1, "stdout: {stdout}");
+    assert!(stdout.trim().is_empty(), "no over-budget export: {stdout}");
+    assert!(stderr.contains("E062"), "{stderr}");
+}

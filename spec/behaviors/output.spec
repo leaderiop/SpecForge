@@ -623,5 +623,10 @@ behavior enforce_token_budget "Enforce Token Budget" {
   verify unit "no --max-tokens skips budget enforcement"
   verify integration "export with max_tokens produces output within budget and includes metadata"
   verify unit "error strategy rejects export exceeding budget"
+  verify integration "the graph export honours --max-tokens with the schema left out unless --with-schema is given"
+  verify integration "an embedded schema counts toward the token budget"
+  verify integration "a budget smaller than the embedded schema fails with E062 instead of truncating the schema"
+  verify integration "a budget below one entity yields the envelope with no entities and the truncation marker"
+  verify integration "a budget below the empty envelope fails with E062"
   verify contract "Enforce Token Budget: token budget enforcement holds — validation_complete_fired, budget_respected, truncation_metadata_produced, valid_subgraph_after_truncation, token_budget_applied_emitted"
 }
