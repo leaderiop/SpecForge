@@ -79,17 +79,6 @@ mod tests {
         assert!(codes.is_empty() || codes.iter().all(|c| c.starts_with('I')));
     }
 
-    // I:zero_domain_knowledge_core — verify unit "compiling a .spec file with no extensions produces only structural parse, no kind validation"
-    #[test]
-    fn test_compiling_with_no_extensions_produces_only_structural_parse() {
-        // With empty registries, detect_unknown_entity_kinds should find everything "unknown"
-        // but graceful_degradation skips kind validation entirely
-        let kind_reg = KindRegistry::new();
-        let diags = compilation::check_graceful_degradation(&kind_reg, 0);
-        assert!(!diags.is_empty());
-        assert_eq!(diags[0].code, "I002");
-    }
-
     // -- I:registry_population_before_validation --
 
     // I:registry_population_before_validation — verify property "no validation diagnostic references a kind that was registered after validation started"

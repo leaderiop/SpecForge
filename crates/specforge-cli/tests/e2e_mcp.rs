@@ -753,12 +753,15 @@ fn mcp_resource_read_diagnostics() {
     );
     let diagnostics = resource_json(resp);
     let bag = diagnostics.as_array().expect("the bag is a JSON array");
+    // The project enables no extension, so the structural-only notice
+    // (I002) comes first, then exactly the unresolved reference.
     assert_eq!(
         bag.len(),
-        1,
-        "exactly the unresolved reference: {diagnostics}"
+        2,
+        "I002 and exactly the unresolved reference: {diagnostics}"
     );
-    let d = &bag[0];
+    assert_eq!(bag[0]["code"], "I002", "{diagnostics}");
+    let d = &bag[1];
     assert_eq!(d["code"], "E003", "{d}");
     assert_eq!(d["severity"], "Error", "{d}");
     assert_eq!(
@@ -2138,11 +2141,15 @@ fn mcp_tool_rename_returns_affected() {
     assert_eq!(content["old_name"], "alpha");
     assert_eq!(content["new_name"], "alpha_renamed");
     assert_eq!(content["affected_files"], serde_json::json!(["main.spec"]));
-    assert_eq!(
-        content["diagnostics"],
-        serde_json::json!([]),
-        "the renamed project is clean: {content}"
-    );
+    // Clean: only the structural-only notice (the project enables no
+    // extension).
+    let codes: Vec<&str> = content["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap())
+        .collect();
+    assert_eq!(codes, ["I002"], "the renamed project is clean: {content}");
 
     // The declaration and both references are rewritten on disk; nothing
     // else changes.

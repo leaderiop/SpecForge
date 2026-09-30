@@ -59,6 +59,9 @@ impl Environment {
             None => Vec::new(),
         };
         let registries = build_registries(manifests);
+        if registries.manifests.is_empty() {
+            load_diagnostics.push(structural_only_notice(&config.extensions));
+        }
         let spec_root = match &config.spec_root {
             Some(spec_root) => root.join(spec_root),
             None => root.to_path_buf(),
@@ -119,6 +122,34 @@ impl Environment {
     /// Discover, parse and resolve the project's `.spec` files.
     pub fn resolve(&self) -> ResolvedProject {
         resolve_project_with_config(&self.spec_root, &self.resolve_config())
+    }
+}
+
+/// I002: no extension loaded, so the compile checks structure only (no
+/// kind, field or rule checks). Reported after the load errors (E028) that
+/// caused it, if any.
+fn structural_only_notice(configured: &[String]) -> Diagnostic {
+    let (message, suggestion) = if configured.is_empty() {
+        (
+            "no extensions configured — operating in structural-only mode".to_string(),
+            "enable kind-specific checks with: specforge add @specforge/software".to_string(),
+        )
+    } else {
+        let which = match configured.len() {
+            1 => "the configured extension did not load".to_string(),
+            n => format!("none of the {n} configured extensions loaded"),
+        };
+        (
+            format!("{which} — operating in structural-only mode"),
+            "fix the extension load errors above (`specforge doctor` checks the setup)".to_string(),
+        )
+    };
+    Diagnostic {
+        code: "I002".to_string(),
+        severity: specforge_common::Severity::Info,
+        message,
+        span: None,
+        suggestion: Some(suggestion),
     }
 }
 

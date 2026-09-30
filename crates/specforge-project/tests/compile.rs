@@ -78,3 +78,136 @@ fn the_context_view_keeps_the_spec_root_and_the_resolved_files() {
     let files: Vec<&str> = ctx.resolved.files.iter().map(|f| f.path.as_str()).collect();
     assert_eq!(files, ["a.spec"]);
 }
+
+/// No extension configured: the compile still runs, structurally, and
+/// says so once, with an I002 info.
+#[specforge_test(
+    behavior = "graceful_degradation_without_extensions",
+    verify = "no extensions installed emits I002 info"
+)]
+fn a_project_without_extensions_reports_structural_only_mode() {
+    let dir = project(
+        serde_json::json!({ "name": "p", "version": "0.1.0" }),
+        &[(
+            "a.spec",
+            "thing alpha \"A\" {\n  refs [beta]\n}\n\nthing beta \"B\" {\n}\n",
+        )],
+    );
+
+    let diagnostics = compile(dir.path()).diagnostics();
+
+    assert_eq!(codes(&diagnostics), ["I002"], "{diagnostics:?}");
+    assert_eq!(diagnostics[0].severity, specforge_common::Severity::Info);
+    assert!(
+        diagnostics[0].message.contains("no extensions configured"),
+        "{diagnostics:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "graceful_degradation_without_extensions",
+    verify = "Graceful Degradation Without Extensions: graceful degradation holds — registries_populated_fired, i002_emitted, structural_mode_operational, valid_export_produced"
+)]
+fn graceful_degradation_contract() {
+    let dir = project(
+        serde_json::json!({ "name": "p", "version": "0.1.0" }),
+        &[(
+            "a.spec",
+            "thing alpha \"A\" {\n  refs [beta]\n}\n\nthing beta \"B\" {\n}\n",
+        )],
+    );
+
+    let compiled = compile(dir.path());
+
+    // registries_populated_fired: with no extension, the registries are
+    // built, and empty.
+    assert!(compiled.env.registries.kinds.is_empty());
+    // i002_emitted
+    assert_eq!(codes(&compiled.diagnostics()), ["I002"]);
+    // structural_mode_operational: generic nodes, raw keywords, a
+    // reference edge.
+    let alpha = compiled.graph.node("alpha").unwrap();
+    assert_eq!(alpha.kind.raw.as_str(), "thing");
+    assert_eq!(compiled.graph.edges_from("alpha").len(), 1);
+    // valid_export_produced
+    let json = specforge_emitter::emit_json(&compiled.graph);
+    let exported: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(exported["nodes"].as_array().unwrap().len(), 2);
+}
+
+/// Every configured extension fails to load: one E028 each, then the
+/// I002 that says the compile went on structurally.
+#[specforge_test(
+    behavior = "handle_all_extensions_failed_to_load",
+    verify = "all extensions failing produces per-extension E-level diagnostics"
+)]
+fn every_failed_extension_gets_its_own_error() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "extensions": ["@specforge/no-such-a", "@specforge/no-such-b"]
+        }),
+        &[("a.spec", "thing alpha \"A\" {\n}\n")],
+    );
+
+    let diagnostics = compile(dir.path()).diagnostics();
+
+    let errors: Vec<&str> = diagnostics
+        .iter()
+        .filter(|d| d.code == "E028")
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(errors.len(), 2, "{diagnostics:?}");
+    assert!(errors[0].contains("@specforge/no-such-a"), "{errors:?}");
+    assert!(errors[1].contains("@specforge/no-such-b"), "{errors:?}");
+}
+
+#[specforge_test(
+    behavior = "handle_all_extensions_failed_to_load",
+    verify = "system transitions to structural-only mode after all failures"
+)]
+fn all_failed_extensions_leave_a_structural_compile() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "extensions": ["@specforge/no-such-a", "@specforge/no-such-b"]
+        }),
+        &[(
+            "a.spec",
+            "thing alpha \"A\" {\n  refs [beta]\n}\n\nthing beta \"B\" {\n}\n",
+        )],
+    );
+
+    let compiled = compile(dir.path());
+    let diagnostics = compiled.diagnostics();
+
+    // The graph is still built, and nothing kind-specific is reported.
+    assert_eq!(compiled.graph.node_count(), 2);
+    assert_eq!(
+        codes(&diagnostics),
+        ["E028", "E028", "I002"],
+        "{diagnostics:?}"
+    );
+    assert!(
+        diagnostics[2]
+            .message
+            .contains("none of the 2 configured extensions loaded"),
+        "{diagnostics:?}"
+    );
+}
+
+/// A project with an extension loaded is not in structural-only mode.
+#[test]
+fn a_loaded_extension_means_no_i002() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "extensions": ["@specforge/software", "@specforge/no-such-extension"]
+        }),
+        &[("a.spec", "term alpha \"Alpha\" {\n}\n")],
+    );
+
+    let diagnostics = compile(dir.path()).diagnostics();
+
+    assert!(!codes(&diagnostics).contains(&"I002"), "{diagnostics:?}");
+}

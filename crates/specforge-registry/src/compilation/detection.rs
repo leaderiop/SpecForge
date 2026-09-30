@@ -246,59 +246,6 @@ pub fn detect_unknown_entity_fields(
     diagnostics
 }
 
-/// Check if the system should operate in graceful degradation mode.
-/// Returns I002 diagnostic when no extensions are installed.
-pub fn check_graceful_degradation(
-    kind_reg: &KindRegistry,
-    extension_count: usize,
-) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-
-    if extension_count == 0 && kind_reg.is_empty() {
-        diagnostics.push(Diagnostic {
-            code: "I002".to_string(),
-            severity: Severity::Info,
-            message: "no extensions installed — operating in structural-only mode".to_string(),
-            span: None,
-            suggestion: Some(
-                "install extensions with: specforge add @specforge/software".to_string(),
-            ),
-        });
-    }
-
-    diagnostics
-}
-
-/// Emit per-extension error diagnostics when all extensions fail to load.
-pub fn handle_all_extensions_failed(
-    failures: &[(String, String)], // (extension_name, error_message)
-) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-
-    for (ext_name, error) in failures {
-        diagnostics.push(Diagnostic {
-            code: "E028".to_string(),
-            severity: Severity::Error,
-            message: format!("failed to load extension '{}': {}", ext_name, error),
-            span: None,
-            suggestion: None,
-        });
-    }
-
-    if !failures.is_empty() {
-        diagnostics.push(Diagnostic {
-            code: "I002".to_string(),
-            severity: Severity::Info,
-            message: "all extensions failed to load — operating in structural-only mode"
-                .to_string(),
-            span: None,
-            suggestion: None,
-        });
-    }
-
-    diagnostics
-}
-
 /// Detect unknown verify kinds in parsed entities.
 /// Returns W-level diagnostics for verify statements using kinds not registered by extensions.
 pub fn detect_unknown_verify_kinds(
@@ -1094,14 +1041,6 @@ mod tests {
 
     // -- B:graceful_degradation_without_extensions --
 
-    // B:graceful_degradation_without_extensions — verify unit "no extensions installed emits I002 info"
-    #[test]
-    fn test_no_extensions_emits_i002() {
-        let kind_reg = KindRegistry::new();
-        let diags = check_graceful_degradation(&kind_reg, 0);
-        assert!(diags.iter().any(|d| d.code == "I002"));
-    }
-
     // B:graceful_degradation_without_extensions — verify unit "structural parsing works without extensions"
     #[test]
     fn test_structural_parsing_without_extensions() {
@@ -1171,105 +1110,6 @@ mod tests {
             "expected edge from a to b, got: {:?}",
             edges
         );
-    }
-
-    // B:graceful_degradation_without_extensions — verify unit "specforge check with zero extensions exits cleanly with I002"
-    #[test]
-    fn test_zero_extensions_exits_cleanly() {
-        let kind_reg = KindRegistry::new();
-        let diags = check_graceful_degradation(&kind_reg, 0);
-        // Should produce I002 but no errors
-        assert!(diags.iter().all(|d| d.severity == Severity::Info));
-        assert!(diags.iter().any(|d| d.code == "I002"));
-    }
-
-    // B:graceful_degradation_without_extensions — verify contract "requires/ensures consistency for graceful degradation"
-    #[test]
-    fn test_graceful_degradation_contract() {
-        // requires: registries populated (empty when no extensions)
-        let kind_reg = KindRegistry::new();
-        let diags = check_graceful_degradation(&kind_reg, 0);
-        // ensures: I002 emitted
-        assert!(diags.iter().any(|d| d.code == "I002"));
-        // ensures: structural parsing works
-        let source = "arbitrary my_id \"Title\" {\n  stuff \"value\"\n}\n";
-        let parsed = specforge_parser::parse(source, "test.spec");
-        assert_eq!(parsed.entities.len(), 1);
-        // ensures: graph built
-        let (graph, _) = specforge_graph::build_graph(&[parsed]);
-        assert_eq!(graph.node_count(), 1);
-        // ensures: export produces valid JSON
-        let json = specforge_emitter::emit_json(&graph);
-        let _: serde_json::Value = serde_json::from_str(&json).unwrap();
-    }
-
-    // -- B:handle_all_extensions_failed_to_load --
-
-    // B:handle_all_extensions_failed_to_load — verify unit "all extensions failing produces per-extension E-level diagnostics"
-    #[test]
-    fn test_all_extensions_failing_produces_per_extension_errors() {
-        let failures = vec![
-            (
-                "@specforge/software".to_string(),
-                "wasm binary not found".to_string(),
-            ),
-            (
-                "@specforge/product".to_string(),
-                "network timeout".to_string(),
-            ),
-        ];
-        let diags = handle_all_extensions_failed(&failures);
-        let errors: Vec<_> = diags.iter().filter(|d| d.code == "E028").collect();
-        assert_eq!(errors.len(), 2);
-        assert!(errors[0].message.contains("@specforge/software"));
-        assert!(errors[1].message.contains("@specforge/product"));
-    }
-
-    // B:handle_all_extensions_failed_to_load — verify unit "system transitions to structural-only mode after all failures"
-    #[test]
-    fn test_structural_only_mode_after_all_failures() {
-        let failures = vec![("@ext/a".to_string(), "error".to_string())];
-        let diags = handle_all_extensions_failed(&failures);
-        // I002 emitted to indicate structural-only mode
-        assert!(diags.iter().any(|d| d.code == "I002"));
-    }
-
-    // B:handle_all_extensions_failed_to_load — verify unit "specforge check with all extensions unavailable exits cleanly"
-    #[test]
-    fn test_all_extensions_unavailable_exits_cleanly() {
-        let failures = vec![
-            ("@ext/a".to_string(), "not found".to_string()),
-            ("@ext/b".to_string(), "invalid manifest".to_string()),
-        ];
-        let diags = handle_all_extensions_failed(&failures);
-        // Has per-extension errors + I002 for structural mode
-        assert!(diags.iter().any(|d| d.code == "E028"));
-        assert!(diags.iter().any(|d| d.code == "I002"));
-        // System should still be functional (structural parsing works)
-        let source = "thing test_id \"Title\" {\n  data \"value\"\n}\n";
-        let parsed = specforge_parser::parse(source, "test.spec");
-        assert_eq!(parsed.entities.len(), 1);
-    }
-
-    // B:handle_all_extensions_failed_to_load — verify contract "requires/ensures consistency for all-extensions-failed handling"
-    #[test]
-    fn test_handle_all_extensions_failed_contract() {
-        // requires: extension load attempts completed
-        let failures = vec![("@ext/a".to_string(), "err".to_string())];
-        let diags = handle_all_extensions_failed(&failures);
-        // ensures: per-extension errors
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "E028" && d.severity == Severity::Error)
-        );
-        // ensures: structural-only mode
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "I002" && d.severity == Severity::Info)
-        );
-        // ensures: no crash — we got here without panicking
     }
 
     // -- B:detect_mistyped_references (W022) --

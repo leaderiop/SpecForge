@@ -4,7 +4,9 @@ expression: mcp_snap
 ---
 {
   "check": {
-    "diagnostics": [],
+    "diagnostics": [
+      "Info I002"
+    ],
     "ok": true
   },
   "config": {

@@ -68,7 +68,8 @@ fn check_full_multi_extension_project_exits_zero() {
 
     // diagnostics_to_stderr: the report goes to stderr, nothing to stdout.
     assert!(output.stdout.is_empty());
-    assert!(stderr.contains("0 errors, 0 warnings, 0 infos"), "{stderr}");
+    // No specforge.json: checked structurally, which I002 says.
+    assert!(stderr.contains("0 errors, 0 warnings, 1 info"), "{stderr}");
 
     // no_output_files_produced
     assert_eq!(tree(dir.path()), before, "check must not write files");

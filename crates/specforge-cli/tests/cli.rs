@@ -53,18 +53,25 @@ fn self_check_runs_without_crashing() {
     };
 
     // The repository's own specs, which CI checks: clean, exit 0, the
-    // summary on stderr and nothing on stdout.
+    // summary on stderr and nothing on stdout. `spec/` alone has no
+    // specforge.json, so it is checked structurally and says so (I002).
     let output = ci_check(&[], &spec_dir);
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_eq!(output.status.code(), Some(0), "{stderr}");
     assert!(output.stdout.is_empty());
-    assert!(stderr.contains("0 errors, 0 warnings, 0 infos"), "{stderr}");
+    assert!(stderr.contains("0 errors, 0 warnings, 1 info"), "{stderr}");
     assert!(!stderr.contains('\x1b'), "no terminal escapes: {stderr:?}");
 
     let output = ci_check(&["--format=json"], &spec_dir);
     assert_eq!(output.status.code(), Some(0));
     let diagnostics: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(diagnostics, serde_json::json!([]));
+    let codes: Vec<&str> = diagnostics
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap())
+        .collect();
+    assert_eq!(codes, ["I002"]);
 
     // A broken project fails the CI step with exit 1 and says why on stderr.
     let dir = setup_project(&[(
@@ -79,6 +86,72 @@ fn self_check_runs_without_crashing() {
         stderr.contains("[E003] Error: unresolved reference 'nonexistent' in entity 'gamma'"),
         "{stderr}"
     );
+}
+
+// === graceful_degradation_without_extensions ===
+
+#[specforge_test(
+    behavior = "graceful_degradation_without_extensions",
+    verify = "specforge check with zero extensions exits cleanly with I002"
+)]
+fn check_without_extensions_exits_cleanly_with_i002() {
+    let dir = setup_project(&[
+        (
+            "specforge.json",
+            r#"{ "name": "p", "version": "0.1.0", "extensions": [] }"#,
+        ),
+        (
+            "main.spec",
+            "thing alpha \"A\" {\n  refs [beta]\n}\n\nthing beta \"B\" {\n}\n",
+        ),
+    ]);
+
+    let output = specforge_cmd()
+        .arg("check")
+        .arg("--format=json")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(0));
+    let diagnostics: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let diagnostics = diagnostics.as_array().unwrap();
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+    assert_eq!(diagnostics[0]["code"], "I002");
+    assert_eq!(diagnostics[0]["severity"], "Info");
+}
+
+#[specforge_test(
+    behavior = "handle_all_extensions_failed_to_load",
+    verify = "specforge check with all extensions unavailable exits cleanly"
+)]
+fn check_with_every_extension_unavailable_exits_cleanly() {
+    let dir = setup_project(&[
+        (
+            "specforge.json",
+            r#"{ "name": "p", "version": "0.1.0", "extensions": ["@specforge/no-such-a", "@specforge/no-such-b"] }"#,
+        ),
+        ("main.spec", "thing alpha \"A\" {\n}\n"),
+    ]);
+
+    let output = specforge_cmd()
+        .arg("check")
+        .arg("--format=json")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    // The load errors fail the check (exit 1, not a crash), every
+    // diagnostic is reported, and the compile went on structurally.
+    assert_eq!(output.status.code(), Some(1));
+    let diagnostics: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let codes: Vec<&str> = diagnostics
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap())
+        .collect();
+    assert_eq!(codes, ["E028", "E028", "I002"]);
 }
 
 // === check_mode_for_ci ===
@@ -402,7 +475,8 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
             "missing 'message': {:?}",
             diag
         );
-        if let Some(span) = diag.get("span") {
+        // A project-wide diagnostic (I002 here: no extension) has no span.
+        if let Some(span) = diag.get("span").filter(|s| !s.is_null()) {
             assert!(
                 span.get("file").is_some(),
                 "span missing 'file': {:?}",
