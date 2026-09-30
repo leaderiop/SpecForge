@@ -433,7 +433,7 @@ fn existing_emit_json_has_no_schema_key() {
     let json = emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed.get("schema").is_none());
-    assert!(parsed.get("format_version").is_none());
+    assert_eq!(parsed["format_version"], "1.0");
 }
 
 // B:embed_schema_in_export — verify unit "emit_context_with_schema produces format_version 2.0"
@@ -1350,27 +1350,6 @@ fn cache_load_diff_version_pipeline() {
 // ===========================================================================
 // Gap coverage: CLI integration (--no-schema, --schema-version)
 // ===========================================================================
-
-#[test]
-fn no_schema_flag_suppresses_schema() {
-    // When --no-schema is set, the existing emit_json() is used (V1 format)
-    // V1 format has no "schema" key and no "format_version" key
-    let graph = Graph::new();
-    let v1_json = emit_json(&graph);
-    let parsed: serde_json::Value = serde_json::from_str(&v1_json).unwrap();
-    assert!(
-        parsed.get("schema").is_none(),
-        "V1 format must not have schema key"
-    );
-    assert!(
-        parsed.get("format_version").is_none(),
-        "V1 format must not have format_version key"
-    );
-    assert!(
-        parsed["schema_version"].is_string(),
-        "V1 format has schema_version (legacy)"
-    );
-}
 
 #[test]
 fn schema_version_cli_flag_selects_version() {

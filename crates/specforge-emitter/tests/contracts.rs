@@ -725,7 +725,10 @@ fn dot_node_shapes() {
 
 // C13-00: registry-declared dot_shape/dot_color/dot_fillcolor must reach the
 // emitted DOT; kinds without declarations keep the default.
-#[test]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "node shapes use extension-defined dot_shape"
+)]
 fn dot_emits_registry_declared_styles() {
     use specforge_registry::{KindRegistry, KindRegistryEntry};
 

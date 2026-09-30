@@ -9,6 +9,8 @@ pub const SCHEMA_VERSION: &str = "0.1.0";
 
 #[derive(Serialize)]
 struct JsonGraph {
+    /// "1.0": the schemaless graph format (a schema-attached export is 2.0).
+    format_version: &'static str,
     schema_version: &'static str,
     nodes: Vec<JsonNode>,
     edges: Vec<JsonEdge>,
@@ -117,6 +119,7 @@ pub fn emit_json(graph: &Graph) -> String {
         .collect();
 
     let output = JsonGraph {
+        format_version: "1.0",
         schema_version: SCHEMA_VERSION,
         nodes,
         edges: sorted_edges(graph),

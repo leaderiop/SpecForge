@@ -191,8 +191,10 @@ fn export_default_produces_v2_with_schema() {
     assert!(parsed["schema_version"].is_string());
 }
 
-// B:embed_schema_in_export — --no-schema suppresses schema and outputs V1 format
-#[test]
+#[specforge_test(
+    behavior = "embed_schema_in_export",
+    verify = "--no-schema suppresses schema and keeps format_version 1.0"
+)]
 fn export_no_schema_flag_produces_v1() {
     let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
 
@@ -206,10 +208,7 @@ fn export_no_schema_flag_produces_v1() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    assert!(
-        parsed.get("format_version").is_none(),
-        "V1 format has no format_version"
-    );
+    assert_eq!(parsed["format_version"], "1.0", "{parsed}");
     assert!(
         parsed.get("schema").is_none(),
         "V1 format has no schema key"
