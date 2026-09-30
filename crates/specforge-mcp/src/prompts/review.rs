@@ -22,6 +22,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         None => None,
     };
     // Coverage is about testable entities only, as `specforge.coverage` reports.
+    let testable = specforge_emitter::coverage::testable_kinds(&state.kind_registry);
     let mut nodes: Vec<_> = state
         .graph
         .nodes()
@@ -31,12 +32,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
                 .as_ref()
                 .is_none_or(|ids| ids.contains(n.id.raw.as_str()))
         })
-        .filter(|n| {
-            state
-                .kind_registry
-                .get(n.kind.raw.as_str())
-                .is_some_and(|kind| kind.testable)
-        })
+        .filter(|n| testable.contains(n.kind.raw.as_str()))
         .collect();
     nodes.sort_by(|a, b| a.id.raw.as_str().cmp(b.id.raw.as_str()));
 

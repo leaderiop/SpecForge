@@ -73,6 +73,8 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     let kind_filter = args.get("kind").and_then(|v| v.as_str());
     let status_filter = args.get("status_filter").and_then(|v| v.as_str());
 
+    // Testability is the extensions' call (their kinds' manifests).
+    let testable = specforge_emitter::coverage::testable_kinds(&state.kind_registry);
     let results: Vec<Value> = state
         .graph
         .nodes()
@@ -81,12 +83,8 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
             if let Some(eid) = entity_filter {
                 return n.id.raw == eid;
             }
-            // Testability is the extensions' call (their kinds' manifests).
-            let testable = state
-                .kind_registry
-                .get(n.kind.raw.as_str())
-                .is_some_and(|kind| kind.testable);
-            testable && kind_filter.is_none_or(|kind| n.kind.raw == kind)
+            testable.contains(n.kind.raw.as_str())
+                && kind_filter.is_none_or(|kind| n.kind.raw == kind)
         })
         .map(|n| (n, EntityCoverage::of(n, report.as_ref())))
         .filter(|(_, coverage)| status_filter.is_none_or(|s| coverage.status() == s))
