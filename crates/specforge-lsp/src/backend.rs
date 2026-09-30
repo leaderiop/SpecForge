@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::mpsc;
@@ -9,10 +8,7 @@ use tower_lsp::{Client, LanguageServer};
 
 use specforge_common::Sym;
 use specforge_graph::{GraphConfig, build_graph_with_config};
-use specforge_registry::{KindRegistry, populate_registries};
-use specforge_wasm::protocol::{
-    ProtocolHost, load_protocol_extension, protocol_extension_to_manifest,
-};
+use specforge_registry::{KindRegistry, build_registries};
 use specforge_watch::{ImportDag, IncrementalPipeline};
 
 use crate::{
@@ -229,94 +225,36 @@ impl Backend {
         count
     }
 
-    /// Load extensions via the protocol pipeline and populate registries.
-    /// Static over the shared state so the background indexing task (C4-04)
-    /// can call it without borrowing the backend.
-    /// Returns the number of extensions loaded.
+    /// Load the project's extension environment: `specforge.json`, the
+    /// extensions it lists and the registries built from them, through the
+    /// same `load_extensions` and `build_registries` `specforge check` uses.
+    /// The previous environment is always replaced, so an extension removed
+    /// from the config takes its kinds with it, and the load diagnostics
+    /// are kept for publishing. Static over the shared state so the
+    /// background indexing task (C4-04) can call it without borrowing the
+    /// backend. Returns the number of extensions loaded.
     async fn load_registries_static(state: &RwLock<LspState>, project_root: &str) -> usize {
-        let config_path = std::path::Path::new(project_root).join("specforge.json");
-        let extensions: Vec<String> = match std::fs::read_to_string(&config_path) {
-            Ok(content) => {
-                let json: serde_json::Value = match serde_json::from_str(&content) {
-                    Ok(v) => v,
-                    Err(_) => return 0,
-                };
-                json.get("extensions")
-                    .and_then(|e| e.as_array())
-                    .map(|arr| {
-                        arr.iter()
-                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                            .collect()
-                    })
-                    .unwrap_or_default()
-            }
-            Err(_) => return 0,
-        };
-
-        if extensions.is_empty() {
-            return 0;
-        }
-
+        let root = std::path::Path::new(project_root);
+        let config = specforge_common::load_project_config(root);
+        let mut load_diagnostics = Vec::new();
         // One Wasm runtime per session — the same constructor the CLI and
         // MCP use (WASM-only migration, Phase 4).
-        let runtime = specforge_component::project_runtime(std::path::Path::new(project_root));
-        let host = ProtocolHost::new(&runtime);
-        let mut manifests = Vec::new();
-
-        for ext_spec in &extensions {
-            // Normalize path-style specifiers to canonical @specforge/ names
-            let ext_name = if ext_spec.starts_with('@') {
-                ext_spec.clone()
-            } else {
-                let last = std::path::Path::new(ext_spec)
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or(ext_spec);
-                format!("@specforge/{}", last)
-            };
-            if let Ok(proto_ext) = load_protocol_extension(&host, &ext_name) {
-                manifests.push(protocol_extension_to_manifest(&proto_ext));
-            }
-        }
-        let count = manifests.len();
-        if !manifests.is_empty() {
-            let (kind_reg, field_reg, edge_reg, _diags) = populate_registries(&manifests);
-
-            // Parse extension-declared validation rules
-            let rule_inputs: Vec<(String, Vec<_>)> = manifests
-                .iter()
-                .map(|m| (m.name.clone(), m.validation_rules.clone()))
-                .collect();
-            let (mut patterns, _rule_diags) =
-                specforge_registry::validation_engine::parse_all_rule_patterns(&rule_inputs);
-            specforge_registry::validation_engine::resolve_edge_rules(
-                &mut patterns,
-                &edge_reg,
-                &kind_reg,
-            );
-
-            // Auto-generate E006 rules for required fields (originless,
-            // host-generated, declarative)
-            let required_rules = specforge_registry::generate_required_field_rules(&field_reg);
-            patterns.extend(required_rules.into_iter().map(|p| (p, String::new())));
-
-            // Keyword -> extension index for I004 hints (same derivation as
-            // the CLI pipeline: emitter compile.rs known_extension_keywords).
-            let known_extension_keywords: HashMap<String, String> = manifests
-                .iter()
-                .flat_map(|m| {
-                    m.entity_kinds
-                        .iter()
-                        .map(move |k| (k.keyword.clone(), m.name.clone()))
-                })
-                .collect();
-            let mut state = state.write().await;
-            state.set_registries(kind_reg, field_reg, edge_reg);
-            state.set_validation_patterns(patterns);
-            state.set_known_extension_keywords(known_extension_keywords);
-            state.set_runtime(runtime);
-        }
-
+        let runtime =
+            (!config.extensions.is_empty()).then(|| specforge_component::project_runtime(root));
+        let manifests = match &runtime {
+            Some(runtime) => specforge_emitter::compile::load_extensions(
+                &config.extensions,
+                runtime,
+                &mut load_diagnostics,
+            ),
+            None => Vec::new(),
+        };
+        let registries = build_registries(manifests);
+        let count = registries.manifests.len();
+        state
+            .write()
+            .await
+            .set_environment(registries, load_diagnostics, runtime);
         count
     }
 
@@ -399,6 +337,13 @@ impl Backend {
         // the CLI reports, so LSP and CLI agree byte for byte.
         for pd in &result.diagnostics {
             record(&state, uri, pd, &mut diags_by_file, &mut core_by_file);
+        }
+
+        // What loading the extensions reported (E028, registry conflicts,
+        // surface conflicts), as `specforge check` reports it. These have
+        // no span, so they go on the edited document.
+        for d in &state.environment_diagnostics() {
+            record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
         }
 
         // F1 syntax-only fast path (C4-07): when the edited file has parse

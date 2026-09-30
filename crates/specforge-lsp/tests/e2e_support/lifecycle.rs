@@ -476,3 +476,59 @@ async fn e2e_requests_after_shutdown_are_invalid() {
     let hover = client.hover(&uri, 0, 10).await;
     assert_eq!(hover["error"]["code"], -32600, "{hover}");
 }
+
+/// Top-level keyword completions: the kinds the loaded extensions declare.
+async fn top_level_keywords(client: &mut LspClient, uri: &str) -> Vec<String> {
+    let resp = client.completion(uri, 0, 0).await;
+    resp["result"]
+        .as_array()
+        .cloned()
+        .unwrap_or_default()
+        .iter()
+        .filter(|i| i["kind"] == 14) // CompletionItemKind::KEYWORD
+        .filter_map(|i| i["label"].as_str().map(str::to_string))
+        .collect()
+}
+
+#[spec(
+    invariant = "lsp_extension_reload_consistency",
+    verify = "removing an extension while LSP is running removes kinds from KindRegistry atomically"
+)]
+#[tokio::test]
+async fn e2e_removing_every_extension_clears_the_kinds() {
+    let text = "behavior login \"Login\" {\n  contract \"logs in\"\n}\n";
+    let (mut client, uri, dir) =
+        start_server_with_extensions(&["@specforge/software"], "main.spec", text).await;
+    let before = top_level_keywords(&mut client, &uri).await;
+    assert!(before.iter().any(|k| k == "behavior"), "{before:?}");
+
+    // Every extension is removed from specforge.json.
+    let config = json!({"name": "test", "version": "0.1.0", "extensions": []});
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    let config_uri = tower_lsp::lsp_types::Url::from_file_path(dir.path().join("specforge.json"))
+        .unwrap()
+        .to_string();
+    client
+        .send_notification(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes": [{"uri": config_uri, "type": 2}]}),
+        )
+        .await;
+    let reloaded = client
+        .wait_for_notification("window/logMessage", 5000)
+        .await
+        .expect("the reload is announced");
+    assert!(
+        reloaded["params"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("reloaded 0 extension(s)"),
+        "{reloaded}"
+    );
+
+    let after = top_level_keywords(&mut client, &uri).await;
+    assert!(
+        !after.iter().any(|k| k == "behavior"),
+        "software's kinds outlive its removal: {after:?}"
+    );
+}

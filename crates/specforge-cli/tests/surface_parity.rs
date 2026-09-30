@@ -131,15 +131,8 @@ const EXPECTED_DIVERGENCES: &[Divergence] = &[
         extra: &[],
         unstable: false,
     },
-    // D2: extension load diagnostics (E028) reach `check` and MCP only.
-    Divergence {
-        id: "D2",
-        fixture: "unknown_extension",
-        surface: Surface::Lsp,
-        missing: &["E028 error main.spec:1"],
-        extra: &[],
-        unstable: false,
-    },
+    // D2: extension load diagnostics (E028) reach `check`, MCP and the
+    // LSP, but not watch.
     Divergence {
         id: "D2",
         fixture: "unknown_extension",

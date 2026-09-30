@@ -2,7 +2,8 @@ use crate::DocumentBuffer;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 use specforge_registry::{
-    EdgeRegistry, FieldRegistry, KindRegistry, validation_engine::ValidationRulePattern,
+    EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild,
+    validation_engine::ValidationRulePattern,
 };
 use specforge_watch::IncrementalPipeline;
 use std::collections::HashMap;
@@ -14,17 +15,13 @@ pub struct LspState {
     documents: HashMap<String, DocumentBuffer>,
     diagnostics: HashMap<String, Vec<Diagnostic>>,
     pipeline: IncrementalPipeline,
-    kind_registry: KindRegistry,
-    field_registry: FieldRegistry,
-    edge_registry: EdgeRegistry,
-    /// Patterns paired with their originating extension ("" for
-    /// host-generated rules); the origin names the module that owns a
-    /// custom rule's `wasm_function` export.
-    validation_patterns: Vec<(ValidationRulePattern, String)>,
-    /// Entity keyword -> extension name, derived from the loaded manifests.
-    /// Mirrors the CLI's `known_extension_keywords` so I004 hints agree
-    /// across surfaces (WASM-only migration, Phase 4).
-    known_extension_keywords: HashMap<String, String>,
+    /// The registries, rules and derived inputs built from the loaded
+    /// extensions: the same `build_registries` result `specforge check`
+    /// uses.
+    registries: RegistryBuild,
+    /// What loading the extensions reported (E028, manifest checks), ahead
+    /// of the registry build's own diagnostics.
+    load_diagnostics: Vec<Diagnostic>,
     /// The session's Wasm runtime, for custom-rule dispatch.
     runtime: Option<std::sync::Arc<specforge_component::ComponentRuntime>>,
     /// The project's spec root, for file-reference checks.
@@ -47,11 +44,8 @@ impl LspState {
             documents: HashMap::new(),
             diagnostics: HashMap::new(),
             pipeline: IncrementalPipeline::empty(),
-            kind_registry: KindRegistry::new(),
-            field_registry: FieldRegistry::new(),
-            edge_registry: EdgeRegistry::new(),
-            validation_patterns: Vec::new(),
-            known_extension_keywords: HashMap::new(),
+            registries: RegistryBuild::default(),
+            load_diagnostics: Vec::new(),
             runtime: None,
             spec_root: std::path::PathBuf::new(),
             last_token_signature: 0,
@@ -75,7 +69,8 @@ impl LspState {
             node.title.hash(&mut hasher);
         }
         let mut kinds: Vec<(&String, Option<&String>)> = self
-            .kind_registry
+            .registries
+            .kinds
             .iter()
             .map(|(keyword, entry)| (keyword, entry.semantic_token.as_ref()))
             .collect();
@@ -182,19 +177,51 @@ impl LspState {
     }
 
     pub fn kind_registry(&self) -> &KindRegistry {
-        &self.kind_registry
+        &self.registries.kinds
     }
 
     pub fn field_registry(&self) -> &FieldRegistry {
-        &self.field_registry
+        &self.registries.fields
     }
 
     pub fn edge_registry(&self) -> &EdgeRegistry {
-        &self.edge_registry
+        &self.registries.edges
     }
 
+    /// Patterns paired with their originating extension ("" for
+    /// host-generated rules); the origin names the module that owns a
+    /// custom rule's `wasm_function` export.
     pub fn validation_patterns(&self) -> &[(ValidationRulePattern, String)] {
-        &self.validation_patterns
+        &self.registries.rules
+    }
+
+    /// Everything built from the loaded extensions.
+    pub fn registries(&self) -> &RegistryBuild {
+        &self.registries
+    }
+
+    /// What loading the extensions and building the registries reported,
+    /// in the order `specforge check` reports it: load, registry build,
+    /// then surface conflicts.
+    pub fn environment_diagnostics(&self) -> Vec<Diagnostic> {
+        let mut diagnostics = self.load_diagnostics.clone();
+        diagnostics.extend(self.registries.registry_diagnostics.iter().cloned());
+        diagnostics.extend(self.registries.surface_diagnostics.iter().cloned());
+        diagnostics
+    }
+
+    /// Replace the whole extension environment at once: registries, rules,
+    /// load diagnostics and runtime. Nothing of the previous environment
+    /// survives, so removing an extension removes its kinds.
+    pub fn set_environment(
+        &mut self,
+        registries: RegistryBuild,
+        load_diagnostics: Vec<Diagnostic>,
+        runtime: Option<specforge_component::ComponentRuntime>,
+    ) {
+        self.registries = registries;
+        self.load_diagnostics = load_diagnostics;
+        self.runtime = runtime.map(std::sync::Arc::new);
     }
 
     pub fn runtime(&self) -> Option<&std::sync::Arc<specforge_component::ComponentRuntime>> {
@@ -220,21 +247,22 @@ impl LspState {
         field_reg: FieldRegistry,
         edge_reg: EdgeRegistry,
     ) {
-        self.kind_registry = kind_reg;
-        self.field_registry = field_reg;
-        self.edge_registry = edge_reg;
+        self.registries.kinds = kind_reg;
+        self.registries.fields = field_reg;
+        self.registries.edges = edge_reg;
     }
 
+    /// Entity keyword -> extension name, derived from the loaded manifests.
     pub fn known_extension_keywords(&self) -> &HashMap<String, String> {
-        &self.known_extension_keywords
+        &self.registries.keyword_owners
     }
 
     pub fn set_known_extension_keywords(&mut self, map: HashMap<String, String>) {
-        self.known_extension_keywords = map;
+        self.registries.keyword_owners = map;
     }
 
     pub fn set_validation_patterns(&mut self, patterns: Vec<(ValidationRulePattern, String)>) {
-        self.validation_patterns = patterns;
+        self.registries.rules = patterns;
     }
 
     pub fn shutdown(&mut self) {
@@ -242,10 +270,8 @@ impl LspState {
         self.documents.clear();
         self.diagnostics.clear();
         self.pipeline = IncrementalPipeline::empty();
-        self.kind_registry = KindRegistry::new();
-        self.field_registry = FieldRegistry::new();
-        self.edge_registry = EdgeRegistry::new();
-        self.validation_patterns = Vec::new();
+        self.registries = RegistryBuild::default();
+        self.load_diagnostics = Vec::new();
         self.runtime = None;
     }
 
