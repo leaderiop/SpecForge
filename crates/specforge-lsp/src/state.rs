@@ -1,35 +1,40 @@
 use crate::DocumentBuffer;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
+use specforge_project::{Environment, ProjectSession};
 use specforge_registry::{
     EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild,
     validation_engine::ValidationRulePattern,
 };
-use specforge_watch::IncrementalPipeline;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-/// Shared LSP server state: open documents, the shared incremental pipeline
-/// (graph + per-file parses + diagnostics), registries, and the published
-/// per-URI diagnostics.
+/// Shared LSP server state: open documents, the project session (the one
+/// `specforge watch` holds: environment, graph, per-file parses and
+/// diagnostics), and the diagnostics last published per URI.
 pub struct LspState {
     documents: HashMap<String, DocumentBuffer>,
     diagnostics: HashMap<String, Vec<Diagnostic>>,
-    pipeline: IncrementalPipeline,
-    /// The registries, rules and derived inputs built from the loaded
-    /// extensions: the same `build_registries` result `specforge check`
-    /// uses.
-    registries: RegistryBuild,
-    /// What loading the extensions reported (E028, manifest checks), ahead
-    /// of the registry build's own diagnostics.
-    load_diagnostics: Vec<Diagnostic>,
-    /// The session's Wasm runtime, for custom-rule dispatch.
-    runtime: Option<std::sync::Arc<specforge_component::ComponentRuntime>>,
-    /// The project's spec root, for file-reference checks.
-    spec_root: std::path::PathBuf,
+    project: Project,
+    /// Where diagnostics without a span were last published.
+    anchor: Option<String>,
     /// [`LspState::token_signature`] as of the last recompile, so a
     /// recompile can tell whether the client's semantic tokens went stale.
     last_token_signature: u64,
     shutdown: bool,
+}
+
+/// The session, or what readers see while it is out for an update.
+enum Project {
+    Held(Box<ProjectSession>),
+    /// The session is being updated off the async runtime: readers keep
+    /// its last complete graph and the environment it was built with, so
+    /// they never see a half-applied update.
+    Out {
+        graph: Graph,
+        env: Arc<Environment>,
+    },
 }
 
 impl Default for LspState {
@@ -39,15 +44,13 @@ impl Default for LspState {
 }
 
 impl LspState {
+    /// A state with no project open (a detached session).
     pub fn new() -> Self {
         let mut state = Self {
             documents: HashMap::new(),
             diagnostics: HashMap::new(),
-            pipeline: IncrementalPipeline::empty(),
-            registries: RegistryBuild::default(),
-            load_diagnostics: Vec::new(),
-            runtime: None,
-            spec_root: std::path::PathBuf::new(),
+            project: Project::Held(Box::new(ProjectSession::detached())),
+            anchor: None,
             last_token_signature: 0,
             shutdown: false,
         };
@@ -69,8 +72,7 @@ impl LspState {
             node.title.hash(&mut hasher);
         }
         let mut kinds: Vec<(&String, Option<&String>)> = self
-            .registries
-            .kinds
+            .kind_registry()
             .iter()
             .map(|(keyword, entry)| (keyword, entry.semantic_token.as_ref()))
             .collect();
@@ -146,136 +148,160 @@ impl LspState {
             .unwrap_or(&[])
     }
 
+    /// The URIs diagnostics were last published for.
+    pub fn published_uris(&self) -> Vec<String> {
+        self.diagnostics.keys().cloned().collect()
+    }
+
+    /// Forget what was published for `uri` (it was cleared).
+    pub fn clear_diagnostics(&mut self, uri: &str) {
+        self.diagnostics.remove(uri);
+    }
+
     pub fn graph(&self) -> &Graph {
-        self.pipeline.graph()
+        match &self.project {
+            Project::Held(session) => session.graph(),
+            Project::Out { graph, .. } => graph,
+        }
     }
 
-    pub fn graph_mut(&mut self) -> &mut Graph {
-        self.pipeline.graph_mut()
+    /// The project's environment: config, spec root, registries, rules.
+    pub fn environment(&self) -> &Environment {
+        match &self.project {
+            Project::Held(session) => session.environment(),
+            Project::Out { env, .. } => env,
+        }
     }
 
-    pub fn pipeline(&self) -> &IncrementalPipeline {
-        &self.pipeline
+    /// The project session, unless it is out for an update.
+    pub fn session(&self) -> Option<&ProjectSession> {
+        match &self.project {
+            Project::Held(session) => Some(session),
+            Project::Out { .. } => None,
+        }
     }
 
-    /// Take the pipeline out (for blocking compute off the async runtime).
-    /// Until `set_pipeline`, the state keeps a copy of the last complete
-    /// graph, so readers never see a half-applied update (an empty graph).
-    pub fn take_pipeline(&mut self) -> IncrementalPipeline {
-        let mut stand_in = IncrementalPipeline::empty();
-        *stand_in.graph_mut() = self.pipeline.graph().clone();
-        std::mem::replace(&mut self.pipeline, stand_in)
+    /// The project session, unless it is out for an update.
+    pub fn session_mut(&mut self) -> Option<&mut ProjectSession> {
+        match &mut self.project {
+            Project::Held(session) => Some(session),
+            Project::Out { .. } => None,
+        }
     }
 
-    /// Put a previously taken pipeline back.
-    pub fn set_pipeline(&mut self, pipeline: IncrementalPipeline) {
-        self.pipeline = pipeline;
+    /// Take the session out (to update it off the async runtime). Until
+    /// [`LspState::set_session`], readers see its last complete graph and
+    /// environment. `None` when it is already out.
+    pub fn take_session(&mut self) -> Option<ProjectSession> {
+        let stand_in = match &self.project {
+            Project::Held(session) => Project::Out {
+                graph: session.graph().clone(),
+                env: session.shared_environment(),
+            },
+            Project::Out { .. } => return None,
+        };
+        match std::mem::replace(&mut self.project, stand_in) {
+            Project::Held(session) => Some(*session),
+            Project::Out { .. } => None,
+        }
     }
 
-    pub fn pipeline_mut(&mut self) -> &mut IncrementalPipeline {
-        &mut self.pipeline
+    /// Put a session in: one taken out, or a newly opened project. After
+    /// shutdown it is dropped (its runtime freed) for an empty one.
+    pub fn set_session(&mut self, session: ProjectSession) {
+        self.project = Project::Held(Box::new(if self.shutdown {
+            ProjectSession::detached()
+        } else {
+            session
+        }));
     }
 
     pub fn kind_registry(&self) -> &KindRegistry {
-        &self.registries.kinds
+        &self.registries().kinds
     }
 
     pub fn field_registry(&self) -> &FieldRegistry {
-        &self.registries.fields
+        &self.registries().fields
     }
 
     pub fn edge_registry(&self) -> &EdgeRegistry {
-        &self.registries.edges
+        &self.registries().edges
     }
 
     /// Patterns paired with their originating extension ("" for
     /// host-generated rules); the origin names the module that owns a
     /// custom rule's `wasm_function` export.
     pub fn validation_patterns(&self) -> &[(ValidationRulePattern, String)] {
-        &self.registries.rules
+        &self.registries().rules
     }
 
     /// Everything built from the loaded extensions.
     pub fn registries(&self) -> &RegistryBuild {
-        &self.registries
-    }
-
-    /// What loading the extensions and building the registries reported,
-    /// in the order `specforge check` reports it: load, registry build,
-    /// then surface conflicts.
-    pub fn environment_diagnostics(&self) -> Vec<Diagnostic> {
-        let mut diagnostics = self.load_diagnostics.clone();
-        diagnostics.extend(self.registries.registry_diagnostics.iter().cloned());
-        diagnostics.extend(self.registries.surface_diagnostics.iter().cloned());
-        diagnostics
-    }
-
-    /// Replace the whole extension environment at once: registries, rules,
-    /// load diagnostics and runtime. Nothing of the previous environment
-    /// survives, so removing an extension removes its kinds.
-    pub fn set_environment(
-        &mut self,
-        registries: RegistryBuild,
-        load_diagnostics: Vec<Diagnostic>,
-        runtime: Option<specforge_component::ComponentRuntime>,
-    ) {
-        self.registries = registries;
-        self.load_diagnostics = load_diagnostics;
-        self.runtime = runtime.map(std::sync::Arc::new);
-    }
-
-    pub fn runtime(&self) -> Option<&std::sync::Arc<specforge_component::ComponentRuntime>> {
-        self.runtime.as_ref()
-    }
-
-    pub fn spec_root(&self) -> &std::path::Path {
-        &self.spec_root
-    }
-
-    pub fn set_spec_root(&mut self, spec_root: std::path::PathBuf) {
-        self.spec_root = spec_root;
-    }
-
-    pub fn set_runtime(&mut self, runtime: specforge_component::ComponentRuntime) {
-        self.runtime = Some(std::sync::Arc::new(runtime));
-    }
-
-    /// Replace the registries and validation patterns (called after loading extension manifests).
-    pub fn set_registries(
-        &mut self,
-        kind_reg: KindRegistry,
-        field_reg: FieldRegistry,
-        edge_reg: EdgeRegistry,
-    ) {
-        self.registries.kinds = kind_reg;
-        self.registries.fields = field_reg;
-        self.registries.edges = edge_reg;
+        &self.environment().registries
     }
 
     /// Entity keyword -> extension name, derived from the loaded manifests.
     pub fn known_extension_keywords(&self) -> &HashMap<String, String> {
-        &self.registries.keyword_owners
+        &self.registries().keyword_owners
     }
 
-    pub fn set_known_extension_keywords(&mut self, map: HashMap<String, String>) {
-        self.registries.keyword_owners = map;
+    /// Where the project's `.spec` files live (empty with no project).
+    pub fn spec_root(&self) -> &Path {
+        &self.environment().spec_root
     }
 
-    pub fn set_validation_patterns(&mut self, patterns: Vec<(ValidationRulePattern, String)>) {
-        self.registries.rules = patterns;
+    /// The session's file key for an absolute path (see [`file_key`]).
+    pub fn file_key(&self, path: &str) -> String {
+        file_key(self.spec_root(), path)
+    }
+
+    /// The absolute path of a session file key.
+    pub fn file_path(&self, key: &str) -> PathBuf {
+        self.spec_root().join(key)
     }
 
     pub fn shutdown(&mut self) {
         self.shutdown = true;
         self.documents.clear();
         self.diagnostics.clear();
-        self.pipeline = IncrementalPipeline::empty();
-        self.registries = RegistryBuild::default();
-        self.load_diagnostics = Vec::new();
-        self.runtime = None;
+        // Dropping the session frees its graph and its Wasm runtime.
+        self.project = Project::Held(Box::new(ProjectSession::detached()));
     }
 
     pub fn is_shutdown(&self) -> bool {
         self.shutdown
     }
+
+    /// The open document diagnostics without a span were last published
+    /// on (`None` once it is closed).
+    pub fn anchor(&self) -> Option<&str> {
+        self.anchor.as_deref().filter(|uri| self.is_open(uri))
+    }
+
+    pub fn set_anchor(&mut self, uri: Option<String>) {
+        self.anchor = uri;
+    }
+}
+
+/// The session's file key for an absolute path: relative to the spec root
+/// when the file is under it (as `specforge check` names it), else the
+/// absolute path itself.
+pub fn file_key(spec_root: &Path, path: &str) -> String {
+    if spec_root.as_os_str().is_empty() {
+        return path.to_string();
+    }
+    let path = Path::new(path);
+    if let Ok(relative) = path.strip_prefix(spec_root) {
+        return relative.to_string_lossy().into_owned();
+    }
+    // The editor and the workspace root may spell the same directory
+    // differently (a symlinked temp dir): compare canonical forms.
+    if let (Ok(canonical), Ok(canonical_root)) = (
+        std::fs::canonicalize(path),
+        std::fs::canonicalize(spec_root),
+    ) && let Ok(relative) = canonical.strip_prefix(&canonical_root)
+    {
+        return relative.to_string_lossy().into_owned();
+    }
+    path.to_string_lossy().into_owned()
 }

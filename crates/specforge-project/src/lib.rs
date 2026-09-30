@@ -10,7 +10,8 @@
 //!   the built graph. Its [`CompiledProject::diagnostics`] are, by
 //!   definition, what `specforge check` reports;
 //! - a [`ProjectSession`] is a long-lived compiled project that accepts
-//!   source changes and environment reloads (watch holds one). After any
+//!   source changes and environment reloads (watch and the LSP each hold
+//!   one). After any
 //!   sequence of updates its diagnostics are the set a fresh compile
 //!   reports.
 //!
@@ -29,7 +30,7 @@ use specforge_registry::{RegistryBuild, build_registries};
 use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
 use specforge_wasm::WasmRuntime;
 
-pub use session::{ProjectSession, SharedRuntime, SourceChange, Update};
+pub use session::{CheckMode, ProjectSession, SharedRuntime, SourceChange, Update};
 pub use specforge_emitter::compile::CompilationContext;
 
 /// Everything derived from `specforge.json` and the loaded extensions,

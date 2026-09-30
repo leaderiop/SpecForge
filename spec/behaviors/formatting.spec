@@ -336,8 +336,11 @@ behavior lsp_format_document "LSP Format Document" {
     in a response MUST NOT overlap. When the document contains parse
     errors, the server MUST format well-formed regions and leave error
     regions unchanged, consistent with format_with_parse_errors.
+    Diagnostics the formatter reports MUST be published alongside the
+    document's compile diagnostics, never in place of them.
   """
   verify unit "formatting request returns TextEdit list"
+  verify integration "formatting keeps the document's compile diagnostics published"
   verify unit "TextEdit coordinates are 0-indexed lines and columns"
   verify unit "TextEdit operations in a response do not overlap"
   verify integration "LSP format produces same result as CLI format"

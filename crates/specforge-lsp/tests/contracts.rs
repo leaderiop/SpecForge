@@ -232,6 +232,37 @@ async fn document_open_close_contract() {
     assert!(session.format(uri).await.is_null());
 }
 
+/// Formatting a document with a parse error publishes the formatter's
+/// W142 (the error region is kept verbatim) without erasing what compiling
+/// the document reported: the E001 and the dangling reference stay.
+#[specforge_test(
+    behavior = "lsp_format_document",
+    verify = "formatting keeps the document's compile diagnostics published"
+)]
+#[tokio::test]
+async fn formatting_keeps_the_compile_diagnostics() {
+    let (mut session, _) = wire::Session::start(None).await;
+    let uri = "file:///buffer/format_keeps.spec";
+    let text = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n\n}}}\n";
+    session.open(uri, text).await;
+    let compiled = session.diagnostics(uri).await;
+    let mut compile_codes = wire::codes(&compiled);
+    compile_codes.sort();
+    assert!(
+        compile_codes.contains(&"E001"),
+        "the stray braces are a parse error: {compiled:?}"
+    );
+
+    assert!(session.format(uri).await.is_array());
+    let after = session.diagnostics(uri).await;
+    let mut codes = wire::codes(&after);
+    codes.sort();
+    let mut expected = compile_codes.clone();
+    expected.push("W142");
+    expected.sort();
+    assert_eq!(codes, expected, "{after:?}");
+}
+
 // B:autocomplete_entity_ids — verify contract "requires/ensures consistency for entity ID autocomplete"
 #[specforge_test(
     behavior = "autocomplete_entity_ids",
@@ -883,25 +914,16 @@ fn shared_incremental_pipeline_contract() {
     // Ensures: shared graph updated, diagnostics pushed, pipeline parity enforced
     let mut state = specforge_lsp::LspState::new();
 
-    // Simulate pipeline: open doc, build graph, push diagnostics
-    state.open_document("file:///a.spec", "behavior a \"A\" {}\n");
-
-    state.graph_mut().add_node(specforge_graph::Node {
-        id: specforge_parser::EntityId { raw: "a".into() },
-        kind: specforge_parser::EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("A".into()),
-        fields: specforge_parser::FieldMap::new(),
-        source_span: specforge_common::SourceSpan {
-            file: "a.spec".into(),
-            start_line: 0,
-            start_col: 0,
-            end_line: 0,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
+    // Open a doc, build the graph through the session, push diagnostics
+    let text = "behavior a \"A\" {}\n";
+    state.open_document("file:///a.spec", text);
+    state
+        .session_mut()
+        .unwrap()
+        .update(specforge_project::SourceChange::Buffer {
+            path: "/a.spec",
+            text: Some(text),
+        });
 
     // Graph is shared: navigation works on the same graph instance
     let def = specforge_lsp::go_to_definition(state.graph(), "a");

@@ -20,10 +20,11 @@
 //! deleted, so a step can only turn green on purpose.
 //!
 //! The per-fixture tests characterize the surfaces and are not linked.
-//! Two tests prove the obligations the plan names for this seam, over every
-//! fixture: `check` prints the same diagnostics in the same order on every
-//! run (`diagnostic_determinism`), and watch's rebuilt graph is a cold
-//! build's, with the diagnostics `check` reports (`incremental_correctness`).
+//! Three tests prove the obligations the plan names for this seam, over
+//! every fixture: `check` prints the same diagnostics in the same order on
+//! every run (`diagnostic_determinism`), watch's rebuilt graph is a cold
+//! build's, with the diagnostics `check` reports (`incremental_correctness`),
+//! and the LSP publishes what `check` reports (`shared_incremental_pipeline`).
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -99,45 +100,9 @@ struct Divergence {
 }
 
 /// What each surface gets wrong today. Later steps delete rows; none may be
-/// added to excuse a regression.
-const EXPECTED_DIVERGENCES: &[Divergence] = &[
-    // D1: the LSP never runs the resolver, so E025 never reaches it.
-    Divergence {
-        id: "D1",
-        fixture: "missing_import",
-        surface: Surface::Lsp,
-        missing: &["E025 error main.spec:1"],
-        extra: &[],
-    },
-    // D3: the LSP's import DAG is keyed by absolute paths, so it never sees
-    // the import cycle (W113).
-    Divergence {
-        id: "D3",
-        fixture: "import_cycle",
-        surface: Surface::Lsp,
-        missing: &["W113 warning a.spec:1"],
-        extra: &[],
-    },
-    // D4: the LSP's delete branch re-checks with the default validator, not
-    // `check_graph`, so extension-rule diagnostics in surviving files (here
-    // software's required `contract`, E006) are published away.
-    Divergence {
-        id: "D4",
-        fixture: "delete_file",
-        surface: Surface::LspAfterDelete,
-        missing: &["E006 error main.spec:2"],
-        extra: &[],
-    },
-    // D5: after a `specforge.json` change the LSP reloads and re-indexes
-    // (the project root, not the spec root) but never republishes.
-    Divergence {
-        id: "D5",
-        fixture: "spec_root_set",
-        surface: Surface::LspAfterReload,
-        missing: &["E003 error main.spec:5"],
-        extra: &[],
-    },
-];
+/// added to excuse a regression. The LSP's rows (D1, D3, D4, D5) closed
+/// when it moved onto the shared project session (P6).
+const EXPECTED_DIVERGENCES: &[Divergence] = &[];
 
 // ── Normalized diagnostics ──────────────────────────────────────────────
 
@@ -688,7 +653,6 @@ fn assert_parity(fixture: &str) {
     let second = check(&project);
     assert_eq!(first, second, "check is not deterministic on `{fixture}`");
     let check_keys = multiset(first);
-    let edited = project.relative(&project.entry);
 
     let mut failures = Vec::new();
     compare(
@@ -716,41 +680,42 @@ fn assert_parity(fixture: &str) {
     );
 
     // Last: its Then step may delete a file.
-    let run = lsp(&project, then);
-    let published = as_published(&check_keys, &edited);
-    compare(
-        fixture,
-        Surface::Lsp,
-        &published,
-        &run.opened,
-        &mut failures,
-    );
-    match (then, run.then) {
-        (Then::ReloadConfig, Some(after)) => compare(
-            fixture,
-            Surface::LspAfterReload,
-            &published,
-            &after,
-            &mut failures,
-        ),
-        (Then::Delete(_), Some(after)) => {
-            let now = as_published(&multiset(check(&project)), &edited);
-            compare(
-                fixture,
-                Surface::LspAfterDelete,
-                &now,
-                &after,
-                &mut failures,
-            )
-        }
-        _ => {}
-    }
+    compare_lsp(fixture, &project, then, &check_keys, &mut failures);
 
     assert!(
         failures.is_empty(),
         "check reports {check_keys:?} on `{fixture}`\n{}",
         failures.join("\n")
     );
+}
+
+/// What the LSP publishes after opening the entry file, and after the
+/// fixture's [`Then`] step, against what `check` reports then.
+fn compare_lsp(
+    fixture: &str,
+    project: &Project,
+    then: Then,
+    check_keys: &Keys,
+    failures: &mut Vec<String>,
+) {
+    let edited = project.relative(&project.entry);
+    let run = lsp(project, then);
+    let published = as_published(check_keys, &edited);
+    compare(fixture, Surface::Lsp, &published, &run.opened, failures);
+    match (then, run.then) {
+        (Then::ReloadConfig, Some(after)) => compare(
+            fixture,
+            Surface::LspAfterReload,
+            &published,
+            &after,
+            failures,
+        ),
+        (Then::Delete(_), Some(after)) => {
+            let now = as_published(&multiset(check(project)), &edited);
+            compare(fixture, Surface::LspAfterDelete, &now, &after, failures)
+        }
+        _ => {}
+    }
 }
 
 // ── Tests: one per fixture ──────────────────────────────────────────────
@@ -840,6 +805,25 @@ fn watch_rebuilds_what_a_cold_build_builds_on_every_fixture() {
             &rebuilt,
             &mut failures,
         );
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// On every fixture the LSP publishes what `check` reports: after opening
+/// a file (E025 and W113 from the resolver included), after `specforge.json`
+/// changes (the spec root is indexed again, and everything republished),
+/// and after a file is deleted (the other files keep their extension-rule
+/// diagnostics).
+#[specforge_test(
+    behavior = "shared_incremental_pipeline",
+    verify = "the LSP publishes the diagnostics specforge check reports"
+)]
+fn lsp_publishes_what_check_reports_on_every_fixture() {
+    let mut failures = Vec::new();
+    for &(fixture, entry, then) in FIXTURES {
+        let project = project(fixture, entry);
+        let check_keys = multiset(check(&project));
+        compare_lsp(fixture, &project, then, &check_keys, &mut failures);
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
