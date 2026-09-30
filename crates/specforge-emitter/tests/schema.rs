@@ -1933,6 +1933,26 @@ fn compute_version_metadata_only_no_bump() {
     );
 }
 
+#[specforge_test(
+    behavior = "compute_schema_version",
+    verify = "field metadata change triggers patch version bump"
+)]
+fn field_description_change_bumps_the_patch() {
+    let old = sample_schema();
+    let mut new = sample_schema();
+    new.entity_kinds[0].fields[0].description = Some("reworded".to_string());
+
+    let migration = diff_schemas(&old, &new);
+
+    assert_eq!(migration.changes.len(), 1, "{migration:?}");
+    assert!(!migration.has_breaking_changes());
+    assert!(!migration.has_additions());
+    assert_eq!(
+        compute_schema_version(&migration, Some(&SchemaVersion::new(1, 2, 3))),
+        SchemaVersion::new(1, 2, 4)
+    );
+}
+
 // C6-03: SchemaVersion Ord must honor pre-release labels — 1.0.0-beta
 // sorts strictly below 1.0.0, and cmp/Eq stay consistent.
 #[test]

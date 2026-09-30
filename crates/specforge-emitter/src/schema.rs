@@ -197,6 +197,13 @@ pub enum SchemaMigrationChange {
         old_type: String,
         new_type: String,
     },
+    /// A non-structural attribute changed (a field's description or default,
+    /// a kind's DOT color): a patch bump.
+    MetadataChanged {
+        kind: String,
+        field: Option<String>,
+        attribute: String,
+    },
 }
 
 impl SchemaMigrationChange {
@@ -687,6 +694,13 @@ pub fn diff_schemas(old: &GraphProtocolSchema, new: &GraphProtocolSchema) -> Sch
     // Fields per shared kind
     for (name, new_kind) in &new_kinds {
         if let Some(old_kind) = old_kinds.get(name) {
+            if old_kind.dot_color != new_kind.dot_color {
+                changes.push(SchemaMigrationChange::MetadataChanged {
+                    kind: name.to_string(),
+                    field: None,
+                    attribute: "dot_color".to_string(),
+                });
+            }
             let old_fields: BTreeMap<&str, &SchemaField> = old_kind
                 .fields
                 .iter()
@@ -715,6 +729,21 @@ pub fn diff_schemas(old: &GraphProtocolSchema, new: &GraphProtocolSchema) -> Sch
                             old_type: old_field.field_type.clone(),
                             new_type: field.field_type.clone(),
                         });
+                    }
+                    for (attribute, changed) in [
+                        ("description", old_field.description != field.description),
+                        (
+                            "default_value",
+                            old_field.default_value != field.default_value,
+                        ),
+                    ] {
+                        if changed {
+                            changes.push(SchemaMigrationChange::MetadataChanged {
+                                kind: name.to_string(),
+                                field: Some(field_name.to_string()),
+                                attribute: attribute.to_string(),
+                            });
+                        }
                     }
                 } else {
                     changes.push(SchemaMigrationChange::FieldAdded {
