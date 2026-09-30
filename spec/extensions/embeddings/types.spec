@@ -16,7 +16,8 @@ type EmbeddingSimilarityConfig {
 
 type SimilarityResult {
   entity_id string @readonly
-  score     float  @readonly @doc "Range: 0.0 to 1.0 (cosine similarity)"
+  /// Range: 0.0 to 1.0 (cosine similarity)
+  score     float  @readonly
   kind      string @readonly
   title     string @readonly
   verify unit "SimilarityResult schema is valid"

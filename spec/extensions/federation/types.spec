@@ -47,7 +47,8 @@ type FederatedGraph {
 
 type FederatedExportConfig {
   include_projects string[]                      @optional
-  exclude_projects string[]                      @optional @doc "Default: unlimited (all transitive dependencies)"
+  exclude_projects string[]                      @optional
+  /// Default: unlimited (all transitive dependencies)
   depth            integer                       @optional
   format           "context" | "graph" | "brief" @optional
   max_tokens       integer                       @optional

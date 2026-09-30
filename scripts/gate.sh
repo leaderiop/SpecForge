@@ -4,6 +4,8 @@
 #
 #   scripts/gate.sh          quick: only what the working tree changed
 #   scripts/gate.sh full     everything, once per phase
+#   scripts/gate.sh baseline lower scripts/gate-baseline.json to today's
+#                            warning counts (it never raises one)
 #
 # Full gate: nextest (not `cargo test`) for the workspace, doctests only for
 # crates that have one, `specforge collect --no-run` + `analyze` on the
@@ -12,6 +14,12 @@
 # `specforge check` on every spec corpus. It uses target/debug/specforge (no
 # release build). Light steps run alongside the heavy ones; the two heavy
 # compiles (nextest build, clippy) never overlap.
+#
+# `specforge check` runs on each corpus's project, so its extensions load
+# (`.` is this repository's own spec; `spec/` alone has no specforge.json
+# and loads none). Any error fails. Warnings are ratcheted per code against
+# scripts/gate-baseline.json: a count above its baseline fails, and so does
+# one below it until the baseline is lowered in the same commit.
 set -uo pipefail
 
 MODE=${1:-quick}
@@ -20,7 +28,11 @@ cd "$ROOT"
 LOGS=target/gate
 EXT_TARGET="$ROOT/target/ext"
 SPECFORGE=target/debug/specforge
+# `format` walks every .spec under a path, so it takes the spec
+# directories; `check` takes the projects (their specforge.json).
 CORPORA=(spec integrations/rust/spec examples/todo-app examples/shop)
+PROJECTS=(. integrations/rust/spec examples/todo-app examples/shop)
+BASELINE=scripts/gate-baseline.json
 mkdir -p "$LOGS"
 rm -f "$LOGS"/*.status
 
@@ -68,15 +80,52 @@ fmt_check() {
     cargo run -q -p specforge-cli -- format --check "${CORPORA[@]}"
 }
 
+# spec_checks [--write]: check every project; fail on any error and on any
+# warning count that differs from its baseline. --write lowers the baseline
+# to today's counts, and refuses when a count rose or an error remains.
 spec_checks() {
-    local corpus status=0
-    local summary
-    for corpus in "${CORPORA[@]}"; do
-        summary=$("$SPECFORGE" check "$corpus" 2>&1 | tail -1)
-        echo "$corpus: $summary"
-        case $summary in "0 errors, 0 warnings"*) ;; *) status=1 ;; esac
-    done
-    return $status
+    python3 - "$SPECFORGE" "$BASELINE" "${1:-}" "${PROJECTS[@]}" <<'PY'
+import collections, json, subprocess, sys
+specforge, baseline_path, write = sys.argv[1], sys.argv[2], sys.argv[3] == "--write"
+baseline = json.load(open(baseline_path))
+counts, failed = {}, False
+for project in sys.argv[4:]:
+    out = subprocess.run([specforge, "check", project, "--format", "json"],
+                         capture_output=True, text=True)
+    try:
+        diagnostics = json.loads(out.stdout)
+    except ValueError:
+        print(f"{project}: `specforge check` printed no JSON\n{out.stdout}{out.stderr}")
+        failed = True
+        continue
+    errors = [d for d in diagnostics if d["severity"] == "Error"]
+    warnings = collections.Counter(d["code"] for d in diagnostics if d["severity"] == "Warning")
+    counts[project] = dict(sorted(warnings.items()))
+    print(f"{project}: {len(errors)} errors, {sum(warnings.values())} warnings")
+    for d in errors:
+        span = d.get("span") or {}
+        print(f"  {d['code']} {span.get('file')}:{span.get('start_line')}: {d['message']}")
+    failed |= bool(errors)
+    allowed = baseline.get(project, {})
+    for code in sorted(set(warnings) | set(allowed)):
+        now, was = warnings.get(code, 0), allowed.get(code, 0)
+        if now > was:
+            print(f"  {code} rose {was} -> {now}: fix the new warnings")
+            failed = True
+        elif now < was and not write:
+            print(f"  {code} fell {was} -> {now}: lower it in {baseline_path}"
+                  " in the same commit (scripts/gate.sh baseline)")
+            failed = True
+if write:
+    if failed:
+        print(f"{baseline_path} not written: fix the errors and risen counts first")
+        sys.exit(1)
+    with open(baseline_path, "w") as f:
+        json.dump({p: c for p, c in counts.items() if c}, f, indent=2)
+        f.write("\n")
+    print(f"wrote {baseline_path}")
+sys.exit(1 if failed else 0)
+PY
 }
 
 # Dogfood: record what the nextest run just proved, then require no
@@ -165,6 +214,8 @@ run_quick() {
         esac
         case $file in
             *.spec|spec/*|examples/*|integrations/rust/spec/*) specs=1 ;;
+            # the extensions' rules and the config decide what check reports
+            specforge.json|scripts/gate*|extensions/*|crates/specforge-emitter/*) specs=1 ;;
         esac
     done
     # Deduplicate (no mapfile: macOS ships bash 3.2).
@@ -205,5 +256,6 @@ run_quick() {
 case $MODE in
     full) run_full ;;
     quick) run_quick ;;
-    *) echo "usage: $0 [quick|full]" >&2; exit 2 ;;
+    baseline) cargo build -q -p specforge-cli && spec_checks --write ;;
+    *) echo "usage: $0 [quick|full|baseline]" >&2; exit 2 ;;
 esac

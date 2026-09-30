@@ -6,7 +6,7 @@ use "features"
 use "invariants"
 
 milestone phase_1_annotation "Phase 1: Annotation and Collection" {
-  status    active
+  status    in_progress
   features  [test_annotation, result_collection]
   behaviors [
     expand_test_attribute,
