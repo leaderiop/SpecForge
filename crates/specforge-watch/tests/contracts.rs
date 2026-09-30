@@ -9,7 +9,6 @@ use specforge_watch::{
 };
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn make_node(id: &str, kind: &str, file: &str, line: usize) -> Node {
     Node {
@@ -136,38 +135,58 @@ fn debounce_file_changes_contract() {
     verify = "Track Import DAG Incrementally: incremental import DAG tracking holds — subgraph_invalidated_fired, import_dag_updated_emitted, cycle_detection_rerun"
 )]
 fn track_import_dag_incrementally_contract() {
-    // Requires: file change that adds/removes imports
-    // Ensures: DAG updated, dependents invalidated
+    let w113 = |r: &specforge_watch::IncrementalResult| -> Vec<String> {
+        r.diagnostics
+            .iter()
+            .filter(|d| d.code == "W113")
+            .map(|d| d.message.clone())
+            .collect()
+    };
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
         ("b.spec", r#"behavior bar "Bar" { contract "y" }"#),
+        ("c.spec", r#"behavior qux "Qux" { contract "z" }"#),
     ]);
-
-    // Initially no imports
     assert!(pipeline.import_dag().imports_of("b.spec").is_empty());
 
-    // Add import to b.spec
+    // import_dag_updated_emitted: an added `use` becomes a DAG edge.
     sources.insert(
         "b.spec".to_string(),
         "use \"a\"\nbehavior bar \"Bar\" { contract \"y\" }".to_string(),
     );
-    pipeline.rebuild(&["b.spec".to_string()], |f| sources.get(f).cloned());
+    let result = pipeline.rebuild(&["b.spec".to_string()], |f| sources.get(f).cloned());
+    assert_eq!(pipeline.import_dag().imports_of("b.spec"), vec!["a.spec"]);
+    assert!(w113(&result).is_empty(), "no cycle yet");
 
-    // DAG must be updated
-    let imports = pipeline.import_dag().imports_of("b.spec");
-    assert!(imports.contains(&"a.spec"), "b.spec must now import a.spec");
+    // subgraph_invalidated_fired: editing a.spec invalidates its importer
+    // b.spec too (and not the unrelated c.spec). The edit closes a cycle
+    // a -> b -> a; cycle_detection_rerun: W113 appears on this rebuild.
+    sources.insert(
+        "a.spec".to_string(),
+        "use \"b\"\nbehavior foo \"Foo\" { contract \"x\" }".to_string(),
+    );
+    let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
+    assert_eq!(result.rebuilt_files, vec!["a.spec", "b.spec"]);
+    assert_eq!(pipeline.import_dag().imports_of("a.spec"), vec!["b.spec"]);
+    let cycles = w113(&result);
+    assert_eq!(cycles.len(), 1, "one import cycle: {cycles:?}");
+    assert!(
+        cycles[0].contains("a.spec") && cycles[0].contains("b.spec"),
+        "{}",
+        cycles[0]
+    );
 
-    // Remove the import
+    // Removing the import deletes the edge and the re-run clears the cycle.
     sources.insert(
         "b.spec".to_string(),
         r#"behavior bar "Bar" { contract "y" }"#.to_string(),
     );
-    pipeline.rebuild(&["b.spec".to_string()], |f| sources.get(f).cloned());
-
-    let imports_after = pipeline.import_dag().imports_of("b.spec");
+    let result = pipeline.rebuild(&["b.spec".to_string()], |f| sources.get(f).cloned());
+    assert!(pipeline.import_dag().imports_of("b.spec").is_empty());
     assert!(
-        !imports_after.contains(&"a.spec"),
-        "import must be removed from DAG"
+        w113(&result).is_empty(),
+        "cycle must be gone: {:?}",
+        w113(&result)
     );
 }
 
@@ -234,52 +253,77 @@ fn dispatch_incremental_validators_contract() {
     );
 }
 
-// B:notify_delta_subscribers — verify contract "requires/ensures consistency for delta subscriber notification"
-#[specforge_test(
-    behavior = "notify_delta_subscribers",
-    verify = "Notify Delta Subscribers: delta subscriber notification holds — graph_delta_computed_fired, lsp_notified, diagnostics_delta_delivered, delta_subscribers_notified_emitted"
-)]
+// B:notify_delta_subscribers — contract not linked: its `lsp_notified` clause
+// ("LSP subscribers receive semantic token staleness notifications") has no
+// product counterpart (no LSP delta subscriber, no semantic-token refresh).
+// This proves the delivery half: every subscriber gets exactly the payload.
+#[test]
 fn notify_delta_subscribers_contract() {
-    // Requires: delta produced + registered subscribers
-    // Ensures: all subscribers notified exactly once
-    struct Counter {
-        count: Arc<AtomicUsize>,
+    type Received = (Vec<String>, Vec<String>, Vec<String>, Vec<String>);
+    struct Recorder {
+        seen: Arc<std::sync::Mutex<Vec<Received>>>,
     }
-    impl DeltaSubscriber for Counter {
-        fn on_delta(&self, _: &GraphDelta, _: &DiagnosticsDelta, _: &[String]) {
-            self.count.fetch_add(1, Ordering::SeqCst);
+    impl DeltaSubscriber for Recorder {
+        fn on_delta(&self, delta: &GraphDelta, diags: &DiagnosticsDelta, files: &[String]) {
+            let codes = |v: &[specforge_common::Diagnostic]| {
+                v.iter().map(|d| d.code.clone()).collect::<Vec<String>>()
+            };
+            self.seen.lock().unwrap().push((
+                delta.added_nodes.iter().map(|n| n.id.clone()).collect(),
+                codes(&diags.added),
+                codes(&diags.removed),
+                files.to_vec(),
+            ));
         }
     }
 
-    let count = Arc::new(AtomicUsize::new(0));
-    let subscribers: Vec<Box<dyn DeltaSubscriber>> = (0..3)
-        .map(|_| {
-            Box::new(Counter {
-                count: count.clone(),
-            }) as Box<dyn DeltaSubscriber>
-        })
+    let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let subscribers: Vec<Arc<dyn DeltaSubscriber>> = (0..3)
+        .map(|_| Arc::new(Recorder { seen: seen.clone() }) as Arc<dyn DeltaSubscriber>)
         .collect();
 
+    // graph_delta_computed_fired: a real, non-empty delta.
     let delta = GraphDelta {
-        added_nodes: vec![],
+        added_nodes: vec![NodeChange {
+            id: "fresh".into(),
+            kind: "behavior".into(),
+            file: Some("a.spec".into()),
+            line: Some(1),
+        }],
         removed_nodes: vec![],
         modified_nodes: vec![],
         added_edges: vec![],
         removed_edges: vec![],
-        affected_files: vec!["a.spec".to_string()],
+        affected_files: vec!["a.spec".to_string(), "b.spec".to_string()],
+    };
+    let diag = |code: &str| specforge_common::Diagnostic {
+        code: code.to_string(),
+        message: code.to_string(),
+        severity: specforge_common::Severity::Error,
+        span: None,
+        suggestion: None,
     };
     let diag_delta = DiagnosticsDelta {
-        added: vec![],
-        removed: vec![],
+        added: vec![diag("E003")],
+        removed: vec![diag("E002")],
     };
 
-    notify_delta_subscribers(&subscribers, &delta, &diag_delta);
+    // delta_subscribers_notified: one dispatch per subscriber.
+    let handles = notify_delta_subscribers(&subscribers, &delta, &diag_delta);
+    assert_eq!(handles.len(), 3, "one notification per subscriber");
+    for h in handles {
+        h.join().unwrap();
+    }
 
-    assert_eq!(
-        count.load(Ordering::SeqCst),
-        3,
-        "all 3 subscribers must be notified exactly once"
+    // diagnostics_delta_delivered: each subscriber got exactly this payload, once.
+    let expected: Received = (
+        vec!["fresh".to_string()],
+        vec!["E003".to_string()],
+        vec!["E002".to_string()],
+        vec!["a.spec".to_string(), "b.spec".to_string()],
     );
+    let seen = seen.lock().unwrap();
+    assert_eq!(*seen, vec![expected.clone(), expected.clone(), expected]);
 }
 
 // B:rebuild_affected_subgraph — verify contract "requires/ensures consistency for affected subgraph rebuild"

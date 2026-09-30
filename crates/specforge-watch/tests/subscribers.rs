@@ -5,7 +5,8 @@ use specforge_watch::{
     notify_delta_subscribers,
 };
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
+use std::time::Duration;
 
 fn empty_delta() -> GraphDelta {
     GraphDelta {
@@ -56,18 +57,26 @@ impl DeltaSubscriber for CountingSubscriber {
     }
 }
 
-struct SlowSubscriber {
+/// Blocks inside `on_delta` until the test opens the gate (or 5s pass), so
+/// "notify returned while this subscriber was still running" is observable
+/// without timing thresholds.
+struct GatedSubscriber {
+    gate: Mutex<mpsc::Receiver<()>>,
     done: Arc<AtomicUsize>,
 }
 
-impl DeltaSubscriber for SlowSubscriber {
+impl DeltaSubscriber for GatedSubscriber {
     fn on_delta(
         &self,
         _delta: &GraphDelta,
         _diag_delta: &DiagnosticsDelta,
         _affected_files: &[String],
     ) {
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        let _ = self
+            .gate
+            .lock()
+            .unwrap()
+            .recv_timeout(Duration::from_secs(5));
         self.done.fetch_add(1, Ordering::SeqCst);
     }
 }
@@ -88,6 +97,12 @@ impl DeltaSubscriber for AffectedFilesRecorder {
     }
 }
 
+fn join_all(handles: Vec<std::thread::JoinHandle<()>>) {
+    for h in handles {
+        h.join().expect("subscriber thread panicked");
+    }
+}
+
 // ── subscriber receives delta notification ────────────────────
 
 #[spec(behavior = "notify_delta_subscribers")]
@@ -97,11 +112,11 @@ fn subscriber_receives_delta_notification() {
         call_count: count.clone(),
     };
 
-    let subscribers: Vec<Box<dyn DeltaSubscriber>> = vec![Box::new(subscriber)];
+    let subscribers: Vec<Arc<dyn DeltaSubscriber>> = vec![Arc::new(subscriber)];
     let delta = empty_delta();
     let diag_delta = empty_diag_delta();
 
-    notify_delta_subscribers(&subscribers, &delta, &diag_delta);
+    join_all(notify_delta_subscribers(&subscribers, &delta, &diag_delta));
 
     assert_eq!(count.load(Ordering::SeqCst), 1);
 }
@@ -111,18 +126,18 @@ fn subscriber_receives_delta_notification() {
 #[spec(behavior = "notify_delta_subscribers")]
 fn multiple_subscribers_all_notified() {
     let count = Arc::new(AtomicUsize::new(0));
-    let subscribers: Vec<Box<dyn DeltaSubscriber>> = (0..3)
+    let subscribers: Vec<Arc<dyn DeltaSubscriber>> = (0..3)
         .map(|_| {
-            Box::new(CountingSubscriber {
+            Arc::new(CountingSubscriber {
                 call_count: count.clone(),
-            }) as Box<dyn DeltaSubscriber>
+            }) as Arc<dyn DeltaSubscriber>
         })
         .collect();
 
     let delta = empty_delta();
     let diag_delta = empty_diag_delta();
 
-    notify_delta_subscribers(&subscribers, &delta, &diag_delta);
+    join_all(notify_delta_subscribers(&subscribers, &delta, &diag_delta));
 
     assert_eq!(count.load(Ordering::SeqCst), 3);
 }
@@ -136,12 +151,16 @@ fn multiple_subscribers_all_notified() {
 fn slow_subscriber_does_not_block_other_subscribers() {
     let fast_count = Arc::new(AtomicUsize::new(0));
     let slow_done = Arc::new(AtomicUsize::new(0));
+    let (release, gate) = mpsc::channel();
 
-    let subscribers: Vec<Box<dyn DeltaSubscriber>> = vec![
-        Box::new(SlowSubscriber {
+    // The slow subscriber is registered first, so a sequential notifier
+    // would reach the fast one only after the slow one finished.
+    let subscribers: Vec<Arc<dyn DeltaSubscriber>> = vec![
+        Arc::new(GatedSubscriber {
+            gate: Mutex::new(gate),
             done: slow_done.clone(),
         }),
-        Box::new(CountingSubscriber {
+        Arc::new(CountingSubscriber {
             call_count: fast_count.clone(),
         }),
     ];
@@ -149,25 +168,44 @@ fn slow_subscriber_does_not_block_other_subscribers() {
     let delta = empty_delta();
     let diag_delta = empty_diag_delta();
 
-    notify_delta_subscribers(&subscribers, &delta, &diag_delta);
+    let mut handles = notify_delta_subscribers(&subscribers, &delta, &diag_delta);
 
+    // The pipeline got control back while the slow subscriber is still blocked.
+    assert_eq!(
+        slow_done.load(Ordering::SeqCst),
+        0,
+        "notify must return without waiting for a slow subscriber"
+    );
+    // The fast subscriber completes while the slow one is still blocked.
+    let slow = handles.remove(0);
+    join_all(handles);
     assert_eq!(fast_count.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        slow_done.load(Ordering::SeqCst),
+        0,
+        "the fast subscriber must not wait behind the slow one"
+    );
+
+    // Once released, the slow subscriber still gets its notification.
+    release.send(()).unwrap();
+    slow.join().unwrap();
     assert_eq!(slow_done.load(Ordering::SeqCst), 1);
 }
 
-// ── LSP receives semantic token updates for affected files ────
+// ── affected files forwarded to subscribers ───────────────────
+// Not linked to "LSP receives semantic token updates for affected files":
+// no LSP delta subscriber exists (the LSP does not consume these
+// notifications nor push semantic-token refreshes), so this only proves the
+// forwarding half.
 
-#[spec(
-    behavior = "notify_delta_subscribers",
-    verify = "LSP receives semantic token updates for affected files"
-)]
-fn lsp_subscriber_receives_affected_files() {
+#[test]
+fn subscriber_receives_affected_files() {
     let files = Arc::new(Mutex::new(Vec::new()));
     let subscriber = AffectedFilesRecorder {
         files: files.clone(),
     };
 
-    let subscribers: Vec<Box<dyn DeltaSubscriber>> = vec![Box::new(subscriber)];
+    let subscribers: Vec<Arc<dyn DeltaSubscriber>> = vec![Arc::new(subscriber)];
     let delta = GraphDelta {
         added_nodes: vec![],
         removed_nodes: vec![],
@@ -178,11 +216,10 @@ fn lsp_subscriber_receives_affected_files() {
     };
     let diag_delta = empty_diag_delta();
 
-    notify_delta_subscribers(&subscribers, &delta, &diag_delta);
+    join_all(notify_delta_subscribers(&subscribers, &delta, &diag_delta));
 
     let received = files.lock().unwrap();
-    assert!(received.contains(&"a.spec".to_string()));
-    assert!(received.contains(&"b.spec".to_string()));
+    assert_eq!(*received, vec!["a.spec", "b.spec"]);
 }
 
 // ── diagnostics delta includes added and removed ──────────────

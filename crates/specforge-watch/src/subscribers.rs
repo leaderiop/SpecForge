@@ -1,6 +1,7 @@
 use crate::delta::GraphDelta;
 use serde::Serialize;
 use specforge_common::Diagnostic;
+use std::sync::Arc;
 
 /// Delta of diagnostics between two compilation cycles.
 #[derive(Debug, Clone, Serialize)]
@@ -53,22 +54,27 @@ pub trait DeltaSubscriber: Send + Sync {
     );
 }
 
-/// Dispatch delta to all subscribers. Non-blocking: a slow subscriber
-/// does not delay the pipeline (each subscriber runs in its own thread).
+/// Dispatch delta to all subscribers. Non-blocking: each subscriber runs on
+/// its own thread and this returns as soon as they are spawned, so a slow
+/// subscriber neither delays the pipeline nor the other subscribers.
+///
+/// The returned handles let a caller wait for delivery when it needs to
+/// (tests, shutdown); dropping them detaches the notifications.
 pub fn notify_delta_subscribers(
-    subscribers: &[Box<dyn DeltaSubscriber>],
+    subscribers: &[Arc<dyn DeltaSubscriber>],
     delta: &GraphDelta,
     diagnostics_delta: &DiagnosticsDelta,
-) {
-    let affected_files = &delta.affected_files;
-    std::thread::scope(|s| {
-        for subscriber in subscribers {
-            let delta_ref = &delta;
-            let diags_ref = &diagnostics_delta;
-            let files_ref = &affected_files;
-            s.spawn(move || {
-                subscriber.on_delta(delta_ref, diags_ref, files_ref);
-            });
-        }
-    });
+) -> Vec<std::thread::JoinHandle<()>> {
+    let payload = Arc::new((delta.clone(), diagnostics_delta.clone()));
+    subscribers
+        .iter()
+        .map(|subscriber| {
+            let subscriber = Arc::clone(subscriber);
+            let payload = Arc::clone(&payload);
+            std::thread::spawn(move || {
+                let (delta, diagnostics_delta) = &*payload;
+                subscriber.on_delta(delta, diagnostics_delta, &delta.affected_files);
+            })
+        })
+        .collect()
 }
