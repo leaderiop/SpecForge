@@ -4,8 +4,19 @@ use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
 
 pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcResponse {
-    let stats =
-        specforge_emitter::compute_stats_with_diagnostics(&state.graph, &[], &state.diagnostics);
+    // Coverage is over the kinds the extensions declare testable; with no
+    // testable kind named, it could only ever be 0.
+    let testable_kinds: Vec<&str> = state
+        .kind_registry
+        .iter()
+        .filter(|(_, kind)| kind.testable)
+        .map(|(name, _)| name.as_str())
+        .collect();
+    let stats = specforge_emitter::compute_stats_with_diagnostics(
+        &state.graph,
+        &testable_kinds,
+        &state.diagnostics,
+    );
 
     let entity_counts: Vec<Value> = stats
         .entities_by_kind

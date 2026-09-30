@@ -136,6 +136,27 @@ fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
     serde_json::from_str(&resp).unwrap()
 }
 
+/// The node ids of a graph-shaped payload, sorted.
+fn node_ids(parsed: &Value) -> Vec<String> {
+    let mut ids: Vec<String> = parsed["nodes"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no nodes in {parsed}"))
+        .iter()
+        .map(|n| n["id"].as_str().unwrap().to_string())
+        .collect();
+    ids.sort();
+    ids
+}
+
+fn node<'a>(parsed: &'a Value, id: &str) -> &'a Value {
+    parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == id)
+        .unwrap_or_else(|| panic!("no {id} in {parsed}"))
+}
+
 fn tool_text(resp: &Value) -> String {
     resp["result"]["content"][0]["text"]
         .as_str()
@@ -159,7 +180,12 @@ fn query_returns_subgraph() {
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["nodes"].is_array());
+    // gamma_orphan is not connected to alpha.
+    assert_eq!(node_ids(&parsed), vec!["alpha", "beta_feature"]);
+    assert_eq!(
+        parsed["edges"],
+        json!([{"source": "beta_feature", "target": "alpha", "label": "behaviors"}])
+    );
 }
 
 // B:provide_mcp_query_tool — verify unit "returns error for unknown entity"
@@ -227,7 +253,7 @@ fn query_respects_kind_filter() {
 fn query_missing_entity_id() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.query", json!({}));
-    assert!(resp["error"].is_object());
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
 }
 
 // --- specforge.export ---
@@ -267,7 +293,24 @@ fn export_context_format() {
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["nodes"].is_array());
+    assert_eq!(
+        node_ids(&parsed),
+        vec!["alpha", "beta_feature", "gamma_orphan"]
+    );
+    // The context format lifts the contract to the top level and drops the
+    // source location the graph format carries.
+    let alpha = node(&parsed, "alpha");
+    assert_eq!(alpha["contract"], "The system MUST do alpha");
+    assert!(alpha.get("file").is_none(), "{alpha}");
+    assert!(alpha.get("line").is_none(), "{alpha}");
+    let graph: Value = serde_json::from_str(&tool_text(&call_tool(
+        &mut server,
+        "specforge.export",
+        json!({"format": "graph"}),
+    )))
+    .unwrap();
+    assert_eq!(node(&graph, "alpha")["file"], "test.spec");
+    assert!(node(&graph, "alpha").get("contract").is_none());
 }
 
 // B:provide_mcp_export_tool — verify unit "exports brief format"
@@ -280,7 +323,17 @@ fn export_brief_format() {
     let resp = call_tool(&mut server, "specforge.export", json!({"format": "brief"}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["nodes"].is_array());
+    assert_eq!(
+        node_ids(&parsed),
+        vec!["alpha", "beta_feature", "gamma_orphan"]
+    );
+    // Brief nodes carry no fields and no contract.
+    for n in parsed["nodes"].as_array().unwrap() {
+        assert!(n.get("fields").is_none(), "{n}");
+        assert!(n.get("contract").is_none(), "{n}");
+        assert!(n["kind"].is_string(), "{n}");
+    }
+    assert_eq!(node(&parsed, "alpha")["kind"], "behavior");
 }
 
 // B:provide_mcp_export_tool — verify unit "exports scoped subgraph"
@@ -297,7 +350,8 @@ fn export_scoped() {
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["nodes"].is_array());
+    // gamma_orphan lies outside alpha's subgraph.
+    assert_eq!(node_ids(&parsed), vec!["alpha", "beta_feature"]);
 }
 
 // B:provide_mcp_export_tool — verify unit "unknown format returns error"
@@ -328,8 +382,12 @@ fn trace_returns_chain() {
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(parsed["entity_id"], "alpha");
-    assert!(parsed["upstream"].is_array());
-    assert!(parsed["downstream"].is_array());
+    // beta_feature -> alpha, so beta_feature is upstream of alpha.
+    let upstream = parsed["upstream"].as_array().unwrap();
+    assert_eq!(upstream.len(), 1, "{parsed}");
+    assert_eq!(upstream[0]["entity_id"], "beta_feature");
+    assert_eq!(upstream[0]["edge_label"], "behaviors");
+    assert_eq!(parsed["downstream"], json!([]));
 }
 
 // B:provide_mcp_trace_tool — verify unit "unknown entity returns error"
@@ -425,7 +483,17 @@ fn schema_tool_returns_kinds() {
     let resp = call_tool(&mut server, "specforge.schema", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["entity_kinds"].is_object());
+    let mut kinds: Vec<&String> = parsed["entity_kinds"].as_object().unwrap().keys().collect();
+    kinds.sort();
+    assert_eq!(kinds, vec!["behavior", "feature", "invariant"]);
+    assert_eq!(parsed["edge_labels"], json!(["behaviors"]));
+    assert!(
+        !parsed["schema_version"]
+            .as_str()
+            .unwrap_or_default()
+            .is_empty(),
+        "{parsed}"
+    );
 }
 
 // B:provide_mcp_schema_tool — verify unit "respects kind filter"
@@ -655,10 +723,53 @@ fn stats_returns_statistics() {
     let resp = call_tool(&mut server, "specforge.stats", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["entity_counts"].is_array());
-    assert!(parsed["edge_count"].is_number());
-    assert!(parsed["orphan_count"].is_number());
-    assert!(parsed["diagnostic_summary"].is_object());
+    let mut counts: Vec<(String, u64)> = parsed["entity_counts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| {
+            (
+                c["kind"].as_str().unwrap().to_string(),
+                c["count"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    counts.sort();
+    assert_eq!(
+        counts,
+        vec![
+            ("behavior".to_string(), 1),
+            ("feature".to_string(), 1),
+            ("invariant".to_string(), 1),
+        ]
+    );
+
+    // Another behavior shows up in its kind's count.
+    server.state_mut().graph.add_node(Node {
+        id: EntityId {
+            raw: "delta".into(),
+        },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
+        title: None,
+        fields: FieldMap::new(),
+        source_span: span(),
+        methods: Vec::new(),
+    });
+    let parsed: Value = serde_json::from_str(&tool_text(&call_tool(
+        &mut server,
+        "specforge.stats",
+        json!({}),
+    )))
+    .unwrap();
+    let behaviors = parsed["entity_counts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["kind"] == "behavior")
+        .unwrap();
+    assert_eq!(behaviors["count"], 2);
 }
 
 #[specforge_test(
@@ -706,15 +817,30 @@ fn unknown_tool_returns_error() {
     verify = "specforge.validate tool triggers compilation"
 )]
 fn validate_returns_all_diagnostics() {
+    let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    // Set project root to the specforge project so validate can compile
-    let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    server.state_mut().project_root = Some(project_root);
+    server.state_mut().project_root = Some(project.path().to_path_buf());
+    assert!(server.state().graph.node("alpha").is_some());
+    assert!(server.state().diagnostics.is_empty());
+
     let resp = call_tool(&mut server, "specforge.validate", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // validate returns diagnostics as a JSON array string in content[0].text
-    assert!(parsed.is_array());
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+
+    // The project was compiled: its entities replaced the injected graph,
+    // and its diagnostics are the ones returned.
+    let graph = &server.state().graph;
+    assert!(graph.node("lonely").is_some());
+    assert!(graph.node("act").is_some());
+    assert!(graph.node("alpha").is_none(), "the old graph remains");
+    let codes: Vec<&str> = parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap())
+        .collect();
+    assert!(codes.contains(&"E003"), "{codes:?}");
+    assert!(codes.contains(&"W003"), "{codes:?}");
+    assert_eq!(codes.len(), server.state().diagnostics.len());
 }
 
 /// A project whose check yields errors (E003, E006) and warnings (W003, W006).
@@ -789,17 +915,45 @@ fn validate_strict_promotes_warnings_to_errors() {
     verify = "validate with use_cached=false triggers fresh compilation"
 )]
 fn validate_use_cached_false() {
+    let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    server.state_mut().project_root = Some(project_root);
-    let resp1 = call_tool(&mut server, "specforge.validate", json!({}));
-    assert!(resp1["result"].is_object());
-    let resp2 = call_tool(
+    server.state_mut().project_root = Some(project.path().to_path_buf());
+    let first = codes_of(&call_tool(&mut server, "specforge.validate", json!({})));
+    assert!(first.contains(&"E003".to_string()), "{first:?}");
+
+    // Fix the unresolved reference on disk.
+    fix_unresolved_reference(project.path());
+    let second = codes_of(&call_tool(
         &mut server,
         "specforge.validate",
         json!({"use_cached": false}),
+    ));
+    assert!(
+        !second.contains(&"E003".to_string()),
+        "use_cached=false must recompile: {second:?}"
     );
-    assert!(resp2["result"].is_object());
+    assert!(server.state().graph.node("fixed").is_some());
+}
+
+/// The diagnostic codes of a `specforge.validate` response.
+fn codes_of(resp: &Value) -> Vec<String> {
+    let parsed: Value = serde_json::from_str(&tool_text(resp)).unwrap();
+    parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap().to_string())
+        .collect()
+}
+
+/// Rewrites `project_with_errors_and_warnings`' spec so `act` no longer
+/// names the missing invariant (no E003) and a `fixed` behavior appears.
+fn fix_unresolved_reference(root: &std::path::Path) {
+    std::fs::write(
+        root.join("app.spec"),
+        "invariant lonely \"Lonely\" {\n  guarantee \"g\"\n}\n\nbehavior act \"Act\" {\n  invariants [lonely]\n}\n\nbehavior fixed \"Fixed\" {\n}\n",
+    )
+    .unwrap();
 }
 
 #[specforge_test(
@@ -1019,10 +1173,36 @@ fn coverage_status_filter_restricts_status() {
 )]
 fn stats_includes_coverage_percentage() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.stats", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["coverage_pct"].is_number());
+    let coverage = |server: &mut McpServer| {
+        let resp = call_tool(server, "specforge.stats", json!({}));
+        let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        parsed["coverage_pct"].as_f64().unwrap()
+    };
+    // Testable: alpha (behavior, declares verify) and gamma_orphan
+    // (invariant, none). beta_feature's kind is not testable.
+    assert_eq!(coverage(&mut server), 50.0);
+
+    let mut fields = FieldMap::new();
+    fields.push(
+        "verify".into(),
+        FieldValue::VerifyList(vec![VerifyStatement {
+            kind: "unit".into(),
+            description: "gamma holds".into(),
+        }]),
+    );
+    server.state_mut().graph.add_node(Node {
+        id: EntityId {
+            raw: "gamma_orphan".into(),
+        },
+        kind: EntityKind {
+            raw: "invariant".into(),
+        },
+        title: Some("Gamma Orphan".into()),
+        fields,
+        source_span: span(),
+        methods: Vec::new(),
+    });
+    assert_eq!(coverage(&mut server), 100.0);
 }
 
 // B:provide_mcp_query_tool — verify unit "format parameter selects emitter format"
@@ -1040,7 +1220,10 @@ fn query_format_parameter() {
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["nodes"].is_array());
+    assert_eq!(
+        node(&parsed, "alpha")["contract"],
+        "The system MUST do alpha"
+    );
 
     // brief format
     let resp2 = call_tool(
@@ -1050,7 +1233,12 @@ fn query_format_parameter() {
     );
     let text2 = tool_text(&resp2);
     let parsed2: Value = serde_json::from_str(&text2).unwrap();
-    assert!(parsed2["nodes"].is_array());
+    let brief_alpha = node(&parsed2, "alpha");
+    assert!(brief_alpha.get("contract").is_none(), "{brief_alpha}");
+    assert!(brief_alpha.get("fields").is_none(), "{brief_alpha}");
+    assert_ne!(text, text2, "the two formats serialize differently");
+    // Both formats return the same subgraph.
+    assert_eq!(node_ids(&parsed), node_ids(&parsed2));
 }
 
 // B:provide_mcp_query_tool — verify unit "include_coverage annotates nodes with coverage status"
@@ -1143,14 +1331,27 @@ fn search_references_filter() {
     verify = "response includes diagnostic summary by severity"
 )]
 fn stats_diagnostic_summary_severity_counts() {
+    use specforge_common::{Diagnostic, Severity};
     let mut server = test_server();
+    let diagnostic = |code: &str, severity| Diagnostic {
+        code: code.into(),
+        severity,
+        message: "m".into(),
+        span: Some(span()),
+        suggestion: None,
+    };
+    server.state_mut().diagnostics = vec![
+        diagnostic("E003", Severity::Error),
+        diagnostic("W001", Severity::Warning),
+        diagnostic("W003", Severity::Warning),
+    ];
     let resp = call_tool(&mut server, "specforge.stats", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    let summary = &parsed["diagnostic_summary"];
-    assert!(summary["errors"].is_number());
-    assert!(summary["warnings"].is_number());
-    assert!(summary["infos"].is_number());
+    assert_eq!(
+        parsed["diagnostic_summary"],
+        json!({"errors": 1, "warnings": 2, "infos": 0})
+    );
 }
 
 // B:provide_mcp_trace_tool — verify unit "gaps array lists missing expected links"
@@ -1172,57 +1373,32 @@ fn trace_gaps_array() {
     assert!(gaps.contains(&json!("no downstream links")));
 }
 
-// B:provide_mcp_validate_tool — verify unit "severity_filter restricts returned diagnostics"
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "severity_filter restricts returned diagnostics"
-)]
-fn validate_severity_filter() {
-    let mut server = test_server();
-    let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    server.state_mut().project_root = Some(project_root);
-    let resp = call_tool(
-        &mut server,
-        "specforge.validate",
-        json!({"severity_filter": "error"}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // If filtered to errors only, all returned diagnostics should be errors
-    if let Some(arr) = parsed.as_array() {
-        for d in arr {
-            if let Some(sev) = d["severity"].as_str() {
-                assert!(
-                    sev.eq_ignore_ascii_case("error"),
-                    "Expected error severity, got: {}",
-                    sev
-                );
-            }
-        }
-    }
-}
-
 // B:provide_mcp_validate_tool — verify unit "use_cached returns existing diagnostics"
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "validate with use_cached=true returns existing diagnostics without recompilation"
 )]
 fn validate_use_cached_true() {
+    let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    server.state_mut().project_root = Some(project_root);
-    // First compile
-    let _resp1 = call_tool(&mut server, "specforge.validate", json!({}));
-    let diag_count = server.state().diagnostics.len();
-    // Second call with use_cached=true should not recompile
-    let resp2 = call_tool(
+    server.state_mut().project_root = Some(project.path().to_path_buf());
+    let first = codes_of(&call_tool(&mut server, "specforge.validate", json!({})));
+    assert!(first.contains(&"E003".to_string()), "{first:?}");
+
+    // The spec changes on disk, but a cached validate does not recompile:
+    // the old diagnostics come back and the graph is the old one.
+    fix_unresolved_reference(project.path());
+    let cached = codes_of(&call_tool(
         &mut server,
         "specforge.validate",
         json!({"use_cached": true}),
-    );
-    assert!(resp2["result"].is_object());
-    // Diagnostics count should remain the same
-    assert_eq!(server.state().diagnostics.len(), diag_count);
+    ));
+    assert_eq!(cached, first);
+    assert!(server.state().graph.node("fixed").is_none());
+
+    // Proof the change on disk is visible to a fresh compile.
+    let fresh = codes_of(&call_tool(&mut server, "specforge.validate", json!({})));
+    assert!(!fresh.contains(&"E003".to_string()), "{fresh:?}");
 }
 
 // B:provide_mcp_validate_tool — verify unit "validate recompiles and updates graph"
@@ -1231,13 +1407,32 @@ fn validate_use_cached_true() {
     verify = "response includes all diagnostics as Graph Protocol diagnostics"
 )]
 fn validate_updates_graph() {
+    let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    server.state_mut().project_root = Some(project_root);
-    let resp = call_tool(&mut server, "specforge.validate", json!({}));
-    // Validate returns result with content and isError fields
-    assert!(resp["result"].is_object());
-    assert!(resp["result"]["isError"].is_boolean());
+    let resp = call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
+    );
+    assert_eq!(resp["result"]["isError"], true, "E003 is an error");
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let diagnostics = parsed.as_array().unwrap();
+    // All of them: as many as the compile produced.
+    assert_eq!(diagnostics.len(), server.state().diagnostics.len());
+    for d in diagnostics {
+        for key in ["code", "severity", "message"] {
+            assert!(d[key].is_string(), "{key} missing in {d}");
+        }
+    }
+    for (code, severity) in [("E003", "Error"), ("W003", "Warning")] {
+        let d = diagnostics
+            .iter()
+            .find(|d| d["code"] == code)
+            .unwrap_or_else(|| panic!("no {code} in {parsed}"));
+        assert_eq!(d["severity"], severity);
+        assert!(d["file"].as_str().unwrap().ends_with("app.spec"), "{d}");
+        assert!(d["line"].as_u64().unwrap() >= 1, "{d}");
+    }
 }
 
 #[test]
@@ -1256,27 +1451,6 @@ fn validate_use_cached_false_triggers_fresh() {
     assert!(
         resp2["result"].is_object() || resp2["error"].is_object(),
         "use_cached=false should trigger fresh compilation"
-    );
-}
-
-// B:provide_mcp_validate_tool — verify unit "validate with use_cached=true returns existing diagnostics without recompilation"
-#[specforge_test(
-    behavior = "provide_mcp_validate_tool",
-    verify = "validate with use_cached=true returns existing diagnostics without recompilation"
-)]
-fn validate_use_cached_true_returns_existing() {
-    let mut server = test_server();
-    let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    server.state_mut().project_root = Some(project_root);
-    let _resp1 = call_tool(&mut server, "specforge.validate", json!({}));
-    let resp2 = call_tool(
-        &mut server,
-        "specforge.validate",
-        json!({"use_cached": true}),
-    );
-    assert!(
-        resp2["result"].is_object(),
-        "use_cached=true should return existing diagnostics without recompilation"
     );
 }
 
