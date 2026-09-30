@@ -82,6 +82,33 @@ fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
     serde_json::from_str(&resp).unwrap()
 }
 
+/// Adds `gamma`, a node with no edges, outside every entity's subgraph.
+fn add_unconnected_gamma(server: &mut McpServer) {
+    server.state_mut().graph.add_node(Node {
+        id: EntityId {
+            raw: "gamma".into(),
+        },
+        kind: EntityKind {
+            raw: "invariant".into(),
+        },
+        title: Some("Gamma".into()),
+        fields: FieldMap::new(),
+        source_span: span(),
+        methods: Vec::new(),
+    });
+}
+
+fn node_ids(parsed: &Value) -> Vec<&str> {
+    let mut ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    ids.sort_unstable();
+    ids
+}
+
 fn read_resource(server: &mut McpServer, uri: &str) -> Value {
     call(server, "resources/read", json!({"uri": uri}))
 }
@@ -120,6 +147,21 @@ fn graph_resource_has_mime_type() {
         resp["result"]["contents"][0]["mimeType"],
         "application/json"
     );
+    let parsed: Value = serde_json::from_str(&resource_text(&resp)).unwrap();
+    assert_eq!(node_ids(&parsed), vec!["alpha", "beta"]);
+    assert_eq!(
+        parsed["edges"],
+        json!([{"source": "beta", "target": "alpha", "label": "behaviors"}])
+    );
+    let alpha = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == "alpha")
+        .unwrap();
+    assert_eq!(alpha["kind"], "behavior");
+    assert_eq!(alpha["file"], "test.spec");
+    assert_eq!(alpha["fields"]["contract"], "The system MUST do alpha");
 }
 
 // B:expose_schema_as_mcp_resource — verify unit "returns schema with entity kinds derived from graph"
@@ -169,15 +211,34 @@ fn context_resource_returns_context_graph() {
     let resp = read_resource(&mut server, "specforge://context");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["nodes"].is_array());
-    // Context includes contract field
+    assert_eq!(node_ids(&parsed), vec!["alpha", "beta"]);
     let alpha = &parsed["nodes"]
         .as_array()
         .unwrap()
         .iter()
         .find(|n| n["id"] == "alpha")
         .unwrap();
-    assert!(alpha["contract"].is_string());
+    assert_eq!(alpha["contract"], "The system MUST do alpha");
+    // Token-optimized: the source location and the embedded schema the
+    // graph format carries are dropped.
+    for key in ["file", "line", "source_span"] {
+        assert!(
+            alpha.get(key).is_none(),
+            "context node keeps {key}: {alpha}"
+        );
+    }
+    assert!(parsed.get("schema").is_none(), "context embeds the schema");
+
+    let graph_text = resource_text(&read_resource(&mut server, "specforge://graph"));
+    let graph: Value = serde_json::from_str(&graph_text).unwrap();
+    assert_eq!(graph["nodes"][0]["file"], "test.spec");
+    assert!(graph["schema"].is_object());
+    assert!(
+        text.len() < graph_text.len(),
+        "context ({} bytes) must be smaller than the graph ({} bytes)",
+        text.len(),
+        graph_text.len()
+    );
 }
 
 // B:expose_brief_as_mcp_resource — verify unit "returns brief graph"
@@ -207,10 +268,30 @@ fn brief_resource_returns_brief_graph() {
 )]
 fn diagnostics_resource_returns_array() {
     let mut server = test_server();
+    let diagnostic = |code: &str, severity, message: &str| specforge_common::Diagnostic {
+        code: code.into(),
+        severity,
+        message: message.into(),
+        span: Some(span()),
+        suggestion: None,
+    };
+    server.state_mut().diagnostics = vec![
+        diagnostic(
+            "E003",
+            specforge_common::Severity::Error,
+            "unresolved reference",
+        ),
+        diagnostic("W001", specforge_common::Severity::Warning, "orphan entity"),
+    ];
     let resp = read_resource(&mut server, "specforge://diagnostics");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed.is_array());
+    let diags = parsed.as_array().unwrap();
+    assert_eq!(diags.len(), 2, "{parsed}");
+    assert_eq!(diags[0]["code"], "E003");
+    assert_eq!(diags[0]["message"], "unresolved reference");
+    assert_eq!(diags[1]["code"], "W001");
+    assert_eq!(diags[1]["message"], "orphan entity");
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "returns entity subgraph"
@@ -220,6 +301,7 @@ fn diagnostics_resource_returns_array() {
 )]
 fn entity_resource_returns_subgraph() {
     let mut server = test_server();
+    add_unconnected_gamma(&mut server);
     let resp = read_resource(&mut server, "specforge://graph/alpha");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -232,6 +314,15 @@ fn entity_resource_returns_subgraph() {
         .map(|n| n["id"].as_str().unwrap())
         .collect();
     assert!(ids.contains(&"alpha"));
+    assert!(
+        ids.contains(&"beta"),
+        "the neighbor beta is missing: {ids:?}"
+    );
+    assert!(!ids.contains(&"gamma"), "gamma is not a neighbor: {ids:?}");
+    assert_eq!(
+        parsed["edges"],
+        json!([{"source": "beta", "target": "alpha", "label": "behaviors"}])
+    );
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "returns error for unknown entity"
@@ -242,7 +333,11 @@ fn entity_resource_returns_subgraph() {
 fn entity_resource_error_for_unknown() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph/nonexistent");
-    assert!(resp["error"].is_object());
+    assert_eq!(resp["error"]["code"], -32602);
+    assert_eq!(resp["error"]["message"], "Entity not found: nonexistent");
+    // Told apart from a malformed ID.
+    let malformed = read_resource(&mut server, "specforge://graph/!@#$");
+    assert_ne!(malformed["error"]["message"], resp["error"]["message"]);
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "returns error for empty entity ID"
@@ -253,7 +348,10 @@ fn entity_resource_error_for_unknown() {
 fn entity_resource_error_for_empty_id() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph/");
-    assert!(resp["error"].is_object());
+    assert_eq!(resp["error"]["code"], -32602);
+    let message = resp["error"]["message"].as_str().unwrap();
+    assert!(message.starts_with("Malformed entity ID"), "{message}");
+    assert!(!message.contains("not found"), "{message}");
 }
 
 // Resource read missing URI
@@ -264,7 +362,8 @@ fn entity_resource_error_for_empty_id() {
 fn resource_read_missing_uri() {
     let mut server = test_server();
     let resp = call(&mut server, "resources/read", json!({}));
-    assert!(resp["error"].is_object());
+    assert_eq!(resp["error"]["code"], -32602);
+    assert_eq!(resp["error"]["message"], "Missing required parameter: uri");
 }
 
 // Unknown resource URI
@@ -517,7 +616,11 @@ fn diagnostics_fields_present() {
 fn entity_malformed_id_returns_error() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph/!@#$");
-    assert!(resp["error"].is_object());
+    assert_eq!(resp["error"]["code"], -32602);
+    let message = resp["error"]["message"].as_str().unwrap();
+    assert!(message.starts_with("Malformed entity ID"), "{message}");
+    assert!(message.contains("!@#$"), "names the bad ID: {message}");
+    assert!(!message.contains("not found"), "{message}");
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "resource refreshes after recompilation"
@@ -570,18 +673,6 @@ fn entity_refreshes_after_recompilation() {
     assert_eq!(title2, "Alpha Revised");
 }
 
-// B:expose_graph_as_mcp_resource — verify unit "resource has application/json MIME type"
-#[specforge_test(
-    behavior = "expose_graph_as_mcp_resource",
-    verify = "specforge://graph resource returns full Graph Protocol JSON"
-)]
-fn graph_resource_returns_json_mime_type() {
-    let mut server = test_server();
-    let resp = read_resource(&mut server, "specforge://graph");
-    let mime = resp["result"]["contents"][0]["mimeType"].as_str().unwrap();
-    assert_eq!(mime, "application/json");
-}
-
 // ---- C9-06: query parameters on graph resources ----
 
 // B:expose_graph_as_mcp_resource — verify unit "root query scopes the read to a subgraph with a schema_ref"
@@ -591,6 +682,13 @@ fn graph_resource_returns_json_mime_type() {
 )]
 fn graph_resource_root_scopes_with_schema_ref() {
     let mut server = test_server();
+    add_unconnected_gamma(&mut server);
+    let unscoped: Value = serde_json::from_str(&resource_text(&read_resource(
+        &mut server,
+        "specforge://graph",
+    )))
+    .unwrap();
+    assert_eq!(node_ids(&unscoped), vec!["alpha", "beta", "gamma"]);
     let resp = read_resource(&mut server, "specforge://graph?root=alpha");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -601,9 +699,10 @@ fn graph_resource_root_scopes_with_schema_ref() {
         .map(|n| n["id"].as_str().unwrap())
         .collect();
     assert!(
-        !ids.is_empty() && ids.iter().all(|id| *id == "alpha" || *id == "beta"),
-        "scoped read must return only the subgraph: {ids:?}"
+        !ids.contains(&"gamma"),
+        "gamma is outside alpha's subgraph: {ids:?}"
     );
+    assert_eq!(node_ids(&parsed), vec!["alpha", "beta"]);
     assert!(
         parsed["schema_ref"].is_object(),
         "scoped exports reference the published schema instead of embedding it"
@@ -658,6 +757,7 @@ fn graph_resource_max_tokens_budgets() {
 )]
 fn context_entity_template_scopes() {
     let mut server = test_server();
+    add_unconnected_gamma(&mut server);
     let resp = read_resource(&mut server, "specforge://context/alpha");
     let text = resource_text(&resp);
     assert_eq!(
@@ -675,6 +775,11 @@ fn context_entity_template_scopes() {
         ids.contains(&"alpha"),
         "context template must serve the subgraph rooted at the path entity"
     );
+    assert!(
+        !ids.contains(&"gamma"),
+        "gamma is outside alpha's subgraph: {ids:?}"
+    );
+    assert_eq!(node_ids(&parsed), vec!["alpha", "beta"]);
     assert!(
         parsed.get("schema").is_none() && parsed.get("schema_ref").is_none(),
         "the context carries the graph only; the schema is specforge://schema"

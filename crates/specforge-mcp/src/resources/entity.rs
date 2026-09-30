@@ -9,7 +9,22 @@ pub fn read(state: &McpState, entity_id: &str, id: Option<Value>) -> JsonRpcResp
         return JsonRpcResponse::error(
             id,
             error_codes::INVALID_PARAMS,
-            "Entity ID must not be empty",
+            "Malformed entity ID: must not be empty",
+        );
+    }
+    // A malformed ID (the 400 case) is told apart from a well-formed one
+    // that names no entity (the 404 case).
+    if !entity_id
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':' | '-'))
+    {
+        return JsonRpcResponse::error(
+            id,
+            error_codes::INVALID_PARAMS,
+            format!(
+                "Malformed entity ID: {:?} may only contain letters, digits, '_', '.', ':' and '-'",
+                entity_id
+            ),
         );
     }
 
