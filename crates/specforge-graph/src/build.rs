@@ -8,12 +8,6 @@ pub struct GraphConfig {
     /// Provider schemes that are installed (e.g., "gh", "jira").
     /// Refs with schemes not in this set emit I005.
     pub known_provider_schemes: HashSet<String>,
-    /// Entity keywords registered by installed extensions (e.g., "behavior", "feature").
-    /// Keywords in this set are considered valid and skip I004 checks.
-    pub installed_keywords: HashSet<String>,
-    /// Mapping of entity keywords to the extension that provides them (full catalog).
-    /// Keywords not in `installed_keywords` but present here emit I004.
-    pub known_extension_keywords: HashMap<String, String>,
     /// Bidirectional edge pairs from extensions. Each pair (forward_label, reverse_label)
     /// represents a complementary relationship that should not be flagged as a cycle.
     /// Example: `("invariants", "enforced_by")` means an invariants/enforced_by 2-hop
@@ -70,8 +64,9 @@ pub fn node_from_entity(entity: &specforge_parser::Entity) -> Node {
 }
 
 /// The file-sweep passes shared by the cold build and the incremental
-/// pipeline (C4-01): parse errors, duplicate IDs (E002/W060), extension
-/// keyword hints (I004), and ref schemes (I005). When `sink` is `Some`,
+/// pipeline (C4-01): parse errors, duplicate IDs (E002/W060) and ref
+/// schemes (I005). An unknown keyword is the checks' E024, whose
+/// suggestion names the extension to install. When `sink` is `Some`,
 /// accepted entities are added to that graph (cold build semantics,
 /// first-writer-wins on (kind, id)); when `None`, the pass only diagnoses
 /// (the pipeline adds nodes itself after stripping old contributions).
@@ -147,35 +142,6 @@ where
             entity_ids.insert(entity.id.raw);
             if let Some(graph) = sink.as_deref_mut() {
                 graph.add_node(node_from_entity(entity));
-            }
-        }
-    }
-
-    // Check for unknown keywords that match known extensions (I004)
-    if !config.known_extension_keywords.is_empty() {
-        for spec_file in spec_files.clone() {
-            for entity in &spec_file.entities {
-                let keyword = entity.kind.raw.as_str();
-                // Skip structural kinds that are always valid
-                if keyword == "ref" || keyword == "spec" {
-                    continue;
-                }
-                if config.installed_keywords.contains(keyword) {
-                    continue;
-                }
-                if let Some(extension) = config.known_extension_keywords.get(keyword) {
-                    diagnostics.push(
-                        Diagnostic::info(
-                            "I004",
-                            format!(
-                                "keyword '{}' is provided by extension '{}' which is not installed",
-                                keyword, extension
-                            ),
-                        )
-                        .with_span(entity.span.clone())
-                        .with_suggestion(format!("install it with: specforge add {}", extension)),
-                    );
-                }
             }
         }
     }

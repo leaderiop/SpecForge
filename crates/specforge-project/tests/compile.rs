@@ -250,6 +250,75 @@ fn missing_optional_peers_are_not_reported() {
     }
 }
 
+/// `feature` belongs to @specforge/product, which the project doesn't
+/// enable: one E024 whose suggestion names product, and nothing else about
+/// that keyword.
+#[specforge_test(
+    behavior = "resolve_soft_cross_extension_references",
+    verify = "unknown keyword matching known extension gets E024 naming the extension"
+)]
+fn a_known_keyword_without_its_extension_is_one_e024_naming_it() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": ["@specforge/software"]
+        }),
+        &[("a.spec", "feature checkout \"Checkout\" {\n}\n")],
+    );
+
+    let diagnostics = compile(dir.path()).diagnostics();
+
+    // (software's own rules may add their warnings about the feature.)
+    let e024: Vec<_> = diagnostics.iter().filter(|d| d.code == "E024").collect();
+    assert_eq!(e024.len(), 1, "{diagnostics:?}");
+    assert_eq!(
+        e024[0].suggestion.as_deref(),
+        Some("install it with: specforge add @specforge/product")
+    );
+    assert!(!codes(&diagnostics).contains(&"I004"), "{diagnostics:?}");
+}
+
+#[specforge_test(
+    behavior = "resolve_soft_cross_extension_references",
+    verify = "Resolve Soft Cross-Extension References: soft cross-extension resolution holds — registries_populated_fired, known_extensions_catalog_available, suggestion_emitted, installed_extensions_resolved"
+)]
+fn soft_cross_extension_resolution_contract() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": ["@specforge/software"]
+        }),
+        &[(
+            "a.spec",
+            "feature checkout \"Checkout\" {\n}\n\ninvariant alpha \"Alpha\" {\n  refs [missing]\n}\n",
+        )],
+    );
+
+    let compiled = compile(dir.path());
+    let diagnostics = compiled.diagnostics();
+
+    // registries_populated_fired: software's kinds are registered.
+    assert!(compiled.env.registries.kinds.contains("invariant"));
+    // known_extensions_catalog_available, suggestion_emitted: the unknown
+    // keyword's E024 names its extension, once.
+    let e024: Vec<_> = diagnostics.iter().filter(|d| d.code == "E024").collect();
+    assert_eq!(e024.len(), 1, "{diagnostics:?}");
+    assert!(
+        e024[0]
+            .suggestion
+            .as_deref()
+            .unwrap()
+            .contains("@specforge/product")
+    );
+    assert!(!codes(&diagnostics).contains(&"I004"), "{diagnostics:?}");
+    // installed_extensions_resolved: an installed kind's broken reference
+    // is a plain E003.
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d.code == "E003" && d.message.contains("'missing'")),
+        "{diagnostics:?}"
+    );
+}
+
 /// A project with an extension loaded is not in structural-only mode.
 #[test]
 fn a_loaded_extension_means_no_i002() {

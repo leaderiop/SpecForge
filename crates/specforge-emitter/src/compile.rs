@@ -44,13 +44,7 @@ pub struct CompilationContext {
 /// here, so none can drift.
 pub fn graph_config(build: &RegistryBuild) -> GraphConfig {
     GraphConfig {
-        installed_keywords: build.kinds.keywords().cloned().collect(),
         known_provider_schemes: HashSet::new(),
-        // KNOWN GAP: build_graph_with_config only emits I004 for keywords
-        // that are NOT installed but ARE present in this map. Deriving the
-        // map from the installed manifests makes the two sets identical,
-        // so I004 can never fire (removed in plan 05, step R4).
-        known_extension_keywords: build.keyword_owners.clone(),
         bidirectional_pairs: build.bidirectional_pairs.clone(),
         body_parser_kinds: build.body_parser_kinds.clone(),
         single_reference_fields: build.single_reference_fields.clone(),

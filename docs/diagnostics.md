@@ -907,11 +907,14 @@ Level: info
 ```
 I004: Extension not installed
 
-A `.spec` file uses a keyword, entity enhancement, or `@scope/name` extension
-import that maps to a known but not-installed extension. Install the missing
-extension with `specforge add <name>` to resolve the reference. An extension's
-enhancement of a kind owned by an extension the project doesn't use is skipped
-silently, not reported.
+A reference field targets a kind no enabled extension declares, an extension
+enhances a kind no enabled extension declares, or a `.spec` file has an
+`@scope/name` extension import for a known but not-installed extension. Install
+the missing extension with `specforge add <name>` to resolve the reference. An
+entity whose keyword no enabled extension declares is an error instead (E024),
+whose suggestion names the extension to install. An extension's enhancement of a
+kind owned by an extension the project doesn't use is skipped silently, not
+reported.
 
 Owner: core
 Level: info

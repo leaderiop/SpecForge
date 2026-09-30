@@ -735,50 +735,6 @@ behavior logout_registry "Logout Registry" {
   verify contract "Logout Registry: registry logout holds — alias_matches_config, filesystem_available, credential_removed, other_credentials_intact, missing_credential_silent, no_network_requests, logged_out_emitted"
 }
 
-behavior generate_keyword_extension_index "Generate Keyword Extension Index" {
-  invariants [registry_integrity]
-  category   query
-  types      [RegistryConfig, KeywordExtensionIndex]
-  ports      [RegistryClient, FileSystem]
-  produces   [keyword_extension_index_generated]
-  requires {
-    registry_accessible  "Extension registry is accessible for enumerating published extensions"
-    filesystem_available "FileSystem port is available for writing the index file"
-  }
-  ensures {
-    keyword_mapping_complete "Every known keyword is mapped to its providing extension(s)"
-    index_deterministic      "Same registry state produces the same index file"
-    multi_provider_included  "Keywords claimed by multiple extensions list all providers"
-    index_written            "Index is written to data/keyword-index.json relative to installation directory"
-    index_generated_emitted  "keyword_extension_index_generated event fires after index is written"
-  }
-  contract   """
-    At build time or release time, the system MUST read the extension
-    registry to enumerate all published extensions and their declared
-    entity keywords. The result MUST be serialized as a KeywordExtensionIndex
-    JSON file mapping each known keyword to the extension name that provides
-    it. This index is shipped as a bundled data file for use by
-    suggest_missing_extensions at runtime. The generation MUST be
-    deterministic — the same registry state MUST produce the same index
-    file. Keywords claimed by multiple extensions MUST include all
-    providing extensions in the mapping. The bundled index is a bootstrap
-    convenience for offline E024 diagnostics. It does not represent a
-    privileged set of extensions. Users MAY regenerate the index from
-    their configured registries via specforge registry refresh-index to
-    include extensions from custom registries. The index MUST be written
-    to data/keyword-index.json relative to the compiler binary's
-    installation directory. The file is embedded at compile time via
-    include_bytes! or loaded at runtime from binary_dir/data/keyword-index.json.
-    Users MAY override via SPECFORGE_KEYWORD_INDEX environment variable.
-  """
-  verify unit "index maps each keyword to its providing extension"
-  verify unit "index generation is deterministic"
-  verify unit "keyword claimed by multiple extensions lists all providers"
-  verify unit "empty registry produces empty index"
-  verify property "index generation accepts configurable registry list"
-  verify contract "Generate Keyword Extension Index: keyword extension index generation holds — registry_accessible, filesystem_available, keyword_mapping_complete, index_deterministic, multi_provider_included, index_written, index_generated_emitted"
-}
-
 behavior support_private_registries "Support Private Registries" {
   invariants [registry_integrity, wasm_sandbox_integrity, credential_secrecy]
   category   command

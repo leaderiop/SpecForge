@@ -116,23 +116,26 @@ behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension R
     known_extensions_catalog_available "Known-extensions catalog (keyword-to-extension mapping) is loaded"
   }
   ensures {
-    suggestion_emitted            "Unknown keywords matching a known extension produce I004 info diagnostics"
+    suggestion_emitted            "Unknown keywords matching a known extension get an E024 whose suggestion names that extension"
     installed_extensions_resolved "Keywords from installed extensions follow normal E003 resolution"
   }
   contract   """
     When an entity block uses a keyword not present in the KindRegistry,
-    the compiler MUST consult the known-extensions catalog (a curated mapping
-    of keywords to extensions) to determine if an installable extension provides
-    that keyword. If a match is found, the compiler MUST emit an I004 info
-    diagnostic suggesting the extension to install. If no match is found, the
-    semantic validation phase MUST emit E024 via detect_unknown_entity_kinds.
+    the semantic validation phase MUST emit E024 via
+    detect_unknown_entity_kinds, once per entity and with no second
+    diagnostic for the same keyword. Its suggestion consults the
+    known-extensions catalog (a curated mapping of keywords to extensions,
+    suggest_missing_extensions): if an installable extension provides the
+    keyword, the suggestion MUST name it ("install it with: specforge add
+    X"). The keyword stays an error: a project that uses a kind without
+    enabling its extension does not pass the check.
     This is about entity declarations with unknown keywords, not reference
     list entries — reference lists contain entity IDs (not keywords), so the
     resolver cannot determine a target entity's kind from an unresolvable ID.
     When the extension IS installed and the target entity does not exist,
     normal E003 validation via link_entity_references MUST apply.
   """
-  verify unit "unknown keyword matching known extension emits I004"
+  verify unit "unknown keyword matching known extension gets E024 naming the extension"
   verify unit "installed extension with missing entity emits E003"
   verify unit "installed extension with imported file but missing entity emits E003"
   verify contract "Resolve Soft Cross-Extension References: soft cross-extension resolution holds — registries_populated_fired, known_extensions_catalog_available, suggestion_emitted, installed_extensions_resolved"

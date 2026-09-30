@@ -34,8 +34,6 @@ pub struct RegistryBuild {
     /// extension that owns it (empty for host-generated ones) for custom
     /// rule dispatch.
     pub rules: Vec<(ValidationRulePattern, String)>,
-    /// Entity keyword -> the extension that declares it.
-    pub keyword_owners: HashMap<String, String>,
     /// Kinds whose bodies an extension parses: the core grammar's parse
     /// errors inside them are not reported.
     pub body_parser_kinds: HashSet<String>,
@@ -81,14 +79,6 @@ pub fn build_registries(manifests: Vec<ManifestV2>) -> RegistryBuild {
             .map(|p| (p, String::new())),
     );
 
-    let keyword_owners: HashMap<String, String> = manifests
-        .iter()
-        .flat_map(|m| {
-            m.entity_kinds
-                .iter()
-                .map(move |k| (k.keyword.clone(), m.name.clone()))
-        })
-        .collect();
     let body_parser_kinds: HashSet<String> = manifests
         .iter()
         .flat_map(|m| m.entity_kinds.iter())
@@ -127,7 +117,6 @@ pub fn build_registries(manifests: Vec<ManifestV2>) -> RegistryBuild {
         fields,
         edges,
         rules,
-        keyword_owners,
         body_parser_kinds,
         single_reference_fields,
         bidirectional_pairs,

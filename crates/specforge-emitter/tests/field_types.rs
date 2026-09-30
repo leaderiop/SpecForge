@@ -42,7 +42,6 @@ fn build_and_check(source: &str) -> (Graph, Vec<Diagnostic>) {
     let parsed = specforge_parser::parse(source, "main.spec");
     assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
     let config = GraphConfig {
-        installed_keywords: kind_reg.keywords().cloned().collect(),
         field_coercions: field_coercions(&field_reg),
         ..GraphConfig::default()
     };

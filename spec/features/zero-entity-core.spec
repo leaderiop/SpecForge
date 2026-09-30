@@ -142,9 +142,8 @@ feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
     AND define_blocks_registered — a dual barrier ensuring all entity
     kinds (extension-defined and project-defined) are available before
     keyword validation begins. suggest_missing_extensions consumes a bundled
-    KeywordExtensionIndex data file produced by generate_keyword_extension_index
-    (extension_registry feature) at build time — see bridge comment in
-    behaviors/zero-entity-registries.spec. With zero extensions, the compiler gracefully degrades to
+    KeywordExtensionIndex data file (data/keyword-index.json) that a test
+    keeps in step with the builtin extensions' declared kinds. With zero extensions, the compiler gracefully degrades to
     structural-only mode with an I002 info diagnostic. Export commands
     (specforge export) MUST still produce valid Graph Protocol JSON from
     the structural-only graph, with generic entity nodes and reference

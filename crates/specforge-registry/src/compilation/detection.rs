@@ -358,19 +358,6 @@ pub fn detect_mistyped_references(
     diagnostics
 }
 
-/// Helper: Get LSP keywords from structural keywords + registry.
-pub fn lsp_keywords_with_registry(kind_reg: &KindRegistry) -> Vec<String> {
-    let mut keywords: Vec<String> = vec!["use".into(), "define".into()];
-    for keyword in kind_reg.keywords() {
-        if keyword != "use" && keyword != "define" {
-            keywords.push(keyword.clone());
-        }
-    }
-    keywords.sort();
-    keywords.dedup();
-    keywords
-}
-
 /// Auto-generate E006 validation rules for every field marked `required: true`
 /// in the FieldRegistry. Each rule fires at Error severity when the field is
 /// absent on an entity of the corresponding kind.
@@ -1059,15 +1046,6 @@ mod tests {
         assert_eq!(graph.node_count(), 1);
         let node = graph.node("my_beh").unwrap();
         assert_eq!(node.kind.raw, "behavior");
-    }
-
-    // B:graceful_degradation_without_extensions — verify unit "LSP provides basic features without extensions"
-    #[test]
-    fn test_lsp_basic_features_without_extensions() {
-        // LSP keyword completion with empty registry still includes structural keywords
-        let keywords = crate::compilation::lsp_keywords_with_registry(&KindRegistry::new());
-        assert!(keywords.contains(&"use".to_string()));
-        assert!(keywords.contains(&"define".to_string()));
     }
 
     // B:graceful_degradation_without_extensions — verify unit "specforge export produces valid JSON from structural-only graph"

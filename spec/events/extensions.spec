@@ -143,15 +143,6 @@ event registry_logged_out "Registry Logged Out" {
 // registry_authenticated) and resolve_registry_source (which emits
 // registry_resolved). No additional event is needed.
 
-event keyword_extension_index_generated "Keyword Extension Index Generated" {
-  channel "extensions.keyword_extension_index_generated"
-  payload {
-    keywordCount   integer
-    extensionCount integer
-  }
-  verify integration "emits after keyword extension index is generated"
-}
-
 event registry_request_retry_exhausted "Registry Request Retry Exhausted" {
   channel "extensions.registry_request_retry_exhausted"
   payload {

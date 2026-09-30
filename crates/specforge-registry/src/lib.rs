@@ -50,7 +50,6 @@ pub use compilation::{
     detect_unknown_entity_fields,
     detect_unknown_entity_kinds,
     // populate/validate (above)
-    generate_keyword_extension_index,
     generate_required_field_rules,
     // provider
     load_extension_manifests,
@@ -98,7 +97,6 @@ pub use client::resolver;
 pub use compilation::contributions;
 pub use compilation::define;
 pub use compilation::detection as compilation_detection;
-pub use compilation::keyword_index;
 pub use compilation::provider;
 pub use compilation::validation_engine;
 pub use manifest::surface;

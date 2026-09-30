@@ -252,15 +252,6 @@ impl LspState {
         self.registries.edges = edge_reg;
     }
 
-    /// Entity keyword -> extension name, derived from the loaded manifests.
-    pub fn known_extension_keywords(&self) -> &HashMap<String, String> {
-        &self.registries.keyword_owners
-    }
-
-    pub fn set_known_extension_keywords(&mut self, map: HashMap<String, String>) {
-        self.registries.keyword_owners = map;
-    }
-
     pub fn set_validation_patterns(&mut self, patterns: Vec<(ValidationRulePattern, String)>) {
         self.registries.rules = patterns;
     }

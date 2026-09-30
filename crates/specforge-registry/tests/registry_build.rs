@@ -85,10 +85,6 @@ fn kinds_fields_and_edges_come_from_the_descriptors() {
         ]
     );
     assert_eq!(build.manifests.len(), 2);
-    assert_eq!(
-        build.keyword_owners.get("feature").map(String::as_str),
-        Some("@test/product")
-    );
 }
 
 #[spec(

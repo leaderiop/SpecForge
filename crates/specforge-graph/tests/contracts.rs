@@ -247,53 +247,6 @@ ref jira.story:ABC-1 "Backend work"
     assert_eq!(jira_infos.len(), 1, "unknown scheme should produce I005");
 }
 
-// B:resolve_soft_cross_extension_references — verify contract "requires/ensures consistency for soft cross-extension resolution"
-#[specforge_test(
-    behavior = "resolve_soft_cross_extension_references",
-    verify = "Resolve Soft Cross-Extension References: soft cross-extension resolution holds — registries_populated_fired, known_extensions_catalog_available, suggestion_emitted, installed_extensions_resolved"
-)]
-fn resolve_soft_cross_extension_references_contract() {
-    // Requires: entity with keyword from uninstalled but known extension
-    // Ensures: I004 info diagnostic with extension name suggestion
-    let source = r#"journey onboarding "Onboarding" { problem "Users need onboarding" }"#;
-    let spec_file = parse(source, "main.spec");
-
-    let config = GraphConfig {
-        known_extension_keywords: vec![("journey".to_string(), "@specforge/product".to_string())]
-            .into_iter()
-            .collect(),
-        ..Default::default()
-    };
-    let (graph, diagnostics) = build_graph_with_config(&[spec_file], &config);
-
-    // Entity is still added to graph (soft resolution)
-    assert!(
-        graph.node("onboarding").is_some(),
-        "entity must be in graph despite uninstalled extension"
-    );
-
-    // I004 info diagnostic emitted
-    let i004s: Vec<_> = diagnostics.iter().filter(|d| d.code == "I004").collect();
-    assert_eq!(
-        i004s.len(),
-        1,
-        "uninstalled extension keyword must produce I004"
-    );
-    assert!(
-        i004s[0].message.contains("@specforge/product"),
-        "I004 must mention the extension"
-    );
-    assert!(
-        i004s[0].message.contains("journey"),
-        "I004 must mention the keyword"
-    );
-    assert_eq!(
-        i004s[0].severity,
-        specforge_graph::Severity::Info,
-        "I004 must be info severity"
-    );
-}
-
 // B:provide_did_you_mean_suggestions — verify contract "requires/ensures consistency for did-you-mean suggestions"
 #[specforge_test(
     behavior = "provide_did_you_mean_suggestions",

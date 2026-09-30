@@ -1,6 +1,5 @@
 mod credentials;
 mod http_client;
-mod keyword_index;
 mod provider;
 mod registry_build;
 mod registry_client;

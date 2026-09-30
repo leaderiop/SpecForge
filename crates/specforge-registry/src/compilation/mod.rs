@@ -2,7 +2,6 @@ mod build;
 pub mod contributions;
 pub mod define;
 pub mod detection;
-pub mod keyword_index;
 mod populate;
 pub mod provider;
 mod validate;
@@ -17,10 +16,8 @@ pub use detection::{
     EntityView, KeywordExtensionIndex, detect_identifier_length_violations,
     detect_mistyped_references, detect_reserved_entity_ids, detect_unknown_entity_fields,
     detect_unknown_entity_kinds, detect_unknown_verify_kinds, generate_required_field_rules,
-    lsp_keywords_with_registry, reserved_entity_id_words,
+    reserved_entity_id_words,
 };
-pub use keyword_index::KeywordExtensionIndex as ManifestKeywordIndex;
-pub use keyword_index::generate_keyword_extension_index;
 pub use populate::{apply_entity_enhancements, populate_registries};
 pub use provider::{
     ProviderConfig, ProviderSchemeRegistry, SchemeRegistryEntry, load_extension_manifests,
