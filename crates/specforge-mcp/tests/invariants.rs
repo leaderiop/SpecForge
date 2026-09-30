@@ -199,11 +199,42 @@ fn trace_is_idempotent() {
     assert_eq!(text1, text2);
 }
 
-// I:mcp_subscription_cleanup — verify property "no subscriptions survive shutdown"
 #[specforge_test(
     behavior = "mcp_subscription_cleanup",
     verify = "no orphan subscriptions remain after disconnect"
 )]
+fn no_orphan_subscriptions_after_disconnect() {
+    let mut server = McpServer::new();
+    call(&mut server, "initialize", json!({}));
+    for client in ["c1", "c2"] {
+        for uri in ["specforge://graph", "specforge://diagnostics"] {
+            let resp = call(
+                &mut server,
+                "resources/subscribe",
+                json!({"uri": uri, "client_id": client}),
+            );
+            assert!(resp["result"].is_object(), "{resp}");
+        }
+    }
+
+    server.disconnect("c1");
+    let clients: std::collections::BTreeSet<&str> = server
+        .state()
+        .subscriptions
+        .values()
+        .flatten()
+        .map(|s| s.client_id.as_str())
+        .collect();
+    assert_eq!(clients, ["c2"].into());
+
+    server.disconnect("c2");
+    assert!(
+        server.state().subscriptions.is_empty(),
+        "no empty channel left behind"
+    );
+}
+
+#[test]
 fn no_subscriptions_survive_shutdown() {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));

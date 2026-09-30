@@ -119,9 +119,7 @@ fn matches_uri_template(template: &str, uri: &str) -> bool {
     uri.starts_with(tpl_head)
 }
 
-/// Client identity used for router-level subscriptions: this server speaks
-/// JSON-RPC to a single client per transport (C9-01).
-const DEFAULT_SUBSCRIBER: &str = "default";
+use crate::DEFAULT_CLIENT_ID as DEFAULT_SUBSCRIBER;
 
 /// Map a subscribed resource URI to the delta-notification channel whose
 /// changes it observes (C9-01).

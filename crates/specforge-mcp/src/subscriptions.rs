@@ -23,7 +23,11 @@ pub fn unsubscribe(state: &mut McpState, client_id: &str, channel: &str) -> bool
     if let Some(subs) = state.subscriptions.get_mut(channel) {
         let before = subs.len();
         subs.retain(|s| s.client_id != client_id);
-        if subs.len() < before {
+        let removed = subs.len() < before;
+        if subs.is_empty() {
+            state.subscriptions.remove(channel);
+        }
+        if removed {
             state.push_event(
                 "mcp_subscription_removed",
                 serde_json::json!({"client_id": client_id, "channel": channel}),

@@ -88,19 +88,6 @@ fn shutdown_clears_subscriptions() {
     );
 }
 
-#[test]
-fn rapid_connect_disconnect_zero_subscriptions() {
-    let mut server = init_server();
-    for i in 0..10 {
-        let client = format!("rapid_client_{}", i);
-        subscriptions::subscribe(server.state_mut(), &client, "specforge/graphChanged");
-        subscriptions::subscribe(server.state_mut(), &client, "specforge/diagnosticsChanged");
-        subscriptions::unsubscribe_all(server.state_mut(), &client);
-    }
-    assert!(subscriptions::subscribers(server.state(), "specforge/graphChanged").is_empty());
-    assert!(subscriptions::subscribers(server.state(), "specforge/diagnosticsChanged").is_empty());
-}
-
 // ---- C9-01: subscribe → recompile → notification loop ----
 
 fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
@@ -251,6 +238,60 @@ fn shutdown_event_counts_what_it_released() {
     assert_eq!(event.params["subscriptions_released"], 2);
     // The server holds no Wasm engine between requests.
     assert_eq!(event.params["wasm_engines_released"], 0);
+}
+
+fn subscribe_as(server: &mut McpServer, client: &str, uri: &str) {
+    let resp = call(
+        server,
+        "resources/subscribe",
+        json!({"uri": uri, "client_id": client}),
+    );
+    assert!(resp["result"].is_object(), "{resp}");
+}
+
+#[specforge_test(
+    behavior = "mcp_subscription_cleanup",
+    verify = "client disconnect removes all subscriptions for that client"
+)]
+fn disconnect_removes_only_that_clients_subscriptions() {
+    let mut server = init_server();
+    subscribe_as(&mut server, "c1", "specforge://graph");
+    subscribe_as(&mut server, "c1", "specforge://diagnostics");
+    subscribe_as(&mut server, "c2", "specforge://graph");
+
+    server.disconnect("c1");
+
+    let state = server.state();
+    assert_eq!(
+        subscriptions::subscribers(state, "specforge/graphChanged"),
+        ["c2"]
+    );
+    assert!(subscriptions::subscribers(state, "specforge/diagnosticsChanged").is_empty());
+    let removed = state
+        .events
+        .iter()
+        .filter(|e| e.name == "mcp_subscription_removed" && e.params["client_id"] == "c1")
+        .count();
+    assert_eq!(removed, 2);
+}
+
+#[specforge_test(
+    behavior = "mcp_subscription_cleanup",
+    verify = "rapid connect/disconnect cycles leave zero subscriptions"
+)]
+fn rapid_connect_disconnect_cycles_leave_nothing_behind() {
+    let mut server = init_server();
+    for i in 0..50 {
+        let client = format!("client_{i}");
+        subscribe_as(&mut server, &client, "specforge://graph");
+        subscribe_as(&mut server, &client, "specforge://diagnostics");
+        server.disconnect(&client);
+    }
+    assert!(
+        server.state().subscriptions.is_empty(),
+        "{:?}",
+        server.state().subscriptions
+    );
 }
 
 /// C9-01 contract: no subscribers → notification suppressed.

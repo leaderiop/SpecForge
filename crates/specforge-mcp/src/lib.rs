@@ -15,6 +15,10 @@ use protocol::router::route;
 use protocol::{JsonRpcResponse, parse_request};
 use state::McpState;
 
+/// The client a request speaks for when it names no `client_id`: the one
+/// peer of a stdio session.
+pub const DEFAULT_CLIENT_ID: &str = "default";
+
 pub struct McpServer {
     state: McpState,
 }
@@ -72,6 +76,12 @@ impl McpServer {
     /// queued for subscribed channels since the last drain.
     pub fn take_notifications(&mut self) -> Vec<serde_json::Value> {
         notifications::pending_notifications(&mut self.state)
+    }
+
+    /// A client went away: drop every subscription it held. Transports call
+    /// this when a connection closes (stdio: at end of input).
+    pub fn disconnect(&mut self, client_id: &str) {
+        subscriptions::unsubscribe_all(&mut self.state, client_id);
     }
 
     pub fn state_mut(&mut self) -> &mut McpState {

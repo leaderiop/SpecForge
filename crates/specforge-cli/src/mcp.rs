@@ -34,5 +34,7 @@ pub fn run(path: &Path) -> i32 {
         let _ = out.flush();
     }
 
+    // End of input: the stdio client is gone.
+    server.disconnect(specforge_mcp::DEFAULT_CLIENT_ID);
     0
 }
