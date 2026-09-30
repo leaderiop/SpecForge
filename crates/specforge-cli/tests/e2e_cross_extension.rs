@@ -1,5 +1,59 @@
 use crate::e2e_fixtures::*;
 use specforge_test_macros::test as specforge_test;
+use std::collections::BTreeSet;
+
+type EdgeSet = BTreeSet<(String, String, String)>;
+
+/// Check `spec` (it must pass), then export its graph's edges.
+fn checked_edges(spec: &str) -> EdgeSet {
+    let dir = setup_project(&[("main.spec", spec)]);
+    specforge_cmd()
+        .args(["check"])
+        .arg(dir.path())
+        .assert()
+        .success();
+    let output = specforge_cmd()
+        .args(["export", "--format=graph"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let parsed = parse_json_stdout(&output);
+    let edges: Vec<(String, String, String)> = parsed["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            (
+                e["source"].as_str().unwrap().to_string(),
+                e["target"].as_str().unwrap().to_string(),
+                e["label"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    let set: EdgeSet = edges.iter().cloned().collect();
+    assert_eq!(set.len(), edges.len(), "no duplicate edges: {edges:?}");
+    set
+}
+
+fn edges(list: &[(&str, &str, &str)]) -> EdgeSet {
+    list.iter()
+        .map(|(s, t, l)| (s.to_string(), t.to_string(), l.to_string()))
+        .collect()
+}
+
+/// One edge per reference-list entry of CROSS_REF_SPEC (trigger is a plain
+/// field, not a reference list, so it makes no edge).
+fn cross_ref_spec_edges() -> EdgeSet {
+    edges(&[
+        ("validate_graph", "graph_validation", "features"),
+        ("resolve_refs", "graph_validation", "features"),
+        ("graph_validation", "validate_graph", "behaviors"),
+        ("graph_validation", "resolve_refs", "behaviors"),
+        ("refs_resolved", "validate_graph", "enforced_by"),
+        ("unresolved_ref", "resolve_refs", "mitigations"),
+    ])
+}
 
 // --- Phase 2a: Cross-extension references, I004 soft resolution, did-you-mean ---
 
@@ -8,13 +62,7 @@ use specforge_test_macros::test as specforge_test;
     verify = "reference list IDs create graph edges"
 )]
 fn cross_kind_references_resolve() {
-    let dir = setup_project(&[("main.spec", CROSS_REF_SPEC)]);
-
-    specforge_cmd()
-        .args(["check"])
-        .arg(dir.path())
-        .assert()
-        .success();
+    assert_eq!(checked_edges(CROSS_REF_SPEC), cross_ref_spec_edges());
 }
 
 #[specforge_test(
@@ -51,8 +99,7 @@ feature gamma "G" { behaviors [alpha, nonexistent_behavior] }
     verify = "reference list IDs create graph edges"
 )]
 fn governance_references_software_entities() {
-    let dir = setup_project(&[(
-        "main.spec",
+    let found = checked_edges(
         r#"
 behavior parse_input "P" { contract "must parse" }
 failure_mode parser_crash "PC" {
@@ -64,13 +111,11 @@ failure_mode parser_crash "PC" {
     mitigations [parse_input]
 }
 "#,
-    )]);
-
-    specforge_cmd()
-        .args(["check"])
-        .arg(dir.path())
-        .assert()
-        .success();
+    );
+    assert_eq!(
+        found,
+        edges(&[("parser_crash", "parse_input", "mitigations")])
+    );
 }
 
 #[specforge_test(
@@ -78,8 +123,7 @@ failure_mode parser_crash "PC" {
     verify = "reference list IDs create graph edges"
 )]
 fn product_references_software_entities() {
-    let dir = setup_project(&[(
-        "main.spec",
+    let found = checked_edges(
         r#"
 behavior parse_input "P" { contract "must parse" }
 feature fast_parsing "F" {
@@ -88,13 +132,11 @@ feature fast_parsing "F" {
     behaviors [parse_input]
 }
 "#,
-    )]);
-
-    specforge_cmd()
-        .args(["check"])
-        .arg(dir.path())
-        .assert()
-        .success();
+    );
+    assert_eq!(
+        found,
+        edges(&[("fast_parsing", "parse_input", "behaviors")])
+    );
 }
 
 #[specforge_test(
@@ -134,33 +176,8 @@ decision use_rust "D" {
     verify = "JSON output contains all edges"
 )]
 fn export_includes_cross_kind_edges() {
-    let dir = setup_project(&[("main.spec", CROSS_REF_SPEC)]);
-
-    let output = specforge_cmd()
-        .args(["export", "--format=graph"])
-        .arg(dir.path())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let parsed = parse_json_stdout(&output);
-    let edges = parsed["edges"].as_array().unwrap();
-
-    // Should have edges crossing kind boundaries: feature->behavior, invariant->behavior, etc.
-    let edge_pairs: Vec<(&str, &str)> = edges
-        .iter()
-        .map(|e| (e["source"].as_str().unwrap(), e["target"].as_str().unwrap()))
-        .collect();
-
-    // graph_validation -> validate_graph (behaviors), graph_validation -> resolve_refs (behaviors)
-    assert!(
-        edge_pairs
-            .iter()
-            .any(|(s, t)| *s == "graph_validation"
-                && (*t == "validate_graph" || *t == "resolve_refs")),
-        "should have cross-kind edges from feature to behavior: {:?}",
-        edge_pairs,
-    );
+    // Every reference-list entry of the spec, and nothing else.
+    assert_eq!(checked_edges(CROSS_REF_SPEC), cross_ref_spec_edges());
 }
 
 #[specforge_test(
@@ -170,27 +187,63 @@ fn export_includes_cross_kind_edges() {
 fn trace_crosses_extension_boundaries() {
     let dir = setup_project(&[("main.spec", CROSS_REF_SPEC)]);
 
-    let output = specforge_cmd()
-        .args(["trace", "unresolved_ref"])
-        .arg("--path")
-        .arg(dir.path())
-        .output()
-        .unwrap();
+    let trace = |id: &str| {
+        let output = specforge_cmd()
+            .args(["trace", id])
+            .arg("--path")
+            .arg(dir.path())
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        let parsed = parse_json_stdout(&output);
+        assert_eq!(parsed["entity_id"], id);
+        let ids = |direction: &str| -> BTreeSet<(String, u64)> {
+            parsed[direction]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|l| {
+                    (
+                        l["entity_id"].as_str().unwrap().to_string(),
+                        l["depth"].as_u64().unwrap(),
+                    )
+                })
+                .collect()
+        };
+        (ids("upstream"), ids("downstream"))
+    };
+    let set = |list: &[(&str, u64)]| -> BTreeSet<(String, u64)> {
+        list.iter().map(|(id, d)| (id.to_string(), *d)).collect()
+    };
 
-    assert!(output.status.success());
-    let parsed = parse_json_stdout(&output);
-    assert_eq!(parsed["entity_id"], "unresolved_ref");
+    // unresolved_ref (governance failure_mode) -mitigations-> resolve_refs
+    // (software behavior) -features-> graph_validation (product feature)
+    // -behaviors-> validate_graph. Nothing points at unresolved_ref.
+    let (upstream, downstream) = trace("unresolved_ref");
+    assert_eq!(upstream, set(&[]));
+    assert_eq!(
+        downstream,
+        set(&[
+            ("resolve_refs", 1),
+            ("graph_validation", 2),
+            ("validate_graph", 3)
+        ])
+    );
 
-    // unresolved_ref (failure_mode) -> resolve_refs (behavior) via mitigations
-    let downstream = parsed["downstream"].as_array().unwrap();
-    let downstream_ids: Vec<&str> = downstream
-        .iter()
-        .map(|l| l["entity_id"].as_str().unwrap())
-        .collect();
-    assert!(
-        downstream_ids.contains(&"resolve_refs"),
-        "trace should cross from governance entity to software entity: {:?}",
-        downstream_ids,
+    // resolve_refs sits in the middle: connected both ways across kinds.
+    let (upstream, downstream) = trace("resolve_refs");
+    assert_eq!(
+        upstream,
+        set(&[
+            ("graph_validation", 1),
+            ("unresolved_ref", 1),
+            ("validate_graph", 2),
+            ("refs_resolved", 3),
+        ])
+    );
+    assert_eq!(
+        downstream,
+        set(&[("graph_validation", 1), ("validate_graph", 2)])
     );
 }
 

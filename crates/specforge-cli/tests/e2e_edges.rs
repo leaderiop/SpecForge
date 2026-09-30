@@ -1,5 +1,52 @@
 use crate::e2e_fixtures::*;
 use specforge_test_macros::test as specforge_test;
+use std::collections::BTreeSet;
+
+type EdgeSet = BTreeSet<(String, String, String)>;
+
+/// `specforge export --format=graph` of a one-file project: its node ids
+/// and its (source, target, label) edges.
+fn exported_graph(spec: &str) -> (BTreeSet<String>, EdgeSet) {
+    let dir = setup_project(&[("main.spec", spec)]);
+    let output = specforge_cmd()
+        .args(["export", "--format=graph"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let parsed = parse_json_stdout(&output);
+    let nodes = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap().to_string())
+        .collect();
+    let edges: Vec<(String, String, String)> = parsed["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            (
+                e["source"].as_str().unwrap().to_string(),
+                e["target"].as_str().unwrap().to_string(),
+                e["label"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    let edge_set: EdgeSet = edges.iter().cloned().collect();
+    assert_eq!(edge_set.len(), edges.len(), "no duplicate edges: {edges:?}");
+    (nodes, edge_set)
+}
+
+fn ids(list: &[&str]) -> BTreeSet<String> {
+    list.iter().map(|s| s.to_string()).collect()
+}
+
+fn edges(list: &[(&str, &str, &str)]) -> EdgeSet {
+    list.iter()
+        .map(|(s, t, l)| (s.to_string(), t.to_string(), l.to_string()))
+        .collect()
+}
 
 // --- Phase 1c: Edge types from reference-list fields, DOT labels, multi-hop ---
 
@@ -8,43 +55,21 @@ use specforge_test_macros::test as specforge_test;
     verify = "graph format includes all nodes and edges"
 )]
 fn behaviors_field_creates_edges() {
-    let dir = setup_project(&[(
-        "main.spec",
+    let (nodes, edge_set) = exported_graph(
         r#"
 behavior alpha "A" { contract "first" }
 behavior beta "B" { contract "second" }
 feature gamma "G" { behaviors [alpha, beta] }
 "#,
-    )]);
-
-    let output = specforge_cmd()
-        .args(["export", "--format=graph"])
-        .arg(dir.path())
-        .output()
-        .unwrap();
-
-    let parsed = parse_json_stdout(&output);
-    let edges = parsed["edges"].as_array().unwrap();
+    );
+    assert_eq!(nodes, ids(&["alpha", "beta", "gamma"]));
     assert_eq!(
-        edges.len(),
-        2,
-        "behaviors [alpha, beta] should create 2 edges"
+        edge_set,
+        edges(&[
+            ("gamma", "alpha", "behaviors"),
+            ("gamma", "beta", "behaviors"),
+        ])
     );
-
-    let sources: Vec<&str> = edges
-        .iter()
-        .map(|e| e["source"].as_str().unwrap())
-        .collect();
-    let targets: Vec<&str> = edges
-        .iter()
-        .map(|e| e["target"].as_str().unwrap())
-        .collect();
-    assert!(
-        sources.iter().all(|s| *s == "gamma"),
-        "all edges should come from gamma"
-    );
-    assert!(targets.contains(&"alpha"));
-    assert!(targets.contains(&"beta"));
 }
 
 #[specforge_test(
@@ -52,8 +77,7 @@ feature gamma "G" { behaviors [alpha, beta] }
     verify = "graph format includes all nodes and edges"
 )]
 fn features_field_creates_edges() {
-    let dir = setup_project(&[(
-        "main.spec",
+    let (nodes, edge_set) = exported_graph(
         r#"
 feature fast_parsing "F" { problem "p" solution "s" }
 behavior parse_input "P" {
@@ -61,19 +85,12 @@ behavior parse_input "P" {
     features [fast_parsing]
 }
 "#,
-    )]);
-
-    let output = specforge_cmd()
-        .args(["export", "--format=graph"])
-        .arg(dir.path())
-        .output()
-        .unwrap();
-
-    let parsed = parse_json_stdout(&output);
-    let edges = parsed["edges"].as_array().unwrap();
-    assert_eq!(edges.len(), 1);
-    assert_eq!(edges[0]["source"], "parse_input");
-    assert_eq!(edges[0]["target"], "fast_parsing");
+    );
+    assert_eq!(nodes, ids(&["fast_parsing", "parse_input"]));
+    assert_eq!(
+        edge_set,
+        edges(&[("parse_input", "fast_parsing", "features")])
+    );
 }
 
 #[specforge_test(
@@ -81,8 +98,7 @@ behavior parse_input "P" {
     verify = "graph format includes all nodes and edges"
 )]
 fn enforced_by_field_creates_edges() {
-    let dir = setup_project(&[(
-        "main.spec",
+    let (nodes, edge_set) = exported_graph(
         r#"
 behavior validate "V" { contract "must validate" }
 invariant refs_resolved "RR" {
@@ -90,22 +106,12 @@ invariant refs_resolved "RR" {
     enforced_by [validate]
 }
 "#,
-    )]);
-
-    let output = specforge_cmd()
-        .args(["export", "--format=graph"])
-        .arg(dir.path())
-        .output()
-        .unwrap();
-
-    let parsed = parse_json_stdout(&output);
-    let edges = parsed["edges"].as_array().unwrap();
-    assert!(
-        !edges.is_empty(),
-        "enforced_by [validate] should create an edge"
     );
-    assert_eq!(edges[0]["source"], "refs_resolved");
-    assert_eq!(edges[0]["target"], "validate");
+    assert_eq!(nodes, ids(&["refs_resolved", "validate"]));
+    assert_eq!(
+        edge_set,
+        edges(&[("refs_resolved", "validate", "enforced_by")])
+    );
 }
 
 #[specforge_test(
@@ -113,8 +119,7 @@ invariant refs_resolved "RR" {
     verify = "graph format includes all nodes and edges"
 )]
 fn mitigations_field_creates_edges() {
-    let dir = setup_project(&[(
-        "main.spec",
+    let (nodes, edge_set) = exported_graph(
         r#"
 behavior parse_input "P" { contract "must parse" }
 failure_mode parser_crash "PC" {
@@ -126,18 +131,12 @@ failure_mode parser_crash "PC" {
     mitigations [parse_input]
 }
 "#,
-    )]);
-
-    let output = specforge_cmd()
-        .args(["export", "--format=graph"])
-        .arg(dir.path())
-        .output()
-        .unwrap();
-
-    let parsed = parse_json_stdout(&output);
-    let edges = parsed["edges"].as_array().unwrap();
-    assert!(!edges.is_empty(), "mitigations field should create an edge");
-    assert_eq!(edges[0]["target"], "parse_input");
+    );
+    assert_eq!(nodes, ids(&["parse_input", "parser_crash"]));
+    assert_eq!(
+        edge_set,
+        edges(&[("parser_crash", "parse_input", "mitigations")])
+    );
 }
 
 #[specforge_test(
@@ -213,19 +212,45 @@ fn trace_follows_edges_across_entity_kinds() {
     let parsed = parse_json_stdout(&output);
 
     assert_eq!(parsed["entity_id"], "validate_graph");
-    // validate_graph has upstream: graph_validation (via features), refs_resolved (via enforced_by)
-    let upstream = parsed["upstream"].as_array().unwrap();
-    let upstream_ids: Vec<&str> = upstream
-        .iter()
-        .map(|l| l["entity_id"].as_str().unwrap())
-        .collect();
-    assert!(
-        upstream_ids.contains(&"graph_validation")
-            || upstream_ids.contains(&"refs_resolved")
-            || upstream_ids.contains(&"validation_complete")
-            || upstream_ids.contains(&"unresolved_ref"),
-        "trace should include cross-kind upstream entities: {:?}",
-        upstream_ids
+    let links = |direction: &str| -> BTreeSet<(String, String, String, u64)> {
+        parsed[direction]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|l| {
+                (
+                    l["entity_id"].as_str().unwrap().to_string(),
+                    l["entity_kind"].as_str().unwrap().to_string(),
+                    l["edge_label"].as_str().unwrap().to_string(),
+                    l["depth"].as_u64().unwrap(),
+                )
+            })
+            .collect()
+    };
+    let link = |id: &str, kind: &str, label: &str, depth: u64| {
+        (id.to_string(), kind.to_string(), label.to_string(), depth)
+    };
+    // Upstream crosses feature, invariant, behavior and failure_mode:
+    // graph_validation -behaviors-> validate_graph,
+    // refs_resolved -enforced_by-> validate_graph,
+    // resolve_refs -features-> graph_validation,
+    // unresolved_ref -mitigations-> resolve_refs.
+    assert_eq!(
+        links("upstream"),
+        BTreeSet::from([
+            link("graph_validation", "feature", "behaviors", 1),
+            link("refs_resolved", "invariant", "enforced_by", 1),
+            link("resolve_refs", "behavior", "features", 2),
+            link("unresolved_ref", "failure_mode", "mitigations", 3),
+        ])
+    );
+    // Downstream: validate_graph -features-> graph_validation -behaviors-> resolve_refs.
+    assert_eq!(
+        links("downstream"),
+        BTreeSet::from([
+            link("graph_validation", "feature", "features", 1),
+            link("resolve_refs", "behavior", "behaviors", 2),
+        ])
     );
 }
 
@@ -267,39 +292,21 @@ journey dev_journey "DJ" { description "workflow" }
     verify = "graph format includes all nodes and edges"
 )]
 fn multiple_reference_fields_produce_separate_edges() {
-    let dir = setup_project(&[(
-        "main.spec",
+    let (nodes, edge_set) = exported_graph(
         r#"
 behavior validate "V" { contract "must validate" features [feat_a] }
 feature feat_a "F" { behaviors [validate] }
 invariant inv_a "I" { guarantee "always" enforced_by [validate] }
 "#,
-    )]);
-
-    let output = specforge_cmd()
-        .args(["export", "--format=graph"])
-        .arg(dir.path())
-        .output()
-        .unwrap();
-
-    let parsed = parse_json_stdout(&output);
-    let edges = parsed["edges"].as_array().unwrap();
-    // behaviors: feat_a->validate, features: validate->feat_a, enforced_by: inv_a->validate
-    assert!(
-        edges.len() >= 3,
-        "should have edges from multiple reference fields, got {}",
-        edges.len()
     );
-
-    let labels: Vec<&str> = edges.iter().map(|e| e["label"].as_str().unwrap()).collect();
-    assert!(
-        labels.contains(&"behaviors"),
-        "should have 'behaviors' edges"
-    );
-    assert!(labels.contains(&"features"), "should have 'features' edges");
-    assert!(
-        labels.contains(&"enforced_by"),
-        "should have 'enforced_by' edges"
+    assert_eq!(nodes, ids(&["feat_a", "inv_a", "validate"]));
+    assert_eq!(
+        edge_set,
+        edges(&[
+            ("feat_a", "validate", "behaviors"),
+            ("validate", "feat_a", "features"),
+            ("inv_a", "validate", "enforced_by"),
+        ])
     );
 }
 

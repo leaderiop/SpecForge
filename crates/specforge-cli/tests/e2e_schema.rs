@@ -1,6 +1,46 @@
 use crate::e2e_fixtures::*;
 use assert_cmd::Command;
 use specforge_test_macros::test as specforge_test;
+use std::collections::BTreeSet;
+
+/// SOFTWARE_SPEC in a project that enables @specforge/software, so the
+/// schema has registered kinds and edge types.
+fn software_project() -> tempfile::TempDir {
+    setup_project_with_config(
+        r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software"]}"#,
+        &[("main.spec", SOFTWARE_SPEC)],
+    )
+}
+
+/// The kinds @specforge/software registers.
+const SOFTWARE_KINDS: [&str; 5] = ["behavior", "event", "invariant", "port", "type"];
+
+fn run_json(args: &[&str], dir: &std::path::Path) -> serde_json::Value {
+    let output = specforge_cmd().args(args).arg(dir).output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    parse_json_stdout(&output)
+}
+
+fn strings(value: &serde_json::Value) -> BTreeSet<String> {
+    value
+        .as_array()
+        .unwrap_or_else(|| panic!("not an array: {value}"))
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect()
+}
+
+fn names(list: &serde_json::Value, key: &str) -> BTreeSet<String> {
+    list.as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v[key].as_str().unwrap().to_string())
+        .collect()
+}
 
 // --- Phase 1d: Schema command tests ---
 
@@ -9,28 +49,48 @@ use specforge_test_macros::test as specforge_test;
     verify = "specforge schema outputs full schema as JSON"
 )]
 fn schema_command_outputs_valid_json() {
-    let dir = setup_project(&[("main.spec", SOFTWARE_SPEC)]);
+    let dir = software_project();
+    let parsed = run_json(&["schema"], dir.path());
 
-    let output = specforge_cmd()
-        .args(["schema"])
-        .arg(dir.path())
-        .output()
+    assert_eq!(
+        parsed["schema_version"],
+        serde_json::json!({"major": 1, "minor": 0, "patch": 0})
+    );
+    assert_eq!(
+        names(&parsed["extensions"], "name"),
+        strings(&serde_json::json!(["@specforge/software"]))
+    );
+    // Every kind the extension registers, with its field definitions.
+    assert_eq!(
+        names(&parsed["entity_kinds"], "name"),
+        SOFTWARE_KINDS.iter().map(|s| s.to_string()).collect()
+    );
+    let behavior = parsed["entity_kinds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|k| k["name"] == "behavior")
         .unwrap();
-
-    assert!(output.status.success());
-    let parsed = parse_json_stdout(&output);
-    assert!(
-        parsed["schema_version"].is_object(),
-        "should have schema_version object"
-    );
-    assert!(
-        parsed["entity_kinds"].is_array(),
-        "should have entity_kinds array"
-    );
-    assert!(
-        parsed["edge_types"].is_array(),
-        "should have edge_types array"
-    );
+    let contract = behavior["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["name"] == "contract")
+        .expect("behavior.contract");
+    assert_eq!(contract["field_type"], "string");
+    assert_eq!(contract["source_extension"], "@specforge/software");
+    // And its edge types.
+    let edge_types = names(&parsed["edge_types"], "label");
+    for label in [
+        "BehaviorEnforcesInvariant",
+        "BehaviorProducesEvent",
+        "BehaviorUsesPort",
+    ] {
+        assert!(
+            edge_types.contains(label),
+            "{label} missing: {edge_types:?}"
+        );
+    }
 }
 
 #[test]
@@ -63,21 +123,113 @@ fn schema_kind_filter_unknown_exits_one() {
     verify = "published schema is valid JSON Schema"
 )]
 fn schema_publish_produces_json_schema_draft() {
-    let dir = setup_project(&[("main.spec", SOFTWARE_SPEC)]);
+    for dir in [
+        software_project(),
+        setup_project(&[("main.spec", SOFTWARE_SPEC)]),
+    ] {
+        let parsed = run_json(&["schema", "--publish"], dir.path());
+        assert_eq!(
+            parsed["$schema"], "https://json-schema.org/draft/2020-12/schema",
+            "published schema should have $schema field"
+        );
+        assert_eq!(parsed["title"], "SpecForge Graph Protocol");
+        // Every keyword is a draft 2020-12 keyword with a well-typed value.
+        let defs = parsed["$defs"]
+            .as_object()
+            .map(|d| d.keys().cloned().collect())
+            .unwrap_or_default();
+        assert_json_schema(&parsed, "#", &defs);
+    }
+}
 
-    let output = specforge_cmd()
-        .args(["schema", "--publish"])
-        .arg(dir.path())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let parsed = parse_json_stdout(&output);
-    assert_eq!(
-        parsed["$schema"], "https://json-schema.org/draft/2020-12/schema",
-        "published schema should have $schema field"
-    );
-    assert_eq!(parsed["title"], "SpecForge Graph Protocol");
+/// Assert `node` is a well-formed JSON Schema (draft 2020-12) for the
+/// keywords the published schema uses; `defs` are the `$defs` names.
+fn assert_json_schema(node: &serde_json::Value, path: &str, defs: &BTreeSet<String>) {
+    use serde_json::Value;
+    const TYPES: [&str; 7] = [
+        "object", "array", "string", "integer", "number", "boolean", "null",
+    ];
+    let obj = match node {
+        Value::Bool(_) => return,
+        Value::Object(obj) => obj,
+        other => panic!("{path}: a schema must be an object or boolean, got {other}"),
+    };
+    for (key, value) in obj {
+        let at = format!("{path}/{key}");
+        match key.as_str() {
+            "$schema" | "$id" | "title" | "description" | "$comment" | "pattern" | "format" => {
+                assert!(value.is_string(), "{at} must be a string")
+            }
+            "type" => {
+                let listed: Vec<&Value> = match value {
+                    Value::Array(items) => items.iter().collect(),
+                    single => vec![single],
+                };
+                for t in listed {
+                    assert!(
+                        t.as_str().is_some_and(|t| TYPES.contains(&t)),
+                        "{at}: unknown type {t}"
+                    );
+                }
+            }
+            "properties" | "$defs" => {
+                for (name, sub) in value.as_object().unwrap_or_else(|| panic!("{at}: object")) {
+                    assert_json_schema(sub, &format!("{at}/{name}"), defs);
+                }
+            }
+            "items"
+            | "additionalProperties"
+            | "if"
+            | "then"
+            | "else"
+            | "not"
+            | "contains"
+            | "propertyNames" => assert_json_schema(value, &at, defs),
+            "allOf" | "anyOf" | "oneOf" => {
+                let items = value.as_array().unwrap_or_else(|| panic!("{at}: array"));
+                assert!(!items.is_empty(), "{at}: empty");
+                for (i, sub) in items.iter().enumerate() {
+                    assert_json_schema(sub, &format!("{at}/{i}"), defs);
+                }
+            }
+            "minItems" | "maxItems" | "minLength" | "maxLength" | "minProperties" => {
+                assert!(value.is_u64(), "{at} must be a non-negative integer")
+            }
+            "minimum" | "maximum" | "exclusiveMinimum" | "exclusiveMaximum" => {
+                assert!(value.is_number(), "{at} must be a number")
+            }
+            "uniqueItems" => assert!(value.is_boolean(), "{at} must be a boolean"),
+            "required" => {
+                // Inside a sub-schema (then/allOf) `required` may name
+                // properties declared by the enclosing schema.
+                let props = obj.get("properties").and_then(Value::as_object);
+                for name in value.as_array().unwrap_or_else(|| panic!("{at}: array")) {
+                    let name = name.as_str().unwrap_or_else(|| panic!("{at}: strings"));
+                    if let Some(props) = props {
+                        assert!(
+                            props.contains_key(name),
+                            "{at}: required '{name}' is not a declared property"
+                        );
+                    }
+                }
+            }
+            "enum" => {
+                let items = value.as_array().unwrap_or_else(|| panic!("{at}: array"));
+                assert!(!items.is_empty(), "{at}: empty enum");
+                let unique: BTreeSet<String> = items.iter().map(|v| v.to_string()).collect();
+                assert_eq!(unique.len(), items.len(), "{at}: duplicate enum values");
+            }
+            "const" => {}
+            "$ref" => {
+                let target = value.as_str().unwrap_or_default();
+                let name = target
+                    .strip_prefix("#/$defs/")
+                    .unwrap_or_else(|| panic!("{at}: unsupported $ref {target}"));
+                assert!(defs.contains(name), "{at}: $ref to missing {target}");
+            }
+            other => panic!("{at}: unexpected keyword '{other}'"),
+        }
+    }
 }
 
 #[specforge_test(
@@ -85,24 +237,22 @@ fn schema_publish_produces_json_schema_draft() {
     verify = "published schema describes all registered entity kinds"
 )]
 fn schema_publish_includes_node_kind_enum() {
-    let dir = setup_project(&[("main.spec", SOFTWARE_SPEC)]);
+    let dir = software_project();
+    let parsed = run_json(&["schema", "--publish"], dir.path());
 
-    let output = specforge_cmd()
-        .args(["schema", "--publish"])
-        .arg(dir.path())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let parsed = parse_json_stdout(&output);
-
-    // Verify the nodes items structure exists
-    let node_props = &parsed["properties"]["nodes"]["items"]["properties"];
-    assert!(
-        node_props["kind"].is_object(),
-        "kind should have schema constraints"
+    let kind = &parsed["properties"]["nodes"]["items"]["properties"]["kind"];
+    assert_eq!(kind["type"], "string");
+    assert_eq!(
+        strings(&kind["enum"]),
+        SOFTWARE_KINDS.iter().map(|s| s.to_string()).collect(),
+        "the node kind enum lists every registered kind"
     );
-    assert_eq!(node_props["kind"]["type"], "string");
+    // The same set `specforge schema` reports as registered.
+    let registered = run_json(&["schema"], dir.path());
+    assert_eq!(
+        strings(&kind["enum"]),
+        names(&registered["entity_kinds"], "name")
+    );
 }
 
 #[specforge_test(
@@ -110,23 +260,24 @@ fn schema_publish_includes_node_kind_enum() {
     verify = "published schema describes all edge types"
 )]
 fn schema_publish_includes_edge_label_enum() {
-    let dir = setup_project(&[("main.spec", SOFTWARE_SPEC)]);
+    let dir = software_project();
+    let parsed = run_json(&["schema", "--publish"], dir.path());
 
-    let output = specforge_cmd()
-        .args(["schema", "--publish"])
-        .arg(dir.path())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let parsed = parse_json_stdout(&output);
-
-    let edge_props = &parsed["properties"]["edges"]["items"]["properties"];
-    assert!(
-        edge_props["label"].is_object(),
-        "label should have schema constraints"
-    );
-    assert_eq!(edge_props["label"]["type"], "string");
+    let label = &parsed["properties"]["edges"]["items"]["properties"]["label"];
+    assert_eq!(label["type"], "string");
+    let listed = strings(&label["enum"]);
+    // Every edge type `specforge schema` reports as registered, no more.
+    let registered = run_json(&["schema"], dir.path());
+    assert_eq!(listed, names(&registered["edge_types"], "label"));
+    for expected in [
+        "BehaviorEnforcesInvariant",
+        "BehaviorProducesEvent",
+        "BehaviorConsumesEvent",
+        "BehaviorUsesPort",
+        "EventCarriesPayloadType",
+    ] {
+        assert!(listed.contains(expected), "{expected} missing: {listed:?}");
+    }
 }
 
 #[specforge_test(
@@ -156,20 +307,26 @@ fn export_v2_schema_has_entity_kinds() {
     verify = "format_version set to 2.0 with schema"
 )]
 fn export_v2_schema_has_edge_types() {
-    let dir = setup_project(&[("main.spec", SOFTWARE_SPEC)]);
+    let dir = software_project();
+    let parsed = run_json(&["export", "--format=graph"], dir.path());
 
-    let output = specforge_cmd()
-        .args(["export", "--format=graph"])
-        .arg(dir.path())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let parsed = parse_json_stdout(&output);
-    assert!(
-        parsed["schema"]["edge_types"].is_array(),
-        "V2 schema should have edge_types"
+    // Format 2.0, carrying the project's schema.
+    assert_eq!(parsed["format_version"], "2.0");
+    let registered = run_json(&["schema"], dir.path());
+    assert_eq!(
+        parsed["schema"], registered,
+        "the embedded schema is the project's"
     );
+    assert!(
+        names(&parsed["schema"]["edge_types"], "label").contains("BehaviorEnforcesInvariant"),
+        "{}",
+        parsed["schema"]["edge_types"]
+    );
+
+    // Without the schema, the export is not 2.0.
+    let bare = run_json(&["export", "--format=graph", "--no-schema"], dir.path());
+    assert!(bare.get("schema").is_none());
+    assert_ne!(bare["format_version"], "2.0");
 }
 
 #[specforge_test(

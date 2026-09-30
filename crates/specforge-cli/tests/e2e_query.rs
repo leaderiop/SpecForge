@@ -132,6 +132,23 @@ fn query_kind_filter_prunes_edges() {
 
     let node_ids: Vec<&str> = nodes.iter().map(|n| n["id"].as_str().unwrap()).collect();
 
+    // Unfiltered, depth 3 reaches feat_root and inv_deep; --kind=behavior
+    // keeps only behaviors.
+    assert_eq!(node_ids, ["beh_middle"], "{parsed}");
+    for node in nodes {
+        assert_eq!(node["kind"], "behavior", "{node}");
+    }
+    assert!(edges.is_empty(), "edges to filtered-out nodes are pruned");
+    let unfiltered = specforge_cmd()
+        .args(["query", "beh_middle", "--depth=3"])
+        .arg("--path")
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let unfiltered = parse_json_stdout(&unfiltered);
+    assert_eq!(unfiltered["nodes"].as_array().unwrap().len(), 3);
+    assert_eq!(unfiltered["edges"].as_array().unwrap().len(), 3);
+
     // Every edge endpoint must reference an existing node
     for edge in edges {
         let source = edge["source"].as_str().unwrap();
@@ -156,24 +173,33 @@ fn query_kind_filter_prunes_edges() {
     verify = "depth 1 returns direct neighbors"
 )]
 fn query_isolated_entity_depth_1() {
-    let dir = setup_project(&[("main.spec", ISOLATED_SPEC)]);
+    let spec = format!("{DEEP_CHAIN_SPEC}\n{ISOLATED_SPEC}");
+    let dir = setup_project(&[("main.spec", &spec)]);
+    let query = |id: &str| {
+        let output = specforge_cmd()
+            .args(["query", id, "--depth=1"])
+            .arg("--path")
+            .arg(dir.path())
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        let parsed = parse_json_stdout(&output);
+        let mut ids: Vec<String> = parsed["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["id"].as_str().unwrap().to_string())
+            .collect();
+        ids.sort();
+        ids
+    };
 
-    let output = specforge_cmd()
-        .args(["query", "isolated_node", "--depth=1"])
-        .arg("--path")
-        .arg(dir.path())
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let parsed = parse_json_stdout(&output);
-    let nodes = parsed["nodes"].as_array().unwrap();
-    assert_eq!(
-        nodes.len(),
-        1,
-        "isolated node at depth 1 should return just that node"
-    );
-    assert_eq!(nodes[0]["id"], "isolated_node");
+    // inv_deep's one neighbor is beh_middle; feat_root is two hops away.
+    assert_eq!(query("inv_deep"), ["beh_middle", "inv_deep"]);
+    // beh_middle neighbors both feat_root and inv_deep.
+    assert_eq!(query("beh_middle"), ["beh_middle", "feat_root", "inv_deep"]);
+    // An isolated node has no neighbors.
+    assert_eq!(query("isolated_node"), ["isolated_node"]);
 }
 
 #[specforge_test(
@@ -200,11 +226,16 @@ fn query_handles_cycles() {
 
     // Should contain all cycle nodes without duplicates
     let ids: Vec<&str> = nodes.iter().map(|n| n["id"].as_str().unwrap()).collect();
-    let unique: std::collections::HashSet<&&str> = ids.iter().collect();
+    let unique: std::collections::BTreeSet<&str> = ids.iter().copied().collect();
     assert_eq!(
         ids.len(),
         unique.len(),
         "no duplicate nodes in query results"
+    );
+    assert_eq!(
+        unique,
+        std::collections::BTreeSet::from(["cycle_a", "cycle_b", "cycle_c"]),
+        "every node reachable around the cycle is visited"
     );
 }
 
@@ -271,15 +302,54 @@ fn query_nodes_have_required_fields() {
 
     assert!(output.status.success());
     let parsed = parse_json_stdout(&output);
-    let nodes = parsed["nodes"].as_array().unwrap();
 
-    for node in nodes {
-        assert!(node["id"].is_string(), "every node must have an 'id' field");
-        assert!(
-            node["kind"].is_string(),
-            "every node must have a 'kind' field"
-        );
-        assert!(!node["id"].as_str().unwrap().is_empty());
-        assert!(!node["kind"].as_str().unwrap().is_empty());
+    // The Graph Protocol shape, as the published schema declares it for a
+    // node and an edge (`specforge schema --publish`).
+    let published = specforge_cmd()
+        .args(["schema", "--publish"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let published = parse_json_stdout(&published);
+    let props = &published["properties"];
+    for key in ["format_version", "schema_version", "nodes", "edges"] {
+        assert!(parsed.get(key).is_some(), "missing top-level '{key}'");
     }
+    assert!(parsed["schema_version"].is_string());
+    for key in parsed.as_object().unwrap().keys() {
+        assert!(
+            props.get(key).is_some(),
+            "top-level '{key}' is not in the Graph Protocol"
+        );
+    }
+    let conforms = |item: &serde_json::Value, schema: &serde_json::Value, what: &str| {
+        for required in schema["required"].as_array().unwrap() {
+            let key = required.as_str().unwrap();
+            assert!(item.get(key).is_some(), "{what} lacks '{key}': {item}");
+        }
+        for (key, value) in item.as_object().unwrap() {
+            let expected = schema["properties"][key]["type"].as_str();
+            let actual = match value {
+                serde_json::Value::String(_) => "string",
+                serde_json::Value::Number(n) if n.is_i64() || n.is_u64() => "integer",
+                serde_json::Value::Object(_) => "object",
+                other => panic!("{what}.{key}: unexpected {other}"),
+            };
+            assert_eq!(expected, Some(actual), "{what}.{key} in {item}");
+        }
+    };
+    let nodes = parsed["nodes"].as_array().unwrap();
+    let edges = parsed["edges"].as_array().unwrap();
+    assert_eq!(nodes.len(), 3, "{parsed}");
+    assert_eq!(edges.len(), 3, "{parsed}");
+    for node in nodes {
+        conforms(node, &props["nodes"]["items"], "node");
+    }
+    for edge in edges {
+        conforms(edge, &props["edges"]["items"], "edge");
+    }
+    let beh = nodes.iter().find(|n| n["id"] == "beh_middle").unwrap();
+    assert_eq!(beh["kind"], "behavior");
+    assert_eq!(beh["title"], "Behavior Middle");
+    assert_eq!(beh["fields"]["contract"], "The system MUST validate");
 }
