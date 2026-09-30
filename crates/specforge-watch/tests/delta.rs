@@ -217,8 +217,27 @@ fn delta_include_values_populates_old_and_new_value() {
     let delta = specforge_watch::compute_graph_delta_with_config(&old, &new, &config);
 
     assert_eq!(delta.modified_nodes.len(), 1);
-    assert!(delta.modified_nodes[0].old_value.is_some());
-    assert!(delta.modified_nodes[0].new_value.is_some());
+    let change = &delta.modified_nodes[0];
+    assert_eq!(change.changed_fields, vec!["status"]);
+    // old_value carries the previous field values, new_value the current ones
+    // (not swapped, not the same snapshot twice).
+    let status = |v: &Option<serde_json::Value>| {
+        let v = v.as_ref().expect("value must be populated");
+        let entries = v["entries"].as_array().expect("field entries");
+        let entry = entries
+            .iter()
+            .find(|e| e["key"] == "status")
+            .unwrap_or_else(|| panic!("no status entry in {v}"));
+        entry["value"].clone()
+    };
+    assert_eq!(
+        status(&change.old_value),
+        serde_json::json!({"String": "draft"})
+    );
+    assert_eq!(
+        status(&change.new_value),
+        serde_json::json!({"String": "done"})
+    );
 }
 
 #[spec(
@@ -254,15 +273,73 @@ fn delta_default_config_omits_values() {
     verify = "delta applied to old graph equals new graph"
 )]
 fn validate_delta_passes_for_correct_delta() {
-    use specforge_watch::validate_delta_correctness;
+    use specforge_watch::{EdgeChange, NodeChange, validate_delta_correctness};
 
-    let old = Graph::new();
+    let edge = |s: &str, t: &str, l: &str| Edge {
+        source: Sym::new(s),
+        target: Sym::new(t),
+        label: Sym::new(l),
+    };
+    let change = |s: &str, t: &str, l: &str| EdgeChange {
+        source: s.to_string(),
+        target: t.to_string(),
+        label: l.to_string(),
+    };
+    let node = |id: &str| NodeChange {
+        id: id.to_string(),
+        kind: "type".to_string(),
+        file: None,
+        line: None,
+    };
+
+    // old: a, b, c with b->a, b->c.   new: a, b, d with b->a, b->d.
+    let mut old = Graph::new();
+    old.add_node(make_node("a", "behavior", "a.spec", 1));
+    old.add_node(make_node("b", "feature", "a.spec", 5));
+    old.add_node(make_node("c", "type", "a.spec", 9));
+    old.add_edge(edge("b", "a", "behaviors"));
+    old.add_edge(edge("b", "c", "types"));
     let mut new = Graph::new();
     new.add_node(make_node("a", "behavior", "a.spec", 1));
+    new.add_node(make_node("b", "feature", "a.spec", 5));
+    new.add_node(make_node("d", "type", "a.spec", 9));
+    new.add_edge(edge("b", "a", "behaviors"));
+    new.add_edge(edge("b", "d", "types"));
 
-    let delta = compute_graph_delta(&old, &new);
-    let result = validate_delta_correctness(&old, &new, &delta);
-    assert!(result.is_ok());
+    // The true delta, written out by hand: applying it to old yields new.
+    let good = GraphDelta {
+        added_nodes: vec![node("d")],
+        removed_nodes: vec![node("c")],
+        modified_nodes: vec![],
+        added_edges: vec![change("b", "d", "types")],
+        removed_edges: vec![change("b", "c", "types")],
+        affected_files: vec!["a.spec".to_string()],
+    };
+    let counts = validate_delta_correctness(&old, &new, &good).expect("true delta must pass");
+    assert_eq!((counts.node_count, counts.edge_count), (3, 2));
+
+    // Counts balance, but the added edge points at the wrong target: applying
+    // this delta to old does NOT give new, so it must be rejected.
+    let wrong_edge = GraphDelta {
+        added_edges: vec![change("b", "x", "types")],
+        ..good.clone()
+    };
+    let err = validate_delta_correctness(&old, &new, &wrong_edge).unwrap_err();
+    assert!(
+        err.contains("edge mismatch") && err.contains("b -types-> d"),
+        "must name the edge that differs: {err}"
+    );
+
+    // Counts balance, but the delta removes a node that never existed instead of `c`.
+    let wrong_node = GraphDelta {
+        removed_nodes: vec![node("zzz")],
+        ..good.clone()
+    };
+    let err = validate_delta_correctness(&old, &new, &wrong_node).unwrap_err();
+    assert!(
+        err.contains("node mismatch") && err.contains("\"c\""),
+        "must name the node that differs: {err}"
+    );
 }
 
 #[spec(
@@ -445,6 +522,30 @@ fn validate_delta_disabled_skips_checks() {
     let counts = disabled_result.unwrap();
     assert_eq!(counts.node_count, 2);
     assert_eq!(counts.edge_count, 0);
+
+    // The production gate: the incremental pipeline (watch/LSP) performs the
+    // cold-rebuild check only when --verify-incremental switches it on; a
+    // release build without the flag pays nothing for it.
+    use specforge_watch::IncrementalPipeline;
+    let read = |f: &str| (f == "a.spec").then(|| r#"behavior a "A" { contract "x" }"#.to_string());
+    let mut pipeline = IncrementalPipeline::empty();
+    let result = pipeline.rebuild(&["a.spec".to_string()], read);
+    assert_eq!(
+        result.rebuilt_files,
+        vec!["a.spec"],
+        "the rebuild itself ran"
+    );
+    assert_eq!(
+        result.verification, None,
+        "no verification without --verify-incremental"
+    );
+    pipeline.set_verify_incremental(true);
+    let result = pipeline.rebuild(&["a.spec".to_string()], read);
+    assert_eq!(
+        result.verification,
+        Some(Ok(())),
+        "the flag turns verification on"
+    );
 }
 
 #[spec(

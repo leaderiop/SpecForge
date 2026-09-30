@@ -204,7 +204,8 @@ pub fn validate_delta_correctness_if_enabled(
     validate_delta_correctness(old, new, delta)
 }
 
-/// Verify that a delta correctly describes the difference between old and new graphs.
+/// Verify that a delta correctly describes the difference between old and new graphs:
+/// the delta applied to `old` must yield exactly `new`'s node IDs and edge triples.
 /// Returns Ok(result) with counts if consistent, or Err(message) describing the discrepancy.
 pub fn validate_delta_correctness(
     old: &Graph,
@@ -260,6 +261,49 @@ pub fn validate_delta_correctness(
                 node_change.id
             ));
         }
+    }
+
+    // Apply the delta to the previous graph's node and edge sets and compare
+    // with the new graph: counts can balance while identities diverge.
+    let mut applied_nodes: BTreeSet<String> =
+        old.nodes().iter().map(|n| n.id.raw.to_string()).collect();
+    for node_change in &delta.removed_nodes {
+        applied_nodes.remove(&node_change.id);
+    }
+    for node_change in &delta.added_nodes {
+        applied_nodes.insert(node_change.id.clone());
+    }
+    let new_nodes: BTreeSet<String> = new.nodes().iter().map(|n| n.id.raw.to_string()).collect();
+    if applied_nodes != new_nodes {
+        let missing: Vec<&String> = new_nodes.difference(&applied_nodes).collect();
+        let extra: Vec<&String> = applied_nodes.difference(&new_nodes).collect();
+        return Err(format!(
+            "node mismatch after applying delta: missing {:?}, unexpected {:?}",
+            missing, extra
+        ));
+    }
+
+    let edge_key = |e: &specforge_graph::Edge| EdgeChange {
+        source: e.source.to_string(),
+        target: e.target.to_string(),
+        label: e.label.to_string(),
+    };
+    let mut applied_edges: BTreeSet<EdgeChange> = old.edges().iter().map(edge_key).collect();
+    for edge in &delta.removed_edges {
+        applied_edges.remove(edge);
+    }
+    for edge in &delta.added_edges {
+        applied_edges.insert(edge.clone());
+    }
+    let new_edges: BTreeSet<EdgeChange> = new.edges().iter().map(edge_key).collect();
+    if applied_edges != new_edges {
+        let fmt = |e: &EdgeChange| format!("{} -{}-> {}", e.source, e.label, e.target);
+        let missing: Vec<String> = new_edges.difference(&applied_edges).map(fmt).collect();
+        let extra: Vec<String> = applied_edges.difference(&new_edges).map(fmt).collect();
+        return Err(format!(
+            "edge mismatch after applying delta: missing {:?}, unexpected {:?}",
+            missing, extra
+        ));
     }
 
     Ok(DeltaValidationResult {
