@@ -1,8 +1,8 @@
 use crate::OutputFormat;
 use specforge_migrate::{
-    CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MigrationStatus,
-    MigrationSummary, RollbackSummary, capture_pre_migration_snapshot, check_schema_compatibility,
-    compare_graphs, migrate_project, run_rollback,
+    CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
+    MigrationStatus, MigrationSummary, RollbackSummary, capture_pre_migration_snapshot,
+    check_schema_compatibility, compare_graphs, migrate_project, run_rollback,
 };
 use std::path::Path;
 use std::str::FromStr;
@@ -40,6 +40,9 @@ pub fn run(
                 if ver > MAX_SUPPORTED_VERSION {
                     eprintln!(
                         "E019: unsupported target version {ver} (max supported: {MAX_SUPPORTED_VERSION})"
+                    );
+                    eprintln!(
+                        "  help: Use a format version between {MIN_SUPPORTED_VERSION} and {MAX_SUPPORTED_VERSION}."
                     );
                     return 1;
                 }
@@ -141,6 +144,9 @@ fn print_rollback(summary: &RollbackSummary, format: OutputFormat) {
             println!("{json}");
         }
         OutputFormat::Human => {
+            for w in &summary.warnings {
+                eprintln!("warning: {w}");
+            }
             for r in &summary.results {
                 match r.status {
                     MigrationStatus::Restored => eprintln!("  restored: {}", r.file_path),

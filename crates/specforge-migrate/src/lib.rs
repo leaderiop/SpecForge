@@ -117,6 +117,8 @@ pub struct RollbackSummary {
     pub skipped_count: usize,
     pub failed_count: usize,
     pub results: Vec<MigrationResult>,
+    /// One warning per file skipped because its `.bak` backup is missing.
+    pub warnings: Vec<String>,
 }
 
 // ---------------------------------------------------------------------------
@@ -322,7 +324,67 @@ pub fn compare_graphs(
         });
     }
 
+    for edge in post_edges.difference(&pre_edges) {
+        diagnostics.push(Diagnostic {
+            code: "W054".to_string(),
+            severity: Severity::Warning,
+            message: format!(
+                "edge {}-[{}]->{} appeared after migration but was not present before",
+                edge.0, edge.2, edge.1
+            ),
+            span: None,
+            suggestion: None,
+        });
+    }
+
+    // Field values of entities present on both sides, compared as the
+    // Graph Protocol exports them, without source positions.
+    let post_by_id: std::collections::HashMap<&str, _> =
+        post_nodes.iter().map(|n| (n.id.raw.as_str(), n)).collect();
+    for pre_node in pre_nodes.iter() {
+        let Some(post_node) = post_by_id.get(pre_node.id.raw.as_str()) else {
+            continue;
+        };
+        let before = comparable_fields(&pre_node.fields);
+        let after = comparable_fields(&post_node.fields);
+        let keys: std::collections::BTreeSet<&String> = before.keys().chain(after.keys()).collect();
+        for key in keys {
+            if before.get(key) != after.get(key) {
+                diagnostics.push(Diagnostic {
+                    code: "W054".to_string(),
+                    severity: Severity::Warning,
+                    message: format!(
+                        "field '{key}' of entity '{}' changed during migration",
+                        pre_node.id.raw.as_str()
+                    ),
+                    span: None,
+                    suggestion: None,
+                });
+            }
+        }
+    }
+
     diagnostics
+}
+
+/// An entity's fields as exported JSON, with every source span removed:
+/// a format migration shifts positions without changing structure.
+fn comparable_fields(
+    fields: &specforge_graph::FieldMap,
+) -> std::collections::BTreeMap<String, serde_json::Value> {
+    fn strip_spans(value: &mut serde_json::Value) {
+        match value {
+            serde_json::Value::Object(map) => {
+                map.remove("span");
+                map.values_mut().for_each(strip_spans);
+            }
+            serde_json::Value::Array(items) => items.iter_mut().for_each(strip_spans),
+            _ => {}
+        }
+    }
+    let mut map = specforge_emitter::field_map_to_json(fields);
+    map.values_mut().for_each(strip_spans);
+    map
 }
 
 // ---------------------------------------------------------------------------
@@ -549,6 +611,7 @@ pub fn run_rollback(path: &Path) -> RollbackSummary {
     let mut restored = 0;
     let mut skipped = 0;
     let mut failed = 0;
+    let mut warnings = Vec::new();
 
     for target in &targets {
         let bak_path = target.with_extension("spec.bak");
@@ -556,6 +619,10 @@ pub fn run_rollback(path: &Path) -> RollbackSummary {
 
         if !bak_path.exists() {
             skipped += 1;
+            warnings.push(format!(
+                "no backup {} for {path_str}; skipped",
+                bak_path.display()
+            ));
             results.push(MigrationResult {
                 file_path: path_str,
                 status: MigrationStatus::Skipped,
@@ -623,6 +690,7 @@ pub fn run_rollback(path: &Path) -> RollbackSummary {
         skipped_count: skipped,
         failed_count: failed,
         results,
+        warnings,
     }
 }
 

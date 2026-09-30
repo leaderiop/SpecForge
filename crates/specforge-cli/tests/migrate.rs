@@ -46,7 +46,23 @@ fn migrate_exits_zero_on_current_version_project() {
         .args(["migrate", "--path", root.to_str().unwrap()])
         .assert()
         .success()
-        .stderr(predicate::str::contains("0 migrated"));
+        .stderr(predicate::str::contains("0 migrated, 1 skipped, 0 failed"));
+
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["migrate", "--format=json", "--path", root.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["skipped_count"], 1, "{json}");
+    assert_eq!(json["migrated_count"], 0, "{json}");
+    assert_eq!(json["results"][0]["status"], "skipped", "{json}");
+    assert_eq!(
+        fs::read_to_string(root.join("spec/test.spec")).unwrap(),
+        "behavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n",
+        "a skipped file is left alone"
+    );
 }
 
 // A2: MigrationSummary serializes to JSON
@@ -58,10 +74,22 @@ fn migrate_json_output_contains_summary_fields() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
     setup_project(root);
+    // One file per outcome: an old header migrates, a current one is
+    // skipped, an unsupported one fails.
     write_spec(
         root,
-        "test.spec",
-        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+        "old.spec",
+        "// specforge-format: 0.1\nbehavior old_one \"Old\" {\n  contract \"stuff\"\n}\n",
+    );
+    write_spec(
+        root,
+        "current.spec",
+        "// specforge-format: 1.0\nbehavior current_one \"Current\" {\n  contract \"stuff\"\n}\n",
+    );
+    write_spec(
+        root,
+        "future.spec",
+        "// specforge-format: 99.0\nbehavior future_one \"Future\" {\n  contract \"stuff\"\n}\n",
     );
 
     let output = Command::cargo_bin("specforge")
@@ -74,14 +102,32 @@ fn migrate_json_output_contains_summary_fields() {
     let json: serde_json::Value = serde_json::from_str(&stdout)
         .unwrap_or_else(|e| panic!("failed to parse JSON: {e}\nstdout: {stdout}"));
 
-    assert!(
-        json.get("migrated_count").is_some(),
-        "missing migrated_count"
-    );
-    assert!(json.get("failed_count").is_some(), "missing failed_count");
-    assert!(json.get("skipped_count").is_some(), "missing skipped_count");
-    assert!(json.get("results").is_some(), "missing results");
-    assert!(json.get("backups").is_some(), "missing backups");
+    assert_eq!(json["migrated_count"], 1, "{json}");
+    assert_eq!(json["skipped_count"], 1, "{json}");
+    assert_eq!(json["failed_count"], 1, "{json}");
+    assert_eq!(status_of(&json, "old.spec"), "migrated");
+    assert_eq!(status_of(&json, "current.spec"), "skipped");
+    assert_eq!(status_of(&json, "future.spec"), "failed");
+    assert_eq!(json["backups"].as_array().unwrap().len(), 1, "{json}");
+    assert_eq!(output.status.code(), Some(1), "a failed file fails the run");
+}
+
+/// The result entry of the file whose path ends with `file`.
+fn result_for(json: &serde_json::Value, file: &str) -> serde_json::Value {
+    json["results"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| r["file_path"].as_str().unwrap().ends_with(file))
+        .cloned()
+        .unwrap_or_else(|| panic!("no result for {file}: {json}"))
+}
+
+fn status_of(json: &serde_json::Value, file: &str) -> String {
+    result_for(json, file)["status"]
+        .as_str()
+        .unwrap()
+        .to_string()
 }
 
 // A3: Unknown --target-version produces error
@@ -109,7 +155,17 @@ fn migrate_unknown_target_version_produces_error() {
         ])
         .assert()
         .code(1)
-        .stderr(predicate::str::contains("E019"));
+        .stderr(predicate::str::contains(
+            "E019: unsupported target version 99.0",
+        ))
+        .stderr(predicate::str::contains(
+            "Use a format version between 1.0 and 1.0.",
+        ));
+    assert_eq!(
+        fs::read_to_string(root.join("spec/test.spec")).unwrap(),
+        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+        "nothing is migrated"
+    );
 }
 
 // ===================================================================
@@ -127,17 +183,36 @@ fn detect_format_version_from_header() {
     setup_project(root);
     write_spec(
         root,
-        "test.spec",
+        "current.spec",
         "// specforge-format: 1.0\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
     );
+    write_spec(
+        root,
+        "old.spec",
+        "// specforge-format: 0.1\nbehavior bar \"Bar\" {\n  contract \"stuff\"\n}\n",
+    );
 
-    // Should skip (already at current version 1.0)
-    Command::cargo_bin("specforge")
+    let output = Command::cargo_bin("specforge")
         .unwrap()
-        .args(["migrate", "--path", root.to_str().unwrap()])
-        .assert()
-        .success()
-        .stderr(predicate::str::contains("0 migrated"));
+        .args(["migrate", "--format=json", "--path", root.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+
+    // Each file's header is read: 1.0 is current, 0.1 needs migrating.
+    let current = result_for(&json, "current.spec");
+    assert_eq!(
+        current["from_version"],
+        serde_json::json!({"major": 1, "minor": 0})
+    );
+    assert_eq!(current["status"], "skipped");
+    let old = result_for(&json, "old.spec");
+    assert_eq!(
+        old["from_version"],
+        serde_json::json!({"major": 0, "minor": 1})
+    );
+    assert_eq!(old["status"], "migrated");
 }
 
 // B2: Missing version defaults to current (no migration needed)
@@ -329,6 +404,11 @@ fn no_backup_flag_skips_backup_creation() {
         !root.join("spec/test.spec.bak").exists(),
         "--no-backup should prevent .bak creation"
     );
+    assert_eq!(
+        fs::read_to_string(root.join("spec/test.spec")).unwrap(),
+        "// specforge-format: 1.0\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+        "the file is still migrated"
+    );
 }
 
 // ===================================================================
@@ -391,13 +471,27 @@ fn diff_uses_posix_prefix_convention() {
         .unwrap();
 
     let stdout = String::from_utf8(output.stdout).unwrap();
+    let label = |prefix: &str| {
+        stdout
+            .lines()
+            .find(|l| l.starts_with(prefix))
+            .unwrap_or_else(|| panic!("no {prefix} line: {stdout}"))
+            .to_string()
+    };
+    let old_label = label("--- a/");
+    let new_label = label("+++ b/");
     assert!(
-        stdout.contains("--- a/"),
-        "diff should use a/ prefix: {stdout}"
+        old_label.ends_with("spec/test.spec"),
+        "the --- label names the file: {old_label}"
     );
     assert!(
-        stdout.contains("+++ b/"),
-        "diff should use b/ prefix: {stdout}"
+        new_label.ends_with("spec/test.spec"),
+        "the +++ label names the file: {new_label}"
+    );
+    assert_eq!(
+        old_label.strip_prefix("--- a/"),
+        new_label.strip_prefix("+++ b/"),
+        "both labels name the same file"
     );
 }
 
@@ -523,14 +617,39 @@ fn rollback_missing_bak_skips() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["skipped_count"], 1, "should skip files without .bak");
+    assert_eq!(json["restored_count"], 0, "{json}");
+    assert_eq!(json["failed_count"], 0, "{json}");
+    let warnings = json["warnings"].as_array().expect("warnings array");
+    assert_eq!(warnings.len(), 1, "{json}");
+    assert!(
+        warnings[0].as_str().unwrap().contains("test.spec.bak"),
+        "the warning names the missing backup: {json}"
+    );
+
+    // The human output shows the same warning.
+    Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["migrate", "--rollback", "--path", root.to_str().unwrap()])
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("warning:"))
+        .stderr(predicate::str::contains("test.spec.bak"))
+        .stderr(predicate::str::contains("0 restored, 1 skipped, 0 failed"));
+    assert_eq!(
+        fs::read_to_string(root.join("spec/test.spec")).unwrap(),
+        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+        "a skipped file is left alone"
+    );
 }
 
 // E3: Single restore failure doesn't block others
+#[cfg(unix)]
 #[specforge_test(
     behavior = "rollback_failed_migration",
     verify = "rollback failure for one file does not block others"
 )]
 fn rollback_failure_isolation() {
+    use std::os::unix::fs::PermissionsExt;
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
     setup_project(root);
@@ -547,11 +666,18 @@ fn rollback_failure_isolation() {
         .assert()
         .success();
 
-    // Remove backup for a to simulate "missing" backup → skip
-    let bak_a = root.join("spec/a.spec.bak");
-    fs::remove_file(&bak_a).unwrap();
+    let migrated_a = fs::read_to_string(root.join("spec/a.spec")).unwrap();
+    assert_ne!(migrated_a, original_a);
 
-    // Rollback — a should be skipped, b should be restored
+    // Make a's restore fail: its backup can't be read.
+    let bak_a = root.join("spec/a.spec.bak");
+    fs::set_permissions(&bak_a, fs::Permissions::from_mode(0o000)).unwrap();
+    if fs::read_to_string(&bak_a).is_ok() {
+        // Running as root: permissions don't stop the read.
+        return;
+    }
+
+    // Rollback — a fails, b is still restored
     let output = Command::cargo_bin("specforge")
         .unwrap()
         .args([
@@ -563,25 +689,35 @@ fn rollback_failure_isolation() {
         ])
         .output()
         .unwrap();
+    fs::set_permissions(&bak_a, fs::Permissions::from_mode(0o644)).unwrap();
 
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    // a was skipped (no .bak), b was restored
-    let restored = json["restored_count"].as_u64().unwrap_or(0);
-    let skipped = json["skipped_count"].as_u64().unwrap_or(0);
+    assert_eq!(json["failed_count"], 1, "{json}");
+    assert_eq!(json["restored_count"], 1, "{json}");
+    assert_eq!(json["skipped_count"], 0, "{json}");
+    let failed = result_for(&json, "a.spec");
+    assert_eq!(failed["status"], "failed", "{json}");
     assert!(
-        restored >= 1,
-        "at least one file should be restored: {stdout}"
+        failed["error"].as_str().unwrap().contains("backup"),
+        "{json}"
     );
-    assert!(
-        skipped >= 1,
-        "at least one file should be skipped: {stdout}"
+    assert_eq!(status_of(&json, "b.spec"), "restored");
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "a failed restore fails the run"
     );
 
-    // b should be restored to original
+    // b is restored; a keeps its migrated content.
     let b_content = fs::read_to_string(root.join("spec/b.spec")).unwrap();
     assert_eq!(b_content, original_b, "b.spec should be restored");
+    assert_eq!(
+        fs::read_to_string(root.join("spec/a.spec")).unwrap(),
+        migrated_a,
+        "a.spec is untouched by its failed restore"
+    );
 }
 
 // ===================================================================
@@ -618,16 +754,94 @@ fn capture_pre_migration_snapshot_captures_schema() {
     verify = "structural equivalence verified between pre and post graphs"
 )]
 fn format_only_migration_zero_differences() {
-    use specforge_graph::Graph;
+    use specforge_graph::{Edge, EntityId, EntityKind, FieldMap, FieldValue, Graph, Node};
     use specforge_migrate::compare_graphs;
+    use specforge_parser::SpannedRef;
 
-    // Two identical graphs → zero differences
-    let graph = Graph::new();
-    let diagnostics = compare_graphs(&graph, &graph);
+    // A graph as compiled from files whose lines start at `first_line`:
+    // a format migration adds a header line, shifting every span.
+    let build = |first_line: usize, contract: &str, extra_edge: bool| {
+        let span = |line: usize| specforge_graph::SourceSpan {
+            file: Sym::new("spec/test.spec"),
+            start_line: line,
+            start_col: 0,
+            end_line: line,
+            end_col: 10,
+        };
+        let mut graph = Graph::new();
+        let mut fields = FieldMap::new();
+        fields.push(Sym::new("contract"), FieldValue::String(contract.into()));
+        fields.push(
+            Sym::new("invariants"),
+            FieldValue::ReferenceList(vec![SpannedRef {
+                id: "inv_a".into(),
+                span: span(first_line + 2),
+            }]),
+        );
+        graph.add_node(Node {
+            id: EntityId {
+                raw: Sym::new("beh_a"),
+            },
+            kind: EntityKind {
+                raw: Sym::new("behavior"),
+            },
+            title: Some("A".into()),
+            source_span: span(first_line),
+            fields,
+            methods: Vec::new(),
+        });
+        for (id, kind) in [("inv_a", "invariant"), ("inv_b", "invariant")] {
+            graph.add_node(Node {
+                id: EntityId { raw: Sym::new(id) },
+                kind: EntityKind {
+                    raw: Sym::new(kind),
+                },
+                title: None,
+                source_span: span(first_line + 5),
+                fields: FieldMap::new(),
+                methods: Vec::new(),
+            });
+        }
+        graph.add_edge(Edge {
+            source: Sym::new("beh_a"),
+            target: Sym::new("inv_a"),
+            label: Sym::new("invariants"),
+        });
+        if extra_edge {
+            graph.add_edge(Edge {
+                source: Sym::new("beh_a"),
+                target: Sym::new("inv_b"),
+                label: Sym::new("invariants"),
+            });
+        }
+        graph
+    };
+
+    // Same entities, edges and field values; only the spans moved.
+    let pre = build(1, "does stuff", false);
+    let post = build(2, "does stuff", false);
+    let diagnostics = compare_graphs(&pre, &post);
     assert!(
         diagnostics.is_empty(),
-        "identical graphs should produce no diagnostics"
+        "shifted spans are not a structural difference: {diagnostics:?}"
     );
+
+    // A changed field value is a difference.
+    let changed = build(2, "does other stuff", false);
+    let diagnostics = compare_graphs(&pre, &changed);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+    assert_eq!(diagnostics[0].code, "W054");
+    assert!(
+        diagnostics[0].message.contains("beh_a") && diagnostics[0].message.contains("contract"),
+        "{diagnostics:?}"
+    );
+
+    // So is an edge that appeared.
+    let grown = build(2, "does stuff", true);
+    let diagnostics = compare_graphs(&pre, &grown);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+    assert_eq!(diagnostics[0].code, "W054");
+    assert!(diagnostics[0].message.contains("inv_b"), "{diagnostics:?}");
 }
 
 // F3: Structural differences → warnings
@@ -703,9 +917,16 @@ fn breaking_schema_change_produces_w053() {
     };
 
     let diagnostics = check_schema_compatibility(&pre, &post);
+    assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
+    assert_eq!(diagnostics[0].code, "W053");
+    assert_eq!(
+        diagnostics[0].severity,
+        specforge_common::Severity::Warning,
+        "W053 is a warning"
+    );
     assert!(
-        diagnostics.iter().any(|d| d.code == "W053"),
-        "breaking change should produce W053: {diagnostics:?}"
+        diagnostics[0].message.contains("\"behavior\""),
+        "the warning names the removed kind: {diagnostics:?}"
     );
 }
 
@@ -759,8 +980,30 @@ fn non_breaking_schema_change_no_w053() {
 
     let diagnostics = check_schema_compatibility(&pre, &post);
     assert!(
-        !diagnostics.iter().any(|d| d.code == "W053"),
-        "non-breaking change should not produce W053: {diagnostics:?}"
+        diagnostics.is_empty(),
+        "a non-breaking change produces no diagnostic at all: {diagnostics:?}"
+    );
+
+    // And a real migration of an entity-bearing project passes silently.
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    write_spec(
+        root,
+        "test.spec",
+        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+    );
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["migrate", "--path", root.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "{stderr}");
+    assert_eq!(
+        stderr.trim(),
+        "1 migrated, 0 skipped, 0 failed",
+        "nothing but the summary"
     );
 }
 
@@ -918,12 +1161,17 @@ fn double_migrate_is_idempotent() {
     let after_first = fs::read_to_string(root.join("spec/test.spec")).unwrap();
 
     // Second migration — should skip
-    Command::cargo_bin("specforge")
+    let output = Command::cargo_bin("specforge")
         .unwrap()
-        .args(["migrate", "--path", root.to_str().unwrap()])
-        .assert()
-        .success()
-        .stderr(predicate::str::contains("0 migrated"));
+        .args(["migrate", "--format=json", "--path", root.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["skipped_count"], 1, "{json}");
+    assert_eq!(json["migrated_count"], 0, "{json}");
+    assert_eq!(json["failed_count"], 0, "{json}");
+    assert_eq!(status_of(&json, "test.spec"), "skipped");
 
     let after_second = fs::read_to_string(root.join("spec/test.spec")).unwrap();
     assert_eq!(
@@ -1532,18 +1780,72 @@ fn snapshot_includes_all_schema_components() {
     };
 
     let snapshot = capture_pre_migration_snapshot(&schema);
+    assert_eq!(
+        snapshot.schema, schema,
+        "the snapshot holds the whole schema"
+    );
+
+    // The schema `specforge migrate` snapshots is the project's compiled
+    // schema, the one `specforge schema` prints. Snapshot a real one.
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"test","version":"0.1.0","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    write_spec(
+        root,
+        "test.spec",
+        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+    );
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["schema", root.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let project_schema: GraphProtocolSchema = serde_json::from_slice(&output.stdout)
+        .unwrap_or_else(|e| panic!("{e}: {}", String::from_utf8_lossy(&output.stdout)));
+    let snapshot = capture_pre_migration_snapshot(&project_schema);
 
     // Node kinds
-    assert_eq!(snapshot.schema.entity_kinds.len(), 1);
-    assert_eq!(snapshot.schema.entity_kinds[0].name, "behavior");
-
+    let behavior = snapshot
+        .schema
+        .entity_kinds
+        .iter()
+        .find(|k| k.name == "behavior")
+        .expect("behavior kind in snapshot");
+    assert!(
+        snapshot
+            .schema
+            .entity_kinds
+            .iter()
+            .any(|k| k.name == "invariant")
+    );
+    // Field definitions, with their types
+    let contract = behavior
+        .fields
+        .iter()
+        .find(|f| f.name == "contract")
+        .expect("behavior.contract field in snapshot");
+    assert_eq!(contract.field_type, "string");
+    let invariants = behavior
+        .fields
+        .iter()
+        .find(|f| f.name == "invariants")
+        .expect("behavior.invariants field in snapshot");
+    assert_eq!(invariants.field_type, "reference_list");
     // Edge types
-    assert_eq!(snapshot.schema.edge_types.len(), 1);
-    assert_eq!(snapshot.schema.edge_types[0].label, "implements");
-
-    // Field definitions
-    assert_eq!(snapshot.schema.entity_kinds[0].fields.len(), 1);
-    assert_eq!(snapshot.schema.entity_kinds[0].fields[0].name, "contract");
+    assert!(
+        snapshot
+            .schema
+            .edge_types
+            .iter()
+            .any(|e| e.label == "BehaviorEnforcesInvariant"),
+        "{:?}",
+        snapshot.schema.edge_types
+    );
 }
 
 #[test]
@@ -1702,9 +2004,11 @@ fn removed_node_kind_is_breaking() {
     };
 
     let diags = check_schema_compatibility(&pre, &post);
-    assert!(
-        diags.iter().any(|d| d.code == "W053"),
-        "removed kind → W053: {diags:?}"
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert_eq!(diags[0].code, "W053");
+    assert_eq!(
+        diags[0].message,
+        "breaking schema change after migration: KindRemoved(\"behavior\")"
     );
 }
 
@@ -1736,9 +2040,11 @@ fn removed_edge_type_is_breaking() {
     };
 
     let diags = check_schema_compatibility(&pre, &post);
-    assert!(
-        diags.iter().any(|d| d.code == "W053"),
-        "removed edge type → W053: {diags:?}"
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert_eq!(diags[0].code, "W053");
+    assert_eq!(
+        diags[0].message,
+        "breaking schema change after migration: EdgeRemoved(\"implements\")"
     );
 }
 
@@ -1789,9 +2095,11 @@ fn removed_required_field_is_breaking() {
     };
 
     let diags = check_schema_compatibility(&pre, &post);
-    assert!(
-        diags.iter().any(|d| d.code == "W053"),
-        "removed field → W053: {diags:?}"
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert_eq!(diags[0].code, "W053");
+    assert_eq!(
+        diags[0].message,
+        "breaking schema change after migration: FieldRemoved { kind: \"behavior\", field: \"contract\" }"
     );
 }
 
@@ -1852,9 +2160,11 @@ fn changed_field_type_is_breaking() {
     };
 
     let diags = check_schema_compatibility(&pre, &post);
-    assert!(
-        diags.iter().any(|d| d.code == "W053"),
-        "changed field type → W053: {diags:?}"
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert_eq!(diags[0].code, "W053");
+    assert_eq!(
+        diags[0].message,
+        "breaking schema change after migration: FieldTypeChanged { kind: \"behavior\", field: \"contract\", old_type: \"string\", new_type: \"string_list\" }"
     );
 }
 
@@ -1906,9 +2216,17 @@ fn added_optional_field_not_breaking() {
 
     let diags = check_schema_compatibility(&pre, &post);
     assert!(
-        !diags.iter().any(|d| d.code == "W053"),
+        diags.is_empty(),
         "optional field addition is non-breaking: {diags:?}"
     );
+
+    // The same field added as required is breaking: the check looks at
+    // `required`, not only at the field's presence.
+    let mut post_required = post.clone();
+    post_required.entity_kinds[0].fields[0].required = true;
+    let diags = check_schema_compatibility(&pre, &post_required);
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert_eq!(diags[0].code, "W053");
 }
 
 #[specforge_test(
@@ -1986,14 +2304,48 @@ fn graph_protocol_compatibility_contract() {
         edge_types: Vec::new(),
     };
 
-    // Non-breaking: no warnings
+    // compatibility_verified: an unchanged schema passes with no warning.
     let diags = check_schema_compatibility(&pre, &pre);
-    assert!(diags.is_empty(), "identical → no warnings");
+    assert!(diags.is_empty(), "identical → no warnings: {diags:?}");
 
-    // Breaking: W053 emitted
+    // breaking_changes_warned: one W053 per breaking change, naming it.
     let post_breaking = GraphProtocolSchema::empty();
     let diags = check_schema_compatibility(&pre, &post_breaking);
-    assert!(diags.iter().any(|d| d.code == "W053"), "breaking → W053");
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert_eq!(diags[0].code, "W053");
+    assert!(diags[0].message.contains("KindRemoved(\"behavior\")"));
+
+    // End to end: `specforge migrate` snapshots the schema before touching
+    // files (pre_migration_snapshot_available), runs the extension hooks
+    // (extension_hooks_complete), then compares and finishes
+    // (graph_protocol_compatibility_emitted). A format-only migration keeps
+    // the schema, so it passes with nothing but the summary.
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"test","version":"0.1.0","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    write_spec(
+        root,
+        "test.spec",
+        "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n  invariants [bar]\n}\n\ninvariant bar \"Bar\" {\n  guarantee \"holds\"\n}\n",
+    );
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["migrate", "--path", root.to_str().unwrap()])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    assert_eq!(stderr.trim(), "1 migrated, 0 skipped, 0 failed");
+    assert!(
+        fs::read_to_string(root.join("spec/test.spec"))
+            .unwrap()
+            .starts_with("// specforge-format: 1.0\n"),
+        "the file was migrated"
+    );
 }
 
 // ===================================================================
@@ -2019,20 +2371,44 @@ fn rollback_restore_is_atomic() {
         .assert()
         .success();
 
-    // Rollback
+    let migrated = fs::read_to_string(root.join("spec/test.spec")).unwrap();
+
+    // Block the temp-file step: a directory sits where the restore's temp
+    // file goes. An atomic restore (write temp, then rename) fails before
+    // touching the target; a direct write would overwrite it.
+    let blocker = root.join("spec/test.spec.restore.tmp");
+    fs::create_dir(&blocker).unwrap();
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .args([
+            "migrate",
+            "--rollback",
+            "--format=json",
+            "--path",
+            root.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["failed_count"], 1, "{json}");
+    assert_eq!(json["restored_count"], 0, "{json}");
+    assert_eq!(
+        fs::read_to_string(root.join("spec/test.spec")).unwrap(),
+        migrated,
+        "a failed restore leaves the target exactly as it was"
+    );
+
+    // Unblocked, the restore completes and leaves no temp file behind.
+    fs::remove_dir(&blocker).unwrap();
     Command::cargo_bin("specforge")
         .unwrap()
         .args(["migrate", "--rollback", "--path", root.to_str().unwrap()])
         .assert()
         .success();
-
-    // No temp files should remain (atomic = temp + rename)
     assert!(
-        !root.join("spec/test.spec.restore.tmp").exists(),
+        !blocker.exists(),
         "no .restore.tmp should remain after atomic rollback"
     );
-
-    // File is fully restored (not partially written)
     let content = fs::read_to_string(root.join("spec/test.spec")).unwrap();
     assert_eq!(content, original, "file fully restored atomically");
 }
