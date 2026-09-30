@@ -1650,14 +1650,84 @@ fn contract_protocol_error() {
     assert_eq!(codes, [-32601, -32700, -32602]);
 }
 
-#[test]
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted"
+)]
 fn contract_validate() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.validate", json!({}));
-    assert!(
-        resp["error"].is_object() || resp["result"]["content"][0]["text"].is_string(),
-        "validate must return error or diagnostics text"
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = json!({
+        "name": "v",
+        "version": "0.1.0",
+        "extensions": ["@specforge/software", "@specforge/testing"]
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    std::fs::write(
+        dir.path().join("clean.spec"),
+        "behavior greet \"Greet\" {\n  category command\n  contract \"MUST greet\"\n  verify unit \"greets\"\n}\n",
+    )
+    .unwrap();
+    let mut server = McpServer::new();
+    call(
+        &mut server,
+        "initialize",
+        json!({"projectRoot": dir.path().to_str().unwrap()}),
     );
+
+    // compiler_api_available: a file written after initialize is compiled
+    // by the call itself.
+    std::fs::write(
+        dir.path().join("broken.spec"),
+        "behavior wave \"Wave\" {\n  category command\n}\n",
+    )
+    .unwrap();
+
+    // diagnostics_returned: every diagnostic, with severity, message, file
+    // and line (the missing contract is an error, the missing verify a
+    // warning).
+    let resp = call_tool(&mut server, "specforge.validate", json!({}));
+    let mut found = tool_json(&resp);
+    found
+        .as_array_mut()
+        .unwrap()
+        .sort_by_key(|d| d["code"].to_string());
+    assert_eq!(
+        found,
+        json!([
+            {
+                "code": "E006",
+                "severity": "Error",
+                "message": "behavior 'wave' is missing required field 'contract'",
+                "file": "broken.spec",
+                "line": 1,
+                "column": 1,
+            },
+            {
+                "code": "W004",
+                "severity": "Warning",
+                "message": "behavior 'wave' is testable but declares no verify obligations and no gherkin scenario",
+                "file": "broken.spec",
+                "line": 1,
+                "column": 1,
+            },
+        ]),
+        "{resp}"
+    );
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+
+    // strict_promotion_enforced: the warning comes back as an error.
+    let strict = tool(&mut server, "specforge.validate", json!({"strict": true}));
+    let severities: Vec<(&str, &str)> = strict
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| (d["code"].as_str().unwrap(), d["severity"].as_str().unwrap()))
+        .collect();
+    assert_eq!(severities.len(), 2, "{strict}");
+    assert!(severities.contains(&("W004", "Error")), "{strict}");
+    assert!(severities.contains(&("E006", "Error")), "{strict}");
+
+    assert_tool_invoked(&server, "specforge.validate");
 }
 
 #[specforge_test(

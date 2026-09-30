@@ -2786,6 +2786,7 @@ dependencies = [
  "specforge-emitter",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-lsp",
  "specforge-mcp",
  "specforge-migrate",
  "specforge-ops",
@@ -2799,6 +2800,8 @@ dependencies = [
  "specforge-wasm",
  "specforge-watch",
  "tempfile",
+ "tokio",
+ "tower-lsp",
 ]
 
 [[package]]
