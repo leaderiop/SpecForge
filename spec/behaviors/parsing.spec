@@ -65,6 +65,7 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
   }
   verify unit "parser collects multiple errors from one file"
   verify unit "valid blocks after syntax error are still parsed"
+  verify unit "a closed multi-line string that contains a block-like line stays whole"
   verify unit "completely invalid syntax produces error with location"
   verify unit "missing opening brace produces a parse error"
   verify contract "Recover From Syntax Errors: syntax error recovery holds — error_recovery_enabled, valid_utf8_input, valid_blocks_preserved, errors_collected"

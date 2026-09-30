@@ -1,5 +1,6 @@
 use crate::ast::*;
 use crate::expr::{CmpOp, Expr, ExprSpan, SpannedExpr};
+use crate::recovery;
 use specforge_common::{SourceSpan, Sym};
 use tree_sitter::{Node, Parser};
 
@@ -86,37 +87,22 @@ pub fn parse_incremental(
             None,
         );
     };
-    let mut ctx = ParseContext {
-        source,
-        file_sym,
-        imports: Vec::new(),
-        entities: Vec::new(),
-        errors: Vec::new(),
+    // A file the grammar rejected may hold a string never closed, which
+    // swallowed the blocks after it. End each one before the next block and
+    // parse the pieces separately (the returned tree stays the whole file's,
+    // for incremental reuse).
+    let unclosed = if tree.root_node().has_error() {
+        recovery::unclosed_strings(source)
+    } else {
+        Vec::new()
     };
-
-    // Scope the tree borrow (root + cursor) so `tree` can be moved into the return
-    {
-        let root = tree.root_node();
-        let mut cursor = root.walk();
-        for child in root.children(&mut cursor) {
-            match child.kind() {
-                "entity_block" => ctx.parse_entity_block(child),
-                "spec_block" => ctx.parse_spec_block(child),
-                "ref_block" => ctx.parse_ref_block(child),
-                "define_block" => ctx.parse_define_block(child),
-                "union_block" => ctx.parse_union_block(child),
-                "use_import" => ctx.parse_use_import(child, false),
-                "pub_use_import" => ctx.parse_use_import(child, true),
-                "comment" => {}
-                "ERROR" => ctx.push_error_node(child),
-                _ => {}
-            }
-        }
-        // The walk above reports errors at block level and inside field
-        // values. Tree-sitter recovers anywhere, so report the rest too
-        // (method signatures, parameters, ...): no syntax error is silent.
-        ctx.report_unreported_errors(root);
+    if !unclosed.is_empty() {
+        let file = parse_recovering(&mut parser, source, file_sym, &unclosed);
+        return (file, Some(tree));
     }
+
+    let mut ctx = ParseContext::new(source, file_sym);
+    ctx.walk(tree.root_node());
 
     (
         SpecFile {
@@ -129,28 +115,198 @@ pub fn parse_incremental(
     )
 }
 
+/// Parse `source` as consecutive pieces, one per unclosed string: each
+/// piece that ends at a string's recovery point gets the string's closing
+/// delimiter appended, and positions map back onto `source`.
+fn parse_recovering(
+    parser: &mut Parser,
+    source: &str,
+    file_sym: Sym,
+    unclosed: &[recovery::UnclosedString],
+) -> SpecFile {
+    let mut file = SpecFile {
+        path: file_sym,
+        imports: Vec::new(),
+        entities: Vec::new(),
+        errors: Vec::new(),
+    };
+    let mut start = 0;
+    let pieces = unclosed.iter().map(|u| (u.end, Some(u))).chain(
+        (unclosed.last().map_or(0, |u| u.end) < source.len()).then_some((source.len(), None)),
+    );
+    for (end, string) in pieces {
+        let piece = &source[start..end];
+        let text = match string {
+            Some(u) => format!("{piece}{}", u.delim),
+            None => piece.to_string(),
+        };
+        let row_offset = source[..start].matches('\n').count();
+        let mut ctx = ParseContext::new(&text, file_sym);
+        ctx.row_offset = row_offset;
+        ctx.limit = Some(piece.len());
+        match parser.parse(&text, None) {
+            Some(tree) => ctx.walk(tree.root_node()),
+            None => ctx.errors.push(ParseError {
+                message: "tree-sitter parse failed".to_string(),
+                span: position_span(source, file_sym, start, start),
+                expected: None,
+                found: None,
+            }),
+        }
+        // Errors past the piece come from the appended delimiter, and an
+        // error around the opening quote is the grammar tripping over the
+        // unclosed string: its own diagnostic replaces both.
+        let limit = ctx.limit_point();
+        ctx.errors
+            .retain(|e| (e.span.start_line, e.span.start_col) < limit);
+        if let Some(u) = string {
+            let quote = unclosed_error(source, file_sym, u);
+            let open = (quote.span.start_line, quote.span.start_col);
+            ctx.errors.retain(|e| {
+                let start = (e.span.start_line, e.span.start_col);
+                let end = (e.span.end_line, e.span.end_col);
+                !(start <= open && open < end)
+            });
+            ctx.errors.push(quote);
+        }
+        file.imports.append(&mut ctx.imports);
+        file.entities.append(&mut ctx.entities);
+        file.errors.append(&mut ctx.errors);
+        start = end;
+    }
+    file.errors
+        .sort_by_key(|e| (e.span.start_line, e.span.start_col));
+    file
+}
+
+/// The diagnostic for an unclosed string, at its opening delimiter.
+fn unclosed_error(source: &str, file_sym: Sym, u: &recovery::UnclosedString) -> ParseError {
+    let kind = if u.delim.len() == 3 {
+        "triple-quoted string"
+    } else {
+        "string"
+    };
+    let span = position_span(source, file_sym, u.open, u.open + u.delim.len());
+    let until = if u.end < source.len() {
+        let line = source[..u.end].matches('\n').count() + 1;
+        format!("; it was ended before the block on line {line}")
+    } else {
+        String::new()
+    };
+    ParseError {
+        message: format!(
+            "syntax error: unclosed {kind} — missing closing '{}'{until}",
+            u.delim
+        ),
+        span,
+        expected: Some(format!("a closing '{}'", u.delim)),
+        found: Some(u.delim.to_string()),
+    }
+}
+
+/// The span of `source[start..end]` (1-based lines, byte columns).
+fn position_span(source: &str, file_sym: Sym, start: usize, end: usize) -> SourceSpan {
+    let at = |byte: usize| {
+        let before = &source[..byte];
+        let line = before.matches('\n').count() + 1;
+        let col = byte - before.rfind('\n').map_or(0, |nl| nl + 1) + 1;
+        (line, col)
+    };
+    let (start_line, start_col) = at(start);
+    let (end_line, end_col) = at(end);
+    SourceSpan {
+        file: file_sym,
+        start_line,
+        start_col,
+        end_line,
+        end_col,
+    }
+}
+
 struct ParseContext<'a> {
     source: &'a str,
     file_sym: Sym,
+    /// Lines before this piece of the file (recovery parses in pieces).
+    row_offset: usize,
+    /// Bytes of the piece that are real source; past this is the appended
+    /// closing delimiter, and positions there clamp to its start.
+    limit: Option<usize>,
     imports: Vec<ImportDeclaration>,
     entities: Vec<Entity>,
     errors: Vec<ParseError>,
 }
 
 impl<'a> ParseContext<'a> {
+    fn new(source: &'a str, file_sym: Sym) -> Self {
+        ParseContext {
+            source,
+            file_sym,
+            row_offset: 0,
+            limit: None,
+            imports: Vec::new(),
+            entities: Vec::new(),
+            errors: Vec::new(),
+        }
+    }
+
+    fn walk(&mut self, root: Node) {
+        let mut cursor = root.walk();
+        for child in root.children(&mut cursor) {
+            match child.kind() {
+                "entity_block" => self.parse_entity_block(child),
+                "spec_block" => self.parse_spec_block(child),
+                "ref_block" => self.parse_ref_block(child),
+                "define_block" => self.parse_define_block(child),
+                "union_block" => self.parse_union_block(child),
+                "use_import" => self.parse_use_import(child, false),
+                "pub_use_import" => self.parse_use_import(child, true),
+                "comment" => {}
+                "ERROR" => self.push_error_node(child),
+                _ => {}
+            }
+        }
+        // The walk above reports errors at block level and inside field
+        // values. Tree-sitter recovers anywhere, so report the rest too
+        // (method signatures, parameters, ...): no syntax error is silent.
+        self.report_unreported_errors(root);
+    }
+
     fn text(&self, node: Node) -> &'a str {
         node.utf8_text(self.source.as_bytes()).unwrap_or("")
     }
 
+    /// A node position as 1-based (line, column) in the whole file.
+    fn position(&self, byte: usize, point: tree_sitter::Point) -> (usize, usize) {
+        if let Some(limit) = self.limit
+            && byte > limit
+        {
+            return self.limit_point();
+        }
+        (point.row + self.row_offset + 1, point.column + 1)
+    }
+
+    /// Where the real source of this piece ends, as 1-based (line, column).
+    fn limit_point(&self) -> (usize, usize) {
+        match self.limit {
+            Some(limit) => {
+                let before = &self.source[..limit];
+                let row = before.matches('\n').count();
+                let col = limit - before.rfind('\n').map_or(0, |nl| nl + 1);
+                (row + self.row_offset + 1, col + 1)
+            }
+            None => (usize::MAX, usize::MAX),
+        }
+    }
+
     fn span(&self, node: Node) -> SourceSpan {
-        let start = node.start_position();
-        let end = node.end_position();
+        let (start_line, start_col) = self.position(node.start_byte(), node.start_position());
+        let (end_line, end_col) = self.position(node.end_byte(), node.end_position());
         SourceSpan {
             file: self.file_sym,
-            start_line: start.row + 1,
-            start_col: start.column + 1,
-            end_line: end.row + 1,
-            end_col: end.column + 1,
+            start_line,
+            start_col,
+            end_line,
+            end_col,
         }
     }
 
@@ -792,13 +948,12 @@ impl<'a> ParseContext<'a> {
     }
 
     fn expr_span(&self, node: Node<'a>) -> ExprSpan {
-        let start = node.start_position();
-        let end = node.end_position();
+        let span = self.span(node);
         ExprSpan {
-            start_line: start.row + 1,
-            start_col: start.column + 1,
-            end_line: end.row + 1,
-            end_col: end.column + 1,
+            start_line: span.start_line,
+            start_col: span.start_col,
+            end_line: span.end_line,
+            end_col: span.end_col,
         }
     }
 

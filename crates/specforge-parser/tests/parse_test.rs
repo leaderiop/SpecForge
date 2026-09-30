@@ -981,11 +981,40 @@ define my_custom_kind {
     }
 }
 
-// Not linked to "recover from unclosed triple-quoted string with
-// diagnostic": the diagnostic is reported, but the unclosed string runs to
-// the end of the file, so the block after it is lost. Whether the parser
-// should end it early (and where) is an open design question.
-#[test]
+/// The `after` entity of the unclosed-string fixtures, with its fields.
+fn recovered_after<'a>(
+    result: &'a specforge_parser::SpecFile,
+    status: &str,
+) -> &'a specforge_parser::Entity {
+    let after = result
+        .entities
+        .iter()
+        .find(|e| e.id.raw == "after")
+        .unwrap_or_else(|| {
+            panic!(
+                "the block after the unclosed string was lost; entities: {:?}, errors: {:?}",
+                result
+                    .entities
+                    .iter()
+                    .map(|e| e.id.raw.as_str())
+                    .collect::<Vec<_>>(),
+                result.errors
+            )
+        });
+    assert_eq!(after.kind.raw, "behavior");
+    assert_eq!(after.title.as_deref(), Some("After"));
+    assert!(
+        matches!(after.fields.get("status"), Some(FieldValue::Identifier(s)) if s == status),
+        "after.status: {:?}",
+        after.fields.get("status")
+    );
+    after
+}
+
+#[specforge_test(
+    behavior = "parse_triple_quoted_strings",
+    verify = "recover from unclosed triple-quoted string with diagnostic"
+)]
 fn unclosed_triple_quoted_string_produces_error() {
     let source = r#"
 behavior broken "Broken" {
@@ -999,27 +1028,125 @@ behavior after "After" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(
-        !result.errors.is_empty(),
-        "expected error for unclosed triple-quoted string"
+    // One diagnostic, at the opening `"""` (line 3, column 14).
+    assert_eq!(result.errors.len(), 1, "errors: {:?}", result.errors);
+    let err = &result.errors[0];
+    assert_eq!(err.span.file, "test.spec");
+    assert_eq!(
+        (err.span.start_line, err.span.start_col),
+        (3, 14),
+        "{err:?}"
     );
-    assert!(result.errors.iter().all(|e| e.span.file == "test.spec"));
+    assert!(err.message.contains("unclosed"), "{}", err.message);
+
+    // The string ends before the next block, which parses normally.
+    let after = recovered_after(&result, "planned");
+    assert_eq!((after.span.start_line, after.span.start_col), (7, 1));
+    assert_eq!((after.span.end_line, after.span.end_col), (9, 2));
 }
 
-// Not linked to "valid blocks after syntax error are still parsed": a
-// regular string may span lines, so the unclosed title swallows the next
-// block's header and `after` is lost. Recovering it needs a grammar
-// decision (single-line strings, or a recovery heuristic).
-#[test]
+#[specforge_test(
+    behavior = "recover_from_syntax_errors",
+    verify = "valid blocks after syntax error are still parsed"
+)]
 fn unclosed_regular_string_recovers_next_block() {
+    // A regular string may span lines: without recovery, the unclosed title
+    // pairs with the next title's opening quote and swallows its header.
     let source = "behavior broken \"Broken {\n    status planned\n}\n\nbehavior after \"After\" {\n    status done\n}\n";
     let result = parse(source, "test.spec");
 
-    assert!(
-        !result.errors.is_empty(),
-        "expected error for unclosed string"
+    assert_eq!(result.errors.len(), 1, "errors: {:?}", result.errors);
+    let err = &result.errors[0];
+    assert_eq!(err.span.file, "test.spec");
+    assert_eq!(
+        (err.span.start_line, err.span.start_col),
+        (1, 17),
+        "{err:?}"
     );
-    assert!(result.errors.iter().all(|e| e.span.file == "test.spec"));
+    assert!(err.message.contains("unclosed"), "{}", err.message);
+
+    let after = recovered_after(&result, "done");
+    assert_eq!((after.span.start_line, after.span.start_col), (5, 1));
+    assert_eq!((after.span.end_line, after.span.end_col), (7, 2));
+}
+
+#[specforge_test(
+    behavior = "recover_from_syntax_errors",
+    verify = "valid blocks after syntax error are still parsed"
+)]
+fn each_unclosed_string_is_reported_and_the_blocks_between_survive() {
+    // Two unclosed strings whose stray quotes happen to pair up (1 + 3),
+    // and a well-formed string inside the first broken block.
+    let source = "behavior one \"One {\n    contract \"Oops.\"\n}\n\nbehavior two \"Two\" {\n    status planned\n    contract \"\"\"\n        never closed\n}\n\nbehavior after \"After\" {\n    status done\n}\n";
+    let result = parse(source, "test.spec");
+
+    let at: Vec<(usize, usize)> = result
+        .errors
+        .iter()
+        .map(|e| (e.span.start_line, e.span.start_col))
+        .collect();
+    assert_eq!(at, vec![(1, 14), (7, 14)], "errors: {:?}", result.errors);
+    assert!(result.errors.iter().all(|e| e.message.contains("unclosed")));
+
+    let two = result
+        .entities
+        .iter()
+        .find(|e| e.id.raw == "two")
+        .expect("the block between the two unclosed strings");
+    assert!(matches!(two.fields.get("status"), Some(FieldValue::Identifier(s)) if s == "planned"));
+    assert_eq!(two.span.start_line, 5);
+    recovered_after(&result, "done");
+}
+
+#[specforge_test(
+    behavior = "recover_from_syntax_errors",
+    verify = "a closed multi-line string that contains a block-like line stays whole"
+)]
+fn closed_multiline_string_with_block_like_line_is_not_split() {
+    // Both string kinds, each holding a line that looks like a block start.
+    // The file also has an unrelated syntax error, so recovery is armed.
+    let source = "behavior doc \"Doc\" {\n    description \"Example:\nbehavior inner \\\"Inner\\\" {\n}\"\n    contract \"\"\"\n        Example:\nbehavior nested \"Nested\" {\n}\n    \"\"\"\n}\n\nbehavior ??? {\n}\n\nbehavior after \"After\" {\n    status done\n}\n";
+    let result = parse(source, "test.spec");
+
+    let doc = result
+        .entities
+        .iter()
+        .find(|e| e.id.raw == "doc")
+        .expect("doc entity");
+    assert!(
+        matches!(doc.fields.get("description"),
+            Some(FieldValue::String(s)) if s == "Example:\nbehavior inner \"Inner\" {\n}"),
+        "description: {:?}",
+        doc.fields.get("description")
+    );
+    assert!(
+        matches!(doc.fields.get("contract"),
+            Some(FieldValue::String(s)) if s.contains("behavior nested \"Nested\" {")),
+        "contract: {:?}",
+        doc.fields.get("contract")
+    );
+    assert!(
+        result
+            .entities
+            .iter()
+            .all(|e| e.id.raw != "inner" && e.id.raw != "nested"),
+        "a string's content was parsed as a block"
+    );
+    recovered_after(&result, "done");
+    assert!(
+        result
+            .errors
+            .iter()
+            .all(|e| !e.message.contains("unclosed")),
+        "errors: {:?}",
+        result.errors
+    );
+
+    // Without the unrelated error the file is valid and parses cleanly.
+    let valid = source.replace("behavior ??? {\n}\n\n", "");
+    let result = parse(&valid, "test.spec");
+    assert!(result.errors.is_empty(), "errors: {:?}", result.errors);
+    assert_eq!(result.entities.len(), 2);
 }
 
 #[specforge_test(
