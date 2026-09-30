@@ -14,7 +14,7 @@
 //! `bounds ∧ ¬claim` is satisfiable: unsat proves the claim from the
 //! declared bounds; sat yields a **counterexample model** — concrete
 //! values satisfying every declared bound while violating the claim
-//! (E047), which is exactly the failure evidence a counterexample-guided
+//! (W139), which is exactly the failure evidence a counterexample-guided
 //! loop consumes.
 //!
 //! Prose lines that do not parse as expressions are skipped and counted.
@@ -337,7 +337,7 @@ fn conjuncts_from_field(value: &specforge_graph::FieldValue) -> (Vec<Conjunct>, 
 }
 
 /// Run the prove pass: consistency over declared bounds (E046 with unsat
-/// cores) and entailment of formal claims with counterexample models (E047).
+/// cores) and entailment of formal claims with counterexample models (W139).
 pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
     let mut findings = Vec::new();
     let mut skipped_prose_lines = 0usize;
@@ -520,7 +520,7 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
                         };
                         findings.push(
                             Diagnostic::warning(
-                                "E047",
+                                "W139",
                                 format!(
                                     "claim `{}` of {} is not entailed by the declared bounds ({evidence})",
                                     claim.text, claim.id
@@ -666,7 +666,7 @@ mod tests {
         assert_eq!(report.summary["claims_proved"].as_u64(), Some(1));
         assert_eq!(report.summary["claims_unproved"].as_u64(), Some(0));
         assert_eq!(report.proved_claim_ids, vec!["inv".to_string()]);
-        assert!(report.findings.iter().all(|f| f.code != "E047"));
+        assert!(report.findings.iter().all(|f| f.code != "W139"));
     }
 
     #[test]
@@ -679,8 +679,8 @@ mod tests {
         let e047 = report
             .findings
             .iter()
-            .find(|f| f.code == "E047")
-            .expect("E047 expected");
+            .find(|f| f.code == "W139")
+            .expect("W139 expected");
         assert!(
             e047.message.contains("counterexample") && e047.message.contains("latency ="),
             "counterexample must name a violating assignment: {}",
@@ -784,8 +784,8 @@ mod tests {
         let e047 = report
             .findings
             .iter()
-            .find(|f| f.code == "E047")
-            .expect("E047 expected");
+            .find(|f| f.code == "W139")
+            .expect("W139 expected");
         assert!(
             e047.message.contains("latency = ") && e047.message.contains("ms"),
             "counterexample must render in the declared unit: {}",

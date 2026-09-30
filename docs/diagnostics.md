@@ -12,7 +12,8 @@ or is listed but never emitted.
 
 Codes follow the pattern `E###` (error), `W###` (warning) and `I###` (info);
 `A###` codes are `specforge analyze` findings, whose severity the pass sets.
-The ranges `E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for
+Each entry's `Level` is the severity every emit site uses, and a test checks
+the emit sites against it. The ranges `E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for
 third-party extensions and never appear in this catalog; `I999` is a core code.
 
 Regenerate this page after editing the catalog:
@@ -32,6 +33,7 @@ must prove about it. Add `verify unit "..."` (or another obligation kind)
 statements.
 
 Owner: @specforge/testing
+Level: set by the analyze pass
 ```
 
 ## A002
@@ -44,6 +46,7 @@ invariant's `risk` is `high`, a warning otherwise. Add a `verify property` or
 `verify unit` statement stating how the guarantee is checked.
 
 Owner: @specforge/testing
+Level: set by the analyze pass
 ```
 
 ## A010
@@ -57,6 +60,7 @@ them, so no invariant constrains it. Add the references, or ignore this
 info-level finding for entities that need none.
 
 Owner: core
+Level: set by the analyze pass
 ```
 
 ## A014
@@ -69,6 +73,7 @@ collect`) include failing tests for this entity, so what it promises is not
 proven. Fix the code or the test and run `specforge collect` again.
 
 Owner: @specforge/testing
+Level: set by the analyze pass
 ```
 
 ## A015
@@ -83,6 +88,7 @@ by no passing test. A test proves an obligation by naming its exact text:
 tests.
 
 Owner: @specforge/testing
+Level: set by the analyze pass
 ```
 
 ## A016
@@ -96,6 +102,7 @@ until its text matches the spec's statement exactly; fix whichever side is
 wrong.
 
 Owner: @specforge/testing
+Level: set by the analyze pass
 ```
 
 ## E001
@@ -109,6 +116,7 @@ covers an internal reparse failure in the language server. Fix the syntax at the
 reported span and re-save.
 
 Owner: core
+Level: error
 ```
 
 ## E002
@@ -121,6 +129,7 @@ duplicate and its message names where the ID was first declared (file:line:col).
 Rename one of the entities so each ID is unique within its kind.
 
 Owner: core
+Level: error
 ```
 
 ## E003
@@ -133,6 +142,7 @@ entity. Fix the typo or add the missing entity; a `did you mean` suggestion is
 included when a close match exists.
 
 Owner: core
+Level: error
 ```
 
 ## E004
@@ -145,6 +155,7 @@ anywhere in the spec. Declare the missing `type` entity or fix the reference to
 point at an existing one.
 
 Owner: @specforge/software
+Level: error
 ```
 
 ## E006
@@ -156,6 +167,7 @@ An entity is missing a field marked `required: true` for its kind in the field
 registry. Add the missing field to the entity.
 
 Owner: core
+Level: error
 ```
 
 ## E007
@@ -167,6 +179,7 @@ The `depends_on` edges between `module` entities form a cycle. Break the cycle
 by removing or inverting one of the dependencies.
 
 Owner: @specforge/product
+Level: error
 ```
 
 ## E010
@@ -179,6 +192,7 @@ explains what's wrong, e.g. bad syntax or start after end). Correct the range to
 a valid form.
 
 Owner: @specforge/software
+Level: error
 ```
 
 ## E013
@@ -192,6 +206,7 @@ extension. Rename the entity, e.g. by appending a suffix like `_rule` or
 `_spec`.
 
 Owner: core
+Level: error
 ```
 
 ## E014
@@ -203,6 +218,7 @@ An entity ID is outside the 2-60 character identifier contract. Pick a
 descriptive identifier within that length.
 
 Owner: core
+Level: error
 ```
 
 ## E015
@@ -214,6 +230,7 @@ The `depends_on` edges between `milestone` entities form a cycle. Break the
 cycle by removing or inverting one of the dependencies.
 
 Owner: @specforge/product
+Level: error
 ```
 
 ## E016
@@ -226,6 +243,7 @@ the spec root. Fix the path, or create the missing file; a similarly-named file
 is suggested when one is found.
 
 Owner: core
+Level: error
 ```
 
 ## E017
@@ -239,6 +257,7 @@ Rename one extension's field, or add an override for that kind/field in
 `specforge.json`.
 
 Owner: core
+Level: error
 ```
 
 ## E018
@@ -251,6 +270,7 @@ Only one extension may own an entity kind's grammar — uninstall one of the
 conflicting extensions or set a grammar conflict policy in the compiler config.
 
 Owner: core
+Level: error
 ```
 
 ## E019
@@ -263,6 +283,7 @@ newer than this build supports, or the header itself doesn't parse. Lower the
 declared version or upgrade SpecForge.
 
 Owner: core
+Level: error
 ```
 
 ## E020
@@ -276,6 +297,7 @@ isn't present in the compiled module. Add the matching `#[export_name = "..."]`
 export to the extension's Wasm binary.
 
 Owner: core
+Level: error
 ```
 
 ## E022
@@ -288,6 +310,7 @@ the target ID resolves to an entity of a different kind. Point the field at an
 entity of the expected kind.
 
 Owner: core
+Level: error
 ```
 
 ## E023
@@ -300,6 +323,7 @@ keyword (`spec`, `ref`, `use`, `define`). Choose a different keyword for the
 entity kind.
 
 Owner: core
+Level: error
 ```
 
 ## E024
@@ -312,6 +336,7 @@ installed extension declares. Install the extension that provides the keyword,
 or fix a typo in the kind name.
 
 Owner: core
+Level: error
 ```
 
 ## E025
@@ -324,6 +349,7 @@ known `.spec` file. Fix the import path; a `did you mean` suggestion is included
 when a close match exists.
 
 Owner: core
+Level: error
 ```
 
 ## E026
@@ -336,6 +362,7 @@ entity kind keyword; the first registration wins and the later one is rejected.
 Rename the conflicting kind keyword.
 
 Owner: core
+Level: error
 ```
 
 ## E027
@@ -350,6 +377,7 @@ upgrade would break a peer's requirement. Install or upgrade the named peer, or
 use `--force` where the command supports it.
 
 Owner: core
+Level: error
 ```
 
 ## E028
@@ -366,6 +394,7 @@ the extension's logs or report the trap to its author, and confirm the extension
 is installed and up to date.
 
 Owner: core
+Level: error
 ```
 
 ## E029
@@ -378,6 +407,7 @@ body parser is allowed per entity kind — uninstall or reconfigure one of the
 conflicting extensions.
 
 Owner: core
+Level: error
 ```
 
 ## E030
@@ -392,6 +422,7 @@ that allowlists a code file extension for output. Fix the manifest according to
 the reported detail.
 
 Owner: core
+Level: error
 ```
 
 ## E031
@@ -405,6 +436,7 @@ abstraction's postconditions, never weaken them — restore or strengthen the
 missing `ensures` condition(s) in the concrete behavior.
 
 Owner: @specforge/formal
+Level: error
 ```
 
 ## E032
@@ -419,6 +451,7 @@ finalizing the install, or removing the extension directory on uninstall —
 failed. Re-download the extension or check filesystem permissions.
 
 Owner: core
+Level: error
 ```
 
 ## E033
@@ -432,6 +465,7 @@ Delete the lock file and reinstall extensions, or reinstall the specific
 extension whose binary changed.
 
 Owner: core
+Level: error
 ```
 
 ## E035
@@ -444,6 +478,7 @@ match the identifier pattern `[a-z][a-z0-9_]{1,59}`, or is already reserved by
 another installed extension. Choose a different, valid entity kind name.
 
 Owner: core
+Level: error
 ```
 
 ## E037
@@ -456,6 +491,7 @@ doesn't match the version this SpecForge build supports. Rebuild the grammar
 targeting the supported tree-sitter ABI version.
 
 Owner: core
+Level: error
 ```
 
 ## E038
@@ -467,6 +503,7 @@ A tree-sitter grammar `.wasm` binary exceeds the configured maximum size. Reduce
 the grammar's complexity or raise `max_size_bytes` in the compiler config.
 
 Owner: core
+Level: error
 ```
 
 ## E039
@@ -479,6 +516,7 @@ or the same MCP resource name. Rename one extension's contribution so the
 identifier is unique across installed extensions.
 
 Owner: core
+Level: error
 ```
 
 ## E040
@@ -491,6 +529,7 @@ missing its `Cargo.toml` or `manifest.json`. Run the command from a scaffolded
 extension project, or create the missing file.
 
 Owner: core
+Level: error
 ```
 
 ## E041
@@ -502,6 +541,7 @@ The `refines` layering graph between behaviors contains a cycle. Break the cycle
 by removing or redirecting one of the `refines` edges.
 
 Owner: @specforge/formal
+Level: error
 ```
 
 ## E042
@@ -513,6 +553,7 @@ A `process` entity composes, transitively, with itself through its composition
 edges. Remove or redirect one of the composition steps to break the cycle.
 
 Owner: @specforge/formal
+Level: error
 ```
 
 ## E045
@@ -527,6 +568,7 @@ report, or a report file couldn't be read. Check the runner's output above the
 error and the report path.
 
 Owner: core
+Level: error
 ```
 
 ## E046
@@ -534,23 +576,12 @@ Owner: core
 ```
 E046: Metric bounds are contradictory
 
-`specforge prove`'s SMT solver found the declared `constraint` metric bounds
-mutually unsatisfiable; the cited bounds form the conflicting core. Relax or
-correct one of the listed bounds.
+`specforge analyze --prove`'s SMT solver found the declared `constraint` metric
+bounds mutually unsatisfiable; the cited bounds form the conflicting core. Relax
+or correct one of the listed bounds.
 
 Owner: core
-```
-
-## E047
-
-```
-E047: Formal claim not entailed by declared bounds
-
-`specforge prove` found that a `claim` isn't guaranteed by the declared metric
-bounds — a counterexample satisfying the bounds while violating the claim was
-found. Strengthen the declared constraint bounds or weaken the claim.
-
-Owner: core
+Level: error
 ```
 
 ## E051
@@ -563,6 +594,7 @@ at something else (or nothing resolvable). Point `trigger` at an existing
 `behavior` entity.
 
 Owner: @specforge/software
+Level: error
 ```
 
 ## E052
@@ -574,6 +606,7 @@ The `depends_on` edges between `deliverable` entities form a cycle. Break the
 cycle by removing or inverting one of the dependencies.
 
 Owner: @specforge/product
+Level: error
 ```
 
 ## E053
@@ -591,6 +624,7 @@ Adjust the extension's `sandbox_policy` or the call itself to stay within the
 granted permissions.
 
 Owner: core
+Level: error
 ```
 
 ## E054
@@ -604,6 +638,7 @@ a local install path didn't exist on disk. Use a valid specifier format or check
 the local file path.
 
 Owner: core
+Level: error
 ```
 
 ## E055
@@ -617,6 +652,7 @@ outside the known set (`string`, `path`, `bool`, `enum`, `integer`). Fix the
 schema or argument type in the manifest.
 
 Owner: core
+Level: error
 ```
 
 ## E056
@@ -628,6 +664,7 @@ E056: Failed to write collected report
 coverage report file to disk. Check that the output path is writable.
 
 Owner: core
+Level: error
 ```
 
 ## E057
@@ -639,6 +676,7 @@ Two extensions both register a `ref` provider for the same scheme. Configure
 distinct schemes for each provider extension.
 
 Owner: core
+Level: error
 ```
 
 ## E058
@@ -654,6 +692,7 @@ while several collectors apply. Enable a runner extension (e.g. `specforge add
 @specforge/cargo-test`) or pick one with `--runner`.
 
 Owner: core
+Level: error
 ```
 
 ## E059
@@ -669,6 +708,7 @@ project. Without a terminal (CI, `--format json`) nothing is asked: pass `--yes`
 to run the command, or `--no-run` to parse a report the runner already wrote.
 
 Owner: core
+Level: error
 ```
 
 ## E060
@@ -682,6 +722,7 @@ spec: queries, traces and coverage would miss the relationship. Please report it
 with the spec that triggers it.
 
 Owner: core
+Level: error
 ```
 
 ## E061
@@ -700,6 +741,7 @@ boolean. Fix the value, or check the field's type with `specforge schema --kind
 <kind>`.
 
 Owner: core
+Level: error
 ```
 
 ## E062
@@ -716,6 +758,7 @@ export fits. Raise the budget, or drop `--with-schema` when the schema alone is
 over it.
 
 Owner: core
+Level: error
 ```
 
 ## I002
@@ -729,6 +772,7 @@ Install an extension (for example `specforge add @specforge/software`) to enable
 kind-specific checks.
 
 Owner: core
+Level: info
 ```
 
 ## I003
@@ -741,6 +785,7 @@ registries is marked as the default. Add a `registries` entry and set
 `"default_registry": true` on one of them.
 
 Owner: core
+Level: info
 ```
 
 ## I004
@@ -755,6 +800,7 @@ enhancement of a kind owned by an extension the project doesn't use is skipped
 silently, not reported.
 
 Owner: core
+Level: info
 ```
 
 ## I005
@@ -768,6 +814,7 @@ an extension that contributes that provider, or configure it in
 `specforge.json`.
 
 Owner: core
+Level: info
 ```
 
 ## I006
@@ -780,6 +827,7 @@ not marked it `testable`, so its verify obligations won't count toward coverage.
 Set `testable: true` in the extension manifest if coverage tracking is desired.
 
 Owner: core
+Level: info
 ```
 
 ## I007
@@ -792,6 +840,7 @@ format version. Run `specforge migrate` to upgrade the file to the current
 format.
 
 Owner: core
+Level: info
 ```
 
 ## I010
@@ -804,6 +853,7 @@ A `term` entity has no edges at all, meaning nothing links to or from it via
 remove it if it's unused.
 
 Owner: @specforge/product
+Level: info
 ```
 
 ## I016
@@ -816,6 +866,7 @@ breaking-change detection was skipped for this compilation. Run a full
 compilation to regenerate the schema cache.
 
 Owner: core
+Level: info
 ```
 
 ## I017
@@ -829,6 +880,7 @@ exists. The explicit tool definition takes precedence, so no action is needed
 unless the name collision was unintended.
 
 Owner: core
+Level: info
 ```
 
 ## I020
@@ -843,6 +895,7 @@ result's `_meta.diagnostics`, with a `did you mean` suggestion when a known kind
 is close. Fix the spelling, or enable the extension that defines the kind.
 
 Owner: core
+Level: info
 ```
 
 ## I046
@@ -854,6 +907,7 @@ A `persona` entity has no incoming edges, meaning no `journey` references it.
 Reference the persona from a journey, or remove it if it's no longer needed.
 
 Owner: @specforge/product
+Level: info
 ```
 
 ## I047
@@ -865,6 +919,7 @@ A `channel` entity has no incoming edges, meaning no `journey` references it.
 Reference the channel from a journey, or remove it if it's no longer needed.
 
 Owner: @specforge/product
+Level: info
 ```
 
 ## I059
@@ -876,6 +931,7 @@ A `feature` has `status: deferred` but no `reason` field explaining why. Add a
 `reason` field describing why the feature was deferred.
 
 Owner: @specforge/product
+Level: info
 ```
 
 ## I060
@@ -887,6 +943,7 @@ A `milestone` has `status: blocked` but no `blockers` field listing what's
 blocking it. Add a `blockers` field describing what is blocking progress.
 
 Owner: @specforge/product
+Level: info
 ```
 
 ## I066
@@ -898,6 +955,7 @@ A `deliverable` has `status: deprecated` but no `reason` field explaining why.
 Add a `reason` field documenting why it was deprecated.
 
 Owner: @specforge/product
+Level: info
 ```
 
 ## I069
@@ -909,6 +967,7 @@ A `persona` has `status: deprecated` but no `reason` field explaining why. Add a
 `reason` field documenting why it was deprecated.
 
 Owner: @specforge/product
+Level: info
 ```
 
 ## I070
@@ -920,6 +979,7 @@ A `channel` has `status: deprecated` but no `reason` field explaining why. Add a
 `reason` field documenting why it was deprecated.
 
 Owner: @specforge/product
+Level: info
 ```
 
 ## I098
@@ -927,12 +987,13 @@ Owner: @specforge/product
 ```
 I098: Solver could not decide bounds
 
-The `specforge prove` SMT solver returned an undecided result rather than
-`sat`/`unsat` when checking combined metric bounds, or whether the declared
+The `specforge analyze --prove` SMT solver returned an undecided result rather
+than `sat`/`unsat` when checking combined metric bounds, or whether the declared
 bounds entail a claim. Simplify the constraint expressions or supply tighter
 bounds so the solver can decide.
 
 Owner: core
+Level: info
 ```
 
 ## I200
@@ -945,6 +1006,7 @@ the entities inferred from it may no longer be accurate. Re-analyze the file to
 refresh its inferred entities.
 
 Owner: core
+Level: info
 ```
 
 ## I202
@@ -958,6 +1020,7 @@ over-eager inference, or adjust the density threshold if that density is
 expected.
 
 Owner: core
+Level: info
 ```
 
 ## I999
@@ -970,6 +1033,7 @@ the first batch is shown. Fix the listed diagnostics and rerun the compiler to
 see the rest.
 
 Owner: core
+Level: info
 ```
 
 ## W001
@@ -982,6 +1046,7 @@ implement anything declared. Add an `implements` reference to a feature, or
 remove the behavior if it's unused.
 
 Owner: @specforge/software
+Level: warning
 ```
 
 ## W002
@@ -993,6 +1058,7 @@ A `type` entity has no incoming references from any `behavior`, `port`, or other
 `type`. Reference the type where it's used, or remove it if it's dead.
 
 Owner: @specforge/software
+Level: warning
 ```
 
 ## W003
@@ -1007,6 +1073,7 @@ longer applies. `specforge analyze coverage` counts these invariants but does
 not report them again.
 
 Owner: @specforge/software
+Level: warning
 ```
 
 ## W004
@@ -1019,6 +1086,7 @@ no `verify` obligations and no Gherkin scenario, so it has no test linkage. Add
 a `verify` block or a Gherkin scenario covering it.
 
 Owner: @specforge/testing
+Level: warning
 ```
 
 ## W005
@@ -1030,6 +1098,7 @@ A `port` entity is not referenced by any `behavior`. Reference the port from a
 behavior that uses it, or remove it if it's unused.
 
 Owner: @specforge/software
+Level: warning
 ```
 
 ## W006
@@ -1041,6 +1110,7 @@ A `behavior` entity has no `category` field, which agents rely on for task
 routing. Add a `category` field to the behavior.
 
 Owner: @specforge/software
+Level: warning
 ```
 
 ## W007
@@ -1052,6 +1122,7 @@ An `event` entity is not produced by any `behavior`. Add a `produces` reference
 from the behavior that emits it, or remove the event if it's unused.
 
 Owner: @specforge/software
+Level: warning
 ```
 
 ## W008
@@ -1064,6 +1135,7 @@ implements it. Add a behavior that implements the feature, or remove it if it's
 not planned.
 
 Owner: @specforge/software
+Level: warning
 ```
 
 ## W009
@@ -1076,6 +1148,7 @@ that isn't in the allowed set for its entity kind. Use one of the verify kinds
 listed as allowed in the diagnostic.
 
 Owner: @specforge/testing
+Level: warning
 ```
 
 ## W010
@@ -1087,6 +1160,7 @@ A `type` field carries an annotation that isn't recognized by the compiler.
 Remove the annotation or correct its spelling.
 
 Owner: @specforge/software
+Level: warning
 ```
 
 ## W011
@@ -1099,6 +1173,7 @@ don't exist in the graph, so the edge was dropped. Check the referenced entity
 IDs for typos or missing definitions.
 
 Owner: core
+Level: warning
 ```
 
 ## W012
@@ -1110,6 +1185,7 @@ A `ref` entity has no incoming edges, meaning nothing in the project references
 it. Reference the `ref` from another entity, or remove it if it's unused.
 
 Owner: core
+Level: warning
 ```
 
 ## W017
@@ -1122,6 +1198,7 @@ An extension registers an entity kind as `testable` but does not set
 `supportsVerify: true` in the extension manifest.
 
 Owner: core
+Level: warning
 ```
 
 ## W018
@@ -1134,6 +1211,7 @@ extension's definition wins and the later one is ignored. Rename one of the
 conflicting edge types to avoid the collision.
 
 Owner: core
+Level: warning
 ```
 
 ## W019
@@ -1147,6 +1225,7 @@ doesn't recognize (it must be one of `string`, `integer`, `bool`, `enum`,
 `field_type` in the manifest.
 
 Owner: core
+Level: warning
 ```
 
 ## W020
@@ -1159,6 +1238,7 @@ extension. Remove the field, fix a typo in its name, or install the extension
 that declares it.
 
 Owner: core
+Level: warning
 ```
 
 ## W021
@@ -1173,6 +1253,7 @@ are loaded. Declare the missing kind or edge label, or add the appropriate peer
 dependency.
 
 Owner: core
+Level: warning
 ```
 
 ## W023
@@ -1184,6 +1265,7 @@ Two extensions register a validation rule using the same diagnostic code. Change
 one extension's rule to use a unique code.
 
 Owner: core
+Level: warning
 ```
 
 ## W024
@@ -1196,6 +1278,7 @@ no installed extension registers, so it is ignored. Register the target kind (or
 install the extension that does) before contributing to it.
 
 Owner: core
+Level: warning
 ```
 
 ## W025
@@ -1208,6 +1291,7 @@ found, or its body-parser contribution references an export that doesn't exist
 in the extension's wasm module. Fix the path or export name in the manifest.
 
 Owner: core
+Level: warning
 ```
 
 ## W026
@@ -1220,6 +1304,7 @@ uses a kind that is registered but not allowed for that entity's kind. Use one
 of the verify kinds listed as allowed in the diagnostic.
 
 Owner: core
+Level: warning
 ```
 
 ## W027
@@ -1232,6 +1317,7 @@ isn't actually exported by the target module. Correct the binding name or remove
 it from the re-export list.
 
 Owner: core
+Level: warning
 ```
 
 ## W028
@@ -1244,6 +1330,7 @@ policies exceeds the configured total memory ceiling. Reduce `max_memory_mb` in
 one or more extension sandbox policies.
 
 Owner: core
+Level: warning
 ```
 
 ## W029
@@ -1256,6 +1343,7 @@ meaning nothing reacts to it. Add a behavior that consumes the event, or remove
 the unused production.
 
 Owner: @specforge/formal
+Level: warning
 ```
 
 ## W030
@@ -1269,6 +1357,7 @@ abstract entity. Add a concrete behavior with `refines`, or a `refinement`
 entity naming this behavior as the `abstract_entity`.
 
 Owner: @specforge/formal
+Level: warning
 ```
 
 ## W031
@@ -1280,6 +1369,7 @@ A behavior sits in a refinement chain deeper than the maximum allowed depth of 4
 layers. Split the refinement chain, or collapse intermediate abstraction layers.
 
 Owner: @specforge/formal
+Level: warning
 ```
 
 ## W035
@@ -1292,6 +1382,7 @@ Annotate a test with the entity it proves and run `specforge collect` so its
 result is recorded.
 
 Owner: @specforge/formal
+Level: warning
 ```
 
 ## W041
@@ -1304,6 +1395,7 @@ A `feature` entity has no incoming edges, meaning no `journey`, `milestone`, or
 it if it is no longer needed.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W042
@@ -1316,6 +1408,7 @@ it. Reference the journey from a deliverable's `journeys` field, or remove it if
 it is unused.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W044
@@ -1328,6 +1421,7 @@ references it. Reference the module from a deliverable or milestone, or remove
 it if it is unused.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W045
@@ -1339,6 +1433,7 @@ Two or more `feature` entities form a cycle through their `depends_on` edges.
 Break the cycle by removing or restructuring one of the `depends_on` references.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W049
@@ -1351,6 +1446,7 @@ empty. Add at least one `features` or `modules` reference, or remove the
 milestone.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W050
@@ -1363,6 +1459,7 @@ A `decision` entity's `status` field is not one of the recognized values
 these values.
 
 Owner: @specforge/governance
+Level: warning
 ```
 
 ## W051
@@ -1375,6 +1472,7 @@ recognized values (`critical`, `high`, `medium`, `low`). Set the field to one of
 these values.
 
 Owner: @specforge/governance
+Level: warning
 ```
 
 ## W052
@@ -1387,6 +1485,7 @@ the recognized values (`certain`, `likely`, `occasional`, `unlikely`, `rare`).
 Set the field to one of these values.
 
 Owner: @specforge/governance
+Level: warning
 ```
 
 ## W053
@@ -1405,6 +1504,7 @@ versions that produced the old schema, or review the migration to preserve
 backward compatibility.
 
 Owner: core
+Level: warning
 ```
 
 ## W054
@@ -1417,6 +1517,7 @@ that appeared, disappeared, or changed unexpectedly. Review the migration logic
 to ensure it preserves the entities and edges it did not intend to change.
 
 Owner: core
+Level: warning
 ```
 
 ## W057
@@ -1428,6 +1529,7 @@ A `milestone` entity has `status: completed` but no `exit_criteria` field. Add
 an `exit_criteria` field describing how completion was verified.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W060
@@ -1441,6 +1543,7 @@ namespace regardless of kind, so rename one of the conflicting declarations; the
 first declaration encountered is retained and later ones are skipped.
 
 Owner: core
+Level: warning
 ```
 
 ## W061
@@ -1452,6 +1555,7 @@ The resolved reference graph contains a cycle among entity references. Break the
 cycle by removing or inverting one of the references in the reported path.
 
 Owner: core
+Level: warning
 ```
 
 ## W062
@@ -1464,6 +1568,7 @@ An extension manifest declares a peer dependency range, a version, or a
 `1.0.0`) or range (e.g. `^1.0.0`, `~1.2.0`, `>=1.0.0`).
 
 Owner: core
+Level: warning
 ```
 
 ## W063
@@ -1476,6 +1581,7 @@ forming a cycle. Break the cycle by removing one of the peer dependency
 declarations.
 
 Owner: core
+Level: warning
 ```
 
 ## W077
@@ -1488,6 +1594,7 @@ A `feature` entity's `status` field is not one of the recognized values
 `status` to one of these values.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W078
@@ -1500,6 +1607,7 @@ is not one of the recognized values (`critical`, `high`, `medium`, `low`). Set
 `priority` to one of these values.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W079
@@ -1512,6 +1620,7 @@ A `milestone` entity's `status` field is not one of the recognized values
 values.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W080
@@ -1525,6 +1634,7 @@ values (e.g. `cli`, `service`, `library`, `web_app`, `mobile_app`, `api`,
 values.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W083
@@ -1536,6 +1646,7 @@ A `persona` entity's `status` field is not one of the recognized values
 (`active`, `deprecated`). Set `status` to one of these values.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W084
@@ -1547,6 +1658,7 @@ A `channel` entity's `status` field is not one of the recognized values
 (`active`, `deprecated`). Set `status` to one of these values.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W085
@@ -1559,6 +1671,7 @@ A `deliverable` entity's `status` field is not one of the recognized values
 values.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W092
@@ -1570,6 +1683,7 @@ Two or more `release` entities form a cycle through their `depends_on` edges.
 Break the cycle by removing or restructuring one of the dependency references.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W093
@@ -1581,6 +1695,7 @@ A `release` entity's `version` field does not match semver format (e.g.
 `1.0.0`). Set `version` to a valid semver string.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W095
@@ -1592,6 +1707,7 @@ A `feature` entity's `effort` field is not one of the recognized values (`xs`,
 `s`, `m`, `l`, `xl`). Set `effort` to one of these values.
 
 Owner: @specforge/product
+Level: warning
 ```
 
 ## W096
@@ -1604,6 +1720,7 @@ no `ensures` clause (a guarantee in return). Add an `ensures` clause describing
 what the behavior guarantees when its `requires` is satisfied.
 
 Owner: @specforge/formal
+Level: warning
 ```
 
 ## W098
@@ -1617,6 +1734,7 @@ z3 (https://github.com/Z3Prover/z3) and ensure it is executable to enable these
 checks.
 
 Owner: core
+Level: warning
 ```
 
 ## W099
@@ -1630,6 +1748,7 @@ Add a `use` import that makes the dependency explicit, even though the reference
 still resolves.
 
 Owner: core
+Level: warning
 ```
 
 ## W110
@@ -1642,6 +1761,7 @@ A behavior's `refines` field names a target behavior that is not marked
 at a behavior that is actually abstract.
 
 Owner: @specforge/formal
+Level: warning
 ```
 
 ## W111
@@ -1655,6 +1775,7 @@ recently registered grammar wins; uninstall one of the conflicting extensions or
 configure a different policy if the outcome is wrong.
 
 Owner: core
+Level: warning
 ```
 
 ## W112
@@ -1669,6 +1790,7 @@ absent or failed a probe call. Fix or remove the rule in the extension's
 manifest.
 
 Owner: core
+Level: warning
 ```
 
 ## W113
@@ -1681,6 +1803,7 @@ graph. Break the cycle by removing one of the `use` imports or extracting the
 shared entities into a separate file.
 
 Owner: core
+Level: warning
 ```
 
 ## W114
@@ -1693,6 +1816,7 @@ was passed. Remove `--skip-verify` to re-enable hash verification of the
 extension's `.wasm` binary.
 
 Owner: core
+Level: warning
 ```
 
 ## W115
@@ -1706,6 +1830,7 @@ renamed entity or a typo in the test's annotation), or its
 drops those results; fix the test annotation so it names a declared entity.
 
 Owner: core
+Level: warning
 ```
 
 ## W116
@@ -1720,6 +1845,7 @@ malformed `manifest.json`; discovery skips the broken entry and continues with
 the rest.
 
 Owner: core
+Level: warning
 ```
 
 ## W117
@@ -1732,6 +1858,7 @@ or `injections`) is empty or contains null bytes. Provide a non-empty query
 pattern with no null bytes; the invalid pattern is skipped rather than loaded.
 
 Owner: core
+Level: warning
 ```
 
 ## W118
@@ -1745,6 +1872,7 @@ configured provider. Add the missing field, or install an extension that
 contributes the provider.
 
 Owner: core
+Level: warning
 ```
 
 ## W119
@@ -1757,6 +1885,7 @@ extension directory. Manually delete the leftover extension directory reported
 in the message.
 
 Owner: core
+Level: warning
 ```
 
 ## W120
@@ -1769,6 +1898,7 @@ a clean, non-empty target such as an issue number or ticket key (e.g. `"42"`,
 `"PROJ-123"`).
 
 Owner: core
+Level: warning
 ```
 
 ## W121
@@ -1781,6 +1911,7 @@ the recognized values (`certain`, `likely`, `moderate`, `unlikely`,
 `undetectable`). Set the field to one of these values.
 
 Owner: @specforge/governance
+Level: warning
 ```
 
 ## W122
@@ -1793,6 +1924,7 @@ unique entity IDs across files, or use imports to share a single definition
 instead of redeclaring it.
 
 Owner: core
+Level: warning
 ```
 
 ## W123
@@ -1805,6 +1937,7 @@ Reference the property from a behavior's `verify` block, or remove it if it is
 no longer needed.
 
 Owner: @specforge/formal
+Level: warning
 ```
 
 ## W125
@@ -1816,6 +1949,7 @@ A `property` entity's `property_type` field is not one of the recognized values
 (`safety`, `liveness`, `fairness`). Set `property_type` to one of these values.
 
 Owner: @specforge/formal
+Level: warning
 ```
 
 ## W126
@@ -1828,6 +1962,7 @@ Reference the axiom from a relevant entity, or remove it if it is no longer
 needed.
 
 Owner: @specforge/formal
+Level: warning
 ```
 
 ## W128
@@ -1839,6 +1974,7 @@ A `protocol` entity is not referenced by any `event`, so it may be unused.
 Reference the protocol from an event, or remove it if it is no longer needed.
 
 Owner: @specforge/formal
+Level: warning
 ```
 
 ## W131
@@ -1851,6 +1987,7 @@ Reference the refinement from the entity it refines, or remove it if it is no
 longer needed.
 
 Owner: @specforge/formal
+Level: warning
 ```
 
 ## W134
@@ -1863,6 +2000,7 @@ Reference the process from a relevant entity, or remove it if it is no longer
 needed.
 
 Owner: @specforge/formal
+Level: warning
 ```
 
 ## W137
@@ -1877,6 +2015,7 @@ meant to contain `__`), so it isn't linked. Rename the test or the entity, or
 link the test explicitly (`#[specforge_test]`).
 
 Owner: core
+Level: warning
 ```
 
 ## W138
@@ -1890,4 +2029,30 @@ doesn't define, so SpecForge ignores it. It is usually a misspelling
 field was meant to declare. Fix the spelling or remove the field.
 
 Owner: core
+Level: warning
 ```
+
+## W139
+
+```
+W139: Formal claim not entailed by declared bounds
+
+`specforge analyze --prove` found that a `claim` isn't guaranteed by the
+declared metric bounds: the SMT solver found a counterexample that satisfies
+every bound while violating the claim. The claim isn't wrong; the bounds just
+don't guarantee it yet, and its `verify property` obligation stays unproven.
+Strengthen the declared constraint bounds or weaken the claim. Use `--strict` to
+fail the run on it. This code was E047 until it was renumbered to match its
+severity.
+
+Owner: core
+Level: warning
+```
+
+## Retired codes
+
+These codes are no longer emitted, and are never reused for another meaning.
+
+| Code | Replaced by |
+|------|-------------|
+| E047 | [W139](#w139) |

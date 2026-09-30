@@ -101,7 +101,7 @@ Two outcomes per claim:
 | Outcome | Meaning | Diagnostic |
 |---|---|---|
 | `bounds ∧ ¬claim` unsat | Claim **proved** from the declared bounds | none (counts in `claims_proved`) |
-| satisfiable | Claim **not entailed** — z3 returns a counterexample: concrete values satisfying every bound while violating the claim | `E047` warning |
+| satisfiable | Claim **not entailed** — z3 returns a counterexample: concrete values satisfying every bound while violating the claim | `W139` warning |
 
 The counterexample is the failure evidence: `latency = 42ms` is a
 concrete system that meets every budget yet breaks the claim. Rendered
@@ -131,13 +131,13 @@ $ specforge analyze --prove
 analyze/prove — numeric constraint bounds verified with an SMT solver
 [E046] Error: contradictory metric bounds: `latency < 100ms` in constraint
         budget (metric line 1); `latency > 1s` in constraint floor (line 11)
-[E047] Warning: claim `peak_memory > 32MB` of memory_hog is not entailed by
+[W139] Warning: claim `peak_memory > 32MB` of memory_hog is not entailed by
         the declared bounds (counterexample: latency = 0.0, peak_memory = 0.0)
 ```
 
 - `E046` — contradiction; the unsat core names the **minimal** set of
   bounds that conflict, across files, each with its location.
-- `E047` — unproven claim with counterexample.
+- `W139` — unproven claim with counterexample.
 - The `prove` summary reports `axioms`, `claims`, `claims_proved`,
   `claims_unproved`, `satisfiable`, and `unsatisfiable`.
 
@@ -155,7 +155,7 @@ invariant claim:    latency < 250ms, peak_memory < 75MB
 
 Today the claim is entailed (proved). If someone tightens a budget past
 the claim — `latency < 200ms` still proves it, `latency < 80ms` does not
-— the prove verdict flips to `E047` and budget drift becomes a
+— the prove verdict flips to `W139` and budget drift becomes a
 compiler-visible diagnostic.
 
 ## Limits

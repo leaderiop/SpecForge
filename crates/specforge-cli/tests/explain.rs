@@ -17,6 +17,24 @@ fn explain_prints_a_catalogued_code_case_insensitively() {
     let plain = stdout.replace("\x1b[1m", "").replace("\x1b[0m", "");
     assert!(plain.contains("E001: Parse error"), "stdout: {plain}");
     assert!(plain.contains("Owner: core"), "stdout: {plain}");
+    assert!(plain.contains("Level: error"), "stdout: {plain}");
+}
+
+#[test]
+fn explain_points_a_retired_code_at_its_replacement() {
+    let out = specforge().args(["explain", "E047"]).output().unwrap();
+    assert_eq!(out.status.code(), Some(0), "a retired code exits 0");
+    let stdout = String::from_utf8(out.stdout).unwrap();
+    let plain = stdout.replace("\x1b[1m", "").replace("\x1b[0m", "");
+    assert!(
+        plain.contains("E047 is retired; it was renumbered to W139."),
+        "stdout: {plain}"
+    );
+    assert!(
+        plain.contains("W139: Formal claim not entailed by declared bounds"),
+        "stdout: {plain}"
+    );
+    assert!(plain.contains("Level: warning"), "stdout: {plain}");
 }
 
 #[test]
