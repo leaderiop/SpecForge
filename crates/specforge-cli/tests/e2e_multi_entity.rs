@@ -46,12 +46,60 @@ fn check_accepts_all_governance_entity_kinds() {
 )]
 fn check_full_multi_extension_project_exits_zero() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
+    let tree = |root: &std::path::Path| {
+        let mut entries: Vec<_> = walk(root)
+            .into_iter()
+            .map(|p| (p.clone(), std::fs::read(&p).unwrap_or_default()))
+            .collect();
+        entries.sort();
+        entries
+    };
+    let before = tree(dir.path());
 
-    specforge_cmd()
+    // validation_complete_fired, appropriate_exit_code: a clean project
+    // validates and exits 0.
+    let output = specforge_cmd()
         .args(["check"])
         .arg(dir.path())
-        .assert()
-        .success();
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+
+    // diagnostics_to_stderr: the report goes to stderr, nothing to stdout.
+    assert!(output.stdout.is_empty());
+    assert!(stderr.contains("0 errors, 0 warnings, 0 infos"), "{stderr}");
+
+    // no_output_files_produced
+    assert_eq!(tree(dir.path()), before, "check must not write files");
+
+    // An error in the same project flips the exit code, still on stderr.
+    let broken =
+        format!("{MULTI_EXTENSION_SPEC}\nfeature broken_ref \"B\" {{ behaviors [missing_one] }}\n");
+    let dir = setup_project(&[("main.spec", &broken)]);
+    let output = specforge_cmd()
+        .args(["check"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert!(output.stdout.is_empty());
+    assert!(stderr.contains("missing_one"), "{stderr}");
+}
+
+/// Every file under `dir`, recursively.
+fn walk(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(dir).unwrap().filter_map(Result::ok) {
+        let path = entry.path();
+        if path.is_dir() {
+            files.extend(walk(&path));
+        } else {
+            files.push(path);
+        }
+    }
+    files
 }
 
 #[specforge_test(
@@ -122,6 +170,48 @@ fn export_brief_includes_all_entity_kinds() {
             expected_kind
         );
     }
+
+    // Only IDs, kinds and titles: no contract, fields or source location.
+    for node in nodes {
+        let keys: std::collections::BTreeSet<&str> = node
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        assert!(
+            keys.is_subset(&["id", "kind", "title"].into_iter().collect()),
+            "brief node carries more than id/kind/title: {node}"
+        );
+        assert!(keys.contains("id") && keys.contains("kind"), "{node}");
+    }
+    let parse_input = nodes.iter().find(|n| n["id"] == "parse_input").unwrap();
+    assert_eq!(parse_input["kind"], "behavior");
+    assert!(parse_input["title"].is_string());
+
+    // And the edges, as the full graph export has them.
+    let graph = specforge_cmd()
+        .args(["export", "--format=graph"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let graph = parse_json_stdout(&graph);
+    assert!(!parsed["edges"].as_array().unwrap().is_empty());
+    let edge_set = |v: &serde_json::Value| {
+        v["edges"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|e| {
+                (
+                    e["source"].as_str().unwrap().to_string(),
+                    e["target"].as_str().unwrap().to_string(),
+                    e["label"].as_str().unwrap().to_string(),
+                )
+            })
+            .collect::<std::collections::BTreeSet<_>>()
+    };
+    assert_eq!(edge_set(&parsed), edge_set(&graph));
 }
 
 #[specforge_test(

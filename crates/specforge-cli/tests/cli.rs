@@ -38,33 +38,46 @@ fn self_check_runs_without_crashing() {
         panic!("spec/ directory not found at {:?}", spec_dir);
     }
 
-    let output = specforge_cmd()
-        .arg("check")
-        .arg("--format=json")
-        .arg(&spec_dir)
-        .output()
-        .unwrap();
+    // As a CI runner invokes it: CI set, no terminal, empty stdin.
+    let ci_check = |args: &[&str], path: &std::path::Path| {
+        specforge_cmd()
+            .env("CI", "true")
+            .env("TERM", "dumb")
+            .env_remove("CLICOLOR_FORCE")
+            .write_stdin("")
+            .arg("check")
+            .args(args)
+            .arg(path)
+            .output()
+            .unwrap()
+    };
 
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let diagnostics: Vec<serde_json::Value> = serde_json::from_str(&stdout).unwrap_or_else(|e| {
-        panic!(
-            "self-check produced invalid JSON: {}\noutput: {}",
-            e, stdout
-        )
-    });
+    // The repository's own specs, which CI checks: clean, exit 0, the
+    // summary on stderr and nothing on stdout.
+    let output = ci_check(&[], &spec_dir);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(0), "{stderr}");
+    assert!(output.stdout.is_empty());
+    assert!(stderr.contains("0 errors, 0 warnings, 0 infos"), "{stderr}");
+    assert!(!stderr.contains('\x1b'), "no terminal escapes: {stderr:?}");
 
-    // The spec files currently have known issues (circular imports, cross-file refs).
-    // This test ensures the check pipeline doesn't panic on a real 136-file project.
-    // Goal: reduce this to zero errors as import handling improves.
+    let output = ci_check(&["--format=json"], &spec_dir);
+    assert_eq!(output.status.code(), Some(0));
+    let diagnostics: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(diagnostics, serde_json::json!([]));
+
+    // A broken project fails the CI step with exit 1 and says why on stderr.
+    let dir = setup_project(&[(
+        "main.spec",
+        "\nbehavior alpha \"A\" { contract \"first\" }\nfeature gamma \"G\" { behaviors [alpha, nonexistent] }\n",
+    )]);
+    let output = ci_check(&[], dir.path());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert!(output.stdout.is_empty());
     assert!(
-        diagnostics.iter().all(|d| {
-            let code = d["code"].as_str().unwrap_or("");
-            [
-                "E001", "E002", "E003", "W113", "W012", "W060", "W061", "W062",
-            ]
-            .contains(&code)
-        }),
-        "self-check should only produce known diagnostic codes"
+        stderr.contains("[E003] Error: unresolved reference 'nonexistent' in entity 'gamma'"),
+        "{stderr}"
     );
 }
 
@@ -205,10 +218,11 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
         .output()
         .unwrap();
 
+    // `nonexistent` starts at line 3, column 39.
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("main.spec"),
-        "should contain filename in stderr: {}",
+        stderr.contains("main.spec:3:39"),
+        "should contain file:line:col in stderr: {}",
         stderr
     );
 }
@@ -232,11 +246,30 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
         .output()
         .unwrap();
 
+    // The offending source line, numbered, with the reference underlined.
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("feature gamma") || stderr.contains("nonexistent"),
-        "should contain source context snippet in stderr: {}",
+        stderr.contains(" 3 │ feature gamma \"G\" { behaviors [alpha, nonexistent] }\n"),
+        "should contain the source line in stderr: {}",
         stderr
+    );
+    let lines: Vec<&str> = stderr.lines().collect();
+    let at = lines
+        .iter()
+        .position(|l| l.contains("feature gamma"))
+        .unwrap();
+    let column_of = |line: &str, byte: usize| line[..byte].chars().count();
+    let source = lines[at];
+    let underline = lines[at + 1];
+    assert_eq!(
+        column_of(underline, underline.find('─').unwrap()),
+        column_of(source, source.find("nonexistent").unwrap()),
+        "the underline starts under `nonexistent`: {stderr}"
+    );
+    assert_eq!(
+        underline.trim_start_matches([' ', '│']),
+        "─────┬─────",
+        "and spans its 11 characters: {stderr}"
     );
 }
 
@@ -391,10 +424,11 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
 
 // === contract tests ===
 
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "Print Diagnostics Structured: structured diagnostic printing holds — validation_complete_fired, structured_format_enforced, color_coding_applied"
-)]
+// Not linked to the Print Diagnostics Structured contract: its
+// color_coding_applied clause (errors red, warnings yellow, info blue) is
+// not implemented — render_diagnostics renders without color on purpose and
+// check never re-colors it. This checks the structured part.
+#[test]
 fn print_diagnostics_contract_consistency() {
     // Requires: validation_complete fired (diagnostics collected)
     // Ensures: structured format with file:line:col, color-coded severity
@@ -413,9 +447,16 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
         .unwrap();
 
     let stderr = String::from_utf8_lossy(&output.stderr);
-    // Structured format: file path + error code + source context
-    assert!(stderr.contains("main.spec"), "must include file path");
-    assert!(stderr.contains("E003"), "must include error code");
+    // Structured format: code and severity, file:line:col, source line.
+    assert!(
+        stderr.contains("[E003] Error: unresolved reference 'nonexistent' in entity 'gamma'"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("─[ main.spec:3:39 ]"), "{stderr}");
+    assert!(
+        stderr.contains(" 3 │ feature gamma \"G\" { behaviors [alpha, nonexistent] }"),
+        "{stderr}"
+    );
 }
 
 #[specforge_test(
