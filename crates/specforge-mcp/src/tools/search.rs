@@ -1,8 +1,26 @@
 use serde_json::Value;
+use specforge_graph::FieldValue;
 use strsim::jaro_winkler;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+
+/// Score an entity whose string fields (its contract, guarantee, ...) contain
+/// the query: a match, ranked below a close name match.
+const TEXT_FIELD_MATCH_SCORE: f64 = 0.7;
+
+/// Search reaches an entity's string fields, not just its name: a query
+/// found in the contract text is a match (the LSP workspaceSymbol substring
+/// rule, applied to field text).
+fn text_field_score(node: &specforge_graph::Node, query_lower: &str) -> f64 {
+    if query_lower.is_empty() {
+        return 0.0;
+    }
+    let found = node.fields.entries().iter().any(|entry| {
+        matches!(&entry.value, FieldValue::String(text) if text.to_lowercase().contains(query_lower))
+    });
+    if found { TEXT_FIELD_MATCH_SCORE } else { 0.0 }
+}
 
 pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let query = match args.get("query").and_then(|v| v.as_str()) {
@@ -91,7 +109,9 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
                 .as_ref()
                 .map(|t| jaro_winkler(&query_lower, &t.to_lowercase()))
                 .unwrap_or(0.0);
-            let score = id_score.max(title_score);
+            let score = id_score
+                .max(title_score)
+                .max(text_field_score(n, &query_lower));
             (score, n)
         })
         .filter(|(score, _)| *score > 0.6)
