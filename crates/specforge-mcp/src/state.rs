@@ -40,6 +40,10 @@ pub struct McpState {
     /// When the current graph was compiled. Compared against the watch
     /// snapshot marker mtime to detect staleness (C9-07).
     pub loaded_at: Option<std::time::SystemTime>,
+    /// The Wasm runtime extensions run in, when the host supplies one; by
+    /// default each compile and extension call builds the project's runtime
+    /// (`specforge_component::project_runtime`).
+    pub extension_runtime: Option<std::sync::Arc<dyn specforge_wasm::WasmRuntime>>,
 }
 
 impl McpState {
@@ -126,7 +130,26 @@ impl McpState {
             manifests: Vec::new(),
             project_config: ProjectConfig::default(),
             loaded_at: None,
+            extension_runtime: None,
         }
+    }
+
+    /// The runtime extensions of the project at `root` run in: the host's,
+    /// or the project's own.
+    pub fn wasm_runtime(
+        &self,
+        root: &std::path::Path,
+    ) -> std::sync::Arc<dyn specforge_wasm::WasmRuntime> {
+        match &self.extension_runtime {
+            Some(runtime) => std::sync::Arc::clone(runtime),
+            None => std::sync::Arc::new(specforge_component::project_runtime(root)),
+        }
+    }
+
+    /// Compile the project at `root` with its extensions in [`Self::wasm_runtime`].
+    pub fn compile(&self, root: &std::path::Path) -> crate::compile::CompileResult {
+        let runtime = self.wasm_runtime(root);
+        crate::compile::compile_project_with_runtime(root, Some(runtime.as_ref()))
     }
 
     pub fn is_initialized(&self) -> bool {
@@ -152,7 +175,7 @@ impl McpState {
     pub fn recompile(&mut self, root: &std::path::Path) {
         let previous_graph = self.graph.clone();
         let previous_diagnostics = self.diagnostics.clone();
-        let result = crate::compile::compile_project(root);
+        let result = self.compile(root);
         self.graph = result.graph;
         self.diagnostics = result.diagnostics;
         self.kind_registry = result.kind_registry;

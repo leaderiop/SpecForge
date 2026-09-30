@@ -1,5 +1,7 @@
 use serde_json::{Value, json};
-use specforge_registry::{SurfaceContributions, SurfaceType};
+use specforge_registry::{
+    CommandArg, CommandArgType, SurfaceContributions, SurfaceRegistryEntry, SurfaceType,
+};
 
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
@@ -14,7 +16,8 @@ pub fn register_defaults(state: &mut McpState) {
 }
 
 /// Convert manifest surface contributions into MCP tool and resource descriptors,
-/// appending them to the existing registries.
+/// appending them to the existing registries, then auto-promote every CLI
+/// command to an MCP tool (see [`auto_promote_commands`]).
 pub fn register_extension_surfaces(
     state: &mut McpState,
     manifest_surfaces: &[(String, SurfaceContributions)],
@@ -38,6 +41,145 @@ pub fn register_extension_surfaces(
             });
         }
     }
+    auto_promote_commands(state, manifest_surfaces);
+}
+
+/// Every extension CLI command becomes the MCP tool
+/// `specforge.{ext_short}.{cmd_id}`, its input schema derived from the
+/// command's args, dispatched to the command's export. A tool already
+/// registered under that name (core or explicitly contributed) wins, and
+/// the command is reported with I017. Emits `commands_auto_promoted` when
+/// any extension contributes commands.
+fn auto_promote_commands(
+    state: &mut McpState,
+    manifest_surfaces: &[(String, SurfaceContributions)],
+) {
+    let mut promoted_count = 0;
+    let mut conflict_count = 0;
+    let mut any_commands = false;
+    for (ext_name, surfaces) in manifest_surfaces {
+        if surfaces.commands.is_empty() {
+            continue;
+        }
+        any_commands = true;
+        let explicit: std::collections::HashSet<String> =
+            state.tool_registry.iter().map(|t| t.name.clone()).collect();
+        let args: Vec<Vec<(&str, &str)>> = surfaces
+            .commands
+            .iter()
+            .map(|cmd| {
+                cmd.args
+                    .iter()
+                    .map(|arg| (arg.name.as_str(), arg_type_name(&arg.arg_type)))
+                    .collect()
+            })
+            .collect();
+        let commands: Vec<(&str, &[(&str, &str)])> = surfaces
+            .commands
+            .iter()
+            .zip(&args)
+            .map(|(cmd, args)| (cmd.id.as_str(), args.as_slice()))
+            .collect();
+        let short = ext_short(state, ext_name);
+        let (tools, diagnostics) =
+            specforge_wasm::auto_promote_commands_to_mcp_tools(&commands, &explicit, &short);
+        conflict_count += diagnostics.len();
+        state.diagnostics.extend(diagnostics);
+
+        for tool in tools {
+            let Some(cmd) = surfaces
+                .commands
+                .iter()
+                .find(|c| c.id == tool.source_command_id)
+            else {
+                continue;
+            };
+            // The promoted tool follows its command's enabled state.
+            let enabled = state
+                .surface_entries
+                .iter()
+                .find(|e| {
+                    e.surface_type == SurfaceType::Command
+                        && e.contribution_name == cmd.id
+                        && &e.extension_name == ext_name
+                })
+                .is_none_or(|e| e.enabled);
+            state.tool_registry.push(McpToolDescriptor {
+                name: tool.name.clone(),
+                description: cmd.description.clone(),
+                input_schema: derived_input_schema(tool.input_schema, &cmd.args),
+                category: Some("extension".into()),
+            });
+            state.surface_entries.push(SurfaceRegistryEntry {
+                surface_type: SurfaceType::AutoPromotedTool,
+                contribution_name: tool.name,
+                extension_name: ext_name.clone(),
+                export_name: cmd.export.clone(),
+                enabled,
+            });
+            promoted_count += 1;
+        }
+    }
+    if any_commands {
+        state.push_event(
+            "commands_auto_promoted",
+            json!({"promotedCount": promoted_count, "conflictCount": conflict_count}),
+        );
+    }
+}
+
+/// The manifest spelling of a command arg type.
+fn arg_type_name(arg_type: &CommandArgType) -> &'static str {
+    match arg_type {
+        CommandArgType::StringArg => "string",
+        CommandArgType::PathArg => "path",
+        CommandArgType::BoolArg => "bool",
+        CommandArgType::EnumArg { .. } => "enum",
+        CommandArgType::IntegerArg => "integer",
+    }
+}
+
+/// An extension's short name for tool naming: its manifest `ext_short`,
+/// else the last segment of its name (`@specforge/product` -> `product`).
+fn ext_short(state: &McpState, ext_name: &str) -> String {
+    state
+        .manifests
+        .iter()
+        .find(|m| m.name == ext_name)
+        .and_then(|m| m.ext_short.clone())
+        .unwrap_or_else(|| {
+            ext_name
+                .rsplit('/')
+                .next()
+                .unwrap_or(ext_name)
+                .trim_start_matches('@')
+                .to_string()
+        })
+}
+
+/// Complete the per-arg types of `schema` with what the args also declare:
+/// enum values, descriptions, and which args are required.
+fn derived_input_schema(mut schema: Value, args: &[CommandArg]) -> Value {
+    for arg in args {
+        let Some(property) = schema["properties"].get_mut(&arg.name) else {
+            continue;
+        };
+        if let CommandArgType::EnumArg { values } = &arg.arg_type {
+            property["enum"] = json!(values);
+        }
+        if let Some(description) = &arg.description {
+            property["description"] = json!(description);
+        }
+    }
+    let required: Vec<&str> = args
+        .iter()
+        .filter(|a| a.required)
+        .map(|a| a.name.as_str())
+        .collect();
+    if !required.is_empty() {
+        schema["required"] = json!(required);
+    }
+    schema
 }
 
 pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResponse {

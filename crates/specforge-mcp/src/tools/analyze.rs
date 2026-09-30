@@ -1,7 +1,6 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
-use crate::compile::compile_project;
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::registry::register_extension_surfaces;
 use crate::state::McpState;
@@ -28,7 +27,7 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
     if let Some(root) = &path
         && (!use_cached || state.graph.node_count() == 0)
     {
-        let result = compile_project(root);
+        let result = state.compile(root);
         state.graph = result.graph;
         state.diagnostics = result.diagnostics;
         state.kind_registry = result.kind_registry;

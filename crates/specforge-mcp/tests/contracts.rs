@@ -284,13 +284,18 @@ fn project_dir(config: Value, spec: &str) -> tempfile::TempDir {
     dir
 }
 
-// NOT LINKED to "MCP Initialize: MCP initialization holds — …": no fixture
-// extension contributes MCP surfaces, so surface_contributions_merged cannot
-// be exercised through initialize. Everything else in the contract is.
-#[test]
+#[specforge_test(
+    behavior = "mcp_initialize",
+    verify = "MCP Initialize: MCP initialization holds — compiler_api_available, wasm_runtime_available, capabilities_returned, surface_contributions_merged, mcp_initialized_emitted"
+)]
 fn contract_initialize() {
-    let dir = project_dir(json!({"name":"t","version":"0.1.0","extensions":[]}), "");
-    let mut server = McpServer::new();
+    use crate::fake_extension::{self, EXT, FakeExtension};
+    // wasm_runtime_available: the project's extension, @test/cmds, runs in
+    // this runtime and contributes an MCP tool, a resource and two CLI
+    // commands (one promoted, one shadowed by the explicit tool).
+    let ext = std::sync::Arc::new(FakeExtension::new());
+    let dir = fake_extension::project();
+    let mut server = fake_extension::server_with(&ext);
 
     // No tool call is accepted before initialization completes.
     let early = call_tool(&mut server, "specforge.stats", json!({}));
@@ -336,11 +341,28 @@ fn contract_initialize() {
     let prompts = names("prompts", "name");
     assert!(prompts.contains(&"specforge://prompts/context".to_string()));
 
+    // surface_contributions_merged: after the core tools and resources come
+    // the extension's explicit tool, its promoted command, and its resource.
+    let core_tools = specforge_mcp::registry::default_tools().len();
+    assert_eq!(
+        tools[core_tools..],
+        ["specforge.cmds.check", "specforge.cmds.report"]
+    );
+    let core_resources = specforge_mcp::registry::default_resource_count();
+    assert_eq!(
+        resources[core_resources..],
+        ["specforge://ext/cmds/summary"]
+    );
+
     // compiler_api_available: the project root was located and used.
     assert_eq!(
         server.state().project_root.as_deref(),
         Some(dir.path()),
         "initialize must adopt the projectRoot it was given"
+    );
+    assert_eq!(
+        server.state().extension_info,
+        [(EXT.to_string(), "0.1.0".to_string())]
     );
 
     // mcp_initialized_emitted, with the advertised counts.
@@ -348,15 +370,17 @@ fn contract_initialize() {
     assert_eq!(
         initialized,
         [json!({
-            "tools_registered": tools.len(),
-            "resources_registered": resources.len(),
+            "tools_registered": core_tools + 2,
+            "resources_registered": core_resources + 1,
             "prompts_registered": prompts.len(),
-            "extensions_loaded": server.state().extension_info.len(),
-            "surface_tools_registered": 0,
-            "surface_resources_registered": 0,
-            "auto_promoted_tools": 0,
+            "extensions_loaded": 1,
+            "surface_tools_registered": 2,
+            "surface_resources_registered": 1,
+            "auto_promoted_tools": 1,
         })]
     );
+    assert_eq!(tools.len(), core_tools + 2);
+    assert_eq!(resources.len(), core_resources + 1);
 
     // Tool calls are accepted once initialized.
     let after = call_tool(&mut server, "specforge.stats", json!({}));
@@ -1265,13 +1289,15 @@ fn add_extension_surface(server: &mut McpServer, name: &str, enabled: bool) {
     }
 }
 
-// NOT LINKED to "List MCP Tools: listing MCP tools holds — …": CLI commands
-// are never auto-promoted into the MCP tool list
-// (auto_promote_commands_to_mcp_tools is not wired into the server), so
-// complete_list_returned does not hold for them.
-#[test]
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
+)]
 fn contract_list_tools() {
-    let mut server = test_server();
+    use crate::fake_extension::{self, FakeExtension};
+    // server_initialized: over a project whose extension contributes an
+    // MCP tool and two CLI commands.
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
     add_extension_surface(&mut server, "on", true);
     add_extension_surface(&mut server, "off", false);
 
@@ -1312,14 +1338,123 @@ fn contract_list_tools() {
     ] {
         assert!(names.contains(&core), "{core} missing: {names:?}");
     }
-    // Extension-contributed tools are listed; disabled ones are not.
-    assert!(names.contains(&"ext.on"), "{names:?}");
-    assert!(!names.contains(&"ext.off"), "{names:?}");
+    // complete_list_returned: every core tool, then the extension's
+    // explicit tool, its auto-promoted command, and the injected tool;
+    // disabled_excluded: ext.off is not listed.
+    let core: Vec<String> = specforge_mcp::registry::default_tools()
+        .into_iter()
+        .map(|t| t.name)
+        .collect();
+    assert_eq!(names[..core.len()], core);
+    assert_eq!(
+        names[core.len()..],
+        ["specforge.cmds.check", "specforge.cmds.report", "ext.on"]
+    );
 
-    // The count is what the client got: disabled surfaces excluded.
+    // A disabled auto-promoted command is excluded too.
+    for entry in &mut server.state_mut().surface_entries {
+        if entry.contribution_name == "specforge.cmds.report" {
+            entry.enabled = false;
+        }
+    }
+    let resp = call(&mut server, "tools/list", json!({}));
+    let after: Vec<&str> = resp["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(after[core.len()..], ["specforge.cmds.check", "ext.on"]);
+
+    // discovery_emitted: the count is what the client got.
     assert_eq!(
         events(&server, "mcp_discovery_invoked"),
-        [json!({"discoveryType": "tools", "resultCount": names.len()})]
+        [
+            json!({"discoveryType": "tools", "resultCount": core.len() + 3}),
+            json!({"discoveryType": "tools", "resultCount": core.len() + 2}),
+        ]
+    );
+}
+
+#[specforge_test(
+    behavior = "auto_promote_commands_to_mcp_tools",
+    verify = "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surface_contributions_registered_fired, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted"
+)]
+fn contract_auto_promote_commands() {
+    use crate::fake_extension::{self, EXT, FakeExtension};
+    use specforge_registry::SurfaceType;
+    let output = json!({"exit_code": 0, "stdout": "report written", "stderr": ""});
+    let (mut server, ext, _dir) =
+        fake_extension::initialized(FakeExtension::new().with_output("cmd__report", output));
+
+    // surface_contributions_registered_fired: the compile registered the
+    // extension's contributions, commands included.
+    let entries = |ty: SurfaceType| -> Vec<(String, String)> {
+        server
+            .state()
+            .surface_entries
+            .iter()
+            .filter(|e| e.surface_type == ty)
+            .map(|e| (e.contribution_name.clone(), e.export_name.clone()))
+            .collect()
+    };
+    let pair = |a: &str, b: &str| (a.to_string(), b.to_string());
+    assert_eq!(
+        entries(SurfaceType::Command),
+        [pair("report", "cmd__report"), pair("check", "cmd__check")]
+    );
+    assert_eq!(
+        entries(SurfaceType::McpTool),
+        [pair("specforge.cmds.check", "mcp__check")]
+    );
+
+    // all_commands_promoted + naming_convention_enforced: every command
+    // becomes specforge.cmds.<id> unless an explicit tool has the name.
+    assert_eq!(
+        entries(SurfaceType::AutoPromotedTool),
+        [pair("specforge.cmds.report", "cmd__report")]
+    );
+    let resp = call_tool(
+        &mut server,
+        "specforge.cmds.report",
+        json!({"format": "json"}),
+    );
+    assert_eq!(resp["result"]["content"][0]["text"], "report written");
+    assert_eq!(
+        ext.calls(),
+        [(
+            EXT.to_string(),
+            "cmd__report".to_string(),
+            json!({"format": "json"})
+        )]
+    );
+
+    // explicit_tool_wins: `check` stays the explicit tool, with I017.
+    let check = find(
+        &call(&mut server, "tools/list", json!({}))["result"]["tools"],
+        "name",
+        "specforge.cmds.check",
+    )
+    .clone();
+    assert_eq!(check["description"], "Explicit check tool");
+    let i017: Vec<&str> = server
+        .state()
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "I017")
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(
+        i017,
+        [
+            "command 'check' not auto-promoted: explicit MCP tool 'specforge.cmds.check' already exists"
+        ]
+    );
+
+    // commands_auto_promoted_emitted: once, with the counts.
+    assert_eq!(
+        events(&server, "commands_auto_promoted"),
+        [json!({"promotedCount": 1, "conflictCount": 1})]
     );
 }
 

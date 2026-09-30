@@ -478,3 +478,201 @@ fn entities_resource_registered() {
         uris
     );
 }
+
+// --- Auto-promoted CLI commands (`@test/cmds`, see fake_extension.rs) ---
+
+use crate::fake_extension::{self, EXT, FakeExtension};
+
+/// The listed descriptor called `name`, or `None`.
+fn listed_tool(server: &mut McpServer, name: &str) -> Option<Value> {
+    let resp = call(server, "tools/list", json!({}));
+    resp["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == name)
+        .cloned()
+}
+
+#[specforge_test(
+    behavior = "auto_promote_commands_to_mcp_tools",
+    verify = "CLI command auto-promoted to MCP tool"
+)]
+fn cli_command_auto_promoted_to_mcp_tool() {
+    let output = json!({"exit_code": 0, "stdout": "3 of 4 covered", "stderr": ""});
+    let (mut server, ext, _dir) =
+        fake_extension::initialized(FakeExtension::new().with_output("cmd__report", output));
+
+    let listed = listed_tool(&mut server, "specforge.cmds.report").expect("report promoted");
+    assert_eq!(listed["description"], "Write a coverage report");
+    assert_eq!(listed["category"], "extension");
+
+    // A call reaches the command's cmd__ export with the tool arguments,
+    // and the command's stdout is the tool result.
+    let args = json!({"format": "md", "verbose": true});
+    let resp = call_tool(&mut server, "specforge.cmds.report", args.clone());
+    assert_eq!(
+        resp["result"],
+        json!({"content": [{"type": "text", "text": "3 of 4 covered"}], "isError": false})
+    );
+    assert_eq!(
+        ext.calls(),
+        [(EXT.to_string(), "cmd__report".to_string(), args)]
+    );
+
+    // A failing command is a failed tool result carrying its stderr.
+    let failing = json!({"exit_code": 2, "stdout": "", "stderr": "no tests found"});
+    let (mut server, _ext, _dir) =
+        fake_extension::initialized(FakeExtension::new().with_output("cmd__report", failing));
+    let resp = call_tool(
+        &mut server,
+        "specforge.cmds.report",
+        json!({"format": "md"}),
+    );
+    assert_eq!(
+        resp["result"],
+        json!({"content": [
+            {"type": "text", "text": ""},
+            {"type": "text", "text": "no tests found"}
+        ], "isError": true})
+    );
+}
+
+#[specforge_test(
+    behavior = "auto_promote_commands_to_mcp_tools",
+    verify = "auto-promoted tool name follows specforge.{ext}.{cmd} pattern"
+)]
+fn auto_promoted_tool_name_follows_pattern() {
+    let (server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    // `@test/cmds` has the short name `cmds`; each promoted tool is
+    // specforge.cmds.<command id>, dispatched to the command's export.
+    let promoted: Vec<(String, String, String)> = server
+        .state()
+        .surface_entries
+        .iter()
+        .filter(|e| e.surface_type == specforge_registry::SurfaceType::AutoPromotedTool)
+        .map(|e| {
+            (
+                e.contribution_name.clone(),
+                e.extension_name.clone(),
+                e.export_name.clone(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        promoted,
+        [(
+            "specforge.cmds.report".to_string(),
+            EXT.to_string(),
+            "cmd__report".to_string()
+        )]
+    );
+}
+
+#[specforge_test(
+    behavior = "auto_promote_commands_to_mcp_tools",
+    verify = "derived input_schema computed from command args"
+)]
+fn derived_input_schema_from_command_args() {
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    let listed = listed_tool(&mut server, "specforge.cmds.report").unwrap();
+    assert_eq!(
+        listed["inputSchema"],
+        json!({
+            "type": "object",
+            "properties": {
+                "format": {"type": "string", "enum": ["md", "json"], "description": "Output format"},
+                "verbose": {"type": "boolean"},
+                "limit": {"type": "integer"},
+                "out": {"type": "string"}
+            },
+            "required": ["format"]
+        })
+    );
+}
+
+#[specforge_test(
+    behavior = "auto_promote_commands_to_mcp_tools",
+    verify = "explicit MCP tool wins over auto-promoted tool with I017"
+)]
+fn explicit_mcp_tool_wins_over_auto_promoted() {
+    let (mut server, ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
+    );
+    // One descriptor named specforge.cmds.check: the explicit one.
+    let resp = call(&mut server, "tools/list", json!({}));
+    let named: Vec<&Value> = resp["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|t| t["name"] == "specforge.cmds.check")
+        .collect();
+    assert_eq!(
+        named,
+        [&json!({
+            "name": "specforge.cmds.check",
+            "description": "Explicit check tool",
+            "inputSchema": {"type": "object", "properties": {"strict": {"type": "boolean"}}},
+            "category": "extension"
+        })]
+    );
+    let i017: Vec<_> = server
+        .state()
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "I017")
+        .map(|d| (d.severity, d.message.clone()))
+        .collect();
+    assert_eq!(
+        i017,
+        [(
+            specforge_common::Severity::Info,
+            "command 'check' not auto-promoted: explicit MCP tool 'specforge.cmds.check' already exists"
+                .to_string()
+        )]
+    );
+
+    // A call reaches the explicit tool's mcp__ export, not cmd__check.
+    let resp = call_tool(&mut server, "specforge.cmds.check", json!({"strict": true}));
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    assert_eq!(
+        ext.calls(),
+        [(
+            EXT.to_string(),
+            "mcp__check".to_string(),
+            json!({"strict": true})
+        )]
+    );
+}
+
+#[specforge_test(
+    behavior = "commands_auto_promoted",
+    verify = "emits commands_auto_promoted with correct promoted and conflict counts"
+)]
+fn event_commands_auto_promoted() {
+    let (server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    let events: Vec<Value> = server
+        .state()
+        .events
+        .iter()
+        .filter(|e| e.name == "commands_auto_promoted")
+        .map(|e| {
+            let mut params = e.params.clone();
+            assert!(params["timestamp"].is_string(), "{params}");
+            params.as_object_mut().unwrap().remove("timestamp");
+            params
+        })
+        .collect();
+    assert_eq!(events, [json!({"promotedCount": 1, "conflictCount": 1})]);
+
+    // A project whose extensions contribute no command promotes nothing
+    // and says nothing.
+    let (server, _dir) = init_server_with_surfaces();
+    assert!(
+        !server
+            .state()
+            .events
+            .iter()
+            .any(|e| e.name == "commands_auto_promoted")
+    );
+}

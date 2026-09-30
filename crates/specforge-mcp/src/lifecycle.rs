@@ -3,7 +3,6 @@ use std::path::PathBuf;
 
 use specforge_common::load_project_config;
 
-use crate::compile::compile_project;
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::registry::{register_defaults, register_extension_surfaces};
 use crate::state::{McpState, ServerPhase};
@@ -51,7 +50,7 @@ pub fn handle_initialize(
     if let Some(root) = &project_root
         && root.exists()
     {
-        let result = compile_project(root);
+        let result = state.compile(root);
         state.graph = result.graph;
         state.diagnostics = result.diagnostics;
         state.kind_registry = result.kind_registry;

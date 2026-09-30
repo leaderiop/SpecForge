@@ -92,6 +92,44 @@ pub(crate) fn with_diagnostics_meta(
     response
 }
 
+/// A failed extension call as a failed tool result.
+fn extension_error(id: Option<Value>, diag: &specforge_common::Diagnostic) -> JsonRpcResponse {
+    JsonRpcResponse::success(
+        id,
+        json!({
+            "content": [{ "type": "text", "text": format!("{}: {}", diag.code, diag.message) }],
+            "isError": true,
+        }),
+    )
+}
+
+/// An auto-promoted command's run as a tool result: its stdout, then its
+/// stderr when it wrote any; a nonzero exit code fails the call.
+fn command_tool_result(
+    id: Option<Value>,
+    outcome: Result<specforge_wasm::CommandOutput, specforge_common::Diagnostic>,
+) -> JsonRpcResponse {
+    match outcome {
+        Ok(output) => {
+            let mut content = vec![json!({
+                "type": "text",
+                "text": String::from_utf8_lossy(&output.stdout),
+            })];
+            if !output.stderr.is_empty() {
+                content.push(json!({
+                    "type": "text",
+                    "text": String::from_utf8_lossy(&output.stderr),
+                }));
+            }
+            JsonRpcResponse::success(
+                id,
+                json!({ "content": content, "isError": output.exit_code != 0 }),
+            )
+        }
+        Err(diag) => extension_error(id, &diag),
+    }
+}
+
 /// Whether a mutation tool call changes files, with each tool's defaults:
 /// format's check and diff modes and every dry run only report, and
 /// report-only calls complete no mutation.
@@ -252,34 +290,38 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
                         ),
                     );
                 };
-                let runtime = specforge_component::project_runtime(&root);
+                let runtime = state.wasm_runtime(&root);
                 let input = serde_json::to_vec(&arguments).unwrap_or_default();
-                match specforge_wasm::dispatch_surface_mcp_tool(
-                    &entry.extension_name,
-                    &entry.export_name,
-                    &input,
-                    &runtime,
-                ) {
-                    Ok(value) => JsonRpcResponse::success(
+                if entry.surface_type == SurfaceType::AutoPromotedTool {
+                    // An auto-promoted CLI command runs its cmd__ export.
+                    command_tool_result(
                         id,
-                        json!({
-                            "content": [{
-                                "type": "text",
-                                "text": serde_json::to_string_pretty(&value).unwrap_or_default(),
-                            }],
-                            "isError": false,
-                        }),
-                    ),
-                    Err(diag) => JsonRpcResponse::success(
-                        id,
-                        json!({
-                            "content": [{
-                                "type": "text",
-                                "text": format!("{}: {}", diag.code, diag.message),
-                            }],
-                            "isError": true,
-                        }),
-                    ),
+                        specforge_wasm::dispatch_surface_command(
+                            &entry.extension_name,
+                            &entry.export_name,
+                            &input,
+                            runtime.as_ref(),
+                        ),
+                    )
+                } else {
+                    match specforge_wasm::dispatch_surface_mcp_tool(
+                        &entry.extension_name,
+                        &entry.export_name,
+                        &input,
+                        runtime.as_ref(),
+                    ) {
+                        Ok(value) => JsonRpcResponse::success(
+                            id,
+                            json!({
+                                "content": [{
+                                    "type": "text",
+                                    "text": serde_json::to_string_pretty(&value).unwrap_or_default(),
+                                }],
+                                "isError": false,
+                            }),
+                        ),
+                        Err(diag) => extension_error(id, &diag),
+                    }
                 }
             } else {
                 // MCP spec (tools/call): an unrecognized tool is an Invalid
