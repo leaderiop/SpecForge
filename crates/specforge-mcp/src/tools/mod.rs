@@ -48,7 +48,6 @@ fn writes(name: &str, args: &Value) -> bool {
     match name {
         "specforge.format" => flag("write")
             .unwrap_or(!flag("check").unwrap_or(false) && !flag("diff").unwrap_or(false)),
-        "specforge.migrate" => !flag("dry_run").unwrap_or(true),
         _ => !flag("dry_run").unwrap_or(false),
     }
 }

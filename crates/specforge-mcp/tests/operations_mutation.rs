@@ -108,6 +108,23 @@ fn fresh_project_dir() -> tempfile::TempDir {
     tempfile::TempDir::new().unwrap()
 }
 
+/// The params of every `name` event the server emitted, oldest first.
+fn events_named(server: &McpServer, name: &str) -> Vec<Value> {
+    server
+        .state()
+        .events
+        .iter()
+        .filter(|e| e.name == name)
+        .map(|e| e.params.clone())
+        .collect()
+}
+
+fn invoked(server: &McpServer, tool: &str) -> bool {
+    events_named(server, "mcp_tool_invoked")
+        .iter()
+        .any(|p| p["tool"] == tool)
+}
+
 fn tool_text(resp: &Value) -> String {
     resp["result"]["content"][0]["text"]
         .as_str()
@@ -392,11 +409,41 @@ fn rename_invalid_new_name() {
     verify = "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 )]
 fn rename_contract() {
-    let (mut server, _root) = server_with_token_project();
+    // graph_available, filesystem_available: a compiled project on disk.
+    let (mut server, root) = server_with_token_project();
+    let before = files_under(&root);
+
+    // dry_run_safe: the plan, and nothing on disk or in the graph changes.
+    let plan = rename(
+        &mut server,
+        json!({"entity_id": "token_unique", "new_name": "token_distinct", "dry_run": true}),
+    );
+    assert_eq!(plan["edits"].as_array().unwrap().len(), 2, "{plan}");
+    assert_eq!(files_under(&root), before);
+    assert!(server.state().graph.node("token_unique").is_some());
 
     let parsed = rename(
         &mut server,
         json!({"entity_id": "token_unique", "new_name": "token_distinct"}),
+    );
+
+    // references_updated: the declaration and the reference on disk.
+    assert_eq!(
+        std::fs::read_to_string(root.join("spec/tokens.spec")).unwrap(),
+        TOKENS_SPEC.replace("invariant token_unique", "invariant token_distinct")
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("spec/login.spec")).unwrap(),
+        LOGIN_SPEC.replace("invariants [token_unique]", "invariants [token_distinct]")
+    );
+    assert!(server.state().graph.node("token_unique").is_none());
+    assert!(server.state().graph.node("token_distinct").is_some());
+    let completed = events_named(&server, "mcp_mutation_completed");
+    assert!(
+        completed
+            .iter()
+            .any(|p| p["tool"] == "specforge.rename" && p["success"] == true),
+        "{completed:?}"
     );
 
     // Recompiled: the response carries the fresh diagnostics, and the
@@ -627,21 +674,46 @@ fn init_contract() {
     let dir = fresh_project_dir();
     let mut server = test_server();
 
+    // filesystem_available, project_created
     init(
         &mut server,
         json!({"path": dir.path().to_str().unwrap(), "name": "contractproject"}),
     );
+    assert_eq!(read_config(dir.path())["name"], "contractproject");
+    assert!(dir.path().join("spec/specforge.spec").is_file());
 
-    assert!(dir.path().join("specforge.json").is_file());
-    assert!(dir.path().join("spec").is_dir());
-    let events: Vec<&str> = server
-        .state()
-        .events
-        .iter()
-        .map(|e| e.name.as_str())
-        .collect();
-    assert!(events.contains(&"mcp_tool_invoked"), "{events:?}");
-    assert!(events.contains(&"project_initialized"), "{events:?}");
+    // path_outside_current: a path inside the server's project is refused.
+    let current = server.state().project_root.clone().unwrap();
+    let nested = current.join("nested");
+    let error = init_error(
+        &mut server,
+        json!({"path": nested.to_str().unwrap(), "name": "nested"}),
+    );
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("inside the current project"),
+        "{error}"
+    );
+    assert!(!nested.exists());
+
+    // extensions_validated: an unknown extension is refused.
+    let other = fresh_project_dir();
+    let error = init_error(
+        &mut server,
+        json!({"path": other.path().to_str().unwrap(), "name": "other",
+               "extensions": ["@specforge/nonexistent"]}),
+    );
+    assert_eq!(error["data"]["code"], "extension_not_found", "{error}");
+    assert!(!other.path().join("specforge.json").exists());
+
+    // project_initialized_emitted (once: only for the created project),
+    // tool_invoked_emitted.
+    let initialized = events_named(&server, "project_initialized");
+    assert_eq!(initialized.len(), 1, "{initialized:?}");
+    assert_eq!(initialized[0]["name"], "contractproject");
+    assert!(invoked(&server, "specforge.init"));
 }
 
 // --- specforge.add_extension ---
@@ -1099,18 +1171,37 @@ fn remove_extension_dry_run() {
     verify = "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"
 )]
 fn format_contract() {
-    let mut server = test_server();
-    // Requires: filesystem available (server has state)
-    // Ensures: files formatted, check_mode_readonly, events emitted
-    let resp = call_tool(&mut server, "specforge.format", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["all_clean"].is_boolean());
-    // Check mode must not modify
-    let check_resp = call_tool(&mut server, "specforge.format", json!({"check": true}));
-    let check_text = tool_text(&check_resp);
-    let check_parsed: Value = serde_json::from_str(&check_text).unwrap();
-    assert_eq!(check_parsed["check_only"], true);
+    // filesystem_available: a project with two unformatted files.
+    let (mut server, root) = server_with_unformatted();
+    let before = files_under(&root);
+
+    // check_mode_readonly: reported, not written, and no mutation.
+    let check = format_result(&mut server, json!({"check": true}));
+    assert_eq!(check["check_only"], true);
+    assert_eq!(
+        check["changed_files"].as_array().unwrap().len(),
+        2,
+        "{check}"
+    );
+    assert_eq!(files_under(&root), before);
+    assert!(events_named(&server, "mcp_mutation_completed").is_empty());
+
+    // files_formatted
+    let parsed = format_result(&mut server, json!({}));
+    assert_eq!(parsed["changed_files"].as_array().unwrap().len(), 2);
+    let formatted = std::fs::read_to_string(root.join("a.spec")).unwrap();
+    assert!(
+        formatted.contains("\n  contract \"The system MUST work\""),
+        "{formatted}"
+    );
+    assert_ne!(files_under(&root), before);
+
+    // mutation_completed_emitted, tool_invoked_emitted
+    let completed = events_named(&server, "mcp_mutation_completed");
+    assert_eq!(completed.len(), 1, "{completed:?}");
+    assert_eq!(completed[0]["tool"], "specforge.format");
+    assert_eq!(completed[0]["success"], true);
+    assert!(invoked(&server, "specforge.format"));
 }
 
 // B:provide_mcp_add_extension_tool — verify contract
@@ -1119,28 +1210,49 @@ fn format_contract() {
     verify = "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
 )]
 fn add_extension_contract() {
-    let dir = tempfile::TempDir::new().unwrap();
+    // filesystem_available: a project on disk.
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
-    // Requires: filesystem available
-    // Ensures: extension installed, invalid returns error
-    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm");
-    let ok = call_tool(
+    let root = server.state().project_root.clone().unwrap();
+    let before = files_under(&root);
+    let specifier = json!(product_blob().to_str().unwrap());
+
+    // dry_run_safe: a preview, nothing written, no extension added.
+    let resp = call_tool(
         &mut server,
         "specforge.add_extension",
-        json!({"specifier": blob.to_str().unwrap()}),
+        json!({"specifier": specifier, "dry_run": true}),
     );
-    assert!(ok["result"].is_object());
-    // Truthful install is observable on disk.
-    let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
-    assert!(lock.contains("specforge_ext_product"));
-    let invalid = call_tool(&mut server, "specforge.add_extension", json!({}));
-    assert!(invalid["error"].is_object());
+    let preview: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(preview["installed"], false, "{preview}");
+    assert_eq!(files_under(&root), before);
+    assert!(events_named(&server, "extension_added").is_empty());
+
+    // extension_installed: in specforge.json and the lock.
+    let resp = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": specifier}),
+    );
+    let installed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(installed["installed"], true, "{installed}");
+    assert_eq!(config_extensions(&root), vec![format!("{PRODUCT}@0.0.0")]);
+    let lock = std::fs::read_to_string(root.join("specforge.lock")).unwrap();
+    assert!(lock.contains(PRODUCT), "{lock}");
+
+    // wasm_downloaded: the module sits in the project's extension cache
+    // (from the local blob here; a registry install downloads it).
+    let blob = std::fs::read(product_blob()).unwrap();
+    let cached = files_under(&root.join(".specforge/extensions").join(PRODUCT));
+    assert!(
+        cached.values().any(|bytes| *bytes == blob),
+        "no module cached"
+    );
+
+    // extension_added_emitted, tool_invoked_emitted
+    let added = events_named(&server, "extension_added");
+    assert_eq!(added.len(), 1, "{added:?}");
+    assert_eq!(added[0]["extension"], PRODUCT);
+    assert!(invoked(&server, "specforge.add_extension"));
 }
 
 #[test]
@@ -1175,21 +1287,64 @@ fn remove_extension_contract() {
     verify = "Provide MCP Migrate Tool: MCP migrate tool holds — filesystem_available, migrations_applied, post_migration_validated, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 )]
 fn migrate_contract() {
+    // filesystem_available: a project with one spec file in format 0.9
+    // whose feature references an entity that does not exist.
     let mut server = test_server();
-    // Requires: filesystem available
-    // Ensures: migrations applied, dry_run safe, post-migration validated
-    let ok = call_tool(
-        &mut server,
-        "specforge.migrate",
-        json!({"from_version": "0.1.0", "to_version": "0.2.0"}),
+    let root = server.state().project_root.clone().unwrap();
+    let old = "// specforge-format: 0.9\nfeature gamma \"Gamma\" {\n    behaviors [ghost]\n}\n";
+    std::fs::write(root.join("old.spec"), old).unwrap();
+    let migrate = |server: &mut McpServer, args: Value| -> Value {
+        let resp = call_tool(server, "specforge.migrate", args);
+        serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
+    };
+
+    // dry_run_safe: the diff, and nothing on disk changes.
+    let before = files_under(&root);
+    let dry = migrate(&mut server, json!({"dry_run": true}));
+    assert_eq!(dry["dry_run"], true);
+    assert_eq!(dry["migrated"], false);
+    assert_eq!(dry["from_version"], "0.9", "{dry}");
+    let diffs = dry["diffs"].as_array().unwrap();
+    assert_eq!(diffs.len(), 1, "{dry}");
+    assert!(
+        diffs[0]["unified_text"]
+            .as_str()
+            .unwrap()
+            .contains("+// specforge-format: 1.0"),
+        "{dry}"
     );
-    assert!(ok["result"].is_object());
-    let dry = call_tool(
-        &mut server,
-        "specforge.migrate",
-        json!({"from_version": "0.1.0", "to_version": "0.2.0", "dry_run": true}),
+    assert_eq!(files_under(&root), before);
+
+    // migrations_applied
+    let applied = migrate(&mut server, json!({}));
+    assert_eq!(applied["migrated"], true, "{applied}");
+    assert_eq!(applied["files_migrated"], 1, "{applied}");
+    assert_eq!(
+        std::fs::read_to_string(root.join("old.spec")).unwrap(),
+        old.replace("0.9", "1.0")
     );
-    let text = tool_text(&dry);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed["dry_run"], true);
+
+    // post_migration_validated: the migrated project was compiled and its
+    // error reported.
+    assert_eq!(applied["post_migration_validated"], true);
+    let errors = applied["post_migration_errors"].as_array().unwrap();
+    assert!(
+        errors
+            .iter()
+            .any(|e| e["message"].as_str().unwrap().contains("ghost")),
+        "{applied}"
+    );
+
+    // Nothing left to migrate.
+    assert_eq!(migrate(&mut server, json!({}))["migrated"], false);
+
+    // mutation_completed_emitted, tool_invoked_emitted
+    let completed = events_named(&server, "mcp_mutation_completed");
+    assert!(
+        completed
+            .iter()
+            .any(|p| p["tool"] == "specforge.migrate" && p["outcome"]["migrated"] == true),
+        "{completed:?}"
+    );
+    assert!(invoked(&server, "specforge.migrate"));
 }

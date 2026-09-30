@@ -28,7 +28,21 @@ pub fn handle_operation(
         "specforge.format" => format_op(state, args, id),
         "specforge.rename" => rename_op(state, args, id),
         "specforge.init" => init_op(state, args, id),
-        "specforge.add_extension" => add_extension_op(state, args, id),
+        "specforge.add_extension" => {
+            let response = add_extension_op(state, args, id);
+            let outcome = response
+                .result
+                .as_ref()
+                .and_then(|r| r["content"][0]["text"].as_str())
+                .and_then(|text| serde_json::from_str::<Value>(text).ok());
+            if let Some(outcome) = outcome.filter(|o| o["installed"] == true) {
+                state.push_event(
+                    "extension_added",
+                    json!({"extension": outcome["extension"], "version": outcome["version"]}),
+                );
+            }
+            response
+        }
         "specforge.remove_extension" => remove_extension_op(state, args, id),
         "specforge.migrate" => migrate_op(state, args, id),
         "specforge.extensions" => extensions_op(state, args, id),
@@ -801,25 +815,30 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespon
     let dry_run = args
         .get("dry_run")
         .and_then(|v| v.as_bool())
-        .unwrap_or(true);
+        .unwrap_or(false);
     let no_backup = args
         .get("no_backup")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let content = match std::fs::read_to_string(path.join("specforge.json")) {
-        Ok(c) => c,
-        Err(_) => {
-            return err_invalid(id, format!("no specforge.json found at {}", path.display()));
-        }
-    };
-    let (version, _diags) = specforge_migrate::detect_format_version(&content);
+    if !path.join("specforge.json").is_file() {
+        return err_invalid(id, "no specforge.json found in the project root");
+    }
     let target = specforge_migrate::CURRENT_FORMAT_VERSION;
-    if version == target {
+    // The format version lives in each spec file's header, so the spec
+    // files say whether a migration is pending: preview first.
+    let preview = specforge_migrate::migrate_project(&path, &target, true, true);
+    let from_version = preview
+        .results
+        .iter()
+        .filter_map(|r| r.from_version.clone())
+        .min()
+        .unwrap_or_else(|| target.clone());
+    if preview.migrated_count == 0 && preview.failed_count == 0 {
         return ok(
             id,
             json!({
-                "from_version": format!("{version}"),
+                "from_version": format!("{from_version}"),
                 "to_version": format!("{target}"),
                 "migrated": false,
                 "dry_run": dry_run,
@@ -829,18 +848,38 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespon
         );
     }
 
-    let summary = specforge_migrate::migrate_project(&path, &target, dry_run, no_backup);
+    let summary = if dry_run {
+        preview
+    } else {
+        specforge_migrate::migrate_project(&path, &target, false, no_backup)
+    };
+    // After a migration, compile the result and report its errors.
+    let migrated = !dry_run && summary.migrated_count > 0;
+    let post_migration_errors: Vec<Value> = if migrated {
+        crate::compile::compile_project(&path)
+            .diagnostics
+            .iter()
+            .filter(|d| d.severity == specforge_common::Severity::Error)
+            .map(|d| json!({"code": d.code, "message": d.message}))
+            .collect()
+    } else {
+        Vec::new()
+    };
     ok(
         id,
         json!({
-            "from_version": format!("{version}"),
+            "from_version": format!("{from_version}"),
             "to_version": format!("{target}"),
-            "migrated": !dry_run && summary.migrated_count > 0,
+            "migrated": migrated,
             "dry_run": dry_run,
             "files_migrated": summary.migrated_count,
             "files_skipped": summary.skipped_count,
             "files_failed": summary.failed_count,
+            "results": summary.results,
+            "diffs": summary.diffs,
             "diagnostics": summary.diagnostics,
+            "post_migration_validated": migrated,
+            "post_migration_errors": post_migration_errors,
         }),
     )
 }
