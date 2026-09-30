@@ -391,10 +391,9 @@ behavior resolve_registry_source "Resolve Registry Source" {
     system MUST query the configured registry for that scope. Scope routing
     MUST use the scope_filter field from RegistryConfig entries in
     specforge.json. If no scope-specific registry matches, the system MUST
-    fall back to the default registry. "Fall back to the default registry"
-    means the default registry URL from user configuration, not a hardcoded
-    URL in compiler source. The URL is published in documentation and can be
-    overridden or disabled via `default_registry: false` in specforge.json.
+    fall back to the default registry. "The default registry" means the
+    registries entry marked `default_registry: true` in specforge.json:
+    SpecForge ships no registry, so no registry URL is a constant in source.
     Network errors MUST produce an ExtensionError diagnostic with retry guidance.
   """
   verify unit "scope-specific registry queried for matching scope"
@@ -412,7 +411,7 @@ behavior search_registry "Search Registry" {
   ports      [RegistryClient]
   produces   [registry_search_completed]
   requires {
-    registries_available      "At least one registry is configured or default registry is enabled"
+    registries_available      "At least one registry is configured in specforge.json"
     registry_client_available "RegistryClient port is available for network queries"
   }
   ensures {
@@ -433,7 +432,10 @@ behavior search_registry "Search Registry" {
     same name + version appears from multiple registries, the first
     registry in specforge.json declaration order wins. Output MUST be
     deterministic — sorted by relevance score then extension name.
+    With no registry configured, search MUST make no network call and MUST
+    fail with E063, whose suggestion names the specforge.json registries key.
   """
+  verify unit "with no registry configured, search makes no network call and reports how to configure one"
   verify unit "queries all configured registries"
   verify unit "filters by contribution type"
   verify unit "deduplicates results across registries"
@@ -468,8 +470,11 @@ behavior publish_to_registry "Publish to Registry" {
     .wasm binary, upload both to the registry, and authenticate the
     request. Duplicate version numbers MUST be rejected unless --force is
     provided. Successful publish MUST return the registry URL for the
-    published version.
+    published version. With no registry configured, publish MUST make no
+    network call and MUST fail with E063, whose suggestion names the
+    specforge.json registries key.
   """
+  verify unit "with no registry configured, publish makes no network call and reports how to configure one"
   verify unit "manifest validated before publish"
   verify unit "SHA256 computed and included in upload"
   verify unit "duplicate version rejected without --force"
@@ -544,19 +549,19 @@ behavior configure_registries "Configure Registries" {
     specforge.json into RegistryConfig entries. Each entry MUST have an
     alias (unique identifier), url, and optional scope_filter array.
     When resolving extension specifiers, scope_filter MUST route @scope/
-    prefixed specifiers to the matching registry. If no registries are
-    configured, registry operations (search, fetch) MUST produce an I003
-    info diagnostic indicating no registries are available. First-use
-    MUST NOT require network access — registries are opt-in configuration.
-    The default registry URL MUST be resolved from configuration
-    (`specforge.json` registries array or `SPECFORGE_REGISTRY_URL`
-    environment variable) — it MUST NOT be a compiled-in constant in
-    compiler source. It is NEVER contacted until the user initiates a
-    registry operation (search, fetch). Setting `default_registry: false`
-    disables it entirely. First-use is always local/offline per P8.
-    Setting `registries: []` with `default_registry: false` in specforge.json
-    explicitly disables the default public registry, forcing fully offline
-    operation.
+    prefixed specifiers to the matching registry. A configuration with no
+    registries array, or with no entry marked `default_registry: true`,
+    MUST produce an I003 info diagnostic. SpecForge ships no registry: the
+    registries array in specforge.json is the only source of registry URLs,
+    and no registry URL is a compiled-in constant (SpecForge does not own
+    the specforge.dev domain). A registry is NEVER contacted until the user
+    initiates a registry operation. With no registry configured, the
+    registry operations (add from a registry, update, search, publish,
+    login) MUST make no network call and MUST fail with an E063 diagnostic
+    whose suggestion names the specforge.json registries key. Builtin
+    extensions and local .wasm files MUST install with no registry
+    configured. First-use MUST NOT require network access — registries are
+    opt-in configuration, and first use is always local/offline per P8.
   """
   verify unit "registries parsed from specforge.json"
   verify unit "scope_filter routes to correct registry"
@@ -566,7 +571,8 @@ behavior configure_registries "Configure Registries" {
   verify property "registry API schema is published as open specification"
   verify integration "all registries disabled produces fully offline mode"
   verify integration "first specforge init succeeds without any registry authentication"
-  verify unit "default public registry is accessible without credentials"
+  verify unit "builtins and local .wasm files install with no registry configured"
+  verify unit "no registry URL on the specforge.dev domain is compiled into non-test source"
   verify contract "Configure Registries: registry configuration holds — specforge_json_parsed, filesystem_available, registry_entries_created, scope_filters_set, no_registries_diagnosed, no_hardcoded_urls, registries_configured_emitted"
 }
 
@@ -685,7 +691,10 @@ behavior validate_registry_credentials "Validate Registry Credentials" {
     entry referencing only the environment variable name or token file path —
     never the raw token value. The system MUST confirm successful authentication
     with an info message including the registry alias and authenticated scope.
+    With no registry configured, login MUST make no network call and MUST
+    fail with E063, whose suggestion names the specforge.json registries key.
   """
+  verify unit "with no registry configured, login makes no network call and reports how to configure one"
   verify unit "valid credentials stored as RegistryCredential reference"
   verify unit "invalid credentials produce error with guidance"
   verify unit "raw token never stored in specforge.json"

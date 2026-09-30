@@ -8,8 +8,7 @@ use std::path::{Path, PathBuf};
 
 use specforge_common::find_project_root;
 use specforge_registry::{
-    HttpRegistryClient, RegistryConfig, parse_registries_from_config, resolve_from_registry,
-    resolve_version, verify_registry_integrity,
+    HttpRegistryClient, resolve_from_registry, resolve_version, verify_registry_integrity,
 };
 use specforge_wasm::{
     install_extension, install_from_local, read_lock_file, uninstall_extension, write_lock_file,
@@ -79,36 +78,22 @@ fn ok(id: Option<Value>, result: Value) -> JsonRpcResponse {
     )
 }
 
-fn registries_for(config_path: &Path) -> Vec<RegistryConfig> {
-    if !config_path.exists() {
-        return vec![RegistryConfig {
-            alias: "default".to_string(),
-            url: "https://registry.specforge.dev/v1".to_string(),
-            scope_filter: None,
-            default_registry: true,
-        }];
-    }
-    match std::fs::read_to_string(config_path) {
-        Ok(content) => {
-            let (registries, _) = parse_registries_from_config(&content);
-            if registries.is_empty() {
-                vec![RegistryConfig {
-                    alias: "default".to_string(),
-                    url: "https://registry.specforge.dev/v1".to_string(),
-                    scope_filter: None,
-                    default_registry: true,
-                }]
-            } else {
-                registries
-            }
-        }
-        Err(_) => vec![RegistryConfig {
-            alias: "default".to_string(),
-            url: "https://registry.specforge.dev/v1".to_string(),
-            scope_filter: None,
-            default_registry: true,
-        }],
-    }
+/// An operation's failure as an invalid-params error whose `data` carries
+/// the diagnostic code and its suggestion.
+fn err_op(id: Option<Value>, error: specforge_ops::OpError) -> JsonRpcResponse {
+    JsonRpcResponse::error_with_data(
+        id,
+        error_codes::INVALID_PARAMS,
+        error.message.clone(),
+        json!({
+            "code": error.code,
+            "diagnostic": {
+                "severity": "error",
+                "message": error.message,
+                "suggestion": error.suggestion,
+            },
+        }),
+    )
 }
 
 /// Enable `name@version` in the project's specforge.json (idempotent: an
@@ -482,7 +467,6 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
         return err_invalid(id, "add needs a project root (pass {\"path\": ...})");
     };
 
-    let config_path = root.join("specforge.json");
     let extensions_dir = root.join(".specforge").join("extensions");
     let lock_path = root.join("specforge.lock");
 
@@ -550,7 +534,11 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
         _ => (specifier.clone(), "latest".to_string()),
     };
 
-    let registries = registries_for(&config_path);
+    // No registry configured: fail before any network call (ADR 0004 N1).
+    let registries = match specforge_ops::registry::configured(&root, "add_extension") {
+        Ok(registries) => registries,
+        Err(error) => return err_op(id, error),
+    };
     let client = HttpRegistryClient::new();
 
     let resolved_version = if version == "latest"

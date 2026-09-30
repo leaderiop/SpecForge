@@ -25,9 +25,8 @@ type CompilerConfig {
   coverage              FieldMap              @optional
   enhancement_policy    EnhancementPolicy     @optional
   enhancement_overrides FieldMap              @optional
+  // The only source of registries: SpecForge ships none (E063 without one).
   registries            RegistryConfig[]      @optional
-  // When false, disables the well-known public registry. Default: true.
-  default_registry      boolean               @optional
   // federation config is extension-provided (see @specforge/federation extension)
   watch_debounce_ms     integer               @optional
   // When true, GraphDelta includes old+new values for modified fields (default: false)

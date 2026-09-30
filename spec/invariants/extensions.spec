@@ -29,7 +29,7 @@ invariant registry_api_openness "Registry API Openness" {
 invariant authentication_never_gates_core_use "Authentication Never Gates Core Use" {
   guarantee """
     No SpecForge command MUST require registry authentication to function
-    with the default public registry, local paths, or git sources.
+    with builtin extensions, local paths, or git sources.
     Authentication is exclusively for private and enterprise registries.
     The first-use experience (init, check, export) MUST complete without
     credentials. This is a P8 (seconds to value) structural guarantee.
@@ -37,6 +37,5 @@ invariant authentication_never_gates_core_use "Authentication Never Gates Core U
   risk      high
   verify unit "specforge init succeeds without any registry authentication"
   verify unit "specforge check succeeds without credentials"
-  verify unit "default public registry accessible without authentication"
   verify integration "full init-check-export cycle completes without credentials"
 }

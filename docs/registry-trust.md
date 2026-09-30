@@ -4,6 +4,29 @@ How SpecForge keeps `specforge add` / `specforge update` trustworthy when
 installing third-party extensions from a registry, what the system guarantees,
 and what it deliberately does not (yet).
 
+## Configuring a registry
+
+SpecForge ships **no built-in registry** (ADR 0004 N1). A project lists the
+registries it trusts in `specforge.json`:
+
+```json
+{
+  "registries": [
+    { "alias": "main", "url": "https://registry.example.com/v1", "default_registry": true },
+    { "alias": "acme", "url": "https://extensions.acme.internal/v1", "scope_filter": "@acme" }
+  ]
+}
+```
+
+- A package whose scope matches an entry's `scope_filter` comes from that
+  registry; every other package comes from the entry marked
+  `default_registry`.
+- With no `registries`, `specforge add @scope/name@version`, `update`,
+  `search`, `publish` and `login` (and the MCP `add_extension` tool) fail with
+  [E063](diagnostics.md#e063) **before any network call**.
+- Builtin extensions (`specforge add @specforge/product`) and local `.wasm`
+  files need no registry.
+
 ## What is verified
 
 Every registry install performs three checks, in order:

@@ -133,6 +133,8 @@ specforge add @specforge/product     # enable a builtin, or install @scope/name@
 specforge remove <name>              # disable a builtin, or uninstall an extension
 specforge search <query>             # search registries
 specforge publish                    # publish an extension to a registry
+# There is no built-in registry: list yours under "registries" in specforge.json
+# (see docs/registry-trust.md); without one, add/update/search/publish fail with E063.
 
 # Tooling
 specforge format                     # format .spec files

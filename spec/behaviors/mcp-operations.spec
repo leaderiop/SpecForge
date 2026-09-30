@@ -193,8 +193,11 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
     extension conflicts with an existing one, the tool MUST return an error.
     If the extension is already installed, the tool MUST return an info
     response indicating the extension is already present without modifying
-    specforge.json.
+    specforge.json. A registry specifier with no registry configured in
+    specforge.json MUST make no network call and MUST return an E063 error
+    whose suggestion names the registries key.
   """
+  verify unit "with no registry configured, add_extension makes no network call and reports how to configure one"
   verify unit "specforge.add_extension adds extension to config"
   verify unit "already-installed extension returns info without modifying config"
   verify unit "wasm module downloaded for remote extensions"

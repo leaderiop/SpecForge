@@ -2,8 +2,7 @@ use crate::OutputFormat;
 use serde_json::json;
 use specforge_common::{Diagnostic, Severity};
 use specforge_registry::{
-    HttpRegistryClient, RegistryConfig, parse_registries_from_config, resolve_from_registry,
-    resolve_version, verify_registry_integrity,
+    HttpRegistryClient, resolve_from_registry, resolve_version, verify_registry_integrity,
 };
 use specforge_wasm::{
     collect_peer_requirers, install_extension, install_from_local, parse_extension_specifier,
@@ -129,23 +128,14 @@ fn install_from_registry(
     allow_unsigned: bool,
     assume_yes: bool,
 ) -> i32 {
-    let config_path = project_path.join("specforge.json");
-    let registries = load_registries(&config_path);
-
-    if registries.is_empty() {
-        let msg = "no registries configured. Add a \"registries\" section to specforge.json or set a default registry.";
-        match format {
-            OutputFormat::Json => {
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&json!({"error": msg, "code": "R-OPS-001"}))
-                        .unwrap()
-                );
-            }
-            OutputFormat::Human => eprintln!("error: {}", msg),
+    // No registry configured: fail before any network call (ADR 0004 N1).
+    let registries = match specforge_ops::registry::configured(project_path, "add") {
+        Ok(registries) => registries,
+        Err(error) => {
+            format.print_op_error(&error);
+            return 1;
         }
-        return 1;
-    }
+    };
 
     let client = HttpRegistryClient::new();
 
@@ -381,33 +371,6 @@ fn install_local(local_path: &Path, project_path: &Path, format: OutputFormat) -
             print_error(format, &diag.message, &diag.code);
             1
         }
-    }
-}
-
-fn load_registries(config_path: &Path) -> Vec<RegistryConfig> {
-    if !config_path.exists() {
-        return vec![default_registry()];
-    }
-
-    let content = match std::fs::read_to_string(config_path) {
-        Ok(c) => c,
-        Err(_) => return vec![default_registry()],
-    };
-
-    let (registries, _diags) = parse_registries_from_config(&content);
-    if registries.is_empty() {
-        vec![default_registry()]
-    } else {
-        registries
-    }
-}
-
-fn default_registry() -> RegistryConfig {
-    RegistryConfig {
-        alias: "default".to_string(),
-        url: "https://registry.specforge.dev/v1".to_string(),
-        scope_filter: None,
-        default_registry: true,
     }
 }
 

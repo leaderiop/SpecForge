@@ -2979,6 +2979,7 @@ name = "specforge-ops"
 version = "0.1.0"
 dependencies = [
  "serde_json",
+ "specforge-registry",
  "specforge-test",
  "specforge-test-macros",
  "tempfile",

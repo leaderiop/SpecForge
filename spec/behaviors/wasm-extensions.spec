@@ -947,9 +947,13 @@ behavior update_all_extensions "Update All Extensions" {
     file with the new binary hashes. Peer dependency
     conflicts introduced by upgrades MUST be detected and reported before
     applying changes. If any upgrade fails, the system MUST roll back all
-    changes and report the failure.
+    changes and report the failure. When a registry-installed extension is
+    to be updated and no registry is configured in specforge.json, update
+    MUST make no network call and MUST fail with E063, whose suggestion
+    names the registries key.
   """
   produces   [batch_update_completed]
+  verify unit "with no registry configured, update makes no network call and reports how to configure one"
   verify unit "newer versions detected from registry"
   verify unit "semver-compatible upgrades applied"
   verify unit "major version skipped without --major flag"

@@ -11,6 +11,7 @@ print_stdout = "deny"
 
 [dependencies]
 serde_json = { workspace = true }
+specforge-registry = { workspace = true }
 
 [dev-dependencies]
 specforge-test = { workspace = true }

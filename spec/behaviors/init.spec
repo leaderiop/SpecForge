@@ -238,8 +238,11 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     directory (as resolved by find_project_root()), the system MUST reject
     the operation with an error message and exit code 1. If the extension
     specifier cannot be resolved, the system MUST reject the operation with
-    a diagnostic naming the unresolvable extension.
+    a diagnostic naming the unresolvable extension. A registry specifier
+    with no registry configured in specforge.json MUST make no network call
+    and MUST fail with E063, whose suggestion names the registries key.
   """
+  verify unit "with no registry configured, add makes no network call and reports how to configure one"
   verify unit "add extension appends to extensions list"
   verify unit "add enables a builtin's required peers but not its optional ones"
   verify unit "add duplicate extension is a no-op with info message"

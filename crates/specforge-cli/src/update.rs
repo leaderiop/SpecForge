@@ -1,8 +1,7 @@
 use crate::OutputFormat;
 use serde_json::json;
 use specforge_registry::{
-    HttpRegistryClient, RegistryConfig, parse_registries_from_config, resolve_from_registry,
-    resolve_version, verify_registry_integrity,
+    HttpRegistryClient, resolve_from_registry, resolve_version, verify_registry_integrity,
 };
 use specforge_wasm::{install_extension, read_lock_file, write_lock_file};
 use std::path::Path;
@@ -27,10 +26,6 @@ pub fn run(
         }
     };
 
-    let config_path = path.join("specforge.json");
-    let registries = load_registries(&config_path);
-    let client = HttpRegistryClient::new();
-
     let entries_to_update: Vec<_> = if let Some(n) = name {
         lock.entries
             .iter()
@@ -51,6 +46,21 @@ pub fn run(
         }
         return 0;
     }
+
+    // Only registry installs are updated, and only from a configured
+    // registry: with none, fail before any network call (ADR 0004 N1).
+    let registries = if entries_to_update.iter().any(|e| e.source == "registry") {
+        match specforge_ops::registry::configured(path, "update") {
+            Ok(registries) => registries,
+            Err(error) => {
+                format.print_op_error(&error);
+                return 1;
+            }
+        }
+    } else {
+        Vec::new()
+    };
+    let client = HttpRegistryClient::new();
 
     let extensions_dir = path.join(".specforge").join("extensions");
     let mut updated = Vec::new();
@@ -192,33 +202,6 @@ pub fn run(
     }
 
     0
-}
-
-fn load_registries(config_path: &Path) -> Vec<RegistryConfig> {
-    if !config_path.exists() {
-        return vec![default_registry()];
-    }
-
-    let content = match std::fs::read_to_string(config_path) {
-        Ok(c) => c,
-        Err(_) => return vec![default_registry()],
-    };
-
-    let (registries, _) = parse_registries_from_config(&content);
-    if registries.is_empty() {
-        vec![default_registry()]
-    } else {
-        registries
-    }
-}
-
-fn default_registry() -> RegistryConfig {
-    RegistryConfig {
-        alias: "default".to_string(),
-        url: "https://registry.specforge.dev/v1".to_string(),
-        scope_filter: None,
-        default_registry: true,
-    }
 }
 
 fn print_error(format: OutputFormat, message: &str, code: &str) {
