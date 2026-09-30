@@ -292,7 +292,10 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
     verify text, the rule analyze coverage applies: an entity is covered only
     when every obligation is proven and no recorded test fails, so it never
     reports covered while analyze reports A015 or A014. Each result MUST carry
-    the obligation count, the proven count, and the unproven verify texts. The tool MUST return coverage status per entity including verify count,
+    the obligation count, the proven count, and the unproven verify texts. A verify
+    property obligation counts as proven only through a passing test, as in
+    analyze coverage without --prove: the SMT discharge --prove adds is not
+    run per call. The tool MUST return coverage status per entity including verify count,
     linked evidence count, and evidence status from specforge-report.json if available.
     When no filters are provided, the tool MUST return coverage for all
     testable entities. Testability is determined by extension manifests.

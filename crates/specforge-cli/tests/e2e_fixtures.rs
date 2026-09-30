@@ -291,7 +291,12 @@ pub fn mcp_initialize(id: u64) -> String {
 /// response lines. Returns parsed JSON values for each non-empty stdout line.
 pub fn mcp_session(spec_content: &str, requests: &[String]) -> Vec<serde_json::Value> {
     let dir = setup_project(&[("main.spec", spec_content)]);
+    mcp_session_in(&dir, requests)
+}
 
+/// [`mcp_session`] against an existing project, e.g. one made with
+/// [`setup_project_with_config`] to enable extensions.
+pub fn mcp_session_in(dir: &TempDir, requests: &[String]) -> Vec<serde_json::Value> {
     let mut child = std::process::Command::new(assert_cmd::cargo_bin!("specforge"))
         .args(["mcp"])
         .arg(dir.path())

@@ -83,10 +83,12 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
             if let Some(eid) = entity_filter {
                 return n.id.raw == eid;
             }
-            if let Some(kind) = kind_filter {
-                return n.kind.raw == kind;
-            }
-            true
+            // Testability is the extensions' call (their kinds' manifests).
+            let testable = state
+                .kind_registry
+                .get(n.kind.raw.as_str())
+                .is_some_and(|kind| kind.testable);
+            testable && kind_filter.is_none_or(|kind| n.kind.raw == kind)
         })
         .map(|n| (n, EntityCoverage::of(n, report.as_ref())))
         .filter(|(_, coverage)| status_filter.is_none_or(|s| coverage.status() == s))

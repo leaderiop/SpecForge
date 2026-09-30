@@ -99,8 +99,31 @@ fn test_server() -> McpServer {
         label: "behaviors".into(),
     });
     state.graph = graph;
+    for (kind, testable) in [("behavior", true), ("invariant", true), ("feature", false)] {
+        state.kind_registry.register(kind_entry(kind, testable));
+    }
 
     server
+}
+
+/// A kind as an extension registers it; only `testable` matters here.
+fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
+    specforge_registry::KindRegistryEntry {
+        kind_name: kind.into(),
+        description: None,
+        source_extension: "@test/ext".into(),
+        testable,
+        singleton: false,
+        supports_verify: testable,
+        allowed_verify_kinds: Vec::new(),
+        has_body_parser: false,
+        semantic_token: None,
+        lsp_icon: None,
+        dot_shape: None,
+        dot_color: None,
+        dot_fillcolor: None,
+        open_fields: false,
+    }
 }
 
 fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
@@ -446,6 +469,31 @@ fn coverage_returns_per_entity() {
     behavior = "provide_mcp_coverage_tool",
     verify = "specforge.coverage returns coverage for all testable entities"
 )]
+fn coverage_returns_all_testable_entities() {
+    let mut server = test_server();
+    let resp = call_tool(&mut server, "specforge.coverage", json!({}));
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let mut ids: Vec<&str> = parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["entity_id"].as_str().unwrap())
+        .collect();
+    ids.sort();
+    // beta_feature's kind isn't testable.
+    assert_eq!(ids, vec!["alpha", "gamma_orphan"]);
+
+    // A named entity is reported whatever its kind.
+    let resp = call_tool(
+        &mut server,
+        "specforge.coverage",
+        json!({"entity_id": "beta_feature"}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed[0]["entity_id"], "beta_feature");
+}
+
+#[test]
 fn coverage_alpha_uncovered_without_tests() {
     let mut server = test_server();
     let resp = call_tool(

@@ -719,8 +719,13 @@ fn mcp_tool_schema_returns_entity_kinds() {
     verify = "specforge.coverage returns coverage for all testable entities"
 )]
 fn mcp_tool_coverage_returns_status() {
-    let responses = mcp_session(
-        BASIC_SPEC,
+    // Testability comes from the extensions; without any, nothing is testable.
+    let dir = setup_project_with_config(
+        r#"{"name":"test","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+        &[("main.spec", BASIC_SPEC)],
+    );
+    let responses = mcp_session_in(
+        &dir,
         &[mcp_request(
             1,
             "tools/call",
