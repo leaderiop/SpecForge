@@ -986,19 +986,32 @@ fn publish_json_schema_kinds_in_enum() {
     verify = "published schema describes all edge types"
 )]
 fn publish_json_schema_edge_labels_in_enum() {
-    let schema = sample_schema();
+    let mut schema = sample_schema();
+    schema.entity_kinds[0].fields.push(SchemaField {
+        name: "features".to_string(),
+        field_type: "reference_list".to_string(),
+        required: false,
+        enum_values: None,
+        edge: Some("implements".to_string()),
+        target_kind: Some("feature".to_string()),
+        description: None,
+        default_value: None,
+        source_extension: "@specforge/software".to_string(),
+    });
     let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
 
-    let label_enum = &parsed["properties"]["edges"]["items"]["properties"]["label"]["enum"];
-    assert!(label_enum.is_array());
-    let labels: Vec<&str> = label_enum
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|v| v.as_str().unwrap())
-        .collect();
-    assert!(labels.contains(&"implements"));
+    // The embedded schema block's edge types are the registered ones.
+    assert_eq!(
+        parsed["properties"]["schema"]["properties"]["edge_types"]["items"]["properties"]["label"],
+        serde_json::json!({ "type": "string", "enum": ["implements"] })
+    );
+    // A graph edge carries the declaring field's name: an open string whose
+    // examples are the fields that declare an edge type.
+    let label = &parsed["properties"]["edges"]["items"]["properties"]["label"];
+    assert_eq!(label["type"], "string");
+    assert!(label.get("enum").is_none(), "{label}");
+    assert_eq!(label["examples"], serde_json::json!(["features"]));
 }
 
 // B:publish_schema_specification — verify unit "required properties present"
@@ -1598,9 +1611,13 @@ fn published_schema_describes_all_edge_types() {
     let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let json_schema: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
 
-    let label_enum = json_schema["properties"]["edges"]["items"]["properties"]["label"]["enum"]
+    // Registered edge types appear where an export names them: the
+    // embedded schema block's edge_types.
+    let label_enum = json_schema["properties"]["schema"]["properties"]["edge_types"]["items"]
+        ["properties"]["label"]["enum"]
         .as_array()
         .unwrap();
+    assert_eq!(label_enum.len(), schema.edge_types.len());
     for et in &schema.edge_types {
         assert!(
             label_enum.contains(&serde_json::Value::String(et.label.clone())),

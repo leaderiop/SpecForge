@@ -1055,11 +1055,32 @@ pub fn publish_json_schema_format(
         serde_json::json!({ "type": "string", "enum": kind_names })
     };
 
-    let edge_label_schema = if edge_labels.is_empty() {
+    // The embedded schema block lists the registered edge types by name.
+    let edge_type_label_schema = if edge_labels.is_empty() {
         serde_json::json!({ "type": "string" })
     } else {
         serde_json::json!({ "type": "string", "enum": edge_labels })
     };
+
+    // A graph edge is labelled with the name of the field that declared the
+    // reference (`invariants`, not `BehaviorEnforcesInvariant`). The label
+    // is open: any list field whose entries name entities yields an edge,
+    // including fields no extension declares, so it cannot be an enum. The
+    // fields that declare an edge type are listed as examples.
+    let edge_fields: std::collections::BTreeSet<&str> = schema
+        .entity_kinds
+        .iter()
+        .flat_map(|k| &k.fields)
+        .filter(|f| f.edge.is_some())
+        .map(|f| f.name.as_str())
+        .collect();
+    let mut edge_label_schema = serde_json::json!({
+        "type": "string",
+        "description": "Name of the field that declared the reference, for example `invariants`. Open: extensions add fields."
+    });
+    if !edge_fields.is_empty() {
+        edge_label_schema["examples"] = edge_fields.into_iter().collect();
+    }
 
     let node_schema: serde_json::Value = match format {
         EmitFormat::Context => serde_json::json!({
@@ -1211,7 +1232,17 @@ pub fn publish_json_schema_format(
                 "additionalProperties": false,
                 "required": ["schema_version", "extensions", "entity_kinds", "edge_types"],
                 "properties": {
-                    "schema_version": { "type": "string" },
+                    "schema_version": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["major", "minor", "patch"],
+                        "properties": {
+                            "major": { "type": "integer", "minimum": 0 },
+                            "minor": { "type": "integer", "minimum": 0 },
+                            "patch": { "type": "integer", "minimum": 0 },
+                            "label": { "type": "string" }
+                        }
+                    },
                     "extensions": {
                         "type": "array",
                         "items": {
@@ -1235,7 +1266,7 @@ pub fn publish_json_schema_format(
                             "additionalProperties": false,
                             "required": ["label", "source_extension"],
                             "properties": {
-                                "label": { "type": "string" },
+                                "label": edge_type_label_schema,
                                 "source_extension": { "type": "string" },
                                 "source_kinds": {
                                     "type": "array",

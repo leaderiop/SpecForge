@@ -199,6 +199,7 @@ fn assert_json_schema(node: &serde_json::Value, path: &str, defs: &BTreeSet<Stri
                 assert!(value.is_number(), "{at} must be a number")
             }
             "uniqueItems" => assert!(value.is_boolean(), "{at} must be a boolean"),
+            "examples" => assert!(value.is_array(), "{at} must be an array"),
             "required" => {
                 // Inside a sub-schema (then/allOf) `required` may name
                 // properties declared by the enclosing schema.
@@ -232,6 +233,329 @@ fn assert_json_schema(node: &serde_json::Value, path: &str, defs: &BTreeSet<Stri
     }
 }
 
+/// Validate `instance` against `schema` (draft 2020-12), for the keywords
+/// `assert_json_schema` admits. Returns one message per violation. A keyword
+/// the validator does not implement panics, so a schema can never pass
+/// by using something unchecked.
+fn validate(
+    instance: &serde_json::Value,
+    schema: &serde_json::Value,
+    root: &serde_json::Value,
+    at: &str,
+) -> Vec<String> {
+    use serde_json::Value;
+    let obj = match schema {
+        Value::Bool(true) => return vec![],
+        Value::Bool(false) => return vec![format!("{at}: rejected by `false` schema")],
+        Value::Object(obj) => obj,
+        other => panic!("{at}: a schema must be an object or boolean, got {other}"),
+    };
+    let type_of = |v: &Value| match v {
+        Value::Null => "null",
+        Value::Bool(_) => "boolean",
+        Value::Number(n) if n.is_i64() || n.is_u64() => "integer",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    };
+    let mut errors = Vec::new();
+    for (key, value) in obj {
+        match key.as_str() {
+            // Annotations: they never fail validation.
+            "$schema" | "$id" | "title" | "description" | "$comment" | "format" | "examples"
+            | "$defs" | "then" | "else" => {}
+            "type" => {
+                let actual = type_of(instance);
+                let allowed: Vec<&str> = match value {
+                    Value::Array(items) => items.iter().filter_map(Value::as_str).collect(),
+                    single => vec![single.as_str().unwrap()],
+                };
+                let ok = allowed
+                    .iter()
+                    .any(|t| *t == actual || (*t == "number" && actual == "integer"));
+                if !ok {
+                    errors.push(format!("{at}: {actual} is not {allowed:?}"));
+                }
+            }
+            "minimum" => {
+                if instance
+                    .as_f64()
+                    .is_some_and(|n| n < value.as_f64().unwrap())
+                {
+                    errors.push(format!("{at}: {instance} is below {value}"));
+                }
+            }
+            "enum" => {
+                if !value.as_array().unwrap().contains(instance) {
+                    errors.push(format!("{at}: {instance} is not one of {value}"));
+                }
+            }
+            "const" => {
+                if instance != value {
+                    errors.push(format!("{at}: {instance} is not {value}"));
+                }
+            }
+            "required" => {
+                if let Some(o) = instance.as_object() {
+                    for name in value.as_array().unwrap() {
+                        let name = name.as_str().unwrap();
+                        if !o.contains_key(name) {
+                            errors.push(format!("{at}: missing required '{name}'"));
+                        }
+                    }
+                }
+            }
+            "properties" => {
+                if let Some(o) = instance.as_object() {
+                    for (name, sub) in value.as_object().unwrap() {
+                        if let Some(v) = o.get(name) {
+                            errors.extend(validate(v, sub, root, &format!("{at}/{name}")));
+                        }
+                    }
+                }
+            }
+            "additionalProperties" => {
+                if let Some(o) = instance.as_object() {
+                    let declared = obj.get("properties").and_then(Value::as_object);
+                    for (name, v) in o {
+                        if !declared.is_some_and(|d| d.contains_key(name)) {
+                            errors.extend(validate(v, value, root, &format!("{at}/{name}")));
+                        }
+                    }
+                }
+            }
+            "items" => {
+                if let Some(items) = instance.as_array() {
+                    for (i, v) in items.iter().enumerate() {
+                        errors.extend(validate(v, value, root, &format!("{at}/{i}")));
+                    }
+                }
+            }
+            "allOf" => {
+                for sub in value.as_array().unwrap() {
+                    errors.extend(validate(instance, sub, root, at));
+                }
+            }
+            "anyOf" => {
+                let any = value
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|sub| validate(instance, sub, root, at).is_empty());
+                if !any {
+                    errors.push(format!("{at}: matches no anyOf branch"));
+                }
+            }
+            "if" => {
+                let branch = if validate(instance, value, root, at).is_empty() {
+                    obj.get("then")
+                } else {
+                    obj.get("else")
+                };
+                if let Some(branch) = branch {
+                    errors.extend(validate(instance, branch, root, at));
+                }
+            }
+            "$ref" => {
+                let name = value.as_str().unwrap().strip_prefix("#/$defs/").unwrap();
+                errors.extend(validate(instance, &root["$defs"][name], root, at));
+            }
+            other => panic!("{at}: the validator does not implement '{other}'"),
+        }
+    }
+    errors
+}
+
+/// A project with an edge from nearly every reference field the software,
+/// product and governance extensions declare, plus a `refs` list whose
+/// entries name entities.
+const EDGES_SPEC: &str = r#"
+invariant graph_acyclic "Graph Acyclicity" {
+  guarantee "The dependency graph MUST be acyclic"
+}
+
+type parse_result "Parse Result" {
+  description "Result of a parse"
+}
+
+type typed_result "Typed Result" {
+  description    "A parse result with types"
+  extends        parse_result
+  composed_types [parse_result]
+}
+
+port file_reader "File Reader" {
+  direction inbound
+}
+
+event input_parsed "Input Parsed" {
+  payload parse_result
+}
+
+behavior parse_input "Parse Input" {
+  contract   "The system MUST parse all valid input"
+  invariants [graph_acyclic]
+  types      [parse_result]
+  ports      [file_reader]
+  produces   [input_parsed]
+  features   [fast_parsing]
+  refs       [emit_output]
+}
+
+behavior emit_output "Emit Output" {
+  contract "The system MUST emit structured output"
+  consumes [input_parsed]
+}
+
+feature fast_parsing "Fast Parsing" {
+  problem    "Users need quick feedback"
+  solution   "Incremental parsing"
+  depends_on [slow_parsing]
+}
+
+feature slow_parsing "Slow Parsing" {
+  problem  "Some input is large"
+  solution "Batch parsing"
+}
+
+persona developer "Developer" {
+  description  "Writes specs"
+  key_features [fast_parsing]
+}
+
+journey developer_workflow "Developer Workflow" {
+  description "A developer writes and validates specs"
+  flow        ["write a spec", "run check"]
+  persona     developer
+  features    [fast_parsing]
+}
+
+module parser_module "Parser Module" {
+  description   "Handles .spec file parsing"
+  features      [fast_parsing]
+  ports_defined [file_reader]
+}
+
+milestone v1_release "V1 Release" {
+  description "First stable release"
+  behaviors   [parse_input]
+  features    [fast_parsing]
+  modules     [parser_module]
+}
+
+deliverable cli_tool "CLI Tool" {
+  description   "The specforge CLI binary"
+  artifact_type "cli"
+  journeys      [developer_workflow]
+  modules       [parser_module]
+  milestones    [v1_release]
+}
+
+term spec_file "Spec File" {
+  definition "A .spec file"
+  module     parser_module
+}
+
+decision use_treesitter "Use Tree-Sitter" {
+  status           accepted
+  context          "We need a parser"
+  decision         "Use tree-sitter"
+  consequences     ["Fast incremental parsing"]
+  invariants       [graph_acyclic]
+  affects_features [fast_parsing]
+}
+
+constraint parse_latency "Parse Latency" {
+  category    performance
+  priority    critical
+  description "Parsing MUST finish in 100ms"
+  constrains  [parse_input]
+  protects    [graph_acyclic]
+}
+
+failure_mode parser_crash "Parser Crash" {
+  description        "The parser panics on bad input"
+  cause              "malformed input"
+  effect             "no output"
+  severity           "high"
+  affected_behaviors [parse_input]
+  invariant          graph_acyclic
+  threatens_features [fast_parsing]
+}
+"#;
+
+#[specforge_test(
+    behavior = "publish_schema_specification",
+    verify = "published schema validates known-good export"
+)]
+fn schema_publish_validates_a_real_export() {
+    let dir = setup_project_with_config(
+        r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software","@specforge/product","@specforge/governance"]}"#,
+        &[("main.spec", EDGES_SPEC)],
+    );
+    let published = run_json(&["schema", "--publish"], dir.path());
+    let export = run_json(&["export", "--format=graph"], dir.path());
+
+    // The export carries an edge for every reference field the spec fills,
+    // each labelled with the field's name.
+    let labels = names(&export["edges"], "label");
+    assert_eq!(
+        labels,
+        strings(&serde_json::json!([
+            "affected_behaviors",
+            "affects_features",
+            "behaviors",
+            "composed_types",
+            "constrains",
+            "consumes",
+            "depends_on",
+            "extends",
+            "features",
+            "invariant",
+            "invariants",
+            "journeys",
+            "key_features",
+            "milestones",
+            "module",
+            "modules",
+            "payload",
+            "persona",
+            "ports",
+            "ports_defined",
+            "produces",
+            "protects",
+            "refs",
+            "threatens_features",
+            "types"
+        ]))
+    );
+
+    let errors = validate(&export, &published, &published, "#");
+    assert!(
+        errors.is_empty(),
+        "the export does not validate against the published schema:\n{}",
+        errors.join("\n")
+    );
+
+    // The validator does reject what the schema forbids.
+    let mut broken = export.clone();
+    broken["edges"][0]["label"] = serde_json::json!(7);
+    broken["nodes"][0]["kind"] = serde_json::json!("no_such_kind");
+    let mut rejected = validate(&broken, &published, &published, "#");
+    rejected.sort();
+    assert_eq!(
+        rejected,
+        vec![
+            "#/edges/0/label: integer is not [\"string\"]".to_string(),
+            format!(
+                "#/nodes/0/kind: \"no_such_kind\" is not one of {}",
+                published["properties"]["nodes"]["items"]["properties"]["kind"]["enum"]
+            ),
+        ]
+    );
+}
+
 #[specforge_test(
     behavior = "publish_schema_specification",
     verify = "published schema describes all registered entity kinds"
@@ -263,10 +587,11 @@ fn schema_publish_includes_edge_label_enum() {
     let dir = software_project();
     let parsed = run_json(&["schema", "--publish"], dir.path());
 
-    let label = &parsed["properties"]["edges"]["items"]["properties"]["label"];
+    // The embedded schema block names every registered edge type, no more.
+    let edge_type = &parsed["properties"]["schema"]["properties"]["edge_types"]["items"];
+    let label = &edge_type["properties"]["label"];
     assert_eq!(label["type"], "string");
     let listed = strings(&label["enum"]);
-    // Every edge type `specforge schema` reports as registered, no more.
     let registered = run_json(&["schema"], dir.path());
     assert_eq!(listed, names(&registered["edge_types"], "label"));
     for expected in [
@@ -278,6 +603,35 @@ fn schema_publish_includes_edge_label_enum() {
     ] {
         assert!(listed.contains(expected), "{expected} missing: {listed:?}");
     }
+
+    // A graph edge is labelled by the field that declared it. The label is
+    // open, and the fields that declare an edge type are its examples.
+    let edge_label = &parsed["properties"]["edges"]["items"]["properties"]["label"];
+    assert_eq!(edge_label["type"], "string");
+    assert!(edge_label.get("enum").is_none(), "{edge_label}");
+    let declaring: BTreeSet<String> = registered["entity_kinds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|k| k["fields"].as_array().unwrap())
+        .filter(|f| f["edge"].is_string())
+        .map(|f| f["name"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(
+        declaring,
+        strings(&serde_json::json!([
+            "composed_types",
+            "consumes",
+            "extends",
+            "features",
+            "invariants",
+            "payload",
+            "ports",
+            "produces",
+            "types"
+        ]))
+    );
+    assert_eq!(strings(&edge_label["examples"]), declaring);
 }
 
 #[specforge_test(
