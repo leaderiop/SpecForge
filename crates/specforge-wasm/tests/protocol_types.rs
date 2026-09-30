@@ -235,6 +235,7 @@ fn entity_kind_descriptor_full_round_trip() {
                 default_value: None,
                 enum_values: vec![],
                 inverse_of: None,
+                normative: false,
             },
             FieldDescriptor {
                 name: "invariants".to_string(),
@@ -247,6 +248,7 @@ fn entity_kind_descriptor_full_round_trip() {
                 default_value: None,
                 enum_values: vec![],
                 inverse_of: None,
+                normative: false,
             },
         ],
         testable: true,
@@ -297,6 +299,7 @@ fn field_descriptor_with_edge_and_target() {
         default_value: None,
         enum_values: vec![],
         inverse_of: None,
+        normative: false,
     };
     let json = serde_json::to_string(&field).unwrap();
     let decoded: FieldDescriptor = serde_json::from_str(&json).unwrap();
@@ -320,6 +323,7 @@ fn field_descriptor_with_enum_values() {
             "done".to_string(),
         ],
         inverse_of: None,
+        normative: false,
     };
     let json = serde_json::to_string(&field).unwrap();
     assert!(json.contains("enum_values"));
@@ -340,6 +344,7 @@ fn field_descriptor_enum_values_skipped_when_empty() {
         default_value: None,
         enum_values: vec![],
         inverse_of: None,
+        normative: false,
     };
     let json = serde_json::to_string(&field).unwrap();
     assert!(
@@ -390,6 +395,7 @@ fn shared_field_descriptor_is_field_descriptor() {
         default_value: Some("draft".to_string()),
         enum_values: vec!["draft".to_string(), "active".to_string()],
         inverse_of: None,
+        normative: false,
     };
     let json = serde_json::to_string(&shared).unwrap();
     let decoded: SharedFieldDescriptor = serde_json::from_str(&json).unwrap();
@@ -415,6 +421,7 @@ fn entity_enhancement_descriptor_round_trip() {
             default_value: None,
             enum_values: vec![],
             inverse_of: None,
+            normative: false,
         }],
         edge_types: vec![EdgeTypeDescriptor {
             label: "RequiresCondition".to_string(),

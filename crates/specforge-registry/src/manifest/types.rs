@@ -155,6 +155,9 @@ pub struct ManifestField {
     pub enum_values: Vec<String>,
     #[serde(default)]
     pub inverse_of: Option<String>,
+    /// The field states what the entity promises rather than prose.
+    #[serde(default)]
+    pub normative: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

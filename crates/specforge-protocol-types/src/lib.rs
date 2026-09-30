@@ -250,6 +250,10 @@ pub struct FieldDescriptor {
     pub enum_values: Vec<String>,
     #[serde(default)]
     pub inverse_of: Option<String>,
+    /// The field states what the entity promises (a contract, a guarantee)
+    /// rather than prose; token-optimized exports keep it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub normative: bool,
 }
 
 // ── Edge Type Descriptor ──

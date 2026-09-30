@@ -31,6 +31,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "decision",
+      "normative": true,
       "required": true,
       "target_kind": null
     },
@@ -207,6 +208,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "metric",
+      "normative": true,
       "required": false,
       "target_kind": null
     },
@@ -218,6 +220,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "threshold",
+      "normative": true,
       "required": false,
       "target_kind": null
     },
@@ -361,6 +364,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "mitigation",
+      "normative": true,
       "required": false,
       "target_kind": null
     },

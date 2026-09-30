@@ -247,6 +247,7 @@ fn boot_field_registry_title_not_a_field() {
         file_reference: false,
         required: false,
         inverse_of: None,
+        normative: false,
     });
     // title is NOT a field — it's a grammar-level construct
     assert!(registry.get("behavior", "title").is_none());
@@ -434,6 +435,35 @@ fn populate_field_invalid_type_warning() {
             .any(|d| d.code == "W019" && d.message.contains("unknown_type_xyz"))
     );
     assert!(!field_reg.contains("thing", "data"));
+}
+
+#[spec(
+    behavior = "populate_field_registry_from_extensions",
+    verify = "a field's normative flag reaches its registry entry"
+)]
+fn populate_field_keeps_normative_flag() {
+    let manifest: ManifestV2 = serde_json::from_str(
+        r#"{
+            "name": "@test/ext",
+            "version": "1.0.0",
+            "manifestVersion": 2,
+            "wasmPath": "x.wasm",
+            "entityKinds": [
+                {
+                    "name": "Rule",
+                    "keyword": "rule",
+                    "fields": [
+                        { "name": "guarantee", "fieldType": "string", "normative": true },
+                        { "name": "description", "fieldType": "string" }
+                    ]
+                }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let (_, field_reg, _, _) = populate_registries(&[manifest]);
+    assert!(field_reg.get("rule", "guarantee").unwrap().normative);
+    assert!(!field_reg.get("rule", "description").unwrap().normative);
 }
 
 #[spec(
@@ -1694,6 +1724,7 @@ fn enhancements_merge_fields() {
                 default_value: None,
                 enum_values: vec![],
                 inverse_of: None,
+                normative: false,
             }],
         },
     )];
@@ -1726,6 +1757,7 @@ fn enhancements_unknown_kind_i004() {
                 default_value: None,
                 enum_values: vec![],
                 inverse_of: None,
+                normative: false,
             }],
         },
     )];
@@ -1760,6 +1792,7 @@ fn enhancements_no_overwrite() {
                 default_value: None,
                 enum_values: vec![],
                 inverse_of: None,
+                normative: false,
             }],
         },
     )];
@@ -1795,6 +1828,7 @@ fn enhancements_two_non_conflicting() {
                     default_value: None,
                     enum_values: vec![],
                     inverse_of: None,
+                    normative: false,
                 }],
             },
         ),
@@ -1816,6 +1850,7 @@ fn enhancements_two_non_conflicting() {
                     default_value: None,
                     enum_values: vec![],
                     inverse_of: None,
+                    normative: false,
                 }],
             },
         ),

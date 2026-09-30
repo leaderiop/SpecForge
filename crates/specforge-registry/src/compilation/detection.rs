@@ -1597,6 +1597,7 @@ mod tests {
             file_reference: false,
             required: true,
             inverse_of: None,
+            normative: false,
         });
         reg.register(FieldRegistryEntry {
             kind_name: "behavior".into(),
@@ -1609,6 +1610,7 @@ mod tests {
             file_reference: false,
             required: false,
             inverse_of: None,
+            normative: false,
         });
         reg.register(FieldRegistryEntry {
             kind_name: "invariant".into(),
@@ -1621,6 +1623,7 @@ mod tests {
             file_reference: false,
             required: true,
             inverse_of: None,
+            normative: false,
         });
 
         let rules = generate_required_field_rules(&reg);

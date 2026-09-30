@@ -24,6 +24,8 @@ pub struct FieldRegistryEntry {
     pub file_reference: bool,
     pub required: bool,
     pub inverse_of: Option<String>,
+    /// The field states what the entity promises rather than prose.
+    pub normative: bool,
 }
 
 #[derive(Debug, Default)]
@@ -166,6 +168,7 @@ mod tests {
             file_reference: false,
             required: false,
             inverse_of: None,
+            normative: false,
         });
         assert!(registry.get("behavior", "title").is_none());
     }
@@ -201,6 +204,7 @@ mod tests {
             file_reference: false,
             required: false,
             inverse_of: None,
+            normative: false,
         });
 
         // These calls should not allocate — they take &str and use HashMap<String,_>::get(&str)
@@ -227,6 +231,7 @@ mod tests {
             file_reference: false,
             required: false,
             inverse_of: None,
+            normative: false,
         };
         registry.register(entry.clone());
         assert_eq!(registry.len(), 1);
@@ -243,6 +248,7 @@ mod tests {
             file_reference: false,
             required: false,
             inverse_of: None,
+            normative: false,
         };
         registry.register(entry2);
         assert_eq!(registry.len(), 1);
@@ -259,6 +265,7 @@ mod tests {
             file_reference: false,
             required: false,
             inverse_of: None,
+            normative: false,
         });
         assert_eq!(registry.len(), 2);
     }
@@ -278,6 +285,7 @@ mod tests {
             file_reference: false,
             required: false,
             inverse_of: None,
+            normative: false,
         });
         registry.register(FieldRegistryEntry {
             kind_name: "event".to_string(),
@@ -290,6 +298,7 @@ mod tests {
             file_reference: false,
             required: false,
             inverse_of: None,
+            normative: false,
         });
 
         let items: Vec<_> = registry.iter().collect();

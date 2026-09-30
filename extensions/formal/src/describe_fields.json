@@ -9,6 +9,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "expression",
+      "normative": true,
       "required": true,
       "target_kind": null
     },
@@ -64,6 +65,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "expression",
+      "normative": true,
       "required": true,
       "target_kind": null
     },

@@ -177,3 +177,68 @@ fn context_is_smaller_than_full_json() {
         full.len()
     );
 }
+
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "context format keeps each entity's normative fields"
+)]
+fn context_keeps_normative_fields() {
+    use specforge_registry::{FieldRegistry, FieldRegistryEntry, ManifestFieldType};
+
+    let mut fields = FieldMap::new();
+    fields.push(
+        Sym::new("guarantee"),
+        FieldValue::String("Ids MUST be unique".to_string()),
+    );
+    fields.push(
+        Sym::new("description"),
+        FieldValue::String("Long prose about ids".to_string()),
+    );
+    let mut graph = Graph::new();
+    graph.add_node(Node {
+        id: EntityId {
+            raw: Sym::new("unique_ids"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("invariant"),
+        },
+        title: None,
+        fields,
+        source_span: span(),
+        methods: Vec::new(),
+    });
+    let mut registry = FieldRegistry::new();
+    for (field, normative) in [("guarantee", true), ("description", false)] {
+        registry.register(FieldRegistryEntry {
+            kind_name: "invariant".to_string(),
+            field_name: field.to_string(),
+            description: None,
+            field_type: ManifestFieldType::String,
+            source_extension: "@test/ext".to_string(),
+            edge: None,
+            target_kind: None,
+            file_reference: false,
+            required: false,
+            inverse_of: None,
+            normative,
+        });
+    }
+
+    let emit = |registry| {
+        let options = specforge_emitter::EmitOptions {
+            format: specforge_emitter::EmitFormat::Context,
+            field_registry: registry,
+            ..Default::default()
+        };
+        let json = specforge_emitter::emit(&graph, &options).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        parsed["nodes"][0].clone()
+    };
+    let node = emit(Some(&registry));
+    assert_eq!(node["fields"]["guarantee"], "Ids MUST be unique", "{node}");
+    assert!(
+        node["fields"].get("description").is_none(),
+        "prose stays out"
+    );
+    assert!(emit(None).get("fields").is_none(), "no registry, no fields");
+}

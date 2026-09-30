@@ -345,6 +345,7 @@ fn hover_shows_field_description() {
         file_reference: false,
         required: false,
         inverse_of: None,
+        normative: false,
     });
 
     let text = specforge_lsp::hover_field_info("contract", "behavior", &reg).unwrap();
@@ -382,6 +383,7 @@ fn make_field_registry() -> specforge_registry::FieldRegistry {
         file_reference: false,
         required: false,
         inverse_of: None,
+        normative: false,
     });
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
@@ -394,6 +396,7 @@ fn make_field_registry() -> specforge_registry::FieldRegistry {
         file_reference: false,
         required: true,
         inverse_of: None,
+        normative: false,
     });
     reg
 }

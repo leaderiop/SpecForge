@@ -284,7 +284,11 @@ Extensions declare fields with one of eight typed vocabularies
 
 A field may additionally declare `edge` + `target_kind` (its references
 become typed graph edges), `required` (E006 enforcement), and
-`file_reference=true` (path values validated to exist, e.g. `gherkin`).
+`file_reference=true` (path values validated to exist, e.g. `gherkin`), and
+`normative=true` when the field states what the entity promises rather than
+prose (a behavior's `contract`, an invariant's `guarantee`, a decision's
+`decision`): `specforge export --format context` keeps normative fields and
+drops the rest, without core knowing any field by name.
 The per-kind vocabulary is the field registry's — `specforge model`
 renders it from the same source.
 

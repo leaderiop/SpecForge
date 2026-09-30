@@ -35,6 +35,7 @@ fn software_builder() -> ContributionsBuilder {
             .field("contract", |f| {
                 f.field_type(FieldType::String)
                     .required()
+                    .normative()
                     .description("The behavioral contract this behavior guarantees");
             })
             .field("invariants", |f| {

@@ -30,6 +30,7 @@ pub fn read(state: &McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
             // The entities only: the schema (specforge://schema) is most of
             // the bytes and an agent reading the context needs the graph.
             schema: None,
+            field_registry: Some(&state.field_registry),
             ..EmitOptions::default()
         },
     );

@@ -370,9 +370,12 @@ behavior populate_field_registry_from_extensions "Populate Field Registry From E
     block) MUST be validated against ManifestFieldType variants. Invalid
     field types MUST produce a warning. Note: verify is NOT a field type
     — it is a grammar-level construct governed by the supports_verify
-    flag on ManifestEntityKind.
+    flag on ManifestEntityKind. A field's normative flag MUST be kept in
+    its registry entry, so exports can tell the text that states what an
+    entity promises from prose without core knowing any field's name.
   """
   verify unit "fields registered per entity kind"
+  verify unit "a field's normative flag reaches its registry entry"
   verify unit "field types validated against known types"
   verify unit "invalid field type produces warning"
   verify contract "Populate Field Registry From Extensions: field registry population holds — extension_manifests_loaded_fired, kind_registry_populated, fields_registered, field_types_validated, fields_populated"

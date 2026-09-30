@@ -93,6 +93,7 @@ fn make_field_entry(
         file_reference: false,
         required,
         inverse_of: None,
+        normative: false,
     }
 }
 

@@ -20,6 +20,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "problem",
+      "normative": true,
       "required": true,
       "target_kind": null
     },
@@ -31,6 +32,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "solution",
+      "normative": true,
       "required": false,
       "target_kind": null
     },
@@ -174,6 +176,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "problem",
+      "normative": true,
       "required": true,
       "target_kind": null
     },
@@ -185,6 +188,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "solution",
+      "normative": true,
       "required": false,
       "target_kind": null
     },
@@ -702,6 +706,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "definition",
+      "normative": true,
       "required": true,
       "target_kind": null
     },

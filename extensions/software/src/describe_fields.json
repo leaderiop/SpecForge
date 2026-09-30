@@ -9,6 +9,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "contract",
+      "normative": true,
       "required": true,
       "target_kind": null
     },
@@ -152,6 +153,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "contract",
+      "normative": true,
       "required": true,
       "target_kind": null
     },
@@ -295,6 +297,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "guarantee",
+      "normative": true,
       "required": true,
       "target_kind": null
     },
@@ -339,6 +342,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "guarantee",
+      "normative": true,
       "required": true,
       "target_kind": null
     },
@@ -449,6 +453,7 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "contract",
+      "normative": true,
       "required": false,
       "target_kind": null
     },

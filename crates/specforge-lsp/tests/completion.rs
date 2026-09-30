@@ -188,6 +188,7 @@ fn complete_field_names_from_registry() {
         file_reference: false,
         required: false,
         inverse_of: None,
+        normative: false,
     });
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
@@ -200,6 +201,7 @@ fn complete_field_names_from_registry() {
         file_reference: false,
         required: false,
         inverse_of: None,
+        normative: false,
     });
     let fields = specforge_lsp::complete_field_names("behavior", Some(&reg));
     assert!(fields.contains(&"contract".to_string()));

@@ -420,7 +420,10 @@ behavior export_agent_context_format "Export Agent Context Format" {
   contract   """
     When specforge export --format=context is invoked, the system MUST produce
     a token-optimized representation of the graph containing entity IDs,
-    contracts, relationships, and coverage status. The output MUST omit
+    contracts, relationships, and coverage status. Each entity also carries
+    the fields its extension declares normative (an invariant's guarantee,
+    a decision's decision text), so every kind keeps the text that states
+    what it promises; core reads the flag and knows no field by name. The output MUST omit
     verbose fields (full descriptions, prose) to minimize token consumption.
     The format MUST be valid JSON conforming to the Graph Protocol schema.
     The output MUST include a schema_version field identifying the Graph
@@ -433,6 +436,8 @@ behavior export_agent_context_format "Export Agent Context Format" {
   """
   verify unit "context format includes entity IDs and contracts"
   verify unit "context format omits verbose prose fields"
+  verify unit "context format keeps each entity's normative fields"
+  verify integration "export --format context keeps an invariant's guarantee"
   verify unit "scoped export returns only reachable subgraph"
   verify unit "non-existent scope entity produces E003 and exit code 1"
   verify unit "output conforms to Graph Protocol schema"

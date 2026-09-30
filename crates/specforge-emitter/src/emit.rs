@@ -1,5 +1,5 @@
 use specforge_graph::Graph;
-use specforge_registry::KindRegistry;
+use specforge_registry::{FieldRegistry, KindRegistry};
 
 use crate::error::EmitterError;
 use crate::schema::GraphProtocolSchema;
@@ -43,6 +43,9 @@ pub struct EmitOptions<'a> {
     /// Kind registry for style lookups (DOT shape/color/fillcolor declared by
     /// extensions; C13-00). Default: None — nodes use built-in defaults.
     pub kind_registry: Option<&'a KindRegistry>,
+    /// Field registry, so the context format keeps each entity's normative
+    /// fields. Default: None — context carries only contract/status/verify.
+    pub field_registry: Option<&'a FieldRegistry>,
 }
 
 impl Default for EmitOptions<'_> {
@@ -55,6 +58,7 @@ impl Default for EmitOptions<'_> {
             depth: None,
             kind_filter: Vec::new(),
             kind_registry: None,
+            field_registry: None,
         }
     }
 }
@@ -132,10 +136,16 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
         Some(budget) if matches!(options.format, EmitFormat::Context | EmitFormat::Brief) => {
             budgeted_graph = crate::budget::filter_graph_within_budget(g, budget, |sub| {
                 match (options.format, options.schema) {
-                    (EmitFormat::Context, Some(schema)) => {
-                        crate::schema::emit_context_attached(sub, schema, attach)
-                    }
-                    (EmitFormat::Context, None) => Ok(crate::context::emit_context(sub)),
+                    (EmitFormat::Context, Some(schema)) => crate::schema::emit_context_attached(
+                        sub,
+                        schema,
+                        attach,
+                        options.field_registry,
+                    ),
+                    (EmitFormat::Context, None) => Ok(crate::context::emit_context_with_fields(
+                        sub,
+                        options.field_registry,
+                    )),
                     (EmitFormat::Brief, Some(schema)) => {
                         crate::schema::emit_brief_attached(sub, schema, attach)
                     }
@@ -153,9 +163,11 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
         (EmitFormat::Json, Some(schema)) => crate::schema::emit_json_attached(g, schema, attach)?,
         (EmitFormat::Json, None) => crate::json::emit_json(g),
         (EmitFormat::Context, Some(schema)) => {
-            crate::schema::emit_context_attached(g, schema, attach)?
+            crate::schema::emit_context_attached(g, schema, attach, options.field_registry)?
         }
-        (EmitFormat::Context, None) => crate::context::emit_context(g),
+        (EmitFormat::Context, None) => {
+            crate::context::emit_context_with_fields(g, options.field_registry)
+        }
         (EmitFormat::Brief, Some(schema)) => crate::schema::emit_brief_attached(g, schema, attach)?,
         (EmitFormat::Brief, None) => crate::brief::emit_brief(g),
         (EmitFormat::Dot, _) => crate::dot::emit_dot(

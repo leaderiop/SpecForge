@@ -844,6 +844,7 @@ fn render_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
             kind_filter: Vec::new(),
             token_budget: None,
             kind_registry: None,
+            field_registry: Some(&state.field_registry),
         },
     ) {
         Ok(text) => ok(id, json!({ "format": format, "output": text })),

@@ -43,6 +43,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
             scope: Some(entity_id),
             depth: Some(depth),
             kind_filter: kinds,
+            field_registry: Some(&state.field_registry),
             ..EmitOptions::default()
         };
         emit(&state.graph, &options)

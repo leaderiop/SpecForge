@@ -32,6 +32,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         format: fmt,
         scope,
         token_budget: max_tokens,
+        field_registry: Some(&state.field_registry),
         ..EmitOptions::default()
     };
 

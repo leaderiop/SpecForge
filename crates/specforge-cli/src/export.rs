@@ -36,6 +36,7 @@ pub fn run(
             schema: None,
             token_budget: max_tokens,
             kind_registry: Some(&ctx.kind_registry),
+            field_registry: Some(&ctx.field_registry),
             ..Default::default()
         };
         match emit(&ctx.graph, &options) {
@@ -76,6 +77,7 @@ pub fn run(
             scope,
             schema: Some(&schema),
             token_budget: max_tokens,
+            field_registry: Some(&ctx.field_registry),
             ..Default::default()
         };
         match emit(&ctx.graph, &options) {

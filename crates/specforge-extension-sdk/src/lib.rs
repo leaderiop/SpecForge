@@ -430,6 +430,12 @@ impl FieldBuilder {
         self.0.inverse_of = Some(k.to_string());
         self
     }
+    /// The field states what the entity promises (a contract, a
+    /// guarantee) rather than prose, so token-optimized exports keep it.
+    pub fn normative(&mut self) -> &mut Self {
+        self.0.normative = true;
+        self
+    }
     pub fn default_value(&mut self, v: &str) -> &mut Self {
         self.0.default_value = Some(v.to_string());
         self

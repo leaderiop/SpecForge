@@ -118,6 +118,9 @@ type ManifestField {
   target_kind    string            @optional
   file_reference boolean           @optional
   required       boolean           @optional
+  /// The field states what the entity promises (a behavior's contract, an
+  /// invariant's guarantee), as opposed to prose; token-optimized exports keep it.
+  normative      boolean           @optional
   verify unit "ManifestField schema is valid"
 }
 
@@ -182,6 +185,7 @@ type FieldRegistryEntry {
   target_kind      string            @optional
   file_reference   boolean           @optional
   required         boolean           @optional
+  normative        boolean           @optional
   verify unit "FieldRegistryEntry schema is valid"
 }
 

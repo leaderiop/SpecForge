@@ -559,6 +559,7 @@ mod tests {
                     default_value: None,
                     enum_values: vec![],
                     inverse_of: None,
+                    normative: false,
                 }],
                 incremental: None,
                 has_body_parser: false,

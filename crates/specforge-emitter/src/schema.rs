@@ -519,19 +519,22 @@ struct ContextNodeV2 {
     status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     verify: Option<Value>,
+    #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    fields: std::collections::BTreeMap<String, Value>,
 }
 
 pub fn emit_context_with_schema(
     graph: &Graph,
     schema: &GraphProtocolSchema,
 ) -> Result<String, EmitterError> {
-    emit_context_attached(graph, schema, SchemaAttachment::Embedded)
+    emit_context_attached(graph, schema, SchemaAttachment::Embedded, None)
 }
 
 pub(crate) fn emit_context_attached(
     graph: &Graph,
     schema: &GraphProtocolSchema,
     attach: SchemaAttachment,
+    registry: Option<&specforge_registry::FieldRegistry>,
 ) -> Result<String, EmitterError> {
     let nodes: Vec<ContextNodeV2> = graph
         .nodes()
@@ -555,6 +558,7 @@ pub(crate) fn emit_context_attached(
                 contract,
                 status,
                 verify,
+                fields: crate::context::normative_fields(n, registry),
             }
         })
         .collect();
@@ -931,7 +935,7 @@ pub fn emit_context_scoped_with_schema(
             scope
         ))
     })?;
-    emit_context_attached(&sub, schema, SchemaAttachment::Referenced)
+    emit_context_attached(&sub, schema, SchemaAttachment::Referenced, None)
 }
 
 pub fn emit_brief_scoped_with_schema(

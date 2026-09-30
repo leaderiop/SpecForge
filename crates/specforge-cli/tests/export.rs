@@ -325,3 +325,41 @@ fn schema_publish_outputs_json_schema() {
     );
     assert_eq!(parsed["title"], "SpecForge Graph Protocol");
 }
+
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "export --format context keeps an invariant's guarantee"
+)]
+fn export_context_keeps_an_invariants_guarantee() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("app.spec"),
+        "invariant unique_ids \"Unique ids\" {\n  guarantee \"Ids MUST be unique\"\n  risk \"duplicates\"\n}\n",
+    )
+    .unwrap();
+    let out = specforge_cmd()
+        .args(["export", "--format", "context"])
+        .arg(dir.path())
+        .assert()
+        .success()
+        .get_output()
+        .stdout
+        .clone();
+    let parsed: serde_json::Value = serde_json::from_slice(&out).unwrap();
+    let node = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == "unique_ids")
+        .unwrap_or_else(|| panic!("no unique_ids in {parsed}"));
+    assert_eq!(node["fields"]["guarantee"], "Ids MUST be unique", "{node}");
+    assert!(
+        node["fields"].get("risk").is_none(),
+        "risk isn't normative: {node}"
+    );
+}

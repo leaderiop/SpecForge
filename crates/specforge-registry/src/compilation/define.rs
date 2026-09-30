@@ -68,6 +68,7 @@ pub fn register_define_blocks(
                 file_reference: false,
                 required: true,
                 inverse_of: None,
+                normative: false,
             });
         }
         for field_name in &define.optional_fields {
@@ -82,6 +83,7 @@ pub fn register_define_blocks(
                 file_reference: false,
                 required: false,
                 inverse_of: None,
+                normative: false,
             });
         }
         for target in &define.reference_targets {
@@ -96,6 +98,7 @@ pub fn register_define_blocks(
                 file_reference: false,
                 required: false,
                 inverse_of: None,
+                normative: false,
             });
         }
     }
