@@ -9,6 +9,63 @@ fn specforge_binary() -> Command {
     Command::new(assert_cmd::cargo_bin!("specforge"))
 }
 
+/// The ids of a Graph Protocol document's nodes, sorted.
+fn node_ids(doc: &serde_json::Value) -> Vec<&str> {
+    let mut ids: Vec<&str> = doc["nodes"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no nodes array: {doc}"))
+        .iter()
+        .map(|n| n["id"].as_str().expect("node id"))
+        .collect();
+    ids.sort_unstable();
+    ids
+}
+
+/// A Graph Protocol document's edges as sorted (source, label, target).
+fn edge_triples(doc: &serde_json::Value) -> Vec<(&str, &str, &str)> {
+    let mut edges: Vec<(&str, &str, &str)> = doc["edges"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no edges array: {doc}"))
+        .iter()
+        .map(|e| {
+            (
+                e["source"].as_str().expect("edge source"),
+                e["label"].as_str().expect("edge label"),
+                e["target"].as_str().expect("edge target"),
+            )
+        })
+        .collect();
+    edges.sort_unstable();
+    edges
+}
+
+/// The JSON a `resources/read` response carries in `contents[0].text`.
+fn resource_json(resp: &serde_json::Value) -> serde_json::Value {
+    let text = resp["result"]["contents"][0]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("no contents[0].text: {resp}"));
+    serde_json::from_str(text).unwrap_or_else(|e| panic!("resource text not JSON: {e}\n{text}"))
+}
+
+/// The JSON data message (the last one) a `prompts/get` response carries.
+fn prompt_data(resp: &serde_json::Value) -> serde_json::Value {
+    let messages = resp["result"]["messages"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no messages: {resp}"));
+    assert!(messages.len() >= 2, "instruction + data messages: {resp}");
+    let text = messages.last().unwrap()["content"]["text"]
+        .as_str()
+        .unwrap_or_else(|| panic!("data message has no text: {resp}"));
+    serde_json::from_str(text).unwrap_or_else(|e| panic!("data message not JSON: {e}\n{text}"))
+}
+
+/// Every edge of BASIC_SPEC, as (source, label, target).
+const BASIC_EDGES: [(&str, &str, &str); 3] = [
+    ("gamma", "behaviors", "alpha"),
+    ("gamma", "behaviors", "beta"),
+    ("inv", "enforced_by", "alpha"),
+];
+
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "all core tools registered before accepting requests"
@@ -68,8 +125,43 @@ fn mcp_server_responds_to_initialize() {
     );
     assert!(init["result"]["capabilities"]["tools"].is_object());
 
+    // The very first request after the handshake already sees every core tool.
     let tools = responses[1]["result"]["tools"].as_array().expect("tools");
-    assert!(!tools.is_empty(), "core tools registered");
+    let names: Vec<&str> = tools
+        .iter()
+        .map(|t| t["name"].as_str().expect("tool name"))
+        .collect();
+    for core in [
+        "specforge.query",
+        "specforge.validate",
+        "specforge.export",
+        "specforge.trace",
+        "specforge.search",
+        "specforge.schema",
+        "specforge.coverage",
+        "specforge.stats",
+        "specforge.inspect",
+        "specforge.find_definition",
+        "specforge.find_references",
+        "specforge.outline",
+        "specforge.suggest_fixes",
+        "specforge.format",
+        "specforge.rename",
+        "specforge.init",
+        "specforge.add_extension",
+        "specforge.remove_extension",
+        "specforge.migrate",
+        "specforge.extensions",
+        "specforge.providers",
+        "specforge.doctor",
+        "specforge.collect",
+        "specforge.render",
+    ] {
+        assert!(
+            names.contains(&core),
+            "core tool {core} missing from tools/list: {names:?}"
+        );
+    }
 }
 
 #[test]
@@ -204,19 +296,11 @@ fn mcp_invalid_json_returns_parse_error() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.lines().filter(|l| !l.trim().is_empty()).collect();
 
-    // Our bad JSON gets an error response
-    let has_parse_error = lines.iter().any(|l| {
-        if let Ok(v) = serde_json::from_str::<serde_json::Value>(l) {
-            v["error"]["code"] == -32700 || v["error"]["code"] == -32600
-        } else {
-            false
-        }
-    });
-    assert!(
-        has_parse_error,
-        "should produce a parse/invalid error response, lines: {:?}",
-        lines
-    );
+    // The bad line gets exactly one response: a -32700 Parse error.
+    assert_eq!(lines.len(), 1, "one response to one bad line: {lines:?}");
+    let resp: serde_json::Value = serde_json::from_str(lines[0]).expect("response is JSON");
+    assert_eq!(resp["error"]["code"], -32700, "Parse error: {resp}");
+    assert_eq!(resp["error"]["message"], "Parse error", "{resp}");
 }
 
 #[specforge_test(
@@ -271,22 +355,16 @@ fn mcp_tool_query_returns_subgraph() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    assert!(
-        content["nodes"].is_array(),
-        "query result should have nodes array"
+    // gamma and its direct neighbors; inv is two hops away (via alpha).
+    assert_eq!(node_ids(&content), ["alpha", "beta", "gamma"], "{content}");
+    assert_eq!(
+        edge_triples(&content),
+        [
+            ("gamma", "behaviors", "alpha"),
+            ("gamma", "behaviors", "beta")
+        ],
+        "{content}"
     );
-    assert!(
-        content["edges"].is_array(),
-        "query result should have edges array"
-    );
-
-    let ids: Vec<&str> = content["nodes"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|n| n["id"].as_str().unwrap())
-        .collect();
-    assert!(ids.contains(&"gamma"), "should include queried entity");
 }
 
 #[specforge_test(
@@ -310,13 +388,30 @@ fn mcp_tool_trace_returns_chain() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
     assert_eq!(content["entity_id"], "alpha");
-    assert!(
-        content["upstream"].is_array(),
-        "trace should have upstream array"
+    assert_eq!(content["entity_kind"], "behavior");
+    // gamma (behaviors) and inv (enforced_by) reference alpha.
+    let mut upstream: Vec<(&str, &str, u64)> = content["upstream"]
+        .as_array()
+        .expect("upstream array")
+        .iter()
+        .map(|l| {
+            (
+                l["entity_id"].as_str().unwrap(),
+                l["edge_label"].as_str().unwrap(),
+                l["depth"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    upstream.sort_unstable();
+    assert_eq!(
+        upstream,
+        [("gamma", "behaviors", 1), ("inv", "enforced_by", 1)],
+        "{content}"
     );
-    assert!(
-        content["downstream"].is_array(),
-        "trace should have downstream array"
+    assert_eq!(
+        content["downstream"],
+        serde_json::json!([]),
+        "alpha references nothing: {content}"
     );
 }
 
@@ -372,11 +467,29 @@ fn mcp_tool_export_graph_format() {
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
-    let content: serde_json::Value = serde_json::from_str(text).unwrap();
-    assert!(
-        content["nodes"].is_array(),
-        "export graph should have nodes array"
+    let content = parse_tool_content(resp);
+    assert_eq!(content["schema_version"], "0.1.0", "{content}");
+    // The whole graph: every entity and every reference.
+    assert_eq!(
+        node_ids(&content),
+        ["alpha", "beta", "gamma", "inv"],
+        "{content}"
+    );
+    assert_eq!(edge_triples(&content), BASIC_EDGES, "{content}");
+    // The graph format carries each node's source location and full fields.
+    let inv = content["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == "inv")
+        .unwrap();
+    assert_eq!(
+        *inv,
+        serde_json::json!({
+            "id": "inv", "kind": "invariant", "title": "Invariant",
+            "file": "main.spec", "line": 4,
+            "fields": { "enforced_by": ["alpha"], "guarantee": "always" }
+        })
     );
 }
 
@@ -387,36 +500,47 @@ fn mcp_tool_export_graph_format() {
 fn mcp_tool_search_fuzzy_match() {
     let responses = mcp_session(
         BASIC_SPEC,
-        &[mcp_request(
-            1,
-            "tools/call",
-            serde_json::json!({
-                "name": "specforge.search",
-                "arguments": { "query": "alph" }
-            }),
-        )],
+        &[
+            mcp_request(
+                1,
+                "tools/call",
+                serde_json::json!({
+                    "name": "specforge.search",
+                    "arguments": { "query": "alph" }
+                }),
+            ),
+            // "second" is no entity's name: only beta's contract contains it.
+            mcp_request(
+                2,
+                "tools/call",
+                serde_json::json!({
+                    "name": "specforge.search",
+                    "arguments": { "query": "second" }
+                }),
+            ),
+        ],
     );
 
-    let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
-    let results: serde_json::Value = serde_json::from_str(text).unwrap();
-    let arr = results.as_array().unwrap();
-    assert!(
-        !arr.is_empty(),
-        "fuzzy search for 'alph' should find 'alpha'"
+    let result_ids = |id: u64| -> Vec<String> {
+        let resp = find_response(&responses, id).expect("search response");
+        assert!(resp["error"].is_null(), "should not be error: {}", resp);
+        parse_tool_content(resp)
+            .as_array()
+            .expect("search returns an array")
+            .iter()
+            .map(|r| r["entity_id"].as_str().unwrap().to_string())
+            .collect()
+    };
+
+    assert_eq!(
+        result_ids(1),
+        ["alpha"],
+        "a partial name finds the entity by name"
     );
-
-    let found_alpha = arr.iter().any(|r| r["entity_id"] == "alpha");
-    assert!(found_alpha, "should find alpha entity, got: {:?}", arr);
-
-    let score = arr.iter().find(|r| r["entity_id"] == "alpha").unwrap()["score"]
-        .as_f64()
-        .unwrap();
-    assert!(
-        score > 0.6,
-        "score should be above 0.6 threshold, got {}",
-        score
+    assert_eq!(
+        result_ids(2),
+        ["beta"],
+        "contract text finds the entity whose contract matches"
     );
 }
 
@@ -440,14 +564,19 @@ fn mcp_tool_stats_returns_counts() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    assert!(
-        content["entity_counts"].is_array(),
-        "stats should have entity_counts"
+    let mut counts: Vec<(&str, u64)> = content["entity_counts"]
+        .as_array()
+        .expect("entity_counts array")
+        .iter()
+        .map(|c| (c["kind"].as_str().unwrap(), c["count"].as_u64().unwrap()))
+        .collect();
+    counts.sort_unstable();
+    assert_eq!(
+        counts,
+        [("behavior", 2), ("feature", 1), ("invariant", 1)],
+        "{content}"
     );
-    assert!(
-        content["edge_count"].is_number(),
-        "stats should have edge_count"
-    );
+    assert_eq!(content["edge_count"], 3, "{content}");
 }
 
 #[test]
@@ -513,13 +642,23 @@ fn mcp_resource_read_graph() {
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let content = resp["result"]["contents"]
+    assert_eq!(resp["result"]["contents"][0]["uri"], "specforge://graph");
+    let doc = resource_json(resp);
+    assert!(doc["schema_version"].is_string(), "schema_version: {doc}");
+    assert!(doc["schema"].is_object(), "embedded schema: {doc}");
+    // The full graph: every entity with its fields, every reference.
+    assert_eq!(node_ids(&doc), ["alpha", "beta", "gamma", "inv"], "{doc}");
+    assert_eq!(edge_triples(&doc), BASIC_EDGES, "{doc}");
+    let gamma = doc["nodes"]
         .as_array()
-        .or_else(|| resp["result"]["content"].as_array());
-    assert!(
-        content.is_some(),
-        "resource read should return contents, resp: {}",
-        resp
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == "gamma")
+        .unwrap();
+    assert_eq!(gamma["kind"], "feature");
+    assert_eq!(
+        gamma["fields"],
+        serde_json::json!({ "behaviors": ["alpha", "beta"], "problem": "p", "solution": "s" })
     );
 }
 
@@ -528,8 +667,12 @@ fn mcp_resource_read_graph() {
     verify = "specforge://diagnostics resource returns current DiagnosticBag as JSON"
 )]
 fn mcp_resource_read_diagnostics() {
+    // Line 5 references `alpah`, which no entity declares.
+    let spec = format!(
+        "{BASIC_SPEC}\nfeature broken \"Broken\" {{ problem \"p\" solution \"s\" behaviors [alpah] }}"
+    );
     let responses = mcp_session(
-        BASIC_SPEC,
+        &spec,
         &[mcp_request(
             1,
             "resources/read",
@@ -539,10 +682,27 @@ fn mcp_resource_read_diagnostics() {
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    assert!(
-        resp["result"].is_object(),
-        "diagnostics resource should return result object"
+    assert_eq!(
+        resp["result"]["contents"][0]["uri"],
+        "specforge://diagnostics"
     );
+    let diagnostics = resource_json(resp);
+    let bag = diagnostics.as_array().expect("the bag is a JSON array");
+    assert_eq!(
+        bag.len(),
+        1,
+        "exactly the unresolved reference: {diagnostics}"
+    );
+    let d = &bag[0];
+    assert_eq!(d["code"], "E003", "{d}");
+    assert_eq!(d["severity"], "Error", "{d}");
+    assert_eq!(
+        d["message"], "unresolved reference 'alpah' in entity 'broken'",
+        "{d}"
+    );
+    assert_eq!(d["file"], "main.spec", "{d}");
+    assert_eq!(d["line"], 5, "{d}");
+    assert_eq!(d["column"], 63, "{d}");
 }
 
 #[specforge_test(
@@ -561,9 +721,17 @@ fn mcp_resource_read_entity_subgraph() {
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    assert!(
-        resp["result"].is_object(),
-        "entity subgraph should return result object"
+    let doc = resource_json(resp);
+    // alpha plus the entities directly connected to it; beta is two hops
+    // away (via gamma) and stays out.
+    assert_eq!(node_ids(&doc), ["alpha", "gamma", "inv"], "{doc}");
+    assert_eq!(
+        edge_triples(&doc),
+        [
+            ("gamma", "behaviors", "alpha"),
+            ("inv", "enforced_by", "alpha")
+        ],
+        "{doc}"
     );
 }
 
@@ -670,21 +838,22 @@ fn mcp_tool_schema_returns_entity_kinds() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    assert!(
-        content["entity_kinds"].is_object(),
-        "schema should have entity_kinds object: {}",
-        content
+    // Every kind in the graph with the fields it uses, and every edge label.
+    assert_eq!(
+        content["entity_kinds"],
+        serde_json::json!({
+            "behavior": ["contract"],
+            "feature": ["behaviors", "problem", "solution"],
+            "invariant": ["enforced_by", "guarantee"]
+        }),
+        "{content}"
     );
-    assert!(
-        content["edge_labels"].is_array(),
-        "schema should have edge_labels array: {}",
-        content
+    assert_eq!(
+        content["edge_labels"],
+        serde_json::json!(["behaviors", "enforced_by"]),
+        "{content}"
     );
-    assert!(
-        content.get("schema_version").is_some(),
-        "schema should have schema_version: {}",
-        content
-    );
+    assert_eq!(content["schema_version"], "0.1.0", "{content}");
 }
 
 #[specforge_test(
@@ -692,11 +861,13 @@ fn mcp_tool_schema_returns_entity_kinds() {
     verify = "specforge.coverage returns coverage for all testable entities"
 )]
 fn mcp_tool_coverage_returns_status() {
-    // Testability comes from the extensions; without any, nothing is testable.
-    let dir = setup_project_with_config(
-        r#"{"name":"test","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
-        &[("main.spec", BASIC_SPEC)],
+    // alpha declares two obligations; the rest declare none.
+    let spec = BASIC_SPEC.replace(
+        r#"contract "first" }"#,
+        r#"contract "first" verify unit "alpha works" verify unit "alpha fails safely" }"#,
     );
+    // Testability comes from the extensions; without any, nothing is testable.
+    let dir = testable_project(&spec);
     let responses = mcp_session_in(
         &dir,
         &[mcp_request(
@@ -713,24 +884,27 @@ fn mcp_tool_coverage_returns_status() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
     let arr = content.as_array().expect("coverage should return array");
-    assert!(
-        !arr.is_empty(),
-        "coverage should have entries for BASIC_SPEC entities"
-    );
+    // No filter: one entry for every testable entity — the behaviors and
+    // the invariant — none left out. The feature (gamma) is not testable.
+    let mut ids: Vec<&str> = arr
+        .iter()
+        .map(|e| e["entity_id"].as_str().unwrap())
+        .collect();
+    ids.sort_unstable();
+    assert_eq!(ids, ["alpha", "beta", "inv"], "{content}");
 
-    let first = &arr[0];
-    assert!(
-        first["entity_id"].is_string(),
-        "coverage entry should have entity_id"
+    let alpha = arr.iter().find(|e| e["entity_id"] == "alpha").unwrap();
+    assert_eq!(alpha["kind"], "behavior");
+    assert_eq!(alpha["obligations"], 2, "{alpha}");
+    assert_eq!(alpha["proven"], 0, "no test report recorded: {alpha}");
+    assert_eq!(
+        alpha["unproven"],
+        serde_json::json!(["alpha works", "alpha fails safely"])
     );
-    assert!(
-        first["status"].is_string(),
-        "coverage entry should have status"
-    );
-    assert!(
-        first.get("declared").is_some(),
-        "coverage entry should have declared field"
-    );
+    assert_eq!(alpha["status"], "uncovered", "{alpha}");
+    let beta = arr.iter().find(|e| e["entity_id"] == "beta").unwrap();
+    assert_eq!(beta["obligations"], 0, "{beta}");
+    assert_eq!(beta["status"], "uncovered", "{beta}");
 }
 
 #[specforge_test(
@@ -754,15 +928,28 @@ fn mcp_tool_inspect_returns_entity_detail() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
     assert_eq!(content["entity_id"], "alpha");
-    assert!(content["kind"].is_string(), "inspect should have kind");
-    assert!(
-        content["source_span"].is_object(),
-        "inspect should have source_span"
+    assert_eq!(content["kind"], "behavior", "{content}");
+    assert_eq!(content["title"], "Alpha", "{content}");
+    assert_eq!(content["contract"], "first", "{content}");
+    assert_eq!(
+        content["fields"],
+        serde_json::json!({ "contract": "first" }),
+        "{content}"
     );
-    assert!(
-        content["reference_count"].is_number(),
-        "inspect should have reference_count"
-    );
+    // gamma and inv both reference alpha.
+    assert_eq!(content["reference_count"], 2, "{content}");
+    let mut references: Vec<&str> = content["references"]
+        .as_array()
+        .expect("references array")
+        .iter()
+        .map(|r| r.as_str().unwrap())
+        .collect();
+    references.sort_unstable();
+    assert_eq!(references, ["gamma", "inv"], "{content}");
+    assert_eq!(content["source_span"]["file"], "main.spec", "{content}");
+    assert_eq!(content["source_span"]["start_line"], 1, "{content}");
+    assert_eq!(content["coverage_status"], "uncovered", "{content}");
+    assert_eq!(content["diagnostics"], serde_json::json!([]), "{content}");
 }
 
 #[specforge_test(
@@ -796,8 +983,10 @@ fn mcp_tool_inspect_missing_entity_returns_error() {
     verify = "specforge.find_definition returns file, line, and column"
 )]
 fn mcp_tool_find_definition_returns_location() {
+    // alpha's declaration starts on line 3, column 3.
+    let spec = "behavior beta \"Beta\" { contract \"second\" }\n\n  behavior alpha \"Alpha\" {\n    contract \"first\"\n  }\n";
     let responses = mcp_session(
-        BASIC_SPEC,
+        spec,
         &[mcp_request(
             1,
             "tools/call",
@@ -812,18 +1001,9 @@ fn mcp_tool_find_definition_returns_location() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
     assert_eq!(content["entity_id"], "alpha");
-    assert!(
-        content["file_path"].is_string(),
-        "find_definition should have file_path"
-    );
-    assert!(
-        content["line"].is_number(),
-        "find_definition should have line"
-    );
-    assert!(
-        content["column"].is_number(),
-        "find_definition should have column"
-    );
+    assert_eq!(content["file_path"], "main.spec", "{content}");
+    assert_eq!(content["line"], 3, "{content}");
+    assert_eq!(content["column"], 3, "{content}");
 }
 
 #[specforge_test(
@@ -848,18 +1028,26 @@ fn mcp_tool_find_references_returns_locations() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
     assert_eq!(content["entity_id"], "alpha");
-    let locations = content["locations"]
+    // Both referencing entities, each at its own line: gamma (line 3) and
+    // inv (line 4).
+    let mut locations: Vec<(&str, &str, u64, u64)> = content["locations"]
         .as_array()
-        .expect("should have locations array");
-    assert!(
-        !locations.is_empty(),
-        "alpha should have at least one reference (from gamma)"
-    );
-
-    let first = &locations[0];
-    assert!(
-        first["referencing_entity_id"].is_string(),
-        "location should have referencing_entity_id"
+        .expect("should have locations array")
+        .iter()
+        .map(|l| {
+            (
+                l["referencing_entity_id"].as_str().unwrap(),
+                l["source_span"]["file"].as_str().unwrap(),
+                l["source_span"]["start_line"].as_u64().unwrap(),
+                l["source_span"]["start_col"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    locations.sort_unstable();
+    assert_eq!(
+        locations,
+        [("gamma", "main.spec", 3, 1), ("inv", "main.spec", 4, 1)],
+        "{content}"
     );
 }
 
@@ -915,22 +1103,53 @@ fn mcp_tool_outline_returns_entities_in_file() {
 fn mcp_tool_query_format_context() {
     let responses = mcp_session(
         BASIC_SPEC,
-        &[mcp_request(
-            1,
-            "tools/call",
-            serde_json::json!({
-                "name": "specforge.query",
-                "arguments": { "entity_id": "gamma", "depth": 1, "format": "context" }
-            }),
-        )],
+        &[
+            mcp_request(
+                1,
+                "tools/call",
+                serde_json::json!({
+                    "name": "specforge.query",
+                    "arguments": { "entity_id": "gamma", "depth": 1, "format": "context" }
+                }),
+            ),
+            mcp_request(
+                2,
+                "tools/call",
+                serde_json::json!({
+                    "name": "specforge.query",
+                    "arguments": { "entity_id": "gamma", "depth": 1 }
+                }),
+            ),
+        ],
     );
 
-    let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
-    // Context format should produce valid JSON with contract-style fields
-    let _content: serde_json::Value = serde_json::from_str(text)
-        .unwrap_or_else(|e| panic!("context output not valid JSON: {}\ntext: {}", e, text));
+    let context = parse_tool_content(find_response(&responses, 1).expect("context response"));
+    let graph = parse_tool_content(find_response(&responses, 2).expect("default response"));
+    // Same subgraph either way...
+    assert_eq!(node_ids(&context), ["alpha", "beta", "gamma"], "{context}");
+    assert_eq!(node_ids(&graph), node_ids(&context));
+    // ...serialized differently: context lifts the contract and drops the
+    // source location and raw fields; the default graph format keeps them.
+    let node = |doc: &serde_json::Value, id: &str| -> serde_json::Value {
+        doc["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == id)
+            .unwrap()
+            .clone()
+    };
+    assert_eq!(
+        node(&context, "alpha"),
+        serde_json::json!({ "id": "alpha", "kind": "behavior", "title": "Alpha", "contract": "first" })
+    );
+    assert_eq!(
+        node(&graph, "alpha"),
+        serde_json::json!({
+            "id": "alpha", "kind": "behavior", "title": "Alpha",
+            "file": "main.spec", "line": 1, "fields": { "contract": "first" }
+        })
+    );
 }
 
 #[test]
@@ -1024,8 +1243,10 @@ fn mcp_tool_query_with_kinds_filter() {
     verify = "scope parameter restricts to subgraph"
 )]
 fn mcp_tool_export_scoped() {
+    // `loner` is connected to nothing, so alpha's subgraph leaves it out.
+    let spec = format!("{BASIC_SPEC}\nbehavior loner \"Loner\" {{ contract \"alone\" }}");
     let responses = mcp_session(
-        BASIC_SPEC,
+        &spec,
         &[mcp_request(
             1,
             "tools/call",
@@ -1039,11 +1260,13 @@ fn mcp_tool_export_scoped() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    let nodes = content["nodes"]
-        .as_array()
-        .expect("scoped export should have nodes");
-    let ids: Vec<&str> = nodes.iter().map(|n| n["id"].as_str().unwrap()).collect();
-    assert!(ids.contains(&"alpha"), "scoped export should include alpha");
+    // alpha's connected subgraph: everything reachable from it, not loner.
+    assert_eq!(
+        node_ids(&content),
+        ["alpha", "beta", "gamma", "inv"],
+        "{content}"
+    );
+    assert_eq!(edge_triples(&content), BASIC_EDGES, "{content}");
 }
 
 #[specforge_test(
@@ -1051,23 +1274,54 @@ fn mcp_tool_export_scoped() {
     verify = "all three formats (context, brief, graph) supported"
 )]
 fn mcp_tool_export_format_context() {
-    let responses = mcp_session(
-        BASIC_SPEC,
-        &[mcp_request(
-            1,
+    let export = |id: u64, format: &str| {
+        mcp_request(
+            id,
             "tools/call",
             serde_json::json!({
                 "name": "specforge.export",
-                "arguments": { "format": "context" }
+                "arguments": { "format": format }
             }),
-        )],
+        )
+    };
+    let responses = mcp_session(
+        BASIC_SPEC,
+        &[export(1, "context"), export(2, "brief"), export(3, "graph")],
     );
 
-    let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
-    let _content: serde_json::Value = serde_json::from_str(text)
-        .unwrap_or_else(|e| panic!("context export not valid JSON: {}\ntext: {}", e, text));
+    let beta_of = |id: u64| -> serde_json::Value {
+        let resp = find_response(&responses, id).expect("export response");
+        assert!(resp["error"].is_null(), "should not be error: {}", resp);
+        let doc = parse_tool_content(resp);
+        assert_eq!(node_ids(&doc), ["alpha", "beta", "gamma", "inv"], "{doc}");
+        assert_eq!(edge_triples(&doc), BASIC_EDGES, "{doc}");
+        doc["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == "beta")
+            .unwrap()
+            .clone()
+    };
+    // Each format serializes the same node its own way.
+    assert_eq!(
+        beta_of(1),
+        serde_json::json!({ "id": "beta", "kind": "behavior", "title": "Beta", "contract": "second" }),
+        "context: identity plus the contract"
+    );
+    assert_eq!(
+        beta_of(2),
+        serde_json::json!({ "id": "beta", "kind": "behavior", "title": "Beta" }),
+        "brief: identity only"
+    );
+    assert_eq!(
+        beta_of(3),
+        serde_json::json!({
+            "id": "beta", "kind": "behavior", "title": "Beta",
+            "file": "main.spec", "line": 2, "fields": { "contract": "second" }
+        }),
+        "graph: location and every field"
+    );
 }
 
 #[specforge_test(
@@ -1075,29 +1329,62 @@ fn mcp_tool_export_format_context() {
     verify = "kind filter restricts results to matching entity kinds"
 )]
 fn mcp_tool_search_with_kinds() {
+    // "a" matches entities of several kinds; the filter keeps behaviors.
     let responses = mcp_session(
         BASIC_SPEC,
-        &[mcp_request(
-            1,
-            "tools/call",
-            serde_json::json!({
-                "name": "specforge.search",
-                "arguments": { "query": "alpha", "kinds": ["behavior"] }
-            }),
-        )],
+        &[
+            mcp_request(
+                1,
+                "tools/call",
+                serde_json::json!({
+                    "name": "specforge.search",
+                    "arguments": { "query": "a" }
+                }),
+            ),
+            mcp_request(
+                2,
+                "tools/call",
+                serde_json::json!({
+                    "name": "specforge.search",
+                    "arguments": { "query": "a", "kinds": ["behavior"] }
+                }),
+            ),
+        ],
     );
 
-    let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let content = parse_tool_content(resp);
-    let arr = content.as_array().expect("search should return array");
-    for result in arr {
-        assert_eq!(
-            result["kind"].as_str().unwrap(),
-            "behavior",
-            "search with kinds=[behavior] should only return behaviors"
-        );
-    }
+    let kinds_of = |id: u64| -> Vec<(String, String)> {
+        let resp = find_response(&responses, id).expect("search response");
+        assert!(resp["error"].is_null(), "should not be error: {}", resp);
+        let mut hits: Vec<(String, String)> = parse_tool_content(resp)
+            .as_array()
+            .expect("search returns an array")
+            .iter()
+            .map(|r| {
+                (
+                    r["entity_id"].as_str().unwrap().to_string(),
+                    r["kind"].as_str().unwrap().to_string(),
+                )
+            })
+            .collect();
+        hits.sort_unstable();
+        hits
+    };
+    let pair = |id: &str, kind: &str| (id.to_string(), kind.to_string());
+
+    assert_eq!(
+        kinds_of(1),
+        [
+            pair("alpha", "behavior"),
+            pair("gamma", "feature"),
+            pair("inv", "invariant")
+        ],
+        "unfiltered, the query spans three kinds"
+    );
+    assert_eq!(
+        kinds_of(2),
+        [pair("alpha", "behavior")],
+        "kinds=[behavior] keeps only the behavior"
+    );
 }
 
 #[specforge_test(
@@ -1122,12 +1409,14 @@ fn mcp_tool_search_references() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
     let arr = content.as_array().expect("search should return array");
-    // gamma references alpha via behaviors [alpha, beta], and inv via enforced_by [alpha]
-    let ids: Vec<&str> = arr
+    // gamma references alpha via behaviors [alpha, beta], and inv via
+    // enforced_by [alpha]; alpha itself (the name match) is not a referrer.
+    let mut ids: Vec<&str> = arr
         .iter()
         .map(|r| r["entity_id"].as_str().unwrap())
         .collect();
-    assert!(!ids.is_empty(), "should find entities referencing alpha");
+    ids.sort_unstable();
+    assert_eq!(ids, ["gamma", "inv"], "{content}");
 }
 
 // ============================================================
@@ -1150,20 +1439,25 @@ fn mcp_resource_read_schema() {
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let contents = resp["result"]["contents"]
-        .as_array()
-        .or_else(|| resp["result"]["content"].as_array())
-        .expect("resource read should return contents");
-    assert!(
-        !contents.is_empty(),
-        "schema resource should return content"
+    assert_eq!(
+        resp["result"]["contents"][0]["mimeType"],
+        "application/json"
     );
-    let text = contents[0]["text"].as_str().unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(text).unwrap();
-    assert!(
-        parsed.get("schema_version").is_some(),
-        "schema should have schema_version: {}",
-        parsed
+    let parsed = resource_json(resp);
+    assert_eq!(parsed["schema_version"], "0.1.0", "{parsed}");
+    assert_eq!(
+        parsed["entity_kinds"],
+        serde_json::json!({
+            "behavior": ["contract"],
+            "feature": ["behaviors", "problem", "solution"],
+            "invariant": ["enforced_by", "guarantee"]
+        }),
+        "{parsed}"
+    );
+    assert_eq!(
+        parsed["edge_labels"],
+        serde_json::json!(["behaviors", "enforced_by"]),
+        "{parsed}"
     );
 }
 
@@ -1174,22 +1468,49 @@ fn mcp_resource_read_schema() {
 fn mcp_resource_read_context() {
     let responses = mcp_session(
         BASIC_SPEC,
-        &[mcp_request(
-            1,
-            "resources/read",
-            serde_json::json!({ "uri": "specforge://context" }),
-        )],
+        &[
+            mcp_request(
+                1,
+                "resources/read",
+                serde_json::json!({ "uri": "specforge://context" }),
+            ),
+            mcp_request(
+                2,
+                "resources/read",
+                serde_json::json!({ "uri": "specforge://graph" }),
+            ),
+        ],
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let contents = resp["result"]["contents"]
+    let doc = resource_json(resp);
+    assert_eq!(node_ids(&doc), ["alpha", "beta", "gamma", "inv"], "{doc}");
+    assert_eq!(edge_triples(&doc), BASIC_EDGES, "{doc}");
+    // Token-optimized: each node is its identity plus the contract, with no
+    // source location, raw field map, or embedded schema.
+    let alpha = doc["nodes"]
         .as_array()
-        .or_else(|| resp["result"]["content"].as_array());
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == "alpha")
+        .unwrap();
+    assert_eq!(
+        *alpha,
+        serde_json::json!({ "id": "alpha", "kind": "behavior", "title": "Alpha", "contract": "first" })
+    );
+    assert!(doc.get("schema").is_none(), "no embedded schema: {doc}");
+    let text_len = |id: u64| {
+        find_response(&responses, id).unwrap()["result"]["contents"][0]["text"]
+            .as_str()
+            .unwrap()
+            .len()
+    };
     assert!(
-        contents.is_some(),
-        "context resource should return contents: {}",
-        resp
+        text_len(1) < text_len(2),
+        "context ({}) is smaller than the full graph ({})",
+        text_len(1),
+        text_len(2)
     );
 }
 
@@ -1209,14 +1530,30 @@ fn mcp_resource_read_brief() {
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let contents = resp["result"]["contents"]
-        .as_array()
-        .or_else(|| resp["result"]["content"].as_array());
-    assert!(
-        contents.is_some(),
-        "brief resource should return contents: {}",
-        resp
-    );
+    let doc = resource_json(resp);
+    assert_eq!(node_ids(&doc), ["alpha", "beta", "gamma", "inv"], "{doc}");
+    assert_eq!(edge_triples(&doc), BASIC_EDGES, "{doc}");
+    // Minimal: nodes carry identity only, edges only their endpoints and label.
+    for node in doc["nodes"].as_array().unwrap() {
+        let mut keys: Vec<&str> = node
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|k| k.as_str())
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["id", "kind", "title"], "brief node: {node}");
+    }
+    for edge in doc["edges"].as_array().unwrap() {
+        let mut keys: Vec<&str> = edge
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(|k| k.as_str())
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["label", "source", "target"], "brief edge: {edge}");
+    }
 }
 
 #[test]
@@ -1341,57 +1678,19 @@ fn mcp_prompt_context_returns_messages() {
     verify = "specforge://prompts/review returns coverage analysis"
 )]
 fn mcp_prompt_review_returns_findings() {
-    let responses = mcp_session(
-        BASIC_SPEC,
+    // alpha declares an obligation no test proves; its neighbors declare none.
+    let spec = BASIC_SPEC.replace(
+        r#"contract "first" }"#,
+        r#"contract "first" verify unit "alpha works" }"#,
+    );
+    let dir = testable_project(&spec);
+    let responses = mcp_session_in(
+        &dir,
         &[mcp_request(
             1,
             "prompts/get",
             serde_json::json!({
                 "name": "specforge://prompts/review",
-                "arguments": {}
-            }),
-        )],
-    );
-
-    let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let messages = resp["result"]["messages"]
-        .as_array()
-        .expect("prompt should return messages array");
-    assert!(
-        messages.len() >= 2,
-        "should have instruction + data messages"
-    );
-    let data_msg = messages.last().unwrap();
-    let text = data_msg["content"]["text"]
-        .as_str()
-        .unwrap_or_else(|| panic!("data message should have content.text: {}", data_msg));
-    let parsed: serde_json::Value = serde_json::from_str(text)
-        .unwrap_or_else(|e| panic!("data message text not valid JSON: {}\ntext: {}", e, text));
-    assert!(
-        parsed.get("findings").is_some(),
-        "review should have findings: {}",
-        parsed
-    );
-    assert!(
-        parsed.get("coverage_summary").is_some(),
-        "review should have coverage_summary: {}",
-        parsed
-    );
-}
-
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "response returns identified gaps with gap context"
-)]
-fn mcp_prompt_trace_returns_gaps() {
-    let responses = mcp_session(
-        BASIC_SPEC,
-        &[mcp_request(
-            1,
-            "prompts/get",
-            serde_json::json!({
-                "name": "specforge://prompts/trace",
                 "arguments": { "entity_id": "alpha" }
             }),
         )],
@@ -1399,23 +1698,137 @@ fn mcp_prompt_trace_returns_gaps() {
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let messages = resp["result"]["messages"]
+    let parsed = prompt_data(resp);
+
+    // The coverage analysis spans alpha and its testable neighbors at the
+    // default depth 1: inv. Not beta (two hops away), not gamma (a feature,
+    // which is not testable).
+    let mut summary: Vec<(&str, &str, bool)> = parsed["coverage_summary"]
         .as_array()
-        .expect("prompt should return messages array");
-    assert!(
-        messages.len() >= 2,
-        "should have instruction + data messages"
+        .expect("coverage_summary array")
+        .iter()
+        .map(|c| {
+            (
+                c["entity_id"].as_str().unwrap(),
+                c["status"].as_str().unwrap(),
+                c["declared"].as_bool().unwrap(),
+            )
+        })
+        .collect();
+    summary.sort_unstable();
+    assert_eq!(
+        summary,
+        [("alpha", "uncovered", true), ("inv", "uncovered", false)],
+        "{parsed}"
     );
-    let data_msg = messages.last().unwrap();
-    let text = data_msg["content"]["text"]
-        .as_str()
-        .unwrap_or_else(|| panic!("data message should have content.text: {}", data_msg));
-    let parsed: serde_json::Value = serde_json::from_str(text)
-        .unwrap_or_else(|e| panic!("data message text not valid JSON: {}\ntext: {}", e, text));
-    assert!(
-        parsed.get("unverified_entities").is_some() || parsed.get("coverage_gaps").is_some(),
-        "trace prompt should have unverified_entities or coverage_gaps: {}",
-        parsed
+    let alpha = &parsed["coverage_summary"][0];
+    assert_eq!(
+        alpha["unproven"],
+        serde_json::json!(["alpha works"]),
+        "{parsed}"
+    );
+
+    // Entities with no verify declarations are called out; alpha has one.
+    let mut missing: Vec<&str> = parsed["findings"]
+        .as_array()
+        .expect("findings array")
+        .iter()
+        .filter(|f| {
+            f["message"]
+                .as_str()
+                .unwrap()
+                .contains("no verify declarations")
+        })
+        .map(|f| f["entity_id"].as_str().unwrap())
+        .collect();
+    missing.sort_unstable();
+    assert_eq!(missing, ["inv"], "{parsed}");
+}
+
+/// A project with the software and testing extensions, which make behaviors
+/// and invariants testable, holding `spec` as its only spec file.
+fn testable_project(spec: &str) -> tempfile::TempDir {
+    setup_project_with_config(
+        r#"{"name":"test","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+        &[("main.spec", spec)],
+    )
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_trace_prompt",
+    verify = "response returns identified gaps with gap context"
+)]
+fn mcp_prompt_trace_returns_gaps() {
+    // beta declares an obligation, so a plan must cover it.
+    let spec = BASIC_SPEC.replace(
+        r#"contract "second" }"#,
+        r#"contract "second" verify unit "beta works" }"#,
+    );
+    let dir = testable_project(&spec);
+    // The plan changes gamma before the alpha it depends on, names an entity
+    // that does not exist, and leaves beta out.
+    let plan = serde_json::json!({
+        "plan_id": "p1",
+        "entries": [
+            { "entity_id": "gamma", "action": "modify" },
+            { "entity_id": "alpha", "action": "modify" },
+            { "entity_id": "ghost", "action": "add" }
+        ]
+    });
+    let responses = mcp_session_in(
+        &dir,
+        &[mcp_request(
+            1,
+            "prompts/get",
+            serde_json::json!({
+                "name": "specforge://prompts/trace",
+                "arguments": { "plan": plan }
+            }),
+        )],
+    );
+
+    let resp = find_response(&responses, 1).expect("should get response for id 1");
+    assert!(resp["error"].is_null(), "should not be error: {}", resp);
+    let parsed = prompt_data(resp);
+    // One gap per problem, each naming its endpoints, its kind, and a
+    // human-readable context.
+    let mut gaps: Vec<(&str, &str, &str, &str)> = parsed["coverage_gaps"]
+        .as_array()
+        .expect("coverage_gaps array")
+        .iter()
+        .map(|g| {
+            (
+                g["missing_link_type"].as_str().unwrap(),
+                g["source_entity"].as_str().unwrap(),
+                g["target_entity"].as_str().unwrap(),
+                g["gap_context"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    gaps.sort_unstable();
+    assert_eq!(
+        gaps,
+        [
+            (
+                "missing_plan_entry",
+                "plan",
+                "beta",
+                "testable entity 'beta' (behavior) is not covered by the plan"
+            ),
+            (
+                "ordering",
+                "gamma",
+                "alpha",
+                "'gamma' depends on 'alpha' (via behaviors), but 'alpha' appears later in the plan"
+            ),
+            (
+                "unresolved_entity",
+                "plan",
+                "ghost",
+                "E003: unresolved entity 'ghost' in plan — not found in graph"
+            ),
+        ],
+        "{parsed}"
     );
 }
 
@@ -1451,16 +1864,27 @@ fn mcp_prompt_explore_returns_starting_points() {
         .unwrap_or_else(|| panic!("data message should have content.text: {}", data_msg));
     let parsed: serde_json::Value = serde_json::from_str(text)
         .unwrap_or_else(|e| panic!("data message text not valid JSON: {}\ntext: {}", e, text));
-    assert!(
-        parsed.get("starting_points").is_some(),
-        "explore should have starting_points: {}",
-        parsed
-    );
-    assert!(
-        parsed.get("high_connectivity").is_some(),
-        "explore should have high_connectivity: {}",
-        parsed
-    );
+    let strings = |key: &str| -> Vec<&str> {
+        parsed[key]
+            .as_array()
+            .unwrap_or_else(|| panic!("{key} array: {parsed}"))
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect()
+    };
+    // gamma references two entities and nothing references it: the top of
+    // the graph, the first place to start.
+    let starting = strings("starting_points");
+    assert_eq!(starting.first(), Some(&"gamma"), "{parsed}");
+    let mut all = starting.clone();
+    all.sort_unstable();
+    assert_eq!(all, ["alpha", "beta", "gamma", "inv"], "{parsed}");
+    // alpha and gamma carry two edges each, more than beta or inv.
+    let high = strings("high_connectivity");
+    let mut top_two = high[..2].to_vec();
+    top_two.sort_unstable();
+    assert_eq!(top_two, ["alpha", "gamma"], "{parsed}");
+    assert_eq!(parsed["orphan_nodes"], serde_json::json!([]), "{parsed}");
 }
 
 #[test]
@@ -1541,8 +1965,9 @@ fn mcp_prompt_context_entity_not_found() {
     verify = "specforge.format formats spec files"
 )]
 fn mcp_tool_format_returns_result() {
-    let responses = mcp_session(
-        BASIC_SPEC,
+    let dir = setup_project(&[("main.spec", UNFORMATTED_SPEC)]);
+    let responses = mcp_session_in(
+        &dir,
         &[mcp_request(
             1,
             "tools/call",
@@ -1556,27 +1981,34 @@ fn mcp_tool_format_returns_result() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
+    assert_eq!(content["check_only"], false, "{content}");
+    assert_eq!(content["all_clean"], false, "{content}");
+    assert_eq!(content["total_checked"], 1, "{content}");
+    let changed = content["changed_files"].as_array().expect("changed_files");
+    assert_eq!(changed.len(), 1, "{content}");
     assert!(
-        content["changed_files"].is_array(),
-        "format should have changed_files"
+        changed[0].as_str().unwrap().ends_with("main.spec"),
+        "{content}"
     );
-    assert!(
-        content["all_clean"].is_boolean(),
-        "format should have all_clean"
-    );
+    // The file on disk now has the canonical layout.
     assert_eq!(
-        content["check_only"], false,
-        "default check_only should be false"
+        std::fs::read_to_string(dir.path().join("main.spec")).unwrap(),
+        FORMATTED_SPEC
     );
 }
+
+/// A valid spec in a non-canonical layout, and its canonical form.
+const UNFORMATTED_SPEC: &str = "behavior   alpha \"Alpha\"   {   contract \"first\"   }\n";
+const FORMATTED_SPEC: &str = "behavior alpha \"Alpha\" {\n  contract \"first\"\n}\n";
 
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
     verify = "check mode reports without modifying files"
 )]
 fn mcp_tool_format_check_mode() {
-    let responses = mcp_session(
-        BASIC_SPEC,
+    let dir = setup_project(&[("main.spec", UNFORMATTED_SPEC)]);
+    let responses = mcp_session_in(
+        &dir,
         &[mcp_request(
             1,
             "tools/call",
@@ -1590,9 +2022,19 @@ fn mcp_tool_format_check_mode() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
+    assert_eq!(content["check_only"], true, "{content}");
+    // Reports the file that needs formatting...
+    assert_eq!(content["all_clean"], false, "{content}");
+    let changed = content["changed_files"].as_array().expect("changed_files");
+    assert_eq!(changed.len(), 1, "{content}");
+    assert!(
+        changed[0].as_str().unwrap().ends_with("main.spec"),
+        "{content}"
+    );
+    // ...without touching it.
     assert_eq!(
-        content["check_only"], true,
-        "check: true should set check_only: true"
+        std::fs::read_to_string(dir.path().join("main.spec")).unwrap(),
+        UNFORMATTED_SPEC
     );
 }
 
@@ -1601,16 +2043,28 @@ fn mcp_tool_format_check_mode() {
     verify = "specforge.rename renames entity and all references"
 )]
 fn mcp_tool_rename_returns_affected() {
-    let responses = mcp_session(
-        BASIC_SPEC,
-        &[mcp_request(
-            1,
-            "tools/call",
-            serde_json::json!({
-                "name": "specforge.rename",
-                "arguments": { "entity_id": "alpha", "new_name": "alpha_renamed" }
-            }),
-        )],
+    let dir = setup_project(&[("main.spec", BASIC_SPEC)]);
+    let responses = mcp_session_in(
+        &dir,
+        &[
+            mcp_request(
+                1,
+                "tools/call",
+                serde_json::json!({
+                    "name": "specforge.rename",
+                    "arguments": { "entity_id": "alpha", "new_name": "alpha_renamed" }
+                }),
+            ),
+            // The server recompiled: the new name now resolves.
+            mcp_request(
+                2,
+                "tools/call",
+                serde_json::json!({
+                    "name": "specforge.find_references",
+                    "arguments": { "entity_id": "alpha_renamed" }
+                }),
+            ),
+        ],
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
@@ -1618,10 +2072,32 @@ fn mcp_tool_rename_returns_affected() {
     let content = parse_tool_content(resp);
     assert_eq!(content["old_name"], "alpha");
     assert_eq!(content["new_name"], "alpha_renamed");
-    assert!(
-        content["affected_files"].is_array(),
-        "rename should list affected files"
+    assert_eq!(content["affected_files"], serde_json::json!(["main.spec"]));
+    assert_eq!(
+        content["diagnostics"],
+        serde_json::json!([]),
+        "the renamed project is clean: {content}"
     );
+
+    // The declaration and both references are rewritten on disk; nothing
+    // else changes.
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("main.spec")).unwrap(),
+        BASIC_SPEC
+            .replace("behavior alpha ", "behavior alpha_renamed ")
+            .replace("[alpha, beta]", "[alpha_renamed, beta]")
+            .replace("[alpha]", "[alpha_renamed]")
+    );
+
+    let refs = parse_tool_content(find_response(&responses, 2).expect("find_references"));
+    let mut referrers: Vec<&str> = refs["locations"]
+        .as_array()
+        .expect("locations")
+        .iter()
+        .map(|l| l["referencing_entity_id"].as_str().unwrap())
+        .collect();
+    referrers.sort_unstable();
+    assert_eq!(referrers, ["gamma", "inv"], "{refs}");
 }
 
 #[specforge_test(
@@ -1698,9 +2174,23 @@ fn mcp_tool_init_returns_project() {
     assert_eq!(content["project_path"], dir.path().to_str().unwrap());
     assert!(dir.path().join("specforge.json").is_file());
     assert_eq!(content["config_file"], "specforge.json");
+    assert_eq!(content["starter_file"], "spec/specforge.spec");
+
+    // specforge.json is on disk: the given name, default version, no
+    // extensions.
+    let config: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(dir.path().join("specforge.json"))
+            .expect("specforge.json written"),
+    )
+    .expect("specforge.json is JSON");
+    assert_eq!(
+        config,
+        serde_json::json!({ "name": "fresh", "version": "0.1.0", "extensions": [] })
+    );
+    // The spec directory is scaffolded with the starter file.
     assert!(
-        content["starter_file"].is_string(),
-        "init should have starter_file"
+        dir.path().join("spec/specforge.spec").is_file(),
+        "starter spec written"
     );
 }
 
@@ -1716,8 +2206,9 @@ fn mcp_tool_add_extension_returns_installed() {
         .parent()
         .unwrap()
         .join("extensions/product/wasm/specforge_ext_product.wasm");
-    let responses = mcp_session(
-        BASIC_SPEC,
+    let dir = setup_project(&[("main.spec", BASIC_SPEC)]);
+    let responses = mcp_session_in(
+        &dir,
         &[mcp_request(
             1,
             "tools/call",
@@ -1733,6 +2224,23 @@ fn mcp_tool_add_extension_returns_installed() {
     let content = parse_tool_content(resp);
     assert_eq!(content["extension"], "specforge_ext_product");
     assert_eq!(content["installed"], true);
+
+    // The project's config now lists the extension (it listed none before)...
+    let config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("specforge.json")).unwrap())
+            .expect("specforge.json is JSON");
+    assert_eq!(
+        config["extensions"],
+        serde_json::json!(["specforge_ext_product@0.0.0"]),
+        "{config}"
+    );
+    // ...and its module is installed where the compiler loads it.
+    assert!(
+        dir.path()
+            .join(".specforge/extensions/specforge_ext_product/extension.wasm")
+            .is_file(),
+        "extension module installed"
+    );
 }
 
 #[test]
@@ -1938,25 +2446,38 @@ fn mcp_tool_render_returns_output() {
     verify = "clean entity with no diagnostics returns empty list"
 )]
 fn mcp_tool_suggest_fixes_returns_array() {
-    let responses = mcp_session(
-        BASIC_SPEC,
-        &[mcp_request(
-            1,
+    // `broken` misspells alpha (a fixable E003); beta is clean.
+    let spec = format!(
+        "{BASIC_SPEC}\nfeature broken \"Broken\" {{ problem \"p\" solution \"s\" behaviors [alpah] }}"
+    );
+    let fixes_for = |id: u64, entity: &str| {
+        mcp_request(
+            id,
             "tools/call",
             serde_json::json!({
                 "name": "specforge.suggest_fixes",
-                "arguments": {}
+                "arguments": { "entity_id": entity }
             }),
-        )],
-    );
+        )
+    };
+    let responses = mcp_session(&spec, &[fixes_for(1, "beta"), fixes_for(2, "broken")]);
 
-    let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let content = parse_tool_content(resp);
-    assert!(
-        content.is_array(),
-        "suggest_fixes should return an array (possibly empty)"
+    let content = |id: u64| {
+        let resp = find_response(&responses, id).expect("suggest_fixes response");
+        assert!(resp["error"].is_null(), "should not be error: {}", resp);
+        parse_tool_content(resp)
+    };
+    assert_eq!(
+        content(1),
+        serde_json::json!([]),
+        "the clean entity gets no suggestions"
     );
+    // The project does have a fix to offer — just not for beta.
+    let broken = content(2);
+    let fixes = broken.as_array().expect("array");
+    assert_eq!(fixes.len(), 1, "{broken}");
+    assert_eq!(fixes[0]["diagnostic_code"], "E003", "{broken}");
+    assert_eq!(fixes[0]["title"], "did you mean 'alpha'?", "{broken}");
 }
 
 #[test]
@@ -2082,26 +2603,37 @@ fn mcp_tool_export_format_brief() {
     verify = "limit caps the number of returned results"
 )]
 fn mcp_tool_search_with_limit() {
+    let search = |id: u64, args: serde_json::Value| {
+        mcp_request(
+            id,
+            "tools/call",
+            serde_json::json!({ "name": "specforge.search", "arguments": args }),
+        )
+    };
     let responses = mcp_session(
         BASIC_SPEC,
-        &[mcp_request(
-            1,
-            "tools/call",
-            serde_json::json!({
-                "name": "specforge.search",
-                "arguments": { "query": "a", "limit": 1 }
-            }),
-        )],
+        &[
+            search(1, serde_json::json!({ "query": "a" })),
+            search(2, serde_json::json!({ "query": "a", "limit": 1 })),
+        ],
     );
 
-    let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let content = parse_tool_content(resp);
-    let arr = content.as_array().expect("search should return array");
-    assert!(
-        arr.len() <= 1,
-        "limit=1 should return at most 1 result, got {}",
-        arr.len()
+    let ids = |id: u64| -> Vec<String> {
+        let resp = find_response(&responses, id).expect("search response");
+        assert!(resp["error"].is_null(), "should not be error: {}", resp);
+        parse_tool_content(resp)
+            .as_array()
+            .expect("search should return array")
+            .iter()
+            .map(|r| r["entity_id"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let unlimited = ids(1);
+    assert_eq!(unlimited.len(), 3, "the query matches three: {unlimited:?}");
+    assert_eq!(
+        ids(2),
+        [unlimited[0].clone()],
+        "limit=1 keeps only the best match"
     );
 }
 
@@ -2128,6 +2660,23 @@ fn mcp_tool_render_invalid_format() {
         "should be error for invalid renderer format"
     );
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
+    // The message names the bad format and lists the renderers available,
+    // including the core json and dot renderers; `data` carries the list.
+    let message = resp["error"]["message"].as_str().expect("message");
+    assert!(
+        message.starts_with("Unrecognized renderer format: xyz (available: "),
+        "{message}"
+    );
+    let available: Vec<&str> = resp["error"]["data"]["available_renderers"]
+        .as_array()
+        .expect("available_renderers")
+        .iter()
+        .map(|r| r.as_str().unwrap())
+        .collect();
+    for core in ["json", "dot"] {
+        assert!(available.contains(&core), "{core} listed: {available:?}");
+        assert!(message.contains(core), "{core} named in: {message}");
+    }
 }
 
 // ============================================================
