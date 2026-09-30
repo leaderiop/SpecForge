@@ -53,7 +53,20 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let parsed_report = match args.get("test_results").and_then(|v| v.as_str()) {
+    // Without `test_results`, use what `specforge collect` last recorded, as
+    // the CLI does; otherwise proof coverage would silently read nothing.
+    let report_path = args
+        .get("test_results")
+        .and_then(|v| v.as_str())
+        .map(PathBuf::from)
+        .or_else(|| {
+            state
+                .project_root
+                .as_ref()
+                .map(|root| root.join(specforge_emitter::collect::REPORT_FILE))
+                .filter(|report| report.is_file())
+        });
+    let parsed_report = match report_path {
         Some(report_path) => match std::fs::read_to_string(report_path)
             .map_err(|e| e.to_string())
             .and_then(|raw| {

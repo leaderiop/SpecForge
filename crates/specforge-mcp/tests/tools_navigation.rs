@@ -189,25 +189,40 @@ fn inspect_returns_every_field() {
 
 #[specforge_test(
     behavior = "provide_mcp_inspect_tool",
-    verify = "coverage status counts the recorded test results"
+    verify = "coverage status matches specforge.coverage obligation by obligation"
 )]
-fn inspect_coverage_counts_recorded_tests() {
+fn inspect_coverage_matches_the_coverage_tool() {
     let mut server = test_server();
-    let status = |server: &mut McpServer| {
+    let statuses = |server: &mut McpServer| {
         let resp = call_tool(server, "specforge.inspect", json!({"entity_id": "alpha"}));
-        let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-        parsed["coverage_status"].as_str().unwrap().to_string()
+        let inspect: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        let resp = call_tool(server, "specforge.coverage", json!({"entity_id": "alpha"}));
+        let coverage: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        (
+            inspect["coverage_status"].as_str().unwrap().to_string(),
+            coverage[0]["status"].as_str().unwrap().to_string(),
+        )
     };
-    assert_eq!(status(&mut server), "partial");
-
     let project = tempfile::tempdir().unwrap();
-    std::fs::write(
-        project.path().join("specforge-report.json"),
-        r#"{"results":{"alpha":{"tests":[{"name":"t","status":"passed"}]}}}"#,
-    )
-    .unwrap();
     server.state_mut().project_root = Some(project.path().to_path_buf());
-    assert_eq!(status(&mut server), "covered", "as specforge.coverage says");
+    let report = |tests: &str| {
+        std::fs::write(
+            project.path().join("specforge-report.json"),
+            format!(r#"{{"results":{{"alpha":{{"tests":[{tests}]}}}}}}"#),
+        )
+        .unwrap();
+    };
+
+    // A passing test that names no obligation proves none of them.
+    report(r#"{"name":"t","status":"pass"}"#);
+    let (inspect, coverage) = statuses(&mut server);
+    assert_eq!(inspect, "uncovered");
+    assert_eq!(inspect, coverage);
+
+    report(r#"{"name":"t","status":"pass","verify":"test alpha"}"#);
+    let (inspect, coverage) = statuses(&mut server);
+    assert_eq!(inspect, "covered");
+    assert_eq!(inspect, coverage);
 }
 
 // --- specforge.find_definition ---

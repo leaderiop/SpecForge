@@ -287,7 +287,11 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
     by entity kind), and status_filter? (optional: covered|uncovered|partial).
     Status values are structurally computed from the entity's verify declarations
     and collected evidence — no extension input is required to determine coverage
-    status (P2). The tool MUST return coverage status per entity including verify count,
+    status (P2). An obligation is proven when a passing recorded test names its
+    verify text, the rule analyze coverage applies: an entity is covered only
+    when every obligation is proven and no recorded test fails, so it never
+    reports covered while analyze reports A015 or A014. Each result MUST carry
+    the obligation count, the proven count, and the unproven verify texts. The tool MUST return coverage status per entity including verify count,
     linked evidence count, and evidence status from specforge-report.json if available.
     When no filters are provided, the tool MUST return coverage for all
     testable entities. Testability is determined by extension manifests.
@@ -296,6 +300,8 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
   verify unit "entity_id filter returns single entity coverage"
   verify unit "kind filter restricts to matching entity kinds"
   verify unit "status_filter restricts to matching coverage status"
+  verify unit "an entity with an unproven obligation is partial, not covered"
+  verify unit "a failing recorded test keeps an entity from being covered"
   verify contract "Provide MCP Coverage Tool: MCP coverage tool holds — graph_available, coverage_returned, testability_respected, tool_invoked_emitted"
 }
 
@@ -372,7 +378,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "response includes references and verify declarations"
   verify unit "non-existent entity returns error response"
   verify unit "response includes every field, like an invariant's guarantee"
-  verify unit "coverage status counts the recorded test results"
+  verify unit "coverage status matches specforge.coverage obligation by obligation"
   verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 }
 
@@ -534,10 +540,13 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     `contracts` pass and every extension-owned pass (such as
     @specforge/testing's coverage), or only the one named by `pass`. It
     accepts `strict` (warnings become errors) and `test_results` (a
-    specforge-report.json path). The result MUST list each pass with its
+    specforge-report.json path). Without `test_results` it MUST read the
+    project's own specforge-report.json when one exists, as the CLI does,
+    so proof coverage never silently drops. The result MUST list each pass with its
     findings and summary, plus an `ok` flag that is false when any finding
     is an error.
   """
+  verify unit "analyze reads the project's specforge-report.json by default"
   verify contract "Provide MCP Analyze Tool: MCP analyze tool holds — graph_available, passes_run, results_structured, tool_invoked_emitted"
 }
 

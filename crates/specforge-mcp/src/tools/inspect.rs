@@ -75,12 +75,8 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         .collect();
 
     // The same classification `specforge.coverage` reports.
-    let has_tests = super::coverage::entities_with_recorded_tests(state).contains(entity_id);
-    let coverage_status = match (has_verify, has_tests) {
-        (true, true) => "covered",
-        (true, false) => "partial",
-        (false, _) => "uncovered",
-    };
+    let report = super::coverage::recorded_report(state);
+    let coverage_status = super::coverage::EntityCoverage::of(node, report.as_ref()).status();
 
     let result = serde_json::json!({
         "entity_id": node.id.raw,

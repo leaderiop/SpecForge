@@ -442,12 +442,11 @@ fn coverage_returns_per_entity() {
     }
 }
 
-// B:provide_mcp_coverage_tool — verify unit "alpha has partial coverage"
 #[specforge_test(
     behavior = "provide_mcp_coverage_tool",
     verify = "specforge.coverage returns coverage for all testable entities"
 )]
-fn coverage_alpha_partial() {
+fn coverage_alpha_uncovered_without_tests() {
     let mut server = test_server();
     let resp = call_tool(
         &mut server,
@@ -459,7 +458,145 @@ fn coverage_alpha_partial() {
     let results = parsed.as_array().unwrap();
     assert_eq!(results.len(), 1);
     assert_eq!(results[0]["entity_id"], "alpha");
-    assert_eq!(results[0]["status"], "partial"); // has verify but no tests field
+    // Declared obligations with no recorded test prove nothing.
+    assert_eq!(results[0]["status"], "uncovered");
+    assert_eq!(results[0]["obligations"], 1);
+    assert_eq!(results[0]["unproven"], json!(["does alpha correctly"]));
+}
+
+/// The server with a behavior `two` declaring obligations "a" and "b", and
+/// a `specforge-report.json` recording `tests` (verify text, status) for it.
+/// The tempdir must outlive the server's use of the report.
+fn server_with_report(tests: &[(&str, &str)]) -> (McpServer, tempfile::TempDir) {
+    let mut server = test_server();
+    let mut fields = FieldMap::new();
+    fields.push(
+        "verify".into(),
+        FieldValue::VerifyList(
+            ["a", "b"]
+                .map(|text| VerifyStatement {
+                    kind: "unit".into(),
+                    description: text.into(),
+                })
+                .to_vec(),
+        ),
+    );
+    server.state_mut().graph.add_node(Node {
+        id: EntityId { raw: "two".into() },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
+        title: None,
+        fields,
+        source_span: span(),
+        methods: Vec::new(),
+    });
+    let tests: Vec<Value> = tests
+        .iter()
+        .map(|(verify, status)| json!({"name": verify, "verify": verify, "status": status}))
+        .collect();
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("specforge-report.json"),
+        json!({"results": {"two": {"tests": tests}}}).to_string(),
+    )
+    .unwrap();
+    server.state_mut().project_root = Some(project.path().to_path_buf());
+    (server, project)
+}
+
+/// `specforge.coverage`'s result for `two`.
+fn coverage_of_two(server: &mut McpServer) -> Value {
+    let resp = call_tool(server, "specforge.coverage", json!({"entity_id": "two"}));
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    parsed[0].clone()
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "an entity with an unproven obligation is partial, not covered"
+)]
+fn coverage_with_an_unproven_obligation_is_partial() {
+    let (mut server, _project) = server_with_report(&[("a", "pass")]);
+    let two = coverage_of_two(&mut server);
+    assert_eq!(two["status"], "partial", "{two}");
+    assert_eq!(two["obligations"], 2);
+    assert_eq!(two["proven"], 1);
+    assert_eq!(two["unproven"], json!(["b"]));
+
+    let (mut server, _project) = server_with_report(&[("a", "pass"), ("b", "pass")]);
+    let two = coverage_of_two(&mut server);
+    assert_eq!(two["status"], "covered", "{two}");
+    assert_eq!(two["unproven"], json!([]));
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "a failing recorded test keeps an entity from being covered"
+)]
+fn coverage_with_a_failing_test_is_partial() {
+    // Both obligations are proven, but a third test fails (A014).
+    let (mut server, _project) = server_with_report(&[("a", "pass"), ("b", "pass"), ("a", "fail")]);
+    let two = coverage_of_two(&mut server);
+    assert_eq!(two["status"], "partial", "{two}");
+    assert_eq!(two["proven"], 2);
+
+    // A failing test proves nothing, even when it names an obligation.
+    let (mut server, _project) = server_with_report(&[("a", "fail")]);
+    let two = coverage_of_two(&mut server);
+    assert_eq!(two["status"], "partial", "{two}");
+    assert_eq!(two["unproven"], json!(["a", "b"]));
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "analyze reads the project's specforge-report.json by default"
+)]
+fn analyze_reads_the_project_report_by_default() {
+    let project = tempfile::tempdir().unwrap();
+    let root = project.path();
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("app.spec"),
+        "behavior two \"Two\" {\n  verify unit \"a\"\n  verify unit \"b\"\n}\n",
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("specforge-report.json"),
+        r#"{"results":{"two":{"tests":[{"name":"t","verify":"a","status":"pass"}]}}}"#,
+    )
+    .unwrap();
+
+    let mut server = test_server();
+    let resp = call_tool(
+        &mut server,
+        "specforge.analyze",
+        json!({"path": root.to_str().unwrap(), "pass": "coverage"}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let coverage = parsed["passes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["pass"] == "@specforge/testing:coverage")
+        .unwrap_or_else(|| panic!("no coverage pass: {parsed}"))
+        .clone();
+    assert_eq!(
+        coverage["summary"]["test_results"]["obligations_proven"], 1,
+        "{coverage}"
+    );
+    let a015: Vec<&Value> = coverage["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] == "A015")
+        .collect();
+    assert_eq!(a015.len(), 1, "{coverage}");
+    assert!(a015[0]["message"].as_str().unwrap().contains("\"b\""));
 }
 
 // --- specforge.stats ---

@@ -231,10 +231,11 @@ type McpSearchResult {
 type CoverageStatus = "covered" | "uncovered" | "partial"
 
 // P2 compliance: CoverageStatus is a structural computation, not domain vocabulary.
-// The three states map to a boolean triple computable without extension input:
-//   covered   = has_verify_declarations AND has_evidence_collected
-//   partial   = has_verify_declarations AND NOT has_evidence_collected
-//   uncovered = NOT has_verify_declarations
+// An obligation is proven when a passing recorded test names its verify text,
+// the same rule `analyze coverage` applies (A015), computable without extension input:
+//   covered   = every obligation proven AND no recorded test fails
+//   partial   = not covered, AND some obligation proven OR a recorded test fails
+//   uncovered = no obligation proven and no recorded test fails (incl. no verify declarations)
 // Extensions may overlay domain-specific labels (pass/fail, conformant/non-conformant)
 // via extension-contributed metadata fields on their entity kinds.
 type McpCoverageResult {
@@ -245,6 +246,12 @@ type McpCoverageResult {
   linked             boolean
   /// Whether evidence has been collected from an external report (test results, audit findings, review logs).
   evidence_collected boolean
+  /// The entity's verify obligations.
+  obligations        integer
+  /// Obligations a passing recorded test names.
+  proven             integer
+  /// Verify texts no passing recorded test names, in declaration order.
+  unproven           string[]
   verify unit "McpCoverageResult schema is valid"
 }
 
