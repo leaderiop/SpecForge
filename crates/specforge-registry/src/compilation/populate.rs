@@ -173,6 +173,8 @@ fn register_single_field(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     let field_type = match parse_field_type(&field.field_type) {
+        // An enum's values come with the field, not its type name.
+        Some(ManifestFieldType::Enum(_)) => ManifestFieldType::Enum(field.enum_values.clone()),
         Some(ft) => ft,
         None => {
             diagnostics.push(Diagnostic {

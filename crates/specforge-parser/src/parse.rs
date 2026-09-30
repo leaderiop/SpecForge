@@ -330,7 +330,7 @@ impl<'a> ParseContext<'a> {
         if inner.kind() == "ref_full" {
             let (body_fields, _, _) = self.parse_block_body(inner);
             for entry in body_fields.entries() {
-                fields.push_annotated(entry.key, entry.value.clone(), entry.annotations.clone());
+                fields.push_entry(entry.clone());
             }
         }
 
@@ -467,8 +467,8 @@ impl<'a> ParseContext<'a> {
         for child in node.children(&mut cursor) {
             match child.kind() {
                 "field" => {
-                    if let Some((key, value, annotations)) = self.parse_field(child) {
-                        fields.push_annotated(key, value, annotations);
+                    if let Some(entry) = self.parse_field(child) {
+                        fields.push_entry(entry);
                     }
                 }
                 "verify_statement" => {
@@ -485,7 +485,7 @@ impl<'a> ParseContext<'a> {
         (fields, verify, methods)
     }
 
-    fn parse_field(&mut self, node: Node) -> Option<(Sym, FieldValue, Vec<Annotation>)> {
+    fn parse_field(&mut self, node: Node) -> Option<FieldEntry> {
         let key = node.child_by_field_name("key")?;
         let value = node.child_by_field_name("value")?;
         // Tree-sitter may recover from a syntax error deep inside a value
@@ -517,7 +517,12 @@ impl<'a> ParseContext<'a> {
             }
         }
 
-        Some((key_sym, field_value, annotations))
+        Some(FieldEntry {
+            key: key_sym,
+            value: field_value,
+            annotations,
+            value_span: Some(self.span(value)),
+        })
     }
 
     /// Parse an annotation node. The grammar defines annotation as:
@@ -697,9 +702,9 @@ impl<'a> ParseContext<'a> {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             if child.kind() == "field"
-                && let Some((key, value, annotations)) = self.parse_field(child)
+                && let Some(entry) = self.parse_field(child)
             {
-                fields.push_annotated(key, value, annotations);
+                fields.push_entry(entry);
             }
         }
         FieldValue::Block(fields)

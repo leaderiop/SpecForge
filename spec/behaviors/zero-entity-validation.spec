@@ -225,6 +225,49 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
   verify contract "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, define_blocks_registered_fired, unknown_fields_diagnosed, cascading_avoided"
 }
 
+behavior check_field_value_types "Check Field Value Types" {
+  invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
+  types      [FieldRegistryEntry, Diagnostic]
+  consumes   [registries_populated]
+  requires {
+    registries_populated_fired "registries_populated event has fired, confirming the FieldRegistry holds each field's declared type"
+  }
+  ensures {
+    single_values_listed "A single value on a string_list or reference_list field is stored as a one-item list"
+    mismatches_diagnosed "E061 error for every value that cannot be the field's declared type"
+    undeclared_untouched "Unknown fields keep their parsed value and produce no E061"
+  }
+  contract   """
+    The grammar parses every field value generically; the value's type
+    comes from the FieldRegistry. During Phase 2 semantic validation the
+    compiler MUST coerce each registered field's value to its declared
+    type before references resolve and before anything is exported: a
+    single string or reference on a string_list or reference_list field
+    MUST become a one-item list, stored exactly as the one-item list
+    syntax (`field [value]`) would be. A quoted integer or boolean on an
+    integer or bool field MUST become that integer or boolean, and an
+    integer or boolean on a string or enum field MUST become its text.
+    Coercion MUST NOT produce a diagnostic.
+
+    A value that still cannot be the declared type MUST produce an E061
+    error at the value's source span naming the field, the declared type
+    and the value given: a value that is not an integer on an integer
+    field, not true or false on a bool field, not one of the declared
+    values on an enum field (suggesting the closest declared value), or
+    a list on a field declared as a single value. Fields no extension
+    registers keep their parsed value (W020 reports them). The check MUST
+    run wherever the registry checks run: check, watch and the LSP.
+  """
+  verify unit "a single string on a string_list field becomes a one-item list"
+  verify unit "a single reference on a reference_list field becomes a one-item list"
+  verify unit "a value that is not the declared integer, bool or enum type is an error"
+  verify unit "a list on a field declared as a single value is an error"
+  verify unit "an enum value suggests the closest declared value"
+  verify unit "an export with a coerced string_list validates against the published schema"
+  verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, single_values_listed, mismatches_diagnosed, undeclared_untouched"
+}
+
 // Registry-level collision detection during manifest loading. Called by
 // detect_entity_kind_collision (behaviors/wasm-extensions.spec) as part of its
 // orchestration — focuses exclusively on inter-extension kind collisions (E026).

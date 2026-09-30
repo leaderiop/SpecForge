@@ -436,6 +436,12 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A reference list names an entity that exists, but the resolver never turned the reference into a graph edge. That is a SpecForge bug, not a mistake in your spec: queries, traces and coverage would miss the relationship. Please report it with the spec that triggers it.",
     },
     CodeEntry {
+        code: "E061",
+        title: "Field value is not the declared type",
+        owner: "core",
+        explanation: "The extension that registers a field declares its type, and the value given can't be that type: an integer field got something other than an integer, a bool field something other than true or false, an enum field a value outside its declared values (the suggestion names the closest one), or a field declared as a single value got a list. Values that can be read as the declared type are converted without a diagnostic: a single string or reference on a list field becomes a one-item list, and a quoted integer or boolean becomes the number or boolean. Fix the value, or check the field's type with `specforge schema --kind <kind>`.",
+    },
+    CodeEntry {
         code: "I002",
         title: "Structural-only mode",
         owner: "core",

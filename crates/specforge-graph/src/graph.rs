@@ -185,6 +185,12 @@ impl Graph {
         nodes
     }
 
+    /// Node data, for in-crate passes that rewrite it (field coercion).
+    /// Edges are untouched: callers re-resolve references afterwards.
+    pub(crate) fn nodes_mut(&mut self) -> impl Iterator<Item = &mut Node> {
+        self.nodes.values_mut()
+    }
+
     pub fn edges(&self) -> &[Edge] {
         &self.edges
     }

@@ -12,6 +12,7 @@ mod dot;
 mod emit;
 mod error;
 mod exit_code;
+pub mod field_types;
 mod json;
 pub mod model;
 pub mod outline;

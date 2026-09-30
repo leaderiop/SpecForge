@@ -10,6 +10,7 @@ mod emit_dot;
 mod emit_graph;
 mod emit_json;
 mod emitter_error;
+mod field_types;
 mod model;
 mod outline;
 mod plan;

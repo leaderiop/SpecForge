@@ -32,6 +32,10 @@ pub struct GraphConfig {
     /// declares, mapped to that kind: an unresolved reference there is an
     /// I004 hint (the kind's extension isn't enabled), not an E003.
     pub absent_reference_targets: HashMap<(String, String), String>,
+    /// (kind, field) -> how a value is coerced to the field's declared
+    /// type. Applied before references resolve, so a single reference on
+    /// a reference_list field links like `field [id]`.
+    pub field_coercions: HashMap<(String, String), crate::FieldCoercion>,
 }
 
 #[must_use = "diagnostics should be checked for errors"]
@@ -200,6 +204,9 @@ where
 /// updates instead of rebuilding (C4-01).
 pub fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
+
+    // Values take their declared types before anything reads them.
+    graph.coerce_field_values(&config.field_coercions);
 
     // Link references -> edges (shared with LSP via Graph::resolve_references)
     let mut ref_diags =

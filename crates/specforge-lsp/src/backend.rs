@@ -178,6 +178,9 @@ impl Backend {
             absent_reference_targets: state
                 .field_registry()
                 .absent_reference_targets(state.kind_registry()),
+            field_coercions: specforge_emitter::field_types::field_coercions(
+                state.field_registry(),
+            ),
         };
         let spec_files: Vec<specforge_parser::SpecFile> =
             parsed.iter().map(|(_, sf)| sf.clone()).collect();

@@ -319,6 +319,7 @@ fn cold_build(
         absent_reference_targets: ctx
             .field_registry
             .absent_reference_targets(&ctx.kind_registry),
+        field_coercions: specforge_emitter::field_types::field_coercions(&ctx.field_registry),
     };
     let mut dag = ImportDag::new();
     for f in &ctx.resolved.files {

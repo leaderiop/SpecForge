@@ -102,6 +102,7 @@ impl FieldMap {
             key,
             value,
             annotations: Vec::new(),
+            value_span: None,
         });
     }
 
@@ -110,7 +111,13 @@ impl FieldMap {
             key,
             value,
             annotations,
+            value_span: None,
         });
+    }
+
+    /// Append an entry as is, keeping its value span.
+    pub fn push_entry(&mut self, entry: FieldEntry) {
+        self.entries.push(entry);
     }
 
     pub fn get(&self, key: &str) -> Option<&FieldValue> {
@@ -127,6 +134,12 @@ impl FieldMap {
     pub fn entries(&self) -> &[FieldEntry] {
         &self.entries
     }
+
+    /// The entries, for passes that rewrite values in place (the semantic
+    /// phase coerces values to their declared field types).
+    pub fn entries_mut(&mut self) -> &mut [FieldEntry] {
+        &mut self.entries
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -140,6 +153,11 @@ pub struct FieldEntry {
     pub key: Sym,
     pub value: FieldValue,
     pub annotations: Vec<Annotation>,
+    /// Where the value is written, so diagnostics about the value (E061)
+    /// point at it rather than at the whole entity. Compiler-internal:
+    /// not serialized.
+    #[serde(skip)]
+    pub value_span: Option<SourceSpan>,
 }
 
 /// One item of a reference list: the target ID plus the exact source span

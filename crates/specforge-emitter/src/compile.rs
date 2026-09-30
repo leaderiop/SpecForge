@@ -155,6 +155,7 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
         suppressed_parse_error_ranges,
         single_reference_fields,
         absent_reference_targets: field_reg.absent_reference_targets(&kind_reg),
+        field_coercions: crate::field_types::field_coercions(&field_reg),
     };
 
     // 8. Build graph
@@ -226,7 +227,8 @@ pub struct GraphChecks<'a> {
 }
 
 /// The checks that run on a built graph: core validation, unknown kinds,
-/// fields and identifiers, mistyped references (E022) and the extensions'
+/// fields and identifiers, mistyped references (E022), field value types
+/// (E061) and the extensions'
 /// validation rules. `specforge check` runs them once; watch after every
 /// rebuild, so both report the same diagnostics.
 pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
@@ -334,6 +336,11 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
         let ref_diags =
             detect_mistyped_references(&entity_ref_info, field_reg, kind_reg, &node_kind_index);
         diagnostics.extend(ref_diags);
+
+        // 10b. Values that can't be their field's declared type (E061).
+        diagnostics.extend(crate::field_types::check_field_value_types(
+            graph, kind_reg, field_reg,
+        ));
     }
 
     // 11. Build edge label mapping (manifest label -> field name used in graph)

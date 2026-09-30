@@ -1,4 +1,6 @@
 mod build;
+mod coerce;
+pub use coerce::FieldCoercion;
 pub mod cycles;
 mod graph;
 pub use cycles::{CycleOptions, find_cycles};

@@ -557,6 +557,41 @@ fn schema_publish_validates_a_real_export() {
 }
 
 #[specforge_test(
+    behavior = "check_field_value_types",
+    verify = "an export with a coerced string_list validates against the published schema"
+)]
+fn schema_publish_validates_an_export_with_a_coerced_string_list() {
+    let dir = setup_project_with_config(
+        r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software","@specforge/governance"]}"#,
+        &[(
+            "main.spec",
+            r#"decision d1 "D" {
+  status accepted
+  context "c"
+  decision "x"
+  consequences "just a string"
+}
+failure_mode fm1 "F" {
+  cause "disk full"
+  effect "writes fail"
+  severity high
+  rpn "12"
+}
+"#,
+        )],
+    );
+    let published = run_json(&["schema", "--publish"], dir.path());
+    let export = run_json(&["export", "--format=graph"], dir.path());
+
+    let errors = validate(&export, &published, &published, "#");
+    assert!(
+        errors.is_empty(),
+        "the export does not validate against the published schema:\n{}",
+        errors.join("\n")
+    );
+}
+
+#[specforge_test(
     behavior = "publish_schema_specification",
     verify = "published schema describes all registered entity kinds"
 )]

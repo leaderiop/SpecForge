@@ -21,6 +21,7 @@ mod export;
 mod export_version;
 mod extension_authoring;
 mod extensions;
+mod field_types;
 #[allow(deprecated)]
 mod format;
 mod format_corpus;
