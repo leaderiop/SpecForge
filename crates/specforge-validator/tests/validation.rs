@@ -366,6 +366,108 @@ fn diagnostic_renders_multiline_span() {
     );
 }
 
+/// Render one warning spanning `start..end` (line, col) of `source` in `t.spec`.
+fn render_one(
+    source: &str,
+    (start_line, start_col): (usize, usize),
+    (end_line, end_col): (usize, usize),
+) -> String {
+    let diag = Diagnostic {
+        code: "A015".to_string(),
+        severity: Severity::Warning,
+        message: "entity 'b' has unproven obligations".to_string(),
+        span: Some(SourceSpan {
+            file: specforge_common::Sym::new("t.spec"),
+            start_line,
+            start_col,
+            end_line,
+            end_col,
+        }),
+        suggestion: Some("link a test".to_string()),
+    };
+    let sources = std::collections::HashMap::from([("t.spec".to_string(), source.to_string())]);
+    specforge_validator::render_diagnostics(&[diag], &sources)
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "a span after a multi-byte character keeps its position"
+)]
+fn diagnostic_after_multibyte_character_keeps_its_position() {
+    // `…` and `é` are one character but three and two bytes.
+    let source = "a \"x … é\" {\n}\n\nb \"y\" {\n  z\n}\n\nc\n";
+    let output = render_one(source, (4, 1), (6, 2));
+    assert!(output.contains("t.spec:4:1 ]"), "{output}");
+    assert!(
+        output.contains("6 │ ├─▶ }"),
+        "the range ends on b's brace: {output}"
+    );
+    assert!(!output.contains(" 7 │"), "{output}");
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "the message appears once, in the heading"
+)]
+fn diagnostic_message_appears_once() {
+    let source = "a {\n}\n\nb \"y\"\n";
+    for (start, end) in [((4, 1), (4, 6)), ((1, 1), (2, 2))] {
+        let output = render_one(source, start, end);
+        assert_eq!(
+            output.matches("has unproven obligations").count(),
+            1,
+            "{output}"
+        );
+        assert!(
+            output.starts_with("[A015] Warning: entity 'b' has unproven obligations\n"),
+            "{output}"
+        );
+    }
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "no rendered line ends in whitespace"
+)]
+fn diagnostic_lines_have_no_trailing_whitespace() {
+    let source = "a {\n}\n\nb \"y\"\n";
+    for (start, end) in [((4, 1), (4, 6)), ((1, 1), (2, 2))] {
+        let output = render_one(source, start, end);
+        for line in output.lines() {
+            assert_eq!(line, line.trim_end(), "trailing whitespace in:\n{output}");
+        }
+    }
+}
+
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "consecutive diagnostics are separated by a blank line"
+)]
+fn diagnostics_are_separated_by_a_blank_line() {
+    let one = render_one("a\n", (1, 1), (1, 2));
+    let diag = |code: &str| Diagnostic {
+        code: code.to_string(),
+        severity: Severity::Warning,
+        message: "m".to_string(),
+        span: Some(SourceSpan {
+            file: specforge_common::Sym::new("t.spec"),
+            start_line: 1,
+            start_col: 1,
+            end_line: 1,
+            end_col: 2,
+        }),
+        suggestion: None,
+    };
+    let sources = std::collections::HashMap::from([("t.spec".to_string(), "a\n".to_string())]);
+    let output = specforge_validator::render_diagnostics(&[diag("A001"), diag("A002")], &sources);
+    assert!(output.contains("╯\n\n[A002]"), "{output}");
+    assert!(
+        output.ends_with("╯\n"),
+        "no blank line after the last: {output}"
+    );
+    assert!(one.ends_with("╯\n"), "{one}");
+}
+
 // === aggregate_diagnostic_summary ===
 
 #[specforge_test(

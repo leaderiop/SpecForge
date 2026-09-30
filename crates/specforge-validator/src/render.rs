@@ -39,10 +39,14 @@ pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, 
 
         let span: Span = (file.clone(), offset.clone());
 
+        // The message goes in the heading only: repeated as the label, a
+        // long one runs through the snippet and wraps the box apart. The
+        // label's text is empty rather than absent because ariadne draws
+        // no underline or range for a label without a message.
         let mut builder = ariadne::Report::<Span>::build(kind, span.clone())
             .with_code(diag.code.clone())
             .with_message(diag.message.clone())
-            .with_label(ariadne::Label::new(span).with_message(diag.message.clone()));
+            .with_label(ariadne::Label::new(span).with_message(""));
 
         if let Some(suggestion) = &diag.suggestion {
             builder = builder.with_help(suggestion.clone());
@@ -51,13 +55,28 @@ pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, 
         // render_diagnostics returns a plain String: embedding ANSI escapes
         // here corrupts piped/agent-facing output (and split substrings for
         // consumers matching rendered lines). Callers own any re-coloring.
+        // Spans are byte ranges; ariadne counts chars unless told otherwise,
+        // which shifts every span after a multi-byte character.
         let report = builder
-            .with_config(ariadne::Config::default().with_color(false))
+            .with_config(
+                ariadne::Config::default()
+                    .with_color(false)
+                    .with_index_type(ariadne::IndexType::Byte),
+            )
             .finish();
+        // A blank line between reports, so each one reads on its own.
+        if !buf.is_empty() {
+            buf.push(b'\n');
+        }
         report.write(&mut cache, &mut buf).ok();
     }
 
-    String::from_utf8_lossy(&buf).to_string()
+    // ariadne pads rows with spaces; drop them so the output is clean to
+    // copy, diff or store.
+    String::from_utf8_lossy(&buf)
+        .lines()
+        .map(|line| format!("{}\n", line.trim_end()))
+        .collect()
 }
 
 fn line_col_to_byte_range(

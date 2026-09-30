@@ -17,7 +17,12 @@ behavior format_diagnostics_with_source_context "Format Diagnostics with Source 
     Every diagnostic MUST include the source file path, line number,
     column number, and a context snippet showing the offending line
     with a caret pointing to the exact position. Multi-line spans
-    MUST show the full range.
+    MUST show the full range. Span columns are byte columns, so a
+    multi-byte character earlier in the file MUST NOT shift a span. The
+    message MUST appear once, in the heading: the highlight carries no
+    label text, so a long message never runs through the snippet. No
+    rendered line ends in whitespace, and a blank line separates
+    consecutive diagnostics.
   """
   requires {
     valid_source_span "Diagnostic carries a valid SourceSpan referencing an accessible source file"
@@ -30,6 +35,10 @@ behavior format_diagnostics_with_source_context "Format Diagnostics with Source 
   verify unit "diagnostic shows file:line:col"
   verify unit "context snippet highlights offending token"
   verify unit "multi-line span shows full range"
+  verify unit "a span after a multi-byte character keeps its position"
+  verify unit "the message appears once, in the heading"
+  verify unit "no rendered line ends in whitespace"
+  verify unit "consecutive diagnostics are separated by a blank line"
   verify contract "Format Diagnostics with Source Context: diagnostic source context formatting holds — valid_source_span, header_present, context_snippet_present, caret_marker_present"
 }
 
