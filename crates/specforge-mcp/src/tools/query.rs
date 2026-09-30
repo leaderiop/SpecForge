@@ -58,7 +58,12 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
                 && let Some(nodes) = result.get_mut("nodes").and_then(|n| n.as_array_mut())
             {
                 // The same classification `specforge.coverage` reports.
-                let report = super::coverage::recorded_report(state);
+                let report = match super::coverage::recorded_report(state) {
+                    Ok(report) => report,
+                    Err(e) => {
+                        return super::coverage::report_error_result(id, &e, "specforge.query");
+                    }
+                };
                 for node in nodes.iter_mut() {
                     let node_id = node.get("id").and_then(|v| v.as_str()).unwrap_or("");
                     let Some(entity) = state.graph.node(node_id) else {

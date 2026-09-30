@@ -34,30 +34,25 @@ pub fn run(
 ) -> i32 {
     let (ctx, runtime) = pipeline::compile_with_runtime(path);
     // Without --test-results, use what `specforge collect` last recorded.
-    let collected = specforge_common::find_project_root(path)
-        .map(|root| root.join(specforge_emitter::collect::REPORT_FILE))
-        .filter(|report| report.is_file());
-    let test_results = test_results.or(collected.as_deref());
-    if min.is_some() && test_results.is_none() {
+    let read = match test_results {
+        Some(report_path) => specforge_emitter::coverage::read_report_file(report_path).map(Some),
+        None => specforge_common::find_project_root(path).map_or(Ok(None), |root| {
+            specforge_emitter::coverage::read_report(&root)
+        }),
+    };
+    let parsed_report = match read {
+        Ok(report) => report,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return 2;
+        }
+    };
+    if min.is_some() && parsed_report.is_none() {
         eprintln!(
             "error: --min needs test results: run `specforge collect` or pass --test-results"
         );
         return 2;
     }
-    let parsed_report = test_results.map(|report_path| {
-        let raw = std::fs::read_to_string(report_path).unwrap_or_else(|e| {
-            eprintln!("error: cannot read test results {}: {}", report_path.display(), e);
-            std::process::exit(2);
-        });
-        serde_json::from_str::<specforge_emitter::analyze::TestReport>(&raw).unwrap_or_else(|e| {
-            eprintln!(
-                "error: invalid test results {}: {} (expected the RES-15 specforge-report.json shape)",
-                report_path.display(),
-                e
-            );
-            std::process::exit(2);
-        })
-    });
 
     // D3: orphaned test records — report entries for entities the graph
     // does not know. Exact matching is preserved; the warning only surfaces

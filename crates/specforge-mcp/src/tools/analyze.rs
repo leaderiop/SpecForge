@@ -54,30 +54,16 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
 
     // Without `test_results`, use what `specforge collect` last recorded, as
     // the CLI does; otherwise proof coverage would silently read nothing.
-    let report_path = args
-        .get("test_results")
-        .and_then(|v| v.as_str())
-        .map(PathBuf::from)
-        .or_else(|| {
-            state
-                .project_root
-                .as_ref()
-                .map(|root| root.join(specforge_emitter::collect::REPORT_FILE))
-                .filter(|report| report.is_file())
-        });
-    let parsed_report = match report_path {
-        Some(report_path) => match std::fs::read_to_string(report_path)
-            .map_err(|e| e.to_string())
-            .and_then(|raw| {
-                serde_json::from_str::<TestReport>(&raw)
-                    .map_err(|e| format!("invalid test results: {e}"))
-            }) {
-            Ok(report) => Some(report),
-            Err(e) => {
-                return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, e);
-            }
-        },
-        None => None,
+    // A report that can't be used is an error result, as the CLI exits 2.
+    let read = match args.get("test_results").and_then(|v| v.as_str()) {
+        Some(named) => {
+            specforge_emitter::coverage::read_report_file(&PathBuf::from(named)).map(Some)
+        }
+        None => super::coverage::recorded_report(state),
+    };
+    let parsed_report: Option<TestReport> = match read {
+        Ok(report) => report,
+        Err(e) => return super::coverage::report_error_result(id, &e, "specforge.analyze"),
     };
 
     let proved_claims: std::collections::HashSet<String> = std::collections::HashSet::new();

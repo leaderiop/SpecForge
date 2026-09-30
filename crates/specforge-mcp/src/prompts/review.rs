@@ -38,7 +38,19 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
 
     let mut findings: Vec<Value> = Vec::new();
     let mut coverage: Vec<Value> = Vec::new();
-    let report = crate::tools::coverage::recorded_report(state);
+    // A prompt has no isError result: an unusable report is a JSON-RPC
+    // error carrying the same McpError the coverage tool returns.
+    let report = match crate::tools::coverage::recorded_report(state) {
+        Ok(report) => report,
+        Err(e) => {
+            return JsonRpcResponse::error_with_data(
+                id,
+                error_codes::INTERNAL_ERROR,
+                e.to_string(),
+                crate::tools::coverage::report_mcp_error(&e, "specforge://prompts/review"),
+            );
+        }
+    };
 
     for node in &nodes {
         let has_verify = !specforge_emitter::coverage::obligations(node).is_empty();

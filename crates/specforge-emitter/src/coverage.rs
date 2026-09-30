@@ -1,16 +1,20 @@
-//! The host's coverage vocabulary: which kinds are testable and what an
-//! entity's obligations are.
+//! The host's coverage vocabulary: which kinds are testable, what an
+//! entity's obligations are, and how the recorded test report is read.
 //!
 //! Every surface that asks "does this entity count toward coverage" or
 //! "what does it promise to prove" (stats, plan validation, the context
 //! exports, the MCP coverage, inspect, review and trace views) reads it
 //! here, so they cannot disagree.
 
+use crate::analyze::TestReport;
+use crate::collect::REPORT_FILE;
 use serde_json::Value;
+use specforge_common::Diagnostic;
 use specforge_graph::{FieldMap, FieldValue, Node};
 use specforge_parser::VerifyStatement;
 use specforge_registry::KindRegistry;
 use std::collections::BTreeSet;
+use std::path::{Path, PathBuf};
 
 /// The kinds that count toward coverage: those an extension's manifest
 /// declares `testable`. Nothing is testable by default, and accepting
@@ -42,6 +46,77 @@ pub fn obligations_in(fields: &FieldMap) -> &[VerifyStatement] {
             _ => None,
         })
         .unwrap_or(&[])
+}
+
+/// Why a test report could not be used.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ReportError {
+    /// The report is there (or was named) but could not be read.
+    Unreadable {
+        path: PathBuf,
+        detail: String,
+        /// The named file does not exist.
+        missing: bool,
+    },
+    /// The report does not parse as a `specforge-report.json`.
+    Malformed { path: PathBuf, detail: String },
+}
+
+impl ReportError {
+    pub fn path(&self) -> &Path {
+        match self {
+            ReportError::Unreadable { path, .. } | ReportError::Malformed { path, .. } => path,
+        }
+    }
+
+    /// The error as a diagnostic (E045, an invalid test report).
+    pub fn diagnostic(&self) -> Diagnostic {
+        Diagnostic::error("E045", self.to_string()).with_suggestion(
+            "run `specforge collect` again to rewrite the report, or fix or remove the file",
+        )
+    }
+}
+
+impl std::fmt::Display for ReportError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReportError::Unreadable { path, detail, .. } => {
+                write!(f, "cannot read test results {}: {detail}", path.display())
+            }
+            ReportError::Malformed { path, detail } => write!(
+                f,
+                "invalid test results {}: {detail} (expected the RES-15 specforge-report.json shape)",
+                path.display()
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ReportError {}
+
+/// The project's recorded test results (`specforge-report.json` at `root`,
+/// written by `specforge collect`). No report means no recorded tests
+/// (`Ok(None)`); a report that is there but unreadable or malformed is an
+/// error, never read as empty, so coverage cannot silently drop.
+pub fn read_report(root: &Path) -> Result<Option<TestReport>, ReportError> {
+    let path = root.join(REPORT_FILE);
+    if !path.exists() {
+        return Ok(None);
+    }
+    read_report_file(&path).map(Some)
+}
+
+/// A test report at an explicit path (`--test-results`), which must exist.
+pub fn read_report_file(path: &Path) -> Result<TestReport, ReportError> {
+    let raw = std::fs::read_to_string(path).map_err(|e| ReportError::Unreadable {
+        path: path.to_path_buf(),
+        detail: e.to_string(),
+        missing: e.kind() == std::io::ErrorKind::NotFound,
+    })?;
+    serde_json::from_str(&raw).map_err(|e| ReportError::Malformed {
+        path: path.to_path_buf(),
+        detail: e.to_string(),
+    })
 }
 
 /// The obligations as the exports write them (`[{kind, description}]`), or

@@ -114,7 +114,9 @@ fn stats(root: &Path) -> Value {
 }
 
 /// Call MCP tools in one `specforge mcp` session; one result per call, in
-/// order: the tool's JSON content, or the JSON-RPC error object.
+/// order: the tool's JSON content, `{"isError": content}` for an error
+/// result, or `{"error": ...}` for a JSON-RPC error. A call is a tool's
+/// `{name, arguments}`, or `{method, params}` for any other request.
 fn mcp_calls(root: &Path, calls: &[Value]) -> Vec<Value> {
     let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_specforge"))
         .arg("mcp")
@@ -130,7 +132,12 @@ fn mcp_calls(root: &Path, calls: &[Value]) -> Vec<Value> {
         "clientInfo": {"name": "corpus", "version": "0"}}});
     writeln!(stdin, "{init}").unwrap();
     for (i, call) in calls.iter().enumerate() {
-        let req = json!({"jsonrpc": "2.0", "id": i + 1, "method": "tools/call", "params": call});
+        let req = match call.get("method") {
+            Some(method) => {
+                json!({"jsonrpc": "2.0", "id": i + 1, "method": method, "params": call["params"]})
+            }
+            None => json!({"jsonrpc": "2.0", "id": i + 1, "method": "tools/call", "params": call}),
+        };
         writeln!(stdin, "{req}").unwrap();
     }
     drop(child.stdin.take());
@@ -148,8 +155,14 @@ fn mcp_calls(root: &Path, calls: &[Value]) -> Vec<Value> {
             if !resp["error"].is_null() {
                 return json!({"error": resp["error"]});
             }
-            let text = resp["result"]["content"][0]["text"].as_str().unwrap();
-            serde_json::from_str(text).unwrap_or_else(|_| json!({"text": text}))
+            let Some(text) = resp["result"]["content"][0]["text"].as_str() else {
+                return resp["result"].clone();
+            };
+            let content = serde_json::from_str(text).unwrap_or_else(|_| json!({"text": text}));
+            if resp["result"]["isError"] == true {
+                return json!({ "isError": content });
+            }
+            content
         })
         .collect()
 }
@@ -296,4 +309,69 @@ fn todo_app_analyze_and_stats_today() {
     let stats = stats(&example);
     assert_eq!(stats["testable_count"], 18, "{stats}");
     assert_eq!(stats["verified_count"], 16, "{stats}");
+}
+
+/// fx1 with a `specforge-report.json` cut off mid-write.
+fn fx1_with_a_malformed_report() -> TempDir {
+    let tmp = project("fx1");
+    std::fs::write(
+        tmp.path().join("specforge-report.json"),
+        r#"{"runner": "fixture", "results": {"login": {"tests": ["#,
+    )
+    .unwrap();
+    tmp
+}
+
+#[test]
+fn fx1_malformed_report_is_an_error_on_every_surface() {
+    let tmp = fx1_with_a_malformed_report();
+
+    // CLI: exit 2, naming the file.
+    let out = specforge()
+        .args([
+            "analyze",
+            "--path",
+            tmp.path().to_str().unwrap(),
+            "coverage",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("invalid test results") && stderr.contains("specforge-report.json"),
+        "{stderr}"
+    );
+
+    // MCP tools: an isError result carrying the McpError (S5, D2-e).
+    let results = mcp_calls(
+        tmp.path(),
+        &[
+            json!({"name": "specforge.coverage", "arguments": {}}),
+            json!({"name": "specforge.inspect", "arguments": {"entity_id": "login"}}),
+            json!({"name": "specforge.query",
+                   "arguments": {"entity_id": "login", "include_coverage": true}}),
+            json!({"name": "specforge.analyze", "arguments": {"pass": "coverage"}}),
+            json!({"method": "prompts/get",
+                   "params": {"name": "specforge://prompts/review", "arguments": {}}}),
+        ],
+    );
+    for (tool, result) in [
+        "specforge.coverage",
+        "specforge.inspect",
+        "specforge.query",
+        "specforge.analyze",
+    ]
+    .iter()
+    .zip(&results)
+    {
+        let error = &result["isError"];
+        assert_eq!(error["code"], "schema_mismatch", "{tool}: {result}");
+        assert_eq!(error["tool"], *tool, "{result}");
+        assert_eq!(error["diagnostic"]["code"], "E045", "{tool}: {result}");
+    }
+    // A prompt has no error result: a JSON-RPC error with the McpError.
+    let review = &results[4]["error"];
+    assert_eq!(review["code"], -32603, "{}", results[4]);
+    assert_eq!(review["data"]["code"], "schema_mismatch", "{}", results[4]);
 }

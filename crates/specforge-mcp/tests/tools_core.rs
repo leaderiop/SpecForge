@@ -771,6 +771,86 @@ fn analyze_reads_the_project_report_by_default() {
     assert!(a015[0]["message"].as_str().unwrap().contains("\"b\""));
 }
 
+/// The `McpError` an `isError` tool result carries.
+fn mcp_error(resp: &Value) -> Value {
+    assert!(resp["error"].is_null(), "not a JSON-RPC error: {resp}");
+    assert_eq!(resp["result"]["isError"], true, "an isError result: {resp}");
+    serde_json::from_str(&tool_text(resp)).unwrap_or_else(|e| panic!("McpError JSON ({e}): {resp}"))
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "a malformed specforge-report.json is an error result, not an empty report"
+)]
+fn coverage_refuses_a_malformed_report() {
+    let mut server = test_server();
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("specforge-report.json"),
+        r#"{"results": {"alpha": {"tests": ["#,
+    )
+    .unwrap();
+    server.state_mut().project_root = Some(project.path().to_path_buf());
+
+    let error = mcp_error(&call_tool(&mut server, "specforge.coverage", json!({})));
+    assert_eq!(error["code"], "schema_mismatch", "{error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("specforge-report.json"),
+        "names the file: {error}"
+    );
+    assert_eq!(error["diagnostic"]["code"], "E045", "{error}");
+
+    // Without a report, nothing is recorded: not an error.
+    std::fs::remove_file(project.path().join("specforge-report.json")).unwrap();
+    let resp = call_tool(&mut server, "specforge.coverage", json!({}));
+    assert_ne!(resp["result"]["isError"], true, "{resp}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "a malformed test report is an error result"
+)]
+fn analyze_refuses_a_malformed_report() {
+    let project = tempfile::tempdir().unwrap();
+    let root = project.path();
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("app.spec"),
+        "behavior two \"Two\" {\n  verify unit \"a\"\n}\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("specforge-report.json"), "{not json").unwrap();
+
+    let mut server = test_server();
+    // The project's own report.
+    let error = mcp_error(&call_tool(
+        &mut server,
+        "specforge.analyze",
+        json!({"path": root.to_str().unwrap(), "pass": "coverage"}),
+    ));
+    assert_eq!(error["code"], "schema_mismatch", "{error}");
+    assert_eq!(error["diagnostic"]["code"], "E045", "{error}");
+
+    // A report the caller names.
+    let error = mcp_error(&call_tool(
+        &mut server,
+        "specforge.analyze",
+        json!({
+            "path": root.to_str().unwrap(),
+            "pass": "coverage",
+            "test_results": root.join("specforge-report.json").to_str().unwrap(),
+        }),
+    ));
+    assert_eq!(error["code"], "schema_mismatch", "{error}");
+}
+
 // --- specforge.stats ---
 
 // B:provide_mcp_stats_tool — verify unit "returns project statistics"

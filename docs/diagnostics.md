@@ -524,7 +524,11 @@ E045: Invalid test report
 started, it finished without writing a report at the collector's declared
 location (often because the tests didn't build), `--no-run` found no existing
 report, or a report file couldn't be read. Check the runner's output above the
-error and the report path.
+error and the report path. `specforge analyze` and the MCP coverage, inspect,
+query and analyze tools report the same code when `specforge-report.json` (or
+`--test-results`) exists but can't be read or parsed, rather than scoring the
+project as if no test ran: run `specforge collect` again to rewrite it, or fix
+or remove the file.
 
 Owner: core
 ```
