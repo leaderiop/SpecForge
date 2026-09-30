@@ -16,6 +16,8 @@ pub fn read(state: &McpState, entity_id: &str, id: Option<Value>) -> JsonRpcResp
     let options = EmitOptions {
         format: EmitFormat::Json,
         scope: Some(entity_id),
+        // The entity and its immediate neighbors, not everything reachable.
+        depth: Some(1),
         ..EmitOptions::default()
     };
 
