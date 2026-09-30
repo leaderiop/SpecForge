@@ -82,6 +82,7 @@ behavior provide_mcp_review_prompt "Provide MCP Review Prompt" {
     uncovered verify declarations, and entities lacking evidence links.
   """
   verify unit "specforge://prompts/review returns coverage analysis"
+  verify unit "review coverage matches specforge.coverage obligation by obligation"
   verify unit "response identifies entities with missing verification coverage"
   verify unit "depth parameter controls neighbor traversal depth"
   verify unit "review prompt returns empty findings when no testable entities exist"

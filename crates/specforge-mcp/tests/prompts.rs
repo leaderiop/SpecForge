@@ -619,6 +619,30 @@ fn context_includes_every_field() {
     );
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_review_prompt",
+    verify = "review coverage matches specforge.coverage obligation by obligation"
+)]
+fn review_coverage_matches_the_coverage_tool() {
+    let mut server = test_server();
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("specforge-report.json"),
+        r#"{"results":{"alpha":{"tests":[{"name":"t","verify":"test alpha","status":"pass"}]}}}"#,
+    )
+    .unwrap();
+    server.state_mut().project_root = Some(project.path().to_path_buf());
+    let resp = call_prompt(
+        &mut server,
+        "specforge://prompts/review",
+        json!({"entity_id": "alpha"}),
+    );
+    let parsed: Value = serde_json::from_str(&prompt_text(&resp)).unwrap();
+    let alpha = &parsed["coverage_summary"][0];
+    assert_eq!(alpha["status"], "covered", "{parsed}");
+    assert_eq!(alpha["linked"], true);
+}
+
 // B:provide_mcp_review_prompt — verify unit "review prompt returns empty findings when no testable entities exist"
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",

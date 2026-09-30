@@ -1077,7 +1077,24 @@ fn query_include_coverage() {
     let parsed: Value = serde_json::from_str(&text).unwrap();
     let nodes = parsed["nodes"].as_array().unwrap();
     let alpha = nodes.iter().find(|n| n["id"] == "alpha").unwrap();
-    assert_eq!(alpha["coverage_status"], "partial"); // alpha has verify
+    // Declared obligations with no recorded test: as specforge.coverage says.
+    assert_eq!(alpha["coverage_status"], "uncovered");
+
+    let (mut server, _project) = server_with_report(&[("a", "pass"), ("b", "pass")]);
+    let resp = call_tool(
+        &mut server,
+        "specforge.query",
+        json!({"entity_id": "two", "include_coverage": true}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let two = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == "two")
+        .unwrap()
+        .clone();
+    assert_eq!(two["coverage_status"], "covered");
 }
 
 // B:provide_mcp_search_tool — verify unit "field and value filter matches entity fields"

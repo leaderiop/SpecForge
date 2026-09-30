@@ -56,21 +56,18 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
             if include_coverage
                 && let Some(nodes) = result.get_mut("nodes").and_then(|n| n.as_array_mut())
             {
+                // The same classification `specforge.coverage` reports.
+                let report = super::coverage::recorded_report(state);
                 for node in nodes.iter_mut() {
                     let node_id = node.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                    let has_verify = state
-                        .graph
-                        .node(node_id)
-                        .map(|n| n.fields.get("verify").is_some())
-                        .unwrap_or(false);
-                    node.as_object_mut().unwrap().insert(
-                        "coverage_status".into(),
-                        Value::String(if has_verify {
-                            "partial".into()
-                        } else {
-                            "none".into()
-                        }),
-                    );
+                    let Some(entity) = state.graph.node(node_id) else {
+                        continue;
+                    };
+                    let status =
+                        super::coverage::EntityCoverage::of(entity, report.as_ref()).status();
+                    node.as_object_mut()
+                        .unwrap()
+                        .insert("coverage_status".into(), Value::from(status));
                 }
             }
 

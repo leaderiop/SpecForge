@@ -16,6 +16,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
 
     let mut findings: Vec<Value> = Vec::new();
     let mut coverage: Vec<Value> = Vec::new();
+    let report = crate::tools::coverage::recorded_report(state);
 
     for node in &nodes {
         let has_verify = matches!(
@@ -23,15 +24,16 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
             Some(FieldValue::VerifyList(stmts)) if !stmts.is_empty()
         );
 
-        let status = if has_verify { "partial" } else { "uncovered" };
-
+        // The same classification `specforge.coverage` reports.
+        let entity = crate::tools::coverage::EntityCoverage::of(node, report.as_ref());
         coverage.push(serde_json::json!({
             "entity_id": node.id.raw,
             "kind": node.kind.raw,
-            "status": status,
+            "status": entity.status(),
             "declared": has_verify,
-            "linked": false,
-            "evidence_collected": false
+            "linked": entity.tests > 0,
+            "evidence_collected": entity.tests > 0,
+            "unproven": entity.unproven,
         }));
 
         if !has_verify {

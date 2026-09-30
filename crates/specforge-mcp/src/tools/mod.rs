@@ -1,5 +1,5 @@
 mod analyze;
-mod coverage;
+pub(crate) mod coverage;
 mod export;
 mod find_definition;
 mod find_implementation;
