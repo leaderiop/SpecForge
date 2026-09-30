@@ -254,6 +254,35 @@ behavior login "User Login" {
         "should not have file errors: {:?}",
         file_errors
     );
+
+    // `use "types"` resolved to the file types.spec (extension appended,
+    // path relative to the spec root), and only that.
+    let behaviors = ctx
+        .resolved
+        .files
+        .iter()
+        .find(|f| f.path.ends_with("behaviors.spec"))
+        .expect("behaviors.spec resolved");
+    assert_eq!(behaviors.import_targets, vec!["types.spec".to_string()]);
+    // The import's types edge links the two files' entities.
+    assert!(
+        ctx.graph
+            .edges()
+            .iter()
+            .any(|e| e.source == "login" && e.target == "user_id"),
+        "{:?}",
+        ctx.graph.edges()
+    );
+
+    // The path is looked up on disk: a `use` naming no file is E025.
+    let missing = compile_specs(&[("main.spec", "use \"no_such_file\"\n")]);
+    let e025: Vec<_> = missing
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "E025")
+        .collect();
+    assert_eq!(e025.len(), 1, "{:?}", missing.diagnostics);
+    assert!(e025[0].message.contains("no_such_file"), "{:?}", e025[0]);
 }
 
 // B:link_entity_references — verify unit "cross-entity references produce edges"
@@ -302,16 +331,26 @@ fn validation_diagnostics_surface() {
 "#,
     )]);
 
-    // Should have a diagnostic about the unresolved reference
-    let has_ref_diag = ctx
+    // Exactly one E003, naming the unresolved reference.
+    let e003: Vec<_> = ctx
         .diagnostics
         .iter()
-        .any(|d| d.message.contains("nonexistent_invariant") || d.code.starts_with("W"));
-    assert!(
-        has_ref_diag,
-        "expected diagnostic about unresolved reference, got: {:?}",
+        .filter(|d| d.code == "E003")
+        .collect();
+    assert_eq!(
+        e003.len(),
+        1,
+        "expected one E003 for the unresolved reference, got: {:?}",
         ctx.diagnostics
     );
+    assert_eq!(e003[0].severity, specforge_common::Severity::Error);
+    assert!(
+        e003[0].message.contains("nonexistent_invariant"),
+        "{:?}",
+        e003[0]
+    );
+    // And no edge to the missing entity.
+    assert!(ctx.graph.edges().is_empty(), "{:?}", ctx.graph.edges());
 }
 
 // B:build_in_memory_graph — verify unit "empty project produces empty graph"

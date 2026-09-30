@@ -142,19 +142,72 @@ fn json_nodes_sorted_by_id() {
     verify = "edge ordering is independent of hashmap iteration"
 )]
 fn json_edges_sorted_deterministically() {
-    let graph = build_graph();
-    let json = specforge_emitter::emit_json(&graph);
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    let edges: Vec<(&str, &str)> = parsed["edges"]
+    // The same edges, inserted in two opposite orders, none of them sorted.
+    let edges = [
+        ("zebra", "middle", "invariants"),
+        ("alpha", "zebra", "depends_on"),
+        ("zebra", "alpha", "behaviors"),
+        ("middle", "alpha", "refs"),
+        ("zebra", "alpha", "aliases"),
+    ];
+    let with_edges = |order: Vec<&(&str, &str, &str)>| -> Graph {
+        let base = build_graph();
+        let mut graph = Graph::new();
+        for node in base.nodes() {
+            graph.add_node(node.clone());
+        }
+        for (source, target, label) in order {
+            graph.add_edge(Edge {
+                source: Sym::new(source),
+                target: Sym::new(target),
+                label: Sym::new(label),
+            });
+        }
+        graph
+    };
+    let forward = specforge_emitter::emit_json(&with_edges(edges.iter().collect()));
+    let backward = specforge_emitter::emit_json(&with_edges(edges.iter().rev().collect()));
+    assert_eq!(forward, backward, "edge insertion order must not matter");
+
+    // Sorted by source, then target, then label.
+    let parsed: serde_json::Value = serde_json::from_str(&forward).unwrap();
+    let listed: Vec<(&str, &str, &str)> = parsed["edges"]
         .as_array()
         .unwrap()
         .iter()
-        .map(|e| (e["source"].as_str().unwrap(), e["target"].as_str().unwrap()))
+        .map(|e| {
+            (
+                e["source"].as_str().unwrap(),
+                e["target"].as_str().unwrap(),
+                e["label"].as_str().unwrap(),
+            )
+        })
         .collect();
-    // Edges should be sorted by (source, target)
-    let mut sorted = edges.clone();
-    sorted.sort();
-    assert_eq!(edges, sorted, "edges must be deterministically sorted");
+    assert_eq!(
+        listed,
+        vec![
+            ("alpha", "zebra", "depends_on"),
+            ("middle", "alpha", "refs"),
+            ("zebra", "alpha", "aliases"),
+            ("zebra", "alpha", "behaviors"),
+            ("zebra", "middle", "invariants"),
+        ]
+    );
+
+    // DOT lists edges in the same order.
+    let graph = with_edges(edges.iter().rev().collect());
+    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot_edges: Vec<&str> = dot.lines().filter(|l| l.contains("->")).collect();
+    assert_eq!(
+        dot_edges,
+        vec![
+            "  \"alpha\" -> \"zebra\" [label=\"depends_on\"];",
+            "  \"middle\" -> \"alpha\" [label=\"refs\"];",
+            "  \"zebra\" -> \"alpha\" [label=\"aliases\"];",
+            "  \"zebra\" -> \"alpha\" [label=\"behaviors\"];",
+            "  \"zebra\" -> \"middle\" [label=\"invariants\"];",
+        ]
+    );
 }
 
 // B:deterministic_output — verify unit "output contains no timestamps or non-deterministic values"
@@ -163,16 +216,70 @@ fn json_edges_sorted_deterministically() {
     verify = "output contains no timestamps or non-deterministic values"
 )]
 fn json_output_contains_no_timestamps() {
-    let json = specforge_emitter::emit_json(&build_graph());
-    let lower = json.to_lowercase();
-    assert!(
-        !lower.contains("timestamp"),
-        "output must not contain timestamp"
-    );
-    assert!(
-        !lower.contains("generated_at"),
-        "output must not contain generated_at"
-    );
+    let graph = build_graph();
+    let emit_all = |graph: &Graph| -> Vec<String> {
+        vec![
+            specforge_emitter::emit_json(graph),
+            specforge_emitter::emit_context(graph),
+            specforge_emitter::emit_brief(graph),
+            specforge_emitter::emit_dot(graph, &specforge_emitter::DotOptions::default()),
+        ]
+    };
+
+    // Emitted across a clock tick, every format is byte-identical: nothing
+    // time-based or random is in the output.
+    let first = emit_all(&graph);
+    std::thread::sleep(std::time::Duration::from_millis(1100));
+    assert_eq!(first, emit_all(&graph));
+
+    // Every value in the JSON formats comes from the graph: the only strings
+    // are the fixture's own text, the version, and field names; the only
+    // numbers are source lines.
+    let fixture_text = [
+        "zebra",
+        "alpha",
+        "middle",
+        "feature",
+        "behavior",
+        "invariant",
+        "Zebra Feature",
+        "Alpha Behavior",
+        "Middle Invariant",
+        "Contract for zebra",
+        "Contract for alpha",
+        "Contract for middle",
+        "behaviors",
+        "invariants",
+        "test.spec",
+        "0.1.0",
+        "1.0",
+    ];
+    fn check(value: &serde_json::Value, allowed: &[&str], at: &str) {
+        match value {
+            serde_json::Value::String(s) => {
+                assert!(
+                    allowed.contains(&s.as_str()),
+                    "{at}: unexpected value {s:?}"
+                )
+            }
+            serde_json::Value::Number(n) => assert_eq!(n.as_u64(), Some(1), "{at}: {n}"),
+            serde_json::Value::Array(items) => {
+                for (i, item) in items.iter().enumerate() {
+                    check(item, allowed, &format!("{at}/{i}"));
+                }
+            }
+            serde_json::Value::Object(map) => {
+                for (key, item) in map {
+                    check(item, allowed, &format!("{at}/{key}"));
+                }
+            }
+            other => panic!("{at}: unexpected value {other}"),
+        }
+    }
+    for output in &first[..3] {
+        let parsed: serde_json::Value = serde_json::from_str(output).unwrap();
+        check(&parsed, &fixture_text, "#");
+    }
 }
 
 // B:deterministic_output — verify unit "file emission order is independent of filesystem readdir order"

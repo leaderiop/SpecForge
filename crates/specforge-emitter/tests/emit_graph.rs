@@ -63,22 +63,59 @@ fn emit_graph_includes_all_fields_and_metadata() {
 )]
 fn emit_graph_equals_emit_json() {
     let mut graph = Graph::new();
-    graph.add_node(Node {
-        id: EntityId {
-            raw: Sym::new("alpha"),
-        },
-        kind: EntityKind {
-            raw: Sym::new("behavior"),
-        },
-        title: Some("Alpha".to_string()),
-        fields: FieldMap::new(),
-        source_span: span(),
-        methods: Vec::new(),
-    });
+    // Added out of ID order, with a disconnected node.
+    for (id, kind) in [
+        ("gamma", "invariant"),
+        ("alpha", "behavior"),
+        ("delta", "feature"),
+        ("beta", "behavior"),
+    ] {
+        graph.add_node(Node {
+            id: EntityId { raw: Sym::new(id) },
+            kind: EntityKind {
+                raw: Sym::new(kind),
+            },
+            title: Some(id.to_uppercase()),
+            fields: FieldMap::new(),
+            source_span: span(),
+            methods: Vec::new(),
+        });
+    }
+    for (source, target, label) in [
+        ("beta", "gamma", "invariants"),
+        ("alpha", "gamma", "invariants"),
+        ("alpha", "beta", "depends_on"),
+    ] {
+        graph.add_edge(Edge {
+            source: Sym::new(source),
+            target: Sym::new(target),
+            label: Sym::new(label),
+        });
+    }
 
-    let json_output = specforge_emitter::emit_json(&graph);
+    // The graph format is what `specforge export --format graph` emits.
     let graph_output = specforge_emitter::emit_graph(&graph);
-    assert_eq!(json_output, graph_output);
+    assert_eq!(
+        graph_output,
+        specforge_emitter::emit(&graph, &specforge_emitter::EmitOptions::default()).unwrap()
+    );
+    let parsed: serde_json::Value = serde_json::from_str(&graph_output).unwrap();
+
+    let ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, vec!["alpha", "beta", "delta", "gamma"]);
+    assert_eq!(
+        parsed["edges"],
+        serde_json::json!([
+            { "source": "alpha", "target": "beta", "label": "depends_on" },
+            { "source": "alpha", "target": "gamma", "label": "invariants" },
+            { "source": "beta", "target": "gamma", "label": "invariants" },
+        ])
+    );
 }
 
 // B:export_agent_graph_format — verify unit "output conforms to Graph Protocol schema"
@@ -185,17 +222,28 @@ fn graph_format_scoped_nonexistent_entity_produces_e001() {
         methods: Vec::new(),
     });
 
-    let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
-    assert!(
-        result.is_err(),
-        "should return error for nonexistent entity"
+    let err = specforge_emitter::emit_json_scoped(&graph, "nonexistent").unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "E003: unresolved scope entity 'nonexistent' — entity not found in graph"
     );
-    let err = result.unwrap_err();
-    assert!(
-        err.to_string().contains("E003"),
-        "error should contain E003: {}",
-        err
+    assert_eq!(err.exit_code(), 1);
+
+    // The call `specforge export --format graph --no-schema --scope` makes:
+    // the same E003, and the exit code the command returns for it.
+    let err = specforge_emitter::emit(
+        &graph,
+        &specforge_emitter::EmitOptions {
+            scope: Some("nonexistent"),
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "E003: unresolved scope entity 'nonexistent' — entity not found in graph"
     );
+    assert_eq!(err.exit_code(), 1);
 }
 
 // B:export_agent_graph_format — verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"

@@ -32,11 +32,36 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
     verify = "DOT output is valid Graphviz syntax"
 )]
 fn empty_graph_produces_valid_dot() {
+    // An empty graph is a complete digraph with no statements.
     let graph = Graph::new();
     let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
-    assert!(dot.starts_with("digraph"));
-    assert!(dot.contains('{'));
-    assert!(dot.trim_end().ends_with('}'));
+    assert_eq!(
+        dot,
+        "digraph specforge {\n  rankdir=LR;\n  node [shape=box];\n}\n"
+    );
+
+    // A title with quotes and a newline stays inside its quoted label.
+    let mut graph = Graph::new();
+    graph.add_node(node("q", "behavior", Some("say \"hi\"\nthen }")));
+    graph.add_node(node("r", "feature", None));
+    graph.add_edge(Edge {
+        source: Sym::new("r"),
+        target: Sym::new("q"),
+        label: Sym::new("behaviors"),
+    });
+    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    assert_eq!(
+        dot,
+        concat!(
+            "digraph specforge {\n",
+            "  rankdir=LR;\n",
+            "  node [shape=box];\n",
+            "  \"q\" [label=\"q\\nsay \\\"hi\\\"\\nthen }\"];\n",
+            "  \"r\" [label=\"r\"];\n",
+            "  \"r\" -> \"q\" [label=\"behaviors\"];\n",
+            "}\n",
+        )
+    );
 }
 
 // B:serialize_dot_visualization — verify unit "nodes are labeled with IDs"
