@@ -55,29 +55,76 @@ fn make_edge(source: &str, target: &str, label: &str) -> Edge {
     verify = "Build In-Memory Graph: in-memory graph construction holds — resolution_complete, one_node_per_entity, one_edge_per_reference, no_orphan_edges"
 )]
 fn build_in_memory_graph_contract() {
-    // Requires: set of nodes and edges
-    // Ensures: graph contains all nodes and edges, queryable by ID
-    let mut graph = Graph::new();
-    graph.add_node(make_node("alpha", "behavior"));
-    graph.add_node(make_node("beta", "feature"));
-    graph.add_node(make_node("gamma", "type"));
-    graph.add_edge(make_edge("beta", "alpha", "behaviors"));
-    graph.add_edge(make_edge("beta", "gamma", "types"));
-
-    assert_eq!(graph.node_count(), 3, "all nodes must be present");
-    assert_eq!(graph.edge_count(), 2, "all edges must be present");
-    assert!(graph.node("alpha").is_some(), "node queryable by ID");
-    assert!(graph.node("beta").is_some(), "node queryable by ID");
-    assert!(graph.node("gamma").is_some(), "node queryable by ID");
-    assert_eq!(
-        graph.edges_from("beta").len(),
-        2,
-        "edges queryable from source"
+    // Two files: `b.spec` references entities declared in `a.spec` (cross-file
+    // resolution) plus one reference to an entity that does not exist.
+    let a = parse(
+        r#"
+behavior alpha "A" { contract "first" }
+behavior beta "B" { contract "second" }
+"#,
+        "a.spec",
     );
+    let b = parse(
+        r#"
+feature gamma "G" { behaviors [alpha, beta, ghost] }
+feature delta "D" { behaviors [alpha] }
+"#,
+        "b.spec",
+    );
+    let (graph, diagnostics) = build_graph_with_config(&[a, b], &GraphConfig::default());
+
+    // resolution_complete: resolution ran before materialisation — the one
+    // reference that cannot be resolved is reported (E003), not turned into an edge.
+    let e003: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(
-        graph.edges_to("alpha").len(),
+        e003.len(),
         1,
-        "edges queryable to target"
+        "exactly one unresolved reference: {diagnostics:?}"
+    );
+    assert!(e003[0].message.contains("ghost"), "{}", e003[0].message);
+
+    // one_node_per_entity: exactly the four declared entities, nothing else.
+    let mut ids: Vec<String> = graph.nodes().iter().map(|n| n.id.raw.to_string()).collect();
+    ids.sort();
+    assert_eq!(ids, vec!["alpha", "beta", "delta", "gamma"]);
+
+    // one_edge_per_reference: the three resolved references, each exactly once.
+    let mut edges: Vec<(String, String, String)> = graph
+        .edges()
+        .iter()
+        .map(|e| {
+            (
+                e.source.to_string(),
+                e.target.to_string(),
+                e.label.to_string(),
+            )
+        })
+        .collect();
+    edges.sort();
+    let expected: Vec<(String, String, String)> = [
+        ("delta", "alpha", "behaviors"),
+        ("gamma", "alpha", "behaviors"),
+        ("gamma", "beta", "behaviors"),
+    ]
+    .iter()
+    .map(|(s, t, l)| (s.to_string(), t.to_string(), l.to_string()))
+    .collect();
+    assert_eq!(edges, expected);
+
+    // no_orphan_edges: every edge connects two existing nodes.
+    for e in graph.edges() {
+        assert!(
+            graph.node(e.source.as_str()).is_some(),
+            "orphan source {e:?}"
+        );
+        assert!(
+            graph.node(e.target.as_str()).is_some(),
+            "orphan target {e:?}"
+        );
+    }
+    assert!(
+        graph.edges_to("ghost").is_empty(),
+        "unresolved reference must not become a dangling edge"
     );
 }
 

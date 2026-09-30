@@ -31,35 +31,8 @@ fn make_edge(source: &str, target: &str, label: &str) -> Edge {
 }
 
 // --- build_in_memory_graph ---
-
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one node per entity"
-)]
-fn graph_one_node_per_entity() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("alpha", "behavior"));
-    graph.add_node(make_node("beta", "behavior"));
-
-    assert_eq!(graph.nodes().len(), 2);
-    assert!(graph.node("alpha").is_some());
-    assert!(graph.node("beta").is_some());
-}
-
-#[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "graph contains one edge per resolved reference"
-)]
-fn graph_one_edge_per_reference() {
-    let mut graph = Graph::new();
-    graph.add_node(make_node("alpha", "behavior"));
-    graph.add_node(make_node("beta", "feature"));
-    graph.add_edge(make_edge("beta", "alpha", "behaviors"));
-
-    assert_eq!(graph.edges().len(), 1);
-    assert_eq!(graph.edges()[0].source, "beta");
-    assert_eq!(graph.edges()[0].target, "alpha");
-}
+// (the entity-to-node and reference-to-edge proofs run through `build_graph`
+// below: build_graph_one_node_per_entity / build_graph_one_edge_per_resolved_reference)
 
 #[test]
 fn graph_edges_connect_existing_nodes() {
@@ -309,12 +282,18 @@ behavior also_good "Also Good" { status done }
         "parser should report errors for malformed input"
     );
 
-    let (_graph, diagnostics) = build_graph(&[spec]);
+    let (graph, diagnostics) = build_graph(&[spec]);
     let parse_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
     assert!(
         !parse_diags.is_empty(),
         "build_graph should surface parse errors as E001 diagnostics, got: {:?}",
         diagnostics
+    );
+    // Without aborting: the valid entities on either side of the error are still built.
+    assert!(graph.node("good").is_some(), "entity before the error lost");
+    assert!(
+        graph.node("also_good").is_some(),
+        "entity after the error lost: parsing aborted at the error"
     );
 }
 
@@ -1355,9 +1334,17 @@ fn filter_nodes_by_field_value() {
 fn nodes_by_kind_returns_empty_for_unknown() {
     let mut graph = Graph::new();
     graph.add_node(make_node("login", "behavior"));
+    graph.add_node(make_node("user_id", "type"));
 
-    let result = graph.nodes_by_kind("nonexistent");
-    assert!(result.is_empty());
+    // A known kind returns exactly its members (so the filter is not "always empty")...
+    let behaviors: Vec<&str> = graph
+        .nodes_by_kind("behavior")
+        .iter()
+        .map(|n| n.id.raw.as_str())
+        .collect();
+    assert_eq!(behaviors, vec!["login"]);
+    // ...and a kind no node has returns nothing (not "everything").
+    assert!(graph.nodes_by_kind("nonexistent").is_empty());
 }
 
 // --- one-way authoring, bidirectional query ---
