@@ -117,31 +117,124 @@ fn tool_text(resp: &Value) -> String {
 
 // --- specforge.format ---
 
-// B:provide_mcp_format_tool — verify unit "returns format result"
+const UNFORMATTED: &str = "behavior messy \"Messy\" {\ncontract \"The system MUST work\"\n}\n";
+
+/// `test_server` whose project holds two unformatted files, a.spec and b.spec.
+fn server_with_unformatted() -> (McpServer, std::path::PathBuf) {
+    let server = test_server();
+    let root = server.state().project_root.clone().unwrap();
+    std::fs::write(root.join("test.spec"), "").unwrap();
+    std::fs::write(root.join("a.spec"), UNFORMATTED).unwrap();
+    std::fs::write(root.join("b.spec"), UNFORMATTED.replace("messy", "other")).unwrap();
+    (server, root)
+}
+
+fn format_result(server: &mut McpServer, args: Value) -> Value {
+    let resp = call_tool(server, "specforge.format", args);
+    serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
+}
+
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
     verify = "specforge.format formats spec files"
 )]
-fn format_returns_result() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.format", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["all_clean"].is_boolean());
-    assert!(parsed["total_checked"].is_number());
+fn format_rewrites_unformatted_files() {
+    let (mut server, root) = server_with_unformatted();
+
+    let parsed = format_result(&mut server, json!({}));
+
+    assert_eq!(parsed["all_clean"], false, "{parsed}");
+    assert_eq!(
+        parsed["changed_files"].as_array().unwrap().len(),
+        2,
+        "{parsed}"
+    );
+    let formatted = std::fs::read_to_string(root.join("a.spec")).unwrap();
+    assert!(
+        formatted.contains("\n  contract \"The system MUST work\""),
+        "{formatted}"
+    );
+    let again = format_result(&mut server, json!({}));
+    assert_eq!(
+        again["all_clean"], true,
+        "formatting is idempotent: {again}"
+    );
 }
 
-// B:provide_mcp_format_tool — verify unit "supports check mode"
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
     verify = "check mode reports without modifying files"
 )]
-fn format_check_mode() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.format", json!({"check": true}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+fn format_check_mode_reports_without_writing() {
+    let (mut server, root) = server_with_unformatted();
+
+    let parsed = format_result(&mut server, json!({"check": true}));
+
     assert_eq!(parsed["check_only"], true);
+    assert_eq!(parsed["all_clean"], false, "{parsed}");
+    assert_eq!(
+        parsed["changed_files"].as_array().unwrap().len(),
+        2,
+        "{parsed}"
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("a.spec")).unwrap(),
+        UNFORMATTED
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "paths filter restricts to specified files"
+)]
+fn format_paths_restrict_the_run() {
+    let (mut server, root) = server_with_unformatted();
+
+    let parsed = format_result(&mut server, json!({"paths": ["a.spec"]}));
+
+    assert_eq!(parsed["total_checked"], 1, "{parsed}");
+    let changed = parsed["changed_files"].as_array().unwrap();
+    assert_eq!(changed.len(), 1, "{parsed}");
+    assert!(changed[0].as_str().unwrap().ends_with("a.spec"), "{parsed}");
+    assert_ne!(
+        std::fs::read_to_string(root.join("a.spec")).unwrap(),
+        UNFORMATTED
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("b.spec")).unwrap(),
+        UNFORMATTED.replace("messy", "other"),
+        "a file outside paths is untouched"
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "diff mode returns FormatDiff entries"
+)]
+fn format_diff_mode_returns_diffs_without_writing() {
+    let (mut server, root) = server_with_unformatted();
+
+    let parsed = format_result(&mut server, json!({"diff": true, "paths": ["a.spec"]}));
+
+    let diffs = parsed["diffs"].as_array().unwrap();
+    assert_eq!(diffs.len(), 1, "{parsed}");
+    let diff = &diffs[0];
+    assert!(
+        diff["file_path"].as_str().unwrap().ends_with("a.spec"),
+        "{diff}"
+    );
+    assert_eq!(diff["before"], UNFORMATTED);
+    assert!(
+        diff["after"].as_str().unwrap().contains("\n  contract"),
+        "{diff}"
+    );
+    assert!(diff["insertions"].as_u64().unwrap() > 0, "{diff}");
+    assert!(diff["deletions"].as_u64().unwrap() > 0, "{diff}");
+    assert_eq!(
+        std::fs::read_to_string(root.join("a.spec")).unwrap(),
+        UNFORMATTED,
+        "diff mode writes nothing"
+    );
 }
 
 // --- specforge.rename ---
@@ -454,28 +547,6 @@ fn migrate_returns_result() {
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(parsed["migrated"], false);
     assert!(parsed.get("message").is_some());
-}
-
-#[test]
-fn format_diff_mode_placeholder() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.format", json!({"check": true}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed["check_only"], true);
-}
-
-#[test]
-fn format_paths_filter() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.format",
-        json!({"paths": ["a.spec"]}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["all_clean"].is_boolean() || parsed["total_checked"].is_number());
 }
 
 #[test]

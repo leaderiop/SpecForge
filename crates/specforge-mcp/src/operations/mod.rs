@@ -157,10 +157,11 @@ fn remove_config_extension(config_path: &Path, name: &str) {
 
 fn format_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let check = args.get("check").and_then(|v| v.as_bool()).unwrap_or(false);
+    let diff = args.get("diff").and_then(|v| v.as_bool()).unwrap_or(false);
     let write = args
         .get("write")
         .and_then(|v| v.as_bool())
-        .unwrap_or(!check);
+        .unwrap_or(!check && !diff);
 
     let Some(root) = project_root_of(state, &args) else {
         return err_invalid(id, "format needs a project root (pass {\"path\": ...})");
@@ -182,9 +183,22 @@ fn format_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
     } else {
         project_root.clone()
     };
-    let targets = specforge_formatter::discover_targets(&search_root, &[], &[]);
+    // Relative paths name files under the project root.
+    let explicit: Vec<PathBuf> = args
+        .get("paths")
+        .and_then(|v| v.as_array())
+        .map(|paths| {
+            paths
+                .iter()
+                .filter_map(|p| p.as_str())
+                .map(|p| project_root.join(p))
+                .collect()
+        })
+        .unwrap_or_default();
+    let targets = specforge_formatter::discover_targets(&search_root, &explicit, &[]);
 
     let mut changed_files = Vec::new();
+    let mut diffs = Vec::new();
     let mut total_checked = 0usize;
     for target in &targets {
         let Ok(source) = std::fs::read_to_string(target) else {
@@ -195,7 +209,18 @@ fn format_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
         if result.formatted == source {
             continue;
         }
-        changed_files.push(target.display().to_string());
+        let file_path = target.display().to_string();
+        if diff {
+            let stats = specforge_formatter::unified_diff(&file_path, &source, &result.formatted);
+            diffs.push(json!({
+                "file_path": file_path,
+                "before": source,
+                "after": result.formatted,
+                "insertions": stats.insertions,
+                "deletions": stats.deletions,
+            }));
+        }
+        changed_files.push(file_path);
         // Apply in write mode only.
         if write && let Err(e) = std::fs::write(target, &result.formatted) {
             return err_invalid(id, format!("failed to write {}: {e}", target.display()));
@@ -204,15 +229,16 @@ fn format_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
     let _ = config_diags;
 
     let all_clean = changed_files.is_empty();
-    ok(
-        id,
-        json!({
-            "changed_files": changed_files,
-            "total_checked": total_checked,
-            "all_clean": all_clean,
-            "check_only": check || !write,
-        }),
-    )
+    let mut result = json!({
+        "changed_files": changed_files,
+        "total_checked": total_checked,
+        "all_clean": all_clean,
+        "check_only": check || !write,
+    });
+    if diff {
+        result["diffs"] = Value::from(diffs);
+    }
+    ok(id, result)
 }
 
 // ── rename ──────────────────────────────────────────────────────────────────

@@ -120,17 +120,14 @@ fn trace_advertises_plan() {
 }
 
 #[test]
-fn format_advertises_path_and_write_not_paths() {
+fn format_advertises_every_argument_it_reads() {
     let tools = advertised_properties();
     let format = tools
         .get("specforge.format")
         .expect("format tool advertised");
-    assert!(format.iter().any(|p| p == "path"), "format reads path");
-    assert!(format.iter().any(|p| p == "write"), "format reads write");
-    assert!(
-        !format.iter().any(|p| p == "paths"),
-        "format.paths is never read by the handler; it must not be advertised"
-    );
+    for arg in ["path", "paths", "check", "diff", "write"] {
+        assert!(format.iter().any(|p| p == arg), "format reads {arg}");
+    }
 }
 
 #[test]
