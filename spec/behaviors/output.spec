@@ -248,7 +248,7 @@ behavior serialize_traceability_data "Serialize Traceability Data" {
   verify unit "full trace covers all root entities across registered edge types"
   verify unit "gaps in chain are highlighted"
   verify unit "output conforms to Graph Protocol schema"
-  verify contract "Serialize Traceability Data: traceability data serialization holds — validation_complete_fired, full_trace_serialized, gaps_included, graph_protocol_conformance, render_complete_emitted, a"
+  verify contract "Serialize Traceability Data: traceability data serialization holds — validation_complete_fired, full_trace_serialized, gaps_included, graph_protocol_conformance, render_complete_emitted"
 }
 
 behavior validate_agent_plan "Validate Agent Implementation Plan" {
