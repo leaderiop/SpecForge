@@ -14,6 +14,9 @@ use specforge_graph::{GraphConfig, build_graph_with_config};
 use specforge_watch::{ImportDag, IncrementalPipeline, SpecWatcher};
 
 pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
+    // A debug build of the compiler checks every rebuild; a release build
+    // only when asked (the check costs a cold rebuild per change).
+    let verify_incremental = verify_incremental || cfg!(debug_assertions);
     // 1. Cold build via the standard compile pipeline (extensions, registries).
     let (mut ctx, mut runtime, mut pipeline) = cold_build(path);
     pipeline.set_verify_incremental(verify_incremental);

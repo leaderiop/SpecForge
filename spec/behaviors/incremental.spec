@@ -385,6 +385,7 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
   verify unit "delta applied to old graph equals new graph"
   verify unit "discrepancy triggers debug assertion with descriptive message"
   verify unit "check disabled in release builds"
+  verify integration "a debug build checks each rebuild without the flag"
   verify unit "successful validation emits delta_validation_passed with node and edge counts"
   verify contract "Validate Delta Correctness: delta correctness validation holds — graph_delta_available, debug_mode_active, delta_verified, validation_event_emitted"
 }

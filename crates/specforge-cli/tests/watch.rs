@@ -7,6 +7,7 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use assert_cmd::cargo::CommandCargoExt;
+use specforge_test::prelude::*;
 use tempfile::TempDir;
 
 #[allow(deprecated)]
@@ -152,6 +153,44 @@ fn watch_verify_incremental_checks_each_rebuild_against_a_cold_one() {
     .unwrap();
 
     let (rx, mut child) = spawn_watch_with(&project, &["--verify-incremental"]);
+    assert!(
+        wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60)).is_some(),
+        "watch never reported ready"
+    );
+    std::thread::sleep(Duration::from_millis(300));
+    fs::write(
+        project.path().join("main.spec"),
+        "entity one { title \"One\" }\nentity two { title \"Two\" }\n",
+    )
+    .unwrap();
+
+    let rebuilt = wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60));
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let line = rebuilt.expect("no rebuild event after file change");
+    let event: serde_json::Value = serde_json::from_str(&line).unwrap();
+    assert_eq!(event["verification"], "passed", "{line}");
+}
+
+// The debug build of the compiler checks every rebuild; a release build only
+// with --verify-incremental. The binary is built in the test's profile, so
+// this test exists only in debug builds.
+#[cfg(debug_assertions)]
+#[specforge_test(
+    behavior = "validate_delta_correctness",
+    verify = "a debug build checks each rebuild without the flag"
+)]
+fn watch_debug_build_verifies_without_the_flag() {
+    let project = TempDir::new().unwrap();
+    fs::write(project.path().join("specforge.json"), "{}").unwrap();
+    fs::write(
+        project.path().join("main.spec"),
+        "entity one { title \"One\" }\n",
+    )
+    .unwrap();
+
+    let (rx, mut child) = spawn_watch(&project);
     assert!(
         wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60)).is_some(),
         "watch never reported ready"
