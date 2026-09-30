@@ -1,7 +1,64 @@
 use serde_json::Value;
+use std::collections::{HashMap, VecDeque};
 
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
+
+/// Breadth-first search from `start` over edges in both directions: one
+/// `McpRelationshipPath` per entity reached, in BFS order, carrying the
+/// edge labels along the shortest path. With `kind`, only paths ending at
+/// an entity of that kind are kept.
+fn bfs_paths(state: &McpState, start: &str, kind: Option<&str>) -> Vec<Value> {
+    if state.graph.node(start).is_none() {
+        return Vec::new();
+    }
+    // Entity id -> edge labels on the shortest path from `start`.
+    let mut labels: HashMap<String, Vec<String>> = HashMap::from([(start.to_string(), vec![])]);
+    let mut order: Vec<String> = Vec::new();
+    let mut queue = VecDeque::from([start.to_string()]);
+    while let Some(current) = queue.pop_front() {
+        let path = labels[&current].clone();
+        let mut neighbors: Vec<(String, String)> = state
+            .graph
+            .edges_from(&current)
+            .iter()
+            .map(|e| (e.target.to_string(), e.label.to_string()))
+            .chain(
+                state
+                    .graph
+                    .edges_to(&current)
+                    .iter()
+                    .map(|e| (e.source.to_string(), e.label.to_string())),
+            )
+            .collect();
+        neighbors.sort();
+        for (next, label) in neighbors {
+            if labels.contains_key(&next) {
+                continue;
+            }
+            let mut next_path = path.clone();
+            next_path.push(label);
+            labels.insert(next.clone(), next_path);
+            order.push(next.clone());
+            queue.push_back(next);
+        }
+    }
+    order
+        .into_iter()
+        .filter(|id| {
+            kind.is_none_or(|kind| state.graph.node(id).is_some_and(|n| n.kind.raw == kind))
+        })
+        .map(|id| {
+            let edge_types = &labels[&id];
+            serde_json::json!({
+                "from_entity": start,
+                "to_entity": id,
+                "edge_types": edge_types,
+                "path_length": edge_types.len(),
+            })
+        })
+        .collect()
+}
 
 pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let entity_filter = args.get("entity_id").and_then(|v| v.as_str());
@@ -71,9 +128,14 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         .map(|(id, _)| id.clone())
         .collect();
 
+    let relationship_paths = match entity_filter {
+        Some(start) => bfs_paths(state, start, kind_filter),
+        None => Vec::new(),
+    };
+
     let result = serde_json::json!({
         "matching_entities": matching,
-        "relationship_paths": [],
+        "relationship_paths": relationship_paths,
         "starting_points": starting_points,
         "high_connectivity": high_connectivity,
         "orphan_nodes": orphans

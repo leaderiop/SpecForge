@@ -64,7 +64,40 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         })
         .unwrap_or_default();
 
+    // Structural constraints: entities the caller wants in the context even
+    // when no edge connects them to this one.
+    let mut constraint_ids: Vec<String> = Vec::new();
+    let mut constraint_entities: Vec<Value> = Vec::new();
+    // MCP prompt arguments are strings, so a comma-separated list works too.
+    let requested: Vec<&str> = match args.get("structural_constraints") {
+        Some(Value::Array(ids)) => ids.iter().filter_map(|v| v.as_str()).collect(),
+        Some(Value::String(ids)) => ids
+            .split(',')
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+            .collect(),
+        _ => Vec::new(),
+    };
+    for constraint_id in requested {
+        let Some(constraint) = state.graph.node(constraint_id) else {
+            return JsonRpcResponse::error(
+                id,
+                error_codes::INVALID_PARAMS,
+                format!("Structural constraint entity not found: {constraint_id}"),
+            );
+        };
+        constraint_ids.push(constraint_id.to_string());
+        constraint_entities.push(serde_json::json!({
+            "entity_id": constraint.id.raw,
+            "kind": constraint.kind.raw,
+            "title": constraint.title,
+            "fields": specforge_emitter::field_map_to_json(&constraint.fields),
+        }));
+    }
+
     let result = serde_json::json!({
+        "structural_constraints": constraint_ids,
+        "structural_constraint_entities": constraint_entities,
         "entity_id": entity_id,
         "kind": node.kind.raw,
         "contract_text": contract_text,

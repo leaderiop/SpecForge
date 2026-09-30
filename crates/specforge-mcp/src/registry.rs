@@ -1,5 +1,5 @@
 use serde_json::{Value, json};
-use specforge_registry::SurfaceContributions;
+use specforge_registry::{SurfaceContributions, SurfaceType};
 
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
@@ -48,6 +48,13 @@ pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResp
     let tools: Vec<Value> = state
         .tool_registry
         .iter()
+        .filter(|t| {
+            !disabled(
+                state,
+                &t.name,
+                &[SurfaceType::McpTool, SurfaceType::AutoPromotedTool],
+            )
+        })
         .map(|t| serde_json::to_value(t).unwrap())
         .collect();
     JsonRpcResponse::success(id, json!({ "tools": tools }))
@@ -61,9 +68,19 @@ pub fn handle_list_resources(state: &mut McpState, id: Option<Value>) -> JsonRpc
     let resources: Vec<Value> = state
         .resource_registry
         .iter()
+        .filter(|r| !disabled(state, &r.name, &[SurfaceType::McpResource]))
         .map(|r| serde_json::to_value(r).unwrap())
         .collect();
     JsonRpcResponse::success(id, json!({ "resources": resources }))
+}
+
+/// Whether an extension contributed `name` as one of `types` and that
+/// contribution is disabled: disabled contributions are not advertised.
+fn disabled(state: &McpState, name: &str, types: &[SurfaceType]) -> bool {
+    state
+        .surface_entries
+        .iter()
+        .any(|e| !e.enabled && e.contribution_name == name && types.contains(&e.surface_type))
 }
 
 pub fn handle_list_prompts(state: &mut McpState, id: Option<Value>) -> JsonRpcResponse {
@@ -630,6 +647,11 @@ fn default_prompts() -> Vec<McpPromptDescriptor> {
                     name: "entity_id".into(),
                     description: "Entity ID to get context for".into(),
                     required: true,
+                },
+                McpPromptArgument {
+                    name: "structural_constraints".into(),
+                    description: "Entity IDs to include as context even when not connected (array or comma-separated)".into(),
+                    required: false,
                 },
             ]),
         },
