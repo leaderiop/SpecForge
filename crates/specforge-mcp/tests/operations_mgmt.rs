@@ -228,16 +228,6 @@ fn collect_contract() {
 // --- specforge.render ---
 
 #[test]
-fn render_returns_result() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.render", json!({"format": "dot"}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed["format"], "dot");
-    assert!(parsed["output"].is_string());
-}
-
-#[test]
 fn extensions_entry_fields() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.extensions", json!({}));
@@ -254,96 +244,6 @@ fn providers_entry_fields() {
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert!(parsed["providers"].is_array());
-}
-
-#[test]
-fn doctor_cache_integrity() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.doctor", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["cache_status"].is_string() || parsed["extensions_ok"].is_boolean());
-}
-
-// B:provide_mcp_doctor_tool — verify unit "provides deterministic resolution steps"
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "response provides deterministic resolution steps"
-)]
-fn doctor_deterministic_steps() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.doctor", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["findings"].is_array());
-}
-
-// B:provide_mcp_render_tool — verify unit "registered renderer invoked for matching format"
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "registered renderer invoked for matching format"
-)]
-fn render_registered_renderer() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.render", json!({"format": "json"}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["format"].is_string());
-}
-
-// B:provide_mcp_render_tool — verify unit "unrecognized format returns error listing available renderers"
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "unrecognized format returns error listing available renderers"
-)]
-fn render_unrecognized_format_placeholder() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.render",
-        json!({"format": "nonexistent"}),
-    );
-    assert!(resp["error"].is_object());
-}
-
-#[test]
-fn doctor_cache_checks() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.doctor", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let cache_checks = parsed["cache_checks"].as_array().unwrap();
-    // Empty when nothing is installed — honest, not a canned entry.
-    for check in cache_checks {
-        assert!(check["status"].is_string());
-    }
-}
-
-// B:provide_mcp_doctor_tool — verify unit "resolution_steps included in response"
-#[specforge_test(
-    behavior = "provide_mcp_doctor_tool",
-    verify = "response provides deterministic resolution steps"
-)]
-fn doctor_resolution_steps() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.doctor", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // resolution_steps superseded by `findings` + `conflicts` arrays.
-    assert!(parsed["findings"].is_array());
-}
-
-// B:provide_mcp_render_tool — verify unit "unrecognized format returns error listing available renderers (duplicate coverage)"
-#[specforge_test(
-    behavior = "provide_mcp_render_tool",
-    verify = "unrecognized format returns error listing available renderers"
-)]
-fn render_unrecognized_format_with_list() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.render", json!({"format": "yaml"}));
-    assert!(resp["error"].is_object());
-    let msg = resp["error"]["message"].as_str().unwrap();
-    assert!(msg.contains("Unrecognized renderer format"));
 }
 
 // --- Contract tests ---
@@ -395,33 +295,282 @@ fn doctor_contract() {
     let mut server = test_server();
     // Requires: compiler API available
     // Ensures: health checked, resolution steps provided
-    let resp = call_tool(&mut server, "specforge.doctor", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["extensions_ok"].is_boolean());
-    assert!(parsed["findings"].is_array());
-    assert!(parsed["cache_checks"].is_array());
-    // resolution_steps superseded by `findings` + `conflicts` arrays.
+    let parsed = doctor(&mut server);
+    // The McpDoctorReport shape, from a project with nothing installed.
+    assert_eq!(parsed["extensions_ok"], true, "{parsed}");
+    assert_eq!(parsed["cache_status"], "ok", "{parsed}");
+    assert_eq!(parsed["conflicts"], json!([]), "{parsed}");
+    for finding in parsed["findings"].as_array().unwrap() {
+        for field in ["check", "status", "code", "remediation"] {
+            assert!(finding[field].is_string(), "{field} missing: {finding}");
+        }
+    }
+    assert!(
+        server
+            .state()
+            .events
+            .iter()
+            .any(|e| e.name == "mcp_tool_invoked" && e.params["tool"] == "specforge.doctor"),
+        "mcp_tool_invoked emitted"
+    );
 }
 
-// B:provide_mcp_render_tool — verify contract
+// --- specforge.doctor: real checks ---
+
+const PRODUCT: &str = "specforge_ext_product";
+
+/// `test_server` with the product blob installed in its project.
+fn server_with_product() -> (McpServer, std::path::PathBuf) {
+    let mut server = test_server();
+    let root = server.state().project_root.clone().unwrap();
+    let blob = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../extensions/product/wasm/specforge_ext_product.wasm");
+    let resp = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": blob.to_str().unwrap()}),
+    );
+    assert!(resp["result"].is_object(), "install failed: {resp}");
+    (server, root)
+}
+
+/// Overwrite the installed binary, as a corrupted cache would.
+fn tamper_with_installed_binary(root: &std::path::Path) {
+    let dir = root.join(".specforge/extensions").join(PRODUCT);
+    let wasm = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .find(|p| p.extension().is_some_and(|e| e == "wasm"))
+        .unwrap_or_else(|| panic!("no installed wasm in {}", dir.display()));
+    std::fs::write(wasm, b"not the installed module").unwrap();
+}
+
+fn doctor(server: &mut McpServer) -> Value {
+    let resp = call_tool(server, "specforge.doctor", json!({}));
+    serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_doctor_tool",
+    verify = "response checks wasm cache integrity"
+)]
+fn doctor_flags_an_installed_binary_that_no_longer_matches_the_lock() {
+    let (mut server, root) = server_with_product();
+    let healthy = doctor(&mut server);
+    assert_eq!(healthy["cache_status"], "ok", "{healthy}");
+    assert_eq!(healthy["extensions_ok"], true, "{healthy}");
+
+    tamper_with_installed_binary(&root);
+    let report = doctor(&mut server);
+
+    assert_eq!(report["cache_status"], "stale", "{report}");
+    assert_eq!(report["extensions_ok"], false, "{report}");
+    let finding = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["code"] == "stale_hash")
+        .unwrap_or_else(|| panic!("no stale_hash finding: {report}"));
+    assert_eq!(finding["status"], "error");
+    assert!(
+        finding["check"].as_str().unwrap().contains(PRODUCT),
+        "{finding}"
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_doctor_tool",
+    verify = "response provides deterministic resolution steps"
+)]
+fn doctor_gives_each_issue_the_same_remediation_every_time() {
+    let (mut server, root) = server_with_product();
+    tamper_with_installed_binary(&root);
+
+    let first = doctor(&mut server);
+    let second = doctor(&mut server);
+
+    assert_eq!(first, second, "doctor is deterministic");
+    let findings = first["findings"].as_array().unwrap();
+    assert!(!findings.is_empty(), "{first}");
+    for finding in findings {
+        let remediation = finding["remediation"].as_str().unwrap_or_default();
+        assert!(!remediation.is_empty(), "no remediation: {finding}");
+    }
+    let stale = findings.iter().find(|f| f["code"] == "stale_hash").unwrap();
+    assert!(
+        stale["remediation"]
+            .as_str()
+            .unwrap()
+            .contains("specforge add"),
+        "{stale}"
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_doctor_tool",
+    verify = "specforge.doctor detects extension conflicts"
+)]
+fn doctor_lists_extension_conflicts_from_the_compile() {
+    let mut server = test_server();
+    // What the compiler reports when two extensions register one kind.
+    server
+        .state_mut()
+        .diagnostics
+        .push(specforge_common::Diagnostic {
+            code: "E026".into(),
+            severity: specforge_common::Severity::Error,
+            message: "entity kind 'feature' is already registered by '@specforge/product'".into(),
+            span: None,
+            suggestion: None,
+        });
+    server
+        .state_mut()
+        .diagnostics
+        .push(specforge_common::Diagnostic {
+            code: "W001".into(),
+            severity: specforge_common::Severity::Warning,
+            message: "an unrelated warning".into(),
+            span: None,
+            suggestion: None,
+        });
+
+    let report = doctor(&mut server);
+
+    let conflicts = report["conflicts"].as_array().unwrap();
+    assert_eq!(conflicts.len(), 1, "{report}");
+    assert!(
+        conflicts[0]
+            .as_str()
+            .unwrap()
+            .contains("already registered"),
+        "{report}"
+    );
+    let finding = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["code"] == "E026")
+        .unwrap_or_else(|| panic!("no E026 finding: {report}"));
+    assert_eq!(finding["status"], "error");
+    assert!(finding["remediation"].is_string(), "{finding}");
+}
+
+// --- specforge.render ---
+
+fn render(server: &mut McpServer, args: Value) -> Value {
+    let resp = call_tool(server, "specforge.render", args);
+    serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_render_tool",
+    verify = "specforge.render writes output files to out_dir"
+)]
+fn render_writes_the_output_into_out_dir() {
+    let mut server = test_server();
+    let out = tempfile::TempDir::new().unwrap();
+    let out_dir = out.path().join("rendered");
+
+    let parsed = render(
+        &mut server,
+        json!({"format": "dot", "out_dir": out_dir.to_str().unwrap()}),
+    );
+
+    let written = out_dir.join("graph.dot");
+    assert_eq!(
+        parsed["output_files"],
+        json!([written.display().to_string()]),
+        "{parsed}"
+    );
+    let dot = std::fs::read_to_string(&written).unwrap();
+    assert!(dot.starts_with("digraph"), "{dot}");
+    assert!(dot.contains("alpha"), "{dot}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_render_tool",
+    verify = "registered renderer invoked for matching format"
+)]
+fn render_uses_the_renderer_the_format_names() {
+    let mut server = test_server();
+    let out = tempfile::TempDir::new().unwrap();
+
+    let parsed = render(
+        &mut server,
+        json!({"format": "json", "out_dir": out.path().to_str().unwrap()}),
+    );
+    assert_eq!(parsed["format"], "json");
+    let graph: Value =
+        serde_json::from_str(&std::fs::read_to_string(out.path().join("graph.json")).unwrap())
+            .unwrap();
+    assert_eq!(graph["nodes"][0]["id"], "alpha", "{graph}");
+
+    // Without out_dir the rendering comes back inline and nothing is written.
+    let inline = render(&mut server, json!({"format": "dot"}));
+    assert!(inline["output"].as_str().unwrap().starts_with("digraph"));
+    assert_eq!(inline["output_files"], json!([]));
+}
+
+#[test]
+fn render_scope_limits_the_graph_to_one_entity() {
+    let mut server = test_server();
+    let scoped = render(&mut server, json!({"format": "brief", "scope": "alpha"}));
+    assert!(
+        scoped["output"].as_str().unwrap().contains("alpha"),
+        "{scoped}"
+    );
+
+    let missing = call_tool(
+        &mut server,
+        "specforge.render",
+        json!({"format": "brief", "scope": "no_such_entity"}),
+    );
+    assert!(missing["error"].is_object(), "{missing}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_render_tool",
+    verify = "unrecognized format returns error listing available renderers"
+)]
+fn render_unknown_format_lists_the_available_renderers() {
+    let mut server = test_server();
+    let resp = call_tool(&mut server, "specforge.render", json!({"format": "yaml"}));
+
+    let message = resp["error"]["message"].as_str().unwrap();
+    assert!(
+        message.contains("Unrecognized renderer format: yaml"),
+        "{message}"
+    );
+    assert_eq!(
+        resp["error"]["data"]["available_renderers"],
+        json!(["json", "dot", "context", "brief"]),
+        "{resp}"
+    );
+}
+
 #[specforge_test(
     behavior = "provide_mcp_render_tool",
     verify = "Provide MCP Render Tool: MCP render tool holds — graph_available, filesystem_available, files_written, files_listed, tool_invoked_emitted"
 )]
 fn render_contract() {
     let mut server = test_server();
-    // Requires: graph available, filesystem available
-    // Ensures: files written, unrecognized format returns error
-    let ok = call_tool(&mut server, "specforge.render", json!({"format": "dot"}));
-    let text = tool_text(&ok);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["output"].is_string());
-    // Unrecognized format returns error
-    let err = call_tool(
+    let out = tempfile::TempDir::new().unwrap();
+
+    let parsed = render(
         &mut server,
-        "specforge.render",
-        json!({"format": "nonexistent"}),
+        json!({"format": "context", "out_dir": out.path().to_str().unwrap()}),
     );
-    assert!(err["error"].is_object());
+
+    let files = parsed["output_files"].as_array().unwrap();
+    assert_eq!(files.len(), 1, "{parsed}");
+    let written = std::path::Path::new(files[0].as_str().unwrap());
+    assert!(written.starts_with(out.path()), "{parsed}");
+    assert!(std::fs::read_to_string(written).unwrap().contains("alpha"));
+    assert!(
+        server
+            .state()
+            .events
+            .iter()
+            .any(|e| e.name == "mcp_tool_invoked" && e.params["tool"] == "specforge.render")
+    );
 }

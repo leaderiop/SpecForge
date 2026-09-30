@@ -811,35 +811,78 @@ fn doctor_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespon
         .map(|l| run_doctor_check(l, &extensions_dir, compute_hash, &installed_versions))
         .unwrap_or_default();
 
-    // DoctorStatus is an enum: derive per-extension status truthfully.
-    let status_label = |s: &specforge_wasm::DoctorStatus| match s {
-        specforge_wasm::DoctorStatus::Healthy => ("ok", None),
-        specforge_wasm::DoctorStatus::MissingBinary { name } => (
-            "missing binary",
-            Some(format!("installed wasm for '{name}' not found")),
-        ),
-        specforge_wasm::DoctorStatus::StaleHash {
-            name,
-            expected,
-            actual,
-        } => (
-            "stale hash",
-            Some(format!(
-                "'{name}' hash mismatch: lock expects {expected}, found {actual}"
-            )),
-        ),
-        specforge_wasm::DoctorStatus::PeerMismatch {
-            name,
-            peer,
-            required,
-        } => (
-            "peer mismatch",
-            Some(format!("'{name}' requires peer '{peer}' at {required}")),
-        ),
-    };
     let extensions_ok = results
         .iter()
         .all(|r| matches!(r, specforge_wasm::DoctorStatus::Healthy));
+    let cache_ok = !results.iter().any(|r| {
+        matches!(
+            r,
+            specforge_wasm::DoctorStatus::MissingBinary { .. }
+                | specforge_wasm::DoctorStatus::StaleHash { .. }
+        )
+    });
+
+    let finding = |check: String, status: &str, code: &str, remediation: String| json!({"check": check, "status": status, "code": code, "remediation": remediation});
+    let reinstall = |name: &str| match installed_versions.get(name) {
+        Some(version) => format!("run `specforge add {name}@{version}` to reinstall it"),
+        None => format!("run `specforge add {name}` to reinstall it"),
+    };
+    let mut findings = Vec::new();
+    for r in &results {
+        use specforge_wasm::DoctorStatus;
+        match r {
+            DoctorStatus::Healthy => {}
+            DoctorStatus::MissingBinary { name } => findings.push(finding(
+                format!("extension {name}"),
+                "error",
+                "missing_binary",
+                reinstall(name),
+            )),
+            DoctorStatus::StaleHash {
+                name,
+                expected,
+                actual,
+            } => findings.push(finding(
+                format!("extension {name}: lock expects {expected}, found {actual}"),
+                "error",
+                "stale_hash",
+                reinstall(name),
+            )),
+            DoctorStatus::PeerMismatch {
+                name,
+                peer,
+                required,
+            } => findings.push(finding(
+                format!("extension {name}: requires peer {peer} at {required}"),
+                "error",
+                "peer_mismatch",
+                format!("run `specforge add {peer}@{required}`"),
+            )),
+        }
+    }
+
+    // Extension conflicts the compile reported.
+    const CONFLICT_CODES: [&str; 6] = ["E017", "E018", "E026", "E029", "E057", "W018"];
+    let mut conflicts = Vec::new();
+    for diag in &state.diagnostics {
+        if CONFLICT_CODES.contains(&diag.code.as_str()) {
+            conflicts.push(diag.message.clone());
+            findings.push(finding(
+                diag.message.clone(),
+                if diag.severity == specforge_common::Severity::Error {
+                    "error"
+                } else {
+                    "warn"
+                },
+                &diag.code,
+                format!(
+                    "uninstall or reconfigure one of the conflicting extensions \
+                     (`specforge explain {}`)",
+                    diag.code
+                ),
+            ));
+        }
+    }
 
     // SMT solver availability — analyze --prove degrades without it.
     let z3_ok = Z3Command::new("z3")
@@ -847,30 +890,12 @@ fn doctor_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespon
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);
-
-    // Wasm compile cache presence.
-    let cache_dir = std::env::var_os("HOME").map(|h| {
-        PathBuf::from(h)
-            .join(".cache")
-            .join("specforge")
-            .join("wasmtime")
-    });
-
-    let mut findings = Vec::new();
-    for r in &results {
-        let (label, detail) = status_label(r);
-        if let Some(detail) = detail {
-            findings.push(format!("{label}: {detail}"));
-        }
-    }
     if !z3_ok {
-        findings
-            .push("z3 not found: `specforge analyze --prove` will skip SMT checks (W098)".into());
-    }
-    if let Some(dir) = cache_dir.filter(|d| !d.exists()) {
-        findings.push(format!(
-            "wasm compile cache not populated yet: {} (created on first run)",
-            dir.display()
+        findings.push(finding(
+            "z3 on PATH".into(),
+            "warn",
+            "z3_missing",
+            "install z3; without it `specforge analyze --prove` skips SMT checks (W098)".into(),
         ));
     }
 
@@ -878,15 +903,9 @@ fn doctor_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespon
         id,
         json!({
             "extensions_ok": extensions_ok,
+            "conflicts": conflicts,
+            "cache_status": if cache_ok { "ok" } else { "stale" },
             "findings": findings,
-            "cache_status": "ok",
-            "cache_checks": results
-                .iter()
-                .map(|r| {
-                    let (label, _) = status_label(r);
-                    json!({ "status": label })
-                })
-                .collect::<Vec<_>>(),
             "installed_count": installed_versions.len(),
         }),
     )
@@ -962,19 +981,26 @@ fn render_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
         .and_then(|v| v.as_str())
         .unwrap_or("json");
 
-    let known_renderers = ["json", "dot", "context", "brief"];
-    if !known_renderers.contains(&format) {
-        return err_invalid(
+    // Each renderer and the file it writes into out_dir.
+    const RENDERERS: [(&str, &str); 4] = [
+        ("json", "graph.json"),
+        ("dot", "graph.dot"),
+        ("context", "context.json"),
+        ("brief", "brief.json"),
+    ];
+    let Some((_, file_name)) = RENDERERS.iter().find(|(name, _)| *name == format) else {
+        let available: Vec<&str> = RENDERERS.iter().map(|(name, _)| *name).collect();
+        return JsonRpcResponse::error_with_data(
             id,
-            serde_json::json!({
-                "message": format!("Unrecognized renderer format: {format}"),
-                "available_renderers": known_renderers
-            })
-            .to_string(),
+            error_codes::INVALID_PARAMS,
+            format!(
+                "Unrecognized renderer format: {format} (available: {})",
+                available.join(", ")
+            ),
+            json!({ "available_renderers": available }),
         );
-    }
+    };
 
-    // Render the CURRENT graph from session state — real output, no writes.
     use specforge_emitter::{EmitFormat, EmitOptions, emit};
     let emit_format = match format {
         "json" => EmitFormat::Json,
@@ -982,20 +1008,33 @@ fn render_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
         "context" => EmitFormat::Context,
         _ => EmitFormat::Brief,
     };
-    match emit(
+    let output = match emit(
         &state.graph,
         &EmitOptions {
             format: emit_format,
-            scope: None,
-            schema: None,
-            depth: None,
-            kind_filter: Vec::new(),
-            token_budget: None,
-            kind_registry: None,
+            scope: args.get("scope").and_then(|v| v.as_str()),
             field_registry: Some(&state.field_registry),
+            ..EmitOptions::default()
         },
     ) {
-        Ok(text) => ok(id, json!({ "format": format, "output": text })),
-        Err(e) => err_invalid(id, format!("render failed: {e}")),
+        Ok(text) => text,
+        Err(e) => return err_invalid(id, format!("render failed: {e}")),
+    };
+
+    // With out_dir the rendering lands on disk; without it, inline.
+    let Some(out_dir) = args.get("out_dir").and_then(|v| v.as_str()) else {
+        return ok(
+            id,
+            json!({ "format": format, "output": output, "output_files": [] }),
+        );
+    };
+    let out_dir = PathBuf::from(out_dir);
+    let path = out_dir.join(file_name);
+    if let Err(e) = std::fs::create_dir_all(&out_dir).and_then(|()| std::fs::write(&path, output)) {
+        return err_invalid(id, format!("failed to write {}: {e}", path.display()));
     }
+    ok(
+        id,
+        json!({ "format": format, "output_files": [path.display().to_string()] }),
+    )
 }

@@ -513,9 +513,11 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "format": { "type": "string", "description": "Output format" },
+                    "format": { "type": "string", "enum": ["json", "dot", "context", "brief"], "description": "Renderer to use" },
+                    "out_dir": { "type": "string", "description": "Directory to write the rendering into (returned inline when omitted)" },
                     "scope": { "type": "string", "description": "Scope to entity" }
-                }
+                },
+                "required": ["format"]
             }),
             category: Some("management".into()),
         },

@@ -406,9 +406,10 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.render tool that
-    accepts format (required, a format string matching a registered renderer)
-    and out_dir (required, output directory path). The tool MUST invoke the
-    matching registered renderer and write output files to out_dir.
+    accepts format (required, a format string matching a registered renderer),
+    out_dir? (output directory path) and scope? (an entity id). The tool MUST
+    invoke the matching registered renderer and write output files to out_dir;
+    without out_dir it MUST return the rendering inline instead.
     The json and dot renderers are provided by the core graph engine (see P7
     justification in features/output.spec); additional renderers come from extensions.
     Renderers produce graph diagnostic artifacts: JSON serializations, DOT
