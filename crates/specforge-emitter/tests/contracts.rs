@@ -212,25 +212,51 @@ fn dot_contract_finalized_graph_produces_valid_dot() {
 
 // === compute_traceability_chain contract ===
 
-// Not linked to the Compute Traceability Chain contract: missing_links_flagged
-// is not built. The spec's missing link is an edge type a manifest declares
-// but the graph does not instantiate, flagged with a "missing" status;
-// TraceLink has no status and nothing compares traces with the edge
-// registry. (detect_trace_gaps finds dangling edges, which the contract
-// says are E003 broken references, not missing links.)
-#[test]
+/// Expected edges from the test registries: behaviors expect `invariants`
+/// and `features` (the latter also declared by a feature's `behaviors`),
+/// features expect `behaviors`.
+fn trace_expectations() -> specforge_emitter::TraceExpectations {
+    let (fields, kinds) = crate::trace_support::registries();
+    specforge_emitter::TraceExpectations::from_registries(&fields, &kinds)
+}
+
+// No event bus exists in the codebase: like the other emitter contracts,
+// the *_emitted clause is not observable here.
+#[specforge_test(
+    behavior = "compute_traceability_chain",
+    verify = "Compute Traceability Chain: traceability chain computation holds — validation_complete_fired, full_chain_traversed, missing_links_flagged, trace_chain_computed_emitted"
+)]
 fn trace_contract_entity_in_graph_produces_chain() {
-    // Requires: entity exists in graph
-    // Ensures: the full chain, both directions, every hop.
+    // Requires (validation_complete_fired): a finalized graph.
+    // Ensures (full_chain_traversed): the full chain, both directions,
+    // every hop.
     let graph = build_graph();
+    let expectations = trace_expectations();
     let links = |links: &[specforge_emitter::TraceLink]| -> Vec<(String, String, usize)> {
         links
             .iter()
-            .map(|l| (l.entity_id.clone(), l.edge_label.clone(), l.depth))
+            .map(|l| {
+                assert_eq!(l.status, specforge_emitter::TraceLinkStatus::Resolved);
+                (l.entity_id.clone(), l.edge_label.clone(), l.depth)
+            })
+            .collect()
+    };
+    let missing = |chain: &specforge_emitter::TraceChain| -> Vec<(String, String, String)> {
+        chain
+            .missing
+            .iter()
+            .map(|m| {
+                assert_eq!(m.status, specforge_emitter::TraceLinkStatus::Missing);
+                (
+                    m.from.clone(),
+                    m.edge_label.clone(),
+                    m.expected_kind.clone(),
+                )
+            })
             .collect()
     };
 
-    let trace = specforge_emitter::trace(&graph, "b").unwrap();
+    let trace = specforge_emitter::trace_with_expectations(&graph, "b", &expectations).unwrap();
     assert_eq!(trace.entity_id, "b");
     assert_eq!(trace.entity_kind, "behavior");
     assert_eq!(
@@ -242,8 +268,20 @@ fn trace_contract_entity_in_graph_produces_chain() {
         vec![("c".to_string(), "depends_on".to_string(), 1)]
     );
 
-    // From the root the chain reaches the leaf two hops away.
-    let root = specforge_emitter::trace(&graph, "a").unwrap();
+    // Ensures (missing_links_flagged): b's feature link is declared from
+    // a's side; b declares no invariant.
+    assert_eq!(
+        missing(&trace),
+        vec![(
+            "b".to_string(),
+            "invariants".to_string(),
+            "invariant".to_string()
+        )]
+    );
+
+    // From the root the chain reaches the leaf two hops away, and the root
+    // has the one edge its kind expects.
+    let root = specforge_emitter::trace_with_expectations(&graph, "a", &expectations).unwrap();
     assert!(root.upstream.is_empty());
     assert_eq!(
         links(&root.downstream),
@@ -252,6 +290,32 @@ fn trace_contract_entity_in_graph_produces_chain() {
             ("c".to_string(), "depends_on".to_string(), 2),
         ]
     );
+    assert!(root.missing.is_empty(), "{:?}", root.missing);
+
+    // c: no feature lists it and it declares nothing its kind expects.
+    let leaf = specforge_emitter::trace_with_expectations(&graph, "c", &expectations).unwrap();
+    assert_eq!(
+        missing(&leaf),
+        vec![
+            (
+                "c".to_string(),
+                "features".to_string(),
+                "feature".to_string()
+            ),
+            (
+                "c".to_string(),
+                "invariants".to_string(),
+                "invariant".to_string()
+            ),
+        ]
+    );
+
+    // The JSON carries the Graph Protocol schema_version and the gaps.
+    let json: serde_json::Value =
+        serde_json::from_str(&specforge_emitter::serialize_trace(&leaf).unwrap()).unwrap();
+    assert_eq!(json["schema_version"], specforge_emitter::SCHEMA_VERSION);
+    assert_eq!(json["missing"][0]["status"], "missing");
+    assert_eq!(json["upstream"][0]["status"], "resolved");
 }
 
 // === compute_project_statistics contract ===
@@ -606,19 +670,90 @@ fn deterministic_contract_same_input_identical_output() {
 
 // === serialize_traceability_data contract ===
 
-// Not linked to the Serialize Traceability Data contract: gaps_included is
-// not built. serialize_trace_all carries no gaps and TraceLink has no
-// "missing" status, so no output can show a missing link.
-#[test]
+// No event bus exists in the codebase: like the other emitter contracts,
+// the *_emitted clause is not observable here.
+#[specforge_test(
+    behavior = "serialize_traceability_data",
+    verify = "Serialize Traceability Data: traceability data serialization holds — validation_complete_fired, full_trace_serialized, gaps_included, graph_protocol_conformance, render_complete_emitted"
+)]
 fn trace_data_contract_all_entities_traced() {
+    // Requires (validation_complete_fired): a finalized graph.
     let graph = build_graph();
-    let traces = specforge_emitter::trace_all(&graph);
-    assert_eq!(traces.len(), graph.nodes().len(), "one trace per entity");
-
+    let traces = specforge_emitter::trace_all_with_expectations(&graph, &trace_expectations());
     let json = specforge_emitter::serialize_trace_all(&traces).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed["schema_version"].is_string());
-    assert!(parsed["traces"].is_array());
+
+    // graph_protocol_conformance: the protocol's schema_version, and a
+    // traces array.
+    assert_eq!(parsed["schema_version"], specforge_emitter::SCHEMA_VERSION);
+    let traces = parsed["traces"].as_array().unwrap();
+
+    // full_trace_serialized: one chain per entity, in ID order, each with
+    // its links from root to leaf.
+    let ids: Vec<&str> = traces
+        .iter()
+        .map(|t| t["entity_id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, vec!["a", "b", "c"]);
+    let hops = |trace: &serde_json::Value, direction: &str| -> Vec<(String, u64, String)> {
+        trace[direction]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|l| {
+                (
+                    l["entity_id"].as_str().unwrap().to_string(),
+                    l["depth"].as_u64().unwrap(),
+                    l["status"].as_str().unwrap().to_string(),
+                )
+            })
+            .collect()
+    };
+    assert_eq!(
+        hops(&traces[0], "downstream"),
+        vec![
+            ("b".to_string(), 1, "resolved".to_string()),
+            ("c".to_string(), 2, "resolved".to_string()),
+        ]
+    );
+    assert_eq!(
+        hops(&traces[2], "upstream"),
+        vec![
+            ("b".to_string(), 1, "resolved".to_string()),
+            ("a".to_string(), 2, "resolved".to_string()),
+        ]
+    );
+
+    // gaps_included: every missing link, with a missing status, from the
+    // entity that lacks it to the kind it should reach.
+    let gaps: Vec<(String, String, String, String)> = traces
+        .iter()
+        .flat_map(|t| t["missing"].as_array().unwrap().iter())
+        .map(|m| {
+            (
+                m["from"].as_str().unwrap().to_string(),
+                m["edge_label"].as_str().unwrap().to_string(),
+                m["expected_kind"].as_str().unwrap().to_string(),
+                m["status"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    let gap = |from: &str, label: &str, kind: &str| {
+        (
+            from.to_string(),
+            label.to_string(),
+            kind.to_string(),
+            "missing".to_string(),
+        )
+    };
+    assert_eq!(
+        gaps,
+        vec![
+            gap("b", "invariants", "invariant"),
+            gap("c", "features", "feature"),
+            gap("c", "invariants", "invariant"),
+        ]
+    );
 }
 
 #[specforge_test(
@@ -639,16 +774,42 @@ fn trace_data_full_trace_covers_all_roots() {
     verify = "gaps in chain are highlighted"
 )]
 fn trace_data_gaps_highlighted() {
-    // A graph with a dangling edge has gaps
+    // A behavior linked to nothing: both edges its kind expects are gaps
+    // in the full trace, with the registered edge type each would be.
     let mut graph = Graph::new();
     graph.add_node(testable_node("isolated"));
-    graph.add_edge(Edge {
-        source: Sym::new("isolated"),
-        target: Sym::new("nowhere"),
-        label: Sym::new("depends_on"),
-    });
-    let gaps = specforge_emitter::detect_trace_gaps(&graph);
-    assert!(!gaps.is_empty(), "dangling edge should produce trace gaps");
+    let traces = specforge_emitter::trace_all_with_expectations(&graph, &trace_expectations());
+    let json = specforge_emitter::serialize_trace_all(&traces).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        parsed["traces"][0]["missing"],
+        serde_json::json!([
+            {
+                "from": "isolated",
+                "from_kind": "behavior",
+                "edge_label": "features",
+                "edge_type": "behavior_features",
+                "expected_kind": "feature",
+                "depth": 1,
+                "required": false,
+                "status": "missing"
+            },
+            {
+                "from": "isolated",
+                "from_kind": "behavior",
+                "edge_label": "invariants",
+                "edge_type": "behavior_invariants",
+                "expected_kind": "invariant",
+                "depth": 1,
+                "required": false,
+                "status": "missing"
+            }
+        ])
+    );
+
+    // Without expectations nothing is missing.
+    let bare = specforge_emitter::trace_all(&graph);
+    assert!(bare[0].missing.is_empty());
 }
 
 #[specforge_test(

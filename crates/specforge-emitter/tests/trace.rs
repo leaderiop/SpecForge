@@ -1,4 +1,5 @@
 use specforge_common::{SourceSpan, Sym};
+use specforge_emitter::{TraceExpectations, TraceLinkStatus};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test::prelude::*;
@@ -170,13 +171,35 @@ fn trace_all_serializes_as_json_array() {
     assert_eq!(parsed["traces"].as_array().unwrap().len(), 3);
 }
 
+fn expectations() -> TraceExpectations {
+    let (fields, kinds) = crate::trace_support::registries();
+    TraceExpectations::from_registries(&fields, &kinds)
+}
+
+/// The missing links of a chain as (from, edge_label, expected_kind).
+fn missing(chain: &specforge_emitter::TraceChain) -> Vec<(&str, &str, &str)> {
+    chain
+        .missing
+        .iter()
+        .map(|m| {
+            assert_eq!(m.status, TraceLinkStatus::Missing);
+            (
+                m.from.as_str(),
+                m.edge_label.as_str(),
+                m.expected_kind.as_str(),
+            )
+        })
+        .collect()
+}
+
 // B:compute_traceability_chain — verify unit "missing link in chain is flagged"
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "missing link in chain is flagged"
 )]
 fn trace_missing_link_flagged() {
-    // A graph with an edge pointing to a non-existent node represents a missing link
+    // a -behaviors-> b: b's `features` link is declared from the feature's
+    // side; b declares no invariant, which its kind expects.
     let mut graph = Graph::new();
     graph.add_node(node("a", "feature"));
     graph.add_node(node("b", "behavior"));
@@ -185,33 +208,127 @@ fn trace_missing_link_flagged() {
         target: "b".into(),
         label: "behaviors".into(),
     });
+
+    let trace = specforge_emitter::trace_with_expectations(&graph, "b", &expectations()).unwrap();
+    assert_eq!(missing(&trace), vec![("b", "invariants", "invariant")]);
+    let gap = &trace.missing[0];
+    assert_eq!(gap.from_kind, "behavior");
+    assert_eq!(gap.edge_type.as_deref(), Some("behavior_invariants"));
+    assert_eq!(gap.depth, 1);
+    assert!(!gap.required);
+    // The resolved links are unchanged and say so.
+    assert_eq!(trace.upstream.len(), 1);
+    assert_eq!(trace.upstream[0].status, TraceLinkStatus::Resolved);
+
+    // Declaring the invariant closes the gap.
+    graph.add_node(node("i", "invariant"));
+    graph.add_edge(Edge {
+        source: "b".into(),
+        target: "i".into(),
+        label: "invariants".into(),
+    });
+    let trace = specforge_emitter::trace_with_expectations(&graph, "b", &expectations()).unwrap();
+    assert!(trace.missing.is_empty(), "{:?}", trace.missing);
+
+    // A feature with no behavior misses one; a behavior nothing links
+    // misses both.
+    graph.add_node(node("lonely", "feature"));
+    graph.add_node(node("orphan", "behavior"));
+    let lonely =
+        specforge_emitter::trace_with_expectations(&graph, "lonely", &expectations()).unwrap();
+    assert_eq!(missing(&lonely), vec![("lonely", "behaviors", "behavior")]);
+    let orphan =
+        specforge_emitter::trace_with_expectations(&graph, "orphan", &expectations()).unwrap();
+    assert_eq!(
+        missing(&orphan),
+        vec![
+            ("orphan", "features", "feature"),
+            ("orphan", "invariants", "invariant"),
+        ]
+    );
+}
+
+// B:compute_traceability_chain — a missing link is an expected edge that is
+// absent, not a broken reference: a dangling edge is E003 in check.
+#[specforge_test(behavior = "compute_traceability_chain")]
+fn trace_dangling_edge_is_not_a_missing_link() {
+    let mut graph = Graph::new();
+    graph.add_node(node("a", "feature"));
+    graph.add_node(node("b", "behavior"));
+    graph.add_edge(Edge {
+        source: "a".into(),
+        target: "b".into(),
+        label: "behaviors".into(),
+    });
+    // b declares an invariant that does not exist.
     graph.add_edge(Edge {
         source: "b".into(),
         target: "phantom".into(),
         label: "invariants".into(),
     });
 
-    let gaps = specforge_emitter::detect_trace_gaps(&graph);
-    assert!(
-        gaps.iter().any(|g| g.contains("phantom")),
-        "missing link to phantom must be flagged: {:?}",
-        gaps
-    );
-
-    // Trace from "b" should work (b exists) but not include phantom in downstream
-    let trace = specforge_emitter::trace(&graph, "b").unwrap();
+    let trace = specforge_emitter::trace_with_expectations(&graph, "b", &expectations()).unwrap();
+    assert!(trace.missing.is_empty(), "{:?}", trace.missing);
     assert!(
         !trace.downstream.iter().any(|l| l.entity_id == "phantom"),
-        "phantom node should not appear in trace (it doesn't exist in graph)"
+        "an undeclared entity is not part of the chain"
+    );
+    assert_eq!(
+        specforge_emitter::detect_trace_gaps(&graph),
+        vec!["dangling edge target 'phantom' in edge b -> phantom (invariants)".to_string()]
     );
 }
 
-// B:serialize_traceability_data — verify unit "gaps in chain are highlighted"
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "missing link in chain is flagged"
-)]
-fn trace_detects_dangling_edge_as_gap() {
+// B:compute_traceability_chain — the expected edges come from the
+// registries alone.
+#[specforge_test(behavior = "compute_traceability_chain")]
+fn trace_expectations_come_from_the_registries() {
+    let expected = expectations();
+    let labels = |kind: &str| -> Vec<String> {
+        expected
+            .for_kind(kind)
+            .iter()
+            .map(|e| e.label.clone())
+            .collect()
+    };
+    // ports: its kind isn't loaded. depends_on: a self-relation.
+    // satisfies: another extension's. contract: not a reference.
+    assert_eq!(labels("behavior"), vec!["features", "invariants"]);
+    assert_eq!(labels("feature"), vec!["behaviors"]);
+    assert!(labels("invariant").is_empty());
+    // features is also declared by the feature's `behaviors`, which names
+    // no inverse itself.
+    let features = &expected.for_kind("behavior")[0];
+    assert_eq!(features.inverse_labels, vec!["behaviors"]);
+    assert_eq!(features.target_kind, "feature");
+
+    // A required reference is expected wherever it comes from.
+    let (mut fields, kinds) = crate::trace_support::registries();
+    let mut parent =
+        crate::trace_support::reference("behavior", "parent", "behavior", "@t/formal", None);
+    parent.required = true;
+    fields.register(parent);
+    let expected = TraceExpectations::from_registries(&fields, &kinds);
+    let parent = expected
+        .for_kind("behavior")
+        .iter()
+        .find(|e| e.label == "parent")
+        .expect("required reference is expected");
+    assert!(parent.required);
+
+    // No extensions, no expectations.
+    assert!(
+        TraceExpectations::from_registries(
+            &specforge_registry::FieldRegistry::new(),
+            &specforge_registry::KindRegistry::new()
+        )
+        .is_empty()
+    );
+}
+
+// B:compute_traceability_chain — human output marks each missing link.
+#[specforge_test(behavior = "compute_traceability_chain")]
+fn trace_human_output_marks_missing_links() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "feature"));
     graph.add_node(node("b", "behavior"));
@@ -220,18 +337,17 @@ fn trace_detects_dangling_edge_as_gap() {
         target: "b".into(),
         label: "behaviors".into(),
     });
-    // Dangling edge: b -> nonexistent (target not in graph)
-    graph.add_edge(Edge {
-        source: "b".into(),
-        target: "missing_entity".into(),
-        label: "depends_on".into(),
-    });
-
-    let gaps = specforge_emitter::detect_trace_gaps(&graph);
-    assert!(!gaps.is_empty(), "should detect dangling edge");
-    assert!(
-        gaps.iter().any(|g| g.contains("missing_entity")),
-        "gap should mention missing entity: {:?}",
-        gaps
+    let trace = specforge_emitter::trace_with_expectations(&graph, "b", &expectations()).unwrap();
+    assert_eq!(
+        specforge_emitter::render_trace_human(&trace),
+        concat!(
+            "b [behavior]\n",
+            "  upstream:\n",
+            "    <-behaviors- a [feature] (depth 1)\n",
+            "  downstream:\n",
+            "    (none)\n",
+            "  missing:\n",
+            "    MISSING b -invariants-> [invariant] (depth 1)\n",
+        )
     );
 }

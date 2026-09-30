@@ -656,7 +656,7 @@ fn contract_trace() {
     assert_eq!(chain["entity_kind"], "behavior");
     assert_eq!(
         chain["upstream"],
-        json!([{"entity_id": "beta", "entity_kind": "feature", "edge_label": "behaviors", "depth": 1}])
+        json!([{"entity_id": "beta", "entity_kind": "feature", "edge_label": "behaviors", "depth": 1, "status": "resolved"}])
     );
     assert_eq!(chain["downstream"], json!([]));
     // gaps_identified: alpha has nothing downstream, beta nothing upstream.

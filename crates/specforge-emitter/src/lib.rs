@@ -51,8 +51,9 @@ pub use stats::{
     ProjectStats, compute_stats, compute_stats_with_diagnostics, compute_stats_with_testable,
 };
 pub use trace::{
-    TraceChain, TraceLink, detect_trace_gaps, serialize_trace, serialize_trace_all, trace,
-    trace_all,
+    ExpectedEdge, MissingLink, TraceChain, TraceExpectations, TraceLink, TraceLinkStatus,
+    detect_trace_gaps, render_trace_human, serialize_trace, serialize_trace_all, trace, trace_all,
+    trace_all_with_expectations, trace_with_expectations,
 };
 
 // --- Legacy API (kept for backwards compatibility with tests) ---

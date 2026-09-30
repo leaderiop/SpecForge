@@ -23,3 +23,4 @@ mod stats;
 mod stress;
 mod token_budget;
 mod trace;
+mod trace_support;

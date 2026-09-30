@@ -264,6 +264,200 @@ fn trace_multi_kind_chain_preserves_entity_kind() {
     }
 }
 
+// --- Missing links ---
+
+/// software + product loaded: `pay` implements a feature and enforces an
+/// invariant; `refund` is linked to nothing.
+fn gap_project() -> tempfile::TempDir {
+    setup_project(&[
+        (
+            "specforge.json",
+            r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/product"]}"#,
+        ),
+        (
+            "main.spec",
+            r#"
+feature checkout "Checkout" {
+    problem "Buyers need to pay"
+    solution "A payment step"
+}
+
+behavior pay "Pay" {
+    contract "The system MUST take payment once"
+    features [checkout]
+    invariants [paid_once]
+}
+
+behavior refund "Refund" {
+    contract "The system MUST return the payment"
+}
+
+invariant paid_once "Paid Once" {
+    guarantee "An order MUST be paid at most once"
+}
+"#,
+        ),
+    ])
+}
+
+fn run_trace(dir: &std::path::Path, args: &[&str]) -> std::process::Output {
+    let output = specforge_cmd()
+        .arg("trace")
+        .args(args)
+        .arg("--path")
+        .arg(dir)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    output
+}
+
+/// A chain's missing links as (from, edge_label, edge_type, expected_kind),
+/// after checking each is marked missing at depth 1.
+fn missing_links(chain: &serde_json::Value) -> Vec<(String, String, String, String)> {
+    chain["missing"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| {
+            assert_eq!(m["status"], "missing");
+            assert_eq!(m["depth"], 1);
+            (
+                m["from"].as_str().unwrap().to_string(),
+                m["edge_label"].as_str().unwrap().to_string(),
+                m["edge_type"].as_str().unwrap().to_string(),
+                m["expected_kind"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect()
+}
+
+fn gap(from: &str, label: &str, edge_type: &str, kind: &str) -> (String, String, String, String) {
+    (
+        from.to_string(),
+        label.to_string(),
+        edge_type.to_string(),
+        kind.to_string(),
+    )
+}
+
+/// What the software extension declares every behavior may reach, as
+/// missing links of `from`.
+fn software_gaps(from: &str) -> Vec<(String, String, String, String)> {
+    vec![
+        gap(from, "consumes", "BehaviorConsumesEvent", "event"),
+        gap(from, "ports", "BehaviorUsesPort", "port"),
+        gap(from, "produces", "BehaviorProducesEvent", "event"),
+        gap(from, "types", "BehaviorReferencesType", "type"),
+    ]
+}
+
+#[specforge_test(
+    behavior = "compute_traceability_chain",
+    verify = "missing link in chain is flagged"
+)]
+fn trace_json_flags_missing_links() {
+    let dir = gap_project();
+
+    // pay has its feature and its invariant: only the edges the software
+    // extension declares for behaviors that pay leaves out are missing.
+    let pay = parse_json_stdout(&run_trace(dir.path(), &["pay"]));
+    assert_eq!(missing_links(&pay), software_gaps("pay"));
+    for link in pay["downstream"].as_array().unwrap() {
+        assert_eq!(link["status"], "resolved");
+    }
+
+    // refund also lacks a feature and an invariant.
+    let refund = parse_json_stdout(&run_trace(dir.path(), &["refund"]));
+    let mut expected = software_gaps("refund");
+    expected.push(gap(
+        "refund",
+        "features",
+        "BehaviorImplementsFeature",
+        "feature",
+    ));
+    expected.push(gap(
+        "refund",
+        "invariants",
+        "BehaviorEnforcesInvariant",
+        "invariant",
+    ));
+    expected.sort_by(|a, b| a.1.cmp(&b.1));
+    assert_eq!(missing_links(&refund), expected);
+
+    // A feature's only reference fields point at features: a hierarchy,
+    // not an expected edge.
+    let checkout = parse_json_stdout(&run_trace(dir.path(), &["checkout"]));
+    assert_eq!(missing_links(&checkout), vec![]);
+
+    // With no extensions loaded nothing is expected, so nothing is missing.
+    let bare = setup_project(&[("main.spec", ISOLATED_SPEC)]);
+    let isolated = parse_json_stdout(&run_trace(bare.path(), &["isolated_node"]));
+    assert_eq!(isolated["missing"], serde_json::json!([]));
+}
+
+#[specforge_test(
+    behavior = "compute_traceability_chain",
+    verify = "missing link in chain is flagged"
+)]
+fn trace_human_marks_missing_links() {
+    let dir = gap_project();
+
+    let output = run_trace(dir.path(), &["pay", "--format", "human"]);
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        concat!(
+            "pay [behavior]\n",
+            "  upstream:\n",
+            "    (none)\n",
+            "  downstream:\n",
+            "    -features-> checkout [feature] (depth 1)\n",
+            "    -invariants-> paid_once [invariant] (depth 1)\n",
+            "  missing:\n",
+            "    MISSING pay -consumes-> [event] (depth 1)\n",
+            "    MISSING pay -ports-> [port] (depth 1)\n",
+            "    MISSING pay -produces-> [event] (depth 1)\n",
+            "    MISSING pay -types-> [type] (depth 1)\n",
+        )
+    );
+
+    // A chain with nothing missing has no missing section.
+    let output = run_trace(dir.path(), &["checkout", "--format", "human"]);
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(text.starts_with("checkout [feature]\n"), "{text}");
+    assert!(!text.contains("MISSING"), "{text}");
+}
+
+#[specforge_test(
+    behavior = "serialize_traceability_data",
+    verify = "gaps in chain are highlighted"
+)]
+fn trace_without_entity_serializes_every_chain_with_its_gaps() {
+    let dir = gap_project();
+
+    let all = parse_json_stdout(&run_trace(dir.path(), &[]));
+    assert!(all["schema_version"].is_string());
+    let traces = all["traces"].as_array().unwrap();
+    let ids: Vec<&str> = traces
+        .iter()
+        .map(|t| t["entity_id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, vec!["checkout", "paid_once", "pay", "refund"]);
+
+    // Each chain carries the same gaps as its own trace.
+    for trace in traces {
+        let id = trace["entity_id"].as_str().unwrap();
+        let single = parse_json_stdout(&run_trace(dir.path(), &[id]));
+        assert_eq!(trace["missing"], single["missing"], "{id}");
+    }
+    assert_eq!(missing_links(&traces[2]), software_gaps("pay"));
+    assert_eq!(missing_links(&traces[3]).len(), 6);
+}
+
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "trace output includes schema version"

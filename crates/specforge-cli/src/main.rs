@@ -302,14 +302,18 @@ enum Commands {
         #[arg(long)]
         kind: Vec<String>,
     },
-    /// Show traceability chain for an entity
+    /// Show traceability chain for an entity, or for every entity
     Trace {
-        /// Entity ID to trace
-        entity: String,
+        /// Entity ID to trace (omit to trace every entity)
+        entity: Option<String>,
 
         /// Path to the spec root directory
         #[arg(long, default_value = ".")]
         path: PathBuf,
+
+        /// Output format: json or human
+        #[arg(long, default_value = "json")]
+        format: OutputFormat,
     },
     /// Format .spec files
     Format {
@@ -928,7 +932,11 @@ fn main() {
             depth,
             kind,
         } => query::run(&path, &entity, depth, &kind),
-        Commands::Trace { entity, path } => trace::run(&path, &entity),
+        Commands::Trace {
+            entity,
+            path,
+            format,
+        } => trace::run(&path, entity.as_deref(), format),
         Commands::Format {
             paths,
             path,
