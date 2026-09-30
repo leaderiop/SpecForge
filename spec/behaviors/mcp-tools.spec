@@ -89,6 +89,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
     that triggers a full compilation and returns validation results as Graph
     Protocol diagnostics. The tool accepts severity_filter? (optional: error,
     warning, info), strict? (optional boolean, treat warnings as errors),
+    lint? (optional list of lint profiles, as specforge check --lint takes),
     and use_cached? (optional boolean, default false). When use_cached is
     true and the MCP server has a warm compilation, the tool MUST return
     existing diagnostics without recompilation.
@@ -106,6 +107,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
   verify unit "response includes all diagnostics as Graph Protocol diagnostics"
   verify unit "severity_filter restricts returned diagnostics"
   verify unit "strict mode promotes warnings to errors"
+  verify integration "validate with lint profiles reports what specforge check reports with the same profiles"
   verify unit "validate with use_cached=false triggers fresh compilation"
   verify unit "validate with use_cached=true returns existing diagnostics without recompilation"
   verify contract "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted"

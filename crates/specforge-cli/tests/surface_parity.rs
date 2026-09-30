@@ -218,8 +218,14 @@ fn binary() -> &'static str {
 
 /// `specforge check --format json`, as printed.
 fn check_output(project: &Project) -> String {
+    check_output_with(project, &[])
+}
+
+/// `specforge check --format json` with `flags`, as printed.
+fn check_output_with(project: &Project, flags: &[&str]) -> String {
     let out = Command::new(binary())
         .args(["check", "--format", "json"])
+        .args(flags)
         .arg(&project.root)
         .output()
         .unwrap();
@@ -260,6 +266,11 @@ fn keys_of(diagnostics: &Value) -> Vec<String> {
 // ── MCP ─────────────────────────────────────────────────────────────────
 
 fn mcp(project: &Project) -> Keys {
+    mcp_validate(project, json!({}))
+}
+
+/// MCP `specforge.validate` with `arguments`, as keys.
+fn mcp_validate(project: &Project, arguments: Value) -> Keys {
     let mut server = specforge_mcp::McpServer::new();
     let mut call = |method: &str, params: Value| -> Value {
         let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
@@ -272,7 +283,7 @@ fn mcp(project: &Project) -> Keys {
     );
     let resp = call(
         "tools/call",
-        json!({"name": "specforge.validate", "arguments": {}}),
+        json!({"name": "specforge.validate", "arguments": arguments}),
     );
     let text = resp["result"]["content"][0]["text"]
         .as_str()
@@ -826,6 +837,52 @@ fn lsp_publishes_what_check_reports_on_every_fixture() {
         compare_lsp(fixture, &project, then, &check_keys, &mut failures);
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// MCP validate applies the same diagnostic policy as `check`: the
+/// `inferred` lint profile adds I200 (a source changed since it was
+/// inferred) and I202 (dense inference), and strict promotes warnings, on
+/// both surfaces alike.
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "validate with lint profiles reports what specforge check reports with the same profiles"
+)]
+fn mcp_validate_applies_the_lint_profiles_check_applies() {
+    let project = project("product_cycle", "main.spec");
+    fs::create_dir_all(project.root.join("src")).unwrap();
+    fs::write(project.root.join("src/lib.rs"), "fn a() {}\n").unwrap();
+    let manifest = json!({
+        "version": 1,
+        "source_roots": ["src"],
+        "source_index": [{
+            "path": "src/lib.rs",
+            "content_hash": "not-the-hash-of-the-file",
+            "entities_produced": ["a", "b"],
+            "analyzed_at": "2026-01-01T00:00:00Z",
+        }],
+    });
+    fs::write(
+        project.root.join("specforge-infer.json"),
+        manifest.to_string(),
+    )
+    .unwrap();
+
+    for strict in [false, true] {
+        let mut flags = vec!["--lint", "inferred"];
+        if strict {
+            flags.push("--strict");
+        }
+        let out = check_output_with(&project, &flags);
+        let checked = multiset(keys_of(&serde_json::from_str(&out).unwrap()));
+        for code in ["I200", "I202"] {
+            assert!(
+                checked.keys().any(|k| k.starts_with(code)),
+                "check --lint inferred reports no {code}: {checked:?}"
+            );
+        }
+        let validated = mcp_validate(&project, json!({"lint": ["inferred"], "strict": strict}));
+        assert_eq!(validated, checked, "strict: {strict}");
+    }
 }
 
 /// Every row names a fixture the harness runs, and every fixture exists.

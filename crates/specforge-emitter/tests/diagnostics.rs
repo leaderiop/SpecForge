@@ -352,26 +352,9 @@ fn exit_code_unaffected_by_format_flag() {
     assert_eq!(specforge_emitter::compute_exit_code(&diags_no_errors), 0);
 }
 
-// B:exit_code_reflects_diagnostic_severity — verify unit "exit 1 with warnings in strict mode"
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "exit 1 with warnings in strict mode"
-)]
-fn exit_code_one_with_warnings_in_strict_mode() {
-    let diags = vec![Diagnostic {
-        code: "W002".to_string(),
-        severity: Severity::Warning,
-        message: "unused entity".to_string(),
-        span: None,
-        suggestion: None,
-    }];
-    // Normal mode: warnings don't cause exit 1
-    assert_eq!(specforge_emitter::compute_exit_code(&diags), 0);
-    // Strict mode: warnings cause exit 1
-    assert_eq!(specforge_emitter::compute_exit_code_strict(&diags, true), 1);
-    // Strict mode with no warnings: exit 0
-    assert_eq!(specforge_emitter::compute_exit_code_strict(&[], true), 0);
-}
+// "exit 1 with warnings in strict mode" is proven by
+// specforge-project's tests/policy.rs: strict is DiagnosticPolicy's
+// promotion, then compute_exit_code.
 
 // B:export_diagnostics_as_json — verify unit "suggestion field included when available"
 // (inverse case: suggestion absent when none)

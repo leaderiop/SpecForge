@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 use specforge_emitter::analyze::{AnalysisContext, TestReport, run_pass};
-use specforge_project::CompiledProject;
+use specforge_project::{CompiledProject, DiagnosticPolicy};
 
 /// `specforge.analyze` — run the analysis passes (coverage, contracts) plus
 /// extension-owned compiler passes over the project and return structured
@@ -56,10 +56,12 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         ),
     };
 
-    let strict = args
-        .get("strict")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    // `strict` promotes warnings in every pass's findings, as the CLI does.
+    let policy = DiagnosticPolicy::strict(
+        args.get("strict")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+    );
 
     // Without `test_results`, use what `specforge collect` last recorded, as
     // the CLI does; otherwise proof coverage would silently read nothing.
@@ -119,13 +121,7 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         let Some(mut report) = run_pass(&context, name) else {
             continue;
         };
-        if strict {
-            for d in &mut report.findings {
-                if d.severity == specforge_common::Severity::Warning {
-                    d.severity = specforge_common::Severity::Error;
-                }
-            }
-        }
+        policy.promote(&mut report.findings);
         if report
             .findings
             .iter()
@@ -153,13 +149,7 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
             &requested,
         );
         for mut report in extension_reports {
-            if strict {
-                for d in &mut report.findings {
-                    if d.severity == specforge_common::Severity::Warning {
-                        d.severity = specforge_common::Severity::Error;
-                    }
-                }
-            }
+            policy.promote(&mut report.findings);
             if report
                 .findings
                 .iter()

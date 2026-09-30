@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
+use specforge_project::DiagnosticPolicy;
 
 pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
     let path = args
@@ -35,21 +36,26 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         state.diagnostics.clone()
     };
 
-    let strict = args
-        .get("strict")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    // Strict promotes warnings before filtering, so a promoted warning
+    // The policy `specforge check` applies: lint profiles add theirs, and
+    // strict promotes warnings before filtering, so a promoted warning
     // counts as an error for `severity_filter` and `isError` alike.
-    let promoted: Vec<specforge_common::Diagnostic> = reported
-        .into_iter()
-        .map(|mut d| {
-            if strict && d.severity == specforge_common::Severity::Warning {
-                d.severity = specforge_common::Severity::Error;
-            }
-            d
-        })
-        .collect();
+    let policy = DiagnosticPolicy {
+        strict: args
+            .get("strict")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        lint_profiles: args
+            .get("lint")
+            .and_then(Value::as_array)
+            .map(|profiles| {
+                profiles
+                    .iter()
+                    .filter_map(|p| p.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default(),
+    };
+    let promoted = policy.apply(&root, reported);
     let diagnostics: Vec<&specforge_common::Diagnostic> = promoted
         .iter()
         .filter(|d| match severity_filter {

@@ -18,6 +18,7 @@
 //! [`CompilationContext`] is the flat view older callers read; it is built
 //! from a compiled project with [`CompiledProject::into_context`].
 
+mod policy;
 mod session;
 
 use std::path::{Path, PathBuf};
@@ -30,6 +31,7 @@ use specforge_registry::{RegistryBuild, build_registries};
 use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
 use specforge_wasm::WasmRuntime;
 
+pub use policy::{DiagnosticPolicy, apply_policy};
 pub use session::{CheckMode, ProjectSession, SharedRuntime, SourceChange, Update};
 pub use specforge_emitter::compile::CompilationContext;
 
