@@ -424,38 +424,169 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
 
 // === contract tests ===
 
-// Not linked to the Print Diagnostics Structured contract: its
-// color_coding_applied clause (errors red, warnings yellow, info blue) is
-// not implemented — render_diagnostics renders without color on purpose and
-// check never re-colors it. This checks the structured part.
-#[test]
-fn print_diagnostics_contract_consistency() {
-    // Requires: validation_complete fired (diagnostics collected)
-    // Ensures: structured format with file:line:col, color-coded severity
-    let dir = setup_project(&[(
-        "main.spec",
-        r#"
-behavior alpha "A" { contract "first" }
-feature gamma "G" { behaviors [alpha, nonexistent] }
-"#,
-    )]);
+/// A project whose check reports exactly one error (E003), one warning
+/// (W012) and one info (I004: `features` targets a kind only the absent
+/// product extension provides).
+fn one_of_each_severity() -> TempDir {
+    setup_project(&[
+        (
+            "specforge.json",
+            r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software"]}"#,
+        ),
+        (
+            "spec/main.spec",
+            "behavior alpha \"A\" {\n  category command\n  contract \"first\"\n  features [user_authentication]\n  invariants [nonexistent]\n}\nref gh.issue:42 \"Orphan ref\"\n",
+        ),
+    ])
+}
 
+/// `specforge check` on `dir` with the colour variables set as given (the
+/// others removed); stderr is a pipe, never a terminal.
+fn check_stderr(dir: &TempDir, no_color: Option<&str>, force: Option<&str>) -> String {
+    let mut cmd = specforge_cmd();
+    cmd.env_remove("NO_COLOR").env_remove("CLICOLOR_FORCE");
+    if let Some(v) = no_color {
+        cmd.env("NO_COLOR", v);
+    }
+    if let Some(v) = force {
+        cmd.env("CLICOLOR_FORCE", v);
+    }
+    let output = cmd.arg("check").arg(dir.path()).output().unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    String::from_utf8(output.stderr).unwrap()
+}
+
+/// `text` without its SGR escapes (`ESC [ ... m`).
+fn strip_sgr(text: &str) -> String {
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(at) = rest.find("\x1b[") {
+        out.push_str(&rest[..at]);
+        let end = rest[at..].find('m').expect("unterminated SGR");
+        rest = &rest[at + end + 1..];
+    }
+    out.push_str(rest);
+    out
+}
+
+#[specforge_test(
+    behavior = "print_diagnostics_structured",
+    verify = "Print Diagnostics Structured: structured diagnostic printing holds — validation_complete_fired, structured_format_enforced, color_coding_applied"
+)]
+fn print_diagnostics_contract_consistency() {
+    let dir = one_of_each_severity();
+    // CLICOLOR_FORCE stands in for a terminal, which a test cannot have.
+    let stderr = check_stderr(&dir, None, Some("1"));
+    let text = strip_sgr(&stderr);
+
+    // validation_complete_fired: every collected diagnostic is printed, and
+    // the summary counts them.
+    assert!(
+        stderr.contains("\x1b[1;31m1 error, 1 warning, 1 info\x1b[0m\n"),
+        "{stderr:?}"
+    );
+
+    // structured_format_enforced: colour adds escapes and nothing else, so
+    // the coloured text is the plain text; each diagnostic carries its code,
+    // severity, message, file:line:col and source line.
+    assert_eq!(text, check_stderr(&dir, None, None));
+    for (heading, location, source) in [
+        (
+            "[E003] Error: unresolved reference 'nonexistent' in entity 'alpha'\n",
+            "─[ main.spec:5:15 ]\n",
+            " 5 │   invariants [nonexistent]\n",
+        ),
+        (
+            "[W012] Warning: unreferenced ref 'gh.issue:42' has no incoming edges\n",
+            "─[ main.spec:7:1 ]\n",
+            " 7 │ ref gh.issue:42 \"Orphan ref\"\n",
+        ),
+        (
+            "[I004] Advice: reference 'user_authentication' in field 'features' of 'alpha' targets kind 'feature', which no enabled extension provides\n",
+            "─[ main.spec:4:13 ]\n",
+            " 4 │   features [user_authentication]\n",
+        ),
+    ] {
+        let at = text
+            .find(heading)
+            .unwrap_or_else(|| panic!("{heading}: {text}"));
+        let report = &text[at..];
+        assert!(report.find(location) < report.find(source), "{text}");
+        assert!(report.contains(source), "{text}");
+    }
+
+    // color_coding_applied: the severity heading is wrapped in SGR red for
+    // the error, yellow for the warning and blue for the info.
+    assert!(
+        stderr.contains(
+            "\x1b[31m[E003] Error:\x1b[0m unresolved reference 'nonexistent' in entity 'alpha'\n"
+        ),
+        "error heading is red: {stderr:?}"
+    );
+    assert!(
+        stderr.contains(
+            "\x1b[33m[W012] Warning:\x1b[0m unreferenced ref 'gh.issue:42' has no incoming edges\n"
+        ),
+        "warning heading is yellow: {stderr:?}"
+    );
+    assert!(
+        stderr.contains("\x1b[34m[I004] Advice:\x1b[0m reference 'user_authentication'"),
+        "info heading is blue: {stderr:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "print_diagnostics_structured",
+    verify = "diagnostics are plain when output is not a terminal"
+)]
+fn diagnostics_plain_when_not_a_terminal() {
+    let dir = one_of_each_severity();
+    // stderr is a pipe and nothing forces colour: not one escape byte, the
+    // summary line included.
+    let stderr = check_stderr(&dir, None, None);
+    assert!(!stderr.contains('\x1b'), "{stderr:?}");
+    assert!(
+        stderr.contains("[E003] Error: unresolved reference 'nonexistent' in entity 'alpha'\n"),
+        "{stderr:?}"
+    );
+    assert!(
+        stderr.contains("\n1 error, 1 warning, 1 info\n"),
+        "{stderr:?}"
+    );
+    // CLICOLOR_FORCE set to 0 or empty forces nothing.
+    assert_eq!(check_stderr(&dir, None, Some("0")), stderr);
+    assert_eq!(check_stderr(&dir, None, Some("")), stderr);
+
+    // JSON output is never coloured, even when forced.
     let output = specforge_cmd()
-        .arg("check")
+        .env_remove("NO_COLOR")
+        .env("CLICOLOR_FORCE", "1")
+        .args(["check", "--format=json"])
         .arg(dir.path())
         .output()
         .unwrap();
+    assert!(!output.stdout.contains(&0x1b), "{output:?}");
+    assert!(!output.stderr.contains(&0x1b), "{output:?}");
+    let parsed: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(parsed.as_array().unwrap().len(), 3);
+}
 
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    // Structured format: code and severity, file:line:col, source line.
+#[specforge_test(
+    behavior = "print_diagnostics_structured",
+    verify = "NO_COLOR disables diagnostic colour"
+)]
+fn no_color_disables_diagnostic_colour() {
+    let dir = one_of_each_severity();
+    let plain = check_stderr(&dir, None, None);
+    // NO_COLOR wins over CLICOLOR_FORCE.
+    let stderr = check_stderr(&dir, Some("1"), Some("1"));
+    assert!(!stderr.contains('\x1b'), "{stderr:?}");
+    assert_eq!(stderr, plain);
+    // An empty NO_COLOR counts as unset (no-color.org): forcing still works.
+    let stderr = check_stderr(&dir, Some(""), Some("1"));
     assert!(
-        stderr.contains("[E003] Error: unresolved reference 'nonexistent' in entity 'gamma'"),
-        "{stderr}"
-    );
-    assert!(stderr.contains("─[ main.spec:3:39 ]"), "{stderr}");
-    assert!(
-        stderr.contains(" 3 │ feature gamma \"G\" { behaviors [alpha, nonexistent] }"),
-        "{stderr}"
+        stderr.contains("\x1b[31m[E003] Error:\x1b[0m"),
+        "{stderr:?}"
     );
 }
 

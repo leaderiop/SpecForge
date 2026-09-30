@@ -84,11 +84,11 @@ fn suggestion_displayed_when_available() {
     );
 }
 
-// B:print_diagnostics_structured — verify contract "requires/ensures consistency for structured diagnostic printing"
-#[specforge_test(
-    behavior = "print_diagnostics_structured",
-    verify = "Print Diagnostics Structured: structured diagnostic printing holds — validation_complete_fired, structured_format_enforced, color_coding_applied"
-)]
+// Not linked to the Print Diagnostics Structured contract: format_diagnostic
+// is a plain one-line format with no colour, so it cannot prove
+// color_coding_applied. print_diagnostics_contract_consistency in
+// specforge-cli's tests proves the contract on `specforge check`'s output.
+#[test]
 fn print_diagnostics_contract() {
     // Requires: diagnostics collected (validation_complete)
     // Ensures: formatted with file path, line, column, severity

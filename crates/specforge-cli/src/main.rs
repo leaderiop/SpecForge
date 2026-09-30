@@ -3,6 +3,7 @@ mod analyze;
 mod builtins;
 mod check;
 mod collect;
+mod color;
 mod doctor;
 mod explain;
 mod export;

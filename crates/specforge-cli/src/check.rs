@@ -1,6 +1,6 @@
 use specforge_common::Severity;
 use specforge_common::inference;
-use specforge_validator::{diagnostic_summary_detailed, render_diagnostics};
+use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -43,12 +43,13 @@ pub fn run(path: &Path, strict: bool, format: OutputFormat, lint_profiles: &[Str
             println!("{}", json);
         }
         OutputFormat::Human => {
+            let color = crate::color::stderr();
             if !all_diagnostics.is_empty() {
                 let sources = build_source_map(&ctx.spec_root, &ctx.resolved.files);
-                let rendered = render_diagnostics(&all_diagnostics, &sources);
+                let rendered = render_diagnostics_colored(&all_diagnostics, &sources, color);
                 eprint!("{}", rendered);
             }
-            eprintln!("{}", diagnostic_summary_detailed(&all_diagnostics));
+            eprintln!("{}", diagnostic_summary_detailed(&all_diagnostics, color));
         }
     }
 

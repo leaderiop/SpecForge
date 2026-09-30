@@ -189,6 +189,8 @@ behavior print_diagnostics_structured "Print Diagnostics Structured" {
   verify contract "Print Diagnostics Structured: structured diagnostic printing holds — validation_complete_fired, structured_format_enforced, color_coding_applied"
   verify unit "spanless diagnostic uses code as fallback location"
   verify unit "spanless error diagnostic also uses code"
+  verify unit "diagnostics are plain when output is not a terminal"
+  verify unit "NO_COLOR disables diagnostic colour"
 }
 
 behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic Severity" {

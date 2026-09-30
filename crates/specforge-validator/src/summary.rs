@@ -4,6 +4,11 @@ use std::collections::BTreeMap;
 /// Produce a summary line like "2 errors, 1 warning, 1 info".
 /// When errors exist, the line is wrapped in red ANSI escape codes.
 pub fn diagnostic_summary(diagnostics: &[Diagnostic]) -> String {
+    summary_line(diagnostics, true)
+}
+
+/// The summary line, wrapped in red when `color` is true and errors exist.
+fn summary_line(diagnostics: &[Diagnostic], color: bool) -> String {
     let errors = diagnostics
         .iter()
         .filter(|d| d.severity == Severity::Error)
@@ -32,7 +37,7 @@ pub fn diagnostic_summary(diagnostics: &[Diagnostic]) -> String {
         plural(infos, "info"),
     );
 
-    if errors > 0 {
+    if color && errors > 0 {
         format!("\x1b[1;31m{}\x1b[0m", text)
     } else {
         text
@@ -47,8 +52,10 @@ pub fn diagnostic_summary(diagnostics: &[Diagnostic]) -> String {
 ///   E003 (1): Unresolved reference
 ///   W001 (2): Missing verify statement
 /// ```
-pub fn diagnostic_summary_detailed(diagnostics: &[Diagnostic]) -> String {
-    let summary_line = diagnostic_summary(diagnostics);
+/// The first line is red, as [`diagnostic_summary`]'s, only when `color` is
+/// true; otherwise the summary carries no ANSI escape.
+pub fn diagnostic_summary_detailed(diagnostics: &[Diagnostic], color: bool) -> String {
+    let summary_line = summary_line(diagnostics, color);
 
     if diagnostics.is_empty() {
         return summary_line;

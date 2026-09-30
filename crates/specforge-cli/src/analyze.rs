@@ -9,7 +9,7 @@ use std::path::Path;
 
 use specforge_common::{Diagnostic, Severity};
 use specforge_emitter::truncate_diagnostics;
-use specforge_validator::{diagnostic_summary_detailed, render_diagnostics};
+use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 
 use crate::AnalysisPass;
 use crate::check::build_source_map;
@@ -199,6 +199,7 @@ pub fn run(
     } else {
         // Human output is capped at the codebase-wide diagnostic limit so a
         // noisy first run stays readable; JSON output is never truncated.
+        let color = crate::color::stdout();
         for report in &reports {
             println!("analyze/{} — {}", report.name, report.description);
             if report.findings.is_empty() {
@@ -206,7 +207,7 @@ pub fn run(
             } else {
                 let mut rendered_findings = report.findings.clone();
                 truncate_diagnostics(&mut rendered_findings);
-                let rendered = render_diagnostics(&rendered_findings, &sources);
+                let rendered = render_diagnostics_colored(&rendered_findings, &sources, color);
                 if !rendered.is_empty() {
                     println!("{rendered}");
                 } else {
@@ -232,6 +233,7 @@ pub fn run(
                     .iter()
                     .flat_map(|r| r.findings.iter().cloned())
                     .collect::<Vec<_>>(),
+                color,
             )
         );
     }

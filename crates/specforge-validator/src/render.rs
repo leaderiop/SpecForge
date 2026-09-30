@@ -4,8 +4,22 @@ use std::ops::Range;
 
 type Span = (String, Range<usize>);
 
-/// Render diagnostics to a human-readable string with source context.
+/// Render diagnostics to a human-readable string with source context. The
+/// output carries no ANSI escape.
 pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, String>) -> String {
+    render_diagnostics_colored(diagnostics, sources, false)
+}
+
+/// Render diagnostics as [`render_diagnostics`] does, colour-coded when
+/// `color` is true: each severity heading is red for an error, yellow for a
+/// warning and blue for an info. With `color` false the output is
+/// byte-identical to [`render_diagnostics`]. The caller decides, since only
+/// it knows whether the text reaches a terminal.
+pub fn render_diagnostics_colored(
+    diagnostics: &[Diagnostic],
+    sources: &HashMap<String, String>,
+    color: bool,
+) -> String {
     let mut buf = Vec::new();
 
     let mut cache = ariadne::sources(sources.iter().map(|(k, v)| (k.clone(), v.clone())));
@@ -14,6 +28,10 @@ pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, 
         let kind = match diag.severity {
             Severity::Error => ariadne::ReportKind::Error,
             Severity::Warning => ariadne::ReportKind::Warning,
+            // ariadne colours advice lavender; a custom kind with the same
+            // label is blue. Only when colouring: a custom kind's colour
+            // ignores `with_color(false)`.
+            Severity::Info if color => ariadne::ReportKind::Custom("Advice", ariadne::Color::Blue),
             Severity::Info => ariadne::ReportKind::Advice,
         };
 
@@ -52,15 +70,15 @@ pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, 
             builder = builder.with_help(suggestion.clone());
         }
 
-        // render_diagnostics returns a plain String: embedding ANSI escapes
-        // here corrupts piped/agent-facing output (and split substrings for
-        // consumers matching rendered lines). Callers own any re-coloring.
+        // Colour only on request: ANSI escapes corrupt piped/agent-facing
+        // output (and split substrings for consumers matching rendered
+        // lines), so callers ask for it only when writing to a terminal.
         // Spans are byte ranges; ariadne counts chars unless told otherwise,
         // which shifts every span after a multi-byte character.
         let report = builder
             .with_config(
                 ariadne::Config::default()
-                    .with_color(false)
+                    .with_color(color)
                     .with_index_type(ariadne::IndexType::Byte),
             )
             .finish();

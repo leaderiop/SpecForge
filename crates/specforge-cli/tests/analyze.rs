@@ -81,6 +81,42 @@ fn analyze_high_risk_unverified_invariant_fails() {
     );
 }
 
+// Findings follow check's colour rule, on stdout: plain into a pipe,
+// colour-coded when forced, and NO_COLOR wins over forcing.
+#[test]
+fn analyze_colours_findings_only_when_asked() {
+    let dir =
+        project("invariant bad \"Never verified\" {\n  guarantee \"nothing\"\n  risk high\n}\n");
+    let stdout = |no_color: Option<&str>, force: Option<&str>| {
+        let mut cmd = specforge_cmd();
+        cmd.env_remove("NO_COLOR").env_remove("CLICOLOR_FORCE");
+        if let Some(v) = no_color {
+            cmd.env("NO_COLOR", v);
+        }
+        if let Some(v) = force {
+            cmd.env("CLICOLOR_FORCE", v);
+        }
+        let output = cmd
+            .args(["analyze", "--path", dir.path().to_str().unwrap()])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1));
+        String::from_utf8(output.stdout).unwrap()
+    };
+
+    let plain = stdout(None, None);
+    assert!(!plain.contains('\x1b'), "{plain:?}");
+    assert!(plain.contains("\n[A002] Error: "), "{plain:?}");
+
+    let colored = stdout(None, Some("1"));
+    assert!(
+        colored.contains("\n\x1b[31m[A002] Error:\x1b[0m "),
+        "{colored:?}"
+    );
+
+    assert_eq!(stdout(Some("1"), Some("1")), plain);
+}
+
 #[test]
 fn analyze_low_risk_warning_promoted_by_strict() {
     let dir = project("invariant soft \"Softly unverified\" {\n  guarantee \"x\"\n  risk low\n}\n");

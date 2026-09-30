@@ -4,7 +4,7 @@ mod orphan;
 mod render;
 mod summary;
 
-pub use render::render_diagnostics;
+pub use render::{render_diagnostics, render_diagnostics_colored};
 pub use specforge_common::{Diagnostic, Severity, SourceSpan};
 pub use specforge_graph::Graph;
 use std::path::PathBuf;
