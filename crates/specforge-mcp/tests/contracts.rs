@@ -1399,7 +1399,7 @@ fn contract_protocol_error() {
     // error_handled_emitted, once per error with its code.
     let codes: Vec<i64> = events(&server, "mcp_protocol_error_handled")
         .iter()
-        .map(|p| p["code"].as_i64().unwrap())
+        .map(|p| p["errorCode"].as_i64().unwrap())
         .collect();
     assert_eq!(codes, [-32601, -32700, -32602]);
 }
@@ -1504,7 +1504,13 @@ fn contract_format() {
 
     // mutation_completed_emitted: once, for the write.
     let mutations = events(&server, "mcp_mutation_completed");
-    assert_eq!(mutations, [json!({"tool": "specforge.format"})]);
+    assert_eq!(mutations.len(), 1, "{mutations:?}");
+    assert_eq!(mutations[0]["tool"], "specforge.format");
+    assert_eq!(mutations[0]["success"], true);
+    assert_eq!(mutations[0]["outcome"]["check_only"], false);
+    let changed = mutations[0]["outcome"]["changed_files"].as_array().unwrap();
+    assert_eq!(changed.len(), 1, "{changed:?}");
+    assert!(changed[0].as_str().unwrap().ends_with("messy.spec"));
     assert_tool_invoked(&server, "specforge.format");
 }
 
@@ -1874,7 +1880,10 @@ fn contract_diagnostics_notification() {
         json!([{"code": "W001", "severity": "Warning", "message": "old"}])
     );
     let notified = events(&server, "mcp_delta_notified");
-    assert_eq!(notified, [json!({"kind": "diagnostics"})]);
+    assert_eq!(
+        notified,
+        [json!({"kind": "diagnostics", "subscribers": 1, "added": 1, "removed": 1})]
+    );
 
     // unchanged_suppressed: the same diagnostics again send nothing.
     let current = server.state().diagnostics.clone();
