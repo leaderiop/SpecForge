@@ -129,18 +129,14 @@ pub fn run(
         }
     }
 
-    // Write starter spec file — choose template based on installed extensions
-    let has_software = extensions.iter().any(|e| e.contains("software"));
-    let has_product = extensions.iter().any(|e| e.contains("product"));
+    // Write the starter spec file: an enabled extension's template, or the
+    // structural starter when none contributes one.
     let spec_id = sanitize_entity_id(&project_name);
-    let (starter_filename, starter_content) = if has_software {
-        ("hello.spec", generate_software_starter(&spec_id))
-    } else if has_product {
-        ("hello.spec", generate_product_starter(&spec_id))
-    } else {
-        ("hello.spec", generate_starter_spec(&spec_id))
+    let starter_content = match contributed_starter_template(path) {
+        Some(template) => template.replace("{project}", &spec_id),
+        None => generate_starter_spec(&spec_id),
     };
-    let starter_path = spec_dir.join(starter_filename);
+    let starter_path = spec_dir.join("hello.spec");
     if let Err(e) = std::fs::write(&starter_path, starter_content) {
         eprintln!("error: failed to write starter spec file: {e}");
         return 1;
@@ -225,6 +221,21 @@ fn sanitize_entity_id(name: &str) -> String {
         .collect()
 }
 
+/// The starter template contributed by the extensions enabled in the
+/// `specforge.json` at `path`, read from their manifests. When several
+/// contribute one, the extension listed first in `extensions` wins, so the
+/// user picks by ordering the list. `None` when no enabled extension
+/// declares a template (or none could be loaded).
+fn contributed_starter_template(path: &Path) -> Option<String> {
+    let config = specforge_common::load_project_config(path);
+    let runtime = crate::pipeline::build_runtime(path);
+    // Load failures only cost the extension its template; `check` reports them.
+    let mut ignored = Vec::new();
+    specforge_emitter::compile::load_extensions(&config.extensions, &runtime, &mut ignored)
+        .into_iter()
+        .find_map(|manifest| manifest.starter_template)
+}
+
 fn generate_starter_spec(project_name: &str) -> String {
     format!(
         r#"// {project_name} — starter spec file
@@ -237,96 +248,6 @@ fn generate_starter_spec(project_name: &str) -> String {
 
 spec "{project_name}" {{
   version "0.1.0"
-}}
-"#
-    )
-}
-
-fn generate_software_starter(project_name: &str) -> String {
-    format!(
-        r#"// {project_name} — software specification
-//
-// Uses @specforge/software entity kinds: behavior, type, event, port, invariant.
-//
-// Try: specforge check
-
-spec "{project_name}" {{
-  version "0.1.0"
-}}
-
-type user "User account" {{
-  status draft
-  verify "rejects an empty email"
-}}
-
-behavior authenticate_user "Authenticate a user with credentials" {{
-  status   draft
-  category "auth"
-  contract "Given valid credentials, returns an auth token"
-  produces [user_logged_in]
-
-  verify "rejects invalid password"
-  verify "returns token on success"
-}}
-
-event user_logged_in "User successfully logged in" {{
-  payload user
-  verify "is emitted once per successful login"
-}}
-"#
-    )
-}
-
-fn generate_product_starter(project_name: &str) -> String {
-    format!(
-        r#"// {project_name} — product specification
-//
-// Uses @specforge/product entity kinds: feature, journey, milestone, deliverable, etc.
-//
-// Try: specforge check
-
-spec "{project_name}" {{
-  version "0.1.0"
-}}
-
-persona developer "Software developer" {{
-  technical_level expert
-  status          active
-}}
-
-channel cli "Command-line interface" {{
-  status active
-}}
-
-feature user_auth "User authentication" {{
-  status   proposed
-  priority high
-  problem  "Users need secure access to the system"
-}}
-
-journey onboarding "New user onboarding" {{
-  persona  developer
-  channels [cli]
-  features [user_auth]
-}}
-
-module core "Core module" {{
-  features [user_auth]
-}}
-
-milestone mvp "Minimum Viable Product" {{
-  status        planned
-  features      [user_auth]
-  modules       [core]
-  exit_criteria ["Core auth flow works end-to-end"]
-}}
-
-deliverable app "Application" {{
-  status        draft
-  artifact_type cli
-  journeys      [onboarding]
-  modules       [core]
-  milestones    [mvp]
 }}
 "#
     )

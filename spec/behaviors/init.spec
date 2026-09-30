@@ -100,6 +100,7 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
   verify unit "starter file contains no domain-specific keywords from extensions"
   verify unit "starter file content is deterministic for same extension set"
   verify integration "extension-contributed starter templates are used when available"
+  verify integration "when several enabled extensions contribute starter templates, the one listed first in specforge.json is used"
   verify integration "extension-contributed starter file passes specforge check with zero errors"
   verify integration "the software starter passes specforge check with no warnings"
   verify contract "Scaffold Starter Spec File: starter spec file scaffolding holds — config_created, filesystem_available, starter_file_created, structural_syntax_only, zero_diagnostic_pass"

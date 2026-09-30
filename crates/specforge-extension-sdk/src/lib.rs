@@ -104,6 +104,9 @@ pub struct ExtensionMeta {
     pub short: Option<String>,
     pub peer_dependencies: Vec<PeerDependency>,
     pub sandbox_policy: Option<SandboxPolicy>,
+    /// The starter `.spec` file `specforge init` writes for a project that
+    /// enables this extension; `{project}` stands for the project's id.
+    pub starter_template: Option<String>,
 }
 
 impl ExtensionMeta {
@@ -227,6 +230,14 @@ impl ContributionsBuilder {
         self
     }
 
+    /// Contribute the starter `.spec` file `specforge init` writes for a
+    /// project that enables this extension. `{project}` in `template` is
+    /// replaced with the project's entity id.
+    pub fn starter_template(&mut self, template: &str) -> &mut Self {
+        self.meta.starter_template = Some(template.to_string());
+        self
+    }
+
     /// Escape hatch for categories the SDK does not model yet. `items` is the
     /// raw JSON array the host receives for `category`.
     pub fn raw_category(&mut self, category: &str, items: serde_json::Value) -> &mut Self {
@@ -271,6 +282,7 @@ impl ContributionsBuilder {
             contribution_flags: self.flags(),
             peer_dependencies: self.meta.peer_dependencies.clone(),
             sandbox_policy: self.meta.sandbox_policy.clone(),
+            starter_template: self.meta.starter_template.clone(),
         }
     }
 
@@ -741,6 +753,20 @@ mod raw_category_flag_tests {
         k.capture_stdout();
         let captured = serde_json::to_value(&k.0).unwrap();
         assert_eq!(captured["capture"], serde_json::json!("stdout"));
+    }
+
+    #[test]
+    fn a_starter_template_rides_the_handshake() {
+        let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+        let without: serde_json::Value = serde_json::from_str(&b.handshake_json()).unwrap();
+        assert!(without.get("starter_template").is_none(), "{without}");
+
+        b.starter_template("spec \"{project}\" {}\n");
+        let with: serde_json::Value = serde_json::from_str(&b.handshake_json()).unwrap();
+        assert_eq!(
+            with["starter_template"],
+            serde_json::json!("spec \"{project}\" {}\n")
+        );
     }
 }
 

@@ -1099,32 +1099,84 @@ fn scaffold_new_project_contract_in_init() {
         .failure();
 }
 
-// Not linked to "extension-contributed starter templates are used when
-// available": init never reads a manifest's `starter_template`; the
-// software starter is hard-coded in the CLI (crates/specforge-cli/src/init.rs).
-// This checks what init does: a software project gets the software starter.
-#[test]
-fn starter_uses_extension_templates_when_available() {
-    let starter_for = |extensions: Option<&str>| {
-        let dir = TempDir::new().unwrap();
-        let mut cmd = specforge_cmd();
-        cmd.args(["init", "--name", "ext-template"]);
-        if let Some(ext) = extensions {
-            cmd.args(["--extensions", ext]);
-        }
-        cmd.current_dir(dir.path()).assert().success();
-        fs::read_to_string(dir.path().join("spec").join("hello.spec")).unwrap()
-    };
+/// The starter file `init --name demo` writes with `extensions` enabled.
+fn starter_written_for(extensions: &[&str]) -> String {
+    let dir = TempDir::new().unwrap();
+    let mut cmd = specforge_cmd();
+    cmd.args(["init", "--name", "demo"]);
+    for ext in extensions {
+        cmd.args(["--extensions", ext]);
+    }
+    cmd.current_dir(dir.path()).assert().success();
+    fs::read_to_string(dir.path().join("spec").join("hello.spec")).unwrap()
+}
 
-    let software = starter_for(Some("@specforge/software"));
-    let structural = starter_for(None);
-    assert_ne!(software, structural);
-    assert!(
-        software.contains("behavior authenticate_user "),
-        "{software}"
+/// The starter template the builtin `extension` declares in its handshake,
+/// with its `{project}` placeholder filled in for a project named `demo`.
+fn declared_starter(extension: &str) -> Option<String> {
+    let runtime = specforge_component::ComponentRuntime::new();
+    specforge_component::builtins::load_builtins_for(&runtime, &[extension.to_string()]).unwrap();
+    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
+    let handshake = host.handshake(extension).unwrap();
+    handshake
+        .starter_template
+        .map(|template| template.replace("{project}", "demo"))
+}
+
+#[specforge_test(
+    behavior = "scaffold_starter_spec_file",
+    verify = "extension-contributed starter templates are used when available"
+)]
+fn starter_uses_extension_templates_when_available() {
+    let structural = starter_written_for(&[]);
+    for extension in ["@specforge/software", "@specforge/product"] {
+        let declared = declared_starter(extension)
+            .unwrap_or_else(|| panic!("{extension} declares a starter template"));
+        assert_ne!(declared, structural, "{extension}");
+        assert_eq!(starter_written_for(&[extension]), declared, "{extension}");
+    }
+}
+
+#[specforge_test(
+    behavior = "scaffold_starter_spec_file",
+    verify = "when several enabled extensions contribute starter templates, the one listed first in specforge.json is used"
+)]
+fn first_listed_extension_template_wins() {
+    let software = declared_starter("@specforge/software").unwrap();
+    let product = declared_starter("@specforge/product").unwrap();
+    assert_ne!(software, product);
+    assert_eq!(
+        starter_written_for(&["@specforge/software", "@specforge/product"]),
+        software
     );
-    assert!(software.contains("event user_logged_in "), "{software}");
-    assert!(!structural.contains("behavior "), "{structural}");
+    assert_eq!(
+        starter_written_for(&["@specforge/product", "@specforge/software"]),
+        product
+    );
+}
+
+#[specforge_test(
+    behavior = "scaffold_starter_spec_file",
+    verify = "starter file uses only structural syntax when no extensions contribute templates"
+)]
+fn extensions_without_a_template_get_the_structural_starter() {
+    let structural = starter_written_for(&[]);
+    assert_eq!(
+        structural,
+        "// demo — starter spec file\n\
+         //\n\
+         // This file uses only structural syntax that the core compiler\n\
+         // understands without any extensions. Install extensions to unlock\n\
+         // domain-specific entity types.\n\
+         //\n\
+         // Try: specforge check\n\
+         \n\
+         spec \"demo\" {\n  version \"0.1.0\"\n}\n"
+    );
+    for extension in ["@specforge/governance", "@specforge/testing"] {
+        assert_eq!(declared_starter(extension), None, "{extension}");
+        assert_eq!(starter_written_for(&[extension]), structural, "{extension}");
+    }
 }
 
 #[specforge_test(
@@ -1132,26 +1184,29 @@ fn starter_uses_extension_templates_when_available() {
     verify = "extension-contributed starter file passes specforge check with zero errors"
 )]
 fn extension_starter_passes_check() {
-    let dir = TempDir::new().unwrap();
+    for extension in ["@specforge/software", "@specforge/product"] {
+        let dir = TempDir::new().unwrap();
+        specforge_cmd()
+            .args(["init", "--name", "ext-check", "--extensions", extension])
+            .current_dir(dir.path())
+            .assert()
+            .success();
 
-    specforge_cmd()
-        .args([
-            "init",
-            "--name",
-            "ext-check",
-            "--extensions",
-            "@specforge/software",
-        ])
-        .current_dir(dir.path())
-        .assert()
-        .success();
-
-    // The starter file created with extension templates must still pass check
-    specforge_cmd()
-        .args(["check", "--format", "json"])
-        .arg(dir.path().join("spec"))
-        .assert()
-        .success();
+        // The starter an extension contributes must pass check in the
+        // project it scaffolds.
+        let output = specforge_cmd()
+            .args(["check", "--format", "json"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        let diagnostics: Vec<serde_json::Value> = serde_json::from_slice(&output.stdout).unwrap();
+        let errors: Vec<_> = diagnostics
+            .iter()
+            .filter(|d| d["severity"] == "Error")
+            .collect();
+        assert!(errors.is_empty(), "{extension}: {errors:?}");
+        assert_eq!(output.status.code(), Some(0), "{extension}");
+    }
 }
 
 #[specforge_test(

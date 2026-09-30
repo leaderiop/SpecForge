@@ -22,6 +22,10 @@ struct Product;
 
 impl Contributions for Product {
     fn contribute(c: &mut ContributionsBuilder) {
+        // `specforge init` writes this as the starter spec of a project that
+        // enables product.
+        c.starter_template(include_str!("starter.spec"));
+
         for (category, bytes) in [
             ("entities", DESCRIBE_ENTITIES),
             ("edges", DESCRIBE_EDGES),

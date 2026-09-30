@@ -25,6 +25,9 @@ fn software_builder() -> ContributionsBuilder {
     });
 
     let mut b = ContributionsBuilder::new(meta);
+    b.starter_template(include_str!(
+        "../../../extensions/software/src/starter.spec"
+    ));
     b.kind("Behavior", |k| {
         k.description("A testable unit of system functionality with a defined contract")
             .testable(true)

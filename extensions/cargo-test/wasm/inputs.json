@@ -1,16 +1,16 @@
 {
   "artifact": "specforge_ext_cargo_test.wasm",
-  "artifact_sha256": "044903606a6b8c8c135b05d5573536be6a664dd3a7b002a160a291535d071abb",
+  "artifact_sha256": "ebcc1a8701713c887d57329f7a682d4406df565e838456b10662464fb51afd6e",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "5b6984643f750654b77450e8b8a9fa89b8c4ac25b3fefdcaa19f9107f375bcdc",
     "crates/specforge-extension-sdk-macros/Cargo.toml": "8e4cca6917dfb890653f49fe20256289db6851044fdcbaac69569d358c3eb64d",
     "crates/specforge-extension-sdk-macros/src/lib.rs": "ad2948c86a0d8ac7228edd933c41316d8f5f6db2a9548d68068304337615d8a2",
     "crates/specforge-extension-sdk/Cargo.toml": "c7b2dc38619f1d923d82be483f86b90d795eede0e30c2c8187cb93b0e475b7bf",
-    "crates/specforge-extension-sdk/src/lib.rs": "cf86e7b9054926fed70933957de6101fc941cbd403943adde1ca14ad76537499",
+    "crates/specforge-extension-sdk/src/lib.rs": "ac092254ebc01fe33e9c0349a9b172a8960f73480c763a3af66c0c2ea28799ff",
     "crates/specforge-extension-sdk/src/testing.rs": "8fcab95aa132910d6b72406ecbdb70a802d5a6825966b2b4314fdd2234c70f6b",
     "crates/specforge-protocol-types/Cargo.toml": "00d9084460a9967560586181f748c4ee56b8ef0a93c9221d68887d6470da44c7",
-    "crates/specforge-protocol-types/src/lib.rs": "7573801f24b15180d7281deba20a011a84ed2522a470430680e48efbf82e165b",
+    "crates/specforge-protocol-types/src/lib.rs": "f02b9196600ed2ae1c7c409744141e37568011d80cb3ba9ac34d82243c4b65ee",
     "extensions/cargo-test/Cargo.lock": "385174ae983645db0e44d43b6b46bcd9322af16f6fff28d6477911ee2b4ce85a",
     "extensions/cargo-test/Cargo.toml": "5ce2d984c18226d2d8cf446439b4e89ddafadf80d40bca2051a86a780d9de10e",
     "extensions/cargo-test/src/lib.rs": "3aa31354b3e30db474bb06763b9223767c003475d93bb1e5038ebcd81415cdb1"

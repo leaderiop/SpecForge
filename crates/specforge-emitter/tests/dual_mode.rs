@@ -51,6 +51,7 @@ impl MockRuntime {
             },
             peer_dependencies: vec![],
             sandbox_policy: None,
+            starter_template: None,
         };
         self.call_results.insert(
             "__handshake".to_string(),
@@ -261,6 +262,7 @@ fn protocol_version_mismatch_produces_e028() {
         contribution_flags: ContributionFlags::default(),
         peer_dependencies: vec![],
         sandbox_policy: None,
+        starter_template: None,
     };
     let runtime = MockRuntime {
         call_results: {

@@ -72,7 +72,7 @@ pub fn protocol_extension_to_manifest(ext: &ProtocolExtension) -> ManifestV2 {
             .iter()
             .map(convert_enhancement)
             .collect(),
-        starter_template: None,
+        starter_template: ext.handshake.starter_template.clone(),
         grammar_contributions: ext
             .descriptions
             .grammars

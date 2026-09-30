@@ -20,6 +20,7 @@ fn minimal_protocol_extension(
             },
             peer_dependencies: vec![],
             sandbox_policy: None,
+            starter_template: None,
         },
         descriptions: ExtensionDescriptions {
             entity_kinds,
@@ -569,6 +570,7 @@ fn convert_metadata_peer_deps_sandbox_flags() {
                 network_access: Some(false),
                 file_system_access: Some(true),
             }),
+            starter_template: Some("spec \"{project}\" {}\n".to_string()),
         },
         descriptions: ExtensionDescriptions::default(),
     };
@@ -595,6 +597,12 @@ fn convert_metadata_peer_deps_sandbox_flags() {
     assert_eq!(sandbox.allowed_domains, vec!["example.com"]);
     assert_eq!(sandbox.network_access, Some(false));
     assert_eq!(sandbox.file_system_access, Some(true));
+
+    // Starter template
+    assert_eq!(
+        manifest.starter_template.as_deref(),
+        Some("spec \"{project}\" {}\n")
+    );
 }
 
 // ── Step 7: Grammar, body parser, collector ──
@@ -845,6 +853,7 @@ fn parity_protocol_vs_manifest_registries() {
             },
             peer_dependencies: vec![],
             sandbox_policy: None,
+            starter_template: None,
         },
         descriptions: ExtensionDescriptions {
             entity_kinds: vec![EntityKindDescriptor {

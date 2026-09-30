@@ -100,6 +100,12 @@ pub struct HandshakeRequest {
 /// deny-by-default policy (`specforge-wasm::sandbox::default_sandbox_policy`).
 /// All builtin fixtures and every SDK-built extension serialize all six
 /// fields (`ContributionsBuilder::handshake_json` never elides them).
+///
+/// `starter_template` is optional metadata: the text of the starter `.spec`
+/// file `specforge init` writes for a project that enables this extension.
+/// `{project}` in it stands for the project's entity id. It is omitted from
+/// the wire when absent, so handshakes of extensions without one are
+/// unchanged.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HandshakeResponse {
     pub protocol_version: String,
@@ -108,6 +114,8 @@ pub struct HandshakeResponse {
     pub contribution_flags: ContributionFlags,
     pub peer_dependencies: Vec<PeerDependency>,
     pub sandbox_policy: Option<SandboxPolicy>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub starter_template: Option<String>,
 }
 
 /// Declares which contribution categories an extension provides.

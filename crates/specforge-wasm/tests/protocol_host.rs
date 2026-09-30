@@ -83,6 +83,7 @@ fn handshake_response_json(name: &str, entities: bool, validators: bool) -> Vec<
         },
         peer_dependencies: vec![],
         sandbox_policy: None,
+        starter_template: None,
     };
     serde_json::to_vec(&resp).unwrap()
 }
@@ -127,6 +128,7 @@ fn handshake_applies_declared_max_execution_ms() {
         contribution_flags: ContributionFlags::default(),
         peer_dependencies: vec![],
         sandbox_policy: Some(policy),
+        starter_template: None,
     };
     let runtime =
         MockRuntime::new().with_call_ok("__handshake", serde_json::to_vec(&resp).unwrap());
@@ -203,6 +205,7 @@ fn validate_protocol_version_compatible() {
         contribution_flags: ContributionFlags::default(),
         peer_dependencies: vec![],
         sandbox_policy: None,
+        starter_template: None,
     };
     assert!(host.validate_protocol_version(&resp).is_ok());
 }
@@ -218,6 +221,7 @@ fn validate_protocol_version_incompatible() {
         contribution_flags: ContributionFlags::default(),
         peer_dependencies: vec![],
         sandbox_policy: None,
+        starter_template: None,
     };
     let err = host.validate_protocol_version(&resp).unwrap_err();
     match err {
@@ -358,6 +362,7 @@ fn validate_peer_deps_missing_required() {
             optional: false,
         }],
         sandbox_policy: None,
+        starter_template: None,
     };
     let diags = host.validate_peer_dependencies(&resp, &[]);
     assert_eq!(diags.len(), 1);
@@ -380,6 +385,7 @@ fn validate_peer_deps_optional_missing_no_error() {
             optional: true,
         }],
         sandbox_policy: None,
+        starter_template: None,
     };
     let diags = host.validate_peer_dependencies(&resp, &[]);
     assert!(diags.is_empty());
@@ -400,6 +406,7 @@ fn validate_peer_deps_all_satisfied() {
             optional: false,
         }],
         sandbox_policy: None,
+        starter_template: None,
     };
     let diags = host.validate_peer_dependencies(&resp, &["@specforge/software"]);
     assert!(diags.is_empty());
@@ -455,6 +462,7 @@ fn validate_protocol_version_compatible_patch_bump() {
         contribution_flags: ContributionFlags::default(),
         peer_dependencies: vec![],
         sandbox_policy: None,
+        starter_template: None,
     };
     assert!(
         host.validate_protocol_version(&resp).is_ok(),
@@ -474,6 +482,7 @@ fn validate_protocol_version_compatible_minor_bump() {
         contribution_flags: ContributionFlags::default(),
         peer_dependencies: vec![],
         sandbox_policy: None,
+        starter_template: None,
     };
     assert!(
         host.validate_protocol_version(&resp).is_ok(),
@@ -493,6 +502,7 @@ fn validate_protocol_version_incompatible_major_bump() {
         contribution_flags: ContributionFlags::default(),
         peer_dependencies: vec![],
         sandbox_policy: None,
+        starter_template: None,
     };
     let err = host.validate_protocol_version(&resp).unwrap_err();
     match err {
@@ -519,6 +529,7 @@ fn validate_protocol_version_exact_match_still_works() {
         contribution_flags: ContributionFlags::default(),
         peer_dependencies: vec![],
         sandbox_policy: None,
+        starter_template: None,
     };
     assert!(host.validate_protocol_version(&resp).is_ok());
 }
@@ -532,6 +543,7 @@ fn load_protocol_extension_version_mismatch_propagated() {
         contribution_flags: ContributionFlags::default(),
         peer_dependencies: vec![],
         sandbox_policy: None,
+        starter_template: None,
     };
     // Patch protocol_version to something incompatible
     resp.protocol_version = "99.0".to_string();

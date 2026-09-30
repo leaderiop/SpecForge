@@ -61,7 +61,7 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
   "host_api_version": "1.0.0",
   "incremental": true,
   "query_scope": "all",
-  "starter_template": "templates/behavior.spec",
+  "starter_template": "spec \"{project}\" {\n  version \"0.1.0\"\n}\n",
   "migration_hook": "migrate_v1_to_v2",
   "reserved_keywords": ["spec", "ref"],
   "contribution_flags": {
@@ -88,6 +88,8 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 ```
 
 The `contribution_flags` object tells the host which categories this extension contributes to. The host uses these flags to decide which `__describe` calls to make. An extension that sets `entities: false` will never receive a `__describe("entities")` call.
+
+`starter_template` is optional: the text of the starter `.spec` file `specforge init` writes for a project that enables the extension, with `{project}` standing for the project's entity id. When several enabled extensions declare one, `init` uses the template of the extension listed first in `specforge.json`; when none does, it writes a structural starter. SDK authors set it with `ContributionsBuilder::starter_template`.
 
 The host checks `protocol_version` for compatibility. If the extension declares a protocol version the host does not support, the host emits a diagnostic and skips the extension.
 

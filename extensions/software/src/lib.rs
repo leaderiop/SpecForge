@@ -38,6 +38,9 @@ impl Contributions for Software {
             network_access: Some(false),
             file_system_access: Some(false),
         });
+        // `specforge init` writes this as the starter spec of a project that
+        // enables software.
+        c.starter_template(include_str!("starter.spec"));
 
         for (category, bytes) in [
             ("entities", DESCRIBE_ENTITIES),

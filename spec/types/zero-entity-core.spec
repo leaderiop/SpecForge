@@ -38,7 +38,7 @@ type ManifestV2 {
   query_scope               string | string[]        @optional
   // Enhancement field declarations this extension adds to other extensions' entity kinds
   entity_enhancements       FieldEnhancement[]       @optional
-  // Path to .spec template file within extension package for scaffold_starter_spec_file
+  // Text of the starter .spec file scaffold_starter_spec_file writes; {project} stands for the project id
   starter_template          string                   @optional
   grammar_contributions     GrammarContribution[]    @optional
   body_parser_contributions BodyParserContribution[] @optional
