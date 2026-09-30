@@ -2214,3 +2214,67 @@ fn mcp_lifecycle_notifications_initialized() {
         "notifications/initialized should not return error"
     );
 }
+
+/// A stdio client subscribed to the graph gets `specforge/graphChanged` on
+/// stdout once watch has rebuilt the project.
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "graph_changed notification sent after incremental rebuild"
+)]
+fn mcp_stdio_client_receives_graph_notification() {
+    use std::io::{BufRead, BufReader};
+
+    let dir = setup_project(&[("spec/base.spec", r#"behavior base "B" { contract "b" }"#)]);
+    let mut child = specforge_binary()
+        .args(["mcp"])
+        .arg(dir.path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("failed to start specforge mcp");
+    let mut stdin = child.stdin.take().unwrap();
+    let mut lines = BufReader::new(child.stdout.take().unwrap()).lines();
+    let mut send = move |req: String| {
+        writeln!(stdin, "{req}").unwrap();
+        stdin.flush().unwrap();
+    };
+
+    send(mcp_initialize(0));
+    lines.next().unwrap().unwrap();
+    send(mcp_request(
+        1,
+        "resources/subscribe",
+        serde_json::json!({"uri": "specforge://graph"}),
+    ));
+    lines.next().unwrap().unwrap();
+
+    // What watch leaves behind: a new entity and a newer graph snapshot.
+    std::fs::write(
+        dir.path().join("spec/added.spec"),
+        r#"behavior added "A" { contract "a" }"#,
+    )
+    .unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    std::fs::create_dir_all(dir.path().join(".specforge")).unwrap();
+    std::fs::write(dir.path().join(".specforge/graph.json"), "{}").unwrap();
+
+    send(mcp_request(
+        2,
+        "resources/read",
+        serde_json::json!({"uri": "specforge://diagnostics"}),
+    ));
+    drop(send);
+    let out: Vec<serde_json::Value> = lines
+        .map(|l| serde_json::from_str(&l.unwrap()).unwrap())
+        .collect();
+    child.wait().unwrap();
+
+    let notification = out
+        .iter()
+        .find(|m| m["method"] == "specforge/graphChanged")
+        .unwrap_or_else(|| panic!("no graphChanged notification in {out:?}"));
+    assert!(notification.get("id").is_none(), "{notification}");
+    let added = notification["params"]["added_nodes"].as_array().unwrap();
+    assert!(added.iter().any(|n| n == "added"), "{notification}");
+}

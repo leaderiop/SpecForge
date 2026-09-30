@@ -230,17 +230,28 @@ fn duplicate_initialize_returns_error() {
     assert_eq!(resp["error"]["code"], -32600);
 }
 
-#[test]
+#[specforge_test(
+    behavior = "guard_mcp_reinitialization",
+    verify = "can reinitialize after shutdown"
+)]
 fn can_reinitialize_after_shutdown() {
-    let mut server = init_server();
+    let (mut server, _dir) = init_server_with_project();
+    let root = server.state().project_root.clone().unwrap();
     call(&mut server, "shutdown", json!({}));
 
-    // After shutdown the server is in ShuttingDown phase
-    // A new server would be needed for re-init (the state prevents re-init while shutting down)
-    let mut server2 = McpServer::new();
-    let resp = call(&mut server2, "initialize", json!({}));
-    assert!(resp["result"].is_object());
-    assert!(resp["error"].is_null());
+    let resp = call(
+        &mut server,
+        "initialize",
+        json!({"projectRoot": root.to_str().unwrap()}),
+    );
+    assert!(resp["error"].is_null(), "reinitialize rejected: {resp}");
+    assert!(server.state().is_initialized());
+    assert!(
+        server.state().graph.node("hello_world").is_some(),
+        "the project is compiled again"
+    );
+    let listed = call(&mut server, "tools/list", json!({}));
+    assert!(listed["result"]["tools"].is_array(), "{listed}");
 }
 
 #[test]

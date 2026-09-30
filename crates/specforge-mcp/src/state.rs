@@ -142,8 +142,17 @@ impl McpState {
 
     pub fn shutdown(&mut self) {
         self.phase = ServerPhase::ShuttingDown;
+        let clients: std::collections::BTreeSet<String> = self
+            .subscriptions
+            .values()
+            .flatten()
+            .map(|s| s.client_id.clone())
+            .collect();
+        for client in clients {
+            crate::subscriptions::unsubscribe_all(self, &client);
+        }
         self.subscriptions.clear();
-        self.notification_outbox.clear();
+        // The outbox stays: the host drains it after the shutdown response.
         self.previous_diagnostics = std::mem::take(&mut self.diagnostics);
         self.graph = Graph::new();
         self.project_root = None;

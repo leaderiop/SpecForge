@@ -22,11 +22,16 @@ pub fn run(path: &Path) -> i32 {
             continue;
         }
 
-        if let Some(response) = server.handle_message(trimmed) {
-            let mut out = stdout.lock();
+        let response = server.handle_message(trimmed);
+        let mut out = stdout.lock();
+        if let Some(response) = response {
             let _ = writeln!(out, "{}", response);
-            let _ = out.flush();
         }
+        // What this request queued for subscribed channels follows its response.
+        for notification in server.take_notifications() {
+            let _ = writeln!(out, "{}", notification);
+        }
+        let _ = out.flush();
     }
 
     0

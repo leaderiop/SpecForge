@@ -29,14 +29,6 @@ pub fn handle_initialize(
         );
     }
 
-    if state.phase == ServerPhase::ShuttingDown {
-        state.push_event(
-            "mcp_initialization_failed",
-            serde_json::json!({"reason": "shutting_down"}),
-        );
-        return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server is shutting down");
-    }
-
     let project_root = params
         .get("projectRoot")
         .or_else(|| params.get("project_root"))

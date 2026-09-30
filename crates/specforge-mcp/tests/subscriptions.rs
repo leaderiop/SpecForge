@@ -78,6 +78,14 @@ fn shutdown_clears_subscriptions() {
     server.handle_message(&req.to_string());
 
     assert!(server.state().subscriptions.is_empty());
+    assert!(
+        server
+            .state()
+            .events
+            .iter()
+            .any(|e| e.name == "mcp_subscription_removed" && e.params["client_id"] == "client1"),
+        "shutdown emits mcp_subscription_removed"
+    );
 }
 
 #[test]
@@ -184,6 +192,32 @@ fn subscribe_recompile_delivers_graph_notification() {
             .iter()
             .any(|e| e.name == "mcp_delta_notified")
     );
+}
+
+#[specforge_test(
+    behavior = "mcp_shutdown",
+    verify = "shutdown flushes pending notifications"
+)]
+fn shutdown_keeps_pending_notifications_for_the_host() {
+    let dir = project();
+    let mut server = init_with_project(&dir);
+    call(
+        &mut server,
+        "resources/subscribe",
+        json!({"uri": "specforge://graph"}),
+    );
+    evolve_project(&dir, "fresh_added");
+    call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://diagnostics"}),
+    );
+
+    call(&mut server, "shutdown", json!({}));
+
+    let notifications = server.take_notifications();
+    assert_eq!(notifications.len(), 1, "{notifications:?}");
+    assert_eq!(notifications[0]["method"], "specforge/graphChanged");
 }
 
 /// C9-01 contract: no subscribers → notification suppressed.

@@ -35,8 +35,9 @@ pub fn unsubscribe(state: &mut McpState, client_id: &str, channel: &str) -> bool
 }
 
 pub fn unsubscribe_all(state: &mut McpState, client_id: &str) {
-    for subs in state.subscriptions.values_mut() {
-        subs.retain(|s| s.client_id != client_id);
+    let channels: Vec<String> = state.subscriptions.keys().cloned().collect();
+    for channel in channels {
+        unsubscribe(state, client_id, &channel);
     }
 }
 
