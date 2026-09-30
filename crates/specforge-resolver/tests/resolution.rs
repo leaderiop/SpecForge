@@ -1045,7 +1045,10 @@ fn pub_use_through_cycle_no_transitive() {
 
 // === H2: Cross-file duplicate entity ID detection (W122) ===
 
-#[test]
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "cross-file duplicate entity ID produces W122"
+)]
 fn cross_file_duplicate_entity_id_produces_w122() {
     let dir = setup_project(&[
         (
@@ -1076,7 +1079,10 @@ fn cross_file_duplicate_entity_id_produces_w122() {
 
 // C3-07: one ID declared as two kinds across files is an ambiguous identity
 // and warns (previously silent).
-#[test]
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "same ID different kind across files warns W060 with both kinds named"
+)]
 fn same_id_different_kind_across_files_warns_w060() {
     let dir = setup_project(&[
         (
