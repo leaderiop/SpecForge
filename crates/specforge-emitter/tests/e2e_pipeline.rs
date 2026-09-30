@@ -57,7 +57,7 @@ fn compile_with_builtins(
         fs::write(&path, content).unwrap();
     }
     let runtime = wasm_runtime_for(extensions);
-    specforge_emitter::compile_with_runtime(dir.path(), Some(&runtime))
+    specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context()
 }
 
 // B:delegate_body_parsing_to_extension — verify unit "port method body syntax does not surface parse errors"

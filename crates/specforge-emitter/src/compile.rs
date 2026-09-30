@@ -1,8 +1,8 @@
 use specforge_common::{Diagnostic, Severity, load_project_config};
-use specforge_graph::{Graph, GraphConfig, build_graph, build_graph_with_config};
+use specforge_graph::{Graph, GraphConfig, build_graph};
 use specforge_registry::{
     EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, RegistryBuild, SurfaceContributions,
-    SurfaceRegistryEntry, build_registries,
+    SurfaceRegistryEntry,
     compilation::{
         detect_identifier_length_violations, detect_mistyped_references,
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
@@ -16,18 +16,18 @@ use specforge_wasm::WasmRuntime;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-/// Full compilation result with all extension-aware validation.
-/// Used by CLI, MCP, and LSP for consistent results.
-#[allow(dead_code)]
+/// The flat view of a compiled project that older callers read
+/// (`specforge_project::CompiledProject::into_context` builds it; the
+/// compile itself lives in `specforge-project`).
 pub struct CompilationContext {
     pub graph: Graph,
     pub kind_registry: KindRegistry,
     pub field_registry: FieldRegistry,
     pub edge_registry: EdgeRegistry,
+    /// What `specforge check` reports, in its order.
     pub diagnostics: Vec<Diagnostic>,
     pub resolved: ResolvedProject,
-    pub validation_patterns: Vec<ValidationRulePattern>,
-    /// The same rules with the extension that owns each (empty for
+    /// The validation rules with the extension that owns each (empty for
     /// host-generated ones), for re-running them on a rebuilt graph.
     pub extension_rules: Vec<(ValidationRulePattern, String)>,
     pub extension_info: Vec<(String, String)>,
@@ -39,82 +39,6 @@ pub struct CompilationContext {
     pub spec_root: std::path::PathBuf,
     /// The inputs the graph was built with, for rebuilding it (watch).
     pub graph_config: GraphConfig,
-}
-
-/// Run the full compilation pipeline.
-///
-/// This is the single source of truth for compilation. All consumers
-/// (CLI, MCP, LSP) should call this to get consistent results.
-///
-/// Only extensions listed in `specforge.json` are loaded — no implicit builtins.
-///
-/// The caller supplies the runtime: CLI/LSP/MCP construct it through
-/// `specforge_component::project_runtime` so every surface executes extensions
-/// through the same Wasm engine (WASM-only migration, Phase 3).
-///
-/// When `runtime` is `Some`, extensions are loaded via the protocol
-/// (`__handshake` / `__describe`). When `None`, no extensions are loaded.
-pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> CompilationContext {
-    let mut diagnostics = Vec::new();
-
-    // 1. Load project config
-    let config = load_project_config(path);
-
-    // 2. Load extensions via protocol
-    let manifests = match runtime {
-        Some(rt) => load_extensions(&config.extensions, rt, &mut diagnostics),
-        None => Vec::new(),
-    };
-
-    // 3. Build the registries, rules and derived graph inputs from them.
-    let build = build_registries(manifests);
-    diagnostics.extend(build.registry_diagnostics.iter().cloned());
-
-    // 4. Resolve project (use configured spec_root, default to project root)
-    let spec_root = match &config.spec_root {
-        Some(sr) => path.join(sr),
-        None => path.to_path_buf(),
-    };
-    let resolved = resolve_project(&spec_root);
-    diagnostics.extend(resolved.diagnostics.clone());
-    let graph_config = graph_config(&build);
-
-    // 5. Build graph
-    let spec_files: Vec<_> = resolved.files.iter().map(|f| f.spec_file.clone()).collect();
-    let (graph, build_diags) = build_graph_with_config(&spec_files, &graph_config);
-    diagnostics.extend(build_diags);
-
-    // 6. Core validation, registry checks and extension rules.
-    diagnostics.extend(check_graph(
-        &graph,
-        &GraphChecks {
-            spec_root: &spec_root,
-            kind_registry: &build.kinds,
-            field_registry: &build.fields,
-            rules: &build.rules,
-            runtime,
-        },
-    ));
-
-    // 7. Surface conflicts come last.
-    diagnostics.extend(build.surface_diagnostics.iter().cloned());
-
-    CompilationContext {
-        graph,
-        kind_registry: build.kinds,
-        field_registry: build.fields,
-        edge_registry: build.edges,
-        diagnostics,
-        resolved,
-        validation_patterns: build.rules.iter().map(|(p, _)| p.clone()).collect(),
-        extension_rules: build.rules,
-        extension_info: build.extension_info,
-        surface_entries: build.surfaces,
-        manifest_surfaces: build.manifest_surfaces,
-        manifests: build.manifests,
-        spec_root,
-        graph_config,
-    }
 }
 
 /// The graph build's inputs, from a registry build. Every surface that
@@ -178,7 +102,7 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
     let validation_diags = validate_with_config(graph, &validator_config);
     diagnostics.extend(validation_diags);
 
-    // 10. Run strict field validation against extension registries
+    // Unknown kinds, identifiers and fields, against the registries.
     if !kind_reg.is_empty() {
         let entity_kind_info: Vec<_> = graph
             .nodes()
@@ -222,7 +146,7 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
         let field_diags = detect_unknown_entity_fields(&entity_field_info, kind_reg, field_reg);
         diagnostics.extend(field_diags);
 
-        // 10a. Validate reference fields against target_kind constraints (E022)
+        // Reference fields against their target_kind constraints (E022).
         let node_kind_index: HashMap<String, String> = graph
             .nodes()
             .iter()
@@ -259,19 +183,19 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
             detect_mistyped_references(&entity_ref_info, field_reg, kind_reg, &node_kind_index);
         diagnostics.extend(ref_diags);
 
-        // 10b. Values that can't be their field's declared type (E061).
+        // Values that can't be their field's declared type (E061).
         diagnostics.extend(crate::field_types::check_field_value_types(
             graph, kind_reg, field_reg,
         ));
     }
 
-    // 11. Build edge label mapping (manifest label -> field name used in graph)
+    // Edge label mapping (manifest label -> field name used in graph).
     let edge_label_to_field: HashMap<String, String> = field_reg
         .iter()
         .filter_map(|(_, field, entry)| entry.edge.clone().map(|edge| (edge, field.to_string())))
         .collect();
 
-    // 12. Run extension validation rules (declarative + custom via wasm)
+    // Extension validation rules (declarative + custom via wasm).
     let extension_diags = run_extension_validation(patterns, graph, runtime, &edge_label_to_field);
     diagnostics.extend(extension_diags);
 
@@ -280,7 +204,7 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
 
 /// Lightweight compilation: resolve + build graph + core validation only.
 /// No extension manifests, no registry validation, no conditional rules.
-/// Use `compile()` for the full pipeline.
+/// `specforge_project::CompiledProject::compile` is the full pipeline.
 pub fn compile_simple(path: &Path) -> CompilationContext {
     let config = load_project_config(path);
     let spec_root = match &config.spec_root {
@@ -303,7 +227,6 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
         edge_registry: EdgeRegistry::new(),
         diagnostics,
         resolved,
-        validation_patterns: Vec::new(),
         extension_rules: Vec::new(),
         extension_info: Vec::new(),
         surface_entries: Vec::new(),
@@ -854,5 +777,5 @@ pub fn detect_cycles(
 // Conditional field validation (status-dependent rules like I059, W057, I060,
 // I066, I069, I070) is now handled by the ConditionalFieldRequired pattern kind
 // in the validation engine. The rules are declared by @specforge/product's
-// validation_rules() and executed in step 12 alongside all other extension
-// validation patterns. No hardcoded domain knowledge remains in the compiler.
+// validation_rules() and executed by check_graph alongside all other
+// extension validation patterns. No hardcoded domain knowledge remains in the compiler.

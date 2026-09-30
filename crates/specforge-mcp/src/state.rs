@@ -21,6 +21,9 @@ pub struct McpState {
     pub graph: Graph,
     pub diagnostics: Vec<Diagnostic>,
     pub project_root: Option<PathBuf>,
+    /// Where the compiled project's `.spec` files live: spans are relative
+    /// to it (the project root unless `spec_root` is configured).
+    pub spec_root: Option<PathBuf>,
     /// Project compiled when the client's `initialize` names no `projectRoot`
     /// (the `specforge mcp <path>` argument).
     pub default_project_root: Option<PathBuf>,
@@ -79,7 +82,7 @@ impl McpState {
         if let Some(root) = self.project_root.clone() {
             let previous_graph = self.graph.clone();
             let previous_diagnostics = self.diagnostics.clone();
-            let compiled = crate::compile::compile_project(&root);
+            let compiled = self.compile(&root);
             self.graph = compiled.graph;
             self.diagnostics = compiled.diagnostics;
             self.kind_registry = compiled.kind_registry;
@@ -87,6 +90,7 @@ impl McpState {
             self.edge_registry = compiled.edge_registry;
             self.extension_info = compiled.extension_info;
             self.manifests = compiled.manifests;
+            self.spec_root = Some(compiled.spec_root);
             self.loaded_at = Some(SystemTime::now());
             // Subscribed clients learn what changed (C9-01).
             crate::notifications::enqueue_compile_notifications(
@@ -118,6 +122,7 @@ impl McpState {
             graph: Graph::new(),
             diagnostics: Vec::new(),
             project_root: None,
+            spec_root: None,
             default_project_root: None,
             subscriptions: HashMap::new(),
             previous_diagnostics: Vec::new(),
@@ -151,9 +156,9 @@ impl McpState {
     }
 
     /// Compile the project at `root` with its extensions in [`Self::wasm_runtime`].
-    pub fn compile(&self, root: &std::path::Path) -> crate::compile::CompileResult {
+    pub fn compile(&self, root: &std::path::Path) -> specforge_project::CompilationContext {
         let runtime = self.wasm_runtime(root);
-        crate::compile::compile_project_with_runtime(root, Some(runtime.as_ref()))
+        specforge_project::CompiledProject::compile(root, Some(runtime.as_ref())).into_context()
     }
 
     pub fn is_initialized(&self) -> bool {
@@ -200,6 +205,7 @@ impl McpState {
         self.extension_info = result.extension_info;
         self.surface_entries = result.surface_entries;
         self.manifests = result.manifests;
+        self.spec_root = Some(result.spec_root);
         self.loaded_at = Some(std::time::SystemTime::now());
 
         // Re-register extension surfaces (remove old extension tools/resources first)

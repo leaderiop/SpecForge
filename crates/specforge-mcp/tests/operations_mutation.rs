@@ -362,6 +362,39 @@ fn rename_rewrites_the_declaration_and_every_reference() {
     assert_eq!(references(&server, "login"), ["token_distinct"]);
 }
 
+/// With `spec_root` set, spans are relative to the spec root, not the
+/// project root: rename must read and write the files there (plan 01, D8).
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "specforge.rename renames entity and all references"
+)]
+fn rename_edits_the_files_under_a_configured_spec_root() {
+    let (mut server, root) = server_with_token_project();
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"],"spec_root":"spec"}"#,
+    )
+    .unwrap();
+    server.state_mut().recompile(&root);
+    assert!(server.state().graph.node("token_unique").is_some());
+
+    let parsed = rename(
+        &mut server,
+        json!({"entity_id": "token_unique", "new_name": "token_distinct"}),
+    );
+
+    assert_eq!(parsed["edits"].as_array().unwrap().len(), 2, "{parsed}");
+    assert_eq!(
+        std::fs::read_to_string(root.join("spec/tokens.spec")).unwrap(),
+        TOKENS_SPEC.replace("invariant token_unique", "invariant token_distinct")
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("spec/login.spec")).unwrap(),
+        LOGIN_SPEC.replace("invariants [token_unique]", "invariants [token_distinct]")
+    );
+    assert!(server.state().graph.node("token_distinct").is_some());
+}
+
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "dry_run returns rename plan without applying changes"

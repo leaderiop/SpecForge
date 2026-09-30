@@ -1,7 +1,7 @@
 //! Characterization of the registry diagnostics' order (architecture plan
 //! 05, step R0).
 //!
-//! `compile_with_runtime` loads the extensions, populates the registries,
+//! `CompiledProject::compile` loads the extensions, populates the registries,
 //! parses the rules and registers the surfaces in a fixed order, and its
 //! diagnostics come out in that order: populate (E026, W018), then rule
 //! parsing (W112), then the graph's own (here E002), and the surface
@@ -146,7 +146,8 @@ fn registry_diagnostics_keep_their_order() {
     // Compiled again and again, with fresh hash maps each time: the order
     // must not depend on them.
     for _ in 0..20 {
-        let ctx = specforge_emitter::compile_with_runtime(dir.path(), Some(&runtime));
+        let ctx =
+            specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context();
         assert_eq!(render(&ctx.diagnostics), expected);
     }
 }

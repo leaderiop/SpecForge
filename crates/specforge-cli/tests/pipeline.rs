@@ -5,7 +5,7 @@ use tempfile::TempDir;
 /// removed `specforge_emitter::compile` convenience).
 fn compile(dir: &TempDir) -> specforge_emitter::CompilationContext {
     let runtime = specforge_component::project_runtime(dir.path());
-    specforge_emitter::compile::compile_with_runtime(dir.path(), Some(&runtime))
+    specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context()
 }
 fn setup_project_with_extension(spec_content: &str) -> TempDir {
     let dir = TempDir::new().unwrap();

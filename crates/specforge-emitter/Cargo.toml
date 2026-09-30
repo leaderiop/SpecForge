@@ -25,6 +25,8 @@ sha2.workspace = true
 
 [dev-dependencies]
 specforge-component = { path = "../specforge-component" }
+# Integration tests compile whole projects through the crate built on this one.
+specforge-project = { workspace = true }
 criterion.workspace = true
 insta.workspace = true
 tempfile.workspace = true

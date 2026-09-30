@@ -1627,7 +1627,7 @@ fn schema_reflects_current_state() {
     // schema from the compilation's registries, serialize it.
     fn serve(dir: &std::path::Path) -> serde_json::Value {
         let runtime = specforge_component::project_runtime(dir);
-        let ctx = specforge_emitter::compile_with_runtime(dir, Some(&runtime));
+        let ctx = specforge_project::CompiledProject::compile(dir, Some(&runtime)).into_context();
         let schema = generate_schema(
             &ctx.kind_registry,
             &ctx.edge_registry,

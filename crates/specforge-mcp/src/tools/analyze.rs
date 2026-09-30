@@ -36,6 +36,7 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         state.extension_info = result.extension_info;
         state.surface_entries = result.surface_entries;
         state.manifests = result.manifests;
+        state.spec_root = Some(result.spec_root);
         state.project_root = Some(root.clone());
 
         state
