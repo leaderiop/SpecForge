@@ -858,10 +858,16 @@ impl LanguageServer for Backend {
             if let Some(root) = roots.first() {
                 let ext_count = Self::load_registries_static(&state, root).await;
                 if ext_count > 0 {
+                    // The lsp_initialized announcement: its payload is the
+                    // extension and entity kind counts.
+                    let kind_count = state.read().await.kind_registry().len();
                     client
                         .log_message(
                             MessageType::INFO,
-                            format!("specforge-lsp: loaded {ext_count} extension(s)"),
+                            format!(
+                                "specforge-lsp: loaded {ext_count} extension(s), \
+                                 {kind_count} entity kind(s)"
+                            ),
                         )
                         .await;
                 }
@@ -994,10 +1000,11 @@ impl LanguageServer for Backend {
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
-        self.state
-            .write()
-            .await
-            .close_document(params.text_document.uri.as_str());
+        let uri = params.text_document.uri;
+        self.state.write().await.close_document(uri.as_str());
+        // The editor keeps a closed document's squiggles until told
+        // otherwise: publish an empty set to clear them.
+        self.client.publish_diagnostics(uri, Vec::new(), None).await;
     }
 
     async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
@@ -1431,19 +1438,24 @@ impl LanguageServer for Backend {
 
         // Each whole-word occurrence inside the declaration and the
         // entities that reference it, read from the open buffer, else disk.
+        // A site whose file cannot be read would be left behind: the
+        // rename is all or nothing, so it is refused instead.
+        let unreadable = std::cell::Cell::new(false);
         let edits = match specforge_graph::rename::identifier_edits(
             state.graph(),
             &word,
             &new_name,
             |file| {
-                state
+                let text = state
                     .document(file_path_to_uri(file).as_str())
                     .map(|doc| doc.content().to_string())
-                    .or_else(|| std::fs::read_to_string(file).ok())
+                    .or_else(|| std::fs::read_to_string(file).ok());
+                unreadable.set(unreadable.get() || text.is_none());
+                text
             },
         ) {
-            Some(e) => e,
-            None => return Ok(None),
+            Some(e) if !unreadable.get() => e,
+            _ => return Ok(None),
         };
 
         let mut changes: std::collections::HashMap<Url, Vec<TextEdit>> =

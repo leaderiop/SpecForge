@@ -21,11 +21,37 @@ fn shared_state_with_document() -> Arc<RwLock<LspState>> {
 async fn concurrent_reads_complete() {
     let state = shared_state_with_document();
 
+    // While one reader holds the state, another still gets in — and a
+    // writer does not.
+    {
+        let held = state.read().await;
+        let other = state.clone();
+        let second = tokio::spawn(async move {
+            let s = other.read().await;
+            s.document("file:///test.spec")
+                .unwrap()
+                .content()
+                .to_string()
+        });
+        let content = tokio::time::timeout(std::time::Duration::from_secs(5), second)
+            .await
+            .expect("a second reader waited on the first")
+            .unwrap();
+        assert_eq!(content, "behavior foo \"test\" {}\n");
+        assert!(state.try_write().is_err(), "a writer must wait for readers");
+        drop(held);
+    }
+
+    // All twenty readers hold the state at once: each waits, guard in
+    // hand, until every other one has its guard too.
+    let all_in = Arc::new(tokio::sync::Barrier::new(20));
     let mut handles = Vec::new();
     for i in 0..20 {
         let state = state.clone();
+        let all_in = all_in.clone();
         handles.push(tokio::spawn(async move {
             let s = state.read().await;
+            all_in.wait().await;
             assert!(
                 s.is_open("file:///test.spec"),
                 "reader {i} must see open doc"
@@ -40,7 +66,10 @@ async fn concurrent_reads_complete() {
     }
 
     for handle in handles {
-        let count = handle.await.expect("reader task must not panic");
+        let count = tokio::time::timeout(std::time::Duration::from_secs(5), handle)
+            .await
+            .expect("readers blocked each other")
+            .expect("reader task must not panic");
         assert_eq!(count, 1);
     }
 }
@@ -51,38 +80,82 @@ async fn concurrent_reads_complete() {
 )]
 #[tokio::test]
 async fn concurrent_reads_see_consistent_state() {
-    let state = shared_state_with_document();
+    // Version `v` of the document declares the single entity `entity_v`.
+    const URI: &str = "file:///p/versioned.spec";
+    const PATH: &str = "/p/versioned.spec";
+    let text = |v: usize| format!("behavior entity_{v} \"Version {v}\" {{\n}}\n");
 
-    // Pre-populate with multiple documents
+    let state = Arc::new(RwLock::new(LspState::new()));
     {
         let mut s = state.write().await;
-        s.open_document("file:///a.spec", "behavior a \"Alpha\" {}\n");
-        s.open_document("file:///b.spec", "behavior b \"Beta\" {}\n");
-        s.open_document("file:///c.spec", "behavior c \"Gamma\" {}\n");
+        s.open_document(URI, &text(1));
+        s.pipeline_mut()
+            .update_open_file(PATH, Some(&text(1)), |_| None);
     }
 
-    let mut handles = Vec::new();
-    for _ in 0..20 {
+    /// What a reader sees: the buffer's version and the versions of the
+    /// entities in the graph.
+    async fn observe(state: &RwLock<LspState>) -> (usize, Vec<usize>) {
+        let s = state.read().await;
+        let version = |id: &str| id.trim_start_matches("entity_").parse::<usize>().unwrap();
+        let content = s.document(URI).unwrap().content().to_string();
+        let doc = version(content.split_whitespace().nth(1).unwrap());
+        let graph = s
+            .graph()
+            .nodes()
+            .iter()
+            .map(|n| version(n.id.raw.as_str()))
+            .collect();
+        (doc, graph)
+    }
+    // Consistent: the graph is one complete build, of the buffer's
+    // version or (while a recompile is running) the one before it.
+    let assert_consistent = |(doc, graph): (usize, Vec<usize>)| {
+        assert_eq!(
+            graph.len(),
+            1,
+            "half-applied graph {graph:?} for version {doc}"
+        );
+        assert!(
+            graph[0] <= doc && graph[0] + 1 >= doc,
+            "graph {graph:?}, buffer {doc}"
+        );
+    };
+
+    // The writer updates the way the server does: the buffer first, then a
+    // recompile with the pipeline taken out of the state, then put back.
+    let writer = {
         let state = state.clone();
-        handles.push(tokio::spawn(async move {
-            let s = state.read().await;
-            let uris = s.open_uris();
-            // Must see all 4 documents (test.spec + a/b/c)
-            assert_eq!(
-                uris.len(),
-                4,
-                "all readers must see exactly 4 open documents"
-            );
-            assert!(s.is_open("file:///a.spec"));
-            assert!(s.is_open("file:///b.spec"));
-            assert!(s.is_open("file:///c.spec"));
-            assert_eq!(s.graph().node_count(), 0, "graph starts empty");
+        tokio::spawn(async move {
+            for v in 2..=30 {
+                let mut pipeline = {
+                    let mut s = state.write().await;
+                    s.open_document(URI, &text(v));
+                    s.take_pipeline()
+                };
+                // A reader during the recompile.
+                assert_consistent(observe(&state).await);
+                pipeline.update_open_file(PATH, Some(&text(v)), |_| None);
+                tokio::task::yield_now().await;
+                state.write().await.set_pipeline(pipeline);
+            }
+        })
+    };
+    let mut readers = Vec::new();
+    for _ in 0..10 {
+        let state = state.clone();
+        readers.push(tokio::spawn(async move {
+            for _ in 0..30 {
+                assert_consistent(observe(&state).await);
+                tokio::task::yield_now().await;
+            }
         }));
     }
-
-    for handle in handles {
-        handle.await.expect("reader task must not panic");
+    writer.await.expect("writer panicked");
+    for reader in readers {
+        reader.await.expect("a reader saw an inconsistent state");
     }
+    assert_eq!(observe(&state).await, (30, vec![30]));
 }
 
 // -- read_write_interleaving -----------------------------------------------------

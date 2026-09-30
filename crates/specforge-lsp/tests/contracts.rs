@@ -46,28 +46,127 @@ fn node_at(id: &str, kind: &str, file: &str, line: usize, col: usize) -> Node {
     behavior = "lsp_initialize",
     verify = "LSP Initialize: LSP initialization holds — extensions_loaded, capabilities_reflect_extensions, semantic_legend_populated, incremental_sync_advertised, lsp_initialized_emitted"
 )]
-fn lsp_initialize_contract() {
-    // Requires: list of registered extension kinds
-    // Ensures: capabilities include semantic tokens, incremental sync, completion triggers, navigation
-    let caps = specforge_lsp::server_capabilities(&["behavior", "type", "event"]);
+#[tokio::test]
+async fn lsp_initialize_contract() {
+    let extensions = ["@specforge/software", "@specforge/testing"];
+    let dir = project_with(&extensions);
+    let (mut session, init) = wire::Session::start(Some(dir.path())).await;
+    let caps = &init["capabilities"];
 
-    assert!(caps.incremental_sync, "must advertise incremental sync");
-    assert!(
-        !caps.semantic_token_types.is_empty(),
-        "must include semantic token types"
+    // incremental_sync_advertised: TextDocumentSyncKind::INCREMENTAL.
+    assert_eq!(caps["textDocumentSync"], 2);
+
+    // semantic_legend_populated: every standard LSP token type, in order.
+    let legend = legend_of(&init);
+    assert_eq!(legend, STANDARD_TOKEN_TYPES);
+
+    // extensions_loaded, lsp_initialized_emitted: once the registries are
+    // populated the server announces how many extensions and entity kinds
+    // it loaded.
+    let kinds = registries_for(&extensions).0;
+    assert!(kinds.len() >= 5, "software alone declares five kinds");
+    let announced = session
+        .notification("window/logMessage", |p| {
+            p["message"].as_str().is_some_and(|m| m.contains("loaded"))
+        })
+        .await
+        .expect("no initialization announcement");
+    assert_eq!(
+        announced["message"],
+        format!(
+            "specforge-lsp: loaded 2 extension(s), {} entity kind(s)",
+            kinds.len()
+        )
     );
-    assert!(
-        !caps.completion_trigger_characters.is_empty(),
-        "must include completion triggers"
-    );
-    assert!(
-        caps.supports_go_to_definition,
-        "must support go-to-definition"
-    );
-    assert!(
-        caps.supports_find_references,
-        "must support find-references"
-    );
+
+    // capabilities_reflect_extensions: nothing domain-specific is
+    // hardcoded (the legend is exactly the standard list), and the
+    // advertised legend carries what the loaded extension declares —
+    // @specforge/software gives `port` IDs the `interface` token.
+    let uri = "file:///buffer/repo.spec";
+    session.open(uri, "port repo \"Repo\" {\n}\n").await;
+    let tokens = session
+        .request(
+            "textDocument/semanticTokens/full",
+            serde_json::json!({"textDocument": {"uri": uri}}),
+        )
+        .await;
+    let data = tokens["result"]["data"].as_array().unwrap();
+    // The second token is `repo` at line 0, column 5.
+    assert_eq!(data[5..8], [0, 5, 4], "{data:?}");
+    assert_eq!(legend[data[8].as_u64().unwrap() as usize], "interface");
+}
+
+/// Every standard LSP semantic token type, in the order the server's legend
+/// lists them.
+pub(crate) const STANDARD_TOKEN_TYPES: [&str; 23] = [
+    "namespace",
+    "type",
+    "class",
+    "enum",
+    "interface",
+    "struct",
+    "typeParameter",
+    "parameter",
+    "variable",
+    "property",
+    "enumMember",
+    "event",
+    "function",
+    "method",
+    "macro",
+    "keyword",
+    "modifier",
+    "comment",
+    "string",
+    "number",
+    "regexp",
+    "operator",
+    "decorator",
+];
+
+/// The semantic token legend of an `initialize` result.
+pub(crate) fn legend_of(init: &serde_json::Value) -> Vec<&str> {
+    init["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"]
+        .as_array()
+        .expect("initialize result has no legend")
+        .iter()
+        .map(|t| t.as_str().unwrap())
+        .collect()
+}
+
+/// A temp project whose specforge.json lists `extensions`.
+pub(crate) fn project_with(extensions: &[&str]) -> tempfile::TempDir {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "test-project",
+        "version": "0.1.0",
+        "extensions": extensions,
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    dir
+}
+
+/// The kind and field registries `extensions` populate.
+fn registries_for(
+    extensions: &[&str],
+) -> (
+    specforge_registry::KindRegistry,
+    specforge_registry::FieldRegistry,
+) {
+    let names: Vec<String> = extensions.iter().map(|s| s.to_string()).collect();
+    let runtime = wasm_runtime_for(&names);
+    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
+    let manifests: Vec<_> = names
+        .iter()
+        .map(|name| {
+            let ext = specforge_wasm::protocol::load_protocol_extension(&host, name)
+                .unwrap_or_else(|e| panic!("{name} does not load: {e:?}"));
+            specforge_wasm::protocol::protocol_extension_to_manifest(&ext)
+        })
+        .collect();
+    let (kinds, fields, _edges, _diags) = specforge_registry::populate_registries(&manifests);
+    (kinds, fields)
 }
 
 // B:lsp_shutdown — verify contract "requires/ensures consistency for LSP shutdown"
@@ -103,22 +202,34 @@ fn lsp_shutdown_contract() {
     behavior = "document_open_close",
     verify = "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared"
 )]
-fn document_open_close_contract() {
-    // Requires: document URI and content
-    // Ensures: open makes document available, close removes it
-    let mut state = specforge_lsp::LspState::new();
+#[tokio::test]
+async fn document_open_close_contract() {
+    // lsp_initialized_fired: the session is initialized.
+    let (mut session, _) = wire::Session::start(None).await;
+    // Only in the editor buffer: nothing on disk.
+    let uri = "file:///buffer/open_close.spec";
+    let text = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
 
-    state.open_document("file:///test.spec", "behavior foo \"Foo\" {}\n");
-    assert!(
-        state.is_open("file:///test.spec"),
-        "opened document must be available"
+    // file_changed_emitted: didOpen compiles the buffer — the published
+    // diagnostics are the buffer's dangling reference.
+    session.open(uri, text).await;
+    let opened = session.diagnostics(uri).await;
+    assert_eq!(wire::codes(&opened), ["E003"], "{opened:?}");
+    assert_eq!(
+        opened[0]["message"],
+        "unresolved reference 'session_limit' in entity 'login'"
     );
 
-    state.close_document("file:///test.spec");
-    assert!(
-        !state.is_open("file:///test.spec"),
-        "closed document must be removed"
-    );
+    // document_tracked: an open document is served from its buffer
+    // (formatting answers only for open documents), a closed one is not.
+    assert!(session.format(uri).await.is_array());
+    session.close(uri).await;
+
+    // closed_diagnostics_cleared: closing publishes an empty set, which
+    // clears the editor's squiggles.
+    let closed = session.diagnostics(uri).await;
+    assert!(closed.is_empty(), "{closed:?}");
+    assert!(session.format(uri).await.is_null());
 }
 
 // B:autocomplete_entity_ids — verify contract "requires/ensures consistency for entity ID autocomplete"
@@ -592,41 +703,53 @@ fn incremental_document_sync_contract() {
     behavior = "emit_live_diagnostics",
     verify = "Live Diagnostics: live diagnostics holds — lsp_initialized_fired, graph_available, diagnostics_pushed, latency_enforced"
 )]
-fn live_diagnostics_contract() {
-    // Requires: LSP initialized, graph available
-    // Ensures: diagnostics pushed after file change; latency enforced
-    let mut state = specforge_lsp::LspState::new();
-    state.open_document("file:///a.spec", "behavior a \"A\" {}\n");
+#[tokio::test]
+async fn live_diagnostics_contract() {
+    // lsp_initialized_fired, graph_available: an initialized session with
+    // a document compiled into the graph, cleanly.
+    let (mut session, _) = wire::Session::start(None).await;
+    let uri = "file:///buffer/live.spec";
+    let text = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n\n\
+                invariant session_limit \"Limit\" {\n}\n";
+    session.open(uri, text).await;
+    let clean = session.diagnostics(uri).await;
+    assert!(clean.is_empty(), "{clean:?}");
 
-    // Initially no diagnostics
-    assert!(
-        state.diagnostics("file:///a.spec").is_empty(),
-        "no diagnostics initially"
-    );
-
-    // After file change, diagnostics are pushed
-    state.set_diagnostics(
-        "file:///a.spec",
-        vec![specforge_common::Diagnostic {
-            code: "E003".into(),
-            suggestion: None,
-            message: "unresolved reference".into(),
-            severity: specforge_common::Severity::Error,
-            span: None,
-        }],
-    );
+    // diagnostics_pushed: an edit renaming the invariant (line 4, columns
+    // 10..23) leaves the reference dangling; the recompiled diagnostics
+    // are pushed without being asked for.
+    let edit = |version: i32, new_id: &str, old_len: u32| {
+        serde_json::json!({
+            "textDocument": {"uri": uri, "version": version},
+            "contentChanges": [{
+                "range": {
+                    "start": {"line": 4, "character": 10},
+                    "end": {"line": 4, "character": 10 + old_len},
+                },
+                "text": new_id,
+            }],
+        })
+    };
+    let typed = std::time::Instant::now();
+    session
+        .notify("textDocument/didChange", edit(2, "quota", 13))
+        .await;
+    let broken = session.diagnostics(uri).await;
+    // latency_enforced: squiggles within 100ms of the last keystroke.
+    let latency = typed.elapsed();
+    assert_eq!(wire::codes(&broken), ["E003"], "{broken:?}");
     assert_eq!(
-        state.diagnostics("file:///a.spec").len(),
-        1,
-        "diagnostics must be pushed after change"
+        broken[0]["message"],
+        "unresolved reference 'session_limit' in entity 'login'"
     );
+    assert!(latency.as_millis() <= 100, "diagnostics took {latency:?}");
 
-    // After closing, diagnostics are cleared
-    state.close_document("file:///a.spec");
-    assert!(
-        state.diagnostics("file:///a.spec").is_empty(),
-        "diagnostics must be cleared on close"
-    );
+    // Every change is recompiled: restoring the ID clears them again.
+    session
+        .notify("textDocument/didChange", edit(3, "session_limit", 5))
+        .await;
+    let fixed = session.diagnostics(uri).await;
+    assert!(fixed.is_empty(), "{fixed:?}");
 }
 
 #[test]
@@ -665,6 +788,210 @@ fn shared_incremental_pipeline_contract() {
         state.diagnostics("file:///a.spec").is_empty(),
         "diagnostics must be pushable"
     );
+}
+
+/// A JSON-RPC session with an in-process server that keeps every message
+/// the server sends, so tests can assert on published diagnostics and log
+/// messages (the e2e client reads past them).
+pub(crate) mod wire {
+    use serde_json::{Value, json};
+    use std::path::Path;
+    use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
+    use tokio::task::JoinHandle;
+    use tower_lsp::{LspService, Server};
+
+    pub(crate) struct Session {
+        writer: DuplexStream,
+        reader: DuplexStream,
+        next_id: i64,
+        server: JoinHandle<()>,
+        /// Server notifications not yet taken by `notification`.
+        pending: Vec<Value>,
+    }
+
+    impl Drop for Session {
+        fn drop(&mut self) {
+            self.server.abort();
+        }
+    }
+
+    /// The `file://` URI of `path`.
+    pub(crate) fn uri_of(path: &Path) -> String {
+        tower_lsp::lsp_types::Url::from_file_path(path)
+            .unwrap()
+            .to_string()
+    }
+
+    impl Session {
+        /// Start a server, send `initialize` (with `root` as rootUri) and
+        /// `initialized`, and wait until workspace indexing has ended.
+        /// Returns the session and the `initialize` result.
+        pub(crate) async fn start(root: Option<&Path>) -> (Session, Value) {
+            let (client_to_server, server_stdin) = tokio::io::duplex(1 << 20);
+            let (server_stdout, server_to_client) = tokio::io::duplex(1 << 20);
+            let (service, socket) = LspService::new(specforge_lsp::backend::Backend::new);
+            let server = tokio::spawn(async move {
+                Server::new(server_stdin, server_stdout, socket)
+                    .serve(service)
+                    .await;
+            });
+            let mut session = Session {
+                writer: client_to_server,
+                reader: server_to_client,
+                next_id: 1,
+                server,
+                pending: Vec::new(),
+            };
+            let root_uri = root.map(uri_of);
+            let init = session
+                .request(
+                    "initialize",
+                    json!({"processId": null, "rootUri": root_uri, "capabilities": {}}),
+                )
+                .await;
+            session.notify("initialized", json!({})).await;
+            session
+                .notification("$/progress", |p| p["value"]["kind"] == "end")
+                .await
+                .expect("workspace indexing never ended");
+            (session, init["result"].clone())
+        }
+
+        async fn write(&mut self, msg: &Value) {
+            let body = serde_json::to_string(msg).unwrap();
+            let frame = format!("Content-Length: {}\r\n\r\n{body}", body.len());
+            self.writer.write_all(frame.as_bytes()).await.unwrap();
+            self.writer.flush().await.unwrap();
+        }
+
+        /// The next message from the server, answering server-to-client
+        /// requests (registrations, progress tokens) with a null result.
+        async fn read(&mut self) -> Value {
+            let mut header = Vec::new();
+            while !header.ends_with(b"\r\n\r\n") {
+                let mut byte = [0u8; 1];
+                self.reader.read_exact(&mut byte).await.unwrap();
+                header.push(byte[0]);
+            }
+            let header = String::from_utf8(header).unwrap();
+            let length: usize = header
+                .lines()
+                .find_map(|l| l.strip_prefix("Content-Length:"))
+                .unwrap()
+                .trim()
+                .parse()
+                .unwrap();
+            let mut body = vec![0u8; length];
+            self.reader.read_exact(&mut body).await.unwrap();
+            let msg: Value = serde_json::from_slice(&body).unwrap();
+            if msg.get("method").is_some() && msg.get("id").is_some() {
+                let reply = json!({"jsonrpc": "2.0", "id": msg["id"], "result": null});
+                self.write(&reply).await;
+            }
+            msg
+        }
+
+        /// Send a request and return its response; notifications that
+        /// arrive meanwhile are kept for `notification`.
+        pub(crate) async fn request(&mut self, method: &str, params: Value) -> Value {
+            let id = self.next_id;
+            self.next_id += 1;
+            let mut msg = json!({"jsonrpc": "2.0", "id": id, "method": method});
+            if !params.is_null() {
+                msg["params"] = params;
+            }
+            self.write(&msg).await;
+            loop {
+                let msg = self.read().await;
+                if msg.get("method").is_none() && msg["id"] == id {
+                    return msg;
+                }
+                if msg.get("id").is_none() {
+                    self.pending.push(msg);
+                }
+            }
+        }
+
+        pub(crate) async fn notify(&mut self, method: &str, params: Value) {
+            let msg = json!({"jsonrpc": "2.0", "method": method, "params": params});
+            self.write(&msg).await;
+        }
+
+        /// The params of the first `method` notification matching `pred`,
+        /// kept or arriving within `wait`; it is taken, the others kept.
+        pub(crate) async fn notification_within(
+            &mut self,
+            method: &str,
+            wait: Duration,
+            pred: impl Fn(&Value) -> bool,
+        ) -> Option<Value> {
+            let hit = |m: &Value| m["method"] == method && pred(&m["params"]);
+            if let Some(i) = self.pending.iter().position(hit) {
+                return Some(self.pending.remove(i)["params"].clone());
+            }
+            let deadline = tokio::time::Instant::now() + wait;
+            loop {
+                let msg = tokio::time::timeout_at(deadline, self.read()).await.ok()?;
+                if hit(&msg) {
+                    return Some(msg["params"].clone());
+                }
+                if msg.get("id").is_none() {
+                    self.pending.push(msg);
+                }
+            }
+        }
+
+        /// [`Self::notification_within`] ten seconds.
+        pub(crate) async fn notification(
+            &mut self,
+            method: &str,
+            pred: impl Fn(&Value) -> bool,
+        ) -> Option<Value> {
+            self.notification_within(method, Duration::from_secs(10), pred)
+                .await
+        }
+
+        /// The next diagnostics published for `uri`.
+        pub(crate) async fn diagnostics(&mut self, uri: &str) -> Vec<Value> {
+            let params = self
+                .notification("textDocument/publishDiagnostics", |p| p["uri"] == uri)
+                .await
+                .unwrap_or_else(|| panic!("no diagnostics published for {uri}"));
+            params["diagnostics"].as_array().unwrap().clone()
+        }
+
+        pub(crate) async fn open(&mut self, uri: &str, text: &str) {
+            let doc = json!({"uri": uri, "languageId": "specforge", "version": 1, "text": text});
+            self.notify("textDocument/didOpen", json!({"textDocument": doc}))
+                .await;
+        }
+
+        pub(crate) async fn close(&mut self, uri: &str) {
+            self.notify(
+                "textDocument/didClose",
+                json!({"textDocument": {"uri": uri}}),
+            )
+            .await;
+        }
+
+        /// `textDocument/formatting`, which only serves open documents.
+        pub(crate) async fn format(&mut self, uri: &str) -> Value {
+            let params = json!({
+                "textDocument": {"uri": uri},
+                "options": {"tabSize": 2, "insertSpaces": true},
+            });
+            self.request("textDocument/formatting", params).await["result"].clone()
+        }
+    }
+
+    /// The codes of `diagnostics`.
+    pub(crate) fn codes(diagnostics: &[Value]) -> Vec<&str> {
+        diagnostics
+            .iter()
+            .map(|d| d["code"].as_str().unwrap_or(""))
+            .collect()
+    }
 }
 
 /// Build a Wasm runtime for a temp project listing `ext_names`, mirroring

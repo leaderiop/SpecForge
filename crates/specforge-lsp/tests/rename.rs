@@ -125,14 +125,49 @@ fn rename_updates_all_sites() {
     behavior = "rename_entity_id",
     verify = "rename is atomic — all or nothing"
 )]
-fn rename_is_atomic() {
-    let g = graph_with_refs();
-    // Valid rename produces all edits at once
-    let edits = rename_edits(&g, "auth_token", "session_token");
-    assert!(edits.is_some());
-    // All edits are returned together (atomicity is at the edit-set level)
-    let edits = edits.unwrap();
-    assert!(edits.len() >= 2);
+#[tokio::test]
+async fn rename_is_atomic() {
+    use crate::contracts::wire::{Session, uri_of};
+    use serde_json::json;
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let limit = dir.path().join("limit.spec");
+    let login = dir.path().join("login.spec");
+    let login_text = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
+    std::fs::write(&limit, "invariant session_limit \"Limit\" {\n}\n").unwrap();
+    std::fs::write(&login, login_text).unwrap();
+    let (mut session, _) = Session::start(Some(dir.path())).await;
+    let login_uri = uri_of(&login);
+    session.open(&login_uri, login_text).await;
+    session.diagnostics(&login_uri).await;
+
+    let rename = json!({
+        "textDocument": {"uri": login_uri},
+        "position": {"line": 1, "character": 16},
+        "newName": "session_cap",
+    });
+    let edit = |line: u32, start: u32| {
+        json!([{
+            "range": {
+                "start": {"line": line, "character": start},
+                "end": {"line": line, "character": start + 13},
+            },
+            "newText": "session_cap",
+        }])
+    };
+
+    // All: one workspace edit renames the declaration and the reference.
+    let all = session.request("textDocument/rename", rename.clone()).await;
+    assert_eq!(
+        all["result"]["changes"],
+        json!({ uri_of(&limit): edit(0, 10), login_uri.clone(): edit(1, 14) })
+    );
+
+    // Nothing: when the declaration's file can no longer be read, the
+    // rename is refused rather than applied to the reference alone.
+    std::fs::remove_file(&limit).unwrap();
+    let nothing = session.request("textDocument/rename", rename).await;
+    assert!(nothing["result"].is_null(), "{nothing}");
 }
 
 #[spec(behavior = "rename_entity_id", verify = "rename across multiple files")]

@@ -1,3 +1,5 @@
+use crate::contracts::wire::{Session, codes};
+use serde_json::json;
 use specforge_test_macros::test as spec;
 
 // -- document_open_close ------------------------------------------------------
@@ -6,28 +8,75 @@ use specforge_test_macros::test as spec;
     behavior = "document_open_close",
     verify = "didOpen registers document and triggers compilation"
 )]
-fn did_open_registers_document() {
-    let mut state = specforge_lsp::LspState::new();
-    state.open_document("file:///a.spec", "behavior a \"A\" {}\n");
+#[tokio::test]
+async fn did_open_registers_document() {
+    let (mut session, _) = Session::start(None).await;
+    // Only in the editor buffer: nothing on disk.
+    let uri = "file:///buffer/login.spec";
+    session.open(uri, LOGIN).await;
 
-    assert!(state.is_open("file:///a.spec"));
-    assert_eq!(
-        state.document("file:///a.spec").unwrap().content(),
-        "behavior a \"A\" {}\n"
-    );
+    // Compiled: the diagnostics are the buffer's own, and its entity is
+    // in the graph (the outline is read from the graph).
+    let diagnostics = session.diagnostics(uri).await;
+    assert_eq!(codes(&diagnostics), ["E003"], "{diagnostics:?}");
+    let outline = session
+        .request(
+            "textDocument/documentSymbol",
+            json!({"textDocument": {"uri": uri}}),
+        )
+        .await;
+    let names: Vec<&str> = outline["result"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no outline: {outline}"))
+        .iter()
+        .map(|s| s["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names.len(), 1, "{names:?}");
+    assert!(names[0].contains("login"), "{names:?}");
+
+    // Registered: buffer-only features answer for it.
+    assert!(session.format(uri).await.is_array());
 }
 
 #[spec(
     behavior = "document_open_close",
     verify = "didClose removes document and clears diagnostics"
 )]
-fn did_close_removes_document() {
-    let mut state = specforge_lsp::LspState::new();
-    state.open_document("file:///a.spec", "behavior a \"A\" {}\n");
-    state.close_document("file:///a.spec");
+#[tokio::test]
+async fn did_close_removes_document() {
+    let (mut session, _) = Session::start(None).await;
+    let uri = "file:///buffer/login.spec";
+    session.open(uri, LOGIN).await;
+    assert!(!session.diagnostics(uri).await.is_empty());
 
-    assert!(!state.is_open("file:///a.spec"));
-    assert!(state.document("file:///a.spec").is_none());
+    session.close(uri).await;
+
+    // The editor is told to clear the document's squiggles...
+    let cleared = session.diagnostics(uri).await;
+    assert!(cleared.is_empty(), "{cleared:?}");
+    // ...and the document is gone from the open set.
+    assert!(session.format(uri).await.is_null());
+
+    // The state forgets both.
+    let mut state = specforge_lsp::LspState::new();
+    state.open_document(uri, LOGIN);
+    state.set_diagnostics(uri, vec![e003()]);
+    state.close_document(uri);
+    assert!(!state.is_open(uri));
+    assert!(state.diagnostics(uri).is_empty());
+}
+
+/// `login` references `session_limit`, which exists nowhere.
+const LOGIN: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
+
+fn e003() -> specforge_common::Diagnostic {
+    specforge_common::Diagnostic {
+        code: "E003".into(),
+        suggestion: None,
+        message: "unresolved reference 'session_limit' in entity 'login'".into(),
+        severity: specforge_common::Severity::Error,
+        span: None,
+    }
 }
 
 #[test]

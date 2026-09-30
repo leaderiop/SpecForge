@@ -126,9 +126,12 @@ impl LspState {
     }
 
     /// Take the pipeline out (for blocking compute off the async runtime).
-    /// The state is left with an empty pipeline until `set_pipeline`.
+    /// Until `set_pipeline`, the state keeps a copy of the last complete
+    /// graph, so readers never see a half-applied update (an empty graph).
     pub fn take_pipeline(&mut self) -> IncrementalPipeline {
-        std::mem::replace(&mut self.pipeline, IncrementalPipeline::empty())
+        let mut stand_in = IncrementalPipeline::empty();
+        *stand_in.graph_mut() = self.pipeline.graph().clone();
+        std::mem::replace(&mut self.pipeline, stand_in)
     }
 
     /// Put a previously taken pipeline back.
