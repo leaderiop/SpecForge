@@ -169,7 +169,6 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
             spec_root: &spec_root,
             kind_registry: &kind_reg,
             field_registry: &field_reg,
-            manifests: &manifests,
             rules: &patterns,
             runtime,
         },
@@ -221,7 +220,6 @@ pub struct GraphChecks<'a> {
     pub spec_root: &'a Path,
     pub kind_registry: &'a KindRegistry,
     pub field_registry: &'a FieldRegistry,
-    pub manifests: &'a [ManifestV2],
     /// Validation rules with their owning extension.
     pub rules: &'a [(ValidationRulePattern, String)],
     pub runtime: Option<&'a dyn WasmRuntime>,
@@ -236,7 +234,6 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
     let spec_root = checks.spec_root.to_path_buf();
     let kind_reg = checks.kind_registry;
     let field_reg = checks.field_registry;
-    let manifests = checks.manifests;
     let patterns = checks.rules;
     let runtime = checks.runtime;
 
@@ -340,11 +337,9 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
     }
 
     // 11. Build edge label mapping (manifest label -> field name used in graph)
-    let edge_label_to_field: HashMap<String, String> = manifests
+    let edge_label_to_field: HashMap<String, String> = field_reg
         .iter()
-        .flat_map(|m| m.entity_kinds.iter())
-        .flat_map(|k| k.fields.iter())
-        .filter_map(|f| f.edge.as_ref().map(|e| (e.clone(), f.name.clone())))
+        .filter_map(|(_, field, entry)| entry.edge.clone().map(|edge| (edge, field.to_string())))
         .collect();
 
     // 12. Run extension validation rules (declarative + custom via wasm)
@@ -776,12 +771,20 @@ fn run_extension_validation(
             let diags = detect_cycles(pattern, graph, edge_label_to_field);
             diagnostics.extend(diags);
         } else {
-            let verdicts = WasmCustomRules {
-                runtime: runtime.expect("custom rules require a Wasm runtime"),
+            // Declarative rules evaluate host-side; custom ones need the
+            // extension's module, so they're skipped without a runtime.
+            let verdicts = runtime.map(|runtime| WasmCustomRules {
+                runtime,
                 extension,
                 graph,
-            };
-            let diags = execute_pattern(pattern, &entities, Some(&verdicts));
+            });
+            let diags = execute_pattern(
+                pattern,
+                &entities,
+                verdicts.as_ref().map(|v| {
+                    v as &dyn specforge_registry::validation_engine::WasmValidationRuntime
+                }),
+            );
             diagnostics.extend(diags);
         }
     }

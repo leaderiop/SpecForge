@@ -8,13 +8,7 @@ use tower_lsp::{Client, LanguageServer};
 
 use specforge_common::Sym;
 use specforge_graph::{GraphConfig, build_graph_with_config};
-use specforge_registry::compilation::{
-    detect_identifier_length_violations, detect_reserved_entity_ids,
-};
-use specforge_registry::{
-    EntityRefInfo, KindRegistry, detect_mistyped_references, detect_unknown_entity_fields,
-    detect_unknown_entity_kinds, populate_registries,
-};
+use specforge_registry::{KindRegistry, populate_registries};
 use specforge_wasm::protocol::{
     ProtocolHost, load_protocol_extension, protocol_extension_to_manifest,
 };
@@ -356,20 +350,6 @@ impl Backend {
         let lock = state;
         let state = lock.read().await;
 
-        // Snapshot node data for registry-based diagnostics below.
-        let all_nodes: Vec<(
-            Sym,
-            specforge_parser::FieldMap,
-            specforge_common::SourceSpan,
-        )> = {
-            let graph = state.graph();
-            graph
-                .nodes()
-                .iter()
-                .map(|n| (n.id.raw, n.fields.clone(), n.source_span.clone()))
-                .collect()
-        };
-
         // Collect all diagnostics grouped by file URI, as published and as
         // the core diagnostics code actions work from.
         let mut diags_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
@@ -399,173 +379,22 @@ impl Backend {
         });
 
         if !edited_has_parse_errors {
-            // Validator diagnostics, grouped by each diagnostic's own file
-            let validator_diags = specforge_validator::validate(state.graph());
-            for vd in &validator_diags {
-                record(&state, uri, vd, &mut diags_by_file, &mut core_by_file);
-            }
-
-            // E022: Mistyped reference diagnostics (wrong-kind targets)
-            let field_reg = state.field_registry();
-            let kind_reg = state.kind_registry();
-            if !field_reg.is_empty() && !kind_reg.is_empty() {
-                let graph = state.graph();
-                let node_kind_index: std::collections::HashMap<String, String> = graph
-                    .nodes()
-                    .iter()
-                    .map(|n| (n.id.raw.to_string(), n.kind.raw.to_string()))
-                    .collect();
-
-                let entity_refs: Vec<EntityRefInfo> = all_nodes
-                    .iter()
-                    .map(|(id, fields, span)| {
-                        let ref_fields: Vec<(String, Vec<String>)> = fields
-                            .entries()
-                            .iter()
-                            .filter_map(|entry| {
-                                if let specforge_parser::FieldValue::ReferenceList(refs) =
-                                    &entry.value
-                                {
-                                    Some((
-                                        entry.key.to_string(),
-                                        refs.iter().map(|r| r.id.clone()).collect(),
-                                    ))
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect();
-                        let entity_kind = graph
-                            .node(id.as_str())
-                            .map(|n| n.kind.raw.to_string())
-                            .unwrap_or_default();
-                        (entity_kind, id.to_string(), ref_fields, span.clone())
-                    })
-                    .collect();
-
-                let w022_diags =
-                    detect_mistyped_references(&entity_refs, field_reg, kind_reg, &node_kind_index);
-                for d in &w022_diags {
-                    record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
-                }
-            }
-
-            // E024: Unknown entity kinds + W020: Unknown entity fields
-            // Only fire when registries are populated (not in structural-only mode).
-            if !kind_reg.is_empty() {
-                let graph = state.graph();
-
-                // E024: entity kinds not registered by any extension
-                let entity_kinds: Vec<(String, String, specforge_common::SourceSpan)> = graph
-                    .nodes()
-                    .iter()
-                    .map(|n| {
-                        (
-                            n.kind.raw.to_string(),
-                            n.id.raw.to_string(),
-                            n.source_span.clone(),
-                        )
-                    })
-                    .collect();
-                let e024_diags = detect_unknown_entity_kinds(&entity_kinds, kind_reg, None);
-                // E013 / E014: the documented identifier contract (reserved
-                // words, 2-60 length) — same checks the CLI compile runs.
-                let mut all_diags = e024_diags;
-                all_diags.extend(detect_reserved_entity_ids(&entity_kinds, kind_reg));
-                all_diags.extend(detect_identifier_length_violations(&entity_kinds));
-                for d in &all_diags {
-                    record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
-                }
-
-                // W020: fields not registered for their entity kind
-                if !field_reg.is_empty() {
-                    let entity_fields: Vec<(
-                        String,
-                        String,
-                        Vec<String>,
-                        specforge_common::SourceSpan,
-                    )> = graph
-                        .nodes()
-                        .iter()
-                        .map(|n| {
-                            let field_names: Vec<String> = n
-                                .fields
-                                .entries()
-                                .iter()
-                                .map(|e| e.key.to_string())
-                                .collect();
-                            (
-                                n.kind.raw.to_string(),
-                                n.id.raw.to_string(),
-                                field_names,
-                                n.source_span.clone(),
-                            )
-                        })
-                        .collect();
-                    let w020_diags =
-                        detect_unknown_entity_fields(&entity_fields, kind_reg, field_reg);
-                    for d in &w020_diags {
-                        record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
-                    }
-                }
-            }
-
-            // Extension validation rules (E006 missing required fields, W001-W011, etc.)
-            let validation_patterns = state.validation_patterns();
-            if !validation_patterns.is_empty() {
-                let entities = specforge_emitter::build_validation_entities(state.graph());
-                // Manifest edge type -> the field whose references carry it.
-                let edge_label_to_field: std::collections::HashMap<String, String> = state
-                    .field_registry()
-                    .iter()
-                    .filter_map(|(_, field, entry)| {
-                        entry.edge.clone().map(|edge| (edge, field.to_string()))
-                    })
-                    .collect();
-                for (pattern, extension) in validation_patterns {
-                    if pattern.check
-                        == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
-                    {
-                        // The same pass the CLI compile runs, over the whole graph.
-                        let cycle_diags = specforge_emitter::compile::detect_cycles(
-                            pattern,
-                            state.graph(),
-                            &edge_label_to_field,
-                        );
-                        for d in &cycle_diags {
-                            record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
-                        }
-                        continue;
-                    }
-                    // Custom rules dispatch through the owning extension's Wasm
-                    // module; declarative patterns evaluate host-side (Phase 5).
-                    let rule_diags = if pattern.check
-                        == specforge_registry::validation_engine::ValidationPatternKind::Custom
-                    {
-                        match state.runtime() {
-                            Some(runtime) if !extension.is_empty() => {
-                                let wasm_rules = specforge_emitter::compile::WasmCustomRules {
-                                    runtime: runtime.as_ref(),
-                                    extension,
-                                    graph: state.graph(),
-                                };
-                                specforge_registry::validation_engine::execute_pattern(
-                                    pattern,
-                                    &entities,
-                                    Some(&wasm_rules),
-                                )
-                            }
-                            _ => Vec::new(),
-                        }
-                    } else {
-                        specforge_registry::validation_engine::execute_pattern(
-                            pattern, &entities, None,
-                        )
-                    };
-                    for d in &rule_diags {
-                        record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
-                    }
-                }
+            // The checks `specforge check` and watch run on a built graph:
+            // core validation, registry checks and extension rules.
+            let checks = specforge_emitter::compile::check_graph(
+                state.graph(),
+                &specforge_emitter::compile::GraphChecks {
+                    spec_root: state.spec_root(),
+                    kind_registry: state.kind_registry(),
+                    field_registry: state.field_registry(),
+                    rules: state.validation_patterns(),
+                    runtime: state
+                        .runtime()
+                        .map(|r| r.as_ref() as &dyn specforge_wasm::WasmRuntime),
+                },
+            );
+            for d in &checks {
+                record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
             }
         } // end syntax-only fast path gate
 
@@ -891,6 +720,12 @@ impl LanguageServer for Backend {
             && !roots.contains(root)
         {
             roots.push(root.clone());
+        }
+        if let Some(spec_root) = &resolved_spec_root {
+            self.state
+                .write()
+                .await
+                .set_spec_root(std::path::PathBuf::from(spec_root));
         }
         *self.spec_root.lock().await = resolved_spec_root;
         *self.workspace_roots.lock().await = roots;

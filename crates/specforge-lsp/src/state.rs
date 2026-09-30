@@ -27,6 +27,8 @@ pub struct LspState {
     known_extension_keywords: HashMap<String, String>,
     /// The session's Wasm runtime, for custom-rule dispatch.
     runtime: Option<std::sync::Arc<specforge_component::ComponentRuntime>>,
+    /// The project's spec root, for file-reference checks.
+    spec_root: std::path::PathBuf,
     shutdown: bool,
 }
 
@@ -48,6 +50,7 @@ impl LspState {
             validation_patterns: Vec::new(),
             known_extension_keywords: HashMap::new(),
             runtime: None,
+            spec_root: std::path::PathBuf::new(),
             shutdown: false,
         }
     }
@@ -155,6 +158,14 @@ impl LspState {
 
     pub fn runtime(&self) -> Option<&std::sync::Arc<specforge_component::ComponentRuntime>> {
         self.runtime.as_ref()
+    }
+
+    pub fn spec_root(&self) -> &std::path::Path {
+        &self.spec_root
+    }
+
+    pub fn set_spec_root(&mut self, spec_root: std::path::PathBuf) {
+        self.spec_root = spec_root;
     }
 
     pub fn set_runtime(&mut self, runtime: specforge_component::ComponentRuntime) {

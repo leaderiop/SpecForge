@@ -363,7 +363,6 @@ fn full_diagnostics(
             spec_root: &ctx.spec_root,
             kind_registry: &ctx.kind_registry,
             field_registry: &ctx.field_registry,
-            manifests: &ctx.manifests,
             rules: &ctx.extension_rules,
             runtime: Some(runtime),
         },
