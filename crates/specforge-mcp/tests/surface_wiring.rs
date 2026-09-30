@@ -389,13 +389,59 @@ fn recompilation_refreshes_surfaces() {
         json!({"projectRoot": dir.path().to_str().unwrap()}),
     );
 
-    // Verify core tools are present
+    // Exactly the core tools: nothing missing, no extension tool.
+    let core_tools = [
+        "specforge.add_extension",
+        "specforge.analyze",
+        "specforge.collect",
+        "specforge.coverage",
+        "specforge.doctor",
+        "specforge.export",
+        "specforge.extensions",
+        "specforge.find_definition",
+        "specforge.find_implementation",
+        "specforge.find_references",
+        "specforge.find_spec_for_source",
+        "specforge.format",
+        "specforge.infer_gaps",
+        "specforge.infer_progress",
+        "specforge.infer_session",
+        "specforge.init",
+        "specforge.inspect",
+        "specforge.list",
+        "specforge.migrate",
+        "specforge.model",
+        "specforge.outline",
+        "specforge.outline_extensions",
+        "specforge.providers",
+        "specforge.query",
+        "specforge.remove_extension",
+        "specforge.rename",
+        "specforge.render",
+        "specforge.schema",
+        "specforge.search",
+        "specforge.stats",
+        "specforge.suggest_fixes",
+        "specforge.trace",
+        "specforge.validate",
+    ];
+    let listed = |resp: &Value| -> Vec<String> {
+        let tools = resp["result"]["tools"].as_array().unwrap();
+        for tool in tools {
+            assert_ne!(
+                tool["category"], "extension",
+                "no extension is installed, yet {tool} is listed"
+            );
+        }
+        let mut names: Vec<String> = tools
+            .iter()
+            .map(|t| t["name"].as_str().unwrap().to_string())
+            .collect();
+        names.sort();
+        names
+    };
     let resp1 = call(&mut server, "tools/list", json!({}));
-    let tools1 = resp1["result"]["tools"].as_array().unwrap();
-    let has_query = tools1
-        .iter()
-        .any(|t| t["name"].as_str() == Some("specforge.query"));
-    assert!(has_query, "specforge.query must be present initially");
+    assert_eq!(listed(&resp1), core_tools);
 
     // Recompile by calling validate
     let validate_resp = call_tool(
@@ -405,18 +451,11 @@ fn recompilation_refreshes_surfaces() {
             "path": dir.path().to_str().unwrap()
         }),
     );
-    assert!(validate_resp["error"].is_null() || validate_resp["result"].is_object());
+    assert_eq!(validate_resp["result"]["isError"], false, "{validate_resp}");
 
-    // Core tools should still be present after recompilation
+    // The same core set after recompilation.
     let resp2 = call(&mut server, "tools/list", json!({}));
-    let tools2 = resp2["result"]["tools"].as_array().unwrap();
-    let still_has_query = tools2
-        .iter()
-        .any(|t| t["name"].as_str() == Some("specforge.query"));
-    assert!(
-        still_has_query,
-        "specforge.query must persist after recompilation"
-    );
+    assert_eq!(listed(&resp2), core_tools);
 }
 
 // B:provide_mcp_entities_by_kind — verify unit "entities resource registered in resource list"

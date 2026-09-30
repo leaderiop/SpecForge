@@ -509,10 +509,12 @@ fn explore_prompt_returns_data() {
     let resp = call_prompt(&mut server, "specforge://prompts/explore", json!({}));
     let text = prompt_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["matching_entities"].is_array());
-    assert!(parsed["starting_points"].is_array());
-    assert!(parsed["high_connectivity"].is_array());
-    assert!(parsed["orphan_nodes"].is_array());
+    // Starting points rank by out-degree minus in-degree: beta (1 out) is the
+    // top-down entry, gamma_orphan (0) next, alpha (1 in) last.
+    assert_eq!(
+        parsed["starting_points"],
+        json!(["beta", "gamma_orphan", "alpha"])
+    );
 }
 
 // B:provide_mcp_explore_prompt — verify unit "identifies orphan nodes"
@@ -555,8 +557,46 @@ fn explore_prompt_kind_filter() {
 )]
 fn unknown_prompt_returns_error() {
     let mut server = test_server();
-    let resp = call_prompt(&mut server, "specforge://prompts/nonexistent", json!({}));
-    assert!(resp["error"].is_object());
+    // A failing call on every endpoint family: prompts, tools, resources,
+    // subscriptions, and an unknown method.
+    let failing_calls = [
+        (
+            "prompts/get",
+            json!({"name": "specforge://prompts/nonexistent"}),
+        ),
+        (
+            "prompts/get",
+            json!({"name": "specforge://prompts/context", "arguments": {"entity_id": "nope"}}),
+        ),
+        ("prompts/get", json!({})),
+        ("tools/call", json!({"name": "specforge.nonexistent"})),
+        ("tools/call", json!({})),
+        ("resources/read", json!({"uri": "specforge://nonexistent"})),
+        ("resources/read", json!({"uri": "specforge://graph/"})),
+        ("resources/read", json!({})),
+        ("resources/subscribe", json!({})),
+        ("no/such/method", json!({})),
+    ];
+    for (method, params) in failing_calls {
+        let req = json!({"jsonrpc": "2.0", "id": 7, "method": method, "params": params});
+        let resp: Value =
+            serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+        let error = &resp["error"];
+        assert!(
+            error.is_object(),
+            "{method} {params}: error must be an object, got {resp}"
+        );
+        assert!(
+            error["code"].is_i64(),
+            "{method} {params}: error.code must be an integer, got {error}"
+        );
+        let message = error["message"].as_str().unwrap_or_default();
+        assert!(
+            !message.is_empty(),
+            "{method} {params}: error.message must be a non-empty string, got {error}"
+        );
+        assert!(resp.get("result").is_none(), "{method}: {resp}");
+    }
 }
 
 // Prompt when not initialized
@@ -612,7 +652,15 @@ fn context_zero_extensions() {
         "specforge://prompts/context",
         json!({"entity_id": "minimal"}),
     );
-    assert!(resp["result"]["messages"].is_array());
+    assert!(
+        server.state().kind_registry.is_empty(),
+        "no extension may be installed"
+    );
+    let parsed: Value = serde_json::from_str(&prompt_text(&resp)).unwrap();
+    assert_eq!(parsed["entity_id"], "minimal");
+    assert_eq!(parsed["kind"], "behavior");
+    assert_eq!(parsed["upstream_entities"], json!([]));
+    assert_eq!(parsed["downstream_entities"], json!([]));
 }
 
 // B:provide_mcp_explore_prompt — verify unit "entity_id focuses exploration on that entity"
@@ -629,8 +677,8 @@ fn explore_entity_id_focus() {
     );
     let text = prompt_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    let matching = parsed["matching_entities"].as_array().unwrap();
-    assert!(matching.contains(&json!("alpha")));
+    // beta and gamma_orphan match with no filter; the focus drops them.
+    assert_eq!(parsed["matching_entities"], json!(["alpha"]));
 }
 
 // B:provide_mcp_explore_prompt — verify unit "high_connectivity excludes zero-edge nodes"
