@@ -180,10 +180,35 @@ fn structural_keywords_classified() {
 )]
 fn triple_quoted_strings_classified() {
     let tokens = specforge_lsp::classify_tokens(
-        "behavior foo \"Foo\" {\n  contract \"\"\"\n    hello\n  \"\"\"\n}\n",
+        "behavior foo \"Foo\" {\n  contract \"\"\"\n    hello\n  \"\"\"\n}\nbehavior bar \"Bar\" {\n}\n",
         &kinds(&[("behavior", None)]),
     );
-    assert!(tokens.iter().any(|t| t.token_type == "string"));
+    let on_lines = |lines: std::ops::RangeInclusive<usize>| {
+        tokens
+            .iter()
+            .filter(|t| lines.contains(&t.line))
+            .map(|t| (t.line, t.col, t.text.as_str(), t.token_type.as_str()))
+            .collect::<Vec<_>>()
+    };
+    // The opening quotes, the body and the closing quotes are strings.
+    assert_eq!(
+        on_lines(1..=3),
+        [
+            (1, 2, "contract", "property"),
+            (1, 11, "\"\"\"", "string"),
+            (2, 0, "    hello", "string"),
+            (3, 0, "  \"\"\"", "string"),
+        ]
+    );
+    // The string ends at its closing quotes: what follows is not a string.
+    assert_eq!(token(&tokens, "bar").token_type, "function");
+    assert!(
+        tokens
+            .iter()
+            .filter(|t| t.line > 3)
+            .all(|t| t.token_type != "string" || t.text == "\"Bar\""),
+        "{tokens:?}"
+    );
 }
 
 #[spec(

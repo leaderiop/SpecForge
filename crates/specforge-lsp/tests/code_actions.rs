@@ -66,13 +66,61 @@ fn missing_verify_action_offered() {
     behavior = "code_actions_for_missing_verify",
     verify = "generated verify stubs added to entity block in .spec file"
 )]
-fn missing_verify_produces_stub() {
-    let mut g = Graph::new();
-    g.add_node(node("my_behavior", "behavior", "a.spec", 5));
+#[tokio::test]
+async fn missing_verify_produces_stub() {
+    // `first` has no verify statement; `second` follows it in the file.
+    let text = "behavior first \"First\" {\n  contract \"c\"\n}\n\n\
+                behavior second \"Second\" {\n  contract \"c\"\n  verify unit \"s\"\n}\n";
+    let (mut client, uri, _dir) = crate::e2e::start_server_with_extensions(
+        &["@specforge/software", "@specforge/testing"],
+        "flows.spec",
+        text,
+    )
+    .await;
 
-    let actions =
-        specforge_lsp::code_actions_missing_verify(&g, "a.spec", &verifiable(&["behavior"], &[]));
-    assert!(actions[0].edit_text.contains("verify"));
+    let resp = client.code_action(&uri, 0, 0, 8, 0).await;
+    let actions = resp["result"].as_array().cloned().unwrap_or_default();
+    let stub = actions
+        .iter()
+        .find(|a| a["title"] == "Add verify stub for first")
+        .unwrap_or_else(|| panic!("no verify stub action in {resp}"));
+    // The edit targets the .spec file itself, and nothing else.
+    let changes = stub["edit"]["changes"].as_object().unwrap();
+    assert_eq!(changes.keys().collect::<Vec<_>>(), [&uri]);
+    let edits = changes[&uri].as_array().unwrap();
+    assert_eq!(edits.len(), 1);
+
+    // Applied, the stub lands inside `first`'s block, before its brace.
+    let edited = insert(text, &edits[0]);
+    assert_eq!(
+        edited,
+        "behavior first \"First\" {\n  contract \"c\"\n  verify unit \"first — TODO\"\n}\n\n\
+         behavior second \"Second\" {\n  contract \"c\"\n  verify unit \"s\"\n}\n"
+    );
+    let parsed = specforge_parser::parse(&edited, "flows.spec");
+    assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
+    let first = parsed
+        .entities
+        .iter()
+        .find(|e| e.id.raw == "first")
+        .unwrap();
+    assert!(first.fields.get("verify").is_some(), "{:?}", first.fields);
+}
+
+/// `text` with the zero-width insertion `edit` applied.
+fn insert(text: &str, edit: &serde_json::Value) -> String {
+    let (start, end) = (&edit["range"]["start"], &edit["range"]["end"]);
+    assert_eq!(start, end, "an insertion, not a replacement: {edit}");
+    let line = start["line"].as_u64().unwrap() as usize;
+    let character = start["character"].as_u64().unwrap() as usize;
+    let offset: usize = text.split_inclusive('\n').take(line).map(str::len).sum();
+    let offset = offset + character;
+    format!(
+        "{}{}{}",
+        &text[..offset],
+        edit["newText"].as_str().unwrap(),
+        &text[offset..]
+    )
 }
 
 #[test]

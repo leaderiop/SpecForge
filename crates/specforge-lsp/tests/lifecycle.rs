@@ -53,12 +53,51 @@ fn init_includes_server_info() {
     behavior = "lsp_initialize",
     verify = "zero extensions produces structural-only capabilities"
 )]
-fn init_zero_extensions() {
-    let caps = specforge_lsp::server_capabilities(&[]);
-    // Even with no extensions, structural capabilities exist
-    assert!(caps.incremental_sync);
-    assert!(caps.supports_go_to_definition);
-    assert!(caps.supports_find_references);
+#[tokio::test]
+async fn init_zero_extensions() {
+    use crate::contracts::{STANDARD_TOKEN_TYPES, legend_of, project_with, wire::Session};
+    use std::time::Duration;
+
+    let bare = project_with(&[]);
+    let (mut session, init) = Session::start(Some(bare.path())).await;
+    let caps = &init["capabilities"];
+
+    // The structural capabilities are all there...
+    assert_eq!(caps["textDocumentSync"], 2);
+    for provider in [
+        "hoverProvider",
+        "definitionProvider",
+        "referencesProvider",
+        "codeActionProvider",
+        "documentSymbolProvider",
+        "workspaceSymbolProvider",
+        "documentFormattingProvider",
+        "documentRangeFormattingProvider",
+    ] {
+        assert_eq!(caps[provider], true, "{provider}");
+    }
+    assert_eq!(caps["renameProvider"]["prepareProvider"], true);
+    assert_eq!(
+        caps["completionProvider"]["triggerCharacters"],
+        serde_json::json!([" ", "[", "\""])
+    );
+    // ...and nothing else: the legend is the standard LSP list, no entity
+    // kind of any extension among it.
+    assert_eq!(legend_of(&init), STANDARD_TOKEN_TYPES);
+    assert!(
+        session
+            .notification_within("window/logMessage", Duration::ZERO, |p| {
+                p["message"].as_str().is_some_and(|m| m.contains("loaded"))
+            })
+            .await
+            .is_none(),
+        "no extension was loaded"
+    );
+
+    // A project with extensions is offered the same capabilities.
+    let extended = project_with(&["@specforge/software", "@specforge/testing"]);
+    let (_session, with_extensions) = Session::start(Some(extended.path())).await;
+    assert_eq!(with_extensions["capabilities"], *caps);
 }
 
 // -- lsp_shutdown -------------------------------------------------------------
@@ -69,11 +108,25 @@ fn init_zero_extensions() {
 )]
 fn shutdown_clears_state() {
     let mut state = specforge_lsp::LspState::new();
-    state.open_document("file:///a.spec", "content");
+    state.open_document("file:///p/login.spec", LOGIN);
+    state
+        .pipeline_mut()
+        .update_open_file("/p/login.spec", Some(LOGIN), |_| None);
+    assert!(state.graph().node("login").is_some());
+    assert_eq!(state.pipeline().diagnostics().len(), 1, "the E003");
+
     state.shutdown();
-    assert!(!state.is_open("file:///a.spec"));
+
+    assert_eq!(state.graph().node_count(), 0);
+    assert_eq!(state.graph().edges().len(), 0);
+    assert!(state.pipeline().diagnostics().is_empty());
+    assert!(state.pipeline().diagnostic_files().is_empty());
+    assert!(!state.is_open("file:///p/login.spec"));
     assert!(state.is_shutdown());
 }
+
+/// `login` references `session_limit`, which exists nowhere.
+const LOGIN: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
 
 #[test]
 fn shutdown_sets_flag() {
@@ -101,27 +154,36 @@ fn lsp_state_holds_graph() {
     let mut state = specforge_lsp::LspState::new();
     assert_eq!(state.graph().node_count(), 0);
 
-    // Simulate adding to graph
-    use specforge_common::SourceSpan;
-    use specforge_graph::Node;
-    use specforge_parser::{EntityId, EntityKind, FieldMap};
-    state.graph_mut().add_node(Node {
-        id: EntityId { raw: "a".into() },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: None,
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "a.spec".into(),
-            start_line: 0,
-            start_col: 0,
-            end_line: 0,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-    assert_eq!(state.graph().node_count(), 1);
+    // The graph the LSP serves is the one owned by its watch pipeline.
+    assert!(std::ptr::eq(state.graph(), state.pipeline().graph()));
+
+    // A change driven through the pipeline is what the LSP's features see.
+    let limit = "invariant session_limit \"Limit\" {\n}\n";
+    state
+        .pipeline_mut()
+        .update_open_file("/p/login.spec", Some(LOGIN), |_| None);
+    state
+        .pipeline_mut()
+        .update_open_file("/p/limit.spec", Some(limit), |_| None);
+    let def = specforge_lsp::go_to_definition(state.graph(), "session_limit")
+        .expect("the pipeline's entity is navigable");
+    assert_eq!(def.file, "/p/limit.spec");
+    let refs = specforge_lsp::find_all_references(state.graph(), "session_limit");
+    let ref_files: Vec<&str> = refs.iter().map(|r| r.file.as_str()).collect();
+    assert_eq!(ref_files, ["/p/limit.spec", "/p/login.spec"]);
+
+    // `specforge watch` fed the same changes builds the same graph.
+    let mut watch = specforge_watch::IncrementalPipeline::empty();
+    watch.update_open_file("/p/login.spec", Some(LOGIN), |_| None);
+    watch.update_open_file("/p/limit.spec", Some(limit), |_| None);
+    let ids = |g: &specforge_graph::Graph| {
+        let mut ids: Vec<String> = g.nodes().iter().map(|n| n.id.raw.to_string()).collect();
+        ids.sort();
+        ids
+    };
+    assert_eq!(ids(state.graph()), ["login", "session_limit"]);
+    assert_eq!(ids(state.graph()), ids(watch.graph()));
+    assert_eq!(state.graph().edges().len(), watch.graph().edges().len());
 }
 
 #[spec(

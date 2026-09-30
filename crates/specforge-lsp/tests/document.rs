@@ -43,23 +43,67 @@ fn multiple_incremental_changes_produce_correct_source() {
     behavior = "incremental_document_sync",
     verify = "incremental sync reduces transfer size vs full sync"
 )]
-fn incremental_sync_reduces_transfer_size() {
-    let original = "behavior foo \"Foo\" {\n  contract \"old value\"\n}\n";
-    let mut buf = DocumentBuffer::new("file:///test.spec".into(), original.into());
+#[tokio::test]
+async fn incremental_sync_reduces_transfer_size() {
+    use crate::contracts::wire::Session;
+    use serde_json::json;
 
-    // Incremental change: only send the replacement text for "old value" -> "new value"
-    let incremental_payload = "new value";
-    buf.apply_change(1, 12, 1, 21, incremental_payload);
+    let (mut session, init) = Session::start(None).await;
+    // The server asks for INCREMENTAL sync: changes, not whole documents.
+    assert_eq!(init["capabilities"]["textDocumentSync"], 2);
 
-    let expected_full = "behavior foo \"Foo\" {\n  contract \"new value\"\n}\n";
-    assert_eq!(buf.content(), expected_full);
+    let uri = "file:///buffer/sync.spec";
+    let padding = "  // a long comment the edit never touches\n".repeat(40);
+    let text = format!(
+        "behavior login \"Login\" {{\n{padding}  invariants [session_limit]\n}}\n\n\
+         invariant session_limit \"Limit\" {{\n}}\n"
+    );
+    session.open(uri, &text).await;
+    assert!(session.diagnostics(uri).await.is_empty());
 
-    // The incremental payload is smaller than the full document
+    // Rename the invariant: only the changed range travels.
+    let line = text
+        .lines()
+        .position(|l| l.starts_with("invariant"))
+        .unwrap() as u32;
+    let change = json!({"range": {
+        "start": {"line": line, "character": 10},
+        "end": {"line": line, "character": 23},
+    }, "text": "quota"});
+    let full = json!({"text": text.replacen("invariant session_limit", "invariant quota", 1)});
+    let sent = change.to_string().len();
     assert!(
-        incremental_payload.len() < expected_full.len(),
-        "incremental change ({} bytes) should be smaller than full sync ({} bytes)",
-        incremental_payload.len(),
-        expected_full.len(),
+        sent * 10 < full.to_string().len(),
+        "{sent} bytes vs {} for full sync",
+        full.to_string().len()
+    );
+    session
+        .notify(
+            "textDocument/didChange",
+            json!({"textDocument": {"uri": uri, "version": 2}, "contentChanges": [change]}),
+        )
+        .await;
+
+    // The server rebuilt the whole document from the range: the reference
+    // is now dangling and the outline names the renamed invariant.
+    let diagnostics = session.diagnostics(uri).await;
+    assert_eq!(
+        diagnostics
+            .iter()
+            .map(|d| d["message"].as_str().unwrap())
+            .collect::<Vec<_>>(),
+        ["unresolved reference 'session_limit' in entity 'login'"]
+    );
+    let outline = session
+        .request(
+            "textDocument/documentSymbol",
+            json!({"textDocument": {"uri": uri}}),
+        )
+        .await;
+    let names = outline["result"].to_string();
+    assert!(
+        names.contains("quota") && !names.contains("session_limit"),
+        "{names}"
     );
 }
 
