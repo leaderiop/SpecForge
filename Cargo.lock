@@ -3023,11 +3023,13 @@ dependencies = [
  "specforge-component",
  "specforge-emitter",
  "specforge-graph",
+ "specforge-parser",
  "specforge-registry",
  "specforge-resolver",
  "specforge-test",
  "specforge-test-macros",
  "specforge-wasm",
+ "specforge-watch",
  "tempfile",
 ]
 

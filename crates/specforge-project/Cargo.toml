@@ -18,13 +18,15 @@ print_stdout = "deny"
 [dependencies]
 specforge-common = { workspace = true }
 specforge-emitter = { path = "../specforge-emitter" }
+specforge-component = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
+specforge-parser = { workspace = true }
 specforge-registry = { workspace = true }
 specforge-resolver = { path = "../specforge-resolver" }
 specforge-wasm = { workspace = true }
+specforge-watch = { path = "../specforge-watch" }
 
 [dev-dependencies]
-specforge-component = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 serde_json = { workspace = true }

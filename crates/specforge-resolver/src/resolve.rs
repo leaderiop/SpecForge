@@ -1,13 +1,17 @@
 use crate::{FileScope, ReexportDeclaration, ResolvedFile, ResolvedProject};
 use specforge_common::{Diagnostic, Severity, find_close_match};
 use specforge_parser::{SpecFile, parse};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
 
 /// Configuration for import path resolution.
 #[derive(Debug, Clone, Default)]
 pub struct ResolveConfig {
     pub path_aliases: Vec<PathAlias>,
+    /// `exclude` entries of `specforge.json`: a `.spec` file whose path
+    /// relative to the spec root contains one is not discovered. Plain
+    /// substrings, not globs (ADR 0004 D1-b).
+    pub exclude: Vec<String>,
 }
 
 /// A path alias mapping (e.g., `@shared` → `lib/shared` relative to spec_root).
@@ -18,7 +22,7 @@ pub struct PathAlias {
 }
 
 /// Result of resolving a single import path.
-enum ImportResolution {
+enum Target {
     Found(PathBuf),
     ExtensionStub { scope: String, name: String },
     NotFound,
@@ -30,30 +34,14 @@ pub fn resolve_project(spec_root: &Path) -> ResolvedProject {
     resolve_project_with_config(spec_root, &ResolveConfig::default())
 }
 
-/// Resolve a project with the given configuration.
+/// Discover, parse and resolve every `.spec` file under `spec_root` that no
+/// `exclude` entry matches. Files come back in [`Resolution::order`].
 #[must_use]
 pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> ResolvedProject {
     let mut diagnostics = Vec::new();
-    let mut parsed_files: HashMap<PathBuf, SpecFile> = HashMap::new();
-    let mut import_graph: HashMap<PathBuf, Vec<PathBuf>> = HashMap::new();
-
-    // Discover all .spec files
-    let spec_files = discover_spec_files(spec_root);
-
-    // Build candidate list for fuzzy suggestions (relative stems without .spec)
-    let candidates: Vec<String> = spec_files
-        .iter()
-        .filter_map(|p| {
-            p.strip_prefix(spec_root).ok().map(|rel| {
-                let s = rel.to_string_lossy();
-                s.strip_suffix(".spec").unwrap_or(&s).to_string()
-            })
-        })
-        .collect();
-
-    // Parse all files
-    for path in &spec_files {
-        let source = match std::fs::read_to_string(path) {
+    let mut parsed: Vec<(String, SpecFile)> = Vec::new();
+    for path in specforge_common::discover_spec_files(spec_root, &config.exclude) {
+        let source = match std::fs::read_to_string(&path) {
             Ok(s) => s,
             Err(e) => {
                 diagnostics.push(Diagnostic {
@@ -66,40 +54,107 @@ pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> 
                 continue;
             }
         };
-        let rel = path
-            .strip_prefix(spec_root)
-            .unwrap_or(path)
-            .to_string_lossy()
-            .to_string();
+        let rel = relative(spec_root, &path);
         let spec_file = parse(&source, &rel);
-        parsed_files.insert(path.clone(), spec_file);
+        parsed.push((rel, spec_file));
     }
 
-    // Resolve imports and build the file dependency graph
-    // Also track pub use reexports per file
-    let mut reexport_map: HashMap<PathBuf, Vec<ReexportDeclaration>> = HashMap::new();
+    let mut resolution = {
+        let files: Vec<(&str, &SpecFile)> = parsed.iter().map(|(p, f)| (p.as_str(), f)).collect();
+        resolve_parsed(spec_root, &files, config, &|p: &Path| p.is_file())
+    };
+    diagnostics.append(&mut resolution.diagnostics);
 
-    for (path, spec_file) in &parsed_files {
+    // Each file after the files it imports; the cyclic ones last.
+    let mut parsed: HashMap<String, SpecFile> = parsed.into_iter().collect();
+    let files = resolution
+        .order
+        .into_iter()
+        .filter_map(|path| {
+            let spec_file = parsed.remove(&path)?;
+            Some(ResolvedFile {
+                import_targets: resolution.import_targets.remove(&path).unwrap_or_default(),
+                reexports: resolution.reexports.remove(&path).unwrap_or_default(),
+                path,
+                spec_file,
+            })
+        })
+        .collect();
+
+    ResolvedProject {
+        files,
+        diagnostics,
+        file_scopes: resolution.file_scopes,
+    }
+}
+
+/// What resolving the imports of a set of parsed files yields.
+#[derive(Debug, Default)]
+pub struct Resolution {
+    /// Per file in path order, each import's E025 or I004; then one W113
+    /// per import cycle, in sorted order; then the W027s of selective
+    /// re-exports.
+    pub diagnostics: Vec<Diagnostic>,
+    /// Each file's resolved import targets (spec-root-relative).
+    pub import_targets: BTreeMap<String, Vec<String>>,
+    /// Each file's `pub use` re-exports.
+    pub reexports: BTreeMap<String, Vec<ReexportDeclaration>>,
+    pub file_scopes: HashMap<String, FileScope>,
+    /// Every file, each after the files it imports (smallest path first
+    /// among the ready ones), then the files in import cycles, by path.
+    pub order: Vec<String>,
+}
+
+/// Resolve the imports of files that are already parsed, keyed by their
+/// path relative to `spec_root`: E025, I004, W113 and W027, without
+/// walking the directory. `exists` says whether an import's candidate
+/// target file exists. Watch and the LSP run this over their cached
+/// parses after every change; `resolve_project` over what it discovered.
+#[must_use]
+pub fn resolve_parsed(
+    spec_root: &Path,
+    files: &[(&str, &SpecFile)],
+    config: &ResolveConfig,
+    exists: &dyn Fn(&Path) -> bool,
+) -> Resolution {
+    let mut files: Vec<(&str, &SpecFile)> = files.to_vec();
+    files.sort_by(|a, b| a.0.cmp(b.0));
+    let mut diagnostics = Vec::new();
+
+    // Candidates for fuzzy suggestions (relative stems without .spec).
+    let candidates: Vec<&str> = files
+        .iter()
+        .map(|(path, _)| path.strip_suffix(".spec").unwrap_or(path))
+        .collect();
+
+    // Resolve imports and build the file dependency graph, tracking each
+    // file's `pub use` re-exports.
+    let mut import_graph: BTreeMap<String, Vec<String>> = BTreeMap::new();
+    let mut reexport_map: BTreeMap<String, Vec<ReexportDeclaration>> = BTreeMap::new();
+    for (path, spec_file) in &files {
+        let importing_file = spec_root.join(path);
         let mut deps = Vec::new();
         let mut reexports = Vec::new();
         for import in &spec_file.imports {
-            match resolve_import_path(spec_root, path, import.path.as_str(), config) {
-                ImportResolution::Found(ref target) => {
-                    deps.push(target.clone());
+            match resolve_import_path(
+                spec_root,
+                &importing_file,
+                import.path.as_str(),
+                config,
+                exists,
+            ) {
+                Target::Found(ref target) => {
+                    let target_rel = relative(spec_root, target);
                     if import.is_pub {
-                        let target_rel = target
-                            .strip_prefix(spec_root)
-                            .unwrap_or(target)
-                            .to_string_lossy()
-                            .to_string();
                         reexports.push(ReexportDeclaration {
-                            target_path: target_rel,
+                            target_path: target_rel.clone(),
                             bindings: import.bindings.clone(),
                             span: import.span.clone(),
                         });
                     }
+                    deps.push(target_rel);
                 }
-                ImportResolution::ExtensionStub { scope, name } => {
+                Target::ExtensionStub { scope, name } => {
                     diagnostics.push(Diagnostic {
                         code: "I004".to_string(),
                         severity: Severity::Info,
@@ -111,12 +166,10 @@ pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> 
                         suggestion: None,
                     });
                 }
-                ImportResolution::NotFound => {
-                    let suggestion = find_close_match(
-                        import.path.as_str(),
-                        candidates.iter().map(|s| s.as_str()),
-                    )
-                    .map(|m| format!("did you mean '{}'?", m));
+                Target::NotFound => {
+                    let suggestion =
+                        find_close_match(import.path.as_str(), candidates.iter().copied())
+                            .map(|m| format!("did you mean '{}'?", m));
                     diagnostics.push(Diagnostic {
                         code: "E025".to_string(),
                         severity: Severity::Error,
@@ -127,99 +180,57 @@ pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> 
                 }
             }
         }
-        reexport_map.insert(path.clone(), reexports);
-        import_graph.insert(path.clone(), deps);
+        reexport_map.insert(path.to_string(), reexports);
+        import_graph.insert(path.to_string(), deps);
     }
 
-    // Detect import cycles
-    let cycle_participants = detect_cycles(&import_graph);
-    for cycle in &cycle_participants {
-        let names: Vec<String> = cycle
-            .iter()
-            .map(|p| {
-                p.strip_prefix(spec_root)
-                    .unwrap_or(p)
-                    .to_string_lossy()
-                    .to_string()
-            })
-            .collect();
+    // Import cycles: each named from its smallest path, in sorted order.
+    let cycles = detect_cycles(&import_graph);
+    for cycle in &cycles {
         diagnostics.push(Diagnostic {
             code: "W113".to_string(),
             severity: Severity::Warning,
-            message: format!("circular import detected: {}", names.join(" -> ")),
+            message: format!("circular import detected: {}", cycle.join(" -> ")),
             span: None,
             suggestion: Some("break the cycle by removing one of the `use` imports or extracting shared entities into a separate file".to_string()),
         });
     }
 
-    let cycle_set: HashSet<&PathBuf> = cycle_participants.iter().flatten().collect();
-
-    // Build topological order for non-cyclic files
-    let order = topological_sort(&import_graph, &cycle_set);
-
-    // Collect resolved files
-    let mut files = Vec::new();
-    // First add ordered (non-cyclic) files
-    for path in &order {
-        if let Some(spec_file) = parsed_files.remove(path) {
-            let rel_path = path
-                .strip_prefix(spec_root)
-                .unwrap_or(path)
-                .to_string_lossy()
-                .to_string();
-            let reexports = reexport_map.remove(path).unwrap_or_default();
-            files.push(ResolvedFile {
-                path: rel_path,
-                spec_file,
-                import_targets: import_graph
-                    .get(path)
-                    .map(|deps| {
-                        deps.iter()
-                            .map(|d| {
-                                d.strip_prefix(spec_root)
-                                    .unwrap_or(d)
-                                    .to_string_lossy()
-                                    .to_string()
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default(),
-                reexports,
-            });
-        }
-    }
-    // Then add cyclic files (still present, just flagged)
-    for (path, spec_file) in parsed_files {
-        let rel_path = path
-            .strip_prefix(spec_root)
-            .unwrap_or(&path)
-            .to_string_lossy()
-            .to_string();
-        let reexports = reexport_map.remove(&path).unwrap_or_default();
-        files.push(ResolvedFile {
-            path: rel_path,
-            spec_file,
-            import_targets: Vec::new(),
-            reexports,
-        });
-    }
-
-    // Compute file scopes (declared + re-exported entities per file)
-    let (file_scopes, scope_diagnostics) = compute_file_scopes(&files);
+    // File scopes (declared + re-exported entities per file), computed in
+    // topological order with the cyclic files last.
+    let cyclic: BTreeSet<&str> = cycles.iter().flatten().map(String::as_str).collect();
+    let mut order = topological_sort(&import_graph, &cyclic);
+    order.extend(cyclic.iter().copied());
+    let by_path: HashMap<&str, &SpecFile> = files.iter().copied().collect();
+    let scope_inputs: Vec<(&str, &SpecFile, &[ReexportDeclaration])> = order
+        .iter()
+        .filter_map(|path| {
+            Some((
+                *path,
+                *by_path.get(path)?,
+                reexport_map.get(*path).map(Vec::as_slice).unwrap_or(&[]),
+            ))
+        })
+        .collect();
+    let (file_scopes, scope_diagnostics) = compute_file_scopes(&scope_inputs);
     diagnostics.extend(scope_diagnostics);
 
-    ResolvedProject {
-        files,
+    let order = order.into_iter().map(str::to_string).collect();
+    Resolution {
         diagnostics,
+        import_targets: import_graph,
+        reexports: reexport_map,
         file_scopes,
+        order,
     }
 }
 
-fn discover_spec_files(root: &Path) -> Vec<PathBuf> {
-    // Shared policy (C14-16): same skip-list, symlink rule, and ordering as
-    // the LSP and the formatter — one workspace scan behaves identically
-    // everywhere.
-    specforge_common::discover_spec_files(root, &[])
+/// `path` relative to `spec_root`, as diagnostics and file keys print it.
+fn relative(spec_root: &Path, path: &Path) -> String {
+    path.strip_prefix(spec_root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .to_string()
 }
 
 /// 5-step import resolution cascade:
@@ -233,16 +244,17 @@ fn resolve_import_path(
     importing_file: &Path,
     import_path: &str,
     config: &ResolveConfig,
-) -> ImportResolution {
+    exists: &dyn Fn(&Path) -> bool,
+) -> Target {
     // Step 1: Relative paths
     if import_path.starts_with("./") || import_path.starts_with("../") {
-        return try_resolve_relative(spec_root, importing_file, import_path);
+        return try_resolve_relative(spec_root, importing_file, import_path, exists);
     }
 
     // Step 2: @-prefixed paths (aliases or extension stubs)
     if let Some(rest) = import_path.strip_prefix('@') {
         // Try alias first
-        if let Some(result) = try_resolve_alias(spec_root, rest, config) {
+        if let Some(result) = try_resolve_alias(spec_root, rest, config, exists) {
             return result;
         }
         // Fall through to extension stub
@@ -250,7 +262,7 @@ fn resolve_import_path(
     }
 
     // Step 3: Bare paths — resolve from spec_root
-    try_resolve_bare(spec_root, import_path)
+    try_resolve_bare(spec_root, import_path, exists)
 }
 
 /// Resolve a relative import (`./foo` or `../bar`) from the importing file's directory.
@@ -259,17 +271,18 @@ fn try_resolve_relative(
     spec_root: &Path,
     importing_file: &Path,
     import_path: &str,
-) -> ImportResolution {
+    exists: &dyn Fn(&Path) -> bool,
+) -> Target {
     let base = importing_file.parent().unwrap_or(spec_root);
     let raw = base.join(import_path);
     let normalized = normalize_path(&raw);
 
     // Path traversal check: normalized path must start with spec_root
     if !normalized.starts_with(spec_root) {
-        return ImportResolution::NotFound;
+        return Target::NotFound;
     }
 
-    apply_index_fallback(&normalized)
+    apply_index_fallback(&normalized, exists)
 }
 
 /// Try to resolve an `@alias/rest` path via configured path aliases.
@@ -278,7 +291,8 @@ fn try_resolve_alias(
     spec_root: &Path,
     at_rest: &str,
     config: &ResolveConfig,
-) -> Option<ImportResolution> {
+    exists: &dyn Fn(&Path) -> bool,
+) -> Option<Target> {
     let (alias, rest) = match at_rest.split_once('/') {
         Some((a, r)) => (a, Some(r)),
         None => (at_rest, None),
@@ -290,41 +304,41 @@ fn try_resolve_alias(
         Some(r) => target_dir.join(r),
         None => target_dir,
     };
-    Some(apply_index_fallback(&full))
+    Some(apply_index_fallback(&full, exists))
 }
 
 /// Recognize `@scope/name` as an extension import and return an ExtensionStub.
-fn try_resolve_extension(at_rest: &str) -> ImportResolution {
+fn try_resolve_extension(at_rest: &str) -> Target {
     match at_rest.split_once('/') {
-        Some((scope, name)) => ImportResolution::ExtensionStub {
+        Some((scope, name)) => Target::ExtensionStub {
             scope: scope.to_string(),
             name: name.to_string(),
         },
-        None => ImportResolution::NotFound,
+        None => Target::NotFound,
     }
 }
 
 /// Resolve a bare import path from spec_root.
-fn try_resolve_bare(spec_root: &Path, import_path: &str) -> ImportResolution {
-    apply_index_fallback(&spec_root.join(import_path))
+fn try_resolve_bare(spec_root: &Path, import_path: &str, exists: &dyn Fn(&Path) -> bool) -> Target {
+    apply_index_fallback(&spec_root.join(import_path), exists)
 }
 
 /// Try `path.spec` first, then `path/index.spec`. Returns `NotFound` if neither exists.
-fn apply_index_fallback(base: &Path) -> ImportResolution {
+fn apply_index_fallback(base: &Path, exists: &dyn Fn(&Path) -> bool) -> Target {
     let with_ext = base.with_extension("spec");
-    if with_ext.is_file() {
-        return ImportResolution::Found(with_ext);
+    if exists(&with_ext) {
+        return Target::Found(with_ext);
     }
     // Check for path as directory with index.spec
     let index = base.join("index.spec");
-    if index.is_file() {
-        return ImportResolution::Found(index);
+    if exists(&index) {
+        return Target::Found(index);
     }
     // Also try: maybe base already has the extension baked in by caller
-    if base.extension().is_some_and(|e| e == "spec") && base.is_file() {
-        return ImportResolution::Found(base.to_path_buf());
+    if base.extension().is_some_and(|e| e == "spec") && exists(base) {
+        return Target::Found(base.to_path_buf());
     }
-    ImportResolution::NotFound
+    Target::NotFound
 }
 
 /// Lexically normalize a path (resolve `.` and `..` without requiring filesystem existence).
@@ -342,14 +356,16 @@ fn normalize_path(path: &Path) -> PathBuf {
     result
 }
 
-fn detect_cycles(graph: &HashMap<PathBuf, Vec<PathBuf>>) -> Vec<Vec<PathBuf>> {
-    let mut cycles = Vec::new();
+/// Every import cycle found by a depth-first walk in path order, each
+/// rotated to start at its smallest path, sorted and without repeats.
+fn detect_cycles(graph: &BTreeMap<String, Vec<String>>) -> Vec<Vec<String>> {
+    let mut cycles = BTreeSet::new();
     let mut visited = HashSet::new();
     let mut on_stack = HashSet::new();
     let mut stack = Vec::new();
 
     for node in graph.keys() {
-        if !visited.contains(node) {
+        if !visited.contains(node.as_str()) {
             dfs_cycle(
                 node,
                 graph,
@@ -360,31 +376,35 @@ fn detect_cycles(graph: &HashMap<PathBuf, Vec<PathBuf>>) -> Vec<Vec<PathBuf>> {
             );
         }
     }
-    cycles
+    cycles.into_iter().collect()
 }
 
-fn dfs_cycle(
-    node: &PathBuf,
-    graph: &HashMap<PathBuf, Vec<PathBuf>>,
-    visited: &mut HashSet<PathBuf>,
-    on_stack: &mut HashSet<PathBuf>,
-    stack: &mut Vec<PathBuf>,
-    cycles: &mut Vec<Vec<PathBuf>>,
+fn dfs_cycle<'a>(
+    node: &'a str,
+    graph: &'a BTreeMap<String, Vec<String>>,
+    visited: &mut HashSet<&'a str>,
+    on_stack: &mut HashSet<&'a str>,
+    stack: &mut Vec<&'a str>,
+    cycles: &mut BTreeSet<Vec<String>>,
 ) {
-    visited.insert(node.clone());
-    on_stack.insert(node.clone());
-    stack.push(node.clone());
+    visited.insert(node);
+    on_stack.insert(node);
+    stack.push(node);
 
     if let Some(deps) = graph.get(node) {
         for dep in deps {
-            if !visited.contains(dep) {
+            if !visited.contains(dep.as_str()) {
                 if graph.contains_key(dep) {
                     dfs_cycle(dep, graph, visited, on_stack, stack, cycles);
                 }
-            } else if on_stack.contains(dep) {
-                // Found a cycle — extract it from the stack
-                let start = stack.iter().position(|n| n == dep).unwrap();
-                cycles.push(stack[start..].to_vec());
+            } else if on_stack.contains(dep.as_str()) {
+                // Found a cycle: extract it from the stack and start it at
+                // its smallest path.
+                let start = stack.iter().position(|n| *n == dep).unwrap();
+                let mut cycle: Vec<String> = stack[start..].iter().map(|s| s.to_string()).collect();
+                let smallest = (0..cycle.len()).min_by_key(|&i| &cycle[i]).unwrap_or(0);
+                cycle.rotate_left(smallest);
+                cycles.insert(cycle);
             }
         }
     }
@@ -393,82 +413,71 @@ fn dfs_cycle(
     on_stack.remove(node);
 }
 
-fn topological_sort(
-    graph: &HashMap<PathBuf, Vec<PathBuf>>,
-    cycle_set: &HashSet<&PathBuf>,
-) -> Vec<PathBuf> {
-    // Kahn's algorithm: in_degree = number of imports each file has (to non-cyclic files)
-    let mut in_deg: HashMap<&PathBuf, usize> = HashMap::new();
-    for node in graph.keys() {
-        if !cycle_set.contains(node) {
-            in_deg.entry(node).or_insert(0);
-        }
-    }
+/// The non-cyclic files, each after the files it imports (Kahn's
+/// algorithm, smallest path first among the ready ones).
+fn topological_sort<'a>(
+    graph: &'a BTreeMap<String, Vec<String>>,
+    cyclic: &BTreeSet<&str>,
+) -> Vec<&'a str> {
+    let mut in_deg: BTreeMap<&str, usize> = BTreeMap::new();
+    let mut importers: HashMap<&str, BTreeSet<&str>> = HashMap::new();
     for (node, deps) in graph {
-        if cycle_set.contains(node) {
+        if cyclic.contains(node.as_str()) {
             continue;
         }
-        let dep_count = deps
+        let deps: BTreeSet<&str> = deps
             .iter()
-            .filter(|d| !cycle_set.contains(d) && graph.contains_key(*d))
-            .count();
-        in_deg.insert(node, dep_count);
+            .map(String::as_str)
+            .filter(|d| !cyclic.contains(d) && graph.contains_key(*d))
+            .collect();
+        in_deg.insert(node, deps.len());
+        for dep in deps {
+            importers.entry(dep).or_default().insert(node);
+        }
     }
 
-    let mut queue: VecDeque<&PathBuf> = in_deg
+    let mut ready: BTreeSet<&str> = in_deg
         .iter()
         .filter(|(_, deg)| **deg == 0)
         .map(|(node, _)| *node)
         .collect();
-
-    // Sort queue for deterministic output
-    let mut sorted_queue: Vec<&PathBuf> = queue.drain(..).collect();
-    sorted_queue.sort();
-    queue.extend(sorted_queue);
-
     let mut result = Vec::new();
-    while let Some(node) = queue.pop_front() {
-        result.push(node.clone());
-        // Find all nodes that depend on this node
-        for (other, deps) in graph {
-            if cycle_set.contains(other) || result.contains(other) {
-                continue;
-            }
-            if deps.contains(node)
-                && let Some(deg) = in_deg.get_mut(other)
-            {
-                *deg = deg.saturating_sub(1);
+    while let Some(node) = ready.pop_first() {
+        result.push(node);
+        for importer in importers.get(node).into_iter().flatten() {
+            if let Some(deg) = in_deg.get_mut(importer) {
+                *deg -= 1;
                 if *deg == 0 {
-                    queue.push_back(other);
+                    ready.insert(importer);
                 }
             }
         }
     }
-
     result
 }
 
 /// Compute file scopes: for each file, determine which entity IDs are declared
 /// and which are exported (declared + re-exported via `pub use`).
 ///
-/// Files are processed in the order given (assumed topologically sorted for
+/// Files are processed in the order given (topologically sorted for
 /// non-cyclic files, cyclic files appended at the end). For cycle participants
 /// whose scope hasn't been computed yet, only their `declared` set is used
 /// (no transitive resolution).
-fn compute_file_scopes(files: &[ResolvedFile]) -> (HashMap<String, FileScope>, Vec<Diagnostic>) {
+fn compute_file_scopes(
+    files: &[(&str, &SpecFile, &[ReexportDeclaration])],
+) -> (HashMap<String, FileScope>, Vec<Diagnostic>) {
     let mut scopes: HashMap<String, FileScope> = HashMap::new();
     let mut diagnostics = Vec::new();
 
     // First pass: build declared sets for all files
-    for file in files {
-        let declared: HashSet<String> = file
-            .spec_file
+    for (path, spec_file, _) in files {
+        let declared: HashSet<String> = spec_file
             .entities
             .iter()
             .map(|e| e.id.raw.to_string())
             .collect();
         scopes.insert(
-            file.path.clone(),
+            path.to_string(),
             FileScope {
                 exported: declared.clone(),
                 declared,
@@ -478,14 +487,14 @@ fn compute_file_scopes(files: &[ResolvedFile]) -> (HashMap<String, FileScope>, V
 
     // Second pass: process re-exports (files are in topological order,
     // so targets should already have their scopes computed)
-    for file in files {
-        if file.reexports.is_empty() {
+    for (path, _, reexports) in files {
+        if reexports.is_empty() {
             continue;
         }
 
         let mut additional_exports = HashSet::new();
 
-        for reexport in &file.reexports {
+        for reexport in reexports.iter() {
             let target_exported = scopes
                 .get(&reexport.target_path)
                 .map(|s| &s.exported)
@@ -521,7 +530,7 @@ fn compute_file_scopes(files: &[ResolvedFile]) -> (HashMap<String, FileScope>, V
             }
         }
 
-        if let Some(scope) = scopes.get_mut(&file.path) {
+        if let Some(scope) = scopes.get_mut(*path) {
             scope.exported.extend(additional_exports);
         }
     }

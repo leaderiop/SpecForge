@@ -32,11 +32,7 @@ pub fn discover_spec_files(root: &Path, exclude: &[String]) -> Vec<PathBuf> {
         let path = entry.path();
         if path.extension().is_some_and(|ext| ext == "spec") {
             let relative = path.strip_prefix(root).unwrap_or(path);
-            let rel_str = relative.to_string_lossy();
-            if exclude
-                .iter()
-                .any(|pattern| rel_str.contains(pattern.as_str()))
-            {
+            if is_excluded(&relative.to_string_lossy(), exclude) {
                 continue;
             }
             files.push(path.to_path_buf());
@@ -44,6 +40,14 @@ pub fn discover_spec_files(root: &Path, exclude: &[String]) -> Vec<PathBuf> {
     }
     files.sort();
     files
+}
+
+/// Whether `relative` (a path relative to the walked root) matches an
+/// `exclude` pattern: patterns are plain substrings, not globs.
+pub fn is_excluded(relative: &str, exclude: &[String]) -> bool {
+    exclude
+        .iter()
+        .any(|pattern| relative.contains(pattern.as_str()))
 }
 
 #[cfg(test)]

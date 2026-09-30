@@ -1,7 +1,10 @@
 pub mod linker;
 mod resolve;
 
-pub use resolve::{PathAlias, ResolveConfig, resolve_project, resolve_project_with_config};
+pub use resolve::{
+    PathAlias, Resolution, ResolveConfig, resolve_parsed, resolve_project,
+    resolve_project_with_config,
+};
 pub use specforge_common::{Diagnostic, Severity, SourceSpan};
 pub use specforge_parser::{
     Entity, FieldValue, ImportBinding, ImportDeclaration, ImportKind, SpecFile,

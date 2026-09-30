@@ -7,13 +7,11 @@
 //!
 //! Diagnostics are compared as multisets of `"CODE severity file:line"`
 //! keys (`-` for a diagnostic without a span; the file is relative to the
-//! spec root). Two surfaces cannot say everything `check` says, so `check`'s
-//! keys are projected onto what they can say:
-//! - the LSP must attach a span-less diagnostic to some document, and puts
-//!   it on the edited one at line 1;
-//! - watch prints only counts, so its keys are one `"error"` or `"warning"`
-//!   per diagnostic. Its `rebuilt` event also gets a key when the debug
-//!   build's check of the incremental graph against a cold build fails.
+//! spec root). The LSP cannot say everything `check` says: it must attach
+//! a span-less diagnostic to some document, and puts it on the edited one
+//! at line 1, so `check`'s keys are projected onto that. Watch's events
+//! carry the full list; its `rebuilt` event also gets a key when the debug
+//! build's check of the incremental graph against a cold build fails.
 //!
 //! Where a surface disagrees with `check` today, the disagreement is written
 //! down in [`EXPECTED_DIVERGENCES`]. The harness asserts that each surface
@@ -21,11 +19,11 @@
 //! step that closes a divergence makes this test fail until its row is
 //! deleted, so a step can only turn green on purpose.
 //!
-//! These tests characterize the surfaces; they prove no spec obligation, so
-//! they are not linked. The obligations the plan names for this seam
-//! (`incremental_correctness`, `diagnostic_determinism`) are violated today:
-//! see the `D16` row, and `check`'s W113 message, which names an import
-//! cycle in HashMap order.
+//! The per-fixture tests characterize the surfaces and are not linked.
+//! Two tests prove the obligations the plan names for this seam, over every
+//! fixture: `check` prints the same diagnostics in the same order on every
+//! run (`diagnostic_determinism`), and watch's rebuilt graph is a cold
+//! build's, with the diagnostics `check` reports (`incremental_correctness`).
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -36,6 +34,7 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use serde_json::{Value, json};
+use specforge_test::prelude::*;
 use tempfile::TempDir;
 
 // ── Fixtures ────────────────────────────────────────────────────────────
@@ -97,105 +96,27 @@ struct Divergence {
     missing: &'static [&'static str],
     /// Keys the surface reports that `check` does not.
     extra: &'static [&'static str],
-    /// The difference shows on some runs and not on others: the surface is
-    /// nondeterministic here. The harness accepts it present or absent.
-    unstable: bool,
 }
 
 /// What each surface gets wrong today. Later steps delete rows; none may be
 /// added to excuse a regression.
 const EXPECTED_DIVERGENCES: &[Divergence] = &[
-    // D1: watch never reports resolver diagnostics; the LSP never runs the
-    // resolver. E025 reaches `check` and MCP only.
+    // D1: the LSP never runs the resolver, so E025 never reaches it.
     Divergence {
         id: "D1",
         fixture: "missing_import",
         surface: Surface::Lsp,
         missing: &["E025 error main.spec:1"],
         extra: &[],
-        unstable: false,
     },
-    Divergence {
-        id: "D1",
-        fixture: "missing_import",
-        surface: Surface::WatchReady,
-        missing: &["error"],
-        extra: &[],
-        unstable: false,
-    },
-    Divergence {
-        id: "D1",
-        fixture: "missing_import",
-        surface: Surface::WatchRebuilt,
-        missing: &["error"],
-        extra: &[],
-        unstable: false,
-    },
-    // D2: extension load diagnostics (E028) reach `check`, MCP and the
-    // LSP, but not watch.
-    Divergence {
-        id: "D2",
-        fixture: "unknown_extension",
-        surface: Surface::WatchReady,
-        missing: &["error"],
-        extra: &[],
-        unstable: false,
-    },
-    Divergence {
-        id: "D2",
-        fixture: "unknown_extension",
-        surface: Surface::WatchRebuilt,
-        missing: &["error"],
-        extra: &[],
-        unstable: false,
-    },
-    // D3: W113 differs by surface. The LSP's import DAG is keyed by
-    // absolute paths, so it never sees the cycle. Watch's cold build drops
-    // the resolver's W113 (as D1), and its own import DAG misses the cycle
-    // at cold build (see the next row), so `ready` has no W113.
+    // D3: the LSP's import DAG is keyed by absolute paths, so it never sees
+    // the import cycle (W113).
     Divergence {
         id: "D3",
         fixture: "import_cycle",
         surface: Surface::Lsp,
         missing: &["W113 warning a.spec:1"],
         extra: &[],
-        unstable: false,
-    },
-    Divergence {
-        id: "D3",
-        fixture: "import_cycle",
-        surface: Surface::WatchReady,
-        missing: &["warning"],
-        extra: &[],
-        unstable: false,
-    },
-    // D3, and a nondeterminism: `ImportDag::set_imports_resolved` resolves
-    // an import only against files already inserted, and the resolver
-    // hands files over in HashMap order. So one direction of the cycle
-    // stays unresolved at cold build, and whether a rebuild of `a.spec`
-    // re-resolves both files (W113) or only one (none) depends on that
-    // order. (`check`'s own W113 message also names the cycle in HashMap
-    // order, "a.spec -> b.spec" or "b.spec -> a.spec"; the keys compared
-    // here carry no message.)
-    Divergence {
-        id: "D3",
-        fixture: "import_cycle",
-        surface: Surface::WatchRebuilt,
-        missing: &["warning"],
-        extra: &[],
-        unstable: true,
-    },
-    // D6: `exclude` is honoured only by the LSP; `check`, MCP and watch
-    // read the excluded draft, so they report its duplicate ID and W004.
-    // (Patterns match as path substrings, not globs: `drafts/` works,
-    // `drafts/**` excludes nothing anywhere.)
-    Divergence {
-        id: "D6",
-        fixture: "exclude",
-        surface: Surface::Lsp,
-        missing: &["E002 error main.spec:1", "W004 warning drafts/draft.spec:2"],
-        extra: &[],
-        unstable: false,
     },
     // D4: the LSP's delete branch re-checks with the default validator, not
     // `check_graph`, so extension-rule diagnostics in surviving files (here
@@ -206,7 +127,6 @@ const EXPECTED_DIVERGENCES: &[Divergence] = &[
         surface: Surface::LspAfterDelete,
         missing: &["E006 error main.spec:2"],
         extra: &[],
-        unstable: false,
     },
     // D5: after a `specforge.json` change the LSP reloads and re-indexes
     // (the project root, not the spec root) but never republishes.
@@ -216,21 +136,6 @@ const EXPECTED_DIVERGENCES: &[Divergence] = &[
         surface: Surface::LspAfterReload,
         missing: &["E003 error main.spec:5"],
         extra: &[],
-        unstable: false,
-    },
-    // Not in the plan (found by this harness): with a duplicate ID, the cold
-    // build keeps the first declaration (drafts/draft.spec) but watch's
-    // incremental rebuild of main.spec keeps main.spec's. The rebuilt graph
-    // differs from a cold build (the debug build's verification fails) and
-    // the draft's W004 disappears. Closing D6 hides it on this fixture
-    // without fixing it.
-    Divergence {
-        id: "D16",
-        fixture: "exclude",
-        surface: Surface::WatchRebuilt,
-        missing: &["warning"],
-        extra: &[INCREMENTAL_MISMATCH],
-        unstable: false,
     },
 ];
 
@@ -279,19 +184,6 @@ fn as_published(keys: &Keys, edited: &str) -> Keys {
             None => k.clone(),
         };
         *out.entry(k).or_default() += n;
-    }
-    out
-}
-
-/// Project `check`'s keys onto what watch can report: one severity per
-/// error or warning.
-fn severities(keys: &Keys) -> Keys {
-    let mut out = Keys::new();
-    for (k, &n) in keys {
-        let severity = k.split(' ').nth(1).unwrap_or_default();
-        if severity == "error" || severity == "warning" {
-            *out.entry(severity.to_string()).or_default() += n;
-        }
     }
     out
 }
@@ -359,18 +251,30 @@ fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_specforge")
 }
 
-/// `specforge check --format json`, as keys in output order.
-fn check(project: &Project) -> Vec<String> {
+/// `specforge check --format json`, as printed.
+fn check_output(project: &Project) -> String {
     let out = Command::new(binary())
         .args(["check", "--format", "json"])
         .arg(&project.root)
         .output()
         .unwrap();
-    let diagnostics: Value = serde_json::from_slice(&out.stdout)
-        .unwrap_or_else(|e| panic!("check JSON ({e}): {}", String::from_utf8_lossy(&out.stdout)));
+    String::from_utf8(out.stdout).unwrap()
+}
+
+/// `specforge check --format json`, as keys in output order.
+fn check(project: &Project) -> Vec<String> {
+    let out = check_output(project);
+    let diagnostics: Value =
+        serde_json::from_str(&out).unwrap_or_else(|e| panic!("check JSON ({e}): {out}"));
+    keys_of(&diagnostics)
+}
+
+/// The keys of a diagnostic list serialized as `check` prints it (nested
+/// `span`), in list order.
+fn keys_of(diagnostics: &Value) -> Vec<String> {
     diagnostics
         .as_array()
-        .unwrap()
+        .unwrap_or_else(|| panic!("not a diagnostic list: {diagnostics}"))
         .iter()
         .map(|d| {
             let location = d["span"].as_object().map(|s| {
@@ -687,24 +591,18 @@ fn wait_for_event(rx: &mpsc::Receiver<String>, name: &str) -> Value {
 /// incremental graph against a cold rebuild fails.
 const INCREMENTAL_MISMATCH: &str = "incremental graph differs from a cold build";
 
-/// One severity key per error and warning an event counts, plus
+/// The keys of the diagnostics an event lists, plus
 /// [`INCREMENTAL_MISMATCH`] when the event's verification failed.
 fn event_keys(event: &Value) -> Keys {
-    let mut keys = Keys::new();
-    for severity in ["error", "warning"] {
-        let n = event[format!("{severity}s")].as_u64().unwrap() as usize;
-        if n > 0 {
-            keys.insert(severity.to_string(), n);
-        }
-    }
+    let mut keys = multiset(keys_of(&event["diagnostics"]));
     if event["verification_failed"] == true {
         keys.insert(INCREMENTAL_MISMATCH.to_string(), 1);
     }
     keys
 }
 
-/// Watch's `ready` counts, then its `rebuilt` counts after the entry file
-/// is rewritten with the same entities.
+/// Watch's `ready` diagnostics, then its `rebuilt` diagnostics after the
+/// entry file is rewritten with the same entities.
 fn watch(project: &Project) -> (Keys, Keys) {
     let mut child = Command::new(binary())
         .args(["watch", "--json", "--path"])
@@ -741,15 +639,13 @@ fn watch(project: &Project) -> (Keys, Keys) {
 // ── The comparison ──────────────────────────────────────────────────────
 
 /// The difference the table expects for one surface on one fixture:
-/// `(missing, extra)`, sorted. With `with_unstable` false, rows marked
-/// unstable are left out.
-fn expected(fixture: &str, surface: Surface, with_unstable: bool) -> (Vec<String>, Vec<String>) {
+/// `(missing, extra)`, sorted.
+fn expected(fixture: &str, surface: Surface) -> (Vec<String>, Vec<String>) {
     let mut missing = Vec::new();
     let mut extra = Vec::new();
     for row in EXPECTED_DIVERGENCES
         .iter()
         .filter(|d| d.fixture == fixture && d.surface == surface)
-        .filter(|d| with_unstable || !d.unstable)
     {
         missing.extend(row.missing.iter().map(|s| s.to_string()));
         extra.extend(row.extra.iter().map(|s| s.to_string()));
@@ -761,8 +657,8 @@ fn expected(fixture: &str, surface: Surface, with_unstable: bool) -> (Vec<String
 
 fn compare(fixture: &str, surface: Surface, check: &Keys, got: &Keys, failures: &mut Vec<String>) {
     let found = (difference(check, got), difference(got, check));
-    let want = expected(fixture, surface, true);
-    if found == want || found == expected(fixture, surface, false) {
+    let want = expected(fixture, surface);
+    if found == want {
         return;
     }
     let ids: Vec<&str> = EXPECTED_DIVERGENCES
@@ -804,18 +700,17 @@ fn assert_parity(fixture: &str) {
     );
 
     let (ready, rebuilt) = watch(&project);
-    let watchable = severities(&check_keys);
     compare(
         fixture,
         Surface::WatchReady,
-        &watchable,
+        &check_keys,
         &ready,
         &mut failures,
     );
     compare(
         fixture,
         Surface::WatchRebuilt,
-        &watchable,
+        &check_keys,
         &rebuilt,
         &mut failures,
     );
@@ -903,6 +798,50 @@ fn parity_body_parser_type() {
 #[test]
 fn parity_delete_file() {
     assert_parity("delete_file");
+}
+
+/// `check` prints the same diagnostics, messages included, in the same
+/// order on every run: no W113 cycle named in HashMap order, no file
+/// order leaking into the output.
+#[specforge_test(
+    invariant = "diagnostic_determinism",
+    verify = "identical source files produce identical diagnostics in the same order"
+)]
+fn check_prints_the_same_diagnostics_on_every_run() {
+    for &(fixture, entry, _) in FIXTURES {
+        let project = project(fixture, entry);
+        let first = check_output(&project);
+        for _ in 0..2 {
+            assert_eq!(
+                check_output(&project),
+                first,
+                "`{fixture}` changed between runs"
+            );
+        }
+    }
+}
+
+/// On every fixture, watch's graph after a rebuild is a cold build's (the
+/// debug build compares them) and its diagnostics are `check`'s.
+#[specforge_test(
+    invariant = "incremental_correctness",
+    verify = "incremental recompilation produces the same graph as a full rebuild"
+)]
+fn watch_rebuilds_what_a_cold_build_builds_on_every_fixture() {
+    let mut failures = Vec::new();
+    for &(fixture, entry, _) in FIXTURES {
+        let project = project(fixture, entry);
+        let check_keys = multiset(check(&project));
+        let (_, rebuilt) = watch(&project);
+        compare(
+            fixture,
+            Surface::WatchRebuilt,
+            &check_keys,
+            &rebuilt,
+            &mut failures,
+        );
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
 /// Every row names a fixture the harness runs, and every fixture exists.

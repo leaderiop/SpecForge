@@ -816,93 +816,8 @@ fn emit_incremental_diagnostics_contract() {
     );
 }
 
-// ── cycle detection re-runs after import DAG update ───────────
-
-#[spec(
-    behavior = "track_import_dag_incrementally",
-    verify = "cycle detection re-runs after import DAG update"
-)]
-fn cycle_detection_reruns_after_import_dag_update() {
-    // Use file paths as import targets so the DAG keys are consistent.
-    // In production, the resolver normalizes import paths to file paths.
-    let (mut pipeline, mut sources) = cold_build(&[
-        ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-        (
-            "b.spec",
-            "use \"a.spec\"\nbehavior bar \"Bar\" { contract \"y\" }",
-        ),
-    ]);
-
-    // No cycles initially
-    let initial_diags = pipeline.diagnostics();
-    assert!(
-        !initial_diags.iter().any(|d| d.code == "W113"),
-        "should have no cycle warnings initially"
-    );
-
-    // Introduce a cycle: a.spec now imports b.spec
-    sources.insert(
-        "a.spec".to_string(),
-        "use \"b.spec\"\nbehavior foo \"Foo\" { contract \"x\" }".to_string(),
-    );
-
-    let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
-
-    // Should now have W113 for the cycle
-    assert!(
-        result.diagnostics.iter().any(|d| d.code == "W113"),
-        "should detect import cycle after DAG update, diags: {:?}",
-        result
-            .diagnostics
-            .iter()
-            .map(|d| &d.code)
-            .collect::<Vec<_>>()
-    );
-}
-
-#[spec(
-    behavior = "track_import_dag_incrementally",
-    verify = "cycle detection re-runs after import DAG update"
-)]
-fn cycle_resolved_after_removing_circular_import() {
-    let (mut pipeline, mut sources) = cold_build(&[
-        (
-            "a.spec",
-            "use \"b.spec\"\nbehavior foo \"Foo\" { contract \"x\" }",
-        ),
-        (
-            "b.spec",
-            "use \"a.spec\"\nbehavior bar \"Bar\" { contract \"y\" }",
-        ),
-    ]);
-
-    // Cycle should be detected initially
-    let initial_diags = pipeline.diagnostics();
-    assert!(
-        initial_diags.iter().any(|d| d.code == "W113"),
-        "should have cycle warning initially, diags: {:?}",
-        initial_diags.iter().map(|d| &d.code).collect::<Vec<_>>()
-    );
-
-    // Fix: remove the import from a.spec
-    sources.insert(
-        "a.spec".to_string(),
-        r#"behavior foo "Foo" { contract "x" }"#.to_string(),
-    );
-
-    let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
-
-    // Cycle warning should be gone
-    assert!(
-        !result.diagnostics.iter().any(|d| d.code == "W113"),
-        "cycle warning should be resolved, diags: {:?}",
-        result
-            .diagnostics
-            .iter()
-            .map(|d| &d.code)
-            .collect::<Vec<_>>()
-    );
-}
+// Import cycles (W113) come from the resolver over the cached parses: the
+// session re-runs it after every update (specforge-project's tests).
 
 // --- tree reuse + update_open_file (shared watch/LSP core) ---
 
@@ -1133,4 +1048,52 @@ fn red_green_matches_cold_after_target_edit() {
         .collect();
     cold_edges.sort();
     assert_eq!(inc_edges, cold_edges, "edge sets must match cold rebuild");
+}
+
+/// With a duplicate ID the cold build keeps the declaration in the first
+/// file by path. Rebuilding the later file must not take the entity over,
+/// and removing the first file must bring the later one's back.
+#[spec(
+    behavior = "rebuild_affected_subgraph",
+    verify = "incremental rebuild equals cold rebuild"
+)]
+fn a_duplicate_id_keeps_the_first_declaration_by_path() {
+    let (mut pipeline, mut sources) = cold_build(&[
+        (
+            "drafts/draft.spec",
+            r#"behavior greet "Draft" { contract "d" }"#,
+        ),
+        ("main.spec", r#"behavior greet "Main" { contract "m" }"#),
+    ]);
+    pipeline.set_verify_incremental(true);
+    let owner = |p: &IncrementalPipeline| {
+        p.graph()
+            .node("greet")
+            .unwrap()
+            .source_span
+            .file
+            .to_string()
+    };
+    assert_eq!(owner(&pipeline), "drafts/draft.spec");
+
+    let result = pipeline.rebuild(&["main.spec".to_string()], |f| sources.get(f).cloned());
+    assert_eq!(
+        result.verification,
+        Some(Ok(())),
+        "{:?}",
+        result.verification
+    );
+    assert_eq!(owner(&pipeline), "drafts/draft.spec");
+
+    sources.remove("drafts/draft.spec");
+    let result = pipeline.rebuild(&["drafts/draft.spec".to_string()], |f| {
+        sources.get(f).cloned()
+    });
+    assert_eq!(
+        result.verification,
+        Some(Ok(())),
+        "{:?}",
+        result.verification
+    );
+    assert_eq!(owner(&pipeline), "main.spec");
 }

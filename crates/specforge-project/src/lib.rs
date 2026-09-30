@@ -8,20 +8,28 @@
 //!   loaded extensions before any `.spec` file is read;
 //! - a [`CompiledProject`] is an environment plus the resolved sources and
 //!   the built graph. Its [`CompiledProject::diagnostics`] are, by
-//!   definition, what `specforge check` reports.
+//!   definition, what `specforge check` reports;
+//! - a [`ProjectSession`] is a long-lived compiled project that accepts
+//!   source changes and environment reloads (watch holds one). After any
+//!   sequence of updates its diagnostics are the set a fresh compile
+//!   reports.
 //!
 //! [`CompilationContext`] is the flat view older callers read; it is built
 //! from a compiled project with [`CompiledProject::into_context`].
 
+mod session;
+
 use std::path::{Path, PathBuf};
 
-use specforge_common::{Diagnostic, ProjectConfig, load_project_config};
+use specforge_common::{Diagnostic, ProjectConfig, is_excluded, load_project_config};
 use specforge_emitter::compile::{GraphChecks, check_graph, load_extensions};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
+use specforge_parser::SpecFile;
 use specforge_registry::{RegistryBuild, build_registries};
-use specforge_resolver::{ResolvedProject, resolve_project};
+use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
 use specforge_wasm::WasmRuntime;
 
+pub use session::{ProjectSession, SharedRuntime, SourceChange, Update};
 pub use specforge_emitter::compile::CompilationContext;
 
 /// Everything derived from `specforge.json` and the loaded extensions,
@@ -93,10 +101,37 @@ impl Environment {
         &self.registries.surface_diagnostics
     }
 
+    /// How imports resolve and which files are discovered: the config's
+    /// `exclude` entries apply, relative to the spec root.
+    pub fn resolve_config(&self) -> ResolveConfig {
+        ResolveConfig {
+            exclude: self.config.exclude.clone(),
+            ..ResolveConfig::default()
+        }
+    }
+
+    /// Whether a `.spec` file (its path relative to the spec root) is left
+    /// out of the project by an `exclude` entry.
+    pub fn excludes(&self, relative: &str) -> bool {
+        is_excluded(relative, &self.config.exclude)
+    }
+
     /// Discover, parse and resolve the project's `.spec` files.
     pub fn resolve(&self) -> ResolvedProject {
-        resolve_project(&self.spec_root)
+        resolve_project_with_config(&self.spec_root, &self.resolve_config())
     }
+}
+
+/// The resolved files as the graph is built from them: in path order, the
+/// order an incremental rebuild applies first-writer-wins in too.
+fn sources_in_path_order(resolved: &ResolvedProject) -> Vec<(String, SpecFile)> {
+    let mut sources: Vec<(String, SpecFile)> = resolved
+        .files
+        .iter()
+        .map(|f| (f.path.clone(), f.spec_file.clone()))
+        .collect();
+    sources.sort_by(|a, b| a.0.cmp(&b.0));
+    sources
 }
 
 /// A one-shot compile: an environment, the resolved sources and the graph
@@ -119,7 +154,10 @@ impl CompiledProject {
     pub fn compile(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
         let env = Environment::load(root, runtime);
         let resolved = env.resolve();
-        let spec_files: Vec<_> = resolved.files.iter().map(|f| f.spec_file.clone()).collect();
+        let spec_files: Vec<SpecFile> = sources_in_path_order(&resolved)
+            .into_iter()
+            .map(|(_, spec_file)| spec_file)
+            .collect();
         let (graph, graph_diagnostics) = build_graph_with_config(&spec_files, &env.graph_config());
         let check_diagnostics = check_graph(&graph, &env.checks(runtime));
         CompiledProject {
@@ -148,7 +186,6 @@ impl CompiledProject {
     /// The flat view older callers read.
     pub fn into_context(self) -> CompilationContext {
         let diagnostics = self.diagnostics();
-        let graph_config = self.env.graph_config();
         let CompiledProject {
             env,
             resolved,
@@ -169,7 +206,6 @@ impl CompiledProject {
             manifest_surfaces: registries.manifest_surfaces,
             manifests: registries.manifests,
             spec_root: env.spec_root,
-            graph_config,
         }
     }
 }

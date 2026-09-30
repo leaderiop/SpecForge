@@ -37,8 +37,6 @@ pub struct CompilationContext {
     /// Raw extension manifests (needed for outline rendering).
     pub manifests: Vec<ManifestV2>,
     pub spec_root: std::path::PathBuf,
-    /// The inputs the graph was built with, for rebuilding it (watch).
-    pub graph_config: GraphConfig,
 }
 
 /// The graph build's inputs, from a registry build. Every surface that
@@ -233,7 +231,6 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
         manifest_surfaces: Vec::new(),
         manifests: Vec::new(),
         spec_root,
-        graph_config: GraphConfig::default(),
     }
 }
 

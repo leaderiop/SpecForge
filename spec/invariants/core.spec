@@ -53,13 +53,15 @@ invariant string_interning_consistency "String Interning Consistency" {
 
 invariant import_dag "Import DAG" {
   guarantee """
-    The use import graph MUST form a directed acyclic graph (DAG).
-    The compiler MUST detect and reject circular imports with an E003
-    diagnostic that names the cycle participants.
+    The use import graph SHOULD form a directed acyclic graph (DAG).
+    References resolve across the whole project without use, so a cycle
+    changes nothing: the compiler MUST detect circular imports and report
+    each with a W113 warning that names the cycle participants, in the
+    same order on every run. Files in a cycle are still compiled.
   """
   risk      medium
   verify property "an acyclic import graph is accepted without diagnostics"
-  verify unit "a circular import produces E003 naming the cycle participants"
+  verify unit "a circular import produces W113 naming the cycle participants in a deterministic order"
 }
 
 invariant entity_id_uniqueness "Entity ID Uniqueness" {

@@ -537,6 +537,7 @@ fn resolve_path_alias() {
             alias: "shared".to_string(),
             target: "lib/shared".to_string(),
         }],
+        ..ResolveConfig::default()
     };
     let result = resolve_project_with_config(dir.path(), &config);
 
@@ -1247,4 +1248,67 @@ fn use_import_may_spell_out_the_spec_extension() {
         "{:?}",
         result.diagnostics
     );
+}
+
+/// W113 names each cycle from its smallest path, and the cycles come in
+/// sorted order, whatever order the files were walked in (ADR 0004 D1-a).
+#[specforge_test(
+    invariant = "import_dag",
+    verify = "a circular import produces W113 naming the cycle participants in a deterministic order"
+)]
+fn w113_names_each_cycle_the_same_way_on_every_run() {
+    let dir = setup_project(&[
+        ("c.spec", "use \"a\"\nbehavior gamma \"G\" { }"),
+        ("a.spec", "use \"b\"\nbehavior alpha \"A\" { }"),
+        ("b.spec", "use \"c\"\nbehavior beta \"B\" { }"),
+        ("y.spec", "use \"x\"\nbehavior yankee \"Y\" { }"),
+        ("x.spec", "use \"y\"\nbehavior xray \"X\" { }"),
+    ]);
+
+    for _ in 0..20 {
+        let result = resolve_project(dir.path());
+        let messages: Vec<&str> = result
+            .diagnostics
+            .iter()
+            .filter(|d| d.code == "W113")
+            .map(|d| d.message.as_str())
+            .collect();
+        assert_eq!(
+            messages,
+            [
+                "circular import detected: a.spec -> b.spec -> c.spec",
+                "circular import detected: x.spec -> y.spec",
+            ]
+        );
+    }
+}
+
+/// `exclude` entries are path substrings relative to the spec root, not
+/// globs (ADR 0004 D1-b).
+#[specforge_test(
+    behavior = "resolve_use_imports",
+    verify = "files matching an exclude entry are not compiled"
+)]
+fn excluded_files_are_not_compiled() {
+    let dir = setup_project(&[
+        ("main.spec", "behavior alpha \"A\" { }"),
+        ("drafts/draft.spec", "behavior alpha \"A again\" { }"),
+    ]);
+    let paths = |exclude: &[&str]| -> Vec<String> {
+        let config = ResolveConfig {
+            exclude: exclude.iter().map(|s| s.to_string()).collect(),
+            ..ResolveConfig::default()
+        };
+        let mut paths: Vec<String> = resolve_project_with_config(dir.path(), &config)
+            .files
+            .into_iter()
+            .map(|f| f.path)
+            .collect();
+        paths.sort();
+        paths
+    };
+
+    assert_eq!(paths(&[]), ["drafts/draft.spec", "main.spec"]);
+    assert_eq!(paths(&["drafts/"]), ["main.spec"]);
+    assert_eq!(paths(&["drafts/**"]), ["drafts/draft.spec", "main.spec"]);
 }

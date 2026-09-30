@@ -266,3 +266,126 @@ fn watch_rebuild_reports_what_check_reports() {
         "watch: {event}\ncheck: {check}"
     );
 }
+
+/// A diagnostic list (check's JSON, or a watch event's `diagnostics`) as a
+/// multiset of compact JSON: order-independent, nothing dropped.
+fn diagnostic_set(list: &serde_json::Value) -> std::collections::BTreeMap<String, usize> {
+    let mut set = std::collections::BTreeMap::new();
+    for d in list
+        .as_array()
+        .unwrap_or_else(|| panic!("not a list: {list}"))
+    {
+        *set.entry(d.to_string()).or_default() += 1;
+    }
+    set
+}
+
+/// Copy a parity fixture, run watch on it until `ready`, rewrite `main.spec`
+/// unchanged plus a newline, and return (ready, rebuilt, check's list).
+fn watch_and_check(fixture: &str) -> (serde_json::Value, serde_json::Value, serde_json::Value) {
+    let project = TempDir::new().unwrap();
+    let from = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures/parity")
+        .join(fixture);
+    for entry in fs::read_dir(&from).unwrap() {
+        let entry = entry.unwrap();
+        fs::copy(entry.path(), project.path().join(entry.file_name())).unwrap();
+    }
+
+    let (rx, mut child) = spawn_watch(&project);
+    let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
+        .expect("watch never reported ready");
+    std::thread::sleep(Duration::from_millis(300));
+    let main = project.path().join("main.spec");
+    let text = fs::read_to_string(&main).unwrap();
+    fs::write(&main, format!("{text}\n")).unwrap();
+    let rebuilt = wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60))
+        .expect("no rebuild event");
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let check = specforge_cmd()
+        .args(["check", "--format", "json"])
+        .arg(project.path())
+        .output()
+        .unwrap();
+    (
+        serde_json::from_str(&ready).unwrap(),
+        serde_json::from_str(&rebuilt).unwrap(),
+        serde_json::from_slice(&check.stdout).unwrap(),
+    )
+}
+
+/// The resolver's E025 reaches watch at startup and after a rebuild, with
+/// everything else `check` reports (plan 01, D1).
+#[specforge_test(
+    behavior = "emit_incremental_diagnostics",
+    verify = "total diagnostic set matches full rebuild"
+)]
+fn watch_reports_what_check_reports_for_a_missing_import() {
+    let (ready, rebuilt, check) = watch_and_check("missing_import");
+    assert!(
+        diagnostic_set(&check)
+            .keys()
+            .any(|d| d.contains("\"E025\"")),
+        "{check}"
+    );
+    assert_eq!(
+        diagnostic_set(&ready["diagnostics"]),
+        diagnostic_set(&check)
+    );
+    assert_eq!(
+        diagnostic_set(&rebuilt["diagnostics"]),
+        diagnostic_set(&check)
+    );
+    assert_eq!(rebuilt["verification"], "passed", "{rebuilt}");
+}
+
+/// An extension that fails to load (E028) is reported by watch as by
+/// `check`, before and after a rebuild (plan 01, D2).
+#[specforge_test(
+    behavior = "rebuild_affected_subgraph",
+    verify = "incremental rebuild equals cold rebuild"
+)]
+fn watch_reports_what_check_reports_for_an_extension_that_fails_to_load() {
+    let (ready, rebuilt, check) = watch_and_check("unknown_extension");
+    assert!(
+        diagnostic_set(&check)
+            .keys()
+            .any(|d| d.contains("\"E028\"")),
+        "{check}"
+    );
+    assert_eq!(
+        diagnostic_set(&ready["diagnostics"]),
+        diagnostic_set(&check)
+    );
+    assert_eq!(
+        diagnostic_set(&rebuilt["diagnostics"]),
+        diagnostic_set(&check)
+    );
+    assert_eq!(rebuilt["verification"], "passed", "{rebuilt}");
+}
+
+/// Watch writes the freshness marker in the project root as soon as it is
+/// ready, not only after a rebuild, so a running MCP server sees it (D9).
+#[test]
+fn watch_writes_the_freshness_marker_at_startup() {
+    let project = TempDir::new().unwrap();
+    fs::write(project.path().join("specforge.json"), "{}").unwrap();
+    fs::write(
+        project.path().join("main.spec"),
+        "entity one { title \"One\" }\n",
+    )
+    .unwrap();
+
+    let (rx, mut child) = spawn_watch(&project);
+    let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60));
+    let _ = child.kill();
+    let _ = child.wait();
+
+    assert!(ready.is_some(), "watch never reported ready");
+    let marker = project.path().join(".specforge/graph.json");
+    let marker: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&marker).expect("no marker at startup")).unwrap();
+    assert_eq!(marker["nodes"], 1, "{marker}");
+}
