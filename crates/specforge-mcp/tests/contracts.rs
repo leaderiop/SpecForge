@@ -2057,88 +2057,166 @@ fn subscribe(server: &mut McpServer, uri: &str) {
     assert_eq!(resp["result"], json!({}), "{resp}");
 }
 
-// NOT LINKED to "Notify Graph Delta via MCP: graph delta MCP notification
-// holds — …": subscribers_notified names the method notifications/graph_changed,
-// but the server sends specforge/graphChanged (and many tests pin that name).
-#[test]
+/// Unsubscribe the default client from `uri`'s delta notifications.
+fn unsubscribe(server: &mut McpServer, uri: &str) {
+    let resp = call(server, "resources/unsubscribe", json!({"uri": uri}));
+    assert_eq!(resp["result"], json!({}), "{resp}");
+}
+
+/// A server over the on-disk project [`attach_project`] writes (alpha and
+/// beta in test.spec), not yet compiled; and that spec file's path.
+fn project_server() -> (McpServer, PathBuf) {
+    let mut server = McpServer::new();
+    call(&mut server, "initialize", json!({}));
+    attach_project(server.state_mut());
+    let spec = server
+        .state()
+        .project_root
+        .clone()
+        .unwrap()
+        .join("test.spec");
+    (server, spec)
+}
+
+/// Rebuild the project the way a client does: `specforge.validate`
+/// recompiles it, and the delta notifications follow the compile.
+fn rebuild(server: &mut McpServer) {
+    let resp = call_tool(server, "specforge.validate", json!({}));
+    assert!(resp["error"].is_null(), "{resp}");
+}
+
+// The spec's GraphDelta names modified nodes too; the server's delta has
+// added/removed node ids and net edge counts only, so a rebuild that only
+// changes an entity's fields notifies nobody. That part is not asserted.
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
+)]
 fn contract_graph_notification() {
-    use specforge_mcp::notifications::enqueue_compile_notifications;
-    let mut server = test_server();
-    let before = server.state().graph.clone();
-    server.state_mut().graph.add_node(node(
-        "x",
-        "behavior",
-        span_at("x.spec", 1, 0, 2),
-        FieldMap::new(),
-    ));
+    let (mut server, spec) = project_server();
 
-    // No subscriber: the delta is suppressed.
-    enqueue_compile_notifications(server.state_mut(), &before, &[]);
+    // no_notification_when_empty: the first build adds alpha and beta, but
+    // nobody is subscribed.
+    rebuild(&mut server);
+    assert_eq!(
+        node_ids(&tool(&mut server, "specforge.export", json!({}))),
+        ["alpha", "beta"]
+    );
     assert!(server.take_notifications().is_empty());
-    assert!(events(&server, "mcp_delta_notified").is_empty());
 
-    // A subscriber gets the delta.
+    // graph_delta_computed_fired + subscribers_notified: after a rebuild
+    // that drops beta (and its edge) and adds gamma, the subscriber gets
+    // specforge/graphChanged with the delta.
     subscribe(&mut server, "specforge://graph");
-    enqueue_compile_notifications(server.state_mut(), &before, &[]);
-    let delivered = server.take_notifications();
-    assert_eq!(delivered.len(), 1, "{delivered:?}");
-    assert_eq!(delivered[0]["method"], "specforge/graphChanged");
-    assert_eq!(delivered[0]["params"]["added_nodes"], json!(["x"]));
-    assert_eq!(delivered[0]["params"]["removed_nodes"], json!([]));
+    std::fs::write(
+        &spec,
+        "behavior alpha \"Alpha\" {\n}\nbehavior gamma \"Gamma\" {\n}\n",
+    )
+    .unwrap();
+    rebuild(&mut server);
+    assert_eq!(
+        server.take_notifications(),
+        [json!({
+            "jsonrpc": "2.0",
+            "method": "specforge/graphChanged",
+            "params": {
+                "added_nodes": ["gamma"],
+                "removed_nodes": ["beta"],
+                "added_edges": 0,
+                "removed_edges": 1,
+            },
+        })]
+    );
+
+    // delta_notified_emitted: once, for the one delivered delta.
     assert_eq!(
         events(&server, "mcp_delta_notified"),
         [json!({"notificationType": "graph", "subscriberCount": 1,
-            "addedNodes": 1, "removedNodes": 0})]
+            "addedNodes": 1, "removedNodes": 1})]
     );
 
-    // An unchanged graph sends nothing.
-    let now = server.state().graph.clone();
-    enqueue_compile_notifications(server.state_mut(), &now, &[]);
+    // An unchanged rebuild sends nothing.
+    rebuild(&mut server);
     assert!(server.take_notifications().is_empty());
+
+    // no_notification_when_empty: once the client unsubscribes, a changed
+    // graph is not announced.
+    unsubscribe(&mut server, "specforge://graph");
+    std::fs::write(&spec, "behavior alpha \"Alpha\" {\n}\n").unwrap();
+    rebuild(&mut server);
+    assert!(server.take_notifications().is_empty());
+    assert_eq!(events(&server, "mcp_delta_notified").len(), 1);
 }
 
-// NOT LINKED to "Notify Diagnostics Delta via MCP: diagnostics delta MCP
-// notification holds — …": subscribers_notified names the method
-// notifications/diagnostics_changed, but the server sends
-// specforge/diagnosticsChanged (and many tests pin that name).
-#[test]
+#[specforge_test(
+    behavior = "notify_diagnostics_delta_via_mcp",
+    verify = "Notify Diagnostics Delta via MCP: diagnostics delta MCP notification holds — validation_complete_fired, subscribers_notified, unchanged_suppressed, delta_notified_emitted"
+)]
 fn contract_diagnostics_notification() {
-    use specforge_mcp::notifications::enqueue_compile_notifications;
-    let mut server = test_server();
-    let graph = server.state().graph.clone();
-    let old = vec![diagnostic("W001", "old", None)];
-    server.state_mut().diagnostics = vec![diagnostic("E003", "new", None)];
+    let (mut server, spec) = project_server();
+    rebuild(&mut server);
+    let clean = server.state().diagnostics.clone();
+    subscribe(&mut server, "specforge://diagnostics");
 
-    // No subscriber: suppressed.
-    enqueue_compile_notifications(server.state_mut(), &graph, &old);
+    // validation_complete_fired + subscribers_notified: a rebuild whose
+    // validation finds a duplicate entity sends the new diagnostic.
+    std::fs::write(
+        &spec,
+        "behavior alpha \"Alpha\" {\n}\nbehavior alpha \"Again\" {\n}\n",
+    )
+    .unwrap();
+    rebuild(&mut server);
+    let duplicate = json!({
+        "code": "E002",
+        "severity": "Error",
+        "message": "duplicate entity ID 'alpha' (first declared in test.spec)",
+    });
+    let changed = |added: Value, removed: Value| {
+        json!({
+            "jsonrpc": "2.0",
+            "method": "specforge/diagnosticsChanged",
+            "params": {"added": added, "removed": removed},
+        })
+    };
+    assert_eq!(
+        server.take_notifications(),
+        [changed(json!([duplicate]), json!([]))]
+    );
+
+    // unchanged_suppressed: rebuilding the same project sends nothing.
+    rebuild(&mut server);
     assert!(server.take_notifications().is_empty());
 
-    subscribe(&mut server, "specforge://diagnostics");
-    enqueue_compile_notifications(server.state_mut(), &graph, &old);
-    let delivered = server.take_notifications();
-    assert_eq!(delivered.len(), 1, "{delivered:?}");
-    assert_eq!(delivered[0]["method"], "specforge/diagnosticsChanged");
+    // subscribers_notified: fixing it sends the removal.
+    std::fs::write(&spec, "behavior alpha \"Alpha\" {\n}\n").unwrap();
+    rebuild(&mut server);
+    assert_eq!(server.state().diagnostics, clean);
     assert_eq!(
-        delivered[0]["params"]["added"],
-        json!([{"code": "E003", "severity": "Warning", "message": "new"}])
+        server.take_notifications(),
+        [changed(json!([]), json!([duplicate]))]
     );
+
+    // delta_notified_emitted: once per delivered delta.
     assert_eq!(
-        delivered[0]["params"]["removed"],
-        json!([{"code": "W001", "severity": "Warning", "message": "old"}])
-    );
-    let notified = events(&server, "mcp_delta_notified");
-    assert_eq!(
-        notified,
+        events(&server, "mcp_delta_notified"),
         [
             json!({"notificationType": "diagnostics", "subscriberCount": 1,
-            "addedDiagnostics": 1, "removedDiagnostics": 1})
+                "addedDiagnostics": 1, "removedDiagnostics": 0}),
+            json!({"notificationType": "diagnostics", "subscriberCount": 1,
+                "addedDiagnostics": 0, "removedDiagnostics": 1}),
         ]
     );
 
-    // unchanged_suppressed: the same diagnostics again send nothing.
-    let current = server.state().diagnostics.clone();
-    enqueue_compile_notifications(server.state_mut(), &graph, &current);
+    // unchanged_suppressed: with no subscriber, a change sends nothing.
+    unsubscribe(&mut server, "specforge://diagnostics");
+    std::fs::write(
+        &spec,
+        "behavior alpha \"Alpha\" {\n}\nbehavior alpha \"Again\" {\n}\n",
+    )
+    .unwrap();
+    rebuild(&mut server);
     assert!(server.take_notifications().is_empty());
+    assert_eq!(events(&server, "mcp_delta_notified").len(), 2);
 }
 
 #[specforge_test(
