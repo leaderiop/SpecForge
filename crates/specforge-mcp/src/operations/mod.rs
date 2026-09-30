@@ -111,58 +111,12 @@ fn registries_for(config_path: &Path) -> Vec<RegistryConfig> {
     }
 }
 
-/// Append `name@version` to specforge.json's extensions list (idempotent).
-fn update_config_extensions(config_path: &Path, name: &str, version: &str) {
-    let Ok(content) = std::fs::read_to_string(config_path) else {
-        return;
-    };
-    let Ok(mut json) = serde_json::from_str::<Value>(&content) else {
-        return;
-    };
-    let Some(exts) = json.as_object_mut().and_then(|obj| {
-        obj.entry("extensions")
-            .or_insert_with(|| json!([]))
-            .as_array_mut()
-    }) else {
-        return;
-    };
-    let entry = format!("{name}@{version}");
-    if !exts
-        .iter()
-        .any(|e| e.as_str().is_some_and(|s| s.starts_with(name)))
-    {
-        exts.push(json!(entry));
-    }
-    if let Ok(pretty) = serde_json::to_string_pretty(&json) {
-        let _ = std::fs::write(config_path, pretty);
-    }
-}
-
-/// Drop `name` (bare or `name@version`) from specforge.json's extensions list.
-fn remove_config_extension(config_path: &Path, name: &str) {
-    let Ok(content) = std::fs::read_to_string(config_path) else {
-        return;
-    };
-    let Ok(mut json) = serde_json::from_str::<Value>(&content) else {
-        return;
-    };
-    let Some(exts) = json.get_mut("extensions").and_then(|e| e.as_array_mut()) else {
-        return;
-    };
-    let before = exts.len();
-    exts.retain(|e| {
-        e.as_str().is_none_or(|entry| {
-            entry != name
-                && entry
-                    .strip_prefix(name)
-                    .is_none_or(|rest| !rest.starts_with('@'))
-        })
-    });
-    if exts.len() != before
-        && let Ok(pretty) = serde_json::to_string_pretty(&json)
-    {
-        let _ = std::fs::write(config_path, pretty);
-    }
+/// Enable `name@version` in the project's specforge.json (idempotent: an
+/// entry naming exactly `name` already there is left alone). A config the
+/// writer can't edit is left as it is, as before: the install itself
+/// succeeded.
+fn enable_in_config(root: &Path, name: &str, version: &str) {
+    let _ = specforge_ops::config::add_extension(root, name, &format!("{name}@{version}"));
 }
 
 // ── format ──────────────────────────────────────────────────────────────────
@@ -483,8 +437,8 @@ fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcRespo
     if let Err(e) = std::fs::create_dir_all(path.join("spec")) {
         return err_invalid(id, format!("cannot create project: {e}"));
     }
-    if let Err(e) = std::fs::write(path.join("specforge.json"), config.to_string()) {
-        return err_invalid(id, format!("cannot write specforge.json: {e}"));
+    if let Err(e) = specforge_ops::config::write(&path, &config) {
+        return err_invalid(id, format!("cannot write specforge.json: {}", e.message));
     }
     let starter = format!("spec \"{name}\" {{\n  version \"{version}\"\n}}\n");
     if let Err(e) = std::fs::write(path.join("spec").join("specforge.spec"), starter) {
@@ -562,7 +516,7 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
                 if let Err(diag) = write_lock_file(&lock, &lock_path) {
                     return err_invalid(id, diag.message);
                 }
-                update_config_extensions(&config_path, &result.name, &result.version);
+                enable_in_config(&root, &result.name, &result.version);
                 ok(
                     id,
                     json!({
@@ -678,7 +632,7 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
             if let Err(diag) = write_lock_file(&lock, &lock_path) {
                 return err_invalid(id, diag.message);
             }
-            update_config_extensions(&config_path, &result.name, &result.version);
+            enable_in_config(&root, &result.name, &result.version);
             ok(
                 id,
                 json!({
@@ -768,7 +722,7 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Json
             if let Err(diag) = write_lock_file(&lock, &lock_path) {
                 return err_invalid(id, diag.message);
             }
-            remove_config_extension(&root.join("specforge.json"), &name);
+            let _ = specforge_ops::config::remove_extension(&root, &name);
             ok(
                 id,
                 json!({

@@ -17,6 +17,7 @@ specforge-component = { path = "../specforge-component" }
 specforge-registry = { workspace = true }
 specforge-formatter = { workspace = true }
 specforge-migrate = { workspace = true }
+specforge-ops = { workspace = true }
 specforge-wasm = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -48,56 +48,19 @@ pub fn enabled(project: &Path) -> Vec<&'static str> {
 
 /// Add `name` to `specforge.json`. `Ok(false)` when it was already enabled.
 pub fn enable(project: &Path, name: &str) -> Result<bool, String> {
-    edit_extensions(project, |extensions| {
-        if extensions
-            .iter()
-            .any(|e| e.as_str().and_then(builtin_name) == Some(name))
-        {
-            return false;
-        }
-        extensions.push(serde_json::Value::from(name));
-        true
-    })
+    specforge_ops::config::add_extension(project, name, name).map_err(message)
 }
 
 /// Remove `name` from `specforge.json`. `Ok(false)` when it was not enabled.
 pub fn disable(project: &Path, name: &str) -> Result<bool, String> {
-    edit_extensions(project, |extensions| {
-        let before = extensions.len();
-        extensions.retain(|e| e.as_str().and_then(builtin_name) != Some(name));
-        extensions.len() != before
-    })
+    specforge_ops::config::remove_extension(project, name).map_err(message)
 }
 
-fn edit_extensions(
-    project: &Path,
-    edit: impl FnOnce(&mut Vec<serde_json::Value>) -> bool,
-) -> Result<bool, String> {
-    let config_path = project.join("specforge.json");
-    let content = std::fs::read_to_string(&config_path).map_err(|_| {
-        format!(
-            "no specforge.json in {} — run `specforge init` first",
-            project.display()
-        )
-    })?;
-    let mut json: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|e| format!("{} is not valid JSON: {e}", config_path.display()))?;
-    let object = json
-        .as_object_mut()
-        .ok_or_else(|| format!("{} must be a JSON object", config_path.display()))?;
-    let extensions = object
-        .entry("extensions")
-        .or_insert_with(|| serde_json::json!([]))
-        .as_array_mut()
-        .ok_or_else(|| "\"extensions\" in specforge.json must be an array".to_string())?;
-
-    let changed = edit(extensions);
-    if changed {
-        let pretty = serde_json::to_string_pretty(&json).map_err(|e| e.to_string())?;
-        std::fs::write(&config_path, pretty + "\n")
-            .map_err(|e| format!("failed to write {}: {e}", config_path.display()))?;
+fn message(e: specforge_ops::OpError) -> String {
+    match e.suggestion {
+        Some(hint) => format!("{} — {hint}", e.message),
+        None => e.message,
     }
-    Ok(changed)
 }
 
 #[cfg(test)]

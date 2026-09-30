@@ -34,6 +34,7 @@ specforge-validator = { path = "../specforge-validator" }
 specforge-wasm = { workspace = true }
 specforge-component = { workspace = true }
 specforge-mcp = { workspace = true }
+specforge-ops = { workspace = true }
 specforge-registry = { workspace = true }
 semver = { workspace = true }
 

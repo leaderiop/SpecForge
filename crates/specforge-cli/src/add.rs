@@ -298,7 +298,12 @@ fn install_from_registry(
                 return 1;
             }
 
-            update_specforge_json(&config_path, &response.name, &resolved_version);
+            let entry = format!("{}@{}", response.name, resolved_version);
+            if let Err(e) =
+                specforge_ops::config::add_extension(project_path, &response.name, &entry)
+            {
+                eprintln!("warning: {} was not enabled: {}", response.name, e.message);
+            }
 
             match format {
                 OutputFormat::Json => {
@@ -403,38 +408,6 @@ fn default_registry() -> RegistryConfig {
         url: "https://registry.specforge.dev/v1".to_string(),
         scope_filter: None,
         default_registry: true,
-    }
-}
-
-fn update_specforge_json(config_path: &Path, name: &str, version: &str) {
-    let content = match std::fs::read_to_string(config_path) {
-        Ok(c) => c,
-        Err(_) => return,
-    };
-
-    let mut json: serde_json::Value = match serde_json::from_str(&content) {
-        Ok(v) => v,
-        Err(_) => return,
-    };
-
-    let extensions = json.as_object_mut().and_then(|obj| {
-        obj.entry("extensions")
-            .or_insert_with(|| json!([]))
-            .as_array_mut()
-    });
-
-    if let Some(exts) = extensions {
-        let entry = format!("{}@{}", name, version);
-        if !exts
-            .iter()
-            .any(|e| e.as_str().is_some_and(|s| s.starts_with(name)))
-        {
-            exts.push(json!(entry));
-        }
-    }
-
-    if let Ok(pretty) = serde_json::to_string_pretty(&json) {
-        let _ = std::fs::write(config_path, pretty);
     }
 }
 

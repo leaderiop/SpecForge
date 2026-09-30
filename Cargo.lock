@@ -2788,6 +2788,7 @@ dependencies = [
  "specforge-graph",
  "specforge-mcp",
  "specforge-migrate",
+ "specforge-ops",
  "specforge-parser",
  "specforge-protocol-types",
  "specforge-registry",
@@ -2947,6 +2948,7 @@ dependencies = [
  "specforge-formatter",
  "specforge-graph",
  "specforge-migrate",
+ "specforge-ops",
  "specforge-parser",
  "specforge-registry",
  "specforge-test",
@@ -2967,6 +2969,16 @@ dependencies = [
  "specforge-emitter",
  "specforge-formatter",
  "specforge-graph",
+]
+
+[[package]]
+name = "specforge-ops"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "specforge-test",
+ "specforge-test-macros",
+ "tempfile",
 ]
 
 [[package]]
