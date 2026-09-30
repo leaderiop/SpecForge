@@ -255,62 +255,32 @@ behavior boot_empty_edge_registry "Boot Empty Edge Registry" {
   verify contract "Boot Empty Edge Registry: empty edge registry boot holds — compiler_initializing, edge_registry_empty, no_edges_recognized"
 }
 
-behavior custom_entity_types_via_define "Custom Entity Types via Define" {
-  invariants [
-    reference_resolution_completeness,
-    entity_id_uniqueness,
-    zero_domain_knowledge_core,
-    define_extension_kind_uniqueness,
-    compilation_pipeline_ordering,
-  ]
-  category   command
-  types      [CompilerConfig, DefineBlockConfig, KindRegistryEntry]
-  consumes   [registries_populated]
-  produces   [custom_entity_type_defined, define_blocks_registered]
-  requires {
-    registries_populated_fired "registries_populated event has fired, confirming all extension registries are fully populated"
-  }
+behavior report_define_blocks "Report Unsupported Define Blocks" {
+  invariants [zero_domain_knowledge_core]
+  category   validation
+  types      [SpecFile, Diagnostic]
   ensures {
-    custom_kinds_registered  "Each define block is registered as a KindRegistryEntry with source_extension '<project>'"
-    events_emitted           "custom_entity_type_defined event emitted per define block, define_blocks_registered emitted after all"
-    resolution_participation "Custom entities participate in reference resolution and orphan detection"
+    define_warned     "Each define block produces one W143 warning naming it"
+    no_entity_created "A define block adds no entity to the graph, so its body is not read as references and its name is not checked as an ID"
   }
   contract   """
-    When a define block exists in a .spec file, the compiler MUST
-    register the custom entity type as a DefineBlockConfig with its
-    id_prefix, required fields, optional fields, and reference targets.
-    The custom kind MUST be added to the KindRegistry so that subsequent
-    entity blocks using that keyword are recognized. Custom entities MUST
-    participate in reference resolution and orphan detection like
-    extension-defined entities.
-
-    Define blocks are "project-scoped domain knowledge" — they allow
-    projects to extend the entity vocabulary without writing an extension.
-    Define blocks MUST be processed in Phase 2, after extension loading
-    and registry population (registries_populated event). This ordering
-    ensures that define blocks MAY reference extension-defined kinds in
-    their reference_targets (e.g., a custom kind targeting an entity
-    kind from an installed extension). After processing, the compiler
-    MUST emit a custom_entity_type_defined event for each define block.
-    Define-block kinds are registered with source_extension set to
-    "<project>" to distinguish them from extension-provided kinds.
+    Custom entity kinds come from extensions, not from .spec files: a
+    project's kinds are a function of specforge.json and its loaded
+    extensions only (ADR 0005). The grammar still parses
+    define <name> { fields }, and define stays a reserved word, but the
+    compiler MUST report each define block with one W143 warning that
+    suggests writing an extension, and MUST NOT add it to the graph. An
+    incremental rebuild MUST report a define block as a fresh compile
+    does.
   """
-  verify unit "custom entity type is registered in KindRegistry"
-  verify unit "custom entity participates in reference resolution"
-  verify unit "custom entity has orphan detection"
-  verify unit "define block creates DefineBlockConfig with correct fields"
-  verify unit "define blocks processed after registries_populated"
-  verify unit "define block can reference extension-defined kinds"
-  verify unit "define-block kind has source_extension '<project>'"
-  verify unit "custom_entity_type_defined event emitted per define block"
-  verify contract "Custom Entity Types via Define: custom entity type registration holds — registries_populated_fired, custom_kinds_registered, events_emitted, resolution_participation"
+  verify unit "a define block produces one W143 and adds no node to the graph"
+  verify integration "an incremental rebuild reports a define block as a fresh compile does"
 }
 
 behavior populate_kind_registry_from_extensions "Populate Kind Registry From Extensions" {
   invariants [
     zero_domain_knowledge_core,
     registry_population_before_validation,
-    define_extension_kind_uniqueness,
     compilation_pipeline_ordering,
   ]
   category   command
@@ -522,11 +492,9 @@ behavior two_phase_validate_semantic "Two-Phase Validate: Semantic" {
   ]
   category   validation
   types      [KindRegistryEntry, FieldRegistryEntry]
-  consumes   [registries_populated, define_blocks_registered]
-  // barrier: MUST wait for ALL consumed events (registries_populated AND define_blocks_registered) before executing
+  consumes   [registries_populated]
   requires {
-    registries_populated     "registries_populated event MUST have fired, confirming KindRegistry, FieldRegistry, and edge type set are fully populated"
-    define_blocks_registered "define_blocks_registered event MUST have fired, confirming all project-defined entity kinds are registered"
+    registries_populated "registries_populated event MUST have fired, confirming KindRegistry, FieldRegistry, and edge type set are fully populated"
   }
   ensures {
     all_blocks_checked         "Every parsed entity block checked against the KindRegistry"
@@ -550,7 +518,6 @@ behavior two_phase_validate_semantic "Two-Phase Validate: Semantic" {
   verify unit "unknown keyword produces E024"
   verify unit "field validation uses FieldRegistry"
   verify unit "Phase 2 starts only after registries populated"
-  verify integration "Phase 2 waits for both registries_populated AND define_blocks_registered"
   verify contract "Two-Phase Validate: Semantic: semantic validation holds — unknown_keywords_diagnosed"
 }
 

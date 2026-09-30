@@ -63,6 +63,29 @@ pub fn node_from_entity(entity: &specforge_parser::Entity) -> Node {
     }
 }
 
+/// Whether a parsed entity is a `define` block. Define blocks are not
+/// supported (ADR 0005): every entity kind comes from an extension. The
+/// grammar still parses them so they can be reported (W143); they never
+/// become graph nodes, on a cold build or an incremental one.
+pub fn is_define_block(entity: &specforge_parser::Entity) -> bool {
+    entity.kind.raw == "define"
+}
+
+/// W143: a define block, which declares nothing.
+fn define_block_warning(entity: &specforge_parser::Entity) -> Diagnostic {
+    Diagnostic::warning(
+        "W143",
+        format!(
+            "define blocks are not supported: '{}' is not registered as an entity kind",
+            entity.id.raw
+        ),
+    )
+    .with_span(entity.span.clone())
+    .with_suggestion(
+        "declare custom entity kinds in an extension (`specforge new --extension`), then enable it",
+    )
+}
+
 /// The file-sweep passes shared by the cold build and the incremental
 /// pipeline (C4-01): parse errors, duplicate IDs (E002/W060) and ref
 /// schemes (I005). An unknown keyword is the checks' E024, whose
@@ -100,6 +123,10 @@ where
     let mut id_to_kind: HashMap<Sym, Sym> = HashMap::new();
     for spec_file in spec_files.clone() {
         for entity in &spec_file.entities {
+            if is_define_block(entity) {
+                diagnostics.push(define_block_warning(entity));
+                continue;
+            }
             let key = (entity.kind.raw, entity.id.raw);
             if let Some(first) = seen.get(&key) {
                 diagnostics.push(

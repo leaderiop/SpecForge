@@ -249,23 +249,6 @@ journey manage_extensions "Manage Extensions" {
   """
 }
 
-journey define_custom_entity_types "Define Custom Entity Types" {
-  persona  developer
-  channels [cli]
-  priority medium
-  tags     ["developer", "cli"]
-  features [extension_management, dynamic_entity_registration]
-  flow     """
-    1. Developer adds a define block to a .spec file
-    2. Define block declares required fields, optional fields, and reference targets
-    3. Developer creates .spec files using the custom entity type
-    4. Compiler registers the custom type alongside extension-provided types
-    5. Custom entities participate in reference resolution and orphan detection
-    6. Success: specforge check validates custom entities like extension-provided ones
-    7. Failure: malformed define blocks produce diagnostics
-  """
-}
-
 journey install_domain_extensions "Install Domain Extensions" {
   persona  developer
   channels [cli]

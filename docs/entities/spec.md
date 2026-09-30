@@ -69,7 +69,6 @@ spec "my-service" {
 | `test_dirs` | string list | Glob patterns for directories containing test files. Used by coverage scanning. |
 | `persona` | sub-block(s) | Persona definitions. Validates that every `persona` in a `journey` block matches a defined persona. |
 | `surface` | sub-block(s) | Surface definitions. Validates that every `surface` in a `journey` block matches a defined surface. |
-| `define` | sub-block(s) | Meta-schema definitions for user-defined entity types beyond the core set. |
 | `coverage` | block | Test coverage configuration (threshold, report paths, flags). |
 | `gen` | block(s) | *(planned — not yet implemented)* Code generation configuration per target language. |
 
@@ -101,15 +100,6 @@ Surface definitions validate that every `surface` referenced in a `journey` bloc
 | `name` | identifier | Surface identifier (the keyword after `surface`). Used in `journey` blocks. |
 | `title` | string | Human-readable surface name (the string after the identifier). |
 | `type` | string | Optional surface type (e.g., `webapp`, `terminal`, `mobile`, `api`). |
-
-### Define Sub-Block (meta-schema)
-
-The `define` mechanism allows user-defined entity types beyond the core set. User-defined types get attribute validation, reference resolution, orphan detection, and LSP support. They do NOT get custom graph-level validators (those require the plugin API).
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | identifier | The new entity type name (the keyword after `define`). |
-| `attributes` | block | Attribute definitions with types: `string`, `enum [...]`, `ref? <entity_type>`. |
 
 ### Extensions Field
 
@@ -210,30 +200,6 @@ spec "my-service" {
   surface web  "Web Dashboard"
   surface cli  "Command Line"
   surface api  "REST API"
-}
-```
-
-### With Meta-Schema Define
-
-```spec
-spec "regulated-service" {
-  version "1.0"
-
-  define research {
-    attributes {
-      outcome     enum [adr, behavior, deferred, rejected]
-      related_adr ref? decision
-      date        string
-    }
-  }
-
-  define compliance {
-    attributes {
-      regulation  string
-      evidence    string
-      status      enum [compliant, non_compliant, in_review]
-    }
-  }
 }
 ```
 

@@ -661,33 +661,6 @@ mod tests {
         assert!(diags2.is_empty());
     }
 
-    // B:two_phase_validate_semantic — verify unit "Phase 2 waits for both registries_populated AND define_blocks_registered"
-    #[test]
-    fn test_phase_2_waits_for_registries_and_defines() {
-        // Simulate the full pipeline: extensions → registries → defines → Phase 2
-        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
-        // Register a define block
-        let define = crate::define::DefineBlockConfig {
-            keyword: "user_story".to_string(),
-            id_prefix: None,
-            required_fields: vec!["description".to_string()],
-            optional_fields: vec![],
-            reference_targets: vec![],
-        };
-        crate::define::register_define_blocks(&[define], &mut kind_reg, &mut field_reg);
-
-        // Now Phase 2: both extension kinds AND define kinds are known
-        let entities = vec![
-            EntityView::new("behavior", "b1", pinned(span("test.spec"))),
-            EntityView::new("user_story", "us1", pinned(span("test.spec"))),
-        ];
-        let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
-        assert!(
-            diags.is_empty(),
-            "both extension and define kinds should be known"
-        );
-    }
-
     // B:two_phase_validate_semantic — verify contract "requires/ensures consistency for semantic validation"
     #[test]
     fn test_two_phase_validate_semantic_contract() {

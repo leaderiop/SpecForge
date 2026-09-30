@@ -133,14 +133,14 @@ behavior detect_entity_kind_collision "Detect Entity Kind Collision" {
   }
   ensures {
     entity_kind_conflict_detected_emitted "entity_kind_conflict_detected event is emitted when a collision is found"
-    all_collision_types_checked           "structural keyword collisions (E023), define block collisions (E022), and inter-extension collisions (E026) are all checked"
+    all_collision_types_checked           "structural keyword collisions (E023) and inter-extension collisions (E026) are all checked"
   }
   contract   """
     The host MUST detect when two extensions attempt to register the same
     entity kind name. This behavior acts as the orchestrator for all kind
     collision checks: it delegates to reject_reserved_entity_kind for
-    structural keyword collisions (E023), checks define block collisions
-    directly (E022), and delegates to detect_duplicate_entity_kinds
+    structural keyword collisions (E023), and delegates to
+    detect_duplicate_entity_kinds
     (behaviors/zero-entity-validation.spec) for inter-extension kind
     collisions (E026). The compiler never arbitrates domain-level
     conflicts.
@@ -148,7 +148,6 @@ behavior detect_entity_kind_collision "Detect Entity Kind Collision" {
   produces   [entity_kind_conflict_detected]
   verify unit "two extensions registering same kind produces conflict"
   verify unit "collision with structural keyword produces E023"
-  verify unit "collision with define block produces E022"
   verify unit "no false positive for different kind names"
   verify contract "Detect Entity Kind Collision: entity kind collision detection holds — extension_manifests_loaded_fired, entity_kind_conflict_detected_emitted, all_collision_types_checked"
 }

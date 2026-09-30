@@ -1136,7 +1136,7 @@ fn field_validation_skipped_when_entity_kind_is_unregistered() {
 
 #[specforge_test(
     behavior = "detect_unknown_entity_fields",
-    verify = "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, define_blocks_registered_fired, unknown_fields_diagnosed, cascading_avoided"
+    verify = "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, unknown_fields_diagnosed, cascading_avoided"
 )]
 fn detect_unknown_entity_fields_contract() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);

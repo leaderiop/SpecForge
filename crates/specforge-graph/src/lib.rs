@@ -7,8 +7,8 @@ pub use cycles::{CycleOptions, find_cycles};
 pub mod rename;
 
 pub use build::{
-    GraphConfig, build_graph, build_graph_with_config, entity_pass, link_and_diagnose,
-    node_from_entity,
+    GraphConfig, build_graph, build_graph_with_config, entity_pass, is_define_block,
+    link_and_diagnose, node_from_entity,
 };
 pub use graph::{Edge, Graph, Node, compute_invalidation_set};
 pub use specforge_common::{Diagnostic, Severity, SourceSpan};

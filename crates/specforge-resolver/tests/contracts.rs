@@ -19,7 +19,7 @@ fn setup_project(files: &[(&str, &str)]) -> TempDir {
 // B:resolve_use_imports — verify contract "requires/ensures consistency for use import resolution"
 #[specforge_test(
     behavior = "resolve_use_imports",
-    verify = "Resolve Use Imports: use import resolution holds — registries_populated_fired, define_blocks_registered_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"
+    verify = "Resolve Use Imports: use import resolution holds — registries_populated_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"
 )]
 fn resolve_use_imports_contract() {
     // Requires filesystem_available: the project lives on disk. main.spec

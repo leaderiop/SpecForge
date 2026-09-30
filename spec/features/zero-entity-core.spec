@@ -134,14 +134,11 @@ feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
     with no keyword validation. Phase 2 loads extensions, populates
     registries, then validates all keywords against the KindRegistry.
     Pipeline event sequence: all_files_parsed → extension_manifests_loaded →
-    registries_populated → define_blocks_registered → validation_complete.
+    registries_populated → validation_complete.
     Unknown keywords produce E024 with help text suggesting which extension
-    to install. The define_blocks_registered event fires after define
-    blocks are processed, enabling user-defined types to participate in
-    validation. Semantic validation waits for BOTH registries_populated
-    AND define_blocks_registered — a dual barrier ensuring all entity
-    kinds (extension-defined and project-defined) are available before
-    keyword validation begins. suggest_missing_extensions consumes a bundled
+    to install. Every entity kind comes from an extension: a define block
+    in a .spec file is reported (W143) and ignored (ADR 0005).
+    suggest_missing_extensions consumes a bundled
     KeywordExtensionIndex data file (data/keyword-index.json) that a test
     keeps in step with the builtin extensions' declared kinds. With zero extensions, the compiler gracefully degrades to
     structural-only mode with an I002 info diagnostic. Export commands

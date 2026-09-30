@@ -159,6 +159,45 @@ fn every_update_leaves_what_a_fresh_compile_builds() {
     }
 }
 
+/// Define blocks are reported, not registered: adding one, renaming it
+/// and removing it leave what a fresh compile reports.
+#[specforge_test(
+    behavior = "report_define_blocks",
+    verify = "an incremental rebuild reports a define block as a fresh compile does"
+)]
+fn an_incremental_rebuild_reports_define_blocks_as_a_fresh_compile() {
+    let dir = project(
+        CONFIG,
+        &[(
+            "a.spec",
+            "behavior alpha \"A\" {\n  category command\n  contract \"The system MUST a\"\n}\n",
+        )],
+    );
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    session.set_verify_incremental(true);
+
+    for text in [
+        Some("define user_story {\n  refs [alpha]\n}\n"),
+        Some("define behavior {\n}\n"),
+        None,
+    ] {
+        match text {
+            Some(text) => write(root, "b.spec", text),
+            None => fs::remove_file(root.join("b.spec")).unwrap(),
+        }
+        let update = session.update(SourceChange::Disk(&changed(&["b.spec"])));
+        assert_eq!(update.verification, Some(Ok(())));
+        assert_matches_a_fresh_compile(&session, root);
+        let w143 = session
+            .diagnostics()
+            .iter()
+            .filter(|d| d.code == "W143")
+            .count();
+        assert_eq!(w143, usize::from(text.is_some()), "{text:?}");
+    }
+}
+
 #[specforge_test(
     behavior = "track_import_dag_incrementally",
     verify = "cycle detection re-runs after import DAG update"

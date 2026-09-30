@@ -324,8 +324,9 @@ behavior parse_define_blocks "Parse Define Blocks" {
   contract   """
     The core grammar MUST recognize define blocks with the syntax
     define <name> { fields } as a dedicated grammar rule. Define blocks
-    introduce user-defined entity types beyond those provided by
-    extensions. The parser MUST parse define blocks identically to other
+    are not supported (the compiler reports each with W143, see
+    report_define_blocks); they are parsed so that the report can name
+    them. The parser MUST parse define blocks identically to other
     structural blocks — they are core grammar constructs, not extension-
     contributed. Define block fields MUST support the same field syntax
     as all other blocks.

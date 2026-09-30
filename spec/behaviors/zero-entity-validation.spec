@@ -193,10 +193,9 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
   types      [FieldRegistryEntry, KindRegistryEntry, Diagnostic]
-  consumes   [registries_populated, define_blocks_registered]
+  consumes   [registries_populated]
   requires {
-    registries_populated_fired     "registries_populated event has fired, confirming FieldRegistry and KindRegistry are fully populated"
-    define_blocks_registered_fired "define_blocks_registered event has fired, confirming project-defined kinds are registered"
+    registries_populated_fired "registries_populated event has fired, confirming FieldRegistry and KindRegistry are fully populated"
   }
   ensures {
     unknown_fields_diagnosed "W020 warning emitted for every unrecognized field name on registered entity kinds"
@@ -222,7 +221,7 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
   verify unit "structural fields (title, verify) not checked against FieldRegistry"
   verify unit "verify on a kind no extension made testable produces W020"
   verify unit "field validation skipped when entity kind is unregistered"
-  verify contract "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, define_blocks_registered_fired, unknown_fields_diagnosed, cascading_avoided"
+  verify contract "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, unknown_fields_diagnosed, cascading_avoided"
 }
 
 behavior check_field_value_types "Check Field Value Types" {

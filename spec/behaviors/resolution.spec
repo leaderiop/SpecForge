@@ -14,11 +14,10 @@ behavior resolve_use_imports "Resolve Use Imports" {
   category   query
   types      [SpecFile, FileEntry]
   ports      [FileSystem]
-  consumes   [registries_populated, define_blocks_registered]
+  consumes   [registries_populated]
   requires {
-    registries_populated_fired     "registries_populated event has fired, confirming KindRegistry and FieldRegistry are ready"
-    define_blocks_registered_fired "define_blocks_registered event has fired, confirming user-defined types are registered"
-    filesystem_available           "FileSystem port is available for locating .spec files on disk"
+    registries_populated_fired "registries_populated event has fired, confirming KindRegistry and FieldRegistry are ready"
+    filesystem_available       "FileSystem port is available for locating .spec files on disk"
   }
   ensures {
     imports_resolved        "All use directives are resolved to target .spec files relative to the spec root"
@@ -42,7 +41,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
   verify unit "an import path may spell out the .spec extension"
   verify unit "relative import traversing above spec_root is rejected"
   verify integration "imports across nested directories resolve correctly"
-  verify contract "Resolve Use Imports: use import resolution holds — registries_populated_fired, define_blocks_registered_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"
+  verify contract "Resolve Use Imports: use import resolution holds — registries_populated_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"
   verify unit "resolve extension import path"
   verify unit "symlink pointing outside spec_root is rejected"
   verify unit "files matching an exclude entry are not compiled"

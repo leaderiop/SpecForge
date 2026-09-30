@@ -326,7 +326,6 @@ constraint extension_system_integrity "Extension System Integrity" {
     validate_provider_refs,
     remove_extension,
     list_installed_extensions,
-    custom_entity_types_via_define,
     list_configured_providers,
     validate_ref_target_format,
     validate_provider_kinds,

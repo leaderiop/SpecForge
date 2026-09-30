@@ -218,19 +218,6 @@ type SchemeRegistryEntry {
   verify unit "SchemeRegistryEntry schema is valid"
 }
 
-// DefineBlockConfig captures a user-defined entity type declared via a
-// define block in a .spec file. Define blocks allow projects to create
-// custom entity kinds without writing an extension. The custom kind is
-// registered in the KindRegistry alongside extension-provided kinds.
-type DefineBlockConfig {
-  kind_name         string   @readonly @unique
-  id_prefix         string   @optional
-  required_fields   string[] @optional
-  optional_fields   string[] @optional
-  reference_targets string[] @optional
-  verify unit "DefineBlockConfig schema is valid"
-}
-
 type KeywordExtensionMapping {
   keyword     string
   extension   string

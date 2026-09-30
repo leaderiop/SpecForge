@@ -24,7 +24,6 @@ deliverable specforge_cli_deliverable "specforge-cli" {
     view_project_statistics,
     review_full_traceability,
     visualize_spec_graph,
-    define_custom_entity_types,
     configure_ref_providers,
     manage_extensions,
     install_domain_extensions,

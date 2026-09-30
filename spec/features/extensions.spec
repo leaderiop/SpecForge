@@ -1,8 +1,8 @@
-// Extension features — CLI extension management, provider-based ref validation,
-// and user-defined entity types.
+// Extension features — CLI extension management and provider-based ref
+// validation.
 //
 // The extension surface is split across three feature files:
-//   - features/extensions.spec  — CLI management, providers, registry (define blocks → see features/zero-entity-core.spec)
+//   - features/extensions.spec  — CLI management, providers, registry
 //   - features/wasm.spec        — Wasm runtime, host functions, authoring
 //   - features/zero-entity-core.spec — manifest schema, registries, LSP, bootstrap
 

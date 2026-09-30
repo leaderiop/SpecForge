@@ -182,7 +182,7 @@ milestone lsp_server "Phase 7: LSP Server" {
     "Autocomplete suggests entity IDs, field names, and keywords",
     "Rename updates declaration and all references atomically",
     "Live diagnostics appear within 100ms via shared incremental pipeline",
-    "Semantic tokens classify entity keywords from extensions and define blocks",
+    "Semantic tokens classify entity keywords from extensions",
     "Code actions: add missing import, create entity stub, add verify",
     "Outline view and workspace symbol search work for all entity types",
   ]

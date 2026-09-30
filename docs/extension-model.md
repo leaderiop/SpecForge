@@ -12,7 +12,6 @@
 ┌─────────────────────────────────────────────────────────────────┐
 │                        CORE (8 entities)                         │
 │  spec · invariant · behavior · feature · event · type · port · ref│
-│  + meta-schema `define` mechanism                                │
 ├──────────────────────┬──────────────────┬───────────────────────┤
 │   PLUGINS (entities) │ PROVIDERS (refs) │ GENERATORS (output)   │
 │  @specforge/product  │  @specforge/gh   │  @specforge/gen-ts    │

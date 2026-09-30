@@ -355,7 +355,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Entity kind registration conflict",
         owner: "core",
         level: Level::Error,
-        explanation: "Two extensions, or a project `define` block and an extension, register the same entity kind keyword; the first registration wins and the later one is rejected. Rename the conflicting kind keyword.",
+        explanation: "Two extensions register the same entity kind keyword; the first registration wins and the later one is rejected. Rename the conflicting kind keyword.",
     },
     CodeEntry {
         code: "E027",
@@ -1525,6 +1525,13 @@ pub const CATALOG: &[CodeEntry] = &[
         owner: "core",
         level: Level::Warning,
         explanation: "The formatter hit a parse error in a `.spec` file. It keeps the reported line range exactly as written and formats the rest. Fix the syntax there (see E001) and format again.",
+    },
+    CodeEntry {
+        code: "W143",
+        title: "Define blocks are not supported",
+        owner: "core",
+        level: Level::Warning,
+        explanation: "A `.spec` file has a `define <name> { ... }` block. Every entity kind comes from an extension, so a project's kinds depend only on `specforge.json` (ADR 0005): the block registers nothing and is left out of the graph. Declare the kind in an extension (`specforge new --extension`) and enable it, then remove the block. `define` stays a reserved word.",
     },
 ];
 

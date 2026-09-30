@@ -233,8 +233,8 @@ decision config_driven_kind_registry "Config-Driven Kind Registry" {
     Wasm extensions declare entity kinds in their manifests, and can add
     graph node instances at runtime via specforge.add_graph_node.
     Currently there is no conflict prevention: two extensions can declare
-    the same kind name, an extension can shadow a structural keyword like
-    spec, and define blocks can collide with extension kinds. The existing
+    the same kind name, and an extension can shadow a structural keyword
+    like spec. The existing
     FieldEnhancementRegistry solved the analogous problem for field-level
     conflicts but no equivalent exists for entity kind names.
   """
@@ -662,8 +662,7 @@ decision finite_validation_pattern_kinds "Finite Validation Pattern Kinds" {
 decision multi_event_consumption_pattern "Multi-Event Consumption Pattern" {
   status       accepted
   context      """
-    Several behaviors consume multiple events (e.g., two_phase_validate_semantic
-    consumes both registries_populated and define_blocks_registered;
+    Several behaviors consume multiple events (e.g.,
     emit_incremental_diagnostics consumes incremental_rebuild_complete,
     graph_delta_computed, and incremental_validators_dispatched). This
     barrier-join pattern requires all consumed events to fire before the

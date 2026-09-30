@@ -242,63 +242,12 @@ mod tests {
         assert!(!kind_reg2.get("behavior").unwrap().testable);
     }
 
-    // -- I:define_extension_kind_uniqueness --
-
-    // I:define_extension_kind_uniqueness — verify unit "define block with kind name matching an extension kind produces E-level diagnostic"
-    #[test]
-    fn test_define_block_matching_extension_kind_produces_error() {
-        let mut m = make_manifest("@specforge/software");
-        m.entity_kinds.push(make_kind("behavior", true));
-        let (mut kind_reg, _, _, _) = populate_registries(&[m]);
-
-        let define_config = define::DefineBlockConfig {
-            keyword: "behavior".to_string(),
-            id_prefix: None,
-            required_fields: vec![],
-            optional_fields: vec![],
-            reference_targets: vec![],
-        };
-
-        let mut field_reg = FieldRegistry::new();
-        let diags = define::register_define_blocks(&[define_config], &mut kind_reg, &mut field_reg);
-        let errors: Vec<_> = diags
-            .iter()
-            .filter(|d| d.severity == specforge_common::Severity::Error)
-            .collect();
-        assert!(!errors.is_empty());
-        assert!(errors[0].message.contains("behavior"));
-    }
-
-    // I:define_extension_kind_uniqueness — verify unit "define block with unique kind name succeeds"
-    #[test]
-    fn test_define_block_with_unique_kind_name_succeeds() {
-        let mut m = make_manifest("@specforge/software");
-        m.entity_kinds.push(make_kind("behavior", true));
-        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[m]);
-
-        let define_config = define::DefineBlockConfig {
-            keyword: "custom_metric".to_string(),
-            id_prefix: None,
-            required_fields: vec![],
-            optional_fields: vec![],
-            reference_targets: vec![],
-        };
-
-        let diags = define::register_define_blocks(&[define_config], &mut kind_reg, &mut field_reg);
-        assert!(
-            diags
-                .iter()
-                .all(|d| d.severity != specforge_common::Severity::Error)
-        );
-        assert!(kind_reg.contains("custom_metric"));
-    }
-
     // -- I:compilation_pipeline_ordering --
 
     // I:compilation_pipeline_ordering — verify property "pipeline events fire in declared order"
     #[test]
     fn test_pipeline_events_fire_in_declared_order() {
-        // The pipeline ordering is: parse → load manifests → populate registries → define blocks → validate
+        // The pipeline ordering is: parse → load manifests → populate registries → validate
         // We verify this by running each step sequentially and confirming each depends on the previous.
 
         // Step 1: Manifests (simulating post-parse)
@@ -307,22 +256,11 @@ mod tests {
         m.entity_kinds.push(make_kind("feature", false));
 
         // Step 2: Populate registries
-        let (mut kind_reg, mut field_reg, edge_reg, _) = populate_registries(&[m.clone()]);
+        let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[m.clone()]);
         assert!(kind_reg.contains("behavior"));
         assert!(kind_reg.contains("feature"));
 
-        // Step 3: Define blocks (after registries populated)
-        let define_config = define::DefineBlockConfig {
-            keyword: "custom_entity".to_string(),
-            id_prefix: None,
-            required_fields: vec![],
-            optional_fields: vec![],
-            reference_targets: vec![],
-        };
-        let _ = define::register_define_blocks(&[define_config], &mut kind_reg, &mut field_reg);
-        assert!(kind_reg.contains("custom_entity"));
-
-        // Step 4: Validation (after all registries + defines populated)
+        // Step 3: Validation (after all registries are populated)
         // detect_unknown uses the fully populated registry
         let unknown_diags = compilation::detect_unknown_entity_kinds(
             &[compilation::EntityView::new(
@@ -337,7 +275,6 @@ mod tests {
 
         // verify edge registry and field registry are also available
         assert_eq!(edge_reg.len(), 0); // no edges declared
-        // field_reg may have entries from define blocks
         let _ = field_reg;
     }
 }

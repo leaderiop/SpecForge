@@ -1,6 +1,5 @@
 mod build;
 pub mod contributions;
-pub mod define;
 pub mod detection;
 mod populate;
 pub mod provider;

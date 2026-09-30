@@ -64,26 +64,11 @@ invariant testable_entity_classification "Testable Entity Classification" {
   verify unit "no default testability assumed by core"
 }
 
-invariant define_extension_kind_uniqueness "Define-Extension Kind Uniqueness" {
-  guarantee """
-    A define block MUST NOT register a kind name that is already registered
-    by an installed extension. If a define block declares a kind name that
-    collides with an extension-provided kind, the compiler MUST emit an
-    E-level diagnostic identifying both the define block and the owning
-    extension. Extension-registered kinds always take precedence over
-    define blocks — define blocks are project-local overrides for kinds
-    NOT provided by any extension.
-  """
-  risk      medium
-  verify unit "define block with kind name matching an extension kind produces E-level diagnostic"
-  verify unit "define block with unique kind name succeeds"
-}
-
 invariant compilation_pipeline_ordering "Compilation Pipeline Ordering" {
   guarantee """
     The compilation pipeline MUST execute events in strict order:
     all_files_parsed → extension_manifests_loaded → registries_populated →
-    define_blocks_registered → validation_complete. No phase MAY begin
+    validation_complete. No phase MAY begin
     before all prior phases have completed.
   """
   risk      critical

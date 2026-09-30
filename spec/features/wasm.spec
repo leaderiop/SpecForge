@@ -128,8 +128,8 @@ feature entity_kind_conflict_prevention "Entity Kind Conflict Prevention" {
   problem  """
     Wasm extensions register new entity kinds during initialization but
     there is no mechanism to prevent name collisions. Two extensions can
-    register the same kind name, an extension can shadow a reserved keyword,
-    and define blocks can collide with extension kinds — all silently.
+    register the same kind name, and an extension can shadow a reserved
+    keyword — all silently.
   """
   solution """
     A 2-layer conflict prevention system: Layer 1 rejects reserved

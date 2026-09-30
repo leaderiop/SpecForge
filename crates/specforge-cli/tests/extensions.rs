@@ -798,9 +798,9 @@ fn builtin_project(spec: Option<&str>) -> TempDir {
     dir
 }
 
-/// A project `define` block named after the entity kind keyword the
-/// software builtin registers: the compiler reports the shadowing as E013.
-const SHADOWING_DEFINE: &str = "define behavior {\n  base_kind \"entity\"\n}\n";
+/// An entity whose ID is the kind keyword the software builtin registers:
+/// the compiler reports the shadowing as E013.
+const SHADOWING_ID: &str = "type behavior \"Shadow\" {\n}\n";
 
 fn doctor_json(dir: &std::path::Path) -> (serde_json::Value, i32) {
     let output = specforge_cmd()
@@ -930,7 +930,7 @@ fn doctor_groups_enhancements_by_target_entity_kind() {
 // shipped builtin set produces an extension conflict.
 #[test]
 fn doctor_fails_on_a_shadowed_keyword_without_calling_it_a_conflict() {
-    let dir = builtin_project(Some(SHADOWING_DEFINE));
+    let dir = builtin_project(Some(SHADOWING_ID));
 
     let (report, code) = doctor_json(dir.path());
 
@@ -947,7 +947,7 @@ fn doctor_fails_on_a_shadowed_keyword_without_calling_it_a_conflict() {
     verify = "doctor detects shadowed grammar-level constructs"
 )]
 fn doctor_reports_a_keyword_shadowing_an_extension_entity_kind() {
-    let dir = builtin_project(Some(SHADOWING_DEFINE));
+    let dir = builtin_project(Some(SHADOWING_ID));
 
     let (report, _) = doctor_json(dir.path());
 
@@ -980,7 +980,7 @@ fn doctor_reports_a_keyword_shadowing_an_extension_entity_kind() {
     verify = "doctor --json produces valid JSON output"
 )]
 fn doctor_json_carries_every_report_section() {
-    let dir = builtin_project(Some(SHADOWING_DEFINE));
+    let dir = builtin_project(Some(SHADOWING_ID));
 
     let (report, _) = doctor_json(dir.path());
 

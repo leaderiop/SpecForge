@@ -319,6 +319,40 @@ fn soft_cross_extension_resolution_contract() {
     );
 }
 
+/// Define blocks are not supported: each is one W143, and none reaches the
+/// graph, so its body is not read as references (no E003) and its name is
+/// not checked as an ID (no E013 for `define behavior`).
+#[specforge_test(
+    behavior = "report_define_blocks",
+    verify = "a define block produces one W143 and adds no node to the graph"
+)]
+fn a_define_block_is_one_warning_and_no_node() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": ["@specforge/software"]
+        }),
+        &[(
+            "a.spec",
+            "define user_story {\n  required [title]\n}\n\ndefine behavior {\n}\n",
+        )],
+    );
+
+    let compiled = compile(dir.path());
+    let diagnostics = compiled.diagnostics();
+
+    assert_eq!(codes(&diagnostics), ["W143", "W143"], "{diagnostics:?}");
+    assert!(diagnostics[0].message.contains("'user_story'"));
+    assert!(diagnostics[1].message.contains("'behavior'"));
+    assert!(
+        diagnostics[0]
+            .suggestion
+            .as_deref()
+            .unwrap()
+            .contains("extension")
+    );
+    assert_eq!(compiled.graph.node_count(), 0);
+}
+
 /// A project with an extension loaded is not in structural-only mode.
 #[test]
 fn a_loaded_extension_means_no_i002() {

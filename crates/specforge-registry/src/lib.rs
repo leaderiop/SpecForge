@@ -95,7 +95,6 @@ pub use client::registry_config;
 pub use client::registry_ops;
 pub use client::resolver;
 pub use compilation::contributions;
-pub use compilation::define;
 pub use compilation::detection as compilation_detection;
 pub use compilation::provider;
 pub use compilation::validation_engine;

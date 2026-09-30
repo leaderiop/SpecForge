@@ -20,7 +20,6 @@ Every entity has a unique ID, compiler-checked cross-references, and a defined r
 ┌──────────────────────────────────────────────────────────────┐
 │                    STRUCTURAL (2 kinds)                       │
 │  spec (singleton config) · ref (external references)         │
-│  + meta-schema `define` mechanism                            │
 │  + zero-entity core: ANY keyword parsed, extensions validate │
 ├──────────────────────────────┬───────────────────────────────┤
 │  @specforge/software (5)     │  @specforge/governance (3)    │
@@ -516,7 +515,7 @@ SpecForge supports progressive adoption via its extension architecture. Teams st
 
 ### Level 1: Structural Only
 
-Just the compiler with zero domain knowledge. Parses any `keyword name { fields }` block generically. Useful for exploring the DSL or using only `define` for custom entity types.
+Just the compiler with zero domain knowledge. Parses any `keyword name { fields }` block generically. Useful for exploring the DSL. Custom entity kinds come from an extension: a `define` block is reported (W143) and ignored ([ADR 0005](adr/0005-define-blocks-removed.md)).
 
 ```bash
 specforge init --no-extensions
@@ -568,10 +567,10 @@ specforge add @specforge/governance
 
 ### Level 5: Domain-Specific
 
-For regulated industries, complex domains, or custom workflows. Use the meta-schema `define` mechanism or the community extension ecosystem.
+For regulated industries, complex domains, or custom workflows. Write an extension for your own entity kinds, or use the community extension ecosystem.
 
 ```bash
-# Meta-schema: define custom entity types in specforge.spec
+# Your own kinds: specforge new @you/my-kinds --extension
 # Community: specforge add @specforge/compliance
 #            specforge add @specforge/visual
 ```
@@ -586,5 +585,5 @@ A team using only @specforge/software gets full value from `specforge check` + `
 4. **Traceability by construction** — the graph structure enforces traceability; orphan detection catches missing links
 5. **Progressive adoption** — start with structural core, add @specforge/software (5), @specforge/product (8), @specforge/governance (3), @specforge/formal (5 kinds, 4 passes) as needed
 6. **Language-agnostic** — the entity model works for any software project regardless of implementation language
-7. **Bounded complexity** — the DSL balances expressiveness with readability (currently 24 entity kinds across 4 extensions); beyond official extensions, use `define` or community extensions
+7. **Bounded complexity** — the DSL balances expressiveness with readability (currently 24 entity kinds across 4 extensions); beyond official extensions, write your own or use community extensions
 8. **Extensions don't break specs** — a spec file is always valid with structural core alone; extensions add validation, they don't remove it

@@ -268,42 +268,6 @@ event extension_loading_failed {
   verify integration "manifest parse error emits extension_loading_failed event"
 }
 
-event custom_entity_type_defined "Custom Entity Type Defined" {
-  // Emitted once per define block. After ALL define blocks are processed,
-  // define_blocks_registered fires as the aggregate signal.
-  channel "compiler.custom_entity_type_defined"
-  payload {
-    kindName   string
-    fieldCount integer
-    sourceFile string
-    timestamp  timestamp
-  }
-  verify integration "emits custom_entity_type_defined when a define block registers a custom entity type"
-  verify integration "fires after registries_populated (define blocks run in Phase 2)"
-}
-
-event define_blocks_registered "Define Blocks Registered" {
-  // Fires after all define blocks in the project have been processed and
-  // their custom entity kinds registered in the KindRegistry. This event
-  // fires after registries_populated (extension kinds) but before resolution
-  // begins, ensuring that both extension-defined and project-defined kinds
-  // are available for semantic validation.
-  channel "compiler.define_blocks_registered"
-  payload {
-    defineCount integer
-    kindCount   integer
-    timestamp   timestamp
-  }
-  // Resolution and semantic validation may proceed after define blocks are
-  // registered, since all entity kinds (extension + project) are now known.
-  // Note: two_phase_validate_semantic waits for BOTH registries_populated AND
-  // define_blocks_registered before running, ensuring all entity kinds
-  // (extension-defined and project-defined) are available for validation.
-  verify integration "emits define_blocks_registered after all define blocks processed"
-  verify integration "fires after registries_populated event"
-  verify integration "kindCount includes both extension-defined and define-block kinds"
-}
-
 // ── LSP Lifecycle Events ─────────────────────────────────────
 
 event lsp_initialized "LSP Initialized" {

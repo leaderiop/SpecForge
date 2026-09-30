@@ -85,11 +85,10 @@ invariant host_function_type_safety "Host Function Type Safety" {
 
 invariant entity_kind_uniqueness "Entity Kind Uniqueness" {
   guarantee """
-    No two extensions MAY register the same entity kind name. Three
-    distinct collision codes apply: collisions with define block kinds
-    MUST produce E022, collisions with structural keywords (spec, use,
-    define) MUST produce E023, and collisions between two extension-
-    registered kinds MUST produce E026. All collisions are detected at
+    No two extensions MAY register the same entity kind name. Two
+    distinct collision codes apply: collisions with structural keywords
+    (spec, use, define) MUST produce E023, and collisions between two
+    extension-registered kinds MUST produce E026. All collisions are detected at
     extension load time. The compiler never arbitrates conflicts —
     extension authors resolve collisions via renames or peer dependencies.
   """

@@ -425,7 +425,10 @@ impl IncrementalPipeline {
         let mut placed: HashSet<Sym> = HashSet::new();
         for path in &sorted_paths {
             for entity in &self.parsed_files[*path].entities {
-                if affected.contains(&entity.id.raw) && placed.insert(entity.id.raw) {
+                if !specforge_graph::is_define_block(entity)
+                    && affected.contains(&entity.id.raw)
+                    && placed.insert(entity.id.raw)
+                {
                     self.graph
                         .add_node(specforge_graph::node_from_entity(entity));
                 }

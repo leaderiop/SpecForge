@@ -361,9 +361,8 @@ Level: error
 ```
 E026: Entity kind registration conflict
 
-Two extensions, or a project `define` block and an extension, register the same
-entity kind keyword; the first registration wins and the later one is rejected.
-Rename the conflicting kind keyword.
+Two extensions register the same entity kind keyword; the first registration
+wins and the later one is rejected. Rename the conflicting kind keyword.
 
 Owner: core
 Level: error
@@ -2596,6 +2595,21 @@ W142: Unparseable region left unformatted
 The formatter hit a parse error in a `.spec` file. It keeps the reported line
 range exactly as written and formats the rest. Fix the syntax there (see E001)
 and format again.
+
+Owner: core
+Level: warning
+```
+
+## W143
+
+```
+W143: Define blocks are not supported
+
+A `.spec` file has a `define <name> { ... }` block. Every entity kind comes from
+an extension, so a project's kinds depend only on `specforge.json` (ADR 0005):
+the block registers nothing and is left out of the graph. Declare the kind in an
+extension (`specforge new --extension`) and enable it, then remove the block.
+`define` stays a reserved word.
 
 Owner: core
 Level: warning

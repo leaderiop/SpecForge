@@ -304,8 +304,8 @@ term token_budget "Token Budget" {
 }
 
 term define_block "Define Block" {
-  definition "A meta-block in the .spec DSL that allows users to declare custom types beyond what extensions provide. Uses the syntax define { ... } to extend the type system without requiring extension authorship."
-  context    "Parsed by the core compiler as a structural construct. Define blocks enable project-specific vocabulary while keeping extensions focused on reusable domain concepts."
+  definition "A reserved block, define <name> { ... }, once meant to declare custom entity kinds in a .spec file. Not supported: the compiler reports each define block (W143) and ignores it."
+  context    "Every entity kind comes from an extension, so a project's kinds depend only on specforge.json (ADR 0005). Write an extension for project-specific vocabulary."
   aliases    ["define", "meta_block"]
   see_also   [declarative_validation, planning_entity, token_budget]
   tags       ["core", "dsl"]
