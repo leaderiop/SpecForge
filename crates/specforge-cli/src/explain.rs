@@ -787,7 +787,7 @@ pub const CATALOG: &[CodeEntry] = &[
         code: "W053",
         title: "Breaking schema change",
         owner: "core",
-        explanation: "Comparing the graph protocol schema before and after a migration found a change classified as breaking (e.g. a removed or incompatibly altered field). Review the migration to ensure it preserves backward compatibility, or accept the break intentionally.",
+        explanation: "A graph protocol schema change classified as breaking: a removed entity kind, edge type or field, a new required field, or a field whose type changed. `specforge export` compares the schema against the one the previous export cached in `.specforge/schema-cache.json`, so an extension upgrade or removal that breaks the schema warns on the next export; the export is still written and the cache updated. `specforge migrate` compares the schema before and after a migration. Update the agents and tools that read the export, keep the extension versions that produced the old schema, or review the migration to preserve backward compatibility.",
     },
     CodeEntry {
         code: "W054",

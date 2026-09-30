@@ -916,10 +916,9 @@ fn cache_content_hash_changes() {
     assert_ne!(hash1, hash2);
 }
 
-// Not linked to "cache updated even when no JSON export is performed": no
-// compilation path calls persist_schema_cache, so nothing updates the cache
-// on a compile without an export. This only shows the call itself needs no
-// graph export.
+// Not linked to "cache updated even when no JSON export is performed": only
+// `specforge export` updates the cache (`check` writes no files). This only
+// shows the call itself needs no graph export.
 #[test]
 fn cache_independent_of_export() {
     let dir = tempfile::tempdir().unwrap();
@@ -1536,15 +1535,19 @@ fn detect_breaking_with_cached_schema() {
     let current = sample_schema();
     let (migration, diagnostics) = detect_breaking_with_diagnostics(dir.path(), &current, true);
 
-    assert!(
-        diagnostics.is_empty(),
-        "the cache was found: {diagnostics:?}"
-    );
     assert_eq!(
         migration.changes,
         vec![SchemaMigrationChange::KindRemoved("legacy".to_string())]
     );
     assert!(migration.has_breaking_changes());
+    // The cache was found (no I016); the removal is one W053 warning.
+    let codes: Vec<&str> = diagnostics.iter().map(|d| d.code.as_str()).collect();
+    assert_eq!(codes, vec!["W053"], "{diagnostics:?}");
+    assert_eq!(diagnostics[0].severity, specforge_common::Severity::Warning);
+    assert_eq!(
+        diagnostics[0].message,
+        "breaking schema change since the last export: entity kind `legacy` was removed"
+    );
 
     // The same comparison without the cache file sees no removal.
     let empty = tempfile::tempdir().unwrap();
@@ -1918,9 +1921,10 @@ fn compute_version_contract() {
     assert_eq!(v, SchemaVersion::new(1, 3, 0));
 }
 
-// B:negotiate_schema_version — verify contract "requires/ensures consistency for schema version negotiation"
-// Not linked to the Persist Schema Cache contract: no compilation path calls
-// persist_schema_cache, so schema_cache_persisted is never emitted. This only
+// Not linked to the Persist Schema Cache contract. `specforge export` persists
+// the cache (crates/specforge-cli/tests/schema_cache.rs proves the write and
+// its atomicity through the CLI), but the CLI has no event sink, so its
+// schema_cache_persisted_emitted clause has nothing to assert. This only
 // shows the call writes atomically and round-trips.
 #[test]
 fn persist_cache_contract() {

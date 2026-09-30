@@ -222,8 +222,17 @@ fn formatting_the_corpus_changes_nothing_but_layout() {
         copy.path().join("specforge.json"),
     )
     .unwrap();
+    // The unformatted side runs on a copy too: `specforge export` writes
+    // `.specforge/schema-cache.json`, which must not land in the repository.
+    let pristine = tempfile::tempdir().unwrap();
+    std::fs::copy(
+        root.join("specforge.json"),
+        pristine.path().join("specforge.json"),
+    )
+    .unwrap();
     for corpus in CORPORA {
         copy_tree(&root.join(corpus), &copy.path().join(corpus));
+        copy_tree(&root.join(corpus), &pristine.path().join(corpus));
     }
 
     for corpus in CORPORA {
@@ -281,7 +290,7 @@ fn formatting_the_corpus_changes_nothing_but_layout() {
             &["check", "--format", "json", corpus][..],
         ] {
             let mut original: serde_json::Value =
-                serde_json::from_str(&specforge(&root, args)).unwrap();
+                serde_json::from_str(&specforge(pristine.path(), args)).unwrap();
             let mut formatted: serde_json::Value =
                 serde_json::from_str(&specforge(copy.path(), args)).unwrap();
             without_positions(&mut original);

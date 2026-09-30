@@ -219,6 +219,51 @@ impl SchemaMigrationChange {
     }
 }
 
+impl fmt::Display for SchemaMigrationChange {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SchemaMigrationChange::KindAdded(kind) => write!(f, "entity kind `{kind}` was added"),
+            SchemaMigrationChange::KindRemoved(kind) => {
+                write!(f, "entity kind `{kind}` was removed")
+            }
+            SchemaMigrationChange::EdgeAdded(label) => write!(f, "edge type `{label}` was added"),
+            SchemaMigrationChange::EdgeRemoved(label) => {
+                write!(f, "edge type `{label}` was removed")
+            }
+            SchemaMigrationChange::FieldAdded {
+                kind,
+                field,
+                required,
+            } => {
+                let which = if *required { "required" } else { "optional" };
+                write!(f, "{which} field `{field}` was added to `{kind}`")
+            }
+            SchemaMigrationChange::FieldRemoved { kind, field } => {
+                write!(f, "field `{field}` was removed from `{kind}`")
+            }
+            SchemaMigrationChange::FieldTypeChanged {
+                kind,
+                field,
+                old_type,
+                new_type,
+            } => write!(
+                f,
+                "field `{field}` of `{kind}` changed type from `{old_type}` to `{new_type}`"
+            ),
+            SchemaMigrationChange::MetadataChanged {
+                kind,
+                field: Some(field),
+                attribute,
+            } => write!(f, "the {attribute} of field `{field}` of `{kind}` changed"),
+            SchemaMigrationChange::MetadataChanged {
+                kind,
+                field: None,
+                attribute,
+            } => write!(f, "the {attribute} of entity kind `{kind}` changed"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SchemaMigration {
     pub changes: Vec<SchemaMigrationChange>,
@@ -897,6 +942,11 @@ pub fn load_schema_cache(cache_dir: &Path) -> io::Result<Option<SchemaCacheEntry
 
 use specforge_common::{Diagnostic, Severity};
 
+/// Compare `current` against the schema cached in `cache_dir` by the
+/// previous export. Returns the migration and its diagnostics: a W053
+/// warning per breaking change, or I016 when there is no cache although
+/// `output_dir_has_exports` says the project was exported before. With no
+/// previous schema every change is an addition and nothing is breaking.
 pub fn detect_breaking_with_diagnostics(
     cache_dir: &Path,
     current: &GraphProtocolSchema,
@@ -926,6 +976,19 @@ pub fn detect_breaking_with_diagnostics(
     };
 
     let migration = diff_schemas_optional(cached.as_ref(), current);
+    for change in migration.changes.iter().filter(|c| c.is_breaking()) {
+        diagnostics.push(Diagnostic {
+            code: "W053".to_string(),
+            severity: Severity::Warning,
+            message: format!("breaking schema change since the last export: {change}"),
+            span: None,
+            suggestion: Some(
+                "Agents and tools that read the previous export may not accept this one: \
+                 update them, or keep the extension versions that produced the old schema."
+                    .to_string(),
+            ),
+        });
+    }
     (migration, diagnostics)
 }
 

@@ -32,6 +32,7 @@ mod pipeline;
 mod product_commands;
 mod query;
 mod registry;
+mod schema_cache;
 mod stats;
 mod trace;
 mod watch;
