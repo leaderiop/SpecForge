@@ -39,22 +39,22 @@ deliverable user_mgmt_mvp "User Management MVP" {
 
 ## Fields
 
-All fields are optional at the type level. The compiler emits warnings (W043, W046) when key structural fields are absent.
+All fields are optional at the type level.
 
 ### Optional
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `title` | string | Human-readable name (the string after the entity ID). |
-| `artifact_type` | ArtifactType | The artifact kind: `cli`, `service`, `library`, `web_app`, `mobile_app`, `api`, `extension`, `documentation`, `package`. Validated by W081. |
+| `artifact_type` | ArtifactType | The artifact kind: `cli`, `service`, `library`, `web_app`, `mobile_app`, `api`, `extension`, `documentation`, `package`. Validated by W080. |
 | `status` | DeliverableStatus | Lifecycle state: `draft`, `in_progress`, `shipped`, `deprecated`. Validated by W085. |
-| `journeys` | EntityId[] | The UX journeys this deliverable ships. Creates `DeliverableJourney` edges. Omission emits W043. |
-| `modules` | EntityId[] | The modules this deliverable is built from. Creates `DeliverableModule` edges. Omission emits W046. |
+| `journeys` | EntityId[] | The UX journeys this deliverable ships. Creates `DeliverableJourney` edges. |
+| `modules` | EntityId[] | The modules this deliverable is built from. Creates `DeliverableModule` edges. |
 | `milestones` | EntityId[] | Milestones this deliverable is tracked against. Creates `DeliverableMilestone` edges. |
 | `depends_on` | EntityId[] | Other deliverables this one depends on. Creates `DeliverableDependsOn` edges. Cycles detected by E052. |
-| `version` | string | Semantic Versioning 2.0.0 string (e.g., `1.0.0`, `1.0.0-alpha.1`, `1.0.0+build.42`). Format validated by I061. |
+| `version` | string | Semantic Versioning 2.0.0 string (e.g., `1.0.0`, `1.0.0-alpha.1`, `1.0.0+build.42`). |
 | `reason` | string | Rationale for current status (required context for `deprecated` status, checked by I066). |
-| `tags` | string[] | Free-form tags for categorization. Format validated by I068 (lowercase hyphen-separated, 2-50 chars). |
+| `tags` | string[] | Free-form tags for categorization. |
 | `refs` | reference list | External references (issues, tickets, diagrams) linked to this deliverable. |
 
 ## Relationships
@@ -80,15 +80,9 @@ All fields are optional at the type level. The compiler emits warnings (W043, W0
 | Code | Level | Rule |
 |------|-------|------|
 | E052 | error | Circular deliverable dependency — `depends_on` edges form a cycle. |
-| W043 | warning | Deliverable with no journeys. |
-| W046 | warning | Deliverable with no modules. |
+| W080 | warning | Invalid `artifact_type` value (not in ArtifactType enum). |
 | W085 | warning | Invalid `status` value (not in DeliverableStatus enum). |
-| I049 | info | Journey features not a subset of module features (traceability gap). |
-| I061 | info | Invalid `version` format (not Semantic Versioning 2.0.0). Accepts `MAJOR.MINOR.PATCH`, pre-release tags, and build metadata. |
-| I065 | info | Shipped deliverable has incomplete milestones (not all completed). |
 | I066 | info | Deprecated deliverable without a `reason`. |
-| I073 | info | Deliverable references a journey that uses a deprecated persona (transitive deprecation). |
-| I074 | info | Deliverable references a journey that uses a deprecated channel (transitive deprecation). |
 
 ## Queries
 
@@ -117,7 +111,7 @@ draft -> in_progress -> shipped
             deprecated (requires reason)
 ```
 
-When `status` is `shipped`, the compiler checks that all referenced milestones are `completed` (I065). When `status` is `deprecated`, omitting `reason` emits I066.
+When `status` is `deprecated`, omitting `reason` emits I066.
 
 ### Deliverable vs. Journey
 

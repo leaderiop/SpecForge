@@ -266,9 +266,9 @@ Cross-cutting: `ref` — attach external references at any phase.
 ### Checkpoint
 - [ ] Every significant choice has an ADR
 - [ ] Every high-risk invariant has a failure_mode (avoids W005)
-- [ ] RPN = severity × occurrence × detection (avoids E005)
+- [ ] RPN = severity × occurrence × detection (not checked by the compiler)
 - [ ] Milestone phases cover all deliverables
-- [ ] No stale proposals older than 30 days (avoids I001)
+- [ ] No stale proposals older than 30 days (not checked by the compiler)
 
 ---
 
@@ -320,9 +320,8 @@ After completing all phases, the spec should have zero errors:
 | No duplicate IDs (E002) | Each entity ID is unique |
 | No import cycles (E003) | File imports form a DAG |
 | No circular modules (E007) | Module deps form a DAG |
-| Valid RPN (E005) | Failure mode math checks out |
-| Valid personas (E008) | Journey personas match spec |
-| Valid surfaces (E009) | Journey surfaces match spec |
+| Valid failure-mode ratings (W051, W052, W121) | Severity, occurrence and detection are recognized values |
+| Resolved references (E003) | Journey personas and channels are declared |
 | Valid triggers (E051) | Event triggers reference real behaviors |
 
 And minimal warnings:

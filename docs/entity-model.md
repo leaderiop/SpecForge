@@ -184,8 +184,8 @@ specforge extensions                    # list installed extensions
 │  Entity kinds:  property · axiom · protocol · refinement · process   │
 │  All: testable=false, supports_verify=false                          │
 │  Conditions: inline fields (requires/ensures/maintains), not entities│
-│  Errors:   E031, E034, E041 (refinement cycle), E042 (process cycle) │
-│  Warnings: W029-W035, W096, W110, W123-W136 (docs/diagnostics.md)    │
+│  Errors:   E031, E041 (refinement cycle), E042 (process cycle)       │
+│  Warnings: W029-W031, W035, W096, W110, W123-W134 (diagnostics.md)   │
 │  Passes:   condition_check → layering_verify → event_graph_analyze   │
 │            → coverage_tracking                                       │
 └──────────────────────────────────────────────────────────────────────┘

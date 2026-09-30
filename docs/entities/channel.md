@@ -43,9 +43,9 @@ channel web "Web Application" {
 |-------|------|-------------|
 | `title` | string | Human-readable name (the string after the entity ID). |
 | `url` | string | Canonical documentation, API endpoint, or configuration URL for this channel. Informational only — no URL format validation in v1. |
-| `status` | ChannelStatus enum | Lifecycle state: `active`, `deprecated`. Validated by W084. Absent status treated as `active` for incremental adoption. Deprecated channels referenced by journeys emit W076. |
+| `status` | ChannelStatus enum | Lifecycle state: `active`, `deprecated`. Validated by W084. Absent status treated as `active` for incremental adoption. |
 | `reason` | string | Rationale for deprecation (expected when `status=deprecated`, checked by I070). |
-| `tags` | string list | Free-form tags for categorization. Format validated by I068 (lowercase hyphen-separated, 2-50 chars). |
+| `tags` | string list | Free-form tags for categorization. |
 | `refs` | reference list | External references (issues, tickets, diagrams) linked to this channel. |
 
 ## Relationships
@@ -64,7 +64,7 @@ None. Channels are leaf nodes in the product graph.
 
 | Code | Level | Rule |
 |------|-------|------|
-| E009 | error | Journey `channels` entries must resolve to existing channel entities. |
+| E003 | error | Journey `channels` entries must resolve to declared entities (E022 when the target isn't a channel). |
 | W084 | warning | Invalid `status` value (not in ChannelStatus enum). |
 | I047 | info | Channel not referenced by any journey (orphan channel). |
 | I070 | info | Deprecated channel without a `reason`. |

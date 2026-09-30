@@ -93,9 +93,9 @@ decision use_postgresql "PostgreSQL over MongoDB" {
 
 | Code | Rule |
 |------|------|
-| E001 | Every ID in `invariants` must resolve to an existing `invariant`. |
+| E003 | Every ID in `invariants` must resolve to a declared entity. |
 | E002 | No two decisions may share the same ID. |
-| I001 | If `status: proposed` and `date` is older than 30 days, emit "stale proposal" info. |
+| W050 | `status` must be one of the recognized decision statuses. |
 
 ## Design Guidance
 

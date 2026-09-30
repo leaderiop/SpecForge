@@ -34,7 +34,7 @@ module core_mod "@myservice/core" {
 
 ## Fields
 
-All fields are optional at the type level. The compiler emits info diagnostics (I067) when a module has no features.
+All fields are optional at the type level.
 
 ### Optional
 
@@ -42,11 +42,11 @@ All fields are optional at the type level. The compiler emits info diagnostics (
 |-------|------|-------------|
 | `title` | string | Human-readable name (the string after the entity ID). |
 | `description` | string | Brief description of the module's purpose and scope. |
-| `family` | ModuleFamily | Logical grouping from the `ModuleFamily` enum: `core`, `platform`, `extension`, `integration`, `advisory`. Non-standard values produce I062 with fuzzy-match suggestion. |
-| `features` | EntityId[] | The features this module implements. Creates `ModuleFeature` edges. Omission emits I067. |
+| `family` | ModuleFamily | Logical grouping from the `ModuleFamily` enum: `core`, `platform`, `extension`, `integration`, `advisory`. Not validated by the compiler. |
+| `features` | EntityId[] | The features this module implements. Creates `ModuleFeature` edges. |
 | `depends_on` | EntityId[] | Other modules this module depends on. Creates `ModuleDependsOn` edges. Cycles detected by E007. |
 | `reason` | string | Rationale for module state (e.g., deprecation justification). Documentation-only — no validation rule in v1. |
-| `tags` | string[] | Free-form tags for categorization. Format validated by I068 (lowercase hyphen-separated, 2-50 chars). |
+| `tags` | string[] | Free-form tags for categorization. |
 | `refs` | reference list | External references (issues, tickets, diagrams) linked to this module. |
 
 ## Relationships
@@ -73,12 +73,10 @@ All fields are optional at the type level. The compiler emits info diagnostics (
 |------|-------|------|
 | E007 | error | Circular module dependency — `depends_on` edges between modules form a cycle. |
 | W044 | warning | Module not referenced by any deliverable or milestone (orphan module). |
-| I062 | info | Non-standard `family` value (not in `ModuleFamily` enum: `core`, `platform`, `extension`, `integration`, `advisory`). Includes fuzzy-match suggestion. |
-| I067 | info | Module with no features. |
 
 ## ModuleFamily Enum
 
-The `family` field uses an open enum with five standard values. Non-standard values are valid but produce an I062 info diagnostic.
+The `family` field uses an open enum with five standard values. Non-standard values are accepted without a diagnostic.
 
 | Value | Meaning |
 |-------|---------|

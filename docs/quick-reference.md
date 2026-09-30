@@ -237,43 +237,4 @@ No incoming edges.
 
 ## Validation Codes
 
-### Errors (11 codes)
-
-| Code | Module | Rule |
-|------|--------|------|
-| E001 | core | Parse error — the `.spec` file has invalid syntax |
-| E002 | core | No duplicate IDs — each entity ID is globally unique |
-| E003 | core | No dangling references — every ID in a reference list must resolve to a declared entity |
-| E005 | governance | RPN mismatch — severity x occurrence x detection must equal declared rpn |
-| E051 | software | Event trigger invalid — trigger must reference an existing behavior |
-| E011 | core | Invalid ref target format — provider validates identifier doesn't match expected pattern |
-| E012 | core | Unknown provider kind — ref uses kind not registered by its provider |
-| E007 | product | Circular module dependency — `depends_on` must form a DAG |
-| E008 | product | Persona not defined — journey persona must match spec root definition |
-| E009 | product | Surface not defined — journey surface must match spec root definition |
-| E010 | product | Behavior range invalid — range start > end or expanded IDs don't exist |
-
-### Warnings (11 codes)
-
-| Code | Module | Rule |
-|------|--------|------|
-| W001 | core | Orphan behavior — not referenced by any feature |
-| W002 | product | Orphan feature — not referenced by any journey |
-| W003 | @specforge/software | Unused invariant — not referenced by any behavior |
-| W004 | testing | Unverified testable entity — no `verify` statement |
-| W005 | governance | Unmitigated high-risk invariant — `risk: high` with no failure_mode |
-| W006 | governance | Unconstrained behavior — no constraint coverage |
-| W007 | core | Orphan event — event with no consumers |
-| W012 | core | Orphan ref — declared but never referenced by any entity |
-| W008 | product | Uncovered journey — deliverable journey not reachable via modules |
-| W009 | testing | Invalid verify kind — verify kind not in allowed set for entity kind |
-| W010 | software | Unknown field annotation — unknown annotation on type field |
-
-### Info (4 codes)
-
-| Code | Module | Rule |
-|------|--------|------|
-| I001 | governance | Stale proposal — decision with `status: proposed` older than 30 days |
-| I003 | core | Newer format features available — project version < compiler version |
-| I004 | core | Unknown entity prefix — ID prefix not registered by any installed module |
-| I005 | core | Unknown provider scheme — ref uses scheme not registered by any installed provider |
+Every diagnostic code, with its meaning, owner and fix, is listed in [Diagnostic Codes](diagnostics.md), generated from the catalog that `specforge explain <CODE>` prints.

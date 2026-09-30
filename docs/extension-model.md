@@ -150,7 +150,7 @@ A provider package registers the following with the core compiler:
 | **Kinds** | Valid resource types within the scheme | `issue`, `pr`, `discussion` |
 | **ID patterns** | Regex patterns for valid identifiers per kind | `gh.issue` → `^\d+$` |
 | **URL template** | Template for resolving ref IDs to URLs | `https://github.com/{repo}/issues/{id}` |
-| **Validation rules** | Provider-specific validation logic | E011, E012 |
+| **Validation rules** | Provider-specific validation logic | Provider-defined codes (third-party range E900-E998, W900-W998, I900-I998) |
 
 ### Soft Resolution
 
@@ -286,7 +286,7 @@ spec "healthcare-platform" {
 ```
 
 A `ref gh.issue:42` in this project will:
-1. Be validated by the `@specforge/gh` provider (E011 if invalid format, E012 if unknown kind)
+1. Be validated by the `@specforge/gh` provider (with the provider's own diagnostics)
 2. Be resolvable to `https://github.com/healthorg/platform/issues/42`
 3. Appear in generated traceability reports
 4. Be navigable via LSP (hover shows title, click opens URL)

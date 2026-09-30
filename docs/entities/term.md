@@ -80,9 +80,6 @@ Terms are documentation aids. Their edges support navigation and consistency che
 | Code | Level | Rule |
 |------|-------|------|
 | I010 | info | Term not referenced by any other term via `TermSeeAlso` (orphan term). |
-| I056 | info | `see_also` references a non-term entity (documentation-only, no graph edge created). |
-| I068 | info | Invalid tag format (must be lowercase hyphen-separated `[a-z0-9][a-z0-9-]*[a-z0-9]`, 2-50 chars). |
-| W086 | warning | Term alias conflicts with another term's alias or entity ID (case-insensitive). Prevents vocabulary ambiguity. |
 
 ## Design Guidance
 
@@ -122,7 +119,7 @@ term behavior_def "Behavior" {
 
 This prevents confusion when someone says "behavioral contract" in a meeting and someone else says "behavior spec" — the term confirms they mean the same thing.
 
-> **Alias uniqueness:** Aliases must be unique across all terms (case-insensitive). If two terms share an alias, or a term's alias matches another term's entity ID, the compiler emits W086. This prevents vocabulary ambiguity where the same word resolves to different definitions.
+> **Alias uniqueness:** Keep aliases unique across all terms (case-insensitive), and don't reuse another term's entity ID as an alias, so the same word never resolves to two definitions. The compiler doesn't check this.
 
 ### TermSeeAlso Edge Scope
 

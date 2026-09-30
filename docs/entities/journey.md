@@ -43,20 +43,20 @@ journey create_user_web "Create a New User" {
 
 ## Fields
 
-All fields are optional at the type level. The compiler emits info-level diagnostics (I050, I054, I055) when key fields are absent, guiding authors toward completeness without blocking compilation.
+All fields are optional at the type level.
 
 ### Optional
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `title` | string | Human-readable name (the string after the entity ID). Phrased as an action from the user's perspective. |
-| `persona` | EntityId | The persona performing this journey. Must resolve to an existing `persona` entity (E008). Omission emits I054. |
+| `persona` | EntityId | The persona performing this journey. Must resolve to a declared entity (E003). |
 | `description` | string | Brief summary of the journey's purpose. |
-| `channels` | EntityId[] | The channel entities where this journey is available. Each must resolve to an existing `channel` entity (E009). Omission emits I055. |
+| `channels` | EntityId[] | The channel entities where this journey is available. Each must resolve to a declared entity (E003). |
 | `features` | EntityId[] | Features this journey delivers. Creates `JourneyFeature` edges. |
-| `flow` | string[] | Step-by-step interaction flow describing what the user does and what the system responds. Omission emits I050. |
+| `flow` | string[] | Step-by-step interaction flow describing what the user does and what the system responds. |
 | `priority` | Priority | Importance level: `critical`, `high`, `medium`, `low`. |
-| `tags` | string[] | Free-form tags for categorization. Format validated by I068 (lowercase hyphen-separated, 2-50 chars). |
+| `tags` | string[] | Free-form tags for categorization. |
 | `refs` | reference list | External references (issues, tickets, diagrams) linked to this journey. |
 
 ## Relationships
@@ -80,15 +80,8 @@ All fields are optional at the type level. The compiler emits info-level diagnos
 
 | Code | Level | Rule |
 |------|-------|------|
-| E008 | error | `persona` field must resolve to an existing `persona` entity. |
-| E009 | error | Every `channels` entry must resolve to an existing `channel` entity. |
+| E003 | error | `persona` and every `channels` entry must resolve to a declared entity. |
 | W042 | warning | Journey not referenced by any deliverable (orphan journey). |
-| W075 | warning | Journey references a deprecated persona. |
-| W076 | warning | Journey references a deprecated channel. |
-| I050 | info | Journey has no `flow` steps. |
-| I054 | info | Journey has no `persona` field. |
-| I055 | info | Journey has no `channels` field. |
-| I072 | info | Flow step without numbered prefix (e.g., "1.", "2.") — suggests adding numbered ordering for agent parsability. |
 
 ## Design Guidance
 
@@ -109,7 +102,7 @@ Flows should:
 
 ### Persona and Channel References
 
-Personas and channels are **first-class entities** declared with `persona` and `channel` blocks. Journeys reference them by entity ID, and the compiler validates these references (E008, E009) and detects orphans (I046, I047).
+Personas and channels are **first-class entities** declared with `persona` and `channel` blocks. Journeys reference them by entity ID, and the compiler validates these references (E003) and detects orphans (I046, I047).
 
 | Persona | Typical Meaning |
 |---------|----------------|

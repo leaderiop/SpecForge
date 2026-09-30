@@ -51,10 +51,10 @@ All fields are optional at the type level. Features are intentionally lightweigh
 | `solution` | string | How the system addresses the problem. Written from the system's perspective. |
 | `priority` | Priority | Importance level: `critical`, `high`, `medium`, `low`. Validated by W078. |
 | `status` | FeatureStatus | Lifecycle state: `proposed`, `accepted`, `in_progress`, `done`, `deferred`. Validated by W077. Used in completion calculations. |
-| `acceptance` | string[] | Free-form acceptance criteria. Omission emits I048. Deliberately prose (ADR pe_acceptance_free_form, C12-16): acceptance strings are wishes with formatting, not compiled references — checkable criteria belong in a behavior's `verify` blocks, which the coverage diff tracks. |
+| `acceptance` | string[] | Free-form acceptance criteria. Deliberately prose (ADR pe_acceptance_free_form, C12-16): acceptance strings are wishes with formatting, not compiled references — checkable criteria belong in a behavior's `verify` blocks, which the coverage diff tracks. |
 | `depends_on` | EntityId[] | Other features this one depends on. Creates `FeatureDependsOn` edges. Cycles detected by W045. |
 | `reason` | string | Rationale for current status (expected when `deferred`, checked by I059). |
-| `tags` | string[] | Free-form tags for categorization. Format validated by I068 (lowercase hyphen-separated, 2-50 chars). |
+| `tags` | string[] | Free-form tags for categorization. |
 | `refs` | reference list | External references (issues, tickets, diagrams) linked to this feature. |
 
 ## Relationships
@@ -83,9 +83,7 @@ All fields are optional at the type level. Features are intentionally lightweigh
 | W045 | warning | Circular feature dependency — `depends_on` edges form a cycle. |
 | W077 | warning | Invalid `status` value (not in FeatureStatus enum). |
 | W078 | warning | Invalid `priority` value (not in Priority enum). |
-| I048 | info | Feature has no acceptance criteria. |
 | I059 | info | Deferred feature without a `reason`. |
-| I063 | info | Done feature with incomplete dependencies (depends_on features not done). |
 
 ## Design Guidance
 

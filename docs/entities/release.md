@@ -25,12 +25,12 @@ Deliverables have individual versions and statuses, but multiple deliverables of
 | `status` | ReleaseStatus | no | planned, in_progress, released, recalled |
 | `deliverables` | EntityId[] | no | Deliverables shipping in this release |
 | `milestones` | EntityId[] | no | Milestones targeted by this release |
-| `release_date` | string | no | ISO 8601 date YYYY-MM-DD (I086 if invalid) |
+| `release_date` | string | no | ISO 8601 date YYYY-MM-DD (not validated) |
 | `changelog` | string | no | Free-text release notes |
 | `depends_on` | EntityId[] | no | Other releases that must ship first |
 | `owner` | string | no | Person or team responsible |
 | `contributors` | string[] | no | Additional participants |
-| `reason` | string | no | Required when status=recalled (I089) |
+| `reason` | string | no | Expected when status=recalled (not checked) |
 | `tags` | string[] | no | Categorization tags |
 
 ## Relationships
@@ -57,20 +57,14 @@ planned -> in_progress -> released -> recalled
 - **released**: All deliverables have shipped
 - **recalled**: Release was retracted (terminal, requires `reason`)
 
-Invalid transitions produce **W094**.
+Transitions are not checked by the compiler.
 
 ## Validation rules
 
 | Code | Severity | Condition |
 |------|----------|-----------|
-| I082 | info | Release has no deliverables |
-| I083 | info | Release has no milestones |
-| I086 | info | Invalid `release_date` format |
-| I088 | info | status=released but not all deliverables shipped |
-| I089 | info | status=recalled without `reason` |
 | W092 | warning | Circular release dependency |
 | W093 | warning | Non-SemVer `version` |
-| W094 | warning | Invalid status transition |
 
 ## Queries
 

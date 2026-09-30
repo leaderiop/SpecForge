@@ -1288,6 +1288,56 @@ mod tests {
         sites
     }
 
+    /// Every `E###`/`W###`/`I###`/`A###` word in `text`, with its line number.
+    fn cited_codes(text: &str) -> Vec<(usize, &str)> {
+        let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+        let mut found = Vec::new();
+        for (index, line) in text.lines().enumerate() {
+            let b = line.as_bytes();
+            for i in 0..b.len().saturating_sub(3) {
+                if matches!(b[i], b'E' | b'W' | b'I' | b'A')
+                    && b[i + 1..i + 4].iter().all(u8::is_ascii_digit)
+                    && (i == 0 || !word(b[i - 1]))
+                    && (i + 4 == b.len() || !word(b[i + 4]))
+                {
+                    found.push((index + 1, &line[i..i + 4]));
+                }
+            }
+        }
+        found
+    }
+
+    /// C3: hand-written docs cite only catalogued codes. `docs/diagnostics.md`
+    /// is generated from the catalog, and ADRs are dated records that quote
+    /// the codes of their time; the third-party ranges are never catalogued.
+    #[test]
+    fn hand_written_docs_cite_only_catalogued_codes() {
+        let docs = workspace_root().join("docs");
+        let mut files = Vec::new();
+        walk(&docs, &mut files);
+        files.sort();
+        let mut problems = Vec::new();
+        for path in files {
+            let rel = path.strip_prefix(&docs).unwrap_or(&path);
+            let rel = rel.to_string_lossy().replace('\\', "/");
+            if !rel.ends_with(".md") || rel == "diagnostics.md" || rel.starts_with("adr/") {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).unwrap_or_default();
+            for (line, code) in cited_codes(&text) {
+                if lookup(code).is_none() && !is_third_party(code) {
+                    problems.push(format!("docs/{rel}:{line} cites {code}"));
+                }
+            }
+        }
+        assert!(
+            problems.is_empty(),
+            "docs cite codes the catalog doesn't have; use the catalogued code (see \
+             docs/diagnostics.md) or drop the citation:\n  {}",
+            problems.join("\n  ")
+        );
+    }
+
     /// C2: a code that is only compared against isn't emitted, so a catalog
     /// entry can't outlive its last emitter through a consumer.
     #[test]

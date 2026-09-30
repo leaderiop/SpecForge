@@ -94,8 +94,7 @@ None. Refs are leaf nodes — they represent external resources and do not refer
 | Code | Rule |
 |------|------|
 | E002 | No two refs may share the same ID across all `.spec` files. |
-| E011 | **Invalid ref target format** — the provider validates that the identifier matches the expected pattern for the kind (e.g., `gh.issue` expects a numeric identifier). |
-| E012 | **Unknown provider kind** — the ref uses a kind not registered by its provider (e.g., `gh.foo:123` when the GitHub provider only registers `issue`, `pr`, `discussion`). |
+| W120 | **Invalid ref target** — the target string is empty or contains control characters. |
 | W012 | **Orphan ref** — declared but never referenced by any entity's `refs` field. |
 | I005 | **Unknown provider scheme** — the ref uses a scheme not registered by any installed provider. The ref is stored but not validated. |
 

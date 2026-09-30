@@ -93,7 +93,6 @@ Load order: `product` first (no dependencies), then `software` (optionally depen
 
 - No testable or verify concepts: `@specforge/testing` contributes those.
 - Feature includes a `deprecated` status (terminal state, reachable from `done`).
-- Status transition validation (W087-W091, W094) requires an explicit build cache (`specforge-cache.json`).
 - Persona and channel are first-class entity kinds, not configuration values.
 
 ## @specforge/software
@@ -173,7 +172,7 @@ Load order: `product` first (no dependencies), then `software` (optionally depen
 ### Notes
 
 - All cross-extension edges use soft references. If `@specforge/software` or `@specforge/product` is not installed, references to their entity kinds produce `I004` diagnostics.
-- The `failure_mode` kind requires RPN (Risk Priority Number) validation: severity x occurrence x detection = declared rpn (E005).
+- The `failure_mode` kind validates `severity` (W051), `occurrence` (W052) and `detection` (W121); it doesn't check a declared RPN against their product.
 
 ## @specforge/formal
 
