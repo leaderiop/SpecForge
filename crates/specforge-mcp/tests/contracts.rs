@@ -501,23 +501,6 @@ fn contract_format() {
 }
 
 #[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
-)]
-fn contract_rename() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.rename",
-        json!({"entity_id": "alpha", "new_name": "alpha_v2"}),
-    );
-    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
-    let parsed: Value = serde_json::from_str(text).unwrap();
-    assert!(parsed.get("old_name").is_some());
-    assert!(parsed.get("new_name").is_some());
-}
-
-#[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "Provide MCP Init Tool: MCP init tool holds — filesystem_available, project_created, path_outside_current, extensions_validated, project_initialized_emitted, tool_invoked_emitted"
 )]

@@ -1,9 +1,7 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
-use crate::compile::compile_project;
 use crate::protocol::{JsonRpcResponse, error_codes};
-use crate::registry::register_extension_surfaces;
 use crate::state::McpState;
 
 pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
@@ -31,25 +29,7 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
         .unwrap_or(false);
 
     if !use_cached || state.diagnostics.is_empty() {
-        let result = compile_project(&root);
-        state.graph = result.graph;
-        state.diagnostics = result.diagnostics;
-        state.kind_registry = result.kind_registry;
-        state.field_registry = result.field_registry;
-        state.edge_registry = result.edge_registry;
-        state.extension_info = result.extension_info;
-        state.surface_entries = result.surface_entries;
-        state.manifests = result.manifests;
-
-        // Re-register extension surfaces (remove old extension tools/resources first)
-        state
-            .tool_registry
-            .retain(|t| t.category.as_deref() != Some("extension"));
-        state.resource_registry.retain(|r| {
-            // Keep core resources, remove extension-added ones
-            r.uri.starts_with("specforge://") && !r.uri.starts_with("specforge://ext/")
-        });
-        register_extension_surfaces(state, &result.manifest_surfaces);
+        state.recompile(&root);
     }
 
     let strict = args

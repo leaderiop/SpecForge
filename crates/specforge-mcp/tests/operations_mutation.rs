@@ -239,26 +239,6 @@ fn format_diff_mode_returns_diffs_without_writing() {
 
 // --- specforge.rename ---
 
-// B:provide_mcp_rename_tool — verify unit "returns rename result"
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "specforge.rename renames entity and all references"
-)]
-fn rename_returns_result() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.rename",
-        json!({"entity_id": "alpha", "new_name": "alpha_v2"}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed["old_name"], "alpha");
-    assert_eq!(parsed["new_name"], "alpha_v2");
-    assert!(parsed["affected_files"].is_array());
-    assert!(parsed["edits"].is_array());
-}
-
 // B:provide_mcp_rename_tool — verify unit "unknown entity returns error"
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
@@ -279,6 +259,162 @@ fn rename_missing_params() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.rename", json!({}));
     assert!(resp["error"].is_object());
+}
+
+const TOKENS_SPEC: &str = "invariant token_unique \"Tokens are unique\" {
+  guarantee \"Token ids MUST be unique\"
+  verify unit \"no two tokens share an id\"
+}
+";
+const LOGIN_SPEC: &str = "// login relies on token_unique
+
+behavior login \"Log in\" {
+  invariants [token_unique]
+  contract \"The system MUST issue a token, never a token_unique_ish one\"
+  verify unit \"login issues a token\"
+}
+";
+
+/// A compiled project where `login` references the invariant `token_unique`.
+fn server_with_token_project() -> (McpServer, std::path::PathBuf) {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path().to_path_buf();
+    std::mem::forget(dir); // outlives the test
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    std::fs::create_dir_all(root.join("spec")).unwrap();
+    std::fs::write(root.join("spec/tokens.spec"), TOKENS_SPEC).unwrap();
+    std::fs::write(root.join("spec/login.spec"), LOGIN_SPEC).unwrap();
+    let mut server = McpServer::new();
+    let init = json!({"jsonrpc":"2.0","id":1,"method":"initialize",
+        "params":{"projectRoot": root.to_str().unwrap()}});
+    server.handle_message(&init.to_string());
+    assert!(server.state().graph.node("token_unique").is_some());
+    (server, root)
+}
+
+fn rename(server: &mut McpServer, args: Value) -> Value {
+    let resp = call_tool(server, "specforge.rename", args);
+    serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
+}
+
+fn references(server: &McpServer, from: &str) -> Vec<String> {
+    server
+        .state()
+        .graph
+        .edges_from(from)
+        .iter()
+        .map(|e| e.target.to_string())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "specforge.rename renames entity and all references"
+)]
+fn rename_rewrites_the_declaration_and_every_reference() {
+    let (mut server, root) = server_with_token_project();
+
+    let parsed = rename(
+        &mut server,
+        json!({"entity_id": "token_unique", "new_name": "token_distinct"}),
+    );
+
+    assert_eq!(parsed["edits"].as_array().unwrap().len(), 2, "{parsed}");
+    assert_eq!(
+        std::fs::read_to_string(root.join("spec/tokens.spec")).unwrap(),
+        TOKENS_SPEC.replace("invariant token_unique", "invariant token_distinct")
+    );
+    // Only the reference changes: not the comment outside the entity, not a
+    // longer identifier that merely starts with the old one.
+    assert_eq!(
+        std::fs::read_to_string(root.join("spec/login.spec")).unwrap(),
+        LOGIN_SPEC.replace("invariants [token_unique]", "invariants [token_distinct]")
+    );
+    assert!(server.state().graph.node("token_unique").is_none());
+    assert!(server.state().graph.node("token_distinct").is_some());
+    assert_eq!(references(&server, "login"), ["token_distinct"]);
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "dry_run returns rename plan without applying changes"
+)]
+fn rename_dry_run_returns_the_plan_and_changes_nothing() {
+    let (mut server, root) = server_with_token_project();
+
+    let parsed = rename(
+        &mut server,
+        json!({"entity_id": "token_unique", "new_name": "token_distinct", "dry_run": true}),
+    );
+
+    assert_eq!(parsed["dry_run"], true);
+    let edits = parsed["edits"].as_array().unwrap();
+    assert_eq!(edits.len(), 2, "{parsed}");
+    let declaration = edits
+        .iter()
+        .find(|e| e["file"].as_str().unwrap().ends_with("tokens.spec"))
+        .unwrap();
+    // `invariant token_unique`: the identifier alone, on line 1.
+    assert_eq!(declaration["line"], 1);
+    assert_eq!(declaration["start_col"], 10);
+    assert_eq!(declaration["end_col"], 22);
+    assert_eq!(parsed["affected_files"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        std::fs::read_to_string(root.join("spec/tokens.spec")).unwrap(),
+        TOKENS_SPEC
+    );
+    assert_eq!(
+        std::fs::read_to_string(root.join("spec/login.spec")).unwrap(),
+        LOGIN_SPEC
+    );
+    assert!(server.state().graph.node("token_unique").is_some());
+}
+
+#[test]
+fn rename_invalid_new_name() {
+    let (mut server, _root) = server_with_token_project();
+    for bad in ["", "x", "has space", "token-unique"] {
+        let resp = call_tool(
+            &mut server,
+            "specforge.rename",
+            json!({"entity_id": "token_unique", "new_name": bad}),
+        );
+        assert!(resp["error"].is_object(), "{bad:?} accepted: {resp}");
+    }
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
+)]
+fn rename_contract() {
+    let (mut server, _root) = server_with_token_project();
+
+    let parsed = rename(
+        &mut server,
+        json!({"entity_id": "token_unique", "new_name": "token_distinct"}),
+    );
+
+    // Recompiled: the response carries the fresh diagnostics, and the
+    // references resolve (no E003 for the old name).
+    let diagnostics = parsed["diagnostics"].as_array().unwrap();
+    assert!(
+        !diagnostics.iter().any(|d| d["code"] == "E003"),
+        "{diagnostics:?}"
+    );
+    assert_eq!(references(&server, "login"), ["token_distinct"]);
+    let events: Vec<&str> = server
+        .state()
+        .events
+        .iter()
+        .map(|e| e.name.as_str())
+        .collect();
+    assert!(events.contains(&"mcp_tool_invoked"), "{events:?}");
+    assert!(events.contains(&"mcp_mutation_completed"), "{events:?}");
 }
 
 // --- specforge.init ---
@@ -547,31 +683,6 @@ fn migrate_returns_result() {
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(parsed["migrated"], false);
     assert!(parsed.get("message").is_some());
-}
-
-#[test]
-fn rename_invalid_new_name() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.rename",
-        json!({"entity_id": "alpha", "new_name": ""}),
-    );
-    // Current impl may not validate empty new_name; just check no crash
-    assert!(resp["result"].is_object() || resp["error"].is_object());
-}
-
-#[test]
-fn rename_dry_run_placeholder() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.rename",
-        json!({"entity_id": "alpha", "new_name": "alpha_v2"}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["edits"].is_array() || parsed["affected_files"].is_number());
 }
 
 #[test]
@@ -938,29 +1049,6 @@ fn format_contract() {
     let check_text = tool_text(&check_resp);
     let check_parsed: Value = serde_json::from_str(&check_text).unwrap();
     assert_eq!(check_parsed["check_only"], true);
-}
-
-// B:provide_mcp_rename_tool — verify contract
-#[specforge_test(
-    behavior = "provide_mcp_rename_tool",
-    verify = "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
-)]
-fn rename_contract() {
-    let mut server = test_server();
-    // Requires: graph available, filesystem available
-    // Ensures: references updated, error for nonexistent, validation for invalid name
-    let ok = call_tool(
-        &mut server,
-        "specforge.rename",
-        json!({"entity_id": "alpha", "new_name": "alpha_renamed"}),
-    );
-    assert!(ok["result"].is_object());
-    let err = call_tool(
-        &mut server,
-        "specforge.rename",
-        json!({"entity_id": "nonexistent", "new_name": "new"}),
-    );
-    assert!(err["error"].is_object());
 }
 
 // B:provide_mcp_init_tool — verify contract

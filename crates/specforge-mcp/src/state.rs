@@ -140,6 +140,37 @@ impl McpState {
         });
     }
 
+    /// Compile `root` afresh into this state: graph, diagnostics, registries
+    /// and extension surfaces. Subscribed clients learn what changed.
+    pub fn recompile(&mut self, root: &std::path::Path) {
+        let previous_graph = self.graph.clone();
+        let previous_diagnostics = self.diagnostics.clone();
+        let result = crate::compile::compile_project(root);
+        self.graph = result.graph;
+        self.diagnostics = result.diagnostics;
+        self.kind_registry = result.kind_registry;
+        self.field_registry = result.field_registry;
+        self.edge_registry = result.edge_registry;
+        self.extension_info = result.extension_info;
+        self.surface_entries = result.surface_entries;
+        self.manifests = result.manifests;
+        self.loaded_at = Some(std::time::SystemTime::now());
+
+        // Re-register extension surfaces (remove old extension tools/resources first)
+        self.tool_registry
+            .retain(|t| t.category.as_deref() != Some("extension"));
+        self.resource_registry.retain(|r| {
+            // Keep core resources, remove extension-added ones
+            r.uri.starts_with("specforge://") && !r.uri.starts_with("specforge://ext/")
+        });
+        crate::registry::register_extension_surfaces(self, &result.manifest_surfaces);
+        crate::notifications::enqueue_compile_notifications(
+            self,
+            &previous_graph,
+            &previous_diagnostics,
+        );
+    }
+
     pub fn shutdown(&mut self) {
         self.phase = ServerPhase::ShuttingDown;
         let clients: std::collections::BTreeSet<String> = self

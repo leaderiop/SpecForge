@@ -243,7 +243,7 @@ fn format_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
 
 // ── rename ──────────────────────────────────────────────────────────────────
 
-fn rename_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
         Some(e) => e,
         None => {
@@ -256,6 +256,10 @@ fn rename_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
             return err_invalid(id, "Missing required parameter: new_name");
         }
     };
+    let dry_run = args
+        .get("dry_run")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
 
     if new_name.is_empty()
         || new_name.len() < 2
@@ -270,37 +274,85 @@ fn rename_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
     if state.graph.node(entity_id).is_none() {
         return err_invalid(id, format!("Entity not found: {}", entity_id));
     }
+    let Some(root) = project_root_of(state, &args) else {
+        return err_invalid(id, "rename needs a project root (pass {\"path\": ...})");
+    };
 
-    // Real rename edits computed over the graph (specforge-graph::rename).
-    match specforge_graph::rename::compute_rename_edits(&state.graph, entity_id, new_name) {
-        Some(edits) => {
-            let affected_files: std::collections::BTreeSet<&str> =
-                edits.iter().map(|e| e.file.as_str()).collect();
-            let edit_json: Vec<serde_json::Value> = edits
-                .iter()
-                .map(|e| {
-                    json!({
-                        "file": e.file,
-                        "line": e.line,
-                        "start_col": e.start_col,
-                        "end_col": e.end_col,
-                        "new_text": e.new_text,
-                    })
-                })
-                .collect();
-            let result = json!({
-                "old_name": entity_id,
-                "new_name": new_name,
-                "affected_files": affected_files,
-                "edits": edit_json,
-            });
-            ok(id, result)
-        }
-        None => err_invalid(
+    let Some(edits) =
+        specforge_graph::rename::identifier_edits(&state.graph, entity_id, new_name, |file| {
+            std::fs::read_to_string(root.join(file)).ok()
+        })
+    else {
+        return err_invalid(
             id,
-            format!("cannot rename '{entity_id}': definition or span not found in graph"),
-        ),
+            format!("cannot rename '{entity_id}': '{new_name}' exists"),
+        );
+    };
+    let affected_files: std::collections::BTreeSet<&str> =
+        edits.iter().map(|e| e.file.as_str()).collect();
+    let edit_json: Vec<serde_json::Value> = edits
+        .iter()
+        .map(|e| {
+            json!({
+                "file": e.file,
+                "line": e.line,
+                "start_col": e.start_col,
+                "end_col": e.end_col,
+                "new_text": e.new_text,
+            })
+        })
+        .collect();
+    let mut result = json!({
+        "old_name": entity_id,
+        "new_name": new_name,
+        "affected_files": affected_files,
+        "edits": edit_json,
+    });
+    if dry_run {
+        result["dry_run"] = Value::from(true);
+        return ok(id, result);
     }
+
+    for file in &affected_files {
+        let path = root.join(file);
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            return err_invalid(id, format!("failed to read {}", path.display()));
+        };
+        let renamed = apply_line_edits(&text, edits.iter().filter(|e| e.file == *file));
+        if let Err(e) = std::fs::write(&path, renamed) {
+            return err_invalid(id, format!("failed to write {}: {e}", path.display()));
+        }
+    }
+    state.recompile(&root);
+    result["diagnostics"] = serde_json::to_value(&state.diagnostics).unwrap_or_default();
+    ok(id, result)
+}
+
+/// `text` with each edit's byte range on its 1-based line replaced.
+fn apply_line_edits<'a>(
+    text: &str,
+    edits: impl Iterator<Item = &'a specforge_graph::rename::RenameEdit>,
+) -> String {
+    let mut by_line: std::collections::BTreeMap<usize, Vec<&specforge_graph::rename::RenameEdit>> =
+        std::collections::BTreeMap::new();
+    for edit in edits {
+        by_line.entry(edit.line).or_default().push(edit);
+    }
+    let mut out = String::with_capacity(text.len());
+    for (index, line) in text.split_inclusive('\n').enumerate() {
+        let Some(line_edits) = by_line.get_mut(&(index + 1)) else {
+            out.push_str(line);
+            continue;
+        };
+        // Right to left, so earlier columns stay valid.
+        line_edits.sort_by_key(|e| std::cmp::Reverse(e.start_col));
+        let mut line = line.to_string();
+        for edit in line_edits.iter() {
+            line.replace_range(edit.start_col..edit.end_col, &edit.new_text);
+        }
+        out.push_str(&line);
+    }
+    out
 }
 
 // ── init ────────────────────────────────────────────────────────────────────

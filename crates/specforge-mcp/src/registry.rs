@@ -416,6 +416,7 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                 "properties": {
                     "entity_id": { "type": "string", "description": "Current entity ID" },
                     "new_name": { "type": "string", "description": "New entity ID" },
+                    "dry_run": { "type": "boolean", "description": "Return the rename plan without changing any file", "default": false },
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
                 },
                 "required": ["entity_id", "new_name"]
