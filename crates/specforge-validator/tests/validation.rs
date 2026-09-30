@@ -954,6 +954,84 @@ behavior beta "B" { contract "second" invariants [missing] }
     );
 }
 
+const REFERENCING: &str = r#"
+behavior alpha "A" {
+  contract "first"
+  invariants [inv_one]
+}
+invariant inv_one "Invariant One" {
+  contract "must hold"
+}
+"#;
+
+fn dangling(graph: &specforge_graph::Graph) -> Vec<Diagnostic> {
+    specforge_validator::validate(graph)
+        .into_iter()
+        .filter(|d| d.code == "E060")
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "detect_dangling_references",
+    verify = "reference without corresponding graph edge indicates resolver bug"
+)]
+fn reference_without_its_edge_is_a_resolver_bug() {
+    let (mut graph, _) = build_graph(&[parse(REFERENCING, "main.spec")]);
+    // What a resolver that forgot an edge leaves behind.
+    graph.clear_edges();
+
+    let found = dangling(&graph);
+
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!(found[0].severity, Severity::Error);
+    assert!(
+        found[0].message.contains("'alpha'")
+            && found[0].message.contains("'inv_one'")
+            && found[0].message.contains("invariants"),
+        "{}",
+        found[0].message
+    );
+    assert!(found[0].span.is_some(), "points at the reference");
+}
+
+#[specforge_test(
+    behavior = "detect_dangling_references",
+    verify = "reference with corresponding graph edge passes"
+)]
+fn reference_with_its_edge_passes() {
+    let (graph, _) = build_graph(&[parse(REFERENCING, "main.spec")]);
+    assert!(dangling(&graph).is_empty());
+}
+
+#[specforge_test(
+    behavior = "detect_dangling_references",
+    verify = "empty graph with zero edges produces no dangling reference diagnostic"
+)]
+fn empty_graph_has_no_dangling_references() {
+    let (graph, _) = build_graph(&[]);
+    assert_eq!(graph.edge_count(), 0);
+    assert!(dangling(&graph).is_empty());
+}
+
+#[specforge_test(
+    behavior = "detect_dangling_references",
+    verify = "Detect Dangling References: dangling reference detection holds — graph_built_fired, resolver_integrity_verified, no_duplicate_diagnostics"
+)]
+fn dangling_reference_contract() {
+    // An unresolved id is the linker's E003; the validator adds nothing.
+    let source = "behavior beta \"B\" { contract \"second\" invariants [missing] }\n";
+    let (graph, linker) = build_graph(&[parse(source, "main.spec")]);
+    assert_eq!(linker.iter().filter(|d| d.code == "E003").count(), 1);
+
+    let validator = specforge_validator::validate(&graph);
+    assert!(
+        !validator
+            .iter()
+            .any(|d| d.code == "E003" || d.code == "E060"),
+        "{validator:?}"
+    );
+}
+
 // === detect_duplicate_entity_ids ===
 
 #[specforge_test(

@@ -671,6 +671,19 @@ to run the command, or `--no-run` to parse a report the runner already wrote.
 Owner: core
 ```
 
+## E060
+
+```
+E060: Resolved reference without a graph edge
+
+A reference list names an entity that exists, but the resolver never turned the
+reference into a graph edge. That is a SpecForge bug, not a mistake in your
+spec: queries, traces and coverage would miss the relationship. Please report it
+with the spec that triggers it.
+
+Owner: core
+```
+
 ## I002
 
 ```

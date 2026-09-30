@@ -430,6 +430,12 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A runner extension declares the command that runs its tests, and `specforge collect` only runs it after you approve it for the project. The approval is asked at an interactive prompt and remembered per project, extension and command, in your user-level `~/.specforge/collector-consent.json`, never in the project. Without a terminal (CI, `--format json`) nothing is asked: pass `--yes` to run the command, or `--no-run` to parse a report the runner already wrote.",
     },
     CodeEntry {
+        code: "E060",
+        title: "Resolved reference without a graph edge",
+        owner: "core",
+        explanation: "A reference list names an entity that exists, but the resolver never turned the reference into a graph edge. That is a SpecForge bug, not a mistake in your spec: queries, traces and coverage would miss the relationship. Please report it with the spec that triggers it.",
+    },
+    CodeEntry {
         code: "I002",
         title: "Structural-only mode",
         owner: "core",

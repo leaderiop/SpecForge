@@ -1,3 +1,4 @@
+mod dangling;
 mod file_ref;
 mod orphan;
 mod render;
@@ -24,6 +25,7 @@ pub fn validate(graph: &Graph) -> Vec<Diagnostic> {
 pub fn validate_with_config(graph: &Graph, config: &ValidatorConfig) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     orphan::detect_orphan_structural_nodes(graph, &mut diagnostics);
+    dangling::detect_dangling_references(graph, &mut diagnostics);
     file_ref::validate_file_references(graph, config, &mut diagnostics);
     diagnostics
 }
