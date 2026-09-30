@@ -78,7 +78,7 @@ export const closingSlides: JSX.Element[] = [
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 18, maxWidth: 780, width: '100%' }}>
         {[
-          { label: 'GitHub', value: 'github.com/specforge/specforge', color: colors.accent.teal },
+          { label: 'GitHub', value: 'github.com/leaderiop/SpecForge', color: colors.accent.teal },
           { label: 'Language', value: 'Written in Rust, 90K+ lines', color: colors.accent.green },
           { label: 'Tests', value: '2,600+ passing tests', color: colors.accent.purple },
         ].map((item) => (

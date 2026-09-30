@@ -34,6 +34,20 @@ fn manifest_domain_kinds() -> BTreeSet<String> {
     kinds
 }
 
+/// The canonical repository URL is defined once, as the workspace's Cargo
+/// `repository` (ADR 0004 D6-b); the VS Code manifest can't inherit it, so
+/// it is pinned to it here.
+#[test]
+fn vscode_manifest_names_the_workspace_repository() {
+    let raw = std::fs::read_to_string(repo_root().join("integrations/vscode/package.json"))
+        .expect("integrations/vscode/package.json");
+    let manifest: serde_json::Value = serde_json::from_str(&raw).expect("valid package.json");
+    assert_eq!(
+        manifest["repository"]["url"].as_str(),
+        Some(env!("CARGO_PKG_REPOSITORY"))
+    );
+}
+
 #[test]
 fn entity_model_doc_count_matches_builtin_manifests() {
     let kinds = manifest_domain_kinds();

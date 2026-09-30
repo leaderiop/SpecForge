@@ -362,13 +362,13 @@ impl Backend {
             Err(e) => {
                 // Blocking task panicked: report as an E001 on the file.
                 let mut m = std::collections::HashMap::new();
-                let diag = Diagnostic {
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    code: Some(NumberOrString::String("E001".into())),
-                    source: Some("specforge".into()),
-                    message: format!("internal error during reparse: {e}"),
-                    ..Default::default()
-                };
+                let diag = diagnostic_to_lsp(
+                    &specforge_common::Diagnostic::error(
+                        "E001",
+                        format!("internal error during reparse: {e}"),
+                    ),
+                    None,
+                );
                 m.insert(uri.clone(), vec![diag]);
                 return m;
             }
@@ -551,6 +551,28 @@ pub fn uri_to_file_path(uri: &Url) -> String {
         .unwrap_or_else(|_| uri.to_string())
 }
 
+/// docs/diagnostics.md as built into this binary: the anchors a docs link
+/// may point at.
+const DIAGNOSTICS_DOC: &str = include_str!("../../../docs/diagnostics.md");
+
+/// The page on the canonical repository (the workspace's Cargo
+/// `repository`, ADR 0004 D6-b) that documents every catalogued code.
+const DIAGNOSTICS_DOC_URL: &str = concat!(
+    env!("CARGO_PKG_REPOSITORY"),
+    "/blob/main/docs/diagnostics.md"
+);
+
+/// The docs link for `code`, or `None` when docs/diagnostics.md has no
+/// section for it (a third-party code, or anything outside the catalog).
+fn docs_href(code: &str) -> Option<Url> {
+    let heading = format!("## {code}");
+    DIAGNOSTICS_DOC
+        .lines()
+        .any(|line| line == heading)
+        .then(|| Url::parse(&format!("{DIAGNOSTICS_DOC_URL}#{}", code.to_lowercase())).ok())
+        .flatten()
+}
+
 fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic, content: Option<&str>) -> Diagnostic {
     let range = diag
         .span
@@ -574,17 +596,10 @@ fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic, content: Option<&str>)
         .unwrap_or_default();
     Diagnostic {
         range,
-        // C4-10: editors can render this as a "view docs" link; the target
-        // page is generated from the `specforge explain` catalog.
         code: Some(NumberOrString::String(diag.code.clone())),
         // C4-10: editors can render this as a "view docs" link; the target
         // page is generated from the `specforge explain` catalog.
-        code_description: Url::parse(&format!(
-            "https://github.com/specforge/specforge/blob/main/docs/diagnostics.md#{}",
-            diag.code.to_lowercase()
-        ))
-        .ok()
-        .map(|href| CodeDescription { href }),
+        code_description: docs_href(&diag.code).map(|href| CodeDescription { href }),
         severity: Some(match diag.severity {
             specforge_common::Severity::Error => DiagnosticSeverity::ERROR,
             specforge_common::Severity::Warning => DiagnosticSeverity::WARNING,
@@ -1910,5 +1925,43 @@ impl LanguageServer for Backend {
         }
 
         Ok(Some(formatter_edits_to_lsp(edits, &content)))
+    }
+}
+
+#[cfg(test)]
+mod docs_link_tests {
+    use super::*;
+
+    fn href(code: &str) -> Option<String> {
+        let diag = specforge_common::Diagnostic::error(code, "message");
+        diagnostic_to_lsp(&diag, None)
+            .code_description
+            .map(|d| d.href.to_string())
+    }
+
+    /// C6: the "view docs" link points at the code's anchor in
+    /// docs/diagnostics.md on the canonical repository (ADR 0004 D6-b), and
+    /// only for codes that have an anchor there.
+    #[test]
+    fn docs_links_only_codes_with_an_anchor_on_the_canonical_repository() {
+        assert_eq!(
+            href("E001").as_deref(),
+            Some("https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#e001")
+        );
+        assert!(
+            href("R-RES-005").is_some_and(|h| h.ends_with("#r-res-005")),
+            "catalogued registry codes are linked"
+        );
+        assert_eq!(href("E901"), None, "third-party codes have no anchor");
+        assert_eq!(
+            href("F011"),
+            None,
+            "codes outside the catalog have no anchor"
+        );
+        assert_eq!(
+            href("E047"),
+            None,
+            "retired codes have no anchor of their own"
+        );
     }
 }

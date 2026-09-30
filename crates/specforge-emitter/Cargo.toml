@@ -3,6 +3,7 @@ name = "specforge-emitter"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
 autotests = false
 
 [[test]]

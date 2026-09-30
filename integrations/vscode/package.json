@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/specforge/specforge"
+    "url": "https://github.com/leaderiop/SpecForge"
   },
   "engines": {
     "vscode": "^1.95.0"

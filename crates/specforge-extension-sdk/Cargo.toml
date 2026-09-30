@@ -3,9 +3,9 @@ name = "specforge-extension-sdk"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+repository.workspace = true
 description = "Author SpecForge extensions in Rust: typed contributions, handshake/describe protocol v1.0.0, and host-function bindings compiled to Wasm"
 readme = "README.md"
-repository = "https://github.com/leaderiop/SpecForge"
 keywords = ["specforge", "wasm", "component-model", "extensions", "ai-agents"]
 categories = ["development-tools"]
 
