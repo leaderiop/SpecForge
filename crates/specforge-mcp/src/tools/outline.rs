@@ -15,23 +15,58 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         }
     };
 
-    let mut entries: Vec<Value> = state
-        .graph
-        .nodes_in_file(file)
+    let nodes = state.graph.nodes_in_file(file);
+    // A file the graph has no entity from is either empty or not there.
+    let on_disk = match &state.project_root {
+        Some(root) => root.join(file).exists(),
+        None => std::path::Path::new(file).exists(),
+    };
+    if nodes.is_empty() && !on_disk {
+        return JsonRpcResponse::error(
+            id,
+            error_codes::INVALID_PARAMS,
+            format!("File not found: {file}"),
+        );
+    }
+
+    let mut entries: Vec<Value> = nodes
         .iter()
         .map(|n| {
-            serde_json::json!({
+            let mut entry = serde_json::json!({
                 "entity_id": n.id.raw,
                 "kind": n.kind.raw,
                 "title": n.title,
-                "range": {
-                    "file": n.source_span.file,
-                    "start_line": n.source_span.start_line,
-                    "start_col": n.source_span.start_col,
-                    "end_line": n.source_span.end_line,
-                    "end_col": n.source_span.end_col,
-                }
-            })
+                "range": range(&n.source_span),
+            });
+            if !n.methods.is_empty() {
+                entry["children"] = n
+                    .methods
+                    .iter()
+                    .map(|m| {
+                        // `name(param: Type, opt?: Type) -> Ret`, as declared.
+                        let params: Vec<String> = m
+                            .params
+                            .iter()
+                            .map(|p| {
+                                let optional = if p.optional { "?" } else { "" };
+                                format!("{}{optional}: {}", p.name, p.ty)
+                            })
+                            .collect();
+                        let returns = m
+                            .returns
+                            .as_ref()
+                            .map(|r| format!(" -> {r}"))
+                            .unwrap_or_default();
+                        serde_json::json!({
+                            "entity_id": format!("{}.{}", n.id.raw, m.name),
+                            "kind": "method",
+                            "title": format!("{}({}){returns}", m.name, params.join(", ")),
+                            "range": range(&m.span),
+                        })
+                    })
+                    .collect();
+            }
+            entry
         })
         .collect();
 
@@ -47,4 +82,14 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
             }]
         }),
     )
+}
+
+fn range(span: &specforge_common::SourceSpan) -> Value {
+    serde_json::json!({
+        "file": span.file,
+        "start_line": span.start_line,
+        "start_col": span.start_col,
+        "end_line": span.end_line,
+        "end_col": span.end_col,
+    })
 }

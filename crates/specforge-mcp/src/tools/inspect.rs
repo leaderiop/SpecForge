@@ -115,7 +115,10 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
 /// Whether `diagnostic` is about `node`: its span lies within the node's,
 /// or, without a span, its message names the node in quotes. A substring
 /// match would give `task` the diagnostics of `task_id_uniqueness`.
-fn belongs_to(diagnostic: &specforge_common::Diagnostic, node: &specforge_graph::Node) -> bool {
+pub(crate) fn belongs_to(
+    diagnostic: &specforge_common::Diagnostic,
+    node: &specforge_graph::Node,
+) -> bool {
     let entity = &node.source_span;
     match &diagnostic.span {
         Some(span) => {

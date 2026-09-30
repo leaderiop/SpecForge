@@ -394,17 +394,35 @@ fn outline_returns_entities_in_file() {
     }
 }
 
-#[test]
-fn outline_empty_for_unknown_file() {
+#[specforge_test(
+    behavior = "provide_mcp_outline_tool",
+    verify = "non-existent file returns error response"
+)]
+fn outline_of_a_missing_file_is_an_error() {
     let mut server = test_server();
     let resp = call_tool(
         &mut server,
         "specforge.outline",
         json!({"file": "nonexistent.spec"}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed.as_array().unwrap().is_empty());
+    let message = resp["error"]["message"].as_str().unwrap_or_default();
+    assert!(message.contains("nonexistent.spec"), "{resp}");
+}
+
+#[test]
+fn outline_of_an_existing_file_without_entities_is_empty() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("empty.spec"), "// nothing yet\n").unwrap();
+    let mut server = test_server();
+    server.state_mut().project_root = Some(dir.path().to_path_buf());
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.outline",
+        json!({"file": "empty.spec"}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed, json!([]));
 }
 
 // B:provide_mcp_outline_tool — verify unit "sorted by line number"
@@ -464,17 +482,105 @@ fn suggest_fixes_returns_suggestions() {
     assert_eq!(suggestions[0]["kind"], "quickfix");
 }
 
-// B:provide_mcp_suggest_fixes_tool — verify unit "empty when no diagnostics"
+/// `test_server` with one fixable diagnostic inside alpha's span and one,
+/// spanless, that names beta.
+fn server_with_fixable_diagnostics() -> McpServer {
+    use specforge_common::{Diagnostic, Severity};
+    let mut server = test_server();
+    server.state_mut().diagnostics.push(Diagnostic {
+        code: "V001".into(),
+        severity: Severity::Error,
+        message: "alpha is missing a field".into(),
+        span: Some(span()),
+        suggestion: Some("fix alpha".into()),
+    });
+    server.state_mut().diagnostics.push(Diagnostic {
+        code: "W001".into(),
+        severity: Severity::Warning,
+        message: "feature 'beta' has no owner".into(),
+        span: None,
+        suggestion: Some("fix beta".into()),
+    });
+    server
+}
+
+fn fix_titles(server: &mut McpServer, args: Value) -> Vec<String> {
+    let resp = call_tool(server, "specforge.suggest_fixes", args);
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["title"].as_str().unwrap().to_string())
+        .collect()
+}
+
 #[specforge_test(
     behavior = "provide_mcp_suggest_fixes_tool",
     verify = "clean entity with no diagnostics returns empty list"
 )]
-fn suggest_fixes_empty_when_no_diagnostics() {
+fn suggest_fixes_for_a_clean_entity_is_empty() {
+    use specforge_common::{Diagnostic, Severity};
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.suggest_fixes", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed.as_array().unwrap().is_empty());
+    server.state_mut().diagnostics.push(Diagnostic {
+        code: "V001".into(),
+        severity: Severity::Error,
+        message: "alpha is missing a field".into(),
+        span: Some(span()),
+        suggestion: Some("fix alpha".into()),
+    });
+    // About another entity whose id merely contains beta's.
+    server.state_mut().diagnostics.push(Diagnostic {
+        code: "W001".into(),
+        severity: Severity::Warning,
+        message: "feature 'beta_two' has no owner".into(),
+        span: None,
+        suggestion: Some("fix beta_two".into()),
+    });
+
+    assert!(fix_titles(&mut server, json!({"entity_id": "beta"})).is_empty());
+    assert_eq!(
+        fix_titles(&mut server, json!({"entity_id": "alpha"})),
+        ["fix alpha"]
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_suggest_fixes_tool",
+    verify = "diagnostic_code filter restricts to matching diagnostics"
+)]
+fn suggest_fixes_diagnostic_code_filter() {
+    let mut server = server_with_fixable_diagnostics();
+
+    assert_eq!(
+        fix_titles(&mut server, json!({})),
+        ["fix alpha", "fix beta"]
+    );
+    assert_eq!(
+        fix_titles(&mut server, json!({"diagnostic_code": "W001"})),
+        ["fix beta"]
+    );
+}
+
+#[test]
+fn suggest_fixes_entity_and_file_filters() {
+    let mut server = server_with_fixable_diagnostics();
+
+    assert_eq!(
+        fix_titles(&mut server, json!({"entity_id": "beta"})),
+        ["fix beta"]
+    );
+    assert_eq!(
+        fix_titles(&mut server, json!({"file_path": "test.spec"})),
+        ["fix alpha"]
+    );
+    assert!(fix_titles(&mut server, json!({"file_path": "other.spec"})).is_empty());
+    let unknown = call_tool(
+        &mut server,
+        "specforge.suggest_fixes",
+        json!({"entity_id": "no_such_entity"}),
+    );
+    assert!(unknown["error"].is_object(), "{unknown}");
 }
 
 // B:provide_mcp_find_references_tool — verify unit "entity with no references returns empty list"
@@ -512,41 +618,67 @@ fn find_references_empty_list() {
     assert!(parsed["locations"].as_array().unwrap().is_empty());
 }
 
-#[test]
-fn outline_nested_entries_placeholder() {
+#[specforge_test(
+    behavior = "provide_mcp_outline_tool",
+    verify = "nested entries included for complex entities"
+)]
+fn outline_nests_an_entitys_methods() {
     let mut server = test_server();
+    let method_span = SourceSpan {
+        file: "store.spec".into(),
+        start_line: 3,
+        start_col: 2,
+        end_line: 3,
+        end_col: 40,
+    };
+    server.state_mut().graph.add_node(Node {
+        id: EntityId {
+            raw: "store".into(),
+        },
+        kind: EntityKind { raw: "port".into() },
+        title: Some("Store".into()),
+        fields: FieldMap::new(),
+        source_span: SourceSpan {
+            file: "store.spec".into(),
+            start_line: 1,
+            start_col: 0,
+            end_line: 5,
+            end_col: 1,
+        },
+        methods: vec![specforge_parser::MethodDecl {
+            name: "load".into(),
+            params: vec![specforge_parser::Parameter {
+                name: "path".into(),
+                ty: "Path".into(),
+                optional: false,
+                annotations: Vec::new(),
+            }],
+            returns: Some("Store".into()),
+            span: method_span,
+        }],
+    });
+
     let resp = call_tool(
+        &mut server,
+        "specforge.outline",
+        json!({"file": "store.spec"}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+
+    let children = parsed[0]["children"].as_array().unwrap();
+    assert_eq!(children.len(), 1, "{parsed}");
+    assert_eq!(children[0]["entity_id"], "store.load");
+    assert_eq!(children[0]["kind"], "method");
+    assert_eq!(children[0]["title"], "load(path: Path) -> Store");
+    assert_eq!(children[0]["range"]["start_line"], 3);
+    // An entity without members has no children key.
+    let flat = call_tool(
         &mut server,
         "specforge.outline",
         json!({"file": "test.spec"}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed.is_array());
-}
-
-#[test]
-fn suggest_fixes_diagnostic_code_filter() {
-    let mut server = test_server();
-    use specforge_common::{Diagnostic, Severity};
-    server.state_mut().diagnostics.push(Diagnostic {
-        code: "V001".into(),
-        severity: Severity::Error,
-        message: "err1".into(),
-        span: None,
-        suggestion: Some("fix1".into()),
-    });
-    server.state_mut().diagnostics.push(Diagnostic {
-        code: "W001".into(),
-        severity: Severity::Warning,
-        message: "warn1".into(),
-        span: None,
-        suggestion: Some("fix2".into()),
-    });
-    let resp = call_tool(&mut server, "specforge.suggest_fixes", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed.as_array().unwrap().len(), 2);
+    let flat: Value = serde_json::from_str(&tool_text(&flat)).unwrap();
+    assert!(flat[0].get("children").is_none(), "{flat}");
 }
 
 // B:provide_mcp_find_references_tool — verify unit "each reference includes source span"

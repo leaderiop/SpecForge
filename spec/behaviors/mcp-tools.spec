@@ -476,9 +476,9 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.outline tool that
-    accepts file_path (required). The tool MUST return all entities defined in
+    accepts file (required). The tool MUST return all entities defined in
     the file as McpOutlineEntry items, including entity id, kind, name, line
-    range, and any nested children. LSP equivalence: this tool mirrors
+    range, and any nested children (an entity's method members). LSP equivalence: this tool mirrors
     textDocument/documentSymbol, returning the same outline structure an IDE
     shows in its symbol navigator but over the MCP transport. If the file
     does not exist, the tool MUST return an error.

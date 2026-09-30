@@ -385,7 +385,9 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "entity_id": { "type": "string", "description": "Entity ID (optional, all if omitted)" }
+                    "entity_id": { "type": "string", "description": "Entity ID (optional, all if omitted)" },
+                    "file_path": { "type": "string", "description": "Only diagnostics in this spec file" },
+                    "diagnostic_code": { "type": "string", "description": "Only diagnostics with this code, e.g. W001" }
                 }
             }),
             category: Some("navigation".into()),
