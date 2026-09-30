@@ -62,7 +62,12 @@ behavior emit_output "Emit Output" {
     let parsed = parse_json_stdout(&output);
     let nodes = parsed["nodes"].as_array().unwrap();
     let node = nodes.iter().find(|n| n["id"] == "emit_output").unwrap();
-    assert!(node["fields"].get("verify").is_some());
+    assert_eq!(
+        node["fields"]["verify"],
+        serde_json::json!([
+            {"kind": "integration", "description": "emitter produces valid JSON"}
+        ])
+    );
 }
 
 #[specforge_test(
@@ -240,7 +245,13 @@ fn graph_export_includes_verify_in_fields() {
         r#"
 behavior parse_input "Parse Input" {
     contract "The system MUST parse all valid input"
+    status done
+    features [fast_parsing]
     verify unit "handles empty input"
+}
+
+feature fast_parsing "Fast Parsing" {
+    problem "slow"
 }
 "#,
     )]);
@@ -255,9 +266,21 @@ behavior parse_input "Parse Input" {
     let parsed = parse_json_stdout(&output);
     let nodes = parsed["nodes"].as_array().unwrap();
     let node = nodes.iter().find(|n| n["id"] == "parse_input").unwrap();
-    assert!(
-        node["fields"]["verify"].is_array(),
-        "graph export fields should include verify array: {:?}",
-        node["fields"],
+    // Every declared field and the node's metadata, with their values.
+    assert_eq!(
+        *node,
+        serde_json::json!({
+            "id": "parse_input",
+            "kind": "behavior",
+            "title": "Parse Input",
+            "file": "main.spec",
+            "line": 2,
+            "fields": {
+                "contract": "The system MUST parse all valid input",
+                "status": "done",
+                "features": ["fast_parsing"],
+                "verify": [{"kind": "unit", "description": "handles empty input"}],
+            },
+        })
     );
 }

@@ -385,33 +385,40 @@ fn extension_validate_json_output_valid() {
 fn extension_validate_json_output_invalid() {
     let dir = TempDir::new().unwrap();
 
-    let manifest = serde_json::json!({
-        "name": "",
-        "version": "1.0.0",
-        "manifestVersion": 1,
-        "wasmPath": ""
-    });
-    fs::write(
-        dir.path().join("manifest.json"),
-        serde_json::to_string_pretty(&manifest).unwrap(),
-    )
-    .unwrap();
-
-    let output = specforge_cmd()
-        .args(["extension", "validate", "--format", "json", "--path"])
-        .arg(dir.path())
-        .output()
+    // Valid in every respect but manifestVersion, below and above 2.
+    for version in [1, 3] {
+        let manifest = serde_json::json!({
+            "name": "@local/versioned",
+            "version": "1.0.0",
+            "manifestVersion": version,
+            "wasmPath": "ext.wasm"
+        });
+        fs::write(
+            dir.path().join("manifest.json"),
+            serde_json::to_string_pretty(&manifest).unwrap(),
+        )
         .unwrap();
 
-    assert!(!output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(json["valid"], false);
-    let diagnostics = json["diagnostics"].as_array().unwrap();
-    assert!(
-        !diagnostics.is_empty(),
-        "should have diagnostics for invalid manifest"
-    );
+        let output = specforge_cmd()
+            .args(["extension", "validate", "--format", "json", "--path"])
+            .arg(dir.path())
+            .output()
+            .unwrap();
+
+        assert_eq!(output.status.code(), Some(1), "a hard error");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+        assert_eq!(json["valid"], false);
+        assert_eq!(
+            json["diagnostics"],
+            serde_json::json!([{
+                "code": "E030",
+                "message": format!(
+                    "extension '@local/versioned': manifestVersion must be 2, got {version}"
+                ),
+            }])
+        );
+    }
 }
 
 // ===============================================================
@@ -481,31 +488,40 @@ fn contract_init_creates_three_files() {
     verify = "build errors reported as ExtensionError diagnostics"
 )]
 fn contract_build_requires_both_files() {
+    // Each failure is an E040 ExtensionError naming the missing file, on
+    // stderr, and the same code in JSON.
+    let assert_e040 = |dir: &std::path::Path, missing: &str| {
+        let expected = format!("no {missing} found at {}", dir.display());
+        specforge_cmd()
+            .args(["extension", "build", "--path"])
+            .arg(dir)
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains(format!("E040: {expected}")));
+        let output = specforge_cmd()
+            .args(["extension", "build", "--format", "json", "--path"])
+            .arg(dir)
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1));
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(json["code"], "E040", "{json}");
+        assert_eq!(json["error"], expected, "{json}");
+    };
+
     // Neither file
     let dir1 = TempDir::new().unwrap();
-    specforge_cmd()
-        .args(["extension", "build", "--path"])
-        .arg(dir1.path())
-        .assert()
-        .failure();
+    assert_e040(dir1.path(), "Cargo.toml");
 
     // Only Cargo.toml
     let dir2 = TempDir::new().unwrap();
     fs::write(dir2.path().join("Cargo.toml"), "[package]").unwrap();
-    specforge_cmd()
-        .args(["extension", "build", "--path"])
-        .arg(dir2.path())
-        .assert()
-        .failure();
+    assert_e040(dir2.path(), "manifest.json");
 
     // Only manifest.json
     let dir3 = TempDir::new().unwrap();
     fs::write(dir3.path().join("manifest.json"), "{}").unwrap();
-    specforge_cmd()
-        .args(["extension", "build", "--path"])
-        .arg(dir3.path())
-        .assert()
-        .failure();
+    assert_e040(dir3.path(), "Cargo.toml");
 
     // Both files present -> success
     let dir4 = TempDir::new().unwrap();

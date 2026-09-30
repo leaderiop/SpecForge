@@ -746,14 +746,15 @@ fn analyze_prove_satisfiable_constraint_exits_zero() {
     verify = "a proved formal claim discharges verify property obligations"
 )]
 fn analyze_proved_claims_discharge_verify_property_obligations() {
-    if std::process::Command::new("z3")
-        .arg("--version")
-        .output()
-        .is_err()
-    {
-        eprintln!("z3 not installed — skipping prove e2e");
-        return;
-    }
+    // This test is a linked proof: skipping it would still record a pass,
+    // so without z3 it fails instead (CI installs z3).
+    assert!(
+        std::process::Command::new("z3")
+            .arg("--version")
+            .output()
+            .is_ok_and(|o| o.status.success()),
+        "z3 is required for this test: install it (brew install z3 / apt-get install z3)"
+    );
 
     let dir = TempDir::new().unwrap();
     fs::write(
