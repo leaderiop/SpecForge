@@ -1,7 +1,8 @@
 use crate::OutputFormat;
 use specforge_migrate::{
     CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MigrationStatus,
-    MigrationSummary, RollbackSummary, compare_graphs, migrate_project, run_rollback,
+    MigrationSummary, RollbackSummary, capture_pre_migration_snapshot, check_schema_compatibility,
+    compare_graphs, migrate_project, run_rollback,
 };
 use std::path::Path;
 use std::str::FromStr;
@@ -24,11 +25,13 @@ pub fn run(
     // Criterion 3 (pre-side): capture the compiled graph before any file is
     // touched, so post-migration validation can confirm structural
     // equivalence.
-    let pre_graph = if !dry_run {
-        Some(crate::pipeline::compile(path).graph)
-    } else {
-        None
-    };
+    // The schema snapshot is the before-state the W053 compatibility check
+    // compares against.
+    let pre = (!dry_run).then(|| {
+        let ctx = crate::pipeline::compile(path);
+        let snapshot = capture_pre_migration_snapshot(&crate::export::build_schema(&ctx));
+        (ctx.graph, snapshot)
+    });
 
     // Parse and validate target version
     let target = match target_version {
@@ -69,9 +72,14 @@ pub fn run(
 
     // Criterion 3: post-migration validation - the graph must be
     // structurally equivalent to the pre-migration graph.
-    if let Some(pre) = pre_graph {
+    if let Some((pre_graph, snapshot)) = pre {
         let post = crate::pipeline::compile(path);
-        let structural = compare_graphs(&pre, &post.graph);
+        // Graph Protocol compatibility: breaking schema changes warn W053.
+        let post_schema = crate::export::build_schema(&post);
+        for warning in check_schema_compatibility(&snapshot.schema, &post_schema) {
+            eprintln!("warning[{}]: {}", warning.code, warning.message);
+        }
+        let structural = compare_graphs(&pre_graph, &post.graph);
         if !structural.is_empty() {
             run_rollback(path);
             for d in &structural {

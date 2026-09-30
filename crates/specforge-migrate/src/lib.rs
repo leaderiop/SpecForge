@@ -224,13 +224,11 @@ fn sha256_hash(content: &str) -> String {
 // Pre-Migration Schema Snapshot
 // ---------------------------------------------------------------------------
 
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct PreMigrationSnapshot {
     pub schema: GraphProtocolSchema,
 }
 
-#[allow(dead_code)]
 pub fn capture_pre_migration_snapshot(schema: &GraphProtocolSchema) -> PreMigrationSnapshot {
     PreMigrationSnapshot {
         schema: schema.clone(),
@@ -238,7 +236,6 @@ pub fn capture_pre_migration_snapshot(schema: &GraphProtocolSchema) -> PreMigrat
 }
 
 /// Compare pre/post migration schemas and return breaking change diagnostics.
-#[allow(dead_code)]
 pub fn check_schema_compatibility(
     pre: &GraphProtocolSchema,
     post: &GraphProtocolSchema,
@@ -265,7 +262,6 @@ pub fn check_schema_compatibility(
 
 /// Compare two graphs for structural equivalence (entity IDs, edges, field values).
 /// Returns diagnostics for any differences found, excluding source spans.
-#[allow(dead_code)]
 pub fn compare_graphs(
     pre: &specforge_graph::Graph,
     post: &specforge_graph::Graph,

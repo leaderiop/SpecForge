@@ -446,6 +446,10 @@ enum Commands {
         /// Emit one JSON object per rebuild cycle
         #[arg(long, default_value_t = false)]
         json: bool,
+
+        /// Check every incremental rebuild against a cold rebuild (slower)
+        #[arg(long, default_value_t = false)]
+        verify_incremental: bool,
     },
     /// Scaffold a new extension project
     New {
@@ -950,11 +954,15 @@ fn main() {
                 prove,
             )
         }
-        Commands::Watch { path, json } => {
+        Commands::Watch {
+            path,
+            json,
+            verify_incremental,
+        } => {
             let project = path
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("."));
-            watch::run(&project, json)
+            watch::run(&project, json, verify_incremental)
         }
         Commands::New {
             name,

@@ -4,7 +4,9 @@ use std::path::Path;
 use crate::pipeline;
 use crate::{ExportFormat, SchemaFormat};
 
-fn build_schema(ctx: &pipeline::CompilationContext) -> specforge_emitter::GraphProtocolSchema {
+pub(crate) fn build_schema(
+    ctx: &pipeline::CompilationContext,
+) -> specforge_emitter::GraphProtocolSchema {
     generate_schema(
         &ctx.kind_registry,
         &ctx.edge_registry,

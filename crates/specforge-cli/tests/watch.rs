@@ -17,6 +17,13 @@ fn specforge_cmd() -> Command {
 /// Spawn `specforge watch --json` on a fresh project and return the line
 /// receiver plus the child handle.
 fn spawn_watch(project: &TempDir) -> (mpsc::Receiver<String>, std::process::Child) {
+    spawn_watch_with(project, &[])
+}
+
+fn spawn_watch_with(
+    project: &TempDir,
+    extra: &[&str],
+) -> (mpsc::Receiver<String>, std::process::Child) {
     let mut child = specforge_cmd()
         .args([
             "watch",
@@ -24,6 +31,7 @@ fn spawn_watch(project: &TempDir) -> (mpsc::Receiver<String>, std::process::Chil
             project.path().to_str().unwrap(),
             "--json",
         ])
+        .args(extra)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -131,4 +139,35 @@ fn watch_reports_diagnostics_on_broken_edit() {
         line.contains("main.spec"),
         "changed diagnostic files must include the edited file: {line}"
     );
+}
+
+#[test]
+fn watch_verify_incremental_checks_each_rebuild_against_a_cold_one() {
+    let project = TempDir::new().unwrap();
+    fs::write(project.path().join("specforge.json"), "{}").unwrap();
+    fs::write(
+        project.path().join("main.spec"),
+        "entity one { title \"One\" }\n",
+    )
+    .unwrap();
+
+    let (rx, mut child) = spawn_watch_with(&project, &["--verify-incremental"]);
+    assert!(
+        wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60)).is_some(),
+        "watch never reported ready"
+    );
+    std::thread::sleep(Duration::from_millis(300));
+    fs::write(
+        project.path().join("main.spec"),
+        "entity one { title \"One\" }\nentity two { title \"Two\" }\n",
+    )
+    .unwrap();
+
+    let rebuilt = wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60));
+    let _ = child.kill();
+    let _ = child.wait();
+
+    let line = rebuilt.expect("no rebuild event after file change");
+    let event: serde_json::Value = serde_json::from_str(&line).unwrap();
+    assert_eq!(event["verification"], "passed", "{line}");
 }

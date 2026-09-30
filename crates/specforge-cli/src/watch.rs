@@ -13,9 +13,10 @@ use specforge_common::Severity;
 use specforge_graph::{GraphConfig, build_graph_with_config};
 use specforge_watch::{ImportDag, IncrementalPipeline, SpecWatcher};
 
-pub fn run(path: &Path, json: bool) -> i32 {
+pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     // 1. Cold build via the standard compile pipeline (extensions, registries).
     let (ctx, mut pipeline) = cold_build(path);
+    pipeline.set_verify_incremental(verify_incremental);
     let spec_root: PathBuf =
         std::fs::canonicalize(&ctx.spec_root).unwrap_or_else(|_| ctx.spec_root.clone());
 
@@ -139,6 +140,7 @@ pub fn run(path: &Path, json: bool) -> i32 {
                 eprintln!("[watch] reload cold_build done");
             }
             pipeline = new_pipeline;
+            pipeline.set_verify_incremental(verify_incremental);
             if json {
                 println!(
                     "{}",
@@ -224,6 +226,11 @@ pub fn run(path: &Path, json: bool) -> i32 {
                     "warnings": warnings,
                     "changed_diagnostic_files": result.changed_diagnostic_files,
                     "verification_failed": matches!(result.verification, Some(Err(_))),
+                    "verification": match &result.verification {
+                        None => serde_json::Value::Null,
+                        Some(Ok(())) => "passed".into(),
+                        Some(Err(msg)) => msg.clone().into(),
+                    },
                 })
             );
         } else {
