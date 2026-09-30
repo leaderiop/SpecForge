@@ -381,13 +381,13 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
     graph_delta_computed_fired "graph_delta_computed event has fired after incremental rebuild"
   }
   ensures {
-    subscribers_notified       "All subscribed MCP clients receive notifications/graph_changed with GraphDelta payload"
+    subscribers_notified       "All subscribed MCP clients receive specforge/graphChanged with GraphDelta payload"
     no_notification_when_empty "Notification suppressed when no clients are subscribed"
     delta_notified_emitted     "mcp_delta_notified event emitted after notification delivery"
   }
   contract   """
     When an incremental rebuild completes in MCP server mode, the system MUST
-    send a notifications/graph_changed notification to all subscribed MCP
+    send a specforge/graphChanged notification to all subscribed MCP
     clients. The notification payload MUST include the GraphDelta describing
     added, removed, and modified nodes and edges. Clients MUST be able to
     subscribe and unsubscribe from delta notifications. If no clients are
@@ -417,13 +417,13 @@ behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
     validation_complete_fired "validation_complete event has fired after compilation"
   }
   ensures {
-    subscribers_notified   "All subscribed MCP clients receive notifications/diagnostics_changed"
+    subscribers_notified   "All subscribed MCP clients receive specforge/diagnosticsChanged"
     unchanged_suppressed   "Notification suppressed when diagnostics are unchanged or no clients subscribed"
     delta_notified_emitted "mcp_delta_notified event emitted after notification delivery"
   }
   contract   """
     When validation completes in MCP server mode, the system MUST send a
-    notifications/diagnostics_changed notification to all subscribed MCP clients.
+    specforge/diagnosticsChanged notification to all subscribed MCP clients.
     The notification payload MUST include added and removed diagnostics since the
     previous compilation. Clients MUST be able to subscribe and unsubscribe. If
     no clients are subscribed or the diagnostics are unchanged, the notification

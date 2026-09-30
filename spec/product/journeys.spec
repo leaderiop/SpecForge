@@ -845,11 +845,11 @@ journey receive_delta_notifications_via_mcp "Receive Delta Notifications via MCP
   features [mcp_delta_notifications]
   flow     """
     1. AI agent subscribes to specforge://graph via MCP subscribe
-    2. Agent subscribes to diagnostics via notifications/diagnostics_changed
+    2. Agent subscribes to diagnostics via specforge/diagnosticsChanged
     3. Developer edits a .spec file
     4. System incrementally recompiles and computes GraphDelta
-    5. System sends notifications/graph_changed to subscribed agents
-    6. System sends notifications/diagnostics_changed with DiagnosticsDelta
+    5. System sends specforge/graphChanged to subscribed agents
+    6. System sends specforge/diagnosticsChanged with DiagnosticsDelta
     7. Agent receives deltas with added/removed/modified nodes and diagnostics
     8. Agent updates its internal context incrementally
     9. Success: agent stays synchronized without polling

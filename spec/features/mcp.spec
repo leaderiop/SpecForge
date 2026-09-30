@@ -99,8 +99,8 @@ feature mcp_delta_notifications "MCP Delta Notifications" {
     updates, wasting resources and introducing latency.
   """
   solution """
-    Two MCP subscriptions — notifications/graph_changed and
-    notifications/diagnostics_changed — deliver delta payloads to subscribed
+    Two MCP subscriptions — specforge/graphChanged and
+    specforge/diagnosticsChanged — deliver delta payloads to subscribed
     clients after each incremental rebuild. Agents receive only the diff,
     enabling efficient incremental context updates without re-reading the full
     graph or re-validating.
