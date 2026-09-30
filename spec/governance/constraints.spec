@@ -287,7 +287,6 @@ constraint lsp_responsiveness "LSP Responsiveness" {
     complete_field_names,
     complete_keywords,
     goto_import_definition,
-    code_action_add_missing_import,
     code_action_create_entity_stub,
     incremental_document_sync,
   ]

@@ -1965,7 +1965,10 @@ fn manifest_consistency_peer_dep_passes() {
     assert!(diags.is_empty());
 }
 
-#[test]
+#[spec(
+    behavior = "validate_extension_manifest_consistency",
+    verify = "self-contradictory target_kind produces a W021 warning"
+)]
 fn manifest_consistency_self_contradictory_target() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1977,7 +1980,12 @@ fn manifest_consistency_self_contradictory_target() {
     )
     .unwrap();
     let diags = validate_manifest_consistency(&manifest);
-    assert!(diags.iter().any(|d| d.message.contains("nonexistent_kind")));
+    let w021 = diags
+        .iter()
+        .find(|d| d.message.contains("nonexistent_kind"))
+        .unwrap_or_else(|| panic!("{diags:?}"));
+    assert_eq!(w021.code, "W021");
+    assert_eq!(w021.severity, Severity::Warning);
 }
 
 #[spec(
@@ -2002,7 +2010,10 @@ fn manifest_consistency_non_peer_warning() {
     );
 }
 
-#[test]
+#[spec(
+    behavior = "validate_extension_manifest_consistency",
+    verify = "self-contradictory edge label produces a W021 warning"
+)]
 fn manifest_consistency_self_contradictory_edge() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -2014,7 +2025,12 @@ fn manifest_consistency_self_contradictory_edge() {
     )
     .unwrap();
     let diags = validate_manifest_consistency(&manifest);
-    assert!(diags.iter().any(|d| d.message.contains("missing_edge")));
+    let w021 = diags
+        .iter()
+        .find(|d| d.message.contains("missing_edge"))
+        .unwrap_or_else(|| panic!("{diags:?}"));
+    assert_eq!(w021.code, "W021");
+    assert_eq!(w021.severity, Severity::Warning);
 }
 
 #[spec(

@@ -602,36 +602,6 @@ behavior goto_import_definition "Go-to-Definition on Imports" {
   verify contract "Go-to-Definition on Imports: import go-to-definition holds — imports_resolved, target_file_navigated"
 }
 
-behavior code_action_add_missing_import "Code Action: Add Missing Import" {
-  category   mutation
-  invariants [
-    reference_resolution_completeness,
-    zero_domain_knowledge_core,
-    lsp_response_latency,
-    lsp_text_edit_non_overlapping,
-  ]
-  types      [EntityId, CodeAction]
-  ports      [LspProtocol]
-  requires {
-    graph_available         "in-memory graph is built and E003 diagnostics are available"
-    entity_exists_elsewhere "the referenced entity ID exists in another file in the workspace"
-  }
-  ensures {
-    import_added "a use import statement is inserted after existing use statements at the top of the file"
-  }
-  contract   """
-    When an E003 diagnostic (unresolved reference) exists for an entity ID
-    that exists in another file, the LSP MUST offer a code action to add
-    the appropriate `use` import statement. (E003 is emitted by
-    link_entity_references during resolution, not by the validator.) The import MUST be inserted
-    at the top of the file, after existing `use` statements.
-  """
-  verify unit "code action offered on E003 for resolvable entity"
-  verify unit "import is inserted after existing use statements"
-  verify unit "no code action when entity does not exist anywhere"
-  verify contract "Code Action: Add Missing Import: add missing import holds — graph_available, entity_exists_elsewhere, import_added"
-}
-
 behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
   category   mutation
   invariants [zero_domain_knowledge_core, lsp_response_latency, lsp_text_edit_non_overlapping]
@@ -698,33 +668,3 @@ behavior incremental_document_sync "Incremental Document Sync" {
 }
 
 // -- Extension Grammar Highlighting -------------------------------------------
-
-behavior load_extension_grammars_for_highlighting "Load Extension Grammars for Highlighting" {
-  invariants [grammar_injection_isolation, grammar_composition_determinism]
-  category   command
-  types      [GrammarContribution, GrammarCacheEntry, GrammarError, KindRegistryEntry]
-  ports      [WasmRuntime]
-  requires {
-    extensions_loaded      "extensions have been loaded and grammar contributions are registered"
-    wasm_runtime_available "WasmRuntime port is available for loading grammar .wasm files"
-  }
-  ensures {
-    grammars_cached           "loaded grammars are cached for the lifetime of the LSP session"
-    grammar_kind_association  "each grammar is associated with its declared entity kinds for targeted highlighting"
-    loading_failures_isolated "grammar loading failures produce diagnostics without degrading highlighting for other entity kinds"
-  }
-  contract   """
-    At LSP startup and on extension configuration change, the LSP MUST
-    load grammar .wasm files from registered grammar contributions. Each
-    grammar MUST be associated with its declared entity kinds for targeted
-    syntax highlighting. Grammar loading MUST respect the grammar_policy
-    for conflict resolution. Loaded grammars MUST be cached for the
-    lifetime of the LSP session. Grammar loading failures MUST produce
-    diagnostics without degrading highlighting for other entity kinds.
-  """
-  verify unit "grammar loaded at LSP startup for registered contributions"
-  verify unit "grammar reloaded on extension configuration change"
-  verify unit "grammar conflict resolved per grammar_policy"
-  verify unit "grammar loading failure does not affect other kinds"
-  verify contract "Load Extension Grammars for Highlighting: extension grammar loading holds — extensions_loaded, wasm_runtime_available, grammars_cached, grammar_kind_association, loading_failures_isolated"
-}

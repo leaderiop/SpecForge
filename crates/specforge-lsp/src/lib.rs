@@ -4,7 +4,6 @@ mod code_actions;
 mod completion;
 mod document;
 pub mod formatting;
-mod grammar_cache;
 mod hover;
 mod navigation;
 mod semantic_tokens;
@@ -13,8 +12,7 @@ mod symbols;
 
 pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};
 pub use code_actions::{
-    CodeAction, code_action_add_import, code_action_create_stub, code_actions_from_diagnostics,
-    code_actions_missing_verify,
+    CodeAction, code_action_create_stub, code_actions_from_diagnostics, code_actions_missing_verify,
 };
 pub use completion::{
     CompletionItem, CursorContext, complete_entity_ids, complete_entity_ids_filtered,
@@ -22,7 +20,6 @@ pub use completion::{
 };
 pub use completion::{enclosing_block, enclosing_entity_kind, field_snippet, keyword_snippet};
 pub use document::DocumentBuffer;
-pub use grammar_cache::GrammarCache;
 pub use hover::{hover_field_info, hover_info, hover_info_with_registries};
 pub use navigation::{find_all_references, go_to_definition, goto_import_definition};
 pub use semantic_tokens::{

@@ -5,7 +5,6 @@ mod contracts;
 mod diagnostics;
 mod document;
 mod e2e;
-mod grammar_loading;
 mod hover;
 mod lifecycle;
 mod navigation;

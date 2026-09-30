@@ -145,45 +145,6 @@ fn verify_stub_uses_the_kinds_first_allowed_verify_kind() {
     );
 }
 
-// -- code_action_add_missing_import -------------------------------------------
-
-#[spec(
-    behavior = "code_action_add_missing_import",
-    verify = "code action offered on E003 for resolvable entity"
-)]
-fn add_import_offered_for_resolvable_entity() {
-    let mut g = Graph::new();
-    g.add_node(node("auth_token", "type", "types/auth.spec", 1));
-
-    let action =
-        specforge_lsp::code_action_add_import(&g, "auth_token", "behaviors/login.spec", "spec");
-    assert!(action.is_some());
-    let action = action.unwrap();
-    assert!(action.edit_text.contains("use \"types/auth\""));
-}
-
-#[test]
-fn add_import_position() {
-    let mut g = Graph::new();
-    g.add_node(node("auth_token", "type", "types/auth.spec", 1));
-
-    let action =
-        specforge_lsp::code_action_add_import(&g, "auth_token", "behaviors/login.spec", "spec");
-    let action = action.unwrap();
-    // edit_text should be a use statement with quoted path
-    assert!(action.edit_text.starts_with("use \""));
-}
-
-#[spec(
-    behavior = "code_action_add_missing_import",
-    verify = "no code action when entity does not exist anywhere"
-)]
-fn no_import_for_nonexistent_entity() {
-    let g = Graph::new();
-    let action = specforge_lsp::code_action_add_import(&g, "nonexistent", "login.spec", "spec");
-    assert!(action.is_none());
-}
-
 // -- code_action_create_entity_stub -------------------------------------------
 
 #[test]

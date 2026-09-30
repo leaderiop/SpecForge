@@ -28,11 +28,13 @@ behavior resolve_use_imports "Resolve Use Imports" {
   contract   """
     The resolver MUST process use directives by locating the target .spec
     file relative to the spec root directory. The .spec extension MUST be
-    appended implicitly. Missing files MUST produce an E025 diagnostic.
+    appended implicitly; a path that already ends in .spec names the same
+    file. Missing files MUST produce an E025 diagnostic.
     The resolver MUST build the file dependency graph from imports.
   """
   verify unit "resolve use path to file on disk"
   verify unit "missing import file produces E025"
+  verify unit "an import path may spell out the .spec extension"
   verify unit "relative import traversing above spec_root is rejected"
   verify integration "imports across nested directories resolve correctly"
   verify contract "Resolve Use Imports: use import resolution holds — registries_populated_fired, define_blocks_registered_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"

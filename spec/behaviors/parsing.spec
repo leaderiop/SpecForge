@@ -79,19 +79,17 @@ behavior parse_use_imports "Parse Use Imports" {
     source_parser_available "SourceParser port is initialized and ready to accept input"
   }
   ensures {
-    imports_extracted  "All use directives are parsed into ImportDeclaration entries with paths and optional selective IDs"
-    extension_rejected "Import paths containing .spec extension are rejected with a diagnostic"
+    imports_extracted "All use directives are parsed into ImportDeclaration entries with paths and optional selective IDs"
   }
   contract   """
     The parser MUST recognize use directives at the top of .spec files.
     Both full imports (use path/to/file) and selective imports
-    (use path/to/file { ID-1 }) MUST be parsed. Import paths MUST NOT
-    include the .spec extension.
+    (use path/to/file { ID-1 }) MUST be parsed. The .spec extension is
+    implicit; a path that spells it out resolves to the same file.
   """
   verify unit "parse full use import"
   verify unit "parse selective use import with braces"
-  verify unit "reject use import with .spec extension"
-  verify contract "Parse Use Imports: use import parsing holds — source_parser_available, imports_extracted, extension_rejected"
+  verify contract "Parse Use Imports: use import parsing holds — source_parser_available, imports_extracted"
 }
 
 behavior parse_all_block_types "Parse All Block Types" {

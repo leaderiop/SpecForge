@@ -847,7 +847,7 @@ behavior validate_extension_manifest_consistency "Validate Extension Manifest Co
   }
   ensures {
     self_consistency_validated "All internal target_kind and edge_type references checked for self-consistency"
-    authoring_errors_diagnosed "Self-contradictory references produce E-level errors; undeclared cross-extension references produce W-level warnings"
+    authoring_errors_diagnosed "Self-contradictory and undeclared cross-extension references produce W021 warnings"
   }
   contract   """
     When an extension is loaded, the compiler MUST validate that the manifest
@@ -860,16 +860,16 @@ behavior validate_extension_manifest_consistency "Validate Extension Manifest Co
 
     Self-contradictory references within the same manifest (target_kind or
     edge_type that references a name not declared in the manifest itself
-    and not in any peer dependency) MUST produce an E-level error, not a
-    warning. These are authoring errors in the extension manifest that
-    indicate broken internal contracts. Cross-extension references to kinds
-    from non-peer extensions produce W-level warnings (the kind may exist
-    but the dependency is undeclared).
+    and not in any peer dependency) MUST produce a W021 warning naming the
+    reference. They are authoring errors in the extension, not in the
+    user's spec, so they MUST NOT fail the user's compile. Cross-extension
+    references to kinds from non-peer extensions produce W021 as well (the
+    kind may exist but the dependency is undeclared).
   """
   verify unit "target_kind referencing own manifest kind passes"
   verify unit "target_kind referencing peer dependency kind passes"
-  verify unit "self-contradictory target_kind produces E-level error"
+  verify unit "self-contradictory target_kind produces a W021 warning"
   verify unit "target_kind referencing non-peer extension kind produces W-level warning"
-  verify unit "self-contradictory edge label produces E-level error"
+  verify unit "self-contradictory edge label produces a W021 warning"
   verify contract "Validate Extension Manifest Consistency: manifest self-consistency validation holds — manifest_parsed, peer_dependencies_known, self_consistency_validated, authoring_errors_diagnosed"
 }

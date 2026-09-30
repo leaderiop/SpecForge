@@ -1200,3 +1200,23 @@ mod import_visibility {
         );
     }
 }
+
+#[specforge_test(
+    behavior = "resolve_use_imports",
+    verify = "an import path may spell out the .spec extension"
+)]
+fn use_import_may_spell_out_the_spec_extension() {
+    let dir = setup_project(&[
+        ("tokens.spec", r#"behavior token "T" { contract "t" }"#),
+        ("main.spec", "use \"tokens.spec\"\nbehavior foo \"F\" { }"),
+        ("other.spec", "use \"tokens\"\nbehavior bar \"B\" { }"),
+    ]);
+
+    let result = resolve_project(dir.path());
+
+    assert!(
+        !result.diagnostics.iter().any(|d| d.code == "E025"),
+        "{:?}",
+        result.diagnostics
+    );
+}

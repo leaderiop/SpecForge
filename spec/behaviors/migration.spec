@@ -34,15 +34,10 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
     MUST continue parsing with best-effort compatibility. Files without an
     explicit format version MUST be treated as the oldest supported version.
 
-    Format version MAY be declared in two ways: a header comment
-    `// specforge-format: <major>` at the top of a .spec file (before any
-    other content), or a `format_version` field inside the spec root block.
-    The `format_version` field is a string of the form `"<major>.<minor>"`
-    that declares which .spec file format the file was written against; it
+    A file declares its format version with a header comment
+    `// specforge-format: <major>.<minor>` as its first non-blank line. The
+    version names the .spec file format the file was written against; it
     is distinct from the Graph Protocol's SchemaVersion (types/graph.spec).
-    If both header comment and root field are present, they MUST agree — a
-    mismatch MUST produce an E-level diagnostic. The header comment form is
-    RECOMMENDED for brevity.
 
     The compiler MUST support the current and previous major format versions.
     Files declaring an unsupported format version (older than previous major
@@ -53,8 +48,6 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
   verify unit "current format version produces no diagnostic"
   verify unit "missing format version treated as oldest supported"
   verify unit "header comment format version detected correctly"
-  verify unit "spec root format_version field detected correctly"
-  verify unit "mismatched header and root format_version produces E-level diagnostic"
   verify unit "unsupported format version produces E019 with upgrade guidance"
   verify contract "Detect Format Version Mismatch: format version detection holds — spec_file_available, version_mismatch_reported, unsupported_version_rejected, parsing_continues"
 }
@@ -96,9 +89,8 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
   //     transforms run (point of no return). At this point, backups exist
   //     and the system is committed to attempting the migration.
   contract   """
-    When specforge migrate is invoked, the system MUST first capture a
-    pre-migration snapshot of all .spec files (content hash per file) and
-    the current graph state before any transforms are applied. The system
+    When specforge migrate is invoked, the system MUST first capture the
+    compiled graph and its schema before any transforms are applied. The system
     MUST then emit migration_starting (consumed by
     capture_pre_migration_schema_snapshot for schema snapshot)
     before beginning transforms.

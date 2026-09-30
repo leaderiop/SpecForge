@@ -452,29 +452,6 @@ fn provide_semantic_tokens_contract() {
     );
 }
 
-// B:code_action_add_missing_import — verify contract "requires/ensures consistency for add missing import"
-#[specforge_test(
-    behavior = "code_action_add_missing_import",
-    verify = "Code Action: Add Missing Import: add missing import holds — graph_available, entity_exists_elsewhere, import_added"
-)]
-fn code_action_add_missing_import_contract() {
-    // Requires: entity exists in graph but in a different file
-    // Ensures: code action produces use statement; None for nonexistent entity
-    let mut g = Graph::new();
-    g.add_node(node_at("auth_token", "type", "types/auth.spec", 1, 5));
-
-    let action =
-        specforge_lsp::code_action_add_import(&g, "auth_token", "behaviors/login.spec", "spec");
-    let action = action.expect("resolvable entity must produce code action");
-    assert!(
-        action.edit_text.contains("use \"types/auth\""),
-        "must generate use statement"
-    );
-
-    let missing = specforge_lsp::code_action_add_import(&g, "nonexistent", "login.spec", "spec");
-    assert!(missing.is_none(), "nonexistent entity must return None");
-}
-
 // B:code_action_create_entity_stub — verify contract "requires/ensures consistency for create entity stub"
 #[specforge_test(
     behavior = "code_action_create_entity_stub",
@@ -690,39 +667,6 @@ fn shared_incremental_pipeline_contract() {
     );
 }
 
-#[test]
-fn load_extension_grammars_for_highlighting_contract() {
-    // Requires: grammar contributions registered for entity kinds
-    // Ensures: grammars available for registered kinds; failures isolated
-    let mut cache = specforge_lsp::GrammarCache::new();
-
-    cache.register("behavior", "behavior.wasm");
-    assert!(
-        cache.has_grammar("behavior"),
-        "registered grammar must be available"
-    );
-    assert_eq!(cache.grammar_path("behavior"), Some("behavior.wasm"));
-
-    // Update grammar
-    cache.register("behavior", "behavior_v2.wasm");
-    assert_eq!(
-        cache.grammar_path("behavior"),
-        Some("behavior_v2.wasm"),
-        "grammar must be updated"
-    );
-
-    // Failure isolation
-    cache.mark_failed("type", "load error");
-    assert!(
-        cache.has_grammar("behavior"),
-        "other grammars must be unaffected"
-    );
-    assert!(
-        !cache.has_grammar("type"),
-        "failed grammar must not be available"
-    );
-    assert!(cache.failure("type").is_some(), "failure must be recorded");
-}
 /// Build a Wasm runtime for a temp project listing `ext_names`, mirroring
 /// how a real session loads extensions from specforge.json.
 fn wasm_runtime_for(ext_names: &[String]) -> specforge_component::ComponentRuntime {

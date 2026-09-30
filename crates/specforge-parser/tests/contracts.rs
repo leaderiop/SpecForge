@@ -88,7 +88,7 @@ behavior also_good "Also Good" {
 // B:parse_use_imports — verify contract "requires/ensures consistency for use import parsing"
 #[specforge_test(
     behavior = "parse_use_imports",
-    verify = "Parse Use Imports: use import parsing holds — source_parser_available, imports_extracted, extension_rejected"
+    verify = "Parse Use Imports: use import parsing holds — source_parser_available, imports_extracted"
 )]
 fn parse_use_imports_contract() {
     // Requires: source with use declarations

@@ -85,8 +85,6 @@ feature semantic_tokens "Semantic Tokens" {
   //   provide_semantic_tokens
   // Bridge references from zero-entity-core (behaviors/zero-entity-lsp.spec):
   //   provide_extension_entity_semantic_tokens
-  // Bridge from behaviors/lsp.spec: load_extension_grammars_for_highlighting
-  //   provides grammar-based highlighting data for extension-defined grammars
   problem  """
     Without semantic understanding, editors can only provide basic
     syntax highlighting via TextMate grammars. Entity keywords defined
@@ -103,20 +101,20 @@ feature semantic_tokens "Semantic Tokens" {
 }
 
 feature code_actions "Code Actions" {
-  // Owned: code_action_add_missing_import
   // Bridge: code_actions_for_missing_verify, code_action_create_entity_stub
   //   (owned by extension_driven_code_actions in features/zero-entity-core.spec)
   problem  """
     Untested entities are easy to overlook. Adding verify declarations
-    manually is repetitive. Unresolved references require manual import
-    addition or entity creation.
+    manually is repetitive. Unresolved references require manual entity
+    creation.
   """
   solution """
-    LSP offers three code actions: (1) on unresolved use references, add
-    the missing import statement; (2) on untested testable entities (any
-    entity kind with testable=true in its extension manifest), add verify
-    stub declarations to the .spec file; (3) on unresolved entity
-    references, create an entity stub in the appropriate file.
+    LSP offers code actions: on untested testable entities (any entity
+    kind with testable=true in its extension manifest), add verify stub
+    declarations to the .spec file; on unresolved entity references,
+    replace a misspelled id with the close match or create an entity stub
+    in the current file. References resolve across the project without
+    `use`, so no import action is needed.
   """
 }
 
