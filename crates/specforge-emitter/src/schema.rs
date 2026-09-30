@@ -821,8 +821,9 @@ pub fn negotiate_version(
             min: min.clone(),
             max: max.clone(),
             reason: format!(
-                "requested schema version {} has incompatible major version (supported: {}.x)",
-                requested, max.major
+                "requested schema version {} has incompatible major version \
+                 (supported range [{}, {}])",
+                requested, min, max
             ),
         });
     }

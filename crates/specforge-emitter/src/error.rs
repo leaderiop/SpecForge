@@ -14,6 +14,14 @@ pub enum EmitterError {
     Other(String),
 }
 
+impl EmitterError {
+    /// The process exit code a command reports when it fails with this
+    /// error. Every emitter error is a failed request: 1.
+    pub fn exit_code(&self) -> i32 {
+        1
+    }
+}
+
 impl std::fmt::Display for EmitterError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

@@ -48,7 +48,7 @@ pub fn run(
             }
             Err(err) => {
                 eprintln!("{}", err);
-                1
+                err.exit_code()
             }
         }
     } else {
@@ -89,7 +89,7 @@ pub fn run(
             }
             Err(err) => {
                 eprintln!("{}", err);
-                1
+                err.exit_code()
             }
         }
     }

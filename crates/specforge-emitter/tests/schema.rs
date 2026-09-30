@@ -771,10 +771,15 @@ fn negotiate_out_of_range_fails() {
     let max = SchemaVersion::new(1, 5, 0);
     let requested = SchemaVersion::new(1, 1, 0);
 
-    let result = negotiate_version(&requested, &min, &max);
-    assert!(result.is_err());
-    let err = result.unwrap_err();
-    assert!(err.reason.contains("out of range"));
+    let err = negotiate_version(&requested, &min, &max).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "E027: requested schema version 1.1.0 is out of range [1.2.0, 1.5.0]"
+    );
+    assert_eq!(
+        (err.min, err.max),
+        (SchemaVersion::new(1, 2, 0), SchemaVersion::new(1, 5, 0))
+    );
 }
 
 // B:negotiate_schema_version — verify unit "different major version fails"
@@ -787,10 +792,13 @@ fn negotiate_different_major_fails() {
     let max = SchemaVersion::new(1, 5, 0);
     let requested = SchemaVersion::new(2, 0, 0);
 
-    let result = negotiate_version(&requested, &min, &max);
-    assert!(result.is_err());
-    let err = result.unwrap_err();
-    assert!(err.reason.contains("incompatible major version"));
+    let err = negotiate_version(&requested, &min, &max).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "E027: requested schema version 2.0.0 has incompatible major version \
+         (supported range [1.0.0, 1.5.0])"
+    );
+    assert_eq!(err.requested, requested);
 }
 
 // B:negotiate_schema_version — verify unit "SchemaVersionError Display includes E027"
@@ -799,13 +807,25 @@ fn negotiate_different_major_fails() {
     verify = "incompatible version produces E027 with supported range"
 )]
 fn schema_version_error_display() {
-    let err = SchemaVersionError {
+    // Below the supported minimum, in the same major version.
+    let err = negotiate_version(
+        &SchemaVersion::new(1, 0, 9),
+        &SchemaVersion::new(1, 1, 0),
+        &SchemaVersion::new(1, 4, 2),
+    )
+    .unwrap_err();
+    let shown = err.to_string();
+    assert!(shown.starts_with("E027: "), "{shown}");
+    assert!(shown.ends_with("[1.1.0, 1.4.2]"), "{shown}");
+
+    // A hand-built error displays its own reason after the code.
+    let built = SchemaVersionError {
         requested: SchemaVersion::new(2, 0, 0),
         min: SchemaVersion::new(1, 0, 0),
         max: SchemaVersion::new(1, 5, 0),
         reason: "incompatible".to_string(),
     };
-    assert!(err.to_string().contains("E027"));
+    assert_eq!(built.to_string(), "E027: incompatible");
 }
 
 // ===========================================================================
@@ -852,10 +872,32 @@ fn cache_atomic_overwrite() {
     let schema2 = sample_schema();
 
     persist_schema_cache(&schema1, dir.path()).unwrap();
+    let cache = dir.path().join("schema-cache.json");
+    let first = std::fs::read_to_string(&cache).unwrap();
+
+    // A hard link shares the cache file's inode. Writing the file in place
+    // would change what the link reads; a rename puts a new inode at the
+    // path and leaves the link on the old, complete content.
+    let link = dir.path().join("previous-cache.json");
+    std::fs::hard_link(&cache, &link).unwrap();
+
     persist_schema_cache(&schema2, dir.path()).unwrap();
 
+    assert_eq!(
+        std::fs::read_to_string(&link).unwrap(),
+        first,
+        "the old cache file must be replaced, not rewritten in place"
+    );
     let loaded = load_schema_cache(dir.path()).unwrap().unwrap();
     assert_eq!(loaded.schema, schema2);
+
+    // The temp file was renamed away: only the cache and the link remain.
+    let mut names: Vec<String> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    assert_eq!(names, vec!["previous-cache.json", "schema-cache.json"]);
 }
 
 // B:persist_schema_cache — verify unit "content hash changes with schema"
@@ -873,11 +915,11 @@ fn cache_content_hash_changes() {
     assert_ne!(hash1, hash2);
 }
 
-// B:persist_schema_cache — verify unit "cache independent of export"
-#[specforge_test(
-    behavior = "persist_schema_cache",
-    verify = "cache updated even when no JSON export is performed"
-)]
+// Not linked to "cache updated even when no JSON export is performed": no
+// compilation path calls persist_schema_cache, so nothing updates the cache
+// on a compile without an export. This only shows the call itself needs no
+// graph export.
+#[test]
 fn cache_independent_of_export() {
     let dir = tempfile::tempdir().unwrap();
     let schema = sample_schema();
@@ -904,9 +946,38 @@ fn emit_schema_full() {
     let schema = sample_schema();
     let json = emit_schema(&schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed["entity_kinds"].is_array());
-    assert!(parsed["edge_types"].is_array());
-    assert!(parsed["schema_version"].is_object());
+
+    // Every part of the fixture is in the output.
+    assert_eq!(
+        parsed["schema_version"],
+        serde_json::json!({ "major": 1, "minor": 2, "patch": 3 })
+    );
+    assert_eq!(
+        parsed["extensions"],
+        serde_json::json!([{ "name": "@specforge/software", "version": "1.0.0" }])
+    );
+    let kinds: Vec<&str> = parsed["entity_kinds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|k| k["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(kinds, vec!["behavior", "feature"]);
+    let behavior = &parsed["entity_kinds"][0];
+    assert_eq!(behavior["source_extension"], "@specforge/software");
+    assert_eq!(behavior["testable"], true);
+    assert_eq!(behavior["fields"][0]["name"], "contract");
+    assert_eq!(behavior["fields"][0]["field_type"], "string");
+    assert_eq!(parsed["entity_kinds"][1]["fields"], serde_json::json!([]));
+    assert_eq!(parsed["edge_types"].as_array().unwrap().len(), 1);
+    let edge = &parsed["edge_types"][0];
+    assert_eq!(edge["label"], "implements");
+    assert_eq!(edge["source_kinds"], serde_json::json!(["behavior"]));
+    assert_eq!(edge["target_kinds"], serde_json::json!(["feature"]));
+
+    // And nothing is lost: it reads back as the same schema.
+    let back: GraphProtocolSchema = serde_json::from_str(&json).unwrap();
+    assert_eq!(back, schema);
 }
 
 // B:serve_schema_resource — verify unit "filter by kind returns single kind"
@@ -940,11 +1011,10 @@ fn emit_schema_for_kind_missing() {
 // Slice 9: Publish JSON Schema
 // ===========================================================================
 
-// B:publish_schema_specification — verify unit "valid JSON Schema with $schema draft-2020-12"
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "published schema is valid JSON Schema"
-)]
+// Not linked: only a few top-level keys are checked here.
+// schema_publish_produces_json_schema_draft in specforge-cli's e2e_schema
+// tests checks every keyword of the published schema against draft 2020-12.
+#[test]
 fn publish_json_schema_valid() {
     let schema = sample_schema();
     let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
@@ -1048,11 +1118,9 @@ fn publish_json_schema_empty_schema() {
     assert_eq!(kind_prop["type"], "string");
 }
 
-// B:publish_schema_specification — verify unit "has title"
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "published schema is valid JSON Schema"
-)]
+// Not linked: a title says nothing about validity (see
+// publish_json_schema_valid).
+#[test]
 fn publish_json_schema_has_title() {
     let schema = sample_schema();
     let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
@@ -1271,8 +1339,11 @@ fn negotiate_above_max_fails() {
     let min = SchemaVersion::new(1, 0, 0);
     let max = SchemaVersion::new(1, 5, 0);
     let requested = SchemaVersion::new(1, 6, 0);
-    let result = negotiate_version(&requested, &min, &max);
-    assert!(result.is_err());
+    let err = negotiate_version(&requested, &min, &max).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "E027: requested schema version 1.6.0 is out of range [1.0.0, 1.5.0]"
+    );
 }
 
 // B:generate_schema_from_registries — verify unit "edge with no source/target kinds"
@@ -1318,9 +1389,24 @@ fn diff_multiple_field_changes() {
     });
 
     let migration = diff_schemas(&old, &new);
+    let mut changes = migration.changes.clone();
+    changes.sort_by_key(|c| format!("{c:?}"));
+    assert_eq!(
+        changes,
+        vec![
+            SchemaMigrationChange::FieldAdded {
+                kind: "behavior".to_string(),
+                field: "description".to_string(),
+                required: false,
+            },
+            SchemaMigrationChange::FieldRemoved {
+                kind: "behavior".to_string(),
+                field: "contract".to_string(),
+            },
+        ]
+    );
     assert!(migration.has_breaking_changes()); // removed "contract"
     assert!(migration.has_additions()); // added "description"
-    assert!(migration.changes.len() >= 2);
 }
 
 // B:publish_schema_specification — verify unit "description includes version"
@@ -1434,15 +1520,35 @@ fn detect_breaking_missing_cache_no_exports_no_diagnostic() {
 )]
 fn detect_breaking_with_cached_schema() {
     let dir = tempfile::tempdir().unwrap();
-    let old_schema = GraphProtocolSchema::empty();
+    // The cached schema has a kind the current one lacks. Without the
+    // cache there is no previous schema and nothing can be "removed".
+    let mut old_schema = sample_schema();
+    old_schema.entity_kinds.push(SchemaEntityKind {
+        name: "legacy".to_string(),
+        source_extension: "@specforge/software".to_string(),
+        testable: false,
+        dot_color: None,
+        fields: vec![],
+    });
     persist_schema_cache(&old_schema, dir.path()).unwrap();
 
     let current = sample_schema();
-    let (migration, diagnostics) = detect_breaking_with_diagnostics(dir.path(), &current, false);
+    let (migration, diagnostics) = detect_breaking_with_diagnostics(dir.path(), &current, true);
 
-    assert!(diagnostics.is_empty());
-    assert!(migration.has_additions());
-    assert!(!migration.has_breaking_changes());
+    assert!(
+        diagnostics.is_empty(),
+        "the cache was found: {diagnostics:?}"
+    );
+    assert_eq!(
+        migration.changes,
+        vec![SchemaMigrationChange::KindRemoved("legacy".to_string())]
+    );
+    assert!(migration.has_breaking_changes());
+
+    // The same comparison without the cache file sees no removal.
+    let empty = tempfile::tempdir().unwrap();
+    let (no_cache, _) = detect_breaking_with_diagnostics(empty.path(), &current, false);
+    assert!(!no_cache.has_breaking_changes());
 }
 
 // B:detect_breaking_schema_changes — verify unit "SchemaMigration record emitted on version change"
@@ -1455,8 +1561,20 @@ fn detect_breaking_migration_record_emitted() {
     let new = sample_schema();
     let migration = diff_schemas(&old, &new);
 
-    assert!(!migration.is_empty());
-    assert!(migration.changes.len() >= 2);
+    let mut changes = migration.changes.clone();
+    changes.sort_by_key(|c| format!("{c:?}"));
+    assert_eq!(
+        changes,
+        vec![
+            SchemaMigrationChange::EdgeAdded("implements".to_string()),
+            // A new kind's fields come with it: no separate FieldAdded.
+            SchemaMigrationChange::KindAdded("behavior".to_string()),
+            SchemaMigrationChange::KindAdded("feature".to_string()),
+        ]
+    );
+    // The record serializes for consumers.
+    let record = serde_json::to_value(&migration).unwrap();
+    assert_eq!(record["changes"].as_array().unwrap().len(), 3);
 }
 
 // ===========================================================================
@@ -1501,31 +1619,64 @@ fn schema_generated_deterministically_for_caching() {
     verify = "schema reflects current compilation state"
 )]
 fn schema_reflects_current_state() {
-    let mut kinds1 = KindRegistry::new();
-    kinds1.register(make_kind_entry("behavior", "@specforge/software", true));
+    // The path `specforge schema` takes: compile the project, build the
+    // schema from the compilation's registries, serialize it.
+    fn serve(dir: &std::path::Path) -> serde_json::Value {
+        let runtime = specforge_component::project_runtime(dir);
+        let ctx = specforge_emitter::compile_with_runtime(dir, Some(&runtime));
+        let schema = generate_schema(
+            &ctx.kind_registry,
+            &ctx.edge_registry,
+            &ctx.field_registry,
+            &ctx.extension_info,
+        );
+        serde_json::from_str(&emit_schema(&schema).unwrap()).unwrap()
+    }
+    fn configure(dir: &std::path::Path, extensions: &[&str]) {
+        let config = serde_json::json!({
+            "name": "t", "version": "0.1.0", "spec_root": "spec", "extensions": extensions,
+        });
+        std::fs::write(dir.join("specforge.json"), config.to_string()).unwrap();
+    }
+    fn names(list: &serde_json::Value, key: &str) -> Vec<String> {
+        list.as_array()
+            .unwrap()
+            .iter()
+            .map(|k| k[key].as_str().unwrap().to_string())
+            .collect()
+    }
 
-    let schema1 = generate_schema(&kinds1, &EdgeRegistry::new(), &FieldRegistry::new(), &[]);
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::create_dir_all(dir.path().join("spec")).unwrap();
+    std::fs::write(dir.path().join("spec/main.spec"), "").unwrap();
 
-    let mut kinds2 = KindRegistry::new();
-    kinds2.register(make_kind_entry("behavior", "@specforge/software", true));
-    kinds2.register(make_kind_entry("event", "@specforge/software", true));
+    configure(dir.path(), &["@specforge/software"]);
+    let before = names(&serve(dir.path())["entity_kinds"], "name");
+    assert!(before.contains(&"behavior".to_string()), "{before:?}");
+    assert!(!before.contains(&"feature".to_string()), "{before:?}");
 
-    let schema2 = generate_schema(&kinds2, &EdgeRegistry::new(), &FieldRegistry::new(), &[]);
-
-    assert_ne!(schema1, schema2);
-    assert_eq!(schema1.entity_kinds.len(), 1);
-    assert_eq!(schema2.entity_kinds.len(), 2);
+    // The project now also uses the product extension, which declares
+    // `feature`: the next serve reports it.
+    configure(dir.path(), &["@specforge/software", "@specforge/product"]);
+    let after = serve(dir.path());
+    let kinds = names(&after["entity_kinds"], "name");
+    assert!(kinds.contains(&"feature".to_string()), "{kinds:?}");
+    assert!(kinds.contains(&"behavior".to_string()), "{kinds:?}");
+    let extensions = names(&after["extensions"], "name");
+    assert!(
+        extensions.contains(&"@specforge/product".to_string()),
+        "{extensions:?}"
+    );
 }
 
 // ===========================================================================
 // Gap coverage: JSON Schema validation
 // ===========================================================================
 
-// B:publish_schema_specification — verify unit "published schema validates known-good export"
-#[specforge_test(
-    behavior = "publish_schema_specification",
-    verify = "published schema validates known-good export"
-)]
+// Not linked: this checks required keys and the kind enum by hand, not the
+// whole export against the schema. schema_publish_validates_a_real_export in
+// specforge-cli's e2e_schema tests runs a validator over a real export.
+#[test]
 fn published_schema_validates_known_good_export() {
     let schema = sample_schema();
     let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
@@ -1923,11 +2074,33 @@ fn scoped_brief_v2_export() {
     verify = "non-existent scope entity produces E003 and exit code 1"
 )]
 fn scoped_v2_nonexistent_scope_error() {
-    let graph = Graph::new();
+    let mut graph = Graph::new();
+    graph.add_node(node("a", "behavior", Some("A")));
     let schema = GraphProtocolSchema::empty();
-    let result = emit_json_scoped_with_schema(&graph, "nonexistent", &schema);
-    assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("E003"));
+
+    let err = emit_json_scoped_with_schema(&graph, "nonexistent", &schema).unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "E003: unresolved scope entity 'nonexistent' — entity not found in graph"
+    );
+    assert_eq!(err.exit_code(), 1);
+
+    // What `specforge export --format graph --scope` calls, with a schema:
+    // the same E003, and the exit code the command returns for it.
+    let err = specforge_emitter::emit(
+        &graph,
+        &specforge_emitter::EmitOptions {
+            scope: Some("nonexistent"),
+            schema: Some(&schema),
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "E003: unresolved scope entity 'nonexistent' — entity not found in graph"
+    );
+    assert_eq!(err.exit_code(), 1);
 }
 
 // ===========================================================================
