@@ -84,6 +84,48 @@ fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
     serde_json::from_str(&resp).unwrap()
 }
 
+/// Adds a node with no fields at `file`:`line`:`col`.
+fn add_node_at(server: &mut McpServer, id: &str, file: &str, line: usize, col: usize) {
+    server.state_mut().graph.add_node(Node {
+        id: EntityId { raw: id.into() },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
+        title: None,
+        fields: FieldMap::new(),
+        source_span: SourceSpan {
+            file: file.into(),
+            start_line: line,
+            start_col: col,
+            end_line: line + 2,
+            end_col: 0,
+        },
+        methods: Vec::new(),
+    });
+}
+
+/// The outline of `file`, as entity ids in the order returned.
+fn outline_ids(server: &mut McpServer, file: &str) -> Vec<String> {
+    let resp = call_tool(server, "specforge.outline", json!({"file": file}));
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    parsed
+        .as_array()
+        .unwrap_or_else(|| panic!("no outline in {resp}"))
+        .iter()
+        .map(|e| e["entity_id"].as_str().unwrap().to_string())
+        .collect()
+}
+
+/// A server whose graph holds order.spec's entities out of line order:
+/// `late` (line 20) is added before `early` (line 5) and `middle` (line 12).
+fn server_with_unordered_file() -> McpServer {
+    let mut server = test_server();
+    add_node_at(&mut server, "late", "order.spec", 20, 0);
+    add_node_at(&mut server, "early", "order.spec", 5, 0);
+    add_node_at(&mut server, "middle", "order.spec", 12, 0);
+    server
+}
+
 fn tool_text(resp: &Value) -> String {
     resp["result"]["content"][0]["text"]
         .as_str()
@@ -128,7 +170,10 @@ fn inspect_includes_reference_count() {
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["reference_count"].as_u64().unwrap() > 0);
+    // beta -> alpha is alpha's only edge.
+    assert_eq!(parsed["references"], json!(["beta"]));
+    assert_eq!(parsed["reference_count"], 1);
+    assert_eq!(parsed["verify_declarations"], json!(["unit test alpha"]));
 }
 
 // B:provide_mcp_inspect_tool — verify unit "unknown entity returns error"
@@ -304,6 +349,20 @@ fn find_definition_returns_location() {
     assert_eq!(parsed["entity_id"], "alpha");
     assert_eq!(parsed["file_path"], "test.spec");
     assert_eq!(parsed["line"], 1);
+    assert_eq!(parsed["column"], 0);
+
+    // An entity declared mid-line reports its own line and column.
+    add_node_at(&mut server, "indented", "nested.spec", 7, 4);
+    let resp = call_tool(
+        &mut server,
+        "specforge.find_definition",
+        json!({"entity_id": "indented"}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(
+        parsed,
+        json!({"entity_id": "indented", "file_path": "nested.spec", "line": 7, "column": 4})
+    );
 }
 
 // B:provide_mcp_find_definition_tool — verify unit "unknown entity returns error"
@@ -387,11 +446,13 @@ fn outline_returns_entities_in_file() {
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     let entries = parsed.as_array().unwrap();
-    assert!(!entries.is_empty());
-
     for entry in entries {
         assert_eq!(entry["range"]["file"], "test.spec");
     }
+    // Both of test.spec's entities, and none from another file.
+    add_node_at(&mut server, "elsewhere", "other.spec", 3, 0);
+    assert_eq!(outline_ids(&mut server, "test.spec"), vec!["alpha", "beta"]);
+    assert_eq!(outline_ids(&mut server, "other.spec"), vec!["elsewhere"]);
 }
 
 #[specforge_test(
@@ -431,22 +492,11 @@ fn outline_of_an_existing_file_without_entities_is_empty() {
     verify = "sorted by line number"
 )]
 fn outline_sorted_by_line() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.outline",
-        json!({"file": "test.spec"}),
+    let mut server = server_with_unordered_file();
+    assert_eq!(
+        outline_ids(&mut server, "order.spec"),
+        vec!["early", "middle", "late"]
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let entries = parsed.as_array().unwrap();
-    if entries.len() > 1 {
-        for i in 0..entries.len() - 1 {
-            let line_a = entries[i]["range"]["start_line"].as_u64().unwrap();
-            let line_b = entries[i + 1]["range"]["start_line"].as_u64().unwrap();
-            assert!(line_a <= line_b);
-        }
-    }
 }
 
 // --- specforge.suggest_fixes ---
@@ -695,9 +745,20 @@ fn find_references_returns_source_spans() {
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    let locations = parsed["locations"].as_array().unwrap();
-    assert!(!locations.is_empty());
-    assert!(locations[0]["file"].is_string() || locations[0]["source_span"].is_object());
+    // One reference: beta, declared at test.spec lines 10-15.
+    assert_eq!(
+        parsed["locations"],
+        json!([{
+            "referencing_entity_id": "beta",
+            "source_span": {
+                "file": "test.spec",
+                "start_line": 10,
+                "start_col": 0,
+                "end_line": 15,
+                "end_col": 0
+            }
+        }])
+    );
 }
 
 // B:provide_mcp_outline_tool — verify unit "outline entries sorted by line number"
@@ -706,23 +767,18 @@ fn find_references_returns_source_spans() {
     verify = "outline entries sorted by line number"
 )]
 fn outline_sorted_by_line_extended() {
-    let mut server = test_server();
+    let mut server = server_with_unordered_file();
     let resp = call_tool(
         &mut server,
         "specforge.outline",
-        json!({"file": "test.spec"}),
+        json!({"file": "order.spec"}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let entries = parsed.as_array().unwrap();
-    if entries.len() > 1 {
-        for i in 0..entries.len() - 1 {
-            let line_a = entries[i]["range"]["start_line"].as_u64().unwrap();
-            let line_b = entries[i + 1]["range"]["start_line"].as_u64().unwrap();
-            assert!(
-                line_a <= line_b,
-                "outline entries should be sorted by line number"
-            );
-        }
-    }
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let lines: Vec<u64> = parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["range"]["start_line"].as_u64().unwrap())
+        .collect();
+    assert_eq!(lines, vec![5, 12, 20]);
 }
