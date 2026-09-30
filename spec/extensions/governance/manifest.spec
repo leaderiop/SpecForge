@@ -18,15 +18,14 @@ behavior ge_declare_manifest "Declare @specforge/governance Manifest" {
     valid_extension_name   "name == '@specforge/governance'"
   }
   ensures {
-    three_entity_kinds    "entityKinds.length == 3"
-    four_edge_types       "edgeTypes.length == 4"
-    all_kinds_named       "entityKinds contains decision, constraint, failure_mode"
-    all_edges_named       "edgeTypes contains DecisionInvariant, ConstrainsBehavior, ProtectsInvariant, FailureModeInvariant"
-    contributes_declared  "contributes declares entities=true and validators=true"
-    optional_peer_dep     "peer_dependencies contains @specforge/software ^1.0 (optional, for ConstrainsBehavior cross-extension edge targeting behavior kind)"
-    sandbox_restricted    "sandbox_policy declares network_access=false, file_system_access=read-only, max_memory_mb=256, max_execution_ms=5000"
-    host_api_declared     "host_api_version is 1.0.0"
-    starter_tmpl_declared "starter_template is templates/decision.spec"
+    three_entity_kinds   "entityKinds.length == 3"
+    four_edge_types      "edgeTypes.length == 4"
+    all_kinds_named      "entityKinds contains decision, constraint, failure_mode"
+    all_edges_named      "edgeTypes contains DecisionInvariant, ConstrainsBehavior, ProtectsInvariant, FailureModeInvariant"
+    contributes_declared "contributes declares entities=true and validators=true"
+    optional_peer_dep    "peer_dependencies contains @specforge/software ^1.0 (optional, for ConstrainsBehavior cross-extension edge targeting behavior kind)"
+    sandbox_restricted   "sandbox_policy declares network_access=false, file_system_access=read-only, max_memory_mb=256, max_execution_ms=5000"
+    host_api_declared    "host_api_version is 1.0.0"
   }
   verify unit "manifest name is @specforge/governance"
   verify unit "manifest declares exactly 3 entity kinds"
@@ -36,7 +35,6 @@ behavior ge_declare_manifest "Declare @specforge/governance Manifest" {
   verify unit "peer_dependencies includes optional @specforge/software"
   verify unit "sandbox_policy declares no network access and read-only filesystem"
   verify unit "host_api_version is 1.0.0"
-  verify unit "starter_template is templates/decision.spec"
 }
 
 invariant ge_manifest_three_entity_kinds "Three Entity Kinds" {
