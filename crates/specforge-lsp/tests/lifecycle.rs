@@ -207,3 +207,18 @@ fn lsp_debounces_like_watch() {
         specforge_watch::DEFAULT_DEBOUNCE_WINDOW
     );
 }
+
+#[spec(behavior = "lsp_shutdown", verify = "shutdown releases Wasm engines")]
+fn shutdown_frees_the_wasm_runtime() {
+    let mut state = specforge_lsp::LspState::new();
+    state.set_runtime(specforge_component::ComponentRuntime::new());
+    let engine = std::sync::Arc::downgrade(state.runtime().unwrap());
+
+    state.shutdown();
+
+    assert!(state.runtime().is_none());
+    assert!(
+        engine.upgrade().is_none(),
+        "the engine is freed, not just forgotten"
+    );
+}

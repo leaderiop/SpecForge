@@ -460,3 +460,19 @@ async fn e2e_did_close_clears_tracking() {
         "Expected null hover after document closed"
     );
 }
+
+#[spec(
+    behavior = "lsp_shutdown",
+    verify = "requests after shutdown return InvalidRequest"
+)]
+#[tokio::test]
+async fn e2e_requests_after_shutdown_are_invalid() {
+    let text = "behavior alpha \"Alpha\" {}\n";
+    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+
+    let resp = client.shutdown().await;
+    assert!(resp["error"].is_null(), "{resp}");
+
+    let hover = client.hover(&uri, 0, 10).await;
+    assert_eq!(hover["error"]["code"], -32600, "{hover}");
+}

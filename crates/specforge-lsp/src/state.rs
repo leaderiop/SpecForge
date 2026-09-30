@@ -194,6 +194,7 @@ impl LspState {
         self.field_registry = FieldRegistry::new();
         self.edge_registry = EdgeRegistry::new();
         self.validation_patterns = Vec::new();
+        self.runtime = None;
     }
 
     pub fn is_shutdown(&self) -> bool {
