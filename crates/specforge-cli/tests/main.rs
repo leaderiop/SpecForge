@@ -17,6 +17,7 @@ mod e2e_query;
 mod e2e_schema;
 mod e2e_trace;
 mod e2e_verify;
+mod explain;
 mod export;
 mod export_version;
 mod extension_authoring;
