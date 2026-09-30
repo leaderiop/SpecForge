@@ -239,3 +239,50 @@ async fn e2e_rename_multibyte_lines_utf16_columns() {
         "expected an edit on the reference line; changes were: {changes:?}"
     );
 }
+
+/// The diagnostic codes of the next publishDiagnostics for `uri`.
+async fn next_published_codes(client: &mut LspClient, uri: &str) -> Vec<String> {
+    loop {
+        let msg = client
+            .wait_for_notification("textDocument/publishDiagnostics", 5000)
+            .await
+            .expect("diagnostics published");
+        if msg["params"]["uri"] != uri {
+            continue;
+        }
+        return msg["params"]["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["code"].as_str().unwrap_or_default().to_string())
+            .collect();
+    }
+}
+
+#[spec(
+    behavior = "emit_live_diagnostics",
+    verify = "diagnostics update after file change"
+)]
+#[tokio::test]
+async fn e2e_diagnostics_follow_each_edit() {
+    let clean = "invariant token_unique \"T\" {\n  guarantee \"g\"\n}\n\nbehavior login \"L\" {\n  invariants [token_unique]\n}\n";
+    let (mut client, uri, _dir) = start_server_with_extensions(
+        &["@specforge/software", "@specforge/testing"],
+        "auth.spec",
+        clean,
+    )
+    .await;
+
+    let broken = clean.replace("[token_unique]", "[tokn_unique]");
+    client
+        .did_change(&uri, 2, vec![json!({"text": broken})])
+        .await;
+    let codes = next_published_codes(&mut client, &uri).await;
+    assert!(codes.contains(&"E003".to_string()), "{codes:?}");
+
+    client
+        .did_change(&uri, 3, vec![json!({"text": clean})])
+        .await;
+    let codes = next_published_codes(&mut client, &uri).await;
+    assert!(!codes.contains(&"E003".to_string()), "{codes:?}");
+}

@@ -351,7 +351,18 @@ fn rename_entity_id_contract() {
         label: "types".into(),
     });
 
-    let edits = specforge_lsp::compute_rename_edits(&g, "auth_token", "session_token");
+    // Each node's id on its first line; user_login's line also names what
+    // it references.
+    let texts: std::collections::HashMap<&str, String> = [
+        ("types.spec", format!("{}     auth_token\n", "\n".repeat(4))),
+        (
+            "auth.spec",
+            format!("{}         user_login [auth_token]\n", "\n".repeat(9)),
+        ),
+    ]
+    .into();
+    let text_of = |f: &str| texts.get(f).cloned();
+    let edits = specforge_lsp::identifier_edits(&g, "auth_token", "session_token", text_of);
     let edits = edits.expect("valid rename must produce edits");
     assert!(edits.len() >= 2, "must edit declaration + reference sites");
     assert!(
@@ -364,7 +375,7 @@ fn rename_entity_id_contract() {
     );
 
     // Reject rename to existing ID
-    let dup = specforge_lsp::compute_rename_edits(&g, "auth_token", "user_login");
+    let dup = specforge_lsp::identifier_edits(&g, "auth_token", "user_login", text_of);
     assert!(dup.is_none(), "rename to existing ID must be rejected");
 }
 

@@ -29,7 +29,7 @@ pub use semantic_tokens::{
     MOD_DECLARATION, MOD_REFERENCE, SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES, byte_col_to_utf16,
     classify_tokens, utf16_len,
 };
-pub use specforge_graph::rename::{RenameEdit, compute_rename_edits, prepare_rename};
+pub use specforge_graph::rename::{RenameEdit, identifier_edits, prepare_rename};
 pub use state::LspState;
 pub use symbols::{SymbolEntry, document_symbols, workspace_symbols};
 

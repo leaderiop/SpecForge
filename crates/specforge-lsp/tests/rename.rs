@@ -38,6 +38,47 @@ fn graph_with_refs() -> Graph {
     g
 }
 
+/// Text for each fixture file: every node's id written on each line of its
+/// span at its column, and every referencing node's line also naming the
+/// ids it references — what `identifier_edits` scans.
+fn texts_for(g: &Graph) -> std::collections::HashMap<String, String> {
+    let mut lines: std::collections::HashMap<String, std::collections::BTreeMap<usize, String>> =
+        std::collections::HashMap::new();
+    for node in g.nodes() {
+        let span = &node.source_span;
+        let refs: Vec<String> = g
+            .edges_from(node.id.raw.as_str())
+            .iter()
+            .map(|e| e.target.to_string())
+            .collect();
+        let line = format!(
+            "{}{} [{}]",
+            " ".repeat(span.start_col),
+            node.id.raw,
+            refs.join(", ")
+        );
+        lines
+            .entry(span.file.to_string())
+            .or_default()
+            .insert(span.start_line, line);
+    }
+    lines
+        .into_iter()
+        .map(|(file, by_line)| {
+            let last = by_line.keys().max().copied().unwrap_or(0);
+            let text: Vec<String> = (1..=last)
+                .map(|n| by_line.get(&n).cloned().unwrap_or_default())
+                .collect();
+            (file, text.join("\n") + "\n")
+        })
+        .collect()
+}
+
+fn rename_edits(g: &Graph, old: &str, new: &str) -> Option<Vec<specforge_lsp::RenameEdit>> {
+    let texts = texts_for(g);
+    specforge_lsp::identifier_edits(g, old, new, |f| texts.get(f).cloned())
+}
+
 // -- prepare_rename -----------------------------------------------------------
 
 #[spec(
@@ -72,7 +113,7 @@ fn prepare_rename_returns_none_for_missing() {
 )]
 fn rename_updates_all_sites() {
     let g = graph_with_refs();
-    let edits = specforge_lsp::compute_rename_edits(&g, "auth_token", "session_token");
+    let edits = rename_edits(&g, "auth_token", "session_token");
     let edits = edits.expect("should produce edits");
     // Declaration (types.spec) + reference from user_login (auth.spec)
     assert!(edits.len() >= 2);
@@ -87,7 +128,7 @@ fn rename_updates_all_sites() {
 fn rename_is_atomic() {
     let g = graph_with_refs();
     // Valid rename produces all edits at once
-    let edits = specforge_lsp::compute_rename_edits(&g, "auth_token", "session_token");
+    let edits = rename_edits(&g, "auth_token", "session_token");
     assert!(edits.is_some());
     // All edits are returned together (atomicity is at the edit-set level)
     let edits = edits.unwrap();
@@ -97,9 +138,9 @@ fn rename_is_atomic() {
 #[spec(behavior = "rename_entity_id", verify = "rename across multiple files")]
 fn rename_across_files() {
     let mut g = Graph::new();
-    g.add_node(node_at("tok", "type", "a.spec", 0, 5));
-    g.add_node(node_at("b1", "behavior", "b.spec", 0, 9));
-    g.add_node(node_at("b2", "behavior", "c.spec", 0, 9));
+    g.add_node(node_at("tok", "type", "a.spec", 1, 5));
+    g.add_node(node_at("b1", "behavior", "b.spec", 1, 9));
+    g.add_node(node_at("b2", "behavior", "c.spec", 1, 9));
     g.add_edge(Edge {
         source: "b1".into(),
         target: "tok".into(),
@@ -111,7 +152,7 @@ fn rename_across_files() {
         label: "types".into(),
     });
 
-    let edits = specforge_lsp::compute_rename_edits(&g, "tok", "token").unwrap();
+    let edits = rename_edits(&g, "tok", "token").unwrap();
     let files: Vec<&str> = edits.iter().map(|e| e.file.as_str()).collect();
     assert!(files.contains(&"a.spec"));
     assert!(files.contains(&"b.spec"));
@@ -124,6 +165,6 @@ fn rename_across_files() {
 )]
 fn rename_rejects_duplicate() {
     let g = graph_with_refs();
-    let edits = specforge_lsp::compute_rename_edits(&g, "auth_token", "user_login");
+    let edits = rename_edits(&g, "auth_token", "user_login");
     assert!(edits.is_none(), "rename to existing ID should be rejected");
 }

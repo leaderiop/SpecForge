@@ -137,10 +137,7 @@ fn no_import_for_nonexistent_entity() {
 
 // -- code_action_create_entity_stub -------------------------------------------
 
-#[spec(
-    behavior = "code_action_create_entity_stub",
-    verify = "code action offered on E003 for non-existent entity"
-)]
+#[test]
 fn create_stub_offered() {
     let _g = Graph::new();
     let action =
@@ -148,10 +145,7 @@ fn create_stub_offered() {
     assert!(action.is_some());
 }
 
-#[spec(
-    behavior = "code_action_create_entity_stub",
-    verify = "stub uses correct entity kind from FieldRegistry target_kind"
-)]
+#[test]
 fn stub_uses_correct_kind() {
     let action =
         specforge_lsp::code_action_create_stub("missing_type", Some("type"), "current.spec")
@@ -168,10 +162,7 @@ fn no_stub_without_target_kind() {
     assert!(action.is_none());
 }
 
-#[spec(
-    behavior = "code_action_create_entity_stub",
-    verify = "stub is inserted at end of current file"
-)]
+#[test]
 fn stub_targets_current_file() {
     let action =
         specforge_lsp::code_action_create_stub("my_event", Some("event"), "current.spec").unwrap();

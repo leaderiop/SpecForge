@@ -27,6 +27,8 @@ use tokio::task::JoinHandle;
 use tower_lsp::{LspService, Server};
 
 use specforge_lsp::backend::Backend;
+#[allow(unused_imports)]
+use specforge_test_macros::test as spec;
 
 /// An in-process LSP client that communicates via JSON-RPC over memory streams.
 pub struct LspClient {

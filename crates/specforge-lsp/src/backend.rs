@@ -21,9 +21,9 @@ use specforge_wasm::protocol::{
 use specforge_watch::{ImportDag, IncrementalPipeline};
 
 use crate::{
-    LspState, classify_tokens, code_actions_from_diagnostics, code_actions_missing_verify,
-    complete_entity_ids, complete_entity_ids_filtered, complete_keywords, compute_rename_edits,
-    cursor_context, document_symbols, find_all_references, go_to_definition,
+    LspState, classify_tokens, code_action_create_stub, code_actions_from_diagnostics,
+    code_actions_missing_verify, complete_entity_ids, complete_entity_ids_filtered,
+    complete_keywords, cursor_context, document_symbols, find_all_references, go_to_definition,
     goto_import_definition, hover_field_info, hover_info_with_registries, server_capabilities,
     server_info, source_span_to_lsp_range, source_span_to_lsp_range_with_text, workspace_symbols,
 };
@@ -360,7 +360,8 @@ impl Backend {
         // lock, not the write lock, so concurrent reads never queue behind
         // a long analysis pass (C4-05); writers are serialized by the
         // reparse worker (C4-03).
-        let state = state.read().await;
+        let lock = state;
+        let state = lock.read().await;
 
         // Snapshot node data for registry-based diagnostics below.
         let all_nodes: Vec<(
@@ -376,8 +377,11 @@ impl Backend {
                 .collect()
         };
 
-        // Collect all diagnostics grouped by file URI
+        // Collect all diagnostics grouped by file URI, as published and as
+        // the core diagnostics code actions work from.
         let mut diags_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
+            std::collections::HashMap::new();
+        let mut core_by_file: std::collections::HashMap<Url, Vec<specforge_common::Diagnostic>> =
             std::collections::HashMap::new();
 
         // Pipeline diagnostics — parse errors (E001), duplicate detection,
@@ -385,18 +389,7 @@ impl Backend {
         // by each diagnostic's own file. This is the same build_graph output
         // the CLI reports, so LSP and CLI agree byte for byte.
         for pd in &result.diagnostics {
-            let diag_uri = pd
-                .span
-                .as_ref()
-                .map(|s| file_path_to_uri(s.file.as_str()))
-                .unwrap_or_else(|| uri.clone());
-            diags_by_file.entry(diag_uri).or_default().push({
-                let file_text = pd
-                    .span
-                    .as_ref()
-                    .and_then(|s| file_content(&state, s.file.as_str()));
-                diagnostic_to_lsp(pd, file_text.as_deref())
-            });
+            record(&state, uri, pd, &mut diags_by_file, &mut core_by_file);
         }
 
         // F1 syntax-only fast path (C4-07): when the edited file has parse
@@ -416,18 +409,7 @@ impl Backend {
             // Validator diagnostics, grouped by each diagnostic's own file
             let validator_diags = specforge_validator::validate(state.graph());
             for vd in &validator_diags {
-                let diag_uri = vd
-                    .span
-                    .as_ref()
-                    .map(|s| file_path_to_uri(s.file.as_str()))
-                    .unwrap_or_else(|| uri.clone());
-                diags_by_file.entry(diag_uri).or_default().push({
-                    let file_text = vd
-                        .span
-                        .as_ref()
-                        .and_then(|s| file_content(&state, s.file.as_str()));
-                    diagnostic_to_lsp(vd, file_text.as_deref())
-                });
+                record(&state, uri, vd, &mut diags_by_file, &mut core_by_file);
             }
 
             // E022: Mistyped reference diagnostics (wrong-kind targets)
@@ -471,18 +453,7 @@ impl Backend {
                 let w022_diags =
                     detect_mistyped_references(&entity_refs, field_reg, kind_reg, &node_kind_index);
                 for d in &w022_diags {
-                    let diag_uri = d
-                        .span
-                        .as_ref()
-                        .map(|s| file_path_to_uri(s.file.as_str()))
-                        .unwrap_or_else(|| uri.clone());
-                    diags_by_file.entry(diag_uri).or_default().push({
-                        let file_text = d
-                            .span
-                            .as_ref()
-                            .and_then(|s| file_content(&state, s.file.as_str()));
-                        diagnostic_to_lsp(d, file_text.as_deref())
-                    });
+                    record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
                 }
             }
 
@@ -510,18 +481,7 @@ impl Backend {
                 all_diags.extend(detect_reserved_entity_ids(&entity_kinds, kind_reg));
                 all_diags.extend(detect_identifier_length_violations(&entity_kinds));
                 for d in &all_diags {
-                    let diag_uri = d
-                        .span
-                        .as_ref()
-                        .map(|s| file_path_to_uri(s.file.as_str()))
-                        .unwrap_or_else(|| uri.clone());
-                    diags_by_file.entry(diag_uri).or_default().push({
-                        let file_text = d
-                            .span
-                            .as_ref()
-                            .and_then(|s| file_content(&state, s.file.as_str()));
-                        diagnostic_to_lsp(d, file_text.as_deref())
-                    });
+                    record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
                 }
 
                 // W020: fields not registered for their entity kind
@@ -552,18 +512,7 @@ impl Backend {
                     let w020_diags =
                         detect_unknown_entity_fields(&entity_fields, kind_reg, field_reg);
                     for d in &w020_diags {
-                        let diag_uri = d
-                            .span
-                            .as_ref()
-                            .map(|s| file_path_to_uri(s.file.as_str()))
-                            .unwrap_or_else(|| uri.clone());
-                        diags_by_file.entry(diag_uri).or_default().push({
-                            let file_text = d
-                                .span
-                                .as_ref()
-                                .and_then(|s| file_content(&state, s.file.as_str()));
-                            diagnostic_to_lsp(d, file_text.as_deref())
-                        });
+                        record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
                     }
                 }
             }
@@ -608,18 +557,7 @@ impl Backend {
                         )
                     };
                     for d in &rule_diags {
-                        let diag_uri = d
-                            .span
-                            .as_ref()
-                            .map(|s| file_path_to_uri(s.file.as_str()))
-                            .unwrap_or_else(|| uri.clone());
-                        diags_by_file.entry(diag_uri).or_default().push({
-                            let file_text = d
-                                .span
-                                .as_ref()
-                                .and_then(|s| file_content(&state, s.file.as_str()));
-                            diagnostic_to_lsp(d, file_text.as_deref())
-                        });
+                        record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
                     }
                 }
             }
@@ -642,8 +580,41 @@ impl Backend {
             diags_by_file.entry(file_uri).or_default();
         }
 
+        // Keep what is published: code actions act on it.
+        drop(state);
+        let mut state = lock.write().await;
+        for file_uri in diags_by_file.keys() {
+            let core = core_by_file.remove(file_uri).unwrap_or_default();
+            state.set_diagnostics(file_uri.as_str(), core);
+        }
+
         diags_by_file
     }
+}
+
+/// Add `diagnostic` to the file its span names (`fallback` without a
+/// span), both converted for publishing and as is.
+fn record(
+    state: &LspState,
+    fallback: &Url,
+    diagnostic: &specforge_common::Diagnostic,
+    published: &mut std::collections::HashMap<Url, Vec<Diagnostic>>,
+    core: &mut std::collections::HashMap<Url, Vec<specforge_common::Diagnostic>>,
+) {
+    let file_uri = diagnostic
+        .span
+        .as_ref()
+        .map(|s| file_path_to_uri(s.file.as_str()))
+        .unwrap_or_else(|| fallback.clone());
+    let file_text = diagnostic
+        .span
+        .as_ref()
+        .and_then(|s| file_content(state, s.file.as_str()));
+    published
+        .entry(file_uri.clone())
+        .or_default()
+        .push(diagnostic_to_lsp(diagnostic, file_text.as_deref()));
+    core.entry(file_uri).or_default().push(diagnostic.clone());
 }
 
 pub fn source_span_to_location(span: &specforge_common::SourceSpan) -> Location {
@@ -833,39 +804,6 @@ pub fn import_path_on_line(line: &str) -> Option<&str> {
     let last_quote_start = before_last.rfind('"')?;
     let path = &rest[last_quote_start + 1..last_quote_end];
     if path.is_empty() { None } else { Some(path) }
-}
-
-/// Last 0-indexed line of a node span that begins on `start_line`: nodes span
-/// to the end of their block, but rename occurrences live on the declaration
-/// line for declarations and the reference line for references — scanning a
-/// bounded window (the node's own block) is enough.
-fn edit_line_end(text: &str, start_line: usize) -> usize {
-    // The graph gives us no end line here; scan the rest of the file from the
-    // span start. Occurrence matching is word-boundary exact, so scanning
-    // farther is safe: only real occurrences of the identifier are replaced.
-    text.lines().count().saturating_sub(1).max(start_line)
-}
-
-/// Whole-word occurrences of `needle` in `line` as (byte start, byte end).
-fn word_occurrences(line: &str, needle: &str) -> Vec<(usize, usize)> {
-    if needle.is_empty() {
-        return Vec::new();
-    }
-    let bytes = line.as_bytes();
-    let is_word = |c: u8| c.is_ascii_alphanumeric() || c == b'_' || c >= 0x80;
-    let mut out = Vec::new();
-    let mut from = 0usize;
-    while let Some(pos) = line[from..].find(needle) {
-        let start = from + pos;
-        let end = start + needle.len();
-        let before_ok = start == 0 || !is_word(bytes[start - 1]);
-        let after_ok = end >= bytes.len() || !is_word(bytes[end]);
-        if before_ok && after_ok {
-            out.push((start, end));
-        }
-        from = end;
-    }
-    out
 }
 
 fn formatter_edits_to_lsp(
@@ -1291,6 +1229,10 @@ impl LanguageServer for Backend {
 
                     let mut diags_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
                         std::collections::HashMap::new();
+                    let mut core_by_file: std::collections::HashMap<
+                        Url,
+                        Vec<specforge_common::Diagnostic>,
+                    > = std::collections::HashMap::new();
 
                     // Publish empty diagnostics for the deleted file (clears stale squiggles)
                     diags_by_file.insert(uri.clone(), vec![]);
@@ -1298,33 +1240,16 @@ impl LanguageServer for Backend {
                     // Pipeline diagnostics for surviving files
                     for file in &result.changed_diagnostic_files {
                         let file_uri = file_path_to_uri(file);
-                        let file_text = file_content(&state, file);
-                        diags_by_file.insert(
-                            file_uri,
-                            state
-                                .pipeline()
-                                .file_diagnostics(file)
-                                .iter()
-                                .map(|d| diagnostic_to_lsp(d, file_text.as_deref()))
-                                .collect(),
-                        );
+                        diags_by_file.entry(file_uri).or_default();
+                        for d in state.pipeline().file_diagnostics(file) {
+                            record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
+                        }
                     }
 
                     // Validator diagnostics over the post-deletion graph
                     let validator_diags = specforge_validator::validate(state.graph());
                     for vd in &validator_diags {
-                        let diag_uri = vd
-                            .span
-                            .as_ref()
-                            .map(|sp| file_path_to_uri(sp.file.as_str()))
-                            .unwrap_or_else(|| uri.clone());
-                        diags_by_file.entry(diag_uri).or_default().push({
-                            let file_text = vd
-                                .span
-                                .as_ref()
-                                .and_then(|s| file_content(&state, s.file.as_str()));
-                            diagnostic_to_lsp(vd, file_text.as_deref())
-                        });
+                        record(&state, uri, vd, &mut diags_by_file, &mut core_by_file);
                     }
 
                     // Ensure all known files get an entry (clears stale diagnostics)
@@ -1340,6 +1265,13 @@ impl LanguageServer for Backend {
                             .or_default();
                     }
                     drop(state);
+                    {
+                        let mut state = self.state.write().await;
+                        for file_uri in diags_by_file.keys() {
+                            let core = core_by_file.remove(file_uri).unwrap_or_default();
+                            state.set_diagnostics(file_uri.as_str(), core);
+                        }
+                    }
                     for (file_uri, diags) in diags_by_file {
                         self.client.publish_diagnostics(file_uri, diags, None).await;
                     }
@@ -1616,54 +1548,49 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
-        let edits = match compute_rename_edits(state.graph(), &word, &new_name) {
+        // Each whole-word occurrence inside the declaration and the
+        // entities that reference it, read from the open buffer, else disk.
+        let edits = match specforge_graph::rename::identifier_edits(
+            state.graph(),
+            &word,
+            &new_name,
+            |file| {
+                state
+                    .document(file_path_to_uri(file).as_str())
+                    .map(|doc| doc.content().to_string())
+                    .or_else(|| std::fs::read_to_string(file).ok())
+            },
+        ) {
             Some(e) => e,
             None => return Ok(None),
         };
 
-        // A RenameEdit's span covers the ENTIRE source node (declaration block
-        // or referencing entity), not just the identifier token. Applying it
-        // directly would replace whole entities with the new name. Narrow each
-        // edit to whole-word occurrences of the old identifier within the
-        // span's lines, using the target file's text (open buffer, else disk).
         let mut changes: std::collections::HashMap<Url, Vec<TextEdit>> =
             std::collections::HashMap::new();
         for edit in edits {
             let file_uri = file_path_to_uri(&edit.file);
-            let file_text = state
+            let line_idx = edit.line.saturating_sub(1); // 1-indexed -> 0-indexed
+            let line_text = state
                 .document(file_uri.as_str())
                 .map(|doc| doc.content().to_string())
-                .or_else(|| std::fs::read_to_string(&edit.file).ok());
-            let Some(file_text) = file_text else {
-                // No text to narrow against: skip rather than corrupt the file.
-                continue;
-            };
-            let line_texts: Vec<&str> = file_text.lines().collect();
-            let first_line = edit.line.saturating_sub(1); // 1-indexed -> 0-indexed
-            let last_line = edit_line_end(&file_text, first_line);
-            for line_idx in first_line..=last_line.min(file_text.lines().count().saturating_sub(1))
-            {
-                let Some(line_text) = line_texts.get(line_idx) else {
-                    continue;
-                };
-                for (occ_start, occ_end) in word_occurrences(line_text, &word) {
-                    let start = byte_col_to_utf16(line_text, occ_start) as u32;
-                    let end = byte_col_to_utf16(line_text, occ_end) as u32;
-                    changes.entry(file_uri.clone()).or_default().push(TextEdit {
-                        range: Range {
-                            start: Position {
-                                line: line_idx as u32,
-                                character: start,
-                            },
-                            end: Position {
-                                line: line_idx as u32,
-                                character: end,
-                            },
-                        },
-                        new_text: new_name.clone(),
-                    });
-                }
-            }
+                .or_else(|| std::fs::read_to_string(&edit.file).ok())
+                .and_then(|text| text.lines().nth(line_idx).map(str::to_string))
+                .unwrap_or_default();
+            let start = byte_col_to_utf16(&line_text, edit.start_col) as u32;
+            let end = byte_col_to_utf16(&line_text, edit.end_col) as u32;
+            changes.entry(file_uri).or_default().push(TextEdit {
+                range: Range {
+                    start: Position {
+                        line: line_idx as u32,
+                        character: start,
+                    },
+                    end: Position {
+                        line: line_idx as u32,
+                        character: end,
+                    },
+                },
+                new_text: new_name.clone(),
+            });
         }
 
         Ok(Some(WorkspaceEdit {
@@ -1694,6 +1621,38 @@ impl LanguageServer for Backend {
             actions.extend(code_actions_from_diagnostics(&file_diags, text));
         }
 
+        // An E003 for an id that exists nowhere: offer a stub of the kind
+        // the enclosing field targets (FieldRegistry target_kind).
+        let mut stubbed = std::collections::HashSet::new();
+        for diag in file_diags.iter().filter(|d| d.code == "E003") {
+            // "unresolved reference '<target>' in entity '<source>'"
+            let mut quoted = diag.message.split('\'');
+            let (Some(target), Some(source)) = (quoted.nth(1), quoted.nth(1)) else {
+                continue;
+            };
+            let graph = state.graph();
+            if graph.node(target).is_some() || !stubbed.insert(target.to_string()) {
+                continue;
+            }
+            let Some(node) = graph.node(source) else {
+                continue;
+            };
+            let field = node.fields.entries().iter().find(|entry| {
+                matches!(&entry.value, specforge_parser::FieldValue::ReferenceList(refs)
+                    if refs.iter().any(|r| r.id == target))
+            });
+            let target_kind = field
+                .and_then(|entry| {
+                    state
+                        .field_registry()
+                        .get(node.kind.raw.as_str(), entry.key.as_str())
+                })
+                .and_then(|entry| entry.target_kind.as_deref());
+            if let Some(action) = code_action_create_stub(target, target_kind, &file_path) {
+                actions.push(action);
+            }
+        }
+
         if actions.is_empty() {
             return Ok(None);
         }
@@ -1702,7 +1661,13 @@ impl LanguageServer for Backend {
             .into_iter()
             .map(|a| {
                 let file_uri = file_path_to_uri(&a.file);
-                let line_idx = a.insert_line.saturating_sub(1);
+                // usize::MAX appends after the file's last line.
+                let appended = a.insert_line == usize::MAX;
+                let line_idx = if appended {
+                    content.as_deref().map_or(0, |c| c.lines().count())
+                } else {
+                    a.insert_line.saturating_sub(1)
+                };
                 let (start_char, end_char) = match a.replace_cols {
                     Some((s, e)) => {
                         let line_text = content
@@ -1733,13 +1698,19 @@ impl LanguageServer for Backend {
                         },
                         new_text: if a.replace_cols.is_some() {
                             a.edit_text
+                        } else if appended {
+                            format!("\n{}\n", a.edit_text)
                         } else {
                             format!("{}\n", a.edit_text)
                         },
                     });
                 CodeActionOrCommand::CodeAction(tower_lsp::lsp_types::CodeAction {
                     title: a.title,
-                    kind: Some(CodeActionKind::QUICKFIX),
+                    kind: Some(if a.action_kind == "refactor" {
+                        CodeActionKind::REFACTOR
+                    } else {
+                        CodeActionKind::QUICKFIX
+                    }),
                     edit: Some(WorkspaceEdit {
                         changes: Some(changes),
                         ..Default::default()

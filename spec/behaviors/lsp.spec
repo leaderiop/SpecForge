@@ -335,6 +335,7 @@ behavior emit_live_diagnostics "Live Diagnostics" {
     within 100ms of the user stopping typing.
   """
   verify unit "diagnostics update after file change"
+  verify unit "code actions act on the diagnostics last published for the document"
   verify unit "only changed file diagnostics are refreshed"
   verify integration "diagnostics appear within 100ms"
   verify contract "Live Diagnostics: live diagnostics holds — lsp_initialized_fired, graph_available, diagnostics_pushed, latency_enforced"
