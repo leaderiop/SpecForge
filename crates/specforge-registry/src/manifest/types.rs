@@ -292,6 +292,36 @@ pub struct AnalyzerContribution {
 
 /// Validate a ManifestV2 against the v2 schema rules.
 /// Returns diagnostics for any issues found.
+/// One W138 warning per top-level key of `raw` that a v2 manifest doesn't
+/// define (a typo such as `entityKnds` would otherwise be dropped silently).
+/// Empty when `raw` isn't a manifest at all; parsing reports that.
+pub fn unknown_manifest_fields(raw: &serde_json::Value) -> Vec<Diagnostic> {
+    let Some(given) = raw.as_object() else {
+        return Vec::new();
+    };
+    // Every top-level field serializes, so a parsed manifest's keys are the
+    // known ones.
+    let Some(known) = serde_json::from_value::<ManifestV2>(raw.clone())
+        .ok()
+        .and_then(|m| serde_json::to_value(m).ok())
+    else {
+        return Vec::new();
+    };
+    let known = known.as_object().cloned().unwrap_or_default();
+    let mut unknown: Vec<&String> = given.keys().filter(|k| !known.contains_key(*k)).collect();
+    unknown.sort();
+    unknown
+        .into_iter()
+        .map(|key| Diagnostic {
+            code: "W138".to_string(),
+            severity: Severity::Warning,
+            message: format!("unknown manifest field '{key}' is ignored"),
+            span: None,
+            suggestion: Some("check the spelling against the manifest v2 schema".to_string()),
+        })
+        .collect()
+}
+
 pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 

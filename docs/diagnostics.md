@@ -1825,3 +1825,16 @@ link the test explicitly (`#[specforge_test]`).
 
 Owner: core
 ```
+
+## W138
+
+```
+W138: Unknown manifest field
+
+An extension's manifest.json has a top-level field the v2 manifest schema
+doesn't define, so SpecForge ignores it. It is usually a misspelling
+(`entityKnds` for `entityKinds`) that leaves the extension without what the
+field was meant to declare. Fix the spelling or remove the field.
+
+Owner: core
+```

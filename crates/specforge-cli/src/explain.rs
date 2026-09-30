@@ -1005,6 +1005,12 @@ pub const CATALOG: &[CodeEntry] = &[
         owner: "core",
         explanation: "`specforge collect` links a test that no annotation links by its name: `entity_id__obligation_slug`, or a module named after an entity. This test's name splits at more than one `__` into a declared entity ID (entity IDs aren't meant to contain `__`), so it isn't linked. Rename the test or the entity, or link the test explicitly (`#[specforge_test]`).",
     },
+    CodeEntry {
+        code: "W138",
+        title: "Unknown manifest field",
+        owner: "core",
+        explanation: "An extension's manifest.json has a top-level field the v2 manifest schema doesn't define, so SpecForge ignores it. It is usually a misspelling (`entityKnds` for `entityKinds`) that leaves the extension without what the field was meant to declare. Fix the spelling or remove the field.",
+    },
 ];
 
 #[cfg(test)]

@@ -824,17 +824,30 @@ fn manifest_v2_wrong_version() {
     );
 }
 
-#[test]
+#[spec(
+    behavior = "validate_manifest_v2_schema",
+    verify = "unknown top-level field produces warning"
+)]
 fn manifest_v2_unknown_field() {
-    // serde silently ignores unknown fields (deny_unknown_fields is NOT set)
-    // Warning is handled at a higher level that compares raw JSON keys
-    let result: Result<ManifestV2, _> = serde_json::from_str(
-        r#"{"name": "@test/ext", "version": "1.0.0", "manifestVersion": 2, "wasmPath": "x.wasm", "unknownField": true}"#,
-    );
+    let raw: serde_json::Value = serde_json::from_str(
+        r#"{"name": "@test/ext", "version": "1.0.0", "manifestVersion": 2, "wasmPath": "x.wasm",
+            "entityKnds": [], "entityKinds": [], "surfaces": null}"#,
+    )
+    .unwrap();
+
+    let diags = specforge_registry::unknown_manifest_fields(&raw);
+
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert_eq!(diags[0].code, "W138");
+    assert_eq!(diags[0].severity, Severity::Warning);
     assert!(
-        result.is_ok(),
-        "unknown fields should not cause parse failure"
+        diags[0].message.contains("'entityKnds'"),
+        "{}",
+        diags[0].message
     );
+    // A known field set to null or empty is not unknown, and the manifest
+    // still parses.
+    assert!(serde_json::from_value::<ManifestV2>(raw).is_ok());
 }
 
 #[spec(

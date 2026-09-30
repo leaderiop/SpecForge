@@ -34,6 +34,13 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
         }
     };
 
+    // A misspelled field would otherwise vanish silently at parse time.
+    if let Ok(raw) = serde_json::from_str::<serde_json::Value>(&manifest_content) {
+        for warning in specforge_registry::unknown_manifest_fields(&raw) {
+            eprintln!("warning[{}]: {}", warning.code, warning.message);
+        }
+    }
+
     let manifest: ManifestV2 = match serde_json::from_str(&manifest_content) {
         Ok(m) => m,
         Err(e) => {
