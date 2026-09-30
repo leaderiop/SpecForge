@@ -1,21 +1,12 @@
 //! Builtin extensions ship inside the binary: enabling one is an entry in
 //! `specforge.json`'s `extensions` array, not a download or a lock entry.
 
-use specforge_component::builtins::BUILTIN_EXTENSIONS;
 use std::path::Path;
 
 /// The builtin named by `specifier` (`@specforge/product`, optionally with an
 /// `@version` suffix, which is ignored — builtins track the binary's version).
 pub fn builtin_name(specifier: &str) -> Option<&'static str> {
-    let specifier = specifier.trim();
-    let name = match specifier.rfind('@') {
-        Some(at) if at > 0 => &specifier[..at],
-        _ => specifier,
-    };
-    BUILTIN_EXTENSIONS
-        .iter()
-        .map(|(builtin, _)| *builtin)
-        .find(|builtin| *builtin == name)
+    specforge_ops::extension::builtin_name(specifier)
 }
 
 /// Builtins that `name` requires (its non-optional peer dependencies that
@@ -51,11 +42,6 @@ pub fn enable(project: &Path, name: &str) -> Result<bool, String> {
     specforge_ops::config::add_extension(project, name, name).map_err(message)
 }
 
-/// Remove `name` from `specforge.json`. `Ok(false)` when it was not enabled.
-pub fn disable(project: &Path, name: &str) -> Result<bool, String> {
-    specforge_ops::config::remove_extension(project, name).map_err(message)
-}
-
 fn message(e: specforge_ops::OpError) -> String {
     match e.suggestion {
         Some(hint) => format!("{} — {hint}", e.message),
@@ -82,7 +68,7 @@ mod tests {
     }
 
     #[test]
-    fn enable_and_disable_edit_specforge_json_idempotently() {
+    fn enable_edits_specforge_json_idempotently() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(
             dir.path().join("specforge.json"),
@@ -96,10 +82,6 @@ mod tests {
             enabled(dir.path()),
             ["@specforge/software", "@specforge/product"]
         );
-
-        assert_eq!(disable(dir.path(), "@specforge/software"), Ok(true));
-        assert_eq!(disable(dir.path(), "@specforge/software"), Ok(false));
-        assert_eq!(enabled(dir.path()), ["@specforge/product"]);
     }
 
     #[test]

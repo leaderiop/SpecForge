@@ -1260,6 +1260,108 @@ fn remove_extension_contract() {
     );
 }
 
+/// A project enabling `@specforge/software` and the installed `extensions`,
+/// each locked with the peers it recorded at install.
+fn project_with_installed(dir: &std::path::Path, installed: &[(&str, &[&str])]) {
+    let mut enabled = vec!["@specforge/software".to_string()];
+    let mut entries = Vec::new();
+    for (name, peers) in installed {
+        enabled.push(name.to_string());
+        let ext_dir = dir.join(".specforge/extensions").join(name);
+        fs::create_dir_all(&ext_dir).unwrap();
+        fs::write(ext_dir.join("extension.wasm"), b"fake").unwrap();
+        let peers: Vec<serde_json::Value> = peers
+            .iter()
+            .map(|p| serde_json::json!({"name": p, "version": "^1.0", "optional": false}))
+            .collect();
+        entries.push(serde_json::json!({
+            "name": name, "version": "1.0.0", "source": "registry",
+            "wasm_hash": "", "peer_dependencies": peers,
+        }));
+    }
+    fs::write(
+        dir.join("specforge.json"),
+        serde_json::json!({"name": "p", "version": "0.1.0", "extensions": enabled}).to_string(),
+    )
+    .unwrap();
+    fs::write(
+        dir.join("specforge.lock"),
+        serde_json::json!({"lockfile_version": 1, "entries": entries}).to_string(),
+    )
+    .unwrap();
+}
+
+fn enabled_extensions(dir: &std::path::Path) -> Vec<String> {
+    let config: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(dir.join("specforge.json")).unwrap()).unwrap();
+    config["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e.as_str().unwrap().to_string())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "removing an installed extension drops its specforge.json entry"
+)]
+fn remove_installed_extension_drops_its_config_entry() {
+    let dir = TempDir::new().unwrap();
+    project_with_installed(dir.path(), &[("@acme/base", &[])]);
+
+    specforge_cmd()
+        .args(["remove", "@acme/base", "--path"])
+        .arg(dir.path())
+        .assert()
+        .success();
+
+    assert_eq!(enabled_extensions(dir.path()), ["@specforge/software"]);
+    assert!(!dir.path().join(".specforge/extensions/@acme/base").exists());
+}
+
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "removing an extension another installed extension requires fails with E027 unless --force"
+)]
+fn remove_refuses_an_extension_another_requires() {
+    let dir = TempDir::new().unwrap();
+    project_with_installed(
+        dir.path(),
+        &[("@acme/base", &[]), ("@acme/app", &["@acme/base"])],
+    );
+    let lock_before = fs::read(dir.path().join("specforge.lock")).unwrap();
+
+    let out = specforge_cmd()
+        .args(["remove", "@acme/base", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    let error: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(error["code"], "E027", "{error}");
+    assert!(
+        error["error"].as_str().unwrap().contains("@acme/app"),
+        "{error}"
+    );
+    // Nothing changed.
+    assert_eq!(
+        fs::read(dir.path().join("specforge.lock")).unwrap(),
+        lock_before
+    );
+    assert!(enabled_extensions(dir.path()).contains(&"@acme/base".to_string()));
+
+    specforge_cmd()
+        .args(["remove", "@acme/base", "--force", "--path"])
+        .arg(dir.path())
+        .assert()
+        .success();
+    assert_eq!(
+        enabled_extensions(dir.path()),
+        ["@specforge/software", "@acme/app"]
+    );
+}
+
 #[specforge_test(
     behavior = "remove_extension",
     verify = "specforge remove with no lock file reports error"

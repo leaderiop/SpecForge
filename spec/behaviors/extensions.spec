@@ -218,7 +218,11 @@ behavior validate_provider_refs "Validate Provider Refs" {
 // Wasm lifecycle cleanup. This behavior owns the CLI interaction and post-removal
 // diagnostic messaging; uninstall_wasm_extension owns the implementation.
 behavior remove_extension "Remove Extension" {
-  invariants [reference_resolution_completeness, zero_domain_knowledge_core]
+  invariants [
+    reference_resolution_completeness,
+    zero_domain_knowledge_core,
+    peer_dependency_satisfaction,
+  ]
   category   command
   types      [CompilerConfig, ExtensionError, Diagnostic, UnknownKindError]
   ports      [FileSystem]
@@ -237,7 +241,12 @@ behavior remove_extension "Remove Extension" {
     delegate to uninstall_wasm_extension (behaviors/wasm-lifecycle.spec) for the full
     Wasm lifecycle cleanup: removing the extension entry from specforge.json,
     deleting the .wasm binary, updating
-    specforge.lock, and checking peer dependencies. This behavior is the
+    specforge.lock, and checking peer dependencies. A builtin extension has
+    no binary or lock entry: removing it removes its specforge.json entry.
+    Removing an extension that another loaded or installed extension
+    requires as a non-optional peer MUST fail with E027 naming the
+    dependents, unless --force is given. The CLI and the MCP
+    remove_extension tool MUST run the same removal. This behavior is the
     user-facing CLI entry point; uninstall_wasm_extension handles the
     implementation. Existing .spec files using the extension's entities
     MUST NOT be modified. On the next compilation, entity blocks using the
@@ -254,6 +263,8 @@ behavior remove_extension "Remove Extension" {
   verify contract "Remove Extension: extension removal holds — extension_installed, filesystem_available, extension_entry_removed, spec_files_unchanged, extension_removed_emitted"
   verify unit "specforge remove for non-existent extension reports error"
   verify unit "specforge remove with no lock file reports error"
+  verify integration "removing an installed extension drops its specforge.json entry"
+  verify integration "removing an extension another installed extension requires fails with E027 unless --force"
 }
 
 // Read-only query. (produces [] declared below; no event of its own.)

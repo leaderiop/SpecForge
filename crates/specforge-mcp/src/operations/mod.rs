@@ -10,9 +10,7 @@ use specforge_common::find_project_root;
 use specforge_registry::{
     HttpRegistryClient, resolve_from_registry, resolve_version, verify_registry_integrity,
 };
-use specforge_wasm::{
-    install_extension, install_from_local, read_lock_file, uninstall_extension, write_lock_file,
-};
+use specforge_wasm::{install_extension, install_from_local, read_lock_file, write_lock_file};
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
@@ -79,21 +77,22 @@ fn ok(id: Option<Value>, result: Value) -> JsonRpcResponse {
 }
 
 /// An operation's failure as an invalid-params error whose `data` carries
-/// the diagnostic code and its suggestion.
+/// the diagnostic code and its suggestion, plus the operation's own data.
 fn err_op(id: Option<Value>, error: specforge_ops::OpError) -> JsonRpcResponse {
-    JsonRpcResponse::error_with_data(
-        id,
-        error_codes::INVALID_PARAMS,
-        error.message.clone(),
-        json!({
-            "code": error.code,
-            "diagnostic": {
-                "severity": "error",
-                "message": error.message,
-                "suggestion": error.suggestion,
-            },
-        }),
-    )
+    let mut data = json!({
+        "code": error.code,
+        "diagnostic": {
+            "severity": "error",
+            "message": error.message,
+            "suggestion": error.suggestion,
+        },
+    });
+    if let Some(Value::Object(extra)) = error.data {
+        for (key, value) in extra {
+            data[key] = value;
+        }
+    }
+    JsonRpcResponse::error_with_data(id, error_codes::INVALID_PARAMS, error.message, data)
 }
 
 /// Enable `name@version` in the project's specforge.json (idempotent: an
@@ -648,100 +647,36 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Json
         return err_invalid(id, "remove needs a project root (pass {\"path\": ...})");
     };
 
-    let lock_path = root.join("specforge.lock");
-    let extensions_dir = root.join(".specforge").join("extensions");
-
-    let not_found = |id, message: String| {
-        JsonRpcResponse::error_with_data(
-            id,
-            error_codes::INVALID_PARAMS,
-            message,
-            json!({"code": "extension_not_found", "extension": name}),
-        )
+    // The shared operation, over what the session loaded.
+    let request = specforge_ops::extension::RemoveRequest {
+        root: &root,
+        name: &name,
+        force,
+        dry_run,
+        loaded: &state.manifests,
+        kinds: &state.kind_registry,
+        graph: &state.graph,
     };
-    let mut lock = match read_lock_file(&lock_path) {
-        Ok(lock) => lock,
-        Err(_) => {
-            return not_found(
-                id,
-                format!("extension '{name}' is not installed (no lock file found)"),
-            );
-        }
-    };
-    let Some(version) = lock
-        .entries
-        .iter()
-        .find(|e| e.name == name)
-        .map(|e| e.version.clone())
-    else {
-        return not_found(id, format!("extension '{name}' is not installed"));
-    };
-
-    let orphan_warnings = orphan_warnings(state, &name);
-    if dry_run {
-        let dependents = specforge_wasm::check_dependents(&name, &state.manifests);
-        if !dependents.is_empty() && !force {
-            return err_invalid(
-                id,
-                format!(
-                    "E027: cannot uninstall '{name}': required by {}",
-                    dependents.join(", ")
-                ),
-            );
-        }
-        return ok(
-            id,
-            json!({
-                "removed_extension": name,
+    match specforge_ops::extension::remove(&request) {
+        Ok(outcome) => {
+            let mut result = json!({
+                "removed_extension": outcome.name,
                 "success": true,
-                "dry_run": true,
-                "version": version,
-                "orphan_warnings": orphan_warnings,
-            }),
-        );
-    }
-
-    match uninstall_extension(&name, &state.manifests, &extensions_dir, &mut lock, force) {
-        Ok(result) => {
-            if let Err(diag) = write_lock_file(&lock, &lock_path) {
-                return err_invalid(id, diag.message);
+                "version": outcome.version,
+                "orphan_warnings": outcome.orphan_warnings,
+            });
+            if outcome.dry_run {
+                result["dry_run"] = Value::from(true);
             }
-            let _ = specforge_ops::config::remove_extension(&root, &name);
-            ok(
-                id,
-                json!({
-                    "removed_extension": name,
-                    "success": true,
-                    "version": result.version,
-                    "orphan_warnings": orphan_warnings,
-                }),
-            )
+            ok(id, result)
         }
-        Err(diag) => err_invalid(id, format!("{}: {}", diag.code, diag.message)),
+        Err(mut error) => {
+            if error.code == specforge_ops::extension::NOT_FOUND {
+                error.data = Some(json!({"extension": name}));
+            }
+            err_op(id, error)
+        }
     }
-}
-
-/// One warning per entity whose kind only `extension` defines.
-fn orphan_warnings(state: &McpState, extension: &str) -> Vec<String> {
-    let mut warnings: Vec<String> = state
-        .graph
-        .nodes()
-        .into_iter()
-        .filter(|node| {
-            state
-                .kind_registry
-                .get(node.kind.raw.as_str())
-                .is_some_and(|kind| kind.source_extension == extension)
-        })
-        .map(|node| {
-            format!(
-                "{} '{}' uses a kind only {extension} defines",
-                node.kind.raw, node.id.raw
-            )
-        })
-        .collect();
-    warnings.sort();
-    warnings
 }
 
 // ── migrate ─────────────────────────────────────────────────────────────────

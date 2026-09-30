@@ -87,23 +87,6 @@ const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
         Aspect::Check,
         "MCP's config entry fails with E028",
     ),
-    // remove (O3): MCP looks only in the lock file, so a builtin is
-    // `extension_not_found`.
-    (
-        "remove_builtin",
-        Aspect::Outcome,
-        "MCP cannot disable a builtin",
-    ),
-    (
-        "remove_builtin",
-        Aspect::Config,
-        "MCP cannot disable a builtin",
-    ),
-    (
-        "remove_builtin",
-        Aspect::Check,
-        "MCP left the builtin enabled",
-    ),
     // export: both surfaces export through `specforge_ops::export` (O2), but
     // only the CLI keeps `.specforge/schema-cache.json` for its W053 check.
     // The MCP export tool is a read-only query with nowhere to show W053: if

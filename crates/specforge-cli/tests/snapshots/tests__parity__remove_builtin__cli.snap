@@ -27,6 +27,7 @@ expression: cli_snap
   },
   "ok": true,
   "payload": {
+    "orphan_warnings": [],
     "removed": "@specforge/product",
     "source": "builtin"
   }

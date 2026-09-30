@@ -28,6 +28,7 @@ expression: cli_snap
   },
   "ok": true,
   "payload": {
+    "orphan_warnings": [],
     "removed": "specforge_ext_product",
     "version": "local"
   }

@@ -949,6 +949,33 @@ fn remove_extension_not_installed_is_extension_not_found() {
     assert!(message.contains("@acme/missing"), "{message}");
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_remove_extension_tool",
+    verify = "specforge.remove_extension removes extension from config"
+)]
+fn remove_extension_disables_an_enabled_builtin() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"p","version":"0.1.0","extensions":["@specforge/software","@specforge/product"]}"#,
+    )
+    .unwrap();
+    let mut server = McpServer::with_project_root(dir.path().to_path_buf());
+    let init = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
+    server.handle_message(&init.to_string());
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.remove_extension",
+        json!({"name": "@specforge/product"}),
+    );
+
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed["success"], true, "{parsed}");
+    assert_eq!(parsed["removed_extension"], "@specforge/product");
+    assert_eq!(config_extensions(dir.path()), ["@specforge/software"]);
+}
+
 // --- specforge.migrate ---
 
 #[test]
