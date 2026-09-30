@@ -501,23 +501,6 @@ fn contract_format() {
 }
 
 #[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "Provide MCP Init Tool: MCP init tool holds — filesystem_available, project_created, path_outside_current, extensions_validated, project_initialized_emitted, tool_invoked_emitted"
-)]
-fn contract_init() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.init",
-        json!({"path": dir.path().to_str().unwrap()}),
-    );
-    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
-    let parsed: Value = serde_json::from_str(text).unwrap();
-    assert!(parsed.get("project_path").is_some());
-}
-
-#[specforge_test(
     behavior = "provide_mcp_extensions_tool",
     verify = "Provide MCP Extensions Tool: MCP extensions tool holds — compiler_api_available, extensions_listed, config_reflected, tool_invoked_emitted"
 )]

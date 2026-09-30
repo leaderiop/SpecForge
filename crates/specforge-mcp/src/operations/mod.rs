@@ -357,8 +357,10 @@ fn apply_line_edits<'a>(
 
 // ── init ────────────────────────────────────────────────────────────────────
 
-fn init_op(_state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
-    let path = PathBuf::from(args.get("path").and_then(|v| v.as_str()).unwrap_or("."));
+fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+    let Some(path) = args.get("path").and_then(|v| v.as_str()).map(PathBuf::from) else {
+        return err_invalid(id, "Missing required parameter: path");
+    };
     let name = args
         .get("name")
         .and_then(|v| v.as_str())
@@ -374,11 +376,87 @@ fn init_op(_state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         .and_then(|v| v.as_str())
         .unwrap_or("0.1.0")
         .to_string();
-    let extensions: Vec<&str> = args
+    let mut extensions: Vec<String> = args
         .get("extensions")
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str())
+                .map(String::from)
+                .collect()
+        })
         .unwrap_or_default();
+
+    if let Err(reason) = specforge_common::validate_project_name(&name) {
+        return err_invalid(id, format!("invalid project name '{name}': {reason}"));
+    }
+    // Init only enables builtins; anything else installs afterwards.
+    let builtins: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
+        .iter()
+        .map(|(builtin, _)| *builtin)
+        .collect();
+    if let Some(unknown) = extensions.iter().find(|e| !builtins.contains(&e.as_str())) {
+        let message = format!("unknown extension '{unknown}': not a builtin extension");
+        return JsonRpcResponse::error_with_data(
+            id,
+            error_codes::INVALID_PARAMS,
+            message.clone(),
+            json!({
+                "code": "extension_not_found",
+                "extension": unknown,
+                "diagnostic": {
+                    "severity": "error",
+                    "message": message,
+                    "suggestion": format!(
+                        "init with builtins ({}), then install it with specforge.add_extension",
+                        builtins.join(", ")
+                    ),
+                },
+            }),
+        );
+    }
+    // Test obligations on software kinds come from @specforge/testing (ADR 0002).
+    if extensions.iter().any(|e| e == "@specforge/software")
+        && !extensions.iter().any(|e| e == "@specforge/testing")
+    {
+        extensions.push("@specforge/testing".to_string());
+    }
+
+    // The new project must not land inside the one this server serves.
+    let absolute = |p: &Path| {
+        std::path::absolute(p)
+            .map(|p| p.canonicalize().unwrap_or(p))
+            .unwrap_or_else(|_| p.to_path_buf())
+    };
+    if let Some(current) = &state.project_root {
+        let current = absolute(current);
+        let mut target = absolute(&path);
+        // Canonicalize through the nearest existing ancestor.
+        let mut existing = target.clone();
+        let mut rest = Vec::new();
+        while !existing.exists() {
+            let Some(name) = existing.file_name().map(|n| n.to_os_string()) else {
+                break;
+            };
+            rest.push(name);
+            if !existing.pop() {
+                break;
+            }
+        }
+        if let Ok(canonical) = existing.canonicalize() {
+            target = rest.iter().rev().fold(canonical, |p, part| p.join(part));
+        }
+        if target.starts_with(&current) {
+            return err_invalid(
+                id,
+                format!(
+                    "{} is inside the current project at {}",
+                    path.display(),
+                    current.display()
+                ),
+            );
+        }
+    }
 
     // Refuse to clobber an existing project.
     if path.join("specforge.json").exists() {
@@ -396,10 +474,14 @@ fn init_op(_state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     if let Err(e) = std::fs::write(path.join("specforge.json"), config.to_string()) {
         return err_invalid(id, format!("cannot write specforge.json: {e}"));
     }
-    let starter = "spec MyProject \"Project specification\" {\n}\n";
+    let starter = format!("spec \"{name}\" {{\n  version \"{version}\"\n}}\n");
     if let Err(e) = std::fs::write(path.join("spec").join("specforge.spec"), starter) {
         return err_invalid(id, format!("cannot write starter file: {e}"));
     }
+    state.push_event(
+        "project_initialized",
+        json!({"path": path.display().to_string(), "name": name}),
+    );
 
     ok(
         id,

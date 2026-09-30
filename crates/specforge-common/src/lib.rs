@@ -19,7 +19,9 @@ pub use inference::{
     load_inference_manifest, save_inference_manifest,
 };
 pub use interner::Sym;
-pub use project::{InferenceConfig, ProjectConfig, find_project_root, load_project_config};
+pub use project::{
+    InferenceConfig, ProjectConfig, find_project_root, load_project_config, validate_project_name,
+};
 pub use slug::slug;
 pub use span::SourceSpan;
 pub use suggest::find_close_match;

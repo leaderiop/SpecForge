@@ -429,10 +429,12 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "Project path" },
-                    "name": { "type": "string", "description": "Project name" },
-                    "extensions": { "type": "array", "items": { "type": "string" } }
-                }
+                    "path": { "type": "string", "description": "Directory for the new project, outside the current one" },
+                    "name": { "type": "string", "description": "Project name (defaults to the directory name)" },
+                    "version": { "type": "string", "description": "Project version", "default": "0.1.0" },
+                    "extensions": { "type": "array", "items": { "type": "string" }, "description": "Builtin extensions to enable, e.g. @specforge/software" }
+                },
+                "required": ["path"]
             }),
             category: Some("mutation".into()),
         },

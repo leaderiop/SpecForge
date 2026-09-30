@@ -128,3 +128,21 @@ fn parse_inference_config(value: &serde_json::Value) -> InferenceConfig {
         density_threshold,
     }
 }
+
+/// Why `name` can't name a project, or `Ok`: it must be non-empty, at most
+/// 214 characters, free of whitespace, and not start with `.` or `-`.
+pub fn validate_project_name(name: &str) -> Result<(), &'static str> {
+    if name.is_empty() {
+        return Err("name must not be empty");
+    }
+    if name.len() > 214 {
+        return Err("name must not exceed 214 characters");
+    }
+    if name.starts_with('.') || name.starts_with('-') {
+        return Err("name must not start with '.' or '-'");
+    }
+    if name.contains(|c: char| c.is_whitespace()) {
+        return Err("name must not contain whitespace");
+    }
+    Ok(())
+}

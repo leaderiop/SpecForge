@@ -1687,7 +1687,7 @@ fn mcp_tool_init_returns_project() {
             "tools/call",
             serde_json::json!({
                 "name": "specforge.init",
-                "arguments": { "path": dir.path().to_str().unwrap() }
+                "arguments": { "path": dir.path().to_str().unwrap(), "name": "fresh" }
             }),
         )],
     );
@@ -1696,6 +1696,7 @@ fn mcp_tool_init_returns_project() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
     assert_eq!(content["project_path"], dir.path().to_str().unwrap());
+    assert!(dir.path().join("specforge.json").is_file());
     assert_eq!(content["config_file"], "specforge.json");
     assert!(
         content["starter_file"].is_string(),

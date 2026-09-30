@@ -419,28 +419,229 @@ fn rename_contract() {
 
 // --- specforge.init ---
 
-// B:provide_mcp_init_tool — verify unit "returns init result"
+/// Initialize a project at `dir/name` and return the parsed result.
+fn init(server: &mut McpServer, args: Value) -> Value {
+    let resp = call_tool(server, "specforge.init", args);
+    serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
+}
+
+fn init_error(server: &mut McpServer, args: Value) -> Value {
+    let resp = call_tool(server, "specforge.init", args);
+    assert!(resp["error"].is_object(), "init accepted {resp}");
+    resp["error"].clone()
+}
+
+fn read_config(project: &Path) -> Value {
+    serde_json::from_str(&std::fs::read_to_string(project.join("specforge.json")).unwrap()).unwrap()
+}
+
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "specforge.init creates specforge.json project"
 )]
-fn init_returns_result() {
+fn init_creates_the_project() {
+    let dir = fresh_project_dir();
+    let project = dir.path().join("fresh");
+    let mut server = test_server();
+
+    let parsed = init(
+        &mut server,
+        json!({"path": project.to_str().unwrap(), "name": "myproject"}),
+    );
+
+    assert_eq!(parsed["project_path"], project.display().to_string());
+    let config = read_config(&project);
+    assert_eq!(config["name"], "myproject");
+    assert_eq!(config["version"], "0.1.0");
+    assert_eq!(config["extensions"], json!([]));
+    assert!(
+        project
+            .join(parsed["starter_file"].as_str().unwrap())
+            .is_file()
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
+    verify = "extensions installed when specified"
+)]
+fn init_adds_the_requested_extensions_to_the_config() {
     let dir = fresh_project_dir();
     let mut server = test_server();
-    let resp = call_tool(
+
+    init(
         &mut server,
-        "specforge.init",
-        json!({"path": dir.path().to_str().unwrap(), "name": "myproject"}),
+        json!({"path": dir.path().to_str().unwrap(), "name": "extproject",
+               "extensions": ["@specforge/software"]}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+
+    // Software's test obligations come from @specforge/testing (ADR 0002).
+    assert_eq!(
+        read_config(dir.path())["extensions"],
+        json!(["@specforge/software", "@specforge/testing"])
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
+    verify = "specforge.init result includes the starter file path and installed extensions"
+)]
+fn init_extensions_in_result() {
+    let dir = fresh_project_dir();
+    let mut server = test_server();
+
+    let parsed = init(
+        &mut server,
+        json!({"path": dir.path().to_str().unwrap(), "name": "test",
+               "extensions": ["@specforge/software", "@specforge/product"]}),
+    );
+
+    assert_eq!(
+        parsed["extensions_installed"],
+        json!([
+            "@specforge/software",
+            "@specforge/product",
+            "@specforge/testing"
+        ])
+    );
+    assert_eq!(parsed["starter_file"], "spec/specforge.spec");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
+    verify = "path inside current project returns error"
+)]
+fn init_refuses_a_path_inside_the_current_project() {
+    let mut server = test_server();
+    let root = server.state().project_root.clone().unwrap();
+    let nested = root.join("sub");
+
+    let error = init_error(
+        &mut server,
+        json!({"path": nested.to_str().unwrap(), "name": "nested"}),
+    );
+
     assert!(
-        parsed["project_path"]
+        error["message"]
             .as_str()
             .unwrap()
-            .ends_with(dir.path().file_name().unwrap().to_str().unwrap())
+            .contains("inside the current project"),
+        "{error}"
     );
-    assert_eq!(parsed["config_file"], "specforge.json");
+    assert!(!nested.exists(), "nothing is written");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
+    verify = "invalid project name returns error"
+)]
+fn init_rejects_an_invalid_project_name() {
+    let mut server = test_server();
+    for name in ["", ".hidden", "-dash", "has space"] {
+        let dir = fresh_project_dir();
+        let error = init_error(
+            &mut server,
+            json!({"path": dir.path().to_str().unwrap(), "name": name}),
+        );
+        assert!(
+            error["message"]
+                .as_str()
+                .unwrap()
+                .contains("invalid project name"),
+            "{name:?}: {error}"
+        );
+        assert!(
+            !dir.path().join("specforge.json").exists(),
+            "{name:?} wrote a project"
+        );
+    }
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
+    verify = "unknown extension returns error with diagnostic"
+)]
+fn init_rejects_an_unknown_extension() {
+    let dir = fresh_project_dir();
+    let mut server = test_server();
+
+    let error = init_error(
+        &mut server,
+        json!({"path": dir.path().to_str().unwrap(), "name": "test",
+               "extensions": ["@specforge/software", "@specforge/nonexistent"]}),
+    );
+
+    assert_eq!(error["data"]["code"], "extension_not_found", "{error}");
+    let diagnostic = &error["data"]["diagnostic"];
+    assert!(
+        diagnostic["message"]
+            .as_str()
+            .unwrap()
+            .contains("@specforge/nonexistent"),
+        "{error}"
+    );
+    assert!(diagnostic["suggestion"].is_string(), "{error}");
+    assert!(
+        !dir.path().join("specforge.json").exists(),
+        "nothing is written"
+    );
+}
+
+#[test]
+fn init_requires_a_path() {
+    let mut server = test_server();
+    let error = init_error(&mut server, json!({"name": "nowhere"}));
+    assert!(
+        error["message"].as_str().unwrap().contains("path"),
+        "{error}"
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
+    verify = "MCP init followed by check produces zero errors"
+)]
+fn init_then_validate_has_no_errors() {
+    let dir = fresh_project_dir();
+    let mut server = test_server();
+    init(
+        &mut server,
+        json!({"path": dir.path().to_str().unwrap(), "name": "integration",
+               "extensions": ["@specforge/software"]}),
+    );
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"path": dir.path().to_str().unwrap()}),
+    );
+
+    assert_eq!(resp["result"]["isError"], false, "{}", tool_text(&resp));
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
+    verify = "Provide MCP Init Tool: MCP init tool holds — filesystem_available, project_created, path_outside_current, extensions_validated, project_initialized_emitted, tool_invoked_emitted"
+)]
+fn init_contract() {
+    let dir = fresh_project_dir();
+    let mut server = test_server();
+
+    init(
+        &mut server,
+        json!({"path": dir.path().to_str().unwrap(), "name": "contractproject"}),
+    );
+
+    assert!(dir.path().join("specforge.json").is_file());
+    assert!(dir.path().join("spec").is_dir());
+    let events: Vec<&str> = server
+        .state()
+        .events
+        .iter()
+        .map(|e| e.name.as_str())
+        .collect();
+    assert!(events.contains(&"mcp_tool_invoked"), "{events:?}");
+    assert!(events.contains(&"project_initialized"), "{events:?}");
 }
 
 // --- specforge.add_extension ---
@@ -686,62 +887,6 @@ fn migrate_returns_result() {
 }
 
 #[test]
-fn init_extensions_installed() {
-    let dir = fresh_project_dir();
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.init",
-        json!({"path": dir.path().to_str().unwrap(), "name": "extproject", "extensions": ["@specforge/software"]}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["extensions_installed"].is_array() || parsed["config_file"].is_string());
-}
-
-#[test]
-fn init_default_version() {
-    let dir = fresh_project_dir();
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.init",
-        json!({"path": dir.path().to_str().unwrap(), "name": "verproject"}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["config_file"].is_string());
-}
-
-#[test]
-fn init_version_override() {
-    let dir = fresh_project_dir();
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.init",
-        json!({"path": dir.path().to_str().unwrap(), "name": "my-project"}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["project_path"].is_string() || parsed["config_file"].is_string());
-}
-
-#[test]
-fn init_starter_file_path() {
-    let dir = fresh_project_dir();
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.init",
-        json!({"path": dir.path().to_str().unwrap(), "name": "starterproject"}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["starter_file"].is_string() || parsed["config_file"].is_string());
-}
-
-#[test]
 fn add_extension_already_installed_placeholder() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
@@ -815,25 +960,6 @@ fn rename_invalid_name_format() {
     assert!(resp3["error"].is_object());
 }
 
-// B:provide_mcp_init_tool — verify unit "result includes starter file and extensions"
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "specforge.init result includes the starter file path and installed extensions"
-)]
-fn init_extensions_in_result() {
-    let dir = fresh_project_dir();
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.init",
-        json!({"path": dir.path().to_str().unwrap(), "name": "test", "extensions": ["@specforge/software", "@specforge/product"]}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let exts = parsed["extensions_installed"].as_array().unwrap();
-    assert_eq!(exts.len(), 2);
-}
-
 // B:provide_mcp_init_tool — verify unit "default version is 0.1.0"
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
@@ -870,21 +996,6 @@ fn init_version_override_value() {
     assert_eq!(parsed["version"], "1.0.0");
 }
 
-#[test]
-fn init_then_check_integration() {
-    let dir = fresh_project_dir();
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.init",
-        json!({"path": dir.path().to_str().unwrap(), "name": "integration", "extensions": []}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed["config_file"], "specforge.json");
-    assert!(parsed["starter_file"].is_string());
-}
-
 // B:provide_mcp_add_extension_tool — verify unit "invalid specifier returns error"
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
@@ -900,19 +1011,6 @@ fn add_extension_invalid_specifier() {
     assert!(resp["error"].is_object());
     let msg = resp["error"]["message"].as_str().unwrap();
     assert!(msg.contains("@scope/name"));
-}
-
-#[test]
-fn remove_extension_not_installed() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.remove_extension",
-        json!({"name": "@specforge/unknown"}),
-    );
-    // Spec requires error; current impl returns success with empty orphans.
-    // Accept either behavior — error is the target, success is current.
-    assert!(resp["error"].is_object() || resp["result"].is_object());
 }
 
 #[test]
@@ -943,42 +1041,6 @@ fn migrate_post_validation() {
 }
 
 // --- Missing verify statements ---
-
-#[test]
-fn init_path_inside_current_project() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.init",
-        json!({"path": ".", "name": "nested"}),
-    );
-    // Spec requires error for path inside current project; current impl may succeed.
-    assert!(resp["error"].is_object() || resp["result"].is_object());
-}
-
-#[test]
-fn init_invalid_project_name() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.init",
-        json!({"path": "/tmp/bad_name", "name": ""}),
-    );
-    // Spec requires error for empty name; current impl may accept it.
-    assert!(resp["error"].is_object() || resp["result"].is_object());
-}
-
-#[test]
-fn init_unknown_extension() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.init",
-        json!({"path": "/tmp/ext_err", "name": "test", "extensions": ["@specforge/nonexistent"]}),
-    );
-    // Spec requires error; current impl may succeed with extensions listed.
-    assert!(resp["error"].is_object() || resp["result"].is_object());
-}
 
 #[test]
 fn add_extension_dry_run() {
@@ -1049,33 +1111,6 @@ fn format_contract() {
     let check_text = tool_text(&check_resp);
     let check_parsed: Value = serde_json::from_str(&check_text).unwrap();
     assert_eq!(check_parsed["check_only"], true);
-}
-
-// B:provide_mcp_init_tool — verify contract
-#[specforge_test(
-    behavior = "provide_mcp_init_tool",
-    verify = "Provide MCP Init Tool: MCP init tool holds — filesystem_available, project_created, path_outside_current, extensions_validated, project_initialized_emitted, tool_invoked_emitted"
-)]
-fn init_contract() {
-    let dir = fresh_project_dir();
-    let mut server = test_server();
-    // Requires: filesystem available
-    // Ensures: project created with specforge.json, extensions validated
-    let resp = call_tool(
-        &mut server,
-        "specforge.init",
-        json!({"path": dir.path().to_str().unwrap(), "name": "contractproject"}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed["config_file"], "specforge.json");
-    // Invalid input should not crash (may return error or gracefully handle)
-    let resp2 = call_tool(
-        &mut server,
-        "specforge.init",
-        json!({"path": dir.path().to_str().unwrap(), "name": ""}),
-    );
-    assert!(resp2["error"].is_object() || resp2["result"].is_object());
 }
 
 // B:provide_mcp_add_extension_tool — verify contract

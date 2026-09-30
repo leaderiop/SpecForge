@@ -1,6 +1,6 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_common::find_project_root;
+use specforge_common::{find_project_root, validate_project_name};
 use std::path::Path;
 
 pub fn run(
@@ -184,22 +184,6 @@ pub fn run(
     }
 
     0
-}
-
-fn validate_project_name(name: &str) -> Result<(), &'static str> {
-    if name.is_empty() {
-        return Err("name must not be empty");
-    }
-    if name.len() > 214 {
-        return Err("name must not exceed 214 characters");
-    }
-    if name.starts_with('.') || name.starts_with('-') {
-        return Err("name must not start with '.' or '-'");
-    }
-    if name.contains(|c: char| c.is_whitespace()) {
-        return Err("name must not contain whitespace");
-    }
-    Ok(())
 }
 
 fn validate_extension_specifier(spec: &str) -> Result<(), &'static str> {
