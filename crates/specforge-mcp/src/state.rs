@@ -133,11 +133,18 @@ impl McpState {
         self.phase == ServerPhase::Initialized
     }
 
-    pub fn push_event(&mut self, name: impl Into<String>, params: serde_json::Value) {
-        self.events.push(McpEvent {
-            name: name.into(),
-            params,
-        });
+    /// Record an event. Object payloads without a `timestamp` get one (RFC
+    /// 3339, UTC) — except `mcp_initialized`, whose spec payload has none.
+    pub fn push_event(&mut self, name: impl Into<String>, mut params: serde_json::Value) {
+        let name = name.into();
+        if name != "mcp_initialized"
+            && let Some(object) = params.as_object_mut()
+            && !object.contains_key("timestamp")
+        {
+            let now = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+            object.insert("timestamp".into(), serde_json::Value::String(now));
+        }
+        self.events.push(McpEvent { name, params });
     }
 
     /// Compile `root` afresh into this state: graph, diagnostics, registries

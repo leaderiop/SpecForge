@@ -83,7 +83,9 @@ fn shutdown_clears_subscriptions() {
             .state()
             .events
             .iter()
-            .any(|e| e.name == "mcp_subscription_removed" && e.params["client_id"] == "client1"),
+            .any(|e| e.name == "mcp_subscription_removed"
+                && e.params["clientId"] == "client1"
+                && e.params["subscriptionType"] == "specforge/graphChanged"),
         "shutdown emits mcp_subscription_removed"
     );
 }
@@ -270,7 +272,7 @@ fn disconnect_removes_only_that_clients_subscriptions() {
     let removed = state
         .events
         .iter()
-        .filter(|e| e.name == "mcp_subscription_removed" && e.params["client_id"] == "c1")
+        .filter(|e| e.name == "mcp_subscription_removed" && e.params["clientId"] == "c1")
         .count();
     assert_eq!(removed, 2);
 }

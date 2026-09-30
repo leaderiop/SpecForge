@@ -108,21 +108,27 @@ fn fresh_project_dir() -> tempfile::TempDir {
     tempfile::TempDir::new().unwrap()
 }
 
-/// The params of every `name` event the server emitted, oldest first.
+/// The params of every `name` event the server emitted, oldest first,
+/// each without its `timestamp`.
 fn events_named(server: &McpServer, name: &str) -> Vec<Value> {
     server
         .state()
         .events
         .iter()
         .filter(|e| e.name == name)
-        .map(|e| e.params.clone())
+        .map(|e| {
+            let mut params = e.params.clone();
+            let stamp = params.as_object_mut().unwrap().remove("timestamp");
+            assert!(stamp.is_some_and(|s| s.is_string()), "{name}: {}", e.params);
+            params
+        })
         .collect()
 }
 
 fn invoked(server: &McpServer, tool: &str) -> bool {
     events_named(server, "mcp_tool_invoked")
         .iter()
-        .any(|p| p["tool"] == tool)
+        .any(|p| p["toolName"] == tool && p["category"] == "mutation")
 }
 
 fn tool_text(resp: &Value) -> String {
@@ -438,12 +444,15 @@ fn rename_contract() {
     );
     assert!(server.state().graph.node("token_unique").is_none());
     assert!(server.state().graph.node("token_distinct").is_some());
-    let completed = events_named(&server, "mcp_mutation_completed");
-    assert!(
-        completed
-            .iter()
-            .any(|p| p["tool"] == "specforge.rename" && p["success"] == true),
-        "{completed:?}"
+    // Two files rewritten, one entity renamed.
+    assert_eq!(
+        events_named(&server, "mcp_mutation_completed"),
+        [json!({
+            "toolName": "specforge.rename",
+            "files_changed": 2,
+            "entities_affected": 1,
+            "success": true,
+        })]
     );
 
     // Recompiled: the response carries the fresh diagnostics, and the
@@ -1197,10 +1206,15 @@ fn format_contract() {
     assert_ne!(files_under(&root), before);
 
     // mutation_completed_emitted, tool_invoked_emitted
-    let completed = events_named(&server, "mcp_mutation_completed");
-    assert_eq!(completed.len(), 1, "{completed:?}");
-    assert_eq!(completed[0]["tool"], "specforge.format");
-    assert_eq!(completed[0]["success"], true);
+    assert_eq!(
+        events_named(&server, "mcp_mutation_completed"),
+        [json!({
+            "toolName": "specforge.format",
+            "files_changed": 2,
+            "entities_affected": 0,
+            "success": true,
+        })]
+    );
     assert!(invoked(&server, "specforge.format"));
 }
 
@@ -1339,12 +1353,18 @@ fn migrate_contract() {
     assert_eq!(migrate(&mut server, json!({}))["migrated"], false);
 
     // mutation_completed_emitted, tool_invoked_emitted
-    let completed = events_named(&server, "mcp_mutation_completed");
-    assert!(
-        completed
-            .iter()
-            .any(|p| p["tool"] == "specforge.migrate" && p["outcome"]["migrated"] == true),
-        "{completed:?}"
+    // The migration rewrote one file; the second run changed nothing.
+    let migration = |files_changed: usize| {
+        json!({
+            "toolName": "specforge.migrate",
+            "files_changed": files_changed,
+            "entities_affected": 0,
+            "success": true,
+        })
+    };
+    assert_eq!(
+        events_named(&server, "mcp_mutation_completed"),
+        [migration(1), migration(0)]
     );
     assert!(invoked(&server, "specforge.migrate"));
 }

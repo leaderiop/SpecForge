@@ -186,21 +186,33 @@ fn resource(server: &mut McpServer, uri: &str) -> (Value, Value) {
     (content, parsed)
 }
 
-/// The params of every recorded event called `name`, oldest first.
+/// The params of every recorded event called `name`, oldest first, each
+/// without the `timestamp` every event but `mcp_initialized` carries.
 fn events(server: &McpServer, name: &str) -> Vec<Value> {
     server
         .state()
         .events
         .iter()
         .filter(|e| e.name == name)
-        .map(|e| e.params.clone())
+        .map(|e| {
+            let mut params = e.params.clone();
+            if name != "mcp_initialized" {
+                let stamp = params.as_object_mut().unwrap().remove("timestamp");
+                assert!(
+                    stamp.as_ref().is_some_and(Value::is_string),
+                    "{name}: {}",
+                    e.params
+                );
+            }
+            params
+        })
         .collect()
 }
 
 fn assert_tool_invoked(server: &McpServer, tool: &str) {
     let invoked = events(server, "mcp_tool_invoked");
     assert!(
-        invoked.iter().any(|p| p["tool"] == tool),
+        invoked.iter().any(|p| p["toolName"] == tool),
         "no mcp_tool_invoked for {tool}: {invoked:?}"
     );
 }
@@ -208,7 +220,7 @@ fn assert_tool_invoked(server: &McpServer, tool: &str) {
 fn assert_prompt_invoked(server: &McpServer, prompt: &str) {
     let invoked = events(server, "mcp_prompt_invoked");
     assert!(
-        invoked.iter().any(|p| p["prompt"] == prompt),
+        invoked.iter().any(|p| p["promptName"] == prompt),
         "no mcp_prompt_invoked for {prompt}: {invoked:?}"
     );
 }
@@ -216,7 +228,9 @@ fn assert_prompt_invoked(server: &McpServer, prompt: &str) {
 fn assert_resource_read(server: &McpServer, uri: &str) {
     let reads = events(server, "mcp_resource_read");
     assert!(
-        reads.iter().any(|p| p["uri"] == uri),
+        reads
+            .iter()
+            .any(|p| p["resourceUri"] == uri && p["format"] == "application/json"),
         "no mcp_resource_read for {uri}: {reads:?}"
     );
 }
@@ -331,10 +345,18 @@ fn contract_initialize() {
 
     // mcp_initialized_emitted, with the advertised counts.
     let initialized = events(&server, "mcp_initialized");
-    assert_eq!(initialized.len(), 1, "{initialized:?}");
-    assert_eq!(initialized[0]["tools_count"], tools.len());
-    assert_eq!(initialized[0]["resources_count"], resources.len());
-    assert_eq!(initialized[0]["prompts_count"], prompts.len());
+    assert_eq!(
+        initialized,
+        [json!({
+            "tools_registered": tools.len(),
+            "resources_registered": resources.len(),
+            "prompts_registered": prompts.len(),
+            "extensions_loaded": server.state().extension_info.len(),
+            "surface_tools_registered": 0,
+            "surface_resources_registered": 0,
+            "auto_promoted_tools": 0,
+        })]
+    );
 
     // Tool calls are accepted once initialized.
     let after = call_tool(&mut server, "specforge.stats", json!({}));
@@ -383,14 +405,14 @@ fn contract_shutdown() {
 
     // subscriptions_removed: none left, and each removal was announced.
     assert!(server.state().subscriptions.is_empty());
-    let mut removed: Vec<String> = events(&server, "mcp_subscription_removed")
-        .iter()
-        .map(|p| p["channel"].as_str().unwrap().to_string())
-        .collect();
-    removed.sort();
+    let mut removed = events(&server, "mcp_subscription_removed");
+    removed.sort_by_key(|p| p["subscriptionType"].to_string());
     assert_eq!(
         removed,
-        ["specforge/diagnosticsChanged", "specforge/graphChanged"]
+        [
+            json!({"subscriptionType": "specforge/diagnosticsChanged", "clientId": "default"}),
+            json!({"subscriptionType": "specforge/graphChanged", "clientId": "default"}),
+        ]
     );
 
     // wasm_engines_released: nothing compiled survives shutdown.
@@ -1207,10 +1229,10 @@ fn contract_list_tools() {
     assert!(names.contains(&"ext.on"), "{names:?}");
     assert!(!names.contains(&"ext.off"), "{names:?}");
 
-    let discovery = events(&server, "mcp_discovery_invoked");
-    assert!(
-        discovery.iter().any(|p| p["kind"] == "tools"),
-        "{discovery:?}"
+    // The count is what the client got: disabled surfaces excluded.
+    assert_eq!(
+        events(&server, "mcp_discovery_invoked"),
+        [json!({"discoveryType": "tools", "resultCount": names.len()})]
     );
 }
 
@@ -1248,10 +1270,10 @@ fn contract_list_resources() {
         ]
     );
 
-    let discovery = events(&server, "mcp_discovery_invoked");
-    assert!(
-        discovery.iter().any(|p| p["kind"] == "resources"),
-        "{discovery:?}"
+    // The count is what the client got: disabled surfaces excluded.
+    assert_eq!(
+        events(&server, "mcp_discovery_invoked"),
+        [json!({"discoveryType": "resources", "resultCount": uris.len()})]
     );
 
     // server_initialized: an uninitialized server lists nothing.
@@ -1296,10 +1318,10 @@ fn contract_list_prompts() {
         ]
     );
 
-    let discovery = events(&server, "mcp_discovery_invoked");
-    assert!(
-        discovery.iter().any(|p| p["kind"] == "prompts"),
-        "{discovery:?}"
+    // The count is what the client got: disabled surfaces excluded.
+    assert_eq!(
+        events(&server, "mcp_discovery_invoked"),
+        [json!({"discoveryType": "prompts", "resultCount": names.len()})]
     );
 
     let mut fresh = McpServer::new();
@@ -1503,14 +1525,16 @@ fn contract_format() {
     assert_eq!(recheck["all_clean"], true, "{recheck}");
 
     // mutation_completed_emitted: once, for the write.
-    let mutations = events(&server, "mcp_mutation_completed");
-    assert_eq!(mutations.len(), 1, "{mutations:?}");
-    assert_eq!(mutations[0]["tool"], "specforge.format");
-    assert_eq!(mutations[0]["success"], true);
-    assert_eq!(mutations[0]["outcome"]["check_only"], false);
-    let changed = mutations[0]["outcome"]["changed_files"].as_array().unwrap();
-    assert_eq!(changed.len(), 1, "{changed:?}");
-    assert!(changed[0].as_str().unwrap().ends_with("messy.spec"));
+    // It rewrote the one messy file.
+    assert_eq!(
+        events(&server, "mcp_mutation_completed"),
+        [json!({
+            "toolName": "specforge.format",
+            "files_changed": 1,
+            "entities_affected": 0,
+            "success": true,
+        })]
+    );
     assert_tool_invoked(&server, "specforge.format");
 }
 
@@ -1839,10 +1863,11 @@ fn contract_graph_notification() {
     assert_eq!(delivered[0]["method"], "specforge/graphChanged");
     assert_eq!(delivered[0]["params"]["added_nodes"], json!(["x"]));
     assert_eq!(delivered[0]["params"]["removed_nodes"], json!([]));
-    let notified = events(&server, "mcp_delta_notified");
-    assert_eq!(notified.len(), 1, "{notified:?}");
-    assert_eq!(notified[0]["kind"], "graph");
-    assert_eq!(notified[0]["added"], 1);
+    assert_eq!(
+        events(&server, "mcp_delta_notified"),
+        [json!({"notificationType": "graph", "subscriberCount": 1,
+            "addedNodes": 1, "removedNodes": 0})]
+    );
 
     // An unchanged graph sends nothing.
     let now = server.state().graph.clone();
@@ -1882,7 +1907,10 @@ fn contract_diagnostics_notification() {
     let notified = events(&server, "mcp_delta_notified");
     assert_eq!(
         notified,
-        [json!({"kind": "diagnostics", "subscribers": 1, "added": 1, "removed": 1})]
+        [
+            json!({"notificationType": "diagnostics", "subscriberCount": 1,
+            "addedDiagnostics": 1, "removedDiagnostics": 1})
+        ]
     );
 
     // unchanged_suppressed: the same diagnostics again send nothing.

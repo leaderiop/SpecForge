@@ -254,7 +254,8 @@ fn mcp_cancel_notification_gets_no_response() {
         .iter()
         .find(|e| e.name == "mcp_request_cancelled")
         .expect("mcp_request_cancelled emitted");
-    assert_eq!(event.params["cancelled_id"], 7);
+    assert_eq!(event.params["requestId"], "7");
+    assert_eq!(event.params["wasInProgress"], false);
 }
 
 #[specforge_test(

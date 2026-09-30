@@ -52,6 +52,58 @@ fn writes(name: &str, args: &Value) -> bool {
     }
 }
 
+/// Tools that change files on disk.
+const MUTATION_TOOLS: [&str; 7] = [
+    "specforge.format",
+    "specforge.rename",
+    "specforge.init",
+    "specforge.add_extension",
+    "specforge.remove_extension",
+    "specforge.migrate",
+    "specforge.infer_session",
+];
+
+/// The `McpToolCategory` of a registered tool (`core`, `navigation`,
+/// `mutation` or `management`), or `None` for a tool the server does not
+/// know. Tools that write files are mutations; registry categories outside
+/// the four (`inference`, `extension`) are read-only analysis, so `core`.
+fn tool_category(state: &McpState, name: &str) -> Option<&'static str> {
+    let registered = state.tool_registry.iter().find(|t| t.name == name)?;
+    if MUTATION_TOOLS.contains(&name) {
+        return Some("mutation");
+    }
+    Some(match registered.category.as_deref() {
+        Some("navigation") => "navigation",
+        Some("mutation") => "mutation",
+        Some("management") => "management",
+        _ => "core",
+    })
+}
+
+/// What a completed mutation changed, read from the tool's own result:
+/// `(files_changed, entities_affected)`.
+fn mutation_effect(name: &str, outcome: &Value) -> (usize, usize) {
+    let count = |key: &str| outcome[key].as_array().map_or(0, Vec::len);
+    match name {
+        // Every file the formatter rewrote; formatting changes no entity.
+        "specforge.format" => (count("changed_files"), 0),
+        // The files holding the entity or a reference to it; one entity.
+        "specforge.rename" => (count("affected_files"), 1),
+        // The project config and the starter spec file.
+        "specforge.init" => (2, 0),
+        // The extension module, the lock file and the project config.
+        "specforge.add_extension" if outcome["installed"] == true => (3, 0),
+        // The same three; entities whose kind only it defined lose it.
+        "specforge.remove_extension" if outcome["success"] == true => (3, count("orphan_warnings")),
+        "specforge.migrate" if outcome["migrated"] == true => {
+            (outcome["files_migrated"].as_u64().unwrap_or(0) as usize, 0)
+        }
+        // specforge-infer.json; mark_analyzed records the entities produced.
+        "specforge.infer_session" => (1, count("entities_produced")),
+        _ => (0, 0),
+    }
+}
+
 pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized");
@@ -73,26 +125,20 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         .cloned()
         .unwrap_or(Value::Object(Default::default()));
 
-    let category = state
-        .tool_registry
-        .iter()
-        .find(|t| t.name == name)
-        .and_then(|t| t.category.clone());
-    state.push_event(
-        "mcp_tool_invoked",
-        serde_json::json!({"tool": name, "category": category, "params": arguments}),
-    );
+    // An unknown tool is a protocol error, not an invocation.
+    if let Some(category) = tool_category(state, name) {
+        let mut event = json!({
+            "toolName": name,
+            "category": category,
+            "params": arguments.to_string(),
+        });
+        if let Some(entity_id) = arguments.get("entity_id").and_then(Value::as_str) {
+            event["entityId"] = Value::from(entity_id);
+        }
+        state.push_event("mcp_tool_invoked", event);
+    }
 
-    let is_mutation = matches!(
-        name,
-        "specforge.format"
-            | "specforge.rename"
-            | "specforge.init"
-            | "specforge.add_extension"
-            | "specforge.remove_extension"
-            | "specforge.migrate"
-            | "specforge.infer_session"
-    ) && writes(name, &arguments);
+    let is_mutation = MUTATION_TOOLS.contains(&name) && writes(name, &arguments);
 
     let response = match name {
         // Core tools
@@ -203,9 +249,18 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         let outcome = result
             .and_then(|r| r["content"][0]["text"].as_str())
             .and_then(|text| serde_json::from_str::<Value>(text).ok());
+        let (files_changed, entities_affected) = match outcome.as_ref() {
+            Some(outcome) if success => mutation_effect(name, outcome),
+            _ => (0, 0),
+        };
         state.push_event(
             "mcp_mutation_completed",
-            serde_json::json!({"tool": name, "success": success, "outcome": outcome}),
+            json!({
+                "toolName": name,
+                "files_changed": files_changed,
+                "entities_affected": entities_affected,
+                "success": success,
+            }),
         );
     }
 

@@ -397,14 +397,25 @@ fn initialize_rejects_tool_calls_before_completion() {
 fn shutdown_events_recorded() {
     let mut server = init_server();
     call(&mut server, "shutdown", json!({}));
-    let has_shutdown_event = server
+    let shutdown: Vec<&Value> = server
         .state()
         .events
         .iter()
-        .any(|e| e.name == "mcp_server_shutdown");
-    assert!(
-        has_shutdown_event,
-        "expected mcp_server_shutdown event in events log"
+        .filter(|e| e.name == "mcp_server_shutdown")
+        .map(|e| &e.params)
+        .collect();
+    assert_eq!(shutdown.len(), 1, "{shutdown:?}");
+    let mut payload = shutdown[0].clone();
+    let stamp = payload.as_object_mut().unwrap().remove("timestamp");
+    assert!(stamp.is_some_and(|s| s.is_string()), "{payload}");
+    // Nothing was pending or subscribed.
+    assert_eq!(
+        payload,
+        json!({
+            "pending_notifications_flushed": 0,
+            "subscriptions_released": 0,
+            "wasm_engines_released": 0,
+        })
     );
 }
 

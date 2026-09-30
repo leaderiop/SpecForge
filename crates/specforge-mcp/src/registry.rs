@@ -44,10 +44,6 @@ pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResp
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
-    state.push_event(
-        "mcp_discovery_invoked",
-        json!({"kind": "tools", "result_count": state.tool_registry.len()}),
-    );
     let tools: Vec<Value> = state
         .tool_registry
         .iter()
@@ -60,6 +56,7 @@ pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResp
         })
         .map(|t| serde_json::to_value(t).unwrap())
         .collect();
+    push_discovery(state, "tools", tools.len());
     JsonRpcResponse::success(id, json!({ "tools": tools }))
 }
 
@@ -67,16 +64,13 @@ pub fn handle_list_resources(state: &mut McpState, id: Option<Value>) -> JsonRpc
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
-    state.push_event(
-        "mcp_discovery_invoked",
-        json!({"kind": "resources", "result_count": state.resource_registry.len()}),
-    );
     let resources: Vec<Value> = state
         .resource_registry
         .iter()
         .filter(|r| !disabled(state, &r.name, &[SurfaceType::McpResource]))
         .map(|r| serde_json::to_value(r).unwrap())
         .collect();
+    push_discovery(state, "resources", resources.len());
     JsonRpcResponse::success(id, json!({ "resources": resources }))
 }
 
@@ -93,16 +87,31 @@ pub fn handle_list_prompts(state: &mut McpState, id: Option<Value>) -> JsonRpcRe
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
-    state.push_event(
-        "mcp_discovery_invoked",
-        json!({"kind": "prompts", "result_count": state.prompt_registry.len()}),
-    );
     let prompts: Vec<Value> = state
         .prompt_registry
         .iter()
         .map(|p| serde_json::to_value(p).unwrap())
         .collect();
+    push_discovery(state, "prompts", prompts.len());
     JsonRpcResponse::success(id, json!({ "prompts": prompts }))
+}
+
+/// Record a listing: which registry, and how many entries the client got.
+fn push_discovery(state: &mut McpState, discovery_type: &str, result_count: usize) {
+    state.push_event(
+        "mcp_discovery_invoked",
+        json!({"discoveryType": discovery_type, "resultCount": result_count}),
+    );
+}
+
+/// How many tools the server registers before any extension surface.
+pub fn default_tool_count() -> usize {
+    default_tools().len()
+}
+
+/// How many resources the server registers before any extension surface.
+pub fn default_resource_count() -> usize {
+    default_resources().len()
 }
 
 fn default_resources() -> Vec<McpResourceDescriptor> {

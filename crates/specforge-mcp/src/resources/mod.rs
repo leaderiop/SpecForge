@@ -31,8 +31,24 @@ pub fn handle_resource_read(
         }
     };
 
-    state.push_event("mcp_resource_read", serde_json::json!({"uri": uri}));
+    let response = read(state, &uri, id);
+    // A read that returned content: its format is the MIME type it carries.
+    let format = response
+        .result
+        .as_ref()
+        .and_then(|r| r["contents"][0]["mimeType"].as_str())
+        .map(str::to_string);
+    if let Some(format) = format {
+        state.push_event(
+            "mcp_resource_read",
+            serde_json::json!({"resourceUri": uri, "format": format}),
+        );
+    }
+    response
+}
 
+fn read(state: &mut McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
+    let uri = uri.to_string();
     // Query strings (?root=&depth=&kinds=&max_tokens=) ride on the
     // resource URIs (C9-06); specforge://context/{entity_id} scopes via its
     // path segment.

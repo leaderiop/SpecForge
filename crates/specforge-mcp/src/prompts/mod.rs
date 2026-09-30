@@ -34,10 +34,13 @@ pub fn handle_prompt_get(
         .cloned()
         .unwrap_or(Value::Object(Default::default()));
 
-    state.push_event(
-        "mcp_prompt_invoked",
-        serde_json::json!({"prompt": name, "arguments": arguments}),
-    );
+    let mut event = serde_json::json!({ "promptName": name });
+    for (argument, field) in [("entity_id", "entityId"), ("kind", "kind")] {
+        if let Some(value) = arguments.get(argument).and_then(Value::as_str) {
+            event[field] = Value::from(value);
+        }
+    }
+    state.push_event("mcp_prompt_invoked", event);
 
     match name.as_str() {
         "specforge://prompts/context" => context::get(state, arguments, id),

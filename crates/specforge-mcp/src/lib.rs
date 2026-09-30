@@ -49,13 +49,11 @@ impl McpServer {
             Ok(req) => req,
             Err(err_response) => {
                 let error = err_response.error.as_ref();
+                let code = error.map_or(protocol::error_codes::PARSE_ERROR, |e| e.code);
+                let message = error.map_or("Parse error", |e| e.message.as_str());
                 self.state.push_event(
                     "mcp_protocol_error_handled",
-                    serde_json::json!({
-                        "phase": "parse",
-                        "errorCode": error.map(|e| e.code),
-                        "errorMessage": error.map(|e| e.message.as_str()),
-                    }),
+                    serde_json::json!({"errorCode": code, "errorMessage": message}),
                 );
                 return Some(serialize_response(&err_response));
             }
@@ -70,7 +68,6 @@ impl McpServer {
             self.state.push_event(
                 "mcp_protocol_error_handled",
                 serde_json::json!({
-                    "phase": "route",
                     "errorCode": error.code,
                     "errorMessage": error.message,
                     "method": method,

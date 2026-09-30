@@ -20,7 +20,10 @@ pub fn handle_initialize(
     if state.phase == ServerPhase::Initialized {
         state.push_event(
             "mcp_initialization_failed",
-            serde_json::json!({"reason": "already_initialized"}),
+            serde_json::json!({
+                "error_kind": "already_initialized",
+                "message": "Server already initialized",
+            }),
         );
         return JsonRpcResponse::error(
             id,
@@ -98,13 +101,27 @@ pub fn handle_initialize(
         prompts: state.prompt_registry.clone(),
     };
 
+    // Extension surfaces are what registration added past the defaults.
+    let default_tools = crate::registry::default_tool_count();
+    let default_resources = crate::registry::default_resource_count();
+    let auto_promoted_tools = state
+        .surface_entries
+        .iter()
+        .filter(|e| e.surface_type == specforge_registry::SurfaceType::AutoPromotedTool)
+        .count();
     state.push_event(
         "mcp_initialized",
         serde_json::json!({
-            "server_name": "specforge-mcp",
-            "tools_count": state.tool_registry.len(),
-            "resources_count": state.resource_registry.len(),
-            "prompts_count": state.prompt_registry.len(),
+            "tools_registered": state.tool_registry.len(),
+            "resources_registered": state.resource_registry.len(),
+            "prompts_registered": state.prompt_registry.len(),
+            "extensions_loaded": state.extension_info.len(),
+            "surface_tools_registered": state.tool_registry.len().saturating_sub(default_tools),
+            "surface_resources_registered": state
+                .resource_registry
+                .len()
+                .saturating_sub(default_resources),
+            "auto_promoted_tools": auto_promoted_tools,
         }),
     );
 
@@ -138,18 +155,18 @@ pub fn handle_shutdown(state: &mut McpState, id: Option<Value>) -> JsonRpcRespon
 }
 
 pub fn handle_cancel(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
-    let cancelled_id = params
-        .get("requestId")
-        .or_else(|| params.get("id"))
-        .cloned()
-        .unwrap_or(serde_json::Value::Null);
+    // JSON-RPC ids are strings or numbers; the event names either as a string.
+    let request_id = match params.get("requestId").or_else(|| params.get("id")) {
+        Some(Value::String(s)) => s.clone(),
+        Some(Value::Null) | None => String::new(),
+        Some(other) => other.to_string(),
+    };
     // Requests run one at a time, so the one named has already completed:
     // it was never in progress, and cancelling it changes nothing.
     state.push_event(
         "mcp_request_cancelled",
         serde_json::json!({
-            "cancelled_id": cancelled_id,
-            "requestId": cancelled_id,
+            "requestId": request_id,
             "wasInProgress": false,
         }),
     );

@@ -96,7 +96,7 @@ fn invoked(server: &McpServer, tool: &str) -> bool {
         .state()
         .events
         .iter()
-        .any(|e| e.name == "mcp_tool_invoked" && e.params["tool"] == tool)
+        .any(|e| e.name == "mcp_tool_invoked" && e.params["toolName"] == tool)
 }
 
 fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
@@ -704,6 +704,8 @@ fn render_contract() {
             .state()
             .events
             .iter()
-            .any(|e| e.name == "mcp_tool_invoked" && e.params["tool"] == "specforge.render")
+            .any(|e| e.name == "mcp_tool_invoked"
+                && e.params["toolName"] == "specforge.render"
+                && e.params["category"] == "management")
     );
 }

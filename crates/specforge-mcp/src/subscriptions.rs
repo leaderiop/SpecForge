@@ -14,7 +14,7 @@ pub fn subscribe(state: &mut McpState, client_id: &str, channel: &str) -> bool {
     });
     state.push_event(
         "mcp_subscription_created",
-        serde_json::json!({"client_id": client_id, "channel": channel}),
+        serde_json::json!({"subscriptionType": channel, "clientId": client_id}),
     );
     true
 }
@@ -30,7 +30,7 @@ pub fn unsubscribe(state: &mut McpState, client_id: &str, channel: &str) -> bool
         if removed {
             state.push_event(
                 "mcp_subscription_removed",
-                serde_json::json!({"client_id": client_id, "channel": channel}),
+                serde_json::json!({"subscriptionType": channel, "clientId": client_id}),
             );
             return true;
         }
