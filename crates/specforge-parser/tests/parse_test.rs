@@ -773,39 +773,6 @@ behavior complex "Complex" {
 }
 
 #[specforge_test(
-    behavior = "parse_spec_file_to_ast",
-    verify = "parse valid file produces complete AST"
-)]
-fn parse_actual_spec_files_from_project() {
-    // Find the project root (crates/specforge-parser -> project root)
-    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let project_root = manifest_dir.parent().unwrap().parent().unwrap();
-    let spec_dir = project_root.join("spec");
-
-    if !spec_dir.exists() {
-        // Skip if running outside the project
-        return;
-    }
-
-    let mut total_files = 0;
-    let mut total_entities = 0;
-    for entry in walkdir(spec_dir.clone()) {
-        let source = std::fs::read_to_string(&entry).unwrap();
-        let result = parse(&source, entry.to_str().unwrap());
-        total_files += 1;
-        total_entities += result.entities.len();
-    }
-
-    assert!(total_files > 0, "should find at least one .spec file");
-    assert!(total_entities > 0, "should parse at least one entity");
-
-    // Errors come from extension-specific body syntax (port method
-    // signatures, term blocks, etc.) that the core grammar
-    // correctly does not handle — body parsers will process these in
-    // Phase 1.5. The key assertion is no panics on any real content.
-}
-
-#[specforge_test(
     behavior = "parse_all_block_types",
     verify = "any keyword produces generic entity_block AST node"
 )]
@@ -1014,10 +981,11 @@ define my_custom_kind {
     }
 }
 
-#[specforge_test(
-    behavior = "parse_triple_quoted_strings",
-    verify = "recover from unclosed triple-quoted string with diagnostic"
-)]
+// Not linked to "recover from unclosed triple-quoted string with
+// diagnostic": the diagnostic is reported, but the unclosed string runs to
+// the end of the file, so the block after it is lost. Whether the parser
+// should end it early (and where) is an open design question.
+#[test]
 fn unclosed_triple_quoted_string_produces_error() {
     let source = r#"
 behavior broken "Broken" {
@@ -1031,17 +999,18 @@ behavior after "After" {
 "#;
     let result = parse(source, "test.spec");
 
-    // Should have at least one error from the unclosed triple-quoted string
     assert!(
         !result.errors.is_empty(),
         "expected error for unclosed triple-quoted string"
     );
+    assert!(result.errors.iter().all(|e| e.span.file == "test.spec"));
 }
 
-#[specforge_test(
-    behavior = "recover_from_syntax_errors",
-    verify = "valid blocks after syntax error are still parsed"
-)]
+// Not linked to "valid blocks after syntax error are still parsed": a
+// regular string may span lines, so the unclosed title swallows the next
+// block's header and `after` is lost. Recovering it needs a grammar
+// decision (single-line strings, or a recovery heuristic).
+#[test]
 fn unclosed_regular_string_recovers_next_block() {
     let source = "behavior broken \"Broken {\n    status planned\n}\n\nbehavior after \"After\" {\n    status done\n}\n";
     let result = parse(source, "test.spec");
@@ -1050,10 +1019,7 @@ fn unclosed_regular_string_recovers_next_block() {
         !result.errors.is_empty(),
         "expected error for unclosed string"
     );
-
-    // Tree-sitter can recover from unclosed regular strings better
-    // The second block may or may not be recovered depending on grammar;
-    // the key invariant is that the parser doesn't panic
+    assert!(result.errors.iter().all(|e| e.span.file == "test.spec"));
 }
 
 #[specforge_test(
@@ -1213,7 +1179,7 @@ fn spec_files_without_extension_syntax_parse_cleanly() {
 
 #[specforge_test(
     behavior = "parse_all_block_types",
-    verify = "parse string field values correctly"
+    verify = "field annotations are extracted into FieldEntry"
 )]
 fn annotation_with_string_value() {
     let source = r#"
@@ -1228,10 +1194,21 @@ type WasmConfig {
         "annotation with string value should not produce errors: {:?}",
         result.errors
     );
-    let entity = &result.entities[0];
-    assert!(
-        entity.fields.get("max_memory_pages").is_some(),
-        "field should be parsed"
+    let entry = result.entities[0]
+        .fields
+        .entries()
+        .iter()
+        .find(|e| e.key == "max_memory_pages")
+        .expect("field should be parsed");
+    // Both annotations, in order; the string one keeps its value unquoted.
+    let annotations: Vec<(&str, Option<&str>)> = entry
+        .annotations
+        .iter()
+        .map(|a| (a.name.as_str(), a.value.as_deref()))
+        .collect();
+    assert_eq!(
+        annotations,
+        [("optional", None), ("doc", Some("Default: 16"))]
     );
 }
 
@@ -1456,6 +1433,16 @@ define my_kind {
         "unexpected errors: {:?}",
         result.errors
     );
+    // `testable true` is parsed as a standard field...
+    assert!(
+        matches!(
+            result.entities[0].fields.get("testable"),
+            Some(FieldValue::Boolean(true))
+        ),
+        "{:?}",
+        result.entities[0].fields
+    );
+    // ...and the raw body is kept too.
     let raw = result.entities[0]
         .raw_body
         .as_ref()
@@ -2036,11 +2023,12 @@ fn missing_opening_brace_produces_error() {
     let source = "behavior no_brace \"No Brace\"\n    status planned\n}\n";
     let result = parse(source, "test.spec");
 
-    // Should produce some error — tree-sitter should flag this
     assert!(
-        !result.errors.is_empty() || result.entities.is_empty(),
-        "missing brace should produce an error or no entity"
+        !result.errors.is_empty(),
+        "missing brace must produce a parse error, got entities {:?}",
+        result.entities
     );
+    assert!(result.errors.iter().all(|e| e.span.file == "test.spec"));
 }
 
 // B:recover_from_syntax_errors — verify unit "completely invalid syntax produces error with location"

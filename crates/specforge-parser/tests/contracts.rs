@@ -51,8 +51,10 @@ behavior beta "Beta" {
 fn recover_from_syntax_errors_contract() {
     // Requires: source with syntax errors
     // Ensures: partial AST produced + errors collected (no panic)
+    // valid_utf8_input (non-ASCII included); two broken blocks (lines 6-8
+    // and 14-16) between three valid ones.
     let source = r#"
-behavior good "Good" {
+behavior good "Gööd" {
     status planned
 }
 
@@ -63,24 +65,40 @@ behavior ??? {
 behavior also_good "Also Good" {
     status done
 }
+
+behavior ### {
+    more broken content
+}
+
+behavior last_good "Last Good" {
+    status done
+}
 "#;
+    // error_recovery_enabled: parsing runs to the end instead of stopping.
     let result = parse(source, "test.spec");
 
-    // Must not panic — reaching here proves no panic
-    assert!(
-        !result.errors.is_empty(),
-        "broken source must produce errors"
-    );
-    // Partial AST: at least the valid blocks should be recovered
-    assert!(
-        !result.entities.is_empty(),
-        "must produce partial AST even with errors"
-    );
-    // Each error has a span with file information
+    // valid_blocks_preserved: every valid block, before and after each
+    // error site, is in the AST with its fields.
+    let ids: Vec<&str> = result.entities.iter().map(|e| e.id.raw.as_str()).collect();
+    assert_eq!(ids, ["good", "also_good", "last_good"]);
+    assert_eq!(result.entities[0].title.as_deref(), Some("Gööd"));
+    assert!(result.entities[2].fields.get("status").is_some());
+
+    // errors_collected: an error at each recovery point, located there.
+    for (start, end) in [(6, 8), (14, 16)] {
+        assert!(
+            result.errors.iter().any(|e| e.span.file == "test.spec"
+                && e.span.start_line >= start
+                && e.span.start_line <= end),
+            "no error in lines {start}-{end}: {:?}",
+            result.errors
+        );
+    }
     for error in &result.errors {
-        assert_eq!(
-            error.span.file, "test.spec",
-            "error span must reference source file"
+        assert_eq!(error.span.file, "test.spec");
+        assert!(
+            (6..=8).contains(&error.span.start_line) || (14..=16).contains(&error.span.start_line),
+            "error outside the broken blocks: {error:?}"
         );
     }
 }
