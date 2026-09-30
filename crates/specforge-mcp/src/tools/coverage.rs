@@ -1,6 +1,6 @@
 use serde_json::Value;
 use specforge_emitter::analyze::{ReportedTest, TestReport};
-use specforge_graph::{FieldValue, Node};
+use specforge_graph::Node;
 
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
@@ -29,12 +29,10 @@ pub(crate) struct EntityCoverage<'a> {
 
 impl<'a> EntityCoverage<'a> {
     pub fn of(node: &'a Node, report: Option<&'a TestReport>) -> Self {
-        let texts: Vec<&str> = match node.fields.get("verify") {
-            Some(FieldValue::VerifyList(stmts)) => {
-                stmts.iter().map(|s| s.description.as_str()).collect()
-            }
-            _ => Vec::new(),
-        };
+        let texts: Vec<&str> = specforge_emitter::coverage::obligations(node)
+            .iter()
+            .map(|s| s.description.as_str())
+            .collect();
         let tests: &[ReportedTest] = report
             .and_then(|r| r.results.get(node.id.raw.as_str()))
             .map_or(&[], |e| e.tests.as_slice());

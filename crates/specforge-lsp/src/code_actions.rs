@@ -115,7 +115,7 @@ pub fn code_actions_missing_verify(
     graph
         .nodes_in_file(file)
         .into_iter()
-        .filter(|n| n.fields.get("verify").is_none())
+        .filter(|n| specforge_emitter::coverage::obligations(n).is_empty())
         .filter_map(|n| {
             let kind = kinds
                 .get(n.kind.raw.as_str())

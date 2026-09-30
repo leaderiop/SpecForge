@@ -225,10 +225,11 @@ fn fx1_stats_today() {
     let stats = stats(tmp.path());
     // Testable kinds: behavior and type (5 entities); the property is not.
     assert_eq!(stats["testable_count"], 5, "{stats}");
-    // login and reset_password and the property; Payload is missed because
-    // the struct field named `verify` hides its statement (S2).
-    assert_eq!(stats["verified_count"], 3, "{stats}");
-    assert_eq!(stats["coverage_pct"], 40.0, "{stats}");
+    // login, reset_password, Payload (its statement sits behind a struct
+    // field named `verify`, S2) and the property, which counts toward
+    // "verified" though its kind is not testable.
+    assert_eq!(stats["verified_count"], 4, "{stats}");
+    assert_eq!(stats["coverage_pct"], 60.0, "{stats}");
 }
 
 #[test]
@@ -247,8 +248,8 @@ fn fx1_mcp_coverage_today() {
     let row =
         |status: &str, obligations: u64, proven: u64| (status.to_string(), obligations, proven);
     let expected: BTreeMap<String, (String, u64, u64)> = [
-        // Payload's statement is hidden by its `verify` struct field (S2).
-        ("Payload", row("uncovered", 0, 0)),
+        // Payload's statement sits behind its `verify` struct field (S2).
+        ("Payload", row("covered", 1, 1)),
         ("Status", row("uncovered", 0, 0)),
         ("login", row("covered", 1, 1)),
         ("logout", row("uncovered", 0, 0)),
@@ -260,13 +261,16 @@ fn fx1_mcp_coverage_today() {
     assert_eq!(rows, expected, "{}", results[0]);
 
     let inspect = &results[1];
-    // `testable` reports "declares a verify list" (D2-d, S10), and the
-    // first `verify` entry is the struct field (S2).
-    assert_eq!(inspect["testable"], false, "{inspect}");
-    assert_eq!(inspect["verify_declarations"], Value::Null, "{inspect}");
-    assert_eq!(inspect["coverage_status"], "uncovered", "{inspect}");
+    // `testable` reports "declares a verify list" (D2-d, S10).
+    assert_eq!(inspect["testable"], true, "{inspect}");
+    assert_eq!(
+        inspect["verify_declarations"],
+        json!(["unit Payload schema is valid"]),
+        "{inspect}"
+    );
+    assert_eq!(inspect["coverage_status"], "covered", "{inspect}");
 
-    assert_eq!(results[2]["coverage_pct"], 40.0, "{}", results[2]);
+    assert_eq!(results[2]["coverage_pct"], 60.0, "{}", results[2]);
 }
 
 #[test]

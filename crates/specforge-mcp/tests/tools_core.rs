@@ -661,6 +661,66 @@ fn coverage_with_a_failing_test_is_partial() {
 }
 
 #[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "a field named verify does not hide an entity's verify statements"
+)]
+fn coverage_sees_statements_behind_a_verify_field() {
+    // A struct member named `verify` comes before the entity's statement,
+    // as in `type Payload { verify string @optional; verify unit "..." }`.
+    let mut server = test_server();
+    let mut fields = FieldMap::new();
+    fields.push("verify".into(), FieldValue::Identifier("string".into()));
+    fields.push(
+        "verify".into(),
+        FieldValue::VerifyList(vec![VerifyStatement {
+            kind: "unit".into(),
+            description: "payload is valid".into(),
+        }]),
+    );
+    server.state_mut().graph.add_node(Node {
+        id: EntityId {
+            raw: "payload".into(),
+        },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
+        title: None,
+        fields,
+        source_span: span(),
+        methods: Vec::new(),
+    });
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.coverage",
+        json!({"entity_id": "payload"}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let payload = &parsed[0];
+    assert_eq!(payload["declared"], true, "{payload}");
+    assert_eq!(payload["obligations"], 1, "{payload}");
+    assert_eq!(
+        payload["unproven"],
+        json!(["payload is valid"]),
+        "{payload}"
+    );
+
+    // inspect reads the same obligations.
+    let resp = call_tool(
+        &mut server,
+        "specforge.inspect",
+        json!({"entity_id": "payload"}),
+    );
+    let inspect: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(inspect["testable"], true, "{inspect}");
+    assert_eq!(
+        inspect["verify_declarations"],
+        json!(["unit payload is valid"]),
+        "{inspect}"
+    );
+}
+
+#[specforge_test(
     behavior = "provide_mcp_analyze_tool",
     verify = "analyze reads the project's specforge-report.json by default"
 )]

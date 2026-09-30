@@ -306,6 +306,7 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
   verify unit "status_filter restricts to matching coverage status"
   verify unit "an entity with an unproven obligation is partial, not covered"
   verify unit "a failing recorded test keeps an entity from being covered"
+  verify unit "a field named verify does not hide an entity's verify statements"
   verify contract "Provide MCP Coverage Tool: MCP coverage tool holds — graph_available, coverage_returned, testability_respected, tool_invoked_emitted"
 }
 

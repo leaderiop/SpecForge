@@ -1,5 +1,4 @@
 use serde_json::Value;
-use specforge_graph::FieldValue;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
@@ -46,10 +45,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
     let report = crate::tools::coverage::recorded_report(state);
 
     for node in &nodes {
-        let has_verify = matches!(
-            node.fields.get("verify"),
-            Some(FieldValue::VerifyList(stmts)) if !stmts.is_empty()
-        );
+        let has_verify = !specforge_emitter::coverage::obligations(node).is_empty();
 
         // The same classification `specforge.coverage` reports.
         let entity = crate::tools::coverage::EntityCoverage::of(node, report.as_ref());

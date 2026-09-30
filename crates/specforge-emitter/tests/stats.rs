@@ -187,3 +187,28 @@ fn stats_includes_diagnostic_summary() {
     assert_eq!(stats.warning_count, 1);
     assert_eq!(stats.info_count, 0);
 }
+
+// A type may declare a struct member named `verify`; the entity's
+// obligations are its verify statements wherever they sit among its fields,
+// so the member must not hide them (plan 02, S2).
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats reports coverage percentage"
+)]
+fn stats_counts_obligations_behind_a_verify_member() {
+    let mut payload = node_with_verify("Payload", "type");
+    let mut fields = FieldMap::new();
+    fields.push(Sym::new("verify"), FieldValue::Identifier("string".into()));
+    for entry in payload.fields.entries() {
+        fields.push(entry.key, entry.value.clone());
+    }
+    payload.fields = fields;
+    let mut graph = Graph::new();
+    graph.add_node(payload);
+    graph.add_node(node("Status", "type"));
+
+    let stats = specforge_emitter::compute_stats_with_testable(&graph, &["type"]);
+    assert_eq!(stats.testable_count, 2);
+    assert_eq!(stats.verified_count, 1, "Payload declares an obligation");
+    assert!((stats.coverage_pct - 50.0).abs() < 0.01);
+}

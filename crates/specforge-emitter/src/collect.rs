@@ -494,17 +494,10 @@ impl KnownEntities {
             .nodes()
             .iter()
             .map(|node| {
-                let texts = node
-                    .fields
-                    .entries()
+                let texts = crate::coverage::obligations(node)
                     .iter()
-                    .find_map(|entry| match &entry.value {
-                        specforge_parser::FieldValue::VerifyList(stmts) => {
-                            Some(stmts.iter().map(|s| s.description.clone()).collect())
-                        }
-                        _ => None,
-                    })
-                    .unwrap_or_default();
+                    .map(|s| s.description.clone())
+                    .collect();
                 (node.id.raw.to_string(), texts)
             })
             .collect()
