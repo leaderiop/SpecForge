@@ -35,7 +35,9 @@ pub struct ServerCapabilities {
 
 /// Build server capabilities based on registered extension entity kinds.
 pub fn server_capabilities(registered_kinds: &[&str]) -> ServerCapabilities {
-    let _ = registered_kinds; // Kinds inform the semantic token legend
+    // The semantic token legend is static (every standard LSP type): it is
+    // sent at initialize, before extensions load.
+    let _ = registered_kinds;
 
     ServerCapabilities {
         incremental_sync: true,

@@ -1891,7 +1891,7 @@ impl LanguageServer for Backend {
             .map(|(i, t)| (t.as_str(), i as u32))
             .collect();
 
-        let tokens = classify_tokens(&content, &kind_refs);
+        let tokens = classify_tokens(&content, state.kind_registry());
 
         // Classification works in byte columns; LSP semantic tokens are
         // UTF-16. Convert per token against its own line, then delta-encode.

@@ -371,6 +371,11 @@ impl LspClient {
 }
 
 pub async fn start_server(root_uri: Option<&str>) -> LspClient {
+    start_server_initialized(root_uri).await.0
+}
+
+/// Start an LSP server and also return the `initialize` response.
+pub async fn start_server_initialized(root_uri: Option<&str>) -> (LspClient, Value) {
     let (client_to_server, server_stdin) = tokio::io::duplex(1024 * 64);
     let (server_stdout, server_to_client) = tokio::io::duplex(1024 * 64);
 
@@ -389,10 +394,10 @@ pub async fn start_server(root_uri: Option<&str>) -> LspClient {
         server_task,
     };
 
-    client.initialize(root_uri).await;
+    let init = client.initialize(root_uri).await;
     client.initialized().await;
 
-    client
+    (client, init)
 }
 
 pub async fn start_server_with_doc(
@@ -416,6 +421,17 @@ pub async fn start_server_with_extensions(
     file_name: &str,
     text: &str,
 ) -> (LspClient, String, tempfile::TempDir) {
+    let (client, uri, dir, _init) =
+        start_server_with_extensions_initialized(extensions, file_name, text).await;
+    (client, uri, dir)
+}
+
+/// [`start_server_with_extensions`], also returning the `initialize` response.
+pub async fn start_server_with_extensions_initialized(
+    extensions: &[&str],
+    file_name: &str,
+    text: &str,
+) -> (LspClient, String, tempfile::TempDir, Value) {
     let dir = tempfile::TempDir::new().unwrap();
     let config = json!({
         "name": "test",
@@ -426,7 +442,7 @@ pub async fn start_server_with_extensions(
     std::fs::write(dir.path().join(file_name), text).unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let (mut client, init) = start_server_initialized(Some(root)).await;
     // Drain the extension-loading log message
     client
         .wait_for_notification("window/logMessage", 5000)
@@ -445,5 +461,5 @@ pub async fn start_server_with_extensions(
     client
         .wait_for_notification("textDocument/publishDiagnostics", 5000)
         .await;
-    (client, uri, dir)
+    (client, uri, dir, init)
 }

@@ -431,7 +431,7 @@ fn provide_semantic_tokens_contract() {
     // Requires: source text + registered kinds
     // Ensures: tokens classified with correct types (keyword, property, string for triple-quoted)
     let source = "behavior foo \"Foo\" {\n  contract \"\"\"\n    hello\n  \"\"\"\n}\n";
-    let tokens = specforge_lsp::classify_tokens(source, &["behavior"]);
+    let tokens = specforge_lsp::classify_tokens(source, &verifiable(&["behavior"], &[]));
 
     assert!(!tokens.is_empty(), "must produce tokens");
     assert!(

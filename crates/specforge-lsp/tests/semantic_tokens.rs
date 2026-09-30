@@ -1,5 +1,38 @@
-use specforge_lsp::{MOD_DECLARATION, MOD_REFERENCE};
+use specforge_lsp::{MOD_DECLARATION, MOD_REFERENCE, SemanticToken};
+use specforge_registry::{KindRegistry, KindRegistryEntry};
 use specforge_test_macros::test as spec;
+
+/// A registry of `(kind keyword, declared semantic_token)` pairs.
+fn kinds(entries: &[(&str, Option<&str>)]) -> KindRegistry {
+    let mut registry = KindRegistry::new();
+    for (kind, token) in entries {
+        registry.register(KindRegistryEntry {
+            kind_name: kind.to_string(),
+            description: None,
+            source_extension: "@test/ext".into(),
+            testable: true,
+            singleton: false,
+            supports_verify: true,
+            allowed_verify_kinds: vec![],
+            has_body_parser: false,
+            semantic_token: token.map(str::to_string),
+            lsp_icon: None,
+            dot_shape: None,
+            dot_color: None,
+            dot_fillcolor: None,
+            open_fields: false,
+        });
+    }
+    registry
+}
+
+/// The token classified for `text`, which must exist.
+fn token<'a>(tokens: &'a [SemanticToken], text: &str) -> &'a SemanticToken {
+    tokens
+        .iter()
+        .find(|t| t.text == text)
+        .unwrap_or_else(|| panic!("no token {text:?} in {tokens:?}"))
+}
 
 // -- provide_semantic_tokens --------------------------------------------------
 
@@ -8,9 +41,124 @@ use specforge_test_macros::test as spec;
     verify = "entity keywords classified as 'type'"
 )]
 fn entity_keywords_classified_as_type() {
-    let tokens = specforge_lsp::classify_tokens("behavior foo \"Foo\" {\n}\n", &["behavior"]);
-    let tok = tokens.iter().find(|t| t.text == "behavior").unwrap();
-    assert_eq!(tok.token_type, "type");
+    // A kind's semantic_token classifies its IDs, never its keyword.
+    let tokens = specforge_lsp::classify_tokens(
+        "port repo \"Repo\" {\n}\n",
+        &kinds(&[("port", Some("interface"))]),
+    );
+    assert_eq!(token(&tokens, "port").token_type, "type");
+}
+
+#[spec(
+    behavior = "provide_semantic_tokens",
+    verify = "entity ID declaration uses its kind's semantic_token from the KindRegistry"
+)]
+fn entity_id_declaration_uses_kind_semantic_token() {
+    let tokens = specforge_lsp::classify_tokens(
+        "port repo \"Repo\" {\n}\ninvariant always \"Always\" {\n}\n",
+        &kinds(&[("port", Some("interface")), ("invariant", Some("property"))]),
+    );
+    assert_eq!(token(&tokens, "repo").token_type, "interface");
+    assert_eq!(token(&tokens, "always").token_type, "property");
+}
+
+#[spec(
+    behavior = "provide_semantic_tokens",
+    verify = "entity ID declaration without a declared semantic_token is 'function'"
+)]
+fn entity_id_declaration_without_semantic_token_is_function() {
+    let tokens =
+        specforge_lsp::classify_tokens("gizmo thing \"Thing\" {\n}\n", &kinds(&[("gizmo", None)]));
+    assert_eq!(token(&tokens, "thing").token_type, "function");
+}
+
+#[spec(
+    behavior = "provide_semantic_tokens",
+    verify = "entity ID declaration whose semantic_token is not in the legend is 'function'"
+)]
+fn entity_id_declaration_with_unknown_semantic_token_is_function() {
+    // "constant" is no standard LSP token type, so no client could color it.
+    let tokens = specforge_lsp::classify_tokens(
+        "axiom excluded_middle \"Excluded Middle\" {\n}\n",
+        &kinds(&[("axiom", Some("constant"))]),
+    );
+    assert!(!specforge_lsp::TOKEN_TYPES.contains(&"constant"));
+    assert_eq!(token(&tokens, "excluded_middle").token_type, "function");
+}
+
+#[spec(
+    behavior = "provide_semantic_tokens",
+    verify = "semantic token legend lists every standard LSP token type"
+)]
+fn legend_lists_every_standard_token_type() {
+    let standard = [
+        "namespace",
+        "type",
+        "class",
+        "enum",
+        "interface",
+        "struct",
+        "typeParameter",
+        "parameter",
+        "variable",
+        "property",
+        "enumMember",
+        "event",
+        "function",
+        "method",
+        "macro",
+        "keyword",
+        "modifier",
+        "comment",
+        "string",
+        "number",
+        "regexp",
+        "operator",
+        "decorator",
+    ];
+    let mut legend = specforge_lsp::TOKEN_TYPES.to_vec();
+    legend.sort_unstable();
+    let mut expected = standard.to_vec();
+    expected.sort_unstable();
+    assert_eq!(legend, expected);
+}
+
+// -- provide_extension_entity_semantic_tokens ---------------------------------
+
+#[spec(
+    behavior = "provide_extension_entity_semantic_tokens",
+    verify = "extension kind's semantic_token classifies its entity ID declaration"
+)]
+fn extension_kind_semantic_token_classifies_declaration() {
+    let tokens = specforge_lsp::classify_tokens(
+        "feature checkout \"Checkout\" {\n}\n",
+        &kinds(&[("feature", Some("class"))]),
+    );
+    let id = token(&tokens, "checkout");
+    assert_eq!(id.token_type, "class");
+    assert_ne!(id.modifiers & MOD_DECLARATION, 0);
+}
+
+#[spec(
+    behavior = "provide_extension_entity_semantic_tokens",
+    verify = "entity ID declaration falls back to 'function' when semantic_token is not specified"
+)]
+fn extension_kind_without_semantic_token_falls_back_to_function() {
+    let tokens =
+        specforge_lsp::classify_tokens("widget knob \"Knob\" {\n}\n", &kinds(&[("widget", None)]));
+    assert_eq!(token(&tokens, "knob").token_type, "function");
+}
+
+#[spec(
+    behavior = "provide_extension_entity_semantic_tokens",
+    verify = "semantic_token outside the static legend falls back to 'function'"
+)]
+fn extension_semantic_token_outside_legend_falls_back_to_function() {
+    let tokens = specforge_lsp::classify_tokens(
+        "release v1 \"V1\" {\n}\n",
+        &kinds(&[("release", Some("constant"))]),
+    );
+    assert_eq!(token(&tokens, "v1").token_type, "function");
 }
 
 #[spec(
@@ -18,7 +166,7 @@ fn entity_keywords_classified_as_type() {
     verify = "structural keywords are classified as keyword"
 )]
 fn structural_keywords_classified() {
-    let tokens = specforge_lsp::classify_tokens("use \"behaviors/core\"\n", &[]);
+    let tokens = specforge_lsp::classify_tokens("use \"behaviors/core\"\n", &KindRegistry::new());
     assert!(
         tokens
             .iter()
@@ -33,24 +181,27 @@ fn structural_keywords_classified() {
 fn triple_quoted_strings_classified() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  contract \"\"\"\n    hello\n  \"\"\"\n}\n",
-        &["behavior"],
+        &kinds(&[("behavior", None)]),
     );
     assert!(tokens.iter().any(|t| t.token_type == "string"));
 }
 
 #[spec(
     behavior = "provide_semantic_tokens",
-    verify = "entity IDs classified as 'function' with declaration modifier"
+    verify = "entity ID declarations carry the declaration modifier"
 )]
-fn entity_ids_classified_as_function_declaration() {
-    let tokens = specforge_lsp::classify_tokens("behavior foo \"Foo\" {\n}\n", &["behavior"]);
-    let tok = tokens.iter().find(|t| t.text == "foo").unwrap();
-    assert_eq!(tok.token_type, "function");
-    assert_ne!(
-        tok.modifiers & MOD_DECLARATION,
-        0,
-        "should have declaration modifier"
+fn entity_id_declarations_carry_declaration_modifier() {
+    let tokens = specforge_lsp::classify_tokens(
+        "behavior foo \"Foo\" {\n}\nport repo \"Repo\" {\n}\n",
+        &kinds(&[("behavior", None), ("port", Some("interface"))]),
     );
+    for id in ["foo", "repo"] {
+        assert_ne!(
+            token(&tokens, id).modifiers & MOD_DECLARATION,
+            0,
+            "{id} should have the declaration modifier"
+        );
+    }
 }
 
 #[spec(
@@ -60,7 +211,7 @@ fn entity_ids_classified_as_function_declaration() {
 fn fields_classified_as_property() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  contract \"x\"\n}\n",
-        &["behavior"],
+        &kinds(&[("behavior", None)]),
     );
     assert!(
         tokens
@@ -76,7 +227,7 @@ fn fields_classified_as_property() {
 fn reference_list_items_classified_as_variable() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  invariants [inv_a, inv_b]\n}\n",
-        &["behavior"],
+        &kinds(&[("behavior", None)]),
     );
     let inv_a = tokens.iter().find(|t| t.text == "inv_a").unwrap();
     assert_eq!(inv_a.token_type, "variable");
@@ -97,7 +248,7 @@ fn reference_list_items_classified_as_variable() {
 fn verify_keyword_classified() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  verify unit \"it works\"\n}\n",
-        &["behavior"],
+        &kinds(&[("behavior", None)]),
     );
     assert!(
         tokens
@@ -113,7 +264,7 @@ fn verify_keyword_classified() {
 fn verify_kind_classified_as_enum_member() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  verify unit \"it works\"\n}\n",
-        &["behavior"],
+        &kinds(&[("behavior", None)]),
     );
     let kind = tokens.iter().find(|t| t.text == "unit").unwrap();
     assert_eq!(kind.token_type, "enumMember");
@@ -124,7 +275,7 @@ fn verify_kind_classified_as_enum_member() {
     verify = "comments classified as comment"
 )]
 fn comments_classified() {
-    let tokens = specforge_lsp::classify_tokens("// this is a comment\n", &[]);
+    let tokens = specforge_lsp::classify_tokens("// this is a comment\n", &KindRegistry::new());
     assert!(tokens.iter().any(|t| t.token_type == "comment"));
 }
 
@@ -133,7 +284,7 @@ fn comments_classified() {
     verify = "structural keywords are classified as keyword"
 )]
 fn define_block_classified() {
-    let tokens = specforge_lsp::classify_tokens("define MyType {\n}\n", &[]);
+    let tokens = specforge_lsp::classify_tokens("define MyType {\n}\n", &KindRegistry::new());
     assert!(
         tokens
             .iter()
@@ -151,7 +302,7 @@ fn define_block_classified() {
 fn multiline_reference_list() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  types [\n    type_a,\n    type_b\n  ]\n}\n",
-        &["behavior"],
+        &kinds(&[("behavior", None)]),
     );
     let type_a = tokens.iter().find(|t| t.text == "type_a").unwrap();
     assert_eq!(type_a.token_type, "variable");
@@ -168,7 +319,7 @@ fn multiline_reference_list() {
 fn field_name_before_list_classified() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  invariants [inv_a]\n}\n",
-        &["behavior"],
+        &kinds(&[("behavior", None)]),
     );
     assert!(
         tokens
@@ -182,8 +333,10 @@ fn field_name_before_list_classified() {
     verify = "number values classified as number"
 )]
 fn number_values_classified() {
-    let tokens =
-        specforge_lsp::classify_tokens("behavior foo \"Foo\" {\n  risk 5\n}\n", &["behavior"]);
+    let tokens = specforge_lsp::classify_tokens(
+        "behavior foo \"Foo\" {\n  risk 5\n}\n",
+        &kinds(&[("behavior", None)]),
+    );
     let num = tokens.iter().find(|t| t.text == "5").unwrap();
     assert_eq!(num.token_type, "number");
 }
@@ -193,7 +346,10 @@ fn number_values_classified() {
     verify = "entity title strings classified as string"
 )]
 fn entity_title_classified_as_string() {
-    let tokens = specforge_lsp::classify_tokens("behavior foo \"My Title\" {\n}\n", &["behavior"]);
+    let tokens = specforge_lsp::classify_tokens(
+        "behavior foo \"My Title\" {\n}\n",
+        &kinds(&[("behavior", None)]),
+    );
     assert!(
         tokens
             .iter()
@@ -206,7 +362,7 @@ fn entity_title_classified_as_string() {
     verify = "use path classified as string"
 )]
 fn use_path_classified_as_string() {
-    let tokens = specforge_lsp::classify_tokens("use \"core/types\"\n", &[]);
+    let tokens = specforge_lsp::classify_tokens("use \"core/types\"\n", &KindRegistry::new());
     assert!(
         tokens
             .iter()

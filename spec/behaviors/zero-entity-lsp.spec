@@ -39,26 +39,28 @@ behavior provide_extension_entity_semantic_tokens "Provide Extension Entity Sema
   types      [KindRegistryEntry]
   ports      [LspProtocol]
   contract   """
-    The LSP semantic token provider MUST classify entity keywords using
-    the semantic_token field from the KindRegistry entry. If no semantic
-    token is specified, the default MUST be "keyword". The token type
-    MUST be included in the server's semantic token legend at initialization.
+    The LSP semantic token provider MUST classify an extension entity's
+    ID at its declaration site with the semantic_token field of its kind's
+    KindRegistry entry. The legend is sent at initialize, before
+    extensions load, so it is static: the full list of standard LSP
+    semantic token types. When the kind declares no semantic_token, or
+    declares one the legend does not contain, the declaration MUST fall
+    back to "function". Entity kind keywords are classified as "type".
     Enhanced fields from entity enhancements MUST be classified as
-    property. This is the authoritative behavior for extension-aware
-    semantic token logic; provide_semantic_tokens (behaviors/lsp.spec)
-    delegates here for keyword classification.
+    property. provide_semantic_tokens (behaviors/lsp.spec) states the
+    same rule for the whole document.
   """
   requires {
     kind_registry_populated "KindRegistry is populated (registries_populated event has fired)"
   }
   ensures {
-    token_type_resolved_from_registry "Token type for each entity keyword is resolved from KindRegistryEntry.semantic_token"
-    default_keyword_for_unregistered  "Unspecified semantic_token defaults to keyword"
+    token_type_resolved_from_registry "Token type for each entity ID declaration is resolved from KindRegistryEntry.semantic_token"
+    function_fallback                 "A missing or non-legend semantic_token falls back to function"
   }
-  verify unit "custom semantic token type used for extension keyword"
-  verify unit "default keyword token used when semantic_token not specified"
-  verify unit "custom token types included in legend"
-  verify contract "Provide Extension Entity Semantic Tokens: extension semantic tokens holds — kind_registry_populated, token_type_resolved_from_registry, default_keyword_for_unregistered"
+  verify unit "extension kind's semantic_token classifies its entity ID declaration"
+  verify unit "entity ID declaration falls back to 'function' when semantic_token is not specified"
+  verify unit "semantic_token outside the static legend falls back to 'function'"
+  verify contract "Provide Extension Entity Semantic Tokens: extension semantic tokens holds — kind_registry_populated, token_type_resolved_from_registry, function_fallback"
 }
 
 behavior provide_extension_entity_hover "Provide Extension Entity Hover" {

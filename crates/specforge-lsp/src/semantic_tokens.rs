@@ -1,16 +1,52 @@
-/// Semantic token types used in the legend.
-/// The order matters — indices are sent over the wire.
+use specforge_registry::KindRegistry;
+
+/// Semantic token types used in the legend: every standard LSP semantic
+/// token type. The legend is sent at `initialize`, before extensions load,
+/// so it cannot grow with them; a kind's `semantic_token` is honored only
+/// when it names one of these. Indices go over the wire, so consumers derive
+/// them from this list rather than hardcoding them.
+///
+/// The ones this classifier emits by itself: `keyword` (use, define, verify,
+/// ref), `type` (entity kind keywords), `function` (entity IDs at their
+/// declaration when the kind declares no legend token), `variable`
+/// (reference list items), `property` (field names), `string`, `comment`,
+/// `number`, `enumMember` (verify kinds).
 pub const TOKEN_TYPES: &[&str] = &[
-    "keyword",    // 0: structural keywords (use, define, verify, ref)
-    "type",       // 1: entity kind keywords (behavior, feature, event, ...)
-    "function",   // 2: entity IDs at declaration site
-    "variable",   // 3: identifiers in reference lists
-    "property",   // 4: field names
-    "string",     // 5: string literals
-    "comment",    // 6: comments
-    "number",     // 7: numeric literals
-    "enumMember", // 8: verify kinds (unit, integration, property, ...)
+    "namespace",
+    "type",
+    "class",
+    "enum",
+    "interface",
+    "struct",
+    "typeParameter",
+    "parameter",
+    "variable",
+    "property",
+    "enumMember",
+    "event",
+    "function",
+    "method",
+    "macro",
+    "keyword",
+    "modifier",
+    "comment",
+    "string",
+    "number",
+    "regexp",
+    "operator",
+    "decorator",
 ];
+
+/// Token type for an entity ID at its declaration: the kind's declared
+/// `semantic_token` when the legend carries it, else `function`.
+fn declaration_token_type(kinds: &KindRegistry, kind: &str) -> String {
+    kinds
+        .get(kind)
+        .and_then(|entry| entry.semantic_token.as_deref())
+        .filter(|token| TOKEN_TYPES.contains(token))
+        .unwrap_or("function")
+        .to_string()
+}
 
 /// Semantic token modifiers. Bit positions.
 pub const TOKEN_MODIFIERS: &[&str] = &[
@@ -48,8 +84,9 @@ pub fn utf16_len(s: &str) -> usize {
 }
 
 /// Classify tokens in source text for semantic highlighting.
-/// `entity_kinds` are the registered entity kind keywords.
-pub fn classify_tokens(source: &str, entity_kinds: &[&str]) -> Vec<SemanticToken> {
+/// `kinds` supplies the entity kind keywords and each kind's declared
+/// `semantic_token`.
+pub fn classify_tokens(source: &str, kinds: &KindRegistry) -> Vec<SemanticToken> {
     let structural_keywords = ["use", "define", "ref"];
     let mut tokens = Vec::new();
     let mut in_triple_quote = false;
@@ -206,7 +243,7 @@ pub fn classify_tokens(source: &str, entity_kinds: &[&str]) -> Vec<SemanticToken
         }
 
         // Entity block header: `kind name "title" {`
-        if entity_kinds.contains(&first) {
+        if kinds.contains(first) {
             tokens.push(SemanticToken {
                 text: first.to_string(),
                 token_type: "type".into(),
@@ -221,7 +258,7 @@ pub fn classify_tokens(source: &str, entity_kinds: &[&str]) -> Vec<SemanticToken
                 if !id_word.starts_with('"') {
                     tokens.push(SemanticToken {
                         text: id_word.to_string(),
-                        token_type: "function".into(),
+                        token_type: declaration_token_type(kinds, first),
                         modifiers: MOD_DECLARATION,
                         line: line_num,
                         col: find_word_col(line, id_word, first.len()),

@@ -491,27 +491,32 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   ensures {
     tokens_classified            "all tokens in .spec files are classified according to their semantic role"
     structural_keywords_enforced "use, define, and verify are always classified as keyword regardless of extensions"
-    extension_delegation_applied "entity keyword classification delegates to provide_extension_entity_semantic_tokens"
+    extension_delegation_applied "entity ID declaration classification follows provide_extension_entity_semantic_tokens"
   }
   contract   """
-    The LSP MUST provide semantic tokens for .spec files. Entity keyword
-    classification MUST delegate to provide_extension_entity_semantic_tokens
-    (behaviors/zero-entity-lsp.spec) which uses the semantic_token field
-    from the KindRegistry. Default semantic_token classification MUST be
-    determined by provide_extension_entity_semantic_tokens. Entity IDs
-    MUST be classified by their kind's semantic token type. Structural
-    keywords (use, define, verify) MUST always be classified as
-    "keyword". Triple-quoted strings MUST be classified as strings.
-    Enhanced fields from entity enhancements MUST be classified as
-    property. For entity kinds with registered grammar contributions,
-    semantic token classification MAY delegate to the extension grammar
-    for finer-grained highlighting within entity bodies. Semantic token
-    updates MUST use the shared incremental pipeline.
+    The LSP MUST provide semantic tokens for .spec files. The legend is
+    sent at initialize, before extensions load, so it MUST be static: the
+    full list of standard LSP semantic token types. Entity kind keywords
+    MUST be classified as "type". An entity ID at its declaration site
+    MUST be classified with its kind's semantic_token from the
+    KindRegistry when the kind declares one that the legend contains, and
+    as "function" otherwise; it MUST carry the declaration modifier.
+    provide_extension_entity_semantic_tokens (behaviors/zero-entity-lsp.spec)
+    states this rule from the extension's side. Structural keywords (use,
+    define, verify) MUST always be classified as "keyword". Triple-quoted
+    strings MUST be classified as strings. Enhanced fields from entity
+    enhancements MUST be classified as property. For entity kinds with
+    registered grammar contributions, semantic token classification MAY
+    delegate to the extension grammar for finer-grained highlighting
+    within entity bodies. Semantic token updates MUST use the shared
+    incremental pipeline.
   """
-  verify unit "entity keywords use KindRegistry semantic_token"
+  verify unit "entity ID declaration uses its kind's semantic_token from the KindRegistry"
   verify unit "structural keywords are classified as keyword"
   verify unit "triple-quoted strings are classified as strings"
-  verify unit "default semantic_token is keyword when not specified"
+  verify unit "entity ID declaration without a declared semantic_token is 'function'"
+  verify unit "entity ID declaration whose semantic_token is not in the legend is 'function'"
+  verify unit "semantic token legend lists every standard LSP token type"
   verify unit "enhanced fields are classified as property"
   verify unit "reference list items classified as 'variable' with reference modifier"
   verify unit "verify kind classified as enumMember"
@@ -520,7 +525,7 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   verify unit "entity title strings classified as string"
   verify unit "use path classified as string"
   verify contract "Provide Semantic Tokens: semantic tokens holds — graph_available, kind_registry_available, tokens_classified, structural_keywords_enforced, extension_delegation_applied"
-  verify unit "entity IDs classified as 'function' with declaration modifier"
+  verify unit "entity ID declarations carry the declaration modifier"
   verify unit "entity keywords classified as 'type'"
 }
 

@@ -119,3 +119,73 @@ async fn e2e_semantic_tokens_multibyte_lines_use_utf16() {
         prev = (*l, *c);
     }
 }
+
+/// Decode delta-encoded semantic tokens into `(line, col, length, type name)`
+/// using the legend the server sent at `initialize`.
+fn decode_tokens(init: &Value, data: &[Value]) -> Vec<(u64, u64, u64, String)> {
+    let legend: Vec<&str> =
+        init["result"]["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"]
+            .as_array()
+            .expect("initialize legend tokenTypes")
+            .iter()
+            .map(|t| t.as_str().unwrap())
+            .collect();
+    let (mut line, mut col) = (0u64, 0u64);
+    data.chunks(5)
+        .map(|chunk| {
+            let dl = chunk[0].as_u64().unwrap();
+            let ds = chunk[1].as_u64().unwrap();
+            if dl > 0 {
+                line += dl;
+                col = ds;
+            } else {
+                col += ds;
+            }
+            let ty = legend[chunk[3].as_u64().unwrap() as usize].to_string();
+            (line, col, chunk[2].as_u64().unwrap(), ty)
+        })
+        .collect()
+}
+
+#[spec(
+    behavior = "provide_semantic_tokens",
+    verify = "entity ID declaration uses its kind's semantic_token from the KindRegistry"
+)]
+#[tokio::test]
+async fn e2e_semantic_tokens_declaration_uses_kind_semantic_token() {
+    // @specforge/software declares port -> interface, invariant -> property;
+    // @specforge/formal declares axiom -> constant, which no legend carries.
+    let text = "port repo \"Repo\" {\n}\n\ninvariant always \"Always\" {\n}\n\naxiom excluded \"Excluded\" {\n}\n";
+    let (mut client, uri, _dir, init) = start_server_with_extensions_initialized(
+        &[
+            "@specforge/software",
+            "@specforge/testing",
+            "@specforge/formal",
+        ],
+        "test.spec",
+        text,
+    )
+    .await;
+    let resp = client.semantic_tokens_full(&uri).await;
+    let tokens = decode_tokens(&init, resp["result"]["data"].as_array().unwrap());
+
+    let at = |line: u64, col: u64| {
+        tokens
+            .iter()
+            .find(|(l, c, _, _)| (*l, *c) == (line, col))
+            .map(|(_, _, _, ty)| ty.as_str())
+            .unwrap_or_else(|| panic!("no token at {line}:{col} in {tokens:?}"))
+    };
+    assert_eq!(at(0, 0), "type", "`port` keyword");
+    assert_eq!(at(0, 5), "interface", "`repo` takes port's semantic_token");
+    assert_eq!(
+        at(3, 10),
+        "property",
+        "`always` takes invariant's semantic_token"
+    );
+    assert_eq!(
+        at(6, 6),
+        "function",
+        "`excluded`: constant is not in the legend"
+    );
+}
