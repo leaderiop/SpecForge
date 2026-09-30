@@ -107,15 +107,25 @@ fn scoped_export_on_nonexistent_entity_returns_error() {
 )]
 fn graph_scoped_export_on_nonexistent_entity_returns_e001() {
     let graph = build_chain_graph();
-    let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
-    assert!(result.is_err());
-
-    let err = result.unwrap_err();
-    assert!(
-        err.to_string().contains("E003"),
-        "error should contain E003: {}",
-        err
-    );
+    // Scoped at an ID that is not an entity (though "a" is a prefix of it).
+    for scope in ["nonexistent", "ab"] {
+        let err = specforge_emitter::emit(
+            &graph,
+            &specforge_emitter::EmitOptions {
+                scope: Some(scope),
+                ..Default::default()
+            },
+        )
+        .unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            format!("E003: unresolved scope entity '{scope}' — entity not found in graph")
+        );
+        // The exit code `specforge export` returns for this error.
+        assert_eq!(err.exit_code(), 1);
+    }
+    // An existing scope is not an error.
+    assert!(specforge_emitter::emit_json_scoped(&graph, "a").is_ok());
 }
 
 // B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"

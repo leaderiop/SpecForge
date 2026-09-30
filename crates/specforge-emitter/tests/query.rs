@@ -132,8 +132,23 @@ fn multiple_kind_filters_combine_as_union() {
     // Root "b" (behavior) is always included even when kind-filtered
     // Plus "a" (feature at depth 1) and "d" (event at depth 2)
     let ids: Vec<&str> = nodes.iter().map(|n| n["id"].as_str().unwrap()).collect();
-    assert!(ids.contains(&"b"), "root always included");
-    assert!(ids.contains(&"a"), "feature within range");
+    // The feature a and the event d, both within two hops, plus the root;
+    // the invariant c (neither listed kind) is left out.
+    assert_eq!(ids, vec!["a", "b", "d"]);
+
+    // Each kind alone gives only its own entities: the union is both.
+    let only = |kind: &str| -> Vec<String> {
+        let out = specforge_emitter::query(&graph, "b", 2, &[kind]).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&out).unwrap();
+        parsed["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["id"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert_eq!(only("feature"), vec!["a", "b"]);
+    assert_eq!(only("event"), vec!["b", "d"]);
 }
 
 // B:query_graph_multi_resolution — verify unit "depth 0 returns only the target entity"

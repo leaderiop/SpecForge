@@ -128,11 +128,26 @@ fn testable_entity_missing_from_plan_produces_warning() {
     });
 
     let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
-    assert!(
-        result.warnings.iter().any(|w| w.contains("c")),
-        "should warn about missing testable entity 'c': {:?}",
-        result.warnings
+    // One warning, for c; none for the covered b or the untestable a.
+    assert_eq!(
+        result.warnings,
+        vec!["testable entity 'c' (behavior) is not covered by the plan".to_string()]
     );
+    assert_eq!(result.gaps.len(), 1);
+    assert_eq!(
+        result.gaps[0].kind,
+        specforge_emitter::PlanGapKind::MissingPlanEntry
+    );
+    assert_eq!(result.gaps[0].target, "c");
+    // A plan covering both behaviors warns about nothing.
+    let full = serde_json::json!({
+        "entries": [
+            { "entity_id": "c", "action": "implement" },
+            { "entity_id": "b", "action": "implement" },
+        ]
+    });
+    let covered = specforge_emitter::validate_plan(&graph, &full, &["behavior"]);
+    assert!(covered.warnings.is_empty(), "{:?}", covered.warnings);
 }
 
 // B:validate_agent_plan — verify unit "plan dependency order contradicting graph produces diagnostic"
@@ -201,12 +216,63 @@ fn plan_validation_contract_consistency() {
 
     let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
 
-    // Unresolvable IDs diagnosed
-    assert!(!result.errors.is_empty());
-    // Missing entries warned (c is testable but not in plan)
-    assert!(!result.warnings.is_empty());
-    // Structured report produced
+    // unresolvable_ids_diagnosed: E003 for the unknown ID.
+    assert_eq!(
+        result.errors,
+        vec!["E003: unresolved entity 'nonexistent' in plan — not found in graph".to_string()]
+    );
+    // missing_entries_warned: c is testable but not in the plan.
+    assert_eq!(
+        result.warnings,
+        vec!["testable entity 'c' (behavior) is not covered by the plan".to_string()]
+    );
+    assert!(result.ordering_violations.is_empty());
+
+    // ordering_validated: b references c, so c must come first.
+    let misordered = serde_json::json!({
+        "entries": [
+            { "entity_id": "b", "action": "implement" },
+            { "entity_id": "c", "action": "implement" },
+        ]
+    });
+    let ordered = specforge_emitter::validate_plan(&graph, &misordered, &["behavior"]);
+    assert_eq!(
+        ordered.ordering_violations,
+        vec!["'b' depends on 'c' (via depends_on), but 'c' appears later in the plan".to_string()]
+    );
+    let fixed = serde_json::json!({
+        "entries": [
+            { "entity_id": "c", "action": "implement" },
+            { "entity_id": "b", "action": "implement" },
+        ]
+    });
+    let fine = specforge_emitter::validate_plan(&graph, &fixed, &["behavior"]);
+    assert!(
+        fine.ordering_violations.is_empty(),
+        "{:?}",
+        fine.ordering_violations
+    );
+
+    // structured_report_produced: validated entries, gaps and ordering
+    // violations as JSON.
     let json = specforge_emitter::serialize_plan_result(&result);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed.is_object());
+    assert_eq!(
+        parsed,
+        serde_json::json!({
+            "schema_version": "0.1.0",
+            "errors": ["E003: unresolved entity 'nonexistent' in plan — not found in graph"],
+            "warnings": ["testable entity 'c' (behavior) is not covered by the plan"],
+            "ordering_violations": [],
+            "validated_entries": ["b"],
+        })
+    );
+    let report: serde_json::Value =
+        serde_json::from_str(&specforge_emitter::serialize_plan_result(&ordered)).unwrap();
+    assert_eq!(
+        report["ordering_violations"],
+        serde_json::json!([
+            "'b' depends on 'c' (via depends_on), but 'c' appears later in the plan"
+        ])
+    );
 }

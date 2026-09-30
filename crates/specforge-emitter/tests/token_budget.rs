@@ -54,6 +54,60 @@ fn build_large_graph() -> Graph {
     graph
 }
 
+/// Degree (in + out edges) of each entity in `build_hub_graph`, stated by
+/// hand from its edge list.
+const HUB_DEGREES: [(&str, usize); 9] = [
+    ("hub", 4),
+    ("spoke_1", 2),
+    ("spoke_2", 2),
+    ("spoke_3", 1),
+    ("spoke_4", 1),
+    ("pair_x", 1),
+    ("pair_y", 1),
+    ("lone_a", 0),
+    ("lone_b", 0),
+];
+
+/// Entities of equal size and different centrality: a hub with four
+/// spokes (two of them also linked), a separate pair, two loners.
+fn build_hub_graph() -> Graph {
+    let mut graph = Graph::new();
+    for (id, _) in HUB_DEGREES {
+        graph.add_node(node_with_contract(
+            id,
+            "behavior",
+            "The system MUST keep every entity the same size here",
+        ));
+    }
+    for (source, target) in [
+        ("hub", "spoke_1"),
+        ("hub", "spoke_2"),
+        ("hub", "spoke_3"),
+        ("hub", "spoke_4"),
+        ("spoke_1", "spoke_2"),
+        ("pair_x", "pair_y"),
+    ] {
+        graph.add_edge(Edge {
+            source: Sym::new(source),
+            target: Sym::new(target),
+            label: Sym::new("depends_on"),
+        });
+    }
+    graph
+}
+
+/// The entity IDs of a JSON export's `nodes`, sorted.
+fn sorted_node_ids(parsed: &serde_json::Value) -> Vec<String> {
+    let mut ids: Vec<String> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap().to_string())
+        .collect();
+    ids.sort();
+    ids
+}
+
 // B:enforce_token_budget — verify unit "output within budget includes all entities"
 #[specforge_test(
     behavior = "enforce_token_budget",
@@ -79,18 +133,34 @@ fn output_within_budget_includes_all_entities() {
     verify = "output exceeding budget truncates low-priority entities"
 )]
 fn output_exceeding_budget_truncates_low_priority_entities() {
-    let graph = build_large_graph();
-    // Tiny budget — must truncate
-    let result = specforge_emitter::emit_json_with_budget(&graph, 500);
-    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    let graph = build_hub_graph();
+    let degree = |id: &str| HUB_DEGREES.iter().find(|(n, _)| *n == id).unwrap().1;
 
-    let nodes = parsed["nodes"].as_array().unwrap();
-    assert!(
-        nodes.len() < 10,
-        "should truncate some entities, got {}",
-        nodes.len()
+    // Room for about half the entities.
+    let result = specforge_emitter::emit_json_with_budget(&graph, 300);
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    let kept = sorted_node_ids(&parsed);
+    let truncated: Vec<&str> = parsed["token_budget"]["truncated_entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+
+    // Least connected first: the loners, the pair, then one of the
+    // degree-1 spokes (ties broken by ID).
+    assert_eq!(
+        truncated,
+        vec!["lone_a", "lone_b", "pair_x", "pair_y", "spoke_3"]
     );
-    assert!(!nodes.is_empty(), "should keep at least some entities");
+    assert_eq!(kept, vec!["hub", "spoke_1", "spoke_2", "spoke_4"]);
+    // Every kept entity is at least as central as every truncated one.
+    let weakest_kept = kept.iter().map(|id| degree(id)).min().unwrap();
+    let strongest_cut = truncated.iter().map(|id| degree(id)).max().unwrap();
+    assert!(
+        strongest_cut <= weakest_kept,
+        "cut degree {strongest_cut} above kept degree {weakest_kept}"
+    );
 }
 
 // B:enforce_token_budget — verify unit "TokenBudgetResult included in metadata when budget applied"
@@ -153,11 +223,38 @@ fn truncated_entities_list_contains_omitted_ids() {
 )]
 fn no_max_tokens_skips_budget_enforcement() {
     let graph = build_large_graph();
-    // emit_json (no budget) should include everything
-    let result = specforge_emitter::emit_json(&graph);
-    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-    assert_eq!(parsed["nodes"].as_array().unwrap().len(), 10);
-    assert!(parsed.get("token_budget").is_none());
+    // The options `specforge export` and the MCP export tool build: no
+    // --max-tokens is `token_budget: None`.
+    let export = |format, token_budget| {
+        specforge_emitter::emit(
+            &graph,
+            &specforge_emitter::EmitOptions {
+                format,
+                token_budget,
+                ..Default::default()
+            },
+        )
+        .unwrap()
+    };
+    use specforge_emitter::EmitFormat::{Brief, Context, Json};
+
+    for format in [Json, Context, Brief] {
+        let unbudgeted = export(format, None);
+        let parsed: serde_json::Value = serde_json::from_str(&unbudgeted).unwrap();
+        assert_eq!(parsed["nodes"].as_array().unwrap().len(), 10, "{format:?}");
+        assert_eq!(parsed["edges"].as_array().unwrap().len(), 9, "{format:?}");
+        assert!(parsed.get("token_budget").is_none(), "{format:?}");
+
+        // The same export with a budget does truncate, so the full output
+        // above is the budget being skipped, not a budget that fits.
+        let budgeted: serde_json::Value = serde_json::from_str(&export(format, Some(100))).unwrap();
+        assert!(
+            budgeted["nodes"].as_array().unwrap().len() < 10,
+            "{format:?}: a 100-token budget truncates this graph"
+        );
+    }
+    // Unbudgeted graph export is the plain full export.
+    assert_eq!(export(Json, None), specforge_emitter::emit_json(&graph));
 }
 
 // B:enforce_token_budget — verify unit "truncated_entities lists omitted entity IDs"
@@ -218,28 +315,48 @@ fn error_strategy_rejects_export_exceeding_budget() {
 )]
 fn export_with_max_tokens_within_budget_includes_metadata() {
     let graph = build_large_graph();
-    // Use a budget that forces truncation
-    let result = specforge_emitter::emit_json_with_budget(&graph, 500);
-    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    // The graph export as the MCP export tool (and `specforge export
+    // --no-schema`) runs it, with a budget that forces truncation.
+    let export = |budget: usize| -> serde_json::Value {
+        let out = specforge_emitter::emit(
+            &graph,
+            &specforge_emitter::EmitOptions {
+                token_budget: Some(budget),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        serde_json::from_str(&out).unwrap()
+    };
+    let parsed = export(500);
 
-    // The budget function uses word+structural token estimation internally.
-    // With the improved estimator, tokens are counted by words + structural chars,
-    // so the char-to-token ratio is higher than the naive len/4 heuristic.
-    // Verify output is reasonably bounded (budget * 10 chars is a generous ceiling).
-    assert!(
-        result.len() <= 500 * 10,
-        "output should be within budget: {} chars for 500 token budget",
-        result.len()
-    );
+    // Metadata: the strategy, the budget, the estimate, what was cut.
+    let meta = &parsed["token_budget"];
+    assert_eq!(meta["strategy"], "prioritize");
+    assert_eq!(meta["budget_tokens"], 500);
+    let truncated: Vec<String> = meta["truncated_entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    assert!(!truncated.is_empty(), "{meta}");
 
-    // Metadata should be present when truncation occurred
-    assert!(
-        parsed["token_budget"].is_object(),
-        "metadata must be present"
-    );
-    assert!(parsed["token_budget"]["budget_tokens"].as_u64().unwrap() == 500);
-    assert!(parsed["token_budget"]["truncated_entities"].is_array());
-    assert!(parsed["token_budget"]["estimated_tokens"].is_number());
+    // Within budget.
+    let estimated = meta["estimated_tokens"].as_u64().unwrap() as usize;
+    assert!(estimated <= 500, "estimated {estimated} tokens over 500");
+    // The estimate is the output's real cost: exactly that budget keeps the
+    // same entities, one token less must cut another.
+    let kept = sorted_node_ids(&parsed);
+    assert_eq!(sorted_node_ids(&export(estimated)), kept);
+    assert!(sorted_node_ids(&export(estimated - 1)).len() < kept.len());
+
+    // Kept and truncated entities together are the whole graph.
+    let mut all: Vec<String> = kept.iter().cloned().chain(truncated).collect();
+    all.sort();
+    let mut expected: Vec<String> = (0..10).map(|i| format!("entity_{i}")).collect();
+    expected.sort();
+    assert_eq!(all, expected);
 }
 
 // B:enforce_token_budget — verify unit "error strategy rejects export exceeding budget"
