@@ -743,7 +743,11 @@ fn run_extension_validation(
     diagnostics
 }
 
-fn detect_cycles(
+/// A `cycle_detection` rule over the graph: each cycle among `target_kind`
+/// entities along the rule's edge type, reported with the rule's code and
+/// severity. `edge_label_to_field` maps a manifest edge type to the field
+/// whose references form those edges.
+pub fn detect_cycles(
     pattern: &ValidationRulePattern,
     graph: &Graph,
     edge_label_to_field: &HashMap<String, String>,

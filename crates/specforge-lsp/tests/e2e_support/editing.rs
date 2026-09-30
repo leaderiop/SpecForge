@@ -286,3 +286,23 @@ async fn e2e_diagnostics_follow_each_edit() {
     let codes = next_published_codes(&mut client, &uri).await;
     assert!(!codes.contains(&"E003".to_string()), "{codes:?}");
 }
+
+#[spec(
+    behavior = "execute_validation_pattern",
+    verify = "cycle_detection finds cycles in edge type"
+)]
+#[tokio::test]
+async fn e2e_extension_cycle_rule_reports_its_own_code() {
+    // Two modules that depend on each other: product's cycle rule is E007.
+    let text = "module core \"Core\" {\n  depends_on [ui]\n}\n\nmodule ui \"UI\" {\n  depends_on [core]\n}\n";
+    let (mut client, uri, _dir) =
+        start_server_with_extensions(&["@specforge/product"], "modules.spec", text).await;
+
+    // A no-op edit republishes the file's diagnostics.
+    client
+        .did_change(&uri, 2, vec![json!({"text": text})])
+        .await;
+    let codes = next_published_codes(&mut client, &uri).await;
+
+    assert!(codes.contains(&"E007".to_string()), "{codes:?}");
+}

@@ -514,16 +514,29 @@ impl Backend {
             let validation_patterns = state.validation_patterns();
             if !validation_patterns.is_empty() {
                 let entities = specforge_emitter::build_validation_entities(state.graph());
+                // Manifest edge type -> the field whose references carry it.
+                let edge_label_to_field: std::collections::HashMap<String, String> = state
+                    .field_registry()
+                    .iter()
+                    .filter_map(|(_, field, entry)| {
+                        entry.edge.clone().map(|edge| (edge, field.to_string()))
+                    })
+                    .collect();
                 for (pattern, extension) in validation_patterns {
                     if pattern.check
-                    // C6-14: intentionally skipped — cycle detection requires
-                    // the full graph and is enforced by build_graph's W061,
-                    // which already flows through the pipeline above; running
-                    // it here would duplicate the diagnostics.
-                    == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
-                {
-                    continue;
-                }
+                        == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
+                    {
+                        // The same pass the CLI compile runs, over the whole graph.
+                        let cycle_diags = specforge_emitter::compile::detect_cycles(
+                            pattern,
+                            state.graph(),
+                            &edge_label_to_field,
+                        );
+                        for d in &cycle_diags {
+                            record(&state, uri, d, &mut diags_by_file, &mut core_by_file);
+                        }
+                        continue;
+                    }
                     // Custom rules dispatch through the owning extension's Wasm
                     // module; declarative patterns evaluate host-side (Phase 5).
                     let rule_diags = if pattern.check
