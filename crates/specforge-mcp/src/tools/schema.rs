@@ -38,11 +38,38 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         .collect();
     edge_labels.sort();
 
-    let schema = serde_json::json!({
+    let include_edges = args
+        .get("include_edges")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+    let include_validation_rules = args
+        .get("include_validation_rules")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let mut schema = serde_json::json!({
         "schema_version": specforge_emitter::SCHEMA_VERSION,
         "entity_kinds": kinds,
-        "edge_labels": edge_labels
     });
+    if include_edges {
+        schema["edge_labels"] = serde_json::json!(edge_labels);
+    }
+    if include_validation_rules {
+        // The rules each loaded extension declares, tagged with its name.
+        let rules: Vec<Value> = state
+            .manifests
+            .iter()
+            .flat_map(|manifest| {
+                manifest.validation_rules.iter().filter_map(|rule| {
+                    let mut rule = serde_json::to_value(rule).ok()?;
+                    rule["extension"] = Value::from(manifest.name.as_str());
+                    Some(rule)
+                })
+            })
+            .filter(|rule| kind_filter.is_none_or(|kind| rule["targetKind"].as_str() == Some(kind)))
+            .collect();
+        schema["validation_rules"] = Value::Array(rules);
+    }
 
     JsonRpcResponse::success(
         id,

@@ -180,6 +180,7 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
   """
   verify unit "specforge.trace tool returns traceability chain for valid entityId"
   verify unit "plan parameter triggers gap analysis"
+  verify unit "trace without entity_id or plan returns error"
   verify unit "non-existent entityId returns error response"
   verify unit "response includes upstream and downstream links"
   verify unit "missing links flagged in trace output"

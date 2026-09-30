@@ -16,6 +16,30 @@ fn init_server() -> McpServer {
     server
 }
 
+/// Register what an extension's manifest contributes to MCP, as loading
+/// the extension does.
+fn load_extension_surfaces(server: &mut McpServer) {
+    let surfaces: specforge_registry::SurfaceContributions = serde_json::from_value(json!({
+        "mcpTools": [{
+            "name": "ext.hello",
+            "description": "Say hello",
+            "export": "tool__hello",
+            "inputSchema": {"type": "object"}
+        }],
+        "mcpResources": [{
+            "uriTemplate": "specforge://ext/hello/{name}",
+            "name": "hello",
+            "export": "resource__hello",
+            "mimeType": "application/json"
+        }]
+    }))
+    .unwrap();
+    specforge_mcp::registry::register_extension_surfaces(
+        server.state_mut(),
+        &[("@you/hello".to_string(), surfaces)],
+    );
+}
+
 fn init_server_with_project() -> (McpServer, TempDir) {
     let dir = TempDir::new().unwrap();
     let spec_dir = dir.path().join("spec");
@@ -439,10 +463,18 @@ fn list_tools_core_descriptors_no_extensions() {
 )]
 fn list_tools_reflects_extension_tools() {
     let mut server = init_server();
+    load_extension_surfaces(&mut server);
     let resp = call(&mut server, "tools/list", json!({}));
     let tools = resp["result"]["tools"].as_array().unwrap();
-    // Placeholder: verify at least one tool is registered
-    assert!(!tools.is_empty());
+    let ext = tools
+        .iter()
+        .find(|t| t["name"] == "ext.hello")
+        .expect("the extension's tool is listed");
+    assert_eq!(ext["description"], "Say hello");
+    assert!(
+        tools.iter().any(|t| t["name"] == "specforge.inspect"),
+        "core tools stay"
+    );
 }
 
 // B:list_mcp_resources — verify unit "returns core-provided descriptors when no extensions"
@@ -470,10 +502,16 @@ fn list_resources_core_descriptors_no_extensions() {
 )]
 fn list_resources_reflects_extension_resources() {
     let mut server = init_server();
+    load_extension_surfaces(&mut server);
     let resp = call(&mut server, "resources/list", json!({}));
-    let resources = resp["result"]["resources"].as_array().unwrap();
-    // Placeholder: verify at least one resource is registered
-    assert!(!resources.is_empty());
+    let uris: Vec<&str> = resp["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["uri"].as_str().unwrap())
+        .collect();
+    assert!(uris.contains(&"specforge://ext/hello/{name}"), "{uris:?}");
+    assert!(uris.contains(&"specforge://graph"), "core resources stay");
 }
 
 // B:list_mcp_prompts — verify unit "returns core-provided descriptors when no extensions"
@@ -494,19 +532,6 @@ fn list_prompts_core_descriptors_no_extensions() {
     assert!(names.contains(&"specforge://prompts/review"));
     assert!(names.contains(&"specforge://prompts/trace"));
     assert!(names.contains(&"specforge://prompts/explore"));
-}
-
-// B:list_mcp_prompts — verify unit "reflects prompts from newly loaded extension"
-#[specforge_test(
-    behavior = "list_mcp_prompts",
-    verify = "reflects prompts from newly loaded extension"
-)]
-fn list_prompts_reflects_extension_prompts() {
-    let mut server = init_server();
-    let resp = call(&mut server, "prompts/list", json!({}));
-    let prompts = resp["result"]["prompts"].as_array().unwrap();
-    // Placeholder: verify at least one prompt is registered
-    assert!(!prompts.is_empty());
 }
 
 // B:handle_mcp_request_cancellation — verify unit "server state remains consistent"

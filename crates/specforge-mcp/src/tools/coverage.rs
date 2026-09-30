@@ -73,6 +73,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     let report = recorded_report(state);
     let entity_filter = args.get("entity_id").and_then(|v| v.as_str());
     let kind_filter = args.get("kind").and_then(|v| v.as_str());
+    let status_filter = args.get("status_filter").and_then(|v| v.as_str());
 
     let results: Vec<Value> = state
         .graph
@@ -87,8 +88,9 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
             }
             true
         })
-        .map(|n| {
-            let coverage = EntityCoverage::of(n, report.as_ref());
+        .map(|n| (n, EntityCoverage::of(n, report.as_ref())))
+        .filter(|(_, coverage)| status_filter.is_none_or(|s| coverage.status() == s))
+        .map(|(n, coverage)| {
             serde_json::json!({
                 "entity_id": n.id.raw,
                 "kind": n.kind.raw,

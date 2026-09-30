@@ -68,9 +68,12 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
                 n.fields
                     .get(f)
                     .map(|fv| {
-                        format!("{:?}", fv)
-                            .to_lowercase()
-                            .contains(&v.to_lowercase())
+                        // The field's text; a list or block as its JSON.
+                        let text = match specforge_emitter::field_value_to_json(fv) {
+                            Value::String(text) => text,
+                            other => other.to_string(),
+                        };
+                        text.to_lowercase().contains(&v.to_lowercase())
                     })
                     .unwrap_or(false)
             } else {
@@ -78,6 +81,10 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
             }
         })
         .map(|n| {
+            // An empty query matches everything, up to the limit.
+            if query_lower.is_empty() {
+                return (1.0, n);
+            }
             let id_score = jaro_winkler(&query_lower, &n.id.raw.as_str().to_lowercase());
             let title_score = n
                 .title

@@ -617,10 +617,9 @@ fn stats_returns_statistics() {
     assert!(parsed["diagnostic_summary"].is_object());
 }
 
-// B:provide_mcp_stats_tool — verify unit "counts match graph"
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
-    verify = "response includes coverage percentage"
+    verify = "response includes orphan node count"
 )]
 fn stats_counts_match_graph() {
     let mut server = test_server();
@@ -674,18 +673,70 @@ fn validate_returns_all_diagnostics() {
     assert!(parsed.is_array());
 }
 
-// B:provide_mcp_validate_tool — verify unit "severity_filter restricts returned diagnostics"
+/// A project whose check yields errors (E003, E006) and warnings (W003, W006).
+fn project_with_errors_and_warnings() -> tempfile::TempDir {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        project.path().join("app.spec"),
+        "invariant lonely \"Lonely\" {\n  guarantee \"g\"\n}\n\nbehavior act \"Act\" {\n  invariants [missing]\n}\n",
+    )
+    .unwrap();
+    project
+}
+
+/// `specforge.validate`'s diagnostics as (code, severity).
+fn validate(args: Value) -> Vec<(String, String)> {
+    let mut server = test_server();
+    let resp = call_tool(&mut server, "specforge.validate", args);
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| {
+            (
+                d["code"].as_str().unwrap().to_string(),
+                d["severity"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "severity_filter restricts returned diagnostics"
+)]
+fn validate_severity_filter_restricts_diagnostics() {
+    let project = project_with_errors_and_warnings();
+    let path = project.path().to_str().unwrap();
+    let all = validate(json!({"path": path}));
+    assert!(all.iter().any(|(_, s)| s == "Error"), "{all:?}");
+    assert!(all.iter().any(|(_, s)| s == "Warning"), "{all:?}");
+    for severity in ["Error", "Warning"] {
+        let filtered = validate(json!({"path": path, "severity_filter": severity.to_lowercase()}));
+        let expected: Vec<_> = all.iter().filter(|(_, s)| s == severity).cloned().collect();
+        assert_eq!(filtered, expected);
+    }
+}
+
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "strict mode promotes warnings to errors"
 )]
-fn validate_severity_filter_placeholder() {
-    let mut server = test_server();
-    let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    server.state_mut().project_root = Some(project_root);
-    let resp = call_tool(&mut server, "specforge.validate", json!({}));
-    // Placeholder: severity filter not yet implemented, just verify tool responds
-    assert!(resp["result"].is_object());
+fn validate_strict_promotes_warnings_to_errors() {
+    let project = project_with_errors_and_warnings();
+    let path = project.path().to_str().unwrap();
+    let all = validate(json!({"path": path}));
+    let strict = validate(json!({"path": path, "strict": true}));
+    let codes = |d: &[(String, String)]| d.iter().map(|(c, _)| c.clone()).collect::<Vec<_>>();
+    assert_eq!(codes(&strict), codes(&all), "the same diagnostics");
+    assert!(strict.iter().all(|(_, s)| s == "Error"), "{strict:?}");
+    assert!(strict.iter().any(|(c, _)| c == "W003"));
 }
 
 // B:provide_mcp_validate_tool — verify unit "use_cached=false triggers fresh compilation"
@@ -707,34 +758,72 @@ fn validate_use_cached_false() {
     assert!(resp2["result"].is_object());
 }
 
-// B:provide_mcp_export_tool — verify unit "max_tokens truncates output"
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "specforge.export tool returns graph in requested format"
-)]
-fn export_max_tokens_placeholder() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.export", json!({"format": "graph"}));
-    // Placeholder: max_tokens not yet implemented, just verify export works
-    let text = tool_text(&resp);
-    assert!(!text.is_empty());
-}
-
-// B:provide_mcp_trace_tool — verify unit "plan parameter triggers gap analysis"
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "plan parameter triggers gap analysis"
 )]
 fn trace_plan_gap_analysis() {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        project.path().join("app.spec"),
+        "invariant inv_a \"A\" {\n  guarantee \"g\"\n  verify unit \"z\"\n}\n\n\
+         behavior act_one \"One\" {\n  invariants [inv_a]\n  verify unit \"x\"\n}\n\n\
+         behavior act_two \"Two\" {\n  verify unit \"y\"\n}\n",
+    )
+    .unwrap();
     let mut server = test_server();
-    let resp = call_tool(
+    call_tool(
         &mut server,
-        "specforge.trace",
-        json!({"entity_id": "alpha", "plan": {"steps": []}}),
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed["entity_id"], "alpha");
+
+    // act_one depends on inv_a but comes first; ghost doesn't exist;
+    // act_two is testable and missing.
+    let plan = json!({"entries": [
+        {"entity_id": "act_one"}, {"entity_id": "inv_a"}, {"entity_id": "ghost"}
+    ]});
+    let resp = call_tool(&mut server, "specforge.trace", json!({"plan": plan}));
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed["affected_entities"], json!(["act_one", "inv_a"]));
+    let gaps: Vec<(&str, &str, &str)> = parsed["gaps"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no gaps in {parsed}"))
+        .iter()
+        .map(|g| {
+            (
+                g["source_entity"].as_str().unwrap(),
+                g["target_entity"].as_str().unwrap(),
+                g["missing_link_type"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert!(
+        gaps.contains(&("plan", "ghost", "unresolved_entity")),
+        "{gaps:?}"
+    );
+    assert!(
+        gaps.contains(&("plan", "act_two", "missing_plan_entry")),
+        "{gaps:?}"
+    );
+    assert!(gaps.contains(&("act_one", "inv_a", "ordering")), "{gaps:?}");
+    assert_eq!(gaps.len(), 3, "{gaps:?}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_trace_tool",
+    verify = "trace without entity_id or plan returns error"
+)]
+fn trace_without_entity_or_plan_errors() {
+    let mut server = test_server();
+    let resp = call_tool(&mut server, "specforge.trace", json!({}));
+    let message = resp["error"]["message"].as_str().unwrap();
+    assert!(message.contains("entity_id or plan"), "{message}");
 }
 
 // B:provide_mcp_trace_tool — verify unit "missing links flagged in trace output"
@@ -757,20 +846,6 @@ fn trace_missing_links() {
     assert!(parsed["downstream"].as_array().unwrap().is_empty());
 }
 
-// B:provide_mcp_search_tool — verify unit "field and value filter matches entity fields"
-#[specforge_test(
-    behavior = "provide_mcp_search_tool",
-    verify = "text search finds entities matching by name or contract"
-)]
-fn search_field_filter_placeholder() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.search", json!({"query": "alpha"}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // Placeholder: field filter not yet implemented, just verify results returned
-    assert!(parsed.is_array());
-}
-
 // B:provide_mcp_search_tool — verify unit "empty query returns all entities up to limit"
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
@@ -778,26 +853,23 @@ fn search_field_filter_placeholder() {
 )]
 fn search_empty_query_returns_all() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.search", json!({"query": ""}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let results = parsed.as_array().unwrap();
-    // Empty query should return entities (may be all or subset)
-    let _ = results.len();
-}
-
-// B:provide_mcp_search_tool — verify unit "references filter returns entities referencing target"
-#[specforge_test(
-    behavior = "provide_mcp_search_tool",
-    verify = "text search finds entities matching by name or contract"
-)]
-fn search_references_filter_placeholder() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.search", json!({"query": "alpha"}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // Placeholder: references filter not yet implemented
-    assert!(parsed.is_array());
+    let ids = |server: &mut McpServer, args: Value| {
+        let resp = call_tool(server, "specforge.search", args);
+        let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        let mut ids: Vec<String> = parsed
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["entity_id"].as_str().unwrap().to_string())
+            .collect();
+        ids.sort();
+        ids
+    };
+    assert_eq!(
+        ids(&mut server, json!({"query": ""})),
+        vec!["alpha", "beta_feature", "gamma_orphan"]
+    );
+    assert_eq!(ids(&mut server, json!({"query": "", "limit": 2})).len(), 2);
 }
 
 // B:provide_mcp_schema_tool — verify unit "include_edges false omits edge type definitions"
@@ -805,13 +877,20 @@ fn search_references_filter_placeholder() {
     behavior = "provide_mcp_schema_tool",
     verify = "include_edges false omits edge type definitions"
 )]
-fn schema_include_edges_false_placeholder() {
+fn schema_include_edges_false_omits_edges() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.schema", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // Placeholder: include_edges param not yet implemented
-    assert!(parsed["entity_kinds"].is_object());
+    let schema = |server: &mut McpServer, args: Value| -> Value {
+        serde_json::from_str(&tool_text(&call_tool(server, "specforge.schema", args))).unwrap()
+    };
+    let full = schema(&mut server, json!({}));
+    assert_eq!(
+        full["edge_labels"],
+        json!(["behaviors"]),
+        "edges by default"
+    );
+    let without = schema(&mut server, json!({"include_edges": false}));
+    assert!(without.get("edge_labels").is_none(), "{without}");
+    assert_eq!(without["entity_kinds"], full["entity_kinds"]);
 }
 
 // B:provide_mcp_schema_tool — verify unit "include_validation_rules true includes rules"
@@ -819,13 +898,31 @@ fn schema_include_edges_false_placeholder() {
     behavior = "provide_mcp_schema_tool",
     verify = "include_validation_rules true includes validation rules"
 )]
-fn schema_include_validation_rules_placeholder() {
+fn schema_include_validation_rules_lists_extension_rules() {
+    let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.schema", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // Placeholder: include_validation_rules param not yet implemented
-    assert!(parsed.is_object());
+    // Compiling the project loads @specforge/software's manifest.
+    call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
+    );
+    let schema = |server: &mut McpServer, args: Value| -> Value {
+        serde_json::from_str(&tool_text(&call_tool(server, "specforge.schema", args))).unwrap()
+    };
+    assert!(
+        schema(&mut server, json!({}))
+            .get("validation_rules")
+            .is_none()
+    );
+    let with = schema(&mut server, json!({"include_validation_rules": true}));
+    let rules = with["validation_rules"].as_array().unwrap();
+    let w003 = rules
+        .iter()
+        .find(|r| r["code"] == "W003")
+        .unwrap_or_else(|| panic!("no W003 in {with}"));
+    assert_eq!(w003["extension"], "@specforge/software");
+    assert_eq!(w003["severity"], "warning");
 }
 
 // B:provide_mcp_coverage_tool — verify unit "kind filter restricts to matching entity kinds"
@@ -853,19 +950,32 @@ fn coverage_kind_filter() {
     behavior = "provide_mcp_coverage_tool",
     verify = "status_filter restricts to matching coverage status"
 )]
-fn coverage_status_filter_placeholder() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.coverage", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // Placeholder: status_filter not yet implemented
-    assert!(parsed.is_array());
+fn coverage_status_filter_restricts_status() {
+    // `two` has one of its two obligations proven; alpha has none.
+    let (mut server, _project) = server_with_report(&[("a", "pass")]);
+    let ids = |server: &mut McpServer, status: &str| {
+        let resp = call_tool(
+            server,
+            "specforge.coverage",
+            json!({"status_filter": status}),
+        );
+        let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        parsed
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["entity_id"].as_str().unwrap().to_string())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(ids(&mut server, "partial"), vec!["two"]);
+    assert!(ids(&mut server, "uncovered").contains(&"alpha".to_string()));
+    assert!(!ids(&mut server, "uncovered").contains(&"two".to_string()));
+    assert!(ids(&mut server, "covered").is_empty());
 }
 
-// B:provide_mcp_stats_tool — verify unit "response includes coverage percentage"
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
-    verify = "response includes orphan node count"
+    verify = "response includes coverage percentage"
 )]
 fn stats_includes_coverage_percentage() {
     let mut server = test_server();
@@ -939,6 +1049,16 @@ fn search_field_value_filter() {
     let results = parsed.as_array().unwrap();
     assert!(!results.is_empty());
     assert_eq!(results[0]["entity_id"], "alpha");
+
+    // The value is matched against the field's text, not its Rust
+    // representation (`String("…")`).
+    let resp = call_tool(
+        &mut server,
+        "specforge.search",
+        json!({"query": "", "field": "contract", "value": "string"}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed, json!([]));
 }
 
 // B:provide_mcp_search_tool — verify unit "references filter returns entities referencing target"
@@ -1105,22 +1225,6 @@ fn validate_use_cached_true_returns_existing() {
         resp2["result"].is_object(),
         "use_cached=true should return existing diagnostics without recompilation"
     );
-}
-
-// B:provide_mcp_export_tool — verify unit "max_tokens truncates output to fit token budget"
-#[specforge_test(
-    behavior = "provide_mcp_export_tool",
-    verify = "max_tokens truncates output to fit token budget"
-)]
-fn export_max_tokens_truncates() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.export",
-        json!({"format": "context", "max_tokens": 10}),
-    );
-    // Should either return truncated output or error about budget
-    assert!(resp["result"].is_object() || resp["error"].is_object());
 }
 
 // B:provide_mcp_trace_tool — verify unit "missing links flagged in trace output"

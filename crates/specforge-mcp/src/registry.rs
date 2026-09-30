@@ -158,7 +158,8 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                 "type": "object",
                 "properties": {
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" },
-                    "severity_filter": { "type": "string", "description": "Only report diagnostics at or above this severity (error, warning, info)" },
+                    "severity_filter": { "type": "string", "description": "Only report diagnostics of this severity (error, warning, info)" },
+                    "strict": { "type": "boolean", "description": "Promote warnings to errors, before severity_filter applies", "default": false },
                     "use_cached": { "type": "boolean", "description": "Report cached diagnostics from the last compile instead of recompiling", "default": false }
                 }
             }),
@@ -193,13 +194,13 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
         },
         McpToolDescriptor {
             name: "specforge.trace".into(),
-            description: "Show traceability chain for an entity".into(),
+            description: "Show traceability chain for an entity, or check an agent plan for gaps (entity_id or plan)".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "entity_id": { "type": "string", "description": "Entity ID to trace" }
-                },
-                "required": ["entity_id"]
+                    "entity_id": { "type": "string", "description": "Entity ID to trace" },
+                    "plan": { "type": "object", "description": "An agent plan, {\"entries\": [{\"entity_id\": ...}]}, to check for gaps against the graph instead of tracing one entity" }
+                }
             }),
             category: Some("core".into()),
         },
@@ -226,7 +227,9 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "kind": { "type": "string", "description": "Filter schema to a specific entity kind" }
+                    "kind": { "type": "string", "description": "Filter schema to a specific entity kind" },
+                    "include_edges": { "type": "boolean", "description": "Include edge labels", "default": true },
+                    "include_validation_rules": { "type": "boolean", "description": "Include the validation rules loaded extensions declare", "default": false }
                 }
             }),
             category: Some("core".into()),
@@ -300,7 +303,8 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                 "type": "object",
                 "properties": {
                     "entity_id": { "type": "string", "description": "Filter to specific entity" },
-                    "kind": { "type": "string", "description": "Filter by entity kind" }
+                    "kind": { "type": "string", "description": "Filter by entity kind" },
+                    "status_filter": { "type": "string", "enum": ["covered", "partial", "uncovered"], "description": "Only entities with this coverage status" }
                 }
             }),
             category: Some("core".into()),

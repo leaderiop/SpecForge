@@ -41,7 +41,8 @@ pub fn field_map_to_json(fields: &FieldMap) -> BTreeMap<String, Value> {
     map
 }
 
-pub(crate) fn field_value_to_json(value: &FieldValue) -> Value {
+/// One field value as plain JSON: text as a string, lists as arrays.
+pub fn field_value_to_json(value: &FieldValue) -> Value {
     match value {
         FieldValue::String(s) => Value::String(s.clone()),
         FieldValue::Identifier(s) => Value::String(s.clone()),

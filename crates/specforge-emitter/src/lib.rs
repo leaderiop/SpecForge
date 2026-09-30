@@ -35,8 +35,8 @@ pub use dot::DotOptions;
 pub use emit::{EmitFormat, EmitOptions, emit};
 pub use error::EmitterError;
 pub use exit_code::{compute_exit_code, compute_exit_code_strict};
-pub use json::{SCHEMA_VERSION, field_map_to_json};
-pub use plan::{PlanValidationResult, serialize_plan_result, validate_plan};
+pub use json::{SCHEMA_VERSION, field_map_to_json, field_value_to_json};
+pub use plan::{PlanGap, PlanGapKind, PlanValidationResult, serialize_plan_result, validate_plan};
 pub use query::query;
 pub use schema::{
     GraphProtocolSchema, SchemaCacheEntry, SchemaCompatibility, SchemaEdgeType, SchemaEntityKind,

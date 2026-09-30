@@ -52,8 +52,24 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
         register_extension_surfaces(state, &result.manifest_surfaces);
     }
 
-    let diagnostics: Vec<&specforge_common::Diagnostic> = state
+    let strict = args
+        .get("strict")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    // Strict promotes warnings before filtering, so a promoted warning
+    // counts as an error for `severity_filter` and `isError` alike.
+    let promoted: Vec<specforge_common::Diagnostic> = state
         .diagnostics
+        .iter()
+        .cloned()
+        .map(|mut d| {
+            if strict && d.severity == specforge_common::Severity::Warning {
+                d.severity = specforge_common::Severity::Error;
+            }
+            d
+        })
+        .collect();
+    let diagnostics: Vec<&specforge_common::Diagnostic> = promoted
         .iter()
         .filter(|d| match severity_filter {
             Some("error") => d.severity == specforge_common::Severity::Error,

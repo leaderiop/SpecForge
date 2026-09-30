@@ -110,12 +110,12 @@ fn handler_read_keys(tool_name: &str, dispatch: impl Fn(&ArgSpy) -> Value) -> Ve
 }
 
 #[test]
-fn trace_no_longer_advertises_plan() {
+fn trace_advertises_plan() {
     let tools = advertised_properties();
     let trace = tools.get("specforge.trace").expect("trace tool advertised");
     assert!(
-        !trace.iter().any(|p| p == "plan"),
-        "trace.plan is never read by the handler; it must not be advertised"
+        trace.iter().any(|p| p == "plan"),
+        "trace reads plan for gap analysis; it must be advertised"
     );
 }
 
