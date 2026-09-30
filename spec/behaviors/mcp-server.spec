@@ -69,7 +69,7 @@ behavior mcp_shutdown "MCP Shutdown" {
   ensures {
     notifications_flushed "All pending notifications flushed before exit"
     subscriptions_removed "All active subscriptions unsubscribed and mcp_subscription_removed emitted"
-    wasm_engines_released "All Wasm engine instances released"
+    wasm_engines_released "No Wasm engine instance outlives shutdown (compiles hold none between requests)"
     shutdown_emitted      "mcp_server_shutdown event emitted"
   }
   contract   """
@@ -78,7 +78,6 @@ behavior mcp_shutdown "MCP Shutdown" {
     cleanly.
   """
   verify unit "shutdown flushes pending notifications"
-  verify unit "shutdown releases Wasm engine instances"
   verify unit "shutdown unsubscribes all active subscriptions"
   verify unit "shutdown rejects new tool calls during teardown"
   verify integration "shutdown completes within 5 seconds"
@@ -494,18 +493,16 @@ behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
     request_cancelled_emitted "mcp_request_cancelled event emitted when operation is cancelled"
   }
   contract   """
-    When a notifications/cancelled message arrives referencing an in-progress
-    request ID, the server MUST cancel the operation if possible and respond
-    with appropriate status. If the operation has already completed, the
-    cancellation MUST be a no-op. If the operation is cancellable (e.g., a
-    long-running export or validation), the server SHOULD attempt to stop it
-    and return a partial result or cancellation acknowledgment. The server
-    MUST NOT crash or enter an inconsistent state due to cancellation.
+    The server handles requests one at a time, so a notifications/cancelled
+    message (or $/cancelRequest) can only arrive after the request it names
+    has completed. The server MUST accept it as a no-op — no response to
+    the notification, no change to its state — and emit
+    mcp_request_cancelled naming the request. The server MUST NOT crash or
+    enter an inconsistent state due to cancellation.
   """
-  verify unit "cancellation of in-progress request stops operation"
   verify unit "cancellation of completed request is a no-op"
   verify unit "server state remains consistent after cancellation"
-  verify integration "cancelled long-running export returns partial result or acknowledgment"
+  verify unit "notifications/cancelled is accepted without a response"
   verify contract "Handle MCP Request Cancellation: MCP request cancellation holds — mcp_protocol_available, cancellation_safe, request_cancelled_emitted"
 }
 

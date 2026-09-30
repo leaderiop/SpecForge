@@ -185,7 +185,27 @@ fn internal_error_code_defined() {
     assert_eq!(specforge_mcp::protocol::error_codes::INTERNAL_ERROR, -32603);
 }
 
-// B:handle_mcp_request_cancellation — verify unit "cancellation of completed request is a no-op"
+#[specforge_test(
+    behavior = "handle_mcp_request_cancellation",
+    verify = "notifications/cancelled is accepted without a response"
+)]
+fn mcp_cancel_notification_gets_no_response() {
+    let mut server = init_server();
+    let req = json!({"jsonrpc": "2.0", "id": 7, "method": "ping", "params": {}});
+    server.handle_message(&req.to_string());
+    let note = json!({"jsonrpc": "2.0", "method": "notifications/cancelled",
+        "params": {"requestId": 7, "reason": "user aborted"}});
+
+    assert!(server.handle_message(&note.to_string()).is_none());
+    let event = server
+        .state()
+        .events
+        .iter()
+        .find(|e| e.name == "mcp_request_cancelled")
+        .expect("mcp_request_cancelled emitted");
+    assert_eq!(event.params["cancelled_id"], 7);
+}
+
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
     verify = "cancellation of completed request is a no-op"

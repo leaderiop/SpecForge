@@ -45,7 +45,10 @@ pub fn route(
             // Client acknowledges initialization, no-op
             JsonRpcResponse::success(id, serde_json::json!({}))
         }
-        "$/cancelRequest" => crate::lifecycle::handle_cancel(state, params, id),
+        // MCP's cancellation notification, and the LSP-style request.
+        "notifications/cancelled" | "$/cancelRequest" => {
+            crate::lifecycle::handle_cancel(state, params, id)
+        }
 
         _ => JsonRpcResponse::error(
             id,

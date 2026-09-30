@@ -138,11 +138,16 @@ pub fn handle_shutdown(state: &mut McpState, id: Option<Value>) -> JsonRpcRespon
 }
 
 pub fn handle_cancel(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
-    let cancelled_id = params.get("id").cloned().unwrap_or(serde_json::Value::Null);
+    let cancelled_id = params
+        .get("requestId")
+        .or_else(|| params.get("id"))
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
     state.push_event(
         "mcp_request_cancelled",
         serde_json::json!({"cancelled_id": cancelled_id}),
     );
-    // Cancellation is best-effort; we acknowledge but can't cancel synchronous operations
+    // Requests run one at a time, so the one named has already completed:
+    // cancelling it changes nothing.
     JsonRpcResponse::success(id, serde_json::json!({}))
 }
