@@ -132,17 +132,21 @@ fn deleted_file_entities_removed_from_graph() {
 )]
 fn incremental_rebuild_equals_cold_rebuild() {
     let (mut pipeline, mut sources) = cold_build(&[
-        ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
+        (
+            "a.spec",
+            "behavior foo \"Foo\" { contract \"x\" }\nbehavior keep \"Keep\" { contract \"k\" }",
+        ),
         (
             "b.spec",
-            r#"feature bar "Bar" { problem "p" solution "s" behaviors [foo] }"#,
+            r#"feature bar "Bar" { problem "p" solution "s" behaviors [foo, keep] }"#,
         ),
     ]);
 
-    // Edit a.spec
+    // Edit a.spec: `foo` becomes `baz`, so b.spec's reference to foo goes stale.
     sources.insert(
         "a.spec".to_string(),
-        r#"behavior baz "Baz" { contract "new" }"#.to_string(),
+        "behavior baz \"Baz\" { contract \"new\" }\nbehavior keep \"Keep\" { contract \"k\" }"
+            .to_string(),
     );
 
     let old_graph = pipeline.clone_graph();
@@ -156,22 +160,86 @@ fn incremental_rebuild_equals_cold_rebuild() {
         validation
     );
 
-    // Also do a full cold rebuild and compare
+    // Full cold rebuild of the same sources.
     let all_sources: Vec<(&str, &str)> = sources
         .iter()
         .map(|(k, v)| (k.as_str(), v.as_str()))
         .collect();
     let (cold_pipeline, _) = cold_build(&all_sources);
 
+    type Nodes = Vec<(String, String, String)>;
+    type Edges = Vec<(String, String, String)>;
+    type Diags = Vec<(String, String, usize, String)>;
+    let snapshot = |p: &IncrementalPipeline| -> (Nodes, Edges, Diags) {
+        let mut nodes: Nodes = p
+            .graph()
+            .nodes()
+            .iter()
+            .map(|n| {
+                (
+                    n.id.raw.to_string(),
+                    n.kind.raw.to_string(),
+                    n.source_span.file.to_string(),
+                )
+            })
+            .collect();
+        nodes.sort();
+        let mut edges: Edges = p
+            .graph()
+            .edges()
+            .iter()
+            .map(|e| {
+                (
+                    e.source.to_string(),
+                    e.target.to_string(),
+                    e.label.to_string(),
+                )
+            })
+            .collect();
+        edges.sort();
+        let mut diags: Diags = p
+            .diagnostics()
+            .iter()
+            .map(|d| {
+                let span = d.span.as_ref();
+                (
+                    d.code.clone(),
+                    span.map(|s| s.file.to_string()).unwrap_or_default(),
+                    span.map(|s| s.start_line).unwrap_or(0),
+                    d.message.clone(),
+                )
+            })
+            .collect();
+        diags.sort();
+        (nodes, edges, diags)
+    };
+    let (inc_nodes, inc_edges, inc_diags) = snapshot(&pipeline);
+    let (cold_nodes, cold_edges, cold_diags) = snapshot(&cold_pipeline);
+
+    // Identical to the cold rebuild: same node set, edge set and diagnostic set...
+    assert_eq!(inc_nodes, cold_nodes, "node sets differ from cold rebuild");
+    assert_eq!(inc_edges, cold_edges, "edge sets differ from cold rebuild");
     assert_eq!(
-        pipeline.graph().node_count(),
-        cold_pipeline.graph().node_count(),
-        "node count mismatch between incremental and cold rebuild"
+        inc_diags, cold_diags,
+        "diagnostics differ from cold rebuild"
     );
+
+    // ...and that shared state is the expected one (so both are not equally wrong).
+    let ids: Vec<&str> = inc_nodes.iter().map(|n| n.0.as_str()).collect();
+    assert_eq!(ids, vec!["bar", "baz", "keep"]);
     assert_eq!(
-        pipeline.graph().edge_count(),
-        cold_pipeline.graph().edge_count(),
-        "edge count mismatch between incremental and cold rebuild"
+        inc_edges,
+        vec![(
+            "bar".to_string(),
+            "keep".to_string(),
+            "behaviors".to_string()
+        )]
+    );
+    assert!(
+        inc_diags
+            .iter()
+            .any(|d| d.0 == "E003" && d.1 == "b.spec" && d.3.contains("foo")),
+        "stale reference to foo must be E003 in b.spec: {inc_diags:?}"
     );
 }
 
@@ -195,15 +263,40 @@ fn verify_incremental_performs_cold_rebuild_comparison() {
 
     let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
 
-    // Verification should have been performed and passed
-    assert!(
-        result.verification.is_some(),
-        "verification should be performed when verify_incremental is enabled"
-    );
-    assert!(
-        result.verification.as_ref().unwrap().is_ok(),
+    // A faithful incremental rebuild matches the cold rebuild.
+    assert_eq!(
+        result.verification,
+        Some(Ok(())),
         "verification should pass: {:?}",
         result.verification
+    );
+
+    // Now let the incremental state diverge from what a cold rebuild of the
+    // same sources produces, without changing any count: `other` (from
+    // b.spec, which the next edit does not invalidate) gets a stale title.
+    let (mut pipeline, mut sources) = cold_build(&[
+        ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
+        ("b.spec", r#"behavior other "Other" { contract "o" }"#),
+    ]);
+    pipeline.set_verify_incremental(true);
+    let mut stale = pipeline.graph().node("other").cloned().expect("other");
+    stale.title = Some("Stale Title".to_string());
+    pipeline.graph_mut().remove_node("other");
+    pipeline.graph_mut().add_node(stale);
+
+    sources.insert(
+        "a.spec".to_string(),
+        r#"behavior bar "Bar" { contract "new" }"#.to_string(),
+    );
+    let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
+    assert_eq!(result.rebuilt_files, vec!["a.spec"], "b.spec not re-parsed");
+    let err = match result.verification {
+        Some(Err(e)) => e,
+        other => panic!("divergence from the cold rebuild must be reported, got {other:?}"),
+    };
+    assert!(
+        err.contains("'other'") && err.contains("Stale Title"),
+        "mismatch must name the divergent node: {err}"
     );
 }
 
@@ -503,13 +596,11 @@ fn transitive_importer_is_re_parsed_when_dependency_changes() {
 
     let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
 
-    assert!(result.rebuilt_files.contains(&"a.spec".to_string()));
-    // b.spec imports a.spec directly, c.spec imports b.spec
-    // The import DAG uses import paths like "a" not "a.spec", let's check
-    // what the pipeline actually rebuilds
-    assert!(
-        !result.rebuilt_files.is_empty(),
-        "at least the changed file should be rebuilt"
+    // b.spec imports a.spec directly, c.spec imports b.spec: both are re-parsed.
+    assert_eq!(
+        result.rebuilt_files,
+        vec!["a.spec", "b.spec", "c.spec"],
+        "changed file plus direct and transitive importers"
     );
 }
 
@@ -577,16 +668,13 @@ fn invalidate_changed_files_contract() {
     let old_graph = pipeline.clone_graph();
     let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
 
-    // Ensures: invalidation_set_computed — changed file + transitive importers
-    assert!(
-        result.rebuilt_files.contains(&"a.spec".to_string()),
-        "changed file must be rebuilt"
-    );
-
-    // Ensures: unrelated_files_untouched — c.spec must not be rebuilt
-    assert!(
-        !result.rebuilt_files.contains(&"c.spec".to_string()),
-        "unrelated file must not be rebuilt"
+    // Ensures: invalidation_set_computed / subgraph_invalidated_emitted — the
+    // rebuild reports exactly the changed file plus its importer b.spec;
+    // unrelated_files_untouched — c.spec is not in it.
+    assert_eq!(
+        result.rebuilt_files,
+        vec!["a.spec", "b.spec"],
+        "invalidation set must be the changed file plus its importer, nothing else"
     );
 
     // Ensures: graph reflects the invalidation correctly

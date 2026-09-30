@@ -3,7 +3,7 @@ use crate::import_dag::ImportDag;
 use specforge_common::{Diagnostic, Severity, SourceSpan, Sym};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::{SpecFile, parse_incremental};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 /// Result of an incremental rebuild cycle.
 #[derive(Debug)]
@@ -115,6 +115,66 @@ fn partition_by_file(diagnostics: &[Diagnostic]) -> HashMap<String, Vec<Diagnost
         map.entry(file).or_default().push(diag.clone());
     }
     map
+}
+
+/// Content comparison for `--verify-incremental`: every node (ID, kind,
+/// source file, title, field values) and every edge (source, target, label)
+/// of the incremental graph must match the cold rebuild.
+fn compare_graph_contents(incremental: &Graph, cold: &Graph) -> Option<Result<(), String>> {
+    let node_sigs = |g: &Graph| -> BTreeMap<String, String> {
+        g.nodes()
+            .iter()
+            .map(|n| {
+                let sig = format!(
+                    "{} in {} title={:?} fields={}",
+                    n.kind.raw,
+                    n.source_span.file,
+                    n.title,
+                    serde_json::to_string(&n.fields).unwrap_or_default()
+                );
+                (n.id.raw.to_string(), sig)
+            })
+            .collect()
+    };
+    let (inc_nodes, cold_nodes) = (node_sigs(incremental), node_sigs(cold));
+    if let Some(id) = inc_nodes
+        .keys()
+        .chain(cold_nodes.keys())
+        .find(|id| inc_nodes.get(*id) != cold_nodes.get(*id))
+    {
+        return Some(Err(format!(
+            "incremental/cold mismatch on node '{}': incremental {:?}, cold {:?}",
+            id,
+            inc_nodes.get(id),
+            cold_nodes.get(id)
+        )));
+    }
+
+    let edges = |g: &Graph| -> BTreeSet<(String, String, String)> {
+        g.edges()
+            .iter()
+            .map(|e| {
+                (
+                    e.source.to_string(),
+                    e.label.to_string(),
+                    e.target.to_string(),
+                )
+            })
+            .collect()
+    };
+    let (inc_edges, cold_edges) = (edges(incremental), edges(cold));
+    if let Some((s, l, t)) = inc_edges.symmetric_difference(&cold_edges).next() {
+        let side = if inc_edges.contains(&(s.clone(), l.clone(), t.clone())) {
+            "only in incremental"
+        } else {
+            "only in cold"
+        };
+        return Some(Err(format!(
+            "incremental/cold mismatch on edge {} -{}-> {} ({})",
+            s, l, t, side
+        )));
+    }
+    Some(Ok(()))
 }
 
 /// W113 import-cycle diagnostics for the current DAG.
@@ -467,7 +527,9 @@ impl IncrementalPipeline {
                     cold_graph.edge_count(),
                 )))
             } else {
-                Some(Ok(()))
+                // Same counts: the node set (with kind, file, title and field
+                // values) and the edge set must also be identical.
+                compare_graph_contents(&self.graph, &cold_graph)
             }
         } else {
             None
