@@ -8,7 +8,7 @@ use specforge_registry::{
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
     },
     generate_required_field_rules, populate_registries, register_surface_contributions,
-    validate_manifest, validate_manifest_consistency,
+    validate_manifest, validate_manifest_consistency_with_peers,
     validation_engine::{
         ValidationEntity, ValidationRulePattern, execute_pattern, parse_all_rule_patterns,
         resolve_edge_rules,
@@ -426,10 +426,7 @@ pub fn load_extensions(
         match proto_load(&host, &ext_name) {
             Ok(proto_ext) => {
                 let manifest = protocol_extension_to_manifest(&proto_ext);
-                let schema_diags = validate_manifest(&manifest);
-                let consistency_diags = validate_manifest_consistency(&manifest);
-                diagnostics.extend(schema_diags);
-                diagnostics.extend(consistency_diags);
+                diagnostics.extend(validate_manifest(&manifest));
                 manifests.push(manifest);
             }
             Err(e) => {
@@ -442,6 +439,14 @@ pub fn load_extensions(
                 });
             }
         }
+    }
+
+    // Once every extension is in, so a kind is checked against what its
+    // peers declare and a non-peer's kind is caught.
+    for manifest in &manifests {
+        diagnostics.extend(validate_manifest_consistency_with_peers(
+            manifest, &manifests,
+        ));
     }
 
     manifests

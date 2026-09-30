@@ -3,6 +3,8 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct EdgeRegistryEntry {
     pub label: String,
+    /// What the edge means, as its extension describes it.
+    pub description: Option<String>,
     pub source_kind: Option<String>,
     pub target_kind: Option<String>,
     pub source_extension: String,

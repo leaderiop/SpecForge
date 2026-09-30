@@ -448,96 +448,117 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
 }
 
 /// Validate internal consistency of a manifest (target_kind refs, edge label refs).
+///
+/// Only the manifest itself is known here, so a kind it does not declare is
+/// let through whenever it names a peer dependency. Pass the other loaded
+/// manifests to [`validate_manifest_consistency_with_peers`] to check such
+/// kinds against what the peers actually declare.
 pub fn validate_manifest_consistency(manifest: &ManifestV2) -> Vec<Diagnostic> {
+    validate_manifest_consistency_with_peers(manifest, &[])
+}
+
+/// Validate a manifest's internal consistency against the other loaded
+/// extensions' manifests (`loaded`; the manifest itself may be among them).
+///
+/// A kind the manifest references resolves when the manifest or one of its
+/// loaded peer dependencies declares it. A kind only a non-peer extension
+/// declares is W021: the kind exists, but the dependency is undeclared. While
+/// a named peer is not among `loaded` its kinds are unknown, so any kind is
+/// let through. Every edge label a field maps to must be one of the
+/// manifest's own edgeTypes.
+pub fn validate_manifest_consistency_with_peers(
+    manifest: &ManifestV2,
+    loaded: &[ManifestV2],
+) -> Vec<Diagnostic> {
+    use std::collections::HashSet;
+
     let mut diagnostics = Vec::new();
 
-    // Collect all kind names declared by this manifest
-    let own_kinds: std::collections::HashSet<&str> = manifest
+    let own_kinds: HashSet<&str> = manifest
         .entity_kinds
         .iter()
         .map(|k| k.keyword.as_str())
         .collect();
-
-    // Collect peer dependency names
-    let peer_deps: std::collections::HashSet<&str> = manifest
+    let peer_deps: HashSet<&str> = manifest
         .peer_dependencies
         .iter()
         .map(|p| p.name.as_str())
         .collect();
-
-    // Collect declared edge labels
-    let own_edge_labels: std::collections::HashSet<&str> = manifest
+    let peers_known = peer_deps
+        .iter()
+        .all(|peer| loaded.iter().any(|m| m.name == *peer));
+    let peer_kinds: HashSet<&str> = loaded
+        .iter()
+        .filter(|m| peer_deps.contains(m.name.as_str()))
+        .flat_map(|m| m.entity_kinds.iter().map(|k| k.keyword.as_str()))
+        .collect();
+    let own_edge_labels: HashSet<&str> = manifest
         .edge_types
         .iter()
         .map(|e| e.label.as_str())
         .collect();
 
+    // Why `kind` does not resolve, or None when it does.
+    let unresolved = |kind: &str| -> Option<String> {
+        if own_kinds.contains(kind) || peer_kinds.contains(kind) || !peers_known {
+            return None;
+        }
+        let owner = loaded
+            .iter()
+            .filter(|m| m.name != manifest.name)
+            .find(|m| m.entity_kinds.iter().any(|k| k.keyword == kind));
+        Some(match owner {
+            Some(owner) => format!(
+                "declared by '{}', which is not a peer dependency",
+                owner.name
+            ),
+            None => "not declared in this manifest".to_string(),
+        })
+    };
+    let warn = |message: String| Diagnostic {
+        code: "W021".to_string(),
+        severity: Severity::Warning,
+        message,
+        span: None,
+        suggestion: None,
+    };
+
     // Validate target_kind and edge references in entity kind fields
     for kind in &manifest.entity_kinds {
         for field in &kind.fields {
             if let Some(ref target) = field.target_kind
-                && !own_kinds.contains(target.as_str())
-                && peer_deps.is_empty()
+                && let Some(why) = unresolved(target)
             {
-                diagnostics.push(Diagnostic {
-                    code: "W021".to_string(),
-                    severity: Severity::Warning,
-                    message: format!(
-                        "extension '{}': field '{}' on kind '{}' references target_kind '{}' not declared in this manifest",
-                        manifest.name, field.name, kind.keyword, target
-                    ),
-                    span: None,
-                    suggestion: None,
-                });
+                diagnostics.push(warn(format!(
+                    "extension '{}': field '{}' on kind '{}' references target_kind '{}' {}",
+                    manifest.name, field.name, kind.keyword, target, why
+                )));
             }
             if let Some(ref edge) = field.edge
                 && !own_edge_labels.contains(edge.as_str())
             {
-                diagnostics.push(Diagnostic {
-                    code: "W021".to_string(),
-                    severity: Severity::Warning,
-                    message: format!(
-                        "extension '{}': field '{}' on kind '{}' references edge label '{}' not declared in edgeTypes",
-                        manifest.name, field.name, kind.keyword, edge
-                    ),
-                    span: None,
-                    suggestion: None,
-                });
+                diagnostics.push(warn(format!(
+                    "extension '{}': field '{}' on kind '{}' references edge label '{}' not declared in edgeTypes",
+                    manifest.name, field.name, kind.keyword, edge
+                )));
             }
         }
     }
 
     // Validate edge type source_kind/target_kind references
     for edge in &manifest.edge_types {
-        if let Some(ref source) = edge.source_kind
-            && !own_kinds.contains(source.as_str())
-            && peer_deps.is_empty()
-        {
-            diagnostics.push(Diagnostic {
-                code: "W021".to_string(),
-                severity: Severity::Warning,
-                message: format!(
-                    "extension '{}': edge type '{}' references source_kind '{}' not declared in this manifest",
-                    manifest.name, edge.label, source
-                ),
-                span: None,
-                suggestion: None,
-            });
-        }
-        if let Some(ref target) = edge.target_kind
-            && !own_kinds.contains(target.as_str())
-            && peer_deps.is_empty()
-        {
-            diagnostics.push(Diagnostic {
-                code: "W021".to_string(),
-                severity: Severity::Warning,
-                message: format!(
-                    "extension '{}': edge type '{}' references target_kind '{}' not declared in this manifest",
-                    manifest.name, edge.label, target
-                ),
-                span: None,
-                suggestion: None,
-            });
+        for (role, kind) in [
+            ("source_kind", &edge.source_kind),
+            ("target_kind", &edge.target_kind),
+        ] {
+            if let Some(kind) = kind
+                && let Some(why) = unresolved(kind)
+            {
+                diagnostics.push(warn(format!(
+                    "extension '{}': edge type '{}' references {} '{}' {}",
+                    manifest.name, edge.label, role, kind, why
+                )));
+            }
         }
     }
 

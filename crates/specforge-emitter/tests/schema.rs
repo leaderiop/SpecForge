@@ -67,6 +67,7 @@ fn make_edge_entry(
 ) -> EdgeRegistryEntry {
     EdgeRegistryEntry {
         label: label.to_string(),
+        description: None,
         source_kind: src.map(|s| s.to_string()),
         target_kind: tgt.map(|s| s.to_string()),
         source_extension: ext.to_string(),

@@ -229,6 +229,7 @@ fn register_edge_types(
     for edge in &manifest.edge_types {
         let entry = EdgeRegistryEntry {
             label: edge.label.clone(),
+            description: edge.description.clone(),
             source_kind: edge.source_kind.clone(),
             target_kind: edge.target_kind.clone(),
             source_extension: manifest.name.clone(),
@@ -266,6 +267,7 @@ fn register_implicit_edges(
             {
                 registry.register(EdgeRegistryEntry {
                     label: edge_label.clone(),
+                    description: None,
                     source_kind: Some(kind.keyword.clone()),
                     target_kind: field.target_kind.clone(),
                     source_extension: manifest.name.clone(),

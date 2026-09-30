@@ -289,6 +289,7 @@ fn an_edge_rule_counts_only_its_edge_type() {
     let mut edges = EdgeRegistry::new();
     edges.register(EdgeRegistryEntry {
         label: "BehaviorImplementsFeature".to_string(),
+        description: None,
         source_kind: Some("behavior".to_string()),
         target_kind: Some("feature".to_string()),
         source_extension: "@test".to_string(),
@@ -743,25 +744,62 @@ fn rules_sorted_by_code_for_deterministic_order() {
     verify = "Register Extension Validation Rules: cross-extension rule aggregation holds — extension_manifests_loaded_fired, individual_rules_parsed, unified_rule_set_produced, deterministic_order_enforced, duplicate_codes_warned"
 )]
 fn register_extension_validation_rules_contract() {
-    // requires: manifests parsed
-    let m: ManifestV2 = serde_json::from_str(
+    // requires: each extension's rules are parsed, out of code order, and
+    // both extensions declare W100.
+    let a: ManifestV2 = serde_json::from_str(
         r#"{
-            "name": "@t/e",
+            "name": "@ext/a",
             "version": "1.0.0",
             "manifestVersion": 2,
-            "wasmPath": "x.wasm",
+            "wasmPath": "a.wasm",
             "validationRules": [
-                { "code": "W100", "severity": "warning", "messageTemplate": "test", "check": "no_incoming_edges" }
+                { "code": "W300", "severity": "warning", "messageTemplate": "a300", "check": "no_incoming_edges" },
+                { "code": "W100", "severity": "warning", "messageTemplate": "a100", "check": "no_incoming_edges" }
             ]
         }"#,
     )
     .unwrap();
-    let (rules, diags) = register_validation_rules(&[m]);
-    // ensures: rules registered
-    assert_eq!(rules.len(), 1);
-    assert_eq!(rules[0].code, "W100");
-    // ensures: no duplicate warnings for single extension
-    assert!(diags.is_empty());
+    let b: ManifestV2 = serde_json::from_str(
+        r#"{
+            "name": "@ext/b",
+            "version": "1.0.0",
+            "manifestVersion": 2,
+            "wasmPath": "b.wasm",
+            "validationRules": [
+                { "code": "W200", "severity": "warning", "messageTemplate": "b200", "check": "no_outgoing_edges" },
+                { "code": "W100", "severity": "warning", "messageTemplate": "b100", "check": "no_outgoing_edges" }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let (rules, diags) = register_validation_rules(&[a.clone(), b.clone()]);
+
+    // unified_rule_set_produced + deterministic_order_enforced: one set holding
+    // all four rules, sorted by code.
+    let set: Vec<(&str, &str)> = rules
+        .iter()
+        .map(|r| (r.code.as_str(), r.message_template.as_str()))
+        .collect();
+    assert_eq!(
+        set,
+        [
+            ("W100", "a100"),
+            ("W100", "b100"),
+            ("W200", "b200"),
+            ("W300", "a300")
+        ]
+    );
+    let (swapped, _) = register_validation_rules(&[b, a]);
+    let codes: Vec<&str> = swapped.iter().map(|r| r.code.as_str()).collect();
+    assert_eq!(codes, ["W100", "W100", "W200", "W300"]);
+
+    // duplicate_codes_warned: one warning naming the code and both extensions.
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert_eq!(diags[0].code, "W023");
+    assert_eq!(diags[0].severity, Severity::Warning);
+    for part in ["'W100'", "'@ext/a'", "'@ext/b'"] {
+        assert!(diags[0].message.contains(part), "{}", diags[0].message);
+    }
 }
 
 // ============================================================================

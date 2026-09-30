@@ -25,7 +25,7 @@ pub use manifest::types::{
     ExtensionContributions, FieldConstraint, FieldEnhancement, GrammarContribution,
     ManifestEdgeType, ManifestEntityKind, ManifestField, ManifestV2, ManifestValidationRule,
     PeerDependency, SandboxPolicy, unknown_manifest_fields, validate_manifest,
-    validate_manifest_consistency,
+    validate_manifest_consistency, validate_manifest_consistency_with_peers,
 };
 
 // --- Compilation / extension logic ---

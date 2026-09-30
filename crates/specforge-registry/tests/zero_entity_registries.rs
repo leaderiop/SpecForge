@@ -27,9 +27,10 @@ use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_registry::{
     EdgeRegistry, FieldEnhancement, FieldRegistry, FieldRegistryEntry, KindRegistry,
     ManifestEdgeType, ManifestField, ManifestFieldType, ManifestV2, apply_entity_enhancements,
-    detect_duplicate_entity_kinds, populate_registries, register_validation_rules,
-    register_verify_kinds, validate_extension_testability, validate_manifest,
-    validate_manifest_consistency, validate_peer_dependencies, validate_registered_entity_fields,
+    detect_duplicate_entity_kinds, detect_unknown_entity_fields, populate_registries,
+    register_validation_rules, register_verify_kinds, validate_extension_testability,
+    validate_manifest, validate_manifest_consistency, validate_manifest_consistency_with_peers,
+    validate_peer_dependencies, validate_registered_entity_fields,
 };
 
 // ---------------------------------------------------------------------------
@@ -337,10 +338,53 @@ fn populate_kind_keywords_available() {
     verify = "population completes before validation"
 )]
 fn populate_kind_completes_before_validation() {
-    let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
-    assert!(!kind_reg.is_empty());
-    assert!(!field_reg.is_empty());
-    assert!(!edge_reg.is_empty());
+    // The first extension's field points at a kind only the second declares.
+    let early: ManifestV2 = serde_json::from_str(
+        r#"{"name":"@test/early","version":"1.0.0","manifestVersion":2,"wasmPath":"e.wasm",
+            "entityKinds":[{"name":"Task","keyword":"task","fields":[
+                {"name":"owner","fieldType":"reference","edge":"owned_by","targetKind":"person"}
+            ]}],
+            "edgeTypes":[{"label":"owned_by","sourceKind":"task","targetKind":"person"}]}"#,
+    )
+    .unwrap();
+    let late: ManifestV2 = serde_json::from_str(
+        r#"{"name":"@test/late","version":"1.0.0","manifestVersion":2,"wasmPath":"l.wasm",
+            "entityKinds":[{"name":"Person","keyword":"person"}]}"#,
+    )
+    .unwrap();
+
+    // Validating mid-population, with only the first extension registered,
+    // reports the forward reference.
+    let (k1, f1, e1, _) = populate_registries(std::slice::from_ref(&early));
+    let partial = validate_registered_entity_fields(&f1, &k1, &e1);
+    assert!(
+        partial
+            .iter()
+            .any(|d| d.code == "W021" && d.message.contains("'person'")),
+        "{partial:?}"
+    );
+
+    // populate_registries returns only once every extension is in, so the
+    // validation that follows sees both kinds and reports nothing.
+    let (kind_reg, field_reg, edge_reg, diags) = populate_registries(&[early, late]);
+    assert!(diags.is_empty(), "{diags:?}");
+    let mut kinds: Vec<&String> = kind_reg.keywords().collect();
+    kinds.sort();
+    assert_eq!(kinds, ["person", "task"]);
+    let post = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
+    assert!(post.is_empty(), "{post:?}");
+    let unknown = specforge_registry::detect_unknown_entity_kinds(
+        &[
+            ("task".to_string(), "t1".to_string(), span("main.spec")),
+            ("person".to_string(), "p1".to_string(), span("main.spec")),
+        ],
+        &kind_reg,
+        None,
+    );
+    assert!(
+        unknown.is_empty(),
+        "no E024 for registered kinds: {unknown:?}"
+    );
 }
 
 #[spec(
@@ -389,11 +433,37 @@ fn populate_field_per_entity_kind() {
     verify = "field types validated against known types"
 )]
 fn populate_field_types_validated() {
-    let (_, field_reg, _, _) = populate_registries(&[software_manifest()]);
-    let contract = field_reg.get("behavior", "contract").unwrap();
-    assert_eq!(contract.field_type, ManifestFieldType::Block);
-    let invariants = field_reg.get("behavior", "invariants").unwrap();
-    assert_eq!(invariants.field_type, ManifestFieldType::ReferenceList);
+    let manifest: ManifestV2 = serde_json::from_str(
+        r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
+            "entityKinds":[{"name":"Thing","keyword":"thing","fields":[
+                {"name":"summary","fieldType":"string"},
+                {"name":"tags","fieldType":"string_list"},
+                {"name":"status","fieldType":"enum","enumValues":["draft","done"]},
+                {"name":"body","fieldType":"block"},
+                {"name":"parts","fieldType":"reference_list"},
+                {"name":"notes","fieldType":"text"}
+            ]}]}"#,
+    )
+    .unwrap();
+    let (_, field_reg, _, diags) = populate_registries(&[manifest]);
+
+    // Each known type name maps to its variant.
+    let ty = |name: &str| field_reg.get("thing", name).unwrap().field_type.clone();
+    assert_eq!(ty("summary"), ManifestFieldType::String);
+    assert_eq!(ty("tags"), ManifestFieldType::StringList);
+    assert_eq!(
+        ty("status"),
+        ManifestFieldType::Enum(vec!["draft".to_string(), "done".to_string()])
+    );
+    assert_eq!(ty("body"), ManifestFieldType::Block);
+    assert_eq!(ty("parts"), ManifestFieldType::ReferenceList);
+
+    // "text" is no known type: the field is rejected with one warning.
+    assert!(!field_reg.contains("thing", "notes"));
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert_eq!(diags[0].code, "W019");
+    assert_eq!(diags[0].severity, Severity::Warning);
+    assert!(diags[0].message.contains("'text'"), "{}", diags[0].message);
 }
 
 #[spec(
@@ -579,9 +649,20 @@ fn register_kind_testable_flag() {
     verify = "entity kind registered with singleton flag"
 )]
 fn register_kind_singleton_flag() {
-    let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
-    let behavior = kind_reg.get("behavior").unwrap();
-    assert!(!behavior.singleton);
+    let manifest: ManifestV2 = serde_json::from_str(
+        r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
+            "entityKinds":[
+                {"name":"Project","keyword":"project","singleton":true},
+                {"name":"Task","keyword":"task"}
+            ]}"#,
+    )
+    .unwrap();
+    let (kind_reg, _, _, _) = populate_registries(&[manifest]);
+    assert!(kind_reg.get("project").unwrap().singleton);
+    assert!(
+        !kind_reg.get("task").unwrap().singleton,
+        "defaults to false"
+    );
 }
 
 #[spec(
@@ -672,11 +753,25 @@ fn register_kind_contract() {
     verify = "edge type registered with label and description"
 )]
 fn register_edge_label_and_description() {
-    let (_, _, edge_reg, _) = populate_registries(&[software_manifest()]);
-    let enforces = edge_reg.get("enforces").unwrap();
-    assert_eq!(enforces.label, "enforces");
-    assert_eq!(enforces.source_kind.as_deref(), Some("behavior"));
-    assert_eq!(enforces.target_kind.as_deref(), Some("invariant"));
+    let manifest: ManifestV2 = serde_json::from_str(
+        r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
+            "entityKinds":[{"name":"A","keyword":"a"},{"name":"B","keyword":"b"}],
+            "edgeTypes":[
+                {"label":"guards","description":"A guards the B it names","sourceKind":"a","targetKind":"b"},
+                {"label":"touches","sourceKind":"a","targetKind":"b"}
+            ]}"#,
+    )
+    .unwrap();
+    let (_, _, edge_reg, _) = populate_registries(&[manifest]);
+    let guards = edge_reg.get("guards").unwrap();
+    assert_eq!(guards.label, "guards");
+    assert_eq!(
+        guards.description.as_deref(),
+        Some("A guards the B it names")
+    );
+    let touches = edge_reg.get("touches").unwrap();
+    assert_eq!(touches.label, "touches");
+    assert_eq!(touches.description, None);
 }
 
 #[spec(
@@ -1637,10 +1732,11 @@ fn validation_rule_invalid_ref_warning() {
     assert!(!diags.iter().any(|d| d.severity == Severity::Error));
 }
 
-#[spec(
-    behavior = "register_validation_rules_from_manifest",
-    verify = "Register Validation Rules From Manifest: validation rule registration holds — extension_manifests_loaded_fired, rules_registered, deferred_validation_complete, invalid_refs_warned"
-)]
+// Not linked to the contract: nothing checks a registered rule's target_kind
+// or edge_type against the registries after population, so the
+// deferred_validation_complete and invalid_refs_warned clauses are unbuilt (a
+// rule naming an unknown kind never fires, silently).
+#[test]
 fn validation_rule_contract() {
     let m: ManifestV2 = serde_json::from_str(
         r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1901,26 +1997,64 @@ fn enhancements_two_non_conflicting() {
     verify = "Register Entity Enhancements: entity enhancement registration holds — manifests_validated, enhancement_registered_emitted, registration_before_resolve, registration_order_deterministic"
 )]
 fn enhancements_contract() {
-    let manifests = vec![
-        software_manifest(),
-        serde_json::from_str::<ManifestV2>(
-            r#"{"name":"@test/coverage","version":"1.0.0","manifestVersion":2,"wasmPath":"coverage.wasm",
-                "entityEnhancements":[{"targetKind":"behavior","sourceExtension":"@test/coverage",
-                "fields":[{"name":"coverage_threshold","fieldType":"string"}]}]}"#,
-        )
-        .unwrap(),
-    ];
-    let (_kind_reg, field_reg, _, diags) = populate_registries(&manifests);
-    assert!(
-        field_reg.contains("behavior", "coverage_threshold"),
-        "enhancement field should be merged via populate_registries"
+    // Two extensions each add an `owner` field to behavior, with different types.
+    let enhancer = |name: &str, field_type: &str| -> ManifestV2 {
+        serde_json::from_str(&format!(
+            r#"{{"name":"{name}","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
+                "entityEnhancements":[{{"targetKind":"behavior","sourceExtension":"{name}",
+                "fields":[{{"name":"owner","fieldType":"{field_type}"}},
+                          {{"name":"{field_type}_note","fieldType":"string"}}]}}]}}"#
+        ))
+        .unwrap()
+    };
+    let a = enhancer("@test/a", "string");
+    let b = enhancer("@test/b", "reference");
+
+    // requires manifests_validated: every manifest passes schema validation.
+    for m in [&software_manifest(), &a, &b] {
+        assert!(validate_manifest(m).is_empty(), "{}", m.name);
+    }
+
+    let (kind_reg, field_reg, _, diags) =
+        populate_registries(&[software_manifest(), a.clone(), b.clone()]);
+    assert!(diags.is_empty(), "{diags:?}");
+
+    // enhancement_registered_emitted: each registered field records the
+    // extension, target kind, field and type the event carries.
+    let owner = field_reg.get("behavior", "owner").unwrap();
+    assert_eq!(owner.kind_name, "behavior");
+    assert_eq!(owner.source_extension, "@test/a");
+    assert_eq!(owner.field_type, ManifestFieldType::String);
+    let note = field_reg.get("behavior", "reference_note").unwrap();
+    assert_eq!(note.source_extension, "@test/b");
+
+    // registration_before_resolve: the registries populate_registries hands
+    // on already accept an enhanced field on a parsed entity.
+    let unknown = detect_unknown_entity_fields(
+        &[(
+            "behavior".to_string(),
+            "b1".to_string(),
+            vec!["owner".to_string(), "string_note".to_string()],
+            span("main.spec"),
+        )],
+        &kind_reg,
+        &field_reg,
     );
-    assert!(
-        !diags.iter().any(|d| d.code == "I004"),
-        "no I004 expected for known kind"
-    );
-    assert!(field_reg.contains("behavior", "contract"));
-    assert!(field_reg.contains("behavior", "invariants"));
+    assert!(unknown.is_empty(), "{unknown:?}");
+
+    // registration_order_deterministic: the extensions array order decides
+    // which `owner` wins, and the same order always gives the same result.
+    let (_, swapped, _, _) = populate_registries(&[software_manifest(), b.clone(), a.clone()]);
+    let owner = swapped.get("behavior", "owner").unwrap();
+    assert_eq!(owner.source_extension, "@test/b");
+    assert_eq!(owner.field_type, ManifestFieldType::Reference);
+    for _ in 0..3 {
+        let (_, again, _, _) = populate_registries(&[software_manifest(), a.clone(), b.clone()]);
+        assert_eq!(
+            again.get("behavior", "owner").unwrap().source_extension,
+            "@test/a"
+        );
+    }
 }
 
 // ===========================================================================
@@ -1993,20 +2127,30 @@ fn manifest_consistency_self_contradictory_target() {
     verify = "target_kind referencing non-peer extension kind produces W-level warning"
 )]
 fn manifest_consistency_non_peer_warning() {
+    // Peer of @specforge/software only, yet it points at product's `feature`.
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
             "entityKinds":[
-                {"name":"Feature","keyword":"feature","fields":[
-                    {"name":"behaviors","fieldType":"reference_list","targetKind":"behavior"}
+                {"name":"Task","keyword":"task","fields":[
+                    {"name":"behaviors","fieldType":"reference_list","targetKind":"behavior"},
+                    {"name":"features","fieldType":"reference_list","targetKind":"feature"}
                 ]}
-            ]}"#,
+            ],
+            "peerDependencies":[{"name":"@specforge/software","version":">=1.0.0"}]}"#,
     )
     .unwrap();
-    let diags = validate_manifest_consistency(&manifest);
+    let loaded = [software_manifest(), product_manifest(), manifest.clone()];
+    let diags = validate_manifest_consistency_with_peers(&manifest, &loaded);
+
+    // `behavior` comes from the peer and passes; `feature` exists, but only
+    // in an extension this one does not depend on.
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert_eq!(diags[0].code, "W021");
+    assert_eq!(diags[0].severity, Severity::Warning);
     assert!(
-        diags
-            .iter()
-            .any(|d| d.message.contains("behavior") && d.message.contains("target_kind"))
+        diags[0].message.contains("'feature'") && diags[0].message.contains("'@specforge/product'"),
+        "{}",
+        diags[0].message
     );
 }
 
