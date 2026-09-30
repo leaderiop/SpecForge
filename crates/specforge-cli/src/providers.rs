@@ -75,15 +75,22 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
                         .get("extension")
                         .and_then(|v| v.as_str())
                         .unwrap_or("<unknown>");
-                    let schemes: Vec<&str> = provider
-                        .get("schemes")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| arr.iter().filter_map(|s| s.as_str()).collect())
-                        .unwrap_or_default();
+                    let list = |key: &str| -> Vec<&str> {
+                        provider
+                            .get(key)
+                            .and_then(|v| v.as_array())
+                            .map(|arr| arr.iter().filter_map(|s| s.as_str()).collect())
+                            .unwrap_or_default()
+                    };
+                    let schemes = list("schemes");
+                    let kinds = list("kinds");
 
                     println!("  {} (extension: {})", alias, extension);
                     if !schemes.is_empty() {
                         println!("    schemes: {}", schemes.join(", "));
+                    }
+                    if !kinds.is_empty() {
+                        println!("    kinds: {}", kinds.join(", "));
                     }
                 }
                 println!();

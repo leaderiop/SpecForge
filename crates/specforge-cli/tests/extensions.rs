@@ -73,18 +73,36 @@ fn remove_delegates_to_uninstall() {
         .join("@specforge/software");
     fs::create_dir_all(&ext_dir).unwrap();
     fs::write(ext_dir.join("extension.wasm"), b"fake wasm").unwrap();
+    fs::write(ext_dir.join("manifest.json"), b"{}").unwrap();
+    // Another extension's files must survive.
+    let other_dir = dir
+        .path()
+        .join(".specforge")
+        .join("extensions")
+        .join("@acme/other");
+    fs::create_dir_all(&other_dir).unwrap();
+    fs::write(other_dir.join("extension.wasm"), b"other wasm").unwrap();
 
     specforge_cmd()
         .args(["remove", "@specforge/software", "--path"])
         .arg(dir.path())
         .assert()
         .success()
-        .stdout(predicates::str::contains("Removed extension"));
+        .stdout(predicates::str::contains(
+            "Removed extension '@specforge/software' (v1.0.0)",
+        ));
 
     // Lock file should now have empty entries
     let lock_content = fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
     let lock: serde_json::Value = serde_json::from_str(&lock_content).unwrap();
     assert_eq!(lock["entries"].as_array().unwrap().len(), 0);
+
+    // Uninstall cleaned up the extension's whole directory, and only it.
+    assert!(!ext_dir.exists(), "the extension directory is deleted");
+    assert_eq!(
+        fs::read(other_dir.join("extension.wasm")).unwrap(),
+        b"other wasm"
+    );
 }
 
 #[specforge_test(
@@ -249,21 +267,46 @@ fn extensions_json_format() {
     verify = "list shows all installed extensions"
 )]
 fn extensions_no_lock_file() {
-    let dir = TempDir::new().unwrap();
+    let list = |dir: &std::path::Path| {
+        let output = specforge_cmd()
+            .args(["extensions", "--path"])
+            .arg(dir)
+            .args(["--format", "json"])
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap()
+    };
 
-    let output = specforge_cmd()
-        .args(["extensions", "--path"])
-        .arg(dir.path())
-        .args(["--format", "json"])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-
+    // Nothing installed: an empty listing.
+    let empty = TempDir::new().unwrap();
+    let json = list(empty.path());
     assert_eq!(json["count"], 0);
-    assert_eq!(json["extensions"].as_array().unwrap().len(), 0);
+    assert_eq!(json["extensions"], serde_json::json!([]));
+
+    // No lock file, but three builtins enabled: every one is listed.
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"p","version":"0.1.0","extensions":["@specforge/software","@specforge/product","@specforge/governance"]}"#,
+    )
+    .unwrap();
+    let json = list(dir.path());
+    assert_eq!(json["count"], 3, "{json}");
+    let names: Vec<&str> = json["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "@specforge/governance",
+            "@specforge/product",
+            "@specforge/software"
+        ]
+    );
 }
 
 #[specforge_test(
@@ -411,9 +454,52 @@ fn providers_includes_scheme_and_kind() {
 
     let providers = json["providers"].as_array().unwrap();
     let p = &providers[0];
-    assert_eq!(p["schemes"].as_array().unwrap().len(), 2);
-    assert!(p["schemes"].as_array().unwrap().iter().any(|s| s == "file"));
-    assert!(p["schemes"].as_array().unwrap().iter().any(|s| s == "glob"));
+    assert_eq!(p["schemes"], serde_json::json!(["file", "glob"]));
+    assert_eq!(p["kinds"], serde_json::json!(["junit_xml"]));
+
+    // The human listing shows both too.
+    specforge_cmd()
+        .args(["providers", "--path"])
+        .arg(dir.path())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("    schemes: file, glob"))
+        .stdout(predicates::str::contains("    kinds: junit_xml"));
+}
+
+/// Two providers, `beta` configured before `alpha`, each with schemes and kinds.
+fn write_two_providers(dir: &std::path::Path) {
+    write_config_with_providers(
+        dir,
+        &[
+            serde_json::json!({
+                "alias": "beta",
+                "extension": "@specforge/python",
+                "schemes": ["http"],
+                "kinds": ["pytest_xml"],
+            }),
+            serde_json::json!({
+                "alias": "alpha",
+                "extension": "@specforge/rust",
+                "schemes": ["glob", "file"],
+                "kinds": ["junit_xml"],
+            }),
+        ],
+    );
+}
+
+/// `specforge providers --format json` for `dir`, asserting success.
+fn providers_json(dir: &std::path::Path) -> (String, serde_json::Value) {
+    let output = specforge_cmd()
+        .args(["providers", "--path"])
+        .arg(dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json = serde_json::from_str(&stdout).unwrap();
+    (stdout, json)
 }
 
 #[specforge_test(
@@ -422,37 +508,24 @@ fn providers_includes_scheme_and_kind() {
 )]
 fn providers_output_order_deterministic() {
     let dir = TempDir::new().unwrap();
+    write_two_providers(dir.path());
 
-    write_config_with_providers(
-        dir.path(),
-        &[
-            serde_json::json!({
-                "alias": "beta",
-                "extension": "@specforge/python",
-                "schemes": ["http"],
-            }),
-            serde_json::json!({
-                "alias": "alpha",
-                "extension": "@specforge/rust",
-                "schemes": ["file"],
-            }),
-        ],
-    );
-
-    // Run twice and compare
-    let run = || {
-        let output = specforge_cmd()
-            .args(["providers", "--path"])
-            .arg(dir.path())
-            .args(["--format", "json"])
-            .output()
-            .unwrap();
-        String::from_utf8_lossy(&output.stdout).to_string()
-    };
-
-    let first = run();
-    let second = run();
-    assert_eq!(first, second, "output must be deterministic across runs");
+    // The order is the configuration's, and the same on every run.
+    let (first, json) = providers_json(dir.path());
+    let aliases: Vec<&str> = json["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| p["alias"].as_str().unwrap())
+        .collect();
+    assert_eq!(aliases, ["beta", "alpha"]);
+    for _ in 0..3 {
+        assert_eq!(
+            providers_json(dir.path()).0,
+            first,
+            "output must be deterministic across runs"
+        );
+    }
 }
 
 #[specforge_test(
@@ -462,35 +535,33 @@ fn providers_output_order_deterministic() {
 fn providers_contract() {
     let dir = TempDir::new().unwrap();
 
-    // Precondition: config with providers
-    write_config_with_providers(
-        dir.path(),
-        &[serde_json::json!({
-            "alias": "junit",
-            "extension": "@specforge/rust",
-            "schemes": ["file"],
-        })],
+    // scheme_registry_ready: providers registered in the configuration.
+    write_two_providers(dir.path());
+    let (first, json) = providers_json(dir.path());
+
+    // all_providers_listed, aliases_shown_separately,
+    // schemes_and_kinds_included: one entry per alias, each complete.
+    assert_eq!(json["count"], 2, "ensures: all_providers_listed");
+    assert_eq!(
+        json["providers"],
+        serde_json::json!([
+            {
+                "alias": "beta",
+                "extension": "@specforge/python",
+                "schemes": ["http"],
+                "kinds": ["pytest_xml"],
+            },
+            {
+                "alias": "alpha",
+                "extension": "@specforge/rust",
+                "schemes": ["glob", "file"],
+                "kinds": ["junit_xml"],
+            },
+        ])
     );
 
-    let output = specforge_cmd()
-        .args(["providers", "--path"])
-        .arg(dir.path())
-        .args(["--format", "json"])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-
-    // Postcondition: all_providers_listed
-    assert_eq!(json["count"], 1, "ensures: all_providers_listed");
-    // Postcondition: schemes_and_kinds_included
-    let p = &json["providers"].as_array().unwrap()[0];
-    assert!(
-        p["schemes"].is_array(),
-        "ensures: schemes_and_kinds_included"
-    );
+    // output_deterministic
+    assert_eq!(providers_json(dir.path()).0, first);
 }
 
 // ===============================================================
@@ -1038,12 +1109,44 @@ fn add_validates_registry_specifier() {
 )]
 fn add_rejects_invalid_specifier() {
     let dir = TempDir::new().unwrap();
+    let config = r#"{"name":"t","version":"0.1.0","extensions":[]}"#;
+    fs::write(dir.path().join("specforge.json"), config).unwrap();
 
+    for specifier in ["not-valid", "@scope"] {
+        let output = specforge_cmd()
+            .args(["add", specifier, "--path"])
+            .arg(dir.path())
+            .args(["--format", "json"])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(1));
+        let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        assert_eq!(json["code"], "E054", "{json}");
+        assert_eq!(
+            json["error"],
+            format!("invalid extension specifier: '{specifier}'")
+        );
+    }
+
+    // The human diagnostic states the expected format.
     specforge_cmd()
         .args(["add", "not-valid", "--path"])
         .arg(dir.path())
         .assert()
-        .failure();
+        .code(1)
+        .stderr(predicates::str::contains(
+            "error: invalid extension specifier: 'not-valid'",
+        ))
+        .stderr(predicates::str::contains(
+            "use format: 'name@version', './local/path', or 'git+https://...'",
+        ));
+
+    // Nothing was installed.
+    assert_eq!(
+        fs::read_to_string(dir.path().join("specforge.json")).unwrap(),
+        config
+    );
+    assert!(!dir.path().join("specforge.lock").exists());
 }
 
 #[specforge_test(
