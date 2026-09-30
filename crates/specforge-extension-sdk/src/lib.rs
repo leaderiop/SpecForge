@@ -791,8 +791,8 @@ pub struct PassEntity {
     pub outgoing_edge_count: usize,
     #[serde(default)]
     pub span: Option<PassSpan>,
-    /// Whether the entity's kind supports verify obligations (the host
-    /// derives this from its kind registry).
+    /// Whether the entity's kind is testable (its kind registry entry's
+    /// `testable` flag), so coverage counts it.
     #[serde(default)]
     pub testable: bool,
     /// One entry per `verify` statement, in order: its kind, or `""` for a
