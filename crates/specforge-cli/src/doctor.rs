@@ -1,85 +1,193 @@
 use crate::OutputFormat;
 use serde_json::json;
+use specforge_emitter::doctor::{BinaryIssue, DoctorReport, FindingStatus, diagnose};
 use specforge_registry::client::credentials::{credentials_path, read_credentials};
-use specforge_wasm::{DoctorStatus, LockFile, read_lock_file, run_doctor_check};
-use std::collections::HashMap;
 use std::path::Path;
 
+/// `specforge doctor`: the shared project health report (extensions and
+/// their enhancements, conflicts, shadowed keywords, installed binaries)
+/// plus registry credential health. Exit 1 on any error-level finding.
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
-    let lock_path = path.join("specforge.lock");
-    let extensions_dir = path.join(".specforge").join("extensions");
+    let ctx = crate::pipeline::compile(path);
+    let report = diagnose(path, &ctx.manifests, &ctx.diagnostics);
+    let (credential_lines, credential_failures) = credential_health();
+    let healthy = !report.has_errors();
 
-    // Read lock file — missing lock file means nothing to check
-    let lock: LockFile = match read_lock_file(&lock_path) {
-        Ok(lock) => lock,
-        Err(_) => {
-            match format {
-                OutputFormat::Json => {
-                    let output = json!({
-                        "status": "healthy",
-                        "issues": [],
-                        "message": "no lock file found — no extensions to check",
-                    });
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(&output).expect("serialize JSON output")
-                    );
-                }
-                OutputFormat::Human => {
-                    println!("No lock file found — no extensions to check.");
-                }
-            }
-            return 0;
+    match format {
+        OutputFormat::Json => {
+            let mut output = serde_json::to_value(&report).expect("serialize doctor report");
+            output["status"] = json!(if healthy { "healthy" } else { "issues_found" });
+            output["credentials_failures"] = json!(credential_failures);
+            output["credentials"] = credential_lines
+                .iter()
+                .map(|(level, text)| json!({ "level": level, "text": text }))
+                .collect();
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output).expect("serialize JSON output")
+            );
         }
-    };
-
-    if lock.entries.is_empty() {
-        match format {
-            OutputFormat::Json => {
-                let output = json!({
-                    "status": "healthy",
-                    "issues": [],
-                    "message": "no extensions installed",
-                });
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&output).expect("serialize JSON output")
-                );
-            }
-            OutputFormat::Human => {
-                println!("No extensions installed — nothing to check.");
-            }
-        }
-        return 0;
+        OutputFormat::Human => print!(
+            "{}",
+            render_human(
+                &report,
+                &credential_lines,
+                specforge_registry::signing::signing_key_path().exists(),
+            )
+        ),
     }
 
-    // Build installed versions map from lock file entries
-    let installed_versions: HashMap<String, String> = lock
-        .entries
+    if healthy && credential_failures == 0 {
+        0
+    } else {
+        1
+    }
+}
+
+/// The human report: one section per report part, then credentials.
+fn render_human(
+    report: &DoctorReport,
+    credential_lines: &[(String, String)],
+    signing_key_present: bool,
+) -> String {
+    let mut out = String::new();
+    macro_rules! line {
+        () => { out.push('\n') };
+        ($($arg:tt)*) => {{ out.push_str(&format!($($arg)*)); out.push('\n'); }};
+    }
+    line!("Extensions ({}):", report.extensions.len());
+    if report.extensions.is_empty() {
+        line!("  none enabled");
+    }
+    for ext in &report.extensions {
+        line!(
+            "  {} {} ({}) — {} enhancement(s)",
+            ext.name,
+            ext.version,
+            ext.source,
+            ext.enhancement_count
+        );
+    }
+
+    line!();
+    line!("Enhancements by entity kind:");
+    if report.enhancements.is_empty() {
+        line!("  none");
+    }
+    for (kind, entries) in &report.enhancements {
+        line!("  {kind}:");
+        for entry in entries {
+            let mut contributed = entry.fields.clone();
+            contributed.extend(entry.edge_types.iter().map(|e| format!("edge {e}")));
+            if let Some(kinds) = &entry.verify_kinds {
+                contributed.push(format!("verify [{}]", kinds.join(", ")));
+            }
+            line!("    {}: {}", entry.extension, contributed.join(", "));
+        }
+    }
+
+    line!();
+    line!("Conflicts:");
+    if report.conflicts.is_empty() {
+        line!("  none");
+    }
+    for conflict in &report.conflicts {
+        line!("  [{}] {}", conflict.code, conflict.message);
+        line!("    fix: {}", conflict.suggestion);
+    }
+
+    line!();
+    line!("Shadowed constructs:");
+    if report.shadowed.is_empty() {
+        line!("  none");
+    }
+    for shadow in &report.shadowed {
+        line!(
+            "  '{}' [{}] {}",
+            shadow.keyword,
+            shadow.code,
+            shadow.message
+        );
+    }
+
+    line!();
+    line!(
+        "Installed binaries ({} lock entr{} checked):",
+        report.extensions_checked,
+        if report.extensions_checked == 1 {
+            "y"
+        } else {
+            "ies"
+        }
+    );
+    if report.issues.is_empty() {
+        line!("  All installed binaries healthy.");
+    }
+    for issue in &report.issues {
+        match issue {
+            BinaryIssue::MissingBinary { name } => {
+                line!("  [MISSING] {name} — .wasm binary not found");
+            }
+            BinaryIssue::StaleHash {
+                name,
+                expected,
+                actual,
+            } => line!(
+                "  [STALE] {} — hash mismatch (expected {}, got {})",
+                name,
+                &expected[..8.min(expected.len())],
+                &actual[..8.min(actual.len())]
+            ),
+            BinaryIssue::PeerMismatch {
+                name,
+                peer,
+                required,
+            } => line!("  [PEER] {name} — requires {peer} v{required}"),
+        }
+    }
+    if !report.z3_available {
+        line!();
+        line!("[WARN] z3 not on PATH — `specforge analyze --prove` skips SMT checks (W098)");
+    }
+
+    let errors = report
+        .findings
         .iter()
-        .map(|e| (e.name.clone(), e.version.clone()))
-        .collect();
+        .filter(|f| f.status == FindingStatus::Error)
+        .count();
+    line!();
+    if errors == 0 {
+        line!("No issues found.");
+    } else {
+        line!("{errors} issue(s) found.");
+    }
 
-    // Run doctor checks with a simple hash function (read file and compute sha256)
-    let compute_hash = |wasm_path: &Path| -> Option<String> {
-        let bytes = std::fs::read(wasm_path).ok()?;
-        Some(specforge_wasm::hex_sha256(&bytes))
-    };
+    if !credential_lines.is_empty() || signing_key_present {
+        line!();
+        line!("Registry credentials:");
+        for (level, text) in credential_lines {
+            let tag = match level.as_str() {
+                "error" => "ERROR",
+                "warning" => "WARN",
+                _ => "ok",
+            };
+            line!("  [{tag}] {text}");
+        }
+        if signing_key_present {
+            line!("  [ok] signing key present");
+        } else {
+            line!("  [ok] signing key: not created yet (generated on first publish)");
+        }
+    }
+    out
+}
 
-    let results = run_doctor_check(&lock, &extensions_dir, compute_hash, &installed_versions);
-
-    // Separate healthy from issues
-    let issues: Vec<&DoctorStatus> = results
-        .iter()
-        .filter(|r| !matches!(r, DoctorStatus::Healthy))
-        .collect();
-
-    let all_healthy = issues.is_empty();
-
-    // Registry credential health: expired tokens and unreadable keyring
-    // entries break add/publish flows — surface them here before they bite.
+/// Registry credential health: expired tokens and unreadable keyring
+/// entries break add/publish flows — surface them before they bite.
+/// Returns `(level, text)` lines and the number of failures.
+fn credential_health() -> (Vec<(String, String)>, usize) {
     use chrono::Utc as Now;
-    let mut credential_lines: Vec<(String, String)> = Vec::new(); // (level, text)
+    let mut credential_lines: Vec<(String, String)> = Vec::new();
     let mut credential_failures = 0usize;
     let store = read_credentials(&credentials_path()).unwrap_or_default();
     for alias in {
@@ -130,127 +238,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
             Ok(None) => {}
         }
     }
-    let signing_key = specforge_registry::signing::signing_key_path();
-
-    match format {
-        OutputFormat::Json => {
-            let issue_items: Vec<serde_json::Value> = issues
-                .iter()
-                .map(|status| match status {
-                    DoctorStatus::Healthy => json!({"status": "healthy"}),
-                    DoctorStatus::MissingBinary { name } => json!({
-                        "status": "missing_binary",
-                        "name": name,
-                    }),
-                    DoctorStatus::StaleHash {
-                        name,
-                        expected,
-                        actual,
-                    } => json!({
-                        "status": "stale_hash",
-                        "name": name,
-                        "expected": expected,
-                        "actual": actual,
-                    }),
-                    DoctorStatus::PeerMismatch {
-                        name,
-                        peer,
-                        required,
-                    } => json!({
-                        "status": "peer_mismatch",
-                        "name": name,
-                        "peer": peer,
-                        "required": required,
-                    }),
-                })
-                .collect();
-
-            let output = json!({
-                "status": if all_healthy { "healthy" } else { "issues_found" },
-                "extensions_checked": lock.entries.len(),
-                "issues": issue_items,
-                "credentials_failures": credential_failures,
-                "credentials": credential_lines
-                    .iter()
-                    .map(|(level, text)| json!({ "level": level, "text": text }))
-                    .collect::<Vec<_>>(),
-            });
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&output).expect("serialize JSON output")
-            );
-        }
-        OutputFormat::Human => {
-            println!(
-                "Extension health check ({} extension(s)):",
-                lock.entries.len()
-            );
-            println!();
-
-            if all_healthy {
-                println!("  All extensions healthy.");
-            } else {
-                for status in &issues {
-                    match status {
-                        DoctorStatus::Healthy => {}
-                        DoctorStatus::MissingBinary { name } => {
-                            println!("  [MISSING] {} — .wasm binary not found", name);
-                        }
-                        DoctorStatus::StaleHash {
-                            name,
-                            expected,
-                            actual,
-                        } => {
-                            println!(
-                                "  [STALE] {} — hash mismatch (expected {}, got {})",
-                                name,
-                                &expected[..8.min(expected.len())],
-                                &actual[..8.min(actual.len())]
-                            );
-                        }
-                        DoctorStatus::PeerMismatch {
-                            name,
-                            peer,
-                            required,
-                        } => {
-                            println!("  [PEER] {} — requires {} v{}", name, peer, required);
-                        }
-                    }
-                }
-            }
-
-            println!();
-            if all_healthy {
-                println!("No issues found.");
-            } else {
-                println!("{} issue(s) found.", issues.len());
-            }
-
-            if !credential_lines.is_empty() || signing_key.exists() {
-                println!();
-                println!("Registry credentials:");
-                for (level, text) in &credential_lines {
-                    let tag = match level.as_str() {
-                        "error" => "ERROR",
-                        "warning" => "WARN",
-                        _ => "ok",
-                    };
-                    println!("  [{tag}] {text}");
-                }
-                if signing_key.exists() {
-                    println!("  [ok] signing key present");
-                } else {
-                    println!("  [ok] signing key: not created yet (generated on first publish)");
-                }
-            }
-        }
-    }
-
-    if all_healthy && credential_failures == 0 {
-        0
-    } else {
-        1
-    }
+    (credential_lines, credential_failures)
 }
 
 /// Expiry assessment for a stored token timestamp (RFC 3339).
@@ -284,6 +272,79 @@ fn assess_expiry(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_common::{Diagnostic, Severity};
+    use specforge_test_macros::test as specforge_test;
+
+    fn conflict(
+        code: &str,
+        severity: Severity,
+        message: &str,
+        suggestion: Option<&str>,
+    ) -> Diagnostic {
+        Diagnostic {
+            code: code.into(),
+            severity,
+            message: message.into(),
+            span: None,
+            suggestion: suggestion.map(String::from),
+        }
+    }
+
+    // No shipped builtin set produces an extension conflict (all nine
+    // together compile clean), so the conflicts come in at the shared
+    // report's seam: the diagnostics a compile hands `diagnose`.
+    #[specforge_test(
+        behavior = "run_doctor_check",
+        verify = "doctor reports conflicts with resolution suggestions"
+    )]
+    fn doctor_reports_conflicts_with_a_resolution_suggestion() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let diagnostics = [
+            conflict(
+                "E026",
+                Severity::Error,
+                "entity kind 'feature' registered by 'acme' conflicts with '@specforge/product' (first registration wins)",
+                None,
+            ),
+            conflict(
+                "W018",
+                Severity::Warning,
+                "edge type 'uses' declared by both 'acme' and '@specforge/software'",
+                Some("rename one of the edge types"),
+            ),
+            conflict("W001", Severity::Warning, "an unrelated warning", None),
+        ];
+
+        let report = specforge_emitter::doctor::diagnose_with(dir.path(), &[], &diagnostics, true);
+
+        let codes: Vec<&str> = report.conflicts.iter().map(|c| c.code.as_str()).collect();
+        assert_eq!(codes, ["E026", "W018"]);
+        // No suggestion of its own: point at the explanation.
+        assert!(
+            report.conflicts[0]
+                .suggestion
+                .contains("specforge explain E026"),
+            "{:?}",
+            report.conflicts[0]
+        );
+        // The diagnostic's own suggestion wins.
+        assert_eq!(
+            report.conflicts[1].suggestion,
+            "rename one of the edge types"
+        );
+        assert!(report.has_errors(), "an error-level conflict fails doctor");
+
+        let human = render_human(&report, &[], false);
+        let section = &human[human.find("Conflicts:").expect("conflicts section")..];
+        assert!(section.contains("[E026] entity kind 'feature'"), "{human}");
+        assert!(section.contains("fix: uninstall or reconfigure"), "{human}");
+        assert!(section.contains("[W018]"), "{human}");
+        assert!(
+            section.contains("fix: rename one of the edge types"),
+            "{human}"
+        );
+        assert!(human.contains("1 issue(s) found."), "{human}");
+    }
 
     fn at(days_from_now: i64) -> chrono::DateTime<chrono::Utc> {
         chrono::Utc::now() + chrono::Duration::days(days_from_now)

@@ -497,10 +497,7 @@ fn providers_contract() {
 // Behavior: run_doctor_check
 // ===============================================================
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor lists all installed extensions with enhancement counts"
-)]
+#[test]
 fn doctor_reports_health_check() {
     let dir = TempDir::new().unwrap();
 
@@ -561,10 +558,7 @@ fn doctor_missing_binary() {
     assert!(issues.iter().any(|i| i["status"] == "missing_binary"));
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "doctor --json produces valid JSON output"
-)]
+#[test]
 fn doctor_no_lock_file() {
     let dir = TempDir::new().unwrap();
 
@@ -669,11 +663,8 @@ fn doctor_detects_stale_hash() {
     );
 }
 
-#[specforge_test(
-    behavior = "run_doctor_check",
-    verify = "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
-)]
-fn doctor_contract() {
+#[test]
+fn doctor_healthy_lock_entry() {
     let dir = TempDir::new().unwrap();
 
     // Precondition: lock file + extension with matching hash
@@ -721,6 +712,290 @@ fn doctor_contract() {
         json["issues"].as_array().unwrap().is_empty(),
         "ensures: no issues for valid extension"
     );
+}
+
+/// A project with the software and product builtins enabled (no lock
+/// entries: builtins ship inside the binary), plus optional spec sources.
+fn builtin_project(spec: Option<&str>) -> TempDir {
+    let dir = TempDir::new().unwrap();
+    write_config_with_extensions(dir.path(), &["@specforge/software", "@specforge/product"]);
+    let spec_dir = dir.path().join("spec");
+    fs::create_dir_all(&spec_dir).unwrap();
+    if let Some(spec) = spec {
+        fs::write(spec_dir.join("project.spec"), spec).unwrap();
+    }
+    dir
+}
+
+/// A project `define` block named after the entity kind keyword the
+/// software builtin registers: the compiler reports the shadowing as E013.
+const SHADOWING_DEFINE: &str = "define behavior {\n  base_kind \"entity\"\n}\n";
+
+fn doctor_json(dir: &std::path::Path) -> (serde_json::Value, i32) {
+    let output = specforge_cmd()
+        .args(["doctor", "--path"])
+        .arg(dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("doctor --format json is not JSON ({e}): {stdout}"));
+    (json, output.status.code().unwrap_or(-1))
+}
+
+fn doctor_human(dir: &std::path::Path) -> (String, i32) {
+    let output = specforge_cmd()
+        .args(["doctor", "--path"])
+        .arg(dir)
+        .output()
+        .unwrap();
+    (
+        String::from_utf8_lossy(&output.stdout).into_owned(),
+        output.status.code().unwrap_or(-1),
+    )
+}
+
+fn extension<'a>(report: &'a serde_json::Value, name: &str) -> &'a serde_json::Value {
+    report["extensions"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no extensions array: {report}"))
+        .iter()
+        .find(|e| e["name"] == name)
+        .unwrap_or_else(|| panic!("{name} not listed: {report}"))
+}
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor lists all installed extensions with enhancement counts"
+)]
+fn doctor_lists_enabled_builtins_and_lock_entries_with_enhancement_counts() {
+    let dir = builtin_project(None);
+    // One installed extension alongside the builtins.
+    write_lock_file(dir.path(), &[("test-ext", "1.2.3", "registry")]);
+
+    let (report, code) = doctor_json(dir.path());
+
+    // software enhances module (ports, ports_defined) and milestone
+    // (behaviors); product enhances nothing.
+    let software = extension(&report, "@specforge/software");
+    assert_eq!(software["source"], "builtin", "{report}");
+    assert_eq!(software["enhancement_count"], 2, "{report}");
+    assert!(
+        !software["version"].as_str().unwrap_or_default().is_empty(),
+        "{report}"
+    );
+    let product = extension(&report, "@specforge/product");
+    assert_eq!(product["source"], "builtin", "{report}");
+    assert_eq!(product["enhancement_count"], 0, "{report}");
+    let installed = extension(&report, "test-ext");
+    assert_eq!(installed["source"], "registry", "{report}");
+    assert_eq!(installed["version"], "1.2.3", "{report}");
+    // test-ext's binary is missing, so doctor still fails on it.
+    assert_eq!(code, 1, "{report}");
+
+    let (human, _) = doctor_human(dir.path());
+    let line = |name: &str| {
+        human
+            .lines()
+            .find(|l| l.contains(name))
+            .unwrap_or_else(|| panic!("{name} not in: {human}"))
+            .to_string()
+    };
+    assert!(
+        line("@specforge/software").contains("2 enhancement(s)"),
+        "{human}"
+    );
+    assert!(
+        line("@specforge/product").contains("0 enhancement(s)"),
+        "{human}"
+    );
+    assert!(line("test-ext").contains("1.2.3"), "{human}");
+}
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor lists all enhancements grouped by entity kind"
+)]
+fn doctor_groups_enhancements_by_target_entity_kind() {
+    let dir = builtin_project(None);
+
+    let (report, code) = doctor_json(dir.path());
+    assert_eq!(code, 0, "{report}");
+
+    let by_kind = report["enhancements"]
+        .as_object()
+        .unwrap_or_else(|| panic!("enhancements is not an object: {report}"));
+    let kinds: Vec<&String> = by_kind.keys().collect();
+    assert_eq!(kinds, ["milestone", "module"], "{report}");
+    let module = &by_kind["module"][0];
+    assert_eq!(module["extension"], "@specforge/software", "{report}");
+    assert_eq!(
+        module["fields"],
+        serde_json::json!(["ports", "ports_defined"]),
+        "{report}"
+    );
+    let milestone = &by_kind["milestone"][0];
+    assert_eq!(milestone["extension"], "@specforge/software", "{report}");
+    assert_eq!(
+        milestone["fields"],
+        serde_json::json!(["behaviors"]),
+        "{report}"
+    );
+
+    let (human, _) = doctor_human(dir.path());
+    let module_at = human.find("  module:").unwrap_or_else(|| panic!("{human}"));
+    let milestone_at = human
+        .find("  milestone:")
+        .unwrap_or_else(|| panic!("{human}"));
+    assert!(milestone_at < module_at, "kinds are sorted: {human}");
+    assert!(
+        human[module_at..].contains("@specforge/software: ports, ports_defined"),
+        "{human}"
+    );
+}
+
+// Conflicts are proven at the shared report's seam (src/doctor.rs): no
+// shipped builtin set produces an extension conflict.
+#[test]
+fn doctor_fails_on_a_shadowed_keyword_without_calling_it_a_conflict() {
+    let dir = builtin_project(Some(SHADOWING_DEFINE));
+
+    let (report, code) = doctor_json(dir.path());
+
+    assert_eq!(report["conflicts"], serde_json::json!([]), "{report}");
+    assert_eq!(report["status"], "issues_found", "{report}");
+    assert_eq!(code, 1, "{report}");
+    let (human, human_code) = doctor_human(dir.path());
+    assert_eq!(human_code, 1, "{human}");
+    assert!(human.contains("Conflicts:\n  none"), "{human}");
+}
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor detects shadowed grammar-level constructs"
+)]
+fn doctor_reports_a_keyword_shadowing_an_extension_entity_kind() {
+    let dir = builtin_project(Some(SHADOWING_DEFINE));
+
+    let (report, _) = doctor_json(dir.path());
+
+    let shadowed = report["shadowed"].as_array().unwrap();
+    assert_eq!(shadowed.len(), 1, "{report}");
+    assert_eq!(shadowed[0]["keyword"], "behavior", "{report}");
+    assert_eq!(shadowed[0]["code"], "E013", "{report}");
+    assert!(
+        shadowed[0]["suggestion"]
+            .as_str()
+            .unwrap()
+            .contains("rename"),
+        "{report}"
+    );
+
+    // A project without the clash shadows nothing.
+    let clean_dir = builtin_project(None);
+    let (clean, _) = doctor_json(clean_dir.path());
+    assert_eq!(clean["shadowed"], serde_json::json!([]), "{clean}");
+
+    let (human, _) = doctor_human(dir.path());
+    let section = human
+        .find("Shadowed constructs")
+        .unwrap_or_else(|| panic!("{human}"));
+    assert!(human[section..].contains("'behavior'"), "{human}");
+}
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor --json produces valid JSON output"
+)]
+fn doctor_json_carries_every_report_section() {
+    let dir = builtin_project(Some(SHADOWING_DEFINE));
+
+    let (report, _) = doctor_json(dir.path());
+
+    for key in ["extensions", "conflicts", "shadowed", "findings", "issues"] {
+        assert!(report[key].is_array(), "{key} is not an array: {report}");
+    }
+    assert!(report["enhancements"].is_object(), "{report}");
+    assert!(report["cache_status"].is_string(), "{report}");
+    assert!(report["status"].is_string(), "{report}");
+    let findings = report["findings"].as_array().unwrap();
+    assert!(findings.iter().any(|f| f["code"] == "E013"), "{report}");
+    for finding in findings {
+        for field in ["check", "status", "code", "remediation"] {
+            assert!(finding[field].is_string(), "{field} missing: {finding}");
+        }
+    }
+}
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
+)]
+fn doctor_contract() {
+    // Requires: builtins registered (their enhancements reach the report),
+    // and the filesystem holds the lock file and an installed binary.
+    let dir = builtin_project(None);
+    let ext_dir = dir
+        .path()
+        .join(".specforge")
+        .join("extensions")
+        .join("ok-ext");
+    fs::create_dir_all(&ext_dir).unwrap();
+    fs::write(ext_dir.join("extension.wasm"), b"good wasm").unwrap();
+    let lock = serde_json::json!({
+        "lockfile_version": 1,
+        "entries": [{
+            "name": "ok-ext",
+            "version": "1.0.0",
+            "source": "registry",
+            "wasm_hash": specforge_wasm::hex_sha256(b"good wasm"),
+        }],
+    });
+    fs::write(
+        dir.path().join("specforge.lock"),
+        serde_json::to_string_pretty(&lock).unwrap(),
+    )
+    .unwrap();
+
+    let (report, code) = doctor_json(dir.path());
+
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(
+        extension(&report, "@specforge/software")["enhancement_count"],
+        2,
+        "requires: enhancement_registered_fired: {report}"
+    );
+    assert_eq!(
+        report["extensions_checked"], 1,
+        "requires: filesystem_available (the lock entry is checked on disk): {report}"
+    );
+    assert_eq!(
+        report["status"], "healthy",
+        "ensures: doctor_check_completed_emitted: {report}"
+    );
+    assert!(
+        report["issues"].as_array().unwrap().is_empty(),
+        "ensures: report_produced — the binary matches its lock hash: {report}"
+    );
+    assert_eq!(
+        report["cache_status"], "ok",
+        "ensures: json_output_supported: {report}"
+    );
+
+    let (human, human_code) = doctor_human(dir.path());
+    assert_eq!(human_code, 0, "{human}");
+    for section in [
+        "Extensions",
+        "Enhancements",
+        "Conflicts",
+        "Shadowed constructs",
+    ] {
+        assert!(
+            human.contains(section),
+            "ensures: report_produced ({section}): {human}"
+        );
+    }
 }
 
 // ===============================================================

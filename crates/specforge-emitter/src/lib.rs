@@ -7,6 +7,7 @@ pub mod compile;
 mod context;
 mod convention;
 mod diagnostic_fmt;
+pub mod doctor;
 mod dot;
 mod emit;
 mod error;

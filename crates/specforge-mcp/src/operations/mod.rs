@@ -12,10 +12,8 @@ use specforge_registry::{
     resolve_version, verify_registry_integrity,
 };
 use specforge_wasm::{
-    install_extension, install_from_local, read_lock_file, run_doctor_check, uninstall_extension,
-    write_lock_file,
+    install_extension, install_from_local, read_lock_file, uninstall_extension, write_lock_file,
 };
-use std::process::Command as Z3Command;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
@@ -921,126 +919,24 @@ fn doctor_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespon
     let Some(root) = &state.project_root else {
         return err_invalid(id, "doctor needs a project root");
     };
-    let lock_path = root.join("specforge.lock");
-    let extensions_dir = root.join(".specforge").join("extensions");
-
-    let lock = read_lock_file(&lock_path).ok();
-    let installed_versions: std::collections::HashMap<String, String> = lock
-        .as_ref()
-        .map(|l| {
-            l.entries
-                .iter()
-                .map(|e| (e.name.clone(), e.version.clone()))
-                .collect()
-        })
-        .unwrap_or_default();
-
-    let compute_hash = |wasm_path: &Path| -> Option<String> {
-        let bytes = std::fs::read(wasm_path).ok()?;
-        Some(specforge_wasm::hex_sha256(&bytes))
-    };
-
-    let results = lock
-        .as_ref()
-        .map(|l| run_doctor_check(l, &extensions_dir, compute_hash, &installed_versions))
-        .unwrap_or_default();
-
-    let extensions_ok = results
+    // The same report `specforge doctor` prints, over the server's compile.
+    let report = specforge_emitter::doctor::diagnose(root, &state.manifests, &state.diagnostics);
+    let conflicts: Vec<&str> = report
+        .conflicts
         .iter()
-        .all(|r| matches!(r, specforge_wasm::DoctorStatus::Healthy));
-    let cache_ok = !results.iter().any(|r| {
-        matches!(
-            r,
-            specforge_wasm::DoctorStatus::MissingBinary { .. }
-                | specforge_wasm::DoctorStatus::StaleHash { .. }
-        )
-    });
-
-    let finding = |check: String, status: &str, code: &str, remediation: String| json!({"check": check, "status": status, "code": code, "remediation": remediation});
-    let reinstall = |name: &str| match installed_versions.get(name) {
-        Some(version) => format!("run `specforge add {name}@{version}` to reinstall it"),
-        None => format!("run `specforge add {name}` to reinstall it"),
-    };
-    let mut findings = Vec::new();
-    for r in &results {
-        use specforge_wasm::DoctorStatus;
-        match r {
-            DoctorStatus::Healthy => {}
-            DoctorStatus::MissingBinary { name } => findings.push(finding(
-                format!("extension {name}"),
-                "error",
-                "missing_binary",
-                reinstall(name),
-            )),
-            DoctorStatus::StaleHash {
-                name,
-                expected,
-                actual,
-            } => findings.push(finding(
-                format!("extension {name}: lock expects {expected}, found {actual}"),
-                "error",
-                "stale_hash",
-                reinstall(name),
-            )),
-            DoctorStatus::PeerMismatch {
-                name,
-                peer,
-                required,
-            } => findings.push(finding(
-                format!("extension {name}: requires peer {peer} at {required}"),
-                "error",
-                "peer_mismatch",
-                format!("run `specforge add {peer}@{required}`"),
-            )),
-        }
-    }
-
-    // Extension conflicts the compile reported.
-    const CONFLICT_CODES: [&str; 6] = ["E017", "E018", "E026", "E029", "E057", "W018"];
-    let mut conflicts = Vec::new();
-    for diag in &state.diagnostics {
-        if CONFLICT_CODES.contains(&diag.code.as_str()) {
-            conflicts.push(diag.message.clone());
-            findings.push(finding(
-                diag.message.clone(),
-                if diag.severity == specforge_common::Severity::Error {
-                    "error"
-                } else {
-                    "warn"
-                },
-                &diag.code,
-                format!(
-                    "uninstall or reconfigure one of the conflicting extensions \
-                     (`specforge explain {}`)",
-                    diag.code
-                ),
-            ));
-        }
-    }
-
-    // SMT solver availability — analyze --prove degrades without it.
-    let z3_ok = Z3Command::new("z3")
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false);
-    if !z3_ok {
-        findings.push(finding(
-            "z3 on PATH".into(),
-            "warn",
-            "z3_missing",
-            "install z3; without it `specforge analyze --prove` skips SMT checks (W098)".into(),
-        ));
-    }
-
+        .map(|c| c.message.as_str())
+        .collect();
     ok(
         id,
         json!({
-            "extensions_ok": extensions_ok,
+            "extensions_ok": report.issues.is_empty(),
             "conflicts": conflicts,
-            "cache_status": if cache_ok { "ok" } else { "stale" },
-            "findings": findings,
-            "installed_count": installed_versions.len(),
+            "cache_status": report.cache_status,
+            "findings": report.findings,
+            "installed_count": report.extensions_checked,
+            "extensions": report.extensions,
+            "enhancements": report.enhancements,
+            "shadowed": report.shadowed,
         }),
     )
 }
