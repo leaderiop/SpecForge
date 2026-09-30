@@ -448,6 +448,61 @@ fn mcp_tool_trace_includes_gaps() {
     );
 }
 
+// The MCP trace flags the same missing links as `specforge trace`: pay has
+// its feature, but none of the edges the software extension declares for
+// behaviors toward ports, events or types.
+#[specforge_test(
+    behavior = "provide_mcp_trace_tool",
+    verify = "missing links flagged in trace output"
+)]
+fn mcp_tool_trace_flags_missing_links() {
+    let dir = setup_project_with_config(
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/product"]}"#,
+        &[(
+            "main.spec",
+            r#"
+feature checkout "Checkout" {
+    problem "Buyers need to pay"
+    solution "A payment step"
+}
+
+behavior pay "Pay" {
+    contract "The system MUST take payment once"
+    features [checkout]
+}
+"#,
+        )],
+    );
+    let responses = mcp_session_in(
+        &dir,
+        &[mcp_request(
+            1,
+            "tools/call",
+            serde_json::json!({
+                "name": "specforge.trace",
+                "arguments": { "entity_id": "pay" }
+            }),
+        )],
+    );
+    let resp = find_response(&responses, 1).expect("should get response for id 1");
+    let content = parse_tool_content(resp);
+    let labels: Vec<&str> = content["missing"]
+        .as_array()
+        .unwrap_or_else(|| panic!("trace has no missing array: {content}"))
+        .iter()
+        .inspect(|m| {
+            assert_eq!(m["from"], "pay");
+            assert_eq!(m["status"], "missing");
+        })
+        .map(|m| m["edge_label"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        labels,
+        ["consumes", "invariants", "ports", "produces", "types"],
+        "{content}"
+    );
+}
+
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "specforge.export tool returns graph in requested format"

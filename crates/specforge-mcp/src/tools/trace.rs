@@ -18,7 +18,13 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         }
     };
 
-    match specforge_emitter::trace(&state.graph, entity_id) {
+    // The same expectations `specforge trace` uses, so both flag the same
+    // missing links.
+    let expectations = specforge_emitter::TraceExpectations::from_registries(
+        &state.field_registry,
+        &state.kind_registry,
+    );
+    match specforge_emitter::trace_with_expectations(&state.graph, entity_id, &expectations) {
         Ok(chain) => {
             let mut trace_val: serde_json::Value = match specforge_emitter::serialize_trace(&chain)
             {
