@@ -1,6 +1,6 @@
 use serde::Serialize;
 use serde_json::Value;
-use specforge_graph::{FieldValue, Graph};
+use specforge_graph::Graph;
 use std::collections::{HashMap, HashSet};
 
 use crate::json::SCHEMA_VERSION;
@@ -90,10 +90,7 @@ pub fn validate_plan(graph: &Graph, plan: &Value, testable_kinds: &[&str]) -> Pl
         if !testable_set.contains(node.kind.raw.as_str()) {
             continue;
         }
-        let has_verify = matches!(
-            node.fields.get("verify"),
-            Some(FieldValue::VerifyList(stmts)) if !stmts.is_empty()
-        );
+        let has_verify = !crate::coverage::obligations(node).is_empty();
         if has_verify && !plan_id_set.contains(node.id.raw.as_str()) {
             let message = format!(
                 "testable entity '{}' ({}) is not covered by the plan",

@@ -9,11 +9,8 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
 
     // Coverage is over the kinds the extensions declare testable; with no
     // testable kind named, it could only ever be 0.
-    let testable_kinds: Vec<&str> = ctx
-        .kind_registry
-        .iter()
-        .filter(|(_, kind)| kind.testable)
-        .map(|(name, _)| name.as_str())
+    let testable_kinds: Vec<&str> = specforge_emitter::coverage::testable_kinds(&ctx.kind_registry)
+        .into_iter()
         .collect();
     let stats = compute_stats_with_diagnostics(&ctx.graph, &testable_kinds, &ctx.diagnostics);
 

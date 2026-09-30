@@ -16,6 +16,7 @@ mod outline;
 mod plan;
 mod query;
 mod registry_fields;
+mod registry_order;
 mod scanner_dispatch;
 mod schema;
 mod scope;

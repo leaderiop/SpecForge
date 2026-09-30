@@ -20,6 +20,7 @@ members = [
     "crates/specforge-lsp",
     "crates/specforge-mcp",
     "crates/specforge-migrate",
+    "crates/specforge-ops",
     "crates/specforge-cli",
     "crates/specforge-registry-server",
     "xtask",
@@ -39,6 +40,7 @@ specforge-parser = { path = "crates/specforge-parser" }
 specforge-registry = { path = "crates/specforge-registry" }
 specforge-mcp = { path = "crates/specforge-mcp" }
 specforge-migrate = { path = "crates/specforge-migrate" }
+specforge-ops = { path = "crates/specforge-ops" }
 specforge-wasm = { path = "crates/specforge-wasm" }
 specforge-component = { path = "crates/specforge-component" }
 tree-sitter-specforge = { path = "crates/tree-sitter-specforge" }

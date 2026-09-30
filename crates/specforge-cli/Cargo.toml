@@ -34,14 +34,19 @@ specforge-validator = { path = "../specforge-validator" }
 specforge-wasm = { workspace = true }
 specforge-component = { workspace = true }
 specforge-mcp = { workspace = true }
+specforge-ops = { workspace = true }
 specforge-registry = { workspace = true }
 semver = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
 predicates = { workspace = true }
+insta = { workspace = true }
 tempfile = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 specforge-migrate = { workspace = true }
 specforge-component = { path = "../specforge-component" }
+specforge-lsp = { path = "../specforge-lsp" }
+tokio = { workspace = true }
+tower-lsp = { workspace = true }

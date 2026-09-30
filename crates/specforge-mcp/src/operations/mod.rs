@@ -8,8 +8,7 @@ use std::path::{Path, PathBuf};
 
 use specforge_common::find_project_root;
 use specforge_registry::{
-    HttpRegistryClient, RegistryConfig, parse_registries_from_config, resolve_from_registry,
-    resolve_version, verify_registry_integrity,
+    HttpRegistryClient, resolve_from_registry, resolve_version, verify_registry_integrity,
 };
 use specforge_wasm::{
     install_extension, install_from_local, read_lock_file, uninstall_extension, write_lock_file,
@@ -79,90 +78,30 @@ fn ok(id: Option<Value>, result: Value) -> JsonRpcResponse {
     )
 }
 
-fn registries_for(config_path: &Path) -> Vec<RegistryConfig> {
-    if !config_path.exists() {
-        return vec![RegistryConfig {
-            alias: "default".to_string(),
-            url: "https://registry.specforge.dev/v1".to_string(),
-            scope_filter: None,
-            default_registry: true,
-        }];
-    }
-    match std::fs::read_to_string(config_path) {
-        Ok(content) => {
-            let (registries, _) = parse_registries_from_config(&content);
-            if registries.is_empty() {
-                vec![RegistryConfig {
-                    alias: "default".to_string(),
-                    url: "https://registry.specforge.dev/v1".to_string(),
-                    scope_filter: None,
-                    default_registry: true,
-                }]
-            } else {
-                registries
-            }
-        }
-        Err(_) => vec![RegistryConfig {
-            alias: "default".to_string(),
-            url: "https://registry.specforge.dev/v1".to_string(),
-            scope_filter: None,
-            default_registry: true,
-        }],
-    }
+/// An operation's failure as an invalid-params error whose `data` carries
+/// the diagnostic code and its suggestion.
+fn err_op(id: Option<Value>, error: specforge_ops::OpError) -> JsonRpcResponse {
+    JsonRpcResponse::error_with_data(
+        id,
+        error_codes::INVALID_PARAMS,
+        error.message.clone(),
+        json!({
+            "code": error.code,
+            "diagnostic": {
+                "severity": "error",
+                "message": error.message,
+                "suggestion": error.suggestion,
+            },
+        }),
+    )
 }
 
-/// Append `name@version` to specforge.json's extensions list (idempotent).
-fn update_config_extensions(config_path: &Path, name: &str, version: &str) {
-    let Ok(content) = std::fs::read_to_string(config_path) else {
-        return;
-    };
-    let Ok(mut json) = serde_json::from_str::<Value>(&content) else {
-        return;
-    };
-    let Some(exts) = json.as_object_mut().and_then(|obj| {
-        obj.entry("extensions")
-            .or_insert_with(|| json!([]))
-            .as_array_mut()
-    }) else {
-        return;
-    };
-    let entry = format!("{name}@{version}");
-    if !exts
-        .iter()
-        .any(|e| e.as_str().is_some_and(|s| s.starts_with(name)))
-    {
-        exts.push(json!(entry));
-    }
-    if let Ok(pretty) = serde_json::to_string_pretty(&json) {
-        let _ = std::fs::write(config_path, pretty);
-    }
-}
-
-/// Drop `name` (bare or `name@version`) from specforge.json's extensions list.
-fn remove_config_extension(config_path: &Path, name: &str) {
-    let Ok(content) = std::fs::read_to_string(config_path) else {
-        return;
-    };
-    let Ok(mut json) = serde_json::from_str::<Value>(&content) else {
-        return;
-    };
-    let Some(exts) = json.get_mut("extensions").and_then(|e| e.as_array_mut()) else {
-        return;
-    };
-    let before = exts.len();
-    exts.retain(|e| {
-        e.as_str().is_none_or(|entry| {
-            entry != name
-                && entry
-                    .strip_prefix(name)
-                    .is_none_or(|rest| !rest.starts_with('@'))
-        })
-    });
-    if exts.len() != before
-        && let Ok(pretty) = serde_json::to_string_pretty(&json)
-    {
-        let _ = std::fs::write(config_path, pretty);
-    }
+/// Enable `name@version` in the project's specforge.json (idempotent: an
+/// entry naming exactly `name` already there is left alone). A config the
+/// writer can't edit is left as it is, as before: the install itself
+/// succeeded.
+fn enable_in_config(root: &Path, name: &str, version: &str) {
+    let _ = specforge_ops::config::add_extension(root, name, &format!("{name}@{version}"));
 }
 
 // ── format ──────────────────────────────────────────────────────────────────
@@ -483,8 +422,8 @@ fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcRespo
     if let Err(e) = std::fs::create_dir_all(path.join("spec")) {
         return err_invalid(id, format!("cannot create project: {e}"));
     }
-    if let Err(e) = std::fs::write(path.join("specforge.json"), config.to_string()) {
-        return err_invalid(id, format!("cannot write specforge.json: {e}"));
+    if let Err(e) = specforge_ops::config::write(&path, &config) {
+        return err_invalid(id, format!("cannot write specforge.json: {}", e.message));
     }
     let starter = format!("spec \"{name}\" {{\n  version \"{version}\"\n}}\n");
     if let Err(e) = std::fs::write(path.join("spec").join("specforge.spec"), starter) {
@@ -528,7 +467,6 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
         return err_invalid(id, "add needs a project root (pass {\"path\": ...})");
     };
 
-    let config_path = root.join("specforge.json");
     let extensions_dir = root.join(".specforge").join("extensions");
     let lock_path = root.join("specforge.lock");
 
@@ -562,7 +500,7 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
                 if let Err(diag) = write_lock_file(&lock, &lock_path) {
                     return err_invalid(id, diag.message);
                 }
-                update_config_extensions(&config_path, &result.name, &result.version);
+                enable_in_config(&root, &result.name, &result.version);
                 ok(
                     id,
                     json!({
@@ -596,7 +534,11 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
         _ => (specifier.clone(), "latest".to_string()),
     };
 
-    let registries = registries_for(&config_path);
+    // No registry configured: fail before any network call (ADR 0004 N1).
+    let registries = match specforge_ops::registry::configured(&root, "add_extension") {
+        Ok(registries) => registries,
+        Err(error) => return err_op(id, error),
+    };
     let client = HttpRegistryClient::new();
 
     let resolved_version = if version == "latest"
@@ -678,7 +620,7 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
             if let Err(diag) = write_lock_file(&lock, &lock_path) {
                 return err_invalid(id, diag.message);
             }
-            update_config_extensions(&config_path, &result.name, &result.version);
+            enable_in_config(&root, &result.name, &result.version);
             ok(
                 id,
                 json!({
@@ -768,7 +710,7 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Json
             if let Err(diag) = write_lock_file(&lock, &lock_path) {
                 return err_invalid(id, diag.message);
             }
-            remove_config_extension(&root.join("specforge.json"), &name);
+            let _ = specforge_ops::config::remove_extension(&root, &name);
             ok(
                 id,
                 json!({
@@ -820,11 +762,28 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespon
         .get("no_backup")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    // The format version to migrate to, checked as `specforge migrate
+    // --target-version` checks it.
+    let target = match args.get("target_version").and_then(|v| v.as_str()) {
+        None => specforge_migrate::CURRENT_FORMAT_VERSION,
+        Some(v) => match v.parse::<specforge_migrate::FormatVersion>() {
+            Ok(version) if version > specforge_migrate::MAX_SUPPORTED_VERSION => {
+                return err_invalid(
+                    id,
+                    format!(
+                        "E019: unsupported target version {version} (max supported: {})",
+                        specforge_migrate::MAX_SUPPORTED_VERSION
+                    ),
+                );
+            }
+            Ok(version) => version,
+            Err(e) => return err_invalid(id, format!("E019: invalid target version '{v}': {e}")),
+        },
+    };
 
     if !path.join("specforge.json").is_file() {
         return err_invalid(id, "no specforge.json found in the project root");
     }
-    let target = specforge_migrate::CURRENT_FORMAT_VERSION;
     // The format version lives in each spec file's header, so the spec
     // files say whether a migration is pending: preview first.
     let preview = specforge_migrate::migrate_project(&path, &target, true, true);
@@ -1035,7 +994,6 @@ fn collect_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespon
     };
     let runner = args
         .get("runner")
-        .or_else(|| args.get("collector"))
         .and_then(|v| v.as_str())
         .filter(|r| *r != "auto");
     let run = args.get("run").and_then(|v| v.as_bool()).unwrap_or(false);

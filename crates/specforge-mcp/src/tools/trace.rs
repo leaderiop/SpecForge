@@ -115,11 +115,8 @@ pub(crate) fn analyze_plan(state: &McpState, plan: &Value) -> Result<PlanAnalysi
         }
     }
 
-    let testable: Vec<&str> = state
-        .kind_registry
-        .iter()
-        .filter(|(_, entry)| entry.testable)
-        .map(|(kind, _)| kind.as_str())
+    let testable: Vec<&str> = specforge_emitter::coverage::testable_kinds(&state.kind_registry)
+        .into_iter()
         .collect();
     let result = specforge_emitter::validate_plan(&state.graph, plan, &testable);
     let gaps = result

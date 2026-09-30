@@ -136,6 +136,27 @@ impl OutputFormat {
             OutputFormat::Json => "json",
         }
     }
+
+    /// Report an operation's failure: `{"error", "code", "suggestion"}` on
+    /// stdout as JSON, or `error[CODE]: …` and a hint on stderr.
+    fn print_op_error(self, error: &specforge_ops::OpError) {
+        match self {
+            OutputFormat::Json => {
+                let output = serde_json::json!({
+                    "error": error.message,
+                    "code": error.code,
+                    "suggestion": error.suggestion,
+                });
+                println!("{}", serde_json::to_string_pretty(&output).unwrap());
+            }
+            OutputFormat::Human => {
+                eprintln!("error[{}]: {}", error.code, error.message);
+                if let Some(suggestion) = &error.suggestion {
+                    eprintln!("  hint: {suggestion}");
+                }
+            }
+        }
+    }
 }
 
 #[derive(Subcommand)]

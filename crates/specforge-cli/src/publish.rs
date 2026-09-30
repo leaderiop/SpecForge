@@ -5,8 +5,7 @@ use specforge_registry::{
     AuthMethod, CredentialStore, HttpRegistryClient, ManifestV2, RegistryConfig,
     RegistryCredential,
     client::credentials::{credentials_path, read_credentials},
-    find_registry_for_specifier, load_or_create_signing_key, parse_registries_from_config,
-    publish_to_registry,
+    find_registry_for_specifier, load_or_create_signing_key, publish_to_registry,
 };
 use std::path::Path;
 
@@ -72,9 +71,14 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
         }
     };
 
-    // Load registry config
-    let project_config_path = path.join("specforge.json");
-    let registries = load_registries(&project_config_path);
+    // No registry configured: fail before any network call (ADR 0004 N1).
+    let registries = match specforge_ops::registry::configured(path, "publish") {
+        Ok(registries) => registries,
+        Err(error) => {
+            format.print_op_error(&error);
+            return 1;
+        }
+    };
 
     let registry = match find_registry_for_specifier(&manifest.name, &registries) {
         Some(r) => r,
@@ -148,33 +152,6 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
             print_error(format, &diag.message, &diag.code);
             1
         }
-    }
-}
-
-fn load_registries(config_path: &Path) -> Vec<RegistryConfig> {
-    if !config_path.exists() {
-        return vec![default_registry()];
-    }
-
-    let content = match std::fs::read_to_string(config_path) {
-        Ok(c) => c,
-        Err(_) => return vec![default_registry()],
-    };
-
-    let (registries, _) = parse_registries_from_config(&content);
-    if registries.is_empty() {
-        vec![default_registry()]
-    } else {
-        registries
-    }
-}
-
-fn default_registry() -> RegistryConfig {
-    RegistryConfig {
-        alias: "default".to_string(),
-        url: "https://registry.specforge.dev/v1".to_string(),
-        scope_filter: None,
-        default_registry: true,
     }
 }
 

@@ -1,9 +1,9 @@
 use crate::OutputFormat;
 use serde_json::json;
 use specforge_registry::{
-    AuthMethod, HttpRegistryClient, RegistryConfig, RegistryCredential,
+    AuthMethod, HttpRegistryClient, RegistryCredential,
     client::credentials::{credentials_path, read_credentials, write_credentials},
-    parse_registries_from_config, validate_credentials,
+    validate_credentials,
 };
 use std::path::Path;
 
@@ -27,15 +27,32 @@ pub fn run(
         }
     };
 
-    // Load registries to validate the token against the right endpoint
-    let config_path = path.join("specforge.json");
-    let registries = load_registries(&config_path);
-    let registry = registries
+    // The token is validated against a configured registry; with none,
+    // fail before any network call (ADR 0004 N1).
+    let registries = match specforge_ops::registry::configured(path, "login") {
+        Ok(registries) => registries,
+        Err(error) => {
+            format.print_op_error(&error);
+            return 1;
+        }
+    };
+    let Some(registry) = registries
         .iter()
         .find(|r| r.alias == alias)
         .or_else(|| registries.iter().find(|r| r.default_registry))
         .cloned()
-        .unwrap_or_else(default_registry);
+    else {
+        let error = specforge_ops::OpError::new(
+            specforge_ops::registry::NO_REGISTRY,
+            format!("no registry '{alias}' configured, and none is the default"),
+        )
+        .with_suggestion(
+            "pass --registry <alias> naming an entry of specforge.json's \"registries\", \
+             or set \"default_registry\": true on one",
+        );
+        format.print_op_error(&error);
+        return 1;
+    };
 
     // Validate token
     let credential = RegistryCredential {
@@ -125,33 +142,6 @@ pub fn run_logout(registry_alias: Option<&str>, format: OutputFormat) -> i32 {
     }
 
     0
-}
-
-fn load_registries(config_path: &Path) -> Vec<RegistryConfig> {
-    if !config_path.exists() {
-        return vec![default_registry()];
-    }
-
-    let content = match std::fs::read_to_string(config_path) {
-        Ok(c) => c,
-        Err(_) => return vec![default_registry()],
-    };
-
-    let (registries, _) = parse_registries_from_config(&content);
-    if registries.is_empty() {
-        vec![default_registry()]
-    } else {
-        registries
-    }
-}
-
-fn default_registry() -> RegistryConfig {
-    RegistryConfig {
-        alias: "default".to_string(),
-        url: "https://registry.specforge.dev/v1".to_string(),
-        scope_filter: None,
-        default_registry: true,
-    }
 }
 
 fn print_error(format: OutputFormat, message: &str, code: &str) {

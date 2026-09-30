@@ -51,8 +51,14 @@ fn main() {
         let result = parse(&source, path.to_str().unwrap_or("unknown.spec"));
 
         for entity in &result.entities {
-            let verify = match entity.fields.get("verify") {
-                Some(FieldValue::VerifyList(stmts)) => stmts
+            // The entity's verify statements wherever they sit: a type's
+            // struct member named `verify` must not hide them.
+            let statements = entity.fields.entries().iter().find_map(|e| match &e.value {
+                FieldValue::VerifyList(stmts) => Some(stmts),
+                _ => None,
+            });
+            let verify = match statements {
+                Some(stmts) => stmts
                     .iter()
                     .map(|v| ExportedVerify {
                         kind: v.kind.clone(),

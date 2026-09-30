@@ -2,40 +2,126 @@
 //! read by the handler, and every parameter a handler reads must be
 //! advertised. Drift between `default_tools()` inputSchemas and the handlers
 //! in `tools/` + `operations/` is how agents end up calling hidden params or
-//! sending ignored ones — this test fails on either direction.
+//! sending ignored ones; this test fails on either direction.
+//!
+//! A `serde_json::Value` has no hook that records which keys a handler
+//! reads, so the reads come from the handler's source: every
+//! `args.get("key")` (or `arguments.get`, or `args["key"]`) in
+//! `tools/<tool>.rs`, or in the body of `fn <tool>_op` in
+//! `operations/mod.rs`, plus `path` for a call to `project_root_of`. Typed
+//! argument structs (plan 04 T4) replace this with a serde field tracer.
 
-use serde_json::Value;
-use serde_json::json;
+use specforge_test::prelude::*;
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 
-/// Records which top-level argument keys a handler touches.
-#[derive(Default)]
-struct ArgSpy {
-    inner: Value,
-    touched: std::sync::Mutex<std::collections::BTreeSet<String>>,
+fn crate_file(rel: &str) -> Option<String> {
+    std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src").join(rel)).ok()
 }
 
-impl ArgSpy {
-    fn new(args: Value) -> Self {
-        Self {
-            inner: args,
-            touched: std::sync::Mutex::new(Default::default()),
+/// The source of the handler for `tool`: its own module under `tools/`, or
+/// its `fn <short>_op` in `operations/mod.rs` up to the next function.
+fn handler_source(tool: &str) -> Option<String> {
+    let short = tool.strip_prefix("specforge.")?;
+    if let Some(source) = crate_file(&format!("tools/{short}.rs")) {
+        return Some(source);
+    }
+    let ops = crate_file("operations/mod.rs")?;
+    let start = ops.find(&format!("\nfn {short}_op("))? + 1;
+    let body = &ops[start..];
+    let end = ["\nfn ", "\npub fn ", "\npub(crate) fn "]
+        .iter()
+        .filter_map(|item| body[1..].find(item))
+        .min()
+        .map_or(body.len(), |i| i + 1);
+    Some(body[..end].to_string())
+}
+
+/// The argument keys a handler's source reads. A read through a computed
+/// key cannot be checked, so it is an error.
+fn handler_reads(source: &str) -> Result<BTreeSet<String>, String> {
+    // Join method chains split across lines (`args\n    .get(`); any other
+    // whitespace run becomes one space, so words stay apart.
+    let mut compact = String::new();
+    let mut chars = source.chars().peekable();
+    while let Some(c) = chars.next() {
+        if !c.is_whitespace() {
+            compact.push(c);
+            continue;
+        }
+        while chars.next_if(|c| c.is_whitespace()).is_some() {}
+        if chars.peek() != Some(&'.') && !compact.ends_with('.') {
+            compact.push(' ');
         }
     }
-
-    /// Read a top-level key the way handlers do, recording the access.
-    fn get(&self, key: &str) -> Option<&Value> {
-        self.touched.lock().unwrap().insert(key.to_string());
-        self.inner.get(key)
+    let mut reads = BTreeSet::new();
+    if compact.contains("project_root_of(state, &args)") {
+        reads.insert("path".to_string());
     }
-
-    fn touched_keys(&self) -> std::collections::BTreeSet<String> {
-        self.touched.lock().unwrap().clone()
+    for receiver in ["args", "arguments"] {
+        for access in [".get(", "["] {
+            let pattern = format!("{receiver}{access}");
+            for (at, _) in compact.match_indices(&pattern) {
+                let bounded = compact[..at]
+                    .chars()
+                    .next_back()
+                    .is_none_or(|c| !(c.is_alphanumeric() || c == '_' || c == '.'));
+                if !bounded {
+                    continue;
+                }
+                let rest = &compact[at + pattern.len()..];
+                let Some(literal) = rest.strip_prefix('"') else {
+                    let shown: String = rest.chars().take(30).collect();
+                    return Err(format!("reads a computed key: {pattern}{shown}"));
+                };
+                reads.insert(literal.chars().take_while(|c| *c != '"').collect());
+            }
+        }
     }
+    Ok(reads)
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "each core tool's input schema advertises exactly the arguments its handler reads"
+)]
+fn each_core_tool_schema_advertises_exactly_what_its_handler_reads() {
+    let mut drift = Vec::new();
+    for tool in specforge_mcp::registry::default_tools() {
+        let source = handler_source(&tool.name)
+            .unwrap_or_else(|| panic!("{}: no handler source found", tool.name));
+        let read = handler_reads(&source).unwrap_or_else(|e| panic!("{}: {e}", tool.name));
+        let advertised: BTreeSet<String> = tool
+            .input_schema
+            .get("properties")
+            .and_then(|p| p.as_object())
+            .map(|o| o.keys().cloned().collect())
+            .unwrap_or_default();
+        let hidden: Vec<&String> = read.difference(&advertised).collect();
+        let ignored: Vec<&String> = advertised.difference(&read).collect();
+        if !hidden.is_empty() || !ignored.is_empty() {
+            drift.push(format!(
+                "{}: read but not advertised {hidden:?}; advertised but never read {ignored:?}",
+                tool.name
+            ));
+        }
+    }
+    assert!(drift.is_empty(), "schema drift: {drift:#?}");
+}
+
+#[test]
+fn handler_reads_sees_literal_reads_across_lines() {
+    let source = "let a = args\n    .get(\"depth\");\nlet b = arguments.get(\"kind\");\n\
+                  let c = node.fields.get(\"verify\");\nlet d = project_root_of(state, &args);";
+    let reads = handler_reads(source).unwrap();
+    let expected: BTreeSet<String> = ["depth", "kind", "path"].map(String::from).into();
+    assert_eq!(reads, expected);
+    assert!(handler_reads("args.get(key)").is_err());
 }
 
 /// Advertised property names per tool, extracted from `default_tools()`.
-fn advertised_properties() -> std::collections::BTreeMap<String, Vec<String>> {
-    let mut out = std::collections::BTreeMap::new();
+fn advertised_properties() -> BTreeMap<String, Vec<String>> {
+    let mut out = BTreeMap::new();
     for tool in specforge_mcp::registry::default_tools() {
         let props = tool
             .input_schema
@@ -46,67 +132,6 @@ fn advertised_properties() -> std::collections::BTreeMap<String, Vec<String>> {
         out.insert(tool.name, props);
     }
     out
-}
-
-/// Every top-level key the handlers read, discovered by replaying a probe
-/// argument object through the spy against the real dispatch table.
-///
-/// The probe contains every parameter name any tool documents (plus the
-/// known legacy-hidden ones); a handler that reads outside its advertised
-/// set will touch a key the schema does not list.
-fn handler_read_keys(tool_name: &str, dispatch: impl Fn(&ArgSpy) -> Value) -> Vec<String> {
-    let probe: Value = [
-        ("entity_id", "@specforge/product"),
-        ("depth", "0"),
-        ("format", "graph"),
-        ("include_coverage", "false"),
-        ("path", "/nonexistent-probe-root"),
-        ("severity_filter", "info"),
-        ("use_cached", "true"),
-        ("pass", "coverage"),
-        ("strict", "false"),
-        ("test_results", ""),
-        ("scope", ""),
-        ("max_tokens", "1"),
-        ("plan", "{}"),
-        ("query", ""),
-        ("limit", "1"),
-        ("field", ""),
-        ("value", ""),
-        ("references", ""),
-        ("kind", ""),
-        ("group_by", ""),
-        ("fields", "[]"),
-        ("extension", ""),
-        ("root", ""),
-        ("file", ""),
-        ("new_name", ""),
-        ("specifier", ""),
-        ("name", ""),
-        ("force", "false"),
-        ("check", "false"),
-        ("write", "false"),
-        ("from_version", ""),
-        ("to_version", ""),
-        ("collector", ""),
-        ("action", "status"),
-        ("agent", ""),
-        ("source_roots", "[]"),
-        ("source_file", ""),
-        ("entities_produced", "[]"),
-        ("session_id", ""),
-        ("status", ""),
-        ("file_path", ""),
-        ("paths", "[]"),
-    ]
-    .iter()
-    .map(|(k, v)| (k.to_string(), Value::String(v.to_string())))
-    .collect::<serde_json::Map<String, Value>>()
-    .into();
-    let spy = ArgSpy::new(probe);
-    let _ = dispatch(&spy);
-    let _ = tool_name;
-    spy.touched_keys().into_iter().collect()
 }
 
 #[test]
@@ -188,20 +213,4 @@ fn search_advertises_field_value_references() {
             "specforge.search reads '{expected}' (search.rs) but does not advertise it"
         );
     }
-}
-
-#[test]
-fn spy_sees_accessed_keys() {
-    // The mechanism itself works: a handler touching "depth" through the spy
-    // is recorded.
-    let spy = ArgSpy::new(json!({"depth": 2}));
-    let _ = spy.get("depth");
-    let _ = spy.get("entity_id");
-    let touched = spy.touched_keys();
-    assert!(touched.contains("depth") && touched.contains("entity_id"));
-    assert_eq!(touched.len(), 2);
-    let _ = handler_read_keys("probe", |spy| {
-        let _ = spy.get("depth");
-        json!({})
-    });
 }

@@ -601,7 +601,7 @@ pub(crate) fn emit_context_attached(
                 specforge_graph::FieldValue::String(s) => Some(s.clone()),
                 _ => None,
             });
-            let verify = n.fields.get("verify").map(crate::json::field_value_to_json);
+            let verify = crate::coverage::obligations_json(n);
 
             ContextNodeV2 {
                 id: n.id.raw.to_string(),

@@ -31,21 +31,14 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         _ => None,
     });
 
-    let has_verify = matches!(
-        node.fields.get("verify"),
-        Some(FieldValue::VerifyList(stmts)) if !stmts.is_empty()
-    );
-
-    let verify_declarations: Option<Vec<String>> =
-        node.fields.get("verify").and_then(|v| match v {
-            FieldValue::VerifyList(stmts) => Some(
-                stmts
-                    .iter()
-                    .map(|s| format!("{} {}", s.kind, s.description))
-                    .collect(),
-            ),
-            _ => None,
-        });
+    let obligations = specforge_emitter::coverage::obligations(node);
+    let has_verify = !obligations.is_empty();
+    let verify_declarations: Option<Vec<String>> = has_verify.then(|| {
+        obligations
+            .iter()
+            .map(|s| format!("{} {}", s.kind, s.description))
+            .collect()
+    });
 
     let references: Vec<String> = state
         .graph
@@ -75,7 +68,10 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         .collect();
 
     // The same classification `specforge.coverage` reports.
-    let report = super::coverage::recorded_report(state);
+    let report = match super::coverage::recorded_report(state) {
+        Ok(report) => report,
+        Err(e) => return super::coverage::report_error_result(id, &e, "specforge.inspect"),
+    };
     let coverage_status = super::coverage::EntityCoverage::of(node, report.as_ref()).status();
 
     let result = serde_json::json!({

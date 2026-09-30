@@ -1,5 +1,4 @@
 use serde_json::Value;
-use specforge_graph::FieldValue;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
@@ -61,10 +60,13 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
     affected.dedup();
 
     // Find unverified entities in the trace
-    let unverified: Vec<String> = affected.iter()
+    let unverified: Vec<String> = affected
+        .iter()
         .filter(|eid| {
-            state.graph.node(eid)
-                .map(|n| !matches!(n.fields.get("verify"), Some(FieldValue::VerifyList(stmts)) if !stmts.is_empty()))
+            state
+                .graph
+                .node(eid)
+                .map(|n| specforge_emitter::coverage::obligations(n).is_empty())
                 .unwrap_or(true)
         })
         .cloned()

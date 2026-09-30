@@ -1,5 +1,5 @@
 use specforge_common::{Diagnostic, Severity};
-use specforge_graph::{FieldValue, Graph};
+use specforge_graph::Graph;
 use std::collections::{BTreeMap, HashSet};
 
 #[derive(Debug)]
@@ -41,10 +41,7 @@ pub fn compute_stats_with_diagnostics(
             .entry(node.kind.raw.to_string())
             .or_insert(0) += 1;
 
-        let is_verified = matches!(
-            node.fields.get("verify"),
-            Some(FieldValue::VerifyList(stmts)) if !stmts.is_empty()
-        );
+        let is_verified = !crate::coverage::obligations(node).is_empty();
 
         if is_verified {
             verified_count += 1;

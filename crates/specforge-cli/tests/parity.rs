@@ -1,0 +1,685 @@
+//! CLI↔MCP parity harness (architecture plan 03, step O0).
+//!
+//! Each scenario runs one user-level operation twice on identical fixture
+//! projects: once through the `specforge` binary, once through an in-process
+//! MCP server. It then compares what the operation *did*, not the JSON it
+//! answered with (the spec gives each surface its own result types):
+//!
+//! - `Outcome`: whether the operation succeeded;
+//! - `Files`:   every file under the project after the operation, except
+//!   `specforge.json`;
+//! - `Config`:  `specforge.json` after the operation, parsed;
+//! - `Check`:   what a fresh `specforge check` reports afterwards.
+//!
+//! Today's differences are listed in [`EXPECTED_DIVERGENCES`]. A scenario
+//! fails when an aspect differs without a row, and also when a row's aspect
+//! no longer differs: fixing a divergence means deleting its row. The
+//! surfaces' payloads, and everything above, are pinned per surface as
+//! insta snapshots (`tests/snapshots/tests__parity__*.snap`).
+
+use serde_json::{Value, json};
+use specforge_mcp::McpServer;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
+enum Aspect {
+    Outcome,
+    Files,
+    Config,
+    Check,
+}
+
+const ASPECTS: [Aspect; 4] = [
+    Aspect::Outcome,
+    Aspect::Files,
+    Aspect::Config,
+    Aspect::Check,
+];
+
+/// Where the CLI and MCP behave differently today, and why. Later steps of
+/// plan 03 delete rows; only spec-sanctioned differences should remain.
+const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
+    // init (O7): the CLI writes `.gitignore` and `spec/hello.spec` from a
+    // template; MCP writes a minimal `spec/specforge.spec`.
+    ("init", Aspect::Files, "starter file and .gitignore differ"),
+    // init (O7): the CLI's config has `$schema` and `spec_root`; MCP's has
+    // neither.
+    (
+        "init",
+        Aspect::Config,
+        "MCP config lacks $schema and spec_root",
+    ),
+    // add (O4): MCP has no builtin path; it asks the registry, which fails.
+    (
+        "add_builtin",
+        Aspect::Outcome,
+        "MCP sends builtins to the registry",
+    ),
+    (
+        "add_builtin",
+        Aspect::Config,
+        "MCP sends builtins to the registry",
+    ),
+    (
+        "add_builtin",
+        Aspect::Check,
+        "MCP never enabled the builtin",
+    ),
+    // add (O4.4, D3-b): the lock labels a local install "local" in the CLI
+    // and "0.0.0" in MCP.
+    (
+        "add_local",
+        Aspect::Files,
+        "local install labelled 0.0.0 by MCP",
+    ),
+    // add (O4.4, D3-b): MCP writes `name@0.0.0` into specforge.json; the
+    // CLI leaves the config alone.
+    (
+        "add_local",
+        Aspect::Config,
+        "MCP enables name@0.0.0 in the config",
+    ),
+    // add (O4.4): that config entry is not loadable, so check reports E028.
+    (
+        "add_local",
+        Aspect::Check,
+        "MCP's config entry fails with E028",
+    ),
+    // remove (O3): MCP looks only in the lock file, so a builtin is
+    // `extension_not_found`.
+    (
+        "remove_builtin",
+        Aspect::Outcome,
+        "MCP cannot disable a builtin",
+    ),
+    (
+        "remove_builtin",
+        Aspect::Config,
+        "MCP cannot disable a builtin",
+    ),
+    (
+        "remove_builtin",
+        Aspect::Check,
+        "MCP left the builtin enabled",
+    ),
+    // export (O2): the CLI keeps `.specforge/schema-cache.json` for the W053
+    // check; the MCP export tool (Graph Protocol 1.0, no schema) does not.
+    (
+        "export",
+        Aspect::Files,
+        "only the CLI writes the schema cache",
+    ),
+];
+
+// ── fixtures ────────────────────────────────────────────────────────────────
+
+/// The registry every fixture points at: nothing listens on port 9, so a
+/// surface that goes to the network fails at once instead of timing out.
+const CONFIG: &str = r#"{
+  "name": "demo",
+  "version": "0.1.0",
+  "spec_root": "spec",
+  "extensions": ["@specforge/software"],
+  "registries": [
+    { "alias": "offline", "url": "http://127.0.0.1:9/v1", "default_registry": true }
+  ]
+}
+"#;
+
+const MAIN_SPEC: &str =
+    "behavior alpha \"Alpha\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n";
+
+fn product_blob() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../extensions/product/wasm/specforge_ext_product.wasm")
+        .canonicalize()
+        .expect("the product blob is vendored")
+}
+
+const PRODUCT_LOCAL: &str = "specforge_ext_product";
+
+fn project(root: &Path) {
+    std::fs::create_dir_all(root.join("spec")).unwrap();
+    std::fs::write(root.join("specforge.json"), CONFIG).unwrap();
+    std::fs::write(root.join("spec/main.spec"), MAIN_SPEC).unwrap();
+}
+
+fn empty(_root: &Path) {}
+
+fn project_with_product_enabled(root: &Path) {
+    project(root);
+    let config = CONFIG.replace(
+        r#"["@specforge/software"]"#,
+        r#"["@specforge/software", "@specforge/product"]"#,
+    );
+    std::fs::write(root.join("specforge.json"), config).unwrap();
+}
+
+fn project_with_product_installed(root: &Path) {
+    project(root);
+    let out = cli()
+        .args(["add", product_blob().to_str().unwrap(), "--path"])
+        .arg(root)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "setup install failed: {out:?}");
+}
+
+fn project_unformatted(root: &Path) {
+    project(root);
+    std::fs::write(
+        root.join("spec/messy.spec"),
+        "behavior messy \"Messy\" {\ncategory \"core\"\ncontract \"The system MUST work\"\n}\n",
+    )
+    .unwrap();
+}
+
+fn project_at_old_format(root: &Path) {
+    project(root);
+    std::fs::write(
+        root.join("spec/old.spec"),
+        "// specforge-format: 0.1\nbehavior old_one \"Old\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n",
+    )
+    .unwrap();
+}
+
+// ── scenarios ───────────────────────────────────────────────────────────────
+
+struct Scenario {
+    name: &'static str,
+    setup: fn(&Path),
+    /// CLI arguments (after `specforge`); run with the project as cwd.
+    cli: fn(&Path) -> Vec<String>,
+    /// MCP tool name and arguments.
+    mcp: fn(&Path) -> (&'static str, Value),
+    /// Whether the MCP server is started on the project. `init` targets a
+    /// directory that isn't a project yet.
+    mcp_rooted: bool,
+}
+
+fn s(path: &Path) -> String {
+    path.to_str().unwrap().to_string()
+}
+
+fn args(list: &[&str]) -> Vec<String> {
+    list.iter().map(|a| a.to_string()).collect()
+}
+
+const SCENARIOS: &[Scenario] = &[
+    Scenario {
+        name: "init",
+        setup: empty,
+        cli: |_| args(&["init", "--name", "demo", "--format", "json"]),
+        mcp: |root| ("specforge.init", json!({"path": s(root), "name": "demo"})),
+        mcp_rooted: false,
+    },
+    Scenario {
+        name: "add_builtin",
+        setup: project,
+        cli: |root| {
+            args(&[
+                "add",
+                "@specforge/product",
+                "--path",
+                &s(root),
+                "--format",
+                "json",
+            ])
+        },
+        mcp: |_| {
+            (
+                "specforge.add_extension",
+                json!({"specifier": "@specforge/product"}),
+            )
+        },
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "add_local",
+        setup: project,
+        cli: |root| {
+            args(&[
+                "add",
+                &s(&product_blob()),
+                "--path",
+                &s(root),
+                "--format",
+                "json",
+            ])
+        },
+        mcp: |_| {
+            (
+                "specforge.add_extension",
+                json!({"specifier": s(&product_blob())}),
+            )
+        },
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "remove_builtin",
+        setup: project_with_product_enabled,
+        cli: |root| {
+            args(&[
+                "remove",
+                "@specforge/product",
+                "--path",
+                &s(root),
+                "--format",
+                "json",
+            ])
+        },
+        mcp: |_| {
+            (
+                "specforge.remove_extension",
+                json!({"name": "@specforge/product"}),
+            )
+        },
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "remove_installed",
+        setup: project_with_product_installed,
+        cli: |root| {
+            args(&[
+                "remove",
+                PRODUCT_LOCAL,
+                "--path",
+                &s(root),
+                "--format",
+                "json",
+            ])
+        },
+        mcp: |_| ("specforge.remove_extension", json!({"name": PRODUCT_LOCAL})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "extensions",
+        setup: project_with_product_installed,
+        cli: |root| args(&["extensions", "--path", &s(root), "--format", "json"]),
+        mcp: |_| ("specforge.extensions", json!({})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "providers",
+        setup: project,
+        cli: |root| args(&["providers", "--path", &s(root), "--format", "json"]),
+        mcp: |_| ("specforge.providers", json!({})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "doctor",
+        setup: project,
+        cli: |root| args(&["doctor", "--path", &s(root), "--format", "json"]),
+        mcp: |_| ("specforge.doctor", json!({})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "format",
+        setup: project_unformatted,
+        cli: |root| args(&["format", "--path", &s(root)]),
+        mcp: |root| ("specforge.format", json!({"path": s(root)})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "migrate",
+        setup: project_at_old_format,
+        cli: |root| args(&["migrate", "--path", &s(root), "--format", "json"]),
+        mcp: |root| ("specforge.migrate", json!({"path": s(root)})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "export",
+        setup: project,
+        cli: |root| args(&["export", &s(root), "--format", "graph"]),
+        mcp: |_| ("specforge.export", json!({"format": "graph"})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "analyze",
+        setup: project,
+        cli: |root| args(&["analyze", "--path", &s(root), "--json"]),
+        mcp: |root| ("specforge.analyze", json!({"path": s(root)})),
+        mcp_rooted: true,
+    },
+];
+
+// ── running a surface ───────────────────────────────────────────────────────
+
+/// What one surface did to a project.
+struct Observed {
+    ok: bool,
+    payload: Value,
+    files: BTreeMap<String, String>,
+    config: Value,
+    check: Value,
+}
+
+fn cli() -> Command {
+    let mut cmd = Command::new(assert_cmd::cargo_bin!("specforge"));
+    // No user credentials or caches leak into the snapshots.
+    cmd.env("HOME", std::env::temp_dir().join("specforge-parity-home"));
+    cmd
+}
+
+fn run_cli(scenario: &Scenario, root: &Path) -> (bool, Value) {
+    let out = cli()
+        .args((scenario.cli)(root))
+        .current_dir(root)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+    let payload = serde_json::from_str(&stdout).unwrap_or(Value::String(stdout));
+    (out.status.success(), payload)
+}
+
+fn run_mcp(scenario: &Scenario, root: &Path) -> (bool, Value) {
+    let mut server = if scenario.mcp_rooted {
+        McpServer::with_project_root(root.to_path_buf())
+    } else {
+        McpServer::new()
+    };
+    let init = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}});
+    server.handle_message(&init.to_string());
+    let (tool, arguments) = (scenario.mcp)(root);
+    let req = json!({
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {"name": tool, "arguments": arguments}
+    });
+    let resp: Value = serde_json::from_str(&server.handle_message(&req.to_string()).unwrap())
+        .expect("the server answers JSON");
+    if let Some(error) = resp.get("error") {
+        return (false, json!({"error": error}));
+    }
+    let result = &resp["result"];
+    let text = result["content"][0]["text"].as_str().unwrap_or_default();
+    let payload = serde_json::from_str(text).unwrap_or(Value::String(text.to_string()));
+    (result["isError"] != true, payload)
+}
+
+/// Every file under `root` but `specforge.json`, by relative path. Binary
+/// files are named by size.
+fn files_under(root: &Path) -> BTreeMap<String, String> {
+    fn walk(root: &Path, dir: &Path, out: &mut BTreeMap<String, String>) {
+        let mut entries: Vec<_> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .collect();
+        entries.sort();
+        for path in entries {
+            if path.is_dir() {
+                walk(root, &path, out);
+                continue;
+            }
+            let rel = path
+                .strip_prefix(root)
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
+            if rel == "specforge.json" {
+                continue;
+            }
+            let bytes = std::fs::read(&path).unwrap();
+            let content = match String::from_utf8(bytes) {
+                Ok(text) => text,
+                Err(e) => format!("<binary, {} bytes>", e.as_bytes().len()),
+            };
+            out.insert(rel, content);
+        }
+    }
+    let mut out = BTreeMap::new();
+    walk(root, root, &mut out);
+    out
+}
+
+fn read_config(root: &Path) -> Value {
+    std::fs::read_to_string(root.join("specforge.json"))
+        .map(|text| serde_json::from_str(&text).unwrap_or(Value::String(text)))
+        .unwrap_or(Value::Null)
+}
+
+/// The codes a fresh `specforge check` reports, sorted, and its exit status.
+fn check(root: &Path) -> Value {
+    let out = cli()
+        .args(["check", "--format", "json"])
+        .arg(root)
+        .current_dir(root)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let mut codes: Vec<String> = serde_json::from_str::<Value>(&stdout)
+        .ok()
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .map(|d| {
+            format!(
+                "{} {}",
+                d["severity"].as_str().unwrap_or("?"),
+                d["code"].as_str().unwrap_or("?")
+            )
+        })
+        .collect();
+    codes.sort();
+    json!({"ok": out.status.success(), "diagnostics": codes})
+}
+
+fn observe(
+    scenario: &Scenario,
+    root: &Path,
+    run: fn(&Scenario, &Path) -> (bool, Value),
+) -> Observed {
+    (scenario.setup)(root);
+    let (ok, payload) = run(scenario, root);
+    let files = files_under(root);
+    let config = read_config(root);
+    let check = check(root);
+    Observed {
+        ok,
+        payload,
+        files,
+        config,
+        check,
+    }
+}
+
+/// `value` with the parts that churn for reasons outside this harness
+/// redacted: the embedded Graph Protocol schema (any extension change moves
+/// it), and whether z3 is installed on this machine.
+fn redacted(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(k, v)| {
+                    let v = match k.as_str() {
+                        "schema" if v.is_object() => json!("[SCHEMA]"),
+                        "z3_available" => json!("[Z3]"),
+                        _ => redacted(v),
+                    };
+                    (k.clone(), v)
+                })
+                .collect(),
+        ),
+        Value::Array(items) => Value::Array(items.iter().map(redacted).collect()),
+        other => other.clone(),
+    }
+}
+
+/// `text` with every 64-digit hex run (a SHA-256: blob hashes move whenever
+/// an extension is rebuilt) replaced by `[SHA256]`.
+fn without_hashes(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut run = String::new();
+    for c in text.chars().chain(std::iter::once(' ')) {
+        if c.is_ascii_hexdigit() {
+            run.push(c);
+            continue;
+        }
+        if run.len() == 64 {
+            out.push_str("[SHA256]");
+        } else {
+            out.push_str(&run);
+        }
+        run.clear();
+        out.push(c);
+    }
+    out.pop();
+    out
+}
+
+/// `value` as pretty JSON with the machine-specific parts replaced.
+fn normalized(value: &Value, root: &Path) -> String {
+    let mut text = without_hashes(&serde_json::to_string_pretty(&redacted(value)).unwrap());
+    let blob = s(&product_blob());
+    text = text.replace(&blob, "[BLOB]");
+    let canonical = s(&root.canonicalize().unwrap());
+    text = text.replace(&canonical, "[ROOT]");
+    text = text.replace(&s(root), "[ROOT]");
+    text
+}
+
+fn snapshot_of(o: &Observed, root: &Path) -> String {
+    let files: BTreeMap<&String, Value> = o
+        .files
+        .iter()
+        .map(|(path, content)| {
+            // Binary files by kind only: blob sizes move on every rebuild.
+            let shown = if content.starts_with("<binary,") {
+                "<binary>".to_string()
+            } else if path.ends_with("schema-cache.json") {
+                "[SCHEMA]".to_string()
+            } else {
+                content.clone()
+            };
+            (path, Value::String(shown))
+        })
+        .collect();
+    let doc = json!({
+        "ok": o.ok,
+        "payload": o.payload,
+        "files": files,
+        "config": o.config,
+        "check": o.check,
+    });
+    normalized(&doc, root)
+}
+
+fn differs(aspect: Aspect, cli: &Observed, mcp: &Observed) -> bool {
+    match aspect {
+        Aspect::Outcome => cli.ok != mcp.ok,
+        Aspect::Files => cli.files != mcp.files,
+        Aspect::Config => cli.config != mcp.config,
+        Aspect::Check => cli.check != mcp.check,
+    }
+}
+
+fn parity(name: &str) {
+    let scenario = SCENARIOS
+        .iter()
+        .find(|s| s.name == name)
+        .unwrap_or_else(|| panic!("no scenario {name}"));
+    let cli_dir = tempfile::tempdir().unwrap();
+    let mcp_dir = tempfile::tempdir().unwrap();
+    let cli_obs = observe(scenario, cli_dir.path(), run_cli);
+    let mcp_obs = observe(scenario, mcp_dir.path(), run_mcp);
+
+    let cli_snap = snapshot_of(&cli_obs, cli_dir.path());
+    let mcp_snap = snapshot_of(&mcp_obs, mcp_dir.path());
+    insta::assert_snapshot!(format!("{name}__cli"), cli_snap);
+    insta::assert_snapshot!(format!("{name}__mcp"), mcp_snap);
+
+    let mut unexpected = Vec::new();
+    for aspect in ASPECTS {
+        let expected = EXPECTED_DIVERGENCES
+            .iter()
+            .any(|(s, a, _)| *s == name && *a == aspect);
+        let actual = differs(aspect, &cli_obs, &mcp_obs);
+        if actual && !expected {
+            unexpected.push(format!(
+                "{aspect:?} differs but has no EXPECTED_DIVERGENCES row"
+            ));
+        }
+        if !actual && expected {
+            unexpected.push(format!(
+                "{aspect:?} no longer differs: delete its EXPECTED_DIVERGENCES row"
+            ));
+        }
+    }
+    assert!(
+        unexpected.is_empty(),
+        "{name}:\n  {}\n--- cli ---\n{cli_snap}\n--- mcp ---\n{mcp_snap}",
+        unexpected.join("\n  ")
+    );
+}
+
+#[test]
+fn every_expected_divergence_names_a_scenario() {
+    for (name, aspect, _) in EXPECTED_DIVERGENCES {
+        assert!(
+            SCENARIOS.iter().any(|s| s.name == *name),
+            "EXPECTED_DIVERGENCES row ({name}, {aspect:?}) names no scenario"
+        );
+    }
+}
+
+#[test]
+fn parity_init() {
+    parity("init");
+}
+
+#[test]
+fn parity_add_builtin() {
+    parity("add_builtin");
+}
+
+#[test]
+fn parity_add_local() {
+    parity("add_local");
+}
+
+#[test]
+fn parity_remove_builtin() {
+    parity("remove_builtin");
+}
+
+#[test]
+fn parity_remove_installed() {
+    parity("remove_installed");
+}
+
+#[test]
+fn parity_extensions() {
+    parity("extensions");
+}
+
+#[test]
+fn parity_providers() {
+    parity("providers");
+}
+
+#[test]
+fn parity_doctor() {
+    parity("doctor");
+}
+
+#[test]
+fn parity_format() {
+    parity("format");
+}
+
+#[test]
+fn parity_migrate() {
+    parity("migrate");
+}
+
+#[test]
+fn parity_export() {
+    parity("export");
+}
+
+#[test]
+fn parity_analyze() {
+    parity("analyze");
+}

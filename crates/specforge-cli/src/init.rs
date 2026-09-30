@@ -87,9 +87,8 @@ pub fn run(
 
     // Write specforge.json
     let config_path = path.join("specforge.json");
-    let config_str = serde_json::to_string_pretty(&config).expect("serialize JSON output");
-    if let Err(e) = std::fs::write(&config_path, format!("{config_str}\n")) {
-        eprintln!("error: failed to write specforge.json: {e}");
+    if let Err(e) = specforge_ops::config::write(path, &config) {
+        eprintln!("error: {}", e.message);
         return 1;
     }
 

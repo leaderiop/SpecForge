@@ -2775,6 +2775,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "hex",
+ "insta",
  "predicates",
  "semver",
  "serde",
@@ -2785,8 +2786,10 @@ dependencies = [
  "specforge-emitter",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-lsp",
  "specforge-mcp",
  "specforge-migrate",
+ "specforge-ops",
  "specforge-parser",
  "specforge-protocol-types",
  "specforge-registry",
@@ -2797,6 +2800,8 @@ dependencies = [
  "specforge-wasm",
  "specforge-watch",
  "tempfile",
+ "tokio",
+ "tower-lsp",
 ]
 
 [[package]]
@@ -2946,6 +2951,7 @@ dependencies = [
  "specforge-formatter",
  "specforge-graph",
  "specforge-migrate",
+ "specforge-ops",
  "specforge-parser",
  "specforge-registry",
  "specforge-test",
@@ -2966,6 +2972,17 @@ dependencies = [
  "specforge-emitter",
  "specforge-formatter",
  "specforge-graph",
+]
+
+[[package]]
+name = "specforge-ops"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "specforge-registry",
+ "specforge-test",
+ "specforge-test-macros",
+ "tempfile",
 ]
 
 [[package]]

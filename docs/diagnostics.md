@@ -573,7 +573,11 @@ E045: Invalid test report
 started, it finished without writing a report at the collector's declared
 location (often because the tests didn't build), `--no-run` found no existing
 report, or a report file couldn't be read. Check the runner's output above the
-error and the report path.
+error and the report path. `specforge analyze` and the MCP coverage, inspect,
+query and analyze tools report the same code when `specforge-report.json` (or
+`--test-results`) exists but can't be read or parsed, rather than scoring the
+project as if no test ran: run `specforge collect` again to rewrite it, or fix
+or remove the file.
 
 Owner: core
 Level: error
@@ -786,7 +790,27 @@ Level: error
 ## E063
 
 ```
-E063: Unsupported extension source
+E063: No registry configured
+
+`specforge add @scope/name@version`, `update`, `search`, `publish` and `login`
+(and the MCP `add_extension` tool) talk to an extension registry, and SpecForge
+has no built-in one: the only registries are those the project's
+`specforge.json` lists. None is listed, so the command stopped before making any
+network call. Add a `registries` array, for example `"registries": [{"alias":
+"main", "url": "<registry URL>", "default_registry": true}]`; an entry with
+`"scope_filter": "@acme"` serves only that scope, and the entry marked
+`default_registry` serves the rest. For `login`, `--registry <alias>` must name
+one of the entries, or one must be the default. Builtin extensions (`specforge
+add @specforge/product`) and local `.wasm` files need no registry.
+
+Owner: core
+Level: error
+```
+
+## E064
+
+```
+E064: Unsupported extension source
 
 `specforge add` was given a `git+https://...` extension specifier. It parses,
 but installing from git isn't supported yet. Install from a registry
@@ -796,10 +820,10 @@ Owner: core
 Level: error
 ```
 
-## E064
+## E065
 
 ```
-E064: Invalid scaffold request
+E065: Invalid scaffold request
 
 `specforge new` can't scaffold what was asked: only `--extension` projects are
 supported, the extension name is empty or is a scoped name that isn't
@@ -810,10 +834,10 @@ Owner: core
 Level: error
 ```
 
-## E065
+## E066
 
 ```
-E065: Extension scaffold failed
+E066: Extension scaffold failed
 
 `specforge new --extension` couldn't write the project: creating a directory or
 writing one of the generated files failed. Check permissions and free space at
@@ -823,10 +847,10 @@ Owner: core
 Level: error
 ```
 
-## E066
+## E067
 
 ```
-E066: Invalid registry configuration
+E067: Invalid registry configuration
 
 The registry configuration in `specforge.json` can't be read: the file isn't
 valid JSON, `registries` isn't an array, or an entry at the reported index is
@@ -837,10 +861,10 @@ Owner: core
 Level: error
 ```
 
-## E067
+## E068
 
 ```
-E067: Coverage gate without the coverage pass
+E068: Coverage gate without the coverage pass
 
 `specforge analyze --min N` gates on proof coverage, which the `coverage` pass
 of `@specforge/testing` computes, but that pass didn't run: the extension isn't

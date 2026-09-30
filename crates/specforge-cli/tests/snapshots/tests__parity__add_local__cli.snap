@@ -1,0 +1,38 @@
+---
+source: crates/specforge-cli/tests/parity.rs
+expression: cli_snap
+---
+{
+  "check": {
+    "diagnostics": [],
+    "ok": true
+  },
+  "config": {
+    "extensions": [
+      "@specforge/software"
+    ],
+    "name": "demo",
+    "registries": [
+      {
+        "alias": "offline",
+        "default_registry": true,
+        "url": "http://127.0.0.1:9/v1"
+      }
+    ],
+    "spec_root": "spec",
+    "version": "0.1.0"
+  },
+  "files": {
+    ".specforge/extensions/specforge_ext_product/extension.wasm": "<binary>",
+    "spec/main.spec": "behavior alpha \"Alpha\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n",
+    "specforge.lock": "{\n  \"lockfile_version\": 1,\n  \"entries\": [\n    {\n      \"name\": \"specforge_ext_product\",\n      \"version\": \"local\",\n      \"source\": \"registry\",\n      \"wasm_hash\": \"[SHA256]\"\n    }\n  ]\n}"
+  },
+  "ok": true,
+  "payload": {
+    "action": "add",
+    "name": "specforge_ext_product",
+    "sha256": "[SHA256]",
+    "source": "local",
+    "version": "local"
+  }
+}

@@ -50,19 +50,10 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         .map(|e| e.target.to_string())
         .collect();
 
-    let verify_expectations: Vec<String> = node
-        .fields
-        .get("verify")
-        .and_then(|v| match v {
-            FieldValue::VerifyList(stmts) => Some(
-                stmts
-                    .iter()
-                    .map(|s| format!("{} {}", s.kind, s.description))
-                    .collect(),
-            ),
-            _ => None,
-        })
-        .unwrap_or_default();
+    let verify_expectations: Vec<String> = specforge_emitter::coverage::obligations(node)
+        .iter()
+        .map(|s| format!("{} {}", s.kind, s.description))
+        .collect();
 
     // Structural constraints: entities the caller wants in the context even
     // when no edge connects them to this one.

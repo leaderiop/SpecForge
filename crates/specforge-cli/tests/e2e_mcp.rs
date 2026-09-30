@@ -2352,7 +2352,7 @@ fn mcp_tool_migrate_returns_result() {
             "tools/call",
             serde_json::json!({
                 "name": "specforge.migrate",
-                "arguments": { "from_version": "0.1.0", "to_version": "0.2.0" }
+                "arguments": {}
             }),
         )],
     );
@@ -2360,8 +2360,7 @@ fn mcp_tool_migrate_returns_result() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    // from_version is the DETECTED format version (1.0), not the request's
-    // legacy range — truthful reporting of what was found on disk.
+    // from_version is the format version detected on disk.
     assert_eq!(content["from_version"], "1.0");
     assert_eq!(content["migrated"], false, "fixture is already current");
     assert!(content["message"].is_string());

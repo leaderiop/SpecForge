@@ -208,8 +208,8 @@ fn invalid_json_produces_error() {
     assert!(registries.is_empty());
     let error = diagnostics
         .iter()
-        .find(|d| d.code == "E066")
-        .expect("expected E066 diagnostic");
+        .find(|d| d.code == "E067")
+        .expect("expected E067 diagnostic");
     assert_eq!(error.severity, Severity::Error);
 }
 

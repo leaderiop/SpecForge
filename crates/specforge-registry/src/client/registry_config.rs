@@ -37,7 +37,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
         Ok(v) => v,
         Err(e) => {
             diagnostics.push(Diagnostic {
-                code: "E066".to_string(),
+                code: "E067".to_string(),
                 severity: Severity::Error,
                 message: format!("Failed to parse registry config JSON: {e}"),
                 span: None,
@@ -65,7 +65,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
         Some(arr) => arr,
         None => {
             diagnostics.push(Diagnostic {
-                code: "E066".to_string(),
+                code: "E067".to_string(),
                 severity: Severity::Error,
                 message: "\"registries\" must be a JSON array.".to_string(),
                 span: None,
@@ -97,7 +97,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
             }
             Err(e) => {
                 diagnostics.push(Diagnostic {
-                    code: "E066".to_string(),
+                    code: "E067".to_string(),
                     severity: Severity::Error,
                     message: format!("Failed to parse registry entry at index {i}: {e}"),
                     span: None,

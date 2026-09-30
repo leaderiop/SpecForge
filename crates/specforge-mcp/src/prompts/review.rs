@@ -1,5 +1,4 @@
 use serde_json::Value;
-use specforge_graph::FieldValue;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
@@ -23,6 +22,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         None => None,
     };
     // Coverage is about testable entities only, as `specforge.coverage` reports.
+    let testable = specforge_emitter::coverage::testable_kinds(&state.kind_registry);
     let mut nodes: Vec<_> = state
         .graph
         .nodes()
@@ -32,24 +32,28 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
                 .as_ref()
                 .is_none_or(|ids| ids.contains(n.id.raw.as_str()))
         })
-        .filter(|n| {
-            state
-                .kind_registry
-                .get(n.kind.raw.as_str())
-                .is_some_and(|kind| kind.testable)
-        })
+        .filter(|n| testable.contains(n.kind.raw.as_str()))
         .collect();
     nodes.sort_by(|a, b| a.id.raw.as_str().cmp(b.id.raw.as_str()));
 
     let mut findings: Vec<Value> = Vec::new();
     let mut coverage: Vec<Value> = Vec::new();
-    let report = crate::tools::coverage::recorded_report(state);
+    // A prompt has no isError result: an unusable report is a JSON-RPC
+    // error carrying the same McpError the coverage tool returns.
+    let report = match crate::tools::coverage::recorded_report(state) {
+        Ok(report) => report,
+        Err(e) => {
+            return JsonRpcResponse::error_with_data(
+                id,
+                error_codes::INTERNAL_ERROR,
+                e.to_string(),
+                crate::tools::coverage::report_mcp_error(&e, "specforge://prompts/review"),
+            );
+        }
+    };
 
     for node in &nodes {
-        let has_verify = matches!(
-            node.fields.get("verify"),
-            Some(FieldValue::VerifyList(stmts)) if !stmts.is_empty()
-        );
+        let has_verify = !specforge_emitter::coverage::obligations(node).is_empty();
 
         // The same classification `specforge.coverage` reports.
         let entity = crate::tools::coverage::EntityCoverage::of(node, report.as_ref());

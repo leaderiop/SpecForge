@@ -351,6 +351,7 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                     "pass": { "type": "string", "description": "Analysis pass to run (all, coverage, contracts)" },
                     "strict": { "type": "boolean", "description": "Promote warnings to errors" },
                     "test_results": { "type": "string", "description": "Path to a specforge-report.json for proof-level verdicts" },
+                    "use_cached": { "type": "boolean", "description": "Analyze the last compiled graph instead of recompiling (a server with no graph compiles anyway)", "default": false },
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
                 }
             }),
@@ -468,6 +469,11 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                         "type": "string",
                         "enum": ["none", "keys", "all"],
                         "description": "Detail level: none (counts only), keys (names + rule codes), all (full field attribution). Default: keys"
+                    },
+                    "deps": {
+                        "type": "string",
+                        "enum": ["direct", "effective", "full"],
+                        "description": "Dependency visibility: direct (declared only), effective (direct + used transitive), full (all transitive). Default: direct"
                     }
                 }
             }),
@@ -623,6 +629,7 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                 "properties": {
                     "specifier": { "type": "string", "description": "Extension specifier" },
                     "dry_run": { "type": "boolean", "description": "Preview the install without changing any file", "default": false },
+                    "allow_unsigned": { "type": "boolean", "description": "Accept a registry package with no publisher signature (publisher verification skipped)", "default": false },
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
                 },
                 "required": ["specifier"]
@@ -650,8 +657,9 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "from_version": { "type": "string", "description": "Source version" },
-                    "to_version": { "type": "string", "description": "Target version" },
+                    "dry_run": { "type": "boolean", "description": "Return the diffs without changing any file", "default": false },
+                    "target_version": { "type": "string", "description": "Format version to migrate to, as MAJOR.MINOR (defaults to the current format version)" },
+                    "no_backup": { "type": "boolean", "description": "Skip the .bak backup of each migrated file", "default": false },
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
                 }
             }),

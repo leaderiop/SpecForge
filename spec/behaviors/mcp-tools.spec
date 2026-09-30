@@ -297,6 +297,9 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
     analyze coverage without --prove: the SMT discharge --prove adds is not
     run per call. The tool MUST return coverage status per entity including verify count,
     linked evidence count, and evidence status from specforge-report.json if available.
+    A specforge-report.json that exists but cannot be read or parsed MUST be
+    an error, an isError result carrying an McpError, as the CLI refuses it;
+    it is never read as a project with no recorded tests.
     When no filters are provided, the tool MUST return coverage for all
     testable entities. Testability is determined by extension manifests.
   """
@@ -306,6 +309,8 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
   verify unit "status_filter restricts to matching coverage status"
   verify unit "an entity with an unproven obligation is partial, not covered"
   verify unit "a failing recorded test keeps an entity from being covered"
+  verify unit "a field named verify does not hide an entity's verify statements"
+  verify unit "a malformed specforge-report.json is an error result, not an empty report"
   verify contract "Provide MCP Coverage Tool: MCP coverage tool holds — graph_available, coverage_returned, testability_respected, tool_invoked_emitted"
 }
 
@@ -547,14 +552,18 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     that runs the same analysis passes as `specforge analyze`: the core
     `contracts` pass and every extension-owned pass (such as
     @specforge/testing's coverage), or only the one named by `pass`. It
-    accepts `strict` (warnings become errors) and `test_results` (a
-    specforge-report.json path). Without `test_results` it MUST read the
+    accepts `strict` (warnings become errors), `test_results` (a
+    specforge-report.json path) and `use_cached` (analyze the last compiled
+    graph instead of recompiling). Without `test_results` it MUST read the
     project's own specforge-report.json when one exists, as the CLI does,
-    so proof coverage never silently drops. The result MUST list each pass with its
+    so proof coverage never silently drops. A test report that cannot be read
+    or parsed, the project's own or the one `test_results` names, MUST be an
+    isError result carrying an McpError, as the CLI exits 2 on it. The result MUST list each pass with its
     findings and summary, plus an `ok` flag that is false when any finding
     is an error.
   """
   verify unit "analyze reads the project's specforge-report.json by default"
+  verify unit "a malformed test report is an error result"
   verify contract "Provide MCP Analyze Tool: MCP analyze tool holds — graph_available, passes_run, results_structured, tool_invoked_emitted"
 }
 

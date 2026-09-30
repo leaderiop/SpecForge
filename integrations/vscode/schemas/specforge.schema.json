@@ -154,7 +154,7 @@
     },
     "registries": {
       "type": "array",
-      "description": "Extension registries used by add/search/publish/login.",
+      "description": "Extension registries used by add/update/search/publish/login. SpecForge has no built-in registry: without this key those commands fail with E063.",
       "items": {
         "$ref": "#/$defs/registry"
       }
@@ -273,7 +273,7 @@
         "default_registry": {
           "type": "boolean",
           "default": false,
-          "description": "Use as the default registry"
+          "description": "Serve every package no scope_filter matches"
         }
       },
       "required": [

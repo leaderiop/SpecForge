@@ -98,8 +98,9 @@ feature registry_authentication "Registry Authentication" {
     securely removes stored credentials for a given registry. Error messages
     never leak credential details.
 
-    P8 guard: Authentication MUST never be required for first use. The
-    default public registry is accessible without authentication.
-    Authentication is only required for private/enterprise registries.
+    P8 guard: Authentication MUST never be required for first use.
+    SpecForge ships no public registry: builtins and local extensions need
+    neither a registry nor authentication. Authentication is only required
+    by the registries a project configures.
   """
 }

@@ -1,13 +1,17 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_registry::{
-    HttpRegistryClient, RegistryConfig, parse_registries_from_config, search_registries,
-};
+use specforge_registry::{HttpRegistryClient, search_registries};
 use std::path::Path;
 
 pub fn run(query: &str, path: &Path, format: OutputFormat) -> i32 {
-    let config_path = path.join("specforge.json");
-    let registries = load_registries(&config_path);
+    // No registry configured: fail before any network call (ADR 0004 N1).
+    let registries = match specforge_ops::registry::configured(path, "search") {
+        Ok(registries) => registries,
+        Err(error) => {
+            format.print_op_error(&error);
+            return 1;
+        }
+    };
 
     let client = HttpRegistryClient::new();
     let (results, diagnostics) = search_registries(query, &registries, &client);
@@ -53,31 +57,4 @@ pub fn run(query: &str, path: &Path, format: OutputFormat) -> i32 {
     }
 
     0
-}
-
-fn load_registries(config_path: &Path) -> Vec<RegistryConfig> {
-    if !config_path.exists() {
-        return vec![default_registry()];
-    }
-
-    let content = match std::fs::read_to_string(config_path) {
-        Ok(c) => c,
-        Err(_) => return vec![default_registry()],
-    };
-
-    let (registries, _) = parse_registries_from_config(&content);
-    if registries.is_empty() {
-        vec![default_registry()]
-    } else {
-        registries
-    }
-}
-
-fn default_registry() -> RegistryConfig {
-    RegistryConfig {
-        alias: "default".to_string(),
-        url: "https://registry.specforge.dev/v1".to_string(),
-        scope_filter: None,
-        default_registry: true,
-    }
 }

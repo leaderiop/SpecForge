@@ -153,8 +153,8 @@ constraint budget:  latency < 100ms, peak_memory < 50MB
 invariant claim:    latency < 250ms, peak_memory < 75MB
 ```
 
-Today the claim is entailed (proved). If someone tightens a budget past
-the claim — `latency < 200ms` still proves it, `latency < 80ms` does not
+Today the claim is entailed (proved). If someone loosens a budget past
+the claim — `latency < 200ms` still proves it, `latency < 300ms` does not
 — the prove verdict flips to `W139` and budget drift becomes a
 compiler-visible diagnostic.
 

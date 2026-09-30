@@ -494,17 +494,10 @@ impl KnownEntities {
             .nodes()
             .iter()
             .map(|node| {
-                let texts = node
-                    .fields
-                    .entries()
+                let texts = crate::coverage::obligations(node)
                     .iter()
-                    .find_map(|entry| match &entry.value {
-                        specforge_parser::FieldValue::VerifyList(stmts) => {
-                            Some(stmts.iter().map(|s| s.description.clone()).collect())
-                        }
-                        _ => None,
-                    })
-                    .unwrap_or_default();
+                    .map(|s| s.description.clone())
+                    .collect();
                 (node.id.raw.to_string(), texts)
             })
             .collect()
@@ -842,12 +835,14 @@ fn select<'a>(
     Ok(detected)
 }
 
-/// Load `specforge-report.json`, or an empty report when it's missing or
-/// unreadable.
+/// The report `collect` merges new results into: `specforge-report.json`,
+/// or an empty report when it's missing or unreadable. Unlike the readers
+/// that score coverage ([`crate::coverage::read_report`]), collect is the
+/// writer: it replaces a report it cannot read.
 pub fn load_report(root: &Path) -> TestReport {
-    std::fs::read_to_string(root.join(REPORT_FILE))
+    crate::coverage::read_report(root)
         .ok()
-        .and_then(|raw| serde_json::from_str(&raw).ok())
+        .flatten()
         .unwrap_or(TestReport {
             runner: None,
             results: BTreeMap::new(),
