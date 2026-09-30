@@ -172,30 +172,34 @@ fn missing_version_header_defaults_to_current() {
 }
 
 // B3: Unsupported version in header → E019
-#[test]
+#[specforge_test(
+    behavior = "detect_format_version_mismatch",
+    verify = "unsupported format version produces E019 with upgrade guidance"
+)]
 fn unsupported_version_in_header() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
     setup_project(root);
-    // Version 99.0 is way beyond supported range
-    write_spec(
-        root,
-        "test.spec",
-        "// specforge-format: 99.0\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
-    );
+    let original = "// specforge-format: 99.0\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n";
+    write_spec(root, "test.spec", original);
 
-    // The file should be skipped (version 99.0 > target 1.0 → skipped since >= target)
-    Command::cargo_bin("specforge")
+    let output = Command::cargo_bin("specforge")
         .unwrap()
         .args(["migrate", "--format=json", "--path", root.to_str().unwrap()])
         .output()
-        .map(|o| {
-            let stdout = String::from_utf8(o.stdout).unwrap();
-            let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-            // File with version 99.0 is >= target 1.0, so skipped
-            assert_eq!(json["skipped_count"], 1);
-        })
         .unwrap();
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["failed_count"], 1, "{json}");
+    assert_eq!(json["skipped_count"], 0, "{json}");
+    let error = json["results"][0]["error"].as_str().unwrap_or_default();
+    assert!(error.contains("E019"), "{json}");
+    assert!(error.contains("Use a format version between"), "{json}");
+    assert_eq!(
+        std::fs::read_to_string(root.join("spec/test.spec")).unwrap(),
+        original,
+        "the file is left alone"
+    );
 }
 
 // ===================================================================

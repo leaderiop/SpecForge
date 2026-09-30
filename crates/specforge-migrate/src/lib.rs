@@ -396,8 +396,26 @@ pub fn migrate_file(
         }
     };
 
-    // Detect version
-    let (detected_version, _diags) = detect_format_version(&content);
+    // Detect version; a header this build can't read fails the file.
+    let (detected_version, diags) = detect_format_version(&content);
+    if let Some(error) = diags.iter().find(|d| d.severity == Severity::Error) {
+        let guidance = error
+            .suggestion
+            .as_deref()
+            .map(|s| format!(" — {s}"))
+            .unwrap_or_default();
+        return (
+            MigrationResult {
+                file_path: path_str,
+                status: MigrationStatus::Failed,
+                from_version: Some(detected_version),
+                to_version: None,
+                error: Some(format!("{}: {}{guidance}", error.code, error.message)),
+            },
+            None,
+            None,
+        );
+    }
 
     // Skip if already at target version
     if detected_version >= *target_version {
