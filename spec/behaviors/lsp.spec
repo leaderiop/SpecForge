@@ -27,24 +27,22 @@ behavior lsp_initialize "LSP Initialize" {
   }
   ensures {
     capabilities_reflect_extensions "initialize response capabilities derive from loaded extension state, not hardcoded domain logic"
-    semantic_legend_populated       "semantic token legend includes all extension-defined token types from KindRegistry"
+    semantic_legend_populated       "semantic token legend lists every standard LSP token type, so any standard type an extension declares is available"
     incremental_sync_advertised     "document sync kind is INCREMENTAL"
     lsp_initialized_emitted         "lsp_initialized event is produced on successful initialization"
   }
   contract   """
     When the LSP server receives an initialize request, it MUST respond
-    with capabilities reflecting the current extension state: semantic
-    token legend entries derived from the KindRegistry, completion
-    trigger characters, rename support, code action kinds, and document
-    sync kind (INCREMENTAL). The server MUST register all extension-defined
-    semantic token types from KindRegistryEntry.semantic_token into the
-    legend. The server MUST report support for workspace symbol search
+    with its capabilities: a static semantic token legend listing every
+    standard LSP token type (it is sent before extensions load, so any
+    standard type a KindRegistryEntry.semantic_token names is already in
+    it), completion trigger characters, rename support, code action kinds,
+    and document sync kind (INCREMENTAL). The server MUST report support for workspace symbol search
     and document symbol outline. The initialization response MUST NOT
     hardcode any domain-specific capabilities — all capabilities beyond
     structural defaults MUST derive from loaded extensions.
   """
   verify unit "initialize response includes semantic token legend"
-  verify unit "semantic token legend includes extension-defined token types"
   verify unit "initialize response advertises incremental sync"
   verify unit "initialize response includes completion trigger characters"
   verify unit "zero extensions produces structural-only capabilities"
