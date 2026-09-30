@@ -143,11 +143,15 @@ pub fn handle_cancel(state: &mut McpState, params: Value, id: Option<Value>) -> 
         .or_else(|| params.get("id"))
         .cloned()
         .unwrap_or(serde_json::Value::Null);
+    // Requests run one at a time, so the one named has already completed:
+    // it was never in progress, and cancelling it changes nothing.
     state.push_event(
         "mcp_request_cancelled",
-        serde_json::json!({"cancelled_id": cancelled_id}),
+        serde_json::json!({
+            "cancelled_id": cancelled_id,
+            "requestId": cancelled_id,
+            "wasInProgress": false,
+        }),
     );
-    // Requests run one at a time, so the one named has already completed:
-    // cancelling it changes nothing.
     JsonRpcResponse::success(id, serde_json::json!({}))
 }

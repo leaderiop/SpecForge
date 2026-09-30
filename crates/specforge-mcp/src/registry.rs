@@ -44,7 +44,10 @@ pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResp
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
-    state.push_event("mcp_discovery_invoked", json!({"kind": "tools"}));
+    state.push_event(
+        "mcp_discovery_invoked",
+        json!({"kind": "tools", "result_count": state.tool_registry.len()}),
+    );
     let tools: Vec<Value> = state
         .tool_registry
         .iter()
@@ -64,7 +67,10 @@ pub fn handle_list_resources(state: &mut McpState, id: Option<Value>) -> JsonRpc
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
-    state.push_event("mcp_discovery_invoked", json!({"kind": "resources"}));
+    state.push_event(
+        "mcp_discovery_invoked",
+        json!({"kind": "resources", "result_count": state.resource_registry.len()}),
+    );
     let resources: Vec<Value> = state
         .resource_registry
         .iter()
@@ -87,7 +93,10 @@ pub fn handle_list_prompts(state: &mut McpState, id: Option<Value>) -> JsonRpcRe
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
-    state.push_event("mcp_discovery_invoked", json!({"kind": "prompts"}));
+    state.push_event(
+        "mcp_discovery_invoked",
+        json!({"kind": "prompts", "result_count": state.prompt_registry.len()}),
+    );
     let prompts: Vec<Value> = state
         .prompt_registry
         .iter()

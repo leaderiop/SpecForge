@@ -48,10 +48,14 @@ impl McpServer {
         let request = match parse_request(input) {
             Ok(req) => req,
             Err(err_response) => {
-                let code = err_response.error.as_ref().map(|e| e.code);
+                let error = err_response.error.as_ref();
                 self.state.push_event(
                     "mcp_protocol_error_handled",
-                    serde_json::json!({"phase": "parse", "code": code}),
+                    serde_json::json!({
+                        "phase": "parse",
+                        "errorCode": error.map(|e| e.code),
+                        "errorMessage": error.map(|e| e.message.as_str()),
+                    }),
                 );
                 return Some(serialize_response(&err_response));
             }
@@ -60,11 +64,17 @@ impl McpServer {
         // Notifications (no id) don't get responses in JSON-RPC
         let is_notification = request.id.is_none();
 
+        let method = request.method.clone();
         let response = route(&mut self.state, &request.method, request.params, request.id);
         if let Some(error) = &response.error {
             self.state.push_event(
                 "mcp_protocol_error_handled",
-                serde_json::json!({"method": request.method, "code": error.code}),
+                serde_json::json!({
+                    "phase": "route",
+                    "errorCode": error.code,
+                    "errorMessage": error.message,
+                    "method": method,
+                }),
             );
         }
 

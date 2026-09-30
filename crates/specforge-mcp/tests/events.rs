@@ -41,6 +41,24 @@ fn has_event(server: &McpServer, event_name: &str) -> bool {
     server.state().events.iter().any(|e| e.name == event_name)
 }
 
+/// The params of every `event_name` event, oldest first.
+fn event_params(server: &McpServer, event_name: &str) -> Vec<Value> {
+    server
+        .state()
+        .events
+        .iter()
+        .filter(|e| e.name == event_name)
+        .map(|e| e.params.clone())
+        .collect()
+}
+
+/// The params of the one `event_name` event.
+fn only_event(server: &McpServer, event_name: &str) -> Value {
+    let params = event_params(server, event_name);
+    assert_eq!(params.len(), 1, "{event_name}: {params:?}");
+    params.into_iter().next().unwrap()
+}
+
 fn init_server() -> McpServer {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
@@ -54,8 +72,21 @@ fn init_server() -> McpServer {
     verify = "mcp initialization emits event with tool counts"
 )]
 fn event_mcp_initialized() {
-    let server = init_server();
-    assert!(has_event(&server, "mcp_initialized"));
+    let mut server = init_server();
+    let params = only_event(&server, "mcp_initialized");
+    // The core surface: 33 tools, 8 resources, 5 prompts.
+    assert_eq!(params["tools_count"], 33, "{params}");
+    assert_eq!(params["resources_count"], 8, "{params}");
+    assert_eq!(params["prompts_count"], 5, "{params}");
+    let listed = |server: &mut McpServer, method: &str, key: &str| {
+        call(server, method, json!({}))["result"][key]
+            .as_array()
+            .unwrap()
+            .len()
+    };
+    assert_eq!(listed(&mut server, "tools/list", "tools"), 33);
+    assert_eq!(listed(&mut server, "resources/list", "resources"), 8);
+    assert_eq!(listed(&mut server, "prompts/list", "prompts"), 5);
 }
 
 // E:mcp_server_shutdown — verify integration "emits mcp_server_shutdown with correct counts when MCP server shuts down"
@@ -65,8 +96,22 @@ fn event_mcp_initialized() {
 )]
 fn event_mcp_server_shutdown() {
     let mut server = init_server();
+    // Two subscriptions and one notification waiting to be sent.
+    subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
+    subscriptions::subscribe(
+        server.state_mut(),
+        "client2",
+        "specforge/diagnosticsChanged",
+    );
+    server
+        .state_mut()
+        .notification_outbox
+        .push(json!({"jsonrpc": "2.0", "method": "specforge/graphChanged", "params": {}}));
     call(&mut server, "shutdown", json!({}));
-    assert!(has_event(&server, "mcp_server_shutdown"));
+    let params = only_event(&server, "mcp_server_shutdown");
+    assert_eq!(params["pending_notifications_flushed"], 1, "{params}");
+    assert_eq!(params["subscriptions_released"], 2, "{params}");
+    assert_eq!(params["wasm_engines_released"], 0, "{params}");
 }
 
 // E:mcp_initialization_failed — verify integration "emits mcp_initialization_failed when MCP server fails to initialize"
@@ -88,7 +133,26 @@ fn event_mcp_initialization_failed() {
 fn event_mcp_protocol_error_handled() {
     let mut server = McpServer::new();
     server.handle_message("not valid json");
-    assert!(has_event(&server, "mcp_protocol_error_handled"));
+    server.handle_message(r#"{"id": 2}"#);
+    call(&mut server, "initialize", json!({}));
+    call(&mut server, "no/such/method", json!({}));
+    call(&mut server, "tools/call", json!({}));
+    let errors: Vec<(i64, String)> = event_params(&server, "mcp_protocol_error_handled")
+        .iter()
+        .map(|p| {
+            (
+                p["errorCode"].as_i64().unwrap(),
+                p["errorMessage"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    let codes: Vec<i64> = errors.iter().map(|(c, _)| *c).collect();
+    assert_eq!(codes, vec![-32700, -32600, -32601, -32602], "{errors:?}");
+    assert!(errors.iter().all(|(_, m)| !m.is_empty()), "{errors:?}");
+    let last = event_params(&server, "mcp_protocol_error_handled")
+        .pop()
+        .unwrap();
+    assert_eq!(last["method"], "tools/call");
 }
 
 // E:mcp_request_cancelled — verify integration "emits mcp_request_cancelled with correct requestId and wasInProgress flag"
@@ -97,9 +161,24 @@ fn event_mcp_protocol_error_handled() {
     verify = "emits mcp_request_cancelled with correct requestId and wasInProgress flag"
 )]
 fn event_mcp_request_cancelled() {
-    let mut server = McpServer::new();
-    call(&mut server, "$/cancelRequest", json!({"id": 1}));
-    assert!(has_event(&server, "mcp_request_cancelled"));
+    let mut server = init_server();
+    call(&mut server, "ping", json!({}));
+    // The MCP notification names the request by requestId.
+    server.handle_message(
+        &json!({"jsonrpc": "2.0", "method": "notifications/cancelled",
+            "params": {"requestId": 41}})
+        .to_string(),
+    );
+    call(&mut server, "$/cancelRequest", json!({"id": 42}));
+    let events = event_params(&server, "mcp_request_cancelled");
+    assert_eq!(events.len(), 2, "{events:?}");
+    assert_eq!(events[0]["requestId"], 41);
+    assert_eq!(events[1]["requestId"], 42);
+    // Requests run one at a time, so none is in progress when a cancel
+    // arrives.
+    for event in &events {
+        assert_eq!(event["wasInProgress"], false, "{event}");
+    }
 }
 
 // E:mcp_discovery_invoked — verify integration "emits mcp_discovery_invoked with correct discoveryType when agent lists tools, prompts, or resources"
@@ -110,7 +189,25 @@ fn event_mcp_request_cancelled() {
 fn event_mcp_discovery_invoked() {
     let mut server = init_server();
     call(&mut server, "tools/list", json!({}));
-    assert!(has_event(&server, "mcp_discovery_invoked"));
+    call(&mut server, "prompts/list", json!({}));
+    call(&mut server, "resources/list", json!({}));
+    let discoveries: Vec<(String, u64)> = event_params(&server, "mcp_discovery_invoked")
+        .iter()
+        .map(|p| {
+            (
+                p["kind"].as_str().unwrap().to_string(),
+                p["result_count"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        discoveries,
+        vec![
+            ("tools".to_string(), 33),
+            ("prompts".to_string(), 5),
+            ("resources".to_string(), 8),
+        ]
+    );
 }
 
 // E:mcp_resource_read — verify integration "emits mcp_resource_read with correct resourceUri when agent reads any MCP resource"
@@ -125,7 +222,19 @@ fn event_mcp_resource_read() {
         "resources/read",
         json!({"uri": "specforge://graph"}),
     );
-    assert!(has_event(&server, "mcp_resource_read"));
+    call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://diagnostics"}),
+    );
+    let uris: Vec<Value> = event_params(&server, "mcp_resource_read")
+        .into_iter()
+        .map(|p| p["uri"].clone())
+        .collect();
+    assert_eq!(
+        uris,
+        vec![json!("specforge://graph"), json!("specforge://diagnostics")]
+    );
 }
 
 // E:mcp_tool_invoked — verify integration "emits mcp_tool_invoked with correct toolName, category, and parameters for any tool call"
@@ -136,7 +245,20 @@ fn event_mcp_resource_read() {
 fn event_mcp_tool_invoked() {
     let mut server = init_server();
     call_tool(&mut server, "specforge.stats", json!({}));
-    assert!(has_event(&server, "mcp_tool_invoked"));
+    call_tool(
+        &mut server,
+        "specforge.inspect",
+        json!({"entity_id": "alpha"}),
+    );
+    let events = event_params(&server, "mcp_tool_invoked");
+    assert_eq!(
+        events,
+        vec![
+            json!({"tool": "specforge.stats", "category": "core", "params": {}}),
+            json!({"tool": "specforge.inspect", "category": "navigation",
+                "params": {"entity_id": "alpha"}}),
+        ]
+    );
 }
 
 // E:mcp_prompt_invoked — verify integration "emits mcp_prompt_invoked with correct promptName and arguments"
@@ -175,7 +297,10 @@ fn event_mcp_prompt_invoked() {
         "prompts/get",
         json!({"name": "specforge://prompts/context", "arguments": {"entity_id": "alpha"}}),
     );
-    assert!(has_event(&server, "mcp_prompt_invoked"));
+    assert_eq!(
+        only_event(&server, "mcp_prompt_invoked"),
+        json!({"prompt": "specforge://prompts/context", "arguments": {"entity_id": "alpha"}})
+    );
 }
 
 // E:mcp_delta_notified — verify integration "emits mcp_delta_notified with correct notification type and delta summary"
@@ -208,7 +333,12 @@ fn event_mcp_delta_notified() {
         "subscribed client must receive the graph delta: {notifications:?}"
     );
     assert_eq!(notifications[0]["method"], "specforge/graphChanged");
-    assert!(has_event(&server, "mcp_delta_notified"));
+    // The empty graph became alpha, beta and the beta -> alpha edge.
+    assert_eq!(
+        only_event(&server, "mcp_delta_notified"),
+        json!({"kind": "graph", "subscribers": 1, "added": 2, "removed": 0,
+            "added_edges": 1, "removed_edges": 0})
+    );
 }
 
 // E:mcp_mutation_completed — verify integration "emits mcp_mutation_completed with structured outcome after each mutation tool"
@@ -218,8 +348,19 @@ fn event_mcp_delta_notified() {
 )]
 fn event_mcp_mutation_completed() {
     let mut server = init_server();
-    call_tool(&mut server, "specforge.format", json!({}));
-    assert!(has_event(&server, "mcp_mutation_completed"));
+    let resp = call_tool(&mut server, "specforge.format", json!({}));
+    let result: Value =
+        serde_json::from_str(resp["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    let event = only_event(&server, "mcp_mutation_completed");
+    assert_eq!(event["tool"], "specforge.format");
+    assert_eq!(event["success"], true);
+    // The outcome is the tool's structured result.
+    assert_eq!(event["outcome"], result);
+    assert!(event["outcome"].is_object(), "{event}");
+
+    // A read-only tool completes no mutation.
+    call_tool(&mut server, "specforge.stats", json!({}));
+    assert_eq!(event_params(&server, "mcp_mutation_completed").len(), 1);
 }
 
 // E:mcp_subscription_created — verify integration "emits mcp_subscription_created when a client subscribes to delta notifications"

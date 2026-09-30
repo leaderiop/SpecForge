@@ -74,7 +74,15 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         .cloned()
         .unwrap_or(Value::Object(Default::default()));
 
-    state.push_event("mcp_tool_invoked", serde_json::json!({"tool": name}));
+    let category = state
+        .tool_registry
+        .iter()
+        .find(|t| t.name == name)
+        .and_then(|t| t.category.clone());
+    state.push_event(
+        "mcp_tool_invoked",
+        serde_json::json!({"tool": name, "category": category, "params": arguments}),
+    );
 
     let is_mutation = matches!(
         name,
@@ -190,7 +198,16 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
     };
 
     if is_mutation && response.error.is_none() {
-        state.push_event("mcp_mutation_completed", serde_json::json!({"tool": name}));
+        // The tool's own structured result is the outcome.
+        let result = response.result.as_ref();
+        let success = result.is_some_and(|r| r["isError"] != true);
+        let outcome = result
+            .and_then(|r| r["content"][0]["text"].as_str())
+            .and_then(|text| serde_json::from_str::<Value>(text).ok());
+        state.push_event(
+            "mcp_mutation_completed",
+            serde_json::json!({"tool": name, "success": success, "outcome": outcome}),
+        );
     }
 
     response

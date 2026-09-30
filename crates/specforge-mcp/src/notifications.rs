@@ -164,8 +164,11 @@ pub fn enqueue_compile_notifications(
                 "mcp_delta_notified",
                 serde_json::json!({
                     "kind": "graph",
+                    "subscribers": subscribers(state, GRAPH_CHANNEL).len(),
                     "added": graph_delta.added_nodes.len(),
                     "removed": graph_delta.removed_nodes.len(),
+                    "added_edges": graph_delta.added_edges,
+                    "removed_edges": graph_delta.removed_edges,
                 }),
             );
         }
@@ -179,7 +182,12 @@ pub fn enqueue_compile_notifications(
                 .push(format_diagnostics_notification(&diag_delta));
             state.push_event(
                 "mcp_delta_notified",
-                serde_json::json!({"kind": "diagnostics"}),
+                serde_json::json!({
+                    "kind": "diagnostics",
+                    "subscribers": subscribers(state, DIAGNOSTICS_CHANNEL).len(),
+                    "added": diag_delta.added.len(),
+                    "removed": diag_delta.removed.len(),
+                }),
             );
         }
     }
