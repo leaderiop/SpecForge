@@ -149,8 +149,11 @@ impl ToolOutcome {
 }
 
 /// The `tools/call` reply for `outcome`: the only place that builds
-/// `content`, `isError` and `_meta`. A refusal is a JSON-RPC error.
-pub fn envelope(outcome: ToolOutcome, id: Option<Value>) -> JsonRpcResponse {
+/// `content`, `structuredContent`, `isError` and `_meta`. A refusal is a
+/// JSON-RPC error. With `structured` (a 2025-06-18 or later session), a
+/// JSON object payload is also sent as `structuredContent`, beside the
+/// text block holding its JSON.
+pub fn envelope(outcome: ToolOutcome, id: Option<Value>, structured: bool) -> JsonRpcResponse {
     let (payload, is_error, diagnostics) = match outcome {
         ToolOutcome::Refused(error) => return JsonRpcResponse::from_error(id, error),
         ToolOutcome::Done {
@@ -168,6 +171,11 @@ pub fn envelope(outcome: ToolOutcome, id: Option<Value>) -> JsonRpcResponse {
             .collect(),
     };
     let mut result = json!({ "content": content, "isError": is_error });
+    if let Payload::Json(object @ Value::Object(_)) = payload
+        && structured
+    {
+        result["structuredContent"] = object;
+    }
     if !diagnostics.is_empty() {
         result["_meta"] = json!({
             "diagnostics": serde_json::to_value(&diagnostics).unwrap_or_default(),

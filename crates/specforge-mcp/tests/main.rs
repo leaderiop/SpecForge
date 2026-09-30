@@ -11,6 +11,7 @@ mod operations_mutation;
 mod prompts;
 mod protocol;
 mod resources;
+mod revision;
 mod schema_reflection;
 mod subscriptions;
 mod surface_wiring;

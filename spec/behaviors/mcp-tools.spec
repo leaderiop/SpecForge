@@ -593,5 +593,5 @@ behavior provide_mcp_entities_by_kind "List Entities by Kind over MCP" {
   verify unit "specforge.list returns empty for unknown kind"
   verify unit "entity-by-kind resource returns entities"
   verify unit "specforge.list tool appears in tool list"
-  verify unit "entities resource template in resource list"
+  verify unit "entities resource template in resource template list"
 }

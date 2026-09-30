@@ -207,7 +207,7 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         );
     }
 
-    envelope(outcome, id)
+    envelope(outcome, id, state.sends_structured_content())
 }
 
 /// Run the tool `name` with `arguments`.

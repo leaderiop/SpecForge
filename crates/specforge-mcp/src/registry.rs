@@ -206,14 +206,49 @@ pub fn handle_list_resources(state: &mut McpState, id: Option<Value>) -> JsonRpc
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
-    let resources: Vec<Value> = state
-        .resource_registry
-        .iter()
-        .filter(|r| !disabled(state, &r.name, &[SurfaceType::McpResource]))
+    let resources: Vec<Value> = listed_resources(state)
+        .filter(|r| !is_template(r))
         .map(|r| serde_json::to_value(r).unwrap())
         .collect();
     push_discovery(state, "resources", resources.len());
     JsonRpcResponse::success(id, json!({ "resources": resources }))
+}
+
+/// MCP `resources/templates/list`: the resources whose URI is a template,
+/// as `ResourceTemplate`s.
+pub fn handle_list_resource_templates(state: &mut McpState, id: Option<Value>) -> JsonRpcResponse {
+    if !state.is_initialized() {
+        return JsonRpcResponse::error(id, -32600, "Server not initialized");
+    }
+    let templates: Vec<Value> = listed_resources(state)
+        .filter(|r| is_template(r))
+        .map(|r| {
+            let mut template = json!({ "uriTemplate": r.uri, "name": r.name });
+            if let Some(description) = &r.description {
+                template["description"] = json!(description);
+            }
+            if let Some(mime_type) = &r.mime_type {
+                template["mimeType"] = json!(mime_type);
+            }
+            template
+        })
+        .collect();
+    push_discovery(state, "resource_templates", templates.len());
+    JsonRpcResponse::success(id, json!({ "resourceTemplates": templates }))
+}
+
+/// The registered resources a listing advertises: all but disabled
+/// extension contributions.
+fn listed_resources(state: &McpState) -> impl Iterator<Item = &McpResourceDescriptor> {
+    state
+        .resource_registry
+        .iter()
+        .filter(|r| !disabled(state, &r.name, &[SurfaceType::McpResource]))
+}
+
+/// Whether a resource's URI is an RFC 6570 template (`{placeholder}`).
+fn is_template(resource: &McpResourceDescriptor) -> bool {
+    resource.uri.contains('{')
 }
 
 /// Whether an extension contributed `name` as one of `types` and that

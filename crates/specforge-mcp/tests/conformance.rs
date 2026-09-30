@@ -113,20 +113,33 @@ fn every_listed_core_prompt_resolves_to_a_handler() {
 )]
 fn every_listed_core_resource_is_readable() {
     let (mut server, _dir) = server_over_scratch_project();
+    // Plain resources, then the templated ones.
     let listed = call(&mut server, "resources/list", json!({}));
-    let resources = listed["result"]["resources"].as_array().cloned().unwrap();
+    let templates = call(&mut server, "resources/templates/list", json!({}));
+    let uris: Vec<String> = listed["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| &r["uri"])
+        .chain(
+            templates["result"]["resourceTemplates"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|t| &t["uriTemplate"]),
+        )
+        .map(|uri| uri.as_str().unwrap().to_string())
+        .collect();
     assert!(
-        resources.len() >= 8,
-        "the core resources are listed: {listed}"
+        uris.len() >= 8,
+        "the core resources are listed: {listed} {templates}"
     );
 
-    let unreadable: Vec<String> = resources
+    let unreadable: Vec<String> = uris
         .iter()
-        .filter_map(|resource| {
+        .filter_map(|uri| {
             // A template is read at a value the scratch project holds.
-            let uri = resource["uri"]
-                .as_str()
-                .unwrap()
+            let uri = uri
                 .replace("{entity_id}", "alpha")
                 .replace("{kind}", "behavior");
             let resp = call(&mut server, "resources/read", json!({"uri": uri}));

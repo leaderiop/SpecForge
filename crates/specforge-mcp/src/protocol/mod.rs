@@ -86,7 +86,12 @@ impl JsonRpcResponse {
 pub fn parse_request(input: &str) -> Result<JsonRpcRequest, JsonRpcResponse> {
     let value: Value = serde_json::from_str(input)
         .map_err(|_| JsonRpcResponse::error(None, error_codes::PARSE_ERROR, "Parse error"))?;
+    parse_request_value(value)
+}
 
+/// Read one JSON-RPC request object (a whole message, or one member of a
+/// batch).
+pub fn parse_request_value(value: Value) -> Result<JsonRpcRequest, JsonRpcResponse> {
     // Validate jsonrpc field
     if value.get("jsonrpc").and_then(|v| v.as_str()) != Some("2.0") {
         let id = value.get("id").cloned();

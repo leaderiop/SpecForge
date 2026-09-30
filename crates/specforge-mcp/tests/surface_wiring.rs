@@ -461,20 +461,20 @@ fn recompilation_refreshes_surfaces() {
 // B:provide_mcp_entities_by_kind — verify unit "entities resource registered in resource list"
 #[specforge_test(
     behavior = "provide_mcp_entities_by_kind",
-    verify = "entities resource template in resource list"
+    verify = "entities resource template in resource template list"
 )]
 fn entities_resource_registered() {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
-    let resp = call(&mut server, "resources/list", json!({}));
-    let resources = resp["result"]["resources"].as_array().unwrap();
-    let uris: Vec<&str> = resources
+    let resp = call(&mut server, "resources/templates/list", json!({}));
+    let templates = resp["result"]["resourceTemplates"].as_array().unwrap();
+    let uris: Vec<&str> = templates
         .iter()
-        .map(|r| r["uri"].as_str().unwrap())
+        .map(|t| t["uriTemplate"].as_str().unwrap())
         .collect();
     assert!(
         uris.contains(&"specforge://entities/{kind}"),
-        "specforge://entities/{{kind}} must be in resource list. Got: {:?}",
+        "specforge://entities/{{kind}} must be in the resource template list. Got: {:?}",
         uris
     );
 }

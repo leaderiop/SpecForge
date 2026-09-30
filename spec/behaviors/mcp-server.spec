@@ -47,7 +47,13 @@ behavior mcp_initialize "MCP Initialize" {
     Surface-contributed tools and resources MUST be merged with core
     tools and resources before capability advertisement. The server
     MUST NOT accept tool/resource calls before initialization completes.
+    The server MUST negotiate the protocol revision: it answers with the
+    version the client requested when it supports that version
+    (2025-11-25, 2025-06-18 or 2025-03-26), and with the latest one it
+    supports (2025-11-25) otherwise.
   """
+  verify unit "answers with the client's protocol version when it supports it"
+  verify unit "answers an unsupported or missing protocol version with 2025-11-25"
   verify unit "initialization registers all tools from installed extensions"
   verify unit "initialization rejects tool calls before completion"
   verify unit "all core tools registered before accepting requests"
@@ -105,7 +111,11 @@ behavior list_mcp_resources "List MCP Resources" {
     MUST be included alongside core resources. Disabled surface contributions
     MUST be excluded. The list MUST be complete and reflect the current set
     of loaded extensions. Every core resource it lists MUST be readable.
+    A resource whose URI is a template (it holds a {placeholder}) MUST be
+    listed by resources/templates/list as a resource template, not by
+    resources/list.
   """
+  verify unit "templated resources are listed by resources/templates/list, not resources/list"
   verify unit "returns all registered resource descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects resources from newly loaded extension"
@@ -487,6 +497,39 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   verify unit "notifications produce no response"
   verify unit "response always has jsonrpc 2.0 field"
   verify unit "success response includes id from request"
+}
+
+behavior follow_negotiated_mcp_revision "Follow the Negotiated MCP Revision" {
+  features   [mcp_protocol_compliance]
+  invariants [mcp_structured_error_responses]
+  category   command
+  types      [McpCapabilities]
+  ports      [McpProtocol]
+  produces   [mcp_protocol_error_handled]
+  requires {
+    server_initialized "MCP server has been initialized and a protocol revision negotiated"
+  }
+  ensures {
+    batches_per_revision     "A 2025-03-26 session answers a JSON-RPC batch with its responses; a later revision rejects the batch"
+    structured_content_added "From 2025-06-18, a tool result with a JSON object payload also carries it as structuredContent"
+  }
+  contract   """
+    After initialize, the server MUST follow the negotiated revision. A
+    2025-03-26 session MUST accept a JSON-RPC batch: the server answers
+    with an array holding the response to each request in the batch,
+    sends nothing when the batch holds only notifications, and answers an
+    empty batch with a single -32600 error. Later revisions removed
+    batching, so a session on one of them gets a single -32600 error for
+    a batch. From 2025-06-18, a tool result whose payload is a JSON object
+    MUST also carry that object as structuredContent, alongside the text
+    block holding its JSON.
+  """
+  verify unit "a 2025-03-26 session answers a batch with the response to each request"
+  verify unit "a batch of notifications gets no response"
+  verify unit "an empty batch is an invalid request"
+  verify unit "a session on a later revision rejects a batch with -32600"
+  verify unit "tool results carry an object payload as structuredContent from 2025-06-18"
+  verify unit "a 2025-03-26 session gets no structuredContent"
 }
 
 behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {

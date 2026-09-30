@@ -131,11 +131,13 @@ feature mcp_protocol_compliance "MCP Protocol Compliance" {
     these scenarios may crash the server or produce non-standard error responses.
   """
   solution """
-    Three protocol compliance behaviors — handle_mcp_protocol_error for standard
+    Four protocol compliance behaviors — handle_mcp_protocol_error for standard
     JSON-RPC error codes, handle_mcp_request_cancellation for notifications/cancelled,
-    and guard_mcp_reinitialization for rejecting duplicate initialize requests —
-    ensure the server adheres to the MCP protocol specification and remains robust
-    under adversarial or misbehaving clients.
+    guard_mcp_reinitialization for rejecting duplicate initialize requests, and
+    follow_negotiated_mcp_revision for what the negotiated protocol revision
+    changes on the wire (batches, structuredContent) — ensure the server adheres
+    to the MCP protocol specification and remains robust under adversarial or
+    misbehaving clients.
   """
 }
 

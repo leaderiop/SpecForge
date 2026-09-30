@@ -13,7 +13,8 @@ pub mod tools;
 pub mod types;
 
 use protocol::router::route;
-use protocol::{JsonRpcResponse, parse_request};
+use protocol::{JsonRpcResponse, parse_request_value};
+use serde_json::Value;
 use state::McpState;
 
 /// The client a request speaks for when it names no `client_id`: the one
@@ -45,18 +46,68 @@ impl McpServer {
         server
     }
 
+    /// Handle one incoming message, a request, a notification or (in a
+    /// 2025-03-26 session) a JSON-RPC batch of them, and return the reply
+    /// to send, if any.
     pub fn handle_message(&mut self, input: &str) -> Option<String> {
-        let request = match parse_request(input) {
+        let message: Value = match serde_json::from_str(input) {
+            Ok(message) => message,
+            Err(_) => {
+                let response =
+                    JsonRpcResponse::error(None, protocol::error_codes::PARSE_ERROR, "Parse error");
+                self.report_protocol_error(&response, None);
+                return Some(serialize_response(&response));
+            }
+        };
+        match message {
+            Value::Array(batch) => self.handle_batch(batch),
+            single => self
+                .handle_request(single)
+                .map(|response| serialize_response(&response)),
+        }
+    }
+
+    /// A JSON-RPC batch: the response to each request in it, in order, or
+    /// nothing when it holds only notifications. Only a 2025-03-26 session
+    /// accepts batches (later revisions removed them); an empty batch is an
+    /// invalid request.
+    fn handle_batch(&mut self, batch: Vec<Value>) -> Option<String> {
+        let refusal = if batch.is_empty() {
+            Some("Invalid Request: empty batch".to_string())
+        } else if !self.state.accepts_batches() {
+            Some(format!(
+                "Invalid Request: JSON-RPC batches need protocol version {}",
+                lifecycle::BATCHING_PROTOCOL_VERSION
+            ))
+        } else {
+            None
+        };
+        if let Some(message) = refusal {
+            let response =
+                JsonRpcResponse::error(None, protocol::error_codes::INVALID_REQUEST, message);
+            self.report_protocol_error(&response, None);
+            return Some(serialize_response(&response));
+        }
+
+        let responses: Vec<JsonRpcResponse> = batch
+            .into_iter()
+            .filter_map(|member| self.handle_request(member))
+            .collect();
+        if responses.is_empty() {
+            return None;
+        }
+        Some(
+            serde_json::to_string(&responses).expect("JSON-RPC response serialization cannot fail"),
+        )
+    }
+
+    /// One request or notification; notifications get no response.
+    fn handle_request(&mut self, message: Value) -> Option<JsonRpcResponse> {
+        let request = match parse_request_value(message) {
             Ok(req) => req,
             Err(err_response) => {
-                let error = err_response.error.as_ref();
-                let code = error.map_or(protocol::error_codes::PARSE_ERROR, |e| e.code);
-                let message = error.map_or("Parse error", |e| e.message.as_str());
-                self.state.push_event(
-                    "mcp_protocol_error_handled",
-                    serde_json::json!({"errorCode": code, "errorMessage": message}),
-                );
-                return Some(serialize_response(&err_response));
+                self.report_protocol_error(&err_response, None);
+                return Some(err_response);
             }
         };
 
@@ -65,22 +116,27 @@ impl McpServer {
 
         let method = request.method.clone();
         let response = route(&mut self.state, &request.method, request.params, request.id);
-        if let Some(error) = &response.error {
-            self.state.push_event(
-                "mcp_protocol_error_handled",
-                serde_json::json!({
-                    "errorCode": error.code,
-                    "errorMessage": error.message,
-                    "method": method,
-                }),
-            );
-        }
+        self.report_protocol_error(&response, Some(&method));
 
         if is_notification {
             return None;
         }
+        Some(response)
+    }
 
-        Some(serialize_response(&response))
+    /// Record `mcp_protocol_error_handled` when `response` is an error.
+    fn report_protocol_error(&mut self, response: &JsonRpcResponse, method: Option<&str>) {
+        let Some(error) = &response.error else {
+            return;
+        };
+        let mut event = serde_json::json!({
+            "errorCode": error.code,
+            "errorMessage": error.message,
+        });
+        if let Some(method) = method {
+            event["method"] = Value::from(method);
+        }
+        self.state.push_event("mcp_protocol_error_handled", event);
     }
 
     pub fn state(&self) -> &McpState {

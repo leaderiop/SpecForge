@@ -1,6 +1,6 @@
 # Model Context Protocol (MCP) - Comprehensive Specification Summary
 
-**Protocol Version:** 2025-03-26 (current as of 2025-11-25)
+**Protocol Version:** 2025-03-26. Later revisions: 2025-06-18 (removed JSON-RPC batching, added `structuredContent`) and 2025-11-25. The SpecForge server negotiates all three (ADR 0004, D4-c).
 **Source:** https://modelcontextprotocol.io/specification
 
 ## Executive Summary
@@ -79,7 +79,7 @@ MCP uses **JSON-RPC 2.0** over two standard transports:
 - GET: Open SSE stream for server-to-client messages
 - Session management via `Mcp-Session-Id` header
 - Supports resumability with SSE event IDs and `Last-Event-ID` header
-- JSON-RPC batching supported
+- JSON-RPC batching supported (2025-03-26 only; 2025-06-18 removed it)
 
 **Security Warning for HTTP:**
 - Servers MUST validate `Origin` header (prevent DNS rebinding)

@@ -665,7 +665,10 @@ fn mcp_tool_unknown_returns_error() {
 fn mcp_resource_list_returns_six_resources() {
     let responses = mcp_session(
         BASIC_SPEC,
-        &[mcp_request(1, "resources/list", serde_json::json!({}))],
+        &[
+            mcp_request(1, "resources/list", serde_json::json!({})),
+            mcp_request(2, "resources/templates/list", serde_json::json!({})),
+        ],
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
@@ -675,10 +678,17 @@ fn mcp_resource_list_returns_six_resources() {
         .expect("should have resources array");
     assert_eq!(
         resources.len(),
-        8,
-        "should have 8 default resources (6 core + entities_by_kind + context/{{entity_id}} template), got {}",
+        5,
+        "should have 5 plain default resources, got {}",
         resources.len()
     );
+    // The templated ones (graph/{entity_id}, context/{entity_id},
+    // entities/{kind}) are resource templates.
+    let resp = find_response(&responses, 2).expect("should get response for id 2");
+    let templates = resp["result"]["resourceTemplates"]
+        .as_array()
+        .expect("should have resourceTemplates array");
+    assert_eq!(templates.len(), 3, "{resp}");
 }
 
 #[specforge_test(
