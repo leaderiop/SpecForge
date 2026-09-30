@@ -60,6 +60,58 @@ fn testable_node(id: &str) -> Node {
     }
 }
 
+/// A node with a description, so tests can check prose is left out.
+fn described_node(id: &str) -> Node {
+    let mut node = testable_node(id);
+    node.fields.push(
+        Sym::new("description"),
+        FieldValue::String("Long prose that explains the entity at length".to_string()),
+    );
+    node
+}
+
+/// The IDs of the `nodes` array of a JSON export, in output order.
+fn node_ids(parsed: &serde_json::Value) -> Vec<&str> {
+    parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect()
+}
+
+/// Each line of a DOT document with every quoted string replaced by `Q`.
+/// Panics on a quote that is not closed on its line or an escape that is
+/// not one DOT allows, so a statement split by a stray quote or newline
+/// cannot pass.
+fn dot_statement_shapes(dot: &str) -> Vec<String> {
+    dot.lines()
+        .map(|line| {
+            let mut shape = String::new();
+            let mut chars = line.trim().chars();
+            while let Some(ch) = chars.next() {
+                if ch != '"' {
+                    shape.push(ch);
+                    continue;
+                }
+                loop {
+                    match chars.next() {
+                        Some('"') => break,
+                        Some('\\') => match chars.next() {
+                            Some('"' | '\\' | 'n') => {}
+                            other => panic!("bad escape {other:?} in: {line}"),
+                        },
+                        Some(_) => {}
+                        None => panic!("unterminated quoted string in: {line}"),
+                    }
+                }
+                shape.push('Q');
+            }
+            shape
+        })
+        .collect()
+}
+
 fn build_graph() -> Graph {
     let mut graph = Graph::new();
     graph.add_node(node_with_fields("a", "feature", "feature A", "planned"));
@@ -122,55 +174,84 @@ fn json_graph_contract_finalized_graph_produces_valid_output() {
 )]
 fn dot_contract_finalized_graph_produces_valid_dot() {
     // Requires: graph is finalized
-    // Ensures: valid Graphviz DOT syntax
+    // Ensures: valid DOT; every node labeled with its ID and title; every
+    // edge labeled with its type.
     let graph = build_graph();
     let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
 
-    assert!(dot.starts_with("digraph"), "must be a directed graph");
-    assert!(dot.contains("rankdir=LR"), "must have LR layout");
-    assert!(dot.contains("shape=box"), "nodes must have shape");
-    assert!(
-        dot.ends_with("}\n") || dot.ends_with("}"),
-        "must be properly closed"
+    assert_eq!(
+        dot,
+        concat!(
+            "digraph specforge {\n",
+            "  rankdir=LR;\n",
+            "  node [shape=box];\n",
+            "  \"a\" [label=\"a\\nTitle a\"];\n",
+            "  \"b\" [label=\"b\\nTitle b\"];\n",
+            "  \"c\" [label=\"c\\nTitle c\"];\n",
+            "  \"a\" -> \"b\" [label=\"behaviors\"];\n",
+            "  \"b\" -> \"c\" [label=\"depends_on\"];\n",
+            "}\n",
+        )
+    );
+    // valid_dot_produced: every line is a statement of the DOT grammar.
+    assert_eq!(
+        dot_statement_shapes(&dot),
+        vec![
+            "digraph specforge {",
+            "rankdir=LR;",
+            "node [shape=box];",
+            "Q [label=Q];",
+            "Q [label=Q];",
+            "Q [label=Q];",
+            "Q -> Q [label=Q];",
+            "Q -> Q [label=Q];",
+            "}",
+        ]
     );
 }
 
 // === compute_traceability_chain contract ===
 
-// B:compute_traceability_chain — verify contract "requires/ensures consistency for traceability chain computation"
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "Compute Traceability Chain: traceability chain computation holds — validation_complete_fired, full_chain_traversed, missing_links_flagged, trace_chain_computed_emitted"
-)]
+// Not linked to the Compute Traceability Chain contract: missing_links_flagged
+// is not built. The spec's missing link is an edge type a manifest declares
+// but the graph does not instantiate, flagged with a "missing" status;
+// TraceLink has no status and nothing compares traces with the edge
+// registry. (detect_trace_gaps finds dangling edges, which the contract
+// says are E003 broken references, not missing links.)
+#[test]
 fn trace_contract_entity_in_graph_produces_chain() {
     // Requires: entity exists in graph
-    // Ensures: trace chain with upstream + downstream, sorted by depth
+    // Ensures: the full chain, both directions, every hop.
     let graph = build_graph();
+    let links = |links: &[specforge_emitter::TraceLink]| -> Vec<(String, String, usize)> {
+        links
+            .iter()
+            .map(|l| (l.entity_id.clone(), l.edge_label.clone(), l.depth))
+            .collect()
+    };
+
     let trace = specforge_emitter::trace(&graph, "b").unwrap();
-
     assert_eq!(trace.entity_id, "b");
-    assert!(
-        !trace.upstream.is_empty(),
-        "mid-chain entity must have upstream"
+    assert_eq!(trace.entity_kind, "behavior");
+    assert_eq!(
+        links(&trace.upstream),
+        vec![("a".to_string(), "behaviors".to_string(), 1)]
     );
-    assert!(
-        !trace.downstream.is_empty(),
-        "mid-chain entity must have downstream"
+    assert_eq!(
+        links(&trace.downstream),
+        vec![("c".to_string(), "depends_on".to_string(), 1)]
     );
 
-    // Verify depth ordering
-    for window in trace.upstream.windows(2) {
-        assert!(
-            window[0].depth <= window[1].depth,
-            "upstream must be sorted by depth"
-        );
-    }
-    for window in trace.downstream.windows(2) {
-        assert!(
-            window[0].depth <= window[1].depth,
-            "downstream must be sorted by depth"
-        );
-    }
+    // From the root the chain reaches the leaf two hops away.
+    let root = specforge_emitter::trace(&graph, "a").unwrap();
+    assert!(root.upstream.is_empty());
+    assert_eq!(
+        links(&root.downstream),
+        vec![
+            ("b".to_string(), "behaviors".to_string(), 1),
+            ("c".to_string(), "depends_on".to_string(), 2),
+        ]
+    );
 }
 
 // === compute_project_statistics contract ===
@@ -201,14 +282,44 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
         },
     ];
 
+    // One testable behavior without a verify, and a verified feature: the
+    // feature is not testable, so it must not count toward coverage.
+    let mut graph = graph;
+    graph.add_node(node_with_fields("d", "behavior", "unverified", "planned"));
+    let mut verified_feature = testable_node("e");
+    verified_feature.kind = EntityKind {
+        raw: Sym::new("feature"),
+    };
+    graph.add_node(verified_feature);
+
     let stats =
         specforge_emitter::compute_stats_with_diagnostics(&graph, &["behavior"], &diagnostics);
-    assert_eq!(stats.total_entities, 3);
+    assert_eq!(stats.total_entities, 5);
     assert_eq!(stats.total_edges, 2);
-    assert_eq!(stats.testable_count, 2);
+    // entity_counts_produced: counts grouped by kind.
+    assert_eq!(
+        stats.entities_by_kind,
+        [("behavior".to_string(), 3), ("feature".to_string(), 2)]
+            .into_iter()
+            .collect()
+    );
+    // coverage_computed: b and c of the three behaviors are verified.
+    assert_eq!(stats.testable_count, 3);
+    assert!(
+        (stats.coverage_pct - 200.0 / 3.0).abs() < 1e-9,
+        "2 of 3 testable verified: {}",
+        stats.coverage_pct
+    );
     assert_eq!(stats.error_count, 1);
     assert_eq!(stats.warning_count, 1);
-    assert!(stats.coverage_pct >= 0.0 && stats.coverage_pct <= 100.0);
+
+    // zero_testable_safe: no testable kinds, or a testable kind with no
+    // entities, reports 0%, not NaN.
+    for testable in [&[][..], &["event"][..]] {
+        let none = specforge_emitter::compute_stats_with_diagnostics(&graph, testable, &[]);
+        assert_eq!(none.testable_count, 0);
+        assert_eq!(none.coverage_pct, 0.0, "testable kinds {testable:?}");
+    }
 }
 
 // === export_agent_context_format contract ===
@@ -220,20 +331,56 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
 )]
 fn context_contract_includes_contracts_and_verify_omits_prose() {
     // Requires: finalized graph
-    // Ensures: id, kind, contract, verify, status present; description omitted
-    let graph = build_graph();
+    let mut graph = build_graph();
+    graph.add_node(described_node("d")); // disconnected from a -> b -> c
     let json = specforge_emitter::emit_context(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
-    let nodes = parsed["nodes"].as_array().unwrap();
-    let b_node = nodes.iter().find(|n| n["id"] == "b").unwrap();
-    assert!(b_node["contract"].is_string(), "must include contract");
-    assert!(b_node["verify"].is_array(), "must include verify");
+    // schema_version_present
+    assert_eq!(parsed["schema_version"], "0.1.0");
 
-    // Should not include verbose description field
+    // token_optimized_output: contract, status and verify kept; the prose
+    // description and source locations left out.
+    let nodes = parsed["nodes"].as_array().unwrap();
+    let d = nodes.iter().find(|n| n["id"] == "d").unwrap();
+    assert_eq!(d["contract"], "The system MUST work");
+    assert_eq!(
+        d["verify"],
+        serde_json::json!([{ "kind": "unit", "description": "it works" }])
+    );
+    let a = nodes.iter().find(|n| n["id"] == "a").unwrap();
+    assert_eq!(a["status"], "planned");
+    assert!(
+        !json.contains("Long prose"),
+        "description text must not appear: {json}"
+    );
     for node in nodes {
-        assert!(node.get("description").is_none(), "must omit description");
+        assert!(node.get("description").is_none(), "{node}");
+        assert!(node.get("file").is_none(), "{node}");
     }
+
+    // scope_enforced: scoped at a, only the connected a, b, c.
+    let scoped = specforge_emitter::emit_context_scoped(&graph, "a").unwrap();
+    let scoped: serde_json::Value = serde_json::from_str(&scoped).unwrap();
+    assert_eq!(node_ids(&scoped), vec!["a", "b", "c"]);
+    assert_eq!(scoped["edges"].as_array().unwrap().len(), 2);
+
+    // invalid_scope_diagnosed: E003 naming the entity, exit code 1 — through
+    // the call `specforge export --format context --scope` makes.
+    let err = specforge_emitter::emit(
+        &graph,
+        &specforge_emitter::EmitOptions {
+            format: specforge_emitter::EmitFormat::Context,
+            scope: Some("ghost"),
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "E003: unresolved scope entity 'ghost' — entity not found in graph"
+    );
+    assert_eq!(err.exit_code(), 1);
 }
 
 // === export_agent_graph_format contract ===
@@ -245,31 +392,60 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
 )]
 fn graph_format_contract_finalized_graph_produces_full_output() {
     // Requires: finalized graph
-    // Ensures: all nodes with all fields, all edges, schema_version present
-    let graph = build_graph();
+    let mut graph = build_graph();
+    graph.add_node(described_node("d")); // disconnected from a -> b -> c
     let json = specforge_emitter::emit_graph(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
-    assert!(
-        parsed["schema_version"].is_string(),
-        "must include schema_version"
-    );
-    let nodes = parsed["nodes"].as_array().unwrap();
-    assert_eq!(nodes.len(), 3, "all nodes present");
+    // schema_version_present
+    assert_eq!(parsed["schema_version"], "0.1.0");
+
+    // full_fidelity_output: every node with every field and its location,
+    // every edge.
+    assert_eq!(node_ids(&parsed), vec!["a", "b", "c", "d"]);
+    let d = &parsed["nodes"][3];
+    assert_eq!(d["kind"], "behavior");
+    assert_eq!(d["title"], "Title d");
+    assert_eq!(d["file"], "test.spec");
+    assert_eq!(d["line"], 1);
     assert_eq!(
-        parsed["edges"].as_array().unwrap().len(),
-        2,
-        "all edges present"
+        d["fields"],
+        serde_json::json!({
+            "contract": "The system MUST work",
+            "verify": [{ "kind": "unit", "description": "it works" }],
+            "description": "Long prose that explains the entity at length",
+        })
+    );
+    assert_eq!(parsed["nodes"][0]["fields"]["status"], "planned");
+    assert_eq!(
+        parsed["edges"],
+        serde_json::json!([
+            { "source": "a", "target": "b", "label": "behaviors" },
+            { "source": "b", "target": "c", "label": "depends_on" },
+        ])
     );
 
-    // Graph format includes all fields (unlike brief/context which strip)
-    let b_node = nodes.iter().find(|n| n["id"] == "b").unwrap();
-    assert!(b_node["kind"].is_string(), "graph format must include kind");
-    // Fields are nested under "fields" key in full graph format
-    assert!(
-        b_node["fields"]["contract"].is_string() || b_node["contract"].is_string(),
-        "graph format must include contract (in fields or top-level)"
+    // scope_enforced: scoped at c, only the connected a, b, c.
+    let scoped = specforge_emitter::emit_json_scoped(&graph, "c").unwrap();
+    let scoped: serde_json::Value = serde_json::from_str(&scoped).unwrap();
+    assert_eq!(node_ids(&scoped), vec!["a", "b", "c"]);
+    assert_eq!(scoped["edges"].as_array().unwrap().len(), 2);
+
+    // invalid_scope_diagnosed: E003 naming the entity, exit code 1 — through
+    // the call `specforge export --format graph --scope` makes.
+    let err = specforge_emitter::emit(
+        &graph,
+        &specforge_emitter::EmitOptions {
+            scope: Some("ghost"),
+            ..Default::default()
+        },
+    )
+    .unwrap_err();
+    assert_eq!(
+        err.to_string(),
+        "E003: unresolved scope entity 'ghost' — entity not found in graph"
     );
+    assert_eq!(err.exit_code(), 1);
 }
 
 // === query_graph_multi_resolution contract ===
@@ -281,19 +457,40 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
 )]
 fn query_contract_valid_entity_returns_subgraph() {
     // Requires: entity exists in graph, depth >= 0
-    // Ensures: root always included, neighbors within depth, schema_version present
-    let graph = build_graph();
-    let result = specforge_emitter::query(&graph, "b", 1, &[]).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    // a(feature) -> b(behavior) -> c(behavior) -> x(invariant)
+    let mut graph = build_graph();
+    graph.add_node(node_with_fields("x", "invariant", "holds", "active"));
+    graph.add_edge(Edge {
+        source: "c".into(),
+        target: "x".into(),
+        label: "invariants".into(),
+    });
+    let query = |depth: usize, kinds: &[&str]| -> serde_json::Value {
+        let out = specforge_emitter::query(&graph, "a", depth, kinds).unwrap();
+        serde_json::from_str(&out).unwrap()
+    };
 
-    assert!(parsed["schema_version"].is_string());
-    let ids: Vec<&str> = parsed["nodes"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|n| n["id"].as_str().unwrap())
-        .collect();
-    assert!(ids.contains(&"b"), "root must always be included");
+    // depth_respected: exactly the entities within N hops.
+    assert_eq!(node_ids(&query(0, &[])), vec!["a"]);
+    assert_eq!(node_ids(&query(1, &[])), vec!["a", "b"]);
+    assert_eq!(node_ids(&query(2, &[])), vec!["a", "b", "c"]);
+    assert_eq!(node_ids(&query(3, &[])), vec!["a", "b", "c", "x"]);
+
+    // kind_filter_applied: only the listed kinds, plus the queried root.
+    assert_eq!(node_ids(&query(3, &["behavior"])), vec!["a", "b", "c"]);
+    assert_eq!(node_ids(&query(3, &["invariant"])), vec!["a", "x"]);
+
+    // graph_protocol_conformance: schema_version, and edges only between
+    // returned nodes.
+    let result = query(2, &[]);
+    assert_eq!(result["schema_version"], "0.1.0");
+    assert_eq!(
+        result["edges"],
+        serde_json::json!([
+            { "source": "a", "target": "b", "label": "behaviors" },
+            { "source": "b", "target": "c", "label": "depends_on" },
+        ])
+    );
 }
 
 // === enforce_token_budget contract ===
@@ -305,13 +502,43 @@ fn query_contract_valid_entity_returns_subgraph() {
 )]
 fn budget_contract_within_budget_no_truncation() {
     // Requires: graph + budget
-    // Ensures: within budget → all nodes, no token_budget metadata
-    let graph = build_graph();
-    let result = specforge_emitter::emit_json_with_budget(&graph, 100_000);
-    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+    let graph = build_graph(); // a -> b -> c: b is the most central
+    let emit = |budget: usize| -> serde_json::Value {
+        serde_json::from_str(&specforge_emitter::emit_json_with_budget(&graph, budget)).unwrap()
+    };
 
-    assert_eq!(parsed["nodes"].as_array().unwrap().len(), 3);
-    assert!(parsed.get("token_budget").is_none() || parsed["token_budget"].is_null());
+    // Within budget: everything, and no truncation metadata.
+    let roomy = emit(100_000);
+    assert_eq!(node_ids(&roomy), vec!["a", "b", "c"]);
+    assert!(roomy.get("token_budget").is_none(), "{roomy}");
+
+    // Over budget: the least central entity (a, degree 1, before c by id)
+    // goes first.
+    let tight = emit(180);
+    let meta = &tight["token_budget"];
+    // truncation_metadata_produced
+    assert_eq!(meta["strategy"], "prioritize");
+    assert_eq!(meta["budget_tokens"], 180);
+    assert_eq!(meta["truncated_entities"], serde_json::json!(["a"]));
+    // Kept entities are listed most central last; compare as sets.
+    let kept = |v: &serde_json::Value| -> Vec<String> {
+        let mut ids: Vec<String> = node_ids(v).iter().map(|s| s.to_string()).collect();
+        ids.sort();
+        ids
+    };
+    assert_eq!(kept(&tight), vec!["b", "c"]);
+    // budget_respected
+    let estimated = meta["estimated_tokens"].as_u64().unwrap() as usize;
+    assert!(estimated <= 180, "estimated {estimated} over budget 180");
+    // The estimate is the output's real cost: a budget of exactly that keeps
+    // the same entities, one token less has to drop another.
+    assert_eq!(kept(&emit(estimated)), vec!["b", "c"]);
+    assert_eq!(kept(&emit(estimated - 1)), vec!["b"]);
+    // valid_subgraph_after_truncation: no edge to or from a.
+    assert_eq!(
+        tight["edges"],
+        serde_json::json!([{ "source": "b", "target": "c", "label": "depends_on" }])
+    );
 }
 
 // === validate_agent_plan contract ===
@@ -378,11 +605,10 @@ fn deterministic_contract_same_input_identical_output() {
 
 // === serialize_traceability_data contract ===
 
-// B:serialize_traceability_data — verify contract "requires/ensures consistency for traceability data serialization"
-#[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "Serialize Traceability Data: traceability data serialization holds — validation_complete_fired, full_trace_serialized, gaps_included, graph_protocol_conformance, render_complete_emitted, a"
-)]
+// Not linked to the Serialize Traceability Data contract: gaps_included is
+// not built. serialize_trace_all carries no gaps and TraceLink has no
+// "missing" status, so no output can show a missing link.
+#[test]
 fn trace_data_contract_all_entities_traced() {
     let graph = build_graph();
     let traces = specforge_emitter::trace_all(&graph);
@@ -680,11 +906,46 @@ fn json_graph_structural_only() {
     verify = "DOT output is valid Graphviz syntax"
 )]
 fn dot_valid_syntax() {
-    let graph = build_graph();
+    // IDs and titles with quotes, backslashes and newlines must stay inside
+    // their quoted strings.
+    let mut graph = build_graph();
+    let mut hostile = testable_node("say \"hi\"");
+    hostile.title = Some("back\\slash }\n\"; digraph x {".to_string());
+    graph.add_node(hostile);
+    graph.add_edge(Edge {
+        source: "a".into(),
+        target: "say \"hi\"".into(),
+        label: "behaviors".into(),
+    });
     let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
-    assert!(dot.starts_with("digraph"));
-    assert!(dot.contains("{"));
-    assert!(dot.trim_end().ends_with("}"));
+
+    assert_eq!(
+        dot_statement_shapes(&dot),
+        vec![
+            "digraph specforge {",
+            "rankdir=LR;",
+            "node [shape=box];",
+            "Q [label=Q];",
+            "Q [label=Q];",
+            "Q [label=Q];",
+            "Q [label=Q];",
+            "Q -> Q [label=Q];",
+            "Q -> Q [label=Q];",
+            "Q -> Q [label=Q];",
+            "}",
+        ],
+        "{dot}"
+    );
+    assert!(
+        dot.contains(
+            "  \"say \\\"hi\\\"\" [label=\"say \\\"hi\\\"\\nback\\\\slash }\\n\\\"; digraph x {\"];\n"
+        ),
+        "{dot}"
+    );
+    assert!(
+        dot.contains("  \"a\" -> \"say \\\"hi\\\"\" [label=\"behaviors\"];\n"),
+        "{dot}"
+    );
 }
 
 #[specforge_test(
@@ -692,11 +953,28 @@ fn dot_valid_syntax() {
     verify = "nodes are labeled with IDs"
 )]
 fn dot_nodes_labeled() {
-    let graph = build_graph();
+    let mut graph = build_graph();
+    // An untitled node with no edges: labeled with its ID alone.
+    let mut bare = testable_node("d");
+    bare.title = None;
+    graph.add_node(bare);
     let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
-    assert!(dot.contains("\"a\""), "node a must be present");
-    assert!(dot.contains("\"b\""), "node b must be present");
-    assert!(dot.contains("\"c\""), "node c must be present");
+
+    // Each node has its own statement, labeled with its ID (and title).
+    let statements: Vec<&str> = dot
+        .lines()
+        .map(str::trim)
+        .filter(|l| l.starts_with('"') && !l.contains("->"))
+        .collect();
+    assert_eq!(
+        statements,
+        vec![
+            "\"a\" [label=\"a\\nTitle a\"];",
+            "\"b\" [label=\"b\\nTitle b\"];",
+            "\"c\" [label=\"c\\nTitle c\"];",
+            "\"d\" [label=\"d\"];",
+        ]
+    );
 }
 
 #[specforge_test(
