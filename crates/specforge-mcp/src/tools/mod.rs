@@ -40,6 +40,19 @@ pub(crate) fn tool_error(id: Option<Value>, message: String) -> JsonRpcResponse 
     )
 }
 
+/// Whether a mutation tool call changes files, with each tool's defaults:
+/// format's check and diff modes and every dry run only report, and
+/// report-only calls complete no mutation.
+fn writes(name: &str, args: &Value) -> bool {
+    let flag = |key: &str| args.get(key).and_then(Value::as_bool);
+    match name {
+        "specforge.format" => flag("write")
+            .unwrap_or(!flag("check").unwrap_or(false) && !flag("diff").unwrap_or(false)),
+        "specforge.migrate" => !flag("dry_run").unwrap_or(true),
+        _ => !flag("dry_run").unwrap_or(false),
+    }
+}
+
 pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized");
@@ -72,7 +85,7 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
             | "specforge.remove_extension"
             | "specforge.migrate"
             | "specforge.infer_session"
-    );
+    ) && writes(name, &arguments);
 
     let response = match name {
         // Core tools
