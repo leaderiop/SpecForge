@@ -131,6 +131,73 @@ fn comments(source: &str) -> BTreeMap<String, usize> {
     found
 }
 
+/// Whether a line ends inside a `"""` string, given whether it starts in one.
+fn ends_in_triple(line: &str, mut in_triple: bool) -> bool {
+    let bytes = line.as_bytes();
+    let (mut i, mut in_string) = (0, false);
+    while i < bytes.len() {
+        if in_triple {
+            if bytes[i..].starts_with(b"\"\"\"") {
+                in_triple = false;
+                i += 3;
+            } else {
+                i += 1;
+            }
+        } else if in_string {
+            match bytes[i] {
+                b'\\' => i += 2,
+                b'"' => {
+                    in_string = false;
+                    i += 1;
+                }
+                _ => i += 1,
+            }
+        } else if bytes[i..].starts_with(b"\"\"\"") {
+            in_triple = true;
+            i += 3;
+        } else if bytes[i] == b'"' {
+            in_string = true;
+            i += 1;
+        } else if bytes[i..].starts_with(b"//") {
+            break;
+        } else {
+            i += 1;
+        }
+    }
+    in_triple
+}
+
+/// The same spec laid out badly: every line outside a `"""` string gets
+/// three extra spaces of indent and trailing whitespace, and an unspaced,
+/// over-indented comment closes the file. Only layout changes, so
+/// formatting it must give back the canonical corpus's graph.
+fn mangle(source: &str) -> String {
+    let mut out = String::new();
+    let mut in_triple = false;
+    for line in source.split_inclusive('\n') {
+        let starts_inside = in_triple;
+        in_triple = ends_in_triple(line, in_triple);
+        let (body, newline) = match line.strip_suffix('\n') {
+            Some(body) => (body, "\n"),
+            None => (line, ""),
+        };
+        if body.trim().is_empty() {
+            out.push_str(line);
+            continue;
+        }
+        if !starts_inside {
+            out.push_str("   ");
+        }
+        out.push_str(body);
+        if !in_triple {
+            out.push_str("  ");
+        }
+        out.push_str(newline);
+    }
+    out.push_str("\n      //awkwardly placed trailing comment\n");
+    out
+}
+
 #[specforge_test(
     invariant = "formatting_semantic_preservation",
     verify = "format(spec) parses to an identical entity graph as spec"
@@ -162,22 +229,37 @@ fn formatting_the_corpus_changes_nothing_but_layout() {
     for corpus in CORPORA {
         let mut originals = Vec::new();
         spec_files(&root.join(corpus), &mut originals);
+        // Lay every file of the copy out badly, so formatting has work to do.
         let before: BTreeMap<PathBuf, String> = originals
             .iter()
             .map(|p| {
-                (
-                    p.strip_prefix(&root).unwrap().to_path_buf(),
-                    std::fs::read_to_string(p).unwrap(),
-                )
+                let relative = p.strip_prefix(&root).unwrap().to_path_buf();
+                let mangled = mangle(&std::fs::read_to_string(p).unwrap());
+                std::fs::write(copy.path().join(&relative), &mangled).unwrap();
+                (relative, mangled)
             })
             .collect();
 
-        specforge(copy.path(), &["format", corpus]);
+        let format = Command::new(env!("CARGO_BIN_EXE_specforge"))
+            .args(["format", corpus])
+            .current_dir(copy.path())
+            .output()
+            .unwrap();
+        assert!(
+            format.status.success(),
+            "{}",
+            String::from_utf8_lossy(&format.stderr)
+        );
+        assert!(
+            String::from_utf8_lossy(&format.stderr).contains(&format!("{} changed", before.len())),
+            "every mangled file of {corpus} is rewritten: {}",
+            String::from_utf8_lossy(&format.stderr)
+        );
 
         let mut problems = Vec::new();
-        for (relative, original) in &before {
+        for (relative, mangled) in &before {
             let formatted = std::fs::read_to_string(copy.path().join(relative)).unwrap();
-            if comments(original) != comments(&formatted) {
+            if comments(mangled) != comments(&formatted) {
                 problems.push(format!("{}: comments changed", relative.display()));
             }
         }

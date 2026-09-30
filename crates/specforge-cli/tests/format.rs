@@ -43,10 +43,60 @@ fn format_command_formats_files() {
         .success();
 
     let formatted = fs::read_to_string(root.join("spec/test.spec")).unwrap();
-    assert!(
-        formatted.contains("  contract \"does stuff\""),
-        "should be properly indented: {formatted}"
+    assert_eq!(
+        formatted, "behavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n",
+        "the file is rewritten in canonical form"
     );
+}
+
+/// The canonical form of the `behavior foo` inputs used below.
+const CANONICAL_FOO: &str = "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n";
+
+/// Run `specforge format --stdin` on `input` from `cwd`; returns stdout.
+fn format_stdin_in(cwd: &std::path::Path, input: &str) -> String {
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .current_dir(cwd)
+        .args(["format", "--stdin"])
+        .write_stdin(input)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).unwrap()
+}
+
+/// Every file under `dir` with its content, sorted by path.
+fn snapshot_tree(dir: &std::path::Path) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+    let mut files = Vec::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        for entry in fs::read_dir(&d).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                stack.push(path);
+            } else {
+                files.push((path.clone(), fs::read(&path).unwrap()));
+            }
+        }
+    }
+    files.sort();
+    files
+}
+
+/// A project whose spec/ holds an unformatted file and a malformed one,
+/// so any read or write of them would show in the output or on disk.
+fn project_with_spec_files(root: &std::path::Path) {
+    setup_project(root);
+    write_spec(
+        root,
+        "unformatted.spec",
+        "behavior other \"Other\" {\n      contract \"other\"\n}\n",
+    );
+    write_spec(root, "broken.spec", "behavior {{{ not valid\n");
 }
 
 #[specforge_test(
@@ -238,7 +288,7 @@ fn stdin_formats_and_writes_to_stdout() {
         .write_stdin("behavior foo \"Foo\" {\n      contract \"stuff\"\n}\n")
         .assert()
         .success()
-        .stdout(predicate::str::contains("  contract \"stuff\""));
+        .stdout(predicate::eq(CANONICAL_FOO));
 }
 
 #[specforge_test(
@@ -246,13 +296,28 @@ fn stdin_formats_and_writes_to_stdout() {
     verify = "stdin mode does not read or write files"
 )]
 fn stdin_mode_does_not_read_files() {
-    // stdin mode should work even without a project
-    Command::cargo_bin("specforge")
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    project_with_spec_files(root);
+    let before = snapshot_tree(root);
+
+    let output = Command::cargo_bin("specforge")
         .unwrap()
+        .current_dir(root)
         .args(["format", "--stdin"])
-        .write_stdin("behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n")
-        .assert()
-        .success();
+        .write_stdin("behavior foo \"Foo\" {\n      contract \"stuff\"\n}\n")
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    // Only stdin shows up: nothing from the project's spec files.
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), CANONICAL_FOO);
+    assert_eq!(
+        String::from_utf8(output.stderr).unwrap(),
+        "",
+        "no diagnostics from the malformed spec file"
+    );
+    assert_eq!(snapshot_tree(root), before, "no file was written");
 }
 
 // --- Integration: formatting all files in spec/ directory ---
@@ -296,9 +361,14 @@ fn format_integration_all_spec_files_in_directory() {
 
     // Verify all files were formatted
     let auth = fs::read_to_string(behaviors_dir.join("auth.spec")).unwrap();
-    assert!(
-        auth.contains("  contract \"authenticates user\""),
-        "auth.spec should be formatted: {auth}"
+    assert_eq!(
+        auth, "behavior login \"Login\" {\n  contract \"authenticates user\"\n}\n",
+        "auth.spec should be formatted"
+    );
+    let core = fs::read_to_string(types_dir.join("core.spec")).unwrap();
+    assert_eq!(
+        core, "type user \"User\" {\n  name \"string\"\n}\n",
+        "types/core.spec should be formatted"
     );
 }
 
@@ -310,23 +380,15 @@ fn format_integration_all_spec_files_in_directory() {
 )]
 fn stdin_formatting_is_idempotent() {
     let input = "behavior foo \"Foo\" {\n      contract   \"stuff\"\n    types [a, b]\n}\n";
+    let tmp = TempDir::new().unwrap();
 
-    let first = Command::cargo_bin("specforge")
-        .unwrap()
-        .args(["format", "--stdin"])
-        .write_stdin(input)
-        .output()
-        .unwrap();
-    let first_output = String::from_utf8(first.stdout).unwrap();
+    let first_output = format_stdin_in(tmp.path(), input);
+    assert_eq!(
+        first_output, "behavior foo \"Foo\" {\n  contract \"stuff\"\n  types    [a, b]\n}\n",
+        "the first pass formats"
+    );
 
-    let second = Command::cargo_bin("specforge")
-        .unwrap()
-        .args(["format", "--stdin"])
-        .write_stdin(first_output.as_str())
-        .output()
-        .unwrap();
-    let second_output = String::from_utf8(second.stdout).unwrap();
-
+    let second_output = format_stdin_in(tmp.path(), &first_output);
     assert_eq!(
         first_output, second_output,
         "stdin formatting should be idempotent"
@@ -346,19 +408,14 @@ fn stdin_formatting_converges_to_canonical_form() {
         "behavior foo \"Foo\" {\n    contract     \"stuff\"\n}\n",
     ];
 
-    let mut outputs = Vec::new();
+    let tmp = TempDir::new().unwrap();
     for variant in &variants {
-        let result = Command::cargo_bin("specforge")
-            .unwrap()
-            .args(["format", "--stdin"])
-            .write_stdin(*variant)
-            .output()
-            .unwrap();
-        outputs.push(String::from_utf8(result.stdout).unwrap());
+        assert_eq!(
+            format_stdin_in(tmp.path(), variant),
+            CANONICAL_FOO,
+            "{variant:?} should converge to the canonical form"
+        );
     }
-
-    assert_eq!(outputs[0], outputs[1], "variant 0 vs 1 should converge");
-    assert_eq!(outputs[1], outputs[2], "variant 1 vs 2 should converge");
 }
 
 // --- Contract: format_spec_files ---
@@ -468,12 +525,22 @@ fn show_formatting_diff_contract_requires_ensures() {
     verify = "Format from Standard Input: stdin formatting holds — stdin_available, format_config_loaded, stdout_produced, no_files_touched, format_complete_emitted"
 )]
 fn format_from_stdin_contract_requires_ensures() {
-    // ensures: stdout_produced, no_files_touched
-    Command::cargo_bin("specforge")
-        .unwrap()
-        .args(["format", "--stdin"])
-        .write_stdin("behavior foo \"Foo\" {\n      contract \"stuff\"\n}\n")
-        .assert()
-        .success()
-        .stdout(predicate::str::contains("  contract \"stuff\""));
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    project_with_spec_files(root);
+    let input = "behavior foo \"Foo\" {\n      contract \"stuff\"\n}\n";
+
+    // stdin_available, stdout_produced, no_files_touched,
+    // format_complete_emitted (a successful run ends with exit 0)
+    let before = snapshot_tree(root);
+    assert_eq!(format_stdin_in(root, input), CANONICAL_FOO);
+    assert_eq!(snapshot_tree(root), before, "no file was written");
+
+    // format_config_loaded: the project's .specforgefmt.toml applies.
+    fs::write(root.join(".specforgefmt.toml"), "indent_width = 4\n").unwrap();
+    assert_eq!(
+        format_stdin_in(root, input),
+        "behavior foo \"Foo\" {\n    contract \"stuff\"\n}\n",
+        "stdin formatting uses the resolved FormatConfig"
+    );
 }
