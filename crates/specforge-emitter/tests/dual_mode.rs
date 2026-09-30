@@ -142,7 +142,8 @@ fn protocol_extension_loaded_with_runtime() {
         .with_describe("passes", serde_json::json!([]))
         .with_describe("feature_flags", serde_json::json!([]));
 
-    let ctx = specforge_emitter::compile_with_runtime(dir.path(), Some(&runtime));
+    let ctx =
+        specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context();
 
     // No W031 — runtime was provided
     let w031: Vec<_> = ctx
@@ -209,7 +210,8 @@ fn protocol_handshake_trap_produces_e028() {
         },
     );
 
-    let ctx = specforge_emitter::compile_with_runtime(dir.path(), Some(&runtime));
+    let ctx =
+        specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context();
 
     // E028 diagnostic should be emitted
     let e028: Vec<_> = ctx
@@ -275,7 +277,8 @@ fn protocol_version_mismatch_produces_e028() {
         },
     };
 
-    let ctx = specforge_emitter::compile_with_runtime(dir.path(), Some(&runtime));
+    let ctx =
+        specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context();
 
     let e028: Vec<_> = ctx
         .diagnostics

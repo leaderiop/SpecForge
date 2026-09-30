@@ -3,7 +3,7 @@
   "artifact_sha256": "63a21c97f944b01c57841d74f1cc8a4d0c7920ecce3cbdc789ced6c7e6bce6da",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
-    "Cargo.toml#workspace-inherited": "0978a9a3d2948175f147a6ab29530e311ffc1281887aec52bfa6858677363512",
+    "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
     "crates/specforge-coverage/Cargo.toml": "10a319ef37a9e9ea3dea8bb6ed1e8a6cdb24edb92ece2070b1e99a9cac2f82d8",
     "crates/specforge-coverage/src/lib.rs": "6c525ea28609e9749ccb2ca4774fd6a17684518c428c264389d5ee8c5c0f9a8e",
     "crates/specforge-extension-sdk-macros/Cargo.toml": "59cc8cc8c2114164fd010871307a627d6ab52dcab777a08129894bdd6229e0d3",

@@ -245,9 +245,11 @@ fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcom
         return err_invalid(id, "rename needs a project root (pass {\"path\": ...})");
     };
 
+    // Spans are relative to the spec root the graph was compiled from.
+    let spec_root = state.spec_root.clone().unwrap_or_else(|| root.clone());
     let Some(edits) =
         specforge_graph::rename::identifier_edits(&state.graph, entity_id, new_name, |file| {
-            std::fs::read_to_string(root.join(file)).ok()
+            std::fs::read_to_string(spec_root.join(file)).ok()
         })
     else {
         return err_invalid(
@@ -281,7 +283,7 @@ fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcom
     }
 
     for file in &affected_files {
-        let path = root.join(file);
+        let path = spec_root.join(file);
         let Ok(text) = std::fs::read_to_string(&path) else {
             return err_invalid(id, format!("failed to read {}", path.display()));
         };
@@ -740,7 +742,8 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     // After a migration, compile the result and report its errors.
     let migrated = !dry_run && summary.migrated_count > 0;
     let post_migration_errors: Vec<Value> = if migrated {
-        crate::compile::compile_project(&path)
+        state
+            .compile(&path)
             .diagnostics
             .iter()
             .filter(|d| d.severity == specforge_common::Severity::Error)
@@ -924,7 +927,7 @@ fn collect_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     let run = args.get("run").and_then(|v| v.as_bool()).unwrap_or(false);
 
     let runtime = specforge_component::project_runtime(&root);
-    let ctx = specforge_emitter::compile::compile_with_runtime(&root, Some(&runtime));
+    let ctx = specforge_project::CompiledProject::compile(&root, Some(&runtime)).into_context();
     let known = collect::KnownEntities::from_graph(&ctx.graph);
 
     // The server never prompts: a command runs only if the user already

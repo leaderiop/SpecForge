@@ -37,7 +37,7 @@ fn schema_covers_project_config_keys() {
 
     // Typed on ProjectConfig and user-facing (C6-13: these were formally
     // invalid under additionalProperties:false before the fix).
-    for key in ["inference", "registries"] {
+    for key in ["inference", "registries", "exclude"] {
         assert!(props.contains_key(key), "config schema is missing '{key}'");
     }
     let inference = &props["inference"];

@@ -1,4 +1,3 @@
-pub mod compile;
 pub mod lifecycle;
 pub mod notifications;
 pub mod operations;

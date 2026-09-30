@@ -216,14 +216,14 @@ behavior track_import_dag_incrementally "Track Import DAG Incrementally" {
   }
   ensures {
     import_dag_updated_emitted "import_dag_updated event fires after the DAG reflects added and removed use imports"
-    cycle_detection_rerun      "Import cycle detection (E003) has been re-run across the full import DAG"
+    cycle_detection_rerun      "Import cycle detection (W113) has been re-run across the full import DAG"
   }
   contract   """
     When a file is re-parsed during incremental compilation, the system
     MUST update the file-level import DAG to reflect any added or removed
     use import statements. Added imports MUST create new edges in the file
     dependency graph. Removed imports MUST delete the corresponding edges.
-    After updating, the system MUST re-check for import cycles (E003)
+    After updating, the system MUST re-check for import cycles (W113)
     across the full import DAG (not just the affected subgraph), because
     a local edge change may create or break a cycle through nodes outside
     the invalidation set. The import DAG MUST remain consistent with the

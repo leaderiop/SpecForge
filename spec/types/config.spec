@@ -14,6 +14,9 @@ type CompilerConfig {
   name                  string                @readonly
   version               string                @readonly
   spec_root             string                @optional
+  // Path substrings (not globs), relative to the spec root: a .spec file
+  // whose path contains one is not compiled on any surface.
+  exclude               string[]              @optional
   strict                boolean               @optional
   namespace             string                @optional
   display_prefix        string                @optional

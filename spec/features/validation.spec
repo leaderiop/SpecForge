@@ -19,7 +19,7 @@ feature reference_resolution "Reference Resolution" {
   """
   solution """
     The resolver processes use imports, links entity references, detects
-    import cycles (E003), and resolves cross-extension references with soft
+    import cycles (W113), and resolves cross-extension references with soft
     resolution (I004 for uninstalled extensions). External ref declarations
     are resolved via provider schemes.
   """

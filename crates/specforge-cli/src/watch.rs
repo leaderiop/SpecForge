@@ -1,26 +1,24 @@
-//! `specforge watch` — incremental rebuild loop over the shared pipeline.
+//! `specforge watch` — incremental rebuild loop over a [`ProjectSession`].
 //!
-//! Cold-builds the project through the standard compile pipeline, then drives
-//! [`IncrementalPipeline`] (the same core the LSP uses) from file-watcher
-//! events. Rebuilds run through `build_graph_with_config` with the extension
-//! registries, so watch diagnostics match `specforge check` byte for byte.
+//! The session is seeded by one cold build and kept current from
+//! file-watcher events; every event reports its diagnostics, the set
+//! `specforge check` reports for the same sources.
 
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 
-use specforge_common::Severity;
-use specforge_graph::build_graph_with_config;
-use specforge_watch::{ImportDag, IncrementalPipeline, SpecWatcher};
+use specforge_common::{Diagnostic, Severity};
+use specforge_project::{ProjectSession, SourceChange};
+use specforge_watch::SpecWatcher;
 
 pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     // A debug build of the compiler checks every rebuild; a release build
     // only when asked (the check costs a cold rebuild per change).
     let verify_incremental = verify_incremental || cfg!(debug_assertions);
-    // 1. Cold build via the standard compile pipeline (extensions, registries).
-    let (mut ctx, mut runtime, mut pipeline) = cold_build(path);
-    pipeline.set_verify_incremental(verify_incremental);
-    let spec_root: PathBuf =
-        std::fs::canonicalize(&ctx.spec_root).unwrap_or_else(|_| ctx.spec_root.clone());
+    let mut session = ProjectSession::open(path);
+    session.set_verify_incremental(verify_incremental);
+    let spec_root: PathBuf = std::fs::canonicalize(&session.environment().spec_root)
+        .unwrap_or_else(|_| session.environment().spec_root.clone());
 
     // Start watching before announcing readiness: a client that writes on
     // seeing "ready" must never race a watcher that does not exist yet.
@@ -53,47 +51,42 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
         }
     };
 
-    let file_count = ctx.resolved.files.len();
-    let diags = full_diagnostics(&pipeline, &ctx, &runtime);
-    let errors = diags
-        .iter()
-        .filter(|d| d.severity == Severity::Error)
-        .count();
-    let warnings = diags
-        .iter()
-        .filter(|d| d.severity == Severity::Warning)
-        .count();
+    // A running MCP server compares this marker with its own compile.
+    write_freshness_marker(&session);
+    let diagnostics = session.diagnostics();
+    let (errors, warnings) = counts(&diagnostics);
     if json {
         println!(
             "{}",
             serde_json::json!({
                 "event": "ready",
                 "spec_root": spec_root.to_string_lossy(),
-                "files": file_count,
-                "nodes": pipeline.graph().node_count(),
-                "edges": pipeline.graph().edge_count(),
+                "files": session.file_count(),
+                "nodes": session.graph().node_count(),
+                "edges": session.graph().edge_count(),
                 "errors": errors,
                 "warnings": warnings,
+                "diagnostics": diagnostics,
             })
         );
     } else {
         println!(
             "specforge watch: {} ({} files, {} nodes, {} edges, {} errors, {} warnings)",
             spec_root.display(),
-            file_count,
-            pipeline.graph().node_count(),
-            pipeline.graph().edge_count(),
+            session.file_count(),
+            session.graph().node_count(),
+            session.graph().edge_count(),
             errors,
             warnings
         );
         println!("watching for changes (Ctrl-C to stop)");
     }
 
-    // 4. Watch loop: debounced batches from the watcher drive incremental
-    //    rebuilds. Tree-sitter trees are retained across rebuilds, so
-    //    unchanged subtrees are not re-parsed.
+    // Watch loop: debounced batches from the watcher drive incremental
+    // rebuilds. Tree-sitter trees are retained across rebuilds, so
+    // unchanged subtrees are not re-parsed.
     // Merge both channels: spec-only batches take the incremental path,
-    // config/plugin batches force a cold rebuild.
+    // config/plugin batches reload the environment.
     let debug = std::env::var("SPECFORGE_WATCH_DEBUG").is_ok();
     let (merge_tx, rx2) = mpsc::channel::<Vec<specforge_watch::WatchEvent>>();
     {
@@ -127,9 +120,9 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     }
 
     for batch in rx2 {
-        // Extension environment changed: full cold rebuild with a fresh
-        // runtime (new/replaced/uninstalled plugins and config). Spec-only
-        // batches stay on the incremental path.
+        // Extension environment changed: reload it, with a fresh runtime
+        // (new/replaced/uninstalled plugins and config). Spec-only batches
+        // stay on the incremental path.
         let config_or_plugin = batch
             .iter()
             .any(|e| !matches!(e.kind, specforge_watch::WatchEventKind::Spec));
@@ -137,32 +130,38 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
             if debug {
                 eprintln!("[watch] reload branch entered");
             }
-            let (new_ctx, new_runtime, new_pipeline) = cold_build(path);
-            if debug {
-                eprintln!("[watch] reload cold_build done");
-            }
-            pipeline = new_pipeline;
-            pipeline.set_verify_incremental(verify_incremental);
-            runtime = new_runtime;
+            let update = session.reload_environment();
+            write_freshness_marker(&session);
+            let (errors, warnings) = counts(&update.diagnostics);
+            let extensions: Vec<&str> = session
+                .environment()
+                .registries
+                .manifests
+                .iter()
+                .map(|m| m.name.as_str())
+                .collect();
             if json {
                 println!(
                     "{}",
                     serde_json::json!({
                         "event": "extensions_reloaded",
-                        "extensions": new_ctx.manifests.iter().map(|m| m.name.clone()).collect::<Vec<_>>(),
-                        "files": new_ctx.resolved.files.len(),
-                        "nodes": new_ctx.graph.node_count(),
-                        "errors": new_ctx.diagnostics.iter().filter(|d| d.severity == Severity::Error).count(),
+                        "extensions": extensions,
+                        "files": session.file_count(),
+                        "nodes": session.graph().node_count(),
+                        "errors": errors,
+                        "warnings": warnings,
+                        "diagnostics": update.diagnostics,
                     })
                 );
             } else {
                 println!(
-                    "[reload] extension environment changed: {} extension(s), {} file(s)",
-                    new_ctx.manifests.len(),
-                    new_ctx.resolved.files.len()
+                    "[reload] extension environment changed: {} extension(s), {} file(s) | {} errors, {} warnings",
+                    extensions.len(),
+                    session.file_count(),
+                    errors,
+                    warnings
                 );
             }
-            ctx = new_ctx;
             continue;
         }
 
@@ -171,47 +170,9 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
             .filter(|e| matches!(e.kind, specforge_watch::WatchEventKind::Spec))
             .map(|e| e.path.clone())
             .collect();
-        let result = pipeline.rebuild(&specs, |f: &str| {
-            std::fs::read_to_string(spec_root.join(f)).ok()
-        });
-
-        let diagnostics = full_diagnostics(&pipeline, &ctx, &runtime);
-        let errors = diagnostics
-            .iter()
-            .filter(|d| d.severity == Severity::Error)
-            .count();
-        let warnings = diagnostics
-            .iter()
-            .filter(|d| d.severity == Severity::Warning)
-            .count();
-
-        // C9-07: write the freshness marker so a running MCP server (or any
-        // agent polling the snapshot) can detect the newer graph.
-        // The marker lives under the spec root's parent (the project root
-        // when it matches); walking up is avoided — the spec root parent is
-        // where .specforge/ and specforge.json live in standard layouts.
-        let marker_dir = spec_root.parent().unwrap_or(&spec_root).join(".specforge");
-        let _ = std::fs::create_dir_all(&marker_dir);
-        let marker_tmp = marker_dir.join("graph.json.tmp");
-        let marker = marker_dir.join("graph.json");
-        let marker_doc = serde_json::json!({
-            "updated_at": std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_millis())
-                .unwrap_or(0),
-            "nodes": pipeline.graph().node_count(),
-            "edges": pipeline.graph().edge_count(),
-        });
-        if let Ok(mut f) = std::fs::File::create(&marker_tmp) {
-            use std::io::Write;
-            let _ = f.write_all(
-                serde_json::to_string(&marker_doc)
-                    .expect("marker serialization cannot fail")
-                    .as_bytes(),
-            );
-            let _ = f.sync_all();
-            let _ = std::fs::rename(&marker_tmp, &marker);
-        }
+        let result = session.update(SourceChange::Disk(&specs));
+        write_freshness_marker(&session);
+        let (errors, warnings) = counts(&result.diagnostics);
 
         if json {
             println!(
@@ -227,6 +188,7 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
                     "removed_edges": result.delta.removed_edges.len(),
                     "errors": errors,
                     "warnings": warnings,
+                    "diagnostics": result.diagnostics,
                     "changed_diagnostic_files": result.changed_diagnostic_files,
                     "verification_failed": matches!(result.verification, Some(Err(_))),
                     "verification": match &result.verification {
@@ -262,64 +224,42 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     0
 }
 
-/// Cold-build the project: full compile pipeline + seeded incremental
-/// pipeline. Used at startup AND whenever the extension environment changes
-/// (specforge.json / .wasm edits) — hardening-plan H3 / R-5.
-fn cold_build(
-    path: &Path,
-) -> (
-    crate::pipeline::CompilationContext,
-    specforge_component::ComponentRuntime,
-    IncrementalPipeline,
-) {
-    let (ctx, runtime) = crate::pipeline::compile_with_runtime(path);
-    let graph_config = ctx.graph_config.clone();
-    let mut dag = ImportDag::new();
-    for f in &ctx.resolved.files {
-        let imports: Vec<String> = f
-            .spec_file
-            .imports
+/// (errors, warnings) among `diagnostics`.
+fn counts(diagnostics: &[Diagnostic]) -> (usize, usize) {
+    let count = |severity: Severity| {
+        diagnostics
             .iter()
-            .map(|i| i.path.to_string())
-            .collect();
-        dag.set_imports_resolved(&f.path, imports);
-    }
-    let spec_files: Vec<(String, specforge_parser::SpecFile)> = ctx
-        .resolved
-        .files
-        .iter()
-        .map(|f| (f.path.clone(), f.spec_file.clone()))
-        .collect();
-    let all_specs: Vec<specforge_parser::SpecFile> =
-        spec_files.iter().map(|(_, sf)| sf.clone()).collect();
-    let (graph, build_diagnostics) = build_graph_with_config(&all_specs, &graph_config);
-    let pipeline = IncrementalPipeline::from_cold_build(
-        spec_files,
-        graph,
-        dag,
-        build_diagnostics,
-        graph_config,
-    );
-    (ctx, runtime, pipeline)
+            .filter(|d| d.severity == severity)
+            .count()
+    };
+    (count(Severity::Error), count(Severity::Warning))
 }
 
-/// What `specforge check` reports for the pipeline's graph: its parse and
-/// resolution layer plus the registry and extension-rule checks.
-fn full_diagnostics(
-    pipeline: &IncrementalPipeline,
-    ctx: &crate::pipeline::CompilationContext,
-    runtime: &specforge_component::ComponentRuntime,
-) -> Vec<specforge_common::Diagnostic> {
-    let mut diagnostics = pipeline.diagnostics().to_vec();
-    diagnostics.extend(specforge_emitter::compile::check_graph(
-        pipeline.graph(),
-        &specforge_emitter::compile::GraphChecks {
-            spec_root: &ctx.spec_root,
-            kind_registry: &ctx.kind_registry,
-            field_registry: &ctx.field_registry,
-            rules: &ctx.extension_rules,
-            runtime: Some(runtime),
-        },
-    ));
-    diagnostics
+/// C9-07: write `.specforge/graph.json` in the project root, where a
+/// running MCP server (or any agent polling the snapshot) looks for a
+/// newer graph than the one it compiled. Written at startup, after every
+/// rebuild and after every environment reload.
+fn write_freshness_marker(session: &ProjectSession) {
+    let marker_dir = session.environment().root.join(".specforge");
+    let _ = std::fs::create_dir_all(&marker_dir);
+    let marker_tmp = marker_dir.join("graph.json.tmp");
+    let marker = marker_dir.join("graph.json");
+    let marker_doc = serde_json::json!({
+        "updated_at": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0),
+        "nodes": session.graph().node_count(),
+        "edges": session.graph().edge_count(),
+    });
+    if let Ok(mut f) = std::fs::File::create(&marker_tmp) {
+        use std::io::Write;
+        let _ = f.write_all(
+            serde_json::to_string(&marker_doc)
+                .expect("marker serialization cannot fail")
+                .as_bytes(),
+        );
+        let _ = f.sync_all();
+        let _ = std::fs::rename(&marker_tmp, &marker);
+    }
 }

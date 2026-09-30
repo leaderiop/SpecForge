@@ -31,6 +31,11 @@ behavior resolve_use_imports "Resolve Use Imports" {
     appended implicitly; a path that already ends in .spec names the same
     file. Missing files MUST produce an E025 diagnostic.
     The resolver MUST build the file dependency graph from imports.
+    A .spec file whose path relative to the spec root contains one of the
+    exclude entries of specforge.json MUST NOT be compiled, on every
+    surface (check, watch, the LSP and MCP). Entries are plain substrings,
+    not globs: "drafts/" excludes drafts/a.spec, "drafts/**" matches no
+    path.
   """
   verify unit "resolve use path to file on disk"
   verify unit "missing import file produces E025"
@@ -40,6 +45,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
   verify contract "Resolve Use Imports: use import resolution holds — registries_populated_fired, define_blocks_registered_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"
   verify unit "resolve extension import path"
   verify unit "symlink pointing outside spec_root is rejected"
+  verify unit "files matching an exclude entry are not compiled"
 }
 
 // No consumes — called inline during use import resolution
@@ -52,14 +58,16 @@ behavior detect_import_cycles "Detect Import Cycles" {
   }
   ensures {
     cycles_detected          "All circular import chains are identified via topological sort"
-    cycle_diagnostic_emitted "Each detected cycle produces an E003 diagnostic naming all participating files"
+    cycle_diagnostic_emitted "Each detected cycle produces a W113 warning naming all participating files"
     non_cyclic_unaffected    "Files not involved in any cycle continue processing normally"
   }
   contract   """
     The resolver MUST detect circular use imports using topological sort.
-    When a cycle is detected, the compiler MUST emit an E003 diagnostic
-    that names all files participating in the cycle. Files involved in
-    a cycle MUST NOT prevent processing of non-cyclic files.
+    When a cycle is detected, the compiler MUST emit a W113 warning that
+    names all files participating in the cycle, starting from the
+    lexicographically smallest path, with the cycles in sorted order.
+    Files involved in a cycle MUST NOT prevent processing of non-cyclic
+    files, and are compiled themselves.
   """
   verify unit "detect direct cycle between two files"
   verify unit "detect transitive cycle across three files"

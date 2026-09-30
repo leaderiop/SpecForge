@@ -2791,6 +2791,7 @@ dependencies = [
  "specforge-migrate",
  "specforge-ops",
  "specforge-parser",
+ "specforge-project",
  "specforge-protocol-types",
  "specforge-registry",
  "specforge-resolver",
@@ -2858,6 +2859,7 @@ dependencies = [
  "specforge-component",
  "specforge-graph",
  "specforge-parser",
+ "specforge-project",
  "specforge-protocol-types",
  "specforge-registry",
  "specforge-resolver",
@@ -2963,6 +2965,7 @@ dependencies = [
  "specforge-migrate",
  "specforge-ops",
  "specforge-parser",
+ "specforge-project",
  "specforge-registry",
  "specforge-test",
  "specforge-test-macros",
@@ -3015,6 +3018,25 @@ dependencies = [
  "tree-sitter",
  "tree-sitter-language",
  "tree-sitter-specforge",
+]
+
+[[package]]
+name = "specforge-project"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "specforge-common",
+ "specforge-component",
+ "specforge-emitter",
+ "specforge-graph",
+ "specforge-parser",
+ "specforge-registry",
+ "specforge-resolver",
+ "specforge-test",
+ "specforge-test-macros",
+ "specforge-wasm",
+ "specforge-watch",
+ "tempfile",
 ]
 
 [[package]]

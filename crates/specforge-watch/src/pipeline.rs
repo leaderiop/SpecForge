@@ -1,6 +1,6 @@
 use crate::delta::{DeltaConfig, GraphDelta, compute_graph_delta_with_config};
 use crate::import_dag::ImportDag;
-use specforge_common::{Diagnostic, Severity, SourceSpan, Sym};
+use specforge_common::{Diagnostic, Sym};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::{SpecFile, parse_incremental};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -177,29 +177,6 @@ fn compare_graph_contents(incremental: &Graph, cold: &Graph) -> Option<Result<()
     Some(Ok(()))
 }
 
-/// W113 import-cycle diagnostics for the current DAG.
-fn cycle_diagnostics(import_dag: &ImportDag) -> Vec<Diagnostic> {
-    let mut diags = Vec::new();
-    for cycle in import_dag.detect_cycles() {
-        let cycle_desc = cycle.join(" -> ");
-        let file = cycle.first().cloned().unwrap_or_default();
-        diags.push(Diagnostic {
-            code: "W113".to_string(),
-            message: format!("import cycle detected: {}", cycle_desc),
-            severity: Severity::Warning,
-            span: Some(SourceSpan {
-                file: Sym::new(&file),
-                start_line: 1,
-                start_col: 0,
-                end_line: 1,
-                end_col: 0,
-            }),
-            suggestion: None,
-        });
-    }
-    diags
-}
-
 impl IncrementalPipeline {
     /// Create an empty pipeline (no files, no graph). Used before workspace
     /// indexing; LSP state starts here.
@@ -231,15 +208,7 @@ impl IncrementalPipeline {
             parsed_files.insert(path, spec_file);
         }
 
-        let mut file_diagnostics = partition_by_file(&diagnostics);
-        for diag in cycle_diagnostics(&import_dag) {
-            let file = diag
-                .span
-                .as_ref()
-                .map(|s| s.file.to_string())
-                .unwrap_or_default();
-            file_diagnostics.entry(file).or_default().push(diag);
-        }
+        let file_diagnostics = partition_by_file(&diagnostics);
 
         Self {
             graph,
@@ -428,31 +397,44 @@ impl IncrementalPipeline {
             }
         }
 
-        // Phase 2 (red): strip every invalidated file's live contribution.
-        for (file, _) in &reparsed {
-            self.graph.remove_entities_of_file(Sym::new(file));
+        // Phase 2 (red): strip every invalidated file's live contribution,
+        // noting each ID it held or now declares.
+        let mut affected: HashSet<Sym> = HashSet::new();
+        for (file, spec_file) in &reparsed {
+            let file = Sym::new(file);
+            affected.extend(
+                self.graph
+                    .nodes()
+                    .iter()
+                    .filter(|n| n.source_span.file == file)
+                    .map(|n| n.id.raw),
+            );
+            self.graph.remove_entities_of_file(file);
+            if let Some(spec_file) = spec_file {
+                affected.extend(spec_file.entities.iter().map(|e| e.id.raw));
+            }
         }
 
-        // Phase 3 (green): re-add entities in sorted-path, first-writer-wins
-        // order — the same acceptance rule the cold build applies.
-        reparsed.sort_by(|a, b| a.0.cmp(&b.0));
-        let mut accepted: HashSet<(Sym, Sym)> = HashSet::new();
-        for (_, spec_file) in &reparsed {
-            let Some(spec_file) = spec_file else { continue };
-            for entity in &spec_file.entities {
-                if !accepted.insert((entity.kind.raw, entity.id.raw)) {
-                    continue;
+        // Phase 3 (green): each affected ID goes to its first declaration
+        // in path order across every cached file — the cold build's
+        // first-writer-wins rule. A duplicate in a file that was not
+        // re-parsed can win (it sorts first) or come back (the winner
+        // went away).
+        let mut sorted_paths: Vec<&String> = self.parsed_files.keys().collect();
+        sorted_paths.sort();
+        let mut placed: HashSet<Sym> = HashSet::new();
+        for path in &sorted_paths {
+            for entity in &self.parsed_files[*path].entities {
+                if affected.contains(&entity.id.raw) && placed.insert(entity.id.raw) {
+                    self.graph
+                        .add_node(specforge_graph::node_from_entity(entity));
                 }
-                self.graph
-                    .add_node(specforge_graph::node_from_entity(entity));
             }
         }
 
         // Phase 4: recompute the authoritative diagnostics over the cached
         // parses (sorted for determinism) and the live graph — no AST clone,
         // no rebuild.
-        let mut sorted_paths: Vec<&String> = self.parsed_files.keys().collect();
-        sorted_paths.sort();
         let cached: Vec<&SpecFile> = sorted_paths
             .iter()
             .filter_map(|p| self.parsed_files.get(p.as_str()))
@@ -466,15 +448,7 @@ impl IncrementalPipeline {
 
         // build_graph's diagnostics are authoritative: replace the entire
         // diagnostics map with fresh results.
-        let mut new_file_diagnostics = partition_by_file(&diagnostics);
-        for diag in cycle_diagnostics(&self.import_dag) {
-            let file = diag
-                .span
-                .as_ref()
-                .map(|s| s.file.to_string())
-                .unwrap_or_default();
-            new_file_diagnostics.entry(file).or_default().push(diag);
-        }
+        let new_file_diagnostics = partition_by_file(&diagnostics);
 
         // Files whose diagnostic set changed in this cycle
         let mut changed_diagnostic_files: Vec<String> = new_file_diagnostics
@@ -542,6 +516,17 @@ impl IncrementalPipeline {
             changed_diagnostic_files,
             verification,
         }
+    }
+
+    /// Every cached parse with its path, sorted by path.
+    pub fn parsed_files(&self) -> Vec<(&str, &SpecFile)> {
+        let mut files: Vec<(&str, &SpecFile)> = self
+            .parsed_files
+            .iter()
+            .map(|(path, file)| (path.as_str(), file))
+            .collect();
+        files.sort_by(|a, b| a.0.cmp(b.0));
+        files
     }
 
     /// Clone the current graph (useful for testing delta correctness).

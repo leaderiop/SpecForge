@@ -29,6 +29,18 @@
       "description": "Path to .spec files relative to the project root directory.",
       "default": "."
     },
+    "exclude": {
+      "type": "array",
+      "description": "Path substrings, relative to the spec root: a .spec file whose path contains one is not compiled (check, watch, the LSP and MCP). Plain substrings, not globs: \"drafts/\" excludes drafts/a.spec.",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[^*?\\[\\]{}]*$",
+        "description": "A path substring such as \"drafts/\". Glob characters (* ? [ ] { }) are rejected: they would match no path."
+      },
+      "uniqueItems": true,
+      "default": []
+    },
     "strict": {
       "type": "boolean",
       "description": "When true, warnings are treated as errors.",

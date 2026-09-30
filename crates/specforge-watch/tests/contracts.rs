@@ -129,67 +129,6 @@ fn debounce_file_changes_contract() {
     );
 }
 
-// B:track_import_dag_incrementally — verify contract "requires/ensures consistency for incremental import DAG tracking"
-#[specforge_test(
-    behavior = "track_import_dag_incrementally",
-    verify = "Track Import DAG Incrementally: incremental import DAG tracking holds — subgraph_invalidated_fired, import_dag_updated_emitted, cycle_detection_rerun"
-)]
-fn track_import_dag_incrementally_contract() {
-    let w113 = |r: &specforge_watch::IncrementalResult| -> Vec<String> {
-        r.diagnostics
-            .iter()
-            .filter(|d| d.code == "W113")
-            .map(|d| d.message.clone())
-            .collect()
-    };
-    let (mut pipeline, mut sources) = cold_build(&[
-        ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-        ("b.spec", r#"behavior bar "Bar" { contract "y" }"#),
-        ("c.spec", r#"behavior qux "Qux" { contract "z" }"#),
-    ]);
-    assert!(pipeline.import_dag().imports_of("b.spec").is_empty());
-
-    // import_dag_updated_emitted: an added `use` becomes a DAG edge.
-    sources.insert(
-        "b.spec".to_string(),
-        "use \"a\"\nbehavior bar \"Bar\" { contract \"y\" }".to_string(),
-    );
-    let result = pipeline.rebuild(&["b.spec".to_string()], |f| sources.get(f).cloned());
-    assert_eq!(pipeline.import_dag().imports_of("b.spec"), vec!["a.spec"]);
-    assert!(w113(&result).is_empty(), "no cycle yet");
-
-    // subgraph_invalidated_fired: editing a.spec invalidates its importer
-    // b.spec too (and not the unrelated c.spec). The edit closes a cycle
-    // a -> b -> a; cycle_detection_rerun: W113 appears on this rebuild.
-    sources.insert(
-        "a.spec".to_string(),
-        "use \"b\"\nbehavior foo \"Foo\" { contract \"x\" }".to_string(),
-    );
-    let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
-    assert_eq!(result.rebuilt_files, vec!["a.spec", "b.spec"]);
-    assert_eq!(pipeline.import_dag().imports_of("a.spec"), vec!["b.spec"]);
-    let cycles = w113(&result);
-    assert_eq!(cycles.len(), 1, "one import cycle: {cycles:?}");
-    assert!(
-        cycles[0].contains("a.spec") && cycles[0].contains("b.spec"),
-        "{}",
-        cycles[0]
-    );
-
-    // Removing the import deletes the edge and the re-run clears the cycle.
-    sources.insert(
-        "b.spec".to_string(),
-        r#"behavior bar "Bar" { contract "y" }"#.to_string(),
-    );
-    let result = pipeline.rebuild(&["b.spec".to_string()], |f| sources.get(f).cloned());
-    assert!(pipeline.import_dag().imports_of("b.spec").is_empty());
-    assert!(
-        w113(&result).is_empty(),
-        "cycle must be gone: {:?}",
-        w113(&result)
-    );
-}
-
 // B:dispatch_incremental_validators — verify contract "requires/ensures consistency for incremental dispatch"
 #[specforge_test(
     behavior = "dispatch_incremental_validators",
