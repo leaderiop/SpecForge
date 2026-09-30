@@ -25,6 +25,8 @@ fn parse_error_returns_32700() {
     let parsed: Value = serde_json::from_str(&resp).unwrap();
     assert_eq!(parsed["error"]["code"], -32700);
     assert_eq!(parsed["jsonrpc"], "2.0");
+    // JSON-RPC 2.0: the id is required, and null when it could not be read.
+    assert_eq!(parsed.get("id"), Some(&Value::Null), "{resp}");
 }
 
 // B:handle_mcp_protocol_error — verify unit "invalid request returns -32600"
@@ -37,6 +39,7 @@ fn invalid_request_returns_32600() {
     let resp = call_raw(&mut server, r#"{"id":1}"#).unwrap();
     let parsed: Value = serde_json::from_str(&resp).unwrap();
     assert_eq!(parsed["error"]["code"], -32600);
+    assert_eq!(parsed["id"], 1, "{resp}");
 }
 
 // B:handle_mcp_protocol_error — verify unit "missing method returns -32600"

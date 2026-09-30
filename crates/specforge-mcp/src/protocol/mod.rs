@@ -18,7 +18,8 @@ pub struct JsonRpcRequest {
 #[derive(Debug, Serialize)]
 pub struct JsonRpcResponse {
     pub jsonrpc: &'static str,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Always present: JSON-RPC 2.0 requires `null` when the request's id
+    /// could not be read (a parse error).
     pub id: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<Value>,
