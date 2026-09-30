@@ -22,3 +22,15 @@ the spec to say what SpecForge does:
 
 Built instead of trimmed, because the machinery already existed: `specforge migrate`'s schema
 snapshot and W053 compatibility check, and `specforge watch --verify-incremental`.
+
+A second pass (tier 3, strengthening weak tests) settled more:
+
+- **MCP delta notification names.** The spec now says `specforge/graphChanged` and
+  `specforge/diagnosticsChanged`, what the server sends: MCP reserves `notifications/` for
+  protocol messages.
+- **MCP event payloads** follow `spec/events/mcp.spec` field for field, with a timestamp.
+- **Built:** extension starter templates for `specforge init`, colour-coded diagnostics on a
+  terminal (plain when piped or under `NO_COLOR`), unknown-kind reports from the MCP query and
+  search tools, and auto-promotion of extension CLI commands to MCP tools.
+- **Known gap, left unproven:** the CLI does not run extension-contributed commands. No builtin
+  extension contributes one yet; the obligations stay unproven until one does.
