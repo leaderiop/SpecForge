@@ -3053,6 +3053,7 @@ dependencies = [
  "specforge-parser",
  "specforge-test",
  "specforge-test-macros",
+ "specforge-validator",
  "tempfile",
  "walkdir",
 ]

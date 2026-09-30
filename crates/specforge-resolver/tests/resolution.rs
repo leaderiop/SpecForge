@@ -365,13 +365,19 @@ feature gamma "G" {
 
     let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
-    let suggestion = errors[0]
-        .suggestion
-        .as_ref()
-        .expect("should have suggestion");
+
+    // The rendered diagnostic carries the suggestion on its help line.
+    let source = std::fs::read_to_string(dir.path().join("main.spec")).unwrap();
+    let sources = std::collections::HashMap::from([("main.spec".to_string(), source)]);
+    let rendered = specforge_validator::render_diagnostics(&diagnostics, &sources);
+    let help: Vec<&str> = rendered
+        .lines()
+        .filter(|line| line.contains("Help:"))
+        .collect();
+    assert_eq!(help.len(), 1, "{rendered}");
     assert!(
-        suggestion.contains("alpha_handler"),
-        "suggestion must mention the closest match in help text"
+        help[0].ends_with("Help: did you mean 'alpha_handler'?"),
+        "{rendered}"
     );
 }
 
@@ -380,38 +386,49 @@ feature gamma "G" {
     verify = "Provide Did-You-Mean Suggestions: did-you-mean suggestions holds — unresolved_reference_available, kind_registry_populated, distance_threshold, sorted_by_distance"
 )]
 fn did_you_mean_contract_consistency() {
-    // Close match → suggestion present
-    let dir = setup_project(&[(
-        "main.spec",
-        r#"
-behavior alpha_parser "A" { contract "first" }
-feature gamma "G" { behaviors [alpha_parsr] }
-"#,
-    )]);
-    let resolved = resolve_project(dir.path());
-    let (_, diagnostics) = link_references(&resolved);
-    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
-    assert_eq!(e001.len(), 1);
-    assert!(
-        e001[0].suggestion.is_some(),
-        "requires: close match → suggestion"
+    // The suggestion for an unresolved `payment_gateway` among `known` IDs.
+    let suggest = |known: &[&str]| -> Option<String> {
+        let mut source: String = known
+            .iter()
+            .map(|id| format!("behavior {id} \"X\" {{ contract \"c\" }}\n"))
+            .collect();
+        source.push_str("feature gamma \"G\" { behaviors [payment_gateway] }\n");
+        let dir = setup_project(&[("main.spec", source.as_str())]);
+        let resolved = resolve_project(dir.path());
+        let (_, diagnostics) = link_references(&resolved);
+        // requires unresolved_reference_available: exactly the one E003.
+        let e003: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+        assert_eq!(e003.len(), 1, "{diagnostics:?}");
+        assert!(e003[0].message.contains("'payment_gateway'"));
+        e003[0].suggestion.clone()
+    };
+
+    // distance_threshold: three edits away is suggested...
+    assert_eq!(
+        suggest(&["payment_gateway_xx"]).as_deref(),
+        Some("did you mean 'payment_gateway_xx'?")
+    );
+    // ...while seven and eight edits away are not, however alike they start.
+    assert_eq!(
+        suggest(&["payment_gateway_client", "payment_gateway_client2"]),
+        None
     );
 
-    // Distant match → no suggestion
-    let dir2 = setup_project(&[(
-        "main.spec",
-        r#"
-behavior alpha "A" { contract "first" }
-feature gamma "G" { behaviors [xyz_totally_different] }
-"#,
-    )]);
-    let resolved2 = resolve_project(dir2.path());
-    let (_, diagnostics2) = link_references(&resolved2);
-    let e001_2: Vec<_> = diagnostics2.iter().filter(|d| d.code == "E003").collect();
-    assert_eq!(e001_2.len(), 1);
-    assert!(
-        e001_2[0].suggestion.is_none(),
-        "ensures: distant match → no suggestion"
+    // sorted_by_distance: of three candidates the one two edits away wins
+    // over the one three edits away that shares a longer prefix.
+    assert_eq!(
+        suggest(&[
+            "payment_gateway_xx",
+            "paymnt_gatewai",
+            "payment_gateway_client"
+        ])
+        .as_deref(),
+        Some("did you mean 'paymnt_gatewai'?")
+    );
+    // One edit away beats both.
+    assert_eq!(
+        suggest(&["payment_gateway_xx", "paymnt_gatewai", "payment_gatewy"]).as_deref(),
+        Some("did you mean 'payment_gatewy'?")
     );
 }
 
@@ -523,15 +540,17 @@ fn resolve_path_alias() {
     };
     let result = resolve_project_with_config(dir.path(), &config);
 
-    assert!(
-        result
-            .diagnostics
-            .iter()
-            .all(|d| d.severity != Severity::Error),
-        "path alias @shared/utils should resolve without errors: {:?}",
-        result.diagnostics
-    );
-    assert_eq!(result.files.len(), 2);
+    // The alias maps the import to the file under lib/shared, not to an
+    // extension stub (I004) or a missing file (E025).
+    assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+    let main = result.files.iter().find(|f| f.path == "main.spec").unwrap();
+    assert_eq!(main.import_targets, ["lib/shared/utils.spec"]);
+
+    // Without the alias the same import is taken for an extension.
+    let plain = resolve_project(dir.path());
+    let main = plain.files.iter().find(|f| f.path == "main.spec").unwrap();
+    assert!(main.import_targets.is_empty());
+    assert!(plain.diagnostics.iter().any(|d| d.code == "I004"));
 }
 
 #[specforge_test(
@@ -1041,6 +1060,15 @@ fn pub_use_through_cycle_no_transitive() {
         c_scope.exported.contains("Gamma"),
         "c should export its own Gamma"
     );
+    // ...and nothing a.spec re-exports from b.spec through the cycle.
+    assert!(
+        !c_scope.exported.contains("Beta"),
+        "Beta reaches c only through the a<->b cycle: {:?}",
+        c_scope.exported
+    );
+    let mut exported: Vec<&String> = c_scope.exported.iter().collect();
+    exported.sort();
+    assert_eq!(exported, ["Alpha", "Gamma"]);
 }
 
 // === H2: Cross-file duplicate entity ID detection (W122) ===

@@ -22,40 +22,54 @@ fn setup_project(files: &[(&str, &str)]) -> TempDir {
     verify = "Resolve Use Imports: use import resolution holds — registries_populated_fired, define_blocks_registered_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"
 )]
 fn resolve_use_imports_contract() {
-    // Requires: project with valid use imports across files
-    // Ensures: all files resolved, no E025 errors
+    // Requires filesystem_available: the project lives on disk. main.spec
+    // imports two files, one nested, and one that does not exist.
     let dir = setup_project(&[
         ("types.spec", r#"behavior alpha "A" { contract "first" }"#),
+        ("models/user.spec", r#"behavior gamma "G" { contract "g" }"#),
         (
             "main.spec",
-            "use \"types\"\nbehavior beta \"B\" { invariants [alpha] }",
+            "use \"types\"\nuse \"models/user\"\nuse \"missing\"\nbehavior beta \"B\" { invariants [alpha] }",
         ),
     ]);
 
     let result = resolve_project(dir.path());
+    let file = |path: &str| {
+        result
+            .files
+            .iter()
+            .find(|f| f.path == path)
+            .unwrap_or_else(|| panic!("{path} not resolved"))
+    };
 
+    // imports_resolved + dependency_graph_built: main.spec's edges are the
+    // two files it imports, and the leaves import nothing.
+    let mut targets = file("main.spec").import_targets.clone();
+    targets.sort();
+    assert_eq!(targets, ["models/user.spec", "types.spec"]);
+    assert!(file("types.spec").import_targets.is_empty());
+    assert!(file("models/user.spec").import_targets.is_empty());
+    // Imports come before the file that uses them.
+    let position = |path: &str| result.files.iter().position(|f| f.path == path).unwrap();
+    assert!(position("types.spec") < position("main.spec"));
+    assert!(position("models/user.spec") < position("main.spec"));
+
+    // missing_files_diagnosed: the one missing import, and nothing else.
     let errors: Vec<_> = result
         .diagnostics
         .iter()
         .filter(|d| d.severity == Severity::Error)
         .collect();
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert_eq!(errors[0].code, "E025");
     assert!(
-        errors.is_empty(),
-        "valid imports must not produce errors: {:?}",
-        errors
+        errors[0].message.contains("missing"),
+        "{}",
+        errors[0].message
     );
-    assert_eq!(result.files.len(), 2, "both files must be resolved");
-
-    // Both file paths should be present
-    let paths: Vec<&str> = result.files.iter().map(|f| f.path.as_str()).collect();
-    assert!(
-        paths.iter().any(|p| p.ends_with("types.spec")),
-        "types.spec must be resolved"
-    );
-    assert!(
-        paths.iter().any(|p| p.ends_with("main.spec")),
-        "main.spec must be resolved"
-    );
+    let span = errors[0].span.as_ref().expect("E025 points at the use");
+    assert_eq!(span.file.as_str(), "main.spec");
+    assert_eq!(span.start_line, 3);
 }
 
 // B:detect_import_cycles — verify contract "requires/ensures consistency for import cycle detection"

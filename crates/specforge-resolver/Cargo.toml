@@ -16,5 +16,6 @@ walkdir = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+specforge-validator = { path = "../specforge-validator" }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

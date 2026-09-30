@@ -1,5 +1,13 @@
-/// Find the closest match for `target` among `candidates` using Jaro-Winkler similarity.
-/// Returns `None` if no candidate scores above the 0.85 threshold.
+/// Largest Levenshtein edit distance a suggestion may be from its target.
+pub const MAX_SUGGESTION_DISTANCE: usize = 3;
+
+/// Find the closest match for `target` among `candidates`.
+///
+/// A candidate qualifies when it is within [`MAX_SUGGESTION_DISTANCE`] edits
+/// of `target` and also scores above 0.85 Jaro-Winkler similarity, which
+/// keeps short, unrelated IDs (`abc` and `xyz` are three edits apart) from
+/// being suggested. The fewest edits wins, then the higher similarity.
+/// Returns `None` when no candidate qualifies.
 pub fn find_close_match<'a>(
     target: &str,
     candidates: impl IntoIterator<Item = &'a str>,
@@ -7,14 +15,19 @@ pub fn find_close_match<'a>(
     candidates
         .into_iter()
         .filter_map(|c| {
+            let distance = strsim::levenshtein(target, c);
             let score = strsim::jaro_winkler(target, c);
-            if score > 0.85 { Some((c, score)) } else { None }
+            (distance <= MAX_SUGGESTION_DISTANCE && score > 0.85).then_some((c, distance, score))
         })
-        // Deterministic tie-break: among equal scores pick the
+        // Deterministic tie-break: among equal distances and scores pick the
         // lexicographically smallest candidate, so the suggestion never
         // depends on the caller's iteration order (R-6 / hardening-plan D1).
-        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap().then_with(|| b.0.cmp(a.0)))
-        .map(|(s, _)| s)
+        .min_by(|a, b| {
+            a.1.cmp(&b.1)
+                .then_with(|| b.2.partial_cmp(&a.2).unwrap())
+                .then_with(|| a.0.cmp(b.0))
+        })
+        .map(|(s, _, _)| s)
 }
 
 #[cfg(test)]
