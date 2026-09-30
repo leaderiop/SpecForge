@@ -1155,3 +1155,73 @@ fn remove_builtin_disables_it() {
         .code(1)
         .stderr(predicates::str::contains("not installed"));
 }
+
+#[specforge_test(
+    behavior = "list_installed_extensions",
+    verify = "list includes entity counts and entity types"
+)]
+fn extensions_list_each_extensions_kinds_and_entities() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"p","version":"0.1.0","extensions":["@specforge/software","@specforge/product"]}"#,
+    )
+    .unwrap();
+    fs::create_dir_all(dir.path().join("spec")).unwrap();
+    fs::write(
+        dir.path().join("spec/app.spec"),
+        "behavior login \"L\" {\n  contract \"c\"\n}\n\nbehavior logout \"O\" {\n  contract \"c\"\n}\n\nfeature auth \"A\" {\n  behaviors [login, logout]\n}\n",
+    )
+    .unwrap();
+
+    let output = specforge_cmd()
+        .args(["extensions", "--path"])
+        .arg(dir.path())
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let find = |name: &str| {
+        json["extensions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["name"] == name)
+            .unwrap_or_else(|| panic!("{name} missing: {json}"))
+            .clone()
+    };
+    let software = find("@specforge/software");
+    let kinds: Vec<&str> = software["entity_kinds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|k| k.as_str().unwrap())
+        .collect();
+    assert!(
+        kinds.contains(&"behavior") && kinds.contains(&"invariant"),
+        "{kinds:?}"
+    );
+    assert!(!kinds.contains(&"feature"), "{kinds:?}");
+    assert_eq!(software["entity_count"], 2, "{software}");
+    let product = find("@specforge/product");
+    assert!(
+        product["entity_kinds"]
+            .as_array()
+            .unwrap()
+            .contains(&serde_json::json!("feature")),
+        "{product}"
+    );
+    assert_eq!(product["entity_count"], 1, "{product}");
+
+    let human = specforge_cmd()
+        .args(["extensions", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let text = String::from_utf8_lossy(&human.stdout);
+    assert!(
+        text.contains("@specforge/software (builtin): 2 entities"),
+        "{text}"
+    );
+}
