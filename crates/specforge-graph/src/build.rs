@@ -92,20 +92,21 @@ where
     }
 
     // Add nodes, detecting duplicates (same kind + same ID = duplicate)
-    let mut seen: HashSet<(Sym, Sym)> = HashSet::new();
+    // Where each (kind, ID) was first declared, so a duplicate names both sites.
+    let mut seen: HashMap<(Sym, Sym), specforge_common::SourceSpan> = HashMap::new();
     let mut entity_ids: HashSet<Sym> = HashSet::new();
     // Track entity ID to first-seen kind for cross-kind collision detection (W060)
     let mut id_to_kind: HashMap<Sym, Sym> = HashMap::new();
     for spec_file in spec_files.clone() {
         for entity in &spec_file.entities {
             let key = (entity.kind.raw, entity.id.raw);
-            if !seen.insert(key) {
+            if let Some(first) = seen.get(&key) {
                 diagnostics.push(
                     Diagnostic::error(
                         "E002",
                         format!(
-                            "duplicate entity ID '{}' (first declared in {})",
-                            entity.id.raw, entity.span.file
+                            "duplicate entity ID '{}' (first declared at {}:{}:{})",
+                            entity.id.raw, first.file, first.start_line, first.start_col
                         ),
                     )
                     .with_span(entity.span.clone())
@@ -113,6 +114,7 @@ where
                 );
                 continue;
             }
+            seen.insert(key, entity.span.clone());
 
             // Warn when the same ID is used by multiple entity kinds (W060).
             // First-writer-wins: the first entity with a given raw ID is retained,

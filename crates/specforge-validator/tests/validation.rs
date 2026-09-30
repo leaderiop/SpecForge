@@ -288,16 +288,9 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
         .collect();
     let output = render_diagnostics(&diagnostics, &sources);
 
-    assert!(
-        output.contains("main.spec"),
-        "output should contain filename"
-    );
-    // ariadne renders line numbers — check the output has location info
-    assert!(output.contains("E003"), "output should contain error code");
-    assert!(
-        output.contains("nonexistent"),
-        "output should contain the unresolved reference"
-    );
+    // `nonexistent` starts in column 39 of line 2.
+    assert!(output.contains("[E003]"), "{output}");
+    assert!(output.contains("╭─[ main.spec:2:39 ]"), "{output}");
 }
 
 #[specforge_test(
@@ -319,11 +312,32 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
         .collect();
     let output = render_diagnostics(&diagnostics, &sources);
 
-    // ariadne renders the offending source line
+    // The offending line is shown, and the row under it underlines exactly
+    // the columns of `nonexistent`: 39 through 49.
+    let lines: Vec<&str> = output.lines().collect();
+    let row = lines
+        .iter()
+        .position(|l| l.ends_with("feature gamma \"G\" { behaviors [alpha, nonexistent] }"))
+        .unwrap_or_else(|| panic!("source line missing:\n{output}"));
+    // Character columns: the margin's box-drawing characters are multi-byte.
+    let code_start = lines[row][..lines[row].find("feature").unwrap()]
+        .chars()
+        .count();
+    let token_start = code_start + "feature gamma \"G\" { behaviors [alpha, ".len();
+    let underline: Vec<(usize, char)> = lines[row + 1]
+        .chars()
+        .enumerate()
+        .filter(|(i, c)| *i >= code_start && !c.is_whitespace())
+        .collect();
+    let marked: Vec<usize> = underline.iter().map(|(i, _)| *i).collect();
+    assert_eq!(
+        marked,
+        (token_start..token_start + "nonexistent".len()).collect::<Vec<_>>(),
+        "{output}"
+    );
     assert!(
-        output.contains("feature gamma"),
-        "output should contain the source line with the error: got\n{}",
-        output
+        underline.iter().all(|(_, c)| matches!(c, '─' | '┬')),
+        "{output}"
     );
 }
 
@@ -355,12 +369,26 @@ fn diagnostic_renders_multiline_span() {
         .collect();
     let output = render_diagnostics(&[diag], &sources);
 
-    assert!(output.contains("E099"), "should contain error code");
-    assert!(output.contains("test.spec"), "should contain filename");
+    // The range opens on line 2, runs through line 3 and closes on line 4's
+    // brace; the lines outside it are not shown.
+    assert!(output.contains("╭─[ test.spec:2:1 ]"), "{output}");
+    let body: Vec<&str> = output
+        .lines()
+        .skip_while(|l| !l.contains("╭─▶"))
+        .take_while(|l| !l.contains("├─▶"))
+        .collect();
     assert!(
-        output.contains("behavior alpha"),
-        "should contain start line of span"
+        body.first()
+            .is_some_and(|l| l.ends_with(" 2 │ ╭─▶ behavior alpha \"A\" {")),
+        "{output}"
     );
+    assert!(
+        body[1..].iter().all(|l| l.contains('┆')),
+        "line 3 sits inside the range: {output}"
+    );
+    assert!(output.contains(" 4 │ ├─▶ }"), "{output}");
+    assert!(!output.contains("line 1"), "{output}");
+    assert!(!output.contains("line 5"), "{output}");
 }
 
 /// Render one warning spanning `start..end` (line, col) of `source` in `t.spec`.
@@ -531,11 +559,31 @@ fn summary_shows_correct_counts() {
 fn summary_clean_project() {
     use specforge_validator::diagnostic_summary;
 
-    let summary = diagnostic_summary(&[]);
-    assert!(
-        summary.contains("0 error"),
-        "clean project: got '{}'",
-        summary
+    // A clean project reports zero of everything, uncoloured.
+    let clean = parse("behavior alpha \"A\" { contract \"first\" }\n", "main.spec");
+    let (graph, mut diagnostics) = build_graph(&[clean]);
+    diagnostics.extend(specforge_validator::validate(&graph));
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+    assert_eq!(
+        diagnostic_summary(&diagnostics),
+        "0 errors, 0 warnings, 0 infos"
+    );
+
+    // Planted: two unresolved references and one orphan ref.
+    let broken = parse(
+        "behavior alpha \"A\" { contract \"first\" }\n\
+         feature gamma \"G\" { behaviors [ghost, phantom] }\n\
+         ref gh.issue:42 \"Nobody links me\"\n",
+        "main.spec",
+    );
+    let (graph, mut diagnostics) = build_graph(&[broken]);
+    diagnostics.extend(specforge_validator::validate(&graph));
+    let mut codes: Vec<&str> = diagnostics.iter().map(|d| d.code.as_str()).collect();
+    codes.sort();
+    assert_eq!(codes, ["E003", "E003", "W012"], "{diagnostics:?}");
+    assert_eq!(
+        diagnostic_summary(&diagnostics),
+        "\x1b[1;31m2 errors, 1 warning, 0 infos\x1b[0m"
     );
 }
 
@@ -698,13 +746,33 @@ fn diagnostic_format_contract_consistency() {
         .into_iter()
         .collect();
     let output = render_diagnostics(&[diag], &sources);
+    let lines: Vec<&str> = output.lines().collect();
 
-    assert!(output.contains("test.spec"), "must include file path");
-    assert!(output.contains("E001"), "must include error code");
+    // header_present: the code, then file:line:col.
+    assert_eq!(lines[0], "[E001] Error: unresolved reference", "{output}");
+    assert_eq!(lines[1].trim(), "╭─[ test.spec:2:20 ]", "{output}");
+
+    // context_snippet_present: the offending line, and only it.
+    let row = lines
+        .iter()
+        .position(|l| l.ends_with(" 2 │ feature gamma \"G\" { behaviors [nonexistent] }"))
+        .unwrap_or_else(|| panic!("{output}"));
     assert!(
-        output.contains("behaviors"),
-        "must include source context snippet"
+        !output.contains("line 1") && !output.contains("line 3"),
+        "{output}"
     );
+
+    // caret_marker_present: the row below marks columns 20 through 30.
+    let code_start = lines[row][..lines[row].find("feature").unwrap()]
+        .chars()
+        .count();
+    let marked: Vec<usize> = lines[row + 1]
+        .chars()
+        .enumerate()
+        .filter(|(i, c)| *i >= code_start && !c.is_whitespace())
+        .map(|(i, _)| i - code_start + 1)
+        .collect();
+    assert_eq!(marked, (20..31).collect::<Vec<_>>(), "{output}");
 }
 
 #[specforge_test(
@@ -770,36 +838,39 @@ fn summary_contract_consistency() {
     verify = "Provide Did-You-Mean Suggestions: did-you-mean suggestions holds — unresolved_reference_available, kind_registry_populated, distance_threshold, sorted_by_distance"
 )]
 fn did_you_mean_contract_consistency() {
-    // Requires: unresolved reference available, entity IDs populated
-    // Ensures: suggestions within distance threshold, no suggestion for distant matches
+    // The graph's suggestion for an unresolved `order_service_v2` among `known`.
+    let suggest = |known: &[&str]| -> Option<String> {
+        let mut source: String = known
+            .iter()
+            .map(|id| format!("behavior {id} \"X\" {{ contract \"c\" }}\n"))
+            .collect();
+        source.push_str("feature gamma \"G\" { behaviors [order_service_v2] }\n");
+        let (_, diagnostics) = build_graph(&[parse(&source, "main.spec")]);
+        // requires unresolved_reference_available: exactly the one E003.
+        let e003: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+        assert_eq!(e003.len(), 1, "{diagnostics:?}");
+        e003[0].suggestion.clone()
+    };
 
-    // Close match → suggestion
-    let source_close = r#"
-behavior alpha_parser "A" { contract "first" }
-feature gamma "G" { behaviors [alpha_parsr] }
-"#;
-    let spec_file = parse(source_close, "main.spec");
-    let (_, diagnostics) = build_graph(&[spec_file]);
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
-    assert_eq!(errors.len(), 1);
-    assert!(
-        errors[0].suggestion.is_some(),
-        "close match must produce suggestion"
+    // distance_threshold: three edits away is suggested, four is not.
+    assert_eq!(
+        suggest(&["order_service_xyz"]).as_deref(),
+        Some("did you mean 'order_service_xyz'?")
     );
+    assert_eq!(suggest(&["order_service_v2_log"]), None);
 
-    // Distant match → no suggestion
-    let source_far = r#"
-behavior alpha "A" { contract "first" }
-feature gamma "G" { behaviors [zzzzz_completely_different] }
-"#;
-    let spec_file = parse(source_far, "main.spec");
-    let (_, diagnostics) = build_graph(&[spec_file]);
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
-    assert_eq!(errors.len(), 1);
-    assert!(
-        errors[0].suggestion.is_none(),
-        "distant match must not produce suggestion"
-    );
+    // sorted_by_distance: two edits beats three, though the three-edit
+    // candidate shares the longer prefix; the order written doesn't matter.
+    for known in [
+        ["order_service_v2_xy", "ordr_servce_v2"],
+        ["ordr_servce_v2", "order_service_v2_xy"],
+    ] {
+        assert_eq!(
+            suggest(&known).as_deref(),
+            Some("did you mean 'ordr_servce_v2'?"),
+            "{known:?}"
+        );
+    }
 }
 
 #[specforge_test(
@@ -831,11 +902,18 @@ behavior login_flow "Login" {
     let diagnostics = specforge_validator::validate_with_config(&graph, &config);
 
     let e016 = diagnostics.iter().find(|d| d.code == "E016").unwrap();
+
+    // The rendered diagnostic carries the suggestion on its help line.
+    let sources = std::collections::HashMap::from([("main.spec".to_string(), source.to_string())]);
+    let rendered = specforge_validator::render_diagnostics(std::slice::from_ref(e016), &sources);
+    let help: Vec<&str> = rendered
+        .lines()
+        .filter(|line| line.contains("Help:"))
+        .collect();
+    assert_eq!(help.len(), 1, "{rendered}");
     assert!(
-        e016.suggestion
-            .as_ref()
-            .is_some_and(|s| s.contains("login.feature")),
-        "suggestion must appear in diagnostic help text"
+        help[0].ends_with("Help: did you mean 'features/login.feature'?"),
+        "{rendered}"
     );
 }
 
@@ -1107,16 +1185,18 @@ behavior alpha "Alpha in file B" { contract "second" }
     // and the message includes the file where the duplicate was found.
     // Both declaration sites are identifiable: the first via the graph node
     // (which retains the original), and the second via the E002 diagnostic span.
+    // The span points at the duplicate in b.spec; the message names the first
+    // declaration in a.spec. Both entities sit at line 2, column 1.
     let diag = &e002[0];
-    assert!(
-        diag.span.is_some(),
-        "E002 must include a source span for one declaration site"
-    );
-    // The duplicate's span file and the message together identify both sites
-    assert!(
-        diag.message.contains("alpha"),
-        "E002 message must name the duplicate ID, got: {}",
-        diag.message
+    let span = diag
+        .span
+        .as_ref()
+        .expect("E002 carries the duplicate's span");
+    assert_eq!(span.file.as_str(), "b.spec");
+    assert_eq!((span.start_line, span.start_col), (2, 1));
+    assert_eq!(
+        diag.message,
+        "duplicate entity ID 'alpha' (first declared at a.spec:2:1)"
     );
 }
 

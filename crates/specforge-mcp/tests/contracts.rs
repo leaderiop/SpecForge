@@ -2301,7 +2301,7 @@ fn contract_diagnostics_notification() {
     let duplicate = json!({
         "code": "E002",
         "severity": "Error",
-        "message": "duplicate entity ID 'alpha' (first declared in test.spec)",
+        "message": "duplicate entity ID 'alpha' (first declared at test.spec:1:1)",
     });
     let changed = |added: Value, removed: Value| {
         json!({

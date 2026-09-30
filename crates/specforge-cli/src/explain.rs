@@ -163,7 +163,7 @@ pub const CATALOG: &[CodeEntry] = &[
         code: "E002",
         title: "Duplicate entity ID",
         owner: "core",
-        explanation: "Two entities of the same kind declare the same ID; the message names the file where the ID was first declared. Rename one of the entities so each ID is unique within its kind.",
+        explanation: "Two entities of the same kind declare the same ID; the diagnostic points at the duplicate and its message names where the ID was first declared (file:line:col). Rename one of the entities so each ID is unique within its kind.",
     },
     CodeEntry {
         code: "E003",
