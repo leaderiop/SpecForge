@@ -3,10 +3,12 @@
 
 mod add;
 mod diamond;
+mod list;
 mod remove;
 
 pub use add::{AddOutcome, AddRequest, Source, Trust, add, parse};
 pub use diamond::check_diamonds;
+pub use list::{ExtensionEntry, ProviderEntry, Status, list, providers};
 pub use remove::{RemoveOutcome, RemoveRequest, remove};
 
 use specforge_component::builtins::BUILTIN_EXTENSIONS;

@@ -140,11 +140,15 @@ behavior load_provider_configurations "Load Provider Configurations" {
   }
   contract   """
     The compiler MUST parse provider blocks from specforge.json and
-    create provider instances with their configured settings. The core
+    create provider instances with their configured settings. In
+    specforge.json, providers is an array of {scheme, alias, extension,
+    settings} entries, kept in declaration order; scheme, alias and
+    extension are required, and an entry missing one, or a providers value
+    that is not an array, is W118. The core
     MUST NOT hardcode any provider schemes or kinds — all provider
     configuration comes exclusively from specforge.json and extension
     manifests. Multiple instances of the same provider with different
-    aliases MUST be supported.
+    aliases MUST be supported, each instance with its own scheme.
   """
   verify unit "single provider instance is created"
   verify unit "multiple aliased instances are created"
@@ -292,11 +296,15 @@ behavior list_installed_extensions "List Installed Extensions" {
     When specforge extensions is invoked, the system MUST list all installed
     extensions with their name, version, entity count, and registered entity types.
     The listing MUST query the KindRegistry to enumerate entity kinds per
-    extension. Output order MUST be deterministic (alphabetical by extension name).
+    extension. Each entry MUST carry its source (builtin, registry or
+    local:<path>) and its status (loaded, not_loaded, not_configured). The
+    CLI and the MCP extensions tool MUST list the same entries.
+    Output order MUST be deterministic (alphabetical by extension name).
   """
   verify unit "list shows all installed extensions"
   verify unit "list includes entity counts and entity types"
   verify unit "output order is deterministic"
+  verify integration "the CLI and the MCP extensions tool list the same entries"
   verify contract "List Installed Extensions: extension listing holds — kind_registry_ready, all_extensions_listed, entity_counts_included, output_deterministic"
 }
 
@@ -318,13 +326,17 @@ behavior list_configured_providers "List Configured Providers" {
     When specforge providers is invoked, the system MUST list all configured
     providers with their alias, extension, registered schemes, and supported
     kinds. The listing MUST query the SchemeRegistryEntry set to show which
-    schemes each provider handles. Providers with multiple instances MUST
-    show each alias separately. Output order MUST be deterministic.
+    schemes each provider handles, with each provider's status there:
+    registered, extension_not_loaded, not_a_provider or scheme_taken.
+    Providers with multiple instances MUST show each alias separately.
+    Output order MUST be deterministic (declaration order). The CLI and the
+    MCP providers tool MUST list the same entries.
   """
   verify unit "list shows all configured providers"
   verify unit "list includes scheme and kind registrations"
   verify unit "multiple aliases shown separately"
   verify unit "output order is deterministic"
+  verify integration "the CLI and the MCP providers tool list the same entries"
   verify contract "List Configured Providers: provider listing holds — scheme_registry_ready, all_providers_listed, schemes_and_kinds_included, aliases_shown_separately, output_deterministic"
 }
 

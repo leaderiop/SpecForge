@@ -1875,7 +1875,7 @@ fn contract_extensions() {
         "{product}"
     );
     let kinds = product["entity_kinds"].as_array().unwrap();
-    assert!(kinds.contains(&json!("Journey")), "{kinds:?}");
+    assert!(kinds.contains(&json!("journey")), "{kinds:?}");
     // config_reflected: a configured extension that did not load is listed.
     let absent = find(&listed["extensions"], "name", "@acme/absent");
     assert_eq!(absent["status"], "not_loaded");
@@ -2521,8 +2521,8 @@ fn contract_providers() {
         json!({
             "name": "t", "version": "0.1.0", "extensions": [],
             "providers": [
-                {"alias": "github", "scheme": "gh"},
-                {"alias": "tracker", "scheme": "jira"},
+                {"alias": "github", "scheme": "gh", "extension": "@acme/github-provider"},
+                {"alias": "tracker", "scheme": "jira", "extension": "@acme/jira"},
             ]
         })
         .to_string(),
@@ -2550,8 +2550,11 @@ fn contract_providers() {
         })
     );
     assert_eq!(
-        find(&listed["providers"], "scheme", "jira")["alias"],
-        "tracker"
+        find(&listed["providers"], "scheme", "jira"),
+        &json!({
+            "scheme": "jira", "alias": "tracker",
+            "extension": "@acme/jira", "status": "extension_not_loaded",
+        })
     );
 
     assert_tool_invoked(&server, "specforge.providers");

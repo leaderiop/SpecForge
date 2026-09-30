@@ -65,37 +65,49 @@ fn make_manifest(name: &str, providers: bool) -> ManifestV2 {
 // B:load_provider_configurations — integration tests
 // ============================================================================
 
-// B:load_provider_configurations — verify integration "valid providers array parsed correctly"
+/// A `providers` entry: `alias` serving `scheme`, implemented by `extension`.
+fn provider(alias: &str, scheme: &str, extension: &str) -> ProviderConfig {
+    ProviderConfig {
+        scheme: scheme.to_string(),
+        alias: alias.to_string(),
+        extension: extension.to_string(),
+        settings: Default::default(),
+    }
+}
+
+// B:load_provider_configurations — the array of {scheme, alias, extension,
+// settings} (ADR 0004 D3-c), in declaration order.
 #[test]
 fn test_load_providers_valid_array() {
     let config = serde_json::json!({
         "providers": [
             {
-                "alias": "github",
                 "scheme": "gh",
-                "baseUrl": "https://api.github.com",
-                "apiKeyEnv": "GITHUB_TOKEN"
+                "alias": "github",
+                "extension": "@acme/gh",
+                "settings": {"baseUrl": "https://api.github.com", "apiKeyEnv": "GITHUB_TOKEN"}
             },
-            {
-                "alias": "jira",
-                "scheme": "jira",
-                "baseUrl": "https://myorg.atlassian.net"
-            }
+            {"scheme": "jira", "alias": "jira", "extension": "@acme/jira"}
         ]
     });
 
     let (providers, diags) = load_provider_configurations(&config);
-    assert!(diags.is_empty());
-    assert_eq!(providers.len(), 2);
-    assert_eq!(providers[0].name, "github");
-    assert_eq!(providers[0].scheme, "gh");
+    assert!(diags.is_empty(), "{diags:?}");
     assert_eq!(
-        providers[0].base_url.as_deref(),
-        Some("https://api.github.com")
+        providers,
+        vec![
+            ProviderConfig {
+                settings: serde_json::json!({
+                    "baseUrl": "https://api.github.com", "apiKeyEnv": "GITHUB_TOKEN"
+                })
+                .as_object()
+                .unwrap()
+                .clone(),
+                ..provider("github", "gh", "@acme/gh")
+            },
+            provider("jira", "jira", "@acme/jira"),
+        ]
     );
-    assert_eq!(providers[0].api_key_env.as_deref(), Some("GITHUB_TOKEN"));
-    assert_eq!(providers[1].name, "jira");
-    assert_eq!(providers[1].scheme, "jira");
 }
 
 // B:load_provider_configurations — verify integration "missing providers key → empty vec"
@@ -111,20 +123,34 @@ fn test_load_providers_missing_key() {
     assert!(diags.is_empty());
 }
 
-// B:load_provider_configurations — verify integration "invalid provider entry → W032"
+// An entry missing scheme, alias or extension is W118, and so is the old
+// object-map shape.
 #[test]
 fn test_load_providers_invalid_entry_warns() {
     let config = serde_json::json!({
         "providers": [
-            { "scheme": "gh" },  // missing alias/name
-            { "alias": "jira" }  // missing scheme
+            { "scheme": "gh", "extension": "@acme/gh" },
+            { "alias": "jira", "extension": "@acme/jira" },
+            { "scheme": "x", "alias": "x" },
+            { "scheme": "y", "alias": "y", "extension": "@acme/y", "settings": 3 }
         ]
     });
 
     let (providers, diags) = load_provider_configurations(&config);
     assert!(providers.is_empty());
-    assert_eq!(diags.len(), 2);
+    assert_eq!(diags.len(), 4, "{diags:?}");
     assert!(diags.iter().all(|d| d.code == "W118"));
+    assert!(diags[2].message.contains("extension"), "{:?}", diags[2]);
+
+    let map = serde_json::json!({ "providers": { "gh": { "package": "@acme/gh" } } });
+    let (providers, diags) = load_provider_configurations(&map);
+    assert!(providers.is_empty());
+    assert_eq!(diags.len(), 1);
+    assert!(
+        diags[0].message.contains("must be an array"),
+        "{:?}",
+        diags[0]
+    );
 }
 
 // B:load_provider_configurations — verify contract "requires config JSON, ensures provider configs"
@@ -132,7 +158,7 @@ fn test_load_providers_invalid_entry_warns() {
 fn test_load_providers_contract() {
     // ensures: valid → parsed correctly
     let config = serde_json::json!({
-        "providers": [{ "alias": "gh", "scheme": "gh" }]
+        "providers": [{ "scheme": "gh", "alias": "gh", "extension": "@acme/gh" }]
     });
     let (providers, diags) = load_provider_configurations(&config);
     assert_eq!(providers.len(), 1);
@@ -156,12 +182,7 @@ fn test_load_providers_contract() {
 // B:register_provider_schemes — verify integration "scheme registered from manifest"
 #[test]
 fn test_register_schemes_from_manifest() {
-    let providers = vec![ProviderConfig {
-        name: "github".to_string(),
-        scheme: "gh".to_string(),
-        base_url: None,
-        api_key_env: None,
-    }];
+    let providers = vec![provider("github", "gh", "@specforge/github")];
 
     let manifests = vec![(
         "@specforge/github".to_string(),
@@ -180,18 +201,8 @@ fn test_register_schemes_from_manifest() {
 #[test]
 fn test_register_schemes_duplicate_produces_e057() {
     let providers = vec![
-        ProviderConfig {
-            name: "gh-a".to_string(),
-            scheme: "gh".to_string(),
-            base_url: None,
-            api_key_env: None,
-        },
-        ProviderConfig {
-            name: "gh-b".to_string(),
-            scheme: "gh".to_string(),
-            base_url: None,
-            api_key_env: None,
-        },
+        provider("gh-a", "gh", "@ext/a"),
+        provider("gh-b", "gh", "@ext/b"),
     ];
 
     let manifests = vec![
@@ -210,12 +221,7 @@ fn test_register_schemes_duplicate_produces_e057() {
 // B:register_provider_schemes — verify integration "provider without matching manifest → W033"
 #[test]
 fn test_register_schemes_no_manifest_warns() {
-    let providers = vec![ProviderConfig {
-        name: "github".to_string(),
-        scheme: "gh".to_string(),
-        base_url: None,
-        api_key_env: None,
-    }];
+    let providers = vec![provider("github", "gh", "@specforge/github")];
 
     // No manifests contribute providers
     let manifests: Vec<(String, ManifestV2)> = vec![];
@@ -231,12 +237,7 @@ fn test_register_schemes_no_manifest_warns() {
 // B:register_provider_schemes — verify contract "requires providers + manifests, ensures scheme registry"
 #[test]
 fn test_register_schemes_contract() {
-    let providers = vec![ProviderConfig {
-        name: "github".to_string(),
-        scheme: "gh".to_string(),
-        base_url: None,
-        api_key_env: None,
-    }];
+    let providers = vec![provider("github", "gh", "@ext/gh")];
     let manifests = vec![("@ext/gh".to_string(), make_manifest("@ext/gh", true))];
 
     // ensures: registered correctly
@@ -340,12 +341,7 @@ fn test_validate_ref_target_contract() {
 // B:validate_provider_kinds — verify integration "provider with known kinds → passes"
 #[test]
 fn test_validate_provider_kinds_passes() {
-    let providers = vec![ProviderConfig {
-        name: "github".to_string(),
-        scheme: "gh".to_string(),
-        base_url: None,
-        api_key_env: None,
-    }];
+    let providers = vec![provider("github", "gh", "@ext/gh")];
     let kind_reg = KindRegistry::new();
 
     let diags = validate_provider_kinds(&providers, &kind_reg);
@@ -363,12 +359,7 @@ fn test_validate_provider_kinds_empty() {
 // B:validate_provider_kinds — verify contract "requires providers + kind registry, ensures validation"
 #[test]
 fn test_validate_provider_kinds_contract() {
-    let providers = vec![ProviderConfig {
-        name: "test".to_string(),
-        scheme: "test".to_string(),
-        base_url: None,
-        api_key_env: None,
-    }];
+    let providers = vec![provider("test", "test", "@ext/test")];
     let kind_reg = KindRegistry::new();
 
     let diags = validate_provider_kinds(&providers, &kind_reg);
@@ -599,23 +590,13 @@ fn test_provider_scheme_isolation_each_registered_to_owner() {
 
     // Two provider configs, each with a distinct scheme matching one extension
     let providers = vec![
-        ProviderConfig {
-            name: "github".to_string(),
-            scheme: "gh".to_string(),
-            base_url: None,
-            api_key_env: None,
-        },
-        ProviderConfig {
-            name: "jira".to_string(),
-            scheme: "jira".to_string(),
-            base_url: None,
-            api_key_env: None,
-        },
+        provider("github", "gh", "@ext/github"),
+        provider("jira", "jira", "@ext/jira"),
     ];
 
     let (registry, diags) = register_provider_schemes(&providers, &manifests);
 
-    // No diagnostics — each provider maps to a different extension via name/scheme matching
+    // No diagnostics — each provider names its extension
     assert!(
         diags.is_empty(),
         "expected no diagnostics for isolated providers, got: {:?}",

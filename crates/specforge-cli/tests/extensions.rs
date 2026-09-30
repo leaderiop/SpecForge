@@ -33,14 +33,14 @@ fn write_lock_file(dir: &std::path::Path, entries: &[(&str, &str, &str)]) {
     .unwrap();
 }
 
-/// Helper: create a specforge.json with providers config.
+/// Helper: create a specforge.json enabling `@specforge/rust` (which
+/// contributes no providers) with `providers` configured.
 fn write_config_with_providers(dir: &std::path::Path, providers: &[serde_json::Value]) {
     let config = serde_json::json!({
-        "$schema": "https://specforge.dev/schema/specforge.json",
         "name": "test-project",
         "version": "0.1.0",
         "spec_root": "spec",
-        "extensions": [],
+        "extensions": ["@specforge/rust"],
         "providers": providers,
     });
 
@@ -352,6 +352,12 @@ fn extensions_contract() {
 // Behavior: list_configured_providers
 // ===============================================================
 
+// The listing is the scheme registry's view of each configured provider,
+// not the raw config: no builtin contributes providers, so these tests see
+// the statuses a provider gets when its extension is not loaded or is not
+// a provider. A scheme can't be shown registered, or with kinds, until an
+// extension contributes providers (05·R4).
+
 #[specforge_test(
     behavior = "list_configured_providers",
     verify = "list shows all configured providers"
@@ -361,11 +367,10 @@ fn providers_lists_alias_extension_schemes() {
 
     write_config_with_providers(
         dir.path(),
-        &[serde_json::json!({
-            "alias": "junit",
-            "extension": "@specforge/rust",
-            "schemes": ["file", "glob"],
-        })],
+        &[
+            serde_json::json!({"scheme": "gh", "alias": "work", "extension": "@acme/github"}),
+            serde_json::json!({"scheme": "file", "alias": "junit", "extension": "@specforge/rust"}),
+        ],
     );
 
     let output = specforge_cmd()
@@ -376,11 +381,17 @@ fn providers_lists_alias_extension_schemes() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-
-    assert!(stdout.contains("junit"), "should show alias");
-    assert!(stdout.contains("@specforge/rust"), "should show extension");
-    assert!(stdout.contains("file"), "should show scheme");
-    assert!(stdout.contains("glob"), "should show scheme");
+    assert!(
+        stdout.contains("  work (extension: @acme/github)\n    scheme: gh [extension_not_loaded]"),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains("  junit (extension: @specforge/rust)\n    scheme: file [not_a_provider]"),
+        "{stdout}"
+    );
+    // Why neither is registered, as the scheme registry reports it.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("warning[W118]"), "{stderr}");
 }
 
 #[specforge_test(
@@ -390,100 +401,55 @@ fn providers_lists_alias_extension_schemes() {
 fn providers_multiple_aliases() {
     let dir = TempDir::new().unwrap();
 
+    // Two instances of one provider, each with its own scheme (D3-c).
     write_config_with_providers(
         dir.path(),
         &[
+            serde_json::json!({"scheme": "gh", "alias": "work", "extension": "@acme/github"}),
             serde_json::json!({
-                "alias": "junit",
-                "extension": "@specforge/rust",
-                "schemes": ["file"],
-            }),
-            serde_json::json!({
-                "alias": "pytest",
-                "extension": "@specforge/python",
-                "schemes": ["file", "http"],
+                "scheme": "gh-shared", "alias": "shared", "extension": "@acme/github",
+                "settings": {"repo": "org/shared"},
             }),
         ],
     );
 
-    let output = specforge_cmd()
-        .args(["providers", "--path"])
-        .arg(dir.path())
-        .args(["--format", "json"])
-        .output()
-        .unwrap();
-
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let (_, json) = providers_json(dir.path());
 
     assert_eq!(json["count"], 2);
-    let providers = json["providers"].as_array().unwrap();
-    assert_eq!(providers[0]["alias"], "junit");
-    assert_eq!(providers[1]["alias"], "pytest");
-    assert_eq!(providers[1]["extension"], "@specforge/python");
+    assert_eq!(
+        json["providers"],
+        serde_json::json!([
+            {"scheme": "gh", "alias": "work", "extension": "@acme/github", "status": "extension_not_loaded"},
+            {"scheme": "gh-shared", "alias": "shared", "extension": "@acme/github", "status": "extension_not_loaded"},
+        ])
+    );
 }
 
-#[specforge_test(
-    behavior = "list_configured_providers",
-    verify = "list includes scheme and kind registrations"
-)]
+#[test]
 fn providers_includes_scheme_and_kind() {
+    // Not linked to "list includes scheme and kind registrations": no
+    // extension contributes providers yet, so no scheme registers kinds.
     let dir = TempDir::new().unwrap();
-
     write_config_with_providers(
         dir.path(),
-        &[serde_json::json!({
-            "alias": "junit",
-            "extension": "@specforge/rust",
-            "schemes": ["file", "glob"],
-            "kinds": ["junit_xml"],
-        })],
+        &[serde_json::json!({"scheme": "file", "alias": "junit", "extension": "@specforge/rust"})],
     );
 
-    let output = specforge_cmd()
-        .args(["providers", "--path"])
-        .arg(dir.path())
-        .args(["--format", "json"])
-        .output()
-        .unwrap();
+    let (_, json) = providers_json(dir.path());
 
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-
-    let providers = json["providers"].as_array().unwrap();
-    let p = &providers[0];
-    assert_eq!(p["schemes"], serde_json::json!(["file", "glob"]));
-    assert_eq!(p["kinds"], serde_json::json!(["junit_xml"]));
-
-    // The human listing shows both too.
-    specforge_cmd()
-        .args(["providers", "--path"])
-        .arg(dir.path())
-        .assert()
-        .success()
-        .stdout(predicates::str::contains("    schemes: file, glob"))
-        .stdout(predicates::str::contains("    kinds: junit_xml"));
+    let p = &json["providers"][0];
+    assert_eq!(p["scheme"], "file");
+    assert_eq!(p["status"], "not_a_provider");
+    assert_eq!(json["diagnostics"][0]["code"], "W118", "{json}");
 }
 
-/// Two providers, `beta` configured before `alpha`, each with schemes and kinds.
+/// Two providers, `beta` configured before `alpha`.
 fn write_two_providers(dir: &std::path::Path) {
     write_config_with_providers(
         dir,
         &[
-            serde_json::json!({
-                "alias": "beta",
-                "extension": "@specforge/python",
-                "schemes": ["http"],
-                "kinds": ["pytest_xml"],
-            }),
-            serde_json::json!({
-                "alias": "alpha",
-                "extension": "@specforge/rust",
-                "schemes": ["glob", "file"],
-                "kinds": ["junit_xml"],
-            }),
+            serde_json::json!({"scheme": "http", "alias": "beta", "extension": "@specforge/python"}),
+            serde_json::json!({"scheme": "file", "alias": "alpha", "extension": "@specforge/rust"}),
         ],
     );
 }
@@ -510,7 +476,8 @@ fn providers_output_order_deterministic() {
     let dir = TempDir::new().unwrap();
     write_two_providers(dir.path());
 
-    // The order is the configuration's, and the same on every run.
+    // The order is the configuration's (the first to declare a scheme wins
+    // it), and the same on every run.
     let (first, json) = providers_json(dir.path());
     let aliases: Vec<&str> = json["providers"]
         .as_array()
@@ -528,39 +495,22 @@ fn providers_output_order_deterministic() {
     }
 }
 
-#[specforge_test(
-    behavior = "list_configured_providers",
-    verify = "List Configured Providers: provider listing holds — scheme_registry_ready, all_providers_listed, schemes_and_kinds_included, aliases_shown_separately, output_deterministic"
-)]
+#[test]
 fn providers_contract() {
+    // Not linked to the listing's contract: schemes_and_kinds_included
+    // needs an extension that contributes providers.
     let dir = TempDir::new().unwrap();
-
-    // scheme_registry_ready: providers registered in the configuration.
     write_two_providers(dir.path());
     let (first, json) = providers_json(dir.path());
 
-    // all_providers_listed, aliases_shown_separately,
-    // schemes_and_kinds_included: one entry per alias, each complete.
-    assert_eq!(json["count"], 2, "ensures: all_providers_listed");
+    assert_eq!(json["count"], 2);
     assert_eq!(
         json["providers"],
         serde_json::json!([
-            {
-                "alias": "beta",
-                "extension": "@specforge/python",
-                "schemes": ["http"],
-                "kinds": ["pytest_xml"],
-            },
-            {
-                "alias": "alpha",
-                "extension": "@specforge/rust",
-                "schemes": ["glob", "file"],
-                "kinds": ["junit_xml"],
-            },
+            {"scheme": "http", "alias": "beta", "extension": "@specforge/python", "status": "extension_not_loaded"},
+            {"scheme": "file", "alias": "alpha", "extension": "@specforge/rust", "status": "not_a_provider"},
         ])
     );
-
-    // output_deterministic
     assert_eq!(providers_json(dir.path()).0, first);
 }
 
@@ -1606,12 +1556,13 @@ fn extensions_lists_enabled_builtins() {
         .iter()
         .map(|e| (e["name"].as_str().unwrap(), e["source"].as_str().unwrap()))
         .collect();
+    // Alphabetical, builtins and installs alike.
     assert_eq!(
         listed,
         [
+            ("@acme/widget", "registry"),
             ("@specforge/formal", "builtin"),
             ("@specforge/software", "builtin"),
-            ("@acme/widget", "registry"),
         ]
     );
 }
@@ -1707,7 +1658,7 @@ fn extensions_list_each_extensions_kinds_and_entities() {
         .unwrap();
     let text = String::from_utf8_lossy(&human.stdout);
     assert!(
-        text.contains("@specforge/software (builtin): 2 entities"),
+        text.contains("@specforge/software v1.0.0 (builtin): 2 entities"),
         "{text}"
     );
 }

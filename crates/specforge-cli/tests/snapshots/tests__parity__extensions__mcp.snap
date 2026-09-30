@@ -37,26 +37,30 @@ expression: mcp_snap
     ],
     "extensions": [
       {
-        "entity_kinds": [
-          "Behavior",
-          "Invariant",
-          "Event",
-          "Type",
-          "Port"
-        ],
-        "name": "@specforge/software",
-        "status": "loaded",
-        "validation_rules": 11,
-        "version": "1.0.0"
-      },
-      {
+        "entity_count": 0,
         "entity_kinds": [
           "greeting"
         ],
         "name": "@sdk/greet",
+        "source": "local:[BLOB]",
         "status": "loaded",
         "validation_rules": 1,
         "version": "0.1.0"
+      },
+      {
+        "entity_count": 1,
+        "entity_kinds": [
+          "behavior",
+          "event",
+          "invariant",
+          "port",
+          "type"
+        ],
+        "name": "@specforge/software",
+        "source": "builtin",
+        "status": "loaded",
+        "validation_rules": 11,
+        "version": "1.0.0"
       }
     ],
     "lock_file_entries": [

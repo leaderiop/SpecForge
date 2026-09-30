@@ -28,6 +28,7 @@ expression: cli_snap
   "ok": true,
   "payload": {
     "count": 0,
+    "diagnostics": [],
     "providers": []
   }
 }

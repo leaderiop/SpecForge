@@ -35,6 +35,17 @@ expression: cli_snap
     "count": 2,
     "extensions": [
       {
+        "entity_count": 0,
+        "entity_kinds": [
+          "greeting"
+        ],
+        "name": "@sdk/greet",
+        "source": "local:[BLOB]",
+        "status": "loaded",
+        "validation_rules": 1,
+        "version": "0.1.0"
+      },
+      {
         "entity_count": 1,
         "entity_kinds": [
           "behavior",
@@ -45,16 +56,9 @@ expression: cli_snap
         ],
         "name": "@specforge/software",
         "source": "builtin",
-        "version": "0.1.0"
-      },
-      {
-        "entity_count": 0,
-        "entity_kinds": [
-          "greeting"
-        ],
-        "name": "@sdk/greet",
-        "source": "local:[BLOB]",
-        "version": "0.1.0"
+        "status": "loaded",
+        "validation_rules": 11,
+        "version": "1.0.0"
       }
     ]
   }

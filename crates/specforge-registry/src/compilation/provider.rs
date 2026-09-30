@@ -1,19 +1,23 @@
 use crate::{KindRegistry, ManifestV2};
 use specforge_common::{Diagnostic, Severity};
 
-/// Provider configuration from specforge.json.
-#[derive(Debug, Clone)]
+/// One entry of the `providers` array in specforge.json (ADR 0004 D3-c):
+/// the scheme it serves, its alias, the extension that implements it, and
+/// that extension's settings. Two instances of one provider use two
+/// schemes.
+#[derive(Debug, Clone, PartialEq)]
 pub struct ProviderConfig {
-    pub name: String,
     pub scheme: String,
-    pub base_url: Option<String>,
-    pub api_key_env: Option<String>,
+    pub alias: String,
+    pub extension: String,
+    pub settings: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Entry in the scheme registry mapping a URI scheme to a provider.
 #[derive(Debug, Clone)]
 pub struct SchemeRegistryEntry {
     pub scheme: String,
+    /// The provider's alias.
     pub provider_name: String,
     pub extension_name: String,
 }
@@ -30,154 +34,185 @@ impl ProviderSchemeRegistry {
     }
 }
 
-/// Parse provider configurations from the specforge.json `providers` array.
+fn provider_warning(message: String, suggestion: &str) -> Diagnostic {
+    Diagnostic {
+        code: "W118".to_string(),
+        severity: Severity::Warning,
+        message,
+        span: None,
+        suggestion: Some(suggestion.to_string()),
+    }
+}
+
+/// Parse the specforge.json `providers` array, in declaration order: each
+/// entry needs `scheme`, `alias` and `extension`; `settings` is optional.
+/// An entry missing one, or a `providers` value that is not an array of
+/// objects, is W118.
 pub fn load_provider_configurations(
     config: &serde_json::Value,
 ) -> (Vec<ProviderConfig>, Vec<Diagnostic>) {
     let mut providers = Vec::new();
     let mut diagnostics = Vec::new();
 
-    let arr = match config.get("providers").and_then(|v| v.as_array()) {
-        Some(arr) => arr,
-        None => return (providers, diagnostics),
+    let arr = match config.get("providers") {
+        None | Some(serde_json::Value::Null) => return (providers, diagnostics),
+        Some(serde_json::Value::Array(arr)) => arr,
+        Some(_) => {
+            diagnostics.push(provider_warning(
+                "\"providers\" must be an array of {scheme, alias, extension, settings} entries"
+                    .to_string(),
+                "write providers as [{\"scheme\": \"gh\", \"alias\": \"main\", \"extension\": \"@acme/gh\"}]",
+            ));
+            return (providers, diagnostics);
+        }
     };
 
     for (i, entry) in arr.iter().enumerate() {
-        let name = match entry
-            .get("alias")
-            .or_else(|| entry.get("name"))
-            .and_then(|v| v.as_str())
-        {
-            Some(n) => n.to_string(),
-            None => {
-                diagnostics.push(Diagnostic {
-                    code: "W118".to_string(),
-                    severity: Severity::Warning,
-                    message: format!("providers[{}]: missing 'alias' or 'name' field", i),
-                    span: None,
-                    suggestion: Some("add an 'alias' field to the provider entry".to_string()),
-                });
+        let text = |key: &str| {
+            entry
+                .get(key)
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(str::to_string)
+        };
+        let missing: Vec<&str> = ["scheme", "alias", "extension"]
+            .into_iter()
+            .filter(|key| text(key).is_none())
+            .collect();
+        if !missing.is_empty() {
+            diagnostics.push(provider_warning(
+                format!("providers[{i}]: missing {}", missing.join(", ")),
+                "each provider needs a scheme, an alias and the extension that implements it",
+            ));
+            continue;
+        }
+        let settings = match entry.get("settings") {
+            None => serde_json::Map::new(),
+            Some(serde_json::Value::Object(settings)) => settings.clone(),
+            Some(_) => {
+                diagnostics.push(provider_warning(
+                    format!("providers[{i}]: \"settings\" must be an object"),
+                    "put the provider's own settings in a \"settings\" object",
+                ));
                 continue;
             }
         };
-
-        let scheme = entry
-            .get("scheme")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-
-        if scheme.is_empty() {
-            diagnostics.push(Diagnostic {
-                code: "W118".to_string(),
-                severity: Severity::Warning,
-                message: format!("providers[{}] '{}': missing 'scheme' field", i, name),
-                span: None,
-                suggestion: Some("add a 'scheme' field (e.g., \"gh\", \"jira\")".to_string()),
-            });
-            continue;
-        }
-
-        let base_url = entry
-            .get("baseUrl")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let api_key_env = entry
-            .get("apiKeyEnv")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-
         providers.push(ProviderConfig {
-            name,
-            scheme,
-            base_url,
-            api_key_env,
+            scheme: text("scheme").unwrap_or_default(),
+            alias: text("alias").unwrap_or_default(),
+            extension: text("extension").unwrap_or_default(),
+            settings,
         });
     }
 
     (providers, diagnostics)
 }
 
-/// Register provider schemes from provider configs + extension manifests.
-/// Duplicate schemes produce E033 regardless of which extension they map to.
-///
-/// Each provider config is matched to a contributing extension by checking
-/// whether the extension name contains the provider scheme or provider name
-/// as a substring, or by assigning to the first unmatched contributing
-/// extension. A provider is only registered once (to one extension).
+/// Why a configured provider's scheme is not registered.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProviderStatus {
+    Registered,
+    /// Its extension is not loaded (not enabled, or failed to load).
+    ExtensionNotLoaded,
+    /// Its extension is loaded but contributes no providers.
+    NotAProvider,
+    /// An earlier provider already registered the scheme (E057).
+    SchemeTaken,
+}
+
+impl ProviderStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ProviderStatus::Registered => "registered",
+            ProviderStatus::ExtensionNotLoaded => "extension_not_loaded",
+            ProviderStatus::NotAProvider => "not_a_provider",
+            ProviderStatus::SchemeTaken => "scheme_taken",
+        }
+    }
+}
+
+/// Register each configured provider's scheme to the extension it names,
+/// in declaration order: the first provider to declare a scheme wins it,
+/// and a later one is E057. A provider whose extension is not loaded, or
+/// loaded but contributing no providers, is W118. Returns each provider's
+/// status alongside, in declaration order.
 pub fn register_provider_schemes(
     providers: &[ProviderConfig],
     manifests: &[(String, ManifestV2)],
 ) -> (ProviderSchemeRegistry, Vec<Diagnostic>) {
-    let mut registry = ProviderSchemeRegistry::default();
-    let mut diagnostics = Vec::new();
-    let mut seen_schemes: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-
-    // Collect contributing extensions
-    let contributing: Vec<&str> = manifests
-        .iter()
-        .filter(|(_, m)| m.contributes.providers)
-        .map(|(name, _)| name.as_str())
-        .collect();
-
-    // For each provider config, find the best-matching contributing extension.
-    // Match heuristic: extension name contains the provider scheme or provider name.
-    // If no heuristic match, assign to the first contributing extension.
-    for provider in providers {
-        // Find a matching contributing extension for this provider
-        let matched_ext = contributing
-            .iter()
-            .find(|ext_name| {
-                ext_name.contains(&provider.scheme) || ext_name.contains(&provider.name)
-            })
-            .or(contributing.first());
-
-        let ext_name = match matched_ext {
-            Some(name) => *name,
-            None => continue, // No contributing extensions at all
-        };
-
-        if let Some(existing_ext) = seen_schemes.get(&provider.scheme) {
-            diagnostics.push(Diagnostic {
-                code: "E057".to_string(),
-                severity: Severity::Error,
-                message: format!(
-                    "scheme '{}' registered by extension '{}' conflicts with '{}'",
-                    provider.scheme, ext_name, existing_ext
-                ),
-                span: None,
-                suggestion: Some("use distinct schemes for each provider extension".to_string()),
-            });
-            continue;
-        }
-
-        seen_schemes.insert(provider.scheme.clone(), ext_name.to_string());
-        registry.entries.push(SchemeRegistryEntry {
-            scheme: provider.scheme.clone(),
-            provider_name: provider.name.clone(),
-            extension_name: ext_name.to_string(),
-        });
-    }
-
-    // Warn about providers without matching manifests
-    if !providers.is_empty() {
-        let has_contributor = manifests.iter().any(|(_, m)| m.contributes.providers);
-        if !has_contributor {
-            diagnostics.push(Diagnostic {
-                code: "W118".to_string(),
-                severity: Severity::Warning,
-                message: format!(
-                    "provider '{}' configured but no extension contributes providers",
-                    providers[0].name
-                ),
-                span: None,
-                suggestion: Some("install an extension that contributes providers".to_string()),
-            });
-        }
-    }
-
+    let (registry, _, diagnostics) = register_provider_schemes_with_status(providers, manifests);
     (registry, diagnostics)
+}
+
+/// [`register_provider_schemes`], with each provider's status.
+pub fn register_provider_schemes_with_status(
+    providers: &[ProviderConfig],
+    manifests: &[(String, ManifestV2)],
+) -> (ProviderSchemeRegistry, Vec<ProviderStatus>, Vec<Diagnostic>) {
+    let mut registry = ProviderSchemeRegistry::default();
+    let mut statuses = Vec::with_capacity(providers.len());
+    let mut diagnostics = Vec::new();
+
+    for provider in providers {
+        let manifest = manifests
+            .iter()
+            .find(|(name, _)| *name == provider.extension)
+            .map(|(_, m)| m);
+        let status = match manifest {
+            None => {
+                diagnostics.push(provider_warning(
+                    format!(
+                        "provider '{}' names extension '{}', which is not loaded",
+                        provider.alias, provider.extension
+                    ),
+                    "enable and install the extension: specforge add <extension>",
+                ));
+                ProviderStatus::ExtensionNotLoaded
+            }
+            Some(m) if !m.contributes.providers => {
+                diagnostics.push(provider_warning(
+                    format!(
+                        "provider '{}' names extension '{}', which contributes no providers",
+                        provider.alias, provider.extension
+                    ),
+                    "name the extension that implements this provider",
+                ));
+                ProviderStatus::NotAProvider
+            }
+            Some(_) => match registry.find_by_scheme(&provider.scheme) {
+                Some(first) => {
+                    diagnostics.push(Diagnostic {
+                        code: "E057".to_string(),
+                        severity: Severity::Error,
+                        message: format!(
+                            "scheme '{}' of provider '{}' ({}) is already registered by provider '{}' ({})",
+                            provider.scheme,
+                            provider.alias,
+                            provider.extension,
+                            first.provider_name,
+                            first.extension_name
+                        ),
+                        span: None,
+                        suggestion: Some(
+                            "give each provider instance its own scheme".to_string(),
+                        ),
+                    });
+                    ProviderStatus::SchemeTaken
+                }
+                None => {
+                    registry.entries.push(SchemeRegistryEntry {
+                        scheme: provider.scheme.clone(),
+                        provider_name: provider.alias.clone(),
+                        extension_name: provider.extension.clone(),
+                    });
+                    ProviderStatus::Registered
+                }
+            },
+        };
+        statuses.push(status);
+    }
+
+    (registry, statuses, diagnostics)
 }
 
 /// Validate a provider reference (scheme:target) against the registry.

@@ -745,3 +745,73 @@ fn graph_resource_under_a_budget_is_the_budgeted_export() {
         cli_export(dir.path(), &["--format", "graph", "--max-tokens", "300"])
     );
 }
+
+// ── listings: one list per surface pair (O5) ────────────────────────────────
+
+/// The CLI's `<command> --format json` and the MCP `tool`'s answer on the
+/// same project.
+fn both_listings(root: &Path, command: &str, tool: &str) -> (Value, Value) {
+    let out = cli()
+        .args([command, "--path"])
+        .arg(root)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let cli: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let mcp = mcp_document(
+        &mut mcp_on(root),
+        "tools/call",
+        json!({"name": tool, "arguments": {}}),
+    );
+    (cli, mcp)
+}
+
+#[specforge_test_macros::test(
+    behavior = "list_installed_extensions",
+    verify = "the CLI and the MCP extensions tool list the same entries"
+)]
+fn extensions_listings_match() {
+    let dir = tempfile::tempdir().unwrap();
+    project_with_greet_installed(dir.path());
+    std::fs::write(
+        dir.path().join("spec/hello.spec"),
+        "greeting hello \"Hello\" {\n  style warm\n}\n",
+    )
+    .unwrap();
+
+    let (cli, mcp) = both_listings(dir.path(), "extensions", "specforge.extensions");
+
+    assert_eq!(cli["extensions"], mcp["extensions"]);
+    let greet = &cli["extensions"][0];
+    assert_eq!(greet["name"], GREET, "{cli}");
+    assert_eq!(greet["status"], "loaded", "{cli}");
+    assert_eq!(greet["entity_kinds"], json!(["greeting"]), "{cli}");
+    assert_eq!(greet["entity_count"], 1, "{cli}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "list_configured_providers",
+    verify = "the CLI and the MCP providers tool list the same entries"
+)]
+fn providers_listings_match() {
+    let dir = tempfile::tempdir().unwrap();
+    project(dir.path());
+    let mut config: Value = serde_json::from_str(CONFIG).unwrap();
+    config["providers"] = json!([
+        {"scheme": "gh", "alias": "work", "extension": "@acme/github"},
+        {"scheme": "file", "alias": "local", "extension": "@specforge/software"},
+    ]);
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+
+    let (cli, mcp) = both_listings(dir.path(), "providers", "specforge.providers");
+
+    assert_eq!(cli, mcp);
+    assert_eq!(
+        cli["providers"],
+        json!([
+            {"scheme": "gh", "alias": "work", "extension": "@acme/github", "status": "extension_not_loaded"},
+            {"scheme": "file", "alias": "local", "extension": "@specforge/software", "status": "not_a_provider"},
+        ])
+    );
+}

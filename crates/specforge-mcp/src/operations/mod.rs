@@ -676,55 +676,32 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
 // ── extensions ──────────────────────────────────────────────────────────────
 
 fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcome {
-    // Real state: what the session actually loaded, checked against the
-    // extensions specforge.json configures now, plus on-disk lock data.
-    let configured: Vec<(String, Option<String>)> = state
-        .project_root
-        .as_ref()
-        .map(|root| specforge_common::load_project_config(root).extensions)
-        .unwrap_or_default()
+    use specforge_ops::extension::{self, Origin};
+
+    let Some(root) = &state.project_root else {
+        return err_invalid(id, "no project root available");
+    };
+    // The shared listing, over what the session compiled.
+    let entries = extension::list(root, &state.manifests, &state.kind_registry, &state.graph);
+    let listed: Vec<Value> = entries
         .iter()
-        .map(|spec| match spec.rfind('@') {
-            Some(at) if at > 0 => (spec[..at].to_string(), Some(spec[at + 1..].to_string())),
-            _ => (spec.clone(), None),
-        })
-        .collect();
-    let is_configured = |name: &str| configured.iter().any(|(n, _)| n == name);
-    let mut installed: Vec<serde_json::Value> = state
-        .manifests
-        .iter()
-        .map(|m| {
+        .map(|e| {
             json!({
-                "name": m.name,
-                "version": m.version,
-                "entity_kinds": m.entity_kinds.iter().map(|k| k.name.clone()).collect::<Vec<_>>(),
-                "validation_rules": m.validation_rules.len(),
-                // Loaded by the last compile but since dropped from
-                // specforge.json: gone at the next compile.
-                "status": if is_configured(&m.name) { "loaded" } else { "not_configured" },
+                "name": e.name,
+                "version": e.version,
+                "source": match &e.origin {
+                    Origin::Builtin => "builtin",
+                    Origin::Installed { source } => source.as_str(),
+                },
+                "status": e.status.as_str(),
+                "entity_kinds": e.entity_kinds,
+                "entity_count": e.entity_count,
+                "validation_rules": e.validation_rules,
             })
         })
         .collect();
-    // Configured since the last compile, or failed to load.
-    for (name, version) in &configured {
-        if !state.manifests.iter().any(|m| &m.name == name) {
-            installed.push(json!({
-                "name": name,
-                "version": version,
-                "entity_kinds": [],
-                "validation_rules": 0,
-                "status": "not_loaded",
-            }));
-        }
-    }
 
-    let lock = state
-        .project_root
-        .as_ref()
-        .map(|root| read_lock_file(&root.join("specforge.lock")).ok())
-        .unwrap_or(None);
-    let lock_entries: Vec<serde_json::Value> = lock
-        .as_ref()
+    let lock_entries: Vec<Value> = read_lock_file(&root.join("specforge.lock"))
         .map(|l| {
             l.entries
                 .iter()
@@ -732,7 +709,6 @@ fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutco
                 .collect()
         })
         .unwrap_or_default();
-
     let kinds: std::collections::BTreeSet<String> = state
         .graph
         .nodes()
@@ -743,7 +719,7 @@ fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutco
     ok(
         id,
         json!({
-            "extensions": installed,
+            "extensions": listed,
             "lock_file_entries": lock_entries,
             "entity_kinds_in_graph": kinds,
         }),
@@ -756,34 +732,25 @@ fn providers_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcom
     let Some(root) = &state.project_root else {
         return err_invalid(id, "no project root available");
     };
-    let config_path = root.join("specforge.json");
-    let config: Value = match std::fs::read_to_string(&config_path) {
-        Ok(content) => serde_json::from_str(&content).unwrap_or(Value::Null),
-        Err(_) => Value::Null,
-    };
-    // Each configured provider with the extension that serves its scheme:
-    // the matching the compiler does.
-    let (configs, _) = specforge_registry::load_provider_configurations(&config);
-    let manifests: Vec<(String, specforge_registry::ManifestV2)> = state
-        .manifests
-        .iter()
-        .map(|m| (m.name.clone(), m.clone()))
-        .collect();
-    let (schemes, _) = specforge_registry::register_provider_schemes(&configs, &manifests);
-    let providers: Vec<Value> = configs
+    // The providers specforge.json configures, as the scheme registry built
+    // from the loaded extensions sees them: the listing the CLI prints.
+    let (providers, diagnostics) = specforge_ops::extension::providers(root, &state.manifests);
+    let listed: Vec<Value> = providers
         .iter()
         .map(|p| {
-            let entry = schemes.find_by_scheme(&p.scheme);
             json!({
                 "scheme": p.scheme,
-                "alias": p.name,
-                "extension": entry.map(|e| e.extension_name.as_str()),
-                "status": if entry.is_some() { "registered" } else { "no_extension" },
+                "alias": p.alias,
+                "extension": p.extension,
+                "status": p.status.as_str(),
             })
         })
         .collect();
-    let count = providers.len();
-    ok(id, json!({ "providers": providers, "count": count }))
+    let count = listed.len();
+    ok(
+        id,
+        json!({ "providers": listed, "count": count, "diagnostics": diagnostics }),
+    )
 }
 
 // ── doctor ──────────────────────────────────────────────────────────────────
