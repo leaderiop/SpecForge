@@ -1,8 +1,10 @@
 //! Extension management: the operations behind `specforge add`, `remove`,
 //! `extensions` and their MCP tools.
 
+mod diamond;
 mod remove;
 
+pub use diamond::check_diamonds;
 pub use remove::{RemoveOutcome, RemoveRequest, remove};
 
 use specforge_component::builtins::BUILTIN_EXTENSIONS;

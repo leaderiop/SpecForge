@@ -233,7 +233,11 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     When adding an extension, the compiler MUST check peer dependencies
     of the new extension. Unsatisfied peer dependencies MUST be reported
     as E-level diagnostics naming each missing peer and the operation
-    MUST be rejected with exit code 1.
+    MUST be rejected with exit code 1. A peer the lock file already pins at
+    a version outside the new extension's range is a version diamond (ADR
+    0001): the operation MUST be rejected before anything is installed,
+    with R-RES-006 naming the version that would satisfy every requirer, or
+    R-RES-005 when no published version does.
     If no specforge.json exists in the current directory or any ancestor
     directory (as resolved by find_project_root()), the system MUST reject
     the operation with an error message and exit code 1. If the extension
@@ -251,6 +255,8 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   verify unit "add extension with @scope/name@version resolves version via parse_extension_specifier"
   verify unit "add extension without version resolves to latest compatible version"
   verify unit "add extension with unsatisfied peer dependencies emits error diagnostics and rejects"
+  verify unit "a peer locked outside the new extension's range fails R-RES-006 naming a version that satisfies every requirer"
+  verify unit "a peer no single version satisfies for every requirer fails R-RES-005"
   verify integration "add extension preserves all other config fields"
   verify contract "Add Extension to Existing Project: adding extension to existing project holds — existing_project_found, extension_resolvable, extension_appended, no_duplicate_added, other_fields_preserved, peer_deps_satisfied, extension_added_emitted"
 }

@@ -2988,6 +2988,7 @@ dependencies = [
 name = "specforge-ops"
 version = "0.1.0"
 dependencies = [
+ "semver",
  "serde_json",
  "specforge-common",
  "specforge-component",

@@ -6,7 +6,12 @@
 
 use crate::OpError;
 use crate::config::CONFIG_FILE;
-use specforge_registry::{RegistryConfig, parse_registries_from_config};
+use specforge_registry::registry_client::RegistryResponse;
+use specforge_registry::{
+    HttpRegistryClient, ManifestV2, PeerDependency, RegistryConfig, find_registry_for_specifier,
+    parse_registries_from_config, resolve_from_registry, resolve_version,
+    verify_registry_integrity,
+};
 use std::path::Path;
 
 /// The diagnostic a registry operation reports when no registry is
@@ -41,4 +46,109 @@ pub fn no_registry(operation: &str) -> OpError {
         ),
     )
     .with_suggestion(CONFIGURE_HINT)
+}
+
+/// A package downloaded from a registry, its bytes checked against the
+/// SHA-256 the registry published.
+#[derive(Debug, Clone)]
+pub struct Package {
+    pub name: String,
+    pub version: String,
+    pub wasm: Vec<u8>,
+    pub sha256: String,
+    /// The peers its published manifest declares.
+    pub peers: Vec<PeerDependency>,
+    /// The registry's answer, for the publisher signature check.
+    pub response: RegistryResponse,
+}
+
+/// The registry port the extension operations use: [`HttpRegistry`] in
+/// production, an in-memory fake in tests.
+pub trait Registry {
+    /// The version `range` (`latest`, `*`, `^1.2`, `~1`, `>=1`) resolves to;
+    /// an exact version is returned as it is.
+    fn resolve_version(&self, name: &str, range: &str) -> Result<String, OpError>;
+    /// `name@version`, downloaded and integrity-checked.
+    fn fetch(&self, name: &str, version: &str) -> Result<Package, OpError>;
+    /// Every version the registry publishes for `name`.
+    fn versions(&self, name: &str) -> Result<Vec<String>, OpError>;
+}
+
+/// Whether `range` needs resolving against the registry's versions (an
+/// exact version doesn't).
+pub fn is_range(range: &str) -> bool {
+    range == "latest"
+        || range == "*"
+        || range.starts_with('^')
+        || range.starts_with('~')
+        || range.starts_with('>')
+        || range.starts_with('<')
+        || range.starts_with('=')
+}
+
+/// The project's configured registries over HTTP. Built without touching
+/// the network or failing: with no registry configured, each call fails
+/// with E063 before any request.
+pub struct HttpRegistry {
+    registries: Result<Vec<RegistryConfig>, OpError>,
+    client: HttpRegistryClient,
+}
+
+impl HttpRegistry {
+    /// The registries `root`'s `specforge.json` configures; `operation`
+    /// names the command in E063.
+    pub fn for_project(root: &Path, operation: &str) -> Self {
+        Self {
+            registries: configured(root, operation),
+            client: HttpRegistryClient::new(),
+        }
+    }
+
+    fn registry_for(&self, name: &str) -> Result<(&[RegistryConfig], &RegistryConfig), OpError> {
+        let registries = self.registries.as_ref().map_err(Clone::clone)?;
+        let registry = find_registry_for_specifier(name, registries)
+            .or_else(|| registries.first())
+            .ok_or_else(|| no_registry("add"))?;
+        Ok((registries, registry))
+    }
+}
+
+impl Registry for HttpRegistry {
+    fn resolve_version(&self, name: &str, range: &str) -> Result<String, OpError> {
+        if !is_range(range) {
+            return Ok(range.to_string());
+        }
+        let (_, registry) = self.registry_for(name)?;
+        resolve_version(name, range, &self.client, registry).map_err(OpError::from)
+    }
+
+    fn fetch(&self, name: &str, version: &str) -> Result<Package, OpError> {
+        let (registries, _) = self.registry_for(name)?;
+        let response =
+            resolve_from_registry(&format!("{name}@{version}"), registries, &self.client)
+                .map_err(OpError::from)?;
+        let wasm = self
+            .client
+            .download_wasm(&response.wasm_url)
+            .map_err(|e| OpError::from(e.to_diagnostic()))?;
+        verify_registry_integrity(&wasm, &response.sha256).map_err(OpError::from)?;
+        let peers = serde_json::from_str::<ManifestV2>(&response.manifest)
+            .map(|m| m.peer_dependencies)
+            .unwrap_or_default();
+        Ok(Package {
+            name: response.name.clone(),
+            version: response.version.clone(),
+            sha256: response.sha256.clone(),
+            wasm,
+            peers,
+            response,
+        })
+    }
+
+    fn versions(&self, name: &str) -> Result<Vec<String>, OpError> {
+        let (_, registry) = self.registry_for(name)?;
+        self.client
+            .fetch_versions(name, registry)
+            .map_err(|e| OpError::from(e.to_diagnostic()))
+    }
 }
