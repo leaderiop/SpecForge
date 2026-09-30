@@ -578,6 +578,47 @@ fn context_includes_contract() {
     assert!(parsed["contract_text"].as_str().unwrap().contains("MUST"));
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_context_prompt",
+    verify = "context includes every field, like an invariant's guarantee"
+)]
+fn context_includes_every_field() {
+    let mut server = test_server();
+    let mut fields = FieldMap::new();
+    fields.push(
+        "guarantee".into(),
+        FieldValue::String("Ids MUST be unique".into()),
+    );
+    server.state_mut().graph.add_node(Node {
+        id: EntityId {
+            raw: "unique_ids".into(),
+        },
+        kind: EntityKind {
+            raw: "invariant".into(),
+        },
+        title: None,
+        fields,
+        source_span: SourceSpan {
+            file: "t.spec".into(),
+            start_line: 1,
+            start_col: 1,
+            end_line: 3,
+            end_col: 2,
+        },
+        methods: Vec::new(),
+    });
+    let resp = call_prompt(
+        &mut server,
+        "specforge://prompts/context",
+        json!({"entity_id": "unique_ids"}),
+    );
+    let parsed: Value = serde_json::from_str(&prompt_text(&resp)).unwrap();
+    assert_eq!(
+        parsed["fields"]["guarantee"], "Ids MUST be unique",
+        "{parsed}"
+    );
+}
+
 // B:provide_mcp_review_prompt — verify unit "review prompt returns empty findings when no testable entities exist"
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",

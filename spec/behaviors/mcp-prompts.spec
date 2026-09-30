@@ -39,6 +39,8 @@ behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {
     prompt that accepts entity_id (required) and structural_constraints? (optional
     string array of additional entity IDs to include as context). The prompt
     MUST return structured entity context including the entity's contract text,
+    every field the entity declares (an invariant's guarantee, a decision's
+    rationale, whatever its kind names its text),
     all directly related entities (upstream and downstream), verify
     declarations as verification expectations, and related entities.
     structural_constraints entities are included as additional context even if not
@@ -47,6 +49,7 @@ behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {
   """
   verify unit "specforge://prompts/context returns structured entity context"
   verify unit "response includes contract and related entities"
+  verify unit "context includes every field, like an invariant's guarantee"
   verify unit "non-existent entity returns error"
   verify unit "context prompt works with zero extensions installed"
   verify contract "Provide MCP Context Prompt: MCP context prompt holds — graph_available, context_returned, hints_included, prompt_invoked_emitted"

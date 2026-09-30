@@ -370,7 +370,10 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     field the entity declares, whatever its kind names them (an invariant's
     guarantee, a decision's rationale), not just contract. The coverage status
     MUST count the recorded test results in specforge-report.json exactly as
-    specforge.coverage does. LSP equivalence: this tool
+    specforge.coverage does. The related diagnostics are those whose span
+    lies within the entity's source span, or, for a diagnostic without a
+    span, whose message names the entity in quotes; an entity whose ID is a
+    prefix of another's never collects the other's diagnostics. LSP equivalence: this tool
     mirrors textDocument/hover, providing the same entity detail an IDE shows
     on hover but over the MCP transport. If the entity does not exist, the
     tool MUST return an error response.
@@ -380,6 +383,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "non-existent entity returns error response"
   verify unit "response includes every field, like an invariant's guarantee"
   verify unit "coverage status matches specforge.coverage obligation by obligation"
+  verify unit "diagnostics are the entity's own, not those of an entity whose ID contains it"
   verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 }
 

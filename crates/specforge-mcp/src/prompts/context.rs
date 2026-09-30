@@ -68,6 +68,9 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         "entity_id": entity_id,
         "kind": node.kind.raw,
         "contract_text": contract_text,
+        // Every field, whatever the kind names its text: an invariant's
+        // `guarantee`, a decision's `rationale`.
+        "fields": specforge_emitter::field_map_to_json(&node.fields),
         "upstream_entities": upstream,
         "downstream_entities": downstream,
         "verify_expectations": verify_expectations
@@ -76,7 +79,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
     let instruction = format!(
         "You are implementing the entity '{}' (kind: {}). \
          Use the structured context below to guide your implementation. \
-         Respect the contract, satisfy verify expectations, and consider upstream/downstream dependencies.",
+         Respect the contract (or the guarantee, rationale or other text in its fields), satisfy verify expectations, and consider upstream/downstream dependencies.",
         entity_id, node.kind.raw
     );
 

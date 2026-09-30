@@ -225,6 +225,66 @@ fn inspect_coverage_matches_the_coverage_tool() {
     assert_eq!(inspect, coverage);
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "diagnostics are the entity's own, not those of an entity whose ID contains it"
+)]
+fn inspect_diagnostics_are_the_entitys_own() {
+    let mut server = test_server();
+    let at = |start_line, end_line| SourceSpan {
+        file: "test.spec".into(),
+        start_line,
+        start_col: 1,
+        end_line,
+        end_col: 2,
+    };
+    let node = |id: &str, span: SourceSpan| Node {
+        id: EntityId { raw: id.into() },
+        kind: EntityKind {
+            raw: "invariant".into(),
+        },
+        title: None,
+        fields: FieldMap::new(),
+        source_span: span,
+        methods: Vec::new(),
+    };
+    let state = server.state_mut();
+    state.graph.add_node(node("task", at(20, 22)));
+    state.graph.add_node(node("task_id_uniqueness", at(30, 34)));
+    let diagnostic = |code: &str, message: &str, span| specforge_common::Diagnostic {
+        code: code.into(),
+        severity: specforge_common::Severity::Warning,
+        message: message.into(),
+        span,
+        suggestion: None,
+    };
+    state.diagnostics = vec![
+        diagnostic(
+            "W003",
+            "invariant 'task_id_uniqueness' is not enforced",
+            Some(at(30, 34)),
+        ),
+        diagnostic("W100", "field inside task", Some(at(21, 21))),
+        diagnostic("W101", "invariant 'task' is spanless", None),
+        diagnostic("W102", "invariant 'task_id_uniqueness' is spanless", None),
+    ];
+    let codes = |server: &mut McpServer, id: &str| {
+        let resp = call_tool(server, "specforge.inspect", json!({"entity_id": id}));
+        let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        parsed["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["code"].as_str().unwrap().to_string())
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(codes(&mut server, "task"), vec!["W100", "W101"]);
+    assert_eq!(
+        codes(&mut server, "task_id_uniqueness"),
+        vec!["W003", "W102"]
+    );
+}
+
 // --- specforge.find_definition ---
 
 // B:provide_mcp_find_definition_tool — verify unit "returns source location"

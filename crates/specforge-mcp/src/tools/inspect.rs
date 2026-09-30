@@ -64,7 +64,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     let entity_diagnostics: Vec<Value> = state
         .diagnostics
         .iter()
-        .filter(|d| d.message.contains(entity_id))
+        .filter(|d| belongs_to(d, node))
         .map(|d| {
             serde_json::json!({
                 "code": d.code,
@@ -110,4 +110,19 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
             }]
         }),
     )
+}
+
+/// Whether `diagnostic` is about `node`: its span lies within the node's,
+/// or, without a span, its message names the node in quotes. A substring
+/// match would give `task` the diagnostics of `task_id_uniqueness`.
+fn belongs_to(diagnostic: &specforge_common::Diagnostic, node: &specforge_graph::Node) -> bool {
+    let entity = &node.source_span;
+    match &diagnostic.span {
+        Some(span) => {
+            span.file == entity.file
+                && span.start_line >= entity.start_line
+                && span.end_line <= entity.end_line
+        }
+        None => diagnostic.message.contains(&format!("'{}'", node.id.raw)),
+    }
 }
