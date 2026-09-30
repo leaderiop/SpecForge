@@ -1368,47 +1368,84 @@ impl LanguageServer for Backend {
                 .and_then(|entry| entry.target_kind.clone())
         });
 
-        let entity_items = if let Some(ref tk) = target_kind {
-            complete_entity_ids_filtered(state.graph(), &prefix, Some(tk))
+        // Outside a reference list the enclosing block decides: its own
+        // body takes field names, the top level takes keywords.
+        let block = if ctx.is_some() {
+            None
         } else {
-            complete_entity_ids(state.graph(), &prefix)
+            crate::completion::enclosing_block(&content, pos.line as usize, pos.character as usize)
         };
-
-        for (rank, item) in entity_items.into_iter().enumerate() {
-            let detail = item
-                .title
-                .as_ref()
-                .map(|t| format!("{} — {}", item.kind, t))
-                .unwrap_or_else(|| item.kind.clone());
-            items.push(CompletionItem {
-                label: item.id.clone(),
-                kind: Some(CompletionItemKind::REFERENCE),
-                detail: Some(detail),
-                // C4-06: preserve the server's fuzzy ranking in the editor.
-                sort_text: Some(format!("{rank:04}")),
-                ..Default::default()
-            });
-        }
-
-        // C4-06: keywords used to be offered only before the second
-        // character. Offer them whenever the typed word prefix-matches,
-        // deduped against entity items that already matched.
-        let kind_reg = state.kind_registry();
-        let dynamic_kinds: Vec<String> = kind_reg.keywords().cloned().collect();
-        let kind_refs: Vec<&str> = dynamic_kinds.iter().map(|s| s.as_str()).collect();
-        let existing: std::collections::HashSet<String> =
-            items.iter().map(|i| i.label.clone()).collect();
         let lower_prefix = prefix.to_lowercase();
-        for kw in complete_keywords(&kind_refs) {
-            if !existing.contains(kw.as_str())
-                && (prefix.is_empty() || kw.to_lowercase().starts_with(&lower_prefix))
-            {
+        if let Some((kind, 1)) = &block {
+            let mut fields = state.field_registry().fields_for_kind(kind);
+            fields.sort_by(|a, b| a.field_name.cmp(&b.field_name));
+            for field in fields {
+                if !field.field_name.to_lowercase().starts_with(&lower_prefix) {
+                    continue;
+                }
                 items.push(CompletionItem {
-                    label: kw,
-                    kind: Some(CompletionItemKind::KEYWORD),
+                    label: field.field_name.clone(),
+                    kind: Some(CompletionItemKind::FIELD),
+                    detail: field.description.clone(),
+                    insert_text: Some(crate::completion::field_snippet(field, 1)),
+                    insert_text_format: Some(InsertTextFormat::SNIPPET),
                     ..Default::default()
                 });
             }
+            return Ok(Some(CompletionResponse::Array(items)));
+        }
+
+        if block.is_some() || ctx.is_some() {
+            let entity_items = if let Some(ref tk) = target_kind {
+                complete_entity_ids_filtered(state.graph(), &prefix, Some(tk))
+            } else {
+                complete_entity_ids(state.graph(), &prefix)
+            };
+            for (rank, item) in entity_items.into_iter().enumerate() {
+                let detail = item
+                    .title
+                    .as_ref()
+                    .map(|t| format!("{} — {}", item.kind, t))
+                    .unwrap_or_else(|| item.kind.clone());
+                items.push(CompletionItem {
+                    label: item.id.clone(),
+                    kind: Some(CompletionItemKind::REFERENCE),
+                    detail: Some(detail),
+                    // C4-06: preserve the server's fuzzy ranking in the editor.
+                    sort_text: Some(format!("{rank:04}")),
+                    ..Default::default()
+                });
+            }
+            return Ok(Some(CompletionResponse::Array(items)));
+        }
+
+        // Top level: structural keywords and every registered kind, each
+        // kind scaffolding its required fields.
+        let kind_reg = state.kind_registry();
+        let dynamic_kinds: Vec<String> = kind_reg.keywords().cloned().collect();
+        let kind_refs: Vec<&str> = dynamic_kinds.iter().map(|s| s.as_str()).collect();
+        for kw in complete_keywords(&kind_refs) {
+            if !(prefix.is_empty() || kw.to_lowercase().starts_with(&lower_prefix)) {
+                continue;
+            }
+            let (detail, snippet) = match kind_reg.get(&kw) {
+                Some(entry) => (
+                    Some(entry.source_extension.clone()),
+                    Some(crate::completion::keyword_snippet(
+                        &kw,
+                        state.field_registry(),
+                    )),
+                ),
+                None => (None, None),
+            };
+            items.push(CompletionItem {
+                label: kw,
+                kind: Some(CompletionItemKind::KEYWORD),
+                detail,
+                insert_text_format: snippet.as_ref().map(|_| InsertTextFormat::SNIPPET),
+                insert_text: snippet,
+                ..Default::default()
+            });
         }
 
         Ok(Some(CompletionResponse::Array(items)))

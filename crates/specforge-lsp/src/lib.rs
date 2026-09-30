@@ -16,11 +16,11 @@ pub use code_actions::{
     CodeAction, code_action_add_import, code_action_create_stub, code_actions_from_diagnostics,
     code_actions_missing_verify,
 };
-pub use completion::enclosing_entity_kind;
 pub use completion::{
     CompletionItem, CursorContext, complete_entity_ids, complete_entity_ids_filtered,
     complete_field_names, complete_keywords, cursor_context,
 };
+pub use completion::{enclosing_block, enclosing_entity_kind, field_snippet, keyword_snippet};
 pub use document::DocumentBuffer;
 pub use grammar_cache::GrammarCache;
 pub use hover::{hover_field_info, hover_info, hover_info_with_registries};

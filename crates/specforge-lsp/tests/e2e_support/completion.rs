@@ -76,3 +76,101 @@ async fn e2e_completion_no_keywords_inside_block() {
         );
     }
 }
+
+/// Completion items at (line, col) of `text`, with software enabled.
+async fn items_at(text: &str, line: u32, col: u32) -> Vec<Value> {
+    let (mut client, uri, _dir) = start_server_with_extensions(
+        &["@specforge/software", "@specforge/testing"],
+        "test.spec",
+        text,
+    )
+    .await;
+    let resp = client.completion(&uri, line, col).await;
+    resp["result"].as_array().cloned().unwrap_or_default()
+}
+
+fn labels(items: &[Value]) -> Vec<&str> {
+    items.iter().filter_map(|i| i["label"].as_str()).collect()
+}
+
+#[spec(
+    behavior = "complete_field_names",
+    verify = "field name completion uses FieldRegistry for entity kind"
+)]
+#[tokio::test]
+async fn e2e_completion_offers_the_kinds_fields_inside_a_block() {
+    let items = items_at("behavior login \"L\" {\n  \n}\n", 1, 2).await;
+
+    let names = labels(&items);
+    assert!(names.contains(&"contract"), "{names:?}");
+    assert!(names.contains(&"invariants"), "{names:?}");
+    let invariants = items.iter().find(|i| i["label"] == "invariants").unwrap();
+    // A reference list scaffolds its brackets.
+    assert_eq!(invariants["insertText"], "invariants [$1]", "{invariants}");
+    assert_eq!(invariants["insertTextFormat"], 2, "{invariants}");
+}
+
+#[spec(
+    behavior = "complete_field_names",
+    verify = "suggestions are filtered by entity kind"
+)]
+#[tokio::test]
+async fn e2e_completion_fields_follow_the_enclosing_kind() {
+    let items = items_at("invariant unique \"U\" {\n  \n}\n", 1, 2).await;
+
+    let names = labels(&items);
+    assert!(names.contains(&"guarantee"), "{names:?}");
+    assert!(
+        !names.contains(&"contract"),
+        "behavior's field offered: {names:?}"
+    );
+}
+
+#[spec(
+    behavior = "complete_field_names",
+    verify = "no field name suggestions outside entity blocks"
+)]
+#[tokio::test]
+async fn e2e_completion_offers_no_fields_at_top_level() {
+    let items = items_at("behavior login \"L\" {\n  contract \"c\"\n}\n\n", 3, 0).await;
+
+    let names = labels(&items);
+    assert!(names.contains(&"behavior"), "{names:?}");
+    assert!(!names.contains(&"contract"), "{names:?}");
+    assert!(!names.contains(&"guarantee"), "{names:?}");
+}
+
+#[spec(
+    behavior = "complete_keywords",
+    verify = "no keyword suggestions inside entity blocks"
+)]
+#[tokio::test]
+async fn e2e_completion_offers_no_keywords_inside_a_block() {
+    let items = items_at("behavior login \"L\" {\n  \n}\n", 1, 2).await;
+
+    let keywords: Vec<&Value> = items.iter().filter(|i| i["kind"] == 14).collect();
+    assert!(keywords.is_empty(), "{keywords:?}");
+}
+
+#[spec(
+    behavior = "complete_keywords",
+    verify = "snippet templates based on kind field definitions"
+)]
+#[tokio::test]
+async fn e2e_keyword_snippet_scaffolds_required_fields() {
+    let items = items_at("\n", 0, 0).await;
+
+    let behavior = items
+        .iter()
+        .find(|i| i["label"] == "behavior")
+        .unwrap_or_else(|| panic!("no behavior keyword in {items:?}"));
+    assert_eq!(behavior["insertTextFormat"], 2, "{behavior}");
+    let snippet = behavior["insertText"].as_str().unwrap();
+    assert!(
+        snippet.starts_with("behavior ${1:id} \"${2:Title}\" {\n"),
+        "{snippet}"
+    );
+    // contract is required on a behavior.
+    assert!(snippet.contains("\n  contract "), "{snippet}");
+    assert_eq!(behavior["detail"], "@specforge/software", "{behavior}");
+}

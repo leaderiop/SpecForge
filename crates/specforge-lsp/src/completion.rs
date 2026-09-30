@@ -146,21 +146,82 @@ fn parse_entity_header(line: &str) -> Option<String> {
     }
 }
 
-/// Find the entity kind of the enclosing block at the given line.
-/// Scans backwards from `line` looking for an entity header pattern.
+/// Find the entity kind of the enclosing block at the given line (its
+/// header line included).
 pub fn enclosing_entity_kind(content: &str, line: usize) -> Option<String> {
-    let lines: Vec<&str> = content.lines().collect();
-    for l in (0..=line.min(lines.len().saturating_sub(1))).rev() {
-        let trimmed = lines[l].trim();
-        if let Some(kind) = parse_entity_header(trimmed) {
-            return Some(kind);
-        }
-        // Stop at file-level scope (closing brace at col 0, not indented)
-        if lines[l].starts_with('}') && l < line {
-            return None;
+    enclosing_block(content, line, usize::MAX).map(|(kind, _)| kind)
+}
+
+/// The entity block enclosing the cursor at (`line`, UTF-16 `col`): its
+/// kind (the first word of the line that opened it) and the cursor's brace
+/// depth (1 in the block's own body, more inside a nested clause). `None`
+/// at the top level. Braces in strings and comments don't count.
+pub fn enclosing_block(content: &str, line: usize, col: usize) -> Option<(String, usize)> {
+    let mut depth = 0usize;
+    let mut kind: Option<String> = None;
+    for (index, text) in content.lines().enumerate().take(line + 1) {
+        let end = if index == line {
+            crate::document::utf16_col_to_byte_offset(text, col)
+        } else {
+            text.len()
+        };
+        let mut chars = text[..end.min(text.len())].char_indices().peekable();
+        let mut in_string = false;
+        while let Some((_, c)) = chars.next() {
+            match c {
+                '\\' if in_string => {
+                    chars.next();
+                }
+                '"' => in_string = !in_string,
+                '/' if !in_string && chars.peek().is_some_and(|(_, next)| *next == '/') => break,
+                '{' if !in_string => {
+                    if depth == 0 {
+                        kind = text.split_whitespace().next().map(str::to_string);
+                    }
+                    depth += 1;
+                }
+                '}' if !in_string => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        kind = None;
+                    }
+                }
+                _ => {}
+            }
         }
     }
-    None
+    kind.filter(|_| depth > 0).map(|kind| (kind, depth))
+}
+
+/// Insert text for `field` as snippet placeholder `n`: a reference list
+/// scaffolds its brackets, a string its quotes.
+pub fn field_snippet(field: &specforge_registry::FieldRegistryEntry, n: usize) -> String {
+    use specforge_registry::ManifestFieldType;
+    let name = &field.field_name;
+    match field.field_type {
+        ManifestFieldType::ReferenceList | ManifestFieldType::StringList => {
+            format!("{name} [${n}]")
+        }
+        ManifestFieldType::String => format!("{name} \"${n}\""),
+        ManifestFieldType::Block => format!("{name} {{\n    ${n}\n  }}"),
+        _ => format!("{name} ${n}"),
+    }
+}
+
+/// Snippet that scaffolds a `kind` block with its required fields.
+pub fn keyword_snippet(kind: &str, field_registry: &FieldRegistry) -> String {
+    let mut required: Vec<_> = field_registry
+        .fields_for_kind(kind)
+        .into_iter()
+        .filter(|f| f.required)
+        .collect();
+    required.sort_by(|a, b| a.field_name.cmp(&b.field_name));
+    let mut snippet = format!("{kind} ${{1:id}} \"${{2:Title}}\" {{\n");
+    for (i, field) in required.iter().enumerate() {
+        snippet.push_str(&format!("  {}\n", field_snippet(field, i + 3)));
+    }
+    snippet.push_str("  $0\n}");
+    snippet
 }
 
 /// Suggest entity IDs matching a prefix.
