@@ -50,3 +50,8 @@ successful `collect`.
 own corpus and roughly 3,000 annotated tests migrate with it. Rust's stable libtest has no JSON
 output, so `@specforge/cargo-test` keeps reading the per-test report that the attribute writes,
 rather than nextest JUnit.
+
+**Where the coverage rule lives** is amended by [ADR 0004, D2-f](0004-architecture-migration-decisions.md):
+it is the pure crate `specforge-coverage`, owned by `@specforge/testing` and linked both by its Wasm
+`coverage` pass and by host surfaces, which compute coverage status with no extension input (P2 in
+`provide_mcp_coverage_tool`, `spec/behaviors/mcp-tools.spec`).
