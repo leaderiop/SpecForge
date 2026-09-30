@@ -848,7 +848,20 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespon
 // ── extensions ──────────────────────────────────────────────────────────────
 
 fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcResponse {
-    // Real state: what the session actually loaded, plus on-disk lock data.
+    // Real state: what the session actually loaded, checked against the
+    // extensions specforge.json configures now, plus on-disk lock data.
+    let configured: Vec<(String, Option<String>)> = state
+        .project_root
+        .as_ref()
+        .map(|root| specforge_common::load_project_config(root).extensions)
+        .unwrap_or_default()
+        .iter()
+        .map(|spec| match spec.rfind('@') {
+            Some(at) if at > 0 => (spec[..at].to_string(), Some(spec[at + 1..].to_string())),
+            _ => (spec.clone(), None),
+        })
+        .collect();
+    let is_configured = |name: &str| configured.iter().any(|(n, _)| n == name);
     let mut installed: Vec<serde_json::Value> = state
         .manifests
         .iter()
@@ -858,24 +871,15 @@ fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRe
                 "version": m.version,
                 "entity_kinds": m.entity_kinds.iter().map(|k| k.name.clone()).collect::<Vec<_>>(),
                 "validation_rules": m.validation_rules.len(),
-                "status": "loaded",
+                // Loaded by the last compile but since dropped from
+                // specforge.json: gone at the next compile.
+                "status": if is_configured(&m.name) { "loaded" } else { "not_configured" },
             })
         })
         .collect();
-    // specforge.json names an extension the compile did not load: listed,
-    // so the answer reflects the configuration.
-    let configured = state
-        .project_root
-        .as_ref()
-        .map(|root| specforge_common::load_project_config(root).extensions)
-        .unwrap_or_default();
-    for entry in &configured {
-        // `name` or `name@version`; a scope's leading `@` is not a version.
-        let (name, version) = match entry.char_indices().skip(1).find(|(_, c)| *c == '@') {
-            Some((at, _)) => (&entry[..at], Some(&entry[at + 1..])),
-            None => (entry.as_str(), None),
-        };
-        if !state.manifests.iter().any(|m| m.name == name) {
+    // Configured since the last compile, or failed to load.
+    for (name, version) in &configured {
+        if !state.manifests.iter().any(|m| &m.name == name) {
             installed.push(json!({
                 "name": name,
                 "version": version,
@@ -929,27 +933,24 @@ fn providers_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRes
         Ok(content) => serde_json::from_str(&content).unwrap_or(Value::Null),
         Err(_) => Value::Null,
     };
-    // Each configured provider with the loaded extension backing its scheme:
-    // `registered` when one contributes providers, `unregistered` otherwise.
-    let (configured, _) = specforge_registry::load_provider_configurations(&config);
+    // Each configured provider with the extension that serves its scheme:
+    // the matching the compiler does.
+    let (configs, _) = specforge_registry::load_provider_configurations(&config);
     let manifests: Vec<(String, specforge_registry::ManifestV2)> = state
         .manifests
         .iter()
         .map(|m| (m.name.clone(), m.clone()))
         .collect();
-    let (schemes, _) = specforge_registry::register_provider_schemes(&configured, &manifests);
-    let providers: Vec<Value> = configured
+    let (schemes, _) = specforge_registry::register_provider_schemes(&configs, &manifests);
+    let providers: Vec<Value> = configs
         .iter()
-        .map(|provider| {
-            let backing = schemes
-                .entries
-                .iter()
-                .find(|e| e.scheme == provider.scheme && e.provider_name == provider.name);
+        .map(|p| {
+            let entry = schemes.find_by_scheme(&p.scheme);
             json!({
-                "scheme": provider.scheme,
-                "alias": provider.name,
-                "extension": backing.map(|e| e.extension_name.as_str()),
-                "status": if backing.is_some() { "registered" } else { "unregistered" },
+                "scheme": p.scheme,
+                "alias": p.name,
+                "extension": entry.map(|e| e.extension_name.as_str()),
+                "status": if entry.is_some() { "registered" } else { "no_extension" },
             })
         })
         .collect();

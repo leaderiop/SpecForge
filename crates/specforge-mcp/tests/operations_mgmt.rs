@@ -51,6 +51,54 @@ fn test_server() -> McpServer {
     server
 }
 
+/// A server initialized over a temp project with `config` as its
+/// specforge.json.
+fn server_over(config: Value) -> (McpServer, std::path::PathBuf) {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    std::fs::write(
+        dir.path().join("test.spec"),
+        "behavior alpha \"Alpha\" {\n}\n",
+    )
+    .unwrap();
+    let root = dir.path().to_path_buf();
+    std::mem::forget(dir); // outlives the test
+    let mut server = McpServer::new();
+    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"projectRoot": root.to_str().unwrap()}});
+    server.handle_message(&req.to_string());
+    (server, root)
+}
+
+fn software_project() -> (McpServer, std::path::PathBuf) {
+    server_over(json!({"name": "t", "version": "0.1.0", "extensions": ["@specforge/software"]}))
+}
+
+/// `specforge.extensions`' entries as (name, status).
+fn listed_extensions(server: &mut McpServer) -> Vec<(String, String)> {
+    let resp = call_tool(server, "specforge.extensions", json!({}));
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    parsed["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            (
+                e["name"].as_str().unwrap().to_string(),
+                e["status"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect()
+}
+
+fn invoked(server: &McpServer, tool: &str) -> bool {
+    server
+        .state()
+        .events
+        .iter()
+        .any(|e| e.name == "mcp_tool_invoked" && e.params["tool"] == tool)
+}
+
 fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
     let req = json!({
         "jsonrpc": "2.0", "id": 1,
@@ -76,11 +124,27 @@ fn tool_text(resp: &Value) -> String {
     verify = "specforge.extensions lists all installed extensions"
 )]
 fn extensions_returns_list() {
-    let mut server = test_server();
+    let (mut server, _root) = software_project();
     let resp = call_tool(&mut server, "specforge.extensions", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["extensions"].is_array());
+    let extensions = parsed["extensions"].as_array().unwrap();
+    assert_eq!(extensions.len(), 1, "{parsed}");
+    let software = &extensions[0];
+    assert_eq!(software["name"], "@specforge/software");
+    assert_eq!(software["status"], "loaded");
+    assert!(
+        !software["version"].as_str().unwrap().is_empty(),
+        "{software}"
+    );
+    assert_eq!(
+        software["entity_kinds"],
+        json!(["Behavior", "Invariant", "Event", "Type", "Port"])
+    );
+
+    // With nothing configured, nothing is listed.
+    let mut bare = test_server();
+    assert_eq!(listed_extensions(&mut bare), vec![]);
 }
 
 // --- specforge.providers ---
@@ -91,11 +155,24 @@ fn extensions_returns_list() {
     verify = "specforge.providers lists all configured providers"
 )]
 fn providers_returns_list() {
-    let mut server = test_server();
+    let (mut server, _root) = server_over(json!({
+        "name": "t", "version": "0.1.0", "extensions": [],
+        "providers": [
+            {"alias": "tracker", "scheme": "jira"},
+            {"alias": "code", "scheme": "gh"}
+        ]
+    }));
     let resp = call_tool(&mut server, "specforge.providers", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["providers"].is_array());
+    let listed: Vec<(&str, &str)> = parsed["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| (p["alias"].as_str().unwrap(), p["scheme"].as_str().unwrap()))
+        .collect();
+    assert_eq!(listed, vec![("tracker", "jira"), ("code", "gh")]);
+    assert_eq!(parsed["count"], 2);
 }
 
 // --- specforge.doctor ---
@@ -254,17 +331,47 @@ fn providers_entry_fields() {
     verify = "Provide MCP Extensions Tool: MCP extensions tool holds — compiler_api_available, extensions_listed, config_reflected, tool_invoked_emitted"
 )]
 fn extensions_contract() {
-    let mut server = test_server();
-    // Requires: compiler API available (server initialized)
-    // Ensures: extensions listed with name, version, kinds, status
+    // compiler_api_available: the server compiled the project.
+    let (mut server, root) = software_project();
+    assert!(!server.state().manifests.is_empty());
+
+    // extensions_listed: name, version, entity kinds and status.
     let resp = call_tool(&mut server, "specforge.extensions", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["extensions"].is_array());
-    // Idempotent: calling again produces same result
-    let resp2 = call_tool(&mut server, "specforge.extensions", json!({}));
-    let text2 = tool_text(&resp2);
-    assert_eq!(text, text2);
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let entry = &parsed["extensions"][0];
+    assert_eq!(entry["name"], "@specforge/software");
+    assert!(entry["version"].is_string(), "{entry}");
+    assert!(
+        !entry["entity_kinds"].as_array().unwrap().is_empty(),
+        "{entry}"
+    );
+    assert_eq!(entry["status"], "loaded");
+
+    // config_reflected: specforge.json now drops software and adds testing.
+    std::fs::write(
+        root.join("specforge.json"),
+        json!({"name": "t", "version": "0.1.0", "extensions": ["@specforge/testing"]}).to_string(),
+    )
+    .unwrap();
+    assert_eq!(
+        listed_extensions(&mut server),
+        vec![
+            (
+                "@specforge/software".to_string(),
+                "not_configured".to_string()
+            ),
+            ("@specforge/testing".to_string(), "not_loaded".to_string()),
+        ]
+    );
+    // After the next compile, only the configured extension is loaded.
+    call_tool(&mut server, "specforge.validate", json!({}));
+    assert_eq!(
+        listed_extensions(&mut server),
+        vec![("@specforge/testing".to_string(), "loaded".to_string())]
+    );
+
+    // tool_invoked_emitted
+    assert!(invoked(&server, "specforge.extensions"));
 }
 
 // B:provide_mcp_providers_tool — verify contract
@@ -273,17 +380,24 @@ fn extensions_contract() {
     verify = "Provide MCP Providers Tool: MCP providers tool holds — compiler_api_available, providers_listed, tool_invoked_emitted"
 )]
 fn providers_contract() {
-    let mut server = test_server();
-    // Requires: compiler API available
-    // Ensures: providers listed with scheme, alias, extension, status
+    // compiler_api_available: a compiled project configuring one provider
+    // whose scheme no loaded extension serves.
+    let (mut server, _root) = server_over(json!({
+        "name": "t", "version": "0.1.0", "extensions": ["@specforge/software"],
+        "providers": [{"alias": "tracker", "scheme": "jira"}]
+    }));
+    assert!(!server.state().manifests.is_empty());
+
+    // providers_listed: scheme, alias, extension and status.
     let resp = call_tool(&mut server, "specforge.providers", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["providers"].is_array());
-    // Idempotent
-    let resp2 = call_tool(&mut server, "specforge.providers", json!({}));
-    let text2 = tool_text(&resp2);
-    assert_eq!(text, text2);
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(
+        parsed["providers"],
+        json!([{"scheme": "jira", "alias": "tracker", "extension": null, "status": "no_extension"}])
+    );
+
+    // tool_invoked_emitted
+    assert!(invoked(&server, "specforge.providers"));
 }
 
 // B:provide_mcp_doctor_tool — verify contract
@@ -292,27 +406,46 @@ fn providers_contract() {
     verify = "Provide MCP Doctor Tool: MCP doctor tool holds — compiler_api_available, health_checked, resolution_steps_provided, tool_invoked_emitted"
 )]
 fn doctor_contract() {
-    let mut server = test_server();
-    // Requires: compiler API available
-    // Ensures: health checked, resolution steps provided
-    let parsed = doctor(&mut server);
-    // The McpDoctorReport shape, from a project with nothing installed.
-    assert_eq!(parsed["extensions_ok"], true, "{parsed}");
-    assert_eq!(parsed["cache_status"], "ok", "{parsed}");
-    assert_eq!(parsed["conflicts"], json!([]), "{parsed}");
-    for finding in parsed["findings"].as_array().unwrap() {
+    // compiler_api_available: a project with one extension installed.
+    let (mut server, root) = server_with_product();
+
+    // health_checked: a healthy install passes ...
+    let healthy = doctor(&mut server);
+    assert_eq!(healthy["extensions_ok"], true, "{healthy}");
+    assert_eq!(healthy["cache_status"], "ok", "{healthy}");
+    assert_eq!(healthy["installed_count"], 1, "{healthy}");
+    assert_eq!(healthy["conflicts"], json!([]), "{healthy}");
+
+    // ... and a corrupted one fails.
+    tamper_with_installed_binary(&root);
+    let broken = doctor(&mut server);
+    assert_eq!(broken["extensions_ok"], false, "{broken}");
+    assert_eq!(broken["cache_status"], "stale", "{broken}");
+
+    // resolution_steps_provided: every finding says how to fix it, the
+    // same way every time.
+    let findings = broken["findings"].as_array().unwrap();
+    assert!(!findings.is_empty(), "{broken}");
+    for finding in findings {
         for field in ["check", "status", "code", "remediation"] {
             assert!(finding[field].is_string(), "{field} missing: {finding}");
         }
     }
+    let stale = findings
+        .iter()
+        .find(|f| f["code"] == "stale_hash")
+        .unwrap_or_else(|| panic!("no stale_hash finding: {broken}"));
     assert!(
-        server
-            .state()
-            .events
-            .iter()
-            .any(|e| e.name == "mcp_tool_invoked" && e.params["tool"] == "specforge.doctor"),
-        "mcp_tool_invoked emitted"
+        stale["remediation"]
+            .as_str()
+            .unwrap()
+            .contains("specforge add"),
+        "{stale}"
     );
+    assert_eq!(doctor(&mut server), broken);
+
+    // tool_invoked_emitted
+    assert!(invoked(&server, "specforge.doctor"));
 }
 
 // --- specforge.doctor: real checks ---
