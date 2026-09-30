@@ -1034,6 +1034,7 @@ pub const CATALOG: &[CodeEntry] = &[
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_test_macros::test as specforge_test;
     use std::collections::{BTreeMap, BTreeSet};
     use std::path::{Path, PathBuf};
 
@@ -1263,7 +1264,10 @@ mod tests {
 
     /// The catalog is enforced: every emitted code is registered under the
     /// right owner, and every registered code is emitted somewhere.
-    #[test]
+    #[specforge_test(
+        invariant = "diagnostic_code_uniqueness",
+        verify = "Diagnostic Code Uniqueness guarantee holds"
+    )]
     fn explain_catalog_matches_emitted_codes() {
         let catalog: BTreeMap<&str, &CodeEntry> = CATALOG.iter().map(|e| (e.code, e)).collect();
         let sites = emitted_sites();
