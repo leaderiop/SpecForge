@@ -971,7 +971,10 @@ fn suggest_missing_ext_known_keyword() {
     );
 }
 
-#[test]
+#[spec(
+    behavior = "suggest_missing_extensions",
+    verify = "E024 for keyword not in index suggests specforge search"
+)]
 fn suggest_missing_ext_unknown_keyword() {
     let kind_reg = KindRegistry::new();
     let index = specforge_registry::compilation::KeywordExtensionIndex::new();
@@ -986,18 +989,76 @@ fn suggest_missing_ext_unknown_keyword() {
             .suggestion
             .as_ref()
             .unwrap()
-            .contains("specforge outline")
+            .contains("specforge search")
+    );
+}
+
+#[spec(
+    behavior = "suggest_missing_extensions",
+    verify = "keyword-to-extension index is loaded from bundled data file"
+)]
+fn bundled_keyword_index_maps_every_builtin_keyword() {
+    // The bundled file must say what the builtins' own descriptions say.
+    let extensions = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../extensions");
+    let mut expected = std::collections::BTreeMap::new();
+    for entry in std::fs::read_dir(&extensions).unwrap() {
+        let src = entry.unwrap().path().join("src");
+        let Ok(entities) = std::fs::read_to_string(src.join("describe_entities.json")) else {
+            continue;
+        };
+        let handshake: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(src.join("handshake.json")).unwrap())
+                .unwrap();
+        let name = handshake["name"].as_str().unwrap().to_string();
+        let entities: serde_json::Value = serde_json::from_str(&entities).unwrap();
+        for item in entities["items"].as_array().unwrap() {
+            expected.insert(item["keyword"].as_str().unwrap().to_string(), name.clone());
+        }
+    }
+    assert!(!expected.is_empty());
+
+    let bundled = specforge_registry::compilation::KeywordExtensionIndex::bundled();
+    for (keyword, extension) in &expected {
+        assert_eq!(
+            bundled.lookup(keyword),
+            Some(extension.as_str()),
+            "{keyword}"
+        );
+    }
+    assert_eq!(bundled.lookup("xyzzy"), None);
+
+    // Without an index argument, E024 uses the bundled one.
+    let diags = specforge_registry::compilation::detect_unknown_entity_kinds(
+        &[("feature".to_string(), "f1".to_string(), span("test.spec"))],
+        &KindRegistry::new(),
+        None,
+    );
+    assert!(
+        diags[0]
+            .suggestion
+            .as_deref()
+            .unwrap()
+            .contains("specforge add @specforge/product"),
+        "{diags:?}"
     );
 }
 
 #[test]
-fn suggest_missing_ext_data_driven_index() {
-    let json = r#"{"behavior": "@specforge/software", "feature": "@specforge/product"}"#;
-    let entries: std::collections::HashMap<String, String> = serde_json::from_str(json).unwrap();
-    let index = specforge_registry::compilation::KeywordExtensionIndex::from_entries(entries);
-    assert_eq!(index.lookup("behavior"), Some("@specforge/software"));
-    assert_eq!(index.lookup("feature"), Some("@specforge/product"));
-    assert_eq!(index.lookup("unknown"), None);
+fn malformed_keyword_index_falls_back_to_search() {
+    let index = specforge_registry::compilation::KeywordExtensionIndex::from_json("{not json");
+    let diags = specforge_registry::compilation::detect_unknown_entity_kinds(
+        &[("feature".to_string(), "f1".to_string(), span("test.spec"))],
+        &KindRegistry::new(),
+        Some(&index),
+    );
+    assert!(
+        diags[0]
+            .suggestion
+            .as_deref()
+            .unwrap()
+            .contains("specforge search feature"),
+        "{diags:?}"
+    );
 }
 
 #[spec(
@@ -1027,7 +1088,7 @@ fn suggest_missing_ext_contract() {
             .suggestion
             .as_ref()
             .unwrap()
-            .contains("specforge outline")
+            .contains("specforge search")
     );
 }
 

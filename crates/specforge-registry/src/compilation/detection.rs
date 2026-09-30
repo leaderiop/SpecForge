@@ -24,6 +24,19 @@ impl KeywordExtensionIndex {
     pub fn lookup(&self, keyword: &str) -> Option<&str> {
         self.entries.get(keyword).map(|s| s.as_str())
     }
+
+    /// `{"keyword": "@scope/extension"}`; malformed data gives an empty
+    /// index, so suggestions fall back to `specforge search`.
+    pub fn from_json(json: &str) -> Self {
+        Self::from_entries(serde_json::from_str(json).unwrap_or_default())
+    }
+
+    /// The index shipped with SpecForge (`data/keyword-index.json`): each
+    /// builtin extension's entity keywords. Parsed on first use.
+    pub fn bundled() -> &'static KeywordExtensionIndex {
+        static BUNDLED: std::sync::OnceLock<KeywordExtensionIndex> = std::sync::OnceLock::new();
+        BUNDLED.get_or_init(|| Self::from_json(include_str!("../../data/keyword-index.json")))
+    }
 }
 
 /// Detect unknown entity kinds by checking each parsed keyword against the KindRegistry.
@@ -45,15 +58,17 @@ pub fn detect_unknown_entity_kinds(
             continue;
         }
 
-        let suggestion = if let Some(idx) = index {
-            if let Some(ext) = idx.lookup(keyword) {
-                Some(format!("install it with: specforge add {}", ext))
-            } else {
-                Some("check available extensions with: specforge outline".to_string())
-            }
-        } else {
-            Some("check available extensions with: specforge outline".to_string())
+        // The bundled index loads only once an unknown keyword turns up.
+        let index = match index {
+            Some(index) => index,
+            None => KeywordExtensionIndex::bundled(),
         };
+        let suggestion = Some(match index.lookup(keyword) {
+            Some(ext) => format!("install it with: specforge add {ext}"),
+            None => {
+                format!("search for an extension that provides it with: specforge search {keyword}")
+            }
+        });
 
         diagnostics.push(Diagnostic {
             code: "E024".to_string(),
@@ -754,7 +769,7 @@ mod tests {
                 .suggestion
                 .as_ref()
                 .unwrap()
-                .contains("specforge outline")
+                .contains("specforge search xyzzy")
         );
     }
 
@@ -795,7 +810,7 @@ mod tests {
                 .suggestion
                 .as_ref()
                 .unwrap()
-                .contains("specforge outline")
+                .contains("specforge search xyzzy")
         );
     }
 
