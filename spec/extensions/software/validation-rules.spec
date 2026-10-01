@@ -31,17 +31,27 @@ behavior se_validate_orphan_types "W002: Orphan Types" {
   category query
   types    [ValidationRulePattern]
   contract """
-    Detect type entities with no incoming UsesType edges.
+    Detect type entities nothing references. A type is referenced when a
+    behavior lists it in `types`, an event carries it as `payload`, another
+    type names it in a field type (`members TsClassMember[]`, through the
+    derived `composed_types` field) or a port names it in a method
+    parameter or return type (`detect(config: TsExtensionConfig)`, through
+    the derived `types` field). A primitive or generic wrapper name such as
+    `string` or `Result` references nothing, and a type naming itself does
+    not count.
   """
   requires {
     graph_built "entity graph is fully constructed with all edges"
   }
   ensures {
-    orphan_detected  "type with no incoming UsesType edge produces W002 warning"
-    correct_template "message template is: type '{id}' is not referenced by any behavior or port"
+    orphan_detected  "type with no incoming edge produces W002 warning"
+    correct_template "message template is: type '{id}' is not referenced by any behavior, port, or type"
   }
   verify unit "type with no incoming UsesType edge produces W002"
   verify unit "type with incoming UsesType edge passes"
+  verify integration "a type named in another type's field type is referenced"
+  verify integration "a type named in a port method signature is referenced"
+  verify integration "a primitive or generic wrapper name references no type"
 }
 
 behavior se_validate_unused_invariants "W003: Unused Invariants" {

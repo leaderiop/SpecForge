@@ -154,3 +154,104 @@ iface Garage {
         "{diagnostics:?}"
     );
 }
+
+/// `spec` compiled with the builtin @specforge/software.
+fn compile_with_software(spec: &str) -> CompiledProject {
+    let dir = TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "p", "version": "0.1.0", "extensions": ["@specforge/software"]
+    });
+    fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    fs::write(dir.path().join("a.spec"), spec).unwrap();
+    let runtime = specforge_component::project_runtime(dir.path());
+    CompiledProject::compile(dir.path(), Some(&runtime))
+}
+
+/// The W002 messages, sorted.
+fn w002(compiled: &CompiledProject) -> Vec<String> {
+    let mut messages: Vec<String> = compiled
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code == "W002")
+        .map(|d| d.message)
+        .collect();
+    messages.sort();
+    messages
+}
+
+#[specforge_test(
+    behavior = "se_validate_orphan_types",
+    verify = "a type named in another type's field type is referenced"
+)]
+fn a_type_named_in_a_field_type_is_referenced() {
+    let compiled = compile_with_software(
+        r#"
+type Member {
+  name string
+}
+type Kind = method | property
+type Holder {
+  members Member[]
+  kind    Kind
+}
+"#,
+    );
+
+    // Holder itself is named by nothing.
+    assert_eq!(
+        w002(&compiled),
+        ["type 'Holder' is not referenced by any behavior, port, or type"]
+    );
+}
+
+#[specforge_test(
+    behavior = "se_validate_orphan_types",
+    verify = "a type named in a port method signature is referenced"
+)]
+fn a_type_named_in_a_port_method_signature_is_referenced() {
+    let compiled = compile_with_software(
+        r#"
+type ScanConfig {
+  root string
+}
+type Project {
+  name string
+}
+type ScanError {
+  message string
+}
+port Scanner {
+  direction outbound
+  method detect(config: ScanConfig) -> Result<Project, ScanError>
+}
+"#,
+    );
+
+    assert!(w002(&compiled).is_empty(), "{:?}", w002(&compiled));
+}
+
+#[specforge_test(
+    behavior = "se_validate_orphan_types",
+    verify = "a primitive or generic wrapper name references no type"
+)]
+fn a_primitive_or_generic_wrapper_references_no_type() {
+    let compiled = compile_with_software(
+        r#"
+type Counter {
+  count Option<number>[]
+  label string
+}
+port Store {
+  direction outbound
+  method load(key: string) -> Result<Option<string>, number>
+}
+"#,
+    );
+
+    assert!(compiled.graph.edges_from("Counter").is_empty());
+    assert!(compiled.graph.edges_from("Store").is_empty());
+    assert_eq!(
+        w002(&compiled),
+        ["type 'Counter' is not referenced by any behavior, port, or type"]
+    );
+}

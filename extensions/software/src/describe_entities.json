@@ -547,7 +547,8 @@
         },
         {
           "default_value": null,
-          "description": "Types composed or referenced by this type",
+          "derived_from": "type_expressions",
+          "description": "Types composed or referenced by this type (derived from its field types)",
           "edge": "TypeComposesType",
           "field_type": "reference_list",
           "file_reference": false,
@@ -641,6 +642,18 @@
           "name": "methods",
           "required": false,
           "target_kind": null
+        },
+        {
+          "default_value": null,
+          "derived_from": "method_signatures",
+          "description": "Types named in this port's method signatures (derived from its methods)",
+          "edge": "PortReferencesType",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "types",
+          "required": false,
+          "target_kind": "type"
         },
         {
           "default_value": null,

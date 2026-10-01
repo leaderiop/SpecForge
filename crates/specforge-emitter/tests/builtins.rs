@@ -235,7 +235,7 @@ fn software_extension_loads_via_protocol() {
     assert_eq!(manifest.name, "@specforge/software");
     assert_eq!(manifest.version, "1.0.0");
     assert_eq!(manifest.entity_kinds.len(), 5);
-    assert_eq!(manifest.edge_types.len(), 14);
+    assert_eq!(manifest.edge_types.len(), 15);
     // W004/W009 moved to @specforge/testing (ADR 0002).
     assert_eq!(manifest.validation_rules.len(), 11);
     assert_eq!(manifest.entity_enhancements.len(), 2);

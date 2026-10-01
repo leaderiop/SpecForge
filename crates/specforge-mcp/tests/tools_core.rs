@@ -1339,7 +1339,7 @@ fn schema_include_edges_false_omits_edges() {
     let full = compiled_schema(&mut server, &project, json!({}));
     assert_eq!(
         full["edge_types"].as_array().unwrap().len(),
-        14,
+        15,
         "edges by default"
     );
     let without = compiled_schema(&mut server, &project, json!({"include_edges": false}));

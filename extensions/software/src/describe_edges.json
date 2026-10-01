@@ -65,6 +65,15 @@
       "target_kind": "type"
     },
     {
+      "description": "Port names a type in a method parameter or return type",
+      "edge_arrowhead": null,
+      "edge_color": "#2E7D32",
+      "edge_style": "solid",
+      "label": "PortReferencesType",
+      "source_kind": "port",
+      "target_kind": "type"
+    },
+    {
       "description": null,
       "edge_arrowhead": null,
       "edge_color": "#00695C",
