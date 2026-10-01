@@ -271,6 +271,21 @@ fn mcp(project: &Project) -> Keys {
 
 /// MCP `specforge.validate` with `arguments`, as keys.
 fn mcp_validate(project: &Project, arguments: Value) -> Keys {
+    let diagnostics = mcp_validate_json(project, arguments);
+    multiset(diagnostics.as_array().unwrap().iter().map(|d| {
+        let location = d["file"]
+            .as_str()
+            .map(|f| (f.to_string(), d["line"].as_u64().unwrap()));
+        key(
+            d["code"].as_str().unwrap(),
+            d["severity"].as_str().unwrap(),
+            location,
+        )
+    }))
+}
+
+/// MCP `specforge.validate` with `arguments`: the diagnostics it returns.
+fn mcp_validate_json(project: &Project, arguments: Value) -> Value {
     let mut server = specforge_mcp::McpServer::new();
     let mut call = |method: &str, params: Value| -> Value {
         let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
@@ -288,17 +303,7 @@ fn mcp_validate(project: &Project, arguments: Value) -> Keys {
     let text = resp["result"]["content"][0]["text"]
         .as_str()
         .unwrap_or_else(|| panic!("validate returned no text: {resp}"));
-    let diagnostics: Value = serde_json::from_str(text).unwrap();
-    multiset(diagnostics.as_array().unwrap().iter().map(|d| {
-        let location = d["file"]
-            .as_str()
-            .map(|f| (f.to_string(), d["line"].as_u64().unwrap()));
-        key(
-            d["code"].as_str().unwrap(),
-            d["severity"].as_str().unwrap(),
-            location,
-        )
-    }))
+    serde_json::from_str(text).unwrap()
 }
 
 // ── LSP ─────────────────────────────────────────────────────────────────
@@ -882,6 +887,35 @@ fn mcp_validate_applies_the_lint_profiles_check_applies() {
         }
         let validated = mcp_validate(&project, json!({"lint": ["inferred"], "strict": strict}));
         assert_eq!(validated, checked, "strict: {strict}");
+    }
+}
+
+/// `check --format json` and MCP validate print the same entries, key for
+/// key: one presenter (the nested span and the flat location together).
+#[specforge_test(
+    behavior = "present_diagnostics_as_json",
+    verify = "check and MCP validate present the same diagnostics identically"
+)]
+fn check_and_mcp_validate_present_the_same_json() {
+    let entries = |diagnostics: Value| -> Vec<String> {
+        let mut entries: Vec<String> = diagnostics
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(Value::to_string)
+            .collect();
+        entries.sort();
+        entries
+    };
+    for &(fixture, entry, _) in FIXTURES {
+        let project = project(fixture, entry);
+        let checked: Value = serde_json::from_str(&check_output(&project)).unwrap();
+        let validated = mcp_validate_json(&project, json!({}));
+        assert_eq!(
+            entries(checked),
+            entries(validated),
+            "`{fixture}` is printed differently"
+        );
     }
 }
 

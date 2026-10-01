@@ -830,12 +830,12 @@ fn trace_data_output_conforms_to_schema() {
     }
 }
 
-// === export_diagnostics_as_json contract ===
+// === present_diagnostics_as_json contract ===
 
-// B:export_diagnostics_as_json — verify contract "requires/ensures consistency for JSON diagnostic export"
+// B:present_diagnostics_as_json — verify contract
 #[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "Export Diagnostics as JSON: JSON diagnostic export holds — validation_complete_fired, json_array_produced, diagnostic_fields_complete, exit_code_unaffected"
+    behavior = "present_diagnostics_as_json",
+    verify = "Present Diagnostics as JSON: JSON diagnostic presentation holds — diagnostics_collected, one_shape_everywhere, location_both_ways"
 )]
 fn diagnostic_json_contract_complete_fields() {
     let diags = vec![Diagnostic {
@@ -866,8 +866,8 @@ fn diagnostic_json_contract_complete_fields() {
 }
 
 #[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "diagnostics serialized as JSON array to stdout"
+    behavior = "present_diagnostics_as_json",
+    verify = "diagnostics are presented as one JSON array"
 )]
 fn diagnostic_json_array() {
     let diags = vec![
@@ -893,8 +893,8 @@ fn diagnostic_json_array() {
 }
 
 #[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "each diagnostic includes code, severity, message, file, line, column"
+    behavior = "present_diagnostics_as_json",
+    verify = "each diagnostic carries code, severity, message, file, line and column"
 )]
 fn diagnostic_json_all_fields() {
     let diags = vec![Diagnostic {
@@ -922,8 +922,8 @@ fn diagnostic_json_all_fields() {
 }
 
 #[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "JSON output is valid and parseable"
+    behavior = "present_diagnostics_as_json",
+    verify = "the presented JSON is valid and parseable"
 )]
 fn diagnostic_json_valid_parseable() {
     let diags = vec![Diagnostic {
@@ -956,8 +956,8 @@ fn diagnostic_exit_code_unaffected_by_format() {
 }
 
 #[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "suggestion field included when available"
+    behavior = "present_diagnostics_as_json",
+    verify = "suggestion is included when available"
 )]
 fn diagnostic_suggestion_included() {
     let diags = vec![Diagnostic {

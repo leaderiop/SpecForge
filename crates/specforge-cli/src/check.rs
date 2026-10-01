@@ -19,7 +19,8 @@ pub fn run(path: &Path, strict: bool, format: OutputFormat, lint_profiles: &[Str
     // Output
     match format {
         OutputFormat::Json => {
-            let json = serde_json::to_string_pretty(&all_diagnostics).unwrap_or_default();
+            let entries = specforge_emitter::diagnostics_json(&all_diagnostics);
+            let json = serde_json::to_string_pretty(&entries).unwrap_or_default();
             println!("{}", json);
         }
         OutputFormat::Human => {

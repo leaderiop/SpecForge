@@ -1,5 +1,5 @@
 use serde::Serialize;
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, Severity, SourceSpan};
 
 pub fn format_diagnostic(diag: &Diagnostic) -> String {
     let severity_label = match diag.severity {
@@ -28,33 +28,33 @@ pub fn format_diagnostic(diag: &Diagnostic) -> String {
     output
 }
 
-pub fn serialize_diagnostics(diagnostics: &[Diagnostic]) -> String {
-    let entries: Vec<DiagnosticEntry> = diagnostics
+/// Diagnostics as the JSON every surface prints (`check --format json`,
+/// MCP validate, the `specforge://diagnostics` resource, tool `_meta`):
+/// one entry per diagnostic with code, severity, message, suggestion, the
+/// span nested under `span`, and the span's start flat as `file`, `line`
+/// and `column`. Absent values are `null`, never missing keys. The shape
+/// is the superset of the nested (CLI) and flat (MCP) shapes the surfaces
+/// printed before, so readers of either keep working.
+pub fn diagnostics_json(diagnostics: &[Diagnostic]) -> Vec<DiagnosticJson<'_>> {
+    diagnostics
         .iter()
-        .map(|d| {
-            let (file, line, column) = if let Some(span) = &d.span {
-                (
-                    Some(span.file.to_string()),
-                    Some(span.start_line),
-                    Some(span.start_col),
-                )
-            } else {
-                (None, None, None)
-            };
-
-            DiagnosticEntry {
-                code: &d.code,
-                severity: &d.severity,
-                message: &d.message,
-                file,
-                line,
-                column,
-                suggestion: d.suggestion.as_deref(),
-            }
+        .map(|d| DiagnosticJson {
+            code: &d.code,
+            severity: &d.severity,
+            message: &d.message,
+            span: d.span.as_ref(),
+            suggestion: d.suggestion.as_deref(),
+            file: d.span.as_ref().map(|s| s.file.as_str()),
+            line: d.span.as_ref().map(|s| s.start_line),
+            column: d.span.as_ref().map(|s| s.start_col),
         })
-        .collect();
+        .collect()
+}
 
-    serde_json::to_string(&entries).expect("diagnostic serialization cannot fail")
+/// [`diagnostics_json`] as compact JSON text.
+pub fn serialize_diagnostics(diagnostics: &[Diagnostic]) -> String {
+    serde_json::to_string(&diagnostics_json(diagnostics))
+        .expect("diagnostic serialization cannot fail")
 }
 
 /// Maximum number of diagnostics to emit before truncating.
@@ -132,17 +132,17 @@ pub fn diagnostic_summary(diagnostics: &[Diagnostic]) -> String {
     summary
 }
 
-#[derive(Serialize)]
-struct DiagnosticEntry<'a> {
-    code: &'a str,
-    severity: &'a Severity,
-    message: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    file: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    line: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    column: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    suggestion: Option<&'a str>,
+/// One diagnostic as JSON: see [`diagnostics_json`].
+#[derive(Debug, Serialize)]
+pub struct DiagnosticJson<'a> {
+    pub code: &'a str,
+    pub severity: &'a Severity,
+    pub message: &'a str,
+    /// The location nested: file, start and end line and column.
+    pub span: Option<&'a SourceSpan>,
+    pub suggestion: Option<&'a str>,
+    /// The span's start, flat.
+    pub file: Option<&'a str>,
+    pub line: Option<usize>,
+    pub column: Option<usize>,
 }
