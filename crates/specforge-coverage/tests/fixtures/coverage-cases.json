@@ -15,7 +15,7 @@
         "create_user": {"obligations": 2, "proven": 2, "unproven": [], "undeclared": [], "tests": 2, "failing": 0, "is_proven": true, "status": "covered"}
       },
       "summary": {
-        "testable_total": 1, "testable_verified": 1, "testable_proven": 1, "obligations": 2, "obligation_kinds": {"unit": 2},
+        "testable_total": 1, "testable_verified": 1, "testable_proven": 1, "testable_exempt": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
         "invariant_enforced": 0, "invariant_orphans": 0,
         "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 1, "report_failures": 0, "formally_discharged": 0},
         "test_results": {"runner": "cargo-test", "entities_recorded": 1, "tests_recorded": 2, "tests_failed": 0, "entities_proven": 1, "obligations_proven": 2},
@@ -46,7 +46,7 @@
         "create_user": {"obligations": 2, "proven": 0, "unproven": ["rejects a duplicate email", "stores a hashed password"], "undeclared": [], "tests": 2, "failing": 1, "is_proven": false, "status": "partial"}
       },
       "summary": {
-        "testable_total": 1, "testable_verified": 1, "testable_proven": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
+        "testable_total": 1, "testable_verified": 1, "testable_proven": 0, "testable_exempt": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
         "invariant_enforced": 0, "invariant_orphans": 0,
         "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 1, "formally_discharged": 0},
         "test_results": {"runner": "cargo-test", "entities_recorded": 1, "tests_recorded": 2, "tests_failed": 1, "entities_proven": 0, "obligations_proven": 0},
@@ -77,7 +77,7 @@
         "create_user": {"obligations": 2, "proven": 1, "unproven": ["stores a hashed password"], "undeclared": ["stores a hashed pasword"], "tests": 2, "failing": 0, "is_proven": false, "status": "partial"}
       },
       "summary": {
-        "testable_total": 1, "testable_verified": 1, "testable_proven": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
+        "testable_total": 1, "testable_verified": 1, "testable_proven": 0, "testable_exempt": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
         "invariant_enforced": 0, "invariant_orphans": 0,
         "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 0, "formally_discharged": 0},
         "test_results": {"runner": "cargo-test", "entities_recorded": 1, "tests_recorded": 2, "tests_failed": 0, "entities_proven": 0, "obligations_proven": 1},
@@ -104,7 +104,7 @@
         "unique_ids": {"obligations": 2, "proven": 1, "unproven": ["a second insert fails"], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "partial"}
       },
       "summary": {
-        "testable_total": 1, "testable_verified": 1, "testable_proven": 0, "obligations": 2, "obligation_kinds": {"property": 1, "unit": 1},
+        "testable_total": 1, "testable_verified": 1, "testable_proven": 0, "testable_exempt": 0, "obligations": 2, "obligation_kinds": {"property": 1, "unit": 1},
         "invariant_enforced": 1, "invariant_orphans": 0,
         "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 0, "formally_discharged": 1},
         "test_results": {"runner": null, "entities_recorded": 0, "tests_recorded": 0, "tests_failed": 0, "entities_proven": 0, "obligations_proven": 1},
@@ -126,7 +126,7 @@
         "create_user": {"obligations": 2, "proven": 0, "unproven": ["rejects a duplicate email", "stores a hashed password"], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"}
       },
       "summary": {
-        "testable_total": 1, "testable_verified": 1, "testable_proven": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
+        "testable_total": 1, "testable_verified": 1, "testable_proven": 0, "testable_exempt": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
         "invariant_enforced": 0, "invariant_orphans": 0,
         "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 0, "formally_discharged": 0},
         "test_results": null,
@@ -148,7 +148,7 @@
         "no_lost_login": {"obligations": 1, "proven": 1, "unproven": [], "undeclared": [], "tests": 0, "failing": 0, "is_proven": true, "status": "covered"}
       },
       "summary": {
-        "testable_total": 0, "testable_verified": 0, "testable_proven": 0, "obligations": 1, "obligation_kinds": {"property": 1},
+        "testable_total": 0, "testable_verified": 0, "testable_proven": 0, "testable_exempt": 0, "obligations": 1, "obligation_kinds": {"property": 1},
         "invariant_enforced": 0, "invariant_orphans": 0,
         "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 1, "report_failures": 0, "formally_discharged": 1},
         "test_results": {"runner": "cargo-test", "entities_recorded": 0, "tests_recorded": 0, "tests_failed": 0, "entities_proven": 1, "obligations_proven": 1},
@@ -157,12 +157,12 @@
     }
   },
   {
-    "name": "the fx1 corpus: passing tests prove only entities that declare obligations; only testable ones raise the gate",
+    "name": "the fx1 corpus: passing tests prove only entities that declare obligations; only testable ones raise the gate; a union is exempt",
     "input": {
       "entities": [
         {"id": "login", "kind": "behavior", "testable": true,
           "verify_kinds": ["unit"], "verify_texts": ["login succeeds with valid credentials"]},
-        {"id": "Status", "kind": "type", "testable": true},
+        {"id": "Status", "kind": "type", "testable": true, "exempt": true},
         {"id": "Payload", "kind": "type", "testable": true,
           "verify_kinds": ["unit"], "verify_texts": ["Payload schema is valid"]},
         {"id": "signin", "kind": "feature", "testable": false},
@@ -177,9 +177,6 @@
     },
     "expect": {
       "findings": [
-        {"code": "A001", "entity": "Status", "severity": "warning",
-          "message": "type 'Status' declares no verify obligations",
-          "suggestion": "add a `verify unit` or `verify property` statement"},
         {"code": "A015", "entity": "no_lost_login", "severity": "warning",
           "message": "property 'no_lost_login' has 1 obligation(s) no passing test proves: \"no login is lost\"",
           "suggestion": "link a test to each obligation by its text (`verify = \"...\"` in the test's annotation)"}
@@ -192,7 +189,7 @@
         "no_lost_login": {"obligations": 1, "proven": 0, "unproven": ["no login is lost"], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"}
       },
       "summary": {
-        "testable_total": 3, "testable_verified": 2, "testable_proven": 2, "obligations": 3, "obligation_kinds": {"unit": 3},
+        "testable_total": 2, "testable_verified": 2, "testable_proven": 2, "testable_exempt": 1, "obligations": 3, "obligation_kinds": {"unit": 3},
         "invariant_enforced": 0, "invariant_orphans": 0,
         "discharge_funnel": {"entities_with_obligations": 3, "entities_proven": 2, "report_failures": 0, "formally_discharged": 0},
         "test_results": {"runner": "cargo-test", "entities_recorded": 3, "tests_recorded": 3, "tests_failed": 0, "entities_proven": 2, "obligations_proven": 2},
@@ -234,7 +231,7 @@
         "inv_verified": {"obligations": 3, "proven": 0, "unproven": ["a", "b", "c"], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"}
       },
       "summary": {
-        "testable_total": 4, "testable_verified": 2, "testable_proven": 0, "obligations": 4, "obligation_kinds": {"property": 2, "unit": 1, "untyped": 1},
+        "testable_total": 4, "testable_verified": 2, "testable_proven": 0, "testable_exempt": 0, "obligations": 4, "obligation_kinds": {"property": 2, "unit": 1, "untyped": 1},
         "invariant_enforced": 3, "invariant_orphans": 1,
         "discharge_funnel": {"entities_with_obligations": 2, "entities_proven": 0, "report_failures": 0, "formally_discharged": 0},
         "test_results": null,
@@ -276,7 +273,7 @@
         "b_behavior": {"obligations": 1, "proven": 0, "unproven": ["works"], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"}
       },
       "summary": {
-        "testable_total": 2, "testable_verified": 2, "testable_proven": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
+        "testable_total": 2, "testable_verified": 2, "testable_proven": 0, "testable_exempt": 0, "obligations": 2, "obligation_kinds": {"unit": 2},
         "invariant_enforced": 0, "invariant_orphans": 0,
         "discharge_funnel": {"entities_with_obligations": 2, "entities_proven": 0, "report_failures": 1, "formally_discharged": 0},
         "test_results": {"runner": "vitest", "entities_recorded": 2, "tests_recorded": 3, "tests_failed": 1, "entities_proven": 0, "obligations_proven": 1},

@@ -17,6 +17,12 @@ pub struct AnalysisContext<'a> {
     pub graph: &'a Graph,
     pub kind_registry: &'a KindRegistry,
     pub field_registry: &'a FieldRegistry,
+    /// The extensions' validation rules: which kinds must declare
+    /// obligations (W004), so the coverage pass knows who is exempt.
+    pub rules: &'a [(
+        specforge_registry::validation_engine::ValidationRulePattern,
+        String,
+    )],
     /// Project root as given to the tool, when known.
     pub project_root: Option<&'a Path>,
     /// Parsed `--test-results` report, when provided; forwarded to extension
@@ -300,15 +306,19 @@ pub fn run_extension_passes(
     let wants = |name: &str| requested == "all" || requested == name;
 
     let host = ProtocolHost::new(runtime);
-    let raw_entities = crate::compile::build_validation_entities(ctx_graph);
-    // Whether the entity counts toward coverage: its kind is declared
-    // testable. A kind that merely accepts `verify` statements (a formal
-    // `property`) does not count.
-    let testable_kinds = crate::coverage::testable_kinds(input.kind_registry);
-    let entities: Vec<serde_json::Value> = raw_entities
+    // How the coverage rule sees each entity: `testable` is its kind's flag
+    // (a kind that merely accepts `verify` statements, a formal `property`,
+    // does not count), and `exempt` says it owes no obligations of its own
+    // (ADR 0004, D2-b), decided here from the registries.
+    let registries = crate::coverage::CoverageRegistries {
+        kinds: input.kind_registry,
+        fields: input.field_registry,
+        rules: input.rules,
+    };
+    let entities: Vec<serde_json::Value> = registries
+        .entities(ctx_graph)
         .iter()
-        .map(|e| {
-            let testable = testable_kinds.contains(e.kind.as_str());
+        .map(|(e, rule)| {
             serde_json::json!({
                 "id": e.id,
                 "kind": e.kind,
@@ -316,7 +326,8 @@ pub fn run_extension_passes(
                 "incoming_edge_count": e.incoming_edge_count,
                 "outgoing_edge_count": e.outgoing_edge_count,
                 "span": e.span,
-                "testable": testable,
+                "testable": rule.testable,
+                "exempt": rule.exempt,
                 "verify_kinds": e.verify_kinds,
                 "verify_texts": e.verify_texts,
             })

@@ -27,7 +27,7 @@ use std::path::{Path, PathBuf};
 use specforge_common::{Diagnostic, ProjectConfig, is_excluded, load_project_config};
 use specforge_emitter::analyze::TestReport;
 use specforge_emitter::compile::{GraphChecks, check_graph, load_extensions, probe_custom_rules};
-use specforge_emitter::coverage::ProjectCoverage;
+use specforge_emitter::coverage::{CoverageRegistries, ProjectCoverage};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_registry::{
@@ -266,7 +266,16 @@ impl CompiledProject {
     /// report): the rule the `@specforge/testing:coverage` pass applies,
     /// per entity and in summary.
     pub fn coverage(&self, report: Option<&TestReport>) -> ProjectCoverage {
-        ProjectCoverage::compute(&self.graph, &self.env.registries.kinds, report)
+        let registries = &self.env.registries;
+        ProjectCoverage::compute(
+            &self.graph,
+            CoverageRegistries {
+                kinds: &registries.kinds,
+                fields: &registries.fields,
+                rules: &registries.rules,
+            },
+            report,
+        )
     }
 
     /// The flat view older callers read.

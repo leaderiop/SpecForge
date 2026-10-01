@@ -122,7 +122,8 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
         .collect();
 
     // Extension validation rules (declarative + custom via wasm).
-    let extension_diags = run_extension_validation(patterns, graph, runtime, &edge_label_to_field);
+    let extension_diags =
+        run_extension_validation(patterns, graph, field_reg, runtime, &edge_label_to_field);
     diagnostics.extend(extension_diags);
 
     diagnostics
@@ -261,7 +262,14 @@ pub fn load_extensions(
 
 /// Convert all graph nodes into `ValidationEntity` structs for the validation engine.
 /// Shared by CLI (`compile.rs`) and LSP (`backend.rs`).
-pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
+///
+/// `field_registry` decides which entities owe no obligations
+/// ([`ValidationEntity::obligation_exempt`], see
+/// [`crate::coverage::obligation_exempt`]).
+pub fn build_validation_entities(
+    graph: &Graph,
+    field_registry: &FieldRegistry,
+) -> Vec<ValidationEntity> {
     // Sorted by id: rule diagnostics must emit in a stable order
     // (R-6 / hardening-plan D1 class).
     let mut nodes: Vec<_> = graph.nodes();
@@ -354,6 +362,7 @@ pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
                 verify_texts,
                 outgoing_kinds,
                 incoming_kinds,
+                obligation_exempt: crate::coverage::obligation_exempt(node, field_registry),
             }
         })
         .collect()
@@ -646,6 +655,7 @@ pub fn probe_custom_rules(
 fn run_extension_validation(
     patterns: &[(ValidationRulePattern, String)],
     graph: &Graph,
+    fields: &FieldRegistry,
     runtime: Option<&dyn WasmRuntime>,
     edge_label_to_field: &HashMap<String, String>,
 ) -> Vec<Diagnostic> {
@@ -653,7 +663,7 @@ fn run_extension_validation(
         return Vec::new();
     }
 
-    let entities = build_validation_entities(graph);
+    let entities = build_validation_entities(graph, fields);
 
     if std::env::var("SPECFORGE_DEBUG_RULES").is_ok() {
         for (p, ext) in patterns {

@@ -633,6 +633,7 @@ mod tests {
             graph,
             kind_registry: &kind_registry,
             field_registry: &field_registry,
+            rules: &[],
             project_root: Some(Path::new(".")),
             test_results: None,
             proved_claims: Some(&empty_proved),

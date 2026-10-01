@@ -37,6 +37,14 @@ pub struct Entity {
     /// The kind counts toward coverage (its registry entry is `testable`).
     #[serde(default)]
     pub testable: bool,
+    /// The entity owes no obligations of its own (ADR 0004, D2-b): what
+    /// W004 exempts, a union type, an `abstract true` entity, or one of a
+    /// kind no rule requires obligations of (governance). Decided by the
+    /// host from the registry. An exempt entity that declares none is
+    /// left out of the testable count and is not A001; one that declares
+    /// some counts like any other.
+    #[serde(default)]
+    pub exempt: bool,
     /// One entry per `verify` statement, in order: its kind, or `""` for a
     /// bare `verify "..."`.
     #[serde(default)]
@@ -57,6 +65,13 @@ impl Entity {
     /// How many obligations (`verify` statements) the entity declares.
     pub fn obligations(&self) -> usize {
         self.verify_texts.len()
+    }
+
+    /// Whether the entity counts toward coverage (the testable totals and
+    /// the gate's denominator): its kind is testable, and it is not an
+    /// exempt entity that declares nothing.
+    pub fn counts_toward_coverage(&self) -> bool {
+        self.testable && !(self.exempt && self.obligations() == 0)
     }
 }
 
@@ -229,6 +244,8 @@ pub struct RiskTally {
 /// JSON, which `specforge analyze` prints and the `--min` gate reads.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Summary {
+    /// Entities that count toward coverage
+    /// ([`Entity::counts_toward_coverage`]).
     pub testable_total: usize,
     /// Testable entities that declare at least one obligation.
     pub testable_verified: usize,
@@ -236,6 +253,10 @@ pub struct Summary {
     /// gate's numerator. (`discharge_funnel.entities_proven` counts proven
     /// entities of every kind.)
     pub testable_proven: usize,
+    /// Entities of a testable kind left out of `testable_total` because
+    /// they owe no obligations and declare none (unions, abstract
+    /// entities, governance kinds), listed so the exclusion is visible.
+    pub testable_exempt: usize,
     pub obligations: usize,
     /// Obligations per verify kind (`untyped` for a bare `verify`).
     pub obligation_kinds: BTreeMap<String, usize>,
@@ -289,6 +310,7 @@ pub fn assess(
     let mut verdicts = BTreeMap::new();
     let mut obligation_kinds: BTreeMap<String, usize> = BTreeMap::new();
     let (mut testable_total, mut testable_verified, mut testable_proven) = (0usize, 0usize, 0usize);
+    let mut testable_exempt = 0usize;
     let mut funnel = Funnel::default();
     let (mut invariant_orphans, mut obligations_proven) = (0usize, 0usize);
     // risk -> (invariants, invariants without obligations)
@@ -358,7 +380,7 @@ pub fn assess(
             }
             if verdict.is_proven() {
                 funnel.entities_proven += 1;
-                if entity.testable {
+                if entity.counts_toward_coverage() {
                     testable_proven += 1;
                 }
             }
@@ -391,7 +413,9 @@ pub fn assess(
             funnel.formally_discharged += 1;
         }
 
-        if entity.testable {
+        if entity.testable && !entity.counts_toward_coverage() {
+            testable_exempt += 1;
+        } else if entity.testable {
             testable_total += 1;
             if obligations == 0 {
                 finding(
@@ -454,6 +478,7 @@ pub fn assess(
         testable_total,
         testable_verified,
         testable_proven,
+        testable_exempt,
         obligations: obligation_kinds.values().sum(),
         obligation_kinds,
         invariant_enforced: invariant_total - invariant_orphans,

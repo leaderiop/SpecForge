@@ -13,8 +13,10 @@ use serde_json::Value;
 use specforge_common::Diagnostic;
 use specforge_graph::{FieldMap, FieldValue, Graph, Node};
 use specforge_parser::VerifyStatement;
-use specforge_registry::KindRegistry;
-use specforge_registry::validation_engine::ValidationEntity;
+use specforge_registry::validation_engine::{
+    ValidationEntity, ValidationPatternKind, ValidationRulePattern,
+};
+use specforge_registry::{FieldRegistry, KindRegistry, ManifestFieldType};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -123,14 +125,90 @@ pub fn read_report_file(path: &Path) -> Result<TestReport, ReportError> {
     })
 }
 
+/// Whether an entity owes no obligations of its own, whatever it declares
+/// (ADR 0004, D2-b): a union type (`type X = A | B`, which has no body to
+/// hold them), or an entity marked `abstract true` through a boolean field
+/// its kind's registry entry declares. Decided from the entity's structure
+/// and the field registry: a struct member that only happens to be named
+/// `abstract`, `variants` or `gherkin` exempts nothing.
+pub fn obligation_exempt(node: &Node, fields: &FieldRegistry) -> bool {
+    let kind = node.kind.raw.as_str();
+    node.fields.entries().iter().any(|entry| {
+        let key = entry.key.as_str();
+        match &entry.value {
+            FieldValue::VariantList(variants) => key == UNION_VARIANTS && !variants.is_empty(),
+            FieldValue::Boolean(true) => {
+                key == ABSTRACT_FLAG
+                    && fields
+                        .get(kind, key)
+                        .is_some_and(|f| f.field_type == ManifestFieldType::Bool)
+            }
+            _ => false,
+        }
+    })
+}
+
+/// The field the parser gives a union type's variants.
+const UNION_VARIANTS: &str = "variants";
+/// The flag that marks a specification-only entity, when its kind's
+/// registry entry declares it.
+const ABSTRACT_FLAG: &str = "abstract";
+
+/// The kinds whose entities must declare obligations: those a
+/// `no_verify_statements` rule (W004) targets. A testable kind no such rule
+/// targets (a governance `constraint` or `failure_mode`) need not declare
+/// any, so its entities that declare none are exempt.
+pub fn obligated_kinds(rules: &[(ValidationRulePattern, String)]) -> BTreeSet<&str> {
+    rules
+        .iter()
+        .filter(|(rule, _)| rule.check == ValidationPatternKind::NoVerifyStatements)
+        .filter_map(|(rule, _)| rule.target_kind.as_deref())
+        .collect()
+}
+
+/// What decides how the coverage rule sees each entity: which kinds are
+/// testable, which must declare obligations, and which fields exempt.
+#[derive(Clone, Copy)]
+pub struct CoverageRegistries<'a> {
+    pub kinds: &'a KindRegistry,
+    pub fields: &'a FieldRegistry,
+    pub rules: &'a [(ValidationRulePattern, String)],
+}
+
+impl CoverageRegistries<'_> {
+    /// The rule's view of every entity in `graph`, alongside the snapshot
+    /// it was taken from (what the extension passes receive).
+    pub fn entities(&self, graph: &Graph) -> Vec<(ValidationEntity, specforge_coverage::Entity)> {
+        let testable = testable_kinds(self.kinds);
+        let obligated = obligated_kinds(self.rules);
+        build_validation_entities(graph, self.fields)
+            .into_iter()
+            .map(|e| {
+                let entity = rule_entity(
+                    &e,
+                    testable.contains(e.kind.as_str()),
+                    obligated.contains(e.kind.as_str()),
+                );
+                (e, entity)
+            })
+            .collect()
+    }
+}
+
 /// An entity as the coverage rule (`specforge-coverage`) sees it: the same
 /// facts the host hands the `@specforge/testing:coverage` pass, so a
-/// per-entity view and the pass cannot disagree.
-pub fn rule_entity(entity: &ValidationEntity, testable: bool) -> specforge_coverage::Entity {
+/// per-entity view and the pass cannot disagree. `obligated`: its kind must
+/// declare obligations ([`obligated_kinds`]).
+pub fn rule_entity(
+    entity: &ValidationEntity,
+    testable: bool,
+    obligated: bool,
+) -> specforge_coverage::Entity {
     specforge_coverage::Entity {
         id: entity.id.clone(),
         kind: entity.kind.clone(),
         testable,
+        exempt: entity.obligation_exempt || !obligated,
         verify_kinds: entity.verify_kinds.clone(),
         verify_texts: entity.verify_texts.clone(),
         risk: entity.fields.get("risk").cloned(),
@@ -163,8 +241,8 @@ pub fn recorded_tests(report: &TestReport) -> specforge_coverage::TestResults {
 
 /// A project's coverage, computed by the one rule the `coverage` pass
 /// applies (ADR 0004, D2-f). Per-entity views (the MCP coverage, inspect,
-/// query and review surfaces) read it, so none of them re-derives
-/// "proven" or "covered".
+/// query and review surfaces) and stats read it, so none of them
+/// re-derives "testable", "proven" or "covered".
 ///
 /// Formal discharge needs the prove pass, which a per-entity view does not
 /// run: as `analyze coverage` without `--prove`, a `verify property`
@@ -179,14 +257,41 @@ pub struct ProjectCoverage {
 
 impl ProjectCoverage {
     /// Score `graph` against its recorded tests (`None` without a report).
-    pub fn compute(graph: &Graph, reg: &KindRegistry, report: Option<&TestReport>) -> Self {
-        let testable = testable_kinds(reg);
-        let entities: Vec<specforge_coverage::Entity> = build_validation_entities(graph)
-            .iter()
-            .map(|e| rule_entity(e, testable.contains(e.kind.as_str())))
+    pub fn compute(
+        graph: &Graph,
+        registries: CoverageRegistries<'_>,
+        report: Option<&TestReport>,
+    ) -> Self {
+        let entities: Vec<specforge_coverage::Entity> = registries
+            .entities(graph)
+            .into_iter()
+            .map(|(_, entity)| entity)
             .collect();
+        Self::assess(&entities, report)
+    }
+
+    /// Score `graph` knowing only which kinds are testable: every testable
+    /// kind must declare obligations, and only structure exempts (a union
+    /// type). For callers without the project's registries.
+    pub fn with_testable_kinds(
+        graph: &Graph,
+        testable_kinds: &[&str],
+        report: Option<&TestReport>,
+    ) -> Self {
+        let entities: Vec<specforge_coverage::Entity> =
+            build_validation_entities(graph, &FieldRegistry::new())
+                .iter()
+                .map(|e| {
+                    let testable = testable_kinds.contains(&e.kind.as_str());
+                    rule_entity(e, testable, testable)
+                })
+                .collect();
+        Self::assess(&entities, report)
+    }
+
+    fn assess(entities: &[specforge_coverage::Entity], report: Option<&TestReport>) -> Self {
         let results = report.map(recorded_tests);
-        let assessment = specforge_coverage::assess(&entities, results.as_ref(), None);
+        let assessment = specforge_coverage::assess(entities, results.as_ref(), None);
         ProjectCoverage {
             verdicts: assessment.verdicts,
             summary: assessment.summary,
@@ -241,6 +346,88 @@ mod tests {
             dot_fillcolor: None,
             open_fields: false,
         }
+    }
+
+    fn graph_of(source: &str) -> Graph {
+        let (graph, _) =
+            specforge_graph::build_graph(&[specforge_parser::parse(source, "test.spec")]);
+        graph
+    }
+
+    /// The field registry of a project whose `behavior` kind declares the
+    /// `abstract` flag (as @specforge/formal does).
+    fn abstract_behaviors() -> FieldRegistry {
+        let mut fields = FieldRegistry::new();
+        fields.register(specforge_registry::FieldRegistryEntry {
+            kind_name: "behavior".into(),
+            field_name: "abstract".into(),
+            description: None,
+            field_type: ManifestFieldType::Bool,
+            source_extension: "@test/formal".into(),
+            edge: None,
+            target_kind: None,
+            file_reference: false,
+            required: false,
+            inverse_of: None,
+            normative: false,
+        });
+        fields
+    }
+
+    fn w004(kind: &str) -> ValidationRulePattern {
+        ValidationRulePattern {
+            code: "W004".into(),
+            severity: specforge_common::Severity::Warning,
+            message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
+            check: ValidationPatternKind::NoVerifyStatements,
+            target_kind: Some(kind.into()),
+            edge_type: None,
+            edge_peer_kind: None,
+            field: Some("verify".into()),
+            constraint: None,
+            wasm_function: None,
+        }
+    }
+
+    /// The ids W004 reports on `source` (rules on `behavior` and `type`).
+    fn w004_ids(source: &str, fields: &FieldRegistry) -> Vec<String> {
+        let entities = build_validation_entities(&graph_of(source), fields);
+        let mut ids: Vec<String> = ["behavior", "type"]
+            .into_iter()
+            .flat_map(|kind| {
+                specforge_registry::validation_engine::execute_pattern(&w004(kind), &entities, None)
+            })
+            .map(|d| d.message.split('\'').nth(1).unwrap().to_string())
+            .collect();
+        ids.sort();
+        ids
+    }
+
+    #[specforge_test(
+        behavior = "te_validate_unverified_testable",
+        verify = "a union type never produces W004"
+    )]
+    fn a_union_type_owes_no_obligations() {
+        let ids = w004_ids(
+            "type Status = active | inactive\n\ntype Plain \"Plain\" {\n  id string\n}\n",
+            &FieldRegistry::new(),
+        );
+        assert_eq!(ids, ["Plain"]);
+    }
+
+    #[specforge_test(
+        behavior = "te_validate_unverified_testable",
+        verify = "an abstract entity never produces W004"
+    )]
+    fn an_abstract_entity_owes_no_obligations_when_its_kind_declares_the_flag() {
+        let source = "behavior base \"Base\" {\n  contract \"The system MUST work\"\n  abstract true\n}\n\n\
+                      behavior concrete \"Concrete\" {\n  contract \"The system MUST work\"\n  abstract false\n}\n";
+        assert_eq!(w004_ids(source, &abstract_behaviors()), ["concrete"]);
+        // Without a registry entry declaring it, `abstract` is just a name.
+        assert_eq!(
+            w004_ids(source, &FieldRegistry::new()),
+            ["base", "concrete"]
+        );
     }
 
     #[specforge_test(

@@ -46,7 +46,8 @@ pub use schema::{
     negotiate_version, persist_schema_cache, publish_json_schema_format,
 };
 pub use stats::{
-    ProjectStats, compute_stats, compute_stats_with_diagnostics, compute_stats_with_testable,
+    ProjectStats, compute_project_stats, compute_stats, compute_stats_with_diagnostics,
+    compute_stats_with_testable,
 };
 pub use trace::{
     ExpectedEdge, MissingLink, TraceChain, TraceExpectations, TraceLink, TraceLinkStatus,

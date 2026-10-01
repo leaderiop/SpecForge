@@ -1,4 +1,5 @@
-use specforge_emitter::{ProjectStats, compute_stats_with_diagnostics};
+use specforge_emitter::coverage::{CoverageRegistries, ProjectCoverage};
+use specforge_emitter::{ProjectStats, compute_project_stats};
 use std::path::Path;
 
 use crate::OutputFormat;
@@ -7,12 +8,18 @@ use crate::pipeline;
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
 
-    // Coverage is over the kinds the extensions declare testable; with no
-    // testable kind named, it could only ever be 0.
-    let testable_kinds: Vec<&str> = specforge_emitter::coverage::testable_kinds(&ctx.kind_registry)
-        .into_iter()
-        .collect();
-    let stats = compute_stats_with_diagnostics(&ctx.graph, &testable_kinds, &ctx.diagnostics);
+    // Coverage is the coverage rule's, over the kinds the extensions
+    // declare testable, less the entities W004 exempts.
+    let coverage = ProjectCoverage::compute(
+        &ctx.graph,
+        CoverageRegistries {
+            kinds: &ctx.kind_registry,
+            fields: &ctx.field_registry,
+            rules: &ctx.extension_rules,
+        },
+        None,
+    );
+    let stats = compute_project_stats(&ctx.graph, &coverage.summary, &ctx.diagnostics);
 
     match format {
         OutputFormat::Json => print_json(&stats),

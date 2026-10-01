@@ -180,7 +180,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Testable entity without obligations",
         owner: "@specforge/testing",
         level: Level::SetByPass,
-        explanation: "`specforge analyze coverage` found a testable entity (one whose kind accepts `verify`) that declares no `verify` obligations, so nothing states what a test must prove about it. Add `verify unit \"...\"` (or another obligation kind) statements.",
+        explanation: "`specforge analyze coverage` found a testable entity (one whose kind an extension declares testable) that declares no `verify` obligations, so nothing states what a test must prove about it. Add `verify unit \"...\"` (or another obligation kind) statements. What W004 exempts (union types, abstract entities, governance kinds) is not reported.",
     },
     CodeEntry {
         code: "A002",
@@ -964,7 +964,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Untested testable entity",
         owner: "@specforge/testing",
         level: Level::Warning,
-        explanation: "A testable entity (`behavior`, `invariant`, `event`, `type`, or `port`) declares no `verify` obligations and no Gherkin scenario, so it has no test linkage. Add a `verify` block or a Gherkin scenario covering it.",
+        explanation: "A testable entity (`behavior`, `invariant`, `event`, `type`, or `port`) declares no `verify` obligations, so nothing states what a test must prove about it. Add `verify unit \"...\"` (or another obligation kind) statements. Union types and entities marked `abstract true` (through a flag their kind declares) are exempt; a struct member named `verify` is a field, not an obligation.",
     },
     CodeEntry {
         code: "W005",

@@ -101,9 +101,33 @@ fn test_server() -> McpServer {
     state.graph = graph;
     for (kind, testable) in [("behavior", true), ("invariant", true), ("feature", false)] {
         state.kind_registry.register(kind_entry(kind, testable));
+        // As @specforge/testing does: a testable software kind must declare
+        // obligations (W004), so its entities count toward coverage.
+        if testable {
+            state
+                .rules
+                .push((obligations_rule(kind), "@test/ext".into()));
+        }
     }
 
     server
+}
+
+/// The W004 rule requiring `kind`'s entities to declare obligations.
+fn obligations_rule(kind: &str) -> specforge_registry::validation_engine::ValidationRulePattern {
+    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
+    ValidationRulePattern {
+        code: "W004".into(),
+        severity: specforge_common::Severity::Warning,
+        message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
+        check: ValidationPatternKind::NoVerifyStatements,
+        target_kind: Some(kind.into()),
+        edge_type: None,
+        edge_peer_kind: None,
+        field: Some("verify".into()),
+        constraint: None,
+        wasm_function: None,
+    }
 }
 
 /// A kind as an extension registers it; only `testable` matters here.

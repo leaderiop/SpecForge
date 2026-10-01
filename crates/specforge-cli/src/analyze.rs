@@ -83,6 +83,7 @@ pub fn run(
         graph: &ctx.graph,
         kind_registry: &ctx.kind_registry,
         field_registry: &ctx.field_registry,
+        rules: &ctx.extension_rules,
         project_root: Some(path),
         test_results: parsed_report.as_ref(),
         proved_claims: None,

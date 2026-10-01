@@ -42,6 +42,11 @@ pub struct McpState {
     pub extension_info: Vec<(String, String)>,
     pub surface_entries: Vec<SurfaceRegistryEntry>,
     pub manifests: Vec<specforge_registry::ManifestV2>,
+    /// The extensions' validation rules, with the extension declaring each.
+    pub rules: Vec<(
+        specforge_registry::validation_engine::ValidationRulePattern,
+        String,
+    )>,
     pub project_config: ProjectConfig,
     /// When the current graph was compiled. Compared against the watch
     /// snapshot marker mtime to detect staleness (C9-07).
@@ -120,6 +125,7 @@ impl McpState {
             extension_info: Vec::new(),
             surface_entries: Vec::new(),
             manifests: Vec::new(),
+            rules: Vec::new(),
             project_config: ProjectConfig::default(),
             loaded_at: None,
             extension_runtime: None,
@@ -214,6 +220,7 @@ impl McpState {
         self.edge_registry = registries.edges;
         self.extension_info = registries.extension_info;
         self.manifests = registries.manifests;
+        self.rules = registries.rules;
         self.surface_entries = registries.surfaces;
         self.project_config = config;
         self.spec_root = Some(spec_root);

@@ -4,15 +4,16 @@ use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
 pub fn call(state: &McpState, _args: Value) -> ToolOutcome {
-    // Coverage is over the kinds the extensions declare testable; with no
-    // testable kind named, it could only ever be 0.
-    let testable_kinds: Vec<&str> =
-        specforge_emitter::coverage::testable_kinds(&state.kind_registry)
-            .into_iter()
-            .collect();
-    let stats = specforge_emitter::compute_stats_with_diagnostics(
+    // Coverage is the coverage rule's, over the kinds the extensions
+    // declare testable, less the entities W004 exempts.
+    let coverage = specforge_emitter::coverage::ProjectCoverage::compute(
         &state.graph,
-        &testable_kinds,
+        super::coverage::coverage_registries(state),
+        None,
+    );
+    let stats = specforge_emitter::compute_project_stats(
+        &state.graph,
+        &coverage.summary,
         &state.diagnostics,
     );
 

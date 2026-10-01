@@ -32,18 +32,29 @@ behavior te_validate_unverified_testable "W004: Unverified Testable Entities" {
   types      [ValidationRulePattern]
   contract   """
     Detect entities of a testable software kind that declare no verify
-    obligations and no gherkin scenario. Entities marked `abstract true`
-    are exempt: their obligations are carried by the concretes that
-    refine them. Governance constraints are testable but not required to
-    declare obligations.
+    obligations. Union types (`type X = A | B`) are exempt: they have no
+    body to hold obligations. Entities marked `abstract true`, through a
+    flag their kind's registry entry declares, are exempt: their
+    obligations are carried by the concretes that refine them.
+    Governance constraints and failure modes are testable but not
+    required to declare obligations. Exemption is decided from the
+    entity's structure and the registry, never from a field's name: a
+    struct member named `verify`, `abstract` or `gherkin` neither
+    declares an obligation nor exempts the entity. What W004 exempts is
+    exempt from A001, stats and the coverage gate too.
   """
   ensures {
-    unverified_detected "testable entity with no verify and no gherkin produces W004"
+    unverified_detected "testable entity with no verify produces W004"
     verified_passes     "testable entity with verify produces no diagnostic"
+    union_exempt        "a union type never produces W004"
     abstract_exempt     "an abstract entity never produces W004"
+    names_exempt_none   "a field's name alone neither declares an obligation nor exempts"
   }
   verify unit "testable behavior with no verify produces W004"
   verify unit "testable behavior with verify passes"
+  verify unit "a union type never produces W004"
+  verify unit "an abstract entity never produces W004"
+  verify unit "a field named like an obligation or an exemption exempts nothing from W004"
 }
 
 behavior te_validate_verify_kind_allowlist "W009: Verify Kind Outside the Kind's Allowlist" {
@@ -72,8 +83,11 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
     @specforge/testing's `coverage` compiler pass (run by `specforge
     analyze coverage`, or `analyze` with every pass) MUST score the
     project at three layers. Intent: a testable entity that declares no
-    verify obligations is A001, and an invariant with none is A002, an
-    error when its risk is high. Enforcement: invariants nothing
+    verify obligations is A001, unless W004 exempts it (a union type, an
+    abstract entity, or a kind no rule requires obligations of), and an
+    invariant with none is A002, an error when its risk is high. Exempt
+    entities that declare nothing leave the testable count and are
+    counted apart (testable_exempt). Enforcement: invariants nothing
     references are counted in the summary (the finding is software's
     W003 from `specforge check`, not repeated here). Proof, from the recorded
     tests (specforge-report.json, which `analyze` reads by default after
@@ -104,6 +118,7 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
   verify unit "a proved formal claim discharges verify property obligations"
   verify unit "an entity with no obligations is never proven, even by passing tests"
   verify unit "an entity whose obligations are all formally discharged is proven without tests"
+  verify unit "entities W004 exempts are not A001 and leave the testable count"
 }
 
 behavior te_coverage_gate "Proof Coverage Gate" {
@@ -112,7 +127,8 @@ behavior te_coverage_gate "Proof Coverage Gate" {
   contract """
     `specforge analyze coverage --min N` MUST exit non-zero (E048) when
     the share of testable entities the coverage pass proved is below N
-    percent, after printing the full analysis. A proven entity of a kind
+    percent, after printing the full analysis. Entities W004 exempts
+    that declare nothing are not in the denominator, so 100 is reachable. A proven entity of a kind
     that is not testable counts in the discharge funnel but not toward
     the gate: the summary's testable_proven is its numerator. It needs test results
     (the project's specforge-report.json or --test-results) and the

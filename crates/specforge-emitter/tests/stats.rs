@@ -212,3 +212,30 @@ fn stats_counts_obligations_behind_a_verify_member() {
     assert_eq!(stats.verified_count, 1, "Payload declares an obligation");
     assert!((stats.coverage_pct - 50.0).abs() < 0.01);
 }
+
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats leaves the entities W004 exempts out of the testable count"
+)]
+fn stats_leaves_union_types_out_of_the_testable_count() {
+    // `type Status = active | inactive`: no body to hold obligations.
+    let mut status = node("Status", "type");
+    status.fields.push(
+        Sym::new("variants"),
+        FieldValue::VariantList(vec!["active".into(), "inactive".into()]),
+    );
+    // A struct member that is only named `variants` exempts nothing.
+    let mut named = node("Named", "type");
+    named.fields.push(
+        Sym::new("variants"),
+        FieldValue::Identifier("string".into()),
+    );
+    let mut graph = Graph::new();
+    graph.add_node(status);
+    graph.add_node(named);
+    graph.add_node(node_with_verify("Payload", "type"));
+
+    let stats = specforge_emitter::compute_stats_with_testable(&graph, &["type"]);
+    assert_eq!(stats.testable_count, 2, "Named and Payload");
+    assert!((stats.coverage_pct - 50.0).abs() < 0.01);
+}

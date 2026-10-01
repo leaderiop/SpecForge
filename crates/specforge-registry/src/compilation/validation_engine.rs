@@ -44,6 +44,9 @@ pub enum ValidationPatternKind {
     NoVerifyStatements,
 }
 
+/// The statement that declares an entity's obligations.
+const VERIFY_FIELD: &str = "verify";
+
 #[derive(Debug, Clone)]
 pub struct FieldConstraintPattern {
     pub kind: String,
@@ -420,6 +423,14 @@ pub struct ValidationEntity {
     /// Incoming edges by the kind of the entity they come from.
     #[serde(skip)]
     pub incoming_kinds: std::collections::BTreeMap<String, usize>,
+    /// The entity owes no obligations of its own: a union type, which has
+    /// no body to hold them, or an entity marked `abstract true` through a
+    /// field its kind's registry entry declares. The host decides it from
+    /// the entity's structure and the field registry, never from a field's
+    /// name alone, so a struct member named `abstract` or `gherkin`
+    /// exempts nothing.
+    #[serde(default)]
+    pub obligation_exempt: bool,
 }
 
 impl ValidationEntity {
@@ -578,17 +589,17 @@ pub fn execute_pattern(
                 }
             }
             ValidationPatternKind::NoVerifyStatements => {
-                // The obligation field is the rule's (`verify` unless the
-                // declaring extension names another), plus gherkin scenarios
-                // (C11-03). `abstract true` marks a specification-only
-                // entity: its obligations are carried by the concretes that
-                // refine it. Union types (`type X = A | B`) have no body to
-                // hold obligations in.
-                let obligations = pattern.field.as_deref().unwrap_or("verify");
-                !entity.fields.contains_key("variants")
-                    && !entity.fields.contains_key(obligations)
-                    && !entity.fields.contains_key("gherkin")
-                    && entity.fields.get("abstract").map(String::as_str) != Some("true")
+                // The obligations are the entity's `verify` statements (or
+                // the field the declaring extension names instead). A
+                // struct member named `verify` is a field, not a statement,
+                // so it never stands in for one. Union types and abstract
+                // entities owe none (`obligation_exempt`, which the host
+                // sets from structure and the registry).
+                let declared = match pattern.field.as_deref().unwrap_or(VERIFY_FIELD) {
+                    VERIFY_FIELD => !entity.verify_texts.is_empty(),
+                    field => entity.fields.contains_key(field),
+                };
+                !entity.obligation_exempt && !declared
             }
             ValidationPatternKind::Custom => {
                 if let (Some(func), Some(rt)) = (&pattern.wasm_function, wasm) {
@@ -699,6 +710,7 @@ mod tests {
             verify_texts: Vec::new(),
             outgoing_kinds: Default::default(),
             incoming_kinds: Default::default(),
+            obligation_exempt: false,
         }
     }
 
@@ -754,9 +766,8 @@ mod tests {
         assert!(execute_pattern(&rule, &[bare], None).is_empty());
     }
 
-    #[test]
-    fn no_verify_statements_respects_gherkin_exemption() {
-        let rule = ValidationRulePattern {
+    fn w004_rule() -> ValidationRulePattern {
+        ValidationRulePattern {
             code: "W004".to_string(),
             severity: Severity::Warning,
             message_template: "{kind} '{id}' has no verify".to_string(),
@@ -764,53 +775,46 @@ mod tests {
             target_kind: Some("behavior".to_string()),
             edge_type: None,
             edge_peer_kind: None,
-            field: None,
+            field: Some("verify".to_string()),
             constraint: None,
             wasm_function: None,
-        };
-        let mut unverified = make_entity("b1", "behavior", 1, 1);
-        let diags = execute_pattern(&rule, &[unverified.clone()], None);
-        assert_eq!(diags.len(), 1, "no verify => W004");
+        }
+    }
 
-        unverified
-            .fields
-            .insert("verify".to_string(), "something".to_string());
-        assert!(execute_pattern(&rule, &[unverified], None).is_empty());
+    #[specforge_test_macros::test(
+        behavior = "te_validate_unverified_testable",
+        verify = "a field named like an obligation or an exemption exempts nothing from W004"
+    )]
+    fn w004_reads_statements_and_the_exemption_flag_not_field_names() {
+        let rule = w004_rule();
+        let unverified = make_entity("b1", "behavior", 1, 1);
+        assert_eq!(execute_pattern(&rule, &[unverified], None).len(), 1);
 
-        let mut gherkin = make_entity("b2", "behavior", 1, 1);
-        gherkin
-            .fields
-            .insert("gherkin".to_string(), "scenario".to_string());
-        assert!(
-            execute_pattern(&rule, &[gherkin], None).is_empty(),
-            "gherkin exempts"
-        );
+        let mut verified = make_entity("b2", "behavior", 1, 1);
+        verified.verify_kinds = vec!["unit".into()];
+        verified.verify_texts = vec!["it works".into()];
+        assert!(execute_pattern(&rule, &[verified], None).is_empty());
 
-        let mut spec_only = make_entity("b3", "behavior", 1, 1);
-        spec_only
-            .fields
-            .insert("abstract".to_string(), "true".to_string());
-        assert!(
-            execute_pattern(&rule, &[spec_only.clone()], None).is_empty(),
-            "abstract true exempts"
-        );
-        spec_only
-            .fields
-            .insert("abstract".to_string(), "false".to_string());
-        assert_eq!(
-            execute_pattern(&rule, &[spec_only], None).len(),
-            1,
-            "abstract false does not exempt"
-        );
+        // Members named like a statement or an exemption are fields: none
+        // of them stands in for an obligation or exempts the entity.
+        for (name, value) in [
+            ("verify", "string"),
+            ("gherkin", "string"),
+            ("abstract", "true"),
+            ("variants", "open | done"),
+        ] {
+            let mut named = make_entity("b3", "behavior", 1, 1);
+            named.fields.insert(name.to_string(), value.to_string());
+            assert_eq!(
+                execute_pattern(&rule, &[named], None).len(),
+                1,
+                "a field named {name} exempts nothing"
+            );
+        }
 
-        let mut union = make_entity("t1", "behavior", 1, 1);
-        union
-            .fields
-            .insert("variants".to_string(), "open | done".to_string());
-        assert!(
-            execute_pattern(&rule, &[union], None).is_empty(),
-            "a union type has no body to hold obligations"
-        );
+        let mut exempt = make_entity("b4", "behavior", 1, 1);
+        exempt.obligation_exempt = true;
+        assert!(execute_pattern(&rule, &[exempt], None).is_empty());
     }
 
     // -- B:parse_validation_rule_pattern --

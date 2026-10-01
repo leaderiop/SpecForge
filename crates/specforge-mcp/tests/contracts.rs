@@ -1728,7 +1728,7 @@ fn contract_validate() {
             {
                 "code": "W004",
                 "severity": "Warning",
-                "message": "behavior 'wave' is testable but declares no verify obligations and no gherkin scenario",
+                "message": "behavior 'wave' is testable but declares no verify obligations",
                 "span": {"file": "broken.spec", "start_line": 1, "start_col": 1, "end_line": 3, "end_col": 2},
                 "suggestion": null,
                 "file": "broken.spec",

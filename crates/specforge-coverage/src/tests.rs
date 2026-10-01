@@ -24,6 +24,8 @@ struct PassEntity {
     #[serde(default)]
     testable: bool,
     #[serde(default)]
+    exempt: bool,
+    #[serde(default)]
     verify_kinds: Vec<String>,
     #[serde(default)]
     verify_texts: Vec<String>,
@@ -54,6 +56,7 @@ fn assess_input(input: Value) -> (Vec<Entity>, Assessment) {
             id: e.id,
             kind: e.kind,
             testable: e.testable,
+            exempt: e.exempt,
             verify_kinds: e.verify_kinds,
             verify_texts: e.verify_texts,
         })
@@ -237,6 +240,36 @@ fn a_formally_discharged_entity_is_proven_without_tests() {
     assert_eq!(verdict.status(), Status::Covered);
     assert_eq!(out.summary.discharge_funnel.entities_proven, 1);
     assert_eq!(out.summary.testable_proven, 1);
+}
+
+#[specforge_test(
+    behavior = "te_coverage_pass",
+    verify = "entities W004 exempts are not A001 and leave the testable count"
+)]
+fn exempt_entities_leave_a001_and_the_testable_count() {
+    let (_, out) = assess_input(json!({
+        "entities": [
+            // A union type and an abstract behavior: exempt, nothing declared.
+            {"id": "Status", "kind": "type", "testable": true, "exempt": true},
+            {"id": "base_login", "kind": "behavior", "testable": true, "exempt": true},
+            // A governance kind no rule requires obligations of.
+            {"id": "lost_task", "kind": "failure_mode", "testable": true, "exempt": true},
+            // ... unless it declares some: then it counts like any other.
+            {"id": "latency", "kind": "constraint", "testable": true, "exempt": true,
+             "verify_kinds": ["load"], "verify_texts": ["p99 under 50ms"]},
+            {"id": "logout", "kind": "behavior", "testable": true}
+        ]
+    }));
+    assert_eq!(out.summary.testable_exempt, 3);
+    assert_eq!(out.summary.testable_total, 2);
+    assert_eq!(out.summary.testable_verified, 1);
+    let a001: Vec<&str> = out
+        .findings
+        .iter()
+        .filter(|f| f.code == "A001")
+        .map(|f| f.message.as_str())
+        .collect();
+    assert_eq!(a001, ["behavior 'logout' declares no verify obligations"]);
 }
 
 /// `tests/fixtures/coverage-cases.json`: the rule's golden vectors. The

@@ -1,6 +1,6 @@
 use serde_json::Value;
 use specforge_emitter::analyze::TestReport;
-use specforge_emitter::coverage::{ProjectCoverage, ReportError, Status};
+use specforge_emitter::coverage::{CoverageRegistries, ProjectCoverage, ReportError, Status};
 
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
@@ -55,9 +55,18 @@ pub(crate) fn project_coverage(
     let report = recorded_report(state).map_err(|e| report_error_result(&e, tool))?;
     Ok(ProjectCoverage::compute(
         &state.graph,
-        &state.kind_registry,
+        coverage_registries(state),
         report.as_ref(),
     ))
+}
+
+/// The served project's registries, as the coverage rule reads them.
+pub(crate) fn coverage_registries(state: &McpState) -> CoverageRegistries<'_> {
+    CoverageRegistries {
+        kinds: &state.kind_registry,
+        fields: &state.field_registry,
+        rules: &state.rules,
+    }
 }
 
 /// A coverage status as the MCP results spell it.

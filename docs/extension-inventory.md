@@ -249,7 +249,7 @@ Each enhancement makes its target kind testable with the verify kinds listed. An
 
 | Code | Severity | Rule |
 |------|----------|------|
-| W004 | warning | Testable entity declares no verify obligations and no gherkin scenario |
+| W004 | warning | Testable entity declares no verify obligations (union types and abstract entities are exempt) |
 | W009 | warning | Verify kind outside the kind's allowed set |
 
 ### Compiler Passes (1)

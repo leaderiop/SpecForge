@@ -29,10 +29,11 @@ SPECFORGE_BLESS=1 cargo test -p specforge-cli explain_docs_sync
 ```
 A001: Testable entity without obligations
 
-`specforge analyze coverage` found a testable entity (one whose kind accepts
-`verify`) that declares no `verify` obligations, so nothing states what a test
-must prove about it. Add `verify unit "..."` (or another obligation kind)
-statements.
+`specforge analyze coverage` found a testable entity (one whose kind an
+extension declares testable) that declares no `verify` obligations, so nothing
+states what a test must prove about it. Add `verify unit "..."` (or another
+obligation kind) statements. What W004 exempts (union types, abstract entities,
+governance kinds) is not reported.
 
 Owner: @specforge/testing
 Level: set by the analyze pass
@@ -1542,8 +1543,10 @@ Level: warning
 W004: Untested testable entity
 
 A testable entity (`behavior`, `invariant`, `event`, `type`, or `port`) declares
-no `verify` obligations and no Gherkin scenario, so it has no test linkage. Add
-a `verify` block or a Gherkin scenario covering it.
+no `verify` obligations, so nothing states what a test must prove about it. Add
+`verify unit "..."` (or another obligation kind) statements. Union types and
+entities marked `abstract true` (through a flag their kind declares) are exempt;
+a struct member named `verify` is a field, not an obligation.
 
 Owner: @specforge/testing
 Level: warning

@@ -150,7 +150,10 @@ behavior compute_project_statistics "Compute Project Statistics" {
     entity counts by kind, coverage percentage, orphan count, and
     diagnostic summary. Statistics MUST be derived from the current
     graph state. Coverage percentage MUST be computed only over entity
-    kinds with testable=true in the KindRegistry, not over all entities.
+    kinds with testable=true in the KindRegistry, not over all entities,
+    and without the entities W004 exempts that declare no obligations
+    (union types, abstract entities, governance kinds): the coverage
+    pass's testable count.
     An entity is "verified" if it has at least one verify declaration OR
     at least one file-reference field value. Coverage percentage is
     verified_entity_count / testable_entity_count. When testable_entity_count
@@ -161,6 +164,7 @@ behavior compute_project_statistics "Compute Project Statistics" {
   verify unit "stats reports orphan count"
   verify unit "stats reports diagnostic summary"
   verify unit "coverage is 0% when testable_entity_count is zero"
+  verify unit "stats leaves the entities W004 exempts out of the testable count"
   verify contract "Compute Project Statistics: project statistics computation holds — validation_complete_fired, entity_counts_produced, coverage_computed, zero_testable_safe"
 }
 

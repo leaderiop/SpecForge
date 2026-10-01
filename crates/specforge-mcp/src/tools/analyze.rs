@@ -39,11 +39,12 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         None => None,
     };
     let state: &McpState = state;
-    let (graph, kind_registry, field_registry, manifests, project_root) = match &other {
+    let (graph, kind_registry, field_registry, rules, manifests, project_root) = match &other {
         Some((root, project)) => (
             &project.graph,
             &project.env.registries.kinds,
             &project.env.registries.fields,
+            project.env.registries.rules.as_slice(),
             project.env.registries.manifests.as_slice(),
             Some(root.as_path()),
         ),
@@ -51,6 +52,7 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
             &state.graph,
             &state.kind_registry,
             &state.field_registry,
+            state.rules.as_slice(),
             state.manifests.as_slice(),
             state.project_root.as_deref(),
         ),
@@ -88,6 +90,7 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         graph,
         kind_registry,
         field_registry,
+        rules,
         project_root,
         test_results: parsed_report.as_ref(),
     };

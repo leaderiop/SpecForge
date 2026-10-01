@@ -55,7 +55,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
     // The same classification `specforge.coverage` reports.
     let project = specforge_emitter::coverage::ProjectCoverage::compute(
         &state.graph,
-        &state.kind_registry,
+        crate::tools::coverage::coverage_registries(state),
         report.as_ref(),
     );
     for node in &nodes {

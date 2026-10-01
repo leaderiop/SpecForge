@@ -193,10 +193,11 @@ fn fx1_analyze_coverage_today() {
     let pass = analyze_coverage(tmp.path());
     let summary = &pass["summary"];
 
-    // Testable: login, logout, reset_password, Status and Payload, as in
-    // stats. The formal property accepts verify statements but its kind is
-    // not testable (S4).
-    assert_eq!(summary["testable_total"], 5, "{summary}");
+    // Testable: login, logout, reset_password and Payload, as in stats.
+    // The formal property accepts verify statements but its kind is not
+    // testable (S4); the union Status owes no obligations (D2-b, S10).
+    assert_eq!(summary["testable_total"], 4, "{summary}");
+    assert_eq!(summary["testable_exempt"], 1, "{summary}");
     assert_eq!(summary["testable_verified"], 3, "{summary}");
     assert_eq!(summary["obligations"], 4, "{summary}");
     assert_eq!(
@@ -213,8 +214,6 @@ fn fx1_analyze_coverage_today() {
 
     let expected: Vec<(String, String)> = [
         ("A001", "behavior 'logout' declares no verify obligations"),
-        // A union type can never hold obligations (D2-b, S10).
-        ("A001", "type 'Status' declares no verify obligations"),
         (
             "A015",
             "behavior 'reset_password' has 1 obligation(s) no passing test proves: \"Reset link expires after one hour\"",
@@ -238,13 +237,14 @@ fn fx1_analyze_coverage_today() {
 fn fx1_stats_today() {
     let tmp = project("fx1");
     let stats = stats(tmp.path());
-    // Testable kinds: behavior and type (5 entities); the property is not.
-    assert_eq!(stats["testable_count"], 5, "{stats}");
+    // Testable kinds: behavior and type (5 entities, less the union
+    // Status, D2-b); the property is not.
+    assert_eq!(stats["testable_count"], 4, "{stats}");
     // login, reset_password, Payload (its statement sits behind a struct
     // field named `verify`, S2) and the property, which counts toward
     // "verified" though its kind is not testable.
     assert_eq!(stats["verified_count"], 4, "{stats}");
-    assert_eq!(stats["coverage_pct"], 60.0, "{stats}");
+    assert_eq!(stats["coverage_pct"], 75.0, "{stats}");
 }
 
 #[test]
@@ -285,31 +285,27 @@ fn fx1_mcp_coverage_today() {
     );
     assert_eq!(inspect["coverage_status"], "covered", "{inspect}");
 
-    assert_eq!(results[2]["coverage_pct"], 60.0, "{}", results[2]);
+    assert_eq!(results[2]["coverage_pct"], 75.0, "{}", results[2]);
 }
 
 #[test]
 fn todo_app_analyze_and_stats_today() {
     let example = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/todo-app");
     let pass = analyze_coverage(&example);
-    // The same 18 testable entities stats counts; the formal property
-    // no_lost_completion is not testable (S4).
-    assert_eq!(pass["summary"]["testable_total"], 18, "{}", pass["summary"]);
+    // The same 16 testable entities stats counts; the formal property
+    // no_lost_completion is not testable (S4), and the failure mode
+    // lost_task and the union TaskStatus owe no obligations (D2-b, S10).
+    assert_eq!(pass["summary"]["testable_total"], 16, "{}", pass["summary"]);
+    assert_eq!(pass["summary"]["testable_exempt"], 2, "{}", pass["summary"]);
     let a001: Vec<String> = findings(&pass)
         .into_iter()
         .filter(|(code, _)| code == "A001")
         .map(|(_, message)| message)
         .collect();
-    assert_eq!(
-        a001,
-        [
-            "failure_mode 'lost_task' declares no verify obligations",
-            "type 'TaskStatus' declares no verify obligations",
-        ]
-    );
+    assert!(a001.is_empty(), "{a001:?}");
 
     let stats = stats(&example);
-    assert_eq!(stats["testable_count"], 18, "{stats}");
+    assert_eq!(stats["testable_count"], 16, "{stats}");
     assert_eq!(stats["verified_count"], 16, "{stats}");
 }
 
@@ -324,34 +320,36 @@ fn named_by(pass: &Value, code: &str) -> std::collections::BTreeSet<String> {
 
 /// MCP `specforge.coverage` and `analyze coverage` read one rule: an
 /// entity is covered exactly when analyze proves it: it declares
-/// obligations (no A001), has recorded tests, and analyze reports neither
-/// an unproven obligation (A015) nor a failing test (A014) for it.
+/// obligations, and against the recorded tests analyze reports neither an
+/// unproven obligation (A015) nor a failing test (A014) for it.
 fn assert_mcp_coverage_matches_analyze(root: &Path) {
     let pass = analyze_coverage(root);
     let report: Value = std::fs::read_to_string(root.join("specforge-report.json"))
         .map(|raw| serde_json::from_str(&raw).unwrap())
         .unwrap_or(Value::Null);
-    let (a001, a014, a015) = (
-        named_by(&pass, "A001"),
-        named_by(&pass, "A014"),
-        named_by(&pass, "A015"),
-    );
+    assert!(report.is_object(), "the corpus records tests");
+    let (a014, a015) = (named_by(&pass, "A014"), named_by(&pass, "A015"));
     let rows = coverage_rows(
         &mcp_calls(
             root,
             &[json!({"name": "specforge.coverage", "arguments": {}})],
         )[0],
     );
+    // MCP lists every entity of a testable kind, exempt ones included.
+    let summary = &pass["summary"];
     assert_eq!(
         rows.len() as u64,
-        pass["summary"]["testable_total"].as_u64().unwrap(),
-        "MCP lists every testable entity analyze counts"
+        summary["testable_total"].as_u64().unwrap() + summary["testable_exempt"].as_u64().unwrap(),
+        "MCP lists every entity of a testable kind analyze sees"
     );
-    for (id, (status, _, _)) in &rows {
-        let has_tests = report["results"][id]["tests"]
-            .as_array()
-            .is_some_and(|tests| !tests.is_empty());
-        let proven = has_tests && !a001.contains(id) && !a014.contains(id) && !a015.contains(id);
+    let covered = rows.values().filter(|(status, _, _)| status == "covered");
+    assert_eq!(
+        covered.count() as u64,
+        summary["testable_proven"].as_u64().unwrap(),
+        "MCP covers exactly as many as analyze proves"
+    );
+    for (id, (status, obligations, _)) in &rows {
+        let proven = *obligations > 0 && !a014.contains(id) && !a015.contains(id);
         assert_eq!(
             status == "covered",
             proven,

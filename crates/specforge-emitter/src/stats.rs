@@ -24,36 +24,40 @@ pub fn compute_stats_with_testable(graph: &Graph, testable_kinds: &[&str]) -> Pr
     compute_stats_with_diagnostics(graph, testable_kinds, &[])
 }
 
+/// Stats knowing only which kinds are testable: every testable kind must
+/// declare obligations, and only structure exempts an entity (a union
+/// type). With the project's registries, use [`compute_project_stats`].
 pub fn compute_stats_with_diagnostics(
     graph: &Graph,
     testable_kinds: &[&str],
     diagnostics: &[Diagnostic],
 ) -> ProjectStats {
+    let coverage =
+        crate::coverage::ProjectCoverage::with_testable_kinds(graph, testable_kinds, None);
+    compute_project_stats(graph, &coverage.summary, diagnostics)
+}
+
+/// The project's statistics. The testable and verified counts are the
+/// coverage rule's (`coverage`, from
+/// [`crate::coverage::ProjectCoverage`]), so stats and `analyze coverage`
+/// report the same numbers: testable entities are those that count toward
+/// coverage (entities W004 exempts and that declare nothing are left
+/// out), and an entity is verified when it declares at least one
+/// obligation.
+pub fn compute_project_stats(
+    graph: &Graph,
+    coverage: &crate::coverage::Summary,
+    diagnostics: &[Diagnostic],
+) -> ProjectStats {
     let mut entities_by_kind = BTreeMap::new();
-    let mut verified_count = 0;
-    let mut testable_count = 0;
-    let mut testable_verified = 0;
-
-    let testable_set: HashSet<&str> = testable_kinds.iter().copied().collect();
-
     for node in graph.nodes() {
         *entities_by_kind
             .entry(node.kind.raw.to_string())
             .or_insert(0) += 1;
-
-        let is_verified = !crate::coverage::obligations(node).is_empty();
-
-        if is_verified {
-            verified_count += 1;
-        }
-
-        if testable_set.contains(node.kind.raw.as_str()) {
-            testable_count += 1;
-            if is_verified {
-                testable_verified += 1;
-            }
-        }
     }
+    let verified_count = coverage.discharge_funnel.entities_with_obligations;
+    let testable_count = coverage.testable_total;
+    let testable_verified = coverage.testable_verified;
 
     // Orphans: nodes with no incoming and no outgoing edges
     let mut connected: HashSet<&str> = HashSet::new();
