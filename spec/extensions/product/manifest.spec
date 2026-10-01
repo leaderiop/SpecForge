@@ -10,14 +10,18 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     The @specforge/product extension MUST declare a v2 manifest with name
     "@specforge/product", manifestVersion 2. The manifest MUST declare
     exactly 9 entity kinds (journey, deliverable, milestone, module,
-    term, feature, persona, channel, release), 16 edge types (JourneyExercisesFeature,
-    DeliverableSupportsJourney, ModuleDependsOn, MilestoneDeliversFeature,
-    DeliverableContainsModule, ModuleContainsFeature, FeatureDependsOn,
-    JourneyTargetsPersona, JourneyUsesChannel, MilestoneScopesModule, TermReferencesRelatedTerm,
-    MilestoneDependsOn, DeliverableTrackedByMilestone, DeliverableDependsOn,
-    ReleaseIncludesDeliverable, ReleaseCompletesMilestone),
-    and all associated validation rules. Diagnostic codes: E007-E009,
-    E015, E052, W041-W046, W049, W057, W075-W095, I010, I046-I097.
+    term, feature, persona, channel, release), 20 edge types
+    (FeatureDependsOn, FeatureRelatesTo, JourneyExercisesFeature,
+    JourneyTargetsPersona, JourneyUsesChannel, DeliverableSupportsJourney,
+    DeliverableContainsModule, DeliverableTrackedByMilestone,
+    DeliverableDependsOn, MilestoneDeliversFeature, MilestoneScopesModule,
+    MilestoneDependsOn, ModuleContainsFeature, ModuleDependsOn,
+    TermReferencesRelatedTerm, TermBelongsToModule,
+    ReleaseIncludesDeliverable, ReleaseCompletesMilestone, ReleaseDependsOn,
+    PersonaPrioritizesFeature), and 30 validation rules. Diagnostic codes:
+    E007, E015, E052, W041, W042, W044, W045, W049, W057, W077-W080,
+    W083-W085, W092, W093, W095, I010, I046, I047, I059, I060, I066, I069,
+    I070.
   """
   requires {
     valid_manifest_version "manifestVersion == 2"
@@ -25,9 +29,9 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
   }
   ensures {
     nine_entity_kinds            "entityKinds.length == 9"
-    sixteen_edge_types           "edgeTypes.length == 16"
+    twenty_edge_types            "edgeTypes.length == 20"
     all_kinds_named              "entityKinds contains journey, deliverable, milestone, module, term, feature, persona, channel, release"
-    all_edges_named              "edgeTypes contains JourneyExercisesFeature, DeliverableSupportsJourney, ModuleDependsOn, MilestoneDeliversFeature, DeliverableContainsModule, ModuleContainsFeature, FeatureDependsOn, JourneyTargetsPersona, JourneyUsesChannel, MilestoneScopesModule, TermReferencesRelatedTerm, MilestoneDependsOn, DeliverableTrackedByMilestone, DeliverableDependsOn, ReleaseIncludesDeliverable, ReleaseCompletesMilestone"
+    all_edges_named              "edgeTypes contains FeatureDependsOn, FeatureRelatesTo, JourneyExercisesFeature, JourneyTargetsPersona, JourneyUsesChannel, DeliverableSupportsJourney, DeliverableContainsModule, DeliverableTrackedByMilestone, DeliverableDependsOn, MilestoneDeliversFeature, MilestoneScopesModule, MilestoneDependsOn, ModuleContainsFeature, ModuleDependsOn, TermReferencesRelatedTerm, TermBelongsToModule, ReleaseIncludesDeliverable, ReleaseCompletesMilestone, ReleaseDependsOn, PersonaPrioritizesFeature"
     contributes_entities         "contributes.entities is true"
     contributes_validators       "contributes.validators is true"
     contributes_no_renderers     "contributes.renderers is false — product provides no rendering"
@@ -38,18 +42,17 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     contributes_no_grammars      "contributes.grammars is false — product uses default grammar"
     contributes_no_body_parsers  "contributes.body_parsers is false — product uses default body parsing"
     no_entity_enhancements       "entity_enhancements is empty — product DECLARES no enhancements on other extensions' entity kinds. However, product IS the target of enhancements from peer extensions (e.g., @specforge/software adds a behaviors field (MilestoneIncludesBehavior edges) to product's milestone kind via its own entity_enhancements). The directionality is: software enhances product, not the reverse."
-    acceptance_verify_kind       "verify_kinds declares ['acceptance'] — feature, deliverable, and milestone support verify acceptance annotations linking to external acceptance test files"
+    no_verify_kinds              "verify_kinds is empty and every product kind has supportsVerify=false — product entities declare no verify statements"
     no_query_extensions          "query_extensions is empty — product uses standard graph traversal APIs (getIncomingEdges, getOutgoingEdges, getNodesByKind, detectCycles) and declares no custom query operators"
     no_peer_deps                 "peer_dependencies is empty — product is standalone and requires no other extensions. Peer extensions like @specforge/software declare product as THEIR peer_dependency to contribute entity_enhancements (e.g., a behaviors field on milestone) and cross-extension edges (e.g., BehaviorImplementsFeature: behavior→feature)."
     no_migration_hook            "migration_hook is null — intentionally absent in v1 (no prior version)"
     no_passes                    "passes is empty — product declares no custom compiler passes"
     no_feature_flags             "feature_flags is empty — product declares no feature flags"
     incremental_default          "incremental is true — product supports incremental compilation"
-    sandbox_restricted           "sandbox_policy declares network_access=false, file_system_access=read-only, max_memory_mb=256, max_execution_ms=5000"
-    sandbox_no_network           "sandbox_policy.network_access is false — product queries are pure graph traversals"
+    no_sandbox_policy            "sandbox_policy is null — product declares no sandbox policy"
     host_api_declared            "host_api_version is 1.0.0"
     starter_tmpl_declared        "starter_template is the product starter in src/starter.spec"
-    surfaces_declared            "surfaces declares CLI commands and MCP resources; every ProductQueryPort method has a corresponding CLI command and MCP resource"
+    no_surfaces                  "surfaces is empty — product declares no CLI commands, MCP tools or MCP resources; the specforge product subcommands are CLI built-ins"
     ext_short_declared           "ext_short is 'product' for MCP tool naming (specforge.product.{cmd_id})"
     no_reserved_keywords         "reserved_keywords is empty — product has no keywords to reserve"
     query_scope_own              "query_scope is 'own' — product queries only its own and peer entity kinds"
@@ -62,22 +65,22 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
   features [pe_core_entity_kinds]
   verify unit "manifest name is @specforge/product"
   verify unit "manifest declares exactly 9 entity kinds"
-  verify unit "manifest declares exactly 16 edge types"
+  verify unit "manifest declares exactly 20 edge types"
   verify unit "manifest version is 2"
   verify unit "contributes declares entities=true and validators=true"
   verify unit "contributes false flags: renderers, providers, collectors, prompts, parsers, grammars, body_parsers"
   verify unit "entity_enhancements is empty"
-  verify unit "verify_kinds declares acceptance"
+  verify unit "no product kind declares verify kinds or supportsVerify"
   verify unit "query_extensions is empty"
   verify unit "peer_dependencies is empty"
   verify unit "migration_hook is null"
   verify unit "passes is empty"
   verify unit "feature_flags is empty"
   verify unit "incremental is true"
-  verify unit "sandbox_policy declares no network access and read-only filesystem"
+  verify unit "sandbox_policy is null"
   verify unit "host_api_version is 1.0.0"
   verify unit "starter_template is the product starter in src/starter.spec"
-  verify unit "every ProductQueryPort method has a CLI command and MCP resource"
+  verify unit "surfaces is empty"
   verify unit "ext_short is product"
   verify unit "reserved_keywords is empty"
   verify unit "query_scope is own"
@@ -100,16 +103,19 @@ invariant pe_manifest_nine_entity_kinds "Nine Entity Kinds" {
   verify property "manifest entityKinds array has exactly 9 entries"
 }
 
-invariant pe_manifest_sixteen_edge_types "Sixteen Edge Types" {
+invariant pe_manifest_twenty_edge_types "Twenty Edge Types" {
   guarantee """
-    The @specforge/product manifest MUST declare exactly 16 edge types:
-    JourneyExercisesFeature, DeliverableSupportsJourney, ModuleDependsOn,
-    MilestoneDeliversFeature, DeliverableContainsModule, ModuleContainsFeature,
-    FeatureDependsOn, JourneyTargetsPersona, JourneyUsesChannel, MilestoneScopesModule,
-    TermReferencesRelatedTerm, MilestoneDependsOn, DeliverableTrackedByMilestone,
-    DeliverableDependsOn, ReleaseIncludesDeliverable, ReleaseCompletesMilestone.
-    These edges model relationships between the 9 entity kinds.
+    The @specforge/product manifest MUST declare exactly 20 edge types:
+    FeatureDependsOn, FeatureRelatesTo, JourneyExercisesFeature,
+    JourneyTargetsPersona, JourneyUsesChannel, DeliverableSupportsJourney,
+    DeliverableContainsModule, DeliverableTrackedByMilestone,
+    DeliverableDependsOn, MilestoneDeliversFeature, MilestoneScopesModule,
+    MilestoneDependsOn, ModuleContainsFeature, ModuleDependsOn,
+    TermReferencesRelatedTerm, TermBelongsToModule,
+    ReleaseIncludesDeliverable, ReleaseCompletesMilestone, ReleaseDependsOn,
+    PersonaPrioritizesFeature. These edges model relationships between the
+    9 entity kinds.
   """
   risk      medium
-  verify property "manifest edgeTypes array has exactly 16 entries"
+  verify property "manifest edgeTypes array has exactly 20 entries"
 }

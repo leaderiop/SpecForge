@@ -235,7 +235,7 @@ constraint product_entity_registration_determinism "Product Entity Registration 
     pe_register_field_definitions,
     pe_register_validation_rules,
   ]
-  protects    [pe_manifest_nine_entity_kinds, pe_manifest_sixteen_edge_types]
+  protects    [pe_manifest_nine_entity_kinds, pe_manifest_twenty_edge_types]
   verify property "registration from same manifest produces identical registry state"
 }
 

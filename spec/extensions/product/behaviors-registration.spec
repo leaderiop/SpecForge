@@ -43,27 +43,27 @@ behavior pe_register_entity_kinds "Register Product Entity Kinds" {
     no_duplicate_kinds "KindRegistry has no entries with names matching this extension's kinds"
   }
   ensures {
-    journey_registered     "KindRegistry contains journey: testable=false, supportsVerify=false, semanticToken=class, lspIcon=Module, dotShape=hexagon"
-    deliverable_registered "KindRegistry contains deliverable: testable=false, supportsVerify=true, semanticToken=class, lspIcon=Package, dotShape=box3d"
-    milestone_registered   "KindRegistry contains milestone: testable=false, supportsVerify=true, semanticToken=class, lspIcon=Calendar, dotShape=tab"
-    module_registered      "KindRegistry contains module: testable=false, supportsVerify=false, semanticToken=namespace, lspIcon=Folder, dotShape=folder"
-    term_registered        "KindRegistry contains term: testable=false, supportsVerify=false, semanticToken=class, lspIcon=File, dotShape=note"
-    feature_registered     "KindRegistry contains feature: testable=false, supportsVerify=true, semanticToken=class, lspIcon=Package, dotShape=hexagon"
-    persona_registered     "KindRegistry contains persona: testable=false, supportsVerify=false, semanticToken=class, lspIcon=Person, dotShape=oval"
-    channel_registered     "KindRegistry contains channel: testable=false, supportsVerify=false, semanticToken=class, lspIcon=SymbolInterface, dotShape=component"
-    release_registered     "KindRegistry contains release: testable=false, supportsVerify=false, semanticToken=class, lspIcon=Symbol, dotShape=box"
+    journey_registered     "KindRegistry contains journey: testable=false, supportsVerify=false, semanticToken=event, lspIcon=Event, dotShape=ellipse"
+    deliverable_registered "KindRegistry contains deliverable: testable=false, supportsVerify=false, semanticToken=struct, lspIcon=Package, dotShape=box3d"
+    milestone_registered   "KindRegistry contains milestone: testable=false, supportsVerify=false, semanticToken=namespace, lspIcon=Folder, dotShape=hexagon"
+    module_registered      "KindRegistry contains module: testable=false, supportsVerify=false, semanticToken=namespace, lspIcon=Module, dotShape=component"
+    term_registered        "KindRegistry contains term: testable=false, supportsVerify=false, semanticToken=string, lspIcon=Text, dotShape=note"
+    feature_registered     "KindRegistry contains feature: testable=false, supportsVerify=false, semanticToken=class, lspIcon=Class, dotShape=box"
+    persona_registered     "KindRegistry contains persona: testable=false, supportsVerify=false, semanticToken=variable, lspIcon=Variable, dotShape=ellipse"
+    channel_registered     "KindRegistry contains channel: testable=false, supportsVerify=false, semanticToken=interface, lspIcon=Interface, dotShape=rectangle"
+    release_registered     "KindRegistry contains release: testable=false, supportsVerify=false, semanticToken=constant, lspIcon=Constant, dotShape=doubleoctagon"
     nine_kinds_total       "KindRegistry has exactly 9 domain entries after registration"
   }
   ports      [ProductRegistrationPort, KindRegistryPort]
   features   [pe_core_entity_kinds, product_entity_registration]
   verify unit "journey registered with testable=false"
-  verify unit "deliverable registered with testable=false, supportsVerify=true"
-  verify unit "milestone registered with dotShape=tab"
-  verify unit "module registered with lspIcon=Folder"
+  verify unit "deliverable registered with testable=false, supportsVerify=false"
+  verify unit "milestone registered with dotShape=hexagon"
+  verify unit "module registered with lspIcon=Module"
   verify unit "term registered with testable=false"
-  verify unit "feature registered with testable=false, supportsVerify=true, dotShape=hexagon"
-  verify unit "persona registered with testable=false and dotShape=oval"
-  verify unit "channel registered with testable=false and dotShape=component"
+  verify unit "feature registered with testable=false, supportsVerify=false, dotShape=box"
+  verify unit "persona registered with testable=false and dotShape=ellipse"
+  verify unit "channel registered with testable=false and dotShape=rectangle"
   verify unit "release registered with testable=false"
 }
 
@@ -72,34 +72,38 @@ behavior pe_register_edge_types "Register Product Edge Types" {
   types    [ManifestEdgeType, ProductEdgeTypesRegisteredPayload]
   produces [pe_edge_types_registered]
   contract """
-    The @specforge/product extension MUST register 16 edge types that
+    The @specforge/product extension MUST register 20 edge types that
     model relationships between the 9 entity kinds.
   """
   requires {
     kinds_registered "all 9 entity kinds are in KindRegistry"
   }
   ensures {
-    journey_feature        "EdgeTypeSet contains JourneyExercisesFeature (journey->feature)"
-    deliverable_journey    "EdgeTypeSet contains DeliverableSupportsJourney (deliverable->journey)"
-    module_depends_on      "EdgeTypeSet contains ModuleDependsOn (module->module)"
-    milestone_feature      "EdgeTypeSet contains MilestoneDeliversFeature (milestone->feature)"
-    deliverable_module     "EdgeTypeSet contains DeliverableContainsModule (deliverable->module)"
-    module_feature         "EdgeTypeSet contains ModuleContainsFeature (module->feature)"
     feature_depends_on     "EdgeTypeSet contains FeatureDependsOn (feature->feature)"
+    feature_relates_to     "EdgeTypeSet contains FeatureRelatesTo (feature->feature)"
+    journey_feature        "EdgeTypeSet contains JourneyExercisesFeature (journey->feature)"
     journey_persona        "EdgeTypeSet contains JourneyTargetsPersona (journey->persona)"
     journey_channel        "EdgeTypeSet contains JourneyUsesChannel (journey->channel)"
-    milestone_module       "EdgeTypeSet contains MilestoneScopesModule (milestone->module)"
-    term_see_also          "EdgeTypeSet contains TermReferencesRelatedTerm (term->term)"
-    milestone_depends_on   "EdgeTypeSet contains MilestoneDependsOn (milestone->milestone)"
+    deliverable_journey    "EdgeTypeSet contains DeliverableSupportsJourney (deliverable->journey)"
+    deliverable_module     "EdgeTypeSet contains DeliverableContainsModule (deliverable->module)"
     deliverable_milestone  "EdgeTypeSet contains DeliverableTrackedByMilestone (deliverable->milestone)"
     deliverable_depends_on "EdgeTypeSet contains DeliverableDependsOn (deliverable->deliverable)"
+    milestone_feature      "EdgeTypeSet contains MilestoneDeliversFeature (milestone->feature)"
+    milestone_module       "EdgeTypeSet contains MilestoneScopesModule (milestone->module)"
+    milestone_depends_on   "EdgeTypeSet contains MilestoneDependsOn (milestone->milestone)"
+    module_feature         "EdgeTypeSet contains ModuleContainsFeature (module->feature)"
+    module_depends_on      "EdgeTypeSet contains ModuleDependsOn (module->module)"
+    term_see_also          "EdgeTypeSet contains TermReferencesRelatedTerm (term->term)"
+    term_module            "EdgeTypeSet contains TermBelongsToModule (term->module)"
     release_deliverable    "EdgeTypeSet contains ReleaseIncludesDeliverable (release->deliverable)"
     release_milestone      "EdgeTypeSet contains ReleaseCompletesMilestone (release->milestone)"
-    sixteen_edges_total    "EdgeTypeSet has exactly 16 entries"
+    release_depends_on     "EdgeTypeSet contains ReleaseDependsOn (release->release)"
+    persona_feature        "EdgeTypeSet contains PersonaPrioritizesFeature (persona->feature)"
+    twenty_edges_total     "EdgeTypeSet has exactly 20 entries"
   }
   ports    [ProductRegistrationPort, EdgeTypeRegistryPort]
   features [pe_core_entity_kinds, product_entity_registration]
-  verify unit "all 16 edge types registered in edge set"
+  verify unit "all 20 edge types registered in edge set"
   verify unit "JourneyExercisesFeature edge has sourceKind=journey and targetKind=feature"
   verify unit "ModuleDependsOn edge has sourceKind=module and targetKind=module"
   verify unit "FeatureDependsOn edge has sourceKind=feature and targetKind=feature"
@@ -128,15 +132,17 @@ behavior pe_register_field_definitions "Register Product Field Definitions" {
     kinds_and_edges_registered "all 9 kinds and 20 edge types are registered"
   }
   ensures {
-    feature_fields     "feature has: problem(string), solution(string), priority(Priority), status(string), acceptance(string[]), depends_on(reference[]->feature, FeatureDependsOn), reason(string), tags(string[])"
-    journey_fields     "journey has: persona(reference->persona, JourneyTargetsPersona), description(string), channels(reference[]->channel, JourneyUsesChannel), features(reference[]->feature, JourneyExercisesFeature), flow(string[]), priority(Priority), tags(string[])"
-    deliverable_fields "deliverable has: artifact_type(ArtifactType), status(DeliverableStatus), journeys(reference[]->journey, DeliverableSupportsJourney), modules(reference[]->module, DeliverableContainsModule), version(string), milestones(reference[]->milestone, DeliverableTrackedByMilestone), depends_on(reference[]->deliverable, DeliverableDependsOn), reason(string), tags(string[])"
-    milestone_fields   "milestone has: status(MilestoneStatus), features(reference[]->feature, MilestoneDeliversFeature), exit_criteria(string[]), target_date(string), modules(reference[]->module, MilestoneScopesModule), depends_on(reference[]->milestone, MilestoneDependsOn), priority(Priority), reason(string), tags(string[])"
-    module_fields      "module has: family(string), description(string), features(reference[]->feature, ModuleContainsFeature), depends_on(reference[]->module, ModuleDependsOn), tags(string[])"
-    term_fields        "term has: definition(string), context(string), aliases(string[]), see_also(reference[]->term, TermReferencesRelatedTerm), tags(string[])"
-    persona_fields     "persona has: description(string), technical_level(TechnicalLevel), goals(string[]), pain_points(string[]), status(PersonaStatus), tags(string[])"
-    channel_fields     "channel has: description(string), interaction_model(InteractionModel), status(ChannelStatus), tags(string[])"
-    status_defaults    "status fields declare default_value: feature.status='proposed', milestone.status='planned', deliverable.status='draft', persona.status='active', channel.status='active', release.status='planned'"
+    feature_fields     "feature has: description(string), problem(string, required), solution(string), priority(string), status(string), acceptance(string_list), depends_on(reference_list->feature, FeatureDependsOn), features(reference_list->feature, FeatureRelatesTo), refs(string_list), reason(string), owner(string), contributors(string_list), effort(string), tests(string_list)"
+    journey_fields     "journey has: persona(reference->persona, JourneyTargetsPersona), description(string), channels(reference_list->channel, JourneyUsesChannel), features(reference_list->feature, JourneyExercisesFeature), flow(string_list, required), priority(string)"
+    deliverable_fields "deliverable has: description(string), artifact_type(string, required), status(string), journeys(reference_list->journey, DeliverableSupportsJourney), modules(reference_list->module, DeliverableContainsModule), version(string), milestones(reference_list->milestone, DeliverableTrackedByMilestone), depends_on(reference_list->deliverable, DeliverableDependsOn), reason(string), owner(string), contributors(string_list)"
+    milestone_fields   "milestone has: description(string), status(string), features(reference_list->feature, MilestoneDeliversFeature), exit_criteria(string_list), target_date(string), start_date(string), modules(reference_list->module, MilestoneScopesModule), depends_on(reference_list->milestone, MilestoneDependsOn), blockers(string_list), priority(string), reason(string), owner(string), contributors(string_list), refs(string_list)"
+    module_fields      "module has: family(string), description(string), features(reference_list->feature, ModuleContainsFeature), depends_on(reference_list->module, ModuleDependsOn), reason(string)"
+    term_fields        "term has: definition(string, required), context(string), aliases(string_list), see_also(reference_list->term, TermReferencesRelatedTerm), module(reference->module, TermBelongsToModule)"
+    persona_fields     "persona has: description(string, required), technical_level(string), goals(string_list), pain_points(string_list), status(string), reason(string), key_features(reference_list->feature, PersonaPrioritizesFeature)"
+    channel_fields     "channel has: description(string, required), interaction_model(string), url(string), status(string), reason(string)"
+    release_fields     "release has: description(string), version(string, required), status(string), deliverables(reference_list->deliverable, ReleaseIncludesDeliverable), milestones(reference_list->milestone, ReleaseCompletesMilestone), target_date(string), release_date(string), changelog(string), depends_on(reference_list->release, ReleaseDependsOn), owner(string), contributors(string_list), reason(string), refs(string_list)"
+    shared_tags        "every kind also gets the shared field tags(string_list)"
+    no_defaults        "no field declares a default_value"
   }
   ports    [FieldRegistryPort]
   features [pe_core_entity_kinds, product_entity_registration]
@@ -151,7 +157,7 @@ behavior pe_register_field_definitions "Register Product Field Definitions" {
   verify unit "term see_also field registered with TermReferencesRelatedTerm edge"
   verify unit "deliverable milestones field registered with DeliverableTrackedByMilestone edge"
   verify unit "deliverable depends_on field registered with DeliverableDependsOn edge"
-  verify unit "persona pain_points field registered as string[] type"
+  verify unit "persona pain_points field registered as string_list type"
 }
 
 behavior pe_register_validation_rules "Register Product Validation Rules" {
@@ -165,14 +171,14 @@ behavior pe_register_validation_rules "Register Product Validation Rules" {
     field_definitions_registered "all field definitions for 9 kinds and 20 edge types are in FieldRegistry"
   }
   ensures {
-    rules_registered "all diagnostic codes (E007-E009, E015, E052, W041-W046, W049, W057, W075-W095, I010, I046-I097) are registered as declarative validation rules"
+    rules_registered "30 declarative validation rules over 27 diagnostic codes are registered: E007, E015, E052, W041, W042, W044, W045, W049, W057, W077-W080, W083-W085, W092, W093, W095, I010, I046, I047, I059, I060, I066, I069, I070 (W078 is declared once per target kind: feature, journey, milestone, constraint)"
     rules_sorted     "rules are sorted by diagnostic code for deterministic execution"
-    rules_count      "69 rules total: field validation (W077-W086, W095, I050, I053, I056, I061, I062, I068, I095, E008, E009), structural (W041-W046, W049, W057, I010, I046-I052, I067, I071, I072, I075, I096, W075, W076, W086), lifecycle (W087-W094, I054-I060, I063-I066, I069-I070, I073-I079, I080-I091, I092-I094, I097, W092-W093), DAG (E007, E015, E052, W045)"
+    rules_count      "30 rules total: field values (W077, W078 x4, W079, W080, W083, W084, W085, W093, W095), unreferenced entities (W041, W042, W044, I046, I047 via no_incoming_edges; I010 via no_edges), conditional fields (W057, I059, I060, I066, I069, I070), milestone without features (W049), dependency cycles (E007, E015, E052, W045, W092)"
   }
   ports    [ProductValidationPort]
   features [pe_core_entity_kinds, pe_validation_suite, product_validation]
   verify unit "validation rules registered from manifest"
-  verify unit "rules include E007-E009, E015, E052, W041-W046, W049, W057, W075-W095, I010, I046-I097"
+  verify unit "rules include E007, E015, E052, W041, W042, W044, W045, W049, W057, W077-W080, W083-W085, W092, W093, W095, I010, I046, I047, I059, I060, I066, I069, I070"
   verify unit "rules sorted by diagnostic code"
 }
 
@@ -182,18 +188,16 @@ behavior pe_validate_persona_fields "Validate Persona Fields" {
   types      [ProductPersona, TechnicalLevel, Diagnostic]
   produces   [pe_query_failed]
   contract   """
-    The @specforge/product extension MUST validate that persona entities
-    have a non-empty description field and that technical_level, when
-    present, is a valid TechnicalLevel enum value. Invalid technical_level
-    values MUST produce a W081 warning.
+    The @specforge/product extension MUST declare the persona description
+    field required, so the core reports a persona without one (E006). The
+    technical_level field is a plain string; no rule checks its value.
   """
   ensures {
-    description_required  "persona without description produces a diagnostic"
-    technical_level_valid "persona with invalid technical_level produces W081"
+    description_required "persona without description produces E006"
   }
   features   [pe_validation_suite]
   verify unit "persona with valid fields passes"
-  verify unit "persona with invalid technical_level produces diagnostic"
+  verify unit "persona without description produces E006"
 }
 
 behavior pe_validate_channel_fields "Validate Channel Fields" {
@@ -201,18 +205,17 @@ behavior pe_validate_channel_fields "Validate Channel Fields" {
   types    [ProductChannel, InteractionModel, Diagnostic, ProductValidationPayload]
   produces [pe_validation_complete]
   contract """
-    The @specforge/product extension MUST validate that channel entities
-    have a non-empty description field and that interaction_model is a
-    valid InteractionModel enum value. Invalid interaction_model values
-    MUST produce a W082 warning.
+    The @specforge/product extension MUST declare the channel description
+    field required, so the core reports a channel without one (E006). The
+    interaction_model field is an optional plain string; no rule checks
+    its value.
   """
   ensures {
-    description_required    "channel without description produces a diagnostic"
-    interaction_model_valid "channel with invalid interaction_model produces W082"
+    description_required "channel without description produces E006"
   }
   features [pe_validation_suite]
   verify unit "channel with valid fields passes"
-  verify unit "channel with invalid interaction_model produces diagnostic"
+  verify unit "channel without description produces E006"
 }
 
 behavior pe_validate_deliverable_completeness "Validate Deliverable Completeness" {
@@ -245,11 +248,11 @@ behavior pe_validate_milestone_status "Validate Milestone Status Consistency" {
     This behavior orchestrates three underlying validation rules:
     validate_milestone_status_field (W079 for invalid enum values),
     detect_completed_milestone_without_criteria (W057 for completed without exit_criteria),
-    detect_blocked_milestone_without_dependency (I057 for blocked without depends_on).
+    detect_blocked_milestone_without_blockers (I060 for blocked without blockers).
   """
   ensures {
     delegates_to_rules "milestone status validation delegates to three individual validation rules"
-    all_three_executed "W079, W057, and I057 validation rules are all executed during milestone validation"
+    all_three_executed "W079, W057, and I060 validation rules are all executed during milestone validation"
   }
   features   [pe_validation_suite]
   verify unit "milestone status validation runs all three sub-rules"

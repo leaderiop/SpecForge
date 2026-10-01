@@ -20,10 +20,10 @@ behavior pe_register_release_kind "Register Release Entity Kind" {
     manifest_loaded "ManifestV2 is parsed and schema-validated"
   }
   ensures {
-    release_registered "KindRegistry contains release: testable=false, supportsVerify=false, semanticToken=class, lspIcon=Event, dotShape=octagon"
+    release_registered "KindRegistry contains release: testable=false, supportsVerify=false, semanticToken=constant, lspIcon=Constant, dotShape=doubleoctagon"
   }
   verify unit "release kind is registered with testable=false"
-  verify unit "release kind has dotShape=octagon"
+  verify unit "release kind has dotShape=doubleoctagon"
 }
 
 behavior pe_register_release_edges "Register Release Edge Types" {
@@ -31,18 +31,21 @@ behavior pe_register_release_edges "Register Release Edge Types" {
   category command
   types    [ManifestEdgeType]
   contract """
-    The @specforge/product extension MUST register 2 release-specific edge types:
-    ReleaseIncludesDeliverable (release->deliverable) and ReleaseCompletesMilestone (release->milestone).
+    The @specforge/product extension MUST register 3 release-specific edge types:
+    ReleaseIncludesDeliverable (release->deliverable), ReleaseCompletesMilestone
+    (release->milestone) and ReleaseDependsOn (release->release).
   """
   requires {
     entity_kinds_registered "All 9 entity kinds are in the KindRegistry"
   }
   ensures {
-    release_deliverable_registered "EdgeTypeRegistry contains ReleaseIncludesDeliverable: source=release, target=deliverable, label=ships"
-    release_milestone_registered   "EdgeTypeRegistry contains ReleaseCompletesMilestone: source=release, target=milestone, label=targets"
+    release_deliverable_registered "EdgeTypeRegistry contains ReleaseIncludesDeliverable: source=release, target=deliverable"
+    release_milestone_registered   "EdgeTypeRegistry contains ReleaseCompletesMilestone: source=release, target=milestone"
+    release_depends_on_registered  "EdgeTypeRegistry contains ReleaseDependsOn: source=release, target=release"
   }
   verify unit "ReleaseIncludesDeliverable edge type is registered"
   verify unit "ReleaseCompletesMilestone edge type is registered"
+  verify unit "ReleaseDependsOn edge type is registered"
 }
 
 behavior pe_register_ownership_fields "Register Ownership Fields" {
@@ -50,7 +53,7 @@ behavior pe_register_ownership_fields "Register Ownership Fields" {
   features [pe_ownership_tracking]
   contract """
     The @specforge/product extension MUST register owner (string @optional)
-    and contributors (string[] @optional) as shared fields on feature,
+    and contributors (string[] @optional) as fields of the feature,
     milestone, deliverable, and release entity kinds.
   """
   requires {
@@ -69,11 +72,11 @@ behavior pe_register_effort_field "Register Effort Field" {
   category command
   types    [Effort]
   contract """
-    The @specforge/product extension MUST register effort (Effort @optional)
-    on the feature entity kind. Valid values: xs, s, m, l, xl.
+    The @specforge/product extension MUST register effort (string @optional)
+    on the feature entity kind; rule W095 restricts it to xs, s, m, l, xl.
   """
   ensures {
-    effort_on_feature "FieldRegistry contains effort:Effort @optional for kind=feature"
+    effort_on_feature "FieldRegistry contains effort:string @optional for kind=feature"
   }
   verify unit "effort field is registered on feature kind"
 }
