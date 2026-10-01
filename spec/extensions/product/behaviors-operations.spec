@@ -329,7 +329,7 @@ behavior pe_enforce_migration_strategy "Extension Version Migration" {
   contract   """
     The @specforge/product extension MUST follow additive-only schema
     evolution for minor versions. New fields MUST be optional. New diagnostic
-    codes MUST use reserved ranges (W047-W048, W050-W056, W058-W074). New
+    codes MUST use the reserved range W064-W074. New
     edge types require a manifest version bump. Breaking changes (field
     removal, kind removal, edge type removal) MUST require a major version
     bump with a migration hook. Until v2, migration_hook remains null.

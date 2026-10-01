@@ -39,7 +39,7 @@ feature fa_structured_conditions "Structured Conditions" {
     to port method signatures (W036). Additional warnings detect
     unverifiable conditions (W037), unreachable postconditions (W038),
     redundant preconditions (W039), and invariants without formal
-    properties (W040). All formal analysis warnings (W028-W040, W058, W123-W136)
+    properties (W040). All formal analysis warnings (W029-W040, W058, W096, W110, W123-W136, W144)
     require warning_level=strict.
   """
 }
@@ -239,14 +239,14 @@ feature fa_process_modeling "Process Modeling" {
 
 feature fa_progressive_warnings "Progressive Warning Levels" {
   problem  """
-    All formal analysis warnings (W028-W040, W058, W123-W136) fire at the same level.
+    All formal analysis warnings (W029-W040, W058, W096, W110, W123-W136, W144) fire at the same level.
     New users are overwhelmed by formal analysis warnings they cannot
     act on yet. There is no way to gradually increase warning
     strictness as the project matures.
   """
   solution """
     Three warning levels (onboarding, standard, strict) control which
-    warnings are emitted. Formal analysis warnings (W028-W040, W058, W123-W136) require
+    warnings are emitted. Formal analysis warnings (W029-W040, W058, W096, W110, W123-W136, W144) require
     warning_level=strict. Basic warnings (W001-W010) fire at all
     levels. The warning_level is set in specforge.json or
     CompilerConfig. Default is standard.

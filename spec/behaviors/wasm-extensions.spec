@@ -442,21 +442,21 @@ behavior toggle_extension_contributions "Toggle Extension Contributions" {
   ensures {
     contribution_toggled_emitted   "contribution_toggled event is emitted after toggle state is applied"
     disabled_contributions_skipped "disabled contributions are skipped during dispatch"
-    sole_provider_warned           "disabling the only entity provider for a kind produces W028 warning"
+    sole_provider_warned           "disabling the only entity provider for a kind produces W145 warning"
   }
   contract   """
     The specforge.json configuration MUST support enabling or disabling
     individual contributions from an extension. Disabled contributions MUST
     be skipped during dispatch. The extension MUST still be loaded and
     initialized — only the disabled contribution exports are not called.
-    Disabling the only entity provider for a kind MUST produce a W028
+    Disabling the only entity provider for a kind MUST produce a W145
     warning listing the affected entity kind.
   """
   produces   [contribution_toggled]
   verify unit "disabled contribution is skipped during dispatch"
   verify unit "extension still loaded when some contributions disabled"
   verify unit "re-enabled contribution resumes normal dispatch"
-  verify unit "disabling only entity provider for a kind produces W028"
+  verify unit "disabling only entity provider for a kind produces W145"
   verify contract "Toggle Extension Contributions: extension contribution toggling holds — extension_loaded_ready, config_available, contribution_toggled_emitted, disabled_contributions_skipped, sole_provider_warned"
 }
 

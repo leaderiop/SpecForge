@@ -257,7 +257,7 @@ behavior fa_validate_port_behavior_compatibility "W036: Port-Behavior Condition 
 
 // ── Warn on conditions without formal verify ─────────────────
 
-behavior fa_validate_conditions_without_verify "W028: Conditions Without Formal Verify" {
+behavior fa_validate_conditions_without_verify "W144: Conditions Without Formal Verify" {
   category query
   types    [RequiresBlock, EnsuresBlock]
   contract """
@@ -269,14 +269,14 @@ behavior fa_validate_conditions_without_verify "W028: Conditions Without Formal 
     conditions_parsed "requires/ensures blocks are parsed"
   }
   ensures {
-    missing_verify_warned "behavior with conditions but no contract/property verify produces W028"
+    missing_verify_warned "behavior with conditions but no contract/property verify produces W144"
     formal_verify_passes  "behavior with conditions and contract or property verify passes"
-    no_conditions_exempt  "behavior without conditions never produces W028"
-    suggestion            "W028 includes suggestion to add verify contract or verify property"
+    no_conditions_exempt  "behavior without conditions never produces W144"
+    suggestion            "W144 includes suggestion to add verify contract or verify property"
   }
   features [fa_structured_conditions]
-  verify unit "behavior with conditions but no contract/property verify produces W028"
+  verify unit "behavior with conditions but no contract/property verify produces W144"
   verify unit "behavior with conditions and contract verify passes"
   verify unit "behavior with conditions and property verify passes"
-  verify unit "behavior without conditions never produces W028"
+  verify unit "behavior without conditions never produces W144"
 }

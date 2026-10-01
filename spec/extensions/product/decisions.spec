@@ -354,9 +354,11 @@ decision pe_diagnostic_code_gaps "Intentional Diagnostic Code Gaps" {
   date         2026-03-10
   context      """
     Product diagnostic codes use ranges (W041-W046, W049, W057, W075-W085,
-    I010, I046-I075). Codes W047, W048, W050-W056, W058-W074 are unused.
-    These gaps exist because codes were assigned incrementally as validation
-    rules were added, not in a pre-allocated block.
+    I010, I046-I075). The codes between them are not product's: W047-W048
+    and W050-W052 are governance's, W053-W056 and W060-W062 are core's,
+    W058 is formal's, and W063 is retired. W064-W074 are unused. These gaps
+    exist because codes were assigned incrementally as validation rules
+    were added, not in a pre-allocated block.
   """
   decision     """
     Diagnostic code gaps are intentional and reserved for future validation rules.
@@ -1370,8 +1372,8 @@ decision pe_migration_additive_only "Additive-Only Schema Evolution" {
   decision     """
     Minor versions (1.x) follow additive-only schema evolution:
     - New optional fields can be added to any entity kind
-    - New diagnostic codes consume from reserved ranges (W047-W048,
-      W050-W056, W058-W074) before allocating new ranges
+    - New diagnostic codes consume from the reserved range W064-W074
+      before allocating new ranges
     - New edge types require manifest version field bump but not major version
     - New entity kinds require major version bump
     - Field removal, kind removal, or edge type removal require major version
