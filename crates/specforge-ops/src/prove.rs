@@ -151,28 +151,108 @@ fn encode_conjunction(parts: &[SpannedExpr]) -> Option<String> {
 
 // ── solver ──────────────────────────────────────────────────────────────────
 
-fn z3_available() -> bool {
-    Command::new("z3")
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+/// Why a solver call produced no answer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum SolveFailure {
+    /// The solver ran past its timeout and was killed.
+    TimedOut,
+    /// The solver could not be executed or died without an answer.
+    Failed,
 }
 
-/// Run z3 and return its full stdout (sat/unsat line, optional core or
-/// model sections), or None when the solver could not be executed.
-fn run_z3(script: &str) -> Option<String> {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
-    let tmp = std::env::temp_dir().join(format!(
-        "specforge-prove-{}-{}.smt2",
-        std::process::id(),
-        COUNTER.fetch_add(1, Ordering::Relaxed)
-    ));
-    std::fs::write(&tmp, script).ok()?;
-    let output = Command::new("z3").arg(&tmp).output().ok()?;
-    let _ = std::fs::remove_file(&tmp);
-    Some(String::from_utf8_lossy(&output.stdout).to_string())
+/// Private seam over the SMT solver. Production: [`Z3`] (shells out with a
+/// timeout). Tests: a scripted adapter. Not part of any public interface.
+trait Solver {
+    /// First line of the solver's version banner, `None` when unavailable.
+    fn version(&self) -> Option<String>;
+    /// Run an SMT-LIB2 script and return the solver's full stdout.
+    fn solve(&self, script: &str) -> Result<String, SolveFailure>;
+}
+
+/// Options of the prove step.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProveOptions {
+    /// Wall-clock limit for each z3 invocation.
+    pub z3_timeout: std::time::Duration,
+}
+
+impl Default for ProveOptions {
+    fn default() -> Self {
+        Self {
+            z3_timeout: std::time::Duration::from_secs(30),
+        }
+    }
+}
+
+/// Production adapter: shells out to `z3`, killing it past the timeout.
+struct Z3 {
+    timeout: std::time::Duration,
+}
+
+impl Solver for Z3 {
+    fn version(&self) -> Option<String> {
+        let output = Command::new("z3").arg("--version").output().ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        Some(
+            String::from_utf8_lossy(&output.stdout)
+                .lines()
+                .next()
+                .unwrap_or("z3")
+                .to_string(),
+        )
+    }
+
+    fn solve(&self, script: &str) -> Result<String, SolveFailure> {
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        let tmp = std::env::temp_dir().join(format!(
+            "specforge-prove-{}-{}.smt2",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        std::fs::write(&tmp, script).map_err(|_| SolveFailure::Failed)?;
+        let result = run_with_timeout(Command::new("z3").arg(&tmp), self.timeout);
+        let _ = std::fs::remove_file(&tmp);
+        result
+    }
+}
+
+/// Run a command to completion or kill it at `timeout`; returns its stdout.
+fn run_with_timeout(
+    cmd: &mut Command,
+    timeout: std::time::Duration,
+) -> Result<String, SolveFailure> {
+    use std::io::Read;
+    use std::process::Stdio;
+    let mut child = cmd
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|_| SolveFailure::Failed)?;
+    let mut stdout = child.stdout.take().ok_or(SolveFailure::Failed)?;
+    let reader = std::thread::spawn(move || {
+        let mut buf = Vec::new();
+        let _ = stdout.read_to_end(&mut buf);
+        buf
+    });
+    let deadline = std::time::Instant::now() + timeout;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => break,
+            Ok(None) if std::time::Instant::now() >= deadline => {
+                let _ = child.kill();
+                let _ = child.wait();
+                let _ = reader.join();
+                return Err(SolveFailure::TimedOut);
+            }
+            Ok(None) => std::thread::sleep(std::time::Duration::from_millis(10)),
+            Err(_) => return Err(SolveFailure::Failed),
+        }
+    }
+    let buf = reader.join().map_err(|_| SolveFailure::Failed)?;
+    Ok(String::from_utf8_lossy(&buf).to_string())
 }
 
 fn first_result_line(stdout: &str) -> &str {
@@ -336,25 +416,40 @@ fn conjuncts_from_field(value: &specforge_graph::FieldValue) -> (Vec<Conjunct>, 
     (out, skipped)
 }
 
+fn note_failure(failure: SolveFailure, runtime_failure: &mut bool, timed_out: &mut bool) {
+    match failure {
+        SolveFailure::TimedOut => *timed_out = true,
+        SolveFailure::Failed => *runtime_failure = true,
+    }
+}
+
 /// Run the prove pass: consistency over declared bounds (E046 with unsat
 /// cores) and entailment of formal claims with counterexample models (W139).
 pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
+    run_prove_with(ctx, &ProveOptions::default())
+}
+
+/// [`run_prove`] with explicit options (z3 timeout).
+pub fn run_prove_with(ctx: &AnalysisContext, options: &ProveOptions) -> ProveReport {
+    analyze_with(
+        ctx,
+        &Z3 {
+            timeout: options.z3_timeout,
+        },
+    )
+}
+
+/// The prove step over an injected solver (the seam used by ops tests).
+fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveReport {
     let mut findings = Vec::new();
     let mut skipped_prose_lines = 0usize;
     let mut constraints_with_metrics = 0usize;
     let mut conjunct_count = 0usize;
     let mut axioms: Vec<Conjunct> = Vec::new();
     let mut claims: Vec<Claim> = Vec::new();
-    let solver_available = z3_available();
-    let mut solver_version = String::from("not found");
-
-    if solver_available && let Ok(output) = Command::new("z3").arg("--version").output() {
-        solver_version = String::from_utf8_lossy(&output.stdout)
-            .lines()
-            .next()
-            .unwrap_or("z3")
-            .to_string();
-    }
+    let version = solver.version();
+    let solver_available = version.is_some();
+    let solver_version = version.unwrap_or_else(|| String::from("not found"));
 
     for node in ctx.graph.nodes() {
         // Axioms: constraint metric bounds.
@@ -406,6 +501,7 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
     // mid-run (hardening-plan D3): analysis output must never silently
     // depend on machine state.
     let mut solver_runtime_failure = false;
+    let mut solver_timed_out = false;
     if !solver_available {
         findings.push(
             Diagnostic::warning(
@@ -440,8 +536,8 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
             }
             script.push_str("(check-sat)\n(get-unsat-core)\n");
 
-            match run_z3(&script) {
-                Some(stdout) => match first_result_line(&stdout) {
+            match solver.solve(&script) {
+                Ok(stdout) => match first_result_line(&stdout) {
                     "unsat" => {
                         unsat = true;
                         let cited: Vec<String> = parse_unsat_core(&stdout)
@@ -472,7 +568,9 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
                         ));
                     }
                 },
-                None => solver_runtime_failure = true,
+                Err(failure) => {
+                    note_failure(failure, &mut solver_runtime_failure, &mut solver_timed_out)
+                }
             }
         }
 
@@ -496,9 +594,12 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
             script.push_str(&format!("(assert (not {}))\n", encode_expr(&claim.expr)));
             script.push_str("(check-sat)\n(get-model)\n");
 
-            let Some(stdout) = run_z3(&script) else {
-                solver_runtime_failure = true;
-                continue;
+            let stdout = match solver.solve(&script) {
+                Ok(stdout) => stdout,
+                Err(failure) => {
+                    note_failure(failure, &mut solver_runtime_failure, &mut solver_timed_out);
+                    continue;
+                }
             };
             {
                 match first_result_line(&stdout) {
@@ -546,6 +647,15 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
         }
     }
 
+    if solver_timed_out {
+        findings.push(
+            Diagnostic::warning(
+                "W098",
+                "the SMT solver timed out; some formal checks were skipped".to_string(),
+            )
+            .with_suggestion("simplify the declared bounds or claims, or raise the z3 timeout"),
+        );
+    }
     if solver_runtime_failure {
         findings.push(
             Diagnostic::warning(
@@ -560,6 +670,7 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
         "solver": solver_version,
         "solver_available": solver_available,
         "solver_runtime_failure": solver_runtime_failure,
+        "solver_timed_out": solver_timed_out,
         "constraints_with_metrics": constraints_with_metrics,
         "axioms": axioms.len(),
         "conjuncts": conjunct_count,
@@ -816,5 +927,122 @@ mod tests {
         g.add_node(claim_node("inv", "latency < 150ms"));
         let report = prove(&g);
         assert_eq!(report.summary["claims_proved"].as_u64(), Some(1));
+    }
+
+    // ── solver seam: scripted adapter, no z3 binary needed ─────────────────
+
+    use std::cell::RefCell;
+
+    /// Scripted solver: answers `solve` calls in order; no version models
+    /// a missing z3.
+    struct Scripted {
+        version: Option<String>,
+        answers: RefCell<Vec<Result<String, SolveFailure>>>,
+    }
+
+    impl Scripted {
+        fn with(answers: Vec<Result<String, SolveFailure>>) -> Self {
+            Self {
+                version: Some("Z3 scripted".to_string()),
+                answers: RefCell::new(answers.into_iter().rev().collect()),
+            }
+        }
+        fn missing() -> Self {
+            Self {
+                version: None,
+                answers: RefCell::new(Vec::new()),
+            }
+        }
+    }
+
+    impl Solver for Scripted {
+        fn version(&self) -> Option<String> {
+            self.version.clone()
+        }
+        fn solve(&self, _script: &str) -> Result<String, SolveFailure> {
+            self.answers
+                .borrow_mut()
+                .pop()
+                .expect("scripted solver ran out of answers")
+        }
+    }
+
+    fn prove_with(graph: &Graph, solver: &dyn Solver) -> ProveReport {
+        let kind_registry = KindRegistry::default();
+        let field_registry = FieldRegistry::default();
+        let empty_proved = std::collections::HashSet::new();
+        let ctx = AnalysisContext {
+            graph,
+            kind_registry: &kind_registry,
+            field_registry: &field_registry,
+            rules: &[],
+            project_root: Some(Path::new(".")),
+            test_results: None,
+            proved_claims: Some(&empty_proved),
+        };
+        analyze_with(&ctx, solver)
+    }
+
+    #[test]
+    fn timed_out_solver_yields_w098() {
+        let mut g = Graph::new();
+        g.add_node(constraint_node("c1", "latency < 100ms"));
+        let report = prove_with(&g, &Scripted::with(vec![Err(SolveFailure::TimedOut)]));
+        let w098 = report
+            .findings
+            .iter()
+            .find(|f| f.code == "W098")
+            .expect("W098 expected");
+        assert!(w098.message.contains("timed out"), "{}", w098.message);
+        assert_eq!(report.summary["solver_timed_out"], true);
+    }
+
+    #[test]
+    fn missing_solver_yields_w098_without_solving() {
+        let mut g = Graph::new();
+        g.add_node(constraint_node("c1", "latency < 100ms"));
+        let report = prove_with(&g, &Scripted::missing());
+        assert!(report.findings.iter().any(|f| f.code == "W098"));
+        assert_eq!(report.summary["solver_available"], false);
+    }
+
+    #[test]
+    fn solver_failing_mid_run_yields_w098() {
+        let mut g = Graph::new();
+        g.add_node(constraint_node("c1", "latency < 100ms"));
+        g.add_node(claim_node("inv", "latency < 200ms"));
+        let report = prove_with(
+            &g,
+            &Scripted::with(vec![Ok("sat\n".to_string()), Err(SolveFailure::Failed)]),
+        );
+        assert!(report.findings.iter().any(|f| f.code == "W098"));
+        assert_eq!(report.summary["solver_runtime_failure"], true);
+        assert!(report.proved_claim_ids.is_empty());
+    }
+
+    #[test]
+    fn unsat_bounds_yield_e046_with_scripted_core() {
+        let mut g = Graph::new();
+        g.add_node(constraint_node("c1", "latency < 100ms"));
+        g.add_node(constraint_node("c2", "latency > 500ms"));
+        let report = prove_with(
+            &g,
+            &Scripted::with(vec![Ok("unsat\n(c0 c1)\n".to_string())]),
+        );
+        assert!(report.findings.iter().any(|f| f.code == "E046"
+            && f.message.contains("latency < 100ms")
+            && f.message.contains("latency > 500ms")));
+        assert_eq!(report.summary["unsatisfiable"], true);
+    }
+
+    #[test]
+    fn process_outliving_the_timeout_is_killed() {
+        let started = std::time::Instant::now();
+        let out = run_with_timeout(
+            std::process::Command::new("sleep").arg("30"),
+            std::time::Duration::from_millis(200),
+        );
+        assert!(matches!(out, Err(SolveFailure::TimedOut)));
+        assert!(started.elapsed() < std::time::Duration::from_secs(10));
     }
 }
