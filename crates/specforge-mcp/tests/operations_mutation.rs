@@ -1539,15 +1539,39 @@ fn migrate_target_version_selects_the_version() {
 fn migrate_refuses_a_bad_target_version() {
     let (mut server, root) = server_with_old_spec();
     let before = files_under(&root);
-    for (target, code) in [("99.0", "E019"), ("latest", "E019")] {
+    for target in ["99.0", "latest"] {
         let resp = call_tool(
             &mut server,
             "specforge.migrate",
             json!({"target_version": target}),
         );
+        assert_eq!(resp["error"]["data"]["code"], "E019", "{target}: {resp}");
         let message = resp["error"]["message"].as_str().unwrap_or_default();
-        assert!(message.starts_with(code), "{target}: {resp}");
         assert!(message.contains(target), "{target}: {resp}");
     }
     assert_eq!(files_under(&root), before);
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_migrate_tool",
+    verify = "the result reports the hooks run, the structural differences and whether the migration was rolled back"
+)]
+fn migrate_reports_hooks_structure_and_rollback() {
+    let (mut server, root) = server_with_old_spec();
+
+    let resp = call_tool(&mut server, "specforge.migrate", json!({}));
+
+    let result: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(result["migrated"], true, "{result}");
+    // No enabled extension declares a migration hook.
+    assert_eq!(result["hooks_invoked"], json!([]), "{result}");
+    assert_eq!(result["hook_failures"], json!([]), "{result}");
+    // A header-only migration keeps the graph's structure.
+    assert_eq!(result["structural_differences"], json!([]), "{result}");
+    assert_eq!(result["rolled_back"], false, "{result}");
+    assert!(
+        std::fs::read_to_string(root.join("old.spec"))
+            .unwrap()
+            .starts_with("// specforge-format: 1.0")
+    );
 }

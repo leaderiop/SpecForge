@@ -19,6 +19,7 @@ pub mod export;
 pub mod extension;
 pub mod format;
 pub mod init;
+pub mod migrate;
 pub mod registry;
 
 use std::borrow::Cow;

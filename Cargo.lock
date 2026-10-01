@@ -2999,6 +2999,8 @@ dependencies = [
  "specforge-emitter",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-migrate",
+ "specforge-project",
  "specforge-registry",
  "specforge-test",
  "specforge-test-macros",

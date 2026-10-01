@@ -43,6 +43,8 @@ expression: mcp_snap
     "files_migrated": 1,
     "files_skipped": 1,
     "from_version": "0.1",
+    "hook_failures": [],
+    "hooks_invoked": [],
     "migrated": true,
     "post_migration_errors": [],
     "post_migration_validated": true,
@@ -72,6 +74,10 @@ expression: mcp_snap
         }
       }
     ],
+    "rollback": null,
+    "rolled_back": false,
+    "schema_warnings": [],
+    "structural_differences": [],
     "to_version": "1.0"
   }
 }

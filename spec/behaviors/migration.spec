@@ -338,9 +338,9 @@ behavior rollback_failed_migration "Rollback Failed Migration" {
   }
   contract   """
     The behavior consumes migration_started to identify the set of files
-    that have backups. Rollback is triggered via the --rollback CLI flag
-    after post-migration validation detects structural differences.
-    Automatic rollback is NOT performed — the user must explicitly opt in.
+    that have backups. Rollback runs automatically when an extension
+    migration hook fails or post-migration validation detects structural
+    differences, and on demand via the --rollback CLI flag.
     When invoked, the system MUST restore all migrated files from their
     .bak backups. Each file MUST be restored atomically (write to temp,
     then rename). If a .bak file is missing for a migrated file, the
@@ -353,13 +353,14 @@ behavior rollback_failed_migration "Rollback Failed Migration" {
 
     Note: consumes migration_started for informational context (the backup
     file set created during migration_started), NOT as an execution trigger.
-    Rollback is triggered imperatively via the --rollback CLI flag.
   """
   verify unit "restores migrated files from .bak backups"
   verify unit "missing .bak file produces warning and skips"
   verify unit "restore is atomic per file"
   verify unit "rollback failure for one file does not block others"
   verify unit "summary reports restored, skipped, and failed counts"
+  verify unit "a migration whose graph changes structure is rolled back automatically"
+  verify unit "a migration whose extension hook fails is rolled back automatically"
   verify contract "Rollback Failed Migration: migration rollback holds — migration_started, files_restored, rollback_event_emitted, backup_file_preservation"
 }
 

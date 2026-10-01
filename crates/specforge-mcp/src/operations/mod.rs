@@ -510,41 +510,34 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
         .unwrap_or(false);
     // The format version to migrate to, checked as `specforge migrate
     // --target-version` checks it.
-    let target = match args.get("target_version").and_then(|v| v.as_str()) {
-        None => specforge_migrate::CURRENT_FORMAT_VERSION,
-        Some(v) => match v.parse::<specforge_migrate::FormatVersion>() {
-            Ok(version) if version > specforge_migrate::MAX_SUPPORTED_VERSION => {
-                return err_invalid(
-                    id,
-                    format!(
-                        "E019: unsupported target version {version} (max supported: {})",
-                        specforge_migrate::MAX_SUPPORTED_VERSION
-                    ),
-                );
-            }
-            Ok(version) => version,
-            Err(e) => return err_invalid(id, format!("E019: invalid target version '{v}': {e}")),
-        },
+    let target = match specforge_ops::migrate::parse_target(
+        args.get("target_version").and_then(|v| v.as_str()),
+    ) {
+        Ok(target) => target,
+        Err(error) => return err_op(id, error),
     };
 
     if !path.join("specforge.json").is_file() {
         return err_invalid(id, "no specforge.json found in the project root");
     }
-    // The format version lives in each spec file's header, so the spec
-    // files say whether a migration is pending: preview first.
-    let preview = specforge_migrate::migrate_project(&path, &target, true, true);
-    let from_version = preview
-        .results
-        .iter()
-        .filter_map(|r| r.from_version.clone())
-        .min()
-        .unwrap_or_else(|| target.clone());
-    if preview.migrated_count == 0 && preview.failed_count == 0 {
+    // The migration `specforge migrate` runs, hooks and rollback included.
+    let runtime = state.wasm_runtime(&path);
+    let request = specforge_ops::migrate::Request {
+        root: &path,
+        target,
+        dry_run,
+        no_backup,
+    };
+    let outcome = specforge_ops::migrate::run(&request, Some(runtime.as_ref()));
+    let (from, to) = (outcome.from.to_string(), outcome.to.to_string());
+    // The format version lives in each spec file's header: with no file
+    // behind the target, the project is current and nothing ran.
+    if !outcome.pending {
         return ok(
             id,
             json!({
-                "from_version": format!("{from_version}"),
-                "to_version": format!("{target}"),
+                "from_version": from,
+                "to_version": to,
                 "migrated": false,
                 "dry_run": dry_run,
                 "changes": [],
@@ -553,41 +546,35 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
         );
     }
 
-    let summary = if dry_run {
-        preview
-    } else {
-        specforge_migrate::migrate_project(&path, &target, false, no_backup)
-    };
-    // After a migration, compile the result and report its errors.
-    let migrated = !dry_run && summary.migrated_count > 0;
-    let post_migration_errors: Vec<Value> = if migrated {
-        state
-            .compile(&path)
-            .diagnostics
-            .iter()
-            .filter(|d| d.severity == specforge_common::Severity::Error)
-            .map(|d| json!({"code": d.code, "message": d.message}))
-            .collect()
-    } else {
-        Vec::new()
-    };
-    ok(
-        id,
-        json!({
-            "from_version": format!("{from_version}"),
-            "to_version": format!("{target}"),
-            "migrated": migrated,
-            "dry_run": dry_run,
-            "files_migrated": summary.migrated_count,
-            "files_skipped": summary.skipped_count,
-            "files_failed": summary.failed_count,
-            "results": summary.results,
-            "diffs": summary.diffs,
-            "diagnostics": summary.diagnostics,
-            "post_migration_validated": migrated,
-            "post_migration_errors": post_migration_errors,
-        }),
-    )
+    let summary = &outcome.summary;
+    let post_migration_errors: Vec<Value> = outcome
+        .post_errors()
+        .map(|d| json!({"code": d.code, "message": d.message}))
+        .collect();
+    let result = json!({
+        "from_version": from,
+        "to_version": to,
+        "migrated": outcome.migrated(),
+        "dry_run": dry_run,
+        "files_migrated": summary.migrated_count,
+        "files_skipped": summary.skipped_count,
+        "files_failed": summary.failed_count,
+        "results": summary.results,
+        "diffs": summary.diffs,
+        "diagnostics": summary.diagnostics,
+        "hooks_invoked": outcome.hooks_invoked,
+        "hook_failures": outcome.hook_failures,
+        "schema_warnings": specforge_emitter::diagnostics_json(&outcome.schema_warnings),
+        "structural_differences": specforge_emitter::diagnostics_json(&outcome.structural_differences),
+        "rolled_back": outcome.rollback.is_some(),
+        "rollback": outcome.rollback,
+        "post_migration_validated": outcome.validated,
+        "post_migration_errors": post_migration_errors,
+    });
+    if outcome.failed() {
+        return ToolOutcome::failed_with(result);
+    }
+    ok(id, result)
 }
 
 // ── extensions ──────────────────────────────────────────────────────────────

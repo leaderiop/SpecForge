@@ -287,18 +287,26 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
     target_version? (optional string, format "major.minor", default the
     current format version), no_backup? (optional boolean, default false:
     skip the .bak backups) and path? (the project root; the initialized
-    root when omitted). A malformed target_version is an E015 error and one
-    above the highest supported format version an E019 error, and neither
-    modifies any file. The tool MUST
+    root when omitted). A target_version that is malformed or above the
+    highest supported format version is an E019 error, and modifies no
+    file. The tool MUST
     detect and apply pending migrations to spec files. In dry_run mode, the
     tool MUST return the diff without modifying any files. After migration,
     the tool MUST validate the result and report any post-migration errors.
+    The tool MUST run the same migration as specforge migrate: extension
+    migration hooks run after the files are migrated, and a migration whose
+    hooks fail or whose graph changes structure is rolled back. The result
+    MUST report the hooks run, the structural differences found, and
+    whether the migration was rolled back. A project with nothing to
+    migrate MUST be reported as already at the target version, without
+    running hooks or validation.
   """
   verify unit "specforge.migrate applies pending migrations"
   verify unit "dry_run returns diff without modifying files"
   verify unit "post-migration validation reports errors"
   verify unit "target_version selects the format version to migrate to"
   verify unit "a malformed or unsupported target_version is refused without modifying files"
+  verify unit "the result reports the hooks run, the structural differences and whether the migration was rolled back"
   verify contract "Provide MCP Migrate Tool: MCP migrate tool holds — filesystem_available, migrations_applied, post_migration_validated, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 }
 
