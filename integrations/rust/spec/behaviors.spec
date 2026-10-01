@@ -12,6 +12,7 @@ use "types"
 // ============================================================
 
 behavior expand_test_attribute "Expand Test Attribute" {
+  features   [test_annotation]
   category   command
   invariants [zero_compiler_dependency, should_panic_expectation, single_registration]
   types      [TestGuard]
@@ -49,6 +50,7 @@ behavior expand_test_attribute "Expand Test Attribute" {
 }
 
 behavior record_test_result_on_drop "Record Test Result on Drop" {
+  features   [test_annotation]
   category   command
   invariants [drop_guard_correctness]
   types      [TestGuard, TestRecordEntry, TestOutcome]
@@ -75,6 +77,7 @@ behavior record_test_result_on_drop "Record Test Result on Drop" {
 }
 
 behavior emit_binary_report "Emit Binary Report" {
+  features   [result_collection]
   category   command
   invariants [atexit_write_once, zero_compiler_dependency]
   types      [BinaryReport, TestRecordEntry]
@@ -104,6 +107,7 @@ behavior emit_binary_report "Emit Binary Report" {
 }
 
 behavior resolve_convention_mapping "Resolve Convention Mapping" {
+  features   [result_collection]
   category   query
   invariants [convention_separator_unambiguous]
   types      [EntityMappingEntry, MappingResolutionLevel]
@@ -135,6 +139,7 @@ behavior resolve_convention_mapping "Resolve Convention Mapping" {
 }
 
 behavior register_atexit_handler "Register Atexit Handler" {
+  features   [test_annotation]
   category   command
   invariants [atexit_write_once]
   ports      [ProcessExit]
@@ -159,6 +164,7 @@ behavior register_atexit_handler "Register Atexit Handler" {
 // ============================================================
 
 behavior invoke_specforge_export "Invoke Specforge Export" {
+  features   [build_integration]
   category   command
   invariants [graceful_degradation]
   types      [GraphExport]
@@ -186,6 +192,7 @@ behavior invoke_specforge_export "Invoke Specforge Export" {
 }
 
 behavior generate_entity_constants "Generate Entity Constants" {
+  features   [build_integration]
   category   command
   invariants [graceful_degradation]
   types      [GraphExport, ExportedEntity]
@@ -217,6 +224,7 @@ behavior generate_entity_constants "Generate Entity Constants" {
 // ============================================================
 
 behavior load_graph_at_exit "Load Graph at Exit" {
+  features   [coverage_summary]
   category   query
   invariants [graceful_degradation]
   types      [GraphExport, ExportedEntity]
@@ -241,6 +249,7 @@ behavior load_graph_at_exit "Load Graph at Exit" {
 }
 
 behavior compute_coverage_diff "Compute Coverage Diff" {
+  features [coverage_summary]
   category query
   types    [GraphExport, TestRecordEntry, CoverageDiff, CoverageDiffStatus]
   contract """
@@ -278,6 +287,7 @@ behavior compute_coverage_diff "Compute Coverage Diff" {
 }
 
 behavior print_coverage_summary "Print Coverage Summary" {
+  features   [coverage_summary]
   category   command
   invariants [graceful_degradation]
   types      [CoverageDiff, CoverageDiffStatus, GraphExport]

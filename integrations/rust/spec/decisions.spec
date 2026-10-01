@@ -23,7 +23,7 @@ decision drop_over_catch_unwind "Drop Guard Over catch_unwind" {
     fail because panicking() is true during expected panics. Documented
     as unsupported; use Result-based error testing instead.
   """
-  protects     [drop_guard_correctness]
+  invariants   [drop_guard_correctness]
 }
 
 decision build_rs_over_manual_export "build.rs Over Manual Export" {
@@ -47,7 +47,7 @@ decision build_rs_over_manual_export "build.rs Over Manual Export" {
     Negative: adds ~1 second to builds when spec changes. Requires
     specforge on PATH for full functionality.
   """
-  protects     [graceful_degradation]
+  invariants   [graceful_degradation]
 }
 
 decision separate_workspace "Separate Workspace from Compiler" {
@@ -68,7 +68,7 @@ decision separate_workspace "Separate Workspace from Compiler" {
     Negative: schema changes require manual synchronization. Mitigated
     by versioned schema (specforge: "1.0" field in report).
   """
-  protects     [zero_compiler_dependency]
+  invariants   [zero_compiler_dependency]
 }
 
 decision atexit_over_custom_harness "atexit Over Custom Test Harness" {
@@ -89,7 +89,7 @@ decision atexit_over_custom_harness "atexit Over Custom Test Harness" {
     Negative: atexit is POSIX — Windows needs a different mechanism
     (std::process::exit handler or similar). Deferred to Phase 2.
   """
-  protects     [atexit_write_once]
+  invariants   [atexit_write_once]
 }
 
 decision convention_as_fallback "Convention Mapping as Fallback" {
@@ -112,5 +112,5 @@ decision convention_as_fallback "Convention Mapping as Fallback" {
     unmatched_records (C11-02): records matching no exported verify are
     listed instead of silently ignored.
   """
-  protects     [convention_separator_unambiguous]
+  invariants   [convention_separator_unambiguous]
 }
