@@ -399,7 +399,7 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
 behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
   invariants [diagnostic_determinism, mcp_structured_error_responses]
   category   query
-  types      [McpCollectResult, McpToolDescriptor]
+  types      [McpCollectResult, McpCollectRunner, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked]
   requires {

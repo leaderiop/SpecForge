@@ -289,10 +289,35 @@ type McpTracePlanResult "Trace tool response when plan parameter is provided" {
 }
 
 type McpCollectResult {
-  report_path     string @readonly
-  items_found     integer
-  entities_mapped integer
+  /// "collected".
+  status      string @readonly
+  /// One entry per runner whose results were collected.
+  runners     McpCollectRunner[]
+  /// What collecting reported (W115: a test names an unknown entity).
+  diagnostics Diagnostic[]
+  /// The path of the written specforge-report.json.
+  report      string @readonly
   verify unit "McpCollectResult schema is valid"
+}
+
+type McpCollectRunner "What one runner's collection found" {
+  /// The collector's name, e.g. cargo-test.
+  name          string  @readonly
+  /// The extension contributing the collector.
+  extension     string  @readonly
+  /// Whether the runner's command ran (run=true), or its report was read.
+  ran           boolean
+  exit_code     integer @optional
+  /// Report files read.
+  files         integer
+  /// Entities the results name.
+  entities      integer
+  passed        integer
+  failed        integer
+  skipped       integer
+  /// Tests linked by naming convention rather than by the report.
+  by_convention integer
+  verify unit "McpCollectRunner schema is valid"
 }
 
 type McpRenderResult {

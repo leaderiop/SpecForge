@@ -246,6 +246,80 @@ fn collect_returns_result() {
     assert_eq!(report["results"]["alpha"]["tests"][0]["status"], "pass");
 }
 
+/// Each `(field, type)` of a spec type holds in `value`: `string`,
+/// `integer`, `boolean`, `array` or `string[]`.
+fn assert_fields(value: &Value, fields: &[(&str, &str)]) {
+    for (field, kind) in fields {
+        let v = &value[*field];
+        let holds = match *kind {
+            "string" => v.is_string(),
+            "integer" => v.is_u64() || v.is_i64(),
+            "boolean" => v.is_boolean(),
+            "array" => v.is_array(),
+            "string[]" => v.as_array().is_some_and(|a| a.iter().all(Value::is_string)),
+            other => panic!("no check for {other}"),
+        };
+        assert!(holds, "{field} is not {kind}: {value}");
+    }
+}
+
+fn collected(root: &std::path::Path) -> Value {
+    let mut server = test_server();
+    let resp = call_tool(
+        &mut server,
+        "specforge.collect",
+        json!({"path": root.to_str().unwrap()}),
+    );
+    serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
+}
+
+#[specforge_test(type = "McpCollectResult", verify = "McpCollectResult schema is valid")]
+fn collect_result_is_an_mcp_collect_result() {
+    let root = collect_project();
+
+    let result = collected(&root);
+
+    assert_fields(
+        &result,
+        &[
+            ("status", "string"),
+            ("runners", "array"),
+            ("diagnostics", "array"),
+            ("report", "string"),
+        ],
+    );
+    assert_eq!(
+        result["report"],
+        root.join("specforge-report.json").display().to_string()
+    );
+    assert_eq!(result["diagnostics"][0]["code"], "W115", "{result}");
+}
+
+#[specforge_test(type = "McpCollectRunner", verify = "McpCollectRunner schema is valid")]
+fn each_collect_runner_is_an_mcp_collect_runner() {
+    let root = collect_project();
+
+    let result = collected(&root);
+
+    let runner = &result["runners"][0];
+    assert_fields(
+        runner,
+        &[
+            ("name", "string"),
+            ("extension", "string"),
+            ("ran", "boolean"),
+            ("files", "integer"),
+            ("entities", "integer"),
+            ("passed", "integer"),
+            ("failed", "integer"),
+            ("skipped", "integer"),
+            ("by_convention", "integer"),
+        ],
+    );
+    // Read, not run: no exit code.
+    assert!(runner.get("exit_code").is_none(), "{runner}");
+}
+
 // B:provide_mcp_collect_tool — verify unit "unapproved command is refused"
 #[specforge_test(
     behavior = "provide_mcp_collect_tool",
