@@ -25,7 +25,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use specforge_common::{Diagnostic, ProjectConfig, is_excluded, load_project_config};
-use specforge_emitter::compile::{GraphChecks, check_graph, load_extensions};
+use specforge_emitter::compile::{GraphChecks, check_graph, load_extensions, probe_custom_rules};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_registry::{
@@ -68,7 +68,13 @@ impl Environment {
             Some(runtime) => load_extensions(&config.extensions, runtime, &mut load_diagnostics),
             None => Vec::new(),
         };
-        let registries = build_registries(manifests);
+        let mut registries = build_registries(manifests);
+        // A custom rule's wasm_function is resolved against its extension
+        // now, so a name it does not export is reported once (W112).
+        if let Some(runtime) = runtime {
+            let probes = probe_custom_rules(&registries.rules, runtime);
+            registries.registry_diagnostics.extend(probes);
+        }
         let provider_schemes = register_providers(&config, &registries, &mut load_diagnostics);
         if registries.manifests.is_empty() {
             load_diagnostics.push(structural_only_notice(&config.extensions));

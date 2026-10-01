@@ -54,7 +54,9 @@ pub struct RegistryBuild {
     pub extension_info: Vec<(String, String)>,
     /// Populate (E026, W018, W019, I004), rule-parse (W112), then
     /// duplicate rule codes (W023)
-    /// diagnostics, in that order.
+    /// diagnostics, in that order. `specforge_project::Environment::load`
+    /// appends the custom rules' probes (W112) when the extensions ran in a
+    /// runtime.
     pub registry_diagnostics: Vec<Diagnostic>,
     /// Surface registration conflicts (E039). `specforge check` reports
     /// them after the graph's own diagnostics.

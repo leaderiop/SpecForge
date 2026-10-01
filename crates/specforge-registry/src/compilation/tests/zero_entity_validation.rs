@@ -5,7 +5,7 @@
 //! - detect_unknown_entity_fields (6)
 //! - parse_validation_rule_pattern (5)
 //! - emit_diagnostic_from_pattern (5)
-//! - register_custom_validation_patterns (5)
+//! - register_custom_validation_patterns (2; the rest in specforge-project)
 //! - validate_extension_testability (5)
 //! - register_extension_validation_rules (4)
 //! - detect_duplicate_entity_kinds (4)
@@ -19,7 +19,7 @@ use specforge_registry::compilation::{
 use specforge_registry::validation_engine::{
     ValidationEntity, ValidationPatternKind, ValidationRulePattern, WasmValidationRuntime,
     execute_pattern, interpolate_template, parse_all_rule_patterns, parse_rule_pattern,
-    register_custom_patterns, resolve_edge_rules,
+    resolve_edge_rules,
 };
 use specforge_registry::{
     EdgeRegistry, EdgeRegistryEntry, FieldConstraint, KindRegistry, KindRegistryEntry, ManifestV2,
@@ -807,99 +807,10 @@ fn register_extension_validation_rules_contract() {
 }
 
 // ============================================================================
-// B:register_custom_validation_patterns (5 verifies)
+// B:register_custom_validation_patterns (2 of 5 verifies; the load-time
+// registration and wasm_function resolution go through Environment::load in
+// crates/specforge-project/tests/custom_rules.rs)
 // ============================================================================
-
-#[specforge_test(
-    behavior = "register_custom_validation_patterns",
-    verify = "custom pattern registered with wasm_function reference"
-)]
-fn custom_pattern_registered_with_wasm_function_reference() {
-    let rule = ManifestValidationRule {
-        code: "E200".to_string(),
-        severity: "error".to_string(),
-        message_template: "custom fail".to_string(),
-        check: "custom".to_string(),
-        target_kind: Some("behavior".to_string()),
-        edge_type: None,
-        field: None,
-        constraint: None,
-        wasm_function: Some("validate_custom".to_string()),
-    };
-    let pattern = parse_rule_pattern(&rule, "@test").unwrap();
-    assert_eq!(pattern.check, ValidationPatternKind::Custom);
-    assert_eq!(pattern.wasm_function.as_deref(), Some("validate_custom"));
-}
-
-#[specforge_test(
-    behavior = "register_custom_validation_patterns",
-    verify = "unresolvable wasm_function produces warning"
-)]
-fn unresolvable_wasm_function_produces_warning() {
-    let pattern = ValidationRulePattern {
-        code: "E200".to_string(),
-        severity: Severity::Error,
-        message_template: "test".to_string(),
-        check: ValidationPatternKind::Custom,
-        target_kind: None,
-        edge_type: None,
-        edge_peer_kind: None,
-        field: None,
-        constraint: None,
-        wasm_function: Some("missing_func".to_string()),
-    };
-    // No Wasm runtime → warning
-    let (registered, diags) = register_custom_patterns(&[pattern], None);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "W112" && d.message.contains("missing_func"))
-    );
-    // Still registered for later (will be skipped during execution)
-    assert_eq!(registered.len(), 1);
-}
-
-#[specforge_test(
-    behavior = "register_custom_validation_patterns",
-    verify = "unresolvable wasm_function produces warning"
-)]
-fn wasm_function_probe_failure_produces_warning() {
-    struct TrappingRuntime;
-    impl WasmValidationRuntime for TrappingRuntime {
-        fn call_custom_validator(
-            &self,
-            _func: &str,
-            id: &str,
-            _kind: &str,
-        ) -> Result<bool, String> {
-            if id == "__probe__" {
-                Err("trapped: unreachable".to_string())
-            } else {
-                Ok(true)
-            }
-        }
-    }
-    let pattern = ValidationRulePattern {
-        code: "E202".to_string(),
-        severity: Severity::Error,
-        message_template: "test".to_string(),
-        check: ValidationPatternKind::Custom,
-        target_kind: None,
-        edge_type: None,
-        edge_peer_kind: None,
-        field: None,
-        constraint: None,
-        wasm_function: Some("broken_export".to_string()),
-    };
-
-    let (registered, diags) = register_custom_patterns(&[pattern], Some(&TrappingRuntime));
-    // The dead function is reported, not silently registered as healthy.
-    assert!(diags.iter().any(|d| d.code == "W112"
-        && d.message.contains("broken_export")
-        && d.message.contains("can never fire")));
-    // Still registered (execution will simply never fire it).
-    assert_eq!(registered.len(), 1);
-}
 
 #[specforge_test(
     behavior = "register_custom_validation_patterns",
@@ -973,42 +884,6 @@ fn custom_pattern_failure_emits_configured_diagnostic() {
     );
     assert_eq!(diags[0].code, "E201");
     assert_eq!(diags[0].severity, Severity::Error);
-}
-
-#[specforge_test(
-    behavior = "register_custom_validation_patterns",
-    verify = "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"
-)]
-fn register_custom_validation_patterns_contract() {
-    let custom = ValidationRulePattern {
-        code: "E200".to_string(),
-        severity: Severity::Error,
-        message_template: "test".to_string(),
-        check: ValidationPatternKind::Custom,
-        target_kind: None,
-        edge_type: None,
-        edge_peer_kind: None,
-        field: None,
-        constraint: None,
-        wasm_function: Some("func".to_string()),
-    };
-    let declarative = ValidationRulePattern {
-        code: "W100".to_string(),
-        severity: Severity::Warning,
-        message_template: "test".to_string(),
-        check: ValidationPatternKind::NoIncomingEdges,
-        target_kind: None,
-        edge_type: None,
-        edge_peer_kind: None,
-        field: None,
-        constraint: None,
-        wasm_function: None,
-    };
-    // ensures: custom patterns registered alongside declarative
-    let (registered, diags) = register_custom_patterns(&[custom, declarative], None);
-    assert_eq!(registered.len(), 2);
-    // ensures: unresolvable Wasm produces warning
-    assert!(diags.iter().any(|d| d.code == "W112"));
 }
 
 // ============================================================================

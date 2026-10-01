@@ -178,10 +178,17 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
     for cross-entity semantic checks and custom graph traversals.
     On failure, the engine MUST emit a diagnostic using the pattern's
     configured code, severity, and message template. Unresolvable
-    wasm_function names MUST produce a warning at registration time.
+    wasm_function names MUST produce a warning (W112) at registration
+    time: when the extensions load, each custom rule's wasm_function is
+    called once on an entity of the rule's target kind that declares
+    nothing, and a call that does not answer with a verdict is reported.
+    The rule stays registered; dispatch then skips an entity whose call
+    fails without reporting it again. A custom rule that names no
+    wasm_function MUST produce W112 and MUST NOT be registered.
   """
   verify unit "custom pattern registered with wasm_function reference"
   verify unit "unresolvable wasm_function produces warning"
+  verify unit "custom rule without a wasm_function produces warning and is not registered"
   verify unit "custom pattern dispatched to Wasm runtime during validation"
   verify unit "custom pattern failure emits configured diagnostic"
   verify contract "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"

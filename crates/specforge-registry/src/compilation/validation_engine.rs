@@ -247,6 +247,13 @@ pub(crate) fn parse_rule_pattern(
                 &format!("check '{}' requires a field but none is set", rule.check),
             ));
         }
+        ValidationPatternKind::Custom if rule.wasm_function.is_none() => {
+            return Err(unexecutable_rule(
+                extension_name,
+                &rule.code,
+                "check 'custom' requires a wasm_function but none is set",
+            ));
+        }
         _ => {}
     }
 
@@ -593,9 +600,10 @@ pub fn execute_pattern(
                             true
                         }
                         // A runtime error means a broken or trapping export,
-                        // already reported once by register_custom_patterns'
-                        // __probe__ at load time; repeating per entity would
-                        // only spam.
+                        // already reported once (W112) by the probe that
+                        // resolves the wasm_function when the extension's
+                        // rules are loaded; repeating per entity would only
+                        // spam.
                         Err(_) => false,
                     }
                 } else {
@@ -647,80 +655,6 @@ pub fn execute_pattern(
     }
 
     diagnostics
-}
-
-/// Register custom validation patterns, resolving Wasm function references.
-/// Test-only: the compile parses custom rules with the others
-/// (`parse_all_rule_patterns`) and dispatches them by origin.
-#[cfg(test)]
-pub(crate) fn register_custom_patterns(
-    patterns: &[ValidationRulePattern],
-    wasm: Option<&dyn WasmValidationRuntime>,
-) -> (Vec<ValidationRulePattern>, Vec<Diagnostic>) {
-    let mut registered = Vec::new();
-    let mut diagnostics = Vec::new();
-
-    for pattern in patterns {
-        if pattern.check == ValidationPatternKind::Custom {
-            if let Some(ref func) = pattern.wasm_function {
-                // Try to resolve the Wasm function
-                if let Some(rt) = wasm {
-                    match rt.call_custom_validator(func, "__probe__", "__probe__") {
-                        Ok(_) => {
-                            // Probe passed — the export exists and runs.
-                            registered.push(pattern.clone());
-                        }
-                        Err(err) => {
-                            // C6-12: a function that traps on the probe can
-                            // never produce a verdict, so registering it
-                            // silently would ship a dead rule. Warn loudly;
-                            // still register (execution will never fire it),
-                            // matching the no-runtime policy below.
-                            diagnostics.push(Diagnostic {
-                                code: "W112".to_string(),
-                                severity: Severity::Warning,
-                                message: format!(
-                                    "custom validation pattern '{}' probes wasm_function '{}' and the call failed: {} — the rule can never fire",
-                                    pattern.code, func, err
-                                ),
-                                span: None,
-                                suggestion: None,
-                            });
-                            registered.push(pattern.clone());
-                        }
-                    }
-                } else {
-                    diagnostics.push(Diagnostic {
-                        code: "W112".to_string(),
-                        severity: Severity::Warning,
-                        message: format!(
-                            "custom validation pattern '{}' references wasm_function '{}' but Wasm runtime is not available",
-                            pattern.code, func
-                        ),
-                        span: None,
-                        suggestion: None,
-                    });
-                    // Still register it — it will be skipped during execution
-                    registered.push(pattern.clone());
-                }
-            } else {
-                diagnostics.push(Diagnostic {
-                    code: "W112".to_string(),
-                    severity: Severity::Warning,
-                    message: format!(
-                        "custom validation pattern '{}' has check 'custom' but no wasm_function",
-                        pattern.code
-                    ),
-                    span: None,
-                    suggestion: None,
-                });
-            }
-        } else {
-            registered.push(pattern.clone());
-        }
-    }
-
-    (registered, diagnostics)
 }
 
 #[cfg(test)]
@@ -1312,81 +1246,6 @@ mod tests {
         );
     }
 
-    // C6-12: a wasm function that traps on the __probe__ is warned about at
-    // registration instead of being silently registered as healthy.
-    #[test]
-    fn test_probe_failure_warns_instead_of_silent_registration() {
-        struct TrappingRuntime;
-        impl WasmValidationRuntime for TrappingRuntime {
-            fn call_custom_validator(
-                &self,
-                _func: &str,
-                id: &str,
-                _kind: &str,
-            ) -> Result<bool, String> {
-                if id == "__probe__" {
-                    Err("trapped: unreachable".to_string())
-                } else {
-                    Ok(true)
-                }
-            }
-        }
-        let pattern = ValidationRulePattern {
-            code: "E202".to_string(),
-            severity: Severity::Error,
-            message_template: "{id} failed".to_string(),
-            check: ValidationPatternKind::Custom,
-            target_kind: None,
-            edge_type: None,
-            edge_peer_kind: None,
-            field: None,
-            constraint: None,
-            wasm_function: Some("broken_export".to_string()),
-        };
-
-        let (registered, diags) = register_custom_patterns(&[pattern], Some(&TrappingRuntime));
-        assert_eq!(registered.len(), 1);
-        assert!(
-            diags.iter().any(|d| d.code == "W112"
-                && d.message.contains("broken_export")
-                && d.message.contains("can never fire")),
-            "probe failure must be reported: {:?}",
-            diags
-        );
-    }
-
-    // C6-12: a healthy probe registers without any warning.
-    #[test]
-    fn test_healthy_probe_registers_without_warning() {
-        struct HealthyRuntime;
-        impl WasmValidationRuntime for HealthyRuntime {
-            fn call_custom_validator(
-                &self,
-                _func: &str,
-                _id: &str,
-                _kind: &str,
-            ) -> Result<bool, String> {
-                Ok(true)
-            }
-        }
-        let pattern = ValidationRulePattern {
-            code: "E203".to_string(),
-            severity: Severity::Error,
-            message_template: "{id} failed".to_string(),
-            check: ValidationPatternKind::Custom,
-            target_kind: None,
-            edge_type: None,
-            edge_peer_kind: None,
-            field: None,
-            constraint: None,
-            wasm_function: Some("healthy_export".to_string()),
-        };
-
-        let (registered, diags) = register_custom_patterns(&[pattern], Some(&HealthyRuntime));
-        assert_eq!(registered.len(), 1);
-        assert!(diags.is_empty(), "healthy probe must not warn: {:?}", diags);
-    }
-
     // B:execute_validation_pattern — verify unit "matches constraint anchors the full value (not a substring)"
     #[test]
     fn test_matches_constraint_anchors_full_value() {
@@ -1741,30 +1600,14 @@ mod tests {
         assert_eq!(pattern.wasm_function.as_deref(), Some("validate_custom"));
     }
 
-    // B:register_custom_validation_patterns — verify unit "unresolvable wasm_function produces warning"
+    // A custom rule naming no wasm_function has nothing to dispatch to: it
+    // is rejected at parse time (W112) instead of never firing.
     #[test]
-    fn test_unresolvable_wasm_function_warning() {
-        let pattern = ValidationRulePattern {
-            code: "E200".to_string(),
-            severity: Severity::Error,
-            message_template: "test".to_string(),
-            check: ValidationPatternKind::Custom,
-            target_kind: None,
-            edge_type: None,
-            edge_peer_kind: None,
-            field: None,
-            constraint: None,
-            wasm_function: Some("missing_func".to_string()),
-        };
-        // No Wasm runtime → warning
-        let (registered, diags) = register_custom_patterns(&[pattern], None);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "W112" && d.message.contains("missing_func"))
-        );
-        // Still registered for later (will be skipped during execution)
-        assert_eq!(registered.len(), 1);
+    fn test_custom_rule_without_wasm_function_is_w112() {
+        let rule = make_rule("E200", "custom");
+        let err = parse_rule_pattern(&rule, "@test").unwrap_err();
+        assert_eq!(err.code, "W112");
+        assert!(err.message.contains("wasm_function"), "{}", err.message);
     }
 
     // B:register_custom_validation_patterns — verify unit "custom pattern dispatched to Wasm runtime during validation"
@@ -1835,40 +1678,6 @@ mod tests {
         );
         assert_eq!(diags[0].code, "E201");
         assert_eq!(diags[0].severity, Severity::Error);
-    }
-
-    // B:register_custom_validation_patterns — verify contract "requires/ensures consistency for custom validation pattern registration"
-    #[test]
-    fn test_register_custom_validation_patterns_contract() {
-        let custom = ValidationRulePattern {
-            code: "E200".to_string(),
-            severity: Severity::Error,
-            message_template: "test".to_string(),
-            check: ValidationPatternKind::Custom,
-            target_kind: None,
-            edge_type: None,
-            edge_peer_kind: None,
-            field: None,
-            constraint: None,
-            wasm_function: Some("func".to_string()),
-        };
-        let declarative = ValidationRulePattern {
-            code: "W100".to_string(),
-            severity: Severity::Warning,
-            message_template: "test".to_string(),
-            check: ValidationPatternKind::NoIncomingEdges,
-            target_kind: None,
-            edge_type: None,
-            edge_peer_kind: None,
-            field: None,
-            constraint: None,
-            wasm_function: None,
-        };
-        // ensures: custom patterns registered alongside declarative
-        let (registered, diags) = register_custom_patterns(&[custom, declarative], None);
-        assert_eq!(registered.len(), 2);
-        // ensures: unresolvable Wasm produces warning
-        assert!(diags.iter().any(|d| d.code == "W112"));
     }
 
     // -- B:conditional_field_required -- M1 fix: remove hardcoded CONDITIONAL_RULES
