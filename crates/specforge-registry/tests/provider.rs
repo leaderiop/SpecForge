@@ -3,18 +3,12 @@
 // Tests behaviors through the public API:
 // - B:load_provider_configurations
 // - B:register_provider_schemes
-// - B:validate_provider_refs
-// - B:validate_ref_target_format
-// - B:validate_provider_kinds
 // - B:load_extension_manifests
 // - B:register_extension_entity_types
 
-use specforge_common::Severity;
 use specforge_registry::{
-    ExtensionContributions, KindRegistry, ManifestV2, ProviderConfig, ProviderSchemeRegistry,
-    SchemeRegistryEntry, load_extension_manifests, load_provider_configurations,
-    register_extension_entity_types, register_provider_schemes, validate_provider_kinds,
-    validate_provider_ref, validate_ref_target_format,
+    ExtensionContributions, ManifestV2, ProviderConfig, load_extension_manifests,
+    load_provider_configurations, register_extension_entity_types, register_provider_schemes,
 };
 use tempfile::TempDir;
 
@@ -248,120 +242,6 @@ fn test_register_schemes_contract() {
         vec![("@ext/other".to_string(), make_manifest("@ext/other", false))];
     let (registry, _) = register_provider_schemes(&providers, &manifests_no_provider);
     assert!(registry.entries.is_empty());
-}
-
-// ============================================================================
-// B:validate_provider_refs — integration tests
-// ============================================================================
-
-// B:validate_provider_refs — verify integration "known scheme → no diagnostics"
-#[test]
-fn test_validate_provider_ref_known_scheme() {
-    let registry = ProviderSchemeRegistry {
-        entries: vec![SchemeRegistryEntry {
-            scheme: "gh".to_string(),
-            provider_name: "github".to_string(),
-            extension_name: "@ext/github".to_string(),
-        }],
-    };
-
-    let diags = validate_provider_ref("gh", "42", &registry);
-    assert!(diags.is_empty());
-}
-
-// B:validate_provider_refs — verify integration "unknown scheme → E034"
-#[test]
-fn test_validate_provider_ref_unknown_scheme() {
-    let registry = ProviderSchemeRegistry { entries: vec![] };
-
-    let diags = validate_provider_ref("unknown", "42", &registry);
-    assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "I005");
-    assert!(diags[0].message.contains("unknown"));
-}
-
-// B:validate_provider_refs — verify contract "requires ref + registry, ensures validation"
-#[test]
-fn test_validate_provider_ref_contract() {
-    let registry = ProviderSchemeRegistry {
-        entries: vec![SchemeRegistryEntry {
-            scheme: "gh".to_string(),
-            provider_name: "github".to_string(),
-            extension_name: "@ext/github".to_string(),
-        }],
-    };
-
-    // ensures: known → empty
-    assert!(validate_provider_ref("gh", "issue/42", &registry).is_empty());
-
-    // ensures: unknown → I005
-    let diags = validate_provider_ref("jira", "PROJ-123", &registry);
-    assert_eq!(diags[0].code, "I005");
-    assert_eq!(diags[0].severity, Severity::Info);
-}
-
-// ============================================================================
-// B:validate_ref_target_format — integration tests
-// ============================================================================
-
-// B:validate_ref_target_format — verify integration "valid identifier → no diagnostics"
-#[test]
-fn test_validate_ref_target_valid() {
-    assert!(validate_ref_target_format("42").is_empty());
-    assert!(validate_ref_target_format("PROJ-123").is_empty());
-    assert!(validate_ref_target_format("my/resource/path").is_empty());
-}
-
-// B:validate_ref_target_format — verify integration "empty → W034"
-#[test]
-fn test_validate_ref_target_empty() {
-    let diags = validate_ref_target_format("");
-    assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "W120");
-}
-
-// B:validate_ref_target_format — verify contract "requires target string, ensures format check"
-#[test]
-fn test_validate_ref_target_contract() {
-    // ensures: valid → empty
-    assert!(validate_ref_target_format("valid-target").is_empty());
-
-    // ensures: empty → W120
-    let diags = validate_ref_target_format("");
-    assert_eq!(diags[0].code, "W120");
-    assert_eq!(diags[0].severity, Severity::Warning);
-}
-
-// ============================================================================
-// B:validate_provider_kinds — integration tests
-// ============================================================================
-
-// B:validate_provider_kinds — verify integration "provider with known kinds → passes"
-#[test]
-fn test_validate_provider_kinds_passes() {
-    let providers = vec![provider("github", "gh", "@ext/gh")];
-    let kind_reg = KindRegistry::new();
-
-    let diags = validate_provider_kinds(&providers, &kind_reg);
-    assert!(diags.is_empty());
-}
-
-// B:validate_provider_kinds — verify integration "empty providers → no diagnostics"
-#[test]
-fn test_validate_provider_kinds_empty() {
-    let kind_reg = KindRegistry::new();
-    let diags = validate_provider_kinds(&[], &kind_reg);
-    assert!(diags.is_empty());
-}
-
-// B:validate_provider_kinds — verify contract "requires providers + kind registry, ensures validation"
-#[test]
-fn test_validate_provider_kinds_contract() {
-    let providers = vec![provider("test", "test", "@ext/test")];
-    let kind_reg = KindRegistry::new();
-
-    let diags = validate_provider_kinds(&providers, &kind_reg);
-    assert!(diags.is_empty());
 }
 
 // ============================================================================

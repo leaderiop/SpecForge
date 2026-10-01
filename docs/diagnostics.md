@@ -2322,19 +2322,6 @@ Owner: core
 Level: warning
 ```
 
-## W120
-
-```
-W120: Invalid ref target
-
-A `ref` entity's target string is empty or contains control characters. Provide
-a clean, non-empty target such as an issue number or ticket key (e.g. `"42"`,
-`"PROJ-123"`).
-
-Owner: core
-Level: warning
-```
-
 ## W121
 
 ```
@@ -2550,3 +2537,4 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W024 | (nothing) |
 | W025 | (nothing) |
 | W111 | (nothing) |
+| W120 | (nothing) |

@@ -1380,13 +1380,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "Rolling back a failed extension install could not remove the partially-created extension directory. Manually delete the leftover extension directory reported in the message.",
     },
     CodeEntry {
-        code: "W120",
-        title: "Invalid ref target",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "A `ref` entity's target string is empty or contains control characters. Provide a clean, non-empty target such as an issue number or ticket key (e.g. `\"42\"`, `\"PROJ-123\"`).",
-    },
-    CodeEntry {
         code: "W121",
         title: "Invalid failure mode detection",
         owner: "@specforge/governance",
@@ -1503,6 +1496,7 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("W024", None),
     ("W025", None),
     ("W111", None),
+    ("W120", None),
 ];
 
 /// Look up a retired code (case-insensitive): `Some(replacement)`.

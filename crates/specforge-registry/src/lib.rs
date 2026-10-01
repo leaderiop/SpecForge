@@ -61,9 +61,6 @@ pub use compilation::{
     validate_extension_testability,
     validate_host_api_versions,
     validate_peer_dependencies,
-    validate_provider_kinds,
-    validate_provider_ref,
-    validate_ref_target_format,
     validate_registered_entity_fields,
 };
 pub use signing::{

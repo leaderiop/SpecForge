@@ -92,6 +92,7 @@ impl ProjectSession {
             config: ProjectConfig::default(),
             spec_root: PathBuf::new(),
             registries: RegistryBuild::default(),
+            provider_schemes: Default::default(),
             load_diagnostics: Vec::new(),
         };
         ProjectSession {

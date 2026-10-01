@@ -368,3 +368,122 @@ fn a_loaded_extension_means_no_i002() {
 
     assert!(!codes(&diagnostics).contains(&"I002"), "{diagnostics:?}");
 }
+
+/// Provider extensions, in process: each handshakes with `providers: true`
+/// and contributes nothing else. No builtin contributes providers.
+struct ProviderExtensions(&'static [&'static str]);
+
+impl specforge_wasm::WasmRuntime for ProviderExtensions {
+    fn load_module(&self, _: &Path) -> Result<(), String> {
+        Ok(())
+    }
+
+    fn call_export(
+        &self,
+        extension: &str,
+        export: &str,
+        _: &[u8],
+    ) -> specforge_wasm::WasmCallResult {
+        if export == "__handshake" && self.0.contains(&extension) {
+            let handshake = serde_json::json!({
+                "protocol_version": "1.0.0",
+                "name": extension,
+                "version": "1.0.0",
+                "contribution_flags": { "providers": true },
+                "peer_dependencies": [],
+                "sandbox_policy": null
+            });
+            return specforge_wasm::WasmCallResult::Ok(handshake.to_string().into_bytes());
+        }
+        specforge_wasm::WasmCallResult::Trap(specforge_wasm::WasmTrapInfo {
+            kind: "missing".to_string(),
+            message: format!("no {export} on {extension}"),
+            export_name: export.to_string(),
+        })
+    }
+}
+
+/// The compile's diagnostics, without the W012 every unreferenced ref
+/// gets.
+fn compile_with_providers(
+    root: &Path,
+    extensions: &'static [&'static str],
+) -> Vec<specforge_common::Diagnostic> {
+    CompiledProject::compile(root, Some(&ProviderExtensions(extensions)))
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code != "W012")
+        .collect()
+}
+
+/// A configured provider registers its scheme: a ref with that scheme is
+/// known, and a ref with another scheme is I005.
+#[specforge_test(
+    behavior = "register_provider_schemes",
+    verify = "Wasm-based provider scheme registered and validates ref"
+)]
+fn a_registered_provider_scheme_validates_refs() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "extensions": ["@test/gh-provider"],
+            "providers": [
+                { "scheme": "gh", "alias": "main", "extension": "@test/gh-provider" }
+            ]
+        }),
+        &[(
+            "a.spec",
+            "ref gh.issue:42 \"Known scheme\"\nref jira.story:7 \"Unknown scheme\"\n",
+        )],
+    );
+
+    let diagnostics = compile_with_providers(dir.path(), &["@test/gh-provider"]);
+
+    assert_eq!(codes(&diagnostics), ["I005"], "{diagnostics:?}");
+    assert!(diagnostics[0].message.contains("'jira'"), "{diagnostics:?}");
+}
+
+/// Two providers declaring one scheme: E057 reaches `check`, and the first
+/// declared keeps the scheme.
+#[specforge_test(
+    behavior = "register_provider_schemes",
+    verify = "duplicate scheme from two providers produces E057"
+)]
+fn a_scheme_declared_twice_is_e057_on_compile() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "extensions": ["@test/gh-a", "@test/gh-b"],
+            "providers": [
+                { "scheme": "gh", "alias": "a", "extension": "@test/gh-a" },
+                { "scheme": "gh", "alias": "b", "extension": "@test/gh-b" }
+            ]
+        }),
+        &[("a.spec", "ref gh.issue:42 \"Known scheme\"\n")],
+    );
+
+    let diagnostics = compile_with_providers(dir.path(), &["@test/gh-a", "@test/gh-b"]);
+
+    assert_eq!(codes(&diagnostics), ["E057"], "{diagnostics:?}");
+    assert!(
+        diagnostics[0]
+            .message
+            .contains("already registered by provider 'a'"),
+        "{diagnostics:?}"
+    );
+}
+
+/// Without a provider configured, refs are not checked for their scheme.
+#[test]
+fn no_provider_means_no_scheme_check() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0", "extensions": ["@test/gh-provider"]
+        }),
+        &[("a.spec", "ref jira.story:7 \"Unknown scheme\"\n")],
+    );
+
+    let diagnostics = compile_with_providers(dir.path(), &["@test/gh-provider"]);
+
+    assert!(diagnostics.is_empty(), "{diagnostics:?}");
+}

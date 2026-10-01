@@ -94,9 +94,8 @@ None. Refs are leaf nodes — they represent external resources and do not refer
 | Code | Rule |
 |------|------|
 | E002 | No two refs may share the same ID across all `.spec` files. |
-| W120 | **Invalid ref target** — the target string is empty or contains control characters. |
 | W012 | **Orphan ref** — declared but never referenced by any entity's `refs` field. |
-| I005 | **Unknown provider scheme** — the ref uses a scheme not registered by any installed provider. The ref is stored but not validated. |
+| I005 | **Unknown provider scheme** — once `specforge.json` configures a provider, a ref whose scheme no configured provider registered. The ref is stored but not validated. |
 
 ## Design Guidance
 

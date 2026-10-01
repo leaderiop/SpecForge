@@ -21,13 +21,17 @@
 mod policy;
 mod session;
 
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use specforge_common::{Diagnostic, ProjectConfig, is_excluded, load_project_config};
 use specforge_emitter::compile::{GraphChecks, check_graph, load_extensions};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
-use specforge_registry::{RegistryBuild, build_registries};
+use specforge_registry::{
+    ManifestV2, RegistryBuild, build_registries, load_provider_configurations,
+    register_provider_schemes,
+};
 use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
 use specforge_wasm::WasmRuntime;
 
@@ -46,6 +50,9 @@ pub struct Environment {
     pub spec_root: PathBuf,
     /// The registries, rules and graph inputs built from the manifests.
     pub registries: RegistryBuild,
+    /// The ref schemes the configured providers registered (ADR 0004
+    /// D3-c): with any registered, a ref with another scheme is I005.
+    pub provider_schemes: HashSet<String>,
     /// Extension loading diagnostics (E028, manifest validation, peer
     /// consistency), in load order.
     pub load_diagnostics: Vec<Diagnostic>,
@@ -62,6 +69,7 @@ impl Environment {
             None => Vec::new(),
         };
         let registries = build_registries(manifests);
+        let provider_schemes = register_providers(&config, &registries, &mut load_diagnostics);
         if registries.manifests.is_empty() {
             load_diagnostics.push(structural_only_notice(&config.extensions));
         }
@@ -74,13 +82,17 @@ impl Environment {
             config,
             spec_root,
             registries,
+            provider_schemes,
             load_diagnostics,
         }
     }
 
     /// The inputs every graph of this project is built with.
     pub fn graph_config(&self) -> GraphConfig {
-        specforge_emitter::compile::graph_config(&self.registries)
+        GraphConfig {
+            known_provider_schemes: self.provider_schemes.clone(),
+            ..specforge_emitter::compile::graph_config(&self.registries)
+        }
     }
 
     /// What the checks on a built graph need from this environment.
@@ -126,6 +138,31 @@ impl Environment {
     pub fn resolve(&self) -> ResolvedProject {
         resolve_project_with_config(&self.spec_root, &self.resolve_config())
     }
+}
+
+/// Register the `providers` specforge.json configures against the loaded
+/// extensions, in declaration order, and return the schemes they
+/// registered. W118 (a malformed entry, or an extension that is not
+/// loaded or contributes no providers) and E057 (a scheme declared twice)
+/// go to the load diagnostics.
+fn register_providers(
+    config: &ProjectConfig,
+    registries: &RegistryBuild,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> HashSet<String> {
+    let Some(raw) = config.raw.as_ref() else {
+        return HashSet::new();
+    };
+    let (providers, config_diagnostics) = load_provider_configurations(raw);
+    diagnostics.extend(config_diagnostics);
+    let manifests: Vec<(String, ManifestV2)> = registries
+        .manifests
+        .iter()
+        .map(|m| (m.name.clone(), m.clone()))
+        .collect();
+    let (schemes, registration) = register_provider_schemes(&providers, &manifests);
+    diagnostics.extend(registration);
+    schemes.entries.into_iter().map(|e| e.scheme).collect()
 }
 
 /// I002: no extension loaded, so the compile checks structure only (no
