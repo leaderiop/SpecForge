@@ -385,10 +385,10 @@ behavior validate_registered_entity_fields "Validate Registered Entity Fields" {
     FieldRegistryEntry,
     KindRegistryEntry,
   ]
-  consumes   [registries_populated]
+  consumes   [extension_manifests_loaded]
   requires {
-    registries_populated  "All three registries (KindRegistry, FieldRegistry, EdgeRegistry) are populated"
-    populated_event_fired "registries_populated event has fired"
+    extensions_loaded                "Every configured extension's manifest is loaded, so each one's kinds and edge types are known"
+    extension_manifests_loaded_fired "extension_manifests_loaded event has fired"
   }
   ensures {
     target_kinds_resolved "Every field target_kind reference resolves to a registered kind"
@@ -398,13 +398,15 @@ behavior validate_registered_entity_fields "Validate Registered Entity Fields" {
     no_domain_logic "Cross-validation uses only structural checks — no domain-specific logic"
   }
   contract   """
-    After all registries are populated, the compiler MUST cross-validate
-    the registered data using only structural checks — no domain-specific
-    logic. target_kind references in fields MUST resolve to registered
-    entity kinds. Edge labels in field-to-edge mappings MUST resolve to
-    registered edge types. Field type declarations MUST be internally
-    consistent. Validation failures MUST produce warnings to allow partial
-    loading, not hard errors.
+    Once every configured extension is loaded, before the registries are
+    built from them, the compiler MUST cross-validate what they will
+    register using only structural checks — no domain-specific logic.
+    target_kind references in fields MUST resolve to entity kinds the
+    extension or a loaded peer declares. Edge labels in field-to-edge
+    mappings MUST resolve to edge types the extension declares. Field type
+    declarations MUST be internally consistent. Validation failures MUST
+    produce warnings (W021, from validate_extension_manifest_consistency)
+    to allow partial loading, not hard errors.
   """
   verify unit "target_kind reference resolves to registered kind"
   verify unit "edge label resolves to registered edge type"

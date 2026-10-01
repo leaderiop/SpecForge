@@ -12,7 +12,7 @@
 //   - validate_manifest_v2_schema (5 verifies)
 //   - detect_unknown_entity_kinds (5 verifies)
 //   - suggest_missing_extensions (4 verifies)
-//   - validate_registered_entity_fields (6 verifies)
+//   - validate_registered_entity_fields (0; proven in specforge-project)
 //   - detect_duplicate_entity_kinds (4+1 verifies)
 //   - validate_peer_dependencies (4 verifies)
 //   - validate_extension_testability (5 verifies)
@@ -1208,63 +1208,14 @@ fn suggest_missing_ext_contract() {
 }
 
 // ===========================================================================
-// B:validate_registered_entity_fields (6 verifies)
+// B:validate_registered_entity_fields: the load reports W021 for these
+// (crates/specforge-project/tests/registered_fields.rs proves all 6
+// verifies through Environment::load). An edge label a field maps to is
+// still registered, as an implicit edge:
 // ===========================================================================
 
-#[spec(
-    behavior = "validate_registered_entity_fields",
-    verify = "target_kind reference resolves to registered kind"
-)]
-fn validate_fields_target_kind_resolves() {
-    let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
-    let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-    assert!(!diags.iter().any(|d| d.message.contains("target_kind")));
-}
-
-#[spec(
-    behavior = "validate_registered_entity_fields",
-    verify = "edge label resolves to registered edge type"
-)]
-fn validate_fields_edge_label_resolves() {
-    let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
-    let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-    assert!(!diags.iter().any(|d| d.message.contains("edge label")));
-}
-
-#[spec(
-    behavior = "validate_registered_entity_fields",
-    verify = "unresolved target_kind produces warning"
-)]
-fn validate_fields_unresolved_target_kind() {
-    let manifest: ManifestV2 = serde_json::from_str(
-        r#"{
-            "name": "@test/ext",
-            "version": "1.0.0",
-            "manifestVersion": 2,
-            "wasmPath": "x.wasm",
-            "entityKinds": [
-                {
-                    "name": "Task",
-                    "keyword": "task",
-                    "fields": [
-                        { "name": "owner", "fieldType": "reference", "targetKind": "person" }
-                    ]
-                }
-            ]
-        }"#,
-    )
-    .unwrap();
-    let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[manifest]);
-    let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "W021" && d.message.contains("person"))
-    );
-}
-
 #[test]
-fn validate_fields_unresolved_edge_label() {
+fn a_field_edge_label_is_registered_as_an_implicit_edge() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{
             "name": "@test/ext",
@@ -1289,67 +1240,6 @@ fn validate_fields_unresolved_edge_label() {
         edge_reg.contains("owns"),
         "implicit edge 'owns' should exist"
     );
-}
-
-#[spec(
-    behavior = "validate_registered_entity_fields",
-    verify = "cross-validation uses no domain-specific logic"
-)]
-fn validate_fields_no_domain_logic() {
-    // Entirely custom domain — cooking! No software/product assumptions.
-    let manifest: ManifestV2 = serde_json::from_str(
-        r#"{
-            "name": "@custom/cooking",
-            "version": "1.0.0",
-            "manifestVersion": 2,
-            "wasmPath": "cooking.wasm",
-            "entityKinds": [
-                {
-                    "name": "Recipe",
-                    "keyword": "recipe",
-                    "testable": true,
-                    "supportsVerify": true,
-                    "fields": [
-                        { "name": "ingredients", "fieldType": "reference_list", "edge": "uses", "targetKind": "ingredient" }
-                    ]
-                },
-                { "name": "Ingredient", "keyword": "ingredient" }
-            ],
-            "edgeTypes": [
-                { "label": "uses", "sourceKind": "recipe", "targetKind": "ingredient" }
-            ]
-        }"#,
-    )
-    .unwrap();
-    let (kind_reg, field_reg, edge_reg, pop_diags) = populate_registries(&[manifest]);
-    assert!(pop_diags.is_empty());
-    let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-    assert!(
-        diags.is_empty(),
-        "custom domain should validate cleanly: {:?}",
-        diags
-    );
-}
-
-#[spec(
-    behavior = "validate_registered_entity_fields",
-    verify = "Validate Registered Entity Fields: field cross-validation holds for the declared obligations"
-)]
-fn validate_fields_contract() {
-    let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
-    let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-    assert!(diags.is_empty());
-
-    let bad_manifest: ManifestV2 = serde_json::from_str(
-        r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
-            "entityKinds":[{"name":"A","keyword":"a","fields":[
-                {"name":"f","fieldType":"reference","targetKind":"nonexistent"}
-            ]}]}"#,
-    )
-    .unwrap();
-    let (kr, fr, er, _) = populate_registries(&[bad_manifest]);
-    let bad_diags = validate_registered_entity_fields(&fr, &kr, &er);
-    assert!(bad_diags.iter().any(|d| d.code == "W021"));
 }
 
 // ===========================================================================
