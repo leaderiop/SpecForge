@@ -187,10 +187,10 @@ feature extension_driven_coverage "Extension-Driven Coverage" {
     behaviors/output.spec. It queries the KindRegistry for the testable
     flag on each entity kind. Only entities whose kind has testable=true
     in the extension manifest contribute to the coverage denominator.
-    verified_entity_count includes entities with at least one verify
-    declaration or file-reference field value. Coverage percentage is
-    verified_entity_count /
-    testable_entity_count (0% when testable_entity_count = 0). This
+    An entity is declared when it has at least one verify statement.
+    The declared percentage is declared testable entities /
+    testable_entity_count (0% when testable_entity_count = 0); the proof
+    percentage, from recorded test results, is the share proven. This
     ensures coverage percentages accurately reflect which entities are
     expected to have test evidence. Coverage is part of the traceability
     feedback loop (P5): agents read coverage to prioritize untested

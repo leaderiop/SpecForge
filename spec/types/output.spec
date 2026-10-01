@@ -62,7 +62,12 @@ type EntityKindCount "Entity count for a single kind" {
 
 type ProjectStatistics "Project-Level Statistics" {
   entity_count_by_kind  EntityKindCount[]
+  /// Deprecated alias of declared_percentage.
   coverage_percentage   float
+  /// Testable entities with at least one verify statement, in percent.
+  declared_percentage   float
+  /// Testable entities proven, in percent: the --min gate's figure. Absent without recorded test results.
+  proof_percentage      float @optional
   orphan_count          integer
   diagnostic_summary    DiagnosticSummary
   testable_entity_count integer

@@ -347,12 +347,16 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
   contract   """
     In MCP server mode, the system MUST register a specforge.stats tool with
     no required parameters. The tool MUST return aggregate statistics about the
-    current graph: entity counts by kind, total edge count, coverage percentage,
-    orphan node count, and a diagnostic summary (counts by severity). The
+    current graph: entity counts by kind, total edge count, the declared
+    percentage (declared_pct; coverage_pct is its deprecated alias), the proof
+    percentage (proof_pct, null without recorded test results), orphan node
+    count, and a diagnostic summary (counts by severity). A
+    specforge-report.json that exists but cannot be read is an error result. The
     response MUST reflect the latest compilation state.
   """
   verify unit "specforge.stats returns entity counts by kind"
   verify unit "response includes coverage percentage"
+  verify integration "response includes the declared and proof percentages"
   verify unit "response includes orphan node count"
   verify unit "response includes diagnostic summary by severity"
   verify contract "Provide MCP Stats Tool: MCP stats tool holds — graph_available, stats_returned, latest_state_reflected, tool_invoked_emitted"

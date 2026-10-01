@@ -6,11 +6,12 @@ use crate::tool::ToolOutcome;
 pub fn call(state: &McpState, _args: Value) -> ToolOutcome {
     // Coverage is the coverage rule's, over the kinds the extensions
     // declare testable, less the entities W004 exempts.
-    let coverage = specforge_emitter::coverage::ProjectCoverage::compute(
-        &state.graph,
-        super::coverage::coverage_registries(state),
-        None,
-    );
+    // The proof percentage reads the project's recorded tests; a report
+    // that is there but unusable is an error result (ADR 0004, D2-e).
+    let coverage = match super::coverage::project_coverage(state, "specforge.stats") {
+        Ok(coverage) => coverage,
+        Err(outcome) => return outcome,
+    };
     let stats = specforge_emitter::compute_project_stats(
         &state.graph,
         &coverage.summary,
@@ -25,6 +26,9 @@ pub fn call(state: &McpState, _args: Value) -> ToolOutcome {
 
     let result = serde_json::json!({
         "entity_counts": entity_counts,
+        "declared_pct": stats.declared_pct,
+        "proof_pct": stats.proof_pct,
+        // Deprecated alias of declared_pct.
         "coverage_pct": stats.coverage_pct,
         "edge_count": stats.total_edges,
         "orphan_count": stats.orphan_count,

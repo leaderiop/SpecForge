@@ -9,7 +9,18 @@ pub struct ProjectStats {
     pub orphan_count: usize,
     pub verified_count: usize,
     pub testable_count: usize,
+    /// Testable entities that declare at least one obligation.
+    pub declared_count: usize,
+    /// `declared_count` over `testable_count`, in percent (0 when nothing
+    /// is testable): declared intent.
+    pub declared_pct: f64,
+    /// Deprecated alias of [`Self::declared_pct`], kept for readers of the
+    /// old name.
     pub coverage_pct: f64,
+    /// The share of testable entities proven, in percent: the
+    /// `analyze coverage --min` gate's figure. `None` without recorded
+    /// test results.
+    pub proof_pct: Option<f64>,
     pub error_count: usize,
     pub warning_count: usize,
     pub info_count: usize,
@@ -71,11 +82,12 @@ pub fn compute_project_stats(
         .filter(|n| !connected.contains(n.id.raw.as_str()))
         .count();
 
-    let coverage_pct = if testable_count > 0 {
+    let declared_pct = if testable_count > 0 {
         (testable_verified as f64 / testable_count as f64) * 100.0
     } else {
         0.0
     };
+    let proof_pct = coverage.test_results.as_ref().map(|_| coverage.proof_pct());
 
     let mut error_count = 0;
     let mut warning_count = 0;
@@ -94,7 +106,10 @@ pub fn compute_project_stats(
         orphan_count,
         verified_count,
         testable_count,
-        coverage_pct,
+        declared_count: testable_verified,
+        declared_pct,
+        coverage_pct: declared_pct,
+        proof_pct,
         error_count,
         warning_count,
         info_count,

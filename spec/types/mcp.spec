@@ -148,7 +148,12 @@ type McpFixSuggestion {
 
 type McpStatsResult {
   entity_counts      McpEntityCount[]
+  /// Deprecated alias of declared_pct.
   coverage_pct       float @optional
+  /// Testable entities with at least one verify statement, in percent.
+  declared_pct       float @optional
+  /// Testable entities proven, in percent; null without recorded test results.
+  proof_pct          float @optional
   edge_count         integer
   orphan_count       integer
   diagnostic_summary McpDiagnosticSummary

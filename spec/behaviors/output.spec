@@ -147,17 +147,23 @@ behavior compute_project_statistics "Compute Project Statistics" {
   }
   contract   """
     When specforge stats is invoked, the system MUST compute and display:
-    entity counts by kind, coverage percentage, orphan count, and
-    diagnostic summary. Statistics MUST be derived from the current
+    entity counts by kind, the declared percentage, the proof percentage
+    when tests are recorded, orphan count, and diagnostic summary. Statistics MUST be derived from the current
     graph state. Coverage percentage MUST be computed only over entity
     kinds with testable=true in the KindRegistry, not over all entities,
     and without the entities W004 exempts that declare no obligations
     (union types, abstract entities, governance kinds): the coverage
     pass's testable count.
-    An entity is "verified" if it has at least one verify declaration OR
-    at least one file-reference field value. Coverage percentage is
-    verified_entity_count / testable_entity_count. When testable_entity_count
-    is zero, coverage MUST be reported as 0%, not as a division error.
+    An entity is "declared" when it has at least one verify statement.
+    The declared percentage is declared testable entities /
+    testable_entity_count; coverage percentage is its deprecated alias,
+    kept for readers of the old name. When testable_entity_count is zero,
+    it MUST be reported as 0%, not as a division error. When the project
+    has recorded test results (specforge-report.json), stats also reports
+    the proof percentage: the share of testable entities the coverage
+    rule proves, the analyze coverage --min gate's figure. Without
+    results it is absent; a report that exists but cannot be read is an
+    error.
   """
   verify unit "stats reports correct entity counts"
   verify unit "stats reports coverage percentage"
@@ -165,6 +171,7 @@ behavior compute_project_statistics "Compute Project Statistics" {
   verify unit "stats reports diagnostic summary"
   verify unit "coverage is 0% when testable_entity_count is zero"
   verify unit "stats leaves the entities W004 exempts out of the testable count"
+  verify integration "stats reports the declared and proof percentages"
   verify contract "Compute Project Statistics: project statistics computation holds — validation_complete_fired, entity_counts_produced, coverage_computed, zero_testable_safe"
 }
 

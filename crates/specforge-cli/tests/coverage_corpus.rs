@@ -373,6 +373,56 @@ fn mcp_coverage_matches_analyze_coverage() {
     assert_mcp_coverage_matches_analyze(example.path());
 }
 
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats reports the declared and proof percentages"
+)]
+fn stats_reports_declared_and_proof_percentages() {
+    let tmp = project("fx1");
+    let stats = stats(tmp.path());
+    // 3 of the 4 testable entities declare obligations; login and Payload
+    // are proven.
+    assert_eq!(stats["declared_count"], 3, "{stats}");
+    assert_eq!(stats["declared_pct"], 75.0, "{stats}");
+    assert_eq!(stats["coverage_pct"], stats["declared_pct"], "{stats}");
+    assert_eq!(stats["proof_pct"], 50.0, "{stats}");
+
+    let out = specforge()
+        .args(["stats", tmp.path().to_str().unwrap()])
+        .output()
+        .unwrap();
+    let human = String::from_utf8_lossy(&out.stdout);
+    assert!(human.contains("Declared: 75% of 4 testable"), "{human}");
+    assert!(human.contains("Proven:   50% of 4 testable"), "{human}");
+
+    // No recorded tests: no proof percentage.
+    std::fs::remove_file(tmp.path().join("specforge-report.json")).unwrap();
+    assert_eq!(self::stats(tmp.path())["proof_pct"], Value::Null);
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_stats_tool",
+    verify = "response includes the declared and proof percentages"
+)]
+fn mcp_stats_reports_declared_and_proof_percentages() {
+    let tmp = project("fx1");
+    let stats = &mcp_calls(
+        tmp.path(),
+        &[json!({"name": "specforge.stats", "arguments": {}})],
+    )[0];
+    assert_eq!(stats["declared_pct"], 75.0, "{stats}");
+    assert_eq!(stats["coverage_pct"], 75.0, "{stats}");
+    assert_eq!(stats["proof_pct"], 50.0, "{stats}");
+
+    // A report that can't be read is an error result, not "no proof".
+    let bad = fx1_with_a_malformed_report();
+    let result = &mcp_calls(
+        bad.path(),
+        &[json!({"name": "specforge.stats", "arguments": {}})],
+    )[0];
+    assert_eq!(result["isError"]["code"], "schema_mismatch", "{result}");
+}
+
 /// fx1 with a `specforge-report.json` cut off mid-write.
 fn fx1_with_a_malformed_report() -> TempDir {
     let tmp = project("fx1");

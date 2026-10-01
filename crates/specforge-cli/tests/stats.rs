@@ -120,5 +120,5 @@ feature gamma "G" { behaviors [alpha, beta] }
         .output()
         .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Coverage: 50% of 2 testable"), "{stdout}");
+    assert!(stdout.contains("Declared: 50% of 2 testable"), "{stdout}");
 }

@@ -7,6 +7,15 @@ use crate::pipeline;
 
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
+    // The proof percentage reads what `specforge collect` last recorded; a
+    // report that is there but unusable is an error, as in `analyze`.
+    let report = match specforge_emitter::coverage::read_report(path) {
+        Ok(report) => report,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return 2;
+        }
+    };
 
     // Coverage is the coverage rule's, over the kinds the extensions
     // declare testable, less the entities W004 exempts.
@@ -17,7 +26,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
             fields: &ctx.field_registry,
             rules: &ctx.extension_rules,
         },
-        None,
+        report.as_ref(),
     );
     let stats = compute_project_stats(&ctx.graph, &coverage.summary, &ctx.diagnostics);
 
@@ -38,10 +47,17 @@ fn print_human(stats: &ProjectStats) {
     println!("Orphans:  {}", stats.orphan_count);
     println!("Verified: {}", stats.verified_count);
     println!(
-        "Coverage: {}% of {} testable",
-        stats.coverage_pct.round(),
+        "Declared: {}% of {} testable",
+        stats.declared_pct.round(),
         stats.testable_count
     );
+    if let Some(proof_pct) = stats.proof_pct {
+        println!(
+            "Proven:   {}% of {} testable",
+            proof_pct.round(),
+            stats.testable_count
+        );
+    }
     if stats.error_count > 0 || stats.warning_count > 0 || stats.info_count > 0 {
         println!(
             "Diagnostics: {} errors, {} warnings, {} info",
@@ -57,6 +73,10 @@ fn print_json(stats: &ProjectStats) {
         "orphan_count": stats.orphan_count,
         "verified_count": stats.verified_count,
         "testable_count": stats.testable_count,
+        "declared_count": stats.declared_count,
+        "declared_pct": stats.declared_pct,
+        "proof_pct": stats.proof_pct,
+        // Deprecated alias of declared_pct.
         "coverage_pct": stats.coverage_pct,
         "error_count": stats.error_count,
         "warning_count": stats.warning_count,
