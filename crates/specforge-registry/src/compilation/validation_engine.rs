@@ -132,7 +132,7 @@ fn unexecutable_rule(extension_name: &str, rule_code: &str, why: &str) -> Diagno
 /// Returns Ok(pattern) or Err(diagnostic) when the rule is unrecognized or
 /// structurally cannot fire (missing field/constraint, empty values — W112).
 #[allow(clippy::result_large_err)]
-pub fn parse_rule_pattern(
+pub(crate) fn parse_rule_pattern(
     rule: &ManifestValidationRule,
     extension_name: &str,
 ) -> Result<ValidationRulePattern, Diagnostic> {
@@ -309,7 +309,7 @@ pub fn parse_rule_pattern(
 /// kind for `no_incoming_edges`). When no loaded extension declares that
 /// kind, the edge can't exist in the project and the rule is dropped: a
 /// project without `feature` can't be told to implement one.
-pub fn resolve_edge_rules(
+pub(crate) fn resolve_edge_rules(
     patterns: &mut Vec<(ValidationRulePattern, String)>,
     edges: &crate::EdgeRegistry,
     kinds: &crate::KindRegistry,
@@ -345,7 +345,7 @@ pub fn resolve_edge_rules(
 /// The origin is required to dispatch `check: "custom"` rules: the
 /// `wasm_function` is an export of THAT extension's module, so the host must
 /// know which runtime entry to call (WASM-only migration, Phase 5).
-pub fn parse_all_rule_patterns(
+pub(crate) fn parse_all_rule_patterns(
     manifests: &[(String, Vec<ManifestValidationRule>)], // (ext_name, rules)
 ) -> (Vec<(ValidationRulePattern, String)>, Vec<Diagnostic>) {
     let mut patterns: Vec<(ValidationRulePattern, String)> = Vec::new();
@@ -650,7 +650,10 @@ pub fn execute_pattern(
 }
 
 /// Register custom validation patterns, resolving Wasm function references.
-pub fn register_custom_patterns(
+/// Test-only: the compile parses custom rules with the others
+/// (`parse_all_rule_patterns`) and dispatches them by origin.
+#[cfg(test)]
+pub(crate) fn register_custom_patterns(
     patterns: &[ValidationRulePattern],
     wasm: Option<&dyn WasmValidationRuntime>,
 ) -> (Vec<ValidationRulePattern>, Vec<Diagnostic>) {

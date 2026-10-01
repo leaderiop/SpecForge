@@ -13,6 +13,9 @@
 
 use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_registry::compilation::EntityView;
+use specforge_registry::compilation::{
+    detect_duplicate_entity_kinds, register_validation_rules, validate_extension_testability,
+};
 use specforge_registry::validation_engine::{
     ValidationEntity, ValidationPatternKind, ValidationRulePattern, WasmValidationRuntime,
     execute_pattern, interpolate_template, parse_all_rule_patterns, parse_rule_pattern,
@@ -20,8 +23,7 @@ use specforge_registry::validation_engine::{
 };
 use specforge_registry::{
     EdgeRegistry, EdgeRegistryEntry, FieldConstraint, KindRegistry, KindRegistryEntry, ManifestV2,
-    ManifestValidationRule, detect_duplicate_entity_kinds, populate_registries,
-    register_validation_rules, validate_extension_testability, validate_peer_dependencies,
+    ManifestValidationRule, populate_registries, validate_peer_dependencies,
 };
 use specforge_test_macros::test as specforge_test;
 

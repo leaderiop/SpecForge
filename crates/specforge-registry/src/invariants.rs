@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use crate::compilation::register_validation_rules;
     use crate::*;
     use specforge_common::SourceSpan;
 

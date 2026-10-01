@@ -244,7 +244,7 @@ mod tests {
             inference_guide: None,
         }];
 
-        let detected = specforge_registry::detect_duplicate_entity_kinds(&[m1, m2]);
+        let detected = specforge_registry::compilation::detect_duplicate_entity_kinds(&[m1, m2]);
         assert!(!detected.is_empty());
         assert_eq!(detected[0].code, "E026");
     }

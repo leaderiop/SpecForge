@@ -1,6 +1,7 @@
 use specforge_common::{Diagnostic, Severity};
 use specforge_registry::{
-    ManifestV2, detect_duplicate_entity_kinds, validate_manifest, validate_peer_dependencies,
+    ManifestV2, compilation::detect_duplicate_entity_kinds, validate_manifest,
+    validate_peer_dependencies,
 };
 use std::path::Path;
 

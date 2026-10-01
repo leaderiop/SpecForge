@@ -165,8 +165,8 @@ fn registries_for(
             specforge_wasm::protocol::protocol_extension_to_manifest(&ext)
         })
         .collect();
-    let (kinds, fields, _edges, _diags) = specforge_registry::populate_registries(&manifests);
-    (kinds, fields)
+    let build = specforge_registry::build_registries(manifests);
+    (build.kinds, build.fields)
 }
 
 // B:lsp_shutdown — verify contract "requires/ensures consistency for LSP shutdown"
@@ -312,8 +312,7 @@ fn complete_field_names_contract() {
             ));
         }
     }
-    let (_kind_reg, field_reg, _edge_reg, _diags) =
-        specforge_registry::populate_registries(&manifests);
+    let field_reg = specforge_registry::build_registries(manifests).fields;
 
     let behavior_fields = specforge_lsp::complete_field_names("behavior", Some(&field_reg));
     assert!(

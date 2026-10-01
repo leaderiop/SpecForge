@@ -24,9 +24,7 @@ fn default_field_registry() -> FieldRegistry {
             ));
         }
     }
-    let (_kind_reg, field_reg, _edge_reg, _diags) =
-        specforge_registry::populate_registries(&manifests);
-    field_reg
+    specforge_registry::build_registries(manifests).fields
 }
 
 fn node(id: &str, kind: &str, title: Option<&str>) -> Node {

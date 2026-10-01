@@ -1,8 +1,11 @@
-use crate::{EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2};
+use crate::ManifestV2;
+#[cfg(test)]
+use crate::{EdgeRegistry, FieldRegistry, KindRegistry};
 use specforge_common::{Diagnostic, Severity};
 
 /// Cross-validate registered entity fields: check target_kind and edge label references
-/// resolve to registered entries. Called after all registries are populated.
+/// resolve to registered entries. Test-only: `validate_manifest` reports W021 on load.
+#[cfg(test)]
 pub fn validate_registered_entity_fields(
     field_reg: &FieldRegistry,
     kind_reg: &KindRegistry,
@@ -166,7 +169,9 @@ fn version_satisfies(installed: &str, required: &str) -> bool {
 }
 
 /// Validate testability flag consistency on all registered entity kinds.
-pub fn validate_extension_testability(kind_reg: &KindRegistry) -> Vec<Diagnostic> {
+/// Not called by the compile: plan 02 step S11 wires or removes W017/I006.
+#[allow(dead_code)]
+pub(crate) fn validate_extension_testability(kind_reg: &crate::KindRegistry) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     for (_, entry) in kind_reg.iter() {

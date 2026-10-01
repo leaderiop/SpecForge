@@ -24,13 +24,15 @@ use specforge_test_macros::test as spec;
 
 use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_registry::compilation::EntityView;
+use specforge_registry::compilation::{
+    apply_entity_enhancements, detect_duplicate_entity_kinds, register_validation_rules,
+    validate_extension_testability, validate_registered_entity_fields,
+};
 use specforge_registry::{
     EdgeRegistry, FieldEnhancement, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    ManifestEdgeType, ManifestField, ManifestFieldType, ManifestV2, apply_entity_enhancements,
-    detect_duplicate_entity_kinds, detect_unknown_entity_fields, populate_registries,
-    register_validation_rules, validate_extension_testability, validate_manifest,
-    validate_manifest_consistency, validate_manifest_consistency_with_peers,
-    validate_peer_dependencies, validate_registered_entity_fields,
+    ManifestEdgeType, ManifestField, ManifestFieldType, ManifestV2, detect_unknown_entity_fields,
+    populate_registries, validate_manifest, validate_manifest_consistency,
+    validate_manifest_consistency_with_peers, validate_peer_dependencies,
 };
 
 // ---------------------------------------------------------------------------

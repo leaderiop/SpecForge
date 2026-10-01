@@ -128,20 +128,7 @@ fn load_patterns_for(
             ));
         }
     }
-    let (_kind_reg, field_reg, _edge_reg, _diags) =
-        specforge_registry::populate_registries(&manifests);
-    let rule_inputs: Vec<(String, Vec<_>)> = manifests
-        .iter()
-        .map(|m| (m.name.clone(), m.validation_rules.clone()))
-        .collect();
-    let (mut patterns, _) =
-        specforge_registry::validation_engine::parse_all_rule_patterns(&rule_inputs);
-    patterns.extend(
-        specforge_registry::generate_required_field_rules(&field_reg)
-            .into_iter()
-            .map(|p| (p, String::new())),
-    );
-    patterns
+    specforge_registry::build_registries(manifests).rules
 }
 
 #[spec(

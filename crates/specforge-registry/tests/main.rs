@@ -7,5 +7,3 @@ mod registry_config;
 mod registry_ops;
 mod resolver;
 mod surface;
-mod zero_entity_registries;
-mod zero_entity_validation;

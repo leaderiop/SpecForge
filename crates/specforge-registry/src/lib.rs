@@ -8,6 +8,10 @@ pub mod signing;
 #[cfg(test)]
 mod invariants;
 
+// Tests inside the crate name it as its users do.
+#[cfg(test)]
+extern crate self as specforge_registry;
+
 // --- Core registries ---
 pub use registries::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
@@ -27,35 +31,13 @@ pub use manifest::types::{
     validate_manifest, validate_manifest_consistency, validate_manifest_consistency_with_peers,
 };
 
-// --- Compilation / extension logic ---
+// --- Registry compilation (plan 05): one build, and the graph checks ---
 pub use compilation::{
-    EntityView,
-    ProviderConfig,
-    ProviderSchemeRegistry,
-    ProviderStatus,
-    RegistryBuild,
-    SchemeRegistryEntry,
-    // populate
-    apply_entity_enhancements,
-    build_registries,
-    // validate
-    detect_duplicate_entity_kinds,
-    // detection
-    detect_mistyped_references,
-    detect_unknown_entity_fields,
-    detect_unknown_entity_kinds,
-    // populate/validate (above)
-    generate_required_field_rules,
-    // provider
-    load_provider_configurations,
-    populate_registries,
-    // contributions
-    register_provider_schemes,
-    register_provider_schemes_with_status,
-    register_validation_rules,
-    validate_extension_testability,
-    validate_peer_dependencies,
-    validate_registered_entity_fields,
+    EntityView, ProviderConfig, ProviderSchemeRegistry, ProviderStatus, RegistryBuild,
+    SchemeRegistryEntry, build_registries, detect_identifier_length_violations,
+    detect_mistyped_references, detect_reserved_entity_ids, detect_unknown_entity_fields,
+    detect_unknown_entity_kinds, load_provider_configurations, populate_registries,
+    register_provider_schemes, register_provider_schemes_with_status, validate_peer_dependencies,
 };
 pub use signing::{
     PackageSignature, SigningKey, load_or_create_signing_key, signing_key_path, verify_signature,
@@ -81,7 +63,5 @@ pub use client::registry_client;
 pub use client::registry_config;
 pub use client::registry_ops;
 pub use client::resolver;
-pub use compilation::detection as compilation_detection;
-pub use compilation::provider;
 pub use compilation::validation_engine;
 pub use manifest::surface;
