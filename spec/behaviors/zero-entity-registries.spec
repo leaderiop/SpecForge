@@ -472,10 +472,6 @@ behavior two_phase_parse_structural "Two-Phase Parse: Structural" {
     block MUST be parsed into a generic entity node regardless of whether
     the keyword is registered. No keyword validation MUST occur in Phase 1.
     The output MUST be a list of SpecFile ASTs with generic entity blocks.
-    After structural parsing and registry population, Phase 1.5 MUST
-    dispatch registered body parsers for entity kinds that have them,
-    transforming raw body text into structured fields before Phase 2
-    semantic validation.
   """
   verify unit "unknown keyword parsed into generic entity node"
   verify unit "no keyword validation in Phase 1"
@@ -722,71 +718,6 @@ behavior render_extension_defined_edge_styles "Render Extension-Defined Edge Sty
   verify unit "edge_arrowhead sets DOT edge arrowhead attribute"
   verify integration "multi-extension graph renders each edge type with its declared style"
   verify contract "Render Extension-Defined Edge Styles: DOT edge style rendering holds — edge_registry_available, graph_available, styles_applied, edge_colors_applied"
-}
-
-// -- Grammar and Body Parser Registration ------------------------------------
-
-behavior register_grammar_contributions "Register Grammar Contributions" {
-  invariants [zero_domain_knowledge_core, grammar_composition_determinism]
-  category   command
-  types      [GrammarContribution, ManifestV2, KindRegistryEntry]
-  consumes   [extension_manifests_loaded]
-  produces   [grammar_contribution_registered]
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
-    kind_registry_available          "KindRegistry is populated so entity_kinds references can be validated"
-  }
-  ensures {
-    grammar_contributions_registered "Valid grammar contributions stored for LSP injection and Phase 1.5 dispatch"
-    grammar_event_emitted            "grammar_contribution_registered event emitted for each successful registration"
-    conflicts_resolved               "Grammar conflicts for the same entity kind resolved per grammar_policy"
-  }
-  contract   """
-    For each grammar_contributions entry in a loaded extension manifest,
-    the compiler MUST validate that the declared entity_kinds reference
-    registered kinds in the KindRegistry. The grammar .wasm path MUST be
-    validated as accessible. When multiple extensions declare grammar
-    contributions for the same entity kind, the grammar_policy from
-    CompilerConfig MUST be applied. Successfully registered grammar
-    contributions MUST be stored for LSP grammar injection and Phase 1.5
-    body parser dispatch.
-  """
-  verify unit "grammar contribution registered for valid entity kind"
-  verify unit "grammar contribution for unregistered kind produces warning"
-  verify unit "grammar conflict detected and policy applied"
-  verify unit "grammar .wasm path validated as accessible"
-  verify contract "Register Grammar Contributions: grammar contribution registration holds — extension_manifests_loaded_fired, kind_registry_available, grammar_contributions_registered, grammar_event_emitted, conflicts_resolved"
-}
-
-behavior register_body_parser_contributions "Register Body Parser Contributions" {
-  invariants [zero_domain_knowledge_core, body_parser_output_conformance]
-  category   command
-  types      [BodyParserContribution, ManifestV2, KindRegistryEntry]
-  consumes   [extension_manifests_loaded]
-  produces   [body_parser_contribution_registered]
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
-    kind_registry_available          "KindRegistry is populated so entity_kinds references can be validated"
-  }
-  ensures {
-    body_parsers_registered      "Valid body parser contributions stored for Phase 1.5 dispatch"
-    body_parser_event_emitted    "body_parser_contribution_registered event emitted for each successful registration"
-    one_parser_per_kind_enforced "At most one body parser per entity kind — duplicates produce errors"
-  }
-  contract   """
-    For each body_parser_contributions entry in a loaded extension manifest,
-    the compiler MUST validate that the declared entity_kinds reference
-    registered kinds in the KindRegistry. The export_name MUST be verified
-    to exist in the extension's .wasm binary. At most one body parser
-    per entity kind is allowed — duplicates MUST produce an error. The
-    output_schema (if declared) MUST be stored for Phase 1.5 output
-    validation.
-  """
-  verify unit "body parser contribution registered for valid entity kind"
-  verify unit "body parser for unregistered kind produces warning"
-  verify unit "duplicate body parser for same kind produces error"
-  verify unit "export_name verified against Wasm binary"
-  verify contract "Register Body Parser Contributions: body parser contribution registration holds — extension_manifests_loaded_fired, kind_registry_available, body_parsers_registered, body_parser_event_emitted, one_parser_per_kind_enforced"
 }
 
 // -- Extension Manifest Consistency ------------------------------------------

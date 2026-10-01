@@ -400,19 +400,6 @@ Owner: core
 Level: error
 ```
 
-## E029
-
-```
-E029: Duplicate body parser registration
-
-Two extensions both register a body parser for the same entity kind. At most one
-body parser is allowed per entity kind — uninstall or reconfigure one of the
-conflicting extensions.
-
-Owner: core
-Level: error
-```
-
 ## E030
 
 ```
@@ -481,31 +468,6 @@ E035: Reserved or invalid entity kind name
 An extension-declared entity kind name is a reserved structural keyword, doesn't
 match the identifier pattern `[a-z][a-z0-9_]{1,59}`, or is already reserved by
 another installed extension. Choose a different, valid entity kind name.
-
-Owner: core
-Level: error
-```
-
-## E037
-
-```
-E037: Grammar ABI version mismatch
-
-A tree-sitter grammar `.wasm` binary was built against an ABI version that
-doesn't match the version this SpecForge build supports. Rebuild the grammar
-targeting the supported tree-sitter ABI version.
-
-Owner: core
-Level: error
-```
-
-## E038
-
-```
-E038: Grammar binary too large
-
-A tree-sitter grammar `.wasm` binary exceeds the configured maximum size. Reduce
-the grammar's complexity or raise `max_size_bytes` in the compiler config.
 
 Owner: core
 Level: error
@@ -1766,32 +1728,6 @@ Owner: core
 Level: warning
 ```
 
-## W024
-
-```
-W024: Contribution targets an unregistered kind
-
-An extension's grammar or body-parser contribution targets an entity kind that
-no installed extension registers, so it is ignored. Register the target kind (or
-install the extension that does) before contributing to it.
-
-Owner: core
-Level: warning
-```
-
-## W025
-
-```
-W025: Inaccessible contribution asset
-
-An extension's grammar contribution points at a `.wasm` file that can't be
-found, or its body-parser contribution references an export that doesn't exist
-in the extension's wasm module. Fix the path or export name in the manifest.
-
-Owner: core
-Level: warning
-```
-
 ## W026
 
 ```
@@ -2276,20 +2212,6 @@ Owner: @specforge/formal
 Level: warning
 ```
 
-## W111
-
-```
-W111: Grammar conflict resolved by policy
-
-Two installed extensions register a custom body-parser grammar for the same
-entity kind. Depending on the configured conflict policy, the first or the most
-recently registered grammar wins; uninstall one of the conflicting extensions or
-configure a different policy if the outcome is wrong.
-
-Owner: core
-Level: warning
-```
-
 ## W112
 
 ```
@@ -2621,4 +2543,10 @@ These codes are no longer emitted, and are never reused for another meaning.
 
 | Code | Replaced by |
 |------|-------------|
+| E029 | (nothing) |
+| E037 | (nothing) |
+| E038 | (nothing) |
 | E047 | [W139](#w139) |
+| W024 | (nothing) |
+| W025 | (nothing) |
+| W111 | (nothing) |

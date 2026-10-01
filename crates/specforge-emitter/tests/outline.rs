@@ -527,17 +527,16 @@ fn shared_fields_mapped_from_manifest() {
     }
 }
 
-// --- 6.6-6.7: collector and grammar counts ---
+// --- 6.6: collector counts ---
 
 #[test]
-fn collector_and_grammar_counts_populated() {
+fn collector_counts_populated() {
     let manifests = load_all_manifests();
     let outline = OutlineIntermediate_from_manifests(&manifests);
 
     // Counts should be accessible (even if zero for most extensions)
     for ext in &outline.extensions {
         let _c = ext.collector_count;
-        let _g = ext.grammar_count;
     }
 }
 

@@ -372,13 +372,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "An extension's Wasm module failed somewhere in its lifecycle — the binary is missing or unreadable, failed to load, trapped while running `initialize`/`validate`/a collector/body parser/surface command/MCP tool or resource, returned output that isn't valid JSON, a grammar cache path couldn't be written, or the extension's declared host API version isn't supported. Check the extension's logs or report the trap to its author, and confirm the extension is installed and up to date.",
     },
     CodeEntry {
-        code: "E029",
-        title: "Duplicate body parser registration",
-        owner: "core",
-        level: Level::Error,
-        explanation: "Two extensions both register a body parser for the same entity kind. At most one body parser is allowed per entity kind — uninstall or reconfigure one of the conflicting extensions.",
-    },
-    CodeEntry {
         code: "E030",
         title: "Invalid extension manifest",
         owner: "core",
@@ -412,20 +405,6 @@ pub const CATALOG: &[CodeEntry] = &[
         owner: "core",
         level: Level::Error,
         explanation: "An extension-declared entity kind name is a reserved structural keyword, doesn't match the identifier pattern `[a-z][a-z0-9_]{1,59}`, or is already reserved by another installed extension. Choose a different, valid entity kind name.",
-    },
-    CodeEntry {
-        code: "E037",
-        title: "Grammar ABI version mismatch",
-        owner: "core",
-        level: Level::Error,
-        explanation: "A tree-sitter grammar `.wasm` binary was built against an ABI version that doesn't match the version this SpecForge build supports. Rebuild the grammar targeting the supported tree-sitter ABI version.",
-    },
-    CodeEntry {
-        code: "E038",
-        title: "Grammar binary too large",
-        owner: "core",
-        level: Level::Error,
-        explanation: "A tree-sitter grammar `.wasm` binary exceeds the configured maximum size. Reduce the grammar's complexity or raise `max_size_bytes` in the compiler config.",
     },
     CodeEntry {
         code: "E039",
@@ -1086,20 +1065,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "Two extensions register a validation rule using the same diagnostic code. Change one extension's rule to use a unique code.",
     },
     CodeEntry {
-        code: "W024",
-        title: "Contribution targets an unregistered kind",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "An extension's grammar or body-parser contribution targets an entity kind that no installed extension registers, so it is ignored. Register the target kind (or install the extension that does) before contributing to it.",
-    },
-    CodeEntry {
-        code: "W025",
-        title: "Inaccessible contribution asset",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "An extension's grammar contribution points at a `.wasm` file that can't be found, or its body-parser contribution references an export that doesn't exist in the extension's wasm module. Fix the path or export name in the manifest.",
-    },
-    CodeEntry {
         code: "W026",
         title: "Invalid verify kind",
         owner: "core",
@@ -1359,13 +1324,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A behavior's `refines` field names a target behavior that is not marked `abstract true`. Add `abstract true` to the target behavior, or point `refines` at a behavior that is actually abstract.",
     },
     CodeEntry {
-        code: "W111",
-        title: "Grammar conflict resolved by policy",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "Two installed extensions register a custom body-parser grammar for the same entity kind. Depending on the configured conflict policy, the first or the most recently registered grammar wins; uninstall one of the conflicting extensions or configure a different policy if the outcome is wrong.",
-    },
-    CodeEntry {
         code: "W112",
         title: "Validation rule cannot fire",
         owner: "core",
@@ -1537,7 +1495,15 @@ pub const CATALOG: &[CodeEntry] = &[
 
 /// Codes that are no longer emitted, with the code that replaced them (if
 /// any). A retired code is never reused for another meaning.
-pub const RETIRED: &[(&str, Option<&str>)] = &[("E047", Some("W139"))];
+pub const RETIRED: &[(&str, Option<&str>)] = &[
+    ("E029", None),
+    ("E037", None),
+    ("E038", None),
+    ("E047", Some("W139")),
+    ("W024", None),
+    ("W025", None),
+    ("W111", None),
+];
 
 /// Look up a retired code (case-insensitive): `Some(replacement)`.
 pub fn retired(code: &str) -> Option<Option<&'static str>> {

@@ -27,7 +27,6 @@ port CompilerApi {
   method watch(config: CompilerConfig) -> Result<void, EmitterError>
   method init(config: InitConfig) -> Result<ProjectConfig, InitError>
   method add(specifier: ExtensionSpecifier) -> Result<ExtensionManifest, RegistryError>
-  method validateGrammar(path: string) -> Result<GrammarContribution, GrammarError>
   requires {
     config_valid        "CompilerConfig has a non-empty spec_root and at least one extension"
     export_format_known "export format argument is one of context, graph, brief, json, dot"

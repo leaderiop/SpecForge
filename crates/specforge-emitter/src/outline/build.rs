@@ -135,7 +135,6 @@ pub fn OutlineIntermediate_from_manifests(manifests: &[ManifestV2]) -> OutlineIn
             surface_counts,
             shared_fields,
             collector_count: m.collector_contributions.len(),
-            grammar_count: m.grammar_contributions.len(),
         });
 
         // Map peer dependencies (direct)

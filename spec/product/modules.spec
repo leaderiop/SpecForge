@@ -94,7 +94,7 @@ module specforge_formatter "specforge-formatter" {
 module specforge_wasm "specforge-wasm" {
   family      core
   description "Wasm component extension runtime with compile caching"
-  features    [wasm_extension_runtime, wasm_extension_authoring, wasm_grammar_contributions]
+  features    [wasm_extension_runtime, wasm_extension_authoring]
   depends_on  [specforge_graph]
   tags        ["wasm", "runtime"]
 }

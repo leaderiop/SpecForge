@@ -137,13 +137,8 @@ impl<'a> ProtocolHost<'a> {
             descs.validation_rules = self.describe_typed(extension_name, "validation_rules")?;
         }
 
-        if flags.grammars {
-            descs.grammars = self.describe_typed(extension_name, "grammars")?;
-        }
-
-        if flags.body_parsers {
-            descs.body_parsers = self.describe_typed(extension_name, "body_parsers")?;
-        }
+        // `grammars` and `body_parsers` are reserved flags: nothing reads
+        // those contributions, so they are not described (ADR 0004 D5-a).
 
         if flags.collectors {
             descs.collectors = self.describe_typed(extension_name, "collectors")?;
@@ -188,8 +183,6 @@ pub struct ExtensionDescriptions {
     pub enhancements: Vec<EntityEnhancementDescriptor>,
     pub validation_rules: Vec<ValidationRuleDescriptor>,
     pub surfaces: Option<SurfaceDescriptor>,
-    pub grammars: Vec<GrammarDescriptor>,
-    pub body_parsers: Vec<BodyParserDescriptor>,
     pub collectors: Vec<CollectorDescriptor>,
     pub passes: Vec<CompilerPassDescriptor>,
     pub feature_flags: Vec<FeatureFlagDescriptor>,

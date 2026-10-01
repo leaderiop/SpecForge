@@ -21,22 +21,18 @@ pub use manifest::surface::{
     register_surface_contributions,
 };
 pub use manifest::types::{
-    AnalyzerContribution, BodyParserContribution, CollectorAutoDetect, CollectorContribution,
-    ExtensionContributions, FieldConstraint, FieldEnhancement, GrammarContribution,
-    ManifestEdgeType, ManifestEntityKind, ManifestField, ManifestV2, ManifestValidationRule,
-    PeerDependency, SandboxPolicy, unknown_manifest_fields, validate_manifest,
-    validate_manifest_consistency, validate_manifest_consistency_with_peers,
+    AnalyzerContribution, CollectorAutoDetect, CollectorContribution, ExtensionContributions,
+    FieldConstraint, FieldEnhancement, ManifestEdgeType, ManifestEntityKind, ManifestField,
+    ManifestV2, ManifestValidationRule, PeerDependency, SandboxPolicy, unknown_manifest_fields,
+    validate_manifest, validate_manifest_consistency, validate_manifest_consistency_with_peers,
 };
 
 // --- Compilation / extension logic ---
 pub use compilation::{
     EntityView,
-    GrammarConflictPolicy,
     HOST_API_VERSION,
     ProviderConfig,
     ProviderSchemeRegistry,
-    RegisteredBodyParser,
-    RegisteredGrammar,
     RegistryBuild,
     SchemeRegistryEntry,
     // populate
@@ -56,9 +52,7 @@ pub use compilation::{
     load_provider_configurations,
     populate_registries,
     // contributions
-    register_body_parser_contributions,
     register_extension_entity_types,
-    register_grammar_contributions,
     register_provider_schemes,
     register_validation_rules,
     register_verify_kinds,
@@ -94,7 +88,6 @@ pub use client::registry_client;
 pub use client::registry_config;
 pub use client::registry_ops;
 pub use client::resolver;
-pub use compilation::contributions;
 pub use compilation::detection as compilation_detection;
 pub use compilation::provider;
 pub use compilation::validation_engine;

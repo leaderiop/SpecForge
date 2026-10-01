@@ -605,20 +605,11 @@ fn convert_metadata_peer_deps_sandbox_flags() {
     );
 }
 
-// ── Step 7: Grammar, body parser, collector ──
+// ── Step 7: Collector ──
 
 #[test]
-fn convert_grammar_body_parser_collector() {
+fn convert_collector() {
     let mut ext = minimal_protocol_extension("@test/ext", vec![]);
-    ext.descriptions.grammars = vec![GrammarDescriptor {
-        entity_kind: "behavior".to_string(),
-        grammar_wasm_path: "grammar.wasm".to_string(),
-        export_name: Some("parse_behavior".to_string()),
-    }];
-    ext.descriptions.body_parsers = vec![BodyParserDescriptor {
-        entity_kind: "behavior".to_string(),
-        export_name: "parse__behavior".to_string(),
-    }];
     ext.descriptions.collectors = vec![CollectorDescriptor {
         name: "rust".to_string(),
         input_formats: vec!["junit-xml".to_string()],
@@ -633,19 +624,6 @@ fn convert_grammar_body_parser_collector() {
     }];
 
     let manifest = protocol_extension_to_manifest(&ext);
-
-    // Grammars
-    assert_eq!(manifest.grammar_contributions.len(), 1);
-    let gc = &manifest.grammar_contributions[0];
-    assert_eq!(gc.entity_kind, "behavior");
-    assert_eq!(gc.grammar_wasm_path, "grammar.wasm");
-    assert_eq!(gc.export_name.as_deref(), Some("parse_behavior"));
-
-    // Body parsers
-    assert_eq!(manifest.body_parser_contributions.len(), 1);
-    let bp = &manifest.body_parser_contributions[0];
-    assert_eq!(bp.entity_kind, "behavior");
-    assert_eq!(bp.export_name, "parse__behavior");
 
     // Collectors
     assert_eq!(manifest.collector_contributions.len(), 1);
@@ -827,8 +805,6 @@ fn parity_protocol_vs_manifest_registries() {
         host_api_version: None,
         entity_enhancements: vec![],
         starter_template: None,
-        grammar_contributions: vec![],
-        body_parser_contributions: vec![],
         ext_short: None,
         query_scope: None,
         collector_contributions: vec![],

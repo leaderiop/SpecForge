@@ -214,7 +214,7 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
     The eight dispatch contribution types and their feature owners:
     1-5. entities, validators, renderers, providers, parsers — this feature.
     6. collectors — test_result_collection feature.
-    7-8. grammars, body_parsers — wasm_grammar_contributions feature.
+    7-8. grammars, body_parsers — reserved flags; nothing reads them.
     Additionally, verify_kinds is a declarative manifest field (no Wasm dispatch).
     Cross-feature dependency: dispatch_contribution_exports consumes
     collector_report_ingested from the test_result_collection feature,
@@ -261,28 +261,5 @@ feature surface_contributions "Surface Contributions" {
     overrides can only restrict below the type ceiling (MCP resources
     cannot fs_write). Phase 1 covers CLI commands, MCP tools, and MCP
     resources. LSP providers are deferred to Phase 2.
-  """
-}
-
-feature wasm_grammar_contributions "Wasm Grammar Contributions" {
-  // Bridge: invariants grammar_composition_determinism and body_parser_output_conformance
-  // reference register_grammar_contributions and register_body_parser_contributions in
-  // enforced_by, but those behaviors belong to dynamic_entity_registration feature in
-  // features/zero-entity-core.spec. This is a cross-feature dependency, similar to
-  // entity_enhancement's dependency on validate_extension_manifest.
-  refs     [register_grammar_contributions, register_body_parser_contributions]
-  problem  """
-    Extensions needing structured syntax beyond key-value pairs must push
-    data into opaque strings the compiler cannot validate. The fixed
-    tree-sitter grammar cannot accommodate extension-specific body syntax,
-    violating zero-domain-knowledge and validation-is-the-value principles.
-  """
-  solution """
-    Two new contribution types: grammars (tree-sitter .wasm for editor
-    highlighting) and body_parsers (Wasm exports that parse raw body text
-    into structured JSON fields). Core grammar captures keyword name
-    { raw_body } and delegates parsing to extensions via Phase 1.5.
-    Grammar artifacts are cached using content-hash + ABI version keys.
-    Conflict resolution is configurable via GrammarConflictPolicy.
   """
 }

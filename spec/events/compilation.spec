@@ -607,25 +607,3 @@ event graph_protocol_compatibility_verified "Graph Protocol Compatibility Verifi
   }
   verify integration "emits graph_protocol_compatibility_verified after post-migration schema comparison"
 }
-
-event grammar_contribution_registered "Grammar Contribution Registered" {
-  payload  GrammarContribution
-  channel  "compilation.grammar_contribution_registered"
-  contract """
-    Emitted when a grammar contribution from an extension manifest is
-    successfully registered. Consumers use this to track which entity
-    kinds have custom grammars.
-  """
-  verify integration "event emitted per registered grammar contribution"
-}
-
-event body_parser_contribution_registered "Body Parser Contribution Registered" {
-  payload  BodyParserContribution
-  channel  "compilation.body_parser_contribution_registered"
-  contract """
-    Emitted when a body parser contribution from an extension manifest
-    is successfully registered. Consumers use this to track which entity
-    kinds have custom body parsers for Phase 1.5 dispatch.
-  """
-  verify integration "event emitted per registered body parser contribution"
-}

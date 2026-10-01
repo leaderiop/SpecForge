@@ -39,10 +39,6 @@ pub struct ManifestV2 {
     #[serde(default)]
     pub starter_template: Option<String>,
     #[serde(default)]
-    pub grammar_contributions: Vec<GrammarContribution>,
-    #[serde(default)]
-    pub body_parser_contributions: Vec<BodyParserContribution>,
-    #[serde(default)]
     pub ext_short: Option<String>,
     #[serde(default)]
     pub query_scope: Option<String>,
@@ -231,22 +227,6 @@ pub struct FieldEnhancement {
     pub verify_kinds: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GrammarContribution {
-    pub entity_kind: String,
-    pub grammar_wasm_path: String,
-    #[serde(default)]
-    pub export_name: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BodyParserContribution {
-    pub entity_kind: String,
-    pub export_name: String,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct CollectorContribution {
@@ -369,38 +349,6 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
             span: None,
             suggestion: None,
         });
-    }
-
-    // Validate grammar contributions structurally
-    for gc in &manifest.grammar_contributions {
-        if gc.grammar_wasm_path.is_empty() {
-            diagnostics.push(Diagnostic {
-                code: "E030".to_string(),
-                severity: Severity::Error,
-                message: format!(
-                    "extension '{}': grammarContribution for '{}' has empty grammarWasmPath",
-                    manifest.name, gc.entity_kind
-                ),
-                span: None,
-                suggestion: None,
-            });
-        }
-    }
-
-    // Validate body parser contributions structurally
-    for bp in &manifest.body_parser_contributions {
-        if bp.export_name.is_empty() {
-            diagnostics.push(Diagnostic {
-                code: "E030".to_string(),
-                severity: Severity::Error,
-                message: format!(
-                    "extension '{}': bodyParserContribution for '{}' has empty exportName",
-                    manifest.name, bp.entity_kind
-                ),
-                span: None,
-                suggestion: None,
-            });
-        }
     }
 
     for ac in &manifest.analyzer_contributions {

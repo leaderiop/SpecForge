@@ -303,37 +303,3 @@ event batch_update_completed "Batch Update Completed" {
   // updated extensions never serve stale compiled artifacts.
   verify integration "emits batch_update_completed with correct updatedCount after bulk update"
 }
-
-// -- Extension-Defined Grammar Events ----------------------------------------
-
-event grammar_loaded "Grammar Loaded" {
-  payload  GrammarCacheEntry
-  channel  "wasm.grammar_loaded"
-  contract """
-    Emitted when a grammar .wasm binary is successfully loaded and cached.
-    Consumers MAY use this to update LSP highlighting configuration.
-  """
-  verify integration "grammar_loaded emitted after successful grammar load"
-}
-
-event grammars_composed "Grammars Composed" {
-  payload  GrammarConflictPolicy
-  channel  "wasm.grammars_composed"
-  contract """
-    Emitted after all grammar contributions have been composed into a
-    coherent grammar configuration. Consumers MAY use this to finalize
-    LSP highlighting setup.
-  """
-  verify integration "grammars_composed emitted after composition completes"
-}
-
-event body_parsed "Body Parsed" {
-  payload  FieldMap
-  channel  "wasm.body_parsed"
-  contract """
-    Emitted when a body parser successfully transforms raw body text
-    into structured JSON fields for an entity. The payload contains
-    the resulting FieldMap.
-  """
-  verify integration "body_parsed emitted after successful body parse"
-}

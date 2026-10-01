@@ -80,22 +80,3 @@ type RegistryError {
   status_code  integer         @optional
   verify unit "RegistryError schema is valid"
 }
-
-type GrammarError {
-  _tag           "GrammarError" @literal
-  message        string
-  extension_name string
-  grammar_path   string         @optional
-  abi_version    string         @optional
-  verify unit "GrammarError schema is valid"
-}
-
-type BodyParserError {
-  _tag             "BodyParserError" @literal
-  message          string
-  extension_name   string
-  entity_kind      string            @optional
-  raw_body         string            @optional
-  timeout_exceeded boolean           @optional
-  verify unit "BodyParserError schema is valid"
-}

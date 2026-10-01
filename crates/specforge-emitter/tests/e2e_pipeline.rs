@@ -60,9 +60,9 @@ fn compile_with_builtins(
     specforge_project::CompiledProject::compile(dir.path(), Some(&runtime)).into_context()
 }
 
-// B:delegate_body_parsing_to_extension — verify unit "port method body syntax does not surface parse errors"
+// B:extension_owned_body_syntax — verify unit "port method body syntax does not surface parse errors"
 #[specforge_test(
-    behavior = "delegate_body_parsing_to_extension",
+    behavior = "extension_owned_body_syntax",
     verify = "extension-owned body syntax does not surface E001 parse errors"
 )]
 fn port_method_body_does_not_surface_parse_errors() {
@@ -98,9 +98,9 @@ port TaskRepository "Repo" {
     );
 }
 
-// B:delegate_body_parsing_to_extension — verify unit "type inline-union field syntax does not surface parse errors"
+// B:extension_owned_body_syntax — verify unit "type inline-union field syntax does not surface parse errors"
 #[specforge_test(
-    behavior = "delegate_body_parsing_to_extension",
+    behavior = "extension_owned_body_syntax",
     verify = "extension-owned body syntax does not surface E001 parse errors"
 )]
 fn type_inline_union_field_does_not_surface_parse_errors() {
@@ -183,7 +183,7 @@ port Broken "Broken" {
 // body are suppressed because `type` declares a body parser (plan 01, D10:
 // the suppression was dead code, filtering a vector that held no E001).
 #[specforge_test(
-    behavior = "delegate_body_parsing_to_extension",
+    behavior = "extension_owned_body_syntax",
     verify = "extension-owned body syntax does not surface E001 parse errors"
 )]
 fn type_body_syntax_the_grammar_rejects_does_not_surface_parse_errors() {

@@ -90,16 +90,6 @@
       ],
       "default": "error"
     },
-    "grammar_policy": {
-      "type": "string",
-      "description": "How to resolve conflicts when two extensions contribute grammars for the same entity kind.",
-      "enum": [
-        "error",
-        "priority",
-        "namespace"
-      ],
-      "default": "error"
-    },
     "entity_kinds": {
       "type": "object",
       "description": "Explicit conflict resolution for entity kind conflicts. Keys are kind names, values are the winning extension package name.",
@@ -294,5 +284,5 @@
       ]
     }
   },
-  "$comment": "Keys consumed via raw passthrough by the compiler (not typed on ProjectConfig): providers, personas, surfaces, test_dirs, coverage, enhancement_policy, enhancement_overrides, entity_kind_policy, grammar_policy, entity_kinds, strict, namespace, display_prefix. Registry client reads 'registries'; inference is typed on ProjectConfig."
+  "$comment": "Keys consumed via raw passthrough by the compiler (not typed on ProjectConfig): providers, personas, surfaces, test_dirs, coverage, enhancement_policy, enhancement_overrides, entity_kind_policy, entity_kinds, strict, namespace, display_prefix. Registry client reads 'registries'; inference is typed on ProjectConfig."
 }

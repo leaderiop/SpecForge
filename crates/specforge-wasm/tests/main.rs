@@ -1,9 +1,9 @@
 mod contributions_integration;
 mod discovery_and_lockfile;
-mod grammar_and_cache;
 mod handshake_conformance;
 mod host_function_drift;
 mod host_functions_integration;
+mod integrity;
 mod protocol_bridge;
 mod protocol_host;
 mod protocol_types;

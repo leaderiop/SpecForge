@@ -128,8 +128,7 @@ The protocol defines 11 contribution categories:
 | `enhancements` | Field enhancements on other extensions' entity kinds | Always |
 | `validation_rules` | Declarative and custom validation rule descriptors | Always |
 | `surfaces` | CLI commands, MCP tools, MCP resources | CLI, MCP |
-| `grammars` | Grammar contribution descriptors | When `grammars` flag is true |
-| `body_parsers` | Body parser descriptors | When `body_parsers` flag is true |
+| `grammars`, `body_parsers` | Reserved: the host never asks for them | Never |
 | `collectors` | Collector descriptors with auto-detection config | When `collectors` flag is true |
 | `passes` | Compiler pass descriptors with ordering constraints | When extension declares passes |
 | `feature_flags` | Feature flag descriptors with allowed values and defaults | Always |
@@ -324,38 +323,13 @@ Returns CLI command, MCP tool, and MCP resource descriptors. CLI commands auto-p
 }
 ```
 
-### Category: grammars
+### Reserved: grammars and body_parsers
 
-Returns grammar contributions. Each contribution associates a Tree-sitter grammar Wasm module with an entity kind.
-
-```json
-{
-  "category": "grammars",
-  "items": [
-    {
-      "entity_kind": "type",
-      "grammar_wasm_path": "type_grammar.wasm",
-      "export_name": "parse_type"
-    }
-  ]
-}
-```
-
-### Category: body_parsers
-
-Returns body parser contributions. Each contribution associates a Wasm export with an entity kind for parsing body content.
-
-```json
-{
-  "category": "body_parsers",
-  "items": [
-    {
-      "entity_kind": "type",
-      "export_name": "parse__type_fields"
-    }
-  ]
-}
-```
+The `grammars` and `body_parsers` contribution flags are reserved. The host ignores them and
+never calls `__describe` for these categories: extensions cannot contribute grammars or body
+parsers (ADR 0004, D5-a). A kind whose body syntax the core grammar does not parse sets
+`has_body_parser` on its entity descriptor instead; the compiler then leaves parse errors
+inside entities of that kind unreported.
 
 ### Category: collectors
 
@@ -633,7 +607,6 @@ All extension exports follow a strict naming convention that the host uses to di
 | `cmd__` | CLI command execution | `cmd__validate` |
 | `validate__` | Custom validation logic | `validate__verify_kind_allowlist` |
 | `mcp__` | MCP tool or resource execution | `mcp__model` |
-| `parse__` | Body parser execution | `parse__type_fields` |
 | `collect__` | Collector execution | `collect__rust` |
 
 ## Comparison with manifest.json

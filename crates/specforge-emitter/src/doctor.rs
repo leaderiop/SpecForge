@@ -16,7 +16,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 /// Diagnostic codes that mean two contributions collide.
-pub const CONFLICT_CODES: [&str; 7] = ["E017", "E018", "E023", "E026", "E029", "E057", "W018"];
+pub const CONFLICT_CODES: [&str; 6] = ["E017", "E018", "E023", "E026", "E057", "W018"];
 
 /// Codes that mean a name shadows a grammar-level construct: E013 (a project
 /// entity ID is a structural keyword or an extension's kind keyword), E023

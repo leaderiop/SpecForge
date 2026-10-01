@@ -56,10 +56,9 @@ behavior load_extension_manifests "Load Extension Manifests" {
     schema validation. Once all manifests are loaded and the
     extension_manifests_loaded event is produced,
     register_extension_entity_types consumes it to populate the
-    KindRegistry, FieldRegistry, and EdgeRegistry. After registry
-    population, grammar and body parser contributions from manifests
-    are registered via register_grammar_contributions and
-    register_body_parser_contributions.
+    KindRegistry, FieldRegistry, and EdgeRegistry. The grammars and
+    body_parsers contribution flags are reserved: nothing reads those
+    contributions.
   """
   verify unit "installed extension manifest is loaded"
   verify unit "missing extension produces diagnostic"

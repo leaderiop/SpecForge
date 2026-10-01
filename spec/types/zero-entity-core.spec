@@ -9,43 +9,41 @@ use "types/surface"
 use "types/wasm"
 
 type ManifestV2 {
-  name                      string                   @readonly
-  version                   string                   @readonly
-  manifest_version          integer                  @readonly
-  wasm_path                 string
-  contributes               ExtensionContributions   @optional
-  entity_kinds              ManifestEntityKind[]     @optional
-  edge_types                ManifestEdgeType[]       @optional
-  validation_rules          ValidationRulePattern[]  @optional
+  name                    string                  @readonly
+  version                 string                  @readonly
+  manifest_version        integer                 @readonly
+  wasm_path               string
+  contributes             ExtensionContributions  @optional
+  entity_kinds            ManifestEntityKind[]    @optional
+  edge_types              ManifestEdgeType[]      @optional
+  validation_rules        ValidationRulePattern[] @optional
   // Extension-wide verify kinds this extension supports (e.g., ["smoke", "contract", "acceptance"])
-  verify_kinds              string[]                 @optional
+  verify_kinds            string[]                @optional
   // Shared fields applied to ALL entity kinds in this extension (overridden by entity-kind-level fields of same name)
-  fields                    ManifestField[]          @optional
+  fields                  ManifestField[]         @optional
   // Extension-level default for incremental validation. Per-kind ManifestEntityKind.incremental overrides this value. See dispatch_incremental_validators behavior.
-  incremental               boolean                  @optional
+  incremental             boolean                 @optional
   // Keywords this extension reserves from being used as entity kind names
   // (e.g., @specforge/software reserves "scenario", "given", "when", "then")
-  reserved_keywords         string[]                 @optional
+  reserved_keywords       string[]                @optional
   // Wasm function name to invoke during `specforge migrate` for this extension
-  migration_hook            string                   @optional
-  peer_dependencies         PeerDependency[]         @optional
-  sandbox_policy            SandboxPolicy            @optional
-  query_extensions          QueryExtension[]         @optional
-  host_api_version          string                   @optional
+  migration_hook          string                  @optional
+  peer_dependencies       PeerDependency[]        @optional
+  sandbox_policy          SandboxPolicy           @optional
+  query_extensions        QueryExtension[]        @optional
+  host_api_version        string                  @optional
   // Controls graph visibility via query_graph host function.
   // "all" (default): full graph. "own": extension + peer kinds only.
   // string[]: explicit kind list. See compute_extension_query_scope behavior.
-  query_scope               string | string[]        @optional
+  query_scope             string | string[]       @optional
   // Enhancement field declarations this extension adds to other extensions' entity kinds
-  entity_enhancements       FieldEnhancement[]       @optional
+  entity_enhancements     FieldEnhancement[]      @optional
   // Text of the starter .spec file scaffold_starter_spec_file writes; {project} stands for the project id
-  starter_template          string                   @optional
-  grammar_contributions     GrammarContribution[]    @optional
-  body_parser_contributions BodyParserContribution[] @optional
+  starter_template        string                  @optional
   // Collector contribution declarations for test result ingestion (see register_collector_contributions)
-  collector_contributions   CollectorContribution[]  @optional
+  collector_contributions CollectorContribution[] @optional
   // Surface contributions: CLI commands, MCP tools, MCP resources (Phase 1)
-  surfaces                  SurfaceContributions     @optional
+  surfaces                SurfaceContributions    @optional
   verify unit "ManifestV2 schema is valid"
 }
 

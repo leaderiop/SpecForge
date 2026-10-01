@@ -1,16 +1,14 @@
 // Slice 15: Contribution Dispatch & Validation Integration Tests
 //
 // Tests contribution dispatch, entity enhancements, reserved keywords,
-// enhancement conflict resolution, and grammar conflict detection through public API.
+// and enhancement conflict resolution through the public API.
 
-use specforge_registry::{
-    ExtensionContributions, FieldEnhancement, GrammarContribution, ManifestField, ManifestV2,
-};
+use specforge_registry::{ExtensionContributions, FieldEnhancement, ManifestField, ManifestV2};
 use specforge_wasm::{
     CallSite, ContributionToggle, EnhancementConflict, EnhancementOverride, EnhancementPolicy,
-    WasmCallResult, WasmRuntime, WasmTrapInfo, detect_grammar_contribution_conflicts,
-    dispatch_contribution_exports, is_contribution_disabled, register_entity_enhancements,
-    reject_reserved_entity_kind, resolve_enhancement_conflicts, validate_contribution_exports,
+    WasmCallResult, WasmRuntime, WasmTrapInfo, dispatch_contribution_exports,
+    is_contribution_disabled, register_entity_enhancements, reject_reserved_entity_kind,
+    resolve_enhancement_conflicts, validate_contribution_exports,
 };
 use std::path::Path;
 
@@ -73,8 +71,6 @@ fn default_manifest() -> ManifestV2 {
         host_api_version: None,
         entity_enhancements: vec![],
         starter_template: None,
-        grammar_contributions: vec![],
-        body_parser_contributions: vec![],
         ext_short: None,
         query_scope: None,
         collector_contributions: vec![],
@@ -426,71 +422,6 @@ fn validate_exports_multiple_missing() {
     let diags = validate_contribution_exports(&manifest, &[]);
     assert_eq!(diags.len(), 3);
     assert!(diags.iter().all(|d| d.code == "E020"));
-}
-
-// ============================================================
-// B:detect_grammar_contribution_conflicts
-// ============================================================
-
-// B:detect_grammar_contribution_conflicts — verify integration "two extensions same entity kind grammar produces E018"
-#[test]
-fn detect_grammar_conflict_same_kind() {
-    let mut m1 = default_manifest();
-    m1.name = "@ext/a".to_string();
-    m1.grammar_contributions = vec![GrammarContribution {
-        entity_kind: "behavior".to_string(),
-        grammar_wasm_path: "a.wasm".to_string(),
-        export_name: None,
-    }];
-
-    let mut m2 = default_manifest();
-    m2.name = "@ext/b".to_string();
-    m2.grammar_contributions = vec![GrammarContribution {
-        entity_kind: "behavior".to_string(),
-        grammar_wasm_path: "b.wasm".to_string(),
-        export_name: None,
-    }];
-
-    let diags = detect_grammar_contribution_conflicts(&[m1, m2]);
-    assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "E018");
-    assert!(diags[0].message.contains("behavior"));
-}
-
-// B:detect_grammar_contribution_conflicts — verify integration "distinct entity kind grammars produce no diagnostics"
-#[test]
-fn detect_grammar_no_conflict_distinct_kinds() {
-    let mut m1 = default_manifest();
-    m1.name = "@ext/a".to_string();
-    m1.grammar_contributions = vec![GrammarContribution {
-        entity_kind: "behavior".to_string(),
-        grammar_wasm_path: "a.wasm".to_string(),
-        export_name: None,
-    }];
-
-    let mut m2 = default_manifest();
-    m2.name = "@ext/b".to_string();
-    m2.grammar_contributions = vec![GrammarContribution {
-        entity_kind: "invariant".to_string(),
-        grammar_wasm_path: "b.wasm".to_string(),
-        export_name: None,
-    }];
-
-    let diags = detect_grammar_contribution_conflicts(&[m1, m2]);
-    assert!(diags.is_empty());
-}
-
-// B:detect_grammar_contribution_conflicts — verify contract "requires manifests with grammar_contributions"
-#[test]
-fn detect_grammar_conflicts_contract_empty_manifests() {
-    let diags = detect_grammar_contribution_conflicts(&[]);
-    assert!(diags.is_empty());
-
-    // Manifests without grammar contributions -> no conflicts
-    let m1 = default_manifest();
-    let m2 = default_manifest();
-    let diags = detect_grammar_contribution_conflicts(&[m1, m2]);
-    assert!(diags.is_empty());
 }
 
 // ============================================================

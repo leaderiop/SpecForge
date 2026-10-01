@@ -511,13 +511,3 @@ constraint schema_publication_accessibility "Schema Publication Accessibility" {
   verify integration "published schema is accessible without authentication"
   verify unit "schema URL is stable across patch versions"
 }
-
-constraint grammar_validation_quality {
-  category    reliability
-  priority    critical
-  description "Grammar Wasm binaries and body parser exports MUST be validated before use. ABI version checks, size limits, and output schema conformance MUST be enforced to prevent extension-supplied code from corrupting the compilation pipeline."
-  constrains  [validate_grammar_wasm, dispatch_body_parser]
-  protects    [body_parser_output_conformance]
-  verify integration "Grammar with invalid ABI version is rejected before loading"
-  verify integration "Body parser output not matching declared schema triggers BodyParserError"
-}

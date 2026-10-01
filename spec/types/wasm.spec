@@ -216,33 +216,3 @@ type CollectorReportFile {
   content string
   verify unit "CollectorReportFile schema is valid"
 }
-
-// --- Extension-Defined Grammar Types ---
-
-type GrammarContribution {
-  entity_kinds      string[]
-  grammar_wasm_path string
-  language_name     string
-  version           string @optional
-  checksum          string @optional
-  verify unit "GrammarContribution schema is valid"
-}
-
-type BodyParserContribution {
-  entity_kinds  string[]
-  export_name   string
-  output_schema string  @optional
-  timeout_ms    integer @optional
-  verify unit "BodyParserContribution schema is valid"
-}
-
-type GrammarConflictPolicy = error | priority | namespace
-
-type GrammarCacheEntry {
-  grammar_hash     string
-  compiled_path    string
-  language_name    string
-  source_extension string
-  created_at       string
-  verify unit "GrammarCacheEntry schema is valid"
-}

@@ -578,8 +578,6 @@ mod tests {
             host_api_version: None,
             entity_enhancements: vec![],
             starter_template: None,
-            grammar_contributions: vec![],
-            body_parser_contributions: vec![],
             ext_short: None,
             query_scope: None,
             collector_contributions: vec![],

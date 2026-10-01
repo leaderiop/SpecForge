@@ -95,7 +95,6 @@ fn render_keys(outline: &OutlineIntermediate) -> String {
                 "surface_counts": ext.surface_counts,
                 "shared_fields": ext.shared_fields,
                 "collector_count": ext.collector_count,
-                "grammar_count": ext.grammar_count,
             })
         }).collect::<Vec<_>>(),
         "dependencies": outline.dependencies,

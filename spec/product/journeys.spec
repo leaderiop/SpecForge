@@ -926,18 +926,3 @@ journey migrate_spec_files "Migrate Spec Files" {
     7. Success: all .spec files updated, graph structurally equivalent
   """
 }
-
-journey author_custom_grammar_extension "Author Custom Grammar Extension" {
-  persona  contributor
-  channels [cli]
-  priority low
-  tags     ["contributor", "cli"]
-  features [wasm_grammar_contributions, wasm_extension_authoring]
-  flow     """
-    1. Extension author creates tree-sitter grammar .wasm for their entity kinds
-    2. Extension author implements body_parse Wasm export for structured body parsing
-    3. Author declares grammar_contributions and body_parser_contributions in manifest
-    4. Author runs specforge extension validate to check grammar ABI and export signatures
-    5. Author publishes extension with grammar artifacts to registry
-  """
-}

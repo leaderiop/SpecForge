@@ -133,7 +133,7 @@ behavior parse_all_block_types "Parse All Block Types" {
     be parsed generically — the parser MUST NOT reject unknown keywords.
     Keyword validation happens in the semantic phase after extensions
     populate the KindRegistry. The parser MUST capture the raw body text
-    of each entity block to support Phase 1.5 extension body parsing.
+    of each entity block.
     Raw body text MUST be preserved verbatim before any field parsing
     occurs.
     A field named `kind` inside an entity body is an ordinary field of
@@ -355,35 +355,29 @@ behavior provide_indentation_queries "Provide Indentation Queries" {
 
 // -- Extension Body Parsing ---------------------------------------------------
 
-behavior delegate_body_parsing_to_extension "Delegate Body Parsing to Extension" {
-  invariants [zero_domain_knowledge_core, body_parser_output_conformance]
-  category   command
-  types      [Entity, FieldMap, BodyParserContribution, BodyParserError]
-  ports      [WasmRuntime]
+behavior extension_owned_body_syntax "Extension-Owned Body Syntax" {
+  invariants [zero_domain_knowledge_core]
+  category   validation
+  types      [Entity, KindRegistryEntry, Diagnostic]
   requires {
-    all_files_parsed_ready "All entity blocks have been parsed with raw body text preserved"
-    wasm_runtime_available "WasmRuntime port is initialized and body parser registry is populated"
+    all_files_parsed_ready "All entity blocks have been parsed"
+    kinds_registered       "The loaded extensions' entity kinds are registered, with their has_body_parser flags"
   }
   ensures {
-    body_parsing_delegated    "Entities with registered body parsers have raw body replaced by structured JSON fields"
-    default_parsing_preserved "Entities without registered body parsers retain default field parsing unchanged"
+    body_errors_suppressed "E001 parse errors inside an entity whose kind declares has_body_parser are not reported"
+    other_errors_reported  "Every other E001 is reported unchanged"
   }
   contract   """
-    During Phase 1.5, this behavior orchestrates body parsing delegation.
-    For each parsed entity block, the system MUST check the body parser
-    registry. If a body parser contribution is registered for the entity's
-    kind, the system MUST pass the raw body text to dispatch_body_parser
-    (behaviors/wasm-lifecycle.spec) for Wasm execution. The returned
-    structured JSON fields MUST replace the raw body in the entity's
-    FieldMap before Phase 2 semantic validation. If no body parser is
-    registered for an entity kind, the existing field parser MUST be used
-    unchanged. All error handling, timeout enforcement, and fallback logic
-    is owned by dispatch_body_parser — this behavior only handles
-    iteration, registry lookup, and FieldMap replacement.
+    An extension may declare that it owns an entity kind's body syntax
+    (the kind's has_body_parser flag): software's type and port bodies
+    hold field types and method signatures the core grammar does not
+    parse. An E001 parse error that starts inside an entity of such a
+    kind, in the same file, MUST NOT be reported, on a full build and
+    on every incremental rebuild (which uses the file's current
+    entities). The entity's other fields are parsed by the core field
+    parser as usual; no extension code runs on the body. Extensions
+    cannot contribute body parsers or grammars: those contribution
+    flags are reserved (ADR 0004 D5-a).
   """
-  verify unit "entity with body parser delegates to dispatch_body_parser"
-  verify unit "entity without body parser uses default field parsing"
-  verify unit "structured fields replace raw body in FieldMap"
   verify integration "extension-owned body syntax does not surface E001 parse errors"
-  verify contract "Delegate Body Parsing to Extension: body parsing delegation holds — all_files_parsed_ready, wasm_runtime_available, body_parsing_delegated, default_parsing_preserved"
 }

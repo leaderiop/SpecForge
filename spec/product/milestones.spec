@@ -294,7 +294,7 @@ milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
 }
 
 milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
-  description   "Full extension lifecycle: install, upgrade, remove, author, build, test, publish. Registry integration, lock management, and grammar contributions."
+  description   "Full extension lifecycle: install, upgrade, remove, author, build, test, publish. Registry integration and lock management."
   status        completed
   start_date    "2026-02-01"
   target_date   "2026-02-28"
@@ -310,7 +310,6 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
     extension_registry,
     registry_authentication,
     test_result_collection,
-    wasm_grammar_contributions,
     extension_body_parsing,
     pe_planning_insights,
     pe_external_blockers,
@@ -337,10 +336,8 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
     "Extension authoring: init > build > test > publish works e2e",
     "Collectors produce specforge-report.json from test frameworks",
     "Registry search/publish works with npm, OCI, and GitHub sources",
-    "Grammar contributions load and body parsers produce structured fields",
     "specforge doctor reports conflicts, cache health, and extension status",
     "Private registry authentication with token refresh and retry",
-    "LSP loads extension grammars for syntax highlighting",
     "Surface commands dispatched via cmd__{id} Wasm exports with sandbox enforcement",
     "Surface MCP tools/resources dispatched via mcp__{name} Wasm exports",
   ]

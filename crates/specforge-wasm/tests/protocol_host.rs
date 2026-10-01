@@ -323,7 +323,6 @@ fn describe_all_populates_enabled_categories() {
     assert_eq!(descs.validation_rules[0].code, "W001");
     // Collectors, grammars etc. not enabled → empty
     assert!(descs.collectors.is_empty());
-    assert!(descs.grammars.is_empty());
 }
 
 #[test]

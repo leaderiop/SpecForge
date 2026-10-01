@@ -1,6 +1,5 @@
 #![allow(clippy::result_large_err)]
 
-mod cache;
 mod contributions;
 mod discovery;
 mod host_functions;
@@ -24,10 +23,8 @@ mod invariants;
 #[cfg(test)]
 pub(crate) mod test_helpers;
 
-pub use cache::{cache_grammar_artifact, grammar_cache_key, has_cached_grammar};
 pub use contributions::{
     ContributionToggle, EnhancementConflict, EnhancementOverride, EnhancementPolicy,
-    GrammarConflictPolicy, compose_grammar_injections, detect_grammar_contribution_conflicts,
     dispatch_contribution_exports, is_contribution_disabled, register_entity_enhancements,
     reject_reserved_entity_kind, required_contribution_exports, resolve_enhancement_conflicts,
     validate_contribution_exports,
@@ -45,9 +42,8 @@ pub use host_functions::{
 pub use install::{InstallResult, install_extension, install_from_local, installed_wasm_path};
 pub use integrity::{hex_sha256, verify_wasm_integrity, verify_wasm_integrity_or_skip};
 pub use lifecycle::{
-    GrammarLoadResult, call_extension_validators, dispatch_body_parser, initialize_extension,
-    load_extension_grammar, load_wasm_module, validate_extension_peer_dependencies,
-    validate_grammar_wasm,
+    call_extension_validators, initialize_extension, load_wasm_module,
+    validate_extension_peer_dependencies,
 };
 pub use lock_file::{
     DoctorStatus, LockFile, LockFileEntry, collect_peer_requirers, read_lock_file,

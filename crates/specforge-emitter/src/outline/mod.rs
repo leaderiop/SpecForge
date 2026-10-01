@@ -87,7 +87,6 @@ pub struct OutlineExtension {
     pub surface_counts: OutlineSurfaceCounts,
     pub shared_fields: Vec<OutlineSharedField>,
     pub collector_count: usize,
-    pub grammar_count: usize,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

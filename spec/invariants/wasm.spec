@@ -195,46 +195,6 @@ invariant renderer_output_restriction "Renderer Output Restriction" {
   verify property "no renderer can bypass emit_file extension whitelist"
 }
 
-// -- Extension-Defined Grammar Invariants ------------------------------------
-
-invariant grammar_composition_determinism "Grammar Composition Determinism" {
-  guarantee """
-    Given the same set of installed extensions and the same
-    GrammarConflictPolicy, grammar composition MUST produce identical
-    results. Extension load order MUST NOT affect which grammar is
-    selected for a given entity kind.
-  """
-  risk      critical
-  verify property "same extensions + same policy = same grammar mapping"
-  verify unit "extension load order does not affect grammar selection"
-}
-
-invariant grammar_injection_isolation "Grammar Injection Isolation" {
-  guarantee """
-    One extension's grammar MUST NOT affect the parsing behavior of
-    another extension's entity kinds. Grammar contributions are scoped
-    to their declared entity_kinds only. A malformed or crashing grammar
-    MUST NOT prevent other grammars from loading or functioning.
-  """
-  risk      high
-  verify property "grammar scoped to declared entity_kinds only"
-  verify unit "malformed grammar does not affect other extensions"
-}
-
-invariant body_parser_output_conformance "Body Parser Output Conformance" {
-  guarantee """
-    Body parser Wasm exports MUST return JSON that conforms to the
-    declared output schema (if present) or to the FieldMap structure
-    expected by Phase 2 validation. Non-conforming output MUST be
-    rejected with a BodyParserError, and the system MUST fall back
-    to treating the body as a raw string field.
-  """
-  risk      high
-  verify property "parser output always conforms to declared schema"
-  verify unit "non-conforming output produces BodyParserError"
-  verify mutation "removing output validation allows invalid fields through"
-}
-
 invariant surface_schema_validity "Surface Schema Validity" {
   guarantee """
     Extension-contributed MCP tool input schemas and CLI command argument

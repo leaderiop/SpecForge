@@ -58,15 +58,16 @@ feature editor_query_files "Editor Query Files" {
 
 feature extension_body_parsing "Extension Body Parsing" {
   problem  """
-    The core parser produces generic entity blocks with raw body text.
-    Extensions that define custom syntax for their entity kinds have no
-    mechanism to parse that syntax into structured, validatable fields.
+    Some extensions give their entity kinds body syntax the core grammar
+    does not parse (software's type field types and port method
+    signatures). Reporting each such line as a parse error would bury
+    real errors.
   """
   solution """
-    Phase 1.5 body parser dispatch: after structural parsing (Phase 1)
-    and registry population, the compiler calls registered body parser
-    Wasm exports to transform raw body text into structured JSON fields.
-    These structured fields then feed into Phase 2 semantic validation
-    as if they were parsed by the core field parser.
+    A kind's extension declares has_body_parser to own its body syntax:
+    E001 parse errors inside entities of that kind are not reported
+    (extension_owned_body_syntax). The rest of the entity is parsed by
+    the core field parser. Extensions cannot plug in their own body
+    parsers or grammars.
   """
 }

@@ -1,5 +1,4 @@
 mod build;
-pub mod contributions;
 pub mod detection;
 mod populate;
 pub mod provider;
@@ -7,10 +6,6 @@ mod validate;
 pub mod validation_engine;
 
 pub use build::{RegistryBuild, build_registries};
-pub use contributions::{
-    GrammarConflictPolicy, RegisteredBodyParser, RegisteredGrammar,
-    register_body_parser_contributions, register_grammar_contributions,
-};
 pub use detection::{
     EntityView, KeywordExtensionIndex, detect_identifier_length_violations,
     detect_mistyped_references, detect_reserved_entity_ids, detect_unknown_entity_fields,

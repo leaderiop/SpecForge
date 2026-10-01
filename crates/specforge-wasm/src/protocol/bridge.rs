@@ -73,18 +73,6 @@ pub fn protocol_extension_to_manifest(ext: &ProtocolExtension) -> ManifestV2 {
             .map(convert_enhancement)
             .collect(),
         starter_template: ext.handshake.starter_template.clone(),
-        grammar_contributions: ext
-            .descriptions
-            .grammars
-            .iter()
-            .map(convert_grammar)
-            .collect(),
-        body_parser_contributions: ext
-            .descriptions
-            .body_parsers
-            .iter()
-            .map(convert_body_parser)
-            .collect(),
         ext_short: None,
         query_scope: None,
         collector_contributions: ext
@@ -249,21 +237,6 @@ fn convert_field_constraint(
         kind: desc.kind.clone(),
         pattern: desc.pattern.clone(),
         values: desc.values.clone(),
-    }
-}
-
-fn convert_grammar(desc: &GrammarDescriptor) -> specforge_registry::GrammarContribution {
-    specforge_registry::GrammarContribution {
-        entity_kind: desc.entity_kind.clone(),
-        grammar_wasm_path: desc.grammar_wasm_path.clone(),
-        export_name: desc.export_name.clone(),
-    }
-}
-
-fn convert_body_parser(desc: &BodyParserDescriptor) -> specforge_registry::BodyParserContribution {
-    specforge_registry::BodyParserContribution {
-        entity_kind: desc.entity_kind.clone(),
-        export_name: desc.export_name.clone(),
     }
 }
 

@@ -111,7 +111,6 @@ deliverable specforge_wasm_runtime_deliverable "specforge-wasm" {
     author_a_custom_provider,
     scaffold_wasm_extension,
     diagnose_extension_issues,
-    author_custom_grammar_extension,
     j_publish_wasm_extension,
     test_wasm_extension_locally,
   ]

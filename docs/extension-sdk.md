@@ -254,26 +254,13 @@ mod software {
         Ok(serde_json::to_string(&entities_of_kind(kind))?)
     }
 
-    // ── Grammar Contributions ─────────────────────────────────────
+    // ── Grammars and body parsers ─────────────────────────────────
 
-    // Grammar contributions associate a Tree-sitter grammar Wasm
-    // module with an entity kind. The host loads the grammar and
-    // uses it to parse entity body content.
-
-    #[grammar(entity_kind = "type", wasm_path = "type_grammar.wasm")]
-    const TYPE_GRAMMAR: GrammarContribution;
-
-    // ── Body Parsers ──────────────────────────────────────────────
-
-    // Body parsers handle structured content inside entity blocks.
-    // The SDK generates a parse__* export that the host calls when
-    // parsing entities of the specified kind.
-
-    #[body_parser(kind = "type")]
-    fn parse_type_fields(content: &str) -> ParseResult {
-        // Parse structured type body content...
-        ParseResult::ok(fields)
-    }
+    // Not supported. The `grammars` and `body_parsers` contribution
+    // flags are reserved: the host ignores them. A kind whose body
+    // syntax the core grammar doesn't parse sets `has_body_parser` on
+    // its entity descriptor, and the compiler then leaves parse errors
+    // inside those entities unreported.
 
     // ── Collectors ────────────────────────────────────────────────
 
@@ -363,8 +350,6 @@ Every macro maps to a protocol category. The SDK generates the appropriate Wasm 
 | `#[cli_command]` | `cmd__*` export | `surfaces` |
 | `#[mcp_tool]` | `mcp__*` export | `surfaces` |
 | `#[mcp_resource]` | `mcp__*` export | `surfaces` |
-| `#[grammar]` | Grammar contribution | `grammars` |
-| `#[body_parser]` | `parse__*` export | `body_parsers` |
 | `c.collector(...)` (builder) | declared command + `collect__*` export | `collectors` |
 | `#[compiler_pass]` | Pass descriptor | `passes` |
 | `#[feature_flag]` | Flag descriptor | `feature_flags` |
@@ -387,7 +372,7 @@ Declares a DSL keyword that the core grammar will parse. The struct name is the 
 | `keyword` | yes | DSL keyword (lowercase, used in `.spec` files) |
 | `singleton` | no | Whether only one instance is allowed (default: `false`) |
 | `open_fields` | no | Whether unknown fields are accepted (default: `false`) |
-| `has_body_parser` | no | Whether this kind uses a custom body parser (default: `false`) |
+| `has_body_parser` | no | Whether this kind's body syntax is its own: parse errors inside its entities are not reported (default: `false`) |
 
 ### #[field]
 

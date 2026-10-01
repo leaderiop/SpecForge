@@ -57,7 +57,6 @@ term t_parser "parser" {
     .spec source text into a per-file Abstract Syntax Tree (AST).
   """
   context    "SpecForge uses Tree-sitter, not a hand-written recursive descent parser."
-  see_also   [t_grammar_injection]
 }
 
 term t_resolver "resolver" {
@@ -304,9 +303,10 @@ term t_multi_resolution_query "multi-resolution query" {
 
 term t_body_parser "body parser" {
   definition """
-    A Wasm export provided by an extension that transforms raw entity body
-    text into structured JSON fields during Phase 1.5 of compilation. Enables
-    extensions to define custom syntax beyond the core key-value field format.
+    An entity kind's has_body_parser flag: its extension owns the kind's
+    body syntax, so the core grammar's parse errors inside those entities
+    are not reported. Extensions cannot plug in body parsing code; the
+    body_parsers contribution flag is reserved.
   """
   see_also   [t_entity]
 }
@@ -325,29 +325,6 @@ term t_generic_entity_block "generic entity block" {
   aliases    ["generic_entity_block", "entity_block"]
   context    "Part of the zero-entity core architecture. The grammar is keyword-agnostic."
   see_also   [t_graph_protocol]
-}
-
-term t_grammar_composition "grammar composition" {
-  definition """
-    The process of combining grammar contributions from multiple extensions
-    into a coherent highlighting configuration, governed by
-    GrammarConflictPolicy.
-  """
-  see_also   [t_grammar_contribution, t_generic_entity_block]
-}
-
-term t_grammar_contribution "grammar contribution" {
-  definition """
-    An extension contribution that provides a tree-sitter grammar .wasm
-    binary for editor syntax highlighting of extension-defined entity kinds.
-  """
-}
-
-term t_grammar_injection "grammar injection" {
-  definition """
-    The mechanism by which extension-provided tree-sitter grammars are loaded
-    into the LSP for syntax highlighting of extension-defined entity kinds.
-  """
 }
 
 term t_query_extension "query extension" {
@@ -384,7 +361,7 @@ term t_wasm "Wasm" {
     wasmtime Component Model runtime.
   """
   aliases    ["WebAssembly", ".wasm"]
-  see_also   [t_compile_cache, t_grammar_composition]
+  see_also   [t_compile_cache]
 }
 
 term t_host_function "host function" {

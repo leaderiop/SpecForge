@@ -378,57 +378,6 @@ failure_mode extension_initialization_failure "Extension Initialization Failure"
   verify unit "Extension Initialization Failure failure mode is handled"
 }
 
-failure_mode grammar_conflict_between_extensions {
-  severity   high
-  occurrence likely
-  detection  moderate
-  rpn        72
-  cause      "Two extensions declare grammars for the same entity kind with no conflict resolution policy configured."
-  effect     "Ambiguous grammar composition leads to unpredictable parsing results or compilation failure."
-  mitigation "GrammarConflictPolicy (error | priority | namespace) is required when multiple extensions target the same entity kind. Default policy is error (fail fast)."
-  invariant  grammar_composition_determinism
-  post_mitigation {
-    severity   low
-    occurrence unlikely
-    detection  likely
-    rpn        12
-  }
-}
-
-failure_mode body_parser_crash {
-  severity   high
-  occurrence occasional
-  detection  likely
-  rpn        42
-  cause      "Extension body parser Wasm export panics, exceeds timeout, or returns malformed JSON."
-  effect     "Entity body cannot be parsed; compilation for affected entities fails."
-  mitigation "Wasm sandbox isolates crashes. Timeout enforcement (configurable, default 5000ms). Fallback to raw string field on parser error with diagnostic warning. Output JSON validated against declared schema before acceptance."
-  invariant  body_parser_output_conformance
-  post_mitigation {
-    severity   medium
-    occurrence unlikely
-    detection  certain
-    rpn        8
-  }
-}
-
-failure_mode grammar_version_mismatch {
-  severity   medium
-  occurrence certain
-  detection  unlikely
-  rpn        100
-  cause      "Extension provides grammar .wasm compiled for a different tree-sitter ABI version than the host runtime."
-  effect     "Grammar loading fails or produces incorrect parse trees silently."
-  mitigation "ABI version validation during grammar loading. Compiler reports GrammarError with expected vs actual ABI version. Grammar cache invalidation on ABI version change."
-  invariant  grammar_injection_isolation
-  post_mitigation {
-    severity   low
-    occurrence unlikely
-    detection  certain
-    rpn        4
-  }
-}
-
 // C12-01: the operational build assumption the ADRs record only in prose.
 // A fresh clone cannot run wasm-backed extensions until the embedded
 // builtin .wasm blobs exist — record the failure mode so the compiled

@@ -895,8 +895,8 @@ decision adr_surface_contribution_model "Surface Contribution Model" {
 
     P7 compliance: Surface contribution dispatch (register, validate, dispatch
     behaviors) is core infrastructure, not domain logic. This parallels
-    call_extension_validators, dispatch_body_parser, and
-    dispatch_contribution_exports — all are generic dispatch mechanisms where
+    call_extension_validators and dispatch_contribution_exports — both are
+    generic dispatch mechanisms where
     the core routes to extension-provided Wasm exports without inspecting
     content. The content of each surface contribution is extension-defined;
     the dispatch mechanism is structural plumbing. Extracting dispatch into
@@ -914,19 +914,6 @@ decision adr_surface_contribution_model "Surface Contribution Model" {
     "Phase 2 will extend the model to LSP providers (completion, hover, code_actions, diagnostics)",
   ]
   invariants   [surface_contribution_uniqueness, surface_sandbox_ceiling]
-}
-
-decision extension_defined_grammars {
-  status       accepted
-  date         "2026-03-06"
-  context      "The fixed tree-sitter grammar only supports keyword name { key-value fields }. Extensions needing structured syntax beyond key-value pairs must push data into opaque strings the compiler cannot validate. This contradicts zero-domain-knowledge-in-core and validation-is-the-value principles."
-  decision     "Introduce two new contribution types: grammars (tree-sitter .wasm for editor highlighting) and body_parsers (Wasm exports that turn raw body text into structured JSON fields for compiler validation). Core grammar stays minimal — it captures keyword name { raw_body }. Extensions own body parsing for their entity kinds via Phase 1.5 dispatch. Backward compatible: extensions without body parsers use the existing field parser."
-  consequences "Extensions can define arbitrary syntax for their entity kinds without core grammar changes. Grammar caching and ABI validation are required. Grammar conflict resolution policy (error | priority | namespace) is configurable. No opaque strings needed for structured content."
-  invariants   [
-    grammar_composition_determinism,
-    grammar_injection_isolation,
-    body_parser_output_conformance,
-  ]
 }
 
 decision wasm_component_runtime "All Extensions Execute as wasip2 Components" {
