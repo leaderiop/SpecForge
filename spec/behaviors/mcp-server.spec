@@ -150,7 +150,8 @@ behavior list_mcp_tools "List MCP Tools" {
     arguments its handler reads. Each listed tool's category is its role,
     one of McpToolCategory, and its source says where it comes from: core,
     or the contributing extension's name. An extension tool is listed once,
-    whatever category it declares, however often the project recompiles.
+    whatever category it declares, however often the project recompiles,
+    with the output_schema it declares as its outputSchema.
     Each core tool carries MCP annotations derived from the definition its
     mutation events come from: a tool that only reads is readOnlyHint; a
     tool that writes says whether it is destructive, idempotent and open
@@ -166,6 +167,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "every listed tool has a spec category and a source"
   verify unit "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
   verify unit "an extension tool is listed once across recompiles"
+  verify unit "an extension tool's declared output_schema is listed as its outputSchema"
 }
 
 behavior list_mcp_prompts "List MCP Prompts" {
@@ -541,7 +543,11 @@ behavior follow_negotiated_mcp_revision "Follow the Negotiated MCP Revision" {
     batching, so a session on one of them gets a single -32600 error for
     a batch. From 2025-06-18, a tool result whose payload is a JSON object
     MUST also carry that object as structuredContent, alongside the text
-    block holding its JSON.
+    block holding its JSON, and tools/list MUST give each tool whose result
+    is an object an outputSchema that every structured result conforms to.
+    A failed call of a tool with an outputSchema carries no
+    structuredContent: its McpError is in the text block. A 2025-03-26
+    session is listed no outputSchema.
   """
   verify unit "a 2025-03-26 session answers a batch with the response to each request"
   verify unit "a batch of notifications gets no response"
@@ -549,6 +555,9 @@ behavior follow_negotiated_mcp_revision "Follow the Negotiated MCP Revision" {
   verify unit "a session on a later revision rejects a batch with -32600"
   verify unit "tool results carry an object payload as structuredContent from 2025-06-18"
   verify unit "a 2025-03-26 session gets no structuredContent"
+  verify unit "each core tool with an object result declares an outputSchema its structured results conform to"
+  verify unit "a failed call of a tool with an outputSchema carries no structuredContent"
+  verify unit "a 2025-03-26 session is listed no outputSchema"
 }
 
 behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {

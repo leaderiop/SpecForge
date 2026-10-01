@@ -27,6 +27,8 @@ pub fn register_extension_surfaces(
                 name: tool.name.clone(),
                 description: tool.description.clone(),
                 input_schema: tool.input_schema.clone(),
+                // The manifest's output_schema is the tool's outputSchema.
+                output_schema: tool.output_schema.clone(),
                 category: Some(extension_category(tool.category.as_deref()).into()),
                 source: Some(ext_name.clone()),
                 annotations: None,
@@ -109,6 +111,7 @@ fn auto_promote_commands(
                 name: tool.name.clone(),
                 description: cmd.description.clone(),
                 input_schema: derived_input_schema(tool.input_schema, &cmd.args),
+                output_schema: None,
                 // A command's own category is a CLI grouping, not a role.
                 category: Some(Category::Core.as_str().into()),
                 source: Some(ext_name.clone()),
@@ -199,6 +202,8 @@ pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResp
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
+    // outputSchema came with structuredContent, in 2025-06-18.
+    let structured = state.sends_structured_content();
     let tools: Vec<Value> = state
         .tool_registry
         .iter()
@@ -209,7 +214,13 @@ pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResp
                 &[SurfaceType::McpTool, SurfaceType::AutoPromotedTool],
             )
         })
-        .map(|t| serde_json::to_value(t).unwrap())
+        .map(|t| {
+            let mut tool = serde_json::to_value(t).unwrap();
+            if !structured && let Some(listed) = tool.as_object_mut() {
+                listed.remove("outputSchema");
+            }
+            tool
+        })
         .collect();
     push_discovery(state, "tools", tools.len());
     JsonRpcResponse::success(id, json!({ "tools": tools }))

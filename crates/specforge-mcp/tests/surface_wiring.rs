@@ -621,6 +621,7 @@ fn explicit_mcp_tool_wins_over_auto_promoted() {
             "name": "specforge.cmds.check",
             "description": "Explicit check tool",
             "inputSchema": {"type": "object", "properties": {"strict": {"type": "boolean"}}},
+            "outputSchema": {"type": "object", "properties": {"checked": {"type": "boolean"}}},
             "category": "core",
             "source": "@test/cmds"
         })]
@@ -730,4 +731,85 @@ fn one_runtime_serves_extension_calls_until_the_next_compile() {
         &first,
         &server.state().wasm_runtime(&root)
     ));
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "an extension tool's declared output_schema is listed as its outputSchema"
+)]
+fn an_extension_tool_lists_its_declared_output_schema() {
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    let resp = call(&mut server, "tools/list", json!({}));
+    let tools = resp["result"]["tools"].as_array().unwrap();
+    let check = tools
+        .iter()
+        .find(|t| t["name"] == "specforge.cmds.check")
+        .unwrap();
+    assert_eq!(
+        check["outputSchema"],
+        json!({"type": "object", "properties": {"checked": {"type": "boolean"}}})
+    );
+    // An auto-promoted command declares none.
+    let report = tools
+        .iter()
+        .find(|t| t["name"] == "specforge.cmds.report")
+        .unwrap();
+    assert!(report.get("outputSchema").is_none(), "{report}");
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "input validated against declared input_schema"
+)]
+fn extension_tool_input_is_checked_against_its_schema() {
+    let (mut server, ext, _dir) = fake_extension::initialized(
+        FakeExtension::new()
+            .with_output("mcp__check", json!({"checked": true}))
+            .with_output("cmd__report", json!("")),
+    );
+    // strict is a boolean; a string never reaches the module.
+    let resp = call_tool(
+        &mut server,
+        "specforge.cmds.check",
+        json!({"strict": "yes"}),
+    );
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert!(
+        error["message"].as_str().unwrap().contains("$.strict"),
+        "{error}"
+    );
+    // The auto-promoted report requires format, one of md or json.
+    for arguments in [json!({}), json!({"format": "xml"})] {
+        let resp = call_tool(&mut server, "specforge.cmds.report", arguments.clone());
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "invalid_input", "{arguments}: {error}");
+    }
+    assert!(ext.calls().is_empty(), "no export ran: {:?}", ext.calls());
+
+    // Valid input reaches the export.
+    let resp = call_tool(&mut server, "specforge.cmds.check", json!({"strict": true}));
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    assert_eq!(ext.calls().len(), 1);
+}
+
+#[test]
+fn the_schema_check_finds_type_enum_and_required_violations() {
+    let schema = json!({
+        "type": "object",
+        "properties": {
+            "format": {"type": "string", "enum": ["md", "json"]},
+            "paths": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["format"],
+    });
+    let check = |value: Value| specforge_mcp::json_schema::violations(&schema, &value);
+    assert!(check(json!({"format": "md", "paths": ["a"]})).is_empty());
+    assert_eq!(check(json!({})), ["$: missing required format"]);
+    assert_eq!(check(json!({"format": "xml"})).len(), 1);
+    assert_eq!(
+        check(json!({"format": "md", "paths": [1]})),
+        ["$.paths[0]: expected string, got integer"]
+    );
+    assert_eq!(check(json!(3)), ["$: expected object, got integer"]);
 }

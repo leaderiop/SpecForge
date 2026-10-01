@@ -57,6 +57,14 @@ pub struct McpToolDescriptor {
     pub description: String,
     #[serde(rename = "inputSchema")]
     pub input_schema: Value,
+    /// The schema the tool's `structuredContent` conforms to (listed from
+    /// protocol 2025-06-18 on).
+    #[serde(
+        rename = "outputSchema",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub output_schema: Option<Value>,
     /// The tool's role: one of the spec's `McpToolCategory` values.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,

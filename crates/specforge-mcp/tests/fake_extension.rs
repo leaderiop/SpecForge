@@ -91,7 +91,8 @@ impl FakeExtension {
                     "name": "specforge.cmds.check",
                     "description": "Explicit check tool",
                     "export": "mcp__check",
-                    "input_schema": {"type": "object", "properties": {"strict": {"type": "boolean"}}}
+                    "input_schema": {"type": "object", "properties": {"strict": {"type": "boolean"}}},
+                    "output_schema": {"type": "object", "properties": {"checked": {"type": "boolean"}}}
                 }
             ],
             "mcp_resources": [

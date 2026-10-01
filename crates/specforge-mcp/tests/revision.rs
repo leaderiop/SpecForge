@@ -209,3 +209,194 @@ fn templated_resources_are_resource_templates() {
         assert_eq!(template["mimeType"], "application/json", "{template}");
     }
 }
+
+/// A 2025-06-18 server over a throwaway project with the software and
+/// testing extensions, holding behavior `alpha`, feature `beta`, a Rust
+/// source file and an inference manifest.
+fn structured_server() -> (McpServer, tempfile::TempDir) {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("specforge.json"),
+        json!({"name": "t", "version": "0.1.0",
+            "extensions": ["@specforge/software", "@specforge/testing"]})
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("test.spec"),
+        "behavior alpha \"Alpha\" {\n  category command\n  contract \"MUST work\"\n  verify unit \"works\"\n}\n\nfeature beta \"Beta\" {\n  behaviors [alpha]\n}\n",
+    )
+    .unwrap();
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(root.join("src/lib.rs"), "pub fn f() {}\n").unwrap();
+    std::fs::write(
+        root.join("specforge-infer.json"),
+        json!({"version": 1, "source_roots": ["src"]}).to_string(),
+    )
+    .unwrap();
+    let mut server = McpServer::new();
+    call(
+        &mut server,
+        "initialize",
+        json!({"protocolVersion": "2025-06-18", "projectRoot": root.to_str().unwrap()}),
+    );
+    (server, dir)
+}
+
+#[specforge_test(
+    behavior = "follow_negotiated_mcp_revision",
+    verify = "each core tool with an object result declares an outputSchema its structured results conform to"
+)]
+fn structured_results_conform_to_each_tool_output_schema() {
+    let (mut server, _dir) = structured_server();
+    // init refuses a path inside the served project.
+    let elsewhere = tempfile::TempDir::new().unwrap();
+    let new_project = elsewhere.path().join("new");
+    let probes = [
+        ("specforge.query", json!({"entity_id": "alpha"})),
+        (
+            "specforge.query",
+            json!({"entity_id": "alpha", "format": "brief"}),
+        ),
+        ("specforge.analyze", json!({"use_cached": true})),
+        ("specforge.trace", json!({"entity_id": "alpha"})),
+        (
+            "specforge.trace",
+            json!({"plan": {"entries": [{"entity_id": "alpha"}]}}),
+        ),
+        (
+            "specforge.schema",
+            json!({"include_validation_rules": true}),
+        ),
+        ("specforge.stats", json!({})),
+        ("specforge.inspect", json!({"entity_id": "alpha"})),
+        ("specforge.find_definition", json!({"entity_id": "alpha"})),
+        ("specforge.find_references", json!({"entity_id": "alpha"})),
+        ("specforge.format", json!({"check": true, "diff": true})),
+        (
+            "specforge.rename",
+            json!({"entity_id": "alpha", "new_name": "gamma", "dry_run": true}),
+        ),
+        (
+            "specforge.init",
+            json!({"path": new_project.to_str().unwrap()}),
+        ),
+        (
+            "specforge.add_extension",
+            json!({"specifier": "@specforge/product", "dry_run": true}),
+        ),
+        (
+            "specforge.add_extension",
+            json!({"specifier": "@specforge/software"}),
+        ),
+        (
+            "specforge.remove_extension",
+            json!({"name": "@specforge/testing", "dry_run": true}),
+        ),
+        ("specforge.migrate", json!({"dry_run": true})),
+        ("specforge.extensions", json!({})),
+        ("specforge.providers", json!({})),
+        ("specforge.doctor", json!({"use_cached": true})),
+        ("specforge.render", json!({"format": "brief"})),
+        ("specforge.infer_progress", json!({})),
+        ("specforge.infer_gaps", json!({})),
+        ("specforge.infer_session", json!({"action": "start"})),
+        (
+            "specforge.infer_session",
+            json!({"action": "mark_analyzed", "source_file": "src/lib.rs"}),
+        ),
+        (
+            "specforge.find_implementation",
+            json!({"entity_id": "alpha"}),
+        ),
+        (
+            "specforge.find_spec_for_source",
+            json!({"file_path": "src/lib.rs"}),
+        ),
+        // Tools whose results are arrays or text: no structured result.
+        ("specforge.validate", json!({"use_cached": true})),
+        ("specforge.search", json!({"query": "alpha"})),
+        ("specforge.coverage", json!({})),
+        ("specforge.list", json!({})),
+        ("specforge.model", json!({})),
+        ("specforge.export", json!({})),
+    ];
+    let mut conforming = std::collections::BTreeSet::new();
+    for (name, arguments) in probes {
+        let resp = call(
+            &mut server,
+            "tools/call",
+            json!({"name": name, "arguments": arguments}),
+        );
+        let result = &resp["result"];
+        assert_eq!(result["isError"], false, "{name} {arguments}: {resp}");
+        let spec = specforge_mcp::tools::core_tool(name).unwrap();
+        let Some(structured) = result.get("structuredContent") else {
+            continue;
+        };
+        let schema = spec
+            .output
+            .unwrap_or_else(|| panic!("{name} returns an object but declares no outputSchema"))(
+        );
+        let violations = specforge_mcp::json_schema::violations(&schema, structured);
+        assert!(
+            violations.is_empty(),
+            "{name} {arguments}: {violations:#?}\n{structured}"
+        );
+        conforming.insert(name);
+    }
+    // Every declared schema was held to a real result, but collect's: a
+    // collect run needs a test runner's report (operations_mgmt covers it).
+    for spec in specforge_mcp::tools::CORE_TOOLS {
+        if spec.output.is_some() && spec.name != "specforge.collect" {
+            assert!(
+                conforming.contains(spec.name),
+                "{} never checked",
+                spec.name
+            );
+        }
+    }
+}
+
+#[specforge_test(
+    behavior = "follow_negotiated_mcp_revision",
+    verify = "a failed call of a tool with an outputSchema carries no structuredContent"
+)]
+fn a_failed_call_of_a_typed_tool_has_no_structured_content() {
+    let (mut server, _dir) = structured_server();
+    let resp = call(
+        &mut server,
+        "tools/call",
+        json!({"name": "specforge.inspect", "arguments": {"entity_id": "nope"}}),
+    );
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    assert!(resp["result"].get("structuredContent").is_none(), "{resp}");
+    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
+    let error: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(
+        error["code"], "entity_not_found",
+        "the McpError is the text"
+    );
+}
+
+#[specforge_test(
+    behavior = "follow_negotiated_mcp_revision",
+    verify = "a 2025-03-26 session is listed no outputSchema"
+)]
+fn output_schemas_are_listed_from_2025_06_18() {
+    let listed = |version: &str| {
+        let (mut server, _) = negotiated(Some(version));
+        let resp = call(&mut server, "tools/list", json!({}));
+        resp["result"]["tools"].as_array().unwrap().clone()
+    };
+    let inspect = |tools: &[Value]| {
+        tools
+            .iter()
+            .find(|t| t["name"] == "specforge.inspect")
+            .unwrap()
+            .clone()
+    };
+    assert!(inspect(&listed("2025-06-18"))["outputSchema"].is_object());
+    assert!(inspect(&listed("2025-03-26")).get("outputSchema").is_none());
+}

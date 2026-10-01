@@ -123,6 +123,9 @@ pub struct ToolSpec {
     /// What it does to its environment: the listing's annotations.
     pub access: Access,
     pub schema: fn() -> Value,
+    /// The schema its `structuredContent` conforms to: for a tool whose
+    /// result is a JSON object.
+    pub output: Option<fn() -> Value>,
     /// The fields of the handler's `Args` struct ([`crate::args::fields`]):
     /// the arguments it reads.
     pub fields: fn() -> &'static [&'static str],
@@ -140,6 +143,7 @@ impl ToolSpec {
             name: self.name.into(),
             description: self.description.into(),
             input_schema: (self.schema)(),
+            output_schema: self.output.map(|schema| schema()),
             category: Some(self.category.as_str().into()),
             source: Some(CORE_SOURCE.into()),
             annotations: Some(self.access.annotations()),
@@ -444,8 +448,15 @@ impl From<McpError> for ToolOutcome {
 /// `content`, `structuredContent`, `isError` and `_meta`. A failure is an
 /// `isError` result whose text is its `McpError`. With `structured` (a
 /// 2025-06-18 or later session), a JSON object payload is also sent as
-/// `structuredContent`, beside the text block holding its JSON.
-pub fn envelope(outcome: ToolOutcome, id: Option<Value>, structured: bool) -> JsonRpcResponse {
+/// `structuredContent`, beside the text block holding its JSON; except a
+/// failure of a tool with an outputSchema (`typed`), which the schema does
+/// not describe.
+pub fn envelope(
+    outcome: ToolOutcome,
+    id: Option<Value>,
+    structured: bool,
+    typed: bool,
+) -> JsonRpcResponse {
     let (payload, is_error, diagnostics) = match outcome {
         ToolOutcome::Refused(error) => {
             let json = error.to_json();
@@ -468,6 +479,7 @@ pub fn envelope(outcome: ToolOutcome, id: Option<Value>, structured: bool) -> Js
     let mut result = json!({ "content": content, "isError": is_error });
     if let Payload::Json(object @ Value::Object(_)) = payload
         && structured
+        && !(is_error && typed)
     {
         result["structuredContent"] = object;
     }

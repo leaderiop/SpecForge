@@ -252,7 +252,16 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         );
     }
 
-    envelope(outcome, id, state.sends_structured_content())
+    // A tool with an outputSchema: a core one, or an extension's that
+    // declares one.
+    let typed = match spec {
+        Some(spec) => spec.output.is_some(),
+        None => state
+            .tool_registry
+            .iter()
+            .any(|t| t.name == name && t.output_schema.is_some()),
+    };
+    envelope(outcome, id, state.sends_structured_content(), typed)
 }
 
 /// A registered extension tool from surface contributions, run through the
@@ -264,6 +273,26 @@ fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Val
             entry.contribution_name
         ));
     };
+    // The input the tool declares, checked before its module runs.
+    let declared = state
+        .tool_registry
+        .iter()
+        .find(|t| t.name == entry.contribution_name)
+        .map(|t| &t.input_schema);
+    if let Some(schema) = declared {
+        let violations = crate::json_schema::violations(schema, &arguments);
+        if !violations.is_empty() {
+            return McpError::new(
+                ErrorCode::InvalidInput,
+                format!(
+                    "the arguments do not match the tool's input schema: {}",
+                    violations.join("; ")
+                ),
+            )
+            .with_data(json!({ "violations": violations }))
+            .into();
+        }
+    }
     let runtime = state.wasm_runtime(&root);
     let input = serde_json::to_vec(&arguments).unwrap_or_default();
     if entry.surface_type == SurfaceType::AutoPromotedTool {
