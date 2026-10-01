@@ -250,6 +250,7 @@ fn boot_field_registry_title_not_a_field() {
         required: false,
         inverse_of: None,
         normative: false,
+        derived_from: None,
     });
     // title is NOT a field — it's a grammar-level construct
     assert!(registry.get("behavior", "title").is_none());
@@ -1730,6 +1731,7 @@ fn enhancements_merge_fields() {
                 enum_values: vec![],
                 inverse_of: None,
                 normative: false,
+                derived_from: None,
             }],
         },
     )];
@@ -1763,6 +1765,7 @@ fn enhancements_unknown_kind_i004() {
                 enum_values: vec![],
                 inverse_of: None,
                 normative: false,
+                derived_from: None,
             }],
         },
     )];
@@ -1798,6 +1801,7 @@ fn enhancements_no_overwrite() {
                 enum_values: vec![],
                 inverse_of: None,
                 normative: false,
+                derived_from: None,
             }],
         },
     )];
@@ -1834,6 +1838,7 @@ fn enhancements_two_non_conflicting() {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    derived_from: None,
                 }],
             },
         ),
@@ -1856,6 +1861,7 @@ fn enhancements_two_non_conflicting() {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    derived_from: None,
                 }],
             },
         ),
@@ -2045,6 +2051,39 @@ fn manifest_consistency_self_contradictory_edge() {
         .unwrap_or_else(|| panic!("{diags:?}"));
     assert_eq!(w021.code, "W021");
     assert_eq!(w021.severity, Severity::Warning);
+}
+
+#[spec(
+    behavior = "validate_extension_manifest_consistency",
+    verify = "a derived_from the host can't apply produces a W021 warning"
+)]
+fn manifest_consistency_unusable_derived_from() {
+    let manifest: ManifestV2 = serde_json::from_str(
+        r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
+            "entityKinds":[
+                {"name":"Shape","keyword":"shape","fields":[
+                    {"name":"parts","fieldType":"reference_list","targetKind":"shape","derivedFrom":"type_expressions"},
+                    {"name":"uses","fieldType":"reference_list","targetKind":"shape","derivedFrom":"method_signatures"},
+                    {"name":"guessed","fieldType":"reference_list","targetKind":"shape","derivedFrom":"comments"},
+                    {"name":"untargeted","fieldType":"reference_list","derivedFrom":"type_expressions"},
+                    {"name":"note","fieldType":"string","targetKind":"shape","derivedFrom":"type_expressions"}
+                ]}
+            ]}"#,
+    )
+    .unwrap();
+    let diags = validate_manifest_consistency(&manifest);
+
+    let named: Vec<&str> = ["'parts'", "'uses'", "'guessed'", "'untargeted'", "'note'"]
+        .into_iter()
+        .filter(|field| diags.iter().any(|d| d.message.contains(field)))
+        .collect();
+    assert_eq!(named, ["'guessed'", "'untargeted'", "'note'"], "{diags:?}");
+    assert!(
+        diags
+            .iter()
+            .all(|d| d.code == "W021" && d.severity == Severity::Warning),
+        "{diags:?}"
+    );
 }
 
 #[spec(

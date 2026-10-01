@@ -268,6 +268,11 @@ pub struct FieldDescriptor {
     /// rather than prose; token-optimized exports keep it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub normative: bool,
+    /// The host fills this reference field's edges from type names the
+    /// entity writes elsewhere: `type_expressions` (its field types) or
+    /// `method_signatures` (its method parameter and return types).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub derived_from: Option<String>,
 }
 
 // ── Edge Type Descriptor ──

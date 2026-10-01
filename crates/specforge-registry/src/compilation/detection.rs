@@ -1220,6 +1220,7 @@ mod tests {
             required: true,
             inverse_of: None,
             normative: false,
+            derived_from: None,
         });
         reg.register(FieldRegistryEntry {
             kind_name: "behavior".into(),
@@ -1233,6 +1234,7 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            derived_from: None,
         });
         reg.register(FieldRegistryEntry {
             kind_name: "invariant".into(),
@@ -1246,6 +1248,7 @@ mod tests {
             required: true,
             inverse_of: None,
             normative: false,
+            derived_from: None,
         });
 
         let rules = generate_required_field_rules(&reg);

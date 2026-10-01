@@ -43,6 +43,7 @@ pub fn reference(
         required: false,
         inverse_of: inverse_of.map(str::to_string),
         normative: false,
+        derived_from: None,
     }
 }
 

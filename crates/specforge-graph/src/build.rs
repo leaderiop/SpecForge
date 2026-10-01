@@ -32,6 +32,9 @@ pub struct GraphConfig {
     /// type. Applied before references resolve, so a single reference on
     /// a reference_list field links like `field [id]`.
     pub field_coercions: HashMap<(String, String), crate::FieldCoercion>,
+    /// Registered fields whose edges come from the type names an entity
+    /// writes in its field types or method signatures (`derived_from`).
+    pub derived_references: Vec<crate::DerivedReference>,
 }
 
 #[must_use = "diagnostics should be checked for errors"]
@@ -255,6 +258,10 @@ pub fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnos
             &config.absent_reference_targets,
         );
     }
+
+    // Derived reference fields, after cycle detection: a recursive type is
+    // not a reference cycle.
+    graph.link_derived_references(&config.derived_references, &config.single_reference_fields);
 
     ref_diags.extend(diagnostics);
     ref_diags

@@ -7,7 +7,7 @@
 //! values that still can't be the declared type.
 
 use specforge_common::{Diagnostic, Severity, find_close_match};
-use specforge_graph::{FieldCoercion, Graph};
+use specforge_graph::{DerivedFrom, DerivedReference, FieldCoercion, Graph};
 use specforge_parser::FieldValue;
 use specforge_registry::{FieldRegistry, KindRegistry, ManifestFieldType};
 use std::collections::HashMap;
@@ -30,6 +30,33 @@ pub fn field_coercions(field_reg: &FieldRegistry) -> HashMap<(String, String), F
             Some(((kind.to_string(), field.to_string()), coercion))
         })
         .collect()
+}
+
+/// The registered reference fields whose edges the host derives
+/// (`derived_from`), for [`specforge_graph::GraphConfig::derived_references`].
+/// A field that names an unknown source or no target kind derives nothing
+/// (the manifest check reports it as W021). Sorted, so the build is
+/// deterministic.
+pub fn derived_references(field_reg: &FieldRegistry) -> Vec<DerivedReference> {
+    let mut derived: Vec<DerivedReference> = field_reg
+        .iter()
+        .filter(|(_, _, entry)| {
+            matches!(
+                entry.field_type,
+                ManifestFieldType::Reference | ManifestFieldType::ReferenceList
+            )
+        })
+        .filter_map(|(kind, field, entry)| {
+            Some(DerivedReference {
+                source_kind: kind.to_string(),
+                field: field.to_string(),
+                target_kind: entry.target_kind.clone()?,
+                from: DerivedFrom::parse(entry.derived_from.as_deref()?)?,
+            })
+        })
+        .collect();
+    derived.sort_by(|a, b| (&a.source_kind, &a.field).cmp(&(&b.source_kind, &b.field)));
+    derived
 }
 
 /// E061 for every registered field whose (coerced) value can't be its

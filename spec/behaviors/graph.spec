@@ -2,8 +2,10 @@
 
 use "events/compilation"
 use "invariants/core"
+use "invariants/zero-entity-core"
 use "types/core"
 use "types/graph"
+use "types/zero-entity-core"
 
 behavior build_in_memory_graph "Build In-Memory Graph" {
   features   [graph_construction]
@@ -44,6 +46,58 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "has_cycles returns boolean"
   verify unit "no false positives for acyclic graph"
   verify unit "same ID with different kinds does not produce E002"
+}
+
+behavior link_derived_references "Link Derived References" {
+  features   [graph_construction]
+  invariants [zero_domain_knowledge_core]
+  category   command
+  types      [Graph, Edge, ManifestField, FieldRegistryEntry, DerivedReferenceSource]
+  produces   [] // part of the graph build: its edges surface through graph_built
+  requires {
+    fields_registered "the field registry holds every loaded extension's fields"
+  }
+  ensures {
+    field_type_names_linked       "every name in the entity's type-syntax field values that resolves to an entity of the field's target kind gets an edge labelled with the field"
+    method_signature_names_linked "every name in the entity's method parameter and return types that resolves to an entity of the field's target kind gets an edge labelled with the field"
+    unresolved_names_unlinked     "a primitive, a generic wrapper or an undeclared name creates no edge"
+  }
+  contract   """
+    A field an extension registers MAY declare `derived_from`. The host
+    then gives the field edges from type names the entity writes
+    elsewhere, as if the entity had listed them in the field:
+
+    - `type_expressions`: the names in the entity's field values written as
+      type syntax: an identifier, an array type `T[]` or a type union
+      `A | B`, with generics inside them. Quoted strings, numbers, lists,
+      blocks and the entity's single-reference fields (which link on their
+      own) don't count.
+    - `method_signatures`: the names in the parameter and return types of
+      the entity's methods.
+
+    A type expression reduces to the names inside it:
+    `Result<TsProject, EmitterError>` names Result, TsProject and
+    EmitterError; `TsClassMember[]` names TsClassMember. Each name that
+    resolves to an entity of the field's target kind, other than the
+    entity itself, gets one edge labelled with the field's name. A
+    primitive, a generic wrapper or an undeclared name resolves to nothing
+    and creates no edge; reporting undeclared names stays with the
+    extension that owns the kind (E004).
+
+    The core names no kind here (zero_domain_knowledge_core): which kinds
+    derive edges, from where and to which kind comes only from the fields
+    extensions register. Derived edges join the graph after reference
+    cycle detection, so a recursive type is not a reference cycle (W061).
+  """
+  verify unit "a name in a type-syntax field value links through the derived field"
+  verify unit "a name in a method parameter or return type links through the derived field"
+  verify unit "a primitive, a generic wrapper or an undeclared name creates no edge"
+  verify unit "a name that resolves to an entity of another kind creates no edge"
+  verify unit "quoted strings and single-reference fields derive no edge"
+  verify unit "an entity naming itself creates no edge"
+  verify unit "a recursive type derives no reference cycle"
+  verify unit "a kind with no derived field derives no edge"
+  verify integration "a field's derived_from reaches the graph from the extension's manifest"
 }
 
 behavior maintain_mutable_graph "Maintain Mutable Graph" {

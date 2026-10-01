@@ -203,6 +203,7 @@ fn register_single_field(
         required: field.required,
         inverse_of: field.inverse_of.clone(),
         normative: field.normative,
+        derived_from: field.derived_from.clone(),
     });
 }
 
@@ -1004,6 +1005,7 @@ mod tests {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    derived_from: None,
                 }],
                 edge_types: vec![],
             },
@@ -1039,6 +1041,7 @@ mod tests {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    derived_from: None,
                 }],
                 edge_types: vec![],
             },
@@ -1124,6 +1127,7 @@ mod tests {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    derived_from: None,
                 }],
                 edge_types: vec![],
             },
@@ -1159,6 +1163,7 @@ mod tests {
                         enum_values: vec![],
                         inverse_of: None,
                         normative: false,
+                        derived_from: None,
                     }],
                     edge_types: vec![],
                 },
@@ -1181,6 +1186,7 @@ mod tests {
                         enum_values: vec![],
                         inverse_of: None,
                         normative: false,
+                        derived_from: None,
                     }],
                     edge_types: vec![],
                 },

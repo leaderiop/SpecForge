@@ -221,6 +221,7 @@ fn context_keeps_normative_fields() {
             required: false,
             inverse_of: None,
             normative,
+            derived_from: None,
         });
     }
 

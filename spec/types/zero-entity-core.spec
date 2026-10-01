@@ -110,17 +110,24 @@ type EntityKindConflict {
 }
 
 type ManifestField {
-  name           string            @readonly
-  field_type     ManifestFieldType @readonly
-  edge           string            @optional
-  target_kind    string            @optional
-  file_reference boolean           @optional
-  required       boolean           @optional
+  name           string                 @readonly
+  field_type     ManifestFieldType      @readonly
+  edge           string                 @optional
+  target_kind    string                 @optional
+  file_reference boolean                @optional
+  required       boolean                @optional
   /// The field states what the entity promises (a behavior's contract, an
   /// invariant's guarantee), as opposed to prose; token-optimized exports keep it.
-  normative      boolean           @optional
+  normative      boolean                @optional
+  /// The host fills the field's edges from type names the entity writes
+  /// elsewhere (behavior link_derived_references).
+  derived_from   DerivedReferenceSource @optional
   verify unit "ManifestField schema is valid"
 }
+
+// Where a derived reference field takes its targets from: the type names in
+// the entity's type-syntax field values, or in its method signatures.
+type DerivedReferenceSource = type_expressions | method_signatures
 
 // ManifestFieldType covers field types available in .spec DSL syntax for
 // extension-declared fields. This is a superset of EnhancedFieldType (which
@@ -175,15 +182,16 @@ type CustomValidationPattern {
 }
 
 type FieldRegistryEntry {
-  kind_name        string            @readonly
-  field_name       string            @readonly
-  field_type       ManifestFieldType @readonly
-  source_extension string            @readonly
-  edge             string            @optional
-  target_kind      string            @optional
-  file_reference   boolean           @optional
-  required         boolean           @optional
-  normative        boolean           @optional
+  kind_name        string                 @readonly
+  field_name       string                 @readonly
+  field_type       ManifestFieldType      @readonly
+  source_extension string                 @readonly
+  edge             string                 @optional
+  target_kind      string                 @optional
+  file_reference   boolean                @optional
+  required         boolean                @optional
+  normative        boolean                @optional
+  derived_from     DerivedReferenceSource @optional
   verify unit "FieldRegistryEntry schema is valid"
 }
 

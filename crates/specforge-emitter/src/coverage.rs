@@ -370,6 +370,7 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            derived_from: None,
         });
         fields
     }

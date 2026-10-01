@@ -775,11 +775,17 @@ behavior validate_extension_manifest_consistency "Validate Extension Manifest Co
     user's spec, so they MUST NOT fail the user's compile. Cross-extension
     references to kinds from non-peer extensions produce W021 as well (the
     kind may exist but the dependency is undeclared).
+
+    A field's `derived_from` MUST name `type_expressions` or
+    `method_signatures` and sit on a reference or reference_list field with
+    a target_kind; any other one derives nothing and produces a W021
+    warning naming the field.
   """
   verify unit "target_kind referencing own manifest kind passes"
   verify unit "target_kind referencing peer dependency kind passes"
   verify unit "self-contradictory target_kind produces a W021 warning"
   verify unit "target_kind referencing non-peer extension kind produces W-level warning"
   verify unit "self-contradictory edge label produces a W021 warning"
+  verify unit "a derived_from the host can't apply produces a W021 warning"
   verify contract "Validate Extension Manifest Consistency: manifest self-consistency validation holds — manifest_parsed, peer_dependencies_known, self_consistency_validated, authoring_errors_diagnosed"
 }

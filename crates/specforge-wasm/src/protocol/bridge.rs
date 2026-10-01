@@ -183,6 +183,7 @@ fn convert_field(desc: &FieldDescriptor) -> specforge_registry::ManifestField {
         enum_values: desc.enum_values.clone(),
         inverse_of: desc.inverse_of.clone(),
         normative: desc.normative,
+        derived_from: desc.derived_from.clone(),
     }
 }
 

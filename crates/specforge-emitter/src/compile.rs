@@ -50,6 +50,7 @@ pub fn graph_config(build: &RegistryBuild) -> GraphConfig {
         single_reference_fields: build.single_reference_fields.clone(),
         absent_reference_targets: build.absent_reference_targets.clone(),
         field_coercions: crate::field_types::field_coercions(&build.fields),
+        derived_references: crate::field_types::derived_references(&build.fields),
     }
 }
 

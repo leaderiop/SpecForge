@@ -26,6 +26,9 @@ pub struct FieldRegistryEntry {
     pub inverse_of: Option<String>,
     /// The field states what the entity promises rather than prose.
     pub normative: bool,
+    /// Where the host derives the field's edges from, when it does
+    /// (`type_expressions` or `method_signatures`).
+    pub derived_from: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -169,6 +172,7 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            derived_from: None,
         });
         assert!(registry.get("behavior", "title").is_none());
     }
@@ -205,6 +209,7 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            derived_from: None,
         });
 
         // These calls should not allocate — they take &str and use HashMap<String,_>::get(&str)
@@ -232,6 +237,7 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            derived_from: None,
         };
         registry.register(entry.clone());
         assert_eq!(registry.len(), 1);
@@ -249,6 +255,7 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            derived_from: None,
         };
         registry.register(entry2);
         assert_eq!(registry.len(), 1);
@@ -266,6 +273,7 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            derived_from: None,
         });
         assert_eq!(registry.len(), 2);
     }
@@ -286,6 +294,7 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            derived_from: None,
         });
         registry.register(FieldRegistryEntry {
             kind_name: "event".to_string(),
@@ -299,6 +308,7 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            derived_from: None,
         });
 
         let items: Vec<_> = registry.iter().collect();

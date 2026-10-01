@@ -154,6 +154,10 @@ pub struct ManifestField {
     /// The field states what the entity promises rather than prose.
     #[serde(default)]
     pub normative: bool,
+    /// Where the host derives this reference field's edges from
+    /// (`type_expressions` or `method_signatures`), when it does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub derived_from: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -395,6 +399,22 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
     diagnostics
 }
 
+/// Why the host can't derive `field`'s edges from `source`, or None when
+/// it can: a known source on a reference field with a target kind.
+fn derived_from_problem(field: &ManifestField, source: &str) -> Option<&'static str> {
+    if !matches!(source, "type_expressions" | "method_signatures") {
+        return Some("expected 'type_expressions' or 'method_signatures'");
+    }
+    let reference = matches!(
+        field.field_type.as_str(),
+        "reference" | "reference_type" | "reference_list" | "reference_list_type"
+    );
+    if !reference || field.target_kind.is_none() {
+        return Some("only a reference field with a target_kind derives edges");
+    }
+    None
+}
+
 /// Validate internal consistency of a manifest (target_kind refs, edge label refs).
 ///
 /// Only the manifest itself is known here, so a kind it does not declare is
@@ -488,6 +508,14 @@ pub fn validate_manifest_consistency_with_peers(
                 diagnostics.push(warn(format!(
                     "extension '{}': field '{}' on kind '{}' references edge label '{}' not declared in edgeTypes",
                     manifest.name, field.name, kind.keyword, edge
+                )));
+            }
+            if let Some(ref source) = field.derived_from
+                && let Some(why) = derived_from_problem(field, source)
+            {
+                diagnostics.push(warn(format!(
+                    "extension '{}': field '{}' on kind '{}' declares derived_from '{}', which derives nothing: {}",
+                    manifest.name, field.name, kind.keyword, source, why
                 )));
             }
         }

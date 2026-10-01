@@ -148,6 +148,7 @@ mod tests {
             enum_values: vec![],
             inverse_of: None,
             normative: false,
+            derived_from: None,
         });
 
         let mut baseline_codes: Option<Vec<String>> = None;

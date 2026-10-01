@@ -95,6 +95,7 @@ fn make_field_entry(
         required,
         inverse_of: None,
         normative: false,
+        derived_from: None,
     }
 }
 
