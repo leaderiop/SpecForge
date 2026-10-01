@@ -105,6 +105,11 @@ Changed answers are marked *(amended)*.
 - **D6-c** *(amended)* The 30 registry codes (`R###`, `R-XXX-###`) are **catalogued as they are**. The
   18 codes that don't fit a family are renumbered into E/W, and duplicates fold into the codes they
   repeat. E048 is split in two, and W097 is catalogued.
+- **D6-d** *(2026-10-01, Phase B)* The catalog moves to its own crate, `specforge-diagnostics`, with
+  no dependencies, once four consumers outside the CLI were specified: the MCP `specforge.explain`
+  tool, the catalogue title on every diagnostics JSON entry, doctor quoting the explanation when a
+  diagnostic has no suggestion, and the LSP hover on a diagnostic. The LSP's docs links come from
+  `specforge_diagnostics::docs_href`, not from a copy of `docs/diagnostics.md` in the binary.
 
 ## Repository (new)
 

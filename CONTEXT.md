@@ -24,3 +24,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Stateless request**: an MCP request whose `_meta` names its protocol version (MCP 2026-07-28),
   answered on its own without `initialize`; every other request follows the revision `initialize`
   negotiated (`specforge_mcp::modern`).
+- **Diagnostic catalog**: the one registry of diagnostic codes: each code's title, owner, level and
+  explanation (`specforge_diagnostics::CATALOG`). `specforge explain`, MCP `specforge.explain`,
+  diagnostics JSON titles, doctor and the LSP hover all read it; `docs/diagnostics.md` is generated
+  from it.
