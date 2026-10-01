@@ -19,3 +19,5 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_coverage::Verdict`).
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
   independent of surface. The CLI and MCP are adapters over it (`specforge-ops`).
+- **Tool spec**: the single definition of an MCP tool, from which its descriptor, typed arguments,
+  output schema, annotations, mutation event and reply are derived (`specforge_mcp`'s `ToolSpec` table).
