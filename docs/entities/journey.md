@@ -82,6 +82,9 @@ All fields are optional at the type level.
 |------|-------|------|
 | E003 | error | `persona` and every `channels` entry must resolve to a declared entity. |
 | W042 | warning | Journey not referenced by any deliverable (orphan journey). |
+| I050 | info | `flow []`: a flow with no steps (a missing `flow` is E006). |
+| I054 | info | No `persona`. |
+| I055 | info | No channels (no `channels`, or an empty list). |
 
 ## Design Guidance
 

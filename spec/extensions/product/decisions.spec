@@ -349,12 +349,13 @@ decision pe_diagnostic_code_gaps "Intentional Diagnostic Code Gaps" {
   status       accepted
   date         2026-03-10
   context      """
-    Product's warning codes are W041, W042, W044, W045, W049, W057,
-    W077-W080, W083-W085, W092, W093 and W095; its info codes are I010,
-    I046, I047, I059, I060, I066, I069 and I070. Of the warning codes
-    between them, W050-W052 are governance's, W053, W054 and W060-W062 are
-    core's, and W063 is retired; W043, W046-W048, W055, W056, W058,
-    W064-W076, W081, W082 and W086-W091 are unassigned. These gaps
+    Product's warning codes are W041-W046, W049, W057, W077-W080,
+    W083-W085, W092, W093 and W095; its info codes are I010, I046-I048,
+    I050, I053-I055, I057, I059-I062, I066-I070, I080-I083, I086, I087 and
+    I089. Of the warning codes between them, W050-W052 are governance's,
+    W053, W054 and W060-W062 are core's, and W063 is retired; W047, W048,
+    W055, W056, W058, W064-W076, W081, W082 and W086-W091 are
+    unassigned. These gaps
     exist because codes were assigned incrementally as validation rules
     were added, not in a pre-allocated block.
   """

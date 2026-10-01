@@ -82,7 +82,11 @@ All fields are optional at the type level.
 | E052 | error | Circular deliverable dependency — `depends_on` edges form a cycle. |
 | W080 | warning | Invalid `artifact_type` value (not in ArtifactType enum). |
 | W085 | warning | Invalid `status` value (not in DeliverableStatus enum). |
+| W043 | warning | Deliverable with no journeys (no `journeys`, or an empty list). |
+| W046 | warning | Deliverable with no modules (no `modules`, or an empty list). |
+| I061 | info | `version` present but not semver. |
 | I066 | info | Deprecated deliverable without a `reason`. |
+| I080 | info | No `owner`. |
 
 ## Queries
 

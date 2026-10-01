@@ -83,7 +83,10 @@ All fields are optional at the type level. Features are intentionally lightweigh
 | W045 | warning | Circular feature dependency — `depends_on` edges form a cycle. |
 | W077 | warning | Invalid `status` value (not in FeatureStatus enum). |
 | W078 | warning | Invalid `priority` value (not in Priority enum). |
+| I048 | info | No acceptance criteria (no `acceptance`, or an empty list). |
 | I059 | info | Deferred feature without a `reason`. |
+| I080 | info | No `owner`. |
+| I081 | info | No `effort`. |
 
 ## Design Guidance
 

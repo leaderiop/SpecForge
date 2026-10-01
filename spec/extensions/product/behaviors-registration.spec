@@ -171,14 +171,14 @@ behavior pe_register_validation_rules "Register Product Validation Rules" {
     field_definitions_registered "all field definitions for 9 kinds and 20 edge types are in FieldRegistry"
   }
   ensures {
-    rules_registered "30 declarative validation rules over 27 diagnostic codes are registered: E007, E015, E052, W041, W042, W044, W045, W049, W057, W077-W080, W083-W085, W092, W093, W095, I010, I046, I047, I059, I060, I066, I069, I070 (W078 is declared once per target kind: feature, journey, milestone, constraint)"
+    rules_registered "61 declarative validation rules over 46 diagnostic codes are registered: E007, E015, E052, W041-W046, W049, W057, W077-W080, W083-W085, W092, W093, W095, I010, I046-I048, I050, I053-I055, I057, I059-I062, I066-I070, I080-I083, I086, I087, I089 (W078 is declared once per target kind: feature, journey, milestone, constraint; I068 once per product kind; I080 once each for feature, milestone, deliverable and release; I048 twice, for a missing and an empty acceptance)"
     rules_sorted     "rules are sorted by diagnostic code for deterministic execution"
-    rules_count      "30 rules total: field values (W077, W078 x4, W079, W080, W083, W084, W085, W093, W095), unreferenced entities (W041, W042, W044, I046, I047 via no_incoming_edges; I010 via no_edges), conditional fields (W057, I059, I060, I066, I069, I070), milestone without features (W049), dependency cycles (E007, E015, E052, W045, W092)"
+    rules_count      "61 rules total: field values via field_value_constraint (W077, W078 x4, W079, W080, W083, W084, W085, W093, W095, I048, I050, I053, I061, I062, I068 x9, I086, I087), unreferenced entities (W041, W042, W044, I046, I047 via no_incoming_edges; I010 via no_edges), missing relationships via no_outgoing_edges (W043, W046, I055, I067, I082, I083), missing fields via missing_required_field (I048, I054, I080 x4, I081), conditional fields (W057, I057, I059, I060, I066, I069, I070, I089), milestone without features (W049), dependency cycles (E007, E015, E052, W045, W092)"
   }
   ports    [ProductValidationPort]
   features [pe_core_entity_kinds, pe_validation_suite, product_validation]
   verify unit "validation rules registered from manifest"
-  verify unit "rules include E007, E015, E052, W041, W042, W044, W045, W049, W057, W077-W080, W083-W085, W092, W093, W095, I010, I046, I047, I059, I060, I066, I069, I070"
+  verify unit "rules include E007, E015, E052, W041-W046, W049, W057, W077-W080, W083-W085, W092, W093, W095, I010, I046-I048, I050, I053-I055, I057, I059-I062, I066-I070, I080-I083, I086, I087, I089"
   verify unit "rules sorted by diagnostic code"
 }
 

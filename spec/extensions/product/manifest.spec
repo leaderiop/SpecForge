@@ -18,10 +18,10 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     MilestoneDependsOn, ModuleContainsFeature, ModuleDependsOn,
     TermReferencesRelatedTerm, TermBelongsToModule,
     ReleaseIncludesDeliverable, ReleaseCompletesMilestone, ReleaseDependsOn,
-    PersonaPrioritizesFeature), and 30 validation rules. Diagnostic codes:
-    E007, E015, E052, W041, W042, W044, W045, W049, W057, W077-W080,
-    W083-W085, W092, W093, W095, I010, I046, I047, I059, I060, I066, I069,
-    I070.
+    PersonaPrioritizesFeature), and 61 validation rules. Diagnostic codes:
+    E007, E015, E052, W041-W046, W049, W057, W077-W080, W083-W085, W092,
+    W093, W095, I010, I046-I048, I050, I053-I055, I057, I059-I062,
+    I066-I070, I080-I083, I086, I087, I089.
   """
   requires {
     valid_manifest_version "manifestVersion == 2"

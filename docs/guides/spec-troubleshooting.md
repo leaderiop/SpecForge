@@ -57,7 +57,8 @@ These don't block compilation, but most indicate a missing edge or coverage gap.
 | **W008** | `feature 'X' is not implemented by any behavior` | No behavior points up to the feature. | Add `features [X]` to an implementing behavior. |
 | **W041 / W042 / W044** | `<feature/journey/module> 'X' has no incoming edges` | Product entity isn't referenced by anything upstream. | Reference it from a journey/milestone/deliverable, as appropriate. |
 | **W045 / W092** | `<feature/release> dependency cycle detected` | Cyclic `depends_on`. | Break the cycle. |
-| **W049** | `milestone 'X' has no features and no modules` | Empty milestone. | Add `features [...]` and/or `modules [...]`. |
+| **W043 / W046** | `deliverable 'X' supports no journeys` / `contains no modules` | The deliverable lists no journeys / no modules. | Add `journeys [...]` / `modules [...]`. |
+| **W049** | `milestone 'X' has no features — it may be empty` | The milestone has no `features` field (modules don't count). | Add `features [...]`. |
 | **W051 / W052 / W121** | `failure_mode 'X' has invalid severity/occurrence/detection` | A FMEA score used a number or unknown word. | Use the enum words (severity: critical/high/medium/low; occurrence: certain/likely/occasional/unlikely/rare; detection: certain/likely/moderate/unlikely/undetectable). |
 | **W077 / W079 / W085** | `<feature/milestone/deliverable> 'X' has invalid status` | A status value outside the allowed enum. | Use a valid status (feature: proposed/accepted/in_progress/done/deferred/deprecated; milestone: planned/in_progress/completed/blocked; deliverable: draft/in_progress/shipped/deprecated). |
 | **W078** | `<entity> 'X' has invalid priority` | Priority outside the enum. | Use critical / high / medium / low. |
@@ -76,7 +77,12 @@ Surfaced with `specforge check --lint=pedantic`. These are suggestions, not prob
 |------|---------|
 | **I010** | A `term` has no edges — it may be unreferenced. |
 | **I046 / I047** | A `persona` / `channel` has no incoming journey edges. |
-| **I059 / I060 / I066 / I069 / I070** | An entity has a `deferred`/`blocked`/`deprecated` status but no `reason`/`blockers` explaining it. |
+| **I059 / I060 / I066 / I069 / I070 / I089** | An entity has a `deferred`/`blocked`/`deprecated`/`recalled` status but no `reason`/`blockers` explaining it. |
+| **I057** | A `blocked` milestone has no `depends_on`. |
+| **I048 / I050 / I054 / I055 / I067 / I082 / I083** | A feature without acceptance criteria, a journey with `flow []`, without a persona or channels, a module without features, a release without deliverables or milestones. |
+| **I053 / I086 / I087** | A milestone `target_date`, release `release_date` or milestone `start_date` not in YYYY-MM-DD shape. |
+| **I061 / I062 / I068** | A deliverable `version` that isn't semver, a module `family` outside core/platform/extension/integration/advisory, a tag that isn't lowercase-hyphenated. |
+| **I080 / I081** | A feature, milestone, deliverable or release without `owner`; a feature without `effort`. |
 
 ---
 

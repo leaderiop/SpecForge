@@ -79,11 +79,15 @@ All fields are optional at the type level. The compiler emits warnings and info 
 
 | Code | Level | Rule |
 |------|-------|------|
-| W049 | warning | Empty milestone — no features AND no modules. |
+| W049 | warning | Milestone with no `features` field (modules don't count). |
 | W057 | warning | Completed milestone without exit criteria. |
 | E015 | error | Circular milestone dependency — `depends_on` edges form a cycle. |
 | W079 | warning | Invalid `status` value (not in MilestoneStatus enum). |
+| I053 | info | `target_date` present but not YYYY-MM-DD. |
+| I057 | info | Blocked milestone without `depends_on`. |
 | I060 | info | Blocked milestone without `blockers`. |
+| I080 | info | No `owner`. |
+| I087 | info | `start_date` present but not YYYY-MM-DD. |
 
 ## Design Guidance
 

@@ -65,6 +65,11 @@ Transitions are not checked by the compiler.
 |------|----------|-----------|
 | W092 | warning | Circular release dependency |
 | W093 | warning | Non-SemVer `version` |
+| I080 | info | No `owner` |
+| I082 | info | No deliverables (no `deliverables`, or an empty list) |
+| I083 | info | No milestones (no `milestones`, or an empty list) |
+| I086 | info | `release_date` present but not YYYY-MM-DD |
+| I089 | info | Recalled release without a `reason` |
 
 ## Queries
 

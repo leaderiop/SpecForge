@@ -17,9 +17,10 @@ constraint product_validation_latency "Product Validation Latency" {
   category    performance
   priority    critical
   metric      """
-    Product-specific validation rules (E007, E015, E052, W041, W042, W044,
-    W045, W049, W057, W077-W080, W083-W085, W092, W093, W095, I010, I046,
-    I047, I059, I060, I066, I069, I070) MUST complete in under
+    Product-specific validation rules (E007, E015, E052, W041-W046, W049,
+    W057, W077-W080, W083-W085, W092, W093, W095, I010, I046-I048, I050,
+    I053-I055, I057, I059-I062, I066-I070, I080-I083, I086, I087, I089)
+    MUST complete in under
     50ms for a project with up to 500 product entities across all 9 kinds.
   """
   constrains  [
@@ -247,9 +248,10 @@ constraint product_diagnostic_severity_correctness "Product Diagnostic Severity 
   priority    critical
   metric      """
     All product diagnostics MUST fire at their declared severity level:
-    E-codes (E007, E015, E052) are errors, W-codes (W041, W042, W044, W045,
-    W049, W057, W077-W080, W083-W085, W092, W093, W095) are warnings,
-    I-codes (I010, I046, I047, I059, I060, I066, I069, I070) are info. No
+    E-codes (E007, E015, E052) are errors, W-codes (W041-W046, W049, W057,
+    W077-W080, W083-W085, W092, W093, W095) are warnings, I-codes (I010,
+    I046-I048, I050, I053-I055, I057, I059-I062, I066-I070, I080-I083,
+    I086, I087, I089) are info. No
     diagnostic may fire at a different severity than its code prefix declares.
   """
   constrains  [pe_register_validation_rules]

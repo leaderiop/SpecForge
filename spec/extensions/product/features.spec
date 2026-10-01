@@ -152,15 +152,17 @@ feature pe_validation_suite "Product Validation Suite" {
     milestones without features, or unused modules.
   """
   solution """
-    Declarative validation rules (E007, E015, E052, W041, W042, W044,
-    W045, W049, W057, W077-W080, W083-W085, W092, W093, W095, I010, I046,
-    I047, I059, I060, I066, I069, I070) detect common product
+    Declarative validation rules (E007, E015, E052, W041-W046, W049, W057,
+    W077-W080, W083-W085, W092, W093, W095, I010, I046-I048, I050,
+    I053-I055, I057, I059-I062, I066-I070, I080-I083, I086, I087, I089)
+    detect common product
     specification quality issues. The core's declarative engine runs
     them, and every diagnostic is reported whatever its severity.
 
     Rules by severity: module, milestone and deliverable dependency
     cycles (E007, E015, E052); features, journeys and modules nothing
-    references (W041, W042, W044); feature and release dependency
+    references (W041, W042, W044); deliverables without journeys or
+    modules (W043, W046); feature and release dependency
     cycles (W045, W092); milestones without features (W049); completed
     milestones without exit criteria (W057); invalid values for feature
     status (W077), priority on feature, journey, milestone and
@@ -168,10 +170,20 @@ feature pe_validation_suite "Product Validation Suite" {
     artifact_type (W080), persona status (W083), channel status (W084),
     deliverable status (W085) and feature effort (W095); release
     versions that are not semver (W093); terms with no edges (I010);
-    personas and channels no journey references (I046, I047); deferred
-    features without reason (I059); blocked milestones without blockers
-    (I060); deprecated deliverables, personas and channels without
-    reason (I066, I069, I070).
+    personas and channels no journey references (I046, I047); features
+    without acceptance criteria (I048); journeys with an empty flow
+    (I050); milestone target dates, release dates and milestone start
+    dates not in YYYY-MM-DD shape (I053, I086, I087); journeys without a
+    persona or channels (I054, I055); blocked milestones without
+    depends_on (I057); deferred features without reason (I059); blocked
+    milestones without blockers (I060); deliverable versions that are
+    not semver (I061); module families outside the standard set (I062);
+    modules without features (I067); tags that are not
+    lowercase-hyphenated (I068); deprecated deliverables, personas and
+    channels without reason (I066, I069, I070); features, milestones,
+    deliverables and releases without an owner (I080); features without
+    effort (I081); releases without deliverables or milestones (I082,
+    I083); recalled releases without reason (I089).
     Each rule uses the declarative pattern engine.
   """
 }
