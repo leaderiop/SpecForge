@@ -52,19 +52,27 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         }
     };
 
+    // The same classification `specforge.coverage` reports.
+    let project = specforge_emitter::coverage::ProjectCoverage::compute(
+        &state.graph,
+        &state.kind_registry,
+        report.as_ref(),
+    );
     for node in &nodes {
-        let has_verify = !specforge_emitter::coverage::obligations(node).is_empty();
-
-        // The same classification `specforge.coverage` reports.
-        let entity = crate::tools::coverage::EntityCoverage::of(node, report.as_ref());
+        let Some(verdict) = project.verdict(node.id.raw.as_str()) else {
+            continue;
+        };
+        let has_verify = verdict.obligations > 0;
         coverage.push(serde_json::json!({
             "entity_id": node.id.raw,
             "kind": node.kind.raw,
-            "status": entity.status(),
+            "status": crate::tools::coverage::status_name(verdict.status()),
             "declared": has_verify,
-            "linked": entity.tests > 0,
-            "evidence_collected": entity.tests > 0,
-            "unproven": entity.unproven,
+            "linked": verdict.tests > 0,
+            "evidence_collected": verdict.tests > 0,
+            "obligations": verdict.obligations,
+            "proven": verdict.proven,
+            "unproven": verdict.unproven,
         }));
 
         if !has_verify {

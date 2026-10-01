@@ -8,13 +8,17 @@
 
 use crate::analyze::TestReport;
 use crate::collect::REPORT_FILE;
+use crate::compile::build_validation_entities;
 use serde_json::Value;
 use specforge_common::Diagnostic;
-use specforge_graph::{FieldMap, FieldValue, Node};
+use specforge_graph::{FieldMap, FieldValue, Graph, Node};
 use specforge_parser::VerifyStatement;
 use specforge_registry::KindRegistry;
-use std::collections::BTreeSet;
+use specforge_registry::validation_engine::ValidationEntity;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
+
+pub use specforge_coverage::{Status, Summary, Verdict};
 
 /// The kinds that count toward coverage: those an extension's manifest
 /// declares `testable`. Nothing is testable by default, and accepting
@@ -117,6 +121,87 @@ pub fn read_report_file(path: &Path) -> Result<TestReport, ReportError> {
         path: path.to_path_buf(),
         detail: e.to_string(),
     })
+}
+
+/// An entity as the coverage rule (`specforge-coverage`) sees it: the same
+/// facts the host hands the `@specforge/testing:coverage` pass, so a
+/// per-entity view and the pass cannot disagree.
+pub fn rule_entity(entity: &ValidationEntity, testable: bool) -> specforge_coverage::Entity {
+    specforge_coverage::Entity {
+        id: entity.id.clone(),
+        kind: entity.kind.clone(),
+        testable,
+        verify_kinds: entity.verify_kinds.clone(),
+        verify_texts: entity.verify_texts.clone(),
+        risk: entity.fields.get("risk").cloned(),
+        referenced: entity.incoming_edge_count > 0,
+    }
+}
+
+/// A report's recorded tests, per entity id, as the rule reads them.
+pub fn recorded_tests(report: &TestReport) -> specforge_coverage::TestResults {
+    specforge_coverage::TestResults {
+        runner: report.runner.clone(),
+        entities: report
+            .results
+            .iter()
+            .map(|(id, entity)| {
+                let tests = entity
+                    .tests
+                    .iter()
+                    .map(|t| specforge_coverage::RecordedTest {
+                        name: t.name.clone(),
+                        status: t.status.clone(),
+                        verify: t.verify.clone(),
+                    })
+                    .collect();
+                (id.clone(), tests)
+            })
+            .collect(),
+    }
+}
+
+/// A project's coverage, computed by the one rule the `coverage` pass
+/// applies (ADR 0004, D2-f). Per-entity views (the MCP coverage, inspect,
+/// query and review surfaces) read it, so none of them re-derives
+/// "proven" or "covered".
+///
+/// Formal discharge needs the prove pass, which a per-entity view does not
+/// run: as `analyze coverage` without `--prove`, a `verify property`
+/// obligation is proven only by a passing test.
+#[derive(Debug, Clone, Default)]
+pub struct ProjectCoverage {
+    /// Per entity id, for every entity in the graph.
+    pub verdicts: BTreeMap<String, Verdict>,
+    /// The summary the `coverage` pass reports for the same inputs.
+    pub summary: Summary,
+}
+
+impl ProjectCoverage {
+    /// Score `graph` against its recorded tests (`None` without a report).
+    pub fn compute(graph: &Graph, reg: &KindRegistry, report: Option<&TestReport>) -> Self {
+        let testable = testable_kinds(reg);
+        let entities: Vec<specforge_coverage::Entity> = build_validation_entities(graph)
+            .iter()
+            .map(|e| rule_entity(e, testable.contains(e.kind.as_str())))
+            .collect();
+        let results = report.map(recorded_tests);
+        let assessment = specforge_coverage::assess(&entities, results.as_ref(), None);
+        ProjectCoverage {
+            verdicts: assessment.verdicts,
+            summary: assessment.summary,
+        }
+    }
+
+    /// The entity's verdict, if the graph has it.
+    pub fn verdict(&self, id: &str) -> Option<&Verdict> {
+        self.verdicts.get(id)
+    }
+
+    /// The entity's status; an entity the graph doesn't have is uncovered.
+    pub fn status(&self, id: &str) -> Status {
+        self.verdict(id).map_or(Status::Uncovered, Verdict::status)
+    }
 }
 
 /// The obligations as the exports write them (`[{kind, description}]`), or

@@ -12,6 +12,7 @@ path = "tests/main.rs"
 
 [dependencies]
 specforge-graph = { path = "../specforge-graph" }
+specforge-coverage = { path = "../specforge-coverage" }
 specforge-common = { path = "../specforge-common" }
 specforge-parser = { workspace = true }
 specforge-resolver = { path = "../specforge-resolver" }

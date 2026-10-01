@@ -321,6 +321,7 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
   verify unit "a failing recorded test keeps an entity from being covered"
   verify unit "a field named verify does not hide an entity's verify statements"
   verify unit "a malformed specforge-report.json is an error result, not an empty report"
+  verify integration "specforge.coverage reports covered exactly for the entities analyze coverage proves"
   verify contract "Provide MCP Coverage Tool: MCP coverage tool holds — graph_available, coverage_returned, testability_respected, tool_invoked_emitted"
 }
 

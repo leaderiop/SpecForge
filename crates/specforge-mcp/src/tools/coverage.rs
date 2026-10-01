@@ -1,13 +1,9 @@
 use serde_json::Value;
-use specforge_emitter::analyze::{ReportedTest, TestReport};
-use specforge_emitter::coverage::ReportError;
-use specforge_graph::Node;
+use specforge_emitter::analyze::TestReport;
+use specforge_emitter::coverage::{ProjectCoverage, ReportError, Status};
 
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
-
-/// How a report's recorded status names a passing test.
-const PASSING_STATUS: &str = "pass";
 
 /// The project's `specforge-report.json` (written by `specforge collect`),
 /// if there is one. Tests link themselves to entities by annotation
@@ -48,60 +44,35 @@ pub(crate) fn report_error_result(error: &ReportError, tool: &str) -> ToolOutcom
     ToolOutcome::failed_with(report_mcp_error(error, tool))
 }
 
-/// How an entity's recorded tests cover its `verify` obligations: the
-/// rule `analyze coverage` applies (A015, A014), so the two never disagree.
-pub(crate) struct EntityCoverage<'a> {
-    pub obligations: usize,
-    /// Verify texts no passing test names, in declaration order.
-    pub unproven: Vec<&'a str>,
-    pub tests: usize,
-    pub failing: usize,
+/// The project's coverage under the one rule `analyze coverage` applies
+/// (`specforge-coverage`), so no MCP view re-derives it: an entity is
+/// covered exactly when that rule holds it proven, and never while analyze
+/// reports A015 or A014 for it.
+pub(crate) fn project_coverage(
+    state: &McpState,
+    tool: &str,
+) -> Result<ProjectCoverage, ToolOutcome> {
+    let report = recorded_report(state).map_err(|e| report_error_result(&e, tool))?;
+    Ok(ProjectCoverage::compute(
+        &state.graph,
+        &state.kind_registry,
+        report.as_ref(),
+    ))
 }
 
-impl<'a> EntityCoverage<'a> {
-    pub fn of(node: &'a Node, report: Option<&'a TestReport>) -> Self {
-        let texts: Vec<&str> = specforge_emitter::coverage::obligations(node)
-            .iter()
-            .map(|s| s.description.as_str())
-            .collect();
-        let tests: &[ReportedTest] = report
-            .and_then(|r| r.results.get(node.id.raw.as_str()))
-            .map_or(&[], |e| e.tests.as_slice());
-        let passing = |text: &str| {
-            tests
-                .iter()
-                .any(|t| t.status == PASSING_STATUS && t.verify.as_deref() == Some(text))
-        };
-        EntityCoverage {
-            obligations: texts.len(),
-            unproven: texts.into_iter().filter(|t| !passing(t)).collect(),
-            tests: tests.len(),
-            failing: tests.iter().filter(|t| t.status != PASSING_STATUS).count(),
-        }
-    }
-
-    pub fn proven(&self) -> usize {
-        self.obligations - self.unproven.len()
-    }
-
-    /// `covered` when every obligation is proven and no test fails;
-    /// `partial` when some obligation is proven or a test fails;
-    /// `uncovered` otherwise, including an entity with no obligations.
-    pub fn status(&self) -> &'static str {
-        if self.obligations > 0 && self.unproven.is_empty() && self.failing == 0 {
-            "covered"
-        } else if self.proven() > 0 || self.failing > 0 {
-            "partial"
-        } else {
-            "uncovered"
-        }
+/// A coverage status as the MCP results spell it.
+pub(crate) fn status_name(status: Status) -> &'static str {
+    match status {
+        Status::Covered => "covered",
+        Status::Partial => "partial",
+        Status::Uncovered => "uncovered",
     }
 }
 
 pub fn call(state: &McpState, args: Value) -> ToolOutcome {
-    let report = match recorded_report(state) {
-        Ok(report) => report,
-        Err(e) => return report_error_result(&e, "specforge.coverage"),
+    let coverage = match project_coverage(state, "specforge.coverage") {
+        Ok(coverage) => coverage,
+        Err(outcome) => return outcome,
     };
     let entity_filter = args.get("entity_id").and_then(|v| v.as_str());
     let kind_filter = args.get("kind").and_then(|v| v.as_str());
@@ -120,19 +91,19 @@ pub fn call(state: &McpState, args: Value) -> ToolOutcome {
             testable.contains(n.kind.raw.as_str())
                 && kind_filter.is_none_or(|kind| n.kind.raw == kind)
         })
-        .map(|n| (n, EntityCoverage::of(n, report.as_ref())))
-        .filter(|(_, coverage)| status_filter.is_none_or(|s| coverage.status() == s))
-        .map(|(n, coverage)| {
+        .filter_map(|n| Some((n, coverage.verdict(n.id.raw.as_str())?)))
+        .filter(|(_, verdict)| status_filter.is_none_or(|s| status_name(verdict.status()) == s))
+        .map(|(n, verdict)| {
             serde_json::json!({
                 "entity_id": n.id.raw,
                 "kind": n.kind.raw,
-                "status": coverage.status(),
-                "declared": coverage.obligations > 0,
-                "linked": coverage.tests > 0,
-                "evidence_collected": coverage.tests > 0,
-                "obligations": coverage.obligations,
-                "proven": coverage.proven(),
-                "unproven": coverage.unproven,
+                "status": status_name(verdict.status()),
+                "declared": verdict.obligations > 0,
+                "linked": verdict.tests > 0,
+                "evidence_collected": verdict.tests > 0,
+                "obligations": verdict.obligations,
+                "proven": verdict.proven,
+                "unproven": verdict.unproven,
             })
         })
         .collect();

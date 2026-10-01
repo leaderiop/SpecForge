@@ -64,11 +64,10 @@ pub fn call(state: &McpState, args: Value) -> ToolOutcome {
         .collect();
 
     // The same classification `specforge.coverage` reports.
-    let report = match super::coverage::recorded_report(state) {
-        Ok(report) => report,
-        Err(e) => return super::coverage::report_error_result(&e, "specforge.inspect"),
+    let coverage_status = match super::coverage::project_coverage(state, "specforge.inspect") {
+        Ok(coverage) => super::coverage::status_name(coverage.status(entity_id)),
+        Err(outcome) => return outcome,
     };
-    let coverage_status = super::coverage::EntityCoverage::of(node, report.as_ref()).status();
 
     let result = serde_json::json!({
         "entity_id": node.id.raw,

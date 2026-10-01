@@ -17,11 +17,12 @@
 //! - `signin`: a feature (not testable) with one passing, unnamed test;
 //! - `no_lost_login`: a formal property with one obligation and no test.
 //!
-//! These tests prove no spec obligation (they pin current behavior, bugs
-//! included), so they carry no `specforge_test` link.
+//! The `*_today` tests prove no spec obligation (they pin current behavior,
+//! bugs included), so they carry no `specforge_test` link.
 
 use assert_cmd::Command;
 use serde_json::{Value, json};
+use specforge_test_macros::test as specforge_test;
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -309,6 +310,68 @@ fn todo_app_analyze_and_stats_today() {
     let stats = stats(&example);
     assert_eq!(stats["testable_count"], 18, "{stats}");
     assert_eq!(stats["verified_count"], 16, "{stats}");
+}
+
+/// The ids of the entities a finding with `code` names (`kind 'id' ...`).
+fn named_by(pass: &Value, code: &str) -> std::collections::BTreeSet<String> {
+    findings(pass)
+        .into_iter()
+        .filter(|(c, _)| c == code)
+        .filter_map(|(_, message)| message.split('\'').nth(1).map(str::to_string))
+        .collect()
+}
+
+/// MCP `specforge.coverage` and `analyze coverage` read one rule: an
+/// entity is covered exactly when analyze proves it: it declares
+/// obligations (no A001), has recorded tests, and analyze reports neither
+/// an unproven obligation (A015) nor a failing test (A014) for it.
+fn assert_mcp_coverage_matches_analyze(root: &Path) {
+    let pass = analyze_coverage(root);
+    let report: Value = std::fs::read_to_string(root.join("specforge-report.json"))
+        .map(|raw| serde_json::from_str(&raw).unwrap())
+        .unwrap_or(Value::Null);
+    let (a001, a014, a015) = (
+        named_by(&pass, "A001"),
+        named_by(&pass, "A014"),
+        named_by(&pass, "A015"),
+    );
+    let rows = coverage_rows(
+        &mcp_calls(
+            root,
+            &[json!({"name": "specforge.coverage", "arguments": {}})],
+        )[0],
+    );
+    assert_eq!(
+        rows.len() as u64,
+        pass["summary"]["testable_total"].as_u64().unwrap(),
+        "MCP lists every testable entity analyze counts"
+    );
+    for (id, (status, _, _)) in &rows {
+        let has_tests = report["results"][id]["tests"]
+            .as_array()
+            .is_some_and(|tests| !tests.is_empty());
+        let proven = has_tests && !a001.contains(id) && !a014.contains(id) && !a015.contains(id);
+        assert_eq!(
+            status == "covered",
+            proven,
+            "{id}: MCP says {status}, analyze proven = {proven}"
+        );
+    }
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "specforge.coverage reports covered exactly for the entities analyze coverage proves"
+)]
+fn mcp_coverage_matches_analyze_coverage() {
+    let tmp = project("fx1");
+    assert_mcp_coverage_matches_analyze(tmp.path());
+    let example = TempDir::new().unwrap();
+    copy_tree(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/todo-app"),
+        example.path(),
+    );
+    assert_mcp_coverage_matches_analyze(example.path());
 }
 
 /// fx1 with a `specforge-report.json` cut off mid-write.

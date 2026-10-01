@@ -54,19 +54,16 @@ pub fn call(state: &McpState, args: Value) -> ToolOutcome {
                 && let Some(nodes) = result.get_mut("nodes").and_then(|n| n.as_array_mut())
             {
                 // The same classification `specforge.coverage` reports.
-                let report = match super::coverage::recorded_report(state) {
-                    Ok(report) => report,
-                    Err(e) => {
-                        return super::coverage::report_error_result(&e, "specforge.query");
-                    }
+                let coverage = match super::coverage::project_coverage(state, "specforge.query") {
+                    Ok(coverage) => coverage,
+                    Err(outcome) => return outcome,
                 };
                 for node in nodes.iter_mut() {
                     let node_id = node.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                    let Some(entity) = state.graph.node(node_id) else {
+                    let Some(verdict) = coverage.verdict(node_id) else {
                         continue;
                     };
-                    let status =
-                        super::coverage::EntityCoverage::of(entity, report.as_ref()).status();
+                    let status = super::coverage::status_name(verdict.status());
                     node.as_object_mut()
                         .unwrap()
                         .insert("coverage_status".into(), Value::from(status));
