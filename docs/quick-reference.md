@@ -11,7 +11,7 @@ Single-page lookup for every entity kind, edge type, and validation code (provid
 
 | Required | Optional |
 |----------|----------|
-| name, version, extensions | test_dirs, persona, surface, coverage — *(planned: not yet implemented)* providers, gen |
+| name, version, extensions | test_dirs, persona, surface — *(planned: not yet implemented)* providers, gen |
 
 No graph edges. Root configuration declaring which extensions the project uses.
 

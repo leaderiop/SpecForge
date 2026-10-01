@@ -126,10 +126,6 @@
       },
       "default": []
     },
-    "coverage": {
-      "$ref": "#/$defs/coverage",
-      "description": "Test coverage configuration."
-    },
     "inference": {
       "type": "object",
       "description": "Project-level inference hints that override or append to extension defaults.",
@@ -228,23 +224,6 @@
       },
       "additionalProperties": false
     },
-    "coverage": {
-      "type": "object",
-      "description": "Test coverage reporting configuration. The proof gate is `specforge analyze coverage --min N`, not a config key.",
-      "properties": {
-        "require_violation_tests": {
-          "type": "boolean",
-          "description": "Require tests for invariant violation paths.",
-          "default": false
-        },
-        "fail_on_unknown_ids": {
-          "type": "boolean",
-          "description": "Fail if test report contains entity IDs not in the spec.",
-          "default": false
-        }
-      },
-      "additionalProperties": false
-    },
     "registry": {
       "type": "object",
       "description": "One extension registry endpoint (mirrors RegistryConfig).",
@@ -274,5 +253,5 @@
       ]
     }
   },
-  "$comment": "Keys consumed via raw passthrough by the compiler (not typed on ProjectConfig): providers, personas, surfaces, test_dirs, coverage, enhancement_policy, enhancement_overrides, entity_kind_policy, entity_kinds, strict, namespace, display_prefix. Registry client reads 'registries'; inference is typed on ProjectConfig."
+  "$comment": "Keys consumed via raw passthrough by the compiler (not typed on ProjectConfig): providers, personas, surfaces, test_dirs, enhancement_policy, enhancement_overrides, entity_kind_policy, entity_kinds, strict, namespace, display_prefix. Registry client reads 'registries'; inference is typed on ProjectConfig."
 }

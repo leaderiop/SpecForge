@@ -93,3 +93,38 @@ fn specforge_json_with_inference_and_registries_loads() {
         String::from_utf8_lossy(&out.stderr)
     );
 }
+
+/// Nothing reads a `coverage` key, in specforge.json or in the `spec`
+/// block: the proof gate is `specforge analyze coverage --min N`, and the
+/// report path is the project's specforge-report.json (or
+/// `--test-results`). The schema and the docs must not offer one.
+#[test]
+fn no_unread_coverage_config_is_documented() {
+    let doc: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(schema_path()).unwrap()).unwrap();
+    assert!(
+        doc["properties"].get("coverage").is_none(),
+        "properties.coverage"
+    );
+    assert!(doc["$defs"].get("coverage").is_none(), "$defs.coverage");
+    assert!(
+        !doc["$comment"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("coverage"),
+        "$comment lists coverage as consumed"
+    );
+
+    for doc in ["docs/entities/spec.md", "docs/quick-reference.md"] {
+        let text = std::fs::read_to_string(repo_root().join(doc)).unwrap();
+        for key in [
+            "coverage {",
+            "require_violation_tests",
+            "fail_on_unknown_ids",
+            "| `coverage` |",
+            "surface, coverage",
+        ] {
+            assert!(!text.contains(key), "{doc} documents `{key}`");
+        }
+    }
+}
