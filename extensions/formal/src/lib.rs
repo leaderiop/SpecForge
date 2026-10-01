@@ -7,6 +7,7 @@
 //! the SDK's `raw_category` escape hatch, and the handshake is derived by the
 //! SDK from the extension metadata — contribution flags included.
 
+use specforge_coverage as coverage;
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::{PassDiagnostic, PassEntity, PassInput};
 
@@ -94,22 +95,56 @@ fn pass_condition_check(input: &PassInput) -> Vec<PassDiagnostic> {
 }
 
 /// coverage_tracking (RES-25 part I, W035): one aggregated warning per run
-/// listing the coverage items (invariants and testable entities) that carry
-/// no `tests` linkage - the undischarged set of the discharge funnel.
-#[specforge_extension_sdk::compiler_pass(name = "coverage_tracking", after = "event_graph_analyze")]
-fn pass_coverage_tracking(input: &PassInput) -> Vec<PassDiagnostic> {
+/// listing the coverage items the coverage rule does not hold proven, the
+/// undischarged set of the discharge funnel. Items are invariants and the
+/// entities that count toward coverage (entities W004 exempts that declare
+/// nothing are not items). "Proven" is @specforge/testing's rule
+/// (`specforge-coverage`, ADR 0004 D2-f) over the recorded test results and
+/// the entailed claims in the pass input, so W035 never disagrees with
+/// `specforge analyze coverage`. `exempt` is parallel to `input.entities`.
+fn pass_coverage_tracking(input: &PassInput, exempt: &[bool]) -> Vec<PassDiagnostic> {
+    let proved: std::collections::BTreeSet<&str> = input
+        .proved_claims
+        .iter()
+        .flatten()
+        .map(String::as_str)
+        .collect();
     let undischarged: Vec<&str> = input
         .entities
         .iter()
-        .filter(|e| {
-            let is_item = e.kind == "invariant" || e.testable;
-            let linked = e
-                .fields
-                .iter()
-                .any(|(k, v)| k == "tests" && !v.trim().is_empty());
-            is_item && !linked
+        .enumerate()
+        .filter(|(i, e)| {
+            let entity = coverage::Entity {
+                id: e.id.clone(),
+                kind: e.kind.clone(),
+                testable: e.testable || e.kind == INVARIANT_KIND,
+                exempt: exempt.get(*i).copied().unwrap_or(false),
+                verify_kinds: e.verify_kinds.clone(),
+                verify_texts: e.verify_texts.clone(),
+                ..Default::default()
+            };
+            if !entity.counts_toward_coverage() {
+                return false;
+            }
+            let tests: Vec<coverage::RecordedTest> = input
+                .test_results
+                .as_ref()
+                .and_then(|r| r.results.get(&e.id))
+                .map(|recorded| {
+                    recorded
+                        .tests
+                        .iter()
+                        .map(|t| coverage::RecordedTest {
+                            name: t.name.clone(),
+                            status: t.status.clone(),
+                            verify: t.verify.clone(),
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            !coverage::Verdict::of(&entity, &tests, proved.contains(e.id.as_str())).is_proven()
         })
-        .map(|e| e.id.as_str())
+        .map(|(_, e)| e.id.as_str())
         .collect();
 
     if undischarged.is_empty() {
@@ -120,7 +155,7 @@ fn pass_coverage_tracking(input: &PassInput) -> Vec<PassDiagnostic> {
     let listed: Vec<&str> = undischarged.iter().take(PREVIEW).copied().collect();
     let rest = undischarged.len().saturating_sub(PREVIEW);
     let mut message = format!(
-        "{} coverage item(s) are not covered by a test linkage",
+        "{} coverage item(s) are not proven by a recorded test or an entailed claim",
         undischarged.len()
     );
     message.push_str(&format!(": {}", listed.join(", ")));
@@ -128,8 +163,41 @@ fn pass_coverage_tracking(input: &PassInput) -> Vec<PassDiagnostic> {
         message.push_str(&format!(" … and {rest} more"));
     }
 
-    vec![PassDiagnostic::warning("W035", message)
-        .with_suggestion("add a `tests [...]` field pointing at the executable tests")]
+    vec![PassDiagnostic::warning("W035", message).with_suggestion(
+        "link a test to each obligation by its text (`verify = \"...\"`) and run `specforge collect`; `specforge analyze coverage` lists what is unproven (A001, A015)",
+    )]
+}
+
+/// The kind whose entities are coverage items whatever their kind's
+/// testability.
+const INVARIANT_KIND: &str = "invariant";
+
+/// What the coverage_tracking pass reads beyond the SDK's `PassEntity`:
+/// whether the host found each entity exempt from owing obligations (ADR
+/// 0004, D2-b). Kept here, not in the SDK, so the other blobs don't depend
+/// on it.
+#[derive(serde::Deserialize)]
+struct Exemptions {
+    #[serde(default)]
+    entities: Vec<Exemption>,
+}
+
+#[derive(serde::Deserialize)]
+struct Exemption {
+    #[serde(default)]
+    exempt: bool,
+}
+
+/// The `__pass_coverage_tracking` export: the SDK's `PassInput`, plus the
+/// exemption flags read from the same snapshot.
+fn dispatch_coverage_tracking(input: &[u8]) -> Result<Vec<u8>, String> {
+    let request: PassInput =
+        serde_json::from_slice(input).map_err(|e| format!("invalid pass request: {e}"))?;
+    let exemptions: Exemptions =
+        serde_json::from_slice(input).map_err(|e| format!("invalid pass request: {e}"))?;
+    let exempt: Vec<bool> = exemptions.entities.iter().map(|e| e.exempt).collect();
+    serde_json::to_vec(&pass_coverage_tracking(&request, &exempt))
+        .map_err(|e| format!("pass serialization failed: {e}"))
 }
 
 fn non_empty(entity: &PassEntity, field: &str) -> bool {
@@ -950,62 +1018,56 @@ mod coverage_tracking_tests {
     use super::*;
     use specforge_extension_sdk::PassSeverity;
 
-    fn entity(id: &str, kind: &str, testable: bool, tests: bool) -> PassEntity {
-        let mut fields = std::collections::BTreeMap::new();
-        if tests {
-            fields.insert("tests".to_string(), "tests/x.rs".to_string());
-        }
-        PassEntity {
-            id: id.to_string(),
-            kind: kind.to_string(),
-            fields,
-            incoming_edge_count: 0,
-            outgoing_edge_count: 0,
-            span: None,
-            testable,
-            ..Default::default()
-        }
+    fn input(json: serde_json::Value) -> (PassInput, Vec<bool>) {
+        let exemptions: Exemptions = serde_json::from_value(json.clone()).unwrap();
+        (
+            serde_json::from_value(json).unwrap(),
+            exemptions.entities.iter().map(|e| e.exempt).collect(),
+        )
     }
 
     #[test]
-    fn coverage_tracking_aggregates_undischarged_items() {
-        let input = PassInput {
-            entities: vec![
-                entity("inv1", "invariant", false, false),
-                entity("feat1", "feature", true, true),
-                entity("t1", "type", false, false),
+    fn coverage_tracking_lists_what_the_coverage_rule_does_not_prove() {
+        let (input, exempt) = input(serde_json::json!({
+            "entities": [
+                // An invariant (always an item) nothing proves.
+                {"id": "inv1", "kind": "invariant", "verify_kinds": ["unit"], "verify_texts": ["holds"]},
+                // Proven by a passing test that names its obligation.
+                {"id": "b1", "kind": "behavior", "testable": true,
+                 "verify_kinds": ["unit"], "verify_texts": ["works"]},
+                // A union type: exempt, not an item.
+                {"id": "Status", "kind": "type", "testable": true, "exempt": true},
+                // A feature, linked by a test: not testable, not an item.
+                {"id": "feat1", "kind": "feature",
+                 "fields": {"tests": "tests/x.rs"}}
             ],
-            edges: vec![],
-            ..Default::default()
-        };
-        let findings = pass_coverage_tracking(&input);
+            "test_results": {"results": {
+                "b1": {"tests": [{"name": "t", "status": "pass", "verify": "works"}]},
+                "feat1": {"tests": [{"name": "u", "status": "pass"}]}
+            }}
+        }));
+        let findings = pass_coverage_tracking(&input, &exempt);
         assert_eq!(findings.len(), 1, "one aggregated W035");
         assert!(matches!(findings[0].severity, PassSeverity::Warning));
-        assert!(
-            findings[0].message.contains("inv1"),
-            "{:?}",
-            findings[0].message
+        assert_eq!(
+            findings[0].message,
+            "1 coverage item(s) are not proven by a recorded test or an entailed claim: inv1"
         );
         assert!(
-            !findings[0].message.contains("feat1"),
-            "linked item is discharged: {:?}",
-            findings[0].message
-        );
-        assert!(
-            !findings[0].message.contains("t1"),
-            "non-testable kinds are not coverage items: {:?}",
-            findings[0].message
+            !findings[0].suggestion.as_deref().unwrap().contains("tests ["),
+            "never suggests the retired `tests` field"
         );
     }
 
     #[test]
-    fn coverage_tracking_silent_when_all_linked() {
-        let input = PassInput {
-            entities: vec![entity("inv1", "invariant", false, true)],
-            edges: vec![],
-            ..Default::default()
-        };
-        assert!(pass_coverage_tracking(&input).is_empty());
+    fn coverage_tracking_silent_when_everything_is_proven() {
+        let (input, exempt) = input(serde_json::json!({
+            "entities": [{"id": "inv1", "kind": "invariant",
+                          "verify_kinds": ["property"], "verify_texts": ["holds"]}],
+            "test_results": {"results": {}},
+            "proved_claims": ["inv1"]
+        }));
+        assert!(pass_coverage_tracking(&input, &exempt).is_empty());
     }
 }
 
@@ -1014,7 +1076,7 @@ fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
         "__pass_condition_check" => Some(specforge_dispatch_pass_condition_check(input)),
         "__pass_layering_verify" => Some(specforge_dispatch_pass_layering_verify(input)),
         "__pass_event_graph_analyze" => Some(specforge_dispatch_pass_event_graph_analyze(input)),
-        "__pass_coverage_tracking" => Some(specforge_dispatch_pass_coverage_tracking(input)),
+        "__pass_coverage_tracking" => Some(dispatch_coverage_tracking(input)),
         _ => None,
     }
 }

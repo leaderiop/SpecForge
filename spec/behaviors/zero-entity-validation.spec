@@ -348,7 +348,7 @@ behavior validate_extension_testability "Validate Extension Testability" {
   }
   ensures {
     flag_consistency_checked     "Every KindRegistryEntry's testable and supportsVerify flags checked for consistency"
-    advisory_diagnostics_emitted "W017 or I006 diagnostics emitted for inconsistent flag combinations"
+    advisory_diagnostics_emitted "W017 emitted for a testable kind that can't declare obligations"
   }
   contract   """
     This behavior checks boolean flag consistency generically across all
@@ -360,21 +360,23 @@ behavior validate_extension_testability "Validate Extension Testability" {
     If not, the validator MUST produce a W017 warning — testability
     requires a mechanism for declaring test intent.
 
-    An entity kind with supportsVerify=true but testable=false MUST produce
-    an I006 info diagnostic (verify statements accepted but entity does not
-    count toward coverage).
+    An entity kind with supportsVerify=true but testable=false is a
+    deliberate combination (a formal property accepts verify statements
+    without counting toward coverage) and produces no diagnostic.
 
     These checks compare boolean flags from the same KindRegistry entry —
     the core does not interpret what "testable" means semantically, it only
     checks that the flags are not contradictory. This is a post-registration
     manifest lint pass, not a domain-semantic check. It runs after
     register_entity_kinds_from_manifest completes (during the
-    registries_populated → validation_complete window). The W017 and I006
-    diagnostics are advisory — they do not block compilation.
+    registries_populated → validation_complete window): the registry
+    build runs it, so check, the LSP, watch and MCP all report W017. The
+    diagnostic is advisory — it does not block compilation.
   """
   verify unit "testable kind without supportsVerify produces W017"
   verify unit "testable kind with supportsVerify=true passes"
-  verify unit "kind with supportsVerify but not testable produces I006"
+  verify unit "a kind that accepts verify statements but is not testable produces no diagnostic"
+  verify unit "the registry build reports W017 for a testable kind without supportsVerify"
   verify unit "consistent testable and supportsVerify flags produce no diagnostic"
   verify contract "Validate Extension Testability: extension testability validation holds — registries_populated_fired, flag_consistency_checked, advisory_diagnostics_emitted"
 }

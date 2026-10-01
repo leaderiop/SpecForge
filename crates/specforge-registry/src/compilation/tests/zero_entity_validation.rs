@@ -1284,9 +1284,9 @@ fn testable_kind_with_supports_verify_true_passes() {
 
 #[specforge_test(
     behavior = "validate_extension_testability",
-    verify = "kind with supportsVerify but not testable produces I006"
+    verify = "a kind that accepts verify statements but is not testable produces no diagnostic"
 )]
-fn kind_with_supports_verify_but_not_testable_produces_i006() {
+fn kind_with_supports_verify_but_not_testable_is_not_reported() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{
             "name": "@test/ext",
@@ -1301,13 +1301,7 @@ fn kind_with_supports_verify_but_not_testable_produces_i006() {
     .unwrap();
     let (kind_reg, _, _, _) = populate_registries(&[manifest]);
     let diags = validate_extension_testability(&kind_reg);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "I006" && d.message.contains("note")),
-        "expected I006, got: {:?}",
-        diags
-    );
+    assert!(diags.is_empty(), "{diags:?}");
 }
 
 #[specforge_test(

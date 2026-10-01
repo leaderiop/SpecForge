@@ -896,19 +896,6 @@ Owner: core
 Level: info
 ```
 
-## I006
-
-```
-I006: Verify-capable kind not testable
-
-An extension registers an entity kind that supports `verify` statements but has
-not marked it `testable`, so its verify obligations won't count toward coverage.
-Set `testable: true` in the extension manifest if coverage tracking is desired.
-
-Owner: core
-Level: info
-```
-
 ## I007
 
 ```
@@ -1801,9 +1788,11 @@ Level: warning
 ```
 W035: Undischarged coverage items
 
-One or more coverage-tracking items are not covered by any recorded test.
-Annotate a test with the entity it proves and run `specforge collect` so its
-result is recorded.
+One or more coverage items (invariants and testable entities) are not proven
+under @specforge/testing's coverage rule: some obligation has no passing
+recorded test that names it, and no entailed formal claim discharges it. Link a
+test to each obligation by its text and run `specforge collect`; `specforge
+analyze coverage` lists what is unproven (A001, A015).
 
 Owner: @specforge/formal
 Level: warning
@@ -2484,6 +2473,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E037 | (nothing) |
 | E038 | (nothing) |
 | E047 | [W139](#w139) |
+| I006 | (nothing) |
 | W024 | (nothing) |
 | W025 | (nothing) |
 | W026 | (nothing) |

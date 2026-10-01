@@ -168,9 +168,11 @@ fn version_satisfies(installed: &str, required: &str) -> bool {
     req.matches(&ver)
 }
 
-/// Validate testability flag consistency on all registered entity kinds.
-/// Not called by the compile: plan 02 step S11 wires or removes W017/I006.
-#[allow(dead_code)]
+/// W017: a kind declared `testable` that does not accept `verify`
+/// statements, so its entities could never declare the obligations
+/// coverage counts. [`super::build::build_registries`] runs it once the
+/// kinds are populated. A kind that accepts `verify` but is not testable
+/// (a formal `property`) is a deliberate combination, not reported.
 pub(crate) fn validate_extension_testability(kind_reg: &crate::KindRegistry) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
@@ -185,17 +187,6 @@ pub(crate) fn validate_extension_testability(kind_reg: &crate::KindRegistry) -> 
                 ),
                 span: None,
                 suggestion: Some("set supportsVerify: true in the manifest".to_string()),
-            });
-        } else if entry.supports_verify && !entry.testable {
-            diagnostics.push(Diagnostic {
-                code: "I006".to_string(),
-                severity: Severity::Info,
-                message: format!(
-                    "entity kind '{}' from '{}' supports verify statements but is not testable (won't count toward coverage)",
-                    entry.kind_name, entry.source_extension
-                ),
-                span: None,
-                suggestion: None,
             });
         }
     }
@@ -593,9 +584,9 @@ mod tests {
         );
     }
 
-    // B:validate_extension_testability — verify unit "kind with supportsVerify but not testable produces I006"
+    // B:validate_extension_testability — verify unit "a kind that accepts verify statements but is not testable produces no diagnostic"
     #[test]
-    fn test_kind_with_supports_verify_but_not_testable_produces_i006() {
+    fn test_kind_with_supports_verify_but_not_testable_is_not_reported() {
         let manifest: ManifestV2 = serde_json::from_str(
             r#"{
                 "name": "@test/ext",
@@ -610,13 +601,7 @@ mod tests {
         .unwrap();
         let (kind_reg, _, _, _) = populate_registries(&[manifest]);
         let diags = validate_extension_testability(&kind_reg);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "I006" && d.message.contains("note")),
-            "expected I006, got: {:?}",
-            diags
-        );
+        assert!(diags.is_empty(), "{diags:?}");
     }
 
     // B:validate_extension_testability — verify unit "consistent testable and supportsVerify flags produce no diagnostic"

@@ -610,13 +610,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A `ref` entity's `scheme` field, or a `scheme:target` provider reference, doesn't match any provider scheme registered by an installed extension. Install an extension that contributes that provider, or configure it in `specforge.json`.",
     },
     CodeEntry {
-        code: "I006",
-        title: "Verify-capable kind not testable",
-        owner: "core",
-        level: Level::Info,
-        explanation: "An extension registers an entity kind that supports `verify` statements but has not marked it `testable`, so its verify obligations won't count toward coverage. Set `testable: true` in the extension manifest if coverage tracking is desired.",
-    },
-    CodeEntry {
         code: "I007",
         title: "Older format version detected",
         owner: "core",
@@ -1104,7 +1097,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Undischarged coverage items",
         owner: "@specforge/formal",
         level: Level::Warning,
-        explanation: "One or more coverage-tracking items are not covered by any recorded test. Annotate a test with the entity it proves and run `specforge collect` so its result is recorded.",
+        explanation: "One or more coverage items (invariants and testable entities) are not proven under @specforge/testing's coverage rule: some obligation has no passing recorded test that names it, and no entailed formal claim discharges it. Link a test to each obligation by its text and run `specforge collect`; `specforge analyze coverage` lists what is unproven (A001, A015).",
     },
     CodeEntry {
         code: "W041",
@@ -1465,6 +1458,7 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("E037", None),
     ("E038", None),
     ("E047", Some("W139")),
+    ("I006", None),
     ("W024", None),
     ("W025", None),
     ("W026", None),

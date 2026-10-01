@@ -24,6 +24,7 @@ fn software() -> ManifestV2 {
                     "name": "Behavior",
                     "keyword": "behavior",
                     "testable": true,
+                    "supportsVerify": true,
                     "fields": [
                         { "name": "contract", "fieldType": "string", "required": true },
                         { "name": "owner", "fieldType": "reference", "edge": "owned_by", "targetKind": "team" },

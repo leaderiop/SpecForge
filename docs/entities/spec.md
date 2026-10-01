@@ -33,7 +33,6 @@ spec "my-service" {
   test_dirs ["tests/", "src/**/*.test.*"]
 
   coverage {
-    threshold                95
     reports                  ["specforge-report.json"]
     require_violation_tests  true
     fail_on_unknown_ids      true
@@ -69,14 +68,13 @@ spec "my-service" {
 | `test_dirs` | string list | Glob patterns for directories containing test files. Used by coverage scanning. |
 | `persona` | sub-block(s) | Persona definitions. Validates that every `persona` in a `journey` block matches a defined persona. |
 | `surface` | sub-block(s) | Surface definitions. Validates that every `surface` in a `journey` block matches a defined surface. |
-| `coverage` | block | Test coverage configuration (threshold, report paths, flags). |
+| `coverage` | block | Test coverage configuration (report paths, flags). The proof gate is `specforge analyze coverage --min N`. |
 | `gen` | block(s) | *(planned — not yet implemented)* Code generation configuration per target language. |
 
 ### Coverage Sub-Block
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `threshold` | number | 0 | Minimum percentage of behaviors that must be covered by tests. |
 | `reports` | string list | `["specforge-report.json"]` | Paths to `specforge-report.json` files to merge. |
 | `require_violation_tests` | boolean | false | Every invariant must have at least one `violation()` test. |
 | `fail_on_unknown_ids` | boolean | true | `spec("nonexistent_behavior")` in tests fails if the ID doesn't exist in `.spec` files. |
@@ -271,7 +269,6 @@ spec "healthcare-platform" {
   test_dirs ["tests/", "services/**/tests/"]
 
   coverage {
-    threshold                95
     reports [
       "services/auth/specforge-report.json",
       "services/billing/specforge-report.json",

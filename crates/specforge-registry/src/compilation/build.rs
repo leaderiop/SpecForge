@@ -12,7 +12,7 @@ use specforge_common::Diagnostic;
 
 use super::detection::generate_required_field_rules;
 use super::populate::populate_registries;
-use super::validate::register_validation_rules;
+use super::validate::{register_validation_rules, validate_extension_testability};
 use super::validation_engine::{
     ValidationRulePattern, parse_all_rule_patterns, resolve_edge_rules,
 };
@@ -67,6 +67,8 @@ pub struct RegistryBuild {
 /// come in load order (dependencies first).
 pub fn build_registries(manifests: Vec<ManifestV2>) -> RegistryBuild {
     let (kinds, fields, edges, mut registry_diagnostics) = populate_registries(&manifests);
+    // W017: a testable kind that can't declare obligations.
+    registry_diagnostics.extend(validate_extension_testability(&kinds));
 
     let rule_inputs: Vec<(String, Vec<_>)> = manifests
         .iter()

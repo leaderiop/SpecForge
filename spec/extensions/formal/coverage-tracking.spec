@@ -45,7 +45,12 @@ behavior fa_track_coverage_discharge "Track Coverage Item Discharge" {
     or by static analysis heuristics. Auto-discharge is OFF by default;
     entities or conditions must opt in via @auto-discharge-eligible.
     Extended status model: pending -> test_written -> test_failing ->
-    test_covered (or heuristic_ok for opted-in auto-discharge).
+    test_covered (or heuristic_ok for opted-in auto-discharge). An item
+    is test_covered exactly when @specforge/testing's coverage rule holds
+    it proven (every obligation named by a passing recorded test or
+    discharged by an entailed claim, no failing test), so W035 and
+    `specforge analyze coverage` never disagree; W035 never suggests the
+    retired `tests [...]` field.
   """
   requires {
     items_generated "coverage tracking items have been generated"

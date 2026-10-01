@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://specforge.dev/schema/specforge.json",
   "title": "SpecForge Configuration",
-  "description": "Configuration file for a SpecForge project. Like tsconfig.json for TypeScript, this file defines project identity, extensions, providers, and coverage thresholds.",
+  "description": "Configuration file for a SpecForge project. Like tsconfig.json for TypeScript, this file defines project identity, extensions and providers.",
   "type": "object",
   "required": [
     "name",
@@ -230,14 +230,8 @@
     },
     "coverage": {
       "type": "object",
-      "description": "Test coverage thresholds and reporting configuration.",
+      "description": "Test coverage reporting configuration. The proof gate is `specforge analyze coverage --min N`, not a config key.",
       "properties": {
-        "threshold": {
-          "type": "integer",
-          "description": "Minimum spec coverage percentage (0-100).",
-          "minimum": 0,
-          "maximum": 100
-        },
         "require_violation_tests": {
           "type": "boolean",
           "description": "Require tests for invariant violation paths.",

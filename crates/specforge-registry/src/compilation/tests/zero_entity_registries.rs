@@ -1448,6 +1448,30 @@ fn peer_deps_contract() {
 
 #[spec(
     behavior = "validate_extension_testability",
+    verify = "the registry build reports W017 for a testable kind without supportsVerify"
+)]
+fn the_registry_build_reports_w017() {
+    let manifest: ManifestV2 = serde_json::from_str(
+        r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
+            "entityKinds":[
+                {"name":"Thing","keyword":"thing","testable":true,"supportsVerify":false},
+                {"name":"Note","keyword":"note","testable":false,"supportsVerify":true}]}"#,
+    )
+    .unwrap();
+    let build = crate::build_registries(vec![manifest]);
+    let codes: Vec<(&str, &str)> = build
+        .registry_diagnostics
+        .iter()
+        .filter(|d| d.code == "W017" || d.code == "I006")
+        .map(|d| (d.code.as_str(), d.message.as_str()))
+        .collect();
+    assert_eq!(codes.len(), 1, "{codes:?}");
+    assert_eq!(codes[0].0, "W017");
+    assert!(codes[0].1.contains("thing"), "{codes:?}");
+}
+
+#[spec(
+    behavior = "validate_extension_testability",
     verify = "testable kind without supportsVerify produces W017"
 )]
 fn testability_w017() {
@@ -1477,9 +1501,9 @@ fn testability_passes() {
 
 #[spec(
     behavior = "validate_extension_testability",
-    verify = "kind with supportsVerify but not testable produces I006"
+    verify = "a kind that accepts verify statements but is not testable produces no diagnostic"
 )]
-fn testability_i006() {
+fn testability_verify_without_testable_is_not_reported() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
             "entityKinds":[{"name":"Note","keyword":"note","testable":false,"supportsVerify":true}]}"#,
@@ -1487,11 +1511,7 @@ fn testability_i006() {
     .unwrap();
     let (kind_reg, _, _, _) = populate_registries(&[manifest]);
     let diags = validate_extension_testability(&kind_reg);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "I006" && d.message.contains("note"))
-    );
+    assert!(diags.is_empty(), "{diags:?}");
 }
 
 #[spec(
