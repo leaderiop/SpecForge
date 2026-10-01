@@ -94,7 +94,9 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
     true and the MCP server has a warm compilation, the tool MUST return
     existing diagnostics without recompilation.
     The response MUST include all diagnostics matching the filter with their
-    severity, message, file path, and line number. When strict is true,
+    severity, message, file path, and line number, and each diagnostic whose
+    code is catalogued MUST carry the catalogue's title for it (null for any
+    other code). When strict is true,
     warnings MUST be promoted to errors in the response.
 
     Cache semantics: use_cached=true returns stale results if no compilation
@@ -103,6 +105,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
     empty result. Cache is invalidated on any file change detected by the
     file watcher.
   """
+  verify unit "each catalogued diagnostic carries its title"
   verify unit "specforge.validate tool triggers compilation"
   verify unit "response includes all diagnostics as Graph Protocol diagnostics"
   verify unit "severity_filter restricts returned diagnostics"
@@ -239,6 +242,34 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   verify unit "references filter returns entities referencing target"
   verify contract "Provide MCP Search Tool: MCP search tool holds — graph_available, filtered_results_returned, unknown_kinds_reported, tool_invoked_emitted"
   verify unit "missing query returns error"
+}
+
+behavior provide_mcp_explain_tool "Provide MCP Explain Tool" {
+  features   [mcp_core_tools]
+  invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
+  types      [McpToolDescriptor]
+  ports      [McpProtocol]
+  produces   [mcp_tool_invoked]
+  requires {
+    code_given "The caller names a diagnostic code"
+  }
+  ensures {
+    entry_returned       "The catalogued entry for the code is returned: title, owner, level, explanation and docs link"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
+  contract   """
+    In MCP server mode, the system MUST register a specforge.explain tool
+    that takes code (case-insensitive) and returns what specforge explain
+    prints for it, as data: the code, its title, its owner (core or the
+    emitting extension), its level, its explanation and the link to its
+    section of docs/diagnostics.md. A retired code returns retired true and
+    the entry of the code that replaced it, if any. A code the catalogue
+    does not have MUST be an invalid_input error naming the code argument.
+  """
+  verify unit "specforge.explain returns the catalogued title, owner, level, explanation and docs link"
+  verify unit "a retired code names the code that replaced it"
+  verify unit "an uncatalogued code is an invalid_input error"
 }
 
 behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {

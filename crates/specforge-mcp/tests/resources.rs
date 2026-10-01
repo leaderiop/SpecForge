@@ -849,3 +849,29 @@ fn context_entity_template_registered() {
         "specforge://context/{{entity_id}} must be advertised: {uris:?}"
     );
 }
+
+#[specforge_test(
+    behavior = "expose_diagnostics_as_mcp_resource",
+    verify = "each catalogued diagnostic in the resource carries its title"
+)]
+fn diagnostics_resource_gives_catalogued_codes_their_title() {
+    let mut server = test_server();
+    let diagnostic = |code: &str| specforge_common::Diagnostic {
+        code: code.into(),
+        severity: specforge_common::Severity::Warning,
+        message: "m".into(),
+        span: None,
+        suggestion: None,
+    };
+    // W008 is catalogued; W901 is a third-party extension's.
+    server.state_mut().diagnostics = vec![diagnostic("W008"), diagnostic("W901")];
+    let bag: Value = serde_json::from_str(&resource_text(&read_resource(
+        &mut server,
+        "specforge://diagnostics",
+    )))
+    .unwrap();
+    assert_eq!(bag[0]["code"], "W008");
+    assert_eq!(bag[0]["title"], "Unimplemented feature");
+    assert_eq!(bag[1]["code"], "W901");
+    assert_eq!(bag[1]["title"], Value::Null, "{bag}");
+}

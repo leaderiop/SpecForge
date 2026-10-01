@@ -909,9 +909,27 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
+        // A diagnostic under the cursor comes first: what it means and how
+        // to fix it, from the catalogue.
+        let diagnostic_md = crate::hover::diagnostic_hover(
+            state.diagnostics(uri.as_str()),
+            &content,
+            pos.line,
+            pos.character,
+        );
+        let markdown = |md: String| {
+            Some(Hover {
+                contents: HoverContents::Markup(MarkupContent {
+                    kind: MarkupKind::Markdown,
+                    value: md,
+                }),
+                range: None,
+            })
+        };
+
         let word = match word_at_position(&content, pos.line as usize, pos.character as usize) {
             Some(w) => w,
-            None => return Ok(None),
+            None => return Ok(diagnostic_md.and_then(markdown)),
         };
 
         let kind_reg = state.kind_registry();
@@ -936,13 +954,11 @@ impl LanguageServer for Backend {
                 None
             }
         });
-        Ok(info.map(|md| Hover {
-            contents: HoverContents::Markup(MarkupContent {
-                kind: MarkupKind::Markdown,
-                value: md,
-            }),
-            range: None,
-        }))
+        let combined = match (diagnostic_md, info) {
+            (Some(diag), Some(entity)) => Some(format!("{diag}\n\n---\n\n{entity}")),
+            (diag, entity) => diag.or(entity),
+        };
+        Ok(combined.and_then(markdown))
     }
 
     async fn completion(&self, params: CompletionParams) -> Result<Option<CompletionResponse>> {

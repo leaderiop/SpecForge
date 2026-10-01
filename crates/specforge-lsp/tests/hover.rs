@@ -479,3 +479,70 @@ fn enclosing_entity_kind_skips_nested_braces() {
     let kind = specforge_lsp::enclosing_entity_kind(content, 7);
     assert_eq!(kind.as_deref(), Some("behavior"));
 }
+
+fn diagnostic_at(
+    code: &str,
+    message: &str,
+    line: usize,
+    start: usize,
+    end: usize,
+) -> specforge_common::Diagnostic {
+    specforge_common::Diagnostic {
+        code: code.into(),
+        severity: specforge_common::Severity::Error,
+        message: message.into(),
+        span: Some(SourceSpan {
+            file: Sym::new("test.spec"),
+            start_line: line,
+            start_col: start,
+            end_line: line,
+            end_col: end,
+        }),
+        suggestion: None,
+    }
+}
+
+#[spec(
+    behavior = "hover_diagnostic",
+    verify = "hovering a diagnostic shows its catalogued title and explanation"
+)]
+fn hovering_a_diagnostic_shows_the_catalogue_entry() {
+    let content = "behavior login \"Login\" {\n  types [ghost]\n}\n";
+    // `ghost`: line 2, columns 10..15 (1-based).
+    let diagnostics = [diagnostic_at(
+        "E003",
+        "unresolved reference 'ghost'",
+        2,
+        10,
+        15,
+    )];
+
+    let md = specforge_lsp::diagnostic_hover(&diagnostics, content, 1, 11).unwrap();
+    assert_eq!(
+        md,
+        "**E003** · Unresolved reference\n\nunresolved reference 'ghost'\n\n\
+         A reference field names an entity ID that doesn't resolve to any declared entity. \
+         Fix the typo or add the missing entity; a `did you mean` suggestion is included when \
+         a close match exists.\n\n\
+         [Documentation](https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#e003)"
+    );
+    // Outside the range, nothing.
+    assert_eq!(
+        specforge_lsp::diagnostic_hover(&diagnostics, content, 0, 3),
+        None
+    );
+}
+
+#[spec(
+    behavior = "hover_diagnostic",
+    verify = "an uncatalogued diagnostic's hover shows its code and message only"
+)]
+fn an_uncatalogued_diagnostic_hover_shows_code_and_message() {
+    let content = "behavior login \"Login\" {\n  types [ghost]\n}\n";
+    // E901 is a third-party extension's code.
+    let diagnostics = [diagnostic_at("E901", "acme says no", 2, 10, 15)];
+    assert_eq!(
+        specforge_lsp::diagnostic_hover(&diagnostics, content, 1, 12).as_deref(),
+        Some("**E901**\n\nacme says no")
+    );
+}

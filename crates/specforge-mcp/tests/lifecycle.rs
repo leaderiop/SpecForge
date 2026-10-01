@@ -703,7 +703,7 @@ fn list_tools_core_only() {
     let mut server = init_server();
     let resp = call(&mut server, "tools/list", json!({}));
     let tools = resp["result"]["tools"].as_array().unwrap();
-    assert_eq!(tools.len(), 33, "the 33 core tools");
+    assert_eq!(tools.len(), 34, "the 34 core tools");
     for tool in tools {
         let name = tool["name"].as_str().unwrap();
         assert!(name.starts_with("specforge."), "{name} is not core");

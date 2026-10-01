@@ -335,11 +335,11 @@ mod tests {
 
         let codes: Vec<&str> = report.conflicts.iter().map(|c| c.code.as_str()).collect();
         assert_eq!(codes, ["E026", "W018"]);
-        // No suggestion of its own: point at the explanation.
+        // No suggestion of its own: the catalogued explanation stands in.
         assert!(
             report.conflicts[0]
                 .suggestion
-                .contains("specforge explain E026"),
+                .ends_with("Rename the conflicting kind keyword."),
             "{:?}",
             report.conflicts[0]
         );
@@ -353,7 +353,10 @@ mod tests {
         let human = render_human(&report, &[], false);
         let section = &human[human.find("Conflicts:").expect("conflicts section")..];
         assert!(section.contains("[E026] entity kind 'feature'"), "{human}");
-        assert!(section.contains("fix: uninstall or reconfigure"), "{human}");
+        assert!(
+            section.contains("fix: Two extensions register the same entity kind keyword"),
+            "{human}"
+        );
         assert!(section.contains("[W018]"), "{human}");
         assert!(
             section.contains("fix: rename one of the edge types"),

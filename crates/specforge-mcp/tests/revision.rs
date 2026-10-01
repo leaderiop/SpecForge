@@ -300,6 +300,8 @@ fn structured_results_conform_to_each_tool_output_schema() {
             json!({"include_validation_rules": true}),
         ),
         ("specforge.stats", json!({})),
+        ("specforge.explain", json!({"code": "w018"})),
+        ("specforge.explain", json!({"code": "E047"})),
         ("specforge.inspect", json!({"entity_id": "alpha"})),
         ("specforge.find_definition", json!({"entity_id": "alpha"})),
         ("specforge.find_references", json!({"entity_id": "alpha"})),

@@ -20,7 +20,7 @@ pub use completion::{
 };
 pub use completion::{enclosing_block, enclosing_entity_kind, field_snippet, keyword_snippet};
 pub use document::DocumentBuffer;
-pub use hover::{hover_field_info, hover_info, hover_info_with_registries};
+pub use hover::{diagnostic_hover, hover_field_info, hover_info, hover_info_with_registries};
 pub use navigation::{find_all_references, go_to_definition, goto_import_definition};
 pub use semantic_tokens::{
     MOD_DECLARATION, MOD_REFERENCE, SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES, byte_col_to_utf16,

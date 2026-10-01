@@ -463,6 +463,7 @@ fn contract_shutdown() {
 fn unknown_kind(kind: &str, suggestion: Option<&str>) -> Value {
     json!({
         "code": "I020",
+        "title": "Unknown entity kind in a filter",
         "severity": "Info",
         "message": format!("unknown entity kind '{kind}'"),
         "span": null,
@@ -1734,6 +1735,7 @@ fn contract_validate() {
         json!([
             {
                 "code": "E006",
+                "title": "Missing required field",
                 "severity": "Error",
                 "message": "behavior 'wave' is missing required field 'contract'",
                 "span": {"file": "broken.spec", "start_line": 1, "start_col": 1, "end_line": 3, "end_col": 2},
@@ -1744,6 +1746,7 @@ fn contract_validate() {
             },
             {
                 "code": "W004",
+                "title": "Untested testable entity",
                 "severity": "Warning",
                 "message": "behavior 'wave' is testable but declares no verify obligations",
                 "span": {"file": "broken.spec", "start_line": 1, "start_col": 1, "end_line": 3, "end_col": 2},
@@ -2117,11 +2120,11 @@ fn contract_diagnostics_resource() {
     assert_eq!(
         bag,
         json!([
-            {"code": "E003", "severity": "Error", "message": "unresolved reference 'ghost'",
+            {"code": "E003", "title": "Unresolved reference", "severity": "Error", "message": "unresolved reference 'ghost'",
              "span": {"file": "feat.spec", "start_line": 2, "start_col": 14, "end_line": 2, "end_col": 0},
              "suggestion": null,
              "file": "feat.spec", "line": 2, "column": 14},
-            {"code": "W001", "severity": "Warning", "message": "a warning",
+            {"code": "W001", "title": "Behavior implements no feature", "severity": "Warning", "message": "a warning",
              "span": null, "suggestion": "fix W001",
              "file": null, "line": null, "column": null},
         ])

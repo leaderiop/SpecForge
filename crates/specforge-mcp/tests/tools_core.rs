@@ -1821,3 +1821,113 @@ fn query_and_trace_report_e003_in_the_diagnostic_not_the_message() {
         assert!(message.contains("nonexistent"), "{tool}: {message}");
     }
 }
+
+// --- specforge.explain ---
+
+#[specforge_test(
+    behavior = "provide_mcp_explain_tool",
+    verify = "specforge.explain returns the catalogued title, owner, level, explanation and docs link"
+)]
+fn explain_returns_the_catalogued_entry() {
+    let mut server = test_server();
+    let explain = |server: &mut McpServer, code: &str| -> Value {
+        serde_json::from_str(&tool_text(&call_tool(
+            server,
+            "specforge.explain",
+            json!({"code": code}),
+        )))
+        .unwrap()
+    };
+    // Any case: the same entry `specforge explain W018` prints.
+    let entry = explain(&mut server, "w018");
+    assert_eq!(entry["code"], "W018");
+    assert_eq!(entry["title"], "Duplicate edge type");
+    assert_eq!(entry["owner"], "core");
+    assert_eq!(entry["level"], "warning");
+    assert_eq!(entry["retired"], false);
+    assert!(
+        entry["explanation"]
+            .as_str()
+            .unwrap()
+            .starts_with("Two extensions register an edge type with the same label"),
+        "{entry}"
+    );
+    assert_eq!(
+        entry["docs"],
+        "https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#w018"
+    );
+    // An extension's code names that extension.
+    let formal = explain(&mut server, "E031");
+    assert_eq!(formal["owner"], "@specforge/formal", "{formal}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_explain_tool",
+    verify = "a retired code names the code that replaced it"
+)]
+fn explain_a_retired_code_names_its_replacement() {
+    let mut server = test_server();
+    let retired: Value = serde_json::from_str(&tool_text(&call_tool(
+        &mut server,
+        "specforge.explain",
+        json!({"code": "E047"}),
+    )))
+    .unwrap();
+    assert_eq!(retired["code"], "E047");
+    assert_eq!(retired["retired"], true);
+    assert_eq!(retired["replaced_by"]["code"], "W139", "{retired}");
+    assert_eq!(retired["replaced_by"]["level"], "warning");
+
+    // Retired with no successor.
+    let gone: Value = serde_json::from_str(&tool_text(&call_tool(
+        &mut server,
+        "specforge.explain",
+        json!({"code": "W024"}),
+    )))
+    .unwrap();
+    assert_eq!(
+        gone,
+        json!({"code": "W024", "retired": true, "replaced_by": null})
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_explain_tool",
+    verify = "an uncatalogued code is an invalid_input error"
+)]
+fn explain_an_uncatalogued_code_is_invalid_input() {
+    let mut server = test_server();
+    // E901 belongs to a third-party extension; Z123 is no code at all.
+    for code in ["E901", "Z123"] {
+        let resp = call_tool(&mut server, "specforge.explain", json!({"code": code}));
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "invalid_input", "{code}: {error}");
+        assert!(error["message"].as_str().unwrap().contains(code), "{error}");
+    }
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "each catalogued diagnostic carries its title"
+)]
+fn validate_gives_each_catalogued_code_its_title() {
+    let project = project_with_errors_and_warnings();
+    let mut server = test_server();
+    let resp = call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
+    );
+    let found: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let title = |code: &str| -> Value {
+        found
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|d| d["code"] == code)
+            .unwrap_or_else(|| panic!("no {code} in {found}"))["title"]
+            .clone()
+    };
+    assert_eq!(title("E003"), "Unresolved reference");
+    assert_eq!(title("E006"), "Missing required field");
+}

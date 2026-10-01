@@ -347,12 +347,14 @@ behavior expose_diagnostics_as_mcp_resource "Expose Diagnostics as MCP Resource"
     In MCP server mode, the system MUST register a specforge://diagnostics
     resource that returns the current DiagnosticBag as JSON. The resource MUST
     update after each recompilation. The output MUST include all diagnostics
-    with severity, code, message, file path, and span. Agents MAY poll this
+    with severity, code, message, file path, and span, and the catalogue's
+    title for each catalogued code (null otherwise). Agents MAY poll this
     resource to check project health without triggering a new compilation.
   """
   verify unit "specforge://diagnostics resource returns current DiagnosticBag as JSON"
   verify unit "resource updates after recompilation"
   verify unit "each diagnostic includes severity, code, message, file, and span"
+  verify unit "each catalogued diagnostic in the resource carries its title"
   verify contract "Expose Diagnostics as MCP Resource: diagnostics MCP resource holds — validation_complete_fired, diagnostics_returned, resource_read_emitted"
 }
 

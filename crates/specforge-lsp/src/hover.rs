@@ -3,6 +3,43 @@ use specforge_parser::FieldValue;
 use specforge_registry::{FieldRegistry, KindRegistry};
 use std::collections::BTreeMap;
 
+/// Markdown for the published diagnostics whose range holds the position
+/// (`line` and `character` zero-based, UTF-16): each code with the
+/// catalogue's title, the message, the catalogue's explanation and the
+/// docs link; a code the catalogue doesn't have shows its code and message
+/// only. `None` when no diagnostic covers the position.
+pub fn diagnostic_hover(
+    diagnostics: &[specforge_common::Diagnostic],
+    content: &str,
+    line: u32,
+    character: u32,
+) -> Option<String> {
+    let at = (line, character);
+    let sections: Vec<String> = diagnostics
+        .iter()
+        .filter(|diag| {
+            diag.span.as_ref().is_some_and(|span| {
+                let range = crate::source_span_to_lsp_range_with_text(span, content);
+                (range.start_line, range.start_col) <= at && at <= (range.end_line, range.end_col)
+            })
+        })
+        .map(|diag| match specforge_diagnostics::lookup(&diag.code) {
+            Some(entry) => {
+                let mut section = format!(
+                    "**{}** · {}\n\n{}\n\n{}",
+                    entry.code, entry.title, diag.message, entry.explanation
+                );
+                if let Some(href) = specforge_diagnostics::docs_href(entry.code) {
+                    section.push_str(&format!("\n\n[Documentation]({href})"));
+                }
+                section
+            }
+            None => format!("**{}**\n\n{}", diag.code, diag.message),
+        })
+        .collect();
+    (!sections.is_empty()).then(|| sections.join("\n\n---\n\n"))
+}
+
 /// Returns markdown-formatted hover content for an entity.
 ///
 /// Shows:

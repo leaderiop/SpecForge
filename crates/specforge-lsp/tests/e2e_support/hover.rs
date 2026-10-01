@@ -63,3 +63,26 @@ async fn e2e_hover_on_non_entity_word() {
         "Expected null hover for non-entity word 'test'"
     );
 }
+
+/// A diagnostic under the cursor: its catalogued meaning comes first,
+/// before the entity hover.
+#[tokio::test]
+async fn e2e_hover_explains_the_diagnostic_under_the_cursor() {
+    let text = "behavior login \"Login\" {\n  types [ghost]\n}\n";
+    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    // On "ghost", the unresolved reference.
+    let resp = client.hover(&uri, 1, 11).await;
+    let value = resp["result"]["contents"]["value"]
+        .as_str()
+        .unwrap_or_else(|| panic!("no hover: {resp}"));
+    assert!(
+        value.starts_with("**E003** · Unresolved reference"),
+        "{value}"
+    );
+    assert!(
+        value.contains(
+            "[Documentation](https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#e003)"
+        ),
+        "{value}"
+    );
+}

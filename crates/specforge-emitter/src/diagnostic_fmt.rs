@@ -30,7 +30,8 @@ pub fn format_diagnostic(diag: &Diagnostic) -> String {
 
 /// Diagnostics as the JSON every surface prints (`check --format json`,
 /// MCP validate, the `specforge://diagnostics` resource, tool `_meta`):
-/// one entry per diagnostic with code, severity, message, suggestion, the
+/// one entry per diagnostic with code, the catalogue's title for it,
+/// severity, message, suggestion, the
 /// span nested under `span`, and the span's start flat as `file`, `line`
 /// and `column`. Absent values are `null`, never missing keys. The shape
 /// is the superset of the nested (CLI) and flat (MCP) shapes the surfaces
@@ -40,6 +41,7 @@ pub fn diagnostics_json(diagnostics: &[Diagnostic]) -> Vec<DiagnosticJson<'_>> {
         .iter()
         .map(|d| DiagnosticJson {
             code: &d.code,
+            title: specforge_diagnostics::lookup(&d.code).map(|entry| entry.title),
             severity: &d.severity,
             message: &d.message,
             span: d.span.as_ref(),
@@ -136,6 +138,9 @@ pub fn diagnostic_summary(diagnostics: &[Diagnostic]) -> String {
 #[derive(Debug, Serialize)]
 pub struct DiagnosticJson<'a> {
     pub code: &'a str,
+    /// The catalogue's title for the code; null for a code it doesn't have
+    /// (a third-party extension's).
+    pub title: Option<&'static str>,
     pub severity: &'a Severity,
     pub message: &'a str,
     /// The location nested: file, start and end line and column.

@@ -402,6 +402,7 @@ fn recompilation_refreshes_surfaces() {
         "specforge.collect",
         "specforge.coverage",
         "specforge.doctor",
+        "specforge.explain",
         "specforge.export",
         "specforge.extensions",
         "specforge.find_definition",

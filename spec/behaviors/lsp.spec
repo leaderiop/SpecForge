@@ -213,6 +213,29 @@ behavior hover_information "Hover Information" {
   verify contract "Hover Information: hover information holds — graph_available, kind_registry_available, hover_delegated, markdown_produced"
 }
 
+behavior hover_diagnostic "Hover a Diagnostic" {
+  features   [live_diagnostics]
+  category   query
+  invariants [lsp_response_latency]
+  types      [HoverContent]
+  ports      [LspProtocol]
+  requires {
+    diagnostics_published "the file's diagnostics are published"
+  }
+  ensures {
+    diagnostic_explained "hovering inside a published diagnostic shows its code, the catalogue's title and explanation, and the docs link"
+  }
+  contract   """
+    When a user hovers inside the range of a published diagnostic, the LSP
+    MUST show, as markdown and before any entity hover, the diagnostic's
+    code with the catalogue's title, the catalogue's explanation and the
+    link to the code's section of docs/diagnostics.md. A code the catalogue
+    does not have shows its code and message only.
+  """
+  verify unit "hovering a diagnostic shows its catalogued title and explanation"
+  verify unit "an uncatalogued diagnostic's hover shows its code and message only"
+}
+
 // Completion behaviors (autocomplete_entity_ids, complete_field_names, complete_keywords)
 // also cover verify declaration editing — verify kind names are suggested via the
 // same completion pipeline.

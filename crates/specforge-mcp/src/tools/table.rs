@@ -178,6 +178,52 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         call: typed!(search::call, search::Args),
     },
     ToolSpec {
+        name: "specforge.explain",
+        description: "Explain a diagnostic code: its title, owner, level, what triggers it and how to fix it, and its docs link",
+        category: Category::Core,
+        access: Access::ReadOnly,
+        schema: || {
+            json!({
+                "type": "object",
+                "properties": {
+                    "code": { "type": "string", "description": "A diagnostic code, any case" }
+                },
+                "required": ["code"]
+            })
+        },
+        mutation: None,
+        output: Some(|| {
+            let entry = json!({
+                "type": "object",
+                "properties": {
+                    "code": { "type": "string" },
+                    "title": { "type": "string" },
+                    "owner": { "type": "string" },
+                    "level": { "type": "string" },
+                    "explanation": { "type": "string" },
+                    "docs": { "type": ["string", "null"] }
+                },
+                "required": ["code", "title", "owner", "level", "explanation", "docs"]
+            });
+            json!({
+                "type": "object",
+                "properties": {
+                    "code": { "type": "string" },
+                    "retired": { "type": "boolean" },
+                    "title": { "type": "string" },
+                    "owner": { "type": "string" },
+                    "level": { "type": "string" },
+                    "explanation": { "type": "string" },
+                    "docs": { "type": ["string", "null"] },
+                    "replaced_by": { "type": ["object", "null"], "properties": entry["properties"].clone() }
+                },
+                "required": ["code", "retired"]
+            })
+        }),
+        fields: fields::<explain::Args>,
+        call: typed!(explain::call, explain::Args),
+    },
+    ToolSpec {
         name: "specforge.schema",
         description: "Get the GraphProtocolSchema: entity kinds with their typed fields, edge types and the loaded extensions",
         category: Category::Core,

@@ -11,6 +11,7 @@ name = "tests"
 path = "tests/main.rs"
 
 [dependencies]
+specforge-diagnostics = { path = "../specforge-diagnostics" }
 specforge-graph = { path = "../specforge-graph" }
 specforge-coverage = { path = "../specforge-coverage" }
 specforge-common = { path = "../specforge-common" }

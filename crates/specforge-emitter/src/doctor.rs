@@ -79,7 +79,8 @@ pub struct Conflict {
     pub code: String,
     pub severity: FindingStatus,
     pub message: String,
-    /// The diagnostic's own suggestion, else a pointer to `specforge explain`.
+    /// The diagnostic's own suggestion, else the catalogue's explanation of
+    /// its code.
     pub suggestion: String,
 }
 
@@ -95,7 +96,8 @@ pub struct ShadowedConstruct {
 pub struct LoadFailure {
     pub code: String,
     pub message: String,
-    /// The diagnostic's own suggestion, else a pointer to `specforge explain`.
+    /// The diagnostic's own suggestion, else the catalogue's explanation of
+    /// its code.
     pub suggestion: String,
 }
 
@@ -363,10 +365,7 @@ pub fn diagnose_with(
         if !LOAD_FAILURE_CODES.contains(&diag.code.as_str()) {
             continue;
         }
-        let suggestion = diag
-            .suggestion
-            .clone()
-            .unwrap_or_else(|| format!("run `specforge explain {}`", diag.code));
+        let suggestion = remediation(diag, || format!("run `specforge explain {}`", diag.code));
         findings.push(Finding {
             check: diag.message.clone(),
             status: match diag.severity {
@@ -396,7 +395,7 @@ pub fn diagnose_with(
             Severity::Error => FindingStatus::Error,
             _ => FindingStatus::Warn,
         };
-        let suggestion = diag.suggestion.clone().unwrap_or_else(|| {
+        let suggestion = remediation(diag, || {
             format!(
                 "uninstall or reconfigure one of the conflicting extensions \
                  (`specforge explain {}`)",
@@ -476,9 +475,20 @@ fn z3_on_path() -> bool {
         .unwrap_or(false)
 }
 
+/// How to fix what `diag` reports: its own suggestion, else the
+/// catalogue's explanation of its code, else `fallback` (a code the
+/// catalogue doesn't have).
+fn remediation(diag: &Diagnostic, fallback: impl FnOnce() -> String) -> String {
+    diag.suggestion
+        .clone()
+        .or_else(|| specforge_diagnostics::lookup(&diag.code).map(|e| e.explanation.to_string()))
+        .unwrap_or_else(fallback)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_test_macros::test as specforge_test;
 
     fn diag(code: &str, message: &str, suggestion: Option<&str>) -> Diagnostic {
         Diagnostic {
@@ -524,11 +534,54 @@ mod tests {
 
         assert_eq!(report.conflicts.len(), 1);
         assert!(report.shadowed.is_empty());
+        // W018 offers no suggestion: the catalogue's explanation stands in.
         assert!(
             report.conflicts[0]
                 .suggestion
-                .contains("specforge explain W018")
+                .starts_with("Two extensions register an edge type with the same label"),
+            "{}",
+            report.conflicts[0].suggestion
         );
+    }
+
+    #[specforge_test(
+        behavior = "run_doctor_check",
+        verify = "a finding without its own suggestion quotes the catalogued explanation"
+    )]
+    fn a_finding_without_a_suggestion_quotes_the_catalogue() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let diagnostics = [
+            // No suggestion: the explanation of E028 is quoted.
+            diag("E028", "extension '@acme/x' is not installed", None),
+            // Its own suggestion wins.
+            diag(
+                "E033",
+                "binary hash mismatch",
+                Some("run `specforge add @acme/y`"),
+            ),
+        ];
+
+        let report = diagnose_with(dir.path(), &[], &diagnostics, true);
+
+        let remedies: Vec<&str> = report
+            .load_failures
+            .iter()
+            .map(|f| f.suggestion.as_str())
+            .collect();
+        assert_eq!(remedies.len(), 2, "{remedies:?}");
+        assert!(
+            remedies[0].contains("confirm the extension is installed and up to date"),
+            "E028's catalogued explanation: {}",
+            remedies[0]
+        );
+        assert!(
+            !remedies[0].contains("specforge explain"),
+            "{}",
+            remedies[0]
+        );
+        assert_eq!(remedies[1], "run `specforge add @acme/y`");
+        let finding = report.findings.iter().find(|f| f.code == "E028").unwrap();
+        assert_eq!(finding.remediation, remedies[0]);
     }
 
     #[test]
