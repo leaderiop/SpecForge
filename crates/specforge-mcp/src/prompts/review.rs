@@ -47,7 +47,8 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
                 id,
                 error_codes::INTERNAL_ERROR,
                 e.to_string(),
-                crate::tools::coverage::report_mcp_error(&e, "specforge://prompts/review"),
+                crate::tools::coverage::report_mcp_error(&e, "specforge://prompts/review")
+                    .to_json(),
             );
         }
     };

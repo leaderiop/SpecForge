@@ -1738,7 +1738,8 @@ fn contract_validate() {
         ]),
         "{resp}"
     );
-    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    // Finding errors is what a validation run is for: a successful call.
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
 
     // strict_promotion_enforced: the warning comes back as an error.
     let strict = tool(&mut server, "specforge.validate", json!({"strict": true}));
@@ -2499,7 +2500,8 @@ fn contract_remove_extension() {
         "specforge.remove_extension",
         json!({"name": "@specforge/software"}),
     );
-    assert!(resp["error"].is_object());
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "extension_not_found", "{error}");
 }
 
 // NOT LINKED to "Provide MCP Migrate Tool: MCP migrate tool holds — …":
@@ -2616,7 +2618,7 @@ fn contract_render() {
     // An unknown format lists the available renderers.
     let unknown = call_tool(&mut server, "specforge.render", json!({"format": "pdf"}));
     assert_eq!(
-        unknown["error"]["data"]["available_renderers"],
+        crate::tool_errors::mcp_error(&unknown)["data"]["available_renderers"],
         json!(["json", "dot", "context", "brief"])
     );
 

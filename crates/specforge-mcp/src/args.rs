@@ -6,28 +6,32 @@ use serde::Deserialize;
 use serde::de::{self, DeserializeOwned, Deserializer, Visitor};
 use serde_json::Value;
 
-use crate::tool::ToolOutcome;
+use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
-/// `arguments` read as `A`. A missing required argument is refused with
-/// `Missing required parameter: <name>`; anything else serde rejects, with
-/// its reason. Arguments that are not an object read as none.
+/// `arguments` (an object; the dispatcher refuses any other) read as `A`.
+/// A failure is invalid input, an `isError` result (ADR 0004 D4-a): a
+/// missing required argument says `Missing required parameter: <name>`
+/// and names it; anything else serde rejects says why.
 pub fn parse<A: DeserializeOwned>(arguments: Value) -> Result<A, ToolOutcome> {
-    let arguments = match arguments {
-        object @ Value::Object(_) => object,
-        _ => Value::Object(Default::default()),
-    };
-    serde_json::from_value(arguments).map_err(|error| ToolOutcome::invalid_params(reason(&error)))
+    serde_json::from_value(arguments).map_err(|error| refusal(&error).into())
 }
 
 /// Why serde refused the arguments, as the tool reports it.
-fn reason(error: &serde_json::Error) -> String {
+fn refusal(error: &serde_json::Error) -> McpError {
     let message = error.to_string();
     match message
         .strip_prefix("missing field `")
         .and_then(|rest| rest.split('`').next())
     {
-        Some(field) => format!("Missing required parameter: {field}"),
-        None => format!("Invalid arguments: {message}"),
+        Some(field) => McpError::new(
+            ErrorCode::InvalidInput,
+            format!("Missing required parameter: {field}"),
+        )
+        .with_argument(field),
+        None => McpError::new(
+            ErrorCode::InvalidInput,
+            format!("Invalid arguments: {message}"),
+        ),
     }
 }
 

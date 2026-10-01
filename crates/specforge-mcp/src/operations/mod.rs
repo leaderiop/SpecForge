@@ -6,15 +6,13 @@
 use serde_json::{Value, json};
 use std::path::PathBuf;
 
-use specforge_common::find_project_root;
+use serde::Deserialize;
+use specforge_common::{Diagnostic, find_project_root};
 use specforge_wasm::read_lock_file;
 
-use serde::Deserialize;
-
 use crate::args::{lenient, strings};
-use crate::protocol::error_codes;
 use crate::state::McpState;
-use crate::tool::ToolOutcome;
+use crate::tool::{ErrorCode, McpError, ToolOutcome, is_diagnostic_code};
 
 /// `specforge.add_extension`: the install, plus `extension_added` when it
 /// installed something.
@@ -38,31 +36,49 @@ fn project_root_of(state: &McpState, path: Option<&str>) -> Option<PathBuf> {
         .or_else(|| state.project_root.clone())
 }
 
-fn err_invalid(message: impl Into<String>) -> ToolOutcome {
-    ToolOutcome::invalid_params(message)
-}
-
 fn ok(result: Value) -> ToolOutcome {
     ToolOutcome::ok(result)
 }
 
-/// An operation's failure as an invalid-params error whose `data` carries
-/// the diagnostic code and its suggestion, plus the operation's own data.
-fn err_op(error: specforge_ops::OpError) -> ToolOutcome {
-    let mut data = json!({
-        "code": error.code,
-        "diagnostic": {
-            "severity": "error",
-            "message": error.message,
-            "suggestion": error.suggestion,
-        },
-    });
-    if let Some(Value::Object(extra)) = error.data {
-        for (key, value) in extra {
-            data[key] = value;
+/// A failure with `code` and `message`.
+fn fail(code: ErrorCode, message: impl Into<String>) -> ToolOutcome {
+    ToolOutcome::error(code, message)
+}
+
+/// An operation's failure as an `McpError`. A diagnostic code (`E027`)
+/// rides in `diagnostic`, with its suggestion; a slug (`extension_not_found`)
+/// picks the error code, and its suggestion and the operation's own data
+/// ride in `data`.
+pub(crate) fn op_error(error: specforge_ops::OpError) -> McpError {
+    let code = match error.code.as_ref() {
+        "extension_not_found" => ErrorCode::ExtensionNotFound,
+        "config_not_found" => ErrorCode::FileNotFound,
+        "config_invalid" | "invalid_schema_version" => ErrorCode::SchemaMismatch,
+        "unknown_format" => ErrorCode::InvalidInput,
+        "extension_conflict" | "project_exists" => ErrorCode::Conflict,
+        "invalid_name" => ErrorCode::InvalidInput,
+        code => ErrorCode::for_diagnostic(code),
+    };
+    let mut mcp_error = McpError::new(code, error.message.clone());
+    let mut data = error.data.unwrap_or_else(|| json!({}));
+    if is_diagnostic_code(&error.code) {
+        let mut diagnostic = Diagnostic::error(error.code.as_ref(), error.message);
+        if let Some(suggestion) = error.suggestion {
+            diagnostic = diagnostic.with_suggestion(suggestion);
         }
+        mcp_error = mcp_error.with_diagnostic(&diagnostic);
+    } else if let Some(suggestion) = error.suggestion {
+        data["suggestion"] = Value::from(suggestion);
     }
-    ToolOutcome::refused_with_data(error_codes::INVALID_PARAMS, error.message, data)
+    if data.as_object().is_some_and(|d| !d.is_empty()) {
+        mcp_error = mcp_error.with_data(data);
+    }
+    mcp_error
+}
+
+/// [`op_error`] as the tool's result.
+fn err_op(error: specforge_ops::OpError) -> ToolOutcome {
+    op_error(error).into()
 }
 
 /// The session's graph exported through the shared operation, with the
@@ -111,10 +127,13 @@ pub(crate) fn format_op(state: &mut McpState, args: FormatArgs) -> ToolOutcome {
     let write = args.write.unwrap_or(!check && !diff);
 
     let Some(root) = project_root_of(state, args.path.as_deref()) else {
-        return err_invalid("format needs a project root (pass {\"path\": ...})");
+        return ToolOutcome::no_project("format needs a project root (pass {\"path\": ...})");
     };
     let Some(project_root) = find_project_root(&root) else {
-        return err_invalid(format!("no specforge project found at {}", root.display()));
+        return ToolOutcome::no_project(format!(
+            "no specforge project found at {}",
+            root.display()
+        ));
     };
 
     // The run `specforge format` makes. Relative paths name files under
@@ -177,7 +196,10 @@ pub(crate) fn format_op(state: &mut McpState, args: FormatArgs) -> ToolOutcome {
     if outcome.changes.iter().any(|c| c.written(mode)) && !state.serves_other_than(&project_root) {
         state.recompile(&project_root);
     }
-    ToolOutcome::failed_with(result)
+    let message = result["message"].as_str().unwrap_or_default().to_string();
+    McpError::new(ErrorCode::InternalError, message)
+        .with_data(result)
+        .into()
 }
 
 // ── rename ──────────────────────────────────────────────────────────────────
@@ -201,14 +223,22 @@ pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
         || new_name.len() < 2
         || !new_name.chars().all(|c| c.is_alphanumeric() || c == '_')
     {
-        return err_invalid("Invalid entity ID: must be 2-60 alphanumeric/underscore characters");
+        return ToolOutcome::invalid_input(
+            "new_name",
+            "Invalid entity ID: must be 2-60 alphanumeric/underscore characters",
+        );
     }
 
     if state.graph.node(entity_id).is_none() {
-        return err_invalid(format!("Entity not found: {}", entity_id));
+        return McpError::new(
+            ErrorCode::EntityNotFound,
+            format!("Entity not found: {entity_id}"),
+        )
+        .with_entity(entity_id)
+        .into();
     }
     let Some(root) = project_root_of(state, args.path.as_deref()) else {
-        return err_invalid("rename needs a project root (pass {\"path\": ...})");
+        return ToolOutcome::no_project("rename needs a project root (pass {\"path\": ...})");
     };
 
     // Spans are relative to the spec root the graph was compiled from.
@@ -218,7 +248,12 @@ pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
             std::fs::read_to_string(spec_root.join(file)).ok()
         })
     else {
-        return err_invalid(format!("cannot rename '{entity_id}': '{new_name}' exists"));
+        return McpError::new(
+            ErrorCode::Conflict,
+            format!("cannot rename '{entity_id}': '{new_name}' exists"),
+        )
+        .with_entity(entity_id)
+        .into();
     };
     let affected_files: std::collections::BTreeSet<&str> =
         edits.iter().map(|e| e.file.as_str()).collect();
@@ -248,12 +283,18 @@ pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
     for file in &affected_files {
         let path = spec_root.join(file);
         let Ok(text) = std::fs::read_to_string(&path) else {
-            return err_invalid(format!("failed to read {}", path.display()));
+            return fail(
+                ErrorCode::InternalError,
+                format!("failed to read {}", path.display()),
+            );
         };
         let renamed =
             specforge_graph::rename::apply_edits(&text, edits.iter().filter(|e| e.file == *file));
         if let Err(e) = std::fs::write(&path, renamed) {
-            return err_invalid(format!("failed to write {}: {e}", path.display()));
+            return fail(
+                ErrorCode::InternalError,
+                format!("failed to write {}: {e}", path.display()),
+            );
         }
     }
     state.recompile(&root);
@@ -329,7 +370,7 @@ fn add_extension_op(state: &McpState, args: AddArgs) -> ToolOutcome {
     let dry_run = args.dry_run.unwrap_or(false);
 
     let Some(root) = project_root_of(state, args.path.as_deref()) else {
-        return err_invalid("add needs a project root (pass {\"path\": ...})");
+        return ToolOutcome::no_project("add needs a project root (pass {\"path\": ...})");
     };
     let source = match extension::parse(&specifier) {
         Ok(source) => source,
@@ -418,7 +459,7 @@ pub(crate) fn remove_extension_op(state: &McpState, args: RemoveArgs) -> ToolOut
     let dry_run = args.dry_run.unwrap_or(false);
 
     let Some(root) = project_root_of(state, args.path.as_deref()) else {
-        return err_invalid("remove needs a project root (pass {\"path\": ...})");
+        return ToolOutcome::no_project("remove needs a project root (pass {\"path\": ...})");
     };
 
     // The shared operation, over what the session loaded.
@@ -469,7 +510,7 @@ pub struct MigrateArgs {
 
 pub(crate) fn migrate_op(state: &McpState, args: MigrateArgs) -> ToolOutcome {
     let Some(path) = project_root_of(state, args.path.as_deref()) else {
-        return err_invalid("migrate needs a project root (pass {\"path\": ...})");
+        return ToolOutcome::no_project("migrate needs a project root (pass {\"path\": ...})");
     };
     let dry_run = args.dry_run.unwrap_or(false);
     let no_backup = args.no_backup.unwrap_or(false);
@@ -481,7 +522,7 @@ pub(crate) fn migrate_op(state: &McpState, args: MigrateArgs) -> ToolOutcome {
     };
 
     if !path.join("specforge.json").is_file() {
-        return err_invalid("no specforge.json found in the project root");
+        return ToolOutcome::no_project("no specforge.json found in the project root");
     }
     // The migration `specforge migrate` runs, hooks and rollback included.
     let runtime = state.wasm_runtime(&path);
@@ -531,8 +572,17 @@ pub(crate) fn migrate_op(state: &McpState, args: MigrateArgs) -> ToolOutcome {
         "post_migration_validated": outcome.validated,
         "post_migration_errors": post_migration_errors,
     });
+    // A failed run's report rides in `data`.
     if outcome.failed() {
-        return ToolOutcome::failed_with(result);
+        let (code, message) = if outcome.post_errors().next().is_some() {
+            (
+                ErrorCode::CompilationFailed,
+                "the migrated project does not compile",
+            )
+        } else {
+            (ErrorCode::InternalError, "the migration failed")
+        };
+        return McpError::new(code, message).with_data(result).into();
     }
     ok(result)
 }
@@ -543,7 +593,7 @@ pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> Too
     use specforge_ops::extension::{self, Origin};
 
     let Some(root) = &state.project_root else {
-        return err_invalid("no project root available");
+        return ToolOutcome::no_project("no project root available");
     };
     // The shared listing, over what the session compiled.
     let entries = extension::list(root, &state.manifests, &state.kind_registry, &state.graph);
@@ -591,7 +641,7 @@ pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> Too
 
 pub(crate) fn providers_op(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
     let Some(root) = &state.project_root else {
-        return err_invalid("no project root available");
+        return ToolOutcome::no_project("no project root available");
     };
     // The providers specforge.json configures, as the scheme registry built
     // from the loaded extensions sees them: the listing the CLI prints.
@@ -625,7 +675,7 @@ pub struct DoctorArgs {
 
 pub(crate) fn doctor_op(state: &mut McpState, args: DoctorArgs) -> ToolOutcome {
     let Some(root) = state.project_root.clone() else {
-        return err_invalid("doctor needs a project root");
+        return ToolOutcome::no_project("doctor needs a project root");
     };
     // Like specforge.validate, a fresh compile unless the caller opts into
     // the last one (ADR 0004 D3-d): the agent may have edited the project
@@ -672,7 +722,7 @@ pub(crate) fn collect_op(state: &McpState, args: CollectArgs) -> ToolOutcome {
     use specforge_emitter::collect::{self, Mode, Request, RunnerOutput};
 
     let Some(root) = project_root_of(state, args.path.as_deref()) else {
-        return err_invalid("collect needs a project root (pass {\"path\": ...})");
+        return ToolOutcome::no_project("collect needs a project root (pass {\"path\": ...})");
     };
     let runner = args.runner.as_deref().filter(|r| *r != "auto");
     let run = args.run.unwrap_or(false);
@@ -709,12 +759,16 @@ pub(crate) fn collect_op(state: &McpState, args: CollectArgs) -> ToolOutcome {
             "diagnostics": outcome.diagnostics,
             "report": outcome.report.display().to_string(),
         })),
-        Err(e) if e.code == "E059" => err_invalid(format!(
-            "E059: the test command isn't approved for this project; run `specforge collect` \
+        Err(e) if e.code == "E059" => McpError::from_diagnostic(&Diagnostic::error(
+            e.code,
+            format!(
+                "the test command isn't approved for this project; run `specforge collect` \
                  in a terminal once to approve it ({})",
-            e.message
-        )),
-        Err(e) => err_invalid(format!("{}: {}", e.code, e.message)),
+                e.message
+            ),
+        ))
+        .into(),
+        Err(e) => McpError::from_diagnostic(&Diagnostic::error(e.code, e.message)).into(),
     }
 }
 
@@ -742,14 +796,16 @@ pub(crate) fn render_op(state: &McpState, args: RenderArgs) -> ToolOutcome {
     ];
     let Some((_, file_name)) = RENDERERS.iter().find(|(name, _)| *name == format) else {
         let available: Vec<&str> = RENDERERS.iter().map(|(name, _)| *name).collect();
-        return ToolOutcome::refused_with_data(
-            error_codes::INVALID_PARAMS,
+        return McpError::new(
+            ErrorCode::InvalidInput,
             format!(
                 "Unrecognized renderer format: {format} (available: {})",
                 available.join(", ")
             ),
-            json!({ "available_renderers": available }),
-        );
+        )
+        .with_argument("format")
+        .with_data(json!({ "available_renderers": available }))
+        .into();
     };
 
     // "json" is the full graph export: Graph Protocol 2.0 with the schema,
@@ -761,7 +817,7 @@ pub(crate) fn render_op(state: &McpState, args: RenderArgs) -> ToolOutcome {
     };
     let output = match export_graph(state, &request) {
         Ok(text) => text,
-        Err(e) => return err_invalid(format!("render failed: {}", e.message)),
+        Err(e) => return err_op(e),
     };
 
     // With out_dir the rendering lands on disk; without it, inline.
@@ -771,7 +827,10 @@ pub(crate) fn render_op(state: &McpState, args: RenderArgs) -> ToolOutcome {
     let out_dir = PathBuf::from(out_dir);
     let path = out_dir.join(file_name);
     if let Err(e) = std::fs::create_dir_all(&out_dir).and_then(|()| std::fs::write(&path, output)) {
-        return err_invalid(format!("failed to write {}: {e}", path.display()));
+        return fail(
+            ErrorCode::InternalError,
+            format!("failed to write {}: {e}", path.display()),
+        );
     }
     ok(json!({ "format": format, "output_files": [path.display().to_string()] }))
 }

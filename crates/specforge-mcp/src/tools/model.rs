@@ -42,10 +42,13 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         "json" => ModelFormat::Json,
         "dbml" => ModelFormat::Dbml,
         _ => {
-            return ToolOutcome::invalid_params(format!(
-                "Unknown format: {}. Expected: markdown, mermaid, dot, json, dbml",
-                format
-            ));
+            return ToolOutcome::invalid_input(
+                "format",
+                format!(
+                    "Unknown format: {}. Expected: markdown, mermaid, dot, json, dbml",
+                    format
+                ),
+            );
         }
     };
 
@@ -53,10 +56,10 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         "extension" => GroupBy::Extension,
         "none" => GroupBy::None,
         _ => {
-            return ToolOutcome::invalid_params(format!(
-                "Unknown group_by: {}. Expected: extension, none",
-                group_by
-            ));
+            return ToolOutcome::invalid_input(
+                "group_by",
+                format!("Unknown group_by: {}. Expected: extension, none", group_by),
+            );
         }
     };
 
@@ -65,10 +68,10 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         "keys" => FieldLevel::Keys,
         "all" => FieldLevel::All,
         _ => {
-            return ToolOutcome::invalid_params(format!(
-                "Unknown fields: {}. Expected: none, keys, all",
-                fields
-            ));
+            return ToolOutcome::invalid_input(
+                "fields",
+                format!("Unknown fields: {}. Expected: none, keys, all", fields),
+            );
         }
     };
 

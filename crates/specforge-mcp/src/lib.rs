@@ -115,7 +115,20 @@ impl McpServer {
         let is_notification = request.id.is_none();
 
         let method = request.method.clone();
-        let response = route(&mut self.state, &request.method, request.params, request.id);
+        // A handler that panics is a server fault: the request gets -32603
+        // and the server keeps serving (ADR 0004 D4-a). The reply names no
+        // panic message, path or backtrace.
+        let id = request.id.clone();
+        let response = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            route(&mut self.state, &request.method, request.params, request.id)
+        }))
+        .unwrap_or_else(|_| {
+            JsonRpcResponse::error(
+                id,
+                protocol::error_codes::INTERNAL_ERROR,
+                "Internal error: the request failed unexpectedly",
+            )
+        });
         self.report_protocol_error(&response, Some(&method));
 
         if is_notification {

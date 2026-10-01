@@ -329,6 +329,19 @@ pub fn find_response(responses: &[serde_json::Value], id: u64) -> Option<&serde_
     responses.iter().find(|r| r["id"] == id)
 }
 
+/// The `McpError` of a failed MCP tool call: an `isError` result whose
+/// text is the error's JSON (ADR 0004 D4-a).
+pub fn tool_error(response: &serde_json::Value) -> serde_json::Value {
+    assert!(
+        response.get("error").is_none(),
+        "a tool failure is a result, not a JSON-RPC error: {response}"
+    );
+    assert_eq!(response["result"]["isError"], true, "{response}");
+    let error = parse_tool_content(response);
+    assert!(error["code"].is_string(), "an McpError: {error}");
+    error
+}
+
 /// Parse the `content[0].text` from an MCP tool result as JSON.
 pub fn parse_tool_content(response: &serde_json::Value) -> serde_json::Value {
     let text = response["result"]["content"][0]["text"]

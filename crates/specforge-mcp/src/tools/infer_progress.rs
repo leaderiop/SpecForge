@@ -23,11 +23,7 @@ pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
 
     let manifest = match inference::load_inference_manifest(&project_root) {
         Ok(m) => m,
-        Err(e) => {
-            return ToolOutcome::ok(json!({
-                "error": e,
-            }));
-        }
+        Err(e) => return super::manifest_error(e),
     };
 
     let analyzer_configs: Vec<AnalyzerConfig> = state

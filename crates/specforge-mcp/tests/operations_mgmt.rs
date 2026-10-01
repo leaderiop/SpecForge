@@ -370,8 +370,8 @@ fn collect_refuses_unapproved_command() {
         "specforge.collect",
         json!({"path": root.to_str().unwrap(), "run": true}),
     );
-    let msg = resp["error"]["message"].as_str().unwrap();
-    assert!(msg.starts_with("E059"), "{msg}");
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["diagnostic"]["code"], "E059", "{error}");
     assert!(
         root.join("target/specforge/t.json").exists(),
         "nothing ran, so the old report is untouched"
@@ -386,8 +386,8 @@ fn collect_refuses_unapproved_command() {
 fn collect_without_collector_errors() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.collect", json!({}));
-    let msg = resp["error"]["message"].as_str().unwrap();
-    assert!(msg.starts_with("E058"), "{msg}");
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["diagnostic"]["code"], "E058", "{error}");
 }
 
 // B:provide_mcp_collect_tool — verify contract
@@ -410,7 +410,7 @@ fn collect_contract() {
         "specforge.collect",
         json!({"path": path, "run": true}),
     );
-    assert!(err["error"].is_object());
+    crate::tool_errors::mcp_error(&err);
 }
 
 // --- specforge.render ---
@@ -842,7 +842,7 @@ fn render_scope_limits_the_graph_to_one_entity() {
         "specforge.render",
         json!({"format": "brief", "scope": "no_such_entity"}),
     );
-    assert!(missing["error"].is_object(), "{missing}");
+    crate::tool_errors::mcp_error(&missing);
 }
 
 #[specforge_test(
@@ -853,13 +853,15 @@ fn render_unknown_format_lists_the_available_renderers() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.render", json!({"format": "yaml"}));
 
-    let message = resp["error"]["message"].as_str().unwrap();
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    let message = error["message"].as_str().unwrap();
     assert!(
         message.contains("Unrecognized renderer format: yaml"),
         "{message}"
     );
     assert_eq!(
-        resp["error"]["data"]["available_renderers"],
+        error["data"]["available_renderers"],
         json!(["json", "dot", "context", "brief"]),
         "{resp}"
     );

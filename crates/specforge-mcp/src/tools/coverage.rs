@@ -3,7 +3,7 @@ use specforge_emitter::analyze::TestReport;
 use specforge_emitter::coverage::{CoverageRegistries, ProjectCoverage, ReportError, Status};
 
 use crate::state::McpState;
-use crate::tool::ToolOutcome;
+use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
 /// The project's `specforge-report.json` (written by `specforge collect`),
 /// if there is one. Tests link themselves to entities by annotation
@@ -20,28 +20,20 @@ pub(crate) fn recorded_report(state: &McpState) -> Result<Option<TestReport>, Re
 /// `schema_mismatch` when it doesn't parse, `file_not_found` when a named
 /// one doesn't exist, `internal_error` when it can't be read; the E045
 /// diagnostic rides in `diagnostic`.
-pub(crate) fn report_mcp_error(error: &ReportError, tool: &str) -> Value {
+pub(crate) fn report_mcp_error(error: &ReportError, tool: &str) -> McpError {
     let code = match error {
-        ReportError::Malformed { .. } => "schema_mismatch",
-        ReportError::Unreadable { missing: true, .. } => "file_not_found",
-        ReportError::Unreadable { .. } => "internal_error",
+        ReportError::Malformed { .. } => ErrorCode::SchemaMismatch,
+        ReportError::Unreadable { missing: true, .. } => ErrorCode::FileNotFound,
+        ReportError::Unreadable { .. } => ErrorCode::InternalError,
     };
-    let diagnostic: Value = serde_json::from_str(&specforge_emitter::serialize_diagnostics(&[
-        error.diagnostic(),
-    ]))
-    .map(|mut all: Value| all[0].take())
-    .unwrap_or(Value::Null);
-    serde_json::json!({
-        "code": code,
-        "message": error.to_string(),
-        "tool": tool,
-        "diagnostic": diagnostic,
-    })
+    let mut mcp_error = McpError::new(code, error.to_string()).with_diagnostic(&error.diagnostic());
+    mcp_error.tool = Some(tool.to_string());
+    mcp_error
 }
 
 /// [`report_mcp_error`] as the tool's `isError` result.
 pub(crate) fn report_error_result(error: &ReportError, tool: &str) -> ToolOutcome {
-    ToolOutcome::failed_with(report_mcp_error(error, tool))
+    report_mcp_error(error, tool).into()
 }
 
 /// The project's coverage under the one rule `analyze coverage` applies

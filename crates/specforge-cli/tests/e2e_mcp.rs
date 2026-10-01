@@ -2193,11 +2193,8 @@ fn mcp_tool_rename_missing_entity_error() {
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(
-        resp["error"].is_object(),
-        "should be error for nonexistent entity"
-    );
-    assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
+    let error = tool_error(resp);
+    assert_eq!(error["code"], "entity_not_found", "{error}");
 }
 
 #[specforge_test(
@@ -2218,11 +2215,8 @@ fn mcp_tool_rename_invalid_name_error() {
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(
-        resp["error"].is_object(),
-        "should be error for invalid name"
-    );
-    assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
+    let error = tool_error(resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
 }
 
 #[specforge_test(
@@ -2337,11 +2331,8 @@ fn mcp_tool_add_extension_invalid_specifier() {
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(
-        resp["error"].is_object(),
-        "should be error for invalid specifier"
-    );
-    assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
+    let error = tool_error(resp);
+    assert_eq!(error["diagnostic"]["code"], "E054", "{error}");
 }
 
 #[test]
@@ -2360,11 +2351,8 @@ fn mcp_tool_remove_extension_returns_success() {
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     // Nothing is installed in this fixture — refusing is the honest answer.
-    assert!(
-        resp["error"].is_object(),
-        "removing an uninstalled extension must be an error: {}",
-        resp
-    );
+    let error = tool_error(resp);
+    assert_eq!(error["code"], "extension_not_found", "{error}");
 }
 
 #[test]
@@ -2487,8 +2475,11 @@ fn mcp_tool_collect_without_collector_errors() {
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
-    let msg = resp["error"]["message"].as_str().unwrap_or_default();
-    assert!(msg.starts_with("E058"), "expected E058, got: {resp}");
+    let error = tool_error(resp);
+    assert_eq!(
+        error["diagnostic"]["code"], "E058",
+        "expected E058, got: {resp}"
+    );
 }
 
 #[test]
@@ -2733,19 +2724,16 @@ fn mcp_tool_render_invalid_format() {
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(
-        resp["error"].is_object(),
-        "should be error for invalid renderer format"
-    );
-    assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
+    let error = tool_error(resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
     // The message names the bad format and lists the renderers available,
     // including the core json and dot renderers; `data` carries the list.
-    let message = resp["error"]["message"].as_str().expect("message");
+    let message = error["message"].as_str().expect("message");
     assert!(
         message.starts_with("Unrecognized renderer format: xyz (available: "),
         "{message}"
     );
-    let available: Vec<&str> = resp["error"]["data"]["available_renderers"]
+    let available: Vec<&str> = error["data"]["available_renderers"]
         .as_array()
         .expect("available_renderers")
         .iter()

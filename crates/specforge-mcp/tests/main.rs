@@ -16,6 +16,7 @@ mod schema_reflection;
 mod served_project;
 mod subscriptions;
 mod surface_wiring;
+mod tool_errors;
 mod tools_core;
 mod tools_inference;
 mod tools_navigation;

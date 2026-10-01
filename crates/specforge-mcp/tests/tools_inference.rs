@@ -382,7 +382,9 @@ fn infer_session_missing_action_returns_error() {
     let mut server = init_server(tmp.path());
 
     let resp = call_tool(&mut server, "specforge.infer_session", json!({}));
-    assert!(resp.get("error").is_some());
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "action", "{error}");
 }
 
 #[test]

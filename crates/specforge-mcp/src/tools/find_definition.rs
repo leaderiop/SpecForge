@@ -1,5 +1,5 @@
 use crate::state::McpState;
-use crate::tool::ToolOutcome;
+use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Args {
@@ -12,7 +12,12 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let node = match state.graph.node(entity_id) {
         Some(n) => n,
         None => {
-            return ToolOutcome::failed(format!("Entity not found: {}", entity_id));
+            return McpError::new(
+                ErrorCode::EntityNotFound,
+                format!("Entity not found: {entity_id}"),
+            )
+            .with_entity(entity_id)
+            .into();
         }
     };
 

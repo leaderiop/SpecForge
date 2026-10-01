@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 use crate::state::McpState;
-use crate::tool::ToolOutcome;
+use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Args {
@@ -18,7 +18,9 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         None => std::path::Path::new(file).exists(),
     };
     if nodes.is_empty() && !on_disk {
-        return ToolOutcome::invalid_params(format!("File not found: {file}"));
+        return McpError::new(ErrorCode::FileNotFound, format!("File not found: {file}"))
+            .with_argument("file")
+            .into();
     }
 
     let mut entries: Vec<Value> = nodes

@@ -466,7 +466,9 @@ fn outline_of_a_missing_file_is_an_error() {
         "specforge.outline",
         json!({"file": "nonexistent.spec"}),
     );
-    let message = resp["error"]["message"].as_str().unwrap_or_default();
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "file_not_found", "{error}");
+    let message = error["message"].as_str().unwrap_or_default();
     assert!(message.contains("nonexistent.spec"), "{resp}");
 }
 
@@ -630,7 +632,9 @@ fn suggest_fixes_entity_and_file_filters() {
         "specforge.suggest_fixes",
         json!({"entity_id": "no_such_entity"}),
     );
-    assert!(unknown["error"].is_object(), "{unknown}");
+    let error = crate::tool_errors::mcp_error(&unknown);
+    assert_eq!(error["code"], "entity_not_found", "{error}");
+    assert_eq!(error["entity_id"], "no_such_entity", "{error}");
 }
 
 // B:provide_mcp_find_references_tool — verify unit "entity with no references returns empty list"

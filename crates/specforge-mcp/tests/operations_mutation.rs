@@ -275,8 +275,9 @@ fn format_writes_every_file_it_can_and_names_the_ones_it_cannot() {
     let resp = call_tool(&mut server, "specforge.format", json!({}));
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
 
-    assert_eq!(resp["result"]["isError"], true, "{resp}");
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "internal_error", "{error}");
+    let parsed = &error["data"];
     let failed = parsed["failed_files"].as_array().unwrap();
     assert_eq!(failed.len(), 1, "{parsed}");
     assert!(failed[0].as_str().unwrap().ends_with("a.spec"), "{parsed}");
@@ -324,14 +325,14 @@ fn rename_unknown_entity() {
         "specforge.rename",
         json!({"entity_id": "nonexistent", "new_name": "new"}),
     );
-    assert!(resp["error"].is_object());
+    crate::tool_errors::mcp_error(&resp);
 }
 
 #[test]
 fn rename_missing_params() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.rename", json!({}));
-    assert!(resp["error"].is_object());
+    crate::tool_errors::mcp_error(&resp);
 }
 
 const TOKENS_SPEC: &str = "invariant token_unique \"Tokens are unique\" {
@@ -543,7 +544,7 @@ fn rename_invalid_new_name() {
             "specforge.rename",
             json!({"entity_id": "token_unique", "new_name": bad}),
         );
-        assert!(resp["error"].is_object(), "{bad:?} accepted: {resp}");
+        crate::tool_errors::mcp_error(&resp);
     }
 }
 
@@ -620,8 +621,7 @@ fn init(server: &mut McpServer, args: Value) -> Value {
 
 fn init_error(server: &mut McpServer, args: Value) -> Value {
     let resp = call_tool(server, "specforge.init", args);
-    assert!(resp["error"].is_object(), "init accepted {resp}");
-    resp["error"].clone()
+    crate::tool_errors::mcp_error(&resp)
 }
 
 fn read_config(project: &Path) -> Value {
@@ -764,16 +764,15 @@ fn init_rejects_an_unknown_extension() {
                "extensions": ["@specforge/software", "@specforge/nonexistent"]}),
     );
 
-    assert_eq!(error["data"]["code"], "extension_not_found", "{error}");
-    let diagnostic = &error["data"]["diagnostic"];
+    assert_eq!(error["code"], "extension_not_found", "{error}");
     assert!(
-        diagnostic["message"]
+        error["message"]
             .as_str()
             .unwrap()
             .contains("@specforge/nonexistent"),
         "{error}"
     );
-    assert!(diagnostic["suggestion"].is_string(), "{error}");
+    assert!(error["data"]["suggestion"].is_string(), "{error}");
     assert!(
         !dir.path().join("specforge.json").exists(),
         "nothing is written"
@@ -851,7 +850,7 @@ fn init_contract() {
         json!({"path": other.path().to_str().unwrap(), "name": "other",
                "extensions": ["@specforge/nonexistent"]}),
     );
-    assert_eq!(error["data"]["code"], "extension_not_found", "{error}");
+    assert_eq!(error["code"], "extension_not_found", "{error}");
     assert!(!other.path().join("specforge.json").exists());
 
     // project_initialized_emitted (once: only for the created project),
@@ -904,7 +903,7 @@ fn add_extension_returns_result() {
 fn add_extension_missing_specifier() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.add_extension", json!({}));
-    assert!(resp["error"].is_object());
+    crate::tool_errors::mcp_error(&resp);
 }
 
 // --- specforge.remove_extension ---
@@ -1082,11 +1081,9 @@ fn remove_extension_not_installed_is_extension_not_found() {
         json!({"name": "@acme/missing"}),
     );
 
-    assert_eq!(
-        resp["error"]["data"]["code"], "extension_not_found",
-        "{resp}"
-    );
-    let message = resp["error"]["message"].as_str().unwrap();
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "extension_not_found", "{resp}");
+    let message = error["message"].as_str().unwrap();
     assert!(message.contains("@acme/missing"), "{message}");
 }
 
@@ -1161,7 +1158,7 @@ fn add_extension_already_installed_placeholder() {
         "specforge.add_extension",
         json!({"specifier": blob.to_str().unwrap()}),
     );
-    let still_ok = second["result"].is_object() || second["error"].is_object();
+    let still_ok = second["result"].is_object();
     assert!(still_ok);
     let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
     assert!(lock.contains("@sdk/greet"));
@@ -1175,8 +1172,9 @@ fn add_extension_invalid_manifest_placeholder() {
         "specforge.add_extension",
         json!({"specifier": "invalid-extension-xyz"}),
     );
-    assert_eq!(resp["error"]["data"]["code"], "E054", "{resp}");
-    let msg = resp["error"]["message"].as_str().unwrap();
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["diagnostic"]["code"], "E054", "{resp}");
+    let msg = error["message"].as_str().unwrap();
     assert!(msg.contains("invalid-extension-xyz"), "{msg}");
 }
 
@@ -1193,21 +1191,21 @@ fn rename_invalid_name_format() {
         "specforge.rename",
         json!({"entity_id": "alpha", "new_name": ""}),
     );
-    assert!(resp["error"].is_object());
+    crate::tool_errors::mcp_error(&resp);
     // Single character (< 2)
     let resp2 = call_tool(
         &mut server,
         "specforge.rename",
         json!({"entity_id": "alpha", "new_name": "x"}),
     );
-    assert!(resp2["error"].is_object());
+    crate::tool_errors::mcp_error(&resp2);
     // Special chars
     let resp3 = call_tool(
         &mut server,
         "specforge.rename",
         json!({"entity_id": "alpha", "new_name": "no-dashes"}),
     );
-    assert!(resp3["error"].is_object());
+    crate::tool_errors::mcp_error(&resp3);
 }
 
 // B:provide_mcp_init_tool — verify unit "default version is 0.1.0"
@@ -1258,8 +1256,9 @@ fn add_extension_invalid_specifier() {
         "specforge.add_extension",
         json!({"specifier": "no-at-sign"}),
     );
-    assert_eq!(resp["error"]["data"]["code"], "E054", "{resp}");
-    let msg = resp["error"]["message"].as_str().unwrap();
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["diagnostic"]["code"], "E054", "{resp}");
+    let msg = error["message"].as_str().unwrap();
     assert!(msg.contains("no-at-sign"), "{msg}");
 }
 
@@ -1469,7 +1468,7 @@ fn remove_extension_contract() {
         "specforge.remove_extension",
         json!({"name": "@specforge/unknown"}),
     );
-    assert!(resp["error"].is_object());
+    crate::tool_errors::mcp_error(&resp);
 }
 
 // B:provide_mcp_migrate_tool — verify contract
@@ -1599,8 +1598,9 @@ fn migrate_refuses_a_bad_target_version() {
             "specforge.migrate",
             json!({"target_version": target}),
         );
-        assert_eq!(resp["error"]["data"]["code"], "E019", "{target}: {resp}");
-        let message = resp["error"]["message"].as_str().unwrap_or_default();
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["diagnostic"]["code"], "E019", "{target}: {resp}");
+        let message = error["message"].as_str().unwrap_or_default();
         assert!(message.contains(target), "{target}: {resp}");
     }
     assert_eq!(files_under(&root), before);

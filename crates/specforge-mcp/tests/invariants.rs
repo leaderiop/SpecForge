@@ -258,67 +258,56 @@ fn error_includes_entity_id_when_applicable() {
         "specforge.inspect",
         json!({"entity_id": "unknown_entity"}),
     );
-    assert!(
-        resp["result"]["isError"] == true,
-        "entity-not-found is a tool execution error, not a protocol error"
-    );
-    let content_text = resp["result"]["content"][0]["text"].as_str().unwrap_or("");
-    assert!(
-        content_text.contains("unknown_entity"),
-        "tool error result must carry the offending entity id: {content_text}"
+    // Entity-not-found is a tool execution error, not a protocol error.
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "entity_not_found", "{error}");
+    assert_eq!(
+        error["entity_id"], "unknown_entity",
+        "the error names the offending entity: {error}"
     );
 }
 
 // I:mcp_structured_error_responses — verify property "no MCP endpoint returns a plain string error"
-#[test]
-fn no_plain_string_error() {
+#[specforge_test(
+    behavior = "mcp_structured_error_responses",
+    verify = "no MCP endpoint returns a plain string error"
+)]
+fn no_core_tool_fails_with_a_plain_string_or_an_error_body() {
     let mut server = test_server();
-
-    // Test inspect with unknown entity
-    let resp1 = call_tool(
-        &mut server,
-        "specforge.inspect",
-        json!({"entity_id": "nonexistent"}),
-    );
-    if resp1["error"].is_object() {
+    let probes = specforge_mcp::tools::CORE_TOOLS
+        .iter()
+        .map(|tool| (tool.name, json!({})))
+        .chain([
+            ("specforge.inspect", json!({"entity_id": "nonexistent"})),
+            (
+                "specforge.find_definition",
+                json!({"entity_id": "nonexistent"}),
+            ),
+            (
+                "specforge.find_references",
+                json!({"entity_id": "nonexistent"}),
+            ),
+            ("specforge.query", json!({"entity_id": "nonexistent"})),
+            ("specforge.trace", json!({"entity_id": "nonexistent"})),
+        ]);
+    for (name, arguments) in probes {
+        let resp = call_tool(&mut server, name, arguments.clone());
         assert!(
-            resp1["error"]["code"].is_number(),
-            "error must have code field"
+            resp.get("error").is_none(),
+            "{name} {arguments}: a known tool's failure is a result: {resp}"
         );
-        assert!(
-            resp1["error"]["message"].is_string(),
-            "error must have message field"
-        );
-    }
-
-    // Test find_definition with unknown entity
-    let resp2 = call_tool(
-        &mut server,
-        "specforge.find_definition",
-        json!({"entity_id": "nonexistent"}),
-    );
-    if resp2["error"].is_object() {
-        assert!(
-            resp2["error"]["code"].is_number(),
-            "error must have code field"
-        );
-        assert!(
-            resp2["error"]["message"].is_string(),
-            "error must have message field"
-        );
-    }
-
-    // Test rename with missing params
-    let resp3 = call_tool(&mut server, "specforge.rename", json!({}));
-    if resp3["error"].is_object() {
-        assert!(
-            resp3["error"]["code"].is_number(),
-            "error must have code field"
-        );
-        assert!(
-            resp3["error"]["message"].is_string(),
-            "error must have message field"
-        );
+        if resp["result"]["isError"] == true {
+            // An McpError, never a bare message.
+            crate::tool_errors::mcp_error(&resp);
+        } else if let Some(text) = resp["result"]["content"][0]["text"].as_str()
+            && let Ok(Value::Object(body)) = serde_json::from_str::<Value>(text)
+        {
+            // A success never reports a failure in its body.
+            assert!(
+                !body.contains_key("error"),
+                "{name} {arguments}: success with an error body: {text}"
+            );
+        }
     }
 }
 

@@ -20,6 +20,8 @@ pub type Call = (String, String, Value);
 
 pub struct FakeExtension {
     outputs: HashMap<String, Vec<u8>>,
+    /// Exports whose call panics, as a broken host function would.
+    panics: Vec<String>,
     calls: Mutex<Vec<Call>>,
     /// The compiler passes `@test/cmds` declares (`__describe passes`).
     passes: Value,
@@ -29,6 +31,7 @@ impl FakeExtension {
     pub fn new() -> Self {
         Self {
             outputs: HashMap::new(),
+            panics: Vec::new(),
             calls: Mutex::new(Vec::new()),
             passes: json!([]),
         }
@@ -45,6 +48,12 @@ impl FakeExtension {
     pub fn with_output(mut self, export: &str, output: Value) -> Self {
         self.outputs
             .insert(export.into(), serde_json::to_vec(&output).unwrap());
+        self
+    }
+
+    /// Make calls to `export` panic.
+    pub fn with_panic(mut self, export: &str) -> Self {
+        self.panics.push(export.into());
         self
     }
 
@@ -124,6 +133,9 @@ impl WasmRuntime for FakeExtension {
                     _ => json!([]),
                 };
                 ok(json!({"category": category, "items": items}))
+            }
+            export if self.panics.iter().any(|p| p == export) => {
+                panic!("{export} panicked")
             }
             export => {
                 let input = serde_json::from_slice(input).unwrap_or(Value::Null);

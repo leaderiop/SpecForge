@@ -175,8 +175,9 @@ fn mcp_add_refuses_a_version_diamond() {
         json!({"specifier": "@acme/app@1.0.0", "allow_unsigned": true}),
     );
 
-    assert_eq!(reply["error"]["data"]["code"], "R-RES-006", "{reply}");
-    let message = reply["error"]["message"].as_str().unwrap();
+    let error = crate::e2e_fixtures::tool_error(&reply);
+    assert_eq!(error["diagnostic"]["code"], "R-RES-006", "{reply}");
+    let message = error["message"].as_str().unwrap();
     assert!(message.contains("@acme/base 2.0.0"), "{message}");
     assert_eq!(
         std::fs::read(dir.path().join("specforge.lock")).unwrap(),

@@ -16,6 +16,8 @@ type McpErrorCode = "invalid_input"
   | "not_initialized"
   | "schema_mismatch"
   | "internal_error"
+  | "conflict"
+  | "precondition_failed"
 
 type JsonSchema "JSON Schema Object" {
   type        string
@@ -25,12 +27,21 @@ type JsonSchema "JSON Schema Object" {
   verify unit "JSON Schema Object conforms to schema"
 }
 
+// A failed tool call is an isError result whose content is an McpError
+// (MCP 2025-11-25, SEP-1303). It carries no timestamp: the same failing
+// call returns the same error (mcp_tool_idempotency).
 type McpError "MCP Structured Error Response" {
-  code      McpErrorCode
-  message   string
-  entity_id string @optional
-  tool      string @optional
-  timestamp string
+  code       McpErrorCode
+  message    string
+  entity_id  string     @optional
+  tool       string     @optional
+  /// The argument the tool could not use, for invalid_input.
+  argument   string     @optional
+  /// The diagnostic behind the failure: its code (E003, E059, ...) is
+  /// diagnostic.code, never only text in the message.
+  diagnostic Diagnostic @optional
+  /// More about the failure: the renderers available, a failed run's report.
+  data       object     @optional
   verify unit "MCP Structured Error Response conforms to schema"
 }
 

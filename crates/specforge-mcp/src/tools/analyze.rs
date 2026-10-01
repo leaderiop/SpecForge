@@ -117,10 +117,13 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
         // `<extension>:<pass>` selects an extension pass only.
         Vec::new()
     } else {
-        return ToolOutcome::invalid_params(format!(
-            "Unknown analysis pass '{requested}' (available: all, coverage, {})",
-            specforge_emitter::analyze::PASS_NAMES.join(", ")
-        ));
+        return ToolOutcome::invalid_input(
+            "pass",
+            format!(
+                "Unknown analysis pass '{requested}' (available: all, coverage, {})",
+                specforge_emitter::analyze::PASS_NAMES.join(", ")
+            ),
+        );
     };
 
     let mut passes = Vec::new();
@@ -174,5 +177,5 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
     }
 
     let doc = serde_json::json!({ "ok": !has_errors, "passes": passes });
-    ToolOutcome::ok(doc).flagged(has_errors)
+    ToolOutcome::ok(doc)
 }

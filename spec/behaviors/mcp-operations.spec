@@ -255,7 +255,7 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
     orphan entities (entities of kinds only defined by that extension), the
     tool MUST include a warning in the response but still proceed.
     If the specified extension is not installed (not listed in specforge.json),
-    the tool MUST return an error response whose data carries the code
+    the tool MUST return an isError result whose McpError code is
     "extension_not_found" and whose message names the unknown extension.
   """
   verify unit "specforge.remove_extension removes extension from config"

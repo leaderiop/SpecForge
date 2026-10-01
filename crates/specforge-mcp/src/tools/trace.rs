@@ -20,7 +20,10 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let entity_id = match args.entity_id.as_deref() {
         Some(e) => e,
         None => {
-            return ToolOutcome::invalid_params("Missing required parameter: entity_id or plan");
+            return ToolOutcome::invalid_input(
+                "entity_id",
+                "Missing required parameter: entity_id or plan",
+            );
         }
     };
 
@@ -35,12 +38,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
             let mut trace_val: serde_json::Value = match specforge_emitter::serialize_trace(&chain)
             {
                 Ok(json) => serde_json::from_str(&json).unwrap_or(serde_json::Value::Null),
-                Err(e) => {
-                    return ToolOutcome::refused(
-                        crate::protocol::error_codes::INTERNAL_ERROR,
-                        e.to_string(),
-                    );
-                }
+                Err(e) => return super::emitter_error(e, entity_id),
             };
 
             // Add gaps detection
@@ -57,7 +55,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
 
             ToolOutcome::ok(trace_val)
         }
-        Err(err) => ToolOutcome::invalid_params(err.to_string()),
+        Err(err) => super::emitter_error(err, entity_id),
     }
 }
 
@@ -66,7 +64,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
 fn plan_gaps(state: &McpState, plan: &Value) -> ToolOutcome {
     let analysis = match analyze_plan(state, plan) {
         Ok(analysis) => analysis,
-        Err(message) => return ToolOutcome::invalid_params(message),
+        Err(message) => return ToolOutcome::invalid_input("plan", message),
     };
     let body = serde_json::json!({
         "affected_entities": analysis.entries,

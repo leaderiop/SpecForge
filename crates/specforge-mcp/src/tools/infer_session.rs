@@ -2,9 +2,8 @@ use serde_json::{Value, json};
 
 use specforge_common::inference::{self, InferenceManifest, SourceFileEntry};
 
-use crate::protocol::error_codes;
 use crate::state::McpState;
-use crate::tool::ToolOutcome;
+use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct InferenceSession {
@@ -38,14 +37,15 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let project_root = match &state.project_root {
         Some(p) => p.clone(),
         None => {
-            return ToolOutcome::refused(error_codes::INVALID_REQUEST, "No project root available");
+            return ToolOutcome::no_project("No project root available");
         }
     };
 
     let action = match args.action.as_deref() {
         Some(a) => a,
         None => {
-            return ToolOutcome::invalid_params(
+            return ToolOutcome::invalid_input(
+                "action",
                 "Missing required parameter: action (start | mark_analyzed | end)",
             );
         }
@@ -55,17 +55,20 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         "start" => handle_start(state, &args, &project_root),
         "mark_analyzed" => handle_mark_analyzed(state, &args, &project_root),
         "end" => handle_end(state, &args, &project_root),
-        _ => ToolOutcome::invalid_params(format!(
-            "Unknown action: '{}'. Expected: start, mark_analyzed, end",
-            action
-        )),
+        _ => ToolOutcome::invalid_input(
+            "action",
+            format!(
+                "Unknown action: '{}'. Expected: start, mark_analyzed, end",
+                action
+            ),
+        ),
     }
 }
 
 fn handle_start(_state: &McpState, args: &Args, project_root: &std::path::Path) -> ToolOutcome {
     let mut manifest = match inference::load_inference_manifest(project_root) {
         Ok(m) => m,
-        Err(e) => return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e),
+        Err(e) => return super::manifest_error(e),
     };
 
     let agent = args.agent.clone().unwrap_or_else(|| "unknown".to_string());
@@ -89,8 +92,8 @@ fn handle_start(_state: &McpState, args: &Args, project_root: &std::path::Path) 
 
     let sessions_json = read_sessions_from_manifest(project_root);
     if sessions_json.iter().any(|s| s.status == "active") {
-        return ToolOutcome::refused(
-            error_codes::INVALID_REQUEST,
+        return ToolOutcome::error(
+            ErrorCode::Conflict,
             "Another inference session is already active. End it first.",
         );
     }
@@ -99,7 +102,7 @@ fn handle_start(_state: &McpState, args: &Args, project_root: &std::path::Path) 
     sessions.push(session);
 
     if let Err(e) = write_sessions_to_manifest(project_root, &manifest, &sessions) {
-        return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e);
+        return ToolOutcome::error(ErrorCode::InternalError, e);
     }
 
     ToolOutcome::ok(json!({
@@ -116,7 +119,10 @@ fn handle_mark_analyzed(
     let source_file = match args.source_file.as_deref() {
         Some(f) => f.to_string(),
         None => {
-            return ToolOutcome::invalid_params("Missing required parameter: source_file");
+            return ToolOutcome::invalid_input(
+                "source_file",
+                "Missing required parameter: source_file",
+            );
         }
     };
 
@@ -124,7 +130,7 @@ fn handle_mark_analyzed(
 
     let mut manifest = match inference::load_inference_manifest(project_root) {
         Ok(m) => m,
-        Err(e) => return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e),
+        Err(e) => return super::manifest_error(e),
     };
 
     let abs_path = project_root.join(&source_file);
@@ -133,10 +139,12 @@ fn handle_mark_analyzed(
         // Name the file as the agent did: the absolute path would leak
         // where the server's project lives.
         Err(_) => {
-            return ToolOutcome::refused(
-                error_codes::INTERNAL_ERROR,
+            return McpError::new(
+                ErrorCode::FileNotFound,
                 format!("failed to read {source_file}"),
-            );
+            )
+            .with_argument("source_file")
+            .into();
         }
     };
 
@@ -149,7 +157,7 @@ fn handle_mark_analyzed(
 
     let sessions = read_sessions_from_manifest(project_root);
     if let Err(e) = write_sessions_to_manifest(project_root, &manifest, &sessions) {
-        return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e);
+        return ToolOutcome::error(ErrorCode::InternalError, e);
     }
 
     ToolOutcome::ok(json!({
@@ -163,22 +171,25 @@ fn handle_end(_state: &McpState, args: &Args, project_root: &std::path::Path) ->
     let session_id = match args.session_id.as_deref() {
         Some(s) => s.to_string(),
         None => {
-            return ToolOutcome::invalid_params("Missing required parameter: session_id");
+            return ToolOutcome::invalid_input(
+                "session_id",
+                "Missing required parameter: session_id",
+            );
         }
     };
 
     let status = args.status.as_deref().unwrap_or("completed").to_string();
 
     if status != "completed" && status != "paused" {
-        return ToolOutcome::invalid_params(format!(
-            "Invalid status: '{}'. Expected: completed, paused",
-            status
-        ));
+        return ToolOutcome::invalid_input(
+            "status",
+            format!("Invalid status: '{}'. Expected: completed, paused", status),
+        );
     }
 
     let manifest = match inference::load_inference_manifest(project_root) {
         Ok(m) => m,
-        Err(e) => return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e),
+        Err(e) => return super::manifest_error(e),
     };
 
     let mut sessions = read_sessions_from_manifest(project_root);
@@ -189,18 +200,21 @@ fn handle_end(_state: &McpState, args: &Args, project_root: &std::path::Path) ->
             s.ended_at = Some(now_iso8601());
         }
         Some(_) => {
-            return ToolOutcome::refused(
-                error_codes::INVALID_REQUEST,
-                format!("Session '{}' is not active", session_id),
+            return ToolOutcome::error(
+                ErrorCode::Conflict,
+                format!("Session '{session_id}' is not active"),
             );
         }
         None => {
-            return ToolOutcome::failed(format!("Unknown session_id: '{}'", session_id));
+            return ToolOutcome::invalid_input(
+                "session_id",
+                format!("Unknown session_id: '{session_id}'"),
+            );
         }
     }
 
     if let Err(e) = write_sessions_to_manifest(project_root, &manifest, &sessions) {
-        return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e);
+        return ToolOutcome::error(ErrorCode::InternalError, e);
     }
 
     ToolOutcome::ok(json!({

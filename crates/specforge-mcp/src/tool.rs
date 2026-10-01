@@ -8,7 +8,7 @@
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 
-use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
+use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
 use crate::types::McpToolDescriptor;
 
@@ -103,6 +103,161 @@ impl ToolSpec {
     }
 }
 
+/// The spec's `McpErrorCode`: the small closed set agents branch on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorCode {
+    InvalidInput,
+    CompilationFailed,
+    EntityNotFound,
+    FileNotFound,
+    ExtensionNotFound,
+    PermissionDenied,
+    Timeout,
+    NotInitialized,
+    SchemaMismatch,
+    InternalError,
+    Conflict,
+    PreconditionFailed,
+}
+
+impl ErrorCode {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ErrorCode::InvalidInput => "invalid_input",
+            ErrorCode::CompilationFailed => "compilation_failed",
+            ErrorCode::EntityNotFound => "entity_not_found",
+            ErrorCode::FileNotFound => "file_not_found",
+            ErrorCode::ExtensionNotFound => "extension_not_found",
+            ErrorCode::PermissionDenied => "permission_denied",
+            ErrorCode::Timeout => "timeout",
+            ErrorCode::NotInitialized => "not_initialized",
+            ErrorCode::SchemaMismatch => "schema_mismatch",
+            ErrorCode::InternalError => "internal_error",
+            ErrorCode::Conflict => "conflict",
+            ErrorCode::PreconditionFailed => "precondition_failed",
+        }
+    }
+
+    /// The code a failure reported with diagnostic `code` carries.
+    pub fn for_diagnostic(code: &str) -> Self {
+        match code {
+            "E003" => ErrorCode::EntityNotFound,
+            "E019" | "E054" | "E064" => ErrorCode::InvalidInput,
+            "E027" => ErrorCode::Conflict,
+            "E045" => ErrorCode::SchemaMismatch,
+            "E058" | "E063" => ErrorCode::PreconditionFailed,
+            "E059" => ErrorCode::PermissionDenied,
+            "R004" => ErrorCode::Timeout,
+            _ => ErrorCode::InternalError,
+        }
+    }
+}
+
+/// A failed tool call: the spec's `McpError`, the content of its `isError`
+/// result. The diagnostic code, when there is one, is `diagnostic.code`,
+/// never only message text.
+#[derive(Debug, Clone)]
+pub struct McpError {
+    pub code: ErrorCode,
+    pub message: String,
+    pub tool: Option<String>,
+    pub entity_id: Option<String>,
+    pub argument: Option<String>,
+    pub diagnostic: Option<Value>,
+    pub data: Option<Value>,
+}
+
+impl McpError {
+    pub fn new(code: ErrorCode, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+            tool: None,
+            entity_id: None,
+            argument: None,
+            diagnostic: None,
+            data: None,
+        }
+    }
+
+    /// A failure reported as `diagnostic`, its code mapped by
+    /// [`ErrorCode::for_diagnostic`].
+    pub fn from_diagnostic(diagnostic: &Diagnostic) -> Self {
+        Self::new(
+            ErrorCode::for_diagnostic(&diagnostic.code),
+            diagnostic.message.clone(),
+        )
+        .with_diagnostic(diagnostic)
+    }
+
+    /// A failure whose message leads with a diagnostic code
+    /// (`"E003: unresolved entity 'x' …"`): the code moves to `diagnostic`.
+    pub fn from_coded_message(fallback: ErrorCode, message: &str) -> Self {
+        match split_code(message) {
+            Some((code, rest)) => Self::from_diagnostic(&Diagnostic::error(code, rest)),
+            None => Self::new(fallback, message),
+        }
+    }
+
+    pub fn with_entity(mut self, entity_id: impl Into<String>) -> Self {
+        self.entity_id = Some(entity_id.into());
+        self
+    }
+
+    pub fn with_argument(mut self, argument: impl Into<String>) -> Self {
+        self.argument = Some(argument.into());
+        self
+    }
+
+    pub fn with_diagnostic(mut self, diagnostic: &Diagnostic) -> Self {
+        self.diagnostic = serde_json::to_value(specforge_emitter::diagnostics_json(
+            std::slice::from_ref(diagnostic),
+        ))
+        .ok()
+        .and_then(|mut all| all.get_mut(0).map(Value::take));
+        self
+    }
+
+    pub fn with_data(mut self, data: Value) -> Self {
+        self.data = Some(data);
+        self
+    }
+
+    /// The error as its `isError` result carries it.
+    pub fn to_json(&self) -> Value {
+        let mut error = json!({ "code": self.code.as_str(), "message": self.message });
+        for (key, value) in [
+            ("tool", self.tool.clone().map(Value::from)),
+            ("entity_id", self.entity_id.clone().map(Value::from)),
+            ("argument", self.argument.clone().map(Value::from)),
+            ("diagnostic", self.diagnostic.clone()),
+            ("data", self.data.clone()),
+        ] {
+            if let Some(value) = value {
+                error[key] = value;
+            }
+        }
+        error
+    }
+}
+
+/// `("E003", "unresolved …")` for `"E003: unresolved …"`: a leading
+/// diagnostic code, a letter and three digits.
+fn split_code(message: &str) -> Option<(&str, &str)> {
+    let (code, rest) = message.split_once(": ")?;
+    is_diagnostic_code(code).then_some((code, rest))
+}
+
+/// Whether `code` is a diagnostic code (`E003`, `R004`, `R-RES-006`):
+/// capitals, digits and dashes, not a slug such as `extension_not_found`.
+pub fn is_diagnostic_code(code: &str) -> bool {
+    code.starts_with(|c: char| c.is_ascii_uppercase())
+        && code.contains(|c: char| c.is_ascii_digit())
+        && code
+            .chars()
+            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-')
+}
+
 /// A tool's result body.
 #[derive(Debug, Clone)]
 pub enum Payload {
@@ -125,8 +280,9 @@ pub enum ToolOutcome {
         diagnostics: Vec<Diagnostic>,
         events: Vec<(String, Value)>,
     },
-    /// The call was refused with a JSON-RPC error.
-    Refused(JsonRpcError),
+    /// The tool failed: an `isError` result carrying the `McpError` (ADR
+    /// 0004 D4-a). The one way a tool reports a failure.
+    Refused(Box<McpError>),
 }
 
 impl ToolOutcome {
@@ -149,43 +305,26 @@ impl ToolOutcome {
         Self::done(Payload::Text(vec![text.into()]), false)
     }
 
-    /// Plain-text blocks, failed or not.
+    /// Plain-text blocks, failed or not: a command's output.
     pub fn texts(blocks: Vec<String>, is_error: bool) -> Self {
         Self::done(Payload::Text(blocks), is_error)
     }
 
-    /// A failed run whose result is a message.
-    pub fn failed(message: impl Into<String>) -> Self {
-        Self::done(Payload::Text(vec![message.into()]), true)
+    /// A failure with `code` and `message`.
+    pub fn error(code: ErrorCode, message: impl Into<String>) -> Self {
+        McpError::new(code, message).into()
     }
 
-    /// A failed run whose result is structured.
-    pub fn failed_with(payload: Value) -> Self {
-        Self::done(Payload::Json(payload), true)
+    /// Invalid input: an argument the tool cannot use.
+    pub fn invalid_input(argument: &str, message: impl Into<String>) -> Self {
+        McpError::new(ErrorCode::InvalidInput, message)
+            .with_argument(argument)
+            .into()
     }
 
-    /// A refusal with the JSON-RPC error `code`.
-    pub fn refused(code: i64, message: impl Into<String>) -> Self {
-        ToolOutcome::Refused(JsonRpcError::new(code, message))
-    }
-
-    /// A refusal whose JSON-RPC error carries `data`.
-    pub fn refused_with_data(code: i64, message: impl Into<String>, data: Value) -> Self {
-        ToolOutcome::Refused(JsonRpcError::new(code, message).with_data(data))
-    }
-
-    /// An invalid-params refusal (`-32602`).
-    pub fn invalid_params(message: impl Into<String>) -> Self {
-        Self::refused(error_codes::INVALID_PARAMS, message)
-    }
-
-    /// The same outcome, failed when `is_error` (a run whose findings
-    /// include errors).
-    pub fn flagged(mut self, flag: bool) -> Self {
-        if let ToolOutcome::Done { is_error, .. } = &mut self {
-            *is_error = flag;
-        }
-        self
+    /// A tool that needs a project and has none to work on.
+    pub fn no_project(message: impl Into<String>) -> Self {
+        Self::error(ErrorCode::PreconditionFailed, message)
     }
 
     /// The same outcome with `extra` added to its `_meta.diagnostics`.
@@ -200,6 +339,16 @@ impl ToolOutcome {
     pub fn with_event(mut self, name: impl Into<String>, params: Value) -> Self {
         if let ToolOutcome::Done { events, .. } = &mut self {
             events.push((name.into(), params));
+        }
+        self
+    }
+
+    /// The same outcome, a failure naming `tool` unless it names one.
+    pub fn from_tool(mut self, tool: &str) -> Self {
+        if let ToolOutcome::Refused(error) = &mut self
+            && error.tool.is_none()
+        {
+            error.tool = Some(tool.to_string());
         }
         self
     }
@@ -227,11 +376,6 @@ impl ToolOutcome {
         )
     }
 
-    /// Whether the call was refused before the tool ran.
-    pub fn is_refused(&self) -> bool {
-        matches!(self, ToolOutcome::Refused(_))
-    }
-
     /// Take the events to push, leaving none.
     pub fn take_events(&mut self) -> Vec<(String, Value)> {
         match self {
@@ -241,14 +385,20 @@ impl ToolOutcome {
     }
 }
 
+impl From<McpError> for ToolOutcome {
+    fn from(error: McpError) -> Self {
+        ToolOutcome::Refused(Box::new(error))
+    }
+}
+
 /// The `tools/call` reply for `outcome`: the only place that builds
-/// `content`, `structuredContent`, `isError` and `_meta`. A refusal is a
-/// JSON-RPC error. With `structured` (a 2025-06-18 or later session), a
-/// JSON object payload is also sent as `structuredContent`, beside the
-/// text block holding its JSON.
+/// `content`, `structuredContent`, `isError` and `_meta`. A failure is an
+/// `isError` result whose text is its `McpError`. With `structured` (a
+/// 2025-06-18 or later session), a JSON object payload is also sent as
+/// `structuredContent`, beside the text block holding its JSON.
 pub fn envelope(outcome: ToolOutcome, id: Option<Value>, structured: bool) -> JsonRpcResponse {
     let (payload, is_error, diagnostics) = match outcome {
-        ToolOutcome::Refused(error) => return JsonRpcResponse::from_error(id, error),
+        ToolOutcome::Refused(error) => (Payload::Json(error.to_json()), true, Vec::new()),
         ToolOutcome::Done {
             payload,
             is_error,

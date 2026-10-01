@@ -71,6 +71,6 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
 
             ToolOutcome::ok(result).with_diagnostics(unknown_kinds)
         }
-        Err(err) => ToolOutcome::invalid_params(err.to_string()),
+        Err(err) => super::emitter_error(err, entity_id),
     }
 }

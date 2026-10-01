@@ -243,7 +243,9 @@ fn query_error_for_unknown() {
         "specforge.query",
         json!({"entity_id": "nonexistent"}),
     );
-    assert!(resp["error"].is_object());
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "entity_not_found", "{error}");
+    assert_eq!(error["entity_id"], "nonexistent", "{error}");
 }
 
 // B:provide_mcp_query_tool — verify unit "respects depth parameter"
@@ -291,12 +293,14 @@ fn query_respects_kind_filter() {
 // B:provide_mcp_query_tool — verify unit "missing entity_id returns error"
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
-    verify = "missing required params produces -32602 Invalid params"
+    verify = "a tool that detects invalid arguments returns an isError result, not -32602"
 )]
 fn query_missing_entity_id() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.query", json!({}));
-    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "entity_id", "{error}");
 }
 
 // --- specforge.export ---
@@ -405,7 +409,9 @@ fn export_scoped() {
 fn export_unknown_format() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.export", json!({"format": "yaml"}));
-    assert!(resp["error"].is_object());
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "format", "{error}");
 }
 
 // --- specforge.trace ---
@@ -445,7 +451,9 @@ fn trace_unknown_entity() {
         "specforge.trace",
         json!({"entity_id": "nonexistent"}),
     );
-    assert!(resp["error"].is_object());
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "entity_not_found", "{error}");
+    assert_eq!(error["entity_id"], "nonexistent", "{error}");
 }
 
 // --- specforge.search ---
@@ -511,7 +519,9 @@ fn search_respects_limit() {
 fn search_missing_query() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.search", json!({}));
-    assert!(resp["error"].is_object());
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "query", "{error}");
 }
 
 // --- specforge.schema ---
@@ -1228,7 +1238,9 @@ fn trace_plan_gap_analysis() {
 fn trace_without_entity_or_plan_errors() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.trace", json!({}));
-    let message = resp["error"]["message"].as_str().unwrap();
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    let message = error["message"].as_str().unwrap();
     assert!(message.contains("entity_id or plan"), "{message}");
 }
 
@@ -1622,7 +1634,9 @@ fn validate_updates_graph() {
         "specforge.validate",
         json!({"path": project.path().to_str().unwrap()}),
     );
-    assert_eq!(resp["result"]["isError"], true, "E003 is an error");
+    // A validation run that finds errors is a successful call (ADR 0004
+    // D4-a): the findings are its result.
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     let diagnostics = parsed.as_array().unwrap();
     // All of them: as many as the compile produced.
@@ -1749,4 +1763,21 @@ fn context_resource_honors_max_tokens_budget() {
         words <= 150,
         "budgeted context must be trimmed to ~150 tokens, got ~{words} words"
     );
+}
+
+#[specforge_test(
+    invariant = "mcp_structured_error_responses",
+    verify = "a diagnostic code behind a failed tool call is in its McpError diagnostic"
+)]
+fn query_and_trace_report_e003_in_the_diagnostic_not_the_message() {
+    let mut server = test_server();
+    for tool in ["specforge.query", "specforge.trace"] {
+        let resp = call_tool(&mut server, tool, json!({"entity_id": "nonexistent"}));
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "entity_not_found", "{tool}: {error}");
+        assert_eq!(error["diagnostic"]["code"], "E003", "{tool}: {error}");
+        let message = error["message"].as_str().unwrap();
+        assert!(!message.starts_with("E003"), "{tool}: {message}");
+        assert!(message.contains("nonexistent"), "{tool}: {message}");
+    }
 }

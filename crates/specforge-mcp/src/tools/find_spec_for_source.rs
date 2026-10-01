@@ -7,30 +7,22 @@ use crate::tool::ToolOutcome;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Args {
-    #[serde(default, deserialize_with = "crate::args::lenient")]
-    file_path: Option<String>,
+    file_path: String,
 }
 
 pub fn call(state: &McpState, args: Args) -> ToolOutcome {
-    let file_path = match args.file_path.as_deref() {
-        Some(p) => p,
-        None => {
-            return ToolOutcome::ok(json!({"error": "Missing required parameter: file_path"}));
-        }
-    };
+    let file_path = args.file_path.as_str();
 
     let project_root = match &state.project_root {
         Some(p) => p.clone(),
         None => {
-            return ToolOutcome::ok(json!({"error": "No project root available"}));
+            return ToolOutcome::no_project("No project root available");
         }
     };
 
     let manifest = match anchors::load_anchor_manifest(&project_root) {
         Ok(m) => m,
-        Err(e) => {
-            return ToolOutcome::ok(json!({"error": e}));
-        }
+        Err(e) => return super::manifest_error(e),
     };
 
     let entities: Vec<Value> = manifest

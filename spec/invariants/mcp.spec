@@ -6,13 +6,17 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
   guarantee """
     All MCP tools and resources MUST return structured error objects (not plain
     strings) with error code, message, and optional entity_id. This ensures agents
-    can programmatically handle errors without parsing free-form text.
+    can programmatically handle errors without parsing free-form text. A failed
+    tool call is an isError result whose content is an McpError; a diagnostic
+    code behind the failure is in its diagnostic, not only in the message.
   """
   risk      medium
   verify unit "error response includes error code and message fields"
   verify unit "error response includes entity_id when applicable"
   verify unit "no MCP endpoint returns a plain string error"
   verify unit "success responses never have error field"
+  verify unit "a failed tool call is an isError result whose content is an McpError with a code"
+  verify unit "a diagnostic code behind a failed tool call is in its McpError diagnostic"
 }
 
 invariant mcp_subscription_cleanup "MCP Subscription Cleanup" {

@@ -181,16 +181,29 @@ fn error_does_not_leak_internal_state() {
             "arguments": {"action": "mark_analyzed", "source_file": "src/missing.rs"}}),
     ));
 
+    // A server fault: a handler that panics.
+    let ext = crate::fake_extension::FakeExtension::new().with_panic("mcp__check");
+    let (mut faulty, _ext, _dir) = crate::fake_extension::initialized(ext);
+    responses.push(call(
+        &mut faulty,
+        "tools/call",
+        json!({"name": "specforge.cmds.check", "arguments": {}}),
+    ));
+
     for resp in responses {
-        let error = resp["error"]
-            .as_object()
-            .unwrap_or_else(|| panic!("expected an error: {resp}"));
-        let mut keys: Vec<&str> = error.keys().map(String::as_str).collect();
-        keys.sort_unstable();
-        assert!(
-            keys == ["code", "message"] || keys == ["code", "data", "message"],
-            "only code/message/data: {resp}"
-        );
+        // A protocol error, or a failed tool call's McpError.
+        let error = match resp["error"].as_object() {
+            Some(error) => {
+                let mut keys: Vec<&str> = error.keys().map(String::as_str).collect();
+                keys.sort_unstable();
+                assert!(
+                    keys == ["code", "message"] || keys == ["code", "data", "message"],
+                    "only code/message/data: {resp}"
+                );
+                Value::Object(error.clone())
+            }
+            None => crate::tool_errors::mcp_error(&resp),
+        };
         let message = error["message"].as_str().unwrap();
         assert!(!message.is_empty());
         for leak in [root.as_str(), "panicked", "RUST_BACKTRACE", ".rs:", "0x"] {
@@ -218,22 +231,57 @@ fn server_operational_after_protocol_error() {
     verify = "returns -32603 for internal error"
 )]
 fn internal_error_code_defined() {
+    // An extension tool whose handler panics: a server fault, not a tool
+    // failure.
+    let ext = crate::fake_extension::FakeExtension::new().with_panic("mcp__check");
+    let (mut server, _ext, _dir) = crate::fake_extension::initialized(ext);
+    let resp = call(
+        &mut server,
+        "tools/call",
+        json!({"name": "specforge.cmds.check", "arguments": {}}),
+    );
+    assert_eq!(resp["error"]["code"], -32603, "{resp}");
+    assert_eq!(resp["id"], 1, "{resp}");
+    assert!(
+        !resp["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("panicked"),
+        "{resp}"
+    );
+    // The server stays up and keeps serving tools.
+    assert!(call(&mut server, "ping", json!({}))["result"].is_object());
+    let stats = call(
+        &mut server,
+        "tools/call",
+        json!({"name": "specforge.stats", "arguments": {}}),
+    );
+    assert_eq!(stats["result"]["isError"], false, "{stats}");
+}
+
+#[specforge_test(
+    invariant = "mcp_structured_error_responses",
+    verify = "a failed tool call is an isError result whose content is an McpError with a code"
+)]
+fn a_tool_that_cannot_read_its_project_file_fails_with_an_mcp_error() {
+    // An execution failure inside the tool: the inference manifest does
+    // not parse. Before D4-a this was a -32603 the agent could not act on.
     let (mut server, _project) = server_with_corrupt_inference_manifest();
     let resp = call(
         &mut server,
         "tools/call",
         json!({"name": "specforge.infer_session", "arguments": {"action": "start"}}),
     );
-    assert_eq!(resp["error"]["code"], -32603, "{resp}");
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "schema_mismatch", "{error}");
+    assert_eq!(error["tool"], "specforge.infer_session", "{error}");
     assert!(
-        resp["error"]["message"]
+        error["message"]
             .as_str()
             .unwrap()
             .contains("specforge-infer.json"),
-        "{resp}"
+        "{error}"
     );
-    // The server stays up.
-    assert!(call(&mut server, "ping", json!({}))["result"].is_object());
 }
 
 #[specforge_test(
@@ -271,27 +319,40 @@ fn cancel_completed_request_is_noop() {
     assert!(resp["error"].is_null());
 }
 
-// B:handle_mcp_protocol_error — verify unit "missing required params produces -32602 Invalid params"
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
-    verify = "missing required params produces -32602 Invalid params"
+    verify = "a tool that detects invalid arguments returns an isError result, not -32602"
 )]
-fn missing_required_params_produces_invalid_params() {
+fn a_missing_tool_argument_is_an_is_error_result() {
     let mut server = init_server();
-    // Call a tool that requires params, but provide none
+    // A well-formed tools/call whose tool lacks a required argument: the
+    // tool's input is invalid, the request is not (MCP 2025-11-25).
     let req = json!({
         "jsonrpc": "2.0", "id": 1,
         "method": "tools/call",
         "params": { "name": "specforge.query" }
-        // Missing "arguments" field
     });
     let resp_str = server.handle_message(&req.to_string()).unwrap();
     let resp: serde_json::Value = serde_json::from_str(&resp_str).unwrap();
-    assert_eq!(resp["error"]["code"], -32602, "{resp}");
-    assert_eq!(
-        resp["error"]["message"],
-        "Missing required parameter: entity_id"
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["message"], "Missing required parameter: entity_id");
+    assert_eq!(error["argument"], "entity_id", "{error}");
+    assert_eq!(error["tool"], "specforge.query", "{error}");
+}
+
+#[specforge_test(
+    behavior = "handle_mcp_protocol_error",
+    verify = "tools/call arguments that are not an object produce -32602 Invalid params"
+)]
+fn arguments_that_are_not_an_object_are_invalid_params() {
+    let mut server = init_server();
+    let resp = call(
+        &mut server,
+        "tools/call",
+        json!({"name": "specforge.query", "arguments": "entity_id=x"}),
     );
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
 }
 
 /// An initialized server over a temp project whose inference manifest is

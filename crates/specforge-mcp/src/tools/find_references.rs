@@ -1,7 +1,7 @@
 use serde_json::Value;
 
 use crate::state::McpState;
-use crate::tool::ToolOutcome;
+use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Args {
@@ -12,7 +12,12 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let entity_id = args.entity_id.as_str();
 
     if state.graph.node(entity_id).is_none() {
-        return ToolOutcome::failed(format!("Entity not found: {}", entity_id));
+        return McpError::new(
+            ErrorCode::EntityNotFound,
+            format!("Entity not found: {entity_id}"),
+        )
+        .with_entity(entity_id)
+        .into();
     }
 
     let locations: Vec<Value> = state

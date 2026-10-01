@@ -478,16 +478,24 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   }
   contract   """
     When the MCP server receives a malformed JSON-RPC request (parse error,
-    invalid method, missing required params), it MUST respond with the
-    standard JSON-RPC 2.0 error codes: -32700 (Parse error), -32600
+    invalid method, missing required params of the JSON-RPC method:
+    tools/call name, resources/read uri, prompts/get name), it MUST respond
+    with the standard JSON-RPC 2.0 error codes: -32700 (Parse error), -32600
     (Invalid Request), -32601 (Method not found), -32602 (Invalid params),
-    -32603 (Internal error). The error response MUST NOT crash the server
-    or leak internal state (stack traces, file paths, memory addresses).
-    The error response MUST include a human-readable message field.
+    -32603 (Internal error). An unknown tool is -32602 too. A tool that
+    detects invalid arguments is not a malformed request: it returns an
+    isError result carrying an McpError, not -32602 (MCP 2025-11-25,
+    SEP-1303). A handler that panics is a server fault: the request gets
+    -32603 and the server keeps serving. The error response MUST NOT crash
+    the server or leak internal state (stack traces, file paths, memory
+    addresses). The error response MUST include a human-readable message
+    field.
   """
   verify unit "malformed JSON produces -32700 Parse error"
   verify unit "invalid method produces -32601 Method not found"
   verify unit "missing required params produces -32602 Invalid params"
+  verify unit "a tool that detects invalid arguments returns an isError result, not -32602"
+  verify unit "tools/call arguments that are not an object produce -32602 Invalid params"
   verify unit "error response does not leak internal state"
   verify unit "server remains operational after protocol error"
   verify unit "returns -32600 for invalid request"

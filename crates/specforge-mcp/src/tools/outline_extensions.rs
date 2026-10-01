@@ -29,10 +29,13 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         "dot" => OutlineFormat::Dot,
         "json" => OutlineFormat::Json,
         _ => {
-            return ToolOutcome::invalid_params(format!(
-                "Unknown format: {}. Expected: markdown, mermaid, dot, json",
-                format
-            ));
+            return ToolOutcome::invalid_input(
+                "format",
+                format!(
+                    "Unknown format: {}. Expected: markdown, mermaid, dot, json",
+                    format
+                ),
+            );
         }
     };
 
@@ -41,10 +44,10 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         "keys" => OutlineDetail::Keys,
         "all" => OutlineDetail::All,
         _ => {
-            return ToolOutcome::invalid_params(format!(
-                "Unknown fields: {}. Expected: none, keys, all",
-                fields
-            ));
+            return ToolOutcome::invalid_input(
+                "fields",
+                format!("Unknown fields: {}. Expected: none, keys, all", fields),
+            );
         }
     };
 
@@ -53,10 +56,10 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         "effective" => DependencyDepth::Effective,
         "full" => DependencyDepth::Full,
         _ => {
-            return ToolOutcome::invalid_params(format!(
-                "Unknown deps: {}. Expected: direct, effective, full",
-                deps
-            ));
+            return ToolOutcome::invalid_input(
+                "deps",
+                format!("Unknown deps: {}. Expected: direct, effective, full", deps),
+            );
         }
     };
 

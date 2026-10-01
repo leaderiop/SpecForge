@@ -29,7 +29,7 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
     let root = match path {
         Some(p) => p,
         None => {
-            return ToolOutcome::invalid_params("No project root available");
+            return ToolOutcome::no_project("No project root available; pass {\"path\": ...}");
         }
     };
 
@@ -65,11 +65,8 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
         })
         .collect();
 
-    let has_errors = diagnostics
-        .iter()
-        .any(|d| d.severity == specforge_common::Severity::Error);
     let filtered: Vec<specforge_common::Diagnostic> = diagnostics.into_iter().cloned().collect();
     let diag_json = specforge_emitter::serialize_diagnostics(&filtered);
 
-    ToolOutcome::text(diag_json).flagged(has_errors)
+    ToolOutcome::text(diag_json)
 }

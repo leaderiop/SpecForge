@@ -27,7 +27,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     // The tool serves the agent formats; dot is `specforge.render`'s.
     let format = match format.parse::<Format>() {
         Ok(Format::Dot) | Err(_) => {
-            return ToolOutcome::invalid_params(format!("Unknown format: {}", format));
+            return ToolOutcome::invalid_input("format", format!("Unknown format: {format}"));
         }
         Ok(format) => format,
     };
@@ -46,6 +46,6 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
 
     match crate::operations::export_graph(state, &request) {
         Ok(json_str) => ToolOutcome::text(json_str),
-        Err(err) => ToolOutcome::invalid_params(err.message),
+        Err(err) => crate::operations::op_error(err).into(),
     }
 }

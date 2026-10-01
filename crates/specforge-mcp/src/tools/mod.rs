@@ -23,11 +23,11 @@ pub(crate) mod trace;
 mod validate;
 
 use serde_json::{Value, json};
-use specforge_registry::SurfaceType;
+use specforge_registry::{SurfaceRegistryEntry, SurfaceType};
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
-use crate::tool::{Effect, ToolOutcome, ToolSpec, envelope};
+use crate::tool::{Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
 pub use table::CORE_TOOLS;
 
 /// An I020 report for each kind in a `kinds` filter that no registered
@@ -64,9 +64,40 @@ pub(crate) fn unknown_kind_diagnostics(
     diagnostics
 }
 
-/// A failed extension call as a failed tool result.
+/// An emitter failure about `entity_id` as a failed tool result. A
+/// missing entity is `entity_not_found`, its `E003` in `diagnostic`, never
+/// only in the message text.
+fn emitter_error(error: specforge_emitter::EmitterError, entity_id: &str) -> ToolOutcome {
+    use specforge_emitter::EmitterError;
+    let mcp_error = match &error {
+        EmitterError::EntityNotFound(message) => {
+            McpError::from_coded_message(ErrorCode::EntityNotFound, message).with_entity(entity_id)
+        }
+        EmitterError::SerializationError(message) => {
+            McpError::new(ErrorCode::InternalError, message.as_str())
+        }
+        EmitterError::InvalidScope(message) | EmitterError::Other(message) => {
+            McpError::from_coded_message(ErrorCode::InvalidInput, message)
+        }
+    };
+    mcp_error.into()
+}
+
+/// A project file the tool reads (`specforge-infer.json`, the anchors
+/// manifest) that it cannot use: unreadable, or not what it should hold.
+pub(crate) fn manifest_error(message: String) -> ToolOutcome {
+    let code = if message.starts_with("failed to read") {
+        ErrorCode::InternalError
+    } else {
+        ErrorCode::SchemaMismatch
+    };
+    ToolOutcome::error(code, message)
+}
+
+/// A failed extension call as a failed tool result: the diagnostic the
+/// runtime reported, in `diagnostic`.
 fn extension_error(diag: &specforge_common::Diagnostic) -> ToolOutcome {
-    ToolOutcome::failed(format!("{}: {}", diag.code, diag.message))
+    McpError::from_diagnostic(diag).into()
 }
 
 /// An auto-promoted command's run as a tool result: its stdout, then its
@@ -87,16 +118,15 @@ fn command_tool_result(
 }
 
 /// The `McpToolCategory` an extension tool's invocation reports: its
-/// registered category when it is one of the four, else `core`. `None` for
-/// a tool the server does not know.
-fn extension_category(state: &McpState, name: &str) -> Option<&'static str> {
-    let registered = state.tool_registry.iter().find(|t| t.name == name)?;
-    Some(match registered.category.as_deref() {
+/// registered category when it is one of the four, else `core`.
+fn extension_category(state: &McpState, name: &str) -> &'static str {
+    let registered = state.tool_registry.iter().find(|t| t.name == name);
+    match registered.and_then(|t| t.category.as_deref()) {
         Some("navigation") => "navigation",
         Some("mutation") => "mutation",
         Some("management") => "management",
         _ => "core",
-    })
+    }
 }
 
 /// The core tool named `name`.
@@ -104,11 +134,27 @@ pub fn core_tool(name: &str) -> Option<&'static ToolSpec> {
     CORE_TOOLS.iter().find(|t| t.name == name)
 }
 
+/// The enabled extension tool named `name`.
+fn extension_entry(state: &McpState, name: &str) -> Option<SurfaceRegistryEntry> {
+    state
+        .surface_entries
+        .iter()
+        .find(|e| {
+            (e.surface_type == SurfaceType::McpTool
+                || e.surface_type == SurfaceType::AutoPromotedTool)
+                && e.contribution_name == name
+                && e.enabled
+        })
+        .cloned()
+}
+
 pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized");
     }
 
+    // A request that fails CallToolRequest's own schema is malformed: a
+    // protocol error (ADR 0004 D4-a).
     let name = match params.get("name").and_then(|v| v.as_str()) {
         Some(n) => n,
         None => {
@@ -119,39 +165,61 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
             );
         }
     };
+    let arguments = match params.get("arguments") {
+        None | Some(Value::Null) => Value::Object(Default::default()),
+        Some(object @ Value::Object(_)) => object.clone(),
+        Some(_) => {
+            return JsonRpcResponse::error(
+                id,
+                error_codes::INVALID_PARAMS,
+                "Invalid params: arguments must be an object",
+            );
+        }
+    };
 
-    let arguments = params
-        .get("arguments")
-        .cloned()
-        .unwrap_or(Value::Object(Default::default()));
-
+    // So is an unknown or disabled tool: it is not an invocation.
     let spec = core_tool(name);
-    // An unknown tool is a protocol error, not an invocation.
+    let extension = match spec {
+        Some(_) => None,
+        None => match extension_entry(state, name) {
+            Some(entry) => Some(entry),
+            None => {
+                // MCP spec (tools/call): an unrecognized tool is an Invalid
+                // params protocol error, as its "Unknown tool" example shows.
+                return JsonRpcResponse::error(
+                    id,
+                    error_codes::INVALID_PARAMS,
+                    format!("Unknown tool: {name}"),
+                );
+            }
+        },
+    };
+
     let category = match spec {
-        Some(spec) => Some(spec.event_category()),
+        Some(spec) => spec.event_category(),
         None => extension_category(state, name),
     };
-    if let Some(category) = category {
-        let mut event = json!({
-            "toolName": name,
-            "category": category,
-            "params": arguments.to_string(),
-        });
-        if let Some(entity_id) = arguments.get("entity_id").and_then(Value::as_str) {
-            event["entityId"] = Value::from(entity_id);
-        }
-        state.push_event("mcp_tool_invoked", event);
+    let mut event = json!({
+        "toolName": name,
+        "category": category,
+        "params": arguments.to_string(),
+    });
+    if let Some(entity_id) = arguments.get("entity_id").and_then(Value::as_str) {
+        event["entityId"] = Value::from(entity_id);
     }
+    state.push_event("mcp_tool_invoked", event);
 
     let mutation = spec
         .and_then(|spec| spec.mutation)
         .filter(|mutation| (mutation.writes)(&arguments));
     let served_since = state.loaded_at;
 
-    let mut outcome = match spec {
-        Some(spec) => (spec.call)(state, arguments),
-        None => extension_tool(state, name, arguments),
-    };
+    let mut outcome = match (spec, extension) {
+        (Some(spec), _) => (spec.call)(state, arguments),
+        (None, Some(entry)) => extension_tool(state, &entry, arguments),
+        (None, None) => unreachable!("an unknown tool was refused above"),
+    }
+    .from_tool(name);
     for (event, params) in outcome.take_events() {
         state.push_event(event, params);
     }
@@ -167,22 +235,20 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         {
             state.recompile(&root);
         }
-        // A refused call ran nothing; a run reports what its structured
-        // result says it changed.
-        if !outcome.is_refused() {
-            let effect = outcome
-                .success_payload()
-                .map_or_else(Effect::default, |payload| (mutation.effect)(payload));
-            state.push_event(
-                "mcp_mutation_completed",
-                json!({
-                    "toolName": name,
-                    "files_changed": effect.files_changed,
-                    "entities_affected": effect.entities_affected,
-                    "success": outcome.succeeded(),
-                }),
-            );
-        }
+        // Every call that meant to write reports what its structured
+        // result says it changed: nothing, when it failed.
+        let effect = outcome
+            .success_payload()
+            .map_or_else(Effect::default, |payload| (mutation.effect)(payload));
+        state.push_event(
+            "mcp_mutation_completed",
+            json!({
+                "toolName": name,
+                "files_changed": effect.files_changed,
+                "entities_affected": effect.entities_affected,
+                "success": outcome.succeeded(),
+            }),
+        );
     }
 
     envelope(outcome, id, state.sends_structured_content())
@@ -190,21 +256,11 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
 
 /// A registered extension tool from surface contributions, run through the
 /// Wasm runtime (WASM-only migration, Phase 4).
-fn extension_tool(state: &McpState, name: &str, arguments: Value) -> ToolOutcome {
-    let Some(entry) = state.surface_entries.iter().find(|e| {
-        (e.surface_type == SurfaceType::McpTool || e.surface_type == SurfaceType::AutoPromotedTool)
-            && e.contribution_name == name
-            && e.enabled
-    }) else {
-        // MCP spec (tools/call): an unrecognized tool is an Invalid params
-        // protocol error — see the "Unknown tool" example in
-        // docs/mcp-specification-summary.md.
-        return ToolOutcome::invalid_params(format!("Unknown tool: {}", name));
-    };
+fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Value) -> ToolOutcome {
     let Some(root) = state.project_root.clone() else {
-        return ToolOutcome::invalid_params(format!(
+        return ToolOutcome::no_project(format!(
             "Extension tool '{}' needs a project root; pass {{\"path\": ...}} to specforge.analyze first",
-            name
+            entry.contribution_name
         ));
     };
     let runtime = state.wasm_runtime(&root);
