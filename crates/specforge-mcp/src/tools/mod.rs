@@ -273,13 +273,12 @@ fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Val
             entry.contribution_name
         ));
     };
-    // The input the tool declares, checked before its module runs.
     let declared = state
         .tool_registry
         .iter()
-        .find(|t| t.name == entry.contribution_name)
-        .map(|t| &t.input_schema);
-    if let Some(schema) = declared {
+        .find(|t| t.name == entry.contribution_name);
+    // The input the tool declares, checked before its module runs.
+    if let Some(schema) = declared.map(|t| &t.input_schema) {
         let violations = crate::json_schema::violations(schema, &arguments);
         if !violations.is_empty() {
             return McpError::new(
@@ -310,7 +309,28 @@ fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Val
         &input,
         runtime.as_ref(),
     ) {
-        Ok(value) => ToolOutcome::ok(value),
+        Ok(value) => match declared.and_then(|t| t.output_schema.as_ref()) {
+            // An output the tool's own schema refuses is never served as
+            // its structured result.
+            Some(schema) => {
+                let violations = crate::json_schema::violations(schema, &value);
+                if violations.is_empty() {
+                    ToolOutcome::ok(value)
+                } else {
+                    McpError::new(
+                        ErrorCode::SchemaMismatch,
+                        format!(
+                            "extension tool '{}' returned output that does not match its output schema: {}",
+                            entry.contribution_name,
+                            violations.join("; ")
+                        ),
+                    )
+                    .with_data(json!({ "violations": violations }))
+                    .into()
+                }
+            }
+            None => ToolOutcome::ok(value),
+        },
         Err(diag) => extension_error(&diag),
     }
 }

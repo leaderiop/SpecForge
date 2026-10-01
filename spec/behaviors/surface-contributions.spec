@@ -249,13 +249,17 @@ behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
     input JSON. The per-tool sandbox override (if declared) MUST be
     intersected with the extension's SandboxPolicy. Wasm traps MUST be
     caught and returned as structured MCP error responses. The tool
-    output MUST be returned as a standard MCP tool result.
+    output MUST be returned as a standard MCP tool result. When the tool
+    declares an output_schema, an output that does not match it MUST be
+    returned as a schema_mismatch MCP error naming each violation, never
+    as the tool's structured result.
 
     BARRIER: This behavior MUST NOT execute until both
     validate_surface_exports and validate_mcp_tool_schemas have
     completed for the extension.
   """
   verify unit "input validated against declared input_schema"
+  verify unit "output that does not match the declared output_schema is a schema_mismatch error"
   verify unit "lazy Wasm load on first tool invocation"
   verify unit "the served project's runtime loads on the first call that needs it and serves later calls until the project recompiles"
   verify unit "input JSON passed to mcp__ export"

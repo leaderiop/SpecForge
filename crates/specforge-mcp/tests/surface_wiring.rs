@@ -793,6 +793,39 @@ fn extension_tool_input_is_checked_against_its_schema() {
     assert_eq!(ext.calls().len(), 1);
 }
 
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "output that does not match the declared output_schema is a schema_mismatch error"
+)]
+fn extension_tool_output_is_checked_against_its_schema() {
+    // check declares {"checked": boolean}; this module returns a string.
+    let (mut server, ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": "yes"})),
+    );
+    let resp = call_tool(&mut server, "specforge.cmds.check", json!({"strict": true}));
+    assert_eq!(ext.calls().len(), 1, "the module ran");
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    assert!(resp["result"].get("structuredContent").is_none(), "{resp}");
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "schema_mismatch", "{error}");
+    assert_eq!(
+        error["data"]["violations"],
+        json!(["$.checked: expected boolean, got string"]),
+        "{error}"
+    );
+
+    // An output that matches is the result.
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
+    );
+    let resp = call_tool(&mut server, "specforge.cmds.check", json!({"strict": true}));
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    assert_eq!(
+        resp["result"]["structuredContent"],
+        json!({"checked": true})
+    );
+}
+
 #[test]
 fn the_schema_check_finds_type_enum_and_required_violations() {
     let schema = json!({
