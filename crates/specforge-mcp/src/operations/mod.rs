@@ -13,40 +13,17 @@ use crate::protocol::error_codes;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-/// Run the operation `name`. `id` is not used; the operations keep it in
-/// their signatures until the tool table (plan 04 T3) replaces this match.
-pub fn handle_operation(
-    state: &mut McpState,
-    name: &str,
-    args: Value,
-    id: Option<Value>,
-) -> ToolOutcome {
-    match name {
-        "specforge.format" => format_op(state, args, id),
-        "specforge.rename" => rename_op(state, args, id),
-        "specforge.init" => init_op(state, args, id),
-        "specforge.add_extension" => {
-            let outcome = add_extension_op(state, args, id);
-            let added = outcome
-                .success_payload()
-                .filter(|o| o["installed"] == true)
-                .map(|o| json!({"extension": o["extension"], "version": o["version"]}));
-            match added {
-                Some(event) => outcome.with_event("extension_added", event),
-                None => outcome,
-            }
-        }
-        "specforge.remove_extension" => remove_extension_op(state, args, id),
-        "specforge.migrate" => migrate_op(state, args, id),
-        "specforge.extensions" => extensions_op(state, args, id),
-        "specforge.providers" => providers_op(state, args, id),
-        "specforge.doctor" => doctor_op(state, args, id),
-        "specforge.collect" => collect_op(state, args, id),
-        "specforge.render" => render_op(state, args, id),
-        _ => ToolOutcome::refused(
-            error_codes::METHOD_NOT_FOUND,
-            format!("Unknown operation: {}", name),
-        ),
+/// `specforge.add_extension`: the install, plus `extension_added` when it
+/// installed something.
+pub(crate) fn add_extension(state: &mut McpState, args: Value) -> ToolOutcome {
+    let outcome = add_extension_op(state, args);
+    let added = outcome
+        .success_payload()
+        .filter(|o| o["installed"] == true)
+        .map(|o| json!({"extension": o["extension"], "version": o["version"]}));
+    match added {
+        Some(event) => outcome.with_event("extension_added", event),
+        None => outcome,
     }
 }
 
@@ -60,17 +37,17 @@ fn project_root_of(state: &McpState, args: &Value) -> Option<PathBuf> {
         .or_else(|| state.project_root.clone())
 }
 
-fn err_invalid(_id: Option<Value>, message: impl Into<String>) -> ToolOutcome {
+fn err_invalid(message: impl Into<String>) -> ToolOutcome {
     ToolOutcome::invalid_params(message)
 }
 
-fn ok(_id: Option<Value>, result: Value) -> ToolOutcome {
+fn ok(result: Value) -> ToolOutcome {
     ToolOutcome::ok(result)
 }
 
 /// An operation's failure as an invalid-params error whose `data` carries
 /// the diagnostic code and its suggestion, plus the operation's own data.
-fn err_op(_id: Option<Value>, error: specforge_ops::OpError) -> ToolOutcome {
+fn err_op(error: specforge_ops::OpError) -> ToolOutcome {
     let mut data = json!({
         "code": error.code,
         "diagnostic": {
@@ -111,7 +88,7 @@ pub(crate) fn export_graph(
 
 // ── format ──────────────────────────────────────────────────────────────────
 
-fn format_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+pub(crate) fn format_op(state: &mut McpState, args: Value) -> ToolOutcome {
     use specforge_ops::format::{self, Mode, Request};
 
     let check = args.get("check").and_then(|v| v.as_bool()).unwrap_or(false);
@@ -122,13 +99,10 @@ fn format_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcom
         .unwrap_or(!check && !diff);
 
     let Some(root) = project_root_of(state, &args) else {
-        return err_invalid(id, "format needs a project root (pass {\"path\": ...})");
+        return err_invalid("format needs a project root (pass {\"path\": ...})");
     };
     let Some(project_root) = find_project_root(&root) else {
-        return err_invalid(
-            id,
-            format!("no specforge project found at {}", root.display()),
-        );
+        return err_invalid(format!("no specforge project found at {}", root.display()));
     };
 
     // The run `specforge format` makes. Relative paths name files under
@@ -181,7 +155,7 @@ fn format_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcom
         result["diffs"] = Value::from(diffs);
     }
     if failed_files.is_empty() {
-        return ok(id, result);
+        return ok(result);
     }
 
     // Every other file was still formatted; the call failed for these.
@@ -206,17 +180,17 @@ fn format_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcom
 
 // ── rename ──────────────────────────────────────────────────────────────────
 
-fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+pub(crate) fn rename_op(state: &mut McpState, args: Value) -> ToolOutcome {
     let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
         Some(e) => e,
         None => {
-            return err_invalid(id, "Missing required parameter: entity_id");
+            return err_invalid("Missing required parameter: entity_id");
         }
     };
     let new_name = match args.get("new_name").and_then(|v| v.as_str()) {
         Some(n) => n,
         None => {
-            return err_invalid(id, "Missing required parameter: new_name");
+            return err_invalid("Missing required parameter: new_name");
         }
     };
     let dry_run = args
@@ -228,17 +202,14 @@ fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcom
         || new_name.len() < 2
         || !new_name.chars().all(|c| c.is_alphanumeric() || c == '_')
     {
-        return err_invalid(
-            id,
-            "Invalid entity ID: must be 2-60 alphanumeric/underscore characters",
-        );
+        return err_invalid("Invalid entity ID: must be 2-60 alphanumeric/underscore characters");
     }
 
     if state.graph.node(entity_id).is_none() {
-        return err_invalid(id, format!("Entity not found: {}", entity_id));
+        return err_invalid(format!("Entity not found: {}", entity_id));
     }
     let Some(root) = project_root_of(state, &args) else {
-        return err_invalid(id, "rename needs a project root (pass {\"path\": ...})");
+        return err_invalid("rename needs a project root (pass {\"path\": ...})");
     };
 
     // Spans are relative to the spec root the graph was compiled from.
@@ -248,10 +219,7 @@ fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcom
             std::fs::read_to_string(spec_root.join(file)).ok()
         })
     else {
-        return err_invalid(
-            id,
-            format!("cannot rename '{entity_id}': '{new_name}' exists"),
-        );
+        return err_invalid(format!("cannot rename '{entity_id}': '{new_name}' exists"));
     };
     let affected_files: std::collections::BTreeSet<&str> =
         edits.iter().map(|e| e.file.as_str()).collect();
@@ -275,32 +243,32 @@ fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcom
     });
     if dry_run {
         result["dry_run"] = Value::from(true);
-        return ok(id, result);
+        return ok(result);
     }
 
     for file in &affected_files {
         let path = spec_root.join(file);
         let Ok(text) = std::fs::read_to_string(&path) else {
-            return err_invalid(id, format!("failed to read {}", path.display()));
+            return err_invalid(format!("failed to read {}", path.display()));
         };
         let renamed =
             specforge_graph::rename::apply_edits(&text, edits.iter().filter(|e| e.file == *file));
         if let Err(e) = std::fs::write(&path, renamed) {
-            return err_invalid(id, format!("failed to write {}: {e}", path.display()));
+            return err_invalid(format!("failed to write {}: {e}", path.display()));
         }
     }
     state.recompile(&root);
     result["diagnostics"] = serde_json::to_value(&state.diagnostics).unwrap_or_default();
-    ok(id, result)
+    ok(result)
 }
 
 // ── init ────────────────────────────────────────────────────────────────────
 
-fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+pub(crate) fn init_op(state: &mut McpState, args: Value) -> ToolOutcome {
     use specforge_ops::init;
 
     let Some(path) = args.get("path").and_then(|v| v.as_str()).map(PathBuf::from) else {
-        return err_invalid(id, "Missing required parameter: path");
+        return err_invalid("Missing required parameter: path");
     };
     let extensions: Vec<String> = args
         .get("extensions")
@@ -324,19 +292,16 @@ fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome 
     };
     let outcome = match init::plan(&request).and_then(|plan| init::apply(&path, &plan)) {
         Ok(outcome) => outcome,
-        Err(error) => return err_op(id, error),
+        Err(error) => return err_op(error),
     };
-    let result = ok(
-        id,
-        json!({
-            "project_path": path.display().to_string(),
-            "config_file": "specforge.json",
-            "starter_file": init::STARTER_FILE,
-            "extensions_installed": outcome.extensions,
-            "name": outcome.name,
-            "version": outcome.version,
-        }),
-    );
+    let result = ok(json!({
+        "project_path": path.display().to_string(),
+        "config_file": "specforge.json",
+        "starter_file": init::STARTER_FILE,
+        "extensions_installed": outcome.extensions,
+        "name": outcome.name,
+        "version": outcome.version,
+    }));
     state.push_event(
         "project_initialized",
         json!({"path": path.display().to_string(), "name": outcome.name}),
@@ -346,12 +311,12 @@ fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome 
 
 // ── add / remove ────────────────────────────────────────────────────────────
 
-fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+fn add_extension_op(state: &McpState, args: Value) -> ToolOutcome {
     use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
 
     let specifier = match args.get("specifier").and_then(|v| v.as_str()) {
         Some(s) => s.to_string(),
-        None => return err_invalid(id, "Missing required parameter: specifier"),
+        None => return err_invalid("Missing required parameter: specifier"),
     };
     let allow_unsigned = args
         .get("allow_unsigned")
@@ -363,11 +328,11 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOut
         .unwrap_or(false);
 
     let Some(root) = project_root_of(state, &args) else {
-        return err_invalid(id, "add needs a project root (pass {\"path\": ...})");
+        return err_invalid("add needs a project root (pass {\"path\": ...})");
     };
     let source = match extension::parse(&specifier) {
         Ok(source) => source,
-        Err(error) => return err_op(id, error),
+        Err(error) => return err_op(error),
     };
 
     // The shared operation `specforge add` runs. An agent can't be asked,
@@ -389,68 +354,56 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOut
             name,
             changed,
             peers_enabled,
-        }) => ok(
-            id,
-            json!({
-                "extension": name,
-                "installed": changed,
-                "source": "builtin",
-                "changed": changed,
-                "peers_enabled": peers_enabled,
-                "note": "re-run specforge.analyze (use_cached=false) to load it",
-            }),
-        ),
+        }) => ok(json!({
+            "extension": name,
+            "installed": changed,
+            "source": "builtin",
+            "changed": changed,
+            "peers_enabled": peers_enabled,
+            "note": "re-run specforge.analyze (use_cached=false) to load it",
+        })),
         Ok(AddOutcome::Installed {
             name,
             version,
             sha256,
             key_id,
             origin,
-        }) => ok(
-            id,
-            json!({
-                "extension": name,
-                "installed": true,
-                "version": version,
-                "sha256": sha256,
-                "key_id": key_id,
-                "source": source_of(&origin),
-                "note": "re-run specforge.analyze (use_cached=false) to load it",
-            }),
-        ),
+        }) => ok(json!({
+            "extension": name,
+            "installed": true,
+            "version": version,
+            "sha256": sha256,
+            "key_id": key_id,
+            "source": source_of(&origin),
+            "note": "re-run specforge.analyze (use_cached=false) to load it",
+        })),
         // Already installed and enabled: an info response, nothing changed.
-        Ok(AddOutcome::AlreadyPresent { name, version }) => ok(
-            id,
-            json!({
-                "extension": name,
-                "installed": false,
-                "already_present": true,
-                "version": version,
-                "message": format!("{name} {version} is already installed; specforge.json is unchanged"),
-            }),
-        ),
+        Ok(AddOutcome::AlreadyPresent { name, version }) => ok(json!({
+            "extension": name,
+            "installed": false,
+            "already_present": true,
+            "version": version,
+            "message": format!("{name} {version} is already installed; specforge.json is unchanged"),
+        })),
         Ok(AddOutcome::Planned {
             name,
             version,
             origin,
-        }) => ok(
-            id,
-            json!({
-                "extension": name,
-                "installed": false,
-                "dry_run": true,
-                "version": version,
-                "source": source_of(&origin),
-            }),
-        ),
-        Err(error) => err_op(id, error),
+        }) => ok(json!({
+            "extension": name,
+            "installed": false,
+            "dry_run": true,
+            "version": version,
+            "source": source_of(&origin),
+        })),
+        Err(error) => err_op(error),
     }
 }
 
-fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+pub(crate) fn remove_extension_op(state: &McpState, args: Value) -> ToolOutcome {
     let name = match args.get("name").and_then(|v| v.as_str()) {
         Some(n) => n.to_string(),
-        None => return err_invalid(id, "Missing required parameter: name"),
+        None => return err_invalid("Missing required parameter: name"),
     };
     let force = args.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
     let dry_run = args
@@ -459,7 +412,7 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Tool
         .unwrap_or(false);
 
     let Some(root) = project_root_of(state, &args) else {
-        return err_invalid(id, "remove needs a project root (pass {\"path\": ...})");
+        return err_invalid("remove needs a project root (pass {\"path\": ...})");
     };
 
     // The shared operation, over what the session loaded.
@@ -483,22 +436,22 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Tool
             if outcome.dry_run {
                 result["dry_run"] = Value::from(true);
             }
-            ok(id, result)
+            ok(result)
         }
         Err(mut error) => {
             if error.code == specforge_ops::extension::NOT_FOUND {
                 error.data = Some(json!({"extension": name}));
             }
-            err_op(id, error)
+            err_op(error)
         }
     }
 }
 
 // ── migrate ─────────────────────────────────────────────────────────────────
 
-fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+pub(crate) fn migrate_op(state: &McpState, args: Value) -> ToolOutcome {
     let Some(path) = project_root_of(state, &args) else {
-        return err_invalid(id, "migrate needs a project root (pass {\"path\": ...})");
+        return err_invalid("migrate needs a project root (pass {\"path\": ...})");
     };
     let dry_run = args
         .get("dry_run")
@@ -514,11 +467,11 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
         args.get("target_version").and_then(|v| v.as_str()),
     ) {
         Ok(target) => target,
-        Err(error) => return err_op(id, error),
+        Err(error) => return err_op(error),
     };
 
     if !path.join("specforge.json").is_file() {
-        return err_invalid(id, "no specforge.json found in the project root");
+        return err_invalid("no specforge.json found in the project root");
     }
     // The migration `specforge migrate` runs, hooks and rollback included.
     let runtime = state.wasm_runtime(&path);
@@ -533,17 +486,14 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     // The format version lives in each spec file's header: with no file
     // behind the target, the project is current and nothing ran.
     if !outcome.pending {
-        return ok(
-            id,
-            json!({
-                "from_version": from,
-                "to_version": to,
-                "migrated": false,
-                "dry_run": dry_run,
-                "changes": [],
-                "message": "project is already at the latest format version",
-            }),
-        );
+        return ok(json!({
+            "from_version": from,
+            "to_version": to,
+            "migrated": false,
+            "dry_run": dry_run,
+            "changes": [],
+            "message": "project is already at the latest format version",
+        }));
     }
 
     let summary = &outcome.summary;
@@ -574,16 +524,16 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     if outcome.failed() {
         return ToolOutcome::failed_with(result);
     }
-    ok(id, result)
+    ok(result)
 }
 
 // ── extensions ──────────────────────────────────────────────────────────────
 
-fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcome {
+pub(crate) fn extensions_op(state: &McpState, _args: Value) -> ToolOutcome {
     use specforge_ops::extension::{self, Origin};
 
     let Some(root) = &state.project_root else {
-        return err_invalid(id, "no project root available");
+        return err_invalid("no project root available");
     };
     // The shared listing, over what the session compiled.
     let entries = extension::list(root, &state.manifests, &state.kind_registry, &state.graph);
@@ -620,21 +570,18 @@ fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutco
         .map(|n| n.kind.raw.to_string())
         .collect();
 
-    ok(
-        id,
-        json!({
-            "extensions": listed,
-            "lock_file_entries": lock_entries,
-            "entity_kinds_in_graph": kinds,
-        }),
-    )
+    ok(json!({
+        "extensions": listed,
+        "lock_file_entries": lock_entries,
+        "entity_kinds_in_graph": kinds,
+    }))
 }
 
 // ── providers ───────────────────────────────────────────────────────────────
 
-fn providers_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcome {
+pub(crate) fn providers_op(state: &McpState, _args: Value) -> ToolOutcome {
     let Some(root) = &state.project_root else {
-        return err_invalid(id, "no project root available");
+        return err_invalid("no project root available");
     };
     // The providers specforge.json configures, as the scheme registry built
     // from the loaded extensions sees them: the listing the CLI prints.
@@ -651,21 +598,18 @@ fn providers_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcom
         })
         .collect();
     let count = listed.len();
-    ok(
-        id,
-        json!({
-            "providers": listed,
-            "count": count,
-            "diagnostics": specforge_emitter::diagnostics_json(&diagnostics),
-        }),
-    )
+    ok(json!({
+        "providers": listed,
+        "count": count,
+        "diagnostics": specforge_emitter::diagnostics_json(&diagnostics),
+    }))
 }
 
 // ── doctor ──────────────────────────────────────────────────────────────────
 
-fn doctor_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+pub(crate) fn doctor_op(state: &mut McpState, args: Value) -> ToolOutcome {
     let Some(root) = state.project_root.clone() else {
-        return err_invalid(id, "doctor needs a project root");
+        return err_invalid("doctor needs a project root");
     };
     // Like specforge.validate, a fresh compile unless the caller opts into
     // the last one (ADR 0004 D3-d): the agent may have edited the project
@@ -684,31 +628,28 @@ fn doctor_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcom
         .iter()
         .map(|c| c.message.as_str())
         .collect();
-    ok(
-        id,
-        json!({
-            "extensions_ok": report.issues.is_empty() && report.load_failures.is_empty(),
-            "conflicts": conflicts,
-            "cache_status": report.cache_status,
-            "findings": report.findings,
-            "installed_count": report.extensions_checked,
-            "extensions": report.extensions,
-            "enhancements": report.enhancements,
-            "shadowed": report.shadowed,
-            "load_failures": report.load_failures,
-            "issues": report.issues,
-            "z3_available": report.z3_available,
-        }),
-    )
+    ok(json!({
+        "extensions_ok": report.issues.is_empty() && report.load_failures.is_empty(),
+        "conflicts": conflicts,
+        "cache_status": report.cache_status,
+        "findings": report.findings,
+        "installed_count": report.extensions_checked,
+        "extensions": report.extensions,
+        "enhancements": report.enhancements,
+        "shadowed": report.shadowed,
+        "load_failures": report.load_failures,
+        "issues": report.issues,
+        "z3_available": report.z3_available,
+    }))
 }
 
 // ── collect ─────────────────────────────────────────────────────────────────
 
-fn collect_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+pub(crate) fn collect_op(state: &McpState, args: Value) -> ToolOutcome {
     use specforge_emitter::collect::{self, Mode, Request, RunnerOutput};
 
     let Some(root) = project_root_of(state, &args) else {
-        return err_invalid(id, "collect needs a project root (pass {\"path\": ...})");
+        return err_invalid("collect needs a project root (pass {\"path\": ...})");
     };
     let runner = args
         .get("runner")
@@ -742,30 +683,24 @@ fn collect_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
         &mut approve,
         &mut |_, _| {},
     ) {
-        Ok(outcome) => ok(
-            id,
-            json!({
-                "status": "collected",
-                "runners": outcome.runners,
-                "diagnostics": outcome.diagnostics,
-                "report": outcome.report.display().to_string(),
-            }),
-        ),
-        Err(e) if e.code == "E059" => err_invalid(
-            id,
-            format!(
-                "E059: the test command isn't approved for this project; run `specforge collect` \
+        Ok(outcome) => ok(json!({
+            "status": "collected",
+            "runners": outcome.runners,
+            "diagnostics": outcome.diagnostics,
+            "report": outcome.report.display().to_string(),
+        })),
+        Err(e) if e.code == "E059" => err_invalid(format!(
+            "E059: the test command isn't approved for this project; run `specforge collect` \
                  in a terminal once to approve it ({})",
-                e.message
-            ),
-        ),
-        Err(e) => err_invalid(id, format!("{}: {}", e.code, e.message)),
+            e.message
+        )),
+        Err(e) => err_invalid(format!("{}: {}", e.code, e.message)),
     }
 }
 
 // ── render ──────────────────────────────────────────────────────────────────
 
-fn render_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+pub(crate) fn render_op(state: &McpState, args: Value) -> ToolOutcome {
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
@@ -799,23 +734,17 @@ fn render_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     };
     let output = match export_graph(state, &request) {
         Ok(text) => text,
-        Err(e) => return err_invalid(id, format!("render failed: {}", e.message)),
+        Err(e) => return err_invalid(format!("render failed: {}", e.message)),
     };
 
     // With out_dir the rendering lands on disk; without it, inline.
     let Some(out_dir) = args.get("out_dir").and_then(|v| v.as_str()) else {
-        return ok(
-            id,
-            json!({ "format": format, "output": output, "output_files": [] }),
-        );
+        return ok(json!({ "format": format, "output": output, "output_files": [] }));
     };
     let out_dir = PathBuf::from(out_dir);
     let path = out_dir.join(file_name);
     if let Err(e) = std::fs::create_dir_all(&out_dir).and_then(|()| std::fs::write(&path, output)) {
-        return err_invalid(id, format!("failed to write {}: {e}", path.display()));
+        return err_invalid(format!("failed to write {}: {e}", path.display()));
     }
-    ok(
-        id,
-        json!({ "format": format, "output_files": [path.display().to_string()] }),
-    )
+    ok(json!({ "format": format, "output_files": [path.display().to_string()] }))
 }

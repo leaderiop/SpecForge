@@ -9,6 +9,95 @@ use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
+use crate::state::McpState;
+use crate::types::McpToolDescriptor;
+
+/// A tool's role (the spec's `McpToolCategory`), plus the `inference`
+/// group the listing still shows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Category {
+    Core,
+    Navigation,
+    Mutation,
+    Management,
+    Inference,
+}
+
+impl Category {
+    /// The category as `tools/list` spells it.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Category::Core => "core",
+            Category::Navigation => "navigation",
+            Category::Mutation => "mutation",
+            Category::Management => "management",
+            Category::Inference => "inference",
+        }
+    }
+}
+
+/// What a completed mutation changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Effect {
+    pub files_changed: usize,
+    pub entities_affected: usize,
+}
+
+/// How a tool that changes files reports it.
+#[derive(Debug, Clone, Copy)]
+pub struct MutationSpec {
+    /// Whether a call with these arguments writes (false for a dry run or a
+    /// check).
+    pub writes: fn(&Value) -> bool,
+    /// What a successful call changed, read from its structured payload.
+    pub effect: fn(&Value) -> Effect,
+    /// Whether the server recompiles after the call writes: false for a
+    /// tool that writes no spec source.
+    pub recompiles: bool,
+}
+
+/// Every write call unless it is a `dry_run`.
+pub fn writes_unless_dry_run(args: &Value) -> bool {
+    !args
+        .get("dry_run")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
+/// One core tool: everything the server lists, dispatches and reports
+/// about it.
+pub struct ToolSpec {
+    pub name: &'static str,
+    pub description: &'static str,
+    pub category: Category,
+    pub schema: fn() -> Value,
+    pub mutation: Option<MutationSpec>,
+    pub call: fn(&mut McpState, Value) -> ToolOutcome,
+}
+
+impl ToolSpec {
+    /// The tool as `tools/list` describes it.
+    pub fn descriptor(&self) -> McpToolDescriptor {
+        McpToolDescriptor {
+            name: self.name.into(),
+            description: self.description.into(),
+            input_schema: (self.schema)(),
+            category: Some(self.category.as_str().into()),
+        }
+    }
+
+    /// The `McpToolCategory` its `mcp_tool_invoked` events carry: a tool
+    /// that writes is a mutation; the inference group is core.
+    pub fn event_category(&self) -> &'static str {
+        if self.mutation.is_some() {
+            return Category::Mutation.as_str();
+        }
+        match self.category {
+            Category::Inference => Category::Core.as_str(),
+            category => category.as_str(),
+        }
+    }
+}
 
 /// A tool's result body.
 #[derive(Debug, Clone)]

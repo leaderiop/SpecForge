@@ -27,7 +27,10 @@ fn handler_source(tool: &str) -> Option<String> {
         return Some(source);
     }
     let ops = crate_file("operations/mod.rs")?;
-    let start = ops.find(&format!("\nfn {short}_op("))? + 1;
+    let start = ["\nfn ", "\npub(crate) fn "]
+        .iter()
+        .find_map(|item| ops.find(&format!("{item}{short}_op(")))?
+        + 1;
     let body = &ops[start..];
     let end = ["\nfn ", "\npub fn ", "\npub(crate) fn "]
         .iter()

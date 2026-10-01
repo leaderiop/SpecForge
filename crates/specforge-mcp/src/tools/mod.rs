@@ -18,6 +18,7 @@ mod schema;
 mod search;
 mod stats;
 mod suggest_fixes;
+mod table;
 pub(crate) mod trace;
 mod validate;
 
@@ -26,7 +27,8 @@ use specforge_registry::SurfaceType;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
-use crate::tool::{ToolOutcome, envelope};
+use crate::tool::{Effect, ToolOutcome, ToolSpec, envelope};
+pub use table::CORE_TOOLS;
 
 /// An I020 report for each kind in a `kinds` filter that no registered
 /// extension defines and no entity has, in the order given, with a
@@ -84,38 +86,11 @@ fn command_tool_result(
     }
 }
 
-/// Whether a mutation tool call changes files, with each tool's defaults:
-/// format's check and diff modes and every dry run only report, and
-/// report-only calls complete no mutation.
-fn writes(name: &str, args: &Value) -> bool {
-    let flag = |key: &str| args.get(key).and_then(Value::as_bool);
-    match name {
-        "specforge.format" => flag("write")
-            .unwrap_or(!flag("check").unwrap_or(false) && !flag("diff").unwrap_or(false)),
-        _ => !flag("dry_run").unwrap_or(false),
-    }
-}
-
-/// Tools that change files on disk.
-const MUTATION_TOOLS: [&str; 7] = [
-    "specforge.format",
-    "specforge.rename",
-    "specforge.init",
-    "specforge.add_extension",
-    "specforge.remove_extension",
-    "specforge.migrate",
-    "specforge.infer_session",
-];
-
-/// The `McpToolCategory` of a registered tool (`core`, `navigation`,
-/// `mutation` or `management`), or `None` for a tool the server does not
-/// know. Tools that write files are mutations; registry categories outside
-/// the four (`inference`, `extension`) are read-only analysis, so `core`.
-fn tool_category(state: &McpState, name: &str) -> Option<&'static str> {
+/// The `McpToolCategory` an extension tool's invocation reports: its
+/// registered category when it is one of the four, else `core`. `None` for
+/// a tool the server does not know.
+fn extension_category(state: &McpState, name: &str) -> Option<&'static str> {
     let registered = state.tool_registry.iter().find(|t| t.name == name)?;
-    if MUTATION_TOOLS.contains(&name) {
-        return Some("mutation");
-    }
     Some(match registered.category.as_deref() {
         Some("navigation") => "navigation",
         Some("mutation") => "mutation",
@@ -124,28 +99,9 @@ fn tool_category(state: &McpState, name: &str) -> Option<&'static str> {
     })
 }
 
-/// What a completed mutation changed, read from the tool's own result:
-/// `(files_changed, entities_affected)`.
-fn mutation_effect(name: &str, outcome: &Value) -> (usize, usize) {
-    let count = |key: &str| outcome[key].as_array().map_or(0, Vec::len);
-    match name {
-        // Every file the formatter rewrote; formatting changes no entity.
-        "specforge.format" => (count("changed_files"), 0),
-        // The files holding the entity or a reference to it; one entity.
-        "specforge.rename" => (count("affected_files"), 1),
-        // The project config, the starter spec file and .gitignore.
-        "specforge.init" => (3, 0),
-        // The extension module, the lock file and the project config.
-        "specforge.add_extension" if outcome["installed"] == true => (3, 0),
-        // The same three; entities whose kind only it defined lose it.
-        "specforge.remove_extension" if outcome["success"] == true => (3, count("orphan_warnings")),
-        "specforge.migrate" if outcome["migrated"] == true => {
-            (outcome["files_migrated"].as_u64().unwrap_or(0) as usize, 0)
-        }
-        // specforge-infer.json; mark_analyzed records the entities produced.
-        "specforge.infer_session" => (1, count("entities_produced")),
-        _ => (0, 0),
-    }
+/// The core tool named `name`.
+pub fn core_tool(name: &str) -> Option<&'static ToolSpec> {
+    CORE_TOOLS.iter().find(|t| t.name == name)
 }
 
 pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
@@ -169,8 +125,13 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         .cloned()
         .unwrap_or(Value::Object(Default::default()));
 
+    let spec = core_tool(name);
     // An unknown tool is a protocol error, not an invocation.
-    if let Some(category) = tool_category(state, name) {
+    let category = match spec {
+        Some(spec) => Some(spec.event_category()),
+        None => extension_category(state, name),
+    };
+    if let Some(category) = category {
         let mut event = json!({
             "toolName": name,
             "category": category,
@@ -182,90 +143,49 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         state.push_event("mcp_tool_invoked", event);
     }
 
-    let is_mutation = MUTATION_TOOLS.contains(&name) && writes(name, &arguments);
+    let mutation = spec
+        .and_then(|spec| spec.mutation)
+        .filter(|mutation| (mutation.writes)(&arguments));
     let served_since = state.loaded_at;
 
-    let mut outcome = dispatch(state, name, arguments);
+    let mut outcome = match spec {
+        Some(spec) => (spec.call)(state, arguments),
+        None => extension_tool(state, name, arguments),
+    };
     for (event, params) in outcome.take_events() {
         state.push_event(event, params);
     }
 
-    // A mutation that wrote files leaves the server serving what is on
-    // disk: the tool recompiled already (rename), or it is recompiled now.
-    // infer_session writes only its own session file, no source.
-    if is_mutation
-        && name != "specforge.infer_session"
-        && outcome.succeeded()
-        && state.loaded_at == served_since
-        && let Some(root) = state.project_root.clone()
-    {
-        state.recompile(&root);
-    }
-
-    // A refused call ran nothing; a run reports what its structured
-    // result says it changed.
-    if is_mutation && !outcome.is_refused() {
-        let success = outcome.succeeded();
-        let (files_changed, entities_affected) = outcome
-            .success_payload()
-            .map_or((0, 0), |payload| mutation_effect(name, payload));
-        state.push_event(
-            "mcp_mutation_completed",
-            json!({
-                "toolName": name,
-                "files_changed": files_changed,
-                "entities_affected": entities_affected,
-                "success": success,
-            }),
-        );
+    if let Some(mutation) = mutation {
+        // A mutation that wrote files leaves the server serving what is
+        // on disk: the tool recompiled already (rename), or it is
+        // recompiled now.
+        if mutation.recompiles
+            && outcome.succeeded()
+            && state.loaded_at == served_since
+            && let Some(root) = state.project_root.clone()
+        {
+            state.recompile(&root);
+        }
+        // A refused call ran nothing; a run reports what its structured
+        // result says it changed.
+        if !outcome.is_refused() {
+            let effect = outcome
+                .success_payload()
+                .map_or_else(Effect::default, |payload| (mutation.effect)(payload));
+            state.push_event(
+                "mcp_mutation_completed",
+                json!({
+                    "toolName": name,
+                    "files_changed": effect.files_changed,
+                    "entities_affected": effect.entities_affected,
+                    "success": outcome.succeeded(),
+                }),
+            );
+        }
     }
 
     envelope(outcome, id, state.sends_structured_content())
-}
-
-/// Run the tool `name` with `arguments`.
-fn dispatch(state: &mut McpState, name: &str, arguments: Value) -> ToolOutcome {
-    match name {
-        // Core tools
-        "specforge.query" => query::call(state, arguments),
-        "specforge.validate" => validate::call(state, arguments),
-        "specforge.export" => export::call(state, arguments),
-        "specforge.trace" => trace::call(state, arguments),
-        "specforge.search" => search::call(state, arguments),
-        "specforge.schema" => schema::call(state, arguments),
-        "specforge.model" => model::call(state, arguments),
-        "specforge.coverage" => coverage::call(state, arguments),
-        "specforge.analyze" => analyze::call(state, arguments),
-        "specforge.stats" => stats::call(state, arguments),
-        // Navigation tools
-        "specforge.list" => list::call(state, arguments),
-        "specforge.inspect" => inspect::call(state, arguments),
-        "specforge.find_definition" => find_definition::call(state, arguments),
-        "specforge.find_references" => find_references::call(state, arguments),
-        "specforge.outline" => outline::call(state, arguments),
-        "specforge.outline_extensions" => outline_extensions::call(state, arguments),
-        "specforge.suggest_fixes" => suggest_fixes::call(state, arguments),
-        // Inference tools
-        "specforge.infer_progress" => infer_progress::call(state, arguments),
-        "specforge.infer_session" => infer_session::call(state, arguments),
-        "specforge.infer_gaps" => infer_gaps::call(state, arguments),
-        // Source anchoring tools
-        "specforge.find_implementation" => find_implementation::call(state, arguments),
-        "specforge.find_spec_for_source" => find_spec_for_source::call(state, arguments),
-        // Operations
-        "specforge.format"
-        | "specforge.rename"
-        | "specforge.init"
-        | "specforge.add_extension"
-        | "specforge.remove_extension"
-        | "specforge.migrate"
-        | "specforge.extensions"
-        | "specforge.providers"
-        | "specforge.doctor"
-        | "specforge.collect"
-        | "specforge.render" => crate::operations::handle_operation(state, name, arguments, None),
-        _ => extension_tool(state, name, arguments),
-    }
 }
 
 /// A registered extension tool from surface contributions, run through the
