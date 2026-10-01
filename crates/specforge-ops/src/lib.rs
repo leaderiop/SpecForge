@@ -8,6 +8,7 @@
 //! Operations never write to stdout: the MCP server owns it (it is the
 //! JSON-RPC stream). The crate denies `clippy::print_stdout`.
 
+pub mod analyze;
 pub mod config;
 /// `specforge doctor` and the MCP `specforge.doctor` tool: one report,
 /// built from a compile's manifests and diagnostics (it lives in the
