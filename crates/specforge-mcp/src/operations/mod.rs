@@ -83,17 +83,24 @@ fn err_op(error: specforge_ops::OpError) -> ToolOutcome {
 
 /// The session's graph exported through the shared operation, with the
 /// schema its extensions produce: the one export behind `specforge.export`,
-/// `specforge.render` and `specforge://graph` (ADR 0004 D3-a).
+/// `specforge.render` and `specforge://graph` (ADR 0004 D3-a). The schema
+/// carries the version `specforge export` would give it, computed against
+/// the project's `.specforge/schema-cache.json`; the server only reads the
+/// cache, as `specforge schema` does, so the next CLI export still sees
+/// what changed.
 pub(crate) fn export_graph(
     state: &McpState,
     request: &specforge_ops::export::Request,
 ) -> Result<String, specforge_ops::OpError> {
-    let schema = specforge_emitter::generate_schema(
+    let mut schema = specforge_emitter::generate_schema(
         &state.kind_registry,
         &state.edge_registry,
         &state.field_registry,
         &state.extension_info,
     );
+    if let Some(root) = &state.project_root {
+        specforge_emitter::attach_schema_version(&mut schema, &root.join(".specforge"));
+    }
     let project = specforge_ops::export::Project {
         graph: &state.graph,
         kinds: &state.kind_registry,
@@ -363,7 +370,7 @@ pub struct AddArgs {
 }
 
 fn add_extension_op(state: &McpState, args: AddArgs) -> ToolOutcome {
-    use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
+    use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Source, Trust};
 
     let specifier = args.specifier.clone();
     let allow_unsigned = args.allow_unsigned.unwrap_or(false);
@@ -377,6 +384,13 @@ fn add_extension_op(state: &McpState, args: AddArgs) -> ToolOutcome {
         Err(error) => return err_op(error),
     };
 
+    let registry = specforge_ops::registry::HttpRegistry::for_project(&root, "add_extension");
+    // What reading the registry configuration reported (E067, W140,
+    // I003), as `specforge add` shows it: only a registry package reads it.
+    let reported = match &source {
+        Source::Registry { .. } => registry.diagnostics().to_vec(),
+        _ => Vec::new(),
+    };
     // The shared operation `specforge add` runs. An agent can't be asked,
     // so a publisher key change is refused rather than re-pinned.
     let request = AddRequest {
@@ -386,12 +400,11 @@ fn add_extension_op(state: &McpState, args: AddArgs) -> ToolOutcome {
         trust: Trust::Refuse,
         dry_run,
     };
-    let registry = specforge_ops::registry::HttpRegistry::for_project(&root, "add_extension");
     let source_of = |origin: &Origin| match origin {
         Origin::Builtin => "builtin".to_string(),
         Origin::Installed { source } => source.clone(),
     };
-    match extension::add(&request, &registry) {
+    let outcome = match extension::add(&request, &registry) {
         Ok(AddOutcome::Builtin {
             name,
             changed,
@@ -439,7 +452,8 @@ fn add_extension_op(state: &McpState, args: AddArgs) -> ToolOutcome {
             "source": source_of(&origin),
         })),
         Err(error) => err_op(error),
-    }
+    };
+    outcome.with_diagnostics(reported)
 }
 
 #[derive(Debug, Deserialize)]

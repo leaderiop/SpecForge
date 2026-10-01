@@ -213,6 +213,7 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
     no one can be asked).
   """
   verify unit "with no registry configured, add_extension makes no network call and reports how to configure one"
+  verify unit "add_extension of a registry package reports what reading the registry configuration found"
   verify unit "specforge.add_extension adds extension to config"
   verify unit "already-installed extension returns info without modifying config"
   verify unit "wasm module downloaded for remote extensions"

@@ -676,6 +676,47 @@ fn mcp_graph_export_is_the_cli_export() {
 
 #[specforge_test_macros::test(
     behavior = "provide_mcp_export_tool",
+    verify = "the embedded schema carries the version specforge export computes against the schema cache, which the tool leaves as it is"
+)]
+fn mcp_export_carries_the_schema_version_the_cli_computes() {
+    let dir = tempfile::tempdir().unwrap();
+    project(dir.path());
+    // A CLI export caches its schema. Make the cache an older 1.2.3 that
+    // also had a kind the project no longer has: a breaking change since.
+    cli_export(dir.path(), &["--format", "graph"]);
+    let cache_path = dir.path().join(".specforge/schema-cache.json");
+    let mut cache: Value =
+        serde_json::from_str(&std::fs::read_to_string(&cache_path).unwrap()).unwrap();
+    cache["schema"]["schema_version"] = json!({"major": 1, "minor": 2, "patch": 3});
+    cache["schema"]["entity_kinds"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"name": "legacy", "source_extension": "x", "testable": false, "fields": []}));
+    std::fs::write(&cache_path, cache.to_string()).unwrap();
+
+    let mcp = mcp_export(dir.path(), json!({"format": "graph"}));
+    assert_eq!(
+        mcp["schema"]["schema_version"],
+        json!({"major": 2, "minor": 0, "patch": 0}),
+        "{}",
+        mcp["schema"]["schema_version"]
+    );
+    assert_eq!(mcp["schema_version"], "2.0.0", "the envelope names it too");
+    assert_eq!(
+        std::fs::read_to_string(&cache_path).unwrap(),
+        cache.to_string(),
+        "the MCP export only reads the cache"
+    );
+    // The CLI export, which does write the cache, embeds the same version.
+    let cli = cli_export(dir.path(), &["--format", "graph"]);
+    assert_eq!(
+        cli["schema"]["schema_version"],
+        mcp["schema"]["schema_version"]
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_mcp_export_tool",
     verify = "with_schema embeds the schema in a context, brief or budgeted export, and no_schema leaves it out of a graph export"
 )]
 fn mcp_export_schema_flags_are_the_cli_flags() {

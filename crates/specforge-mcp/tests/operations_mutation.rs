@@ -1629,3 +1629,50 @@ fn migrate_reports_hooks_structure_and_rollback() {
             .starts_with("// specforge-format: 1.0")
     );
 }
+
+/// A project whose two registries share the alias `main`; nothing listens
+/// at their URL, so a registry install fails at once.
+fn project_with_duplicate_registry_alias() -> tempfile::TempDir {
+    let dir = tempfile::TempDir::new().unwrap();
+    let url = "http://127.0.0.1:9/v1";
+    let config = json!({
+        "name": "t", "version": "0.1.0", "extensions": [],
+        "registries": [
+            {"alias": "main", "url": url, "default_registry": true},
+            {"alias": "main", "url": url},
+        ],
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    dir
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_add_extension_tool",
+    verify = "add_extension of a registry package reports what reading the registry configuration found"
+)]
+fn add_extension_from_a_registry_reports_a_duplicate_registry_alias() {
+    let dir = project_with_duplicate_registry_alias();
+    let mut server = test_server();
+    let path = dir.path().to_str().unwrap();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": "@acme/widget@1.0.0", "path": path}),
+    );
+    let codes: Vec<&str> = resp["result"]["_meta"]["diagnostics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no _meta.diagnostics: {resp}"))
+        .iter()
+        .filter_map(|d| d["code"].as_str())
+        .collect();
+    assert!(codes.contains(&"W140"), "{resp}");
+
+    // A builtin never reads the registries, so it reports none of it.
+    let builtin = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": "@specforge/software", "path": path, "dry_run": true}),
+    );
+    assert!(builtin["result"]["_meta"].is_null(), "{builtin}");
+}

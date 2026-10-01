@@ -165,6 +165,9 @@ pub struct McpError {
     pub argument: Option<String>,
     pub diagnostic: Option<Value>,
     pub data: Option<Value>,
+    /// Other diagnostics the call reported on its way to failing; they
+    /// ride in `_meta.diagnostics`, as a successful call's do.
+    pub reported: Vec<Diagnostic>,
 }
 
 impl McpError {
@@ -177,6 +180,7 @@ impl McpError {
             argument: None,
             diagnostic: None,
             data: None,
+            reported: Vec::new(),
         }
     }
 
@@ -329,8 +333,9 @@ impl ToolOutcome {
 
     /// The same outcome with `extra` added to its `_meta.diagnostics`.
     pub fn with_diagnostics(mut self, extra: Vec<Diagnostic>) -> Self {
-        if let ToolOutcome::Done { diagnostics, .. } = &mut self {
-            diagnostics.extend(extra);
+        match &mut self {
+            ToolOutcome::Done { diagnostics, .. } => diagnostics.extend(extra),
+            ToolOutcome::Refused(error) => error.reported.extend(extra),
         }
         self
     }
@@ -398,7 +403,10 @@ impl From<McpError> for ToolOutcome {
 /// `structuredContent`, beside the text block holding its JSON.
 pub fn envelope(outcome: ToolOutcome, id: Option<Value>, structured: bool) -> JsonRpcResponse {
     let (payload, is_error, diagnostics) = match outcome {
-        ToolOutcome::Refused(error) => (Payload::Json(error.to_json()), true, Vec::new()),
+        ToolOutcome::Refused(error) => {
+            let json = error.to_json();
+            (Payload::Json(json), true, error.reported)
+        }
         ToolOutcome::Done {
             payload,
             is_error,

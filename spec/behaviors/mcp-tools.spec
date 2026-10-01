@@ -146,7 +146,9 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
     policy: a full graph export is Graph Protocol 2.0 with the schema
     embedded, a scoped one carries a schema_ref, and context, brief and a
     budgeted export leave the schema out unless with_schema is true;
-    no_schema leaves it out of a graph export (format 1.0).
+    no_schema leaves it out of a graph export (format 1.0). The embedded
+    schema carries the version specforge export computes against the
+    project's schema cache; the tool only reads the cache.
   """
   verify unit "specforge.export tool returns graph in requested format"
   verify unit "scope parameter restricts to subgraph"
@@ -156,6 +158,7 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
   verify unit "unknown format returns error"
   verify integration "the graph export is the document specforge export --format graph writes, Graph Protocol 2.0 with the schema embedded"
   verify integration "with_schema embeds the schema in a context, brief or budgeted export, and no_schema leaves it out of a graph export"
+  verify integration "the embedded schema carries the version specforge export computes against the schema cache, which the tool leaves as it is"
 }
 
 behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
