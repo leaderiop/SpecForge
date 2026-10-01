@@ -21,3 +21,6 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   independent of surface. The CLI and MCP are adapters over it (`specforge-ops`).
 - **Tool spec**: the single definition of an MCP tool, from which its descriptor, typed arguments,
   output schema, annotations, mutation event and reply are derived (`specforge_mcp`'s `ToolSpec` table).
+- **Stateless request**: an MCP request whose `_meta` names its protocol version (MCP 2026-07-28),
+  answered on its own without `initialize`; every other request follows the revision `initialize`
+  negotiated (`specforge_mcp::modern`).

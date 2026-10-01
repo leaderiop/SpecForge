@@ -1,6 +1,6 @@
 # Model Context Protocol (MCP) - Comprehensive Specification Summary
 
-**Protocol Version:** 2025-03-26. Later revisions: 2025-06-18 (removed JSON-RPC batching, added `structuredContent`) and 2025-11-25. The SpecForge server negotiates all three (ADR 0004, D4-c).
+**Protocol Version:** 2025-03-26. Later revisions: 2025-06-18 (removed JSON-RPC batching, added `structuredContent`), 2025-11-25, and 2026-07-28 (stateless: no `initialize`, the version in each request's `_meta`, `server/discover`, `subscriptions/listen`). The SpecForge server negotiates the first three through `initialize` and serves 2026-07-28 requests beside them (ADR 0004, D4-c). This summary describes 2025-03-26.
 **Source:** https://modelcontextprotocol.io/specification
 
 ## Executive Summary
@@ -1263,7 +1263,7 @@ For resources specifically:
 
 ## 17. Version History
 
-**Current:** 2025-03-26 (as of 2025-11-25)
+**Described here:** 2025-03-26. Later: 2025-06-18, 2025-11-25, 2026-07-28 (see the note at the top).
 
 **Versioning:** `YYYY-MM-DD` format (date of last backwards-incompatible change)
 

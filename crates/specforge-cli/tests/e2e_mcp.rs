@@ -2922,3 +2922,60 @@ fn mcp_stdio_client_receives_graph_notification() {
     let added = notification["params"]["added_nodes"].as_array().unwrap();
     assert!(added.iter().any(|n| n == "added"), "{notification}");
 }
+
+/// A stateless (MCP 2026-07-28) client over stdio: no initialize, the
+/// revision in each request's _meta.
+#[test]
+fn mcp_stateless_client_needs_no_initialize() {
+    let dir = basic_project_with_extensions();
+    let meta = serde_json::json!({
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities": {}
+    });
+    let responses = mcp_raw_session_in(
+        &dir,
+        &[
+            mcp_request(1, "server/discover", serde_json::json!({ "_meta": meta })),
+            mcp_request(
+                2,
+                "tools/call",
+                serde_json::json!({
+                    "_meta": meta,
+                    "name": "specforge.query",
+                    "arguments": { "entity_id": "alpha" }
+                }),
+            ),
+            mcp_request(
+                3,
+                "subscriptions/listen",
+                serde_json::json!({
+                    "_meta": meta,
+                    "notifications": { "resourceSubscriptions": ["specforge://graph"] }
+                }),
+            ),
+        ],
+    );
+
+    let discover = find_response(&responses, 1).expect("discover reply");
+    assert_eq!(
+        discover["result"]["supportedVersions"],
+        serde_json::json!(["2026-07-28"]),
+        "{discover}"
+    );
+    let query = find_response(&responses, 2).expect("query reply");
+    assert_eq!(query["result"]["resultType"], "complete", "{query}");
+    assert_eq!(
+        query["result"]["structuredContent"]["nodes"][0]["id"], "alpha",
+        "{query}"
+    );
+    // The listen stream is acknowledged; its request gets no response
+    // while it is open, and the connection's end closes it.
+    assert!(find_response(&responses, 3).is_none(), "{responses:?}");
+    assert!(
+        responses.iter().any(
+            |r| r["method"] == "notifications/subscriptions/acknowledged"
+                && r["params"]["_meta"]["io.modelcontextprotocol/subscriptionId"] == 3
+        ),
+        "{responses:?}"
+    );
+}

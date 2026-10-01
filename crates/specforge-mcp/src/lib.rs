@@ -1,6 +1,7 @@
 pub mod args;
 pub mod json_schema;
 pub mod lifecycle;
+pub mod modern;
 pub mod notifications;
 pub mod operations;
 pub mod prompts;
@@ -120,22 +121,37 @@ impl McpServer {
         // and the server keeps serving (ADR 0004 D4-a). The reply names no
         // panic message, path or backtrace.
         let id = request.id.clone();
+        // A request whose _meta names a revision is served on its own
+        // (MCP 2026-07-28); the rest follow what initialize negotiated.
+        let modern = modern::is_modern(&request.method, &request.params);
         let response = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            route(&mut self.state, &request.method, request.params, request.id)
+            if modern {
+                modern::handle(&mut self.state, &request.method, request.params, request.id)
+            } else {
+                Some(route(
+                    &mut self.state,
+                    &request.method,
+                    request.params,
+                    request.id,
+                ))
+            }
         }))
         .unwrap_or_else(|_| {
-            JsonRpcResponse::error(
+            self.state.request_revision = None;
+            Some(JsonRpcResponse::error(
                 id,
                 protocol::error_codes::INTERNAL_ERROR,
                 "Internal error: the request failed unexpectedly",
-            )
+            ))
         });
-        self.report_protocol_error(&response, Some(&method));
+        if let Some(response) = &response {
+            self.report_protocol_error(response, Some(&method));
+        }
 
         if is_notification {
             return None;
         }
-        Some(response)
+        response
     }
 
     /// Record `mcp_protocol_error_handled` when `response` is an error.
@@ -167,6 +183,11 @@ impl McpServer {
     /// this when a connection closes (stdio: at end of input).
     pub fn disconnect(&mut self, client_id: &str) {
         subscriptions::unsubscribe_all(&mut self.state, client_id);
+        // The connection's subscriptions/listen streams end with it.
+        let listens: Vec<Value> = self.state.listens.iter().map(|l| l.id.clone()).collect();
+        for id in listens {
+            modern::end_listen(&mut self.state, &id);
+        }
     }
 
     pub fn state_mut(&mut self) -> &mut McpState {

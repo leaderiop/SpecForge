@@ -11,7 +11,10 @@ use crate::types::{
     McpToolCapability,
 };
 
-/// The protocol revisions the server speaks, latest first.
+/// The stateless revisions the server speaks, latest first: a request
+/// names one in its `_meta` and needs no `initialize` (MCP 2026-07-28).
+pub const MODERN_PROTOCOL_VERSIONS: [&str; 1] = ["2026-07-28"];
+/// The handshake revisions the server speaks, latest first.
 pub const PROTOCOL_VERSIONS: [&str; 3] = ["2025-11-25", "2025-06-18", "2025-03-26"];
 /// The revision the server answers a client it can't match with.
 pub const LATEST_PROTOCOL_VERSION: &str = PROTOCOL_VERSIONS[0];
@@ -57,41 +60,15 @@ pub fn handle_initialize(
         .map(PathBuf::from)
         .or_else(|| state.default_project_root.clone());
 
-    // Compile and serve the project when there is one: its registries,
-    // and the core tools, resources and prompts plus what its extensions
-    // contribute. Subscribed clients learn what it changed (C9-01).
-    match &project_root {
-        Some(root) if root.exists() => state.recompile(root),
-        _ => {
-            register_defaults(state);
-            if let Some(root) = &project_root {
-                state.project_config = load_project_config(root);
-            }
-        }
-    }
-    state.project_root = project_root;
+    serve_project(state, project_root);
     state.phase = ServerPhase::Initialized;
     state.protocol_version =
         negotiate_protocol_version(params.get("protocolVersion").and_then(Value::as_str));
 
     let capabilities = McpCapabilities {
         protocol_version: state.protocol_version.into(),
-        capabilities: McpCapabilityFlags {
-            tools: McpToolCapability {
-                list_changed: false,
-            },
-            resources: McpResourceCapability {
-                subscribe: true,
-                list_changed: false,
-            },
-            prompts: McpPromptCapability {
-                list_changed: false,
-            },
-        },
-        server_info: McpServerInfo {
-            name: "specforge-mcp".into(),
-            version: env!("CARGO_PKG_VERSION").into(),
-        },
+        capabilities: capability_flags(),
+        server_info: server_info(),
         tools: state.tool_registry.clone(),
         resources: state.resource_registry.clone(),
         prompts: state.prompt_registry.clone(),
@@ -125,6 +102,63 @@ pub fn handle_initialize(
     JsonRpcResponse::success(id, value)
 }
 
+/// Compile and serve the project at `project_root` when there is one: its
+/// registries, and the core tools, resources and prompts plus what its
+/// extensions contribute; the core surface alone otherwise. Subscribed
+/// clients learn what it changed (C9-01).
+pub fn serve_project(state: &mut McpState, project_root: Option<PathBuf>) {
+    match &project_root {
+        Some(root) if root.exists() => state.recompile(root),
+        _ => {
+            register_defaults(state);
+            if let Some(root) = &project_root {
+                state.project_config = load_project_config(root);
+            }
+        }
+    }
+    state.project_root = project_root;
+    state.served = true;
+}
+
+/// The capabilities the server offers, in either era.
+fn capability_flags() -> McpCapabilityFlags {
+    McpCapabilityFlags {
+        tools: McpToolCapability {
+            list_changed: false,
+        },
+        resources: McpResourceCapability {
+            subscribe: true,
+            list_changed: false,
+        },
+        prompts: McpPromptCapability {
+            list_changed: false,
+        },
+    }
+}
+
+/// The server's name and version, as `serverInfo` gives them.
+pub fn server_info() -> McpServerInfo {
+    McpServerInfo {
+        name: "specforge-mcp".into(),
+        version: env!("CARGO_PKG_VERSION").into(),
+    }
+}
+
+/// `server/discover` (MCP 2026-07-28): the stateless revisions the server
+/// speaks and its capabilities, answered with or without `initialize`. The
+/// handshake revisions are not listed: a client reaches them through
+/// `initialize`, never through per-request `_meta`.
+pub fn handle_discover(id: Option<Value>) -> JsonRpcResponse {
+    JsonRpcResponse::success(
+        id,
+        serde_json::json!({
+            "supportedVersions": MODERN_PROTOCOL_VERSIONS,
+            "capabilities": capability_flags(),
+            "instructions": "SpecForge compiles .spec files into a graph of entities. Query it with specforge.query, specforge.search and specforge.inspect; check it with specforge.validate.",
+        }),
+    )
+}
+
 pub fn handle_shutdown(state: &mut McpState, id: Option<Value>) -> JsonRpcResponse {
     if state.phase == ServerPhase::ShuttingDown {
         return JsonRpcResponse::error(
@@ -151,6 +185,10 @@ pub fn handle_shutdown(state: &mut McpState, id: Option<Value>) -> JsonRpcRespon
 }
 
 pub fn handle_cancel(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
+    // Cancelling a subscriptions/listen request ends its stream.
+    if let Some(listened) = params.get("requestId") {
+        crate::modern::end_listen(state, listened);
+    }
     // JSON-RPC ids are strings or numbers; the event names either as a string.
     let request_id = match params.get("requestId").or_else(|| params.get("id")) {
         Some(Value::String(s)) => s.clone(),

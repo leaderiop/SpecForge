@@ -560,6 +560,81 @@ behavior follow_negotiated_mcp_revision "Follow the Negotiated MCP Revision" {
   verify unit "a 2025-03-26 session is listed no outputSchema"
 }
 
+behavior serve_stateless_mcp_requests "Serve Stateless MCP Requests" {
+  features   [mcp_protocol_compliance]
+  invariants [mcp_structured_error_responses]
+  category   command
+  types      [McpCapabilities]
+  ports      [McpProtocol, CompilerApi]
+  produces   [mcp_protocol_error_handled]
+  requires {
+    version_in_meta "The request names a protocol version and the client's capabilities in its _meta"
+  }
+  ensures {
+    served_without_handshake "The request is answered without initialize, under the revision its _meta names"
+    result_typed             "The result carries resultType, the server in _meta, and caching hints on a list or a read"
+  }
+  contract   """
+    Beside the handshake revisions, the server MUST speak MCP 2026-07-28,
+    the stateless revision. A request whose _meta names a protocol version
+    is served on its own: no initialize before it, and nothing a prior
+    request said changes its answer; a request without that _meta follows
+    the revision initialize negotiated. server/discover MUST be answered
+    with or without initialize, listing the stateless revisions the server
+    speaks and its capabilities. A stateless request missing the version or
+    the client capabilities is malformed (-32602); one naming a version the
+    server does not speak gets -32022 whose data lists the supported
+    versions and the requested one. Every stateless result carries
+    resultType "complete" and the server's name and version in _meta; the
+    results of server/discover, the lists and resources/read also carry
+    ttlMs and cacheScope. ping, logging/setLevel and resources/subscribe
+    are not methods of the revision (-32601).
+  """
+  verify unit "server/discover is answered without initialize and lists 2026-07-28"
+  verify unit "a request with a protocol version in its _meta is served without initialize"
+  verify unit "a stateless result carries resultType complete and the server info"
+  verify unit "list and read results carry ttlMs and cacheScope"
+  verify unit "a stateless request without the client capabilities is -32602"
+  verify unit "an unsupported protocol version is -32022 naming the supported versions"
+  verify unit "ping and resources/subscribe are not stateless methods"
+  verify unit "a stateless request after initialize is served under its own revision"
+}
+
+behavior listen_for_mcp_resource_updates "Listen for MCP Resource Updates" {
+  features   [mcp_protocol_compliance]
+  invariants [mcp_structured_error_responses]
+  category   command
+  types      [McpResourceDescriptor]
+  ports      [McpProtocol, CompilerApi]
+  produces   [mcp_subscription_created, mcp_subscription_removed]
+  requires {
+    listen_requested "A stateless subscriptions/listen request names the resources to hear about"
+  }
+  ensures {
+    acknowledged_first "notifications/subscriptions/acknowledged, naming the honoured subset, precedes every notification on the stream"
+    updates_tagged     "A recompile that changes a listened resource sends notifications/resources/updated carrying the listen request's id"
+  }
+  contract   """
+    subscriptions/listen (MCP 2026-07-28) MUST open a stream on which the
+    server tells the client when the resources it names change. The server
+    honours resource subscriptions to resources it serves and no
+    list-changed types; it MUST first send
+    notifications/subscriptions/acknowledged naming the honoured subset,
+    with the listen request's id as _meta
+    io.modelcontextprotocol/subscriptionId. After a recompile that changes
+    a listened resource (the graph's views when the graph changed,
+    specforge://diagnostics when the diagnostics did), it sends
+    notifications/resources/updated for it with the same id. It MUST NOT
+    send on the stream any notification type the client did not ask for.
+    notifications/cancelled naming the listen request ends the stream, and
+    so does the end of the connection; no response is sent for it.
+  """
+  verify unit "subscriptions/listen is acknowledged first with the resources honoured"
+  verify unit "a recompile that changes a listened resource sends resources/updated with the subscription id"
+  verify unit "a listen stream receives no notification type it did not ask for"
+  verify unit "cancelling the listen request ends the stream"
+}
+
 behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
   invariants [mcp_structured_error_responses]
   category   command

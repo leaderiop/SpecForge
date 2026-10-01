@@ -79,6 +79,14 @@ Changed answers are marked *(amended)*.
 - **D4-c** *(new)* The server **negotiates** protocol versions 2025-11-25, 2025-06-18 and 2025-03-26,
   accepts JSON-RPC batches from 2025-03-26 clients, and returns `structuredContent` alongside the text
   block. Per-tool output schemas follow the typed tool table; the stateless 2026-07-28 revision later.
+  *(2026-10-01)* The stateless revision is served too, dual-era: a request whose `_meta` names
+  `io.modelcontextprotocol/protocolVersion` is answered on its own, with or without `initialize`
+  (`specforge_mcp::modern`); every other request follows the negotiated handshake revision.
+  `server/discover` lists only `2026-07-28` (the handshake revisions are reached through
+  `initialize`). Cacheable results carry `ttlMs: 0` and `cacheScope: "private"`: they describe the
+  project on disk, which any request may recompile. `subscriptions/listen` honours resource
+  subscriptions and sends `notifications/resources/updated`; the server offers no list-changed
+  notifications, and the handshake era's `specforge/graphChanged` never goes on a listen stream.
 
 ## Registry build (plan 05)
 

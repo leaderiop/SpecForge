@@ -18,6 +18,15 @@ pub struct McpState {
     /// The protocol revision `initialize` negotiated (the latest one the
     /// server speaks until then).
     pub protocol_version: &'static str,
+    /// The revision the request being handled names in its `_meta`: set
+    /// for the length of a stateless (2026-07-28) request, which is served
+    /// under its own revision whatever `initialize` negotiated.
+    pub request_revision: Option<&'static str>,
+    /// Whether a project (or the empty default surface) is being served:
+    /// set by `initialize`, or by the first stateless request.
+    pub served: bool,
+    /// Open `subscriptions/listen` streams, by their request id.
+    pub listens: Vec<Listen>,
     pub graph: Graph,
     pub diagnostics: Vec<Diagnostic>,
     pub project_root: Option<PathBuf>,
@@ -94,6 +103,15 @@ impl McpState {
     }
 }
 
+/// One `subscriptions/listen` stream (MCP 2026-07-28): the resources it
+/// asked to hear about, and the listen request's id every notification on
+/// it carries as `io.modelcontextprotocol/subscriptionId`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Listen {
+    pub id: serde_json::Value,
+    pub uris: Vec<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct Subscription {
     pub client_id: String,
@@ -111,6 +129,9 @@ impl McpState {
         Self {
             phase: ServerPhase::Uninitialized,
             protocol_version: crate::lifecycle::LATEST_PROTOCOL_VERSION,
+            request_revision: None,
+            served: false,
+            listens: Vec::new(),
             graph: Graph::new(),
             diagnostics: Vec::new(),
             project_root: None,
@@ -181,20 +202,29 @@ impl McpState {
         self.compile_project(root).into_context()
     }
 
+    /// Whether requests are served: after `initialize`, or for a stateless
+    /// request, which needs no handshake.
     pub fn is_initialized(&self) -> bool {
         self.phase == ServerPhase::Initialized
+            || (self.request_revision.is_some() && self.phase != ServerPhase::ShuttingDown)
+    }
+
+    /// The revision the current request is served under: its own, for a
+    /// stateless request, else the one `initialize` negotiated.
+    pub fn revision(&self) -> &'static str {
+        self.request_revision.unwrap_or(self.protocol_version)
     }
 
     /// Whether the session accepts JSON-RPC batches: only a 2025-03-26
     /// session does, since later revisions removed batching.
     pub fn accepts_batches(&self) -> bool {
-        self.is_initialized()
+        self.phase == ServerPhase::Initialized
             && self.protocol_version == crate::lifecycle::BATCHING_PROTOCOL_VERSION
     }
 
     /// Whether tool results carry `structuredContent` (2025-06-18 on).
     pub fn sends_structured_content(&self) -> bool {
-        self.protocol_version >= crate::lifecycle::STRUCTURED_CONTENT_PROTOCOL_VERSION
+        self.revision() >= crate::lifecycle::STRUCTURED_CONTENT_PROTOCOL_VERSION
     }
 
     /// Record an event. Object payloads without a `timestamp` get one (RFC
@@ -291,6 +321,7 @@ impl McpState {
             crate::subscriptions::unsubscribe_all(self, &client);
         }
         self.subscriptions.clear();
+        self.listens.clear();
         // The outbox stays: the host drains it after the shutdown response.
         self.previous_diagnostics = std::mem::take(&mut self.diagnostics);
         self.graph = Graph::new();

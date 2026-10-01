@@ -195,6 +195,18 @@ fn read(state: &McpState, uri: &str) -> ReadOutcome {
     Err(invalid_params(format!("Unknown resource URI: {uri}")))
 }
 
+/// Whether `uri` names a resource the server serves: a core one, or one an
+/// enabled extension contributes.
+pub(crate) fn is_served(state: &McpState, uri: &str) -> bool {
+    CORE_RESOURCES.iter().any(|r| r.matches(uri))
+        || (uri.starts_with("specforge://ext/")
+            && state.surface_entries.iter().any(|e| {
+                e.surface_type == specforge_registry::SurfaceType::McpResource
+                    && e.enabled
+                    && matches_uri_template(&e.contribution_name, uri)
+            }))
+}
+
 /// An extension-contributed resource, read through the Wasm runtime
 /// (WASM-only migration, Phase 4).
 fn extension_resource(state: &McpState, uri: &str) -> ReadOutcome {

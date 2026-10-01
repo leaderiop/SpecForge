@@ -297,6 +297,14 @@ pub fn mcp_session(spec_content: &str, requests: &[String]) -> Vec<serde_json::V
 /// [`mcp_session`] against an existing project, e.g. one made with
 /// [`setup_project_with_config`] to enable extensions.
 pub fn mcp_session_in(dir: &TempDir, requests: &[String]) -> Vec<serde_json::Value> {
+    let mut all = vec![mcp_initialize(0)];
+    all.extend_from_slice(requests);
+    mcp_raw_session_in(dir, &all)
+}
+
+/// `specforge mcp <dir>` fed exactly `requests`, no `initialize` first (a
+/// stateless MCP 2026-07-28 client), and every line it wrote, parsed.
+pub fn mcp_raw_session_in(dir: &TempDir, requests: &[String]) -> Vec<serde_json::Value> {
     let mut child = std::process::Command::new(assert_cmd::cargo_bin!("specforge"))
         .args(["mcp"])
         .arg(dir.path())
@@ -307,7 +315,6 @@ pub fn mcp_session_in(dir: &TempDir, requests: &[String]) -> Vec<serde_json::Val
         .expect("failed to start specforge mcp");
 
     let stdin = child.stdin.as_mut().unwrap();
-    writeln!(stdin, "{}", mcp_initialize(0)).unwrap();
     for req in requests {
         writeln!(stdin, "{}", req).unwrap();
     }

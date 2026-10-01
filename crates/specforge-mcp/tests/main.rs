@@ -14,6 +14,7 @@ mod resources;
 mod revision;
 mod schema_reflection;
 mod served_project;
+mod stateless;
 mod subscriptions;
 mod surface_wiring;
 mod tool_errors;
