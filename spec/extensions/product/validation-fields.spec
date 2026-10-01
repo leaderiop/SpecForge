@@ -288,21 +288,20 @@ behavior validate_journey_flow_non_empty "Validate Journey Flow Non-Empty" {
 }
 
 behavior validate_channel_references "Validate Channel References" {
+  features [pe_validation_suite]
   category validation
   types    [Diagnostic]
   contract """
-    The @specforge/product extension MUST validate that all channel
-    references in entity fields resolve to channel entity kinds declared
-    in the project. References to undeclared channels MUST produce an
-    E009 diagnostic. Valid channel references MUST pass without
-    diagnostics.
+    A channel reference in an entity field MUST resolve to a channel
+    declared in the project. The @specforge/product extension declares
+    channel fields as references, so the core resolves them: a reference
+    to an undeclared channel is an unresolved reference (E003).
   """
   ensures {
-    fires_when_missing "reference to undeclared channel produces E009"
+    fires_when_missing "reference to undeclared channel produces E003"
     suppresses_valid   "reference to declared channel produces no diagnostic"
   }
-  features [pe_validation_suite]
-  verify unit "references to undeclared channels produce E009"
+  verify unit "a reference to an undeclared channel produces E003"
   verify unit "valid channel references pass without diagnostics"
 }
 

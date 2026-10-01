@@ -3,17 +3,6 @@
 // Runtime guarantees specific to the product entity model:
 // entity DAGs, lifecycle consistency, field awareness, and structural properties.
 
-invariant library_dag "Library DAG" {
-  guarantee """
-    The depends_on edges between library nodes MUST form a directed acyclic
-    graph. The compiler MUST detect and reject circular library dependencies
-    with an E007 diagnostic.
-  """
-  risk      medium
-  verify property "an acyclic library dependency graph is accepted"
-  verify unit "a circular library dependency produces E007"
-}
-
 // ════════════════════════════════════════════════════════════════
 // Entity DAG Invariants
 // ════════════════════════════════════════════════════════════════

@@ -174,3 +174,20 @@ behavior se_validate_type_field_annotations "W010: Unknown Field Annotations" {
   verify unit "field with @readonly annotation passes"
   verify unit "field with @unknown annotation produces W010"
 }
+
+behavior se_validate_milestone_behavior_ranges "E010: Invalid Milestone Behavior Range" {
+  features [se_validation_suite]
+  category validation
+  types    [ValidationRulePattern]
+  contract """
+    The @specforge/software extension MUST declare a custom validation
+    rule, run by its Wasm validate__milestone_behavior_ranges function,
+    that checks a milestone's behaviors range: the range must be well
+    formed, its start must not come after its end, and every behavior
+    it expands to must exist. An invalid range MUST produce an E010 error
+    naming the reason.
+  """
+  verify unit "a valid milestone behavior range passes"
+  verify unit "a range whose start comes after its end produces E010"
+  verify unit "a range naming a behavior that does not exist produces E010"
+}
