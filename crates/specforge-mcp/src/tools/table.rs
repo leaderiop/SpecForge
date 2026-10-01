@@ -179,7 +179,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     },
     ToolSpec {
         name: "specforge.schema",
-        description: "Get the graph schema definition",
+        description: "Get the GraphProtocolSchema: entity kinds with their typed fields, edge types and the loaded extensions",
         category: Category::Core,
         access: Access::ReadOnly,
         schema: || {
@@ -187,14 +187,14 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "type": "object",
                 "properties": {
                     "kind": { "type": "string", "description": "Filter schema to a specific entity kind" },
-                    "include_edges": { "type": "boolean", "description": "Include edge labels", "default": true },
+                    "include_edges": { "type": "boolean", "description": "Include edge type definitions", "default": true },
                     "include_validation_rules": { "type": "boolean", "description": "Include the validation rules loaded extensions declare", "default": false }
                 }
             })
         },
         mutation: None,
         output: Some(
-            || json!({ "type": "object", "properties": { "schema_version": { "type": "string" }, "entity_kinds": { "type": "object" }, "edge_labels": { "type": "array" }, "validation_rules": { "type": "array" } }, "required": ["schema_version", "entity_kinds"] }),
+            || json!({ "type": "object", "properties": { "schema_version": { "type": "object" }, "extensions": { "type": "array" }, "entity_kinds": { "type": "array" }, "edge_types": { "type": "array" }, "validation_rules": { "type": "array" } }, "required": ["schema_version", "extensions", "entity_kinds"] }),
         ),
         fields: fields::<schema::Args>,
         call: typed!(schema::call, schema::Args),

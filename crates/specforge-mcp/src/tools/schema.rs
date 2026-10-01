@@ -1,10 +1,10 @@
 use serde::Deserialize;
 use serde_json::Value;
-use std::collections::BTreeMap;
+use specforge_emitter::SchemaEdgeType;
 
 use crate::args::lenient;
 use crate::state::McpState;
-use crate::tool::ToolOutcome;
+use crate::tool::{ErrorCode, ToolOutcome};
 
 #[derive(Debug, Deserialize)]
 pub struct Args {
@@ -16,51 +16,34 @@ pub struct Args {
     include_validation_rules: Option<bool>,
 }
 
+/// `specforge.schema`: the GraphProtocolSchema a full export embeds.
+/// `kind` keeps that kind and the edge types that can start or end at it;
+/// `include_edges: false` drops `edge_types`; `include_validation_rules`
+/// adds the rules the loaded extensions declare.
 pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let kind_filter = args.kind.as_deref();
+    let mut schema = crate::operations::project_schema(state);
 
-    let mut kinds: BTreeMap<String, Vec<String>> = BTreeMap::new();
-    for node in state.graph.nodes() {
-        if let Some(filter) = kind_filter
-            && node.kind.raw != filter
-        {
-            continue;
+    if let Some(kind) = kind_filter {
+        schema.entity_kinds.retain(|entry| entry.name == kind);
+        schema.edge_types.retain(|edge| touches(edge, kind));
+    }
+
+    let mut schema = match serde_json::to_value(&schema) {
+        Ok(value) => value,
+        Err(err) => {
+            return ToolOutcome::error(
+                ErrorCode::InternalError,
+                format!("schema serialization failed: {err}"),
+            );
         }
-        let entry = kinds.entry(node.kind.raw.to_string()).or_default();
-        for field_entry in node.fields.entries() {
-            let key_str = field_entry.key.to_string();
-            if !entry.contains(&key_str) {
-                entry.push(key_str);
-            }
-        }
+    };
+    if !args.include_edges.unwrap_or(true)
+        && let Some(object) = schema.as_object_mut()
+    {
+        object.remove("edge_types");
     }
-
-    // Sort field names within each kind
-    for fields in kinds.values_mut() {
-        fields.sort();
-    }
-
-    let mut edge_labels: Vec<String> = state
-        .graph
-        .edges()
-        .iter()
-        .map(|e| e.label.to_string())
-        .collect::<std::collections::BTreeSet<_>>()
-        .into_iter()
-        .collect();
-    edge_labels.sort();
-
-    let include_edges = args.include_edges.unwrap_or(true);
-    let include_validation_rules = args.include_validation_rules.unwrap_or(false);
-
-    let mut schema = serde_json::json!({
-        "schema_version": specforge_emitter::SCHEMA_VERSION,
-        "entity_kinds": kinds,
-    });
-    if include_edges {
-        schema["edge_labels"] = serde_json::json!(edge_labels);
-    }
-    if include_validation_rules {
+    if args.include_validation_rules.unwrap_or(false) {
         // The rules each loaded extension declares, tagged with its name.
         let rules: Vec<Value> = state
             .manifests
@@ -78,4 +61,12 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     }
 
     ToolOutcome::ok(schema)
+}
+
+/// Whether an edge type can start or end at `kind`. An edge that names no
+/// kinds on a side is open on that side.
+fn touches(edge: &SchemaEdgeType, kind: &str) -> bool {
+    let on =
+        |kinds: &Option<Vec<String>>| kinds.as_ref().is_none_or(|k| k.iter().any(|k| k == kind));
+    on(&edge.source_kinds) || on(&edge.target_kinds)
 }

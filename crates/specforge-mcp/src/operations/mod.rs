@@ -92,6 +92,20 @@ pub(crate) fn export_graph(
     state: &McpState,
     request: &specforge_ops::export::Request,
 ) -> Result<String, specforge_ops::OpError> {
+    let schema = project_schema(state);
+    let project = specforge_ops::export::Project {
+        graph: &state.graph,
+        kinds: &state.kind_registry,
+        fields: &state.field_registry,
+        schema: &schema,
+    };
+    specforge_ops::export::export(&project, request)
+}
+
+/// The GraphProtocolSchema the session's extensions produce, versioned as
+/// `specforge export` would version it: the schema a full export embeds,
+/// and the one `specforge.schema` and `specforge://schema` serve.
+pub(crate) fn project_schema(state: &McpState) -> specforge_emitter::GraphProtocolSchema {
     let mut schema = specforge_emitter::generate_schema(
         &state.kind_registry,
         &state.edge_registry,
@@ -101,13 +115,7 @@ pub(crate) fn export_graph(
     if let Some(root) = &state.project_root {
         specforge_emitter::attach_schema_version(&mut schema, &root.join(".specforge"));
     }
-    let project = specforge_ops::export::Project {
-        graph: &state.graph,
-        kinds: &state.kind_registry,
-        fields: &state.field_registry,
-        schema: &schema,
-    };
-    specforge_ops::export::export(&project, request)
+    schema
 }
 
 // ── format ──────────────────────────────────────────────────────────────────

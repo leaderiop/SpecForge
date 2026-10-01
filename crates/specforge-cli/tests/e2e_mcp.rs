@@ -892,39 +892,52 @@ fn mcp_tool_validate_returns_diagnostics() {
 // tool returns a summary of the graph (each kind with the fields it uses,
 // the edge labels, the graph format's version), not the GraphProtocolSchema
 // `specforge schema` prints. This pins the summary.
+/// BASIC_SPEC in a project that loads the extensions its kinds come from.
+fn basic_project_with_extensions() -> tempfile::TempDir {
+    setup_project_with_config(
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/product"]}"#,
+        &[("main.spec", BASIC_SPEC)],
+    )
+}
+
 #[test]
 fn mcp_tool_schema_returns_entity_kinds() {
-    let responses = mcp_session(
-        BASIC_SPEC,
-        &[mcp_request(
-            1,
-            "tools/call",
-            serde_json::json!({
-                "name": "specforge.schema",
-                "arguments": {}
-            }),
-        )],
+    let dir = basic_project_with_extensions();
+    let responses = mcp_session_in(
+        &dir,
+        &[
+            mcp_request(
+                1,
+                "tools/call",
+                serde_json::json!({ "name": "specforge.schema", "arguments": {} }),
+            ),
+            mcp_request(
+                2,
+                "tools/call",
+                serde_json::json!({ "name": "specforge.export", "arguments": { "format": "graph" } }),
+            ),
+        ],
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    // Every kind in the graph with the fields it uses, and every edge label.
+    // The kinds the two extensions declare, typed, whether or not the
+    // graph uses them.
+    let kinds: Vec<&str> = content["entity_kinds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|k| k["name"].as_str().unwrap())
+        .collect();
+    for kind in ["behavior", "feature", "invariant", "event", "port"] {
+        assert!(kinds.contains(&kind), "{kind} missing from {kinds:?}");
+    }
+    let export = parse_tool_content(find_response(&responses, 2).expect("export response"));
     assert_eq!(
-        content["entity_kinds"],
-        serde_json::json!({
-            "behavior": ["contract"],
-            "feature": ["behaviors", "problem", "solution"],
-            "invariant": ["enforced_by", "guarantee"]
-        }),
-        "{content}"
+        content, export["schema"],
+        "the schema a graph export embeds"
     );
-    assert_eq!(
-        content["edge_labels"],
-        serde_json::json!(["behaviors", "enforced_by"]),
-        "{content}"
-    );
-    assert_eq!(content["schema_version"], "0.1.0", "{content}");
 }
 
 #[specforge_test(
@@ -1499,13 +1512,21 @@ fn mcp_tool_search_references() {
 // tool, not the GraphProtocolSchema. This pins the summary.
 #[test]
 fn mcp_resource_read_schema() {
-    let responses = mcp_session(
-        BASIC_SPEC,
-        &[mcp_request(
-            1,
-            "resources/read",
-            serde_json::json!({ "uri": "specforge://schema" }),
-        )],
+    let dir = basic_project_with_extensions();
+    let responses = mcp_session_in(
+        &dir,
+        &[
+            mcp_request(
+                1,
+                "resources/read",
+                serde_json::json!({ "uri": "specforge://schema" }),
+            ),
+            mcp_request(
+                2,
+                "tools/call",
+                serde_json::json!({ "name": "specforge.schema", "arguments": {} }),
+            ),
+        ],
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
@@ -1515,21 +1536,13 @@ fn mcp_resource_read_schema() {
         "application/json"
     );
     let parsed = resource_json(resp);
-    assert_eq!(parsed["schema_version"], "0.1.0", "{parsed}");
     assert_eq!(
-        parsed["entity_kinds"],
-        serde_json::json!({
-            "behavior": ["contract"],
-            "feature": ["behaviors", "problem", "solution"],
-            "invariant": ["enforced_by", "guarantee"]
-        }),
+        parsed["schema_version"],
+        serde_json::json!({"major": 1, "minor": 0, "patch": 0}),
         "{parsed}"
     );
-    assert_eq!(
-        parsed["edge_labels"],
-        serde_json::json!(["behaviors", "enforced_by"]),
-        "{parsed}"
-    );
+    let tool = parse_tool_content(find_response(&responses, 2).expect("schema tool response"));
+    assert_eq!(parsed, tool, "the resource is the unfiltered tool reply");
 }
 
 #[specforge_test(
@@ -2616,8 +2629,12 @@ fn mcp_tool_coverage_kind_filter() {
     verify = "kind filter restricts schema to single entity kind"
 )]
 fn mcp_tool_schema_kind_filter() {
-    let responses = mcp_session(
-        BASIC_SPEC,
+    let dir = setup_project_with_config(
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software","@specforge/product"]}"#,
+        &[("main.spec", BASIC_SPEC)],
+    );
+    let responses = mcp_session_in(
+        &dir,
         &[mcp_request(
             1,
             "tools/call",
@@ -2631,18 +2648,29 @@ fn mcp_tool_schema_kind_filter() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    let kinds = content["entity_kinds"]
-        .as_object()
-        .expect("should have entity_kinds object");
+    let kinds: Vec<&str> = content["entity_kinds"]
+        .as_array()
+        .expect("should have an entity_kinds list")
+        .iter()
+        .map(|k| k["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(kinds, ["behavior"], "kind=behavior keeps only behavior");
+    // Every edge type left can start or end at a behavior (or is open).
+    for edge in content["edge_types"].as_array().unwrap() {
+        let on = |side: &str| {
+            edge[side]
+                .as_array()
+                .is_none_or(|k| k.iter().any(|k| k == "behavior"))
+        };
+        assert!(on("source_kinds") || on("target_kinds"), "{edge}");
+    }
     assert!(
-        kinds.contains_key("behavior"),
-        "filtered schema should include behavior"
-    );
-    assert_eq!(
-        kinds.len(),
-        1,
-        "kind=behavior filter should return only behavior, got: {:?}",
-        kinds.keys().collect::<Vec<_>>()
+        content["edge_types"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| e["label"] == "BehaviorImplementsFeature"),
+        "{content}"
     );
 }
 

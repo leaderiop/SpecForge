@@ -164,40 +164,70 @@ fn graph_resource_has_mime_type() {
     assert_eq!(alpha["fields"]["contract"], "The system MUST do alpha");
 }
 
-// NOT LINKED to "specforge://schema resource returns GraphProtocolSchema JSON":
-// the resource returns the same graph summary as specforge.schema, not
-// the GraphProtocolSchema. This pins the summary.
-#[test]
-fn schema_resource_returns_kinds() {
+/// A project on disk using `extensions`, compiled into `server` through
+/// `specforge.validate`.
+fn compile_project(server: &mut McpServer, dir: &std::path::Path, extensions: &[&str]) {
+    std::fs::write(
+        dir.join("specforge.json"),
+        json!({"name": "t", "version": "0.1.0", "extensions": extensions}).to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("main.spec"),
+        "behavior act \"Act\" {\n  contract \"MUST act\"\n}\n",
+    )
+    .unwrap();
+    let resp = call(
+        server,
+        "tools/call",
+        json!({"name": "specforge.validate", "arguments": {"path": dir.to_str().unwrap()}}),
+    );
+    assert!(resp["error"].is_null(), "{resp}");
+}
+
+fn kind_names(schema: &Value) -> Vec<&str> {
+    schema["entity_kinds"]
+        .as_array()
+        .unwrap_or_else(|| panic!("entity_kinds is not a list: {schema}"))
+        .iter()
+        .map(|k| k["name"].as_str().unwrap())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "expose_schema_as_mcp_resource",
+    verify = "specforge://schema resource returns GraphProtocolSchema JSON"
+)]
+fn schema_resource_returns_the_graph_protocol_schema() {
+    let dir = tempfile::tempdir().unwrap();
     let mut server = test_server();
-    let resp = read_resource(&mut server, "specforge://schema");
-    let text = resource_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // Schema resource must derive entity kinds from the graph (not from registries)
-    let entity_kinds = &parsed["entity_kinds"];
-    assert!(
-        entity_kinds.is_object(),
-        "entity_kinds should be an object mapping kind->fields, got: {}",
-        entity_kinds
+    compile_project(&mut server, dir.path(), &["@specforge/software"]);
+
+    let schema: Value = serde_json::from_str(&resource_text(&read_resource(
+        &mut server,
+        "specforge://schema",
+    )))
+    .unwrap();
+    assert_eq!(
+        schema["schema_version"],
+        json!({"major": 1, "minor": 0, "patch": 0})
     );
-    // test_server has behavior and feature nodes
-    let kinds_obj = entity_kinds.as_object().unwrap();
-    assert!(
-        kinds_obj.contains_key("behavior"),
-        "schema should include 'behavior' kind from graph nodes"
+    assert_eq!(
+        schema["extensions"],
+        json!([{"name": "@specforge/software", "version": "1.0.0"}])
     );
-    assert!(
-        kinds_obj.contains_key("feature"),
-        "schema should include 'feature' kind from graph nodes"
+    assert_eq!(
+        kind_names(&schema),
+        ["behavior", "event", "invariant", "port", "type"]
     );
-    assert!(
-        parsed["schema_version"].is_string(),
-        "schema_version should be a string like '0.1.0'"
-    );
-    assert!(
-        parsed["edge_labels"].is_array(),
-        "should have edge_labels array"
-    );
+    let consumes = schema["edge_types"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["label"] == "BehaviorConsumesEvent")
+        .unwrap_or_else(|| panic!("no BehaviorConsumesEvent in {schema}"));
+    assert_eq!(consumes["source_kinds"], json!(["behavior"]));
+    assert_eq!(consumes["target_kinds"], json!(["event"]));
 }
 
 // B:expose_context_as_mcp_resource — verify unit "returns context-optimized graph"
@@ -431,40 +461,35 @@ fn graph_refreshes_after_recompilation() {
     assert_eq!(count2, count1 + 1);
 }
 
-#[test]
-fn schema_updates_when_graph_changes() {
+#[specforge_test(
+    behavior = "expose_schema_as_mcp_resource",
+    verify = "schema updates when extensions change"
+)]
+fn schema_updates_when_extensions_change() {
+    let dir = tempfile::tempdir().unwrap();
     let mut server = test_server();
-    let resp1 = read_resource(&mut server, "specforge://schema");
-    let text1 = resource_text(&resp1);
-    let parsed1: Value = serde_json::from_str(&text1).unwrap();
+    compile_project(&mut server, dir.path(), &["@specforge/software"]);
+    let read = |server: &mut McpServer| -> Value {
+        serde_json::from_str(&resource_text(&read_resource(server, "specforge://schema"))).unwrap()
+    };
+    let before = read(&mut server);
+    assert!(!kind_names(&before).contains(&"feature"), "{before}");
 
-    // Schema is derived from graph — should have entity_kinds from current nodes
-    let kinds1 = parsed1["entity_kinds"].as_object().unwrap();
-    assert!(
-        !kinds1.contains_key("event"),
-        "initially no event kind in graph"
+    // Adding @specforge/product brings its kinds and its extension entry.
+    compile_project(
+        &mut server,
+        dir.path(),
+        &["@specforge/software", "@specforge/product"],
     );
-
-    // Add a new kind to the graph
-    server.state_mut().graph.add_node(Node {
-        id: EntityId { raw: "evt1".into() },
-        kind: EntityKind {
-            raw: "event".into(),
-        },
-        title: Some("Test Event".into()),
-        fields: FieldMap::new(),
-        source_span: span(),
-        methods: Vec::new(),
-    });
-
-    let resp2 = read_resource(&mut server, "specforge://schema");
-    let text2 = resource_text(&resp2);
-    let parsed2: Value = serde_json::from_str(&text2).unwrap();
-    let kinds2 = parsed2["entity_kinds"].as_object().unwrap();
-    assert!(
-        kinds2.contains_key("event"),
-        "after adding event node, schema should include 'event' kind"
-    );
+    let after = read(&mut server);
+    assert!(kind_names(&after).contains(&"feature"), "{after}");
+    let extensions: Vec<&str> = after["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap())
+        .collect();
+    assert!(extensions.contains(&"@specforge/product"), "{after}");
 }
 
 // B:expose_context_as_mcp_resource — verify unit "resource refreshes after recompilation"

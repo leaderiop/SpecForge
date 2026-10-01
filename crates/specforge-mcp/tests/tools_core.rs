@@ -526,42 +526,85 @@ fn search_missing_query() {
 
 // --- specforge.schema ---
 
-// NOT LINKED to "specforge.schema returns full GraphProtocolSchema": the tool
-// returns a summary of the graph (each kind with the fields its entities
-// use, the edge labels, the graph format's version), not the
-// GraphProtocolSchema. This pins the summary.
-#[test]
-fn schema_tool_returns_kinds() {
-    let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.schema", json!({}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let mut kinds: Vec<&String> = parsed["entity_kinds"].as_object().unwrap().keys().collect();
-    kinds.sort();
-    assert_eq!(kinds, vec!["behavior", "feature", "invariant"]);
-    assert_eq!(parsed["edge_labels"], json!(["behaviors"]));
-    assert!(
-        !parsed["schema_version"]
-            .as_str()
-            .unwrap_or_default()
-            .is_empty(),
-        "{parsed}"
+/// A server that compiled `project_with_errors_and_warnings` (which loads
+/// `@specforge/software`), and its `specforge.schema` reply for `args`.
+fn compiled_schema(server: &mut McpServer, project: &tempfile::TempDir, args: Value) -> Value {
+    call_tool(
+        server,
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
     );
+    serde_json::from_str(&tool_text(&call_tool(server, "specforge.schema", args))).unwrap()
 }
 
-// B:provide_mcp_schema_tool — verify unit "respects kind filter"
+fn names(list: &Value, key: &str) -> Vec<String> {
+    list.as_array()
+        .unwrap()
+        .iter()
+        .map(|item| item[key].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_schema_tool",
+    verify = "specforge.schema returns full GraphProtocolSchema"
+)]
+fn schema_tool_returns_the_graph_protocol_schema() {
+    let project = project_with_errors_and_warnings();
+    let mut server = test_server();
+    let schema = compiled_schema(&mut server, &project, json!({}));
+
+    assert_eq!(
+        schema["extensions"],
+        json!([{"name": "@specforge/software", "version": "1.0.0"}])
+    );
+    assert_eq!(
+        names(&schema["entity_kinds"], "name"),
+        ["behavior", "event", "invariant", "port", "type"]
+    );
+    // Typed fields, not just names: behavior's contract is a required string.
+    let behavior = &schema["entity_kinds"][0];
+    let contract = behavior["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["name"] == "contract")
+        .unwrap_or_else(|| panic!("no contract field in {behavior}"));
+    assert_eq!(contract["field_type"], "string");
+    assert_eq!(contract["required"], true);
+    let enforces = schema["edge_types"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["label"] == "BehaviorEnforcesInvariant")
+        .unwrap_or_else(|| panic!("no BehaviorEnforcesInvariant in {schema}"));
+    assert_eq!(enforces["source_kinds"], json!(["behavior"]));
+    assert_eq!(enforces["target_kinds"], json!(["invariant"]));
+
+    // The document a full graph export embeds.
+    let export: Value = serde_json::from_str(&tool_text(&call_tool(
+        &mut server,
+        "specforge.export",
+        json!({"format": "graph"}),
+    )))
+    .unwrap();
+    assert_eq!(schema, export["schema"]);
+}
+
 #[specforge_test(
     behavior = "provide_mcp_schema_tool",
     verify = "kind filter restricts schema to single entity kind"
 )]
 fn schema_tool_kind_filter() {
+    let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.schema", json!({"kind": "behavior"}));
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let kinds = parsed["entity_kinds"].as_object().unwrap();
-    assert!(kinds.contains_key("behavior"));
-    assert!(!kinds.contains_key("feature"));
+    let schema = compiled_schema(&mut server, &project, json!({"kind": "invariant"}));
+    assert_eq!(names(&schema["entity_kinds"], "name"), ["invariant"]);
+    // The edge types that can end at an invariant, and the open ones.
+    assert_eq!(
+        names(&schema["edge_types"], "label"),
+        ["BehaviorEnforcesInvariant", "ExternalRef", "References"]
+    );
 }
 
 // --- specforge.coverage ---
@@ -1286,24 +1329,21 @@ fn search_empty_query_returns_all() {
     assert_eq!(ids(&mut server, json!({"query": "", "limit": 2})).len(), 2);
 }
 
-// B:provide_mcp_schema_tool — verify unit "include_edges false omits edge type definitions"
 #[specforge_test(
     behavior = "provide_mcp_schema_tool",
     verify = "include_edges false omits edge type definitions"
 )]
 fn schema_include_edges_false_omits_edges() {
+    let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    let schema = |server: &mut McpServer, args: Value| -> Value {
-        serde_json::from_str(&tool_text(&call_tool(server, "specforge.schema", args))).unwrap()
-    };
-    let full = schema(&mut server, json!({}));
+    let full = compiled_schema(&mut server, &project, json!({}));
     assert_eq!(
-        full["edge_labels"],
-        json!(["behaviors"]),
+        full["edge_types"].as_array().unwrap().len(),
+        14,
         "edges by default"
     );
-    let without = schema(&mut server, json!({"include_edges": false}));
-    assert!(without.get("edge_labels").is_none(), "{without}");
+    let without = compiled_schema(&mut server, &project, json!({"include_edges": false}));
+    assert!(without.get("edge_types").is_none(), "{without}");
     assert_eq!(without["entity_kinds"], full["entity_kinds"]);
 }
 

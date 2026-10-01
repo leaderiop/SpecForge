@@ -1045,18 +1045,33 @@ fn contract_coverage() {
     verify = "Provide MCP Schema Tool: MCP schema tool holds — graph_available, schema_returned, tool_invoked_emitted"
 )]
 fn contract_schema() {
-    let mut server = test_server();
-    let schema = tool(&mut server, "specforge.schema", json!({}));
-    assert_eq!(
-        schema["entity_kinds"],
-        json!({"behavior": ["contract", "verify"], "feature": []})
+    // graph_available: a compiled project whose extension declares kinds.
+    let project = project_dir(
+        json!({"name": "t", "version": "0.1.0", "extensions": ["@specforge/software"]}),
+        "behavior act \"Act\" {\n  contract \"MUST act\"\n}\n",
     );
-    assert_eq!(schema["edge_labels"], json!(["behaviors"]));
-    assert!(schema["schema_version"].is_string(), "{schema}");
+    let mut server = McpServer::new();
+    call(
+        &mut server,
+        "initialize",
+        json!({"projectRoot": project.path().to_str().unwrap()}),
+    );
+
+    // schema_returned: the GraphProtocolSchema a full export embeds.
+    let schema = tool(&mut server, "specforge.schema", json!({}));
+    let export = tool(&mut server, "specforge.export", json!({"format": "graph"}));
+    assert_eq!(schema, export["schema"]);
+    assert_eq!(schema["extensions"][0]["name"], "@specforge/software");
 
     // Optionally filtered to one kind.
-    let feature = tool(&mut server, "specforge.schema", json!({"kind": "feature"}));
-    assert_eq!(feature["entity_kinds"], json!({"feature": []}));
+    let port = tool(&mut server, "specforge.schema", json!({"kind": "port"}));
+    let kinds: Vec<&str> = port["entity_kinds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|k| k["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(kinds, ["port"]);
 
     assert_tool_invoked(&server, "specforge.schema");
 }
@@ -2005,25 +2020,25 @@ fn contract_graph_resource() {
     verify = "Expose Schema as MCP Resource: schema MCP resource holds — validation_complete_fired, schema_json_returned, resource_read_emitted"
 )]
 fn contract_schema_resource() {
-    let mut server = test_server();
+    // validation_complete_fired: initialize compiled the project.
+    let project = project_dir(
+        json!({"name": "t", "version": "0.1.0", "extensions": ["@specforge/software"]}),
+        "behavior act \"Act\" {\n  contract \"MUST act\"\n}\n",
+    );
+    let mut server = McpServer::new();
+    call(
+        &mut server,
+        "initialize",
+        json!({"projectRoot": project.path().to_str().unwrap()}),
+    );
+
+    // schema_json_returned: the GraphProtocolSchema, the same document
+    // specforge.schema returns unfiltered.
     let (content, schema) = resource(&mut server, "specforge://schema");
     assert_eq!(content["uri"], "specforge://schema");
-    assert_eq!(
-        schema["entity_kinds"],
-        json!({"behavior": ["contract", "verify"], "feature": []})
-    );
-    assert_eq!(schema["edge_labels"], json!(["behaviors"]));
-    assert!(schema["schema_version"].is_string(), "{schema}");
-
-    // Reflects the current compilation: a new kind appears.
-    server.state_mut().graph.add_node(node(
-        "gamma",
-        "invariant",
-        span_at("inv.spec", 1, 0, 3),
-        text_field("guarantee", "never negative"),
-    ));
-    let (_, schema) = resource(&mut server, "specforge://schema");
-    assert_eq!(schema["entity_kinds"]["invariant"], json!(["guarantee"]));
+    assert_eq!(content["mimeType"], "application/json");
+    assert_eq!(schema, tool(&mut server, "specforge.schema", json!({})));
+    assert_eq!(schema["extensions"][0]["name"], "@specforge/software");
 
     assert_resource_read(&server, "specforge://schema");
 }
