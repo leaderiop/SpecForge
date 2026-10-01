@@ -17,6 +17,7 @@ pub mod doctor {
 }
 pub mod export;
 pub mod extension;
+pub mod format;
 pub mod init;
 pub mod registry;
 

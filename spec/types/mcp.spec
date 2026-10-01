@@ -214,6 +214,8 @@ type McpFormatResult {
   total_checked integer
   all_clean     boolean
   diffs         FormatDiff[] @optional
+  failed_files  string[]     @optional
+  diagnostics   Diagnostic[] @optional
   verify unit "McpFormatResult schema is valid"
 }
 

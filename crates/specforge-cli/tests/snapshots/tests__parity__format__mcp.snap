@@ -33,6 +33,7 @@ expression: mcp_snap
       "[ROOT]/spec/messy.spec"
     ],
     "check_only": false,
+    "diagnostics": [],
     "total_checked": 2
   }
 }

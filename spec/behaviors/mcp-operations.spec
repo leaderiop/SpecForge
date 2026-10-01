@@ -55,12 +55,18 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
     boolean, report only without modifying), and diff? (optional boolean, return
     diffs). The tool MUST format spec files according to the canonical style.
     In check mode, the tool MUST NOT modify files. In diff mode, the tool MUST
-    return FormatDiff entries for each changed file.
+    return FormatDiff entries for each changed file. The tool MUST run the
+    same format operation as specforge format. A file that cannot be written
+    MUST NOT stop the others from being formatted: the result MUST name it,
+    and the call MUST be reported as failed. Diagnostics from loading the
+    format configuration (.specforgefmt.toml) MUST be returned in the result.
   """
   verify unit "specforge.format formats spec files"
   verify unit "check mode reports without modifying files"
   verify unit "diff mode returns FormatDiff entries"
   verify unit "paths filter restricts to specified files"
+  verify unit "a file that cannot be written does not stop the others, and the failed call names it"
+  verify unit "format configuration diagnostics are returned in the result"
   verify contract "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"
 }
 

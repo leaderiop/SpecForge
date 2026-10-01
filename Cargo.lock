@@ -2997,6 +2997,7 @@ dependencies = [
  "specforge-common",
  "specforge-component",
  "specforge-emitter",
+ "specforge-formatter",
  "specforge-graph",
  "specforge-registry",
  "specforge-test",

@@ -1,93 +1,82 @@
-use specforge_common::find_project_root;
-use specforge_formatter::{
-    FormatConfig, discover_targets, format_source, load_config, unified_diff,
-};
+use specforge_formatter::{FormatConfig, format_source, unified_diff};
+use specforge_ops::format::{self, Mode, Request};
 use std::io::{self, Read as IoRead, Write as IoWrite};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// Run the `specforge format` command.
 ///
 /// Returns the process exit code:
 /// - 0: all files already formatted (or successfully formatted)
-/// - 1: in `--check` mode, some files would change
+/// - 1: in `--check` mode, some files would change; or a file couldn't be
+///   written (the others still are)
 pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[String]) -> i32 {
-    // Find project root
-    let project_root = find_project_root(path).unwrap_or_else(|| path.to_path_buf());
-
-    // Load config
-    let (config, config_diags) = load_config(path, &project_root);
-    for d in &config_diags {
-        eprintln!("warning: {}", d.message);
-    }
+    let project_root = format::project_root(path);
+    let explicit: Vec<PathBuf> = explicit_paths.iter().map(Into::into).collect();
+    let request = Request {
+        root: &project_root,
+        config_dir: path,
+        paths: &explicit,
+        mode: if check || diff {
+            Mode::Check
+        } else {
+            Mode::Write
+        },
+    };
 
     if stdin {
+        let (config, config_diags) = format::config(&request);
+        print_config_warnings(&config_diags);
         return run_stdin(&config);
     }
-
-    // Discover targets
-    let explicit: Vec<std::path::PathBuf> = explicit_paths.iter().map(Into::into).collect();
-    let spec_root = project_root.join("spec");
-    let search_root = if spec_root.exists() {
-        &spec_root
-    } else {
-        &project_root
-    };
-    let targets = discover_targets(search_root, &explicit, &[]);
-
-    if targets.is_empty() {
+    if format::targets(&request).is_empty() {
+        print_config_warnings(&format::config(&request).1);
         eprintln!("No .spec files found");
         return 0;
     }
 
-    let mut files_checked = 0;
-    let mut files_changed = 0;
+    let outcome = format::run(&request);
+    print_config_warnings(&outcome.config_diagnostics);
+    for (file, error) in &outcome.unreadable {
+        eprintln!("error: failed to read {}: {error}", file.display());
+    }
+    for (file, d) in &outcome.file_diagnostics {
+        eprintln!("{}: {}", file.display(), d.message);
+    }
 
-    for target in &targets {
-        let source = match std::fs::read_to_string(target) {
-            Ok(s) => s,
-            Err(e) => {
-                eprintln!("error: failed to read {}: {}", target.display(), e);
-                continue;
-            }
-        };
-
-        let result = format_source(&source, &config);
-
-        for d in &result.diagnostics {
-            eprintln!("{}: {}", target.display(), d.message);
-        }
-
-        files_checked += 1;
-
-        if result.formatted == source {
-            continue;
-        }
-
-        files_changed += 1;
-
+    for change in &outcome.changes {
+        let shown = change.path.display().to_string();
         if diff {
-            let d = unified_diff(&target.display().to_string(), &source, &result.formatted);
-            print!("{}", d.diff_text);
-        } else if check {
-            println!("{}", target.display());
+            print!(
+                "{}",
+                unified_diff(&shown, &change.before, &change.after).diff_text
+            );
+        } else if let Some(error) = &change.write_error {
+            eprintln!("error: failed to write {shown}: {error}");
         } else {
-            // Write formatted output
-            if let Err(e) = std::fs::write(target, &result.formatted) {
-                eprintln!("error: failed to write {}: {}", target.display(), e);
-                continue;
-            }
-            println!("{}", target.display());
+            println!("{shown}");
         }
     }
 
     if !check && !diff {
         eprintln!(
             "Formatted {} file(s), {} changed",
-            files_checked, files_changed
+            outcome.checked,
+            outcome.changes.len()
         );
     }
 
-    if check && files_changed > 0 { 1 } else { 0 }
+    let failed = outcome.write_failures().next().is_some();
+    if failed || (check && !outcome.changes.is_empty()) {
+        1
+    } else {
+        0
+    }
+}
+
+fn print_config_warnings(diagnostics: &[specforge_common::Diagnostic]) {
+    for d in diagnostics {
+        eprintln!("warning: {}", d.message);
+    }
 }
 
 /// Format from stdin, write to stdout.

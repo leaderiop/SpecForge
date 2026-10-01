@@ -260,6 +260,56 @@ fn format_diff_mode_returns_diffs_without_writing() {
     );
 }
 
+#[cfg(unix)]
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "a file that cannot be written does not stop the others, and the failed call names it"
+)]
+fn format_writes_every_file_it_can_and_names_the_ones_it_cannot() {
+    use std::os::unix::fs::PermissionsExt;
+    let (mut server, root) = server_with_unformatted();
+    // a.spec comes first and can't be written.
+    let locked = root.join("a.spec");
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o444)).unwrap();
+
+    let resp = call_tool(&mut server, "specforge.format", json!({}));
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let failed = parsed["failed_files"].as_array().unwrap();
+    assert_eq!(failed.len(), 1, "{parsed}");
+    assert!(failed[0].as_str().unwrap().ends_with("a.spec"), "{parsed}");
+    assert_eq!(std::fs::read_to_string(&locked).unwrap(), UNFORMATTED);
+    assert!(
+        std::fs::read_to_string(root.join("b.spec"))
+            .unwrap()
+            .contains("\n  contract"),
+        "b.spec is formatted although a.spec failed"
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "format configuration diagnostics are returned in the result"
+)]
+fn format_returns_the_config_diagnostics() {
+    let (mut server, root) = server_with_unformatted();
+    std::fs::write(root.join(".specforgefmt.toml"), "indent_width = 99\n").unwrap();
+
+    let parsed = format_result(&mut server, json!({"check": true}));
+
+    let diagnostics = parsed["diagnostics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no diagnostics: {parsed}"));
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| d["code"] == "W141" && d["message"].as_str().unwrap().contains("indent")),
+        "{parsed}"
+    );
+}
+
 // --- specforge.rename ---
 
 // B:provide_mcp_rename_tool — verify unit "unknown entity returns error"

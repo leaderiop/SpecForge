@@ -15,6 +15,7 @@ serde_json = { workspace = true }
 specforge-common = { workspace = true }
 specforge-component = { workspace = true }
 specforge-emitter = { path = "../specforge-emitter" }
+specforge-formatter = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
 specforge-registry = { workspace = true }
 specforge-wasm = { workspace = true }

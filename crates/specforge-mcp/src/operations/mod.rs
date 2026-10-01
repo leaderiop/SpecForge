@@ -111,7 +111,9 @@ pub(crate) fn export_graph(
 
 // ── format ──────────────────────────────────────────────────────────────────
 
-fn format_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+fn format_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+    use specforge_ops::format::{self, Mode, Request};
+
     let check = args.get("check").and_then(|v| v.as_bool()).unwrap_or(false);
     let diff = args.get("diff").and_then(|v| v.as_bool()).unwrap_or(false);
     let write = args
@@ -122,24 +124,15 @@ fn format_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
     let Some(root) = project_root_of(state, &args) else {
         return err_invalid(id, "format needs a project root (pass {\"path\": ...})");
     };
-    let project_root = match find_project_root(&root) {
-        Some(r) => r,
-        None => {
-            return err_invalid(
-                id,
-                format!("no specforge project found at {}", root.display()),
-            );
-        }
+    let Some(project_root) = find_project_root(&root) else {
+        return err_invalid(
+            id,
+            format!("no specforge project found at {}", root.display()),
+        );
     };
 
-    let (config, config_diags) = specforge_formatter::load_config(&project_root, &project_root);
-    let spec_root = project_root.join("spec");
-    let search_root = if spec_root.exists() {
-        spec_root
-    } else {
-        project_root.clone()
-    };
-    // Relative paths name files under the project root.
+    // The run `specforge format` makes. Relative paths name files under
+    // the project root.
     let explicit: Vec<PathBuf> = args
         .get("paths")
         .and_then(|v| v.as_array())
@@ -151,50 +144,64 @@ fn format_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
                 .collect()
         })
         .unwrap_or_default();
-    let targets = specforge_formatter::discover_targets(&search_root, &explicit, &[]);
+    let mode = if write { Mode::Write } else { Mode::Check };
+    let outcome = format::run(&Request {
+        root: &project_root,
+        config_dir: &project_root,
+        paths: &explicit,
+        mode,
+    });
 
-    let mut changed_files = Vec::new();
-    let mut diffs = Vec::new();
-    let mut total_checked = 0usize;
-    for target in &targets {
-        let Ok(source) = std::fs::read_to_string(target) else {
-            continue;
-        };
-        total_checked += 1;
-        let result = specforge_formatter::format_source(&source, &config);
-        if result.formatted == source {
-            continue;
-        }
-        let file_path = target.display().to_string();
-        if diff {
-            let stats = specforge_formatter::unified_diff(&file_path, &source, &result.formatted);
-            diffs.push(json!({
-                "file_path": file_path,
-                "before": source,
-                "after": result.formatted,
-                "insertions": stats.insertions,
-                "deletions": stats.deletions,
-            }));
-        }
-        changed_files.push(file_path);
-        // Apply in write mode only.
-        if write && let Err(e) = std::fs::write(target, &result.formatted) {
-            return err_invalid(id, format!("failed to write {}: {e}", target.display()));
-        }
-    }
-    let _ = config_diags;
-
-    let all_clean = changed_files.is_empty();
+    let shown = |path: &std::path::Path| path.display().to_string();
+    let changed_files: Vec<String> = outcome.changes.iter().map(|c| shown(&c.path)).collect();
+    let failed_files: Vec<String> = outcome.write_failures().map(|c| shown(&c.path)).collect();
     let mut result = json!({
         "changed_files": changed_files,
-        "total_checked": total_checked,
-        "all_clean": all_clean,
-        "check_only": check || !write,
+        "total_checked": outcome.checked,
+        "all_clean": outcome.changes.is_empty(),
+        "check_only": !write,
+        "diagnostics": specforge_emitter::diagnostics_json(&outcome.config_diagnostics),
     });
     if diff {
+        let diffs: Vec<Value> = outcome
+            .changes
+            .iter()
+            .map(|c| {
+                let file_path = shown(&c.path);
+                let stats = specforge_formatter::unified_diff(&file_path, &c.before, &c.after);
+                json!({
+                    "file_path": file_path,
+                    "before": c.before,
+                    "after": c.after,
+                    "insertions": stats.insertions,
+                    "deletions": stats.deletions,
+                })
+            })
+            .collect();
         result["diffs"] = Value::from(diffs);
     }
-    ok(id, result)
+    if failed_files.is_empty() {
+        return ok(id, result);
+    }
+
+    // Every other file was still formatted; the call failed for these.
+    let reasons: Vec<String> = outcome
+        .write_failures()
+        .map(|c| {
+            format!(
+                "failed to write {}: {}",
+                shown(&c.path),
+                c.write_error.as_deref().unwrap_or_default()
+            )
+        })
+        .collect();
+    result["message"] = Value::from(reasons.join("; "));
+    result["failed_files"] = Value::from(failed_files);
+    // What was written is on disk: serve it, as a successful run would be.
+    if outcome.changes.iter().any(|c| c.written(mode)) && !state.serves_other_than(&project_root) {
+        state.recompile(&project_root);
+    }
+    ToolOutcome::failed_with(result)
 }
 
 // ── rename ──────────────────────────────────────────────────────────────────
