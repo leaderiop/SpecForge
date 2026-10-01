@@ -19,7 +19,6 @@ mod new;
 mod outline;
 mod pipeline;
 mod product;
-mod prove;
 mod providers;
 mod publish;
 mod query;

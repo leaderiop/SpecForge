@@ -570,10 +570,12 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     or parsed, the project's own or the one `test_results` names, MUST be an
     isError result carrying an McpError, as the CLI exits 2 on it. The result MUST list each pass with its
     findings and summary, plus an `ok` flag that is false when any finding
-    is an error.
+    is an error. The tool does not run the prove pass, so extension passes
+    MUST receive no proved claims, as `specforge analyze` without --prove.
   """
   verify unit "analyze reads the project's specforge-report.json by default"
   verify unit "a malformed test report is an error result"
+  verify unit "extension passes receive no proved claims, as specforge analyze without --prove"
   verify contract "Provide MCP Analyze Tool: MCP analyze tool holds — graph_available, passes_run, results_structured, tool_invoked_emitted"
 }
 

@@ -80,9 +80,11 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         Err(e) => return super::coverage::report_error_result(&e, "specforge.analyze"),
     };
 
-    let proved_claims: std::collections::HashSet<String> = std::collections::HashSet::new();
+    // The tool doesn't run prove, so no claim is proved: `None`, as
+    // `specforge analyze` without --prove passes (ADR 0004 D3-f). An empty
+    // set would tell extension passes that prove ran and proved nothing.
     let context = AnalysisContext {
-        proved_claims: Some(&proved_claims),
+        proved_claims: None,
         graph,
         kind_registry,
         field_registry,

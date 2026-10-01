@@ -3000,6 +3000,7 @@ dependencies = [
  "specforge-formatter",
  "specforge-graph",
  "specforge-migrate",
+ "specforge-parser",
  "specforge-project",
  "specforge-registry",
  "specforge-test",

@@ -92,7 +92,7 @@ pub fn run(
     // feed the coverage discharge funnel (a proved formal claim discharges
     // `verify property` obligations without executable tests).
     let prove_report = if prove {
-        Some(crate::prove::run_prove(&base_input))
+        Some(specforge_ops::prove::run_prove(&base_input))
     } else {
         None
     };

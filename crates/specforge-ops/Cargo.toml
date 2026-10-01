@@ -18,6 +18,7 @@ specforge-emitter = { path = "../specforge-emitter" }
 specforge-formatter = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
 specforge-migrate = { workspace = true }
+specforge-parser = { workspace = true }
 specforge-project = { workspace = true }
 specforge-registry = { workspace = true }
 specforge-wasm = { workspace = true }

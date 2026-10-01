@@ -851,6 +851,31 @@ fn analyze_refuses_a_malformed_report() {
     assert_eq!(error["code"], "schema_mismatch", "{error}");
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "extension passes receive no proved claims, as specforge analyze without --prove"
+)]
+fn analyze_hands_extension_passes_no_proved_claims() {
+    use crate::fake_extension::{self, EXT, FakeExtension};
+
+    // `@test/cmds` declares one compiler pass and records what it is given.
+    let ext = FakeExtension::new()
+        .with_passes(&["audit"])
+        .with_output("__pass_audit", json!({"diagnostics": []}));
+    let (mut server, ext, _project) = fake_extension::initialized(ext);
+
+    let resp = call_tool(&mut server, "specforge.analyze", json!({}));
+
+    assert_ne!(resp["result"]["isError"], true, "{resp}");
+    let calls = ext.calls();
+    let (_, _, input) = calls
+        .iter()
+        .find(|(name, export, _)| name == EXT && export == "__pass_audit")
+        .unwrap_or_else(|| panic!("the pass never ran: {calls:?}"));
+    // Prove did not run: no claims, not an empty set of them.
+    assert_eq!(input["proved_claims"], Value::Null, "{input}");
+}
+
 // --- specforge.stats ---
 
 // B:provide_mcp_stats_tool — verify unit "returns project statistics"

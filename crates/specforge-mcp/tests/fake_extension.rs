@@ -21,6 +21,8 @@ pub type Call = (String, String, Value);
 pub struct FakeExtension {
     outputs: HashMap<String, Vec<u8>>,
     calls: Mutex<Vec<Call>>,
+    /// The compiler passes `@test/cmds` declares (`__describe passes`).
+    passes: Value,
 }
 
 impl FakeExtension {
@@ -28,7 +30,15 @@ impl FakeExtension {
         Self {
             outputs: HashMap::new(),
             calls: Mutex::new(Vec::new()),
+            passes: json!([]),
         }
+    }
+
+    /// Declare the compiler passes named `names`; each runs as the export
+    /// `__pass_<name>`, answered from the configured outputs.
+    pub fn with_passes(mut self, names: &[&str]) -> Self {
+        self.passes = names.iter().map(|name| json!({"name": name})).collect();
+        self
     }
 
     /// Answer calls to `export` with `output`.
@@ -108,10 +118,10 @@ impl WasmRuntime for FakeExtension {
             "__describe" => {
                 let request: Value = serde_json::from_slice(input).unwrap();
                 let category = request["category"].as_str().unwrap().to_string();
-                let items = if category == "surfaces" {
-                    json!([Self::surfaces()])
-                } else {
-                    json!([])
+                let items = match category.as_str() {
+                    "surfaces" => json!([Self::surfaces()]),
+                    "passes" => self.passes.clone(),
+                    _ => json!([]),
                 };
                 ok(json!({"category": category, "items": items}))
             }
