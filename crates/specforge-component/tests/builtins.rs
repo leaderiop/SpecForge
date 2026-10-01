@@ -100,7 +100,7 @@ fn builtin_handshakes_survive_sdk_migration() {
         ),
         (
             "@specforge/governance",
-            &[("@specforge/software", false), ("@specforge/product", true)][..],
+            &[("@specforge/software", true), ("@specforge/product", true)][..],
             false,
         ),
         ("@specforge/product", &[][..], false),

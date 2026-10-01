@@ -679,13 +679,14 @@ fn governance_has_two_direct_deps() {
     assert_eq!(
         gov_direct.len(),
         2,
-        "governance should have two direct deps (software required, product optional)"
+        "governance should have two direct deps, both optional"
     );
     let sw = gov_direct
         .iter()
         .find(|d| d.to == "@specforge/software")
         .unwrap();
-    assert!(!sw.optional, "governance→software should be required");
+    // Governance works without software; its behavior links are optional.
+    assert!(sw.optional, "governance→software should be optional");
     let prod = gov_direct
         .iter()
         .find(|d| d.to == "@specforge/product")
@@ -873,7 +874,7 @@ fn mermaid_renders_required_dep_as_solid_arrow() {
 }
 
 #[test]
-fn only_the_product_links_are_optional() {
+fn only_the_product_links_and_governance_software_are_optional() {
     let manifests = load_all_manifests();
     let outline = OutlineIntermediate_from_manifests(&manifests);
 
@@ -889,6 +890,7 @@ fn only_the_product_links_are_optional() {
         vec![
             ("@specforge/formal", "@specforge/product"),
             ("@specforge/governance", "@specforge/product"),
+            ("@specforge/governance", "@specforge/software"),
             ("@specforge/software", "@specforge/product"),
         ]
     );
@@ -923,6 +925,7 @@ fn json_dependencies_include_optional_field() {
         vec![
             "@specforge/formal -> @specforge/product",
             "@specforge/governance -> @specforge/product",
+            "@specforge/governance -> @specforge/software",
             "@specforge/software -> @specforge/product",
         ]
     );
