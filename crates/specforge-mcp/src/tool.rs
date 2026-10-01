@@ -71,7 +71,11 @@ pub struct ToolSpec {
     pub description: &'static str,
     pub category: Category,
     pub schema: fn() -> Value,
+    /// The fields of the handler's `Args` struct ([`crate::args::fields`]):
+    /// the arguments it reads.
+    pub fields: fn() -> &'static [&'static str],
     pub mutation: Option<MutationSpec>,
+    /// The handler, reading its `Args` from the call's `arguments`.
     pub call: fn(&mut McpState, Value) -> ToolOutcome,
 }
 

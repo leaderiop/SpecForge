@@ -1,32 +1,31 @@
+use serde::Deserialize;
 use serde_json::Value;
 use specforge_emitter::{EmitFormat, EmitOptions, emit};
 
+use crate::args::{lenient, strings};
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
-    let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
-        Some(e) => e,
-        None => {
-            return ToolOutcome::invalid_params("Missing required parameter: entity_id");
-        }
-    };
+#[derive(Debug, Deserialize)]
+pub struct Args {
+    entity_id: String,
+    #[serde(default, deserialize_with = "lenient")]
+    depth: Option<u64>,
+    #[serde(default, deserialize_with = "strings")]
+    kinds: Vec<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    format: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    include_coverage: Option<bool>,
+}
 
-    let depth = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
-    let format = args
-        .get("format")
-        .and_then(|v| v.as_str())
-        .unwrap_or("graph");
-    let include_coverage = args
-        .get("include_coverage")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+    let entity_id = args.entity_id.as_str();
+    let depth = args.depth.unwrap_or(1) as usize;
+    let format = args.format.as_deref().unwrap_or("graph");
+    let include_coverage = args.include_coverage.unwrap_or(false);
 
-    let kinds: Vec<&str> = args
-        .get("kinds")
-        .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
-        .unwrap_or_default();
+    let kinds: Vec<&str> = args.kinds.iter().map(String::as_str).collect();
     let unknown_kinds = super::unknown_kind_diagnostics(state, &kinds);
 
     let fmt = match format {

@@ -1,88 +1,15 @@
 //! Schema-reflection conformance: every advertised tool parameter must be
 //! read by the handler, and every parameter a handler reads must be
-//! advertised. Drift between `default_tools()` inputSchemas and the handlers
-//! in `tools/` + `operations/` is how agents end up calling hidden params or
-//! sending ignored ones; this test fails on either direction.
+//! advertised. Drift between the input schemas and the handlers is how
+//! agents end up calling hidden params or sending ignored ones; this test
+//! fails on either direction.
 //!
-//! A `serde_json::Value` has no hook that records which keys a handler
-//! reads, so the reads come from the handler's source: every
-//! `args.get("key")` (or `arguments.get`, or `args["key"]`) in
-//! `tools/<tool>.rs`, or in the body of `fn <tool>_op` in
-//! `operations/mod.rs`, plus `path` for a call to `project_root_of`. Typed
-//! argument structs (plan 04 T4) replace this with a serde field tracer.
+//! Each core tool reads its arguments into one `Args` struct (plan 04 T4).
+//! A serde field tracer recovers the struct's field names, the arguments
+//! the handler can read, without calling it.
 
 use specforge_test::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::Path;
-
-fn crate_file(rel: &str) -> Option<String> {
-    std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src").join(rel)).ok()
-}
-
-/// The source of the handler for `tool`: its own module under `tools/`, or
-/// its `fn <short>_op` in `operations/mod.rs` up to the next function.
-fn handler_source(tool: &str) -> Option<String> {
-    let short = tool.strip_prefix("specforge.")?;
-    if let Some(source) = crate_file(&format!("tools/{short}.rs")) {
-        return Some(source);
-    }
-    let ops = crate_file("operations/mod.rs")?;
-    let start = ["\nfn ", "\npub(crate) fn "]
-        .iter()
-        .find_map(|item| ops.find(&format!("{item}{short}_op(")))?
-        + 1;
-    let body = &ops[start..];
-    let end = ["\nfn ", "\npub fn ", "\npub(crate) fn "]
-        .iter()
-        .filter_map(|item| body[1..].find(item))
-        .min()
-        .map_or(body.len(), |i| i + 1);
-    Some(body[..end].to_string())
-}
-
-/// The argument keys a handler's source reads. A read through a computed
-/// key cannot be checked, so it is an error.
-fn handler_reads(source: &str) -> Result<BTreeSet<String>, String> {
-    // Join method chains split across lines (`args\n    .get(`); any other
-    // whitespace run becomes one space, so words stay apart.
-    let mut compact = String::new();
-    let mut chars = source.chars().peekable();
-    while let Some(c) = chars.next() {
-        if !c.is_whitespace() {
-            compact.push(c);
-            continue;
-        }
-        while chars.next_if(|c| c.is_whitespace()).is_some() {}
-        if chars.peek() != Some(&'.') && !compact.ends_with('.') {
-            compact.push(' ');
-        }
-    }
-    let mut reads = BTreeSet::new();
-    if compact.contains("project_root_of(state, &args)") {
-        reads.insert("path".to_string());
-    }
-    for receiver in ["args", "arguments"] {
-        for access in [".get(", "["] {
-            let pattern = format!("{receiver}{access}");
-            for (at, _) in compact.match_indices(&pattern) {
-                let bounded = compact[..at]
-                    .chars()
-                    .next_back()
-                    .is_none_or(|c| !(c.is_alphanumeric() || c == '_' || c == '.'));
-                if !bounded {
-                    continue;
-                }
-                let rest = &compact[at + pattern.len()..];
-                let Some(literal) = rest.strip_prefix('"') else {
-                    let shown: String = rest.chars().take(30).collect();
-                    return Err(format!("reads a computed key: {pattern}{shown}"));
-                };
-                reads.insert(literal.chars().take_while(|c| *c != '"').collect());
-            }
-        }
-    }
-    Ok(reads)
-}
 
 #[specforge_test(
     behavior = "list_mcp_tools",
@@ -90,36 +17,42 @@ fn handler_reads(source: &str) -> Result<BTreeSet<String>, String> {
 )]
 fn each_core_tool_schema_advertises_exactly_what_its_handler_reads() {
     let mut drift = Vec::new();
-    for tool in specforge_mcp::registry::default_tools() {
-        let source = handler_source(&tool.name)
-            .unwrap_or_else(|| panic!("{}: no handler source found", tool.name));
-        let read = handler_reads(&source).unwrap_or_else(|e| panic!("{}: {e}", tool.name));
-        let advertised: BTreeSet<String> = tool
-            .input_schema
+    for tool in specforge_mcp::tools::CORE_TOOLS {
+        let read: BTreeSet<&str> = (tool.fields)().iter().copied().collect();
+        let schema = (tool.schema)();
+        let advertised: BTreeSet<&str> = schema
             .get("properties")
             .and_then(|p| p.as_object())
-            .map(|o| o.keys().cloned().collect())
+            .map(|o| o.keys().map(String::as_str).collect())
             .unwrap_or_default();
-        let hidden: Vec<&String> = read.difference(&advertised).collect();
-        let ignored: Vec<&String> = advertised.difference(&read).collect();
+        let hidden: Vec<&&str> = read.difference(&advertised).collect();
+        let ignored: Vec<&&str> = advertised.difference(&read).collect();
         if !hidden.is_empty() || !ignored.is_empty() {
             drift.push(format!(
                 "{}: read but not advertised {hidden:?}; advertised but never read {ignored:?}",
                 tool.name
             ));
         }
+        // A required argument is one the handler cannot do without.
+        for required in schema["required"].as_array().into_iter().flatten() {
+            let required = required.as_str().unwrap_or_default();
+            if !read.contains(required) {
+                drift.push(format!("{}: requires {required}, never read", tool.name));
+            }
+        }
     }
     assert!(drift.is_empty(), "schema drift: {drift:#?}");
 }
 
 #[test]
-fn handler_reads_sees_literal_reads_across_lines() {
-    let source = "let a = args\n    .get(\"depth\");\nlet b = arguments.get(\"kind\");\n\
-                  let c = node.fields.get(\"verify\");\nlet d = project_root_of(state, &args);";
-    let reads = handler_reads(source).unwrap();
-    let expected: BTreeSet<String> = ["depth", "kind", "path"].map(String::from).into();
-    assert_eq!(reads, expected);
-    assert!(handler_reads("args.get(key)").is_err());
+fn the_field_tracer_sees_each_args_struct() {
+    let query = specforge_mcp::tools::core_tool("specforge.query").unwrap();
+    let fields: BTreeSet<&str> = (query.fields)().iter().copied().collect();
+    let expected: BTreeSet<&str> =
+        ["entity_id", "depth", "kinds", "format", "include_coverage"].into();
+    assert_eq!(fields, expected);
+    let stats = specforge_mcp::tools::core_tool("specforge.stats").unwrap();
+    assert!((stats.fields)().is_empty(), "stats takes no arguments");
 }
 
 /// Advertised property names per tool, extracted from `default_tools()`.

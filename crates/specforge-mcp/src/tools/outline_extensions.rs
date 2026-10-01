@@ -1,25 +1,27 @@
-use serde_json::Value;
+use serde::Deserialize;
 use specforge_emitter::outline::{
     DependencyDepth, OutlineDetail, OutlineFormat, OutlineIntermediate_from_manifests,
     OutlineOptions, render,
 };
 
+use crate::args::lenient;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
-    let format = args
-        .get("format")
-        .and_then(|v| v.as_str())
-        .unwrap_or("json");
-    let fields = args
-        .get("fields")
-        .and_then(|v| v.as_str())
-        .unwrap_or("keys");
-    let deps = args
-        .get("deps")
-        .and_then(|v| v.as_str())
-        .unwrap_or("direct");
+#[derive(Debug, Deserialize)]
+pub struct Args {
+    #[serde(default, deserialize_with = "lenient")]
+    format: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    fields: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    deps: Option<String>,
+}
+
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+    let format = args.format.as_deref().unwrap_or("json");
+    let fields = args.fields.as_deref().unwrap_or("keys");
+    let deps = args.deps.as_deref().unwrap_or("direct");
 
     let outline_format = match format {
         "markdown" => OutlineFormat::Markdown,

@@ -1,14 +1,28 @@
-use serde_json::Value;
+use serde::Deserialize;
 use std::path::PathBuf;
 
+use crate::args::{lenient, strings};
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 use specforge_project::DiagnosticPolicy;
 
-pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
+#[derive(Debug, Deserialize)]
+pub struct Args {
+    #[serde(default, deserialize_with = "lenient")]
+    path: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    severity_filter: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    strict: Option<bool>,
+    #[serde(default, deserialize_with = "strings")]
+    lint: Vec<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    use_cached: Option<bool>,
+}
+
+pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
     let path = args
-        .get("path")
-        .and_then(|v| v.as_str())
+        .path
         .map(PathBuf::from)
         .or_else(|| state.project_root.clone());
 
@@ -19,11 +33,8 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         }
     };
 
-    let severity_filter = args.get("severity_filter").and_then(|v| v.as_str());
-    let use_cached = args
-        .get("use_cached")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let severity_filter = args.severity_filter.as_deref();
+    let use_cached = args.use_cached.unwrap_or(false);
 
     // A path naming another project is validated for this call only: the
     // server keeps serving its own.
@@ -40,20 +51,8 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
     // strict promotes warnings before filtering, so a promoted warning
     // counts as an error for `severity_filter` and `isError` alike.
     let policy = DiagnosticPolicy {
-        strict: args
-            .get("strict")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
-        lint_profiles: args
-            .get("lint")
-            .and_then(Value::as_array)
-            .map(|profiles| {
-                profiles
-                    .iter()
-                    .filter_map(|p| p.as_str().map(str::to_string))
-                    .collect()
-            })
-            .unwrap_or_default(),
+        strict: args.strict.unwrap_or(false),
+        lint_profiles: args.lint,
     };
     let promoted = policy.apply(&root, reported);
     let diagnostics: Vec<&specforge_common::Diagnostic> = promoted

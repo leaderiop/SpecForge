@@ -1,13 +1,23 @@
+use serde::Deserialize;
 use serde_json::Value;
 
+use crate::args::lenient;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
-    if let Some(plan) = args.get("plan") {
+#[derive(Debug, Deserialize)]
+pub struct Args {
+    #[serde(default, deserialize_with = "lenient")]
+    entity_id: Option<String>,
+    #[serde(default)]
+    plan: Option<Value>,
+}
+
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+    if let Some(plan) = &args.plan {
         return plan_gaps(state, plan);
     }
-    let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
+    let entity_id = match args.entity_id.as_deref() {
         Some(e) => e,
         None => {
             return ToolOutcome::invalid_params("Missing required parameter: entity_id or plan");

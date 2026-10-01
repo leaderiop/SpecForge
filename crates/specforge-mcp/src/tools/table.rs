@@ -5,8 +5,19 @@
 use serde_json::{Value, json};
 
 use super::*;
+use crate::args::{NoArgs, fields};
 use crate::operations;
 use crate::tool::{Category, Effect, MutationSpec, ToolSpec, writes_unless_dry_run};
+
+/// A handler reading its typed arguments: refused when they don't parse.
+macro_rules! typed {
+    ($handler:path, $args:ty) => {
+        |state, arguments| match crate::args::parse::<$args>(arguments) {
+            Ok(args) => $handler(state, args),
+            Err(refused) => refused,
+        }
+    };
+}
 
 fn effect(files_changed: usize, entities_affected: usize) -> Effect {
     Effect {
@@ -46,7 +57,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| query::call(s, a),
+        fields: fields::<query::Args>,
+        call: typed!(query::call, query::Args),
     },
     ToolSpec {
         name: "specforge.validate",
@@ -65,7 +77,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: validate::call,
+        fields: fields::<validate::Args>,
+        call: typed!(validate::call, validate::Args),
     },
     ToolSpec {
         name: "specforge.analyze",
@@ -84,7 +97,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: analyze::call,
+        fields: fields::<analyze::Args>,
+        call: typed!(analyze::call, analyze::Args),
     },
     ToolSpec {
         name: "specforge.export",
@@ -103,7 +117,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| export::call(s, a),
+        fields: fields::<export::Args>,
+        call: typed!(export::call, export::Args),
     },
     ToolSpec {
         name: "specforge.trace",
@@ -119,7 +134,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| trace::call(s, a),
+        fields: fields::<trace::Args>,
+        call: typed!(trace::call, trace::Args),
     },
     ToolSpec {
         name: "specforge.search",
@@ -140,7 +156,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| search::call(s, a),
+        fields: fields::<search::Args>,
+        call: typed!(search::call, search::Args),
     },
     ToolSpec {
         name: "specforge.schema",
@@ -157,7 +174,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| schema::call(s, a),
+        fields: fields::<schema::Args>,
+        call: typed!(schema::call, schema::Args),
     },
     ToolSpec {
         name: "specforge.model",
@@ -203,7 +221,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| model::call(s, a),
+        fields: fields::<model::Args>,
+        call: typed!(model::call, model::Args),
     },
     ToolSpec {
         name: "specforge.outline_extensions",
@@ -232,7 +251,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| outline_extensions::call(s, a),
+        fields: fields::<outline_extensions::Args>,
+        call: typed!(outline_extensions::call, outline_extensions::Args),
     },
     ToolSpec {
         name: "specforge.coverage",
@@ -249,7 +269,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| coverage::call(s, a),
+        fields: fields::<coverage::Args>,
+        call: typed!(coverage::call, coverage::Args),
     },
     ToolSpec {
         name: "specforge.stats",
@@ -262,7 +283,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| stats::call(s, a),
+        fields: fields::<NoArgs>,
+        call: typed!(stats::call, NoArgs),
     },
     ToolSpec {
         name: "specforge.list",
@@ -277,7 +299,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| list::call(s, a),
+        fields: fields::<list::Args>,
+        call: typed!(list::call, list::Args),
     },
     ToolSpec {
         name: "specforge.inspect",
@@ -293,7 +316,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| inspect::call(s, a),
+        fields: fields::<inspect::Args>,
+        call: typed!(inspect::call, inspect::Args),
     },
     ToolSpec {
         name: "specforge.find_definition",
@@ -309,7 +333,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| find_definition::call(s, a),
+        fields: fields::<find_definition::Args>,
+        call: typed!(find_definition::call, find_definition::Args),
     },
     ToolSpec {
         name: "specforge.find_references",
@@ -325,7 +350,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| find_references::call(s, a),
+        fields: fields::<find_references::Args>,
+        call: typed!(find_references::call, find_references::Args),
     },
     ToolSpec {
         name: "specforge.outline",
@@ -341,7 +367,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| outline::call(s, a),
+        fields: fields::<outline::Args>,
+        call: typed!(outline::call, outline::Args),
     },
     ToolSpec {
         name: "specforge.suggest_fixes",
@@ -358,7 +385,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| suggest_fixes::call(s, a),
+        fields: fields::<suggest_fixes::Args>,
+        call: typed!(suggest_fixes::call, suggest_fixes::Args),
     },
     ToolSpec {
         name: "specforge.format",
@@ -381,7 +409,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             effect: |o| effect(count(o, "changed_files"), 0),
             recompiles: true,
         }),
-        call: operations::format_op,
+        fields: fields::<operations::FormatArgs>,
+        call: typed!(operations::format_op, operations::FormatArgs),
     },
     ToolSpec {
         name: "specforge.rename",
@@ -404,7 +433,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             effect: |o| effect(count(o, "affected_files"), 1),
             recompiles: true,
         }),
-        call: operations::rename_op,
+        fields: fields::<operations::RenameArgs>,
+        call: typed!(operations::rename_op, operations::RenameArgs),
     },
     ToolSpec {
         name: "specforge.init",
@@ -427,7 +457,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             effect: |_| effect(3, 0),
             recompiles: true,
         }),
-        call: operations::init_op,
+        fields: fields::<operations::InitArgs>,
+        call: typed!(operations::init_op, operations::InitArgs),
     },
     ToolSpec {
         name: "specforge.add_extension",
@@ -456,7 +487,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             },
             recompiles: true,
         }),
-        call: operations::add_extension,
+        fields: fields::<operations::AddArgs>,
+        call: typed!(operations::add_extension, operations::AddArgs),
     },
     ToolSpec {
         name: "specforge.remove_extension",
@@ -485,7 +517,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             },
             recompiles: true,
         }),
-        call: |s, a| operations::remove_extension_op(s, a),
+        fields: fields::<operations::RemoveArgs>,
+        call: typed!(operations::remove_extension_op, operations::RemoveArgs),
     },
     ToolSpec {
         name: "specforge.migrate",
@@ -513,7 +546,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             },
             recompiles: true,
         }),
-        call: |s, a| operations::migrate_op(s, a),
+        fields: fields::<operations::MigrateArgs>,
+        call: typed!(operations::migrate_op, operations::MigrateArgs),
     },
     ToolSpec {
         name: "specforge.extensions",
@@ -521,7 +555,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         category: Category::Management,
         schema: || json!({ "type": "object", "properties": {} }),
         mutation: None,
-        call: |s, a| operations::extensions_op(s, a),
+        fields: fields::<NoArgs>,
+        call: typed!(operations::extensions_op, NoArgs),
     },
     ToolSpec {
         name: "specforge.providers",
@@ -529,7 +564,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         category: Category::Management,
         schema: || json!({ "type": "object", "properties": {} }),
         mutation: None,
-        call: |s, a| operations::providers_op(s, a),
+        fields: fields::<NoArgs>,
+        call: typed!(operations::providers_op, NoArgs),
     },
     ToolSpec {
         name: "specforge.doctor",
@@ -544,7 +580,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: operations::doctor_op,
+        fields: fields::<operations::DoctorArgs>,
+        call: typed!(operations::doctor_op, operations::DoctorArgs),
     },
     ToolSpec {
         name: "specforge.collect",
@@ -561,7 +598,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| operations::collect_op(s, a),
+        fields: fields::<operations::CollectArgs>,
+        call: typed!(operations::collect_op, operations::CollectArgs),
     },
     ToolSpec {
         name: "specforge.render",
@@ -579,7 +617,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| operations::render_op(s, a),
+        fields: fields::<operations::RenderArgs>,
+        call: typed!(operations::render_op, operations::RenderArgs),
     },
     ToolSpec {
         name: "specforge.infer_progress",
@@ -592,7 +631,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| infer_progress::call(s, a),
+        fields: fields::<NoArgs>,
+        call: typed!(infer_progress::call, NoArgs),
     },
     ToolSpec {
         name: "specforge.infer_gaps",
@@ -605,7 +645,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| infer_gaps::call(s, a),
+        fields: fields::<NoArgs>,
+        call: typed!(infer_gaps::call, NoArgs),
     },
     ToolSpec {
         name: "specforge.infer_session",
@@ -656,7 +697,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             effect: |o| effect(1, count(o, "entities_produced")),
             recompiles: false,
         }),
-        call: |s, a| infer_session::call(s, a),
+        fields: fields::<infer_session::Args>,
+        call: typed!(infer_session::call, infer_session::Args),
     },
     ToolSpec {
         name: "specforge.find_implementation",
@@ -675,7 +717,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| find_implementation::call(s, a),
+        fields: fields::<find_implementation::Args>,
+        call: typed!(find_implementation::call, find_implementation::Args),
     },
     ToolSpec {
         name: "specforge.find_spec_for_source",
@@ -694,6 +737,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        call: |s, a| find_spec_for_source::call(s, a),
+        fields: fields::<find_spec_for_source::Args>,
+        call: typed!(find_spec_for_source::call, find_spec_for_source::Args),
     },
 ];

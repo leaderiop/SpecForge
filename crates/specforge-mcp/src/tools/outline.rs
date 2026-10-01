@@ -3,13 +3,13 @@ use serde_json::Value;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
-    let file = match args.get("file").and_then(|v| v.as_str()) {
-        Some(f) => f,
-        None => {
-            return ToolOutcome::invalid_params("Missing required parameter: file");
-        }
-    };
+#[derive(Debug, serde::Deserialize)]
+pub struct Args {
+    file: String,
+}
+
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+    let file = args.file.as_str();
 
     let nodes = state.graph.nodes_in_file(file);
     // A file the graph has no entity from is either empty or not there.

@@ -8,7 +8,7 @@ use specforge_emitter::scanner_dispatch;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, _args: Value) -> ToolOutcome {
+pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
     let project_root = match &state.project_root {
         Some(p) => p.clone(),
         None => {

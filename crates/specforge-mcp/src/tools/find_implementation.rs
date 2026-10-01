@@ -5,8 +5,14 @@ use specforge_common::inference::anchors;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
-    let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
+#[derive(Debug, serde::Deserialize)]
+pub struct Args {
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    entity_id: Option<String>,
+}
+
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+    let entity_id = match args.entity_id.as_deref() {
         Some(id) => id,
         None => {
             return ToolOutcome::ok(json!({"error": "Missing required parameter: entity_id"}));

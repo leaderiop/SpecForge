@@ -1,32 +1,39 @@
-use serde_json::Value;
+use serde::Deserialize;
 use specforge_emitter::generate_schema;
 use specforge_emitter::model::{
     FieldLevel, GroupBy, ModelFormat, ModelIntermediate_from_schema, ModelOptions, filter_entities,
     filter_fields, render,
 };
 
+use crate::args::{lenient, some_strings};
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
-    let format = args
-        .get("format")
-        .and_then(|v| v.as_str())
-        .unwrap_or("markdown");
-    let group_by = args
-        .get("group_by")
-        .and_then(|v| v.as_str())
-        .unwrap_or("extension");
-    let fields = args
-        .get("fields")
-        .and_then(|v| v.as_str())
-        .unwrap_or("keys");
-    let extension = args.get("extension").and_then(|v| v.as_str());
-    let root = args.get("root").and_then(|v| v.as_str());
-    let depth = args
-        .get("depth")
-        .and_then(|v| v.as_u64())
-        .map(|d| d as usize);
+#[derive(Debug, Deserialize)]
+pub struct Args {
+    #[serde(default, deserialize_with = "lenient")]
+    format: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    group_by: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    fields: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    extension: Option<String>,
+    #[serde(default, deserialize_with = "some_strings")]
+    kinds: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "lenient")]
+    root: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    depth: Option<u64>,
+}
+
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+    let format = args.format.as_deref().unwrap_or("markdown");
+    let group_by = args.group_by.as_deref().unwrap_or("extension");
+    let fields = args.fields.as_deref().unwrap_or("keys");
+    let extension = args.extension.as_deref();
+    let root = args.root.as_deref();
+    let depth = args.depth.map(|d| d as usize);
 
     let model_format = match format {
         "markdown" => ModelFormat::Markdown,
@@ -65,11 +72,7 @@ pub fn call(state: &McpState, args: Value) -> ToolOutcome {
         }
     };
 
-    let kind_filter = args.get("kinds").and_then(|v| v.as_array()).map(|arr| {
-        arr.iter()
-            .filter_map(|v| v.as_str().map(String::from))
-            .collect()
-    });
+    let kind_filter = args.kinds.clone();
 
     let options = ModelOptions {
         format: model_format,

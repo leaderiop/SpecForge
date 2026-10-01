@@ -3,7 +3,7 @@ use serde_json::Value;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, _args: Value) -> ToolOutcome {
+pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
     // Coverage is the coverage rule's, over the kinds the extensions
     // declare testable, less the entities W004 exempts.
     // The proof percentage reads the project's recorded tests; a report

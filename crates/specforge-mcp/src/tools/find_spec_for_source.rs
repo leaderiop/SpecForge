@@ -5,8 +5,14 @@ use specforge_common::inference::anchors;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
-    let file_path = match args.get("file_path").and_then(|v| v.as_str()) {
+#[derive(Debug, serde::Deserialize)]
+pub struct Args {
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    file_path: Option<String>,
+}
+
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+    let file_path = match args.file_path.as_deref() {
         Some(p) => p,
         None => {
             return ToolOutcome::ok(json!({"error": "Missing required parameter: file_path"}));

@@ -1,11 +1,23 @@
+use serde::Deserialize;
 use serde_json::Value;
 use std::collections::BTreeMap;
 
+use crate::args::lenient;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
-    let kind_filter = args.get("kind").and_then(|v| v.as_str());
+#[derive(Debug, Deserialize)]
+pub struct Args {
+    #[serde(default, deserialize_with = "lenient")]
+    kind: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    include_edges: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    include_validation_rules: Option<bool>,
+}
+
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+    let kind_filter = args.kind.as_deref();
 
     let mut kinds: BTreeMap<String, Vec<String>> = BTreeMap::new();
     for node in state.graph.nodes() {
@@ -38,14 +50,8 @@ pub fn call(state: &McpState, args: Value) -> ToolOutcome {
         .collect();
     edge_labels.sort();
 
-    let include_edges = args
-        .get("include_edges")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(true);
-    let include_validation_rules = args
-        .get("include_validation_rules")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let include_edges = args.include_edges.unwrap_or(true);
+    let include_validation_rules = args.include_validation_rules.unwrap_or(false);
 
     let mut schema = serde_json::json!({
         "schema_version": specforge_emitter::SCHEMA_VERSION,

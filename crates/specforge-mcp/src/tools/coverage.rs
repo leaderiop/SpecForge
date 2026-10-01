@@ -78,14 +78,24 @@ pub(crate) fn status_name(status: Status) -> &'static str {
     }
 }
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
+#[derive(Debug, serde::Deserialize)]
+pub struct Args {
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    entity_id: Option<String>,
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    kind: Option<String>,
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    status_filter: Option<String>,
+}
+
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let coverage = match project_coverage(state, "specforge.coverage") {
         Ok(coverage) => coverage,
         Err(outcome) => return outcome,
     };
-    let entity_filter = args.get("entity_id").and_then(|v| v.as_str());
-    let kind_filter = args.get("kind").and_then(|v| v.as_str());
-    let status_filter = args.get("status_filter").and_then(|v| v.as_str());
+    let entity_filter = args.entity_id.as_deref();
+    let kind_filter = args.kind.as_deref();
+    let status_filter = args.status_filter.as_deref();
 
     // Testability is the extensions' call (their kinds' manifests).
     let testable = specforge_emitter::coverage::testable_kinds(&state.kind_registry);

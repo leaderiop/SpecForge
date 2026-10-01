@@ -3,8 +3,14 @@ use serde_json::{Value, json};
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, arguments: Value) -> ToolOutcome {
-    let kind = arguments.get("kind").and_then(|v| v.as_str()).unwrap_or("");
+#[derive(Debug, serde::Deserialize)]
+pub struct Args {
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    kind: Option<String>,
+}
+
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+    let kind = args.kind.as_deref().unwrap_or("");
 
     let entities: Vec<Value> = if kind.is_empty() {
         // No kind filter: return all entities

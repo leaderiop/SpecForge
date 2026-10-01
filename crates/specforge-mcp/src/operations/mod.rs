@@ -9,13 +9,16 @@ use std::path::PathBuf;
 use specforge_common::find_project_root;
 use specforge_wasm::read_lock_file;
 
+use serde::Deserialize;
+
+use crate::args::{lenient, strings};
 use crate::protocol::error_codes;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
 /// `specforge.add_extension`: the install, plus `extension_added` when it
 /// installed something.
-pub(crate) fn add_extension(state: &mut McpState, args: Value) -> ToolOutcome {
+pub(crate) fn add_extension(state: &mut McpState, args: AddArgs) -> ToolOutcome {
     let outcome = add_extension_op(state, args);
     let added = outcome
         .success_payload()
@@ -30,10 +33,8 @@ pub(crate) fn add_extension(state: &mut McpState, args: Value) -> ToolOutcome {
 // ── shared helpers ──────────────────────────────────────────────────────────
 
 /// Resolve the project root, preferring an explicit `path` argument.
-fn project_root_of(state: &McpState, args: &Value) -> Option<PathBuf> {
-    args.get("path")
-        .and_then(|v| v.as_str())
-        .map(PathBuf::from)
+fn project_root_of(state: &McpState, path: Option<&str>) -> Option<PathBuf> {
+    path.map(PathBuf::from)
         .or_else(|| state.project_root.clone())
 }
 
@@ -88,17 +89,28 @@ pub(crate) fn export_graph(
 
 // ── format ──────────────────────────────────────────────────────────────────
 
-pub(crate) fn format_op(state: &mut McpState, args: Value) -> ToolOutcome {
+#[derive(Debug, Deserialize)]
+pub struct FormatArgs {
+    #[serde(default, deserialize_with = "lenient")]
+    path: Option<String>,
+    #[serde(default, deserialize_with = "strings")]
+    paths: Vec<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    check: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    diff: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    write: Option<bool>,
+}
+
+pub(crate) fn format_op(state: &mut McpState, args: FormatArgs) -> ToolOutcome {
     use specforge_ops::format::{self, Mode, Request};
 
-    let check = args.get("check").and_then(|v| v.as_bool()).unwrap_or(false);
-    let diff = args.get("diff").and_then(|v| v.as_bool()).unwrap_or(false);
-    let write = args
-        .get("write")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(!check && !diff);
+    let check = args.check.unwrap_or(false);
+    let diff = args.diff.unwrap_or(false);
+    let write = args.write.unwrap_or(!check && !diff);
 
-    let Some(root) = project_root_of(state, &args) else {
+    let Some(root) = project_root_of(state, args.path.as_deref()) else {
         return err_invalid("format needs a project root (pass {\"path\": ...})");
     };
     let Some(project_root) = find_project_root(&root) else {
@@ -107,17 +119,7 @@ pub(crate) fn format_op(state: &mut McpState, args: Value) -> ToolOutcome {
 
     // The run `specforge format` makes. Relative paths name files under
     // the project root.
-    let explicit: Vec<PathBuf> = args
-        .get("paths")
-        .and_then(|v| v.as_array())
-        .map(|paths| {
-            paths
-                .iter()
-                .filter_map(|p| p.as_str())
-                .map(|p| project_root.join(p))
-                .collect()
-        })
-        .unwrap_or_default();
+    let explicit: Vec<PathBuf> = args.paths.iter().map(|p| project_root.join(p)).collect();
     let mode = if write { Mode::Write } else { Mode::Check };
     let outcome = format::run(&Request {
         root: &project_root,
@@ -180,23 +182,20 @@ pub(crate) fn format_op(state: &mut McpState, args: Value) -> ToolOutcome {
 
 // ── rename ──────────────────────────────────────────────────────────────────
 
-pub(crate) fn rename_op(state: &mut McpState, args: Value) -> ToolOutcome {
-    let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
-        Some(e) => e,
-        None => {
-            return err_invalid("Missing required parameter: entity_id");
-        }
-    };
-    let new_name = match args.get("new_name").and_then(|v| v.as_str()) {
-        Some(n) => n,
-        None => {
-            return err_invalid("Missing required parameter: new_name");
-        }
-    };
-    let dry_run = args
-        .get("dry_run")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+#[derive(Debug, Deserialize)]
+pub struct RenameArgs {
+    entity_id: String,
+    new_name: String,
+    #[serde(default, deserialize_with = "lenient")]
+    dry_run: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    path: Option<String>,
+}
+
+pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
+    let entity_id = args.entity_id.as_str();
+    let new_name = args.new_name.as_str();
+    let dry_run = args.dry_run.unwrap_or(false);
 
     if new_name.is_empty()
         || new_name.len() < 2
@@ -208,7 +207,7 @@ pub(crate) fn rename_op(state: &mut McpState, args: Value) -> ToolOutcome {
     if state.graph.node(entity_id).is_none() {
         return err_invalid(format!("Entity not found: {}", entity_id));
     }
-    let Some(root) = project_root_of(state, &args) else {
+    let Some(root) = project_root_of(state, args.path.as_deref()) else {
         return err_invalid("rename needs a project root (pass {\"path\": ...})");
     };
 
@@ -264,30 +263,30 @@ pub(crate) fn rename_op(state: &mut McpState, args: Value) -> ToolOutcome {
 
 // ── init ────────────────────────────────────────────────────────────────────
 
-pub(crate) fn init_op(state: &mut McpState, args: Value) -> ToolOutcome {
+#[derive(Debug, Deserialize)]
+pub struct InitArgs {
+    path: String,
+    #[serde(default, deserialize_with = "lenient")]
+    name: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    version: Option<String>,
+    #[serde(default, deserialize_with = "strings")]
+    extensions: Vec<String>,
+}
+
+pub(crate) fn init_op(state: &mut McpState, args: InitArgs) -> ToolOutcome {
     use specforge_ops::init;
 
-    let Some(path) = args.get("path").and_then(|v| v.as_str()).map(PathBuf::from) else {
-        return err_invalid("Missing required parameter: path");
-    };
-    let extensions: Vec<String> = args
-        .get("extensions")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str())
-                .map(String::from)
-                .collect()
-        })
-        .unwrap_or_default();
+    let path = PathBuf::from(&args.path);
+    let extensions = &args.extensions;
 
     // The scaffold `specforge init` writes; the new project must not land
     // inside the one this server serves.
     let request = init::Request {
         dir: &path,
-        name: args.get("name").and_then(|v| v.as_str()),
-        version: args.get("version").and_then(|v| v.as_str()),
-        extensions: &extensions,
+        name: args.name.as_deref(),
+        version: args.version.as_deref(),
+        extensions,
         forbid_inside: state.project_root.as_deref(),
     };
     let outcome = match init::plan(&request).and_then(|plan| init::apply(&path, &plan)) {
@@ -311,23 +310,25 @@ pub(crate) fn init_op(state: &mut McpState, args: Value) -> ToolOutcome {
 
 // ── add / remove ────────────────────────────────────────────────────────────
 
-fn add_extension_op(state: &McpState, args: Value) -> ToolOutcome {
+#[derive(Debug, Deserialize)]
+pub struct AddArgs {
+    specifier: String,
+    #[serde(default, deserialize_with = "lenient")]
+    dry_run: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    allow_unsigned: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    path: Option<String>,
+}
+
+fn add_extension_op(state: &McpState, args: AddArgs) -> ToolOutcome {
     use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
 
-    let specifier = match args.get("specifier").and_then(|v| v.as_str()) {
-        Some(s) => s.to_string(),
-        None => return err_invalid("Missing required parameter: specifier"),
-    };
-    let allow_unsigned = args
-        .get("allow_unsigned")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let dry_run = args
-        .get("dry_run")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let specifier = args.specifier.clone();
+    let allow_unsigned = args.allow_unsigned.unwrap_or(false);
+    let dry_run = args.dry_run.unwrap_or(false);
 
-    let Some(root) = project_root_of(state, &args) else {
+    let Some(root) = project_root_of(state, args.path.as_deref()) else {
         return err_invalid("add needs a project root (pass {\"path\": ...})");
     };
     let source = match extension::parse(&specifier) {
@@ -400,18 +401,23 @@ fn add_extension_op(state: &McpState, args: Value) -> ToolOutcome {
     }
 }
 
-pub(crate) fn remove_extension_op(state: &McpState, args: Value) -> ToolOutcome {
-    let name = match args.get("name").and_then(|v| v.as_str()) {
-        Some(n) => n.to_string(),
-        None => return err_invalid("Missing required parameter: name"),
-    };
-    let force = args.get("force").and_then(|v| v.as_bool()).unwrap_or(false);
-    let dry_run = args
-        .get("dry_run")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+#[derive(Debug, Deserialize)]
+pub struct RemoveArgs {
+    name: String,
+    #[serde(default, deserialize_with = "lenient")]
+    force: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    dry_run: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    path: Option<String>,
+}
 
-    let Some(root) = project_root_of(state, &args) else {
+pub(crate) fn remove_extension_op(state: &McpState, args: RemoveArgs) -> ToolOutcome {
+    let name = args.name.clone();
+    let force = args.force.unwrap_or(false);
+    let dry_run = args.dry_run.unwrap_or(false);
+
+    let Some(root) = project_root_of(state, args.path.as_deref()) else {
         return err_invalid("remove needs a project root (pass {\"path\": ...})");
     };
 
@@ -449,23 +455,27 @@ pub(crate) fn remove_extension_op(state: &McpState, args: Value) -> ToolOutcome 
 
 // ── migrate ─────────────────────────────────────────────────────────────────
 
-pub(crate) fn migrate_op(state: &McpState, args: Value) -> ToolOutcome {
-    let Some(path) = project_root_of(state, &args) else {
+#[derive(Debug, Deserialize)]
+pub struct MigrateArgs {
+    #[serde(default, deserialize_with = "lenient")]
+    dry_run: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    target_version: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    no_backup: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    path: Option<String>,
+}
+
+pub(crate) fn migrate_op(state: &McpState, args: MigrateArgs) -> ToolOutcome {
+    let Some(path) = project_root_of(state, args.path.as_deref()) else {
         return err_invalid("migrate needs a project root (pass {\"path\": ...})");
     };
-    let dry_run = args
-        .get("dry_run")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let no_backup = args
-        .get("no_backup")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let dry_run = args.dry_run.unwrap_or(false);
+    let no_backup = args.no_backup.unwrap_or(false);
     // The format version to migrate to, checked as `specforge migrate
     // --target-version` checks it.
-    let target = match specforge_ops::migrate::parse_target(
-        args.get("target_version").and_then(|v| v.as_str()),
-    ) {
+    let target = match specforge_ops::migrate::parse_target(args.target_version.as_deref()) {
         Ok(target) => target,
         Err(error) => return err_op(error),
     };
@@ -529,7 +539,7 @@ pub(crate) fn migrate_op(state: &McpState, args: Value) -> ToolOutcome {
 
 // ── extensions ──────────────────────────────────────────────────────────────
 
-pub(crate) fn extensions_op(state: &McpState, _args: Value) -> ToolOutcome {
+pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
     use specforge_ops::extension::{self, Origin};
 
     let Some(root) = &state.project_root else {
@@ -579,7 +589,7 @@ pub(crate) fn extensions_op(state: &McpState, _args: Value) -> ToolOutcome {
 
 // ── providers ───────────────────────────────────────────────────────────────
 
-pub(crate) fn providers_op(state: &McpState, _args: Value) -> ToolOutcome {
+pub(crate) fn providers_op(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
     let Some(root) = &state.project_root else {
         return err_invalid("no project root available");
     };
@@ -607,17 +617,20 @@ pub(crate) fn providers_op(state: &McpState, _args: Value) -> ToolOutcome {
 
 // ── doctor ──────────────────────────────────────────────────────────────────
 
-pub(crate) fn doctor_op(state: &mut McpState, args: Value) -> ToolOutcome {
+#[derive(Debug, Deserialize)]
+pub struct DoctorArgs {
+    #[serde(default, deserialize_with = "lenient")]
+    use_cached: Option<bool>,
+}
+
+pub(crate) fn doctor_op(state: &mut McpState, args: DoctorArgs) -> ToolOutcome {
     let Some(root) = state.project_root.clone() else {
         return err_invalid("doctor needs a project root");
     };
     // Like specforge.validate, a fresh compile unless the caller opts into
     // the last one (ADR 0004 D3-d): the agent may have edited the project
     // since, and the session would not know.
-    let use_cached = args
-        .get("use_cached")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let use_cached = args.use_cached.unwrap_or(false);
     if !use_cached || state.loaded_at.is_none() {
         state.recompile(&root);
     }
@@ -645,17 +658,24 @@ pub(crate) fn doctor_op(state: &mut McpState, args: Value) -> ToolOutcome {
 
 // ── collect ─────────────────────────────────────────────────────────────────
 
-pub(crate) fn collect_op(state: &McpState, args: Value) -> ToolOutcome {
+#[derive(Debug, Deserialize)]
+pub struct CollectArgs {
+    #[serde(default, deserialize_with = "lenient")]
+    runner: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    run: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    path: Option<String>,
+}
+
+pub(crate) fn collect_op(state: &McpState, args: CollectArgs) -> ToolOutcome {
     use specforge_emitter::collect::{self, Mode, Request, RunnerOutput};
 
-    let Some(root) = project_root_of(state, &args) else {
+    let Some(root) = project_root_of(state, args.path.as_deref()) else {
         return err_invalid("collect needs a project root (pass {\"path\": ...})");
     };
-    let runner = args
-        .get("runner")
-        .and_then(|v| v.as_str())
-        .filter(|r| *r != "auto");
-    let run = args.get("run").and_then(|v| v.as_bool()).unwrap_or(false);
+    let runner = args.runner.as_deref().filter(|r| *r != "auto");
+    let run = args.run.unwrap_or(false);
 
     let runtime = specforge_component::project_runtime(&root);
     let ctx = specforge_project::CompiledProject::compile(&root, Some(&runtime)).into_context();
@@ -700,11 +720,18 @@ pub(crate) fn collect_op(state: &McpState, args: Value) -> ToolOutcome {
 
 // ── render ──────────────────────────────────────────────────────────────────
 
-pub(crate) fn render_op(state: &McpState, args: Value) -> ToolOutcome {
-    let format = args
-        .get("format")
-        .and_then(|v| v.as_str())
-        .unwrap_or("json");
+#[derive(Debug, Deserialize)]
+pub struct RenderArgs {
+    #[serde(default, deserialize_with = "lenient")]
+    format: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    out_dir: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    scope: Option<String>,
+}
+
+pub(crate) fn render_op(state: &McpState, args: RenderArgs) -> ToolOutcome {
+    let format = args.format.as_deref().unwrap_or("json");
 
     // Each renderer and the file it writes into out_dir.
     const RENDERERS: [(&str, &str); 4] = [
@@ -729,7 +756,7 @@ pub(crate) fn render_op(state: &McpState, args: Value) -> ToolOutcome {
     // as `specforge export --format graph` writes it.
     let request = specforge_ops::export::Request {
         format: format.parse().ok(),
-        scope: args.get("scope").and_then(|v| v.as_str()),
+        scope: args.scope.as_deref(),
         ..specforge_ops::export::Request::default()
     };
     let output = match export_graph(state, &request) {
@@ -738,7 +765,7 @@ pub(crate) fn render_op(state: &McpState, args: Value) -> ToolOutcome {
     };
 
     // With out_dir the rendering lands on disk; without it, inline.
-    let Some(out_dir) = args.get("out_dir").and_then(|v| v.as_str()) else {
+    let Some(out_dir) = args.out_dir.as_deref() else {
         return ok(json!({ "format": format, "output": output, "output_files": [] }));
     };
     let out_dir = PathBuf::from(out_dir);

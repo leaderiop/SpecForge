@@ -1,7 +1,9 @@
+use serde::Deserialize;
 use serde_json::Value;
 use specforge_graph::FieldValue;
 use strsim::jaro_winkler;
 
+use crate::args::{lenient, strings};
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
@@ -22,25 +24,31 @@ fn text_field_score(node: &specforge_graph::Node, query_lower: &str) -> f64 {
     if found { TEXT_FIELD_MATCH_SCORE } else { 0.0 }
 }
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
-    let query = match args.get("query").and_then(|v| v.as_str()) {
-        Some(q) => q,
-        None => {
-            return ToolOutcome::invalid_params("Missing required parameter: query");
-        }
-    };
+#[derive(Debug, Deserialize)]
+pub struct Args {
+    query: String,
+    #[serde(default, deserialize_with = "strings")]
+    kinds: Vec<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    limit: Option<u64>,
+    #[serde(default, deserialize_with = "lenient")]
+    field: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    value: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    references: Option<String>,
+}
 
-    let kind_filter: Vec<&str> = args
-        .get("kinds")
-        .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
-        .unwrap_or_default();
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+    let query = args.query.as_str();
+
+    let kind_filter: Vec<&str> = args.kinds.iter().map(String::as_str).collect();
     let unknown_kinds = super::unknown_kind_diagnostics(state, &kind_filter);
 
-    let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
-    let field_filter = args.get("field").and_then(|v| v.as_str());
-    let value_filter = args.get("value").and_then(|v| v.as_str());
-    let references_target = args.get("references").and_then(|v| v.as_str());
+    let limit = args.limit.unwrap_or(20) as usize;
+    let field_filter = args.field.as_deref();
+    let value_filter = args.value.as_deref();
+    let references_target = args.references.as_deref();
 
     // If references parameter is set, find entities with edges to that target
     if let Some(target) = references_target {

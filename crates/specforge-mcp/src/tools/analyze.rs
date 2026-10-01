@@ -1,26 +1,37 @@
-use serde_json::Value;
+use serde::Deserialize;
 use std::path::PathBuf;
 
+use crate::args::lenient;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 use specforge_emitter::analyze::{AnalysisContext, TestReport, run_pass};
 use specforge_project::{CompiledProject, DiagnosticPolicy};
 
+#[derive(Debug, Deserialize)]
+pub struct Args {
+    #[serde(default, deserialize_with = "lenient")]
+    pass: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    strict: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    test_results: Option<String>,
+    #[serde(default, deserialize_with = "lenient")]
+    use_cached: Option<bool>,
+    #[serde(default, deserialize_with = "lenient")]
+    path: Option<String>,
+}
+
 /// `specforge.analyze` — run the analysis passes (coverage, contracts) plus
 /// extension-owned compiler passes over the project and return structured
 /// findings. Extension passes execute through the same Wasm runtime the CLI
 /// uses (WASM-only migration, Phase 4).
-pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
+pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
     let path = args
-        .get("path")
-        .and_then(|v| v.as_str())
+        .path
         .map(PathBuf::from)
         .or_else(|| state.project_root.clone());
 
-    let use_cached = args
-        .get("use_cached")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let use_cached = args.use_cached.unwrap_or(false);
 
     // A path naming another project is analyzed for this call only: the
     // server keeps serving its own. Otherwise the served project is
@@ -59,16 +70,12 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
     };
 
     // `strict` promotes warnings in every pass's findings, as the CLI does.
-    let policy = DiagnosticPolicy::strict(
-        args.get("strict")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
-    );
+    let policy = DiagnosticPolicy::strict(args.strict.unwrap_or(false));
 
     // Without `test_results`, use what `specforge collect` last recorded, as
     // the CLI does; otherwise proof coverage would silently read nothing.
     // A report that can't be used is an error result, as the CLI exits 2.
-    let read = match args.get("test_results").and_then(|v| v.as_str()) {
+    let read = match args.test_results.as_deref() {
         Some(named) => {
             specforge_emitter::coverage::read_report_file(&PathBuf::from(named)).map(Some)
         }
@@ -95,11 +102,7 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         test_results: parsed_report.as_ref(),
     };
 
-    let requested = args
-        .get("pass")
-        .and_then(|v| v.as_str())
-        .unwrap_or("all")
-        .to_string();
+    let requested = args.pass.unwrap_or_else(|| "all".to_string());
     // Coverage is an extension pass owned by @specforge/testing (ADR 0002).
     let requested = if requested == "coverage" {
         specforge_emitter::analyze::COVERAGE_PASS.to_string()

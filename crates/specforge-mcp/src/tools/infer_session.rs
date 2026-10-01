@@ -16,7 +16,25 @@ pub struct InferenceSession {
     pub status: String,
 }
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
+#[derive(Debug, serde::Deserialize)]
+pub struct Args {
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    action: Option<String>,
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    agent: Option<String>,
+    #[serde(default, deserialize_with = "crate::args::some_strings")]
+    source_roots: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    source_file: Option<String>,
+    #[serde(default, deserialize_with = "crate::args::strings")]
+    entities_produced: Vec<String>,
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    session_id: Option<String>,
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    status: Option<String>,
+}
+
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let project_root = match &state.project_root {
         Some(p) => p.clone(),
         None => {
@@ -24,7 +42,7 @@ pub fn call(state: &McpState, args: Value) -> ToolOutcome {
         }
     };
 
-    let action = match args.get("action").and_then(|v| v.as_str()) {
+    let action = match args.action.as_deref() {
         Some(a) => a,
         None => {
             return ToolOutcome::invalid_params(
@@ -44,26 +62,15 @@ pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     }
 }
 
-fn handle_start(_state: &McpState, args: &Value, project_root: &std::path::Path) -> ToolOutcome {
+fn handle_start(_state: &McpState, args: &Args, project_root: &std::path::Path) -> ToolOutcome {
     let mut manifest = match inference::load_inference_manifest(project_root) {
         Ok(m) => m,
         Err(e) => return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e),
     };
 
-    let agent = args
-        .get("agent")
-        .and_then(|v| v.as_str())
-        .unwrap_or("unknown")
-        .to_string();
+    let agent = args.agent.clone().unwrap_or_else(|| "unknown".to_string());
 
-    let source_roots = args
-        .get("source_roots")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                .collect::<Vec<_>>()
-        });
+    let source_roots = args.source_roots.clone();
 
     if let Some(roots) = source_roots {
         manifest.source_roots = roots;
@@ -103,25 +110,17 @@ fn handle_start(_state: &McpState, args: &Value, project_root: &std::path::Path)
 
 fn handle_mark_analyzed(
     _state: &McpState,
-    args: &Value,
+    args: &Args,
     project_root: &std::path::Path,
 ) -> ToolOutcome {
-    let source_file = match args.get("source_file").and_then(|v| v.as_str()) {
+    let source_file = match args.source_file.as_deref() {
         Some(f) => f.to_string(),
         None => {
             return ToolOutcome::invalid_params("Missing required parameter: source_file");
         }
     };
 
-    let entities: Vec<String> = args
-        .get("entities_produced")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                .collect()
-        })
-        .unwrap_or_default();
+    let entities: Vec<String> = args.entities_produced.clone();
 
     let mut manifest = match inference::load_inference_manifest(project_root) {
         Ok(m) => m,
@@ -160,19 +159,15 @@ fn handle_mark_analyzed(
     }))
 }
 
-fn handle_end(_state: &McpState, args: &Value, project_root: &std::path::Path) -> ToolOutcome {
-    let session_id = match args.get("session_id").and_then(|v| v.as_str()) {
+fn handle_end(_state: &McpState, args: &Args, project_root: &std::path::Path) -> ToolOutcome {
+    let session_id = match args.session_id.as_deref() {
         Some(s) => s.to_string(),
         None => {
             return ToolOutcome::invalid_params("Missing required parameter: session_id");
         }
     };
 
-    let status = args
-        .get("status")
-        .and_then(|v| v.as_str())
-        .unwrap_or("completed")
-        .to_string();
+    let status = args.status.as_deref().unwrap_or("completed").to_string();
 
     if status != "completed" && status != "paused" {
         return ToolOutcome::invalid_params(format!(

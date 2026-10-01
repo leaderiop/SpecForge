@@ -1,15 +1,13 @@
-use serde_json::Value;
-
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
-    let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
-        Some(e) => e,
-        None => {
-            return ToolOutcome::invalid_params("Missing required parameter: entity_id");
-        }
-    };
+#[derive(Debug, serde::Deserialize)]
+pub struct Args {
+    entity_id: String,
+}
+
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+    let entity_id = args.entity_id.as_str();
 
     let node = match state.graph.node(entity_id) {
         Some(n) => n,

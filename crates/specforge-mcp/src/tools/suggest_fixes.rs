@@ -3,8 +3,18 @@ use serde_json::Value;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value) -> ToolOutcome {
-    let entity = match args.get("entity_id").and_then(|v| v.as_str()) {
+#[derive(Debug, serde::Deserialize)]
+pub struct Args {
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    entity_id: Option<String>,
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    file_path: Option<String>,
+    #[serde(default, deserialize_with = "crate::args::lenient")]
+    diagnostic_code: Option<String>,
+}
+
+pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+    let entity = match args.entity_id.as_deref() {
         Some(entity_id) => match state.graph.node(entity_id) {
             Some(node) => Some(node),
             None => {
@@ -13,8 +23,8 @@ pub fn call(state: &McpState, args: Value) -> ToolOutcome {
         },
         None => None,
     };
-    let file_path = args.get("file_path").and_then(|v| v.as_str());
-    let code = args.get("diagnostic_code").and_then(|v| v.as_str());
+    let file_path = args.file_path.as_deref();
+    let code = args.diagnostic_code.as_deref();
 
     let suggestions: Vec<Value> = state
         .diagnostics
