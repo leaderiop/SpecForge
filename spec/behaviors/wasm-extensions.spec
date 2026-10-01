@@ -367,6 +367,122 @@ behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
   verify contract "Dispatch Contribution Exports: contribution export dispatch holds — contribution_exports_validated_fired, wasm_runtime_available, contribution_exports_dispatched_emitted, missing_export_diagnosed, renderers_refreshed_on_ingestion"
 }
 
+// -- Check-Phase Passes and the Build Cache -----
+
+behavior run_check_phase_passes "Run Check-Phase Passes" {
+  features   [contribution_based_extensions]
+  invariants [extension_load_order_determinism]
+  category   validation
+  types      [ManifestV2, Diagnostic, WasmTrapInfo]
+  ports      [WasmRuntime]
+  requires {
+    graph_checked "the graph is built and its checks (core validation, the registry checks and the extensions' validation rules) have run"
+  }
+  ensures {
+    runs_every_compile     "a pass declared with phase check runs on every compile, after the graph checks"
+    reported_by_check      "its diagnostics join the compile's, with the codes and severities the pass returns, so specforge check, watch, the LSP and MCP report them"
+    analyze_only_otherwise "a pass without phase check runs only under analyze, and analyze does not run a check pass"
+    declared_order         "check passes run in the order their after/before constraints give, extension by extension in load order"
+    trap_is_diagnostic     "a check pass that traps or answers output that does not parse is E028, never a crash"
+    entity_span_attached   "a pass diagnostic with no span that names an entity gets that entity's span"
+  }
+  contract   """
+    An extension declares its compiler passes in `__describe passes`
+    (name, after, before, phase). A pass declared with `phase: "check"`
+    is part of the compile: the shared compiled project runs it after the
+    graph checks, so every surface reports what it finds and `specforge
+    check` exits 1 on its errors. Which passes are check passes is read
+    once, when the extensions load; a compile with none costs nothing.
+
+    The pass export `__pass_<name>` receives the same input an analyze
+    pass does (`entities`, `edges`), with no `test_results` or
+    `proved_claims` (a compile has neither) and with `previous`, the
+    statuses of the build cache (read_build_cache). It answers the same
+    output: diagnostics, bare or as `{diagnostics, summary}`; the summary
+    is ignored. Each diagnostic keeps the code and severity the pass gave
+    it. One with no span that carries `entity: "<id>"` gets the span of
+    that entity. A trap or an answer that does not parse is E028 naming
+    the pass; the other passes still run.
+
+    A pass with any other phase, or none, runs only under `specforge
+    analyze`, which skips check passes: their findings are the compile's.
+  """
+  produces   []
+  verify unit "a pass declared for the check phase runs on every compile"
+  verify unit "a check pass's diagnostics are reported by specforge check"
+  verify unit "a session reports a check pass's diagnostics after an update"
+  verify unit "a pass without the check phase runs only under analyze"
+  verify unit "check passes run in their declared after/before order"
+  verify unit "a trapping check pass is a diagnostic, not a crash"
+  verify unit "a pass diagnostic naming an entity gets that entity's span"
+}
+
+behavior write_build_cache "Write the Build Cache" {
+  features [ci_integration]
+  category command
+  types    [Graph, Diagnostic]
+  ports    [FileSystem]
+  requires {
+    project_compiled "the project compiled and its diagnostics are known"
+  }
+  ensures {
+    statuses_recorded "check --cache writes every entity that declares a status, with its kind and status, to specforge-cache.json at the project root"
+    deterministic     "the file is byte-identical for the same sources"
+    opt_in            "check without --cache never writes the file, and no other command or surface writes it"
+    clean_builds_only "the file is written only when check exits 0; otherwise the previous file is left as it was"
+  }
+  contract """
+    The build cache is the explicit, opt-in record of the statuses of one
+    build, so history rules (status transitions) compare against a
+    declared input, never hidden state. `specforge check --cache` writes
+    it after the compile, to `specforge-cache.json` beside
+    `specforge.json`:
+    `{"format": 1, "statuses": {"<entity id>": {"kind": "<kind>",
+    "status": "<status>"}}}`, entities sorted by id, pretty-printed with
+    a final newline. Only entities that declare a `status` field are
+    recorded. The file is replaced atomically (written beside, then
+    renamed). A check that exits non-zero (errors, or warnings under
+    `--strict`) does not write it: a broken build is not a baseline.
+    CI may commit the file to check transitions across builds.
+  """
+  produces []
+  verify unit "check --cache records each entity's kind and status"
+  verify unit "the cache file is deterministic"
+  verify integration "check without --cache never writes the cache"
+  verify unit "check --cache with errors leaves the cache untouched"
+}
+
+behavior read_build_cache "Read the Build Cache" {
+  features [ci_integration]
+  category validation
+  types    [Diagnostic]
+  ports    [FileSystem]
+  requires {
+    check_pass_loaded "at least one check-phase pass is loaded"
+  }
+  ensures {
+    previous_given     "when specforge-cache.json parses, every check pass receives its statuses as previous"
+    absent_is_none     "without the file, previous is absent"
+    invalid_is_warning "a file that cannot be read or parsed, or declares another format, is W144 and previous is absent"
+    passes_only        "the file is read on each compile with a check pass, by every surface, and never otherwise"
+  }
+  contract """
+    When the project root has `specforge-cache.json`, each compile reads
+    it as a declared input and hands it to the check passes as
+    `previous: {"statuses": {"<entity id>": {"kind", "status"}}}`. With
+    no file, `previous` is absent, so history rules stay silent on a
+    first build. A file that cannot be read, is not valid JSON, or has a
+    `format` other than 1 is a W144 warning and `previous` is absent. The
+    file is read on every compile that runs a check pass (check, watch,
+    the LSP, MCP), so a cache another command just wrote is seen by the
+    next compile; with no check pass loaded, it is not read.
+  """
+  produces []
+  verify unit "check passes receive the cached statuses as previous"
+  verify unit "without a cache file previous is absent"
+  verify unit "an invalid cache file is W144 and previous is absent"
+}
+
 behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
   features   [contribution_based_extensions]
   invariants [wasm_sandbox_integrity]

@@ -281,31 +281,40 @@ pub fn order_passes(
     result
 }
 
-/// Dispatch extension-declared compiler passes through the wasm runtime.
-///
-/// Each extension's describe payload lists `CompilerPassDescriptor`s; the
-/// pass implementation lives in a `__pass_<name>` export that receives an
-/// entity snapshot and returns host Diagnostics. Traps (e.g. an extension
-/// that declares a pass but never implemented the export) are surfaced as
-/// warnings rather than run failures.
-pub fn run_extension_passes(
-    manifests: &[specforge_registry::ManifestV2],
-    input: &AnalysisContext,
+/// The phase a pass declares to run with every compile instead of under
+/// `specforge analyze`: the compiled project runs it after the graph
+/// checks, and its diagnostics are the compile's.
+pub const CHECK_PHASE: &str = "check";
+
+/// Whether `pass` runs with every compile ([`CHECK_PHASE`]).
+pub fn is_check_phase(pass: &specforge_protocol_types::CompilerPassDescriptor) -> bool {
+    pass.phase.as_deref() == Some(CHECK_PHASE)
+}
+
+/// The compiler passes `extension` declares (`__describe passes`), in the
+/// order they run ([`order_passes`]). Empty when it declares none, or its
+/// answer does not parse.
+pub fn declared_passes(
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
-    requested: &str,
-) -> Vec<ExtensionPassReport> {
-    use specforge_wasm::protocol::ProtocolHost;
-    use specforge_wasm::runtime::WasmCallResult;
-
-    let ctx_graph = input.graph;
-    if manifests.is_empty() {
+    extension: &str,
+) -> Vec<specforge_protocol_types::CompilerPassDescriptor> {
+    let host = specforge_wasm::protocol::ProtocolHost::new(runtime);
+    let Ok(response) = host.describe(extension, "passes") else {
         return Vec::new();
+    };
+    match serde_json::from_value::<Vec<specforge_protocol_types::CompilerPassDescriptor>>(
+        response.items,
+    ) {
+        Ok(passes) => order_passes(&passes),
+        Err(_) => Vec::new(),
     }
-    // Only the "all" sweep and exact `<extension>:<pass>` selections run
-    // extension passes.
-    let wants = |name: &str| requested == "all" || requested == name;
+}
 
-    let host = ProtocolHost::new(runtime);
+/// The input every `__pass_<name>` export receives (the SDK's
+/// `PassInput`): the entity snapshot, the resolved edges, and the test
+/// results and proved claims when the caller has them.
+pub fn pass_input(input: &AnalysisContext) -> serde_json::Value {
+    let ctx_graph = input.graph;
     // How the coverage rule sees each entity: `testable` is its kind's flag
     // (a kind that merely accepts `verify` statements, a formal `property`,
     // does not count), and `exempt` says it owes no obligations of its own
@@ -349,12 +358,78 @@ pub fn run_extension_passes(
         ids.sort();
         ids
     });
-    let payload = serde_json::json!({
+    serde_json::json!({
         "entities": entities,
         "edges": edges,
         "test_results": input.test_results,
         "proved_claims": proved_claims,
-    });
+    })
+}
+
+/// Call `extension`'s `__pass_<pass>` export with `input` (a serialized
+/// [`pass_input`]) and read its diagnostics, in canonical order. A
+/// diagnostic with no span that names an `entity` of `graph` gets that
+/// entity's span. Err: the export trapped, or its answer does not parse.
+pub fn call_pass(
+    runtime: &dyn specforge_wasm::runtime::WasmRuntime,
+    extension: &str,
+    pass: &str,
+    input: &[u8],
+    graph: &Graph,
+) -> Result<(Vec<Diagnostic>, Option<PassSummary>), String> {
+    use specforge_wasm::runtime::WasmCallResult;
+
+    let export = format!("__pass_{pass}");
+    match runtime.call_export(extension, &export, input) {
+        WasmCallResult::Ok(bytes) => {
+            let (mut findings, summary) = parse_pass_output(&bytes, graph)
+                .map_err(|e| format!("returned malformed diagnostics: {e}"))?;
+            // Canonical order for ALL extension passes (hardening-plan D4 /
+            // R-6): guests that iterate HashMaps would otherwise leak
+            // per-run order.
+            findings.sort_by(|a, b| {
+                a.code
+                    .cmp(&b.code)
+                    .then_with(|| {
+                        a.span
+                            .as_ref()
+                            .map(|s| (s.file.as_str(), s.start_line))
+                            .cmp(&b.span.as_ref().map(|s| (s.file.as_str(), s.start_line)))
+                    })
+                    .then_with(|| a.message.cmp(&b.message))
+            });
+            Ok((findings, summary))
+        }
+        WasmCallResult::Trap(trap) => {
+            Err(format!("did not execute: {}: {}", trap.kind, trap.message))
+        }
+    }
+}
+
+/// Dispatch extension-declared compiler passes through the wasm runtime.
+///
+/// Each extension's describe payload lists `CompilerPassDescriptor`s; the
+/// pass implementation lives in a `__pass_<name>` export that receives an
+/// entity snapshot and returns host Diagnostics. Traps (e.g. an extension
+/// that declares a pass but never implemented the export) are surfaced as
+/// warnings rather than run failures. Check-phase passes
+/// ([`is_check_phase`]) are not analyze passes: they run with every
+/// compile.
+pub fn run_extension_passes(
+    manifests: &[specforge_registry::ManifestV2],
+    input: &AnalysisContext,
+    runtime: &dyn specforge_wasm::runtime::WasmRuntime,
+    requested: &str,
+) -> Vec<ExtensionPassReport> {
+    if manifests.is_empty() {
+        return Vec::new();
+    }
+    // Only the "all" sweep and exact `<extension>:<pass>` selections run
+    // extension passes.
+    let wants = |name: &str| requested == "all" || requested == name;
+
+    let payload = pass_input(input);
+    let entities_analyzed = payload["entities"].as_array().map_or(0, Vec::len);
     let payload_bytes = match serde_json::to_vec(&payload) {
         Ok(b) => b,
         Err(e) => {
@@ -365,69 +440,37 @@ pub fn run_extension_passes(
 
     let mut reports = Vec::new();
     for manifest in manifests {
-        let Ok(response) = host.describe(&manifest.name, "passes") else {
-            continue;
-        };
-        let passes: Vec<specforge_protocol_types::CompilerPassDescriptor> =
-            match serde_json::from_value(response.items) {
-                Ok(p) => p,
-                Err(_) => continue,
-            };
-        for pass in order_passes(&passes) {
+        for pass in declared_passes(runtime, &manifest.name) {
+            if is_check_phase(&pass) {
+                continue;
+            }
             let report_name = format!("{}:{}", manifest.name, pass.name);
             if !wants(&report_name) {
                 continue;
             }
-            let export = format!("__pass_{}", pass.name);
-            match runtime.call_export(&manifest.name, &export, &payload_bytes) {
-                WasmCallResult::Ok(bytes) => {
-                    match parse_pass_output(&bytes) {
-                        Ok((mut findings, pass_summary)) => {
-                            // Canonical order for ALL extension passes
-                            // (hardening-plan D4 / R-6): guests that iterate
-                            // HashMaps would otherwise leak per-run order.
-                            findings.sort_by(|a, b| {
-                                a.code
-                                    .cmp(&b.code)
-                                    .then_with(|| {
-                                        a.span
-                                            .as_ref()
-                                            .map(|s| (s.file.as_str(), s.start_line))
-                                            .cmp(
-                                                &b.span
-                                                    .as_ref()
-                                                    .map(|s| (s.file.as_str(), s.start_line)),
-                                            )
-                                    })
-                                    .then_with(|| a.message.cmp(&b.message))
-                            });
-                            let mut summary = serde_json::json!({
-                                "extension": manifest.name,
-                                "pass": pass.name,
-                                "entities_analyzed": entities.len(),
-                            });
-                            if let (Some(base), Some(extra)) =
-                                (summary.as_object_mut(), pass_summary)
-                            {
-                                base.extend(extra);
-                            }
-                            reports.push(ExtensionPassReport {
-                                name: report_name,
-                                findings,
-                                summary,
-                            })
-                        }
-                        Err(e) => eprintln!(
-                            "warning: extension pass '{report_name}' returned malformed diagnostics: {e}"
-                        ),
+            match call_pass(
+                runtime,
+                &manifest.name,
+                &pass.name,
+                &payload_bytes,
+                input.graph,
+            ) {
+                Ok((findings, pass_summary)) => {
+                    let mut summary = serde_json::json!({
+                        "extension": manifest.name,
+                        "pass": pass.name,
+                        "entities_analyzed": entities_analyzed,
+                    });
+                    if let (Some(base), Some(extra)) = (summary.as_object_mut(), pass_summary) {
+                        base.extend(extra);
                     }
+                    reports.push(ExtensionPassReport {
+                        name: report_name,
+                        findings,
+                        summary,
+                    })
                 }
-                WasmCallResult::Trap(trap) => {
-                    eprintln!(
-                        "warning: extension pass '{report_name}' did not execute: {}: {}",
-                        trap.kind, trap.message
-                    );
-                }
+                Err(e) => eprintln!("warning: extension pass '{report_name}' {e}"),
             }
         }
     }
@@ -435,22 +478,45 @@ pub fn run_extension_passes(
 }
 
 /// Keys an extension pass adds to its report summary.
-type PassSummary = serde_json::Map<String, serde_json::Value>;
+pub type PassSummary = serde_json::Map<String, serde_json::Value>;
 
 /// A pass returns either bare diagnostics or `{ diagnostics, summary }`
-/// (the SDK's `PassOutput`); the summary's keys join the host's report summary.
+/// (the SDK's `PassOutput`); the summary's keys join the host's report
+/// summary. A diagnostic may name the entity it is about (`entity`): with
+/// no span of its own, it gets that entity's.
 fn parse_pass_output(
     bytes: &[u8],
+    graph: &Graph,
 ) -> Result<(Vec<Diagnostic>, Option<PassSummary>), serde_json::Error> {
     #[derive(Deserialize)]
+    struct PassDiagnostic {
+        #[serde(flatten)]
+        diagnostic: Diagnostic,
+        #[serde(default)]
+        entity: Option<String>,
+    }
+    #[derive(Deserialize)]
     struct WithSummary {
-        diagnostics: Vec<Diagnostic>,
+        diagnostics: Vec<PassDiagnostic>,
         #[serde(default)]
         summary: PassSummary,
     }
-    match serde_json::from_slice::<Vec<Diagnostic>>(bytes) {
-        Ok(findings) => Ok((findings, None)),
+    let (diagnostics, summary) = match serde_json::from_slice::<Vec<PassDiagnostic>>(bytes) {
+        Ok(diagnostics) => (diagnostics, None),
         Err(_) => serde_json::from_slice::<WithSummary>(bytes)
-            .map(|out| (out.diagnostics, Some(out.summary))),
-    }
+            .map(|out| (out.diagnostics, Some(out.summary)))?,
+    };
+    let diagnostics = diagnostics
+        .into_iter()
+        .map(|PassDiagnostic { diagnostic, entity }| {
+            let span = diagnostic.span.clone().or_else(|| {
+                entity
+                    .as_deref()
+                    .and_then(|id| graph.node(id))
+                    .map(|node| node.source_span.clone())
+            });
+            Diagnostic { span, ..diagnostic }
+        })
+        .collect();
+    Ok((diagnostics, summary))
 }

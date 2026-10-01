@@ -391,11 +391,11 @@ E028: Extension load or execution failure
 
 An extension's Wasm module failed somewhere in its lifecycle — the binary is
 missing or unreadable, failed to load, trapped while running
-`initialize`/`validate`/a collector/body parser/surface command/MCP tool or
-resource, returned output that isn't valid JSON, a grammar cache path couldn't
-be written, or the extension's declared host API version isn't supported. Check
-the extension's logs or report the trap to its author, and confirm the extension
-is installed and up to date.
+`initialize`/`validate`/a check-phase compiler pass/a collector/body
+parser/surface command/MCP tool or resource, returned output that isn't valid
+JSON, a grammar cache path couldn't be written, or the extension's declared host
+API version isn't supported. Check the extension's logs or report the trap to
+its author, and confirm the extension is installed and up to date.
 
 Owner: core
 Level: error

@@ -4,7 +4,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use specforge_common::{Diagnostic, ProjectConfig};
-use specforge_emitter::compile::check_graph;
 use specforge_graph::{Graph, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_registry::RegistryBuild;
@@ -94,6 +93,7 @@ impl ProjectSession {
             registries: RegistryBuild::default(),
             provider_schemes: Default::default(),
             load_diagnostics: Vec::new(),
+            check_passes: Vec::new(),
         };
         ProjectSession {
             env: Arc::new(env),
@@ -313,9 +313,9 @@ impl ProjectSession {
     }
 
     fn check(&self) -> Vec<Diagnostic> {
-        check_graph(
+        self.env.run_checks(
             self.pipeline.graph(),
-            &self.env.checks(self.runtime.as_deref().map(as_runtime)),
+            self.runtime.as_deref().map(as_runtime),
         )
     }
 }

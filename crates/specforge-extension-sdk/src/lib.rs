@@ -642,6 +642,10 @@ impl PassBuilder {
         self.0.before = Some(p.to_string());
         self
     }
+    /// The phase the pass runs in. `"check"` runs it with every compile
+    /// (`specforge check`, watch, the LSP, MCP), after the graph checks,
+    /// its diagnostics joining the compile's; any other phase, or none,
+    /// runs it only under `specforge analyze`.
     pub fn phase(&mut self, p: &str) -> &mut Self {
         self.0.phase = Some(p.to_string());
         self
@@ -977,6 +981,10 @@ pub struct PassDiagnostic {
     pub span: Option<PassSpan>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub suggestion: Option<String>,
+    /// The id of the entity the diagnostic is about. With no span of its
+    /// own, the host attaches that entity's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub entity: Option<String>,
 }
 
 impl PassDiagnostic {
@@ -993,6 +1001,7 @@ impl PassDiagnostic {
             message: message.into(),
             span: None,
             suggestion: None,
+            entity: None,
         }
     }
 
@@ -1008,6 +1017,12 @@ impl PassDiagnostic {
 
     pub fn with_suggestion(mut self, suggestion: impl Into<String>) -> Self {
         self.suggestion = Some(suggestion.into());
+        self
+    }
+
+    /// Name the entity the diagnostic is about (see [`Self::entity`]).
+    pub fn with_entity(mut self, id: impl Into<String>) -> Self {
+        self.entity = Some(id.into());
         self
     }
 }

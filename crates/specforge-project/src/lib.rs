@@ -18,6 +18,7 @@
 //! [`CompilationContext`] is the flat view older callers read; it is built
 //! from a compiled project with [`CompiledProject::into_context`].
 
+mod check_passes;
 mod policy;
 mod session;
 
@@ -37,6 +38,7 @@ use specforge_registry::{
 use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
 use specforge_wasm::WasmRuntime;
 
+pub use check_passes::CheckPass;
 pub use policy::{DiagnosticPolicy, apply_policy};
 pub use session::{CheckMode, ProjectSession, SharedRuntime, SourceChange, Update};
 pub use specforge_emitter::compile::CompilationContext;
@@ -58,6 +60,9 @@ pub struct Environment {
     /// Extension loading diagnostics (E028, manifest validation, peer
     /// consistency), in load order.
     pub load_diagnostics: Vec<Diagnostic>,
+    /// The compiler passes the extensions declare with `phase: "check"`,
+    /// in the order every compile runs them after the graph checks.
+    pub check_passes: Vec<CheckPass>,
 }
 
 impl Environment {
@@ -78,6 +83,10 @@ impl Environment {
             registries.registry_diagnostics.extend(probes);
         }
         let provider_schemes = register_providers(&config, &registries, &mut load_diagnostics);
+        let check_passes = match runtime {
+            Some(runtime) => check_passes::declared(&registries.manifests, runtime),
+            None => Vec::new(),
+        };
         if registries.manifests.is_empty() {
             load_diagnostics.push(structural_only_notice(&config.extensions));
         }
@@ -92,6 +101,7 @@ impl Environment {
             registries,
             provider_schemes,
             load_diagnostics,
+            check_passes,
         }
     }
 
@@ -112,6 +122,17 @@ impl Environment {
             rules: &self.registries.rules,
             runtime,
         }
+    }
+
+    /// Every check a compile runs on a built graph: the graph checks
+    /// (core validation, the registry checks, the extensions' rules), then
+    /// the check-phase passes.
+    pub fn run_checks(&self, graph: &Graph, runtime: Option<&dyn WasmRuntime>) -> Vec<Diagnostic> {
+        let mut diagnostics = check_graph(graph, &self.checks(runtime));
+        if let Some(runtime) = runtime {
+            diagnostics.extend(check_passes::run(self, graph, runtime));
+        }
+        diagnostics
     }
 
     /// The diagnostics reported before any source: extension loading, then
@@ -223,7 +244,7 @@ pub struct CompiledProject {
     /// unresolved references, reference cycles).
     pub graph_diagnostics: Vec<Diagnostic>,
     /// What the checks on the built graph reported: core validation, the
-    /// registry checks and the extensions' rules.
+    /// registry checks, the extensions' rules, then the check-phase passes.
     pub check_diagnostics: Vec<Diagnostic>,
 }
 
@@ -238,7 +259,7 @@ impl CompiledProject {
             .map(|(_, spec_file)| spec_file)
             .collect();
         let (graph, graph_diagnostics) = build_graph_with_config(&spec_files, &env.graph_config());
-        let check_diagnostics = check_graph(&graph, &env.checks(runtime));
+        let check_diagnostics = env.run_checks(&graph, runtime);
         CompiledProject {
             env,
             resolved,
