@@ -20,8 +20,8 @@ behavior cp_software_team "Composition Pattern: Software Team" {
     and @specforge/governance are all installed, the full software
     engineering graph MUST be active.
 
-    Entity kinds registered (16 total):
-      - product (8): journey, deliverable, milestone, module, term, feature, persona, channel
+    Entity kinds registered (17 total):
+      - product (9): journey, deliverable, milestone, module, term, feature, persona, channel, release
       - software (5): behavior, invariant, event, type, port
       - governance (3): decision, constraint, failure_mode
 
@@ -34,7 +34,6 @@ behavior cp_software_team "Composition Pattern: Software Team" {
       - FailureModeInvariant (failure_mode -> invariant) via governance cross-ref
 
     Entity enhancements active:
-      - feature gains behaviors field (from software)
       - milestone gains behaviors field (from software)
       - module gains ports, ports_defined fields (from software)
 
@@ -43,7 +42,7 @@ behavior cp_software_team "Composition Pattern: Software Team" {
     traceability model (Declared -> Specified -> Executed -> Passing)
     applies uniformly across all testable kinds.
 
-    All 16 entity kinds participate in graph export. Validation rules
+    All 17 entity kinds participate in graph export. Validation rules
     from all four extensions fire. No I004 diagnostics are emitted for
     cross-extension references because all peer dependencies are satisfied.
   """
@@ -54,18 +53,18 @@ behavior cp_software_team "Composition Pattern: Software Team" {
     governance_installed "@specforge/governance is installed and manifest loaded"
   }
   ensures {
-    sixteen_entity_kinds   "KindRegistry contains exactly 16 entity kinds from 3 entity-declaring extensions"
+    seventeen_entity_kinds "KindRegistry contains exactly 17 entity kinds from 3 entity-declaring extensions"
     all_cross_edges_active "All cross-extension edges resolve without I004 diagnostics"
-    enhancements_applied   "feature, milestone, module have enhancement fields from software"
+    enhancements_applied   "milestone and module have enhancement fields from software"
     coverage_traces_four   "Coverage discovers 4 testable kinds: behavior, invariant, event, constraint"
     all_validation_fires   "Validation rules from all 4 extensions execute"
   }
-  verify unit "16 entity kinds registered across product, software, governance"
+  verify unit "17 entity kinds registered across product, software, governance"
   verify unit "BehaviorImplementsFeature edge resolves behavior to feature without I004"
   verify unit "MilestoneIncludesBehavior edge resolves milestone to behavior"
   verify unit "ConstrainsBehavior edge resolves constraint to behavior"
   verify unit "coverage discovers behavior, invariant, event, constraint as testable"
-  verify unit "entity enhancements add behaviors field to feature and milestone"
+  verify unit "entity enhancements add behaviors field to milestone and ports fields to module"
 }
 
 // ---------------------------------------------------------------------------
@@ -197,25 +196,25 @@ behavior cp_minimal "Composition Pattern: Minimal (Product Only)" {
     minimal domain vocabulary: what ships, to whom, when. No software
     engineering, no governance, no compliance entities exist.
 
-    Entity kinds registered (8 total):
-      - product (8): journey, deliverable, milestone, module, term, feature, persona, channel
+    Entity kinds registered (9 total):
+      - product (9): journey, deliverable, milestone, module, term, feature, persona, channel, release
 
-    Product edge types active (9):
-      - JourneyExercisesFeature, DeliverableSupportsJourney, ModuleDependsOn,
-        MilestoneDeliversFeature, DeliverableContainsModule, ModuleContainsFeature,
-        FeatureDependsOn, JourneyTargetsPersona, JourneyUsesChannel
+    Product edge types active (20): FeatureDependsOn, FeatureRelatesTo,
+      JourneyExercisesFeature, JourneyTargetsPersona, JourneyUsesChannel,
+      DeliverableSupportsJourney, DeliverableContainsModule,
+      DeliverableTrackedByMilestone, DeliverableDependsOn,
+      MilestoneDeliversFeature, MilestoneScopesModule, MilestoneDependsOn,
+      ModuleContainsFeature, ModuleDependsOn, TermReferencesRelatedTerm,
+      TermBelongsToModule, ReleaseIncludesDeliverable,
+      ReleaseCompletesMilestone, ReleaseDependsOn, PersonaPrioritizesFeature
 
-    No entity enhancements are active. Feature has only problem,
-    solution, and items fields. Milestone has only status, items, and
-    exit_criteria fields. Module has only features, dependencies fields.
+    No entity enhancements are active: milestone has no behaviors field
+    and module has no ports or ports_defined fields.
 
-    Product validation rules fire:
-      - E007 (module dependency cycle)
-      - E008 (undeclared persona reference)
-      - E009 (undeclared surface reference)
-      - W041 (orphan feature), W042 (orphan journey)
-      - W043 (deliverable with no journeys)
-      - W044 (orphan module), I010 (unused term)
+    Product validation rules fire, for example:
+      - E007 (module dependency cycle), E015 (milestone dependency cycle)
+      - W041 (orphan feature), W042 (orphan journey), W044 (orphan module)
+      - I010 (term with no edges)
 
     No testable entities exist in this configuration (product declares
     no testable kinds). Coverage, if installed, discovers zero testable
@@ -229,17 +228,16 @@ behavior cp_minimal "Composition Pattern: Minimal (Product Only)" {
     no_other_entity_extensions "No other entity-declaring extensions are installed"
   }
   ensures {
-    eight_entity_kinds       "KindRegistry contains exactly 8 entity kinds from product"
-    nine_edge_types          "EdgeRegistry contains exactly 9 edge types from product"
+    nine_entity_kinds        "KindRegistry contains exactly 9 entity kinds from product"
+    twenty_edge_types        "EdgeRegistry contains exactly 20 edge types from product"
     no_enhancements          "No entity enhancements are active"
-    product_validation_fires "Product validation rules (E007-E009, W041-W044, I010) fire"
+    product_validation_fires "Product validation rules (E007, E015, W041, W042, W044, I010, ...) fire"
     zero_testable_entities   "No testable entity kinds are registered"
     no_i004_within_product   "All intra-product references resolve without I004"
   }
-  verify unit "8 entity kinds registered from product only"
-  verify unit "9 edge types registered from product only"
-  verify unit "feature has problem, solution, items but no behaviors field"
-  verify unit "milestone has status, items, exit_criteria but no behaviors field"
+  verify unit "9 entity kinds registered from product only"
+  verify unit "20 edge types registered from product only"
+  verify unit "milestone has no behaviors field"
   verify unit "no testable kinds registered — coverage reports 0/0"
   verify unit "all product validation rules fire correctly"
 }
@@ -277,8 +275,8 @@ behavior cp_missing_product_from_software "Missing @specforge/product: Software 
     type is still loaded in the EdgeRegistry but no edges of this type
     can be instantiated because the target kind does not exist.
 
-    Software's entity_enhancements targeting product kinds (feature gains
-    behaviors, milestone gains behaviors, module gains ports) are silently
+    Software's entity_enhancements targeting product kinds (milestone gains
+    behaviors, module gains ports and ports_defined) are silently
     ignored per the graceful absence rule — no diagnostic emitted for
     skipped enhancements.
 
@@ -445,8 +443,7 @@ behavior cp_milestone_behavior_edge_absent "Product MilestoneIncludesBehavior Ed
 
     4. Product's own MilestoneDeliversFeature edge (milestone -> feature) works
        normally — both kinds are owned by product.
-    5. Milestone's generic items field works normally for any reference.
-    6. Only software-specific enhancements are absent.
+    5. Only software-specific enhancements are absent.
 
     This demonstrates graceful degradation: milestones remain fully
     functional for product-level planning. Software-specific traceability
@@ -462,12 +459,10 @@ behavior cp_milestone_behavior_edge_absent "Product MilestoneIncludesBehavior Ed
     no_behaviors_field         "milestone entity kind does not have behaviors field"
     unknown_field_diagnostic   "Using behaviors field on milestone emits field validation error"
     milestone_feature_works    "MilestoneDeliversFeature edge (product-internal) works normally"
-    items_field_works          "milestone items field accepts any reference"
     graceful_degradation       "Milestones remain functional for product-level planning"
   }
   verify unit "MilestoneIncludesBehavior edge absent when software not installed"
   verify unit "milestone has no behaviors field when software not installed"
   verify unit "behaviors field on milestone emits unknown field diagnostic"
   verify unit "MilestoneDeliversFeature edge works normally without software"
-  verify unit "milestone items field resolves references normally"
 }
