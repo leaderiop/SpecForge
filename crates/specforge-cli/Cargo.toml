@@ -22,6 +22,7 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 hex = "0.4.3"
 specforge-common = { workspace = true }
+specforge-diagnostics = { path = "../specforge-diagnostics" }
 specforge-migrate = { workspace = true }
 specforge-formatter = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }

@@ -2783,6 +2783,7 @@ dependencies = [
  "sha2",
  "specforge-common",
  "specforge-component",
+ "specforge-diagnostics",
  "specforge-emitter",
  "specforge-formatter",
  "specforge-graph",
@@ -2842,6 +2843,14 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "specforge-test",
+ "specforge-test-macros",
+]
+
+[[package]]
+name = "specforge-diagnostics"
+version = "0.1.0"
+dependencies = [
  "specforge-test",
  "specforge-test-macros",
 ]

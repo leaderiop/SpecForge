@@ -13,6 +13,7 @@ members = [
     "crates/specforge-graph",
     "crates/specforge-validator",
     "crates/specforge-coverage",
+    "crates/specforge-diagnostics",
     "crates/specforge-emitter",
     "crates/specforge-watch",
     "crates/specforge-formatter",
