@@ -373,19 +373,22 @@ fn summary_shows_failing_status() {
     );
 }
 
-// --- C11-02: slug fallback + orphan visibility + unmatched detection ---
+// --- C11-02: exact matching + orphan visibility + unmatched detection ---
 
-#[test]
-fn casing_or_punctuation_drift_still_matches_by_slug() {
+#[specforge_test_macros::test(
+    constraint = "test_coverage_accuracy",
+    verify = "a test binary's coverage summary proves an obligation only by its exact text, as analyze does"
+)]
+fn casing_or_punctuation_drift_is_a_slug_match_not_coverage() {
     let graph = make_graph(vec![make_entity(
         "alpha",
         "behavior",
         vec![("unit", "rejects invalid password")],
         true,
     )]);
-    // The spec wording drifted in case/punctuation after the test was
-    // written: the raw strings differ, but both slugify to the same key, so
-    // coverage no longer silently drops (C11-02).
+    // The test's text differs from the spec's only in case and punctuation:
+    // both slugify alike, but analyze reports A015 and A016, so the summary
+    // must not count it either. It is listed as a slug match instead.
     let entries = vec![make_entry(
         "alpha",
         Some("Rejects invalid password!"),
@@ -393,10 +396,21 @@ fn casing_or_punctuation_drift_still_matches_by_slug() {
     )];
     let diffs = compute_coverage_diff(&graph, &entries);
     let d = diffs.iter().find(|d| d.entity_id == "alpha").unwrap();
+    assert_eq!(d.covered, 0, "{d:?}");
+    assert_eq!(d.status, CoverageDiffStatus::Uncovered, "{d:?}");
+
+    let unmatched = unmatched_records(&graph, &entries);
+    assert_eq!(unmatched.len(), 1, "{unmatched:?}");
+    assert!(
+        unmatched[0].contains("slug match only, not proof")
+            && unmatched[0].contains("'rejects invalid password'"),
+        "{unmatched:?}"
+    );
+
+    let stamped = stamp_verify_kinds(entries, &graph);
     assert_eq!(
-        d.status,
-        CoverageDiffStatus::FullyCovered,
-        "slug fallback: {d:?}"
+        stamped[0].verify_kind, None,
+        "no kind for a text the spec doesn't declare"
     );
 }
 

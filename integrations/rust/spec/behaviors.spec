@@ -248,8 +248,11 @@ behavior compute_coverage_diff "Compute Coverage Diff" {
     compute a CoverageDiff per testable entity: expected verify count from
     the graph, covered count from matching test records, and a status
     (fully_covered, covered_with_failures, partially_covered, uncovered,
-    gherkin_specified, no_intent). Test records match a verify by exact
-    description or by the exported slug (C11-02). Entities with verify
+    gherkin_specified, no_intent). Test records match a verify by its exact
+    description only, the rule specforge analyze coverage applies: a record
+    whose text matches only up to case or punctuation (the same slug)
+    covers nothing, and unmatched_records labels it a slug match naming
+    the spec's text. Entities with verify
     statements but no matching records MUST be reported as uncovered —
     never filtered out. Entities whose only intent is a gherkin feature
     reference MUST be reported as gherkin_specified; entities without

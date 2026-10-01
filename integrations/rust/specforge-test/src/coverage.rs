@@ -63,11 +63,12 @@ pub fn stamp_verify_kinds(
     mut entries: Vec<TestRecordEntry>,
     graph: &GraphExport,
 ) -> Vec<TestRecordEntry> {
+    // Exact text only, as coverage matches: a record whose text only
+    // slugifies like the obligation's names no obligation.
     let mut kind_by_key: HashMap<(String, String), String> = HashMap::new();
     for entity in &graph.entities {
         for v in &entity.verify {
             kind_by_key.insert((entity.id.clone(), v.description.clone()), v.kind.clone());
-            kind_by_key.insert((entity.id.clone(), v.slug.clone()), v.kind.clone());
         }
     }
     for entry in &mut entries {
@@ -84,25 +85,15 @@ pub fn compute_coverage_diff(
     graph: &GraphExport,
     entries: &[TestRecordEntry],
 ) -> Vec<CoverageDiff> {
-    // Join index with slug fallback (C11-02): exact free-text first, then
-    // the exported slug, so a reworded spec word no longer silently drops
-    // coverage.
+    // A record covers an obligation only when it names its exact text, the
+    // rule `specforge analyze coverage` applies (A015/A016). A text that
+    // differs only in case or punctuation is not proof: it is reported by
+    // `unmatched_records`, labelled a slug match, never counted here.
     let mut exact: HashMap<(&str, &str), Vec<&TestRecordEntry>> = HashMap::new();
     for entry in entries {
         if let Some(ref desc) = entry.verify {
             exact
                 .entry((entry.entity_id.as_str(), desc.as_str()))
-                .or_default()
-                .push(entry);
-        }
-    }
-    // Slug index keyed by the slugified description.
-    let mut slug_of: HashMap<(&str, String), Vec<&TestRecordEntry>> = HashMap::new();
-    for entry in entries {
-        if let Some(ref desc) = entry.verify {
-            let slug = crate::slugify::slugify_verify_description(desc);
-            slug_of
-                .entry((entry.entity_id.as_str(), slug))
                 .or_default()
                 .push(entry);
         }
@@ -120,10 +111,7 @@ pub fn compute_coverage_diff(
             let mut passing = 0usize;
 
             for v in &entity.verify {
-                let matched = exact
-                    .get(&(entity.id.as_str(), v.description.as_str()))
-                    .or_else(|| slug_of.get(&(entity.id.as_str(), v.slug.clone())));
-                if let Some(matching) = matched {
+                if let Some(matching) = exact.get(&(entity.id.as_str(), v.description.as_str())) {
                     covered += 1;
                     if matching.iter().all(|e| e.outcome == TestOutcome::Pass) {
                         passing += 1;
@@ -160,30 +148,42 @@ pub fn compute_coverage_diff(
         .collect()
 }
 
-/// Orphaned test records (C11-02): entries whose (entity_id, verify) match
-/// no exported verify statement — exact or slug. `specforge trace`'s
+/// Orphaned test records (C11-02): entries whose (entity_id, verify) name
+/// no exported verify statement by its exact text. `specforge trace`'s
 /// unmatched-test promise (decisions.spec) is fulfilled by surfacing these
-/// instead of silently ignoring them.
+/// instead of silently ignoring them. A text that matches an obligation
+/// only by slug (case or punctuation) is labelled a slug match, naming the
+/// spec's text, so it reads as a typo to fix and never as proof.
 pub fn unmatched_records(graph: &GraphExport, entries: &[TestRecordEntry]) -> Vec<String> {
-    let mut exported: HashSet<(String, String)> = HashSet::new();
+    let mut exported: HashSet<(&str, &str)> = HashSet::new();
+    let mut by_slug: HashMap<(&str, &str), &str> = HashMap::new();
     for entity in &graph.entities {
         for v in &entity.verify {
-            exported.insert((entity.id.clone(), v.description.clone()));
-            exported.insert((entity.id.clone(), v.slug.clone()));
+            exported.insert((entity.id.as_str(), v.description.as_str()));
+            by_slug.insert(
+                (entity.id.as_str(), v.slug.as_str()),
+                v.description.as_str(),
+            );
         }
     }
     let mut out = Vec::new();
     for entry in entries {
         if let Some(desc) = &entry.verify {
-            let key_exact = (entry.entity_id.clone(), desc.clone());
+            if exported.contains(&(entry.entity_id.as_str(), desc.as_str())) {
+                continue;
+            }
             let slug = crate::slugify::slugify_verify_description(desc);
-            let key_slug = (entry.entity_id.clone(), slug);
-            if !exported.contains(&key_exact) && !exported.contains(&key_slug) {
-                out.push(format!(
+            let line = match by_slug.get(&(entry.entity_id.as_str(), slug.as_str())) {
+                Some(spec_text) => format!(
+                    "{}::{} — slug match only, not proof: '{}' differs from entity '{}''s verify '{}' in case or punctuation",
+                    entry.file, entry.test_name, desc, entry.entity_id, spec_text
+                ),
+                None => format!(
                     "{}::{} — no exported verify '{}' on entity '{}'",
                     entry.file, entry.test_name, desc, entry.entity_id
-                ));
-            }
+                ),
+            };
+            out.push(line);
         }
     }
     out.sort();
