@@ -20,8 +20,7 @@
 //   pe_register_field_definitions, pe_register_validation_rules
 //
 // behaviors-operations.spec:
-//   pe_declare_surface_contributions, pe_render_product_entities,
-//   pe_emit_validation_rule_details
+//   pe_declare_surface_contributions, pe_render_product_entities
 //
 // behaviors-queries.spec:
 //   pe_query_milestone_completion, pe_query_deliverable_traceability,
