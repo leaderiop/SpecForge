@@ -988,6 +988,18 @@ Owner: @specforge/product
 Level: info
 ```
 
+## I048
+
+```
+I048: Feature without acceptance criteria
+
+A `feature` has no `acceptance` field, or an empty one. Add acceptance criteria
+describing when the feature is done; they can be added progressively.
+
+Owner: @specforge/product
+Level: info
+```
+
 ## I059
 
 ```
@@ -1019,6 +1031,19 @@ I066: Deprecated deliverable missing reason
 
 A `deliverable` has `status: deprecated` but no `reason` field explaining why.
 Add a `reason` field documenting why it was deprecated.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I067
+
+```
+I067: Module without features
+
+A `module` has no edge to a `feature`: no `features` field, an empty list, or
+only references that don't resolve. A module that implements no features is
+likely incomplete. List the features it implements in `features`.
 
 Owner: @specforge/product
 Level: info
@@ -1824,6 +1849,19 @@ Owner: @specforge/product
 Level: warning
 ```
 
+## W043
+
+```
+W043: Deliverable without journeys
+
+A `deliverable` has no edge to a `journey`: no `journeys` field, an empty list,
+or only references that don't resolve. Nothing says which user journeys it
+supports. List the journeys it serves in `journeys`.
+
+Owner: @specforge/product
+Level: warning
+```
+
 ## W044
 
 ```
@@ -1849,14 +1887,27 @@ Owner: @specforge/product
 Level: warning
 ```
 
+## W046
+
+```
+W046: Deliverable without modules
+
+A `deliverable` has no edge to a `module`: no `modules` field, an empty list, or
+only references that don't resolve, so it has no structural decomposition. List
+the modules it ships in `modules`.
+
+Owner: @specforge/product
+Level: warning
+```
+
 ## W049
 
 ```
-W049: Empty milestone
+W049: Milestone without features
 
-A `milestone` entity has neither `features` nor `modules` listed, so it may be
-empty. Add at least one `features` or `modules` reference, or remove the
-milestone.
+A `milestone` entity has no `features` field, so it may be empty. Modules listed
+in `modules` don't count: the check reads only `features`. List the features the
+milestone delivers, or remove the milestone.
 
 Owner: @specforge/product
 Level: warning

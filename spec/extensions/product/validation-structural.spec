@@ -186,16 +186,19 @@ behavior detect_deliverables_with_no_journeys "Detect Deliverables with No Journ
   category validation
   types    [Diagnostic]
   contract """
-    The @specforge/product extension MUST declare a field_value_constraint
-    validation pattern that detects deliverables with an empty journeys
-    list. Deliverables with no journeys MUST produce a W043 warning.
+    The @specforge/product extension MUST declare a no_outgoing_edges
+    validation rule on deliverables scoped to the DeliverableSupportsJourney
+    edge. A deliverable with no edge to a journey (no journeys field, an
+    empty list, or only references that don't resolve) MUST produce a W043
+    warning: "deliverable '{id}' supports no journeys".
   """
   ensures {
-    fires_when_empty     "deliverable with empty journeys list produces W043"
+    fires_when_empty     "deliverable with no journeys field or an empty journeys list produces W043"
     suppresses_non_empty "deliverable with at least one journey suppresses W043"
   }
   features [pe_validation_suite]
   verify unit "deliverable with no journeys produces W043"
+  verify unit "deliverable with an empty journeys list produces W043"
   verify unit "deliverable with journeys suppresses W043"
 }
 
@@ -203,17 +206,20 @@ behavior detect_deliverables_with_no_modules "Detect Deliverables with No Module
   category validation
   types    [Diagnostic]
   contract """
-    The @specforge/product extension MUST declare a field_value_constraint
-    validation pattern that detects deliverables with an empty modules
-    list. Deliverables with no modules MUST produce a W046 warning.
-    A deliverable without modules has no structural decomposition.
+    The @specforge/product extension MUST declare a no_outgoing_edges
+    validation rule on deliverables scoped to the DeliverableContainsModule
+    edge. A deliverable with no edge to a module (no modules field, an
+    empty list, or only references that don't resolve) MUST produce a W046
+    warning: "deliverable '{id}' contains no modules". A deliverable
+    without modules has no structural decomposition.
   """
   ensures {
-    fires_when_empty     "deliverable with empty modules list produces W046"
+    fires_when_empty     "deliverable with no modules field or an empty modules list produces W046"
     suppresses_non_empty "deliverable with at least one module suppresses W046"
   }
   features [pe_validation_suite]
   verify unit "deliverable with no modules produces W046"
+  verify unit "deliverable with an empty modules list produces W046"
   verify unit "deliverable with modules suppresses W046"
 }
 
@@ -224,7 +230,8 @@ behavior detect_empty_milestones "Detect Empty Milestones" {
     The @specforge/product extension MUST declare a
     missing_field_when_flag_set validation pattern on the milestone features
     field. A milestone with no features field MUST produce a W049 warning,
-    whether or not it lists modules.
+    "milestone '{id}' has no features — it may be empty", whether or not it
+    lists modules.
   """
   ensures {
     fires_without_features "milestone with no features produces W049"
@@ -292,30 +299,35 @@ behavior detect_modules_with_no_features "Detect Modules With No Features" {
   category validation
   types    [Diagnostic, ProductModule]
   contract """
-    The @specforge/product extension SHOULD detect modules with an empty
-    features list. A module that exists structurally but implements no
-    features is likely incomplete. Produces an I067 info diagnostic.
+    The @specforge/product extension MUST declare a no_outgoing_edges
+    validation rule on modules scoped to the ModuleContainsFeature edge. A
+    module with no edge to a feature (no features field, an empty list, or
+    only references that don't resolve) MUST produce an I067 info
+    diagnostic: "module '{id}' contains no features". A module that exists
+    structurally but implements no features is likely incomplete.
     Info-level respects incremental adoption — modules may be declared
     before features are assigned.
   """
   ensures {
-    fires_when_empty     "module with empty features list produces I067"
+    fires_when_empty     "module with no features field or an empty features list produces I067"
     suppresses_non_empty "module with at least one feature suppresses I067"
   }
   features [pe_validation_suite]
   verify unit "module with features suppresses I067"
   verify unit "module with empty features produces I067"
+  verify unit "module with no features field produces I067"
 }
 
 behavior detect_features_with_no_acceptance "Detect Features with No Acceptance Criteria" {
   category validation
   types    [Diagnostic]
   contract """
-    The @specforge/product extension MUST declare a field_value_constraint
-    validation pattern that detects features with an empty or missing
-    acceptance field. Features without acceptance criteria MUST produce
-    an I048 info diagnostic. Info-level respects incremental adoption —
-    acceptance criteria can be added progressively.
+    The @specforge/product extension MUST declare two I048 validation rules
+    on the feature acceptance field: a missing_required_field rule (the
+    field is absent) and a field_value_constraint non_empty rule (the field
+    is an empty list). Either case MUST produce an I048 info diagnostic:
+    "feature '{id}' has no acceptance criteria". Info-level respects
+    incremental adoption — acceptance criteria can be added progressively.
   """
   ensures {
     fires_when_missing "feature with empty or missing acceptance produces I048"
@@ -323,6 +335,7 @@ behavior detect_features_with_no_acceptance "Detect Features with No Acceptance 
   }
   features [pe_validation_suite]
   verify unit "feature with no acceptance criteria produces I048"
+  verify unit "feature with an empty acceptance list produces I048"
   verify unit "feature with acceptance criteria suppresses I048"
 }
 

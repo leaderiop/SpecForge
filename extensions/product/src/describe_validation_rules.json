@@ -362,12 +362,27 @@
       "wasm_function": null
     },
     {
+      "check": "field_value_constraint",
+      "code": "I048",
+      "constraint": {
+        "kind": "non_empty",
+        "pattern": null,
+        "values": []
+      },
+      "edge_type": null,
+      "field": "acceptance",
+      "message_template": "feature '{id}' has no acceptance criteria",
+      "severity": "info",
+      "target_kind": "feature",
+      "wasm_function": null
+    },
+    {
       "check": "missing_field_when_flag_set",
       "code": "W049",
       "constraint": null,
       "edge_type": null,
       "field": "features",
-      "message_template": "milestone '{id}' has no features and no modules — it may be empty",
+      "message_template": "milestone '{id}' has no features — it may be empty",
       "severity": "warning",
       "target_kind": "milestone",
       "wasm_function": null
@@ -472,6 +487,50 @@
       "message_template": "channel '{id}' has status 'deprecated' but no reason",
       "severity": "info",
       "target_kind": "channel",
+      "wasm_function": null
+    },
+    {
+      "check": "no_outgoing_edges",
+      "code": "W043",
+      "constraint": null,
+      "edge_type": "DeliverableSupportsJourney",
+      "field": null,
+      "message_template": "deliverable '{id}' supports no journeys",
+      "severity": "warning",
+      "target_kind": "deliverable",
+      "wasm_function": null
+    },
+    {
+      "check": "no_outgoing_edges",
+      "code": "W046",
+      "constraint": null,
+      "edge_type": "DeliverableContainsModule",
+      "field": null,
+      "message_template": "deliverable '{id}' contains no modules",
+      "severity": "warning",
+      "target_kind": "deliverable",
+      "wasm_function": null
+    },
+    {
+      "check": "no_outgoing_edges",
+      "code": "I067",
+      "constraint": null,
+      "edge_type": "ModuleContainsFeature",
+      "field": null,
+      "message_template": "module '{id}' contains no features",
+      "severity": "info",
+      "target_kind": "module",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_required_field",
+      "code": "I048",
+      "constraint": null,
+      "edge_type": null,
+      "field": "acceptance",
+      "message_template": "feature '{id}' has no acceptance criteria",
+      "severity": "info",
+      "target_kind": "feature",
       "wasm_function": null
     }
   ]

@@ -633,6 +633,13 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A `channel` entity has no incoming edges, meaning no `journey` references it. Reference the channel from a journey, or remove it if it's no longer needed.",
     },
     CodeEntry {
+        code: "I048",
+        title: "Feature without acceptance criteria",
+        owner: "@specforge/product",
+        level: Level::Info,
+        explanation: "A `feature` has no `acceptance` field, or an empty one. Add acceptance criteria describing when the feature is done; they can be added progressively.",
+    },
+    CodeEntry {
         code: "I059",
         title: "Deferred feature missing reason",
         owner: "@specforge/product",
@@ -652,6 +659,13 @@ pub const CATALOG: &[CodeEntry] = &[
         owner: "@specforge/product",
         level: Level::Info,
         explanation: "A `deliverable` has `status: deprecated` but no `reason` field explaining why. Add a `reason` field documenting why it was deprecated.",
+    },
+    CodeEntry {
+        code: "I067",
+        title: "Module without features",
+        owner: "@specforge/product",
+        level: Level::Info,
+        explanation: "A `module` has no edge to a `feature`: no `features` field, an empty list, or only references that don't resolve. A module that implements no features is likely incomplete. List the features it implements in `features`.",
     },
     CodeEntry {
         code: "I069",
@@ -1088,6 +1102,13 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A `journey` entity has no incoming edges, meaning no `deliverable` references it. Reference the journey from a deliverable's `journeys` field, or remove it if it is unused.",
     },
     CodeEntry {
+        code: "W043",
+        title: "Deliverable without journeys",
+        owner: "@specforge/product",
+        level: Level::Warning,
+        explanation: "A `deliverable` has no edge to a `journey`: no `journeys` field, an empty list, or only references that don't resolve. Nothing says which user journeys it supports. List the journeys it serves in `journeys`.",
+    },
+    CodeEntry {
         code: "W044",
         title: "Orphan module",
         owner: "@specforge/product",
@@ -1102,11 +1123,18 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "Two or more `feature` entities form a cycle through their `depends_on` edges. Break the cycle by removing or restructuring one of the `depends_on` references.",
     },
     CodeEntry {
-        code: "W049",
-        title: "Empty milestone",
+        code: "W046",
+        title: "Deliverable without modules",
         owner: "@specforge/product",
         level: Level::Warning,
-        explanation: "A `milestone` entity has neither `features` nor `modules` listed, so it may be empty. Add at least one `features` or `modules` reference, or remove the milestone.",
+        explanation: "A `deliverable` has no edge to a `module`: no `modules` field, an empty list, or only references that don't resolve, so it has no structural decomposition. List the modules it ships in `modules`.",
+    },
+    CodeEntry {
+        code: "W049",
+        title: "Milestone without features",
+        owner: "@specforge/product",
+        level: Level::Warning,
+        explanation: "A `milestone` entity has no `features` field, so it may be empty. Modules listed in `modules` don't count: the check reads only `features`. List the features the milestone delivers, or remove the milestone.",
     },
     CodeEntry {
         code: "W050",

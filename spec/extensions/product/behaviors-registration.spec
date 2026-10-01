@@ -225,8 +225,10 @@ behavior pe_validate_deliverable_completeness "Validate Deliverable Completeness
   produces   [pe_validation_summary]
   contract   """
     The @specforge/product extension MUST validate deliverable completeness
-    by checking both journeys (W043) and modules (W046). A deliverable
-    with neither journeys nor modules is structurally empty.
+    with two no_outgoing_edges rules on deliverables: one scoped to
+    DeliverableSupportsJourney (W043, no journeys) and one scoped to
+    DeliverableContainsModule (W046, no modules). A deliverable with
+    neither journeys nor modules gets both warnings.
   """
   ensures {
     journeys_checked "deliverable with no journeys produces W043"
