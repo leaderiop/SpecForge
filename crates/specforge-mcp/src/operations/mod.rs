@@ -659,7 +659,11 @@ fn providers_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcom
     let count = listed.len();
     ok(
         id,
-        json!({ "providers": listed, "count": count, "diagnostics": diagnostics }),
+        json!({
+            "providers": listed,
+            "count": count,
+            "diagnostics": specforge_emitter::diagnostics_json(&diagnostics),
+        }),
     )
 }
 
