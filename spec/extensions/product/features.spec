@@ -23,7 +23,8 @@ feature pe_core_entity_kinds "Product Entity Kind Registration" {
     and peer dependencies. Persona and channel are first-class entity
     kinds referenced by journeys via JourneyTargetsPersona and JourneyUsesChannel
     edges. Release coordinates multi-deliverable shipping via
-    ReleaseIncludesDeliverable and ReleaseCompletesMilestone edges.
+    ReleaseIncludesDeliverable, ReleaseCompletesMilestone and
+    ReleaseDependsOn edges.
   """
 }
 
@@ -124,23 +125,12 @@ feature pe_surface_contributions "Product Surface Contributions" {
     the surface contract at compile time.
   """
   solution """
-    Surface contributions in the manifest declare 21 CLI commands for listing,
-    querying, and managing product entities. Each CLI command is auto-promoted
-    to an MCP tool for agent consumption. Commands cover entity listing (9
-    kinds including release), planning queries (milestone-completion,
-    journey-coverage, feature-ordering, milestone-timeline,
-    milestone-deliverables, module-features), planning insights
-    (unscheduled-features, coverage-matrix, critical-path,
-    feature-overlap), and v1.1 commands (release-deliverables,
-    release-completion, owner-workload, weighted-milestone-completion).
-    Remaining query-port methods (deliverable-traceability,
-    feature-deliverables, feature-milestones, persona-journeys,
-    channel-journeys, module-deliverables, milestone-deliverables,
-    module-features, term-graph, deliverable-completion,
-    persona-channels, journey-deliverables, feature-dependents,
-    deliverable-dependents, deliverable-priority, persona-features,
-    milestone-velocity, deliverable-personas) are accessible via the
-    programmatic ProductQueryPort API and as MCP resources.
+    The manifest declares no surfaces. The specforge product subcommands
+    are CLI built-ins: listing for all 9 kinds (features, journeys,
+    deliverables, milestones, modules, terms, personas, channels,
+    releases) and the queries milestone-completion, journey-coverage,
+    feature-impact, feature-dependents, persona-features and
+    channel-features, plus bulk-status and health.
 
     Every surface has a typed schema:
     - CLI list commands accept ProductListFilter (--status, --priority, --tags,
@@ -158,57 +148,30 @@ feature pe_surface_contributions "Product Surface Contributions" {
 feature pe_validation_suite "Product Validation Suite" {
   problem  """
     Without domain-specific validation rules, the compiler cannot detect
-    product-level quality issues: orphan journeys, deliverables without
-    journeys, empty milestone phases, or unused modules.
+    product-level quality issues: orphan journeys, dependency cycles,
+    milestones without features, or unused modules.
   """
   solution """
-    Declarative validation rules (E007-E009, E015, E052, W041-W046, W049,
-    W057, W075-W086, I010, I046-I075) detect common product specification
-    quality issues.
+    Declarative validation rules (E007, E015, E052, W041, W042, W044,
+    W045, W049, W057, W077-W080, W083-W085, W092, W093, W095, I010, I046,
+    I047, I059, I060, I066, I069, I070) detect common product
+    specification quality issues. The core's declarative engine runs
+    them, and every diagnostic is reported whatever its severity.
 
-    Validation operates in two diagnostic profiles:
-    - default: Only E-codes (errors) and W-codes (warnings) are emitted.
-      A minimal spec file produces at most structural warnings — never
-      informational suggestions about missing optional fields.
-    - pedantic: All E-codes, W-codes, AND I-codes are emitted. Enabled
-      via --lint=pedantic or warning_level=pedantic in specforge.json.
-
-    Rules by severity: module dependency cycles (E007), invalid persona
-    references (E008), invalid channel references (E009), milestone
-    dependency cycles (E015), orphan features without journeys (W041),
-    orphan journeys without deliverables (W042), deliverables without
-    journeys (W043), orphan modules (W044), feature dependency cycles
-    (W045), deliverables without modules (W046), empty milestones with
-    no features and no modules (W049), completed milestones without
-    exit criteria (W057), journey referencing deprecated persona (W075),
-    journey referencing deprecated channel (W076), orphan terms (I010),
-    orphan personas not referenced by journeys (I046), orphan channels
-    not referenced by journeys (I047), features without acceptance
-    criteria (I048), deliverable journey-module feature gap (I049),
-    journeys with empty flow (I050), milestone feature-module gap (I051),
-    singleton tags suggesting typos (I052), invalid milestone target_date
-    format (I053), journeys without persona (I054), journeys without
-    channels (I055), term see_also referencing non-term (I056), blocked
-    milestones without dependencies (I057), overdue milestones (I058,
-    query-time only — not emitted during specforge check),
-    deferred features without reason (I059), blocked milestones without
-    reason (I060), invalid deliverable version format (I061),
-    non-standard module family (I062), done features with incomplete
-    dependencies (I063), milestone temporal inconsistency (I064),
-    deliverable dependency cycles (E052), invalid persona status (W083),
-    invalid channel status (W084), invalid deliverable status (W085),
-    shipped deliverable with incomplete milestones (I065), deprecated
-    deliverable without reason (I066), modules with no features (I067),
-    non-conforming tag format (I068), deprecated persona without reason
-    (I069), deprecated channel without reason (I070), cross-kind tag
-    namespace collision (I071), journey flow step structure (I072),
-    transitive deprecated persona reference (I073), transitive deprecated
-    channel reference (I074), unanchored exit criteria (I075), and term
-    alias conflicts (W086).
-    Enum field validation covers FeatureStatus (W077), Priority (W078),
-    MilestoneStatus (W079), ArtifactType (W080), TechnicalLevel (W081),
-    InteractionModel (W082), PersonaStatus (W083), ChannelStatus (W084),
-    and DeliverableStatus (W085).
+    Rules by severity: module, milestone and deliverable dependency
+    cycles (E007, E015, E052); features, journeys and modules nothing
+    references (W041, W042, W044); feature and release dependency
+    cycles (W045, W092); milestones without features (W049); completed
+    milestones without exit criteria (W057); invalid values for feature
+    status (W077), priority on feature, journey, milestone and
+    constraint (W078), milestone status (W079), deliverable
+    artifact_type (W080), persona status (W083), channel status (W084),
+    deliverable status (W085) and feature effort (W095); release
+    versions that are not semver (W093); terms with no edges (I010);
+    personas and channels no journey references (I046, I047); deferred
+    features without reason (I059); blocked milestones without blockers
+    (I060); deprecated deliverables, personas and channels without
+    reason (I066, I069, I070).
     Each rule uses the declarative pattern engine.
   """
 }
@@ -305,8 +268,9 @@ feature pe_planning_insights "Advanced Planning Insights" {
     edges, (2) queryFeatureOverlap returns features reachable from 2+
     deliverables, (3) queryPersonaCoverageMatrix computes per-persona
     reachability with coverage ratios, (4) queryCriticalPath computes
-    the longest incomplete milestone chain with slack analysis. All
-    queries are exposed as CLI commands and MCP resources.
+    the longest incomplete milestone chain with slack analysis. These are
+    ProductQueryPort queries; none of the four is a specforge product
+    subcommand.
   """
 }
 
@@ -343,7 +307,6 @@ feature pe_ownership_tracking "Ownership Tracking" {
     Add owner (string @optional) and contributors (string[] @optional) fields
     to feature, milestone, deliverable, and release entities. Provide an
     owner-workload query that aggregates ownership across all product entities.
-    I080 info diagnostic encourages ownership assignment without requiring it.
   """
   tags     ["ownership", "planning", "v1-1"]
 }
@@ -359,8 +322,7 @@ feature pe_effort_estimation "Effort Estimation" {
     configurable weights. Default weights follow a Fibonacci-inspired
     scale (1, 2, 3, 5, 8) but teams MAY override via effort_weights in
     specforge.json. Provide a weighted milestone completion query. Features
-    without effort default to m weight. I081 info diagnostic (pedantic
-    profile only) encourages effort estimation.
+    without effort default to m weight.
   """
   tags     ["estimation", "planning", "v1-1"]
 }
@@ -372,10 +334,11 @@ feature pe_release_coordination "Release Coordination" {
     ships together?" or track coordinated release readiness.
   """
   solution """
-    Add release as the 9th product entity kind with fields: version,
-    status (planned->in_progress->released->recalled), deliverables,
-    milestones, release_date, changelog, depends_on, owner, contributors.
-    Two new edge types: ReleaseIncludesDeliverable and ReleaseCompletesMilestone.
+    Add release as the 9th product entity kind with fields: description,
+    version (required), status, deliverables, milestones, target_date,
+    release_date, changelog, depends_on, owner, contributors, reason, refs.
+    Three new edge types: ReleaseIncludesDeliverable,
+    ReleaseCompletesMilestone and ReleaseDependsOn.
   """
   tags     ["release", "coordination", "v1-1"]
 }
@@ -387,9 +350,8 @@ feature pe_temporal_planning "Temporal Planning" {
     consistency of start dates.
   """
   solution """
-    Add start_date (string @optional, ISO 8601) to milestones. Extend
-    temporal consistency validation to check start_date vs target_date
-    ordering. I087 validates format.
+    Add start_date (string @optional, ISO 8601) to milestones. No rule
+    checks its format or its order relative to target_date.
   """
   tags     ["temporal", "planning", "v1-1"]
 }
@@ -401,8 +363,8 @@ feature pe_external_blockers "External Blocker Tracking" {
     progress cannot be documented structurally.
   """
   solution """
-    Add blockers (string[] @optional) to milestones. I084 detects blocked
-    milestones with neither depends_on nor blockers.
+    Add blockers (string[] @optional) to milestones. I060 reports a
+    blocked milestone that lists no blockers.
   """
   tags     ["blockers", "planning", "v1-1"]
 }

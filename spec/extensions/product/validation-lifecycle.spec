@@ -27,7 +27,7 @@ use "types/graph"
 // that want transition validation commit the cache file; pipelines
 // that want stateless builds simply omit it.
 //
-// Without cache: only enum validity is checked (W077-W085).
+// Without cache: only enum validity is checked (W077-W080, W083-W085).
 // With cache: transition validity is additionally checked (W087-W091).
 // ════════════════════════════════════════════════════════════════
 
@@ -167,7 +167,7 @@ behavior validate_channel_status_transition "Validate Channel Status Transition"
 // catch invalid initial states that would otherwise pass silently,
 // closing the first-build validation gap. They fire regardless of
 // cache presence since they check absolute state, not transitions.
-// I092-I093 are I-codes: emitted only in pedantic diagnostic profile.
+// I092-I093 are info codes.
 // ════════════════════════════════════════════════════════════════
 
 behavior detect_terminal_initial_status "Detect Terminal Status on First Build" {
@@ -865,16 +865,18 @@ behavior detect_blocked_milestone_without_blockers "Detect Blocked Milestone Wit
   category    validation
   invariants  [pe_blocker_status_consistency]
   contract    """
-    A milestone with status=blocked that has neither depends_on entries
-    nor blockers entries SHOULD produce an I084 info diagnostic.
+    The @specforge/product extension MUST declare a conditional_field_required
+    rule on milestones: when status is blocked, blockers is required. A
+    blocked milestone with no blockers entry produces an I060 info
+    diagnostic, whether or not it has depends_on entries.
   """
-  diagnostic  I084
+  diagnostic  I060
   severity    info
   description "Blocked milestone has no blockers"
   features    [pe_external_blockers]
-  verify unit "blocked milestone with blockers produces no I084"
-  verify unit "blocked milestone with depends_on produces no I084"
-  verify unit "blocked milestone with neither produces I084"
+  verify unit "blocked milestone with blockers produces no I060"
+  verify unit "blocked milestone with depends_on but no blockers produces I060"
+  verify unit "planned milestone without blockers produces no I060"
 }
 
 behavior detect_inconsistent_owner_strings "Detect Inconsistent Owner Strings" {

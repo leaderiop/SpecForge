@@ -16,10 +16,11 @@ behavior detect_orphan_features "Detect Orphan Features" {
   types    [Diagnostic]
   contract """
     The @specforge/product extension MUST declare a no_incoming_edges
-    validation pattern that detects features no journey, milestone or
-    module references. Orphan features MUST produce a W041 warning.
+    validation pattern on features. A feature with no incoming edge of any
+    kind (no journey, milestone, module, persona or other feature
+    references it) MUST produce a W041 warning.
   """
-  verify unit "a feature no journey, milestone or module references produces W041"
+  verify unit "a feature nothing references produces W041"
   verify unit "a referenced feature suppresses W041"
 }
 

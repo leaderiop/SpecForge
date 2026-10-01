@@ -11,7 +11,6 @@ type Priority {
 
 // Absent status is treated as proposed for all validation and query logic.
 // This supports incremental adoption — features work without lifecycle fields.
-// Status transition validation (W087) treats absent→any as valid (first assignment).
 type FeatureStatus {
   values [proposed, accepted, in_progress, done, deferred, deprecated]
   verify property "FeatureStatus"
@@ -42,8 +41,8 @@ type ArtifactType {
   verify property "ArtifactType"
 }
 
-// Module family is an open enum with a recommended standard set. Non-standard
-// values produce I062 info diagnostic suggesting one of the standard values.
+// Module family is an open enum with a recommended standard set. No rule
+// checks the value.
 type ModuleFamily {
   values [core, platform, extension, integration, advisory]
   verify property "ModuleFamily"
@@ -51,7 +50,6 @@ type ModuleFamily {
 
 // Absent status is treated as draft for all validation and query logic.
 // This supports incremental adoption — deliverables work without lifecycle fields.
-// Status transition validation (W089) treats absent→any as valid (first assignment).
 type DeliverableStatus {
   values [draft, in_progress, shipped, deprecated]
   verify property "DeliverableStatus"
@@ -59,7 +57,6 @@ type DeliverableStatus {
 
 // Absent status is treated as planned for all validation and query logic.
 // This supports incremental adoption — milestones work without lifecycle fields.
-// Status transition validation (W088) treats absent→any as valid (first assignment).
 type MilestoneStatus {
   values [planned, in_progress, completed, blocked]
   verify property "MilestoneStatus"
@@ -78,7 +75,6 @@ type Effort "Effort T-Shirt Size" {
 
 // Absent status is treated as planned for all validation and query logic.
 // This supports incremental adoption — releases work without lifecycle fields.
-// Status transition validation (W094) treats absent→any as valid (first assignment).
 type ReleaseStatus "Release Status" {
   values [planned, in_progress, released, recalled]
   verify property "Release Status"
@@ -88,17 +84,19 @@ type ReleaseStatus "Release Status" {
 
 type ProductFeature {
   description  string        @optional
-  problem      string        @optional
+  problem      string
   solution     string        @optional
   priority     Priority      @optional
   // Absent status is treated as proposed (see FeatureStatus definition).
   status       FeatureStatus @optional // default: proposed (when absent)
   acceptance   string[]      @optional
   depends_on   EntityId[]    @optional
+  features     EntityId[]    @optional
   reason       string        @optional
   owner        string        @optional
   contributors string[]      @optional
   effort       Effort        @optional
+  tests        string[]      @optional
   tags         string[]      @optional
   verify property "ProductFeature"
 }
@@ -108,7 +106,7 @@ type ProductJourney {
   description string     @optional
   channels    EntityId[] @optional
   features    EntityId[] @optional
-  flow        string[]   @optional
+  flow        string[]
   priority    Priority   @optional
   tags        string[]   @optional
   verify property "ProductJourney"
@@ -116,7 +114,7 @@ type ProductJourney {
 
 type ProductDeliverable {
   description   string            @optional
-  artifact_type ArtifactType      @optional
+  artifact_type ArtifactType
   // Absent status is treated as draft (see DeliverableStatus definition).
   status        DeliverableStatus @optional // default: draft (when absent)
   journeys      EntityId[]        @optional
@@ -124,7 +122,6 @@ type ProductDeliverable {
   // Semantic Versioning 2.0.0 (semver.org). Core format: MAJOR.MINOR.PATCH
   // (^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$). Pre-release tags
   // (e.g., 1.0.0-alpha.1) and build metadata (e.g., 1.0.0+build.42) are valid.
-  // Non-conforming values produce I061 info diagnostic.
   version       string            @optional
   milestones    EntityId[]        @optional
   depends_on    EntityId[]        @optional
@@ -142,19 +139,19 @@ type ProductMilestone {
   features      EntityId[]      @optional
   // Each entry is a free-text criterion. Entries referencing entity IDs
   // (e.g., "all features in [some_feature] done") are "anchored" and
-  // enable automated verification. Prose-only entries produce I075.
+  // enable automated verification.
   exit_criteria string[]        @optional
   // ISO 8601 date format: YYYY-MM-DD (validated by regex ^\d{4}-\d{2}-\d{2}$).
-  // Invalid formats produce I053. Absent target_date is valid (incremental adoption).
+  // No rule checks the format. Absent target_date is valid (incremental adoption).
   target_date   string          @optional
-  // ISO 8601 date format: YYYY-MM-DD. start_date MUST be <= target_date.
-  // Invalid formats produce I087.
+  // ISO 8601 date format: YYYY-MM-DD, no later than target_date. No rule
+  // checks the format or the order.
   start_date    string          @optional
   modules       EntityId[]      @optional
   depends_on    EntityId[]      @optional
   // Free-text descriptions of external impediments (regulatory, third-party,
   // hiring). Unlike depends_on which references milestones, blockers describe
-  // external factors. I084 detects blocked milestones without blockers.
+  // external factors. I060 reports a blocked milestone without blockers.
   blockers      string[]        @optional
   priority      Priority        @optional
   reason        string          @optional
@@ -166,7 +163,7 @@ type ProductMilestone {
 
 type ProductModule {
   // Standard values: core, platform, extension, integration, advisory.
-  // Non-standard values produce I062 info diagnostic. See ModuleFamily enum.
+  // See ModuleFamily enum (not enforced).
   family      ModuleFamily @optional
   description string       @optional
   features    EntityId[]   @optional
@@ -181,6 +178,7 @@ type ProductTerm {
   context    string     @optional
   aliases    string[]   @optional
   see_also   EntityId[] @optional
+  module     EntityId   @optional
   tags       string[]   @optional
   verify property "ProductTerm"
 }
@@ -194,37 +192,38 @@ type ProductPersona {
   // This supports incremental adoption — personas work without lifecycle fields.
   status          PersonaStatus  @optional // default: active (when absent)
   reason          string         @optional // required when status=deprecated (I069)
+  key_features    EntityId[]     @optional
   tags            string[]       @optional
   verify property "ProductPersona"
 }
 
 type ProductChannel {
   description       string
-  interaction_model InteractionModel
-  url               string        @optional
+  interaction_model InteractionModel @optional
+  url               string           @optional
   // Absent status is treated as active for all validation and query logic.
   // This supports incremental adoption — channels work without lifecycle fields.
-  status            ChannelStatus @optional // default: active (when absent)
-  reason            string        @optional // required when status=deprecated (I070)
-  tags              string[]      @optional
+  status            ChannelStatus    @optional // default: active (when absent)
+  reason            string           @optional // required when status=deprecated (I070)
+  tags              string[]         @optional
   verify property "ProductChannel"
 }
 
 type ProductRelease {
   description  string        @optional
   // SemVer 2.0.0 (semver.org). Non-conforming values produce W093.
-  version      string        @optional
+  version      string
   // Absent status is treated as planned (see ReleaseStatus definition).
   status       ReleaseStatus @optional // default: planned (when absent)
   deliverables EntityId[]    @optional
   milestones   EntityId[]    @optional
-  // ISO 8601 date format: YYYY-MM-DD. Invalid formats produce I086.
+  target_date  string        @optional
+  // ISO 8601 date format: YYYY-MM-DD.
   release_date string        @optional
   changelog    string        @optional
   depends_on   EntityId[]    @optional
   owner        string        @optional
   contributors string[]      @optional
-  // Required when status=recalled (I089).
   reason       string        @optional
   tags         string[]      @optional
   verify property "ProductRelease"
@@ -828,8 +827,8 @@ type ProductEntityDiagnostic {
 }
 
 // ── Status Transition Validation ─────────────────────────────
-// Valid status transitions per entity kind. Invalid transitions
-// produce W-level diagnostics (W087-W091). Absent status fields
+// Valid status transitions per entity kind. No rule checks
+// transitions. Absent status fields
 // are treated as the default value and are always valid starting points.
 
 type FeatureStatusTransition {

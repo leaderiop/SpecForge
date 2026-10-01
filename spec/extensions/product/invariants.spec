@@ -99,13 +99,11 @@ invariant pe_release_non_testable "Release Non-Testable" {
 
 invariant pe_product_verify_support "Product Verify Support" {
   guarantee """
-    Feature, deliverable, and milestone entity kinds MUST have
-    supportsVerify=true to enable verify acceptance annotations.
-    Other product entity kinds retain supportsVerify=false.
+    No product entity kind supports verify statements: all 9 kinds have
+    supportsVerify=false and declare no verify kinds.
   """
   risk      medium
-  verify unit "feature, deliverable, milestone have supportsVerify=true"
-  verify unit "journey, module, term, persona, channel, release have supportsVerify=false"
+  verify unit "all 9 product kinds have supportsVerify=false"
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -191,8 +189,7 @@ invariant pe_release_status_transition "Release Status Transition" {
 invariant deliverable_journey_module_consistency "Deliverable Journey-Module Consistency" {
   guarantee """
     Features referenced by a deliverable's journeys MUST be a subset
-    of features assigned to the deliverable's modules. Gaps produce
-    I049 info diagnostics.
+    of features assigned to the deliverable's modules.
   """
   risk      medium
   verify unit "deliverable journey features are covered by module features"
@@ -201,8 +198,7 @@ invariant deliverable_journey_module_consistency "Deliverable Journey-Module Con
 invariant milestone_feature_module_consistency "Milestone Feature-Module Consistency" {
   guarantee """
     Features scheduled in a milestone MUST be reachable from the
-    milestone's modules via ModuleContainsFeature edges. Gaps produce I051
-    info diagnostics.
+    milestone's modules via ModuleContainsFeature edges.
   """
   risk      medium
   verify unit "milestone features are covered by milestone modules"
@@ -211,7 +207,7 @@ invariant milestone_feature_module_consistency "Milestone Feature-Module Consist
 invariant module_feature_reachability "Module-Feature Reachability" {
   guarantee """
     Every module SHOULD have at least one feature assigned via
-    ModuleContainsFeature edges. Modules without features produce I067.
+    ModuleContainsFeature edges.
   """
   risk      low
   verify unit "module with features has reachable feature set"
@@ -255,8 +251,7 @@ invariant pe_owner_string_consistency "Owner String Consistency" {
 
 invariant pe_tags_per_entity_kind "Tags Per Entity Kind" {
   guarantee """
-    All 9 product entity kinds declare a tags field (string[] @optional).
-    Singleton tag detection spans all kinds for maximum coverage.
+    Every product entity kind gets the shared tags field (string[] @optional).
   """
   risk      low
   verify unit "all 9 entity kinds have tags field"
@@ -393,12 +388,12 @@ invariant pe_milestone_temporal_consistency "Milestone Temporal Consistency" {
 
 invariant pe_blocker_status_consistency "Blocker-Status Consistency" {
   guarantee """
-    Blocked milestones SHOULD have either depends_on entries or
-    blockers entries. A blocked milestone with neither has no
-    documented cause for the block.
+    Blocked milestones SHOULD list blockers entries that document the
+    cause of the block; depends_on entries do not replace them. A blocked
+    milestone with no blockers produces I060.
   """
   risk      low
-  verify unit "blocked milestone has depends_on or blockers"
+  verify unit "blocked milestone without blockers produces I060"
 }
 
 // ════════════════════════════════════════════════════════════════

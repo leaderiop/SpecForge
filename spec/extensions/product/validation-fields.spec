@@ -15,7 +15,7 @@ behavior validate_feature_status_field "Validate Feature Status Field" {
   contract """
     The @specforge/product extension MUST validate that when a feature's
     status field is present, its value is a valid FeatureStatus enum value
-    (proposed, accepted, in_progress, done, deferred). Invalid status
+    (proposed, accepted, in_progress, done, deferred, deprecated). Invalid status
     values MUST produce a W077 warning.
   """
   ensures {

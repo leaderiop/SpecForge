@@ -65,11 +65,9 @@ port ProductValidationPort {
     registries_populated "KindRegistry and FieldRegistry contain all 9 product entity kinds"
   }
   ensures {
-    all_rules_executed "all E007-E009, E015, E052, W041-W046, W049, W057, W075-W095, I010, I046-I097 rules are evaluated (I058 excluded — query-time only)"
-    deterministic      "same graph input + same cache file always produces same diagnostic set"
-    no_time_dependency "validation never depends on wall-clock time — I058 overdue detection is query-time only"
-    profile_respected  "I-codes emitted only when diagnostic profile is pedantic"
-    cache_aware        "W087-W091/W094 transition rules require build cache; suppressed when absent"
+    all_rules_executed "all E007, E015, E052, W041, W042, W044, W045, W049, W057, W077-W080, W083-W085, W092, W093, W095, I010, I046, I047, I059, I060, I066, I069, I070 rules are evaluated"
+    deterministic      "same graph input always produces same diagnostic set"
+    no_time_dependency "validation never depends on wall-clock time — overdue detection is query-time only"
   }
   verify unit "ProductValidationPort"
 }

@@ -17,8 +17,9 @@ constraint product_validation_latency "Product Validation Latency" {
   category    performance
   priority    critical
   metric      """
-    Product-specific validation rules (E007-E009, E015, E052, W041-W046,
-    W049, W057, W075-W091, I010, I046-I079) MUST complete in under
+    Product-specific validation rules (E007, E015, E052, W041, W042, W044,
+    W045, W049, W057, W077-W080, W083-W085, W092, W093, W095, I010, I046,
+    I047, I059, I060, I066, I069, I070) MUST complete in under
     50ms for a project with up to 500 product entities across all 9 kinds.
   """
   constrains  [
@@ -128,14 +129,15 @@ constraint product_cycle_detection_correctness "Product Cycle Detection Correctn
 }
 
 constraint product_orphan_detection_correctness "Product Orphan Detection Correctness" {
-  description "Orphan detection must fire if and only if an entity has zero incoming edges of the expected type."
+  description "Orphan detection must fire if and only if an entity has no incoming edge (I010: no edge at all)."
   category    reliability
   priority    critical
   metric      """
     Orphan detection for features (W041), journeys (W042), modules (W044),
-    personas (I046), channels (I047), and terms (I010) MUST fire if and
-    only if the entity has zero incoming edges of the expected type. Zero
-    false positives when entities have valid references. Zero false
+    personas (I046) and channels (I047) MUST fire if and only if the entity
+    has no incoming edge of any type. Unreferenced-term detection (I010)
+    MUST fire if and only if the term has no incoming and no outgoing edge.
+    Zero false positives when entities have valid references. Zero false
     negatives when entities are truly unreferenced.
   """
   constrains  [
@@ -147,7 +149,7 @@ constraint product_orphan_detection_correctness "Product Orphan Detection Correc
     detect_orphan_channels,
   ]
   protects    [pe_feature_non_testable, pe_persona_non_testable, pe_channel_non_testable]
-  verify unit "each orphan rule fires iff entity has zero expected incoming edges"
+  verify unit "each orphan rule fires iff the entity has no incoming edge, and I010 iff the term has no edge"
 }
 
 constraint product_query_correctness "Product Query Correctness" {
@@ -239,31 +241,15 @@ constraint product_entity_registration_determinism "Product Entity Registration 
   verify property "registration from same manifest produces identical registry state"
 }
 
-constraint product_surface_correctness "Product Surface Contribution Correctness" {
-  description "All CLI commands must resolve to valid Wasm exports, MCP tools must have valid JSON schemas, and MCP resources must have valid URIs."
-  category    reliability
-  priority    critical
-  metric      """
-    All 21 declared CLI commands MUST resolve to valid Wasm exports
-    (cmd__{id}). Each auto-promoted MCP tool MUST have a valid JSON
-    Schema input declaration. 28 MCP resources MUST have valid
-    specforge:// URIs. Surface dispatch MUST NOT panic on any valid
-    input.
-  """
-  constrains  [pe_declare_surface_contributions]
-  verify unit "all 21 CLI commands resolve to valid Wasm exports"
-  verify unit "MCP tool input schemas are valid JSON Schema"
-  verify unit "28 MCP resources have valid specforge:// URIs"
-}
-
 constraint product_diagnostic_severity_correctness "Product Diagnostic Severity Correctness" {
   description "All product diagnostics must fire at their declared severity level matching their E/W/I code prefix."
   category    reliability
   priority    critical
   metric      """
     All product diagnostics MUST fire at their declared severity level:
-    E-codes (E007-E009, E015, E052) are errors, W-codes (W041-W046, W049,
-    W057, W075-W091) are warnings, I-codes (I010, I046-I079) are info. No
+    E-codes (E007, E015, E052) are errors, W-codes (W041, W042, W044, W045,
+    W049, W057, W077-W080, W083-W085, W092, W093, W095) are warnings,
+    I-codes (I010, I046, I047, I059, I060, I066, I069, I070) are info. No
     diagnostic may fire at a different severity than its code prefix declares.
   """
   constrains  [pe_register_validation_rules]

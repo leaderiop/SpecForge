@@ -31,34 +31,37 @@ behavior detect_orphan_modules "Detect Orphan Modules" {
   types    [Diagnostic]
   contract """
     The @specforge/product extension MUST declare a no_incoming_edges
-    validation pattern that detects modules not bundled in any
-    deliverable. Orphan modules MUST produce a W044 warning.
+    validation pattern on modules. A module with no incoming edge of any
+    kind (no deliverable or milestone lists it, no module depends on it, no
+    term belongs to it) MUST produce a W044 warning.
   """
   ensures {
-    fires_when_orphan      "module with zero incoming DeliverableContainsModule edges produces W044"
-    suppresses_deliverable "module in at least one deliverable suppresses W044"
+    fires_when_orphan     "module with zero incoming edges produces W044"
+    suppresses_referenced "module referenced by a deliverable, milestone, module or term suppresses W044"
   }
   features [pe_validation_suite]
-  verify unit "module not in any deliverable produces W044"
+  verify unit "module nothing references produces W044"
   verify unit "module in a deliverable suppresses W044"
+  verify unit "module referenced only by a milestone suppresses W044"
 }
 
 behavior detect_orphan_terms "Detect Orphan Terms" {
   category validation
   types    [Diagnostic]
   contract """
-    The @specforge/product extension MUST declare a no_incoming_edges
-    validation pattern that detects term entities not referenced by any
-    other entity's see_also or other reference fields. Unreferenced
-    terms MUST produce an I010 info diagnostic.
+    The @specforge/product extension MUST declare a no_edges validation
+    pattern on terms. A term with no incoming and no outgoing edge (no
+    see_also or module of its own, and no term's see_also naming it) MUST
+    produce an I010 info diagnostic.
   """
   ensures {
-    fires_when_orphan     "term with zero incoming TermReferencesRelatedTerm edges produces I010"
-    suppresses_referenced "term referenced by at least one see_also suppresses I010"
+    fires_when_isolated  "term with no incoming and no outgoing edges produces I010"
+    suppresses_connected "term with any incoming or outgoing edge suppresses I010"
   }
   features [pe_validation_suite]
   verify unit "term referenced by see_also suppresses I010"
-  verify unit "term not referenced anywhere produces I010"
+  verify unit "term with its own see_also suppresses I010"
+  verify unit "term with no edges produces I010"
 }
 
 behavior detect_orphan_personas "Detect Orphan Personas" {
@@ -218,20 +221,19 @@ behavior detect_empty_milestones "Detect Empty Milestones" {
   category validation
   types    [Diagnostic]
   contract """
-    The @specforge/product extension MUST declare a field_value_constraint
-    validation pattern that detects milestones with both an empty features
-    list AND an empty modules list. Empty milestones MUST produce a W049
-    warning. A milestone with at least one feature or one module is valid.
+    The @specforge/product extension MUST declare a
+    missing_field_when_flag_set validation pattern on the milestone features
+    field. A milestone with no features field MUST produce a W049 warning,
+    whether or not it lists modules.
   """
   ensures {
-    fires_when_both_empty "milestone with empty features and empty modules produces W049"
-    suppresses_features   "milestone with at least one feature suppresses W049"
-    suppresses_modules    "milestone with at least one module suppresses W049"
+    fires_without_features "milestone with no features produces W049"
+    suppresses_features    "milestone with at least one feature suppresses W049"
   }
   features [pe_validation_suite]
   verify unit "milestone with no features and no modules produces W049"
   verify unit "milestone with features suppresses W049"
-  verify unit "milestone with modules suppresses W049"
+  verify unit "milestone with modules but no features produces W049"
 }
 
 behavior detect_milestone_feature_module_gap "Detect Milestone Feature-Module Gap" {
