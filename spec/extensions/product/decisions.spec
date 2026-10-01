@@ -21,7 +21,8 @@ decision pe_nine_entity_kinds "Nine Entity Kinds" {
     constructs tested indirectly through behavior chains from domain extensions.
     Connected by 20 edge types forming a complete traceability graph from user
     need to shipped artifact. Release was added in v1.1 to coordinate
-    multi-deliverable shipping with ReleaseIncludesDeliverable and ReleaseCompletesMilestone edges.
+    multi-deliverable shipping with ReleaseIncludesDeliverable,
+    ReleaseCompletesMilestone and ReleaseDependsOn edges.
   """
   consequences [
     "Complete planning-to-delivery traceability chain",
@@ -60,7 +61,7 @@ decision pe_persona_channel_as_entities "Persona and Channel as First-Class Enti
     "Personas and channels are graph-addressable nodes",
     "Reusable across journeys without duplication",
     "Orphan detection catches unused personas/channels",
-    "E008/E009 validate references at compile time",
+    "The core validates references at compile time (E003 unresolved, E022 wrong kind)",
     "Info-level orphan diagnostics support incremental adoption",
     "Slight overhead vs bare identifiers — justified by validation value",
   ]
@@ -110,7 +111,7 @@ decision pe_all_non_testable "All Product Entities Non-Testable" {
     "No verify statements on product entities",
     "No test obligations generated for planning constructs",
     "Testing occurs via domain extensions that reference features",
-    "W017 (testable entity without verify) never fires for product entities",
+    "W017 (testable kind lacks verify support) never fires for product kinds",
     "Simpler mental model — product entities plan, domain entities execute",
   ]
   invariants   [pe_feature_non_testable, pe_persona_non_testable, pe_channel_non_testable]
@@ -120,23 +121,21 @@ decision pe_term_see_also_term_only "TermReferencesRelatedTerm Edge Restricted t
   status       accepted
   date         2026-03-10
   context      """
-    The term entity's see_also field accepts EntityId[] and passes E001
-    resolution against any entity kind. However, TermReferencesRelatedTerm graph edges
-    are only created for term-to-term references. References to non-term
-    entities (modules, deliverables, etc.) are valid for documentation but
-    do not produce graph edges.
+    The term entity's see_also field accepts EntityId[]. It could accept
+    references to any entity kind, with graph edges only for term-to-term
+    references, or accept terms only.
   """
   decision     """
     Only term-to-term references in see_also produce TermReferencesRelatedTerm edges.
-    Cross-kind references are documentation-only — they pass resolution
-    (E001) but create no graph edges. Terms are navigation aids for
+    Cross-kind references are rejected (E022): see_also accepts only terms.
+    Terms are navigation aids for
     vocabulary consistency, not dependency-tracking nodes. Cross-kind
     edges from terms would pollute dependency analysis, cycle detection,
     and graph traversal with non-structural relationships.
   """
   consequences [
     "TermReferencesRelatedTerm edges form a clean term-only navigation graph",
-    "Cross-kind references still pass E001 resolution",
+    "Cross-kind see_also references are E022 errors",
     "No pollution of dependency analysis with vocabulary links",
     "Graph queries on TermReferencesRelatedTerm return only term neighbors",
     "Agents can build term relationship maps without noise",
@@ -165,7 +164,7 @@ decision pe_acceptance_free_form "Acceptance Criteria as Free-Form Prose" {
     "Acceptance criteria work for any domain without format constraints",
     "No machine-parseable structure for automated acceptance checking",
     "Verification occurs at the behavior level via verify statements",
-    "I048 detects missing acceptance criteria but does not validate content",
+    "No rule checks acceptance criteria",
     "Domain neutrality preserved — healthcare, finance, and education all use natural language",
   ]
 }
@@ -182,9 +181,9 @@ decision pe_interaction_model_metadata "Interaction Model as Metadata" {
   """
   decision     """
     The interaction_model field is metadata for tooling and AI agents, not
-    a flow-step validation constraint. The compiler validates that
-    interaction_model values are valid InteractionModel enum members but
-    does NOT enforce that journey flow steps are compatible with the
+    a flow-step validation constraint. The compiler does not check
+    interaction_model values against the InteractionModel enum, and does
+    NOT enforce that journey flow steps are compatible with the
     referenced channel's interaction model. Flow-step compatibility is
     domain-specific and belongs to domain extensions or agent reasoning.
   """
@@ -192,13 +191,13 @@ decision pe_interaction_model_metadata "Interaction Model as Metadata" {
     "Interaction model is queryable metadata for agents and tooling",
     "No coupling between journey flow steps and channel interaction model",
     "Domain extensions can add flow-step validation if needed",
-    "Simpler base validation — only enum membership checked",
+    "Simpler base validation — the value is not checked",
     "Agents can use interaction_model to reason about UX patterns",
   ]
 }
 
 decision pe_surface_contributions_v1 "Surface Contributions in v1" {
-  status       accepted
+  status       deprecated
   date         2026-03-10
   context      """
     The @specforge/product extension has query behaviors and validation but no
@@ -262,16 +261,13 @@ decision pe_tags_on_all_kinds "Tags Field on All Entity Kinds" {
   date         2026-03-10
   context      """
     Tags enable cross-cutting categorization (e.g., "mvp", "security", "deferred").
-    Singleton tag detection (I052) requires tags on all entity kinds to span
-    the full product graph.
   """
   decision     """
-    All 9 product entity kinds declare a tags field (string[] @optional).
-    Singleton tag detection spans all kinds for maximum coverage.
+    All 9 product entity kinds get the tags field (string[] @optional) as a
+    shared field.
   """
   consequences [
     "Cross-cutting categorization works on every product entity",
-    "I052 singleton tag detection spans the full product graph",
     "Slight field overhead on every entity — justified by cross-cutting value",
   ]
   invariants   [pe_tags_per_entity_kind]
@@ -353,10 +349,12 @@ decision pe_diagnostic_code_gaps "Intentional Diagnostic Code Gaps" {
   status       accepted
   date         2026-03-10
   context      """
-    Product diagnostic codes use ranges (W041-W046, W049, W057, W075-W085,
-    I010, I046-I075). The codes between them are not product's: W047-W048
-    and W050-W052 are governance's, W053-W056 and W060-W062 are core's,
-    W058 is formal's, and W063 is retired. W064-W074 are unused. These gaps
+    Product's warning codes are W041, W042, W044, W045, W049, W057,
+    W077-W080, W083-W085, W092, W093 and W095; its info codes are I010,
+    I046, I047, I059, I060, I066, I069 and I070. Of the warning codes
+    between them, W050-W052 are governance's, W053, W054 and W060-W062 are
+    core's, and W063 is retired; W043, W046-W048, W055, W056, W058,
+    W064-W076, W081, W082 and W086-W091 are unassigned. These gaps
     exist because codes were assigned incrementally as validation rules
     were added, not in a pre-allocated block.
   """
@@ -453,7 +451,7 @@ decision pe_term_weak_connectivity "Term Weak Connectivity" {
   decision     """
     Terms are vocabulary aids, not dependency nodes. TermReferencesRelatedTerm edges are
     optional navigation links — a term is valid without any see_also
-    references. I010 detects unreferenced terms at info level for awareness,
+    references. I010 detects terms with no edges at all at info level for awareness,
     but term isolation is not a structural defect. Terms serve a fundamentally
     different role than deliverables, modules, or milestones: they define
     vocabulary, not dependencies.
@@ -479,15 +477,16 @@ decision pe_journey_flow_opaque "Journey Flow Steps are Opaque" {
     Journey flow steps are intentionally opaque prose strings. Structured
     flow semantics (step typing, conditional branching, loop detection)
     belong to domain extensions that understand the interaction patterns
-    of their specific domain. The base product extension validates only
-    that flow is non-empty (I050) and leaves content interpretation to
+    of their specific domain. The base product extension only requires
+    flow to be present (core E006: flow is a required field) and leaves
+    content interpretation to
     consumers. This preserves domain neutrality.
   """
   consequences [
     "Flow steps work for any domain without format constraints",
     "No machine-parseable structure for automated flow validation",
     "Domain extensions can add structured flow via entity_enhancements",
-    "I050 only checks emptiness, not content quality",
+    "Only flow's presence is checked (E006), not its content",
     "Agents interpret flow steps as natural language sequences",
   ]
 }
@@ -504,16 +503,14 @@ decision pe_deliverable_lifecycle "Deliverable Lifecycle via Status Field" {
   """
   decision     """
     Add DeliverableStatus (draft, in_progress, shipped, deprecated) and
-    a reason field to ProductDeliverable. W085 validates the enum. I065
-    detects shipped deliverables with incomplete milestones. I066 detects
+    a reason field to ProductDeliverable. W085 validates the enum. I066 detects
     deprecated deliverables without a documented reason. Status defaults
     to absent (treated as draft) for incremental adoption.
   """
   consequences [
     "Deliverables have observable lifecycle state like features and milestones",
-    "Shipped deliverable integrity verified against milestone completion",
     "Deprecated deliverables require justification via reason field",
-    "Three new diagnostic codes: W085, I065, I066",
+    "Two new diagnostic codes: W085, I066",
     "Absent status treated as draft — no breaking change for existing specs",
   ]
   invariants   [deliverable_lifecycle_consistency]
@@ -694,7 +691,7 @@ decision pe_reason_content_opaque "Reason Field Content is Opaque" {
   status       accepted
   date         2026-03-11
   context      """
-    I059, I060, I066 check for empty/missing reason fields but do not
+    I059, I066, I069 and I070 check for empty/missing reason fields but do not
     validate content quality. A single-character reason like "x" satisfies
     the check.
   """
@@ -890,7 +887,8 @@ decision pe_persona_channel_reason "Reason Field on Persona and Channel" {
   date         2026-03-11
   context      """
     Features have a reason field for deferred status (I059), milestones
-    for blocked status (I060), and deliverables for deprecated status (I066).
+    list blockers when blocked (I060), and deliverables have a reason for
+    deprecated status (I066).
     Personas and channels can have status=deprecated but lack a reason field,
     creating an asymmetry where deprecation justification is enforced for
     some entity kinds but not others.
@@ -1113,10 +1111,10 @@ decision pe_module_term_no_status "Module and Term Lack Status Lifecycle" {
   status       accepted
   date         2026-03-11
   context      """
-    Seven of nine product entity kinds have a status lifecycle field (feature,
-    milestone, deliverable, persona, channel, journey via priority). Module
-    and term are the only kinds without a status enum. This was questioned
-    as an asymmetry.
+    Six of nine product entity kinds have a status field (feature,
+    milestone, deliverable, persona, channel, release). Module, term and
+    journey have none. The module and term gap was questioned as an
+    asymmetry.
   """
   decision     """
     Module and term intentionally have no status lifecycle field.
@@ -1143,7 +1141,7 @@ decision pe_module_term_no_status "Module and Term Lack Status Lifecycle" {
     "Module and term remain without status field — intentional, not an oversight",
     "Module deprecation is documented via the reason field (free-text, no enum)",
     "Term evolution is expressed via see_also references to successor terms",
-    "Seven of nine kinds have status; two do not (term, module) — this asymmetry is accepted",
+    "Six of nine kinds have status; three do not (term, module, journey) — this asymmetry is accepted",
     "No new validation rules needed — existing orphan detection (W044, I010) covers unused modules/terms",
   ]
 }
@@ -1238,7 +1236,7 @@ decision pe_deliverable_persona_composite "Deliverable-Persona Composite Query" 
 }
 
 decision pe_validation_rule_observability "Validation Rule Observability" {
-  status       accepted
+  status       deprecated
   date         2026-03-11
   context      """
     The product extension emits pe_validation_complete with aggregate counts
@@ -1372,8 +1370,8 @@ decision pe_migration_additive_only "Additive-Only Schema Evolution" {
   decision     """
     Minor versions (1.x) follow additive-only schema evolution:
     - New optional fields can be added to any entity kind
-    - New diagnostic codes consume from the reserved range W064-W074
-      before allocating new ranges
+    - New diagnostic codes are allocated outside the third-party range
+      (900-998) and added to the diagnostic catalog
     - New edge types require manifest version field bump but not major version
     - New entity kinds require major version bump
     - Field removal, kind removal, or edge type removal require major version
@@ -1385,7 +1383,7 @@ decision pe_migration_additive_only "Additive-Only Schema Evolution" {
   """
   consequences [
     "v1.x minor bumps are always backward compatible",
-    "Reserved diagnostic code ranges enable growth without breaking changes",
+    "New diagnostic codes enable growth without breaking changes",
     "Major version bumps require explicit migration hooks",
     "v2 introduces migration_hook for v1->v2 graph transformation",
     "Consumers can safely upgrade minor versions without spec file changes",
@@ -1503,7 +1501,7 @@ decision pe_ownership_as_fields "Ownership as String Fields" {
   decision     """
     Owner is a free-form string field (@optional) on feature, milestone,
     deliverable, and release. Contributors is a string list field. No entity
-    references — supports any naming convention. I080 encourages assignment.
+    references — supports any naming convention.
   """
   consequences [
     "Works with any naming convention (email, handle, team name)",
@@ -1551,15 +1549,16 @@ decision pe_release_ninth_entity "Release as Ninth Entity Kind" {
   """
   decision     """
     Add release as the 9th product entity kind. Releases group deliverables
-    via ReleaseIncludesDeliverable edges and target milestones via ReleaseCompletesMilestone
-    edges. Lifecycle: planned->in_progress->released->recalled. Two new edge
-    types (total 16). Previous 8-kinds invariant updated to 9.
+    via ReleaseIncludesDeliverable edges, complete milestones via
+    ReleaseCompletesMilestone edges, and order releases via ReleaseDependsOn.
+    Lifecycle: planned->in_progress->released->recalled. Three new edge
+    types (total 20). Previous 8-kinds invariant updated to 9.
   """
   consequences [
-    "Explicit coordination semantics with lifecycle validation",
+    "Explicit coordination semantics; release cycles are W092, bad versions W093",
     "Supports release changelogs and versioning",
     "One more entity kind to learn (optional adoption mitigates)",
-    "Manifest counts change from 8/14 to 9/16",
+    "Manifest counts change to 9 kinds / 20 edge types",
   ]
   alternatives [
     "Version-field grouping — rejected: implicit, no structural validation",
@@ -1576,9 +1575,8 @@ decision pe_temporal_start_date "Start Date on Milestones" {
     computed and critical path analysis is topology-only.
   """
   decision     """
-    Add start_date (string @optional, ISO 8601) to milestones. I087 validates
-    format. Extended temporal consistency (I064) checks start_date <= target_date
-    and dependency ordering.
+    Add start_date (string @optional, ISO 8601) to milestones. No rule checks
+    start_date's format or ordering.
   """
   consequences [
     "Duration is computable (target_date - start_date)",
@@ -1600,12 +1598,12 @@ decision pe_blockers_on_milestones "External Blockers on Milestones" {
   """
   decision     """
     Add blockers (string[] @optional) to milestones. Free-text descriptions
-    of external impediments. I084 detects blocked milestones with neither
-    depends_on nor blockers.
+    of external impediments. I060 reports a blocked milestone with no
+    blockers (depends_on doesn't count).
   """
   consequences [
     "External blockers are visible in the graph",
-    "Combined with depends_on, every blocked milestone has documented blockage",
+    "Every blocked milestone is expected to list its blockers",
     "Free-text — no structured tracking or resolution dates",
   ]
   alternatives [
@@ -1672,11 +1670,12 @@ decision pe_release_v1_1_migration "Release Entity v1.1 Migration Path" {
     Release entity adoption is fully additive and requires zero migration:
     1. The release kind is registered during pe_register_entity_kinds alongside
        the other 8 kinds — no conditional registration path.
-    2. All release fields are @optional — a project with zero release blocks
-       parses and validates identically to v1.0.
-    3. ReleaseIncludesDeliverable and ReleaseCompletesMilestone edge types are registered but
+    2. Every release field except version is optional; a project with zero
+       release blocks parses and validates identically to v1.0.
+    3. ReleaseIncludesDeliverable, ReleaseCompletesMilestone and
+       ReleaseDependsOn edge types are registered but
        produce zero edges when no release entities exist — no phantom edges.
-    4. Validation rules targeting releases (W092-W094, I080-I091) fire only
+    4. Validation rules targeting releases (W092, W093) fire only
        when release entities are present in the graph. Zero releases = zero
        release diagnostics.
     5. CLI commands (product:releases, product:release-deliverables, etc.)
@@ -1925,7 +1924,7 @@ decision pe_effort_weights_configurable "Configurable Effort Weights" {
 }
 
 decision pe_diagnostic_profiles "Diagnostic Profiles for Progressive Adoption" {
-  status       accepted
+  status       deprecated
   date         2026-03-13
   context      """
     The product extension declares 68+ validation rules across three severity
@@ -2057,7 +2056,7 @@ decision pe_cursor_pagination_decision "Cursor-Based Pagination for Matrix Queri
 }
 
 decision pe_enable_product_verify "Enable Verify Annotations on Product Entities" {
-  status       accepted
+  status       proposed
   date         2026-03-16
   context      """
     Vision principle P5 (Traceability is a feedback loop, not a report) requires
