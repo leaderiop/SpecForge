@@ -1895,11 +1895,12 @@ fn detect_breaking_contract() {
     assert!(!migration.changes.is_empty());
 }
 
-// B:compute_schema_version — verify contract "requires/ensures consistency for schema version computation"
-#[specforge_test(
-    behavior = "compute_schema_version",
-    verify = "Compute Schema Version: schema version computation holds — schema_breaking_change_detected_fired, version_auto_computed, first_compilation_baseline, version_attached, schema_version_computed_emitted"
-)]
+// Not linked to the Compute Schema Version contract. `specforge export`
+// attaches the computed version (crates/specforge-cli/tests/schema_cache.rs
+// proves it through the CLI), but the CLI has no event sink, so the
+// schema_breaking_change_detected_fired and schema_version_computed_emitted
+// clauses have nothing to assert. This only checks the version arithmetic.
+#[test]
 fn compute_version_contract() {
     // ensures: first_compilation_baseline
     let empty = SchemaMigration { changes: vec![] };

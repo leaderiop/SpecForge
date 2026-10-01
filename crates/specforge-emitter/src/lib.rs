@@ -41,9 +41,10 @@ pub use query::query;
 pub use schema::{
     GraphProtocolSchema, SchemaCacheEntry, SchemaCompatibility, SchemaEdgeType, SchemaEntityKind,
     SchemaExtensionInfo, SchemaField, SchemaMigration, SchemaMigrationChange, SchemaVersion,
-    SchemaVersionError, compute_schema_version, detect_breaking_with_diagnostics, diff_schemas,
-    diff_schemas_optional, emit_schema, emit_schema_for_kind, generate_schema, load_schema_cache,
-    negotiate_version, persist_schema_cache, publish_json_schema_format,
+    SchemaVersionError, attach_schema_version, compute_schema_version,
+    detect_breaking_with_diagnostics, diff_schemas, diff_schemas_optional, emit_schema,
+    emit_schema_for_kind, generate_schema, load_schema_cache, negotiate_version,
+    persist_schema_cache, publish_json_schema_format,
 };
 pub use stats::{
     ProjectStats, compute_project_stats, compute_stats, compute_stats_with_diagnostics,

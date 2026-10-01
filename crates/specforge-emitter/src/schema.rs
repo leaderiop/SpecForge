@@ -992,6 +992,21 @@ pub fn detect_breaking_with_diagnostics(
     (migration, diagnostics)
 }
 
+/// Give `schema` its version: the version of the schema the previous export
+/// cached in `cache_dir`, bumped by what changed since (major for a breaking
+/// change, minor for an addition, patch for anything else; unchanged when
+/// nothing changed). With no cache, or one that can't be read, it is 1.0.0.
+/// Only reads the cache.
+pub fn attach_schema_version(schema: &mut GraphProtocolSchema, cache_dir: &Path) {
+    let previous = load_schema_cache(cache_dir)
+        .ok()
+        .flatten()
+        .map(|e| e.schema);
+    let migration = diff_schemas_optional(previous.as_ref(), schema);
+    schema.schema_version =
+        compute_schema_version(&migration, previous.as_ref().map(|p| &p.schema_version));
+}
+
 // ---------------------------------------------------------------------------
 // Slice 6b: Version Negotiation — default to latest
 // ---------------------------------------------------------------------------

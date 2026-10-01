@@ -1,6 +1,7 @@
 use specforge_common::{Severity, find_project_root};
 use specforge_emitter::{
-    GraphProtocolSchema, detect_breaking_with_diagnostics, generate_schema, persist_schema_cache,
+    GraphProtocolSchema, attach_schema_version, detect_breaking_with_diagnostics, generate_schema,
+    persist_schema_cache,
 };
 use specforge_ops::export;
 use std::path::{Path, PathBuf};
@@ -28,12 +29,21 @@ fn schema_cache_dir(path: &Path) -> PathBuf {
         .join(".specforge")
 }
 
+/// The schema the extensions produce, versioned against the one the
+/// previous export cached (`attach_schema_version`).
+fn versioned_schema(ctx: &pipeline::CompilationContext, cache_dir: &Path) -> GraphProtocolSchema {
+    let mut schema = build_schema(ctx);
+    attach_schema_version(&mut schema, cache_dir);
+    schema
+}
+
 /// Export the project to stdout. Before it writes, the schema the
 /// extensions produce is compared with the one the previous export cached
-/// in `.specforge/schema-cache.json`, and each breaking change is a W053
-/// warning on stderr. After a successful export that schema replaces the
-/// cache, so the next export compares against it. The export is written
-/// whatever the comparison finds.
+/// in `.specforge/schema-cache.json`: each breaking change is a W053
+/// warning on stderr, and the cached schema's version, bumped by what
+/// changed, is the version the export carries. After a successful export
+/// that schema replaces the cache, so the next export compares against it.
+/// The export is written whatever the comparison finds.
 pub fn run(
     path: &Path,
     format: ExportFormat,
@@ -43,8 +53,8 @@ pub fn run(
     max_tokens: Option<usize>,
 ) -> i32 {
     let ctx = pipeline::compile(path);
-    let generated = build_schema(&ctx);
     let cache_dir = schema_cache_dir(path);
+    let generated = versioned_schema(&ctx, &cache_dir);
 
     // The export goes to stdout: there is no output directory holding
     // earlier exports, and `.specforge/` holds extensions and the watch
@@ -130,8 +140,8 @@ fn render_export(
 
 pub fn run_schema(path: &Path, kind: Option<&str>, publish: bool, format: SchemaFormat) -> i32 {
     let ctx = pipeline::compile(path);
-
-    let schema = build_schema(&ctx);
+    // The version the next export would carry; the cache is only read.
+    let schema = versioned_schema(&ctx, &schema_cache_dir(path));
 
     if publish {
         let emit_format = match format {

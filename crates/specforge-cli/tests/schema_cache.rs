@@ -501,3 +501,116 @@ fn watch_writes_no_schema_cache() {
     assert!(rebuilt, "watch never rebuilt");
     assert!(!cache_path(&dir).exists(), "watch must not write the cache");
 }
+
+// --- The export carries the computed schema version ---
+
+fn version(major: u64, minor: u64, patch: u64) -> Value {
+    json!({"major": major, "minor": minor, "patch": patch})
+}
+
+/// The schema version a `specforge export` embeds, from its stdout.
+fn exported_version(output: &Output) -> Value {
+    assert!(
+        output.status.success(),
+        "export failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let export = parse_json_stdout(output);
+    let embedded = export["schema"]["schema_version"].clone();
+    assert_eq!(
+        export["schema_version"],
+        format!(
+            "{}.{}.{}",
+            embedded["major"], embedded["minor"], embedded["patch"]
+        ),
+        "the envelope names the embedded schema's version"
+    );
+    embedded
+}
+
+/// Export once, let `edit` change the cache the export wrote, export again
+/// and return the project, the version the second export embedded and the
+/// one it cached.
+fn version_after_edited_cache(edit: impl FnOnce(&mut Value)) -> (TempDir, Value, Value) {
+    let dir = software_project();
+    export_ok(&dir);
+    let mut cache = read_cache(&dir);
+    edit(&mut cache);
+    write_cache(&dir, &cache);
+    let embedded = exported_version(&export(&dir, &[]));
+    let cached = read_cache(&dir)["schema"]["schema_version"].clone();
+    (dir, embedded, cached)
+}
+
+fn add_legacy_kind(cache: &mut Value) {
+    cache["schema"]["entity_kinds"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"name": "legacy", "source_extension": "x", "testable": false, "fields": []}));
+}
+
+#[specforge_test(
+    behavior = "compute_schema_version",
+    verify = "first compilation without cache produces version 1.0.0"
+)]
+fn a_first_export_is_schema_version_1_0_0() {
+    let dir = software_project();
+    assert_eq!(exported_version(&export(&dir, &[])), version(1, 0, 0));
+    assert_eq!(
+        read_cache(&dir)["schema"]["schema_version"],
+        version(1, 0, 0)
+    );
+}
+
+#[specforge_test(
+    behavior = "compute_schema_version",
+    verify = "removed entity kind triggers major version bump"
+)]
+fn a_removed_kind_bumps_the_exported_major_version() {
+    let (_dir, embedded, cached) = version_after_edited_cache(|cache| {
+        cache["schema"]["schema_version"] = version(1, 2, 3);
+        add_legacy_kind(cache);
+    });
+    assert_eq!(embedded, version(2, 0, 0));
+    // The cache keeps the bumped version, so the next export builds on it.
+    assert_eq!(cached, version(2, 0, 0));
+}
+
+#[specforge_test(
+    behavior = "compute_schema_version",
+    verify = "new entity kind triggers minor version bump"
+)]
+fn a_new_kind_bumps_the_exported_minor_version() {
+    let (_dir, embedded, cached) = version_after_edited_cache(|cache| {
+        cache["schema"]["schema_version"] = version(1, 2, 3);
+        cache["schema"]["entity_kinds"]
+            .as_array_mut()
+            .unwrap()
+            .retain(|k| k["name"] != "port");
+    });
+    assert_eq!(embedded, version(1, 3, 0));
+    assert_eq!(cached, version(1, 3, 0));
+}
+
+#[specforge_test(
+    behavior = "compute_schema_version",
+    verify = "no changes returns previous"
+)]
+fn an_unchanged_schema_keeps_the_exported_version() {
+    let (_dir, embedded, cached) = version_after_edited_cache(|cache| {
+        cache["schema"]["schema_version"] = version(3, 1, 4);
+    });
+    assert_eq!(embedded, version(3, 1, 4));
+    assert_eq!(cached, version(3, 1, 4));
+}
+
+#[test]
+fn the_schema_command_reports_the_version_export_embeds() {
+    let (dir, embedded, _) = version_after_edited_cache(|cache| {
+        cache["schema"]["schema_version"] = version(1, 2, 3);
+        add_legacy_kind(cache);
+    });
+    assert_eq!(generated_schema(&dir)["schema_version"], embedded);
+    // `schema` only reads the cache.
+    assert_eq!(generated_schema(&dir)["schema_version"], embedded);
+}
