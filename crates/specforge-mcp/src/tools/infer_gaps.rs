@@ -41,9 +41,9 @@ pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
     let source_files =
         inference::discover_source_files(&project_root, &manifest.source_roots, &discovery_config);
 
-    let runtime = specforge_component::project_runtime(&project_root);
+    let runtime = state.wasm_runtime(&project_root);
     let (all_items, scanners_used) = scanner_dispatch::scan_source_files(
-        &runtime,
+        runtime.as_ref(),
         &state.manifests,
         &project_root,
         &source_files,

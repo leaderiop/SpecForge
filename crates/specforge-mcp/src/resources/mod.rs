@@ -10,6 +10,7 @@ use serde_json::Value;
 
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::types::McpResourceDescriptor;
 
 /// The one text content a resource read returns.
 pub(crate) struct ResourceText {
@@ -79,65 +80,149 @@ pub fn handle_resource_read(
     }
 }
 
-fn read(state: &mut McpState, uri: &str) -> ReadOutcome {
-    let uri = uri.to_string();
-    // Query strings (?root=&depth=&kinds=&max_tokens=) ride on the
-    // resource URIs (C9-06); specforge://context/{entity_id} scopes via its
-    // path segment.
-    match uri.as_str() {
-        u if u == "specforge://graph" || u.starts_with("specforge://graph?") => {
-            graph::read(state, u)
+/// One core resource: everything the server lists and reads about it.
+pub struct ResourceSpec {
+    /// Its URI, or an RFC 6570 template (`specforge://graph/{entity_id}`).
+    pub uri: &'static str,
+    pub name: &'static str,
+    pub description: &'static str,
+    pub mime_type: &'static str,
+    /// Read the resource at a URI it [matches](Self::matches).
+    pub(crate) read: fn(&McpState, &str) -> ReadOutcome,
+}
+
+impl ResourceSpec {
+    /// The resource as `resources/list` (or `resources/templates/list`)
+    /// describes it.
+    pub fn descriptor(&self) -> McpResourceDescriptor {
+        McpResourceDescriptor {
+            uri: self.uri.into(),
+            name: self.name.into(),
+            description: Some(self.description.into()),
+            mime_type: Some(self.mime_type.into()),
         }
-        "specforge://schema" => schema::read(state),
-        u if u == "specforge://context"
-            || u.starts_with("specforge://context?")
-            || u.starts_with("specforge://context/") =>
-        {
-            context::read(state, u)
-        }
-        u if u == "specforge://brief" || u.starts_with("specforge://brief?") => {
-            brief::read(state, u)
-        }
-        "specforge://diagnostics" => diagnostics::read(state),
-        _ if uri.starts_with("specforge://graph/") => {
-            let entity_id = &uri["specforge://graph/".len()..];
-            entity::read(state, entity_id)
-        }
-        _ if uri.starts_with("specforge://entities/") => {
-            let kind = &uri["specforge://entities/".len()..];
-            entities_by_kind::read(state, kind)
-        }
-        _ if uri.starts_with("specforge://ext/") => {
-            // Extension-contributed resource: dispatch through the Wasm
-            // runtime (WASM-only migration, Phase 4).
-            let Some(entry) = state.surface_entries.iter().find(|e| {
-                e.surface_type == specforge_registry::SurfaceType::McpResource
-                    && e.enabled
-                    && matches_uri_template(&e.contribution_name, &uri)
-            }) else {
-                return Err(invalid_params(format!("Unknown resource URI: {}", uri)));
-            };
-            let Some(root) = state.project_root.clone() else {
-                return Err(invalid_params(
-                    "Extension resources need a project root; pass {\"path\": ...} to specforge.analyze first",
-                ));
-            };
-            let runtime = specforge_component::project_runtime(&root);
-            match specforge_wasm::dispatch_surface_mcp_resource(
-                &entry.extension_name,
-                &entry.export_name,
-                &uri,
-                &runtime,
-            ) {
-                Ok((content, mime)) => Ok(ResourceText {
-                    text: String::from_utf8_lossy(&content).into_owned(),
-                    uri,
-                    mime_type: mime,
-                }),
-                Err(diag) => Err(invalid_params(format!("{}: {}", diag.code, diag.message))),
+    }
+
+    /// Whether `uri` names this resource: a template's prefix and what
+    /// stands for its placeholder (the reader refuses an empty one), or the URI itself with an optional query string
+    /// (C9-06: `?root=&depth=&kinds=&max_tokens=`).
+    pub fn matches(&self, uri: &str) -> bool {
+        match self.uri.split_once('{') {
+            Some((prefix, _)) => uri.starts_with(prefix),
+            None => {
+                uri == self.uri
+                    || uri
+                        .strip_prefix(self.uri)
+                        .is_some_and(|rest| rest.starts_with('?'))
             }
         }
-        _ => Err(invalid_params(format!("Unknown resource URI: {}", uri))),
+    }
+}
+
+/// The value of the placeholder ending a templated resource URI: what
+/// follows `prefix`.
+fn after<'a>(uri: &'a str, prefix: &str) -> &'a str {
+    uri.strip_prefix(prefix).unwrap_or_default()
+}
+
+/// The core resources, in listing order.
+pub static CORE_RESOURCES: &[ResourceSpec] = &[
+    ResourceSpec {
+        uri: "specforge://graph",
+        name: "graph",
+        description: "Full spec graph in JSON format",
+        mime_type: "application/json",
+        read: graph::read,
+    },
+    ResourceSpec {
+        uri: "specforge://schema",
+        name: "schema",
+        description: "Graph schema definition",
+        mime_type: "application/json",
+        read: |state, _| schema::read(state),
+    },
+    ResourceSpec {
+        uri: "specforge://context",
+        name: "context",
+        description: "Context-optimized graph (contract, status, verify fields)",
+        mime_type: "application/json",
+        read: context::read,
+    },
+    ResourceSpec {
+        uri: "specforge://context/{entity_id}",
+        name: "context_entity",
+        description: "Context-optimized subgraph rooted at an entity",
+        mime_type: "application/json",
+        read: context::read,
+    },
+    ResourceSpec {
+        uri: "specforge://brief",
+        name: "brief",
+        description: "Brief graph (id, kind, title, edges only)",
+        mime_type: "application/json",
+        read: brief::read,
+    },
+    ResourceSpec {
+        uri: "specforge://diagnostics",
+        name: "diagnostics",
+        description: "Current compilation diagnostics",
+        mime_type: "application/json",
+        read: |state, _| diagnostics::read(state),
+    },
+    ResourceSpec {
+        uri: "specforge://graph/{entity_id}",
+        name: "entity",
+        description: "Subgraph rooted at a specific entity",
+        mime_type: "application/json",
+        read: |state, uri| entity::read(state, after(uri, "specforge://graph/")),
+    },
+    ResourceSpec {
+        uri: "specforge://entities/{kind}",
+        name: "entities_by_kind",
+        description: "All entities of a specific kind (e.g. feature, behavior)",
+        mime_type: "application/json",
+        read: |state, uri| entities_by_kind::read(state, after(uri, "specforge://entities/")),
+    },
+];
+
+fn read(state: &McpState, uri: &str) -> ReadOutcome {
+    if let Some(resource) = CORE_RESOURCES.iter().find(|r| r.matches(uri)) {
+        return (resource.read)(state, uri);
+    }
+    if uri.starts_with("specforge://ext/") {
+        return extension_resource(state, uri);
+    }
+    Err(invalid_params(format!("Unknown resource URI: {uri}")))
+}
+
+/// An extension-contributed resource, read through the Wasm runtime
+/// (WASM-only migration, Phase 4).
+fn extension_resource(state: &McpState, uri: &str) -> ReadOutcome {
+    let Some(entry) = state.surface_entries.iter().find(|e| {
+        e.surface_type == specforge_registry::SurfaceType::McpResource
+            && e.enabled
+            && matches_uri_template(&e.contribution_name, uri)
+    }) else {
+        return Err(invalid_params(format!("Unknown resource URI: {uri}")));
+    };
+    let Some(root) = state.project_root.clone() else {
+        return Err(invalid_params(
+            "Extension resources need a project root; pass {\"path\": ...} to specforge.analyze first",
+        ));
+    };
+    let runtime = state.wasm_runtime(&root);
+    match specforge_wasm::dispatch_surface_mcp_resource(
+        &entry.extension_name,
+        &entry.export_name,
+        uri,
+        runtime.as_ref(),
+    ) {
+        Ok((content, mime)) => Ok(ResourceText {
+            text: String::from_utf8_lossy(&content).into_owned(),
+            uri: uri.to_string(),
+            mime_type: mime,
+        }),
+        Err(diag) => Err(invalid_params(format!("{}: {}", diag.code, diag.message))),
     }
 }
 

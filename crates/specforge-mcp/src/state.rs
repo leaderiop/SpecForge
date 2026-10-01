@@ -52,9 +52,13 @@ pub struct McpState {
     /// snapshot marker mtime to detect staleness (C9-07).
     pub loaded_at: Option<std::time::SystemTime>,
     /// The Wasm runtime extensions run in, when the host supplies one; by
-    /// default each compile and extension call builds the project's runtime
+    /// default each compile builds the project's runtime
     /// (`specforge_component::project_runtime`).
     pub extension_runtime: Option<std::sync::Arc<dyn specforge_wasm::WasmRuntime>>,
+    /// The served project's runtime for extension calls (tools, resources,
+    /// passes, hooks): built on the first call that needs it and kept until
+    /// the project is compiled again, so its modules match the compile.
+    served_runtime: std::sync::Mutex<Option<std::sync::Arc<dyn specforge_wasm::WasmRuntime>>>,
 }
 
 impl McpState {
@@ -129,12 +133,40 @@ impl McpState {
             project_config: ProjectConfig::default(),
             loaded_at: None,
             extension_runtime: None,
+            served_runtime: std::sync::Mutex::new(None),
         }
     }
 
     /// The runtime extensions of the project at `root` run in: the host's,
-    /// or the project's own.
+    /// or the project's own. The served project's is built once per
+    /// compile, on the first call that needs it; another project's is built
+    /// for the call.
     pub fn wasm_runtime(
+        &self,
+        root: &std::path::Path,
+    ) -> std::sync::Arc<dyn specforge_wasm::WasmRuntime> {
+        if self.extension_runtime.is_some() || self.project_root.as_deref() != Some(root) {
+            return self.fresh_runtime(root);
+        }
+        let mut served = self
+            .served_runtime
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        std::sync::Arc::clone(served.get_or_insert_with(|| self.fresh_runtime(root)))
+    }
+
+    /// Whether the served project's runtime has been built since it was
+    /// last compiled.
+    pub fn has_loaded_runtime(&self) -> bool {
+        self.served_runtime
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .is_some()
+    }
+
+    /// A runtime for `root` built now: the host's, or a new one of the
+    /// project's own.
+    fn fresh_runtime(
         &self,
         root: &std::path::Path,
     ) -> std::sync::Arc<dyn specforge_wasm::WasmRuntime> {
@@ -179,10 +211,10 @@ impl McpState {
         self.events.push(McpEvent { name, params });
     }
 
-    /// Compile the project at `root` with its extensions in
-    /// [`Self::wasm_runtime`], without serving it.
+    /// Compile the project at `root` with its extensions in a runtime built
+    /// for it, without serving it: the modules are what is on disk now.
     pub fn compile_project(&self, root: &std::path::Path) -> specforge_project::CompiledProject {
-        let runtime = self.wasm_runtime(root);
+        let runtime = self.fresh_runtime(root);
         specforge_project::CompiledProject::compile(root, Some(runtime.as_ref()))
     }
 
@@ -226,6 +258,11 @@ impl McpState {
         self.spec_root = Some(spec_root);
         self.project_root = Some(root.to_path_buf());
         self.loaded_at = Some(std::time::SystemTime::now());
+        // The next extension call loads the modules this compile used.
+        *self
+            .served_runtime
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
 
         crate::registry::register_defaults(self);
         crate::registry::register_extension_surfaces(self, &registries.manifest_surfaces);

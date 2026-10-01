@@ -6,9 +6,7 @@ use specforge_registry::{
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
 use crate::tool::Category;
-use crate::types::{
-    McpPromptArgument, McpPromptDescriptor, McpResourceDescriptor, McpToolDescriptor,
-};
+use crate::types::{McpPromptDescriptor, McpResourceDescriptor, McpToolDescriptor};
 
 pub fn register_defaults(state: &mut McpState) {
     state.resource_registry = default_resources();
@@ -307,56 +305,10 @@ pub fn default_resource_count() -> usize {
 }
 
 fn default_resources() -> Vec<McpResourceDescriptor> {
-    vec![
-        McpResourceDescriptor {
-            uri: "specforge://graph".into(),
-            name: "graph".into(),
-            description: Some("Full spec graph in JSON format".into()),
-            mime_type: Some("application/json".into()),
-        },
-        McpResourceDescriptor {
-            uri: "specforge://schema".into(),
-            name: "schema".into(),
-            description: Some("Graph schema definition".into()),
-            mime_type: Some("application/json".into()),
-        },
-        McpResourceDescriptor {
-            uri: "specforge://context".into(),
-            name: "context".into(),
-            description: Some("Context-optimized graph (contract, status, verify fields)".into()),
-            mime_type: Some("application/json".into()),
-        },
-        McpResourceDescriptor {
-            uri: "specforge://context/{entity_id}".into(),
-            name: "context_entity".into(),
-            description: Some("Context-optimized subgraph rooted at an entity".into()),
-            mime_type: Some("application/json".into()),
-        },
-        McpResourceDescriptor {
-            uri: "specforge://brief".into(),
-            name: "brief".into(),
-            description: Some("Brief graph (id, kind, title, edges only)".into()),
-            mime_type: Some("application/json".into()),
-        },
-        McpResourceDescriptor {
-            uri: "specforge://diagnostics".into(),
-            name: "diagnostics".into(),
-            description: Some("Current compilation diagnostics".into()),
-            mime_type: Some("application/json".into()),
-        },
-        McpResourceDescriptor {
-            uri: "specforge://graph/{entity_id}".into(),
-            name: "entity".into(),
-            description: Some("Subgraph rooted at a specific entity".into()),
-            mime_type: Some("application/json".into()),
-        },
-        McpResourceDescriptor {
-            uri: "specforge://entities/{kind}".into(),
-            name: "entities_by_kind".into(),
-            description: Some("All entities of a specific kind (e.g. feature, behavior)".into()),
-            mime_type: Some("application/json".into()),
-        },
-    ]
+    crate::resources::CORE_RESOURCES
+        .iter()
+        .map(crate::resources::ResourceSpec::descriptor)
+        .collect()
 }
 
 pub fn default_tools() -> Vec<McpToolDescriptor> {
@@ -367,91 +319,8 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
 }
 
 fn default_prompts() -> Vec<McpPromptDescriptor> {
-    vec![
-        McpPromptDescriptor {
-            name: "specforge://prompts/context".into(),
-            description: "Get structured context for implementing an entity".into(),
-            arguments: Some(vec![
-                McpPromptArgument {
-                    name: "entity_id".into(),
-                    description: "Entity ID to get context for".into(),
-                    required: true,
-                },
-                McpPromptArgument {
-                    name: "structural_constraints".into(),
-                    description: "Entity IDs to include as context even when not connected (array or comma-separated)".into(),
-                    required: false,
-                },
-            ]),
-        },
-        McpPromptDescriptor {
-            name: "specforge://prompts/review".into(),
-            description: "Analyze coverage gaps for an entity or the whole graph".into(),
-            arguments: Some(vec![
-                McpPromptArgument {
-                    name: "entity_id".into(),
-                    description: "Entity ID to review (optional, reviews all if omitted)".into(),
-                    required: false,
-                },
-                McpPromptArgument {
-                    name: "depth".into(),
-                    description: "Neighbor hops around entity_id to include (default 1)".into(),
-                    required: false,
-                },
-            ]),
-        },
-        McpPromptDescriptor {
-            name: "specforge://prompts/trace".into(),
-            description: "Identify traceability gaps for a plan".into(),
-            arguments: Some(vec![
-                McpPromptArgument {
-                    name: "plan".into(),
-                    description: "AgentPlan JSON ({\"entries\": [{\"entity_id\", \"action\"}]}) to check against the graph".into(),
-                    required: false,
-                },
-                McpPromptArgument {
-                    name: "entity_id".into(),
-                    description: "Entity ID to trace when no plan is given".into(),
-                    required: false,
-                },
-            ]),
-        },
-        McpPromptDescriptor {
-            name: "specforge://prompts/explore".into(),
-            description: "Discover exploration starting points in the graph".into(),
-            arguments: Some(vec![
-                McpPromptArgument {
-                    name: "entity_id".into(),
-                    description: "Starting entity (optional)".into(),
-                    required: false,
-                },
-                McpPromptArgument {
-                    name: "kind".into(),
-                    description: "Filter by entity kind".into(),
-                    required: false,
-                },
-            ]),
-        },
-        McpPromptDescriptor {
-            name: "specforge://prompts/infer".into(),
-            description: "Get inference guidance for discovering spec entities from code".into(),
-            arguments: Some(vec![
-                McpPromptArgument {
-                    name: "scope".into(),
-                    description: "Scope: omit for overview, 'kind:{name}' for focused guide, 'file:{path}' for file deduplication".into(),
-                    required: false,
-                },
-                McpPromptArgument {
-                    name: "target_spec_directory".into(),
-                    description: "Directory where generated .spec files are written (scope \"plan\")".into(),
-                    required: false,
-                },
-                McpPromptArgument {
-                    name: "cursor".into(),
-                    description: "Offset into the plan's unanalyzed/stale file lists for paging (scope \"plan\")".into(),
-                    required: false,
-                },
-            ]),
-        },
-    ]
+    crate::prompts::CORE_PROMPTS
+        .iter()
+        .map(crate::prompts::PromptSpec::descriptor)
+        .collect()
 }

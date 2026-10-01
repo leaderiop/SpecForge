@@ -257,6 +257,7 @@ behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
   """
   verify unit "input validated against declared input_schema"
   verify unit "lazy Wasm load on first tool invocation"
+  verify unit "the served project's runtime loads on the first call that needs it and serves later calls until the project recompiles"
   verify unit "input JSON passed to mcp__ export"
   verify unit "sandbox override intersected with extension policy"
   verify unit "Wasm trap returned as structured MCP error"

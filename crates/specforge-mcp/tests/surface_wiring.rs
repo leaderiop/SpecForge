@@ -685,3 +685,49 @@ fn event_commands_auto_promoted() {
             .any(|e| e.name == "commands_auto_promoted")
     );
 }
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "the served project's runtime loads on the first call that needs it and serves later calls until the project recompiles"
+)]
+fn one_runtime_serves_extension_calls_until_the_next_compile() {
+    let dir = TempDir::new().unwrap();
+    let config = json!({"name": "rt", "version": "0.1.0",
+        "extensions": ["@specforge/software", "@specforge/testing"]});
+    fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        "behavior greet \"Greet\" {\n  category command\n  contract \"MUST greet\"\n}\n",
+    )
+    .unwrap();
+    let mut server = McpServer::new();
+    call(
+        &mut server,
+        "initialize",
+        json!({"projectRoot": dir.path().to_str().unwrap()}),
+    );
+    let root = server.state().project_root.clone().unwrap();
+    assert!(
+        !server.state().has_loaded_runtime(),
+        "compiling loads no runtime for later calls"
+    );
+
+    // analyze runs the extensions' passes: the first call loads the runtime.
+    let analyze = json!({"use_cached": true});
+    call_tool(&mut server, "specforge.analyze", analyze.clone());
+    assert!(server.state().has_loaded_runtime());
+    let first = server.state().wasm_runtime(&root);
+    call_tool(&mut server, "specforge.analyze", analyze);
+    assert!(
+        std::sync::Arc::ptr_eq(&first, &server.state().wasm_runtime(&root)),
+        "later calls reuse it"
+    );
+
+    // A recompile may load other modules: the next call loads them anew.
+    call_tool(&mut server, "specforge.validate", json!({}));
+    assert!(!server.state().has_loaded_runtime());
+    assert!(!std::sync::Arc::ptr_eq(
+        &first,
+        &server.state().wasm_runtime(&root)
+    ));
+}
