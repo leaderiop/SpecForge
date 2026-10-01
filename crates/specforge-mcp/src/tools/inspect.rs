@@ -28,8 +28,13 @@ pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     });
 
     let obligations = specforge_emitter::coverage::obligations(node);
-    let has_verify = !obligations.is_empty();
-    let verify_declarations: Option<Vec<String>> = has_verify.then(|| {
+    let declared = !obligations.is_empty();
+    // Whether the entity's kind counts toward coverage, as hover, the
+    // schema and the outline say (ADR 0004, D2-d); `declared` says whether
+    // the entity itself declares obligations.
+    let testable = specforge_emitter::coverage::testable_kinds(&state.kind_registry)
+        .contains(node.kind.raw.as_str());
+    let verify_declarations: Option<Vec<String>> = declared.then(|| {
         obligations
             .iter()
             .map(|s| format!("{} {}", s.kind, s.description))
@@ -73,7 +78,8 @@ pub fn call(state: &McpState, args: Value) -> ToolOutcome {
         "entity_id": node.id.raw,
         "kind": node.kind.raw,
         "title": node.title,
-        "testable": has_verify,
+        "testable": testable,
+        "declared": declared,
         "reference_count": reference_count,
         "source_span": {
             "file": node.source_span.file,

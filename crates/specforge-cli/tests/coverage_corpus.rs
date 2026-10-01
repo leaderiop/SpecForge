@@ -276,8 +276,9 @@ fn fx1_mcp_coverage_today() {
     assert_eq!(rows, expected, "{}", results[0]);
 
     let inspect = &results[1];
-    // `testable` reports "declares a verify list" (D2-d, S10).
+    // `testable` is the kind's; `declared` the entity's own (D2-d, S10).
     assert_eq!(inspect["testable"], true, "{inspect}");
+    assert_eq!(inspect["declared"], true, "{inspect}");
     assert_eq!(
         inspect["verify_declarations"],
         json!(["unit Payload schema is valid"]),

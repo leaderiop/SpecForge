@@ -389,7 +389,10 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     In MCP server mode, the system MUST register a specforge.inspect tool that
     accepts entity_id (required). The tool MUST return full entity details
     including kind, fields, contract text, references, verify declarations,
-    coverage status, and related diagnostics. The fields MUST include every
+    coverage status, and related diagnostics. Its testable field is the
+    testability of the entity's kind, from the KindRegistry, as hover
+    shows it; a separate declared field says whether the entity declares
+    at least one verify obligation. The fields MUST include every
     field the entity declares, whatever its kind names them (an invariant's
     guarantee, a decision's rationale), not just contract. The coverage status
     MUST count the recorded test results in specforge-report.json exactly as
@@ -407,6 +410,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "response includes every field, like an invariant's guarantee"
   verify unit "coverage status matches specforge.coverage obligation by obligation"
   verify unit "diagnostics are the entity's own, not those of an entity whose ID contains it"
+  verify unit "testable is the kind's testability and declared says whether the entity has obligations"
   verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 }
 

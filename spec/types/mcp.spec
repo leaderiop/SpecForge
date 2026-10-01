@@ -96,7 +96,10 @@ type McpInspectResult {
   kind                string       @readonly
   title               string
   source_extension    string       @optional
+  /// The entity's kind is testable (its KindRegistry entry), as hover shows.
   testable            boolean
+  /// The entity declares at least one verify obligation.
+  declared            boolean
   reference_count     integer
   summary             string       @optional
   source_span         SourceSpan   @readonly

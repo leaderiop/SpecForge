@@ -113,6 +113,25 @@ fn test_server() -> McpServer {
     server
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "testable is the kind's testability and declared says whether the entity has obligations"
+)]
+fn inspect_testable_is_the_kinds_and_declared_is_the_entitys() {
+    let mut server = test_server();
+    let mut inspect = |id: &str| {
+        let resp = call_tool(&mut server, "specforge.inspect", json!({"entity_id": id}));
+        let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        (parsed["testable"].clone(), parsed["declared"].clone())
+    };
+    // A behavior that declares an obligation.
+    assert_eq!(inspect("alpha"), (json!(true), json!(true)));
+    // An invariant (a testable kind) that declares none.
+    assert_eq!(inspect("gamma_orphan"), (json!(true), json!(false)));
+    // A feature: its kind is not testable.
+    assert_eq!(inspect("beta_feature"), (json!(false), json!(false)));
+}
+
 /// The W004 rule requiring `kind`'s entities to declare obligations.
 fn obligations_rule(kind: &str) -> specforge_registry::validation_engine::ValidationRulePattern {
     use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
