@@ -888,10 +888,11 @@ fn mcp_tool_validate_returns_diagnostics() {
     );
 }
 
-#[specforge_test(
-    behavior = "provide_mcp_schema_tool",
-    verify = "specforge.schema returns full GraphProtocolSchema"
-)]
+// Not linked to "specforge.schema returns full GraphProtocolSchema": the
+// tool returns a summary of the graph (each kind with the fields it uses,
+// the edge labels, the graph format's version), not the GraphProtocolSchema
+// `specforge schema` prints. This pins the summary.
+#[test]
 fn mcp_tool_schema_returns_entity_kinds() {
     let responses = mcp_session(
         BASIC_SPEC,
@@ -1493,10 +1494,10 @@ fn mcp_tool_search_references() {
 // Phase 3: Resources & Error Paths
 // ============================================================
 
-#[specforge_test(
-    behavior = "expose_schema_as_mcp_resource",
-    verify = "specforge://schema resource returns GraphProtocolSchema JSON"
-)]
+// Not linked to "specforge://schema resource returns GraphProtocolSchema
+// JSON": the resource is the same graph summary as the specforge.schema
+// tool, not the GraphProtocolSchema. This pins the summary.
+#[test]
 fn mcp_resource_read_schema() {
     let responses = mcp_session(
         BASIC_SPEC,
