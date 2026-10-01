@@ -30,3 +30,6 @@ tests/spec/
 /specforge-report.json
 .specforge/
 .claude/worktrees/
+
+# Planning notes from planning sessions: their decisions live in docs/adr/
+/.planning/
