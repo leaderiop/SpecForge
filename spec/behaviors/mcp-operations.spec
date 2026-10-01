@@ -453,8 +453,10 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
     out_dir? (output directory path) and scope? (an entity id). The tool MUST
     invoke the matching registered renderer and write output files to out_dir;
     without out_dir it MUST return the rendering inline instead.
-    The json and dot renderers are provided by the core graph engine (see P7
-    justification in features/output.spec); additional renderers come from extensions.
+    The renderers are the core graph engine's export formats (see P7
+    justification in features/output.spec): json (the full graph, as
+    `specforge export --format graph` writes it), dot, context and brief.
+    Extension renderer contributions are not dispatched by this tool.
     Renderers produce graph diagnostic artifacts: JSON serializations, DOT
     visualizations, traceability matrices, validation summaries. They MUST NOT
     produce source code, application configuration, user documentation, or any

@@ -85,8 +85,8 @@ feature mcp_project_management_tools "MCP Project Management Tools" {
     specforge.doctor (read-only, runs health checks and reports conflicts),
     specforge.collect (writes output artifact specforge-report.json by
     invoking a collector contribution to parse test results), and
-    specforge.render (writes output files such as JSON, DOT, or
-    extension-defined formats by invoking renderer contributions).
+    specforge.render (writes the graph as JSON, DOT, context or brief
+    output, the formats specforge export writes, to files or inline).
     Together they give agents full visibility into project configuration
     and health, plus test collection and rendering capabilities.
   """
