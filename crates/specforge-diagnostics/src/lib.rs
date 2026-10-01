@@ -1423,6 +1423,13 @@ pub const CATALOG: &[CodeEntry] = &[
         level: Level::Warning,
         explanation: "A `.spec` file has a `define <name> { ... }` block. Every entity kind comes from an extension, so a project's kinds depend only on `specforge.json` (ADR 0005): the block registers nothing and is left out of the graph. Declare the kind in an extension (`specforge new --extension`) and enable it, then remove the block. `define` stays a reserved word.",
     },
+    CodeEntry {
+        code: "W144",
+        title: "Invalid build cache",
+        owner: "core",
+        level: Level::Warning,
+        explanation: "The project root has a `specforge-cache.json` that can't be read, isn't valid JSON, or declares a `format` other than 1. The build cache records each entity's status from the build `specforge check --cache` last wrote, and check-phase passes compare against it (status transitions); with the file invalid they get no previous statuses, so history rules stay silent. Rewrite it with `specforge check --cache`, or delete it.",
+    },
 ];
 
 /// Codes that are no longer emitted, with the code that replaced them (if

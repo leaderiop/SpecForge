@@ -353,3 +353,116 @@ fn a_pass_diagnostic_naming_an_entity_gets_its_span() {
     // A diagnostic that names no entity keeps no span.
     assert_eq!(with_code(&diagnostics, "W952")[0].span, None);
 }
+
+// ── the build cache, read ──────────────────────────────────────────────────
+
+fn write_cache(dir: &TempDir, text: &str) {
+    fs::write(dir.path().join(specforge_project::BUILD_CACHE_FILE), text).unwrap();
+}
+
+#[specforge_test(
+    behavior = "read_build_cache",
+    verify = "check passes receive the cached statuses as previous"
+)]
+fn check_passes_receive_the_cached_statuses() {
+    let dir = project(SPEC);
+    write_cache(
+        &dir,
+        r#"{"format": 1, "statuses": {
+            "good": {"kind": "gadget", "status": "proposed"},
+            "gone": {"kind": "gadget", "status": "done"}
+        }}"#,
+    );
+    let ext = PassesExtension::new();
+
+    let diagnostics = CompiledProject::compile(dir.path(), Some(&ext)).diagnostics();
+
+    let expected = json!({
+        "statuses": {
+            "gone": {"kind": "gadget", "status": "done"},
+            "good": {"kind": "gadget", "status": "proposed"}
+        }
+    });
+    for pass in ["__pass_audit", "__pass_first", "__pass_second"] {
+        assert_eq!(ext.last_input(pass)["previous"], expected, "{pass}");
+    }
+    assert!(
+        with_code(&diagnostics, "W144").is_empty(),
+        "{diagnostics:?}"
+    );
+
+    // A session reads it too, and sees a cache written after it opened.
+    let ext = Arc::new(PassesExtension::new());
+    let mut session = ProjectSession::open_with_runtime(
+        dir.path(),
+        Some(Arc::clone(&ext) as specforge_project::SharedRuntime),
+    );
+    assert_eq!(ext.last_input("__pass_audit")["previous"], expected);
+    write_cache(
+        &dir,
+        r#"{"format": 1, "statuses": {"good": {"kind": "gadget", "status": "active"}}}"#,
+    );
+    session.update(SourceChange::Disk(&["a.spec".to_string()]));
+    assert_eq!(
+        ext.last_input("__pass_audit")["previous"]["statuses"]["good"]["status"],
+        "active"
+    );
+}
+
+#[specforge_test(
+    behavior = "read_build_cache",
+    verify = "without a cache file previous is absent"
+)]
+fn without_a_cache_previous_is_absent() {
+    let dir = project(SPEC);
+    let ext = PassesExtension::new();
+
+    let diagnostics = CompiledProject::compile(dir.path(), Some(&ext)).diagnostics();
+
+    let input = ext.last_input("__pass_audit");
+    assert!(input.get("previous").is_none(), "{input}");
+    assert!(
+        with_code(&diagnostics, "W144").is_empty(),
+        "{diagnostics:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "read_build_cache",
+    verify = "an invalid cache file is W144 and previous is absent"
+)]
+fn an_invalid_cache_is_w144() {
+    for (text, problem) in [
+        ("{ not json", "does not parse"),
+        (r#"{"statuses": {}}"#, "does not parse"),
+        (r#"{"format": 2, "statuses": {}}"#, "declares format 2"),
+    ] {
+        let dir = project(SPEC);
+        write_cache(&dir, text);
+        let ext = PassesExtension::new();
+
+        let diagnostics = CompiledProject::compile(dir.path(), Some(&ext)).diagnostics();
+
+        let warnings = with_code(&diagnostics, "W144");
+        assert_eq!(warnings.len(), 1, "{text}: {diagnostics:?}");
+        assert_eq!(warnings[0].severity, Severity::Warning);
+        assert!(
+            warnings[0].message.contains(problem),
+            "{}",
+            warnings[0].message
+        );
+        assert!(ext.last_input("__pass_audit").get("previous").is_none());
+        // The passes still ran.
+        assert_eq!(with_code(&diagnostics, "E951").len(), 1);
+    }
+
+    // With no check pass loaded, the file is not read.
+    let dir = TempDir::new().unwrap();
+    fs::write(dir.path().join("a.spec"), SPEC).unwrap();
+    write_cache(&dir, "{ not json");
+    let diagnostics = CompiledProject::compile(dir.path(), None).diagnostics();
+    assert!(
+        with_code(&diagnostics, "W144").is_empty(),
+        "{diagnostics:?}"
+    );
+}

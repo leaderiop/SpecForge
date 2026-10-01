@@ -374,6 +374,16 @@ named after an entity).
 
 Returns compiler pass descriptors. Each pass declares ordering constraints relative to the built-in resolve phase and other passes.
 
+`phase: "check"` makes the pass part of every compile: it runs after the
+graph checks, and its diagnostics join the compile's (`specforge check`,
+watch, the LSP, MCP). Passes with any other phase, or none, run only under
+`specforge analyze`. The `__pass_<name>` export receives `{"entities",
+"edges", "test_results"?, "proved_claims"?, "previous"?}` and returns host
+diagnostics, bare or as `{"diagnostics", "summary"}`. A diagnostic may carry
+`"entity": "<id>"`; with no `span`, the host attaches that entity's.
+`previous` (check passes only) is the build cache, `{"statuses": {"<id>":
+{"kind", "status"}}}`, when `specforge-cache.json` exists.
+
 ```json
 {
   "category": "passes",

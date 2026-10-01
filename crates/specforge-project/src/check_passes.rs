@@ -11,6 +11,7 @@ use specforge_registry::ManifestV2;
 use specforge_wasm::WasmRuntime;
 
 use crate::Environment;
+use crate::build_cache::BuildCache;
 
 /// One check-phase pass: the extension that declares it and its name (its
 /// export is `__pass_<name>`).
@@ -38,14 +39,26 @@ pub(crate) fn declared(manifests: &[ManifestV2], runtime: &dyn WasmRuntime) -> V
         .collect()
 }
 
-/// Run `env`'s check passes over `graph`. A pass that traps or answers
-/// output that does not parse is E028; the others still run.
+/// Run `env`'s check passes over `graph`, handing them the build cache as
+/// `previous` when the project has one (W144 when it is invalid). A pass
+/// that traps or answers output that does not parse is E028; the others
+/// still run.
 pub(crate) fn run(env: &Environment, graph: &Graph, runtime: &dyn WasmRuntime) -> Vec<Diagnostic> {
     if env.check_passes.is_empty() {
         return Vec::new();
     }
+    let mut diagnostics = Vec::new();
+    // The build cache is the check passes' declared input: read on every
+    // compile that runs one, so a cache just written is seen.
+    let previous = match BuildCache::read(&env.root) {
+        Ok(previous) => previous,
+        Err(invalid) => {
+            diagnostics.push(invalid);
+            None
+        }
+    };
     let registries = &env.registries;
-    let input = pass_input(&AnalysisContext {
+    let mut input = pass_input(&AnalysisContext {
         graph,
         kind_registry: &registries.kinds,
         field_registry: &registries.fields,
@@ -55,10 +68,15 @@ pub(crate) fn run(env: &Environment, graph: &Graph, runtime: &dyn WasmRuntime) -
         test_results: None,
         proved_claims: None,
     });
+    if let (Some(previous), Some(fields)) = (previous, input.as_object_mut()) {
+        fields.insert(
+            "previous".to_string(),
+            serde_json::json!({ "statuses": previous.statuses }),
+        );
+    }
     let Ok(input) = serde_json::to_vec(&input) else {
-        return Vec::new();
+        return diagnostics;
     };
-    let mut diagnostics = Vec::new();
     for pass in &env.check_passes {
         match call_pass(runtime, &pass.extension, &pass.name, &input, graph) {
             Ok((findings, _summary)) => diagnostics.extend(findings),

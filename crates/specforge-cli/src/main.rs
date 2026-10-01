@@ -203,6 +203,11 @@ enum Commands {
         /// Enable additional lint profiles (e.g., pedantic, inferred)
         #[arg(long, value_delimiter = ',')]
         lint: Vec<String>,
+
+        /// Record each entity's status in specforge-cache.json when the
+        /// check passes (the build cache history rules compare against)
+        #[arg(long)]
+        cache: bool,
     },
     /// Export spec graph to stdout in various formats
     Export {
@@ -901,7 +906,8 @@ fn main() {
             strict,
             format,
             lint,
-        } => check::run(&path, strict, format, &lint),
+            cache,
+        } => check::run(&path, strict, format, &lint, cache),
         Commands::Export {
             path,
             format,

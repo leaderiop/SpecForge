@@ -2,6 +2,7 @@
 mod e2e_fixtures;
 
 mod analyze;
+mod build_cache;
 mod cli;
 mod collect;
 mod config_schema;

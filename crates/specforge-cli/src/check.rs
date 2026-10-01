@@ -7,18 +7,27 @@ use std::path::Path;
 use crate::OutputFormat;
 use crate::pipeline;
 
-pub fn run(path: &Path, strict: bool, format: OutputFormat, lint_profiles: &[String]) -> i32 {
+pub fn run(
+    path: &Path,
+    strict: bool,
+    format: OutputFormat,
+    lint_profiles: &[String],
+    cache: bool,
+) -> i32 {
     let runtime = pipeline::project_runtime(path);
-    run_in(path, &runtime, strict, format, lint_profiles)
+    run_in(path, &runtime, strict, format, lint_profiles, cache)
 }
 
 /// `specforge check` with the project's extensions running in `runtime`.
+/// With `cache`, a check that passes records the build's statuses in
+/// `specforge-cache.json`.
 fn run_in(
     path: &Path,
     runtime: &dyn WasmRuntime,
     strict: bool,
     format: OutputFormat,
     lint_profiles: &[String],
+    cache: bool,
 ) -> i32 {
     let ctx = CompiledProject::compile(path, Some(runtime)).into_context();
 
@@ -44,6 +53,23 @@ fn run_in(
                 eprint!("{}", rendered);
             }
             eprintln!("{}", diagnostic_summary_detailed(&all_diagnostics, color));
+        }
+    }
+
+    if cache {
+        match specforge_project::record_build_cache(path, &ctx.graph, &all_diagnostics) {
+            Ok(true) => {}
+            Ok(false) => eprintln!(
+                "note: {} not written: the check failed",
+                specforge_project::BUILD_CACHE_FILE
+            ),
+            Err(e) => {
+                eprintln!(
+                    "error: cannot write {}: {e}",
+                    specforge_project::BUILD_CACHE_FILE
+                );
+                return 1;
+            }
         }
     }
 
@@ -151,7 +177,14 @@ mod tests {
         let failing = project("gadget good \"Good\" {\n}\n\ngadget bad_one \"Bad\" {\n}\n");
 
         let human = |dir: &tempfile::TempDir| {
-            run_in(dir.path(), &AuditExtension, false, OutputFormat::Human, &[])
+            run_in(
+                dir.path(),
+                &AuditExtension,
+                false,
+                OutputFormat::Human,
+                &[],
+                false,
+            )
         };
         assert_eq!(human(&clean), 0);
         assert_eq!(human(&failing), 1, "the pass's error fails the check");

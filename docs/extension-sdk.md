@@ -513,6 +513,22 @@ Declares a compiler pass that runs after the built-in resolve phase.
 | `name` | yes | Pass name (must be unique across all extensions) |
 | `after` | yes | Pass or phase this pass runs after (`resolve` or another pass name) |
 
+The attribute generates the `__pass_<name>` export; the pass is declared in
+`contribute` with `c.pass(name, |p| ...)`, whose builder sets `after`,
+`before` and `phase`. A pass declared with `p.phase("check")` runs with every
+compile (`specforge check`, watch, the LSP and MCP), after the graph checks:
+its diagnostics are the compile's, with the codes and severities it returns,
+and `specforge check` exits 1 on its errors. Check passes run in their
+after/before order; a trap or malformed answer is E028. Any other phase, or
+none, runs the pass only under `specforge analyze`, which skips check passes.
+
+A pass receives `PassInput`: `entities`, `edges`, `test_results` and
+`proved_claims` (always absent for a check pass), and `previous`: when
+`specforge-cache.json` exists, the statuses of the build that wrote it
+(`previous.statuses["<id>"].kind` / `.status`), else `None`. Give a
+diagnostic the entity it is about with `PassDiagnostic::with_entity(id)`: with
+no span of its own, the host attaches that entity's.
+
 ### #[feature_flag]
 
 Declares a feature flag configurable via `specforge.json`.

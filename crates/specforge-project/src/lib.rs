@@ -18,6 +18,7 @@
 //! [`CompilationContext`] is the flat view older callers read; it is built
 //! from a compiled project with [`CompiledProject::into_context`].
 
+mod build_cache;
 mod check_passes;
 mod policy;
 mod session;
@@ -38,6 +39,9 @@ use specforge_registry::{
 use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
 use specforge_wasm::WasmRuntime;
 
+pub use build_cache::{
+    BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus, record_build_cache,
+};
 pub use check_passes::CheckPass;
 pub use policy::{DiagnosticPolicy, apply_policy};
 pub use session::{CheckMode, ProjectSession, SharedRuntime, SourceChange, Update};

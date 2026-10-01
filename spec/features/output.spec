@@ -84,7 +84,9 @@ feature ci_integration "CI Integration" {
     suitable for automated checks.
   """
   solution """
-    specforge check parses, resolves, and validates without writing files.
+    specforge check parses, resolves, and validates without writing files;
+    only --cache writes, recording the build's statuses in
+    specforge-cache.json for history rules such as status transitions.
     Exit code 0 for clean, 1 for errors. --strict treats warnings as errors.
     --format=json produces machine-readable diagnostic output for CI tools
     and AI agents. Output is deterministic for reproducible CI runs.

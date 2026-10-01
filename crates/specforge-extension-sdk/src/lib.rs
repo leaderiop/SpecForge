@@ -718,9 +718,10 @@ pub use specforge_extension_sdk_macros::compiler_pass;
 pub mod prelude {
     pub use crate::{
         CheckKind, Contributions, ContributionsBuilder, EdgeBuilder, EnhancementBuilder,
-        ExtensionMeta, FieldBuilder, FieldConstraintBuilder, FieldType, KindBuilder, PassBuilder,
-        PassDiagnostic, PassEdge, PassEntity, PassEntityResults, PassInput, PassOutput,
-        PassSeverity, PassSpan, PassTestResult, PassTestResults, RuleBuilder,
+        ExtensionMeta, FieldBuilder, FieldConstraintBuilder, FieldType, KindBuilder,
+        PassBuildCache, PassBuilder, PassCachedStatus, PassDiagnostic, PassEdge, PassEntity,
+        PassEntityResults, PassInput, PassOutput, PassSeverity, PassSpan, PassTestResult,
+        PassTestResults, RuleBuilder,
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,
@@ -856,6 +857,28 @@ pub struct PassInput {
     /// the prove pass did not run.
     #[serde(default)]
     pub proved_claims: Option<Vec<String>>,
+    /// The build cache (`specforge-cache.json`, written by `specforge check
+    /// --cache`): the statuses of the build that wrote it. Check-phase
+    /// passes only; `None` without the file (a first build), when it is
+    /// invalid (the host warns W144), and for analyze passes.
+    #[serde(default)]
+    pub previous: Option<PassBuildCache>,
+}
+
+/// The previous build's statuses, handed to check-phase passes.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct PassBuildCache {
+    /// Per entity id: its kind and status in that build. Entities without
+    /// a `status` field are absent.
+    #[serde(default)]
+    pub statuses: std::collections::BTreeMap<String, PassCachedStatus>,
+}
+
+/// One entity's kind and status in the previous build.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct PassCachedStatus {
+    pub kind: String,
+    pub status: String,
 }
 
 /// Normalized test results handed to a pass: per entity id, the recorded tests.
