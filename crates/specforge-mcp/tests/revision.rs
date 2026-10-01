@@ -213,6 +213,34 @@ fn templated_resources_are_resource_templates() {
 /// A 2025-06-18 server over a throwaway project with the software and
 /// testing extensions, holding behavior `alpha`, feature `beta`, a Rust
 /// source file and an inference manifest.
+/// A project `@specforge/cargo-test` collects from, with the report an
+/// earlier `cargo test` wrote.
+fn collect_project() -> tempfile::TempDir {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("specforge.json"),
+        json!({"name": "c", "version": "0.1.0",
+            "extensions": ["@specforge/software", "@specforge/testing", "@specforge/cargo-test"]})
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("app.spec"),
+        "behavior alpha \"Alpha\" {\n  verify unit \"works\"\n}\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("Cargo.toml"), "").unwrap();
+    std::fs::create_dir_all(root.join("target/specforge")).unwrap();
+    std::fs::write(
+        root.join("target/specforge/t.json"),
+        json!({"entries": [{"entity_id": "alpha", "test_name": "works", "status": "pass"}]})
+            .to_string(),
+    )
+    .unwrap();
+    dir
+}
+
 fn structured_server() -> (McpServer, tempfile::TempDir) {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path();
@@ -253,6 +281,8 @@ fn structured_results_conform_to_each_tool_output_schema() {
     // init refuses a path inside the served project.
     let elsewhere = tempfile::TempDir::new().unwrap();
     let new_project = elsewhere.path().join("new");
+    // collect reads the report an earlier `cargo test` wrote; nothing runs.
+    let collected = collect_project();
     let probes = [
         ("specforge.query", json!({"entity_id": "alpha"})),
         (
@@ -314,6 +344,10 @@ fn structured_results_conform_to_each_tool_output_schema() {
             "specforge.find_spec_for_source",
             json!({"file_path": "src/lib.rs"}),
         ),
+        (
+            "specforge.collect",
+            json!({"path": collected.path().to_str().unwrap()}),
+        ),
         // Tools whose results are arrays or text: no structured result.
         ("specforge.validate", json!({"use_cached": true})),
         ("specforge.search", json!({"query": "alpha"})),
@@ -346,10 +380,9 @@ fn structured_results_conform_to_each_tool_output_schema() {
         );
         conforming.insert(name);
     }
-    // Every declared schema was held to a real result, but collect's: a
-    // collect run needs a test runner's report (operations_mgmt covers it).
+    // Every declared schema was held to a real result.
     for spec in specforge_mcp::tools::CORE_TOOLS {
-        if spec.output.is_some() && spec.name != "specforge.collect" {
+        if spec.output.is_some() {
             assert!(
                 conforming.contains(spec.name),
                 "{} never checked",

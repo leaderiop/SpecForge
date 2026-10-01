@@ -713,9 +713,36 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        output: Some(
-            || json!({ "type": "object", "properties": { "status": { "type": "string" }, "runners": { "type": "array" }, "diagnostics": { "type": "array" }, "report": { "type": "string" } }, "required": ["status", "runners", "diagnostics", "report"] }),
-        ),
+        output: Some(|| {
+            json!({
+                "type": "object",
+                "properties": {
+                    "status": { "type": "string", "enum": ["collected"] },
+                    "runners": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": { "type": "string" },
+                                "extension": { "type": "string" },
+                                "ran": { "type": "boolean" },
+                                "exit_code": { "type": "integer" },
+                                "files": { "type": "integer" },
+                                "entities": { "type": "integer" },
+                                "passed": { "type": "integer" },
+                                "failed": { "type": "integer" },
+                                "skipped": { "type": "integer" },
+                                "by_convention": { "type": "integer" }
+                            },
+                            "required": ["name", "extension", "ran", "files", "entities", "passed", "failed", "skipped", "by_convention"]
+                        }
+                    },
+                    "diagnostics": { "type": "array" },
+                    "report": { "type": "string" }
+                },
+                "required": ["status", "runners", "diagnostics", "report"]
+            })
+        }),
         fields: fields::<operations::CollectArgs>,
         call: typed!(operations::collect_op, operations::CollectArgs),
     },
