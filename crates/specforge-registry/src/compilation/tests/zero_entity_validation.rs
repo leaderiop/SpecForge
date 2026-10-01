@@ -941,6 +941,26 @@ fn w020_includes_field_name_entity_kind_and_source_span() {
 
 #[specforge_test(
     behavior = "detect_unknown_entity_fields",
+    verify = "an expression claim is accepted on any kind"
+)]
+fn an_expression_claim_is_accepted_on_any_kind() {
+    let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
+    // software's invariant declares no `expression`; the prove pass reads
+    // it on any entity, so it is no unknown field.
+    let entities = vec![
+        EntityView::new("invariant", "i1", pinned(span())).with_fields(&["expression"]),
+        EntityView::new("behavior", "b1", pinned(span())).with_fields(&["expression", "bogus"]),
+    ];
+    let diags = specforge_registry::compilation::detect_unknown_entity_fields(
+        &entities, &kind_reg, &field_reg,
+    );
+    let flagged: Vec<&str> = diags.iter().map(|d| d.message.as_str()).collect();
+    assert_eq!(diags.len(), 1, "{flagged:?}");
+    assert!(flagged[0].contains("'bogus'"), "{flagged:?}");
+}
+
+#[specforge_test(
+    behavior = "detect_unknown_entity_fields",
     verify = "registered field name does not produce W020"
 )]
 fn registered_field_name_does_not_produce_w020() {
