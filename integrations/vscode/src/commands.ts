@@ -41,6 +41,19 @@ async function runCliCommandOutput(args: string[]): Promise<string> {
   });
 }
 
+/**
+ * One entity as JSON: `specforge query <id> --depth 0` returns a subgraph
+ * holding just that node.
+ */
+async function entityJson(id: string): Promise<string> {
+  const output = await runCliCommandOutput(["query", id, "--depth", "0"]);
+  const node = (JSON.parse(output) as { nodes?: unknown[] }).nodes?.[0];
+  if (!node) {
+    throw new Error(`Entity "${id}" not found.`);
+  }
+  return JSON.stringify(node, null, 2);
+}
+
 export function registerCommands(
   context: vscode.ExtensionContext
 ): vscode.Disposable[] {
@@ -285,11 +298,7 @@ export function registerCommands(
           });
       if (!word) return;
       try {
-        const output = await runCliCommandOutput([
-          "inspect",
-          word,
-          "--format=json",
-        ]);
+        const output = await entityJson(word);
         const doc = await vscode.workspace.openTextDocument({
           content: output,
           language: "json",
@@ -334,11 +343,7 @@ export function registerCommands(
       const word = wordRange ? editor.document.getText(wordRange) : undefined;
       if (!word) return;
       try {
-        const output = await runCliCommandOutput([
-          "inspect",
-          word,
-          "--format=json",
-        ]);
+        const output = await entityJson(word);
         await vscode.env.clipboard.writeText(output);
         vscode.window.showInformationMessage(`Copied ${word} JSON to clipboard.`);
       } catch {

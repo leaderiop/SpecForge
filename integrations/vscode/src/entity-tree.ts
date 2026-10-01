@@ -12,6 +12,12 @@ interface ListEntity {
   line?: number;
 }
 
+/** `specforge export --format=graph` and `specforge query` output. */
+interface GraphJson {
+  nodes?: InspectEntity[];
+  edges?: { source: string; target: string; label: string }[];
+}
+
 interface InspectEntity {
   id: string;
   kind: string;
@@ -199,8 +205,11 @@ export class EntityTreeProvider
     }
 
     try {
-      const output = await execCli(["list", "--format=json"], cwd);
-      this.entities = JSON.parse(output) as ListEntity[];
+      const output = await execCli(
+        ["export", "--format=graph", "--no-schema"],
+        cwd
+      );
+      this.entities = (JSON.parse(output) as GraphJson).nodes ?? [];
       this.errorMessage = undefined;
     } catch {
       this.errorMessage = "Run specforge check first";
@@ -250,11 +259,18 @@ export class EntityTreeProvider
 
     if (!inspected) {
       try {
-        const output = await execCli(
-          ["inspect", id, "--format=json"],
-          cwd
-        );
-        inspected = JSON.parse(output) as InspectEntity;
+        const output = await execCli(["query", id, "--depth", "1"], cwd);
+        const graph = JSON.parse(output) as GraphJson;
+        const node = graph.nodes?.find((n) => n.id === id);
+        if (!node) {
+          return [new DetailItem("(not found)", "")];
+        }
+        inspected = {
+          ...node,
+          references: (graph.edges ?? [])
+            .filter((e) => e.source === id)
+            .map((e) => `${e.label}: ${e.target}`),
+        };
         this.inspectCache.set(id, inspected);
       } catch {
         return [new DetailItem("(inspect failed)", "")];
