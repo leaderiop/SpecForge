@@ -5,14 +5,14 @@ expression: mcp_snap
 {
   "check": {
     "diagnostics": [
-      "Error E028"
+      "Warning W112"
     ],
-    "ok": false
+    "ok": true
   },
   "config": {
     "extensions": [
       "@specforge/software",
-      "specforge_ext_product@0.0.0"
+      "@sdk/greet"
     ],
     "name": "demo",
     "registries": [
@@ -26,17 +26,18 @@ expression: mcp_snap
     "version": "0.1.0"
   },
   "files": {
-    ".specforge/extensions/specforge_ext_product/extension.wasm": "<binary>",
+    ".specforge/extensions/@sdk/greet/extension.wasm": "<binary>",
     "spec/main.spec": "behavior alpha \"Alpha\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n",
-    "specforge.lock": "{\n  \"lockfile_version\": 1,\n  \"entries\": [\n    {\n      \"name\": \"specforge_ext_product\",\n      \"version\": \"0.0.0\",\n      \"source\": \"registry\",\n      \"wasm_hash\": \"[SHA256]\"\n    }\n  ]\n}"
+    "specforge.lock": "{\n  \"lockfile_version\": 1,\n  \"entries\": [\n    {\n      \"name\": \"@sdk/greet\",\n      \"version\": \"0.1.0\",\n      \"source\": \"local:[BLOB]\",\n      \"wasm_hash\": \"[SHA256]\"\n    }\n  ]\n}"
   },
   "ok": true,
   "payload": {
-    "extension": "specforge_ext_product",
+    "extension": "@sdk/greet",
     "installed": true,
+    "key_id": null,
     "note": "re-run specforge.analyze (use_cached=false) to load it",
     "sha256": "[SHA256]",
-    "source": "local",
-    "version": "0.0.0"
+    "source": "local:[BLOB]",
+    "version": "0.1.0"
   }
 }

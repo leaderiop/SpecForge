@@ -50,8 +50,14 @@ behavior load_extension_manifests "Load Extension Manifests" {
     and locate each extension's Wasm manifest. The manifest MUST declare
     entity types, edge types, validation rules, wasmPath to the .wasm
     binary, and optional peer dependencies. Missing extensions or unloadable
-    .wasm binaries MUST produce a diagnostic, not a crash. This behavior
-    orchestrates: for each extension, it calls load_extension_manifest to
+    .wasm binaries MUST produce a diagnostic, not a crash. A builtin loads
+    from the binary. Any other entry names an installed extension by its
+    bare name (a legacy name@version entry names the same extension): it
+    MUST load from .specforge/extensions/<name>/extension.wasm under that
+    name, on every surface, only when the binary's hash is the one its
+    specforge.lock entry records; a mismatch MUST be refused with E033, and
+    an extension enabled but not installed MUST produce E028 naming the
+    command that installs it. This behavior orchestrates: for each extension, it calls load_extension_manifest to
     locate and parse the manifest, then validate_extension_manifest for
     schema validation. Once all manifests are loaded and the
     extension_manifests_loaded event is produced,
@@ -61,6 +67,8 @@ behavior load_extension_manifests "Load Extension Manifests" {
     contributions.
   """
   verify unit "installed extension manifest is loaded"
+  verify integration "an extension installed from a registry loads through check"
+  verify integration "an enabled extension with no installed binary produces E028 naming the command that installs it"
   verify unit "missing extension produces diagnostic"
   verify unit "manifest declares entity types and validations"
   verify unit "manifest includes wasmPath to .wasm binary"
@@ -131,11 +139,15 @@ behavior load_provider_configurations "Load Provider Configurations" {
   }
   contract   """
     The compiler MUST parse provider blocks from specforge.json and
-    create provider instances with their configured settings. The core
+    create provider instances with their configured settings. In
+    specforge.json, providers is an array of {scheme, alias, extension,
+    settings} entries, kept in declaration order; scheme, alias and
+    extension are required, and an entry missing one, or a providers value
+    that is not an array, is W118. The core
     MUST NOT hardcode any provider schemes or kinds — all provider
     configuration comes exclusively from specforge.json and extension
     manifests. Multiple instances of the same provider with different
-    aliases MUST be supported.
+    aliases MUST be supported, each instance with its own scheme.
   """
   verify unit "single provider instance is created"
   verify unit "multiple aliased instances are created"
@@ -217,7 +229,11 @@ behavior validate_provider_refs "Validate Provider Refs" {
 // Wasm lifecycle cleanup. This behavior owns the CLI interaction and post-removal
 // diagnostic messaging; uninstall_wasm_extension owns the implementation.
 behavior remove_extension "Remove Extension" {
-  invariants [reference_resolution_completeness, zero_domain_knowledge_core]
+  invariants [
+    reference_resolution_completeness,
+    zero_domain_knowledge_core,
+    peer_dependency_satisfaction,
+  ]
   category   command
   types      [CompilerConfig, ExtensionError, Diagnostic, UnknownKindError]
   ports      [FileSystem]
@@ -236,7 +252,12 @@ behavior remove_extension "Remove Extension" {
     delegate to uninstall_wasm_extension (behaviors/wasm-lifecycle.spec) for the full
     Wasm lifecycle cleanup: removing the extension entry from specforge.json,
     deleting the .wasm binary, updating
-    specforge.lock, and checking peer dependencies. This behavior is the
+    specforge.lock, and checking peer dependencies. A builtin extension has
+    no binary or lock entry: removing it removes its specforge.json entry.
+    Removing an extension that another loaded or installed extension
+    requires as a non-optional peer MUST fail with E027 naming the
+    dependents, unless --force is given. The CLI and the MCP
+    remove_extension tool MUST run the same removal. This behavior is the
     user-facing CLI entry point; uninstall_wasm_extension handles the
     implementation. Existing .spec files using the extension's entities
     MUST NOT be modified. On the next compilation, entity blocks using the
@@ -253,6 +274,8 @@ behavior remove_extension "Remove Extension" {
   verify contract "Remove Extension: extension removal holds — extension_installed, filesystem_available, extension_entry_removed, spec_files_unchanged, extension_removed_emitted"
   verify unit "specforge remove for non-existent extension reports error"
   verify unit "specforge remove with no lock file reports error"
+  verify integration "removing an installed extension drops its specforge.json entry"
+  verify integration "removing an extension another installed extension requires fails with E027 unless --force"
 }
 
 // Read-only query. (produces [] declared below; no event of its own.)
@@ -272,11 +295,15 @@ behavior list_installed_extensions "List Installed Extensions" {
     When specforge extensions is invoked, the system MUST list all installed
     extensions with their name, version, entity count, and registered entity types.
     The listing MUST query the KindRegistry to enumerate entity kinds per
-    extension. Output order MUST be deterministic (alphabetical by extension name).
+    extension. Each entry MUST carry its source (builtin, registry or
+    local:<path>) and its status (loaded, not_loaded, not_configured). The
+    CLI and the MCP extensions tool MUST list the same entries.
+    Output order MUST be deterministic (alphabetical by extension name).
   """
   verify unit "list shows all installed extensions"
   verify unit "list includes entity counts and entity types"
   verify unit "output order is deterministic"
+  verify integration "the CLI and the MCP extensions tool list the same entries"
   verify contract "List Installed Extensions: extension listing holds — kind_registry_ready, all_extensions_listed, entity_counts_included, output_deterministic"
 }
 
@@ -298,13 +325,17 @@ behavior list_configured_providers "List Configured Providers" {
     When specforge providers is invoked, the system MUST list all configured
     providers with their alias, extension, registered schemes, and supported
     kinds. The listing MUST query the SchemeRegistryEntry set to show which
-    schemes each provider handles. Providers with multiple instances MUST
-    show each alias separately. Output order MUST be deterministic.
+    schemes each provider handles, with each provider's status there:
+    registered, extension_not_loaded, not_a_provider or scheme_taken.
+    Providers with multiple instances MUST show each alias separately.
+    Output order MUST be deterministic (declaration order). The CLI and the
+    MCP providers tool MUST list the same entries.
   """
   verify unit "list shows all configured providers"
   verify unit "list includes scheme and kind registrations"
   verify unit "multiple aliases shown separately"
   verify unit "output order is deterministic"
+  verify integration "the CLI and the MCP providers tool list the same entries"
   verify contract "List Configured Providers: provider listing holds — scheme_registry_ready, all_providers_listed, schemes_and_kinds_included, aliases_shown_separately, output_deterministic"
 }
 

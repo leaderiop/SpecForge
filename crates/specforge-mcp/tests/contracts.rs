@@ -273,7 +273,7 @@ fn product_wasm() -> PathBuf {
         .unwrap()
         .parent()
         .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm")
+        .join("fixtures/greet-extension/greet.wasm")
 }
 
 /// A project on disk with `config` as its specforge.json and one spec file.
@@ -467,6 +467,9 @@ fn unknown_kind(kind: &str, suggestion: Option<&str>) -> Value {
         "message": format!("unknown entity kind '{kind}'"),
         "span": null,
         "suggestion": suggestion.map(|s| format!("did you mean '{s}'?")),
+        "file": null,
+        "line": null,
+        "column": null,
     })
 }
 
@@ -1716,6 +1719,8 @@ fn contract_validate() {
                 "code": "E006",
                 "severity": "Error",
                 "message": "behavior 'wave' is missing required field 'contract'",
+                "span": {"file": "broken.spec", "start_line": 1, "start_col": 1, "end_line": 3, "end_col": 2},
+                "suggestion": null,
                 "file": "broken.spec",
                 "line": 1,
                 "column": 1,
@@ -1724,6 +1729,8 @@ fn contract_validate() {
                 "code": "W004",
                 "severity": "Warning",
                 "message": "behavior 'wave' is testable but declares no verify obligations and no gherkin scenario",
+                "span": {"file": "broken.spec", "start_line": 1, "start_col": 1, "end_line": 3, "end_col": 2},
+                "suggestion": null,
                 "file": "broken.spec",
                 "line": 1,
                 "column": 1,
@@ -1875,7 +1882,7 @@ fn contract_extensions() {
         "{product}"
     );
     let kinds = product["entity_kinds"].as_array().unwrap();
-    assert!(kinds.contains(&json!("Journey")), "{kinds:?}");
+    assert!(kinds.contains(&json!("journey")), "{kinds:?}");
     // config_reflected: a configured extension that did not load is listed.
     let absent = find(&listed["extensions"], "name", "@acme/absent");
     assert_eq!(absent["status"], "not_loaded");
@@ -1940,7 +1947,7 @@ fn contract_doctor() {
     assert_eq!(finding["status"], "error");
     assert_eq!(
         finding["remediation"],
-        "run `specforge add specforge_ext_product@0.0.0` to reinstall it"
+        "run `specforge add @sdk/greet@0.1.0` to reinstall it"
     );
     assert_eq!(tool(&mut server, "specforge.doctor", json!({})), report);
 
@@ -2089,9 +2096,12 @@ fn contract_diagnostics_resource() {
         bag,
         json!([
             {"code": "E003", "severity": "Error", "message": "unresolved reference 'ghost'",
+             "span": {"file": "feat.spec", "start_line": 2, "start_col": 14, "end_line": 2, "end_col": 0},
+             "suggestion": null,
              "file": "feat.spec", "line": 2, "column": 14},
             {"code": "W001", "severity": "Warning", "message": "a warning",
-             "suggestion": "fix W001"},
+             "span": null, "suggestion": "fix W001",
+             "file": null, "line": null, "column": null},
         ])
     );
 
@@ -2449,6 +2459,11 @@ fn contract_add_extension() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
     server.state_mut().project_root = Some(dir.path().to_path_buf());
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
     // Real offline install of the vendored product blob.
     let blob = product_wasm();
     let resp = call_tool(
@@ -2461,7 +2476,7 @@ fn contract_add_extension() {
     assert_eq!(parsed["installed"], true);
     // Truthful install is observable on disk.
     let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
-    assert!(lock.contains("specforge_ext_product"));
+    assert!(lock.contains("@sdk/greet"));
 }
 
 #[test]
@@ -2469,6 +2484,11 @@ fn contract_remove_extension() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
     server.state_mut().project_root = Some(dir.path().to_path_buf());
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
     // Removing something that is not installed must refuse.
     let resp = call_tool(
         &mut server,
@@ -2511,8 +2531,8 @@ fn contract_providers() {
         json!({
             "name": "t", "version": "0.1.0", "extensions": [],
             "providers": [
-                {"alias": "github", "scheme": "gh"},
-                {"alias": "tracker", "scheme": "jira"},
+                {"alias": "github", "scheme": "gh", "extension": "@acme/github-provider"},
+                {"alias": "tracker", "scheme": "jira", "extension": "@acme/jira"},
             ]
         })
         .to_string(),
@@ -2540,8 +2560,11 @@ fn contract_providers() {
         })
     );
     assert_eq!(
-        find(&listed["providers"], "scheme", "jira")["alias"],
-        "tracker"
+        find(&listed["providers"], "scheme", "jira"),
+        &json!({
+            "scheme": "jira", "alias": "tracker",
+            "extension": "@acme/jira", "status": "extension_not_loaded",
+        })
     );
 
     assert_tool_invoked(&server, "specforge.providers");

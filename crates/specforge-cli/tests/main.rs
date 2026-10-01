@@ -23,11 +23,15 @@ mod export;
 mod export_version;
 mod extension_authoring;
 mod extensions;
+#[allow(dead_code)]
+mod fake_registry;
 mod field_types;
 #[allow(deprecated)]
 mod format;
 mod format_corpus;
 mod init;
+mod installed_extensions;
+mod mcp_add;
 #[allow(deprecated)]
 mod migrate;
 mod parity;

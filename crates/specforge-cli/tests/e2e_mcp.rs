@@ -523,7 +523,9 @@ fn mcp_tool_export_graph_format() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    assert_eq!(content["schema_version"], "0.1.0", "{content}");
+    // Graph Protocol 2.0 with the schema, as `specforge export` writes it.
+    assert_eq!(content["format_version"], "2.0", "{content}");
+    assert!(content["schema"].is_object(), "{content}");
     // The whole graph: every entity and every reference.
     assert_eq!(
         node_ids(&content),
@@ -2246,7 +2248,7 @@ fn mcp_tool_init_returns_project() {
     assert_eq!(content["project_path"], dir.path().to_str().unwrap());
     assert!(dir.path().join("specforge.json").is_file());
     assert_eq!(content["config_file"], "specforge.json");
-    assert_eq!(content["starter_file"], "spec/specforge.spec");
+    assert_eq!(content["starter_file"], "spec/hello.spec");
 
     // specforge.json is on disk: the given name, default version, no
     // extensions.
@@ -2255,13 +2257,17 @@ fn mcp_tool_init_returns_project() {
             .expect("specforge.json written"),
     )
     .expect("specforge.json is JSON");
+    // The config `specforge init` writes.
     assert_eq!(
         config,
-        serde_json::json!({ "name": "fresh", "version": "0.1.0", "extensions": [] })
+        serde_json::json!({
+            "$schema": "https://specforge.dev/schema/specforge.json",
+            "name": "fresh", "version": "0.1.0", "spec_root": "spec", "extensions": []
+        })
     );
     // The spec directory is scaffolded with the starter file.
     assert!(
-        dir.path().join("spec/specforge.spec").is_file(),
+        dir.path().join("spec/hello.spec").is_file(),
         "starter spec written"
     );
 }
@@ -2277,7 +2283,7 @@ fn mcp_tool_add_extension_returns_installed() {
         .unwrap()
         .parent()
         .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm");
+        .join("fixtures/greet-extension/greet.wasm");
     let dir = setup_project(&[("main.spec", BASIC_SPEC)]);
     let responses = mcp_session_in(
         &dir,
@@ -2294,7 +2300,7 @@ fn mcp_tool_add_extension_returns_installed() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    assert_eq!(content["extension"], "specforge_ext_product");
+    assert_eq!(content["extension"], "@sdk/greet");
     assert_eq!(content["installed"], true);
 
     // The project's config now lists the extension (it listed none before)...
@@ -2303,13 +2309,13 @@ fn mcp_tool_add_extension_returns_installed() {
             .expect("specforge.json is JSON");
     assert_eq!(
         config["extensions"],
-        serde_json::json!(["specforge_ext_product@0.0.0"]),
+        serde_json::json!(["@sdk/greet"]),
         "{config}"
     );
     // ...and its module is installed where the compiler loads it.
     assert!(
         dir.path()
-            .join(".specforge/extensions/specforge_ext_product/extension.wasm")
+            .join(".specforge/extensions/@sdk/greet/extension.wasm")
             .is_file(),
         "extension module installed"
     );

@@ -2936,10 +2936,10 @@ dependencies = [
  "specforge-formatter",
  "specforge-graph",
  "specforge-parser",
+ "specforge-project",
  "specforge-registry",
  "specforge-test",
  "specforge-test-macros",
- "specforge-validator",
  "specforge-wasm",
  "specforge-watch",
  "strsim",
@@ -2991,10 +2991,16 @@ dependencies = [
 name = "specforge-ops"
 version = "0.1.0"
 dependencies = [
+ "semver",
  "serde_json",
+ "specforge-common",
+ "specforge-component",
+ "specforge-emitter",
+ "specforge-graph",
  "specforge-registry",
  "specforge-test",
  "specforge-test-macros",
+ "specforge-wasm",
  "tempfile",
 ]
 

@@ -178,7 +178,8 @@ pub fn envelope(outcome: ToolOutcome, id: Option<Value>, structured: bool) -> Js
     }
     if !diagnostics.is_empty() {
         result["_meta"] = json!({
-            "diagnostics": serde_json::to_value(&diagnostics).unwrap_or_default(),
+            "diagnostics": serde_json::to_value(specforge_emitter::diagnostics_json(&diagnostics))
+                .unwrap_or_default(),
         });
     }
     JsonRpcResponse::success(id, result)

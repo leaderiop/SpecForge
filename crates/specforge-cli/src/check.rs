@@ -1,5 +1,4 @@
-use specforge_common::Severity;
-use specforge_common::inference;
+use specforge_project::DiagnosticPolicy;
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 use std::collections::HashMap;
 use std::path::Path;
@@ -7,39 +6,21 @@ use std::path::Path;
 use crate::OutputFormat;
 use crate::pipeline;
 
-const DEFAULT_DENSITY_THRESHOLD: f64 = 0.05;
-
 pub fn run(path: &Path, strict: bool, format: OutputFormat, lint_profiles: &[String]) -> i32 {
     let ctx = pipeline::compile(path);
 
-    let mut all_diagnostics = ctx.diagnostics;
-
-    if lint_profiles.iter().any(|p| p == "inferred")
-        && let Ok(manifest) = inference::load_inference_manifest(path)
-    {
-        let config = specforge_common::load_project_config(path);
-        let density_threshold = config
-            .inference
-            .density_threshold
-            .unwrap_or(DEFAULT_DENSITY_THRESHOLD);
-        let infer_diags =
-            inference::compute_inference_diagnostics(path, &manifest, density_threshold);
-        all_diagnostics.extend(infer_diags);
-    }
-
-    // Apply --strict: promote warnings to errors
-    if strict {
-        for diag in &mut all_diagnostics {
-            if diag.severity == Severity::Warning {
-                diag.severity = Severity::Error;
-            }
-        }
-    }
+    // --lint profiles add their diagnostics, --strict promotes warnings.
+    let policy = DiagnosticPolicy {
+        strict,
+        lint_profiles: lint_profiles.to_vec(),
+    };
+    let all_diagnostics = policy.apply(path, ctx.diagnostics);
 
     // Output
     match format {
         OutputFormat::Json => {
-            let json = serde_json::to_string_pretty(&all_diagnostics).unwrap_or_default();
+            let entries = specforge_emitter::diagnostics_json(&all_diagnostics);
+            let json = serde_json::to_string_pretty(&entries).unwrap_or_default();
             println!("{}", json);
         }
         OutputFormat::Human => {
@@ -53,10 +34,8 @@ pub fn run(path: &Path, strict: bool, format: OutputFormat, lint_profiles: &[Str
         }
     }
 
-    let has_errors = all_diagnostics
-        .iter()
-        .any(|d| d.severity == Severity::Error);
-    if has_errors { 1 } else { 0 }
+    // Strict already promoted warnings: errors alone decide.
+    specforge_emitter::compute_exit_code(&all_diagnostics)
 }
 
 pub(crate) fn build_source_map(

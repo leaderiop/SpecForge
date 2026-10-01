@@ -120,10 +120,10 @@ fn print_diagnostics_contract() {
     );
 }
 
-// B:export_diagnostics_as_json — verify unit "diagnostics serialized as JSON array to stdout"
+// B:present_diagnostics_as_json — verify unit "diagnostics are presented as one JSON array"
 #[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "diagnostics serialized as JSON array to stdout"
+    behavior = "present_diagnostics_as_json",
+    verify = "diagnostics are presented as one JSON array"
 )]
 fn diagnostics_serialized_as_json_array() {
     let diags = vec![
@@ -150,10 +150,10 @@ fn diagnostics_serialized_as_json_array() {
     assert_eq!(arr.len(), 2);
 }
 
-// B:export_diagnostics_as_json — verify unit "each diagnostic includes code, severity, message, file, line, column"
+// B:present_diagnostics_as_json — verify unit "each diagnostic carries code, severity, message, file, line and column"
 #[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "each diagnostic includes code, severity, message, file, line, column"
+    behavior = "present_diagnostics_as_json",
+    verify = "each diagnostic carries code, severity, message, file, line and column"
 )]
 fn each_diagnostic_includes_code_severity_message_file_line_column() {
     let diags = vec![diag_with_span(
@@ -179,10 +179,10 @@ fn each_diagnostic_includes_code_severity_message_file_line_column() {
     assert_eq!(entry["column"].as_u64().unwrap(), 8);
 }
 
-// B:export_diagnostics_as_json — verify unit "suggestion field included when available"
+// B:present_diagnostics_as_json — verify unit "suggestion is included when available"
 #[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "suggestion field included when available"
+    behavior = "present_diagnostics_as_json",
+    verify = "suggestion is included when available"
 )]
 fn suggestion_field_included_in_json_when_available() {
     let diags = vec![diag_with_suggestion(
@@ -199,10 +199,10 @@ fn suggestion_field_included_in_json_when_available() {
     );
 }
 
-// B:export_diagnostics_as_json — verify unit "JSON output is valid and parseable"
+// B:present_diagnostics_as_json — verify unit "the presented JSON is valid and parseable"
 #[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "JSON output is valid and parseable"
+    behavior = "present_diagnostics_as_json",
+    verify = "the presented JSON is valid and parseable"
 )]
 fn json_diagnostics_output_is_valid_json() {
     let diags = vec![
@@ -352,31 +352,14 @@ fn exit_code_unaffected_by_format_flag() {
     assert_eq!(specforge_emitter::compute_exit_code(&diags_no_errors), 0);
 }
 
-// B:exit_code_reflects_diagnostic_severity — verify unit "exit 1 with warnings in strict mode"
-#[specforge_test(
-    behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "exit 1 with warnings in strict mode"
-)]
-fn exit_code_one_with_warnings_in_strict_mode() {
-    let diags = vec![Diagnostic {
-        code: "W002".to_string(),
-        severity: Severity::Warning,
-        message: "unused entity".to_string(),
-        span: None,
-        suggestion: None,
-    }];
-    // Normal mode: warnings don't cause exit 1
-    assert_eq!(specforge_emitter::compute_exit_code(&diags), 0);
-    // Strict mode: warnings cause exit 1
-    assert_eq!(specforge_emitter::compute_exit_code_strict(&diags, true), 1);
-    // Strict mode with no warnings: exit 0
-    assert_eq!(specforge_emitter::compute_exit_code_strict(&[], true), 0);
-}
+// "exit 1 with warnings in strict mode" is proven by
+// specforge-project's tests/policy.rs: strict is DiagnosticPolicy's
+// promotion, then compute_exit_code.
 
-// B:export_diagnostics_as_json — verify unit "suggestion field included when available"
-// (inverse case: suggestion absent when none)
-#[specforge_test(behavior = "export_diagnostics_as_json")]
-fn suggestion_field_absent_in_json_when_none() {
+// B:present_diagnostics_as_json — suggestion is null, not a string, when
+// there is none (the key stays, as `check` always printed it).
+#[specforge_test(behavior = "present_diagnostics_as_json")]
+fn suggestion_field_null_in_json_when_none() {
     let diags = vec![diag_with_span(
         "W002",
         Severity::Warning,
@@ -387,15 +370,55 @@ fn suggestion_field_absent_in_json_when_none() {
     )];
     let json = specforge_emitter::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed[0].get("suggestion").is_none() || parsed[0]["suggestion"].is_null());
+    assert!(parsed[0]["suggestion"].is_null(), "{parsed}");
+}
+
+// B:present_diagnostics_as_json — verify unit "the span is nested beside the flat location, with its end positions"
+#[specforge_test(
+    behavior = "present_diagnostics_as_json",
+    verify = "the span is nested beside the flat location, with its end positions"
+)]
+fn span_is_nested_beside_the_flat_location() {
+    let located = Diagnostic {
+        code: "E003".into(),
+        severity: Severity::Error,
+        message: "unresolved".into(),
+        span: Some(SourceSpan {
+            file: "auth.spec".into(),
+            start_line: 4,
+            start_col: 3,
+            end_line: 6,
+            end_col: 2,
+        }),
+        suggestion: None,
+    };
+    let unlocated = Diagnostic::warning("W113", "circular import detected: a.spec -> b.spec");
+    let json = specforge_emitter::serialize_diagnostics(&[located, unlocated]);
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+
+    // Nested, as `check` has always printed it, end positions included...
+    assert_eq!(
+        parsed[0]["span"],
+        serde_json::json!({
+            "file": "auth.spec", "start_line": 4, "start_col": 3, "end_line": 6, "end_col": 2,
+        })
+    );
+    // ...and flat, as MCP has always printed it.
+    assert_eq!(parsed[0]["file"], "auth.spec");
+    assert_eq!(parsed[0]["line"], 4);
+    assert_eq!(parsed[0]["column"], 3);
+
+    // Without a location every location key is there, null.
+    for key in ["span", "file", "line", "column"] {
+        assert!(parsed[1][key].is_null(), "{key}: {}", parsed[1]);
+    }
 }
 
 // === diagnostic truncation ===
+// Not linked to export_diagnostics_as_json: `check --format json` never
+// truncates. truncate_diagnostics caps `analyze`'s human output.
 
-#[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "max diagnostics limit truncates output"
-)]
+#[test]
 fn truncate_diagnostics_limits_output() {
     let mut diags: Vec<Diagnostic> = (0..150)
         .map(|i| Diagnostic::error("E001", format!("error {}", i)))
@@ -408,10 +431,7 @@ fn truncate_diagnostics_limits_output() {
     assert!(diags.last().unwrap().message.contains("150"));
 }
 
-#[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "no truncation under limit"
-)]
+#[test]
 fn truncate_diagnostics_no_op_under_limit() {
     let mut diags: Vec<Diagnostic> = (0..50)
         .map(|i| Diagnostic::error("E001", format!("error {}", i)))

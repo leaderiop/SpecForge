@@ -4,15 +4,12 @@ expression: mcp_snap
 ---
 {
   "check": {
-    "diagnostics": [
-      "Warning W001"
-    ],
+    "diagnostics": [],
     "ok": true
   },
   "config": {
     "extensions": [
-      "@specforge/software",
-      "@specforge/product"
+      "@specforge/software"
     ],
     "name": "demo",
     "registries": [
@@ -28,15 +25,11 @@ expression: mcp_snap
   "files": {
     "spec/main.spec": "behavior alpha \"Alpha\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n"
   },
-  "ok": false,
+  "ok": true,
   "payload": {
-    "error": {
-      "code": -32602,
-      "data": {
-        "code": "extension_not_found",
-        "extension": "@specforge/product"
-      },
-      "message": "extension '@specforge/product' is not installed (no lock file found)"
-    }
+    "orphan_warnings": [],
+    "removed_extension": "@specforge/product",
+    "success": true,
+    "version": "1.0.0"
   }
 }

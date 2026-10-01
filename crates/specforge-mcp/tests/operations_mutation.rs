@@ -593,7 +593,7 @@ fn init_extensions_in_result() {
             "@specforge/testing"
         ])
     );
-    assert_eq!(parsed["starter_file"], "spec/specforge.spec");
+    assert_eq!(parsed["starter_file"], "spec/hello.spec");
 }
 
 #[specforge_test(
@@ -722,7 +722,7 @@ fn init_contract() {
         json!({"path": dir.path().to_str().unwrap(), "name": "contractproject"}),
     );
     assert_eq!(read_config(dir.path())["name"], "contractproject");
-    assert!(dir.path().join("spec/specforge.spec").is_file());
+    assert!(dir.path().join("spec/hello.spec").is_file());
 
     // path_outside_current: a path inside the server's project is refused.
     let current = server.state().project_root.clone().unwrap();
@@ -765,19 +765,24 @@ fn add_extension_returns_result() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
     server.state_mut().project_root = Some(dir.path().to_path_buf());
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
     let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
         .parent()
         .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm");
+        .join("fixtures/greet-extension/greet.wasm");
     eprintln!("DEBUG blob exists: {}", blob.exists());
     let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
         .parent()
         .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm");
+        .join("fixtures/greet-extension/greet.wasm");
     let resp = call_tool(
         &mut server,
         "specforge.add_extension",
@@ -788,7 +793,7 @@ fn add_extension_returns_result() {
     assert_eq!(parsed["installed"], true);
     // Local installs derive the name from the file stem (same as the CLI).
     let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
-    assert!(lock.contains("specforge_ext_product"));
+    assert!(lock.contains("@sdk/greet"));
 }
 
 #[test]
@@ -802,12 +807,11 @@ fn add_extension_missing_specifier() {
 
 /// The product blob the build vendors; a local `.wasm` install names the
 /// extension after its file stem.
-fn product_blob() -> std::path::PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../extensions/product/wasm/specforge_ext_product.wasm")
+fn greet_blob() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/greet-extension/greet.wasm")
 }
 
-const PRODUCT: &str = "specforge_ext_product";
+const GREET: &str = "@sdk/greet";
 
 /// `test_server` with the product blob installed in its project.
 fn server_with_product() -> (McpServer, std::path::PathBuf) {
@@ -816,7 +820,7 @@ fn server_with_product() -> (McpServer, std::path::PathBuf) {
     let resp = call_tool(
         &mut server,
         "specforge.add_extension",
-        json!({"specifier": product_blob().to_str().unwrap()}),
+        json!({"specifier": greet_blob().to_str().unwrap()}),
     );
     assert!(resp["result"].is_object(), "install failed: {resp}");
     (server, root)
@@ -863,12 +867,12 @@ fn add_extension_dry_run_writes_nothing() {
     let resp = call_tool(
         &mut server,
         "specforge.add_extension",
-        json!({"specifier": product_blob().to_str().unwrap(), "dry_run": true}),
+        json!({"specifier": greet_blob().to_str().unwrap(), "dry_run": true}),
     );
 
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert_eq!(parsed["dry_run"], true, "{parsed}");
-    assert_eq!(parsed["extension"], PRODUCT, "{parsed}");
+    assert_eq!(parsed["extension"], GREET, "{parsed}");
     assert_eq!(parsed["installed"], false, "{parsed}");
     assert_eq!(files_under(&root), before, "a dry run writes nothing");
 }
@@ -882,28 +886,28 @@ fn remove_extension_removes_it_from_config_lock_and_disk() {
     assert!(
         config_extensions(&root)
             .iter()
-            .any(|e| e.starts_with(PRODUCT))
+            .any(|e| e.starts_with(GREET))
     );
 
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
-        json!({"name": PRODUCT}),
+        json!({"name": GREET}),
     );
 
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert_eq!(parsed["success"], true, "{parsed}");
-    assert_eq!(parsed["removed_extension"], PRODUCT);
+    assert_eq!(parsed["removed_extension"], GREET);
     assert!(
         !config_extensions(&root)
             .iter()
-            .any(|e| e.starts_with(PRODUCT)),
+            .any(|e| e.starts_with(GREET)),
         "specforge.json still lists it: {:?}",
         config_extensions(&root)
     );
     let lock = std::fs::read_to_string(root.join("specforge.lock")).unwrap();
-    assert!(!lock.contains(PRODUCT), "{lock}");
-    assert!(!root.join(".specforge/extensions").join(PRODUCT).exists());
+    assert!(!lock.contains(GREET), "{lock}");
+    assert!(!root.join(".specforge/extensions").join(GREET).exists());
 }
 
 #[specforge_test(
@@ -917,12 +921,12 @@ fn remove_extension_dry_run_writes_nothing() {
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
-        json!({"name": PRODUCT, "dry_run": true}),
+        json!({"name": GREET, "dry_run": true}),
     );
 
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert_eq!(parsed["dry_run"], true, "{parsed}");
-    assert_eq!(parsed["removed_extension"], PRODUCT, "{parsed}");
+    assert_eq!(parsed["removed_extension"], GREET, "{parsed}");
     assert!(parsed["orphan_warnings"].is_array(), "{parsed}");
     assert_eq!(files_under(&root), before, "a dry run writes nothing");
 }
@@ -936,7 +940,7 @@ fn remove_extension_warns_about_orphaned_entities() {
     // The compiled project: `beta` is a feature, a kind only the product
     // extension defines; `alpha` is a behavior from elsewhere.
     let mut feature = kind_entry("feature", false);
-    feature.source_extension = PRODUCT.into();
+    feature.source_extension = GREET.into();
     server.state_mut().kind_registry.register(feature);
     server
         .state_mut()
@@ -946,7 +950,7 @@ fn remove_extension_warns_about_orphaned_entities() {
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
-        json!({"name": PRODUCT}),
+        json!({"name": GREET}),
     );
 
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
@@ -958,7 +962,7 @@ fn remove_extension_warns_about_orphaned_entities() {
         "{warning}"
     );
     assert_eq!(parsed["success"], true, "removal still proceeds");
-    assert!(!root.join(".specforge/extensions").join(PRODUCT).exists());
+    assert!(!root.join(".specforge/extensions").join(GREET).exists());
 }
 
 #[specforge_test(
@@ -982,6 +986,33 @@ fn remove_extension_not_installed_is_extension_not_found() {
     assert!(message.contains("@acme/missing"), "{message}");
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_remove_extension_tool",
+    verify = "specforge.remove_extension removes extension from config"
+)]
+fn remove_extension_disables_an_enabled_builtin() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"p","version":"0.1.0","extensions":["@specforge/software","@specforge/product"]}"#,
+    )
+    .unwrap();
+    let mut server = McpServer::with_project_root(dir.path().to_path_buf());
+    let init = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
+    server.handle_message(&init.to_string());
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.remove_extension",
+        json!({"name": "@specforge/product"}),
+    );
+
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed["success"], true, "{parsed}");
+    assert_eq!(parsed["removed_extension"], "@specforge/product");
+    assert_eq!(config_extensions(dir.path()), ["@specforge/software"]);
+}
+
 // --- specforge.migrate ---
 
 #[test]
@@ -1001,12 +1032,17 @@ fn add_extension_already_installed_placeholder() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
     server.state_mut().project_root = Some(dir.path().to_path_buf());
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
     let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
         .parent()
         .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm");
+        .join("fixtures/greet-extension/greet.wasm");
     let first = call_tool(
         &mut server,
         "specforge.add_extension",
@@ -1024,7 +1060,7 @@ fn add_extension_already_installed_placeholder() {
     let still_ok = second["result"].is_object() || second["error"].is_object();
     assert!(still_ok);
     let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
-    assert!(lock.contains("specforge_ext_product"));
+    assert!(lock.contains("@sdk/greet"));
 }
 
 #[test]
@@ -1035,9 +1071,9 @@ fn add_extension_invalid_manifest_placeholder() {
         "specforge.add_extension",
         json!({"specifier": "invalid-extension-xyz"}),
     );
-    assert!(resp["error"].is_object());
+    assert_eq!(resp["error"]["data"]["code"], "E054", "{resp}");
     let msg = resp["error"]["message"].as_str().unwrap();
-    assert!(msg.contains("@scope/name"));
+    assert!(msg.contains("invalid-extension-xyz"), "{msg}");
 }
 
 // B:provide_mcp_rename_tool — verify unit "invalid new_name format returns validation error"
@@ -1118,9 +1154,9 @@ fn add_extension_invalid_specifier() {
         "specforge.add_extension",
         json!({"specifier": "no-at-sign"}),
     );
-    assert!(resp["error"].is_object());
+    assert_eq!(resp["error"]["data"]["code"], "E054", "{resp}");
     let msg = resp["error"]["message"].as_str().unwrap();
-    assert!(msg.contains("@scope/name"));
+    assert!(msg.contains("no-at-sign"), "{msg}");
 }
 
 #[test]
@@ -1149,12 +1185,17 @@ fn add_extension_dry_run() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
     server.state_mut().project_root = Some(dir.path().to_path_buf());
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
     let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
         .parent()
         .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm");
+        .join("fixtures/greet-extension/greet.wasm");
     let resp = call_tool(
         &mut server,
         "specforge.add_extension",
@@ -1171,12 +1212,17 @@ fn remove_extension_dry_run() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
     server.state_mut().project_root = Some(dir.path().to_path_buf());
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
     let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
         .parent()
         .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm");
+        .join("fixtures/greet-extension/greet.wasm");
     let _install = call_tool(
         &mut server,
         "specforge.add_extension",
@@ -1185,7 +1231,7 @@ fn remove_extension_dry_run() {
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
-        json!({"name": "specforge_ext_product", "dry_run": true}),
+        json!({"name": "@sdk/greet", "dry_run": true}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -1249,7 +1295,7 @@ fn add_extension_contract() {
     let mut server = test_server();
     let root = server.state().project_root.clone().unwrap();
     let before = files_under(&root);
-    let specifier = json!(product_blob().to_str().unwrap());
+    let specifier = json!(greet_blob().to_str().unwrap());
 
     // dry_run_safe: a preview, nothing written, no extension added.
     let resp = call_tool(
@@ -1270,14 +1316,15 @@ fn add_extension_contract() {
     );
     let installed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert_eq!(installed["installed"], true, "{installed}");
-    assert_eq!(config_extensions(&root), vec![format!("{PRODUCT}@0.0.0")]);
+    // Enabled by its bare name; the lock pins version and hash (D3-b).
+    assert_eq!(config_extensions(&root), vec![GREET]);
     let lock = std::fs::read_to_string(root.join("specforge.lock")).unwrap();
-    assert!(lock.contains(PRODUCT), "{lock}");
+    assert!(lock.contains(GREET), "{lock}");
 
     // wasm_downloaded: the module sits in the project's extension cache
     // (from the local blob here; a registry install downloads it).
-    let blob = std::fs::read(product_blob()).unwrap();
-    let cached = files_under(&root.join(".specforge/extensions").join(PRODUCT));
+    let blob = std::fs::read(greet_blob()).unwrap();
+    let cached = files_under(&root.join(".specforge/extensions").join(GREET));
     assert!(
         cached.values().any(|bytes| *bytes == blob),
         "no module cached"
@@ -1286,7 +1333,7 @@ fn add_extension_contract() {
     // extension_added_emitted, tool_invoked_emitted
     let added = events_named(&server, "extension_added");
     assert_eq!(added.len(), 1, "{added:?}");
-    assert_eq!(added[0]["extension"], PRODUCT);
+    assert_eq!(added[0]["extension"], GREET);
     assert!(invoked(&server, "specforge.add_extension"));
 }
 
@@ -1295,12 +1342,17 @@ fn remove_extension_contract() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
     server.state_mut().project_root = Some(dir.path().to_path_buf());
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
     let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
         .parent()
         .unwrap()
-        .join("extensions/product/wasm/specforge_ext_product.wasm");
+        .join("fixtures/greet-extension/greet.wasm");
     let _install = call_tool(
         &mut server,
         "specforge.add_extension",

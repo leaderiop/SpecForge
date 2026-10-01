@@ -204,7 +204,7 @@ behavior serve_graph_resource "Serve Graph Resource via MCP" {
   ensures {
     three_formats_served          "specforge://graph, specforge://context, and specforge://brief resources are all served"
     scope_parameter_supported     "All three resources support a scope query parameter for subgraph extraction"
-    schema_embedded_in_resources  "All resources include the embedded GraphProtocolSchema and schema_version"
+    schema_embedded_in_resources  "Resources follow the export schema policy: the full graph embeds the GraphProtocolSchema, a scoped graph references it"
     error_resource_on_failure     "Compilation failure returns an error resource with DiagnosticSummary instead of empty resource"
     graph_resource_served_emitted "graph_resource_served event is emitted after resources are served"
   }
@@ -219,8 +219,11 @@ behavior serve_graph_resource "Serve Graph Resource via MCP" {
     (equivalent to specforge export --format=brief). All three resources
     MUST support a scope query parameter to restrict output to a subgraph
     rooted at a specific entity (e.g., specforge://context?scope=auth_login).
-    All resources MUST include the embedded GraphProtocolSchema and a
-    schema_version field. Resources MUST reflect the current compilation
+    Resources MUST follow the export schema policy through the function
+    specforge export uses: specforge://graph embeds the GraphProtocolSchema
+    for the full graph, carries a schema_ref when scoped, and leaves the
+    schema out under max_tokens, as context and brief do; every graph
+    document carries a schema_version field. Resources MUST reflect the current compilation
     state and update when the graph changes. When compilation fails, the
     server MUST return an error resource containing a diagnostic summary
     instead of an empty resource. The error resource MUST include the
@@ -232,7 +235,7 @@ behavior serve_graph_resource "Serve Graph Resource via MCP" {
   verify unit "specforge://context returns token-optimized format"
   verify unit "specforge://brief returns minimal format"
   verify unit "scope query parameter restricts to subgraph"
-  verify unit "resources include embedded schema and schema_version"
+  verify integration "specforge://graph under max_tokens stays within the budget, as the budgeted export does"
   verify unit "resources reflect current compilation state"
   verify unit "compilation failure returns error resource with diagnostic summary"
   verify contract "Serve Graph Resource via MCP: MCP graph resource serving holds — validation_complete_fired, mcp_server_available, three_formats_served, scope_parameter_supported, schema_embedded_in_resources, error_resource_on_failure, graph_resource_served_emitted"

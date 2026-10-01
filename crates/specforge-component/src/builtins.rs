@@ -30,6 +30,13 @@ pub const BUILTIN_EXTENSIONS: &[(&str, &[u8])] = &[
     ("@specforge/typescript", TYPESCRIPT_WASM),
 ];
 
+/// Whether `name` is a builtin extension.
+pub fn is_builtin(name: &str) -> bool {
+    BUILTIN_EXTENSIONS
+        .iter()
+        .any(|(builtin, _)| *builtin == name)
+}
+
 /// Load only the builtin Wasm extensions whose names appear in `requested`.
 ///
 /// Non-builtin names (e.g. custom `.wasm` paths) are silently skipped.

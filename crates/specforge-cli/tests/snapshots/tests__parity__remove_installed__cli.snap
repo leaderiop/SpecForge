@@ -28,7 +28,8 @@ expression: cli_snap
   },
   "ok": true,
   "payload": {
-    "removed": "specforge_ext_product",
-    "version": "local"
+    "orphan_warnings": [],
+    "removed": "@sdk/greet",
+    "version": "0.1.0"
   }
 }

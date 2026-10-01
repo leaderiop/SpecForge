@@ -41,71 +41,10 @@ const ASPECTS: [Aspect; 4] = [
 /// Where the CLI and MCP behave differently today, and why. Later steps of
 /// plan 03 delete rows; only spec-sanctioned differences should remain.
 const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
-    // init (O7): the CLI writes `.gitignore` and `spec/hello.spec` from a
-    // template; MCP writes a minimal `spec/specforge.spec`.
-    ("init", Aspect::Files, "starter file and .gitignore differ"),
-    // init (O7): the CLI's config has `$schema` and `spec_root`; MCP's has
-    // neither.
-    (
-        "init",
-        Aspect::Config,
-        "MCP config lacks $schema and spec_root",
-    ),
-    // add (O4): MCP has no builtin path; it asks the registry, which fails.
-    (
-        "add_builtin",
-        Aspect::Outcome,
-        "MCP sends builtins to the registry",
-    ),
-    (
-        "add_builtin",
-        Aspect::Config,
-        "MCP sends builtins to the registry",
-    ),
-    (
-        "add_builtin",
-        Aspect::Check,
-        "MCP never enabled the builtin",
-    ),
-    // add (O4.4, D3-b): the lock labels a local install "local" in the CLI
-    // and "0.0.0" in MCP.
-    (
-        "add_local",
-        Aspect::Files,
-        "local install labelled 0.0.0 by MCP",
-    ),
-    // add (O4.4, D3-b): MCP writes `name@0.0.0` into specforge.json; the
-    // CLI leaves the config alone.
-    (
-        "add_local",
-        Aspect::Config,
-        "MCP enables name@0.0.0 in the config",
-    ),
-    // add (O4.4): that config entry is not loadable, so check reports E028.
-    (
-        "add_local",
-        Aspect::Check,
-        "MCP's config entry fails with E028",
-    ),
-    // remove (O3): MCP looks only in the lock file, so a builtin is
-    // `extension_not_found`.
-    (
-        "remove_builtin",
-        Aspect::Outcome,
-        "MCP cannot disable a builtin",
-    ),
-    (
-        "remove_builtin",
-        Aspect::Config,
-        "MCP cannot disable a builtin",
-    ),
-    (
-        "remove_builtin",
-        Aspect::Check,
-        "MCP left the builtin enabled",
-    ),
-    // export (O2): the CLI keeps `.specforge/schema-cache.json` for the W053
-    // check; the MCP export tool (Graph Protocol 1.0, no schema) does not.
+    // export: both surfaces export through `specforge_ops::export` (O2), but
+    // only the CLI keeps `.specforge/schema-cache.json` for its W053 check.
+    // The MCP export tool is a read-only query with nowhere to show W053: if
+    // it rewrote the cache, the next CLI export would miss the warning.
     (
         "export",
         Aspect::Files,
@@ -131,14 +70,15 @@ const CONFIG: &str = r#"{
 const MAIN_SPEC: &str =
     "behavior alpha \"Alpha\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n";
 
-fn product_blob() -> PathBuf {
+/// A third-party extension (`@sdk/greet` 0.1.0, contributing `greeting`).
+fn greet_blob() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../extensions/product/wasm/specforge_ext_product.wasm")
+        .join("../../fixtures/greet-extension/greet.wasm")
         .canonicalize()
-        .expect("the product blob is vendored")
+        .expect("the greet fixture is vendored")
 }
 
-const PRODUCT_LOCAL: &str = "specforge_ext_product";
+const GREET: &str = "@sdk/greet";
 
 fn project(root: &Path) {
     std::fs::create_dir_all(root.join("spec")).unwrap();
@@ -157,10 +97,10 @@ fn project_with_product_enabled(root: &Path) {
     std::fs::write(root.join("specforge.json"), config).unwrap();
 }
 
-fn project_with_product_installed(root: &Path) {
+fn project_with_greet_installed(root: &Path) {
     project(root);
     let out = cli()
-        .args(["add", product_blob().to_str().unwrap(), "--path"])
+        .args(["add", greet_blob().to_str().unwrap(), "--path"])
         .arg(root)
         .args(["--format", "json"])
         .output()
@@ -243,7 +183,7 @@ const SCENARIOS: &[Scenario] = &[
         cli: |root| {
             args(&[
                 "add",
-                &s(&product_blob()),
+                &s(&greet_blob()),
                 "--path",
                 &s(root),
                 "--format",
@@ -253,7 +193,7 @@ const SCENARIOS: &[Scenario] = &[
         mcp: |_| {
             (
                 "specforge.add_extension",
-                json!({"specifier": s(&product_blob())}),
+                json!({"specifier": s(&greet_blob())}),
             )
         },
         mcp_rooted: true,
@@ -281,23 +221,14 @@ const SCENARIOS: &[Scenario] = &[
     },
     Scenario {
         name: "remove_installed",
-        setup: project_with_product_installed,
-        cli: |root| {
-            args(&[
-                "remove",
-                PRODUCT_LOCAL,
-                "--path",
-                &s(root),
-                "--format",
-                "json",
-            ])
-        },
-        mcp: |_| ("specforge.remove_extension", json!({"name": PRODUCT_LOCAL})),
+        setup: project_with_greet_installed,
+        cli: |root| args(&["remove", GREET, "--path", &s(root), "--format", "json"]),
+        mcp: |_| ("specforge.remove_extension", json!({"name": GREET})),
         mcp_rooted: true,
     },
     Scenario {
         name: "extensions",
-        setup: project_with_product_installed,
+        setup: project_with_greet_installed,
         cli: |root| args(&["extensions", "--path", &s(root), "--format", "json"]),
         mcp: |_| ("specforge.extensions", json!({})),
         mcp_rooted: true,
@@ -532,7 +463,7 @@ fn without_hashes(text: &str) -> String {
 /// `value` as pretty JSON with the machine-specific parts replaced.
 fn normalized(value: &Value, root: &Path) -> String {
     let mut text = without_hashes(&serde_json::to_string_pretty(&redacted(value)).unwrap());
-    let blob = s(&product_blob());
+    let blob = s(&greet_blob());
     text = text.replace(&blob, "[BLOB]");
     let canonical = s(&root.canonicalize().unwrap());
     text = text.replace(&canonical, "[ROOT]");
@@ -682,4 +613,240 @@ fn parity_export() {
 #[test]
 fn parity_analyze() {
     parity("analyze");
+}
+
+// ── export: one function, one schema policy (O2, ADR 0004 D3-a) ─────────────
+
+/// An initialized MCP server on `root`.
+fn mcp_on(root: &Path) -> McpServer {
+    let mut server = McpServer::with_project_root(root.to_path_buf());
+    let init = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}});
+    server.handle_message(&init.to_string());
+    server
+}
+
+/// The JSON document an MCP request answered with: a tool's text content,
+/// or a resource's.
+fn mcp_document(server: &mut McpServer, method: &str, params: Value) -> Value {
+    let req = json!({"jsonrpc": "2.0", "id": 2, "method": method, "params": params});
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    let text = resp["result"]["content"][0]["text"]
+        .as_str()
+        .or_else(|| resp["result"]["contents"][0]["text"].as_str())
+        .unwrap_or_else(|| panic!("no document in {resp}"));
+    serde_json::from_str(text).unwrap()
+}
+
+fn mcp_export(root: &Path, arguments: Value) -> Value {
+    mcp_document(
+        &mut mcp_on(root),
+        "tools/call",
+        json!({"name": "specforge.export", "arguments": arguments}),
+    )
+}
+
+fn cli_export(root: &Path, flags: &[&str]) -> Value {
+    let out = cli()
+        .arg("export")
+        .arg(root)
+        .args(flags)
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    serde_json::from_slice(&out.stdout).unwrap()
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_mcp_export_tool",
+    verify = "the graph export is the document specforge export --format graph writes, Graph Protocol 2.0 with the schema embedded"
+)]
+fn mcp_graph_export_is_the_cli_export() {
+    let dir = tempfile::tempdir().unwrap();
+    project(dir.path());
+
+    let mcp = mcp_export(dir.path(), json!({"format": "graph"}));
+    let cli = cli_export(dir.path(), &["--format", "graph"]);
+
+    assert_eq!(mcp["format_version"], "2.0", "{mcp}");
+    assert!(mcp["schema"].is_object(), "{mcp}");
+    assert_eq!(mcp, cli);
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_mcp_export_tool",
+    verify = "with_schema embeds the schema in a context, brief or budgeted export, and no_schema leaves it out of a graph export"
+)]
+fn mcp_export_schema_flags_are_the_cli_flags() {
+    let dir = tempfile::tempdir().unwrap();
+    project(dir.path());
+
+    for format in ["context", "brief"] {
+        let plain = mcp_export(dir.path(), json!({"format": format}));
+        assert!(plain.get("schema").is_none(), "{format}: {plain}");
+        let with = mcp_export(dir.path(), json!({"format": format, "with_schema": true}));
+        assert!(with["schema"].is_object(), "{format}: {with}");
+        assert_eq!(
+            with,
+            cli_export(dir.path(), &["--format", format, "--with-schema"])
+        );
+    }
+
+    let budgeted = mcp_export(
+        dir.path(),
+        json!({"format": "graph", "max_tokens": 100000, "with_schema": true}),
+    );
+    assert!(budgeted["schema"].is_object(), "{budgeted}");
+
+    let without = mcp_export(dir.path(), json!({"format": "graph", "no_schema": true}));
+    assert_eq!(without["format_version"], "1.0", "{without}");
+    assert!(without.get("schema").is_none(), "{without}");
+    assert_eq!(
+        without,
+        cli_export(dir.path(), &["--format", "graph", "--no-schema"])
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "serve_graph_resource",
+    verify = "specforge://graph under max_tokens stays within the budget, as the budgeted export does"
+)]
+fn graph_resource_under_a_budget_is_the_budgeted_export() {
+    let dir = tempfile::tempdir().unwrap();
+    project(dir.path());
+    let budget = 300;
+
+    let resource = mcp_document(
+        &mut mcp_on(dir.path()),
+        "resources/read",
+        json!({"uri": format!("specforge://graph?max_tokens={budget}")}),
+    );
+
+    // The schema alone is thousands of tokens: a budgeted graph leaves it out.
+    assert!(resource.get("schema").is_none(), "{resource}");
+    let estimate = specforge_emitter::estimate_tokens(&resource.to_string());
+    assert!(
+        estimate <= budget,
+        "{estimate} tokens > {budget}: {resource}"
+    );
+    assert_eq!(
+        resource,
+        cli_export(dir.path(), &["--format", "graph", "--max-tokens", "300"])
+    );
+}
+
+// ── listings: one list per surface pair (O5) ────────────────────────────────
+
+/// The CLI's `<command> --format json` and the MCP `tool`'s answer on the
+/// same project.
+fn both_listings(root: &Path, command: &str, tool: &str) -> (Value, Value) {
+    let out = cli()
+        .args([command, "--path"])
+        .arg(root)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let cli: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let mcp = mcp_document(
+        &mut mcp_on(root),
+        "tools/call",
+        json!({"name": tool, "arguments": {}}),
+    );
+    (cli, mcp)
+}
+
+#[specforge_test_macros::test(
+    behavior = "list_installed_extensions",
+    verify = "the CLI and the MCP extensions tool list the same entries"
+)]
+fn extensions_listings_match() {
+    let dir = tempfile::tempdir().unwrap();
+    project_with_greet_installed(dir.path());
+    std::fs::write(
+        dir.path().join("spec/hello.spec"),
+        "greeting hello \"Hello\" {\n  style warm\n}\n",
+    )
+    .unwrap();
+
+    let (cli, mcp) = both_listings(dir.path(), "extensions", "specforge.extensions");
+
+    assert_eq!(cli["extensions"], mcp["extensions"]);
+    let greet = &cli["extensions"][0];
+    assert_eq!(greet["name"], GREET, "{cli}");
+    assert_eq!(greet["status"], "loaded", "{cli}");
+    assert_eq!(greet["entity_kinds"], json!(["greeting"]), "{cli}");
+    assert_eq!(greet["entity_count"], 1, "{cli}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "list_configured_providers",
+    verify = "the CLI and the MCP providers tool list the same entries"
+)]
+fn providers_listings_match() {
+    let dir = tempfile::tempdir().unwrap();
+    project(dir.path());
+    let mut config: Value = serde_json::from_str(CONFIG).unwrap();
+    config["providers"] = json!([
+        {"scheme": "gh", "alias": "work", "extension": "@acme/github"},
+        {"scheme": "file", "alias": "local", "extension": "@specforge/software"},
+    ]);
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+
+    let (cli, mcp) = both_listings(dir.path(), "providers", "specforge.providers");
+
+    assert_eq!(cli, mcp);
+    assert_eq!(
+        cli["providers"],
+        json!([
+            {"scheme": "gh", "alias": "work", "extension": "@acme/github", "status": "extension_not_loaded"},
+            {"scheme": "file", "alias": "local", "extension": "@specforge/software", "status": "not_a_provider"},
+        ])
+    );
+}
+
+// ── init: one scaffold (O7) ─────────────────────────────────────────────────
+
+#[specforge_test_macros::test(
+    behavior = "provide_mcp_init_tool",
+    verify = "specforge.init writes the files and config specforge init writes for the same inputs"
+)]
+fn mcp_init_writes_what_cli_init_writes() {
+    let cli_dir = tempfile::tempdir().unwrap();
+    let mcp_dir = tempfile::tempdir().unwrap();
+    let (cli_root, mcp_root) = (cli_dir.path().join("demo"), mcp_dir.path().join("demo"));
+    std::fs::create_dir(&cli_root).unwrap();
+
+    let out = cli()
+        .args([
+            "init",
+            "--extensions",
+            "@specforge/software,@specforge/product",
+        ])
+        .current_dir(&cli_root)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let mut server = McpServer::new();
+    let init = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}});
+    server.handle_message(&init.to_string());
+    let reply = mcp_document(
+        &mut server,
+        "tools/call",
+        json!({"name": "specforge.init", "arguments": {
+            "path": s(&mcp_root),
+            "extensions": ["@specforge/software", "@specforge/product"],
+        }}),
+    );
+    assert_eq!(reply["starter_file"], "spec/hello.spec", "{reply}");
+
+    let files = files_under(&cli_root);
+    assert_eq!(
+        files.keys().collect::<Vec<_>>(),
+        [".gitignore", "spec/hello.spec"]
+    );
+    assert_eq!(files, files_under(&mcp_root));
+    assert_eq!(read_config(&cli_root), read_config(&mcp_root));
+    assert_eq!(check(&mcp_root)["ok"], true);
 }

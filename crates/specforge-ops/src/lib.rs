@@ -9,6 +9,9 @@
 //! JSON-RPC stream). The crate denies `clippy::print_stdout`.
 
 pub mod config;
+pub mod export;
+pub mod extension;
+pub mod init;
 pub mod registry;
 
 use std::borrow::Cow;
@@ -47,3 +50,15 @@ impl std::fmt::Display for OpError {
 }
 
 impl std::error::Error for OpError {}
+
+/// A diagnostic's code stays data; its message and suggestion carry over.
+impl From<specforge_common::Diagnostic> for OpError {
+    fn from(diagnostic: specforge_common::Diagnostic) -> Self {
+        Self {
+            code: Cow::Owned(diagnostic.code),
+            message: diagnostic.message,
+            suggestion: diagnostic.suggestion,
+            data: None,
+        }
+    }
+}

@@ -40,6 +40,24 @@ invariant mcp_tool_idempotency "MCP Tool Idempotency" {
   verify unit "read-only tools return equivalent results for identical inputs"
 }
 
+invariant mcp_served_project_consistency "MCP Served Project Consistency" {
+  guarantee """
+    The project an MCP server serves is replaced whole or not at all.
+    Every compile that replaces it (initialize, a refresh after watch
+    writes a newer snapshot, validate, analyze, a mutation tool that
+    wrote files) installs the graph, diagnostics, registries and
+    extension tools and resources of that one compile together, and
+    tells subscribed clients what changed. A tool call whose path names
+    another project compiles that project for the call only: the server
+    keeps serving its own.
+  """
+  risk      high
+  verify unit "a refresh after a newer watch snapshot updates the extension tools listed"
+  verify unit "analyze notifies subscribers when the diagnostics it compiled changed"
+  verify unit "validate with a path to another project leaves the served project in place"
+  verify unit "a mutation tool that wrote files leaves the server serving what is on disk"
+}
+
 invariant mcp_type_schema_versioning "MCP Type Schema Versioning" {
   guarantee """
     Breaking changes to types consumed by MCP tools (McpToolDescriptor,

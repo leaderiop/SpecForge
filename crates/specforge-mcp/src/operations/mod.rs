@@ -4,15 +4,10 @@
 //! real work or refuses with an explicit error; it never lies).
 
 use serde_json::{Value, json};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use specforge_common::find_project_root;
-use specforge_registry::{
-    HttpRegistryClient, resolve_from_registry, resolve_version, verify_registry_integrity,
-};
-use specforge_wasm::{
-    install_extension, install_from_local, read_lock_file, uninstall_extension, write_lock_file,
-};
+use specforge_wasm::read_lock_file;
 
 use crate::protocol::error_codes;
 use crate::state::McpState;
@@ -74,28 +69,44 @@ fn ok(_id: Option<Value>, result: Value) -> ToolOutcome {
 }
 
 /// An operation's failure as an invalid-params error whose `data` carries
-/// the diagnostic code and its suggestion.
+/// the diagnostic code and its suggestion, plus the operation's own data.
 fn err_op(_id: Option<Value>, error: specforge_ops::OpError) -> ToolOutcome {
-    ToolOutcome::refused_with_data(
-        error_codes::INVALID_PARAMS,
-        error.message.clone(),
-        json!({
-            "code": error.code,
-            "diagnostic": {
-                "severity": "error",
-                "message": error.message,
-                "suggestion": error.suggestion,
-            },
-        }),
-    )
+    let mut data = json!({
+        "code": error.code,
+        "diagnostic": {
+            "severity": "error",
+            "message": error.message,
+            "suggestion": error.suggestion,
+        },
+    });
+    if let Some(Value::Object(extra)) = error.data {
+        for (key, value) in extra {
+            data[key] = value;
+        }
+    }
+    ToolOutcome::refused_with_data(error_codes::INVALID_PARAMS, error.message, data)
 }
 
-/// Enable `name@version` in the project's specforge.json (idempotent: an
-/// entry naming exactly `name` already there is left alone). A config the
-/// writer can't edit is left as it is, as before: the install itself
-/// succeeded.
-fn enable_in_config(root: &Path, name: &str, version: &str) {
-    let _ = specforge_ops::config::add_extension(root, name, &format!("{name}@{version}"));
+/// The session's graph exported through the shared operation, with the
+/// schema its extensions produce: the one export behind `specforge.export`,
+/// `specforge.render` and `specforge://graph` (ADR 0004 D3-a).
+pub(crate) fn export_graph(
+    state: &McpState,
+    request: &specforge_ops::export::Request,
+) -> Result<String, specforge_ops::OpError> {
+    let schema = specforge_emitter::generate_schema(
+        &state.kind_registry,
+        &state.edge_registry,
+        &state.field_registry,
+        &state.extension_info,
+    );
+    let project = specforge_ops::export::Project {
+        graph: &state.graph,
+        kinds: &state.kind_registry,
+        fields: &state.field_registry,
+        schema: &schema,
+    };
+    specforge_ops::export::export(&project, request)
 }
 
 // ── format ──────────────────────────────────────────────────────────────────
@@ -265,7 +276,8 @@ fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcom
         let Ok(text) = std::fs::read_to_string(&path) else {
             return err_invalid(id, format!("failed to read {}", path.display()));
         };
-        let renamed = apply_line_edits(&text, edits.iter().filter(|e| e.file == *file));
+        let renamed =
+            specforge_graph::rename::apply_edits(&text, edits.iter().filter(|e| e.file == *file));
         if let Err(e) = std::fs::write(&path, renamed) {
             return err_invalid(id, format!("failed to write {}: {e}", path.display()));
         }
@@ -275,55 +287,15 @@ fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcom
     ok(id, result)
 }
 
-/// `text` with each edit's byte range on its 1-based line replaced.
-fn apply_line_edits<'a>(
-    text: &str,
-    edits: impl Iterator<Item = &'a specforge_graph::rename::RenameEdit>,
-) -> String {
-    let mut by_line: std::collections::BTreeMap<usize, Vec<&specforge_graph::rename::RenameEdit>> =
-        std::collections::BTreeMap::new();
-    for edit in edits {
-        by_line.entry(edit.line).or_default().push(edit);
-    }
-    let mut out = String::with_capacity(text.len());
-    for (index, line) in text.split_inclusive('\n').enumerate() {
-        let Some(line_edits) = by_line.get_mut(&(index + 1)) else {
-            out.push_str(line);
-            continue;
-        };
-        // Right to left, so earlier columns stay valid.
-        line_edits.sort_by_key(|e| std::cmp::Reverse(e.start_col));
-        let mut line = line.to_string();
-        for edit in line_edits.iter() {
-            line.replace_range(edit.start_col..edit.end_col, &edit.new_text);
-        }
-        out.push_str(&line);
-    }
-    out
-}
-
 // ── init ────────────────────────────────────────────────────────────────────
 
 fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+    use specforge_ops::init;
+
     let Some(path) = args.get("path").and_then(|v| v.as_str()).map(PathBuf::from) else {
         return err_invalid(id, "Missing required parameter: path");
     };
-    let name = args
-        .get("name")
-        .and_then(|v| v.as_str())
-        .map(str::to_string)
-        .unwrap_or_else(|| {
-            path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("my-project")
-                .to_string()
-        });
-    let version = args
-        .get("version")
-        .and_then(|v| v.as_str())
-        .unwrap_or("0.1.0")
-        .to_string();
-    let mut extensions: Vec<String> = args
+    let extensions: Vec<String> = args
         .get("extensions")
         .and_then(|v| v.as_array())
         .map(|arr| {
@@ -334,117 +306,42 @@ fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome 
         })
         .unwrap_or_default();
 
-    if let Err(reason) = specforge_common::validate_project_name(&name) {
-        return err_invalid(id, format!("invalid project name '{name}': {reason}"));
-    }
-    // Init only enables builtins; anything else installs afterwards.
-    let builtins: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
-        .iter()
-        .map(|(builtin, _)| *builtin)
-        .collect();
-    if let Some(unknown) = extensions.iter().find(|e| !builtins.contains(&e.as_str())) {
-        let message = format!("unknown extension '{unknown}': not a builtin extension");
-        return ToolOutcome::refused_with_data(
-            error_codes::INVALID_PARAMS,
-            message.clone(),
-            json!({
-                "code": "extension_not_found",
-                "extension": unknown,
-                "diagnostic": {
-                    "severity": "error",
-                    "message": message,
-                    "suggestion": format!(
-                        "init with builtins ({}), then install it with specforge.add_extension",
-                        builtins.join(", ")
-                    ),
-                },
-            }),
-        );
-    }
-    // Test obligations on software kinds come from @specforge/testing (ADR 0002).
-    if extensions.iter().any(|e| e == "@specforge/software")
-        && !extensions.iter().any(|e| e == "@specforge/testing")
-    {
-        extensions.push("@specforge/testing".to_string());
-    }
-
-    // The new project must not land inside the one this server serves.
-    let absolute = |p: &Path| {
-        std::path::absolute(p)
-            .map(|p| p.canonicalize().unwrap_or(p))
-            .unwrap_or_else(|_| p.to_path_buf())
+    // The scaffold `specforge init` writes; the new project must not land
+    // inside the one this server serves.
+    let request = init::Request {
+        dir: &path,
+        name: args.get("name").and_then(|v| v.as_str()),
+        version: args.get("version").and_then(|v| v.as_str()),
+        extensions: &extensions,
+        forbid_inside: state.project_root.as_deref(),
     };
-    if let Some(current) = &state.project_root {
-        let current = absolute(current);
-        let mut target = absolute(&path);
-        // Canonicalize through the nearest existing ancestor.
-        let mut existing = target.clone();
-        let mut rest = Vec::new();
-        while !existing.exists() {
-            let Some(name) = existing.file_name().map(|n| n.to_os_string()) else {
-                break;
-            };
-            rest.push(name);
-            if !existing.pop() {
-                break;
-            }
-        }
-        if let Ok(canonical) = existing.canonicalize() {
-            target = rest.iter().rev().fold(canonical, |p, part| p.join(part));
-        }
-        if target.starts_with(&current) {
-            return err_invalid(
-                id,
-                format!(
-                    "{} is inside the current project at {}",
-                    path.display(),
-                    current.display()
-                ),
-            );
-        }
-    }
-
-    // Refuse to clobber an existing project.
-    if path.join("specforge.json").exists() {
-        return err_invalid(id, format!("project already exists at {}", path.display()));
-    }
-
-    let config = serde_json::json!({
-        "name": name,
-        "version": version,
-        "extensions": extensions,
-    });
-    if let Err(e) = std::fs::create_dir_all(path.join("spec")) {
-        return err_invalid(id, format!("cannot create project: {e}"));
-    }
-    if let Err(e) = specforge_ops::config::write(&path, &config) {
-        return err_invalid(id, format!("cannot write specforge.json: {}", e.message));
-    }
-    let starter = format!("spec \"{name}\" {{\n  version \"{version}\"\n}}\n");
-    if let Err(e) = std::fs::write(path.join("spec").join("specforge.spec"), starter) {
-        return err_invalid(id, format!("cannot write starter file: {e}"));
-    }
-    state.push_event(
-        "project_initialized",
-        json!({"path": path.display().to_string(), "name": name}),
-    );
-
-    ok(
+    let outcome = match init::plan(&request).and_then(|plan| init::apply(&path, &plan)) {
+        Ok(outcome) => outcome,
+        Err(error) => return err_op(id, error),
+    };
+    let result = ok(
         id,
         json!({
             "project_path": path.display().to_string(),
             "config_file": "specforge.json",
-            "starter_file": "spec/specforge.spec",
-            "extensions_installed": extensions,
-            "name": name,
-            "version": version,
+            "starter_file": init::STARTER_FILE,
+            "extensions_installed": outcome.extensions,
+            "name": outcome.name,
+            "version": outcome.version,
         }),
-    )
+    );
+    state.push_event(
+        "project_initialized",
+        json!({"path": path.display().to_string(), "name": outcome.name}),
+    );
+    result
 }
 
 // ── add / remove ────────────────────────────────────────────────────────────
 
 fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+    use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
+
     let specifier = match args.get("specifier").and_then(|v| v.as_str()) {
         Some(s) => s.to_string(),
         None => return err_invalid(id, "Missing required parameter: specifier"),
@@ -461,174 +358,85 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOut
     let Some(root) = project_root_of(state, &args) else {
         return err_invalid(id, "add needs a project root (pass {\"path\": ...})");
     };
-
-    let extensions_dir = root.join(".specforge").join("extensions");
-    let lock_path = root.join("specforge.lock");
-
-    let mut lock = read_lock_file(&lock_path).unwrap_or_default();
-
-    // Local .wasm path install (offline).
-    if specifier.ends_with(".wasm") {
-        let local = PathBuf::from(&specifier);
-        if !local.exists() {
-            return err_invalid(id, format!("file not found: {}", local.display()));
-        }
-        let name = local
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("unknown")
-            .to_string();
-        if dry_run {
-            return ok(
-                id,
-                json!({
-                    "extension": name,
-                    "installed": false,
-                    "dry_run": true,
-                    "version": "0.0.0",
-                    "source": "local",
-                }),
-            );
-        }
-        return match install_from_local(&name, "0.0.0", &local, &extensions_dir, &mut lock) {
-            Ok(result) => {
-                if let Err(diag) = write_lock_file(&lock, &lock_path) {
-                    return err_invalid(id, diag.message);
-                }
-                enable_in_config(&root, &result.name, &result.version);
-                ok(
-                    id,
-                    json!({
-                        "extension": result.name,
-                        "installed": true,
-                        "version": result.version,
-                        "sha256": result.wasm_hash,
-                        "source": "local",
-                        "note": "re-run specforge.analyze (use_cached=false) to load it",
-                    }),
-                )
-            }
-            Err(diag) => err_invalid(id, format!("{}: {}", diag.code, diag.message)),
-        };
-    }
-
-    if !specifier.starts_with('@') || !specifier.contains('/') {
-        return err_invalid(
-            id,
-            "specifier must be @scope/name[@version] or a .wasm path",
-        );
-    }
-
-    // Registry install: resolve → download → integrity → trust → install.
-    let (name, version) = match specifier.split_once('@') {
-        // "@scope/name" or "@scope/name@version" (scope carries the first @)
-        _ if specifier.matches('@').count() > 1 => {
-            let (n, v) = specifier.rsplit_once('@').unwrap();
-            (n.to_string(), v.to_string())
-        }
-        _ => (specifier.clone(), "latest".to_string()),
-    };
-
-    // No registry configured: fail before any network call (ADR 0004 N1).
-    let registries = match specforge_ops::registry::configured(&root, "add_extension") {
-        Ok(registries) => registries,
+    let source = match extension::parse(&specifier) {
+        Ok(source) => source,
         Err(error) => return err_op(id, error),
     };
-    let client = HttpRegistryClient::new();
 
-    let resolved_version = if version == "latest"
-        || version.starts_with('^')
-        || version.starts_with('~')
-        || version.starts_with('>')
-        || version == "*"
-    {
-        let Some(registry) = specforge_registry::find_registry_for_specifier(&name, &registries)
-            .or_else(|| registries.first())
-        else {
-            return err_invalid(id, "no registries configured");
-        };
-        match resolve_version(&name, &version, &client, registry) {
-            Ok(v) => v,
-            Err(diag) => return err_invalid(id, format!("{}: {}", diag.code, diag.message)),
-        }
-    } else {
-        version.clone()
+    // The shared operation `specforge add` runs. An agent can't be asked,
+    // so a publisher key change is refused rather than re-pinned.
+    let request = AddRequest {
+        root: &root,
+        source,
+        allow_unsigned,
+        trust: Trust::Refuse,
+        dry_run,
     };
-
-    let spec = format!("{name}@{resolved_version}");
-    let response = match resolve_from_registry(&spec, &registries, &client) {
-        Ok(r) => r,
-        Err(diag) => return err_invalid(id, format!("{}: {}", diag.code, diag.message)),
+    let registry = specforge_ops::registry::HttpRegistry::for_project(&root, "add_extension");
+    let source_of = |origin: &Origin| match origin {
+        Origin::Builtin => "builtin".to_string(),
+        Origin::Installed { source } => source.clone(),
     };
-    if dry_run {
-        // Resolved, not downloaded: nothing on disk changes.
-        return ok(
+    match extension::add(&request, &registry) {
+        Ok(AddOutcome::Builtin {
+            name,
+            changed,
+            peers_enabled,
+        }) => ok(
             id,
             json!({
-                "extension": response.name,
+                "extension": name,
+                "installed": changed,
+                "source": "builtin",
+                "changed": changed,
+                "peers_enabled": peers_enabled,
+                "note": "re-run specforge.analyze (use_cached=false) to load it",
+            }),
+        ),
+        Ok(AddOutcome::Installed {
+            name,
+            version,
+            sha256,
+            key_id,
+            origin,
+        }) => ok(
+            id,
+            json!({
+                "extension": name,
+                "installed": true,
+                "version": version,
+                "sha256": sha256,
+                "key_id": key_id,
+                "source": source_of(&origin),
+                "note": "re-run specforge.analyze (use_cached=false) to load it",
+            }),
+        ),
+        // Already installed and enabled: an info response, nothing changed.
+        Ok(AddOutcome::AlreadyPresent { name, version }) => ok(
+            id,
+            json!({
+                "extension": name,
+                "installed": false,
+                "already_present": true,
+                "version": version,
+                "message": format!("{name} {version} is already installed; specforge.json is unchanged"),
+            }),
+        ),
+        Ok(AddOutcome::Planned {
+            name,
+            version,
+            origin,
+        }) => ok(
+            id,
+            json!({
+                "extension": name,
                 "installed": false,
                 "dry_run": true,
-                "version": response.version,
-                "source": "registry",
+                "version": version,
+                "source": source_of(&origin),
             }),
-        );
-    }
-    let wasm_bytes = match client.download_wasm(&response.wasm_url) {
-        Ok(bytes) => bytes,
-        Err(e) => return err_invalid(id, e.to_diagnostic().message),
-    };
-    if let Err(diag) = verify_registry_integrity(&wasm_bytes, &response.sha256) {
-        return err_invalid(id, format!("{}: {}", diag.code, diag.message));
-    }
-
-    // Publisher signature verification + TOFU pin policy (single shared
-    // implementation with the CLI). assume_yes=false: a key change refuses
-    // instead of prompting (an agent must not silently re-pin trust).
-    let trust = match specforge_registry::client::trust_flow::check_and_pin(
-        &response.name,
-        &response,
-        &wasm_bytes,
-        allow_unsigned,
-        false,
-        "json",
-        None,
-    ) {
-        Ok(t) => t,
-        Err(diag) => return err_invalid(id, format!("{}: {}", diag.code, diag.message)),
-    };
-
-    let peer_dependencies: Vec<specforge_registry::PeerDependency> =
-        serde_json::from_str::<specforge_registry::ManifestV2>(&response.manifest)
-            .map(|m| m.peer_dependencies)
-            .unwrap_or_default();
-    match install_extension(
-        &response.name,
-        &response.version,
-        &wasm_bytes,
-        &response.sha256,
-        &extensions_dir,
-        &mut lock,
-        trust.key_id.as_deref(),
-        peer_dependencies,
-    ) {
-        Ok(result) => {
-            if let Err(diag) = write_lock_file(&lock, &lock_path) {
-                return err_invalid(id, diag.message);
-            }
-            enable_in_config(&root, &result.name, &result.version);
-            ok(
-                id,
-                json!({
-                    "extension": result.name,
-                    "installed": true,
-                    "version": result.version,
-                    "sha256": result.wasm_hash,
-                    "key_id": trust.key_id,
-                    "note": "re-run specforge.analyze (use_cached=false) to load it",
-                }),
-            )
-        }
-        Err(diag) => err_invalid(id, format!("{}: {}", diag.code, diag.message)),
+        ),
+        Err(error) => err_op(id, error),
     }
 }
 
@@ -647,99 +455,36 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Tool
         return err_invalid(id, "remove needs a project root (pass {\"path\": ...})");
     };
 
-    let lock_path = root.join("specforge.lock");
-    let extensions_dir = root.join(".specforge").join("extensions");
-
-    let not_found = |_id: Option<Value>, message: String| {
-        ToolOutcome::refused_with_data(
-            error_codes::INVALID_PARAMS,
-            message,
-            json!({"code": "extension_not_found", "extension": name}),
-        )
+    // The shared operation, over what the session loaded.
+    let request = specforge_ops::extension::RemoveRequest {
+        root: &root,
+        name: &name,
+        force,
+        dry_run,
+        loaded: &state.manifests,
+        kinds: &state.kind_registry,
+        graph: &state.graph,
     };
-    let mut lock = match read_lock_file(&lock_path) {
-        Ok(lock) => lock,
-        Err(_) => {
-            return not_found(
-                id,
-                format!("extension '{name}' is not installed (no lock file found)"),
-            );
-        }
-    };
-    let Some(version) = lock
-        .entries
-        .iter()
-        .find(|e| e.name == name)
-        .map(|e| e.version.clone())
-    else {
-        return not_found(id, format!("extension '{name}' is not installed"));
-    };
-
-    let orphan_warnings = orphan_warnings(state, &name);
-    if dry_run {
-        let dependents = specforge_wasm::check_dependents(&name, &state.manifests);
-        if !dependents.is_empty() && !force {
-            return err_invalid(
-                id,
-                format!(
-                    "E027: cannot uninstall '{name}': required by {}",
-                    dependents.join(", ")
-                ),
-            );
-        }
-        return ok(
-            id,
-            json!({
-                "removed_extension": name,
+    match specforge_ops::extension::remove(&request) {
+        Ok(outcome) => {
+            let mut result = json!({
+                "removed_extension": outcome.name,
                 "success": true,
-                "dry_run": true,
-                "version": version,
-                "orphan_warnings": orphan_warnings,
-            }),
-        );
-    }
-
-    match uninstall_extension(&name, &state.manifests, &extensions_dir, &mut lock, force) {
-        Ok(result) => {
-            if let Err(diag) = write_lock_file(&lock, &lock_path) {
-                return err_invalid(id, diag.message);
+                "version": outcome.version,
+                "orphan_warnings": outcome.orphan_warnings,
+            });
+            if outcome.dry_run {
+                result["dry_run"] = Value::from(true);
             }
-            let _ = specforge_ops::config::remove_extension(&root, &name);
-            ok(
-                id,
-                json!({
-                    "removed_extension": name,
-                    "success": true,
-                    "version": result.version,
-                    "orphan_warnings": orphan_warnings,
-                }),
-            )
+            ok(id, result)
         }
-        Err(diag) => err_invalid(id, format!("{}: {}", diag.code, diag.message)),
+        Err(mut error) => {
+            if error.code == specforge_ops::extension::NOT_FOUND {
+                error.data = Some(json!({"extension": name}));
+            }
+            err_op(id, error)
+        }
     }
-}
-
-/// One warning per entity whose kind only `extension` defines.
-fn orphan_warnings(state: &McpState, extension: &str) -> Vec<String> {
-    let mut warnings: Vec<String> = state
-        .graph
-        .nodes()
-        .into_iter()
-        .filter(|node| {
-            state
-                .kind_registry
-                .get(node.kind.raw.as_str())
-                .is_some_and(|kind| kind.source_extension == extension)
-        })
-        .map(|node| {
-            format!(
-                "{} '{}' uses a kind only {extension} defines",
-                node.kind.raw, node.id.raw
-            )
-        })
-        .collect();
-    warnings.sort();
-    warnings
 }
 
 // ── migrate ─────────────────────────────────────────────────────────────────
@@ -841,55 +586,32 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
 // ── extensions ──────────────────────────────────────────────────────────────
 
 fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcome {
-    // Real state: what the session actually loaded, checked against the
-    // extensions specforge.json configures now, plus on-disk lock data.
-    let configured: Vec<(String, Option<String>)> = state
-        .project_root
-        .as_ref()
-        .map(|root| specforge_common::load_project_config(root).extensions)
-        .unwrap_or_default()
+    use specforge_ops::extension::{self, Origin};
+
+    let Some(root) = &state.project_root else {
+        return err_invalid(id, "no project root available");
+    };
+    // The shared listing, over what the session compiled.
+    let entries = extension::list(root, &state.manifests, &state.kind_registry, &state.graph);
+    let listed: Vec<Value> = entries
         .iter()
-        .map(|spec| match spec.rfind('@') {
-            Some(at) if at > 0 => (spec[..at].to_string(), Some(spec[at + 1..].to_string())),
-            _ => (spec.clone(), None),
-        })
-        .collect();
-    let is_configured = |name: &str| configured.iter().any(|(n, _)| n == name);
-    let mut installed: Vec<serde_json::Value> = state
-        .manifests
-        .iter()
-        .map(|m| {
+        .map(|e| {
             json!({
-                "name": m.name,
-                "version": m.version,
-                "entity_kinds": m.entity_kinds.iter().map(|k| k.name.clone()).collect::<Vec<_>>(),
-                "validation_rules": m.validation_rules.len(),
-                // Loaded by the last compile but since dropped from
-                // specforge.json: gone at the next compile.
-                "status": if is_configured(&m.name) { "loaded" } else { "not_configured" },
+                "name": e.name,
+                "version": e.version,
+                "source": match &e.origin {
+                    Origin::Builtin => "builtin",
+                    Origin::Installed { source } => source.as_str(),
+                },
+                "status": e.status.as_str(),
+                "entity_kinds": e.entity_kinds,
+                "entity_count": e.entity_count,
+                "validation_rules": e.validation_rules,
             })
         })
         .collect();
-    // Configured since the last compile, or failed to load.
-    for (name, version) in &configured {
-        if !state.manifests.iter().any(|m| &m.name == name) {
-            installed.push(json!({
-                "name": name,
-                "version": version,
-                "entity_kinds": [],
-                "validation_rules": 0,
-                "status": "not_loaded",
-            }));
-        }
-    }
 
-    let lock = state
-        .project_root
-        .as_ref()
-        .map(|root| read_lock_file(&root.join("specforge.lock")).ok())
-        .unwrap_or(None);
-    let lock_entries: Vec<serde_json::Value> = lock
-        .as_ref()
+    let lock_entries: Vec<Value> = read_lock_file(&root.join("specforge.lock"))
         .map(|l| {
             l.entries
                 .iter()
@@ -897,7 +619,6 @@ fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutco
                 .collect()
         })
         .unwrap_or_default();
-
     let kinds: std::collections::BTreeSet<String> = state
         .graph
         .nodes()
@@ -908,7 +629,7 @@ fn extensions_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutco
     ok(
         id,
         json!({
-            "extensions": installed,
+            "extensions": listed,
             "lock_file_entries": lock_entries,
             "entity_kinds_in_graph": kinds,
         }),
@@ -921,34 +642,29 @@ fn providers_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcom
     let Some(root) = &state.project_root else {
         return err_invalid(id, "no project root available");
     };
-    let config_path = root.join("specforge.json");
-    let config: Value = match std::fs::read_to_string(&config_path) {
-        Ok(content) => serde_json::from_str(&content).unwrap_or(Value::Null),
-        Err(_) => Value::Null,
-    };
-    // Each configured provider with the extension that serves its scheme:
-    // the matching the compiler does.
-    let (configs, _) = specforge_registry::load_provider_configurations(&config);
-    let manifests: Vec<(String, specforge_registry::ManifestV2)> = state
-        .manifests
-        .iter()
-        .map(|m| (m.name.clone(), m.clone()))
-        .collect();
-    let (schemes, _) = specforge_registry::register_provider_schemes(&configs, &manifests);
-    let providers: Vec<Value> = configs
+    // The providers specforge.json configures, as the scheme registry built
+    // from the loaded extensions sees them: the listing the CLI prints.
+    let (providers, diagnostics) = specforge_ops::extension::providers(root, &state.manifests);
+    let listed: Vec<Value> = providers
         .iter()
         .map(|p| {
-            let entry = schemes.find_by_scheme(&p.scheme);
             json!({
                 "scheme": p.scheme,
-                "alias": p.name,
-                "extension": entry.map(|e| e.extension_name.as_str()),
-                "status": if entry.is_some() { "registered" } else { "no_extension" },
+                "alias": p.alias,
+                "extension": p.extension,
+                "status": p.status.as_str(),
             })
         })
         .collect();
-    let count = providers.len();
-    ok(id, json!({ "providers": providers, "count": count }))
+    let count = listed.len();
+    ok(
+        id,
+        json!({
+            "providers": listed,
+            "count": count,
+            "diagnostics": specforge_emitter::diagnostics_json(&diagnostics),
+        }),
+    )
 }
 
 // ── doctor ──────────────────────────────────────────────────────────────────
@@ -1067,24 +783,16 @@ fn render_op(state: &McpState, args: Value, id: Option<Value>) -> ToolOutcome {
         );
     };
 
-    use specforge_emitter::{EmitFormat, EmitOptions, emit};
-    let emit_format = match format {
-        "json" => EmitFormat::Json,
-        "dot" => EmitFormat::Dot,
-        "context" => EmitFormat::Context,
-        _ => EmitFormat::Brief,
+    // "json" is the full graph export: Graph Protocol 2.0 with the schema,
+    // as `specforge export --format graph` writes it.
+    let request = specforge_ops::export::Request {
+        format: format.parse().ok(),
+        scope: args.get("scope").and_then(|v| v.as_str()),
+        ..specforge_ops::export::Request::default()
     };
-    let output = match emit(
-        &state.graph,
-        &EmitOptions {
-            format: emit_format,
-            scope: args.get("scope").and_then(|v| v.as_str()),
-            field_registry: Some(&state.field_registry),
-            ..EmitOptions::default()
-        },
-    ) {
+    let output = match export_graph(state, &request) {
         Ok(text) => text,
-        Err(e) => return err_invalid(id, format!("render failed: {e}")),
+        Err(e) => return err_invalid(id, format!("render failed: {}", e.message)),
     };
 
     // With out_dir the rendering lands on disk; without it, inline.

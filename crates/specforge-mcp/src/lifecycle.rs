@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use specforge_common::load_project_config;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
-use crate::registry::{register_defaults, register_extension_surfaces};
+use crate::registry::register_defaults;
 use crate::state::{McpState, ServerPhase};
 use crate::types::{
     McpCapabilities, McpCapabilityFlags, McpPromptCapability, McpResourceCapability, McpServerInfo,
@@ -57,42 +57,17 @@ pub fn handle_initialize(
         .map(PathBuf::from)
         .or_else(|| state.default_project_root.clone());
 
-    // Register tool/resource/prompt descriptors
-    register_defaults(state);
-
-    // Diffs for delta notifications are taken against whatever the server
-    // held before this compile (empty on a fresh server).
-    let previous_graph = state.graph.clone();
-    let previous_diagnostics = state.diagnostics.clone();
-
-    // Compile if project root is provided
-    if let Some(root) = &project_root
-        && root.exists()
-    {
-        let result = state.compile(root);
-        state.graph = result.graph;
-        state.diagnostics = result.diagnostics;
-        state.kind_registry = result.kind_registry;
-        state.field_registry = result.field_registry;
-        state.edge_registry = result.edge_registry;
-        state.extension_info = result.extension_info;
-        state.surface_entries = result.surface_entries;
-        state.loaded_at = Some(std::time::SystemTime::now());
-        state.manifests = result.manifests;
-        state.spec_root = Some(result.spec_root);
-
-        // Register extension MCP tools and resources from manifest surfaces
-        register_extension_surfaces(state, &result.manifest_surfaces);
-    }
-    // Subscribed clients learn what the initial compile changed (C9-01).
-    crate::notifications::enqueue_compile_notifications(
-        state,
-        &previous_graph,
-        &previous_diagnostics,
-    );
-
-    if let Some(root) = &project_root {
-        state.project_config = load_project_config(root);
+    // Compile and serve the project when there is one: its registries,
+    // and the core tools, resources and prompts plus what its extensions
+    // contribute. Subscribed clients learn what it changed (C9-01).
+    match &project_root {
+        Some(root) if root.exists() => state.recompile(root),
+        _ => {
+            register_defaults(state);
+            if let Some(root) = &project_root {
+                state.project_config = load_project_config(root);
+            }
+        }
     }
     state.project_root = project_root;
     state.phase = ServerPhase::Initialized;

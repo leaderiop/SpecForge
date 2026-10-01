@@ -12,7 +12,13 @@ print_stdout = "deny"
 
 [dependencies]
 serde_json = { workspace = true }
+specforge-common = { workspace = true }
+specforge-component = { workspace = true }
+specforge-emitter = { path = "../specforge-emitter" }
+specforge-graph = { path = "../specforge-graph" }
 specforge-registry = { workspace = true }
+specforge-wasm = { workspace = true }
+semver = { workspace = true }
 
 [dev-dependencies]
 specforge-test = { workspace = true }

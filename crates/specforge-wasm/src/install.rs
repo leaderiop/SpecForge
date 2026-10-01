@@ -133,7 +133,7 @@ pub fn install_from_local(
     let hash = hex_sha256(&wasm_bytes);
 
     // Use install_extension with the computed hash as expected (always matches)
-    install_extension(
+    let result = install_extension(
         name,
         version,
         &wasm_bytes,
@@ -142,7 +142,13 @@ pub fn install_from_local(
         lock,
         None,       // local installs are unsigned
         Vec::new(), // local manifests are not parsed for peers
-    )
+    )?;
+    // A local install is never a registry package: `update` must not
+    // replace it with one of the same name (ADR 0004 D3-b).
+    if let Some(entry) = lock.entries.iter_mut().find(|e| e.name == name) {
+        entry.source = format!("local:{}", local_wasm_path.display());
+    }
+    Ok(result)
 }
 
 /// Rollback: remove extension directory if it was partially created.

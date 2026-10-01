@@ -76,7 +76,7 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
         let output = serde_json::json!({
             "status": "collected",
             "runners": outcome.runners,
-            "diagnostics": outcome.diagnostics,
+            "diagnostics": specforge_emitter::diagnostics_json(&outcome.diagnostics),
             "report": outcome.report.display().to_string(),
         });
         println!(

@@ -71,7 +71,12 @@ specforge extensions                    # list installed extensions
 > **Planned — not yet implemented** (extension protocol capability:
 > `providers: false`). The `providers` block does not parse today; the
 > field spelling below (`extension "@specforge/…"`) is the design of
-> record.
+> record. In `specforge.json`, `providers` is an array of
+> `{"scheme", "alias", "extension", "settings"}` (ADR 0004 D3-c):
+> `extension` is required, declaration order decides which provider wins a
+> shared scheme (E057), and two instances of one provider use two schemes.
+> `specforge providers` lists each one with its status in the scheme
+> registry.
 
 Providers extend the **`ref` entity** — they register schemes, validate ref targets, resolve URLs, and optionally sync metadata. Providers are the bridge between SpecForge and external platforms (GitHub, Jira, Figma, etc.).
 

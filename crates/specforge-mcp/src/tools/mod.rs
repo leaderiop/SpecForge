@@ -133,8 +133,8 @@ fn mutation_effect(name: &str, outcome: &Value) -> (usize, usize) {
         "specforge.format" => (count("changed_files"), 0),
         // The files holding the entity or a reference to it; one entity.
         "specforge.rename" => (count("affected_files"), 1),
-        // The project config and the starter spec file.
-        "specforge.init" => (2, 0),
+        // The project config, the starter spec file and .gitignore.
+        "specforge.init" => (3, 0),
         // The extension module, the lock file and the project config.
         "specforge.add_extension" if outcome["installed"] == true => (3, 0),
         // The same three; entities whose kind only it defined lose it.
@@ -183,10 +183,23 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
     }
 
     let is_mutation = MUTATION_TOOLS.contains(&name) && writes(name, &arguments);
+    let served_since = state.loaded_at;
 
     let mut outcome = dispatch(state, name, arguments);
     for (event, params) in outcome.take_events() {
         state.push_event(event, params);
+    }
+
+    // A mutation that wrote files leaves the server serving what is on
+    // disk: the tool recompiled already (rename), or it is recompiled now.
+    // infer_session writes only its own session file, no source.
+    if is_mutation
+        && name != "specforge.infer_session"
+        && outcome.succeeded()
+        && state.loaded_at == served_since
+        && let Some(root) = state.project_root.clone()
+    {
+        state.recompile(&root);
     }
 
     // A refused call ran nothing; a run reports what its structured

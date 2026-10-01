@@ -20,10 +20,11 @@
 //! deleted, so a step can only turn green on purpose.
 //!
 //! The per-fixture tests characterize the surfaces and are not linked.
-//! Two tests prove the obligations the plan names for this seam, over every
-//! fixture: `check` prints the same diagnostics in the same order on every
-//! run (`diagnostic_determinism`), and watch's rebuilt graph is a cold
-//! build's, with the diagnostics `check` reports (`incremental_correctness`).
+//! Three tests prove the obligations the plan names for this seam, over
+//! every fixture: `check` prints the same diagnostics in the same order on
+//! every run (`diagnostic_determinism`), watch's rebuilt graph is a cold
+//! build's, with the diagnostics `check` reports (`incremental_correctness`),
+//! and the LSP publishes what `check` reports (`shared_incremental_pipeline`).
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -99,45 +100,9 @@ struct Divergence {
 }
 
 /// What each surface gets wrong today. Later steps delete rows; none may be
-/// added to excuse a regression.
-const EXPECTED_DIVERGENCES: &[Divergence] = &[
-    // D1: the LSP never runs the resolver, so E025 never reaches it.
-    Divergence {
-        id: "D1",
-        fixture: "missing_import",
-        surface: Surface::Lsp,
-        missing: &["E025 error main.spec:1"],
-        extra: &[],
-    },
-    // D3: the LSP's import DAG is keyed by absolute paths, so it never sees
-    // the import cycle (W113).
-    Divergence {
-        id: "D3",
-        fixture: "import_cycle",
-        surface: Surface::Lsp,
-        missing: &["W113 warning a.spec:1"],
-        extra: &[],
-    },
-    // D4: the LSP's delete branch re-checks with the default validator, not
-    // `check_graph`, so extension-rule diagnostics in surviving files (here
-    // software's required `contract`, E006) are published away.
-    Divergence {
-        id: "D4",
-        fixture: "delete_file",
-        surface: Surface::LspAfterDelete,
-        missing: &["E006 error main.spec:2"],
-        extra: &[],
-    },
-    // D5: after a `specforge.json` change the LSP reloads and re-indexes
-    // (the project root, not the spec root) but never republishes.
-    Divergence {
-        id: "D5",
-        fixture: "spec_root_set",
-        surface: Surface::LspAfterReload,
-        missing: &["E003 error main.spec:5"],
-        extra: &[],
-    },
-];
+/// added to excuse a regression. The LSP's rows (D1, D3, D4, D5) closed
+/// when it moved onto the shared project session (P6).
+const EXPECTED_DIVERGENCES: &[Divergence] = &[];
 
 // ── Normalized diagnostics ──────────────────────────────────────────────
 
@@ -253,8 +218,14 @@ fn binary() -> &'static str {
 
 /// `specforge check --format json`, as printed.
 fn check_output(project: &Project) -> String {
+    check_output_with(project, &[])
+}
+
+/// `specforge check --format json` with `flags`, as printed.
+fn check_output_with(project: &Project, flags: &[&str]) -> String {
     let out = Command::new(binary())
         .args(["check", "--format", "json"])
+        .args(flags)
         .arg(&project.root)
         .output()
         .unwrap();
@@ -295,6 +266,26 @@ fn keys_of(diagnostics: &Value) -> Vec<String> {
 // ── MCP ─────────────────────────────────────────────────────────────────
 
 fn mcp(project: &Project) -> Keys {
+    mcp_validate(project, json!({}))
+}
+
+/// MCP `specforge.validate` with `arguments`, as keys.
+fn mcp_validate(project: &Project, arguments: Value) -> Keys {
+    let diagnostics = mcp_validate_json(project, arguments);
+    multiset(diagnostics.as_array().unwrap().iter().map(|d| {
+        let location = d["file"]
+            .as_str()
+            .map(|f| (f.to_string(), d["line"].as_u64().unwrap()));
+        key(
+            d["code"].as_str().unwrap(),
+            d["severity"].as_str().unwrap(),
+            location,
+        )
+    }))
+}
+
+/// MCP `specforge.validate` with `arguments`: the diagnostics it returns.
+fn mcp_validate_json(project: &Project, arguments: Value) -> Value {
     let mut server = specforge_mcp::McpServer::new();
     let mut call = |method: &str, params: Value| -> Value {
         let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
@@ -307,22 +298,12 @@ fn mcp(project: &Project) -> Keys {
     );
     let resp = call(
         "tools/call",
-        json!({"name": "specforge.validate", "arguments": {}}),
+        json!({"name": "specforge.validate", "arguments": arguments}),
     );
     let text = resp["result"]["content"][0]["text"]
         .as_str()
         .unwrap_or_else(|| panic!("validate returned no text: {resp}"));
-    let diagnostics: Value = serde_json::from_str(text).unwrap();
-    multiset(diagnostics.as_array().unwrap().iter().map(|d| {
-        let location = d["file"]
-            .as_str()
-            .map(|f| (f.to_string(), d["line"].as_u64().unwrap()));
-        key(
-            d["code"].as_str().unwrap(),
-            d["severity"].as_str().unwrap(),
-            location,
-        )
-    }))
+    serde_json::from_str(text).unwrap()
 }
 
 // ── LSP ─────────────────────────────────────────────────────────────────
@@ -688,7 +669,6 @@ fn assert_parity(fixture: &str) {
     let second = check(&project);
     assert_eq!(first, second, "check is not deterministic on `{fixture}`");
     let check_keys = multiset(first);
-    let edited = project.relative(&project.entry);
 
     let mut failures = Vec::new();
     compare(
@@ -716,41 +696,42 @@ fn assert_parity(fixture: &str) {
     );
 
     // Last: its Then step may delete a file.
-    let run = lsp(&project, then);
-    let published = as_published(&check_keys, &edited);
-    compare(
-        fixture,
-        Surface::Lsp,
-        &published,
-        &run.opened,
-        &mut failures,
-    );
-    match (then, run.then) {
-        (Then::ReloadConfig, Some(after)) => compare(
-            fixture,
-            Surface::LspAfterReload,
-            &published,
-            &after,
-            &mut failures,
-        ),
-        (Then::Delete(_), Some(after)) => {
-            let now = as_published(&multiset(check(&project)), &edited);
-            compare(
-                fixture,
-                Surface::LspAfterDelete,
-                &now,
-                &after,
-                &mut failures,
-            )
-        }
-        _ => {}
-    }
+    compare_lsp(fixture, &project, then, &check_keys, &mut failures);
 
     assert!(
         failures.is_empty(),
         "check reports {check_keys:?} on `{fixture}`\n{}",
         failures.join("\n")
     );
+}
+
+/// What the LSP publishes after opening the entry file, and after the
+/// fixture's [`Then`] step, against what `check` reports then.
+fn compare_lsp(
+    fixture: &str,
+    project: &Project,
+    then: Then,
+    check_keys: &Keys,
+    failures: &mut Vec<String>,
+) {
+    let edited = project.relative(&project.entry);
+    let run = lsp(project, then);
+    let published = as_published(check_keys, &edited);
+    compare(fixture, Surface::Lsp, &published, &run.opened, failures);
+    match (then, run.then) {
+        (Then::ReloadConfig, Some(after)) => compare(
+            fixture,
+            Surface::LspAfterReload,
+            &published,
+            &after,
+            failures,
+        ),
+        (Then::Delete(_), Some(after)) => {
+            let now = as_published(&multiset(check(project)), &edited);
+            compare(fixture, Surface::LspAfterDelete, &now, &after, failures)
+        }
+        _ => {}
+    }
 }
 
 // ── Tests: one per fixture ──────────────────────────────────────────────
@@ -842,6 +823,100 @@ fn watch_rebuilds_what_a_cold_build_builds_on_every_fixture() {
         );
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// On every fixture the LSP publishes what `check` reports: after opening
+/// a file (E025 and W113 from the resolver included), after `specforge.json`
+/// changes (the spec root is indexed again, and everything republished),
+/// and after a file is deleted (the other files keep their extension-rule
+/// diagnostics).
+#[specforge_test(
+    behavior = "shared_incremental_pipeline",
+    verify = "the LSP publishes the diagnostics specforge check reports"
+)]
+fn lsp_publishes_what_check_reports_on_every_fixture() {
+    let mut failures = Vec::new();
+    for &(fixture, entry, then) in FIXTURES {
+        let project = project(fixture, entry);
+        let check_keys = multiset(check(&project));
+        compare_lsp(fixture, &project, then, &check_keys, &mut failures);
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// MCP validate applies the same diagnostic policy as `check`: the
+/// `inferred` lint profile adds I200 (a source changed since it was
+/// inferred) and I202 (dense inference), and strict promotes warnings, on
+/// both surfaces alike.
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "validate with lint profiles reports what specforge check reports with the same profiles"
+)]
+fn mcp_validate_applies_the_lint_profiles_check_applies() {
+    let project = project("product_cycle", "main.spec");
+    fs::create_dir_all(project.root.join("src")).unwrap();
+    fs::write(project.root.join("src/lib.rs"), "fn a() {}\n").unwrap();
+    let manifest = json!({
+        "version": 1,
+        "source_roots": ["src"],
+        "source_index": [{
+            "path": "src/lib.rs",
+            "content_hash": "not-the-hash-of-the-file",
+            "entities_produced": ["a", "b"],
+            "analyzed_at": "2026-01-01T00:00:00Z",
+        }],
+    });
+    fs::write(
+        project.root.join("specforge-infer.json"),
+        manifest.to_string(),
+    )
+    .unwrap();
+
+    for strict in [false, true] {
+        let mut flags = vec!["--lint", "inferred"];
+        if strict {
+            flags.push("--strict");
+        }
+        let out = check_output_with(&project, &flags);
+        let checked = multiset(keys_of(&serde_json::from_str(&out).unwrap()));
+        for code in ["I200", "I202"] {
+            assert!(
+                checked.keys().any(|k| k.starts_with(code)),
+                "check --lint inferred reports no {code}: {checked:?}"
+            );
+        }
+        let validated = mcp_validate(&project, json!({"lint": ["inferred"], "strict": strict}));
+        assert_eq!(validated, checked, "strict: {strict}");
+    }
+}
+
+/// `check --format json` and MCP validate print the same entries, key for
+/// key: one presenter (the nested span and the flat location together).
+#[specforge_test(
+    behavior = "present_diagnostics_as_json",
+    verify = "check and MCP validate present the same diagnostics identically"
+)]
+fn check_and_mcp_validate_present_the_same_json() {
+    let entries = |diagnostics: Value| -> Vec<String> {
+        let mut entries: Vec<String> = diagnostics
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(Value::to_string)
+            .collect();
+        entries.sort();
+        entries
+    };
+    for &(fixture, entry, _) in FIXTURES {
+        let project = project(fixture, entry);
+        let checked: Value = serde_json::from_str(&check_output(&project)).unwrap();
+        let validated = mcp_validate_json(&project, json!({}));
+        assert_eq!(
+            entries(checked),
+            entries(validated),
+            "`{fixture}` is printed differently"
+        );
+    }
 }
 
 /// Every row names a fixture the harness runs, and every fixture exists.

@@ -111,10 +111,11 @@ impl WasmRuntime for MockRuntime {
 // --- Step 6: Protocol extension loaded with MockRuntime ---
 
 // B:dual_mode_loading — verify unit "protocol extension loaded via runtime"
-#[specforge_test(
-    behavior = "load_extension_manifests",
-    verify = "installed extension manifest is loaded"
-)]
+// Not linked to "installed extension manifest is loaded": the mock answers
+// a handshake for any name and never goes through the project runtime.
+// cli/tests/installed_extensions.rs proves that obligation with a real
+// install.
+#[test]
 fn protocol_extension_loaded_with_runtime() {
     let dir = setup_project(
         &["./ext-proto"],

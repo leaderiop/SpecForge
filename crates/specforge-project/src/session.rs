@@ -1,13 +1,13 @@
-//! A long-lived compiled project: what watch holds (and, next, the LSP and
-//! MCP).
+//! A long-lived compiled project: what watch and the LSP hold.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_emitter::compile::check_graph;
 use specforge_graph::{Graph, build_graph_with_config};
 use specforge_parser::SpecFile;
+use specforge_registry::RegistryBuild;
 use specforge_resolver::resolve_parsed;
 use specforge_wasm::WasmRuntime;
 use specforge_watch::{GraphDelta, ImportDag, IncrementalPipeline, compute_graph_delta};
@@ -28,6 +28,18 @@ pub enum SourceChange<'a> {
         path: &'a str,
         text: Option<&'a str>,
     },
+}
+
+/// Which checks an update runs on the updated graph.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CheckMode<'a> {
+    /// Every check `specforge check` runs.
+    Full,
+    /// The editor's fast path while typing: when this file (relative to
+    /// the spec root) has parse errors the graph is broken and the checks
+    /// would evaluate garbage, so they are skipped and only the parse
+    /// layer is reported until it parses again. Otherwise, [`Self::Full`].
+    SyntaxOnlyIfParseErrorsIn(&'a str),
 }
 
 /// What one update of a session did.
@@ -54,7 +66,9 @@ pub struct Update {
 /// updates, [`ProjectSession::diagnostics`] is the set
 /// [`crate::CompiledProject::diagnostics`] reports for the same sources.
 pub struct ProjectSession {
-    env: Environment,
+    /// Shared, so a reader can keep the environment an update started
+    /// from while the session itself is busy.
+    env: Arc<Environment>,
     runtime: Option<SharedRuntime>,
     /// The session built its runtime, so a reload builds a fresh one (the
     /// extensions' `.wasm` files may have changed).
@@ -63,9 +77,35 @@ pub struct ProjectSession {
     import_diagnostics: Vec<Diagnostic>,
     check_diagnostics: Vec<Diagnostic>,
     verify_incremental: bool,
+    /// No project is open (an editor with no workspace folder): files are
+    /// buffers keyed by absolute path, with no spec root to resolve their
+    /// imports against and no environment to reload.
+    detached: bool,
 }
 
 impl ProjectSession {
+    /// A session with no project: no config, no extension and no file
+    /// until a buffer is added.
+    pub fn detached() -> Self {
+        let env = Environment {
+            root: PathBuf::new(),
+            config: ProjectConfig::default(),
+            spec_root: PathBuf::new(),
+            registries: RegistryBuild::default(),
+            load_diagnostics: Vec::new(),
+        };
+        ProjectSession {
+            env: Arc::new(env),
+            runtime: None,
+            owns_runtime: false,
+            pipeline: IncrementalPipeline::empty(),
+            import_diagnostics: Vec::new(),
+            check_diagnostics: Vec::new(),
+            verify_incremental: false,
+            detached: true,
+        }
+    }
+
     /// Open the project at `root`, running its extensions in the project's
     /// own runtime.
     pub fn open(root: &Path) -> Self {
@@ -108,13 +148,14 @@ impl ProjectSession {
         );
 
         let mut session = ProjectSession {
-            env,
+            env: Arc::new(env),
             runtime,
             owns_runtime: false,
             pipeline,
             import_diagnostics: resolved.diagnostics,
             check_diagnostics: Vec::new(),
             verify_incremental: false,
+            detached: false,
         };
         session.check_diagnostics = session.check();
         session
@@ -127,9 +168,14 @@ impl ProjectSession {
         self.pipeline.set_verify_incremental(enabled);
     }
 
-    /// Apply a change to the project's sources. Files an `exclude` entry
-    /// matches are ignored.
+    /// Apply a change to the project's sources, then run every check.
+    /// Files an `exclude` entry matches are ignored.
     pub fn update(&mut self, change: SourceChange<'_>) -> Update {
+        self.update_with(change, CheckMode::Full)
+    }
+
+    /// [`Self::update`], running the checks `mode` asks for.
+    pub fn update_with(&mut self, change: SourceChange<'_>, mode: CheckMode<'_>) -> Update {
         let spec_root = self.env.spec_root.clone();
         let read = |file: &str| std::fs::read_to_string(spec_root.join(file)).ok();
         let result = match change {
@@ -147,7 +193,18 @@ impl ProjectSession {
             SourceChange::Buffer { path, text } => self.pipeline.update_open_file(path, text, read),
         };
         self.import_diagnostics = self.resolve_imports();
-        self.check_diagnostics = self.check();
+        self.check_diagnostics = match mode {
+            CheckMode::SyntaxOnlyIfParseErrorsIn(path)
+                if self
+                    .pipeline
+                    .file_diagnostics(path)
+                    .iter()
+                    .any(|d| d.code == "E001") =>
+            {
+                Vec::new()
+            }
+            _ => self.check(),
+        };
         Update {
             delta: result.delta,
             rebuilt_files: result.rebuilt_files,
@@ -161,6 +218,16 @@ impl ProjectSession {
     /// and rebuild from the sources on disk.
     pub fn reload_environment(&mut self) -> Update {
         let previous = self.pipeline.graph().clone();
+        if self.detached {
+            // Nothing on disk to load again.
+            return Update {
+                delta: compute_graph_delta(&previous, self.graph()),
+                rebuilt_files: Vec::new(),
+                changed_diagnostic_files: Vec::new(),
+                diagnostics: self.diagnostics(),
+                verification: None,
+            };
+        }
         let root = self.env.root.clone();
         let runtime = if self.owns_runtime {
             Some(project_runtime(&root))
@@ -209,6 +276,17 @@ impl ProjectSession {
         &self.env
     }
 
+    /// The environment, shared: it stays valid after the session reloads.
+    pub fn shared_environment(&self) -> Arc<Environment> {
+        Arc::clone(&self.env)
+    }
+
+    /// The runtime the project's extensions run in (none: no extension
+    /// loads).
+    pub fn runtime(&self) -> Option<&SharedRuntime> {
+        self.runtime.as_ref()
+    }
+
     /// The incremental core the session drives (its import DAG, cached
     /// parses and per-file diagnostics).
     pub fn pipeline(&self) -> &IncrementalPipeline {
@@ -221,6 +299,9 @@ impl ProjectSession {
     }
 
     fn resolve_imports(&self) -> Vec<Diagnostic> {
+        if self.detached {
+            return Vec::new();
+        }
         resolve_parsed(
             &self.env.spec_root,
             &self.pipeline.parsed_files(),

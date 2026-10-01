@@ -1,6 +1,5 @@
 mod add;
 mod analyze;
-mod builtins;
 mod check;
 mod collect;
 mod color;
@@ -908,11 +907,12 @@ fn main() {
             format,
             scope.as_deref(),
             // context, brief and a budgeted graph export leave the schema
-            // out unless asked for it.
-            no_schema
-                || (!with_schema
-                    && (matches!(format, ExportFormat::Context | ExportFormat::Brief)
-                        || max_tokens.is_some())),
+            // out unless asked for it (the policy lives in specforge-ops).
+            match (no_schema, with_schema) {
+                (true, _) => specforge_ops::export::Schema::Without,
+                (_, true) => specforge_ops::export::Schema::With,
+                _ => specforge_ops::export::Schema::Default,
+            },
             schema_version.as_deref(),
             max_tokens,
         ),

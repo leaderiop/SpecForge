@@ -98,9 +98,9 @@
       }
     },
     "providers": {
-      "type": "object",
-      "description": "Provider configurations for external reference validation (GitHub, Jira, Figma, etc.).",
-      "additionalProperties": {
+      "type": "array",
+      "description": "Provider configurations for external reference validation (GitHub, Jira, Figma, etc.), in declaration order: when two providers declare one scheme, the first wins (E057). Two instances of one provider use two schemes.",
+      "items": {
         "$ref": "#/$defs/provider"
       }
     },
@@ -166,35 +166,31 @@
   "$defs": {
     "provider": {
       "type": "object",
-      "description": "Configuration for a single provider instance.",
+      "description": "One provider instance: the ref scheme it serves, its alias, the extension that implements it, and that extension's settings.",
       "required": [
-        "package"
+        "scheme",
+        "alias",
+        "extension"
       ],
       "properties": {
-        "package": {
+        "scheme": {
           "type": "string",
-          "description": "Provider package name (e.g., \"@specforge/gh\")."
+          "description": "The ref scheme this instance serves (e.g., \"gh\" for gh:42). Unique across providers."
         },
-        "repo": {
+        "alias": {
           "type": "string",
-          "description": "Repository identifier (provider-specific, e.g., \"org/repo\" for GitHub)."
+          "description": "The instance's name (e.g., \"main\"). Unique across providers."
         },
-        "kinds": {
-          "type": "array",
-          "description": "Valid reference kinds for this provider (e.g., [\"issue\", \"pr\"]).",
-          "items": {
-            "type": "string"
-          }
+        "extension": {
+          "type": "string",
+          "description": "The extension that implements the provider (e.g., \"@acme/github\"); it must be enabled in extensions."
         },
-        "id_patterns": {
+        "settings": {
           "type": "object",
-          "description": "Regex patterns for validating reference identifiers per kind.",
-          "additionalProperties": {
-            "type": "string"
-          }
+          "description": "Provider-specific settings, passed to the extension as they are (e.g., {\"repo\": \"org/repo\"})."
         }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     },
     "persona": {
       "type": "object",

@@ -194,7 +194,9 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
 /// The runtime dispatches by canonical name.
 fn normalize_extension_name(ext_spec: &str) -> String {
     if ext_spec.starts_with('@') {
-        return ext_spec.to_string();
+        // `@scope/name`, or `@scope/name@version` as older `add`s wrote
+        // it: the runtime loads it under its name.
+        return specforge_common::extension_entry_name(ext_spec).to_string();
     }
     let last = std::path::Path::new(ext_spec)
         .file_name()
@@ -224,6 +226,11 @@ pub fn load_extensions(
                 let manifest = protocol_extension_to_manifest(&proto_ext);
                 diagnostics.extend(validate_manifest(&manifest));
                 manifests.push(manifest);
+            }
+            // Why the runtime could not load it (a missing or tampered
+            // installed binary), when it knows.
+            Err(_) if let Some(failure) = runtime.load_failure(&ext_name) => {
+                diagnostics.push(failure);
             }
             Err(e) => {
                 diagnostics.push(Diagnostic {

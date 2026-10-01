@@ -23,6 +23,7 @@ invariant init_config_validity "Init Config Validity" {
   risk      high
   verify property "specforge init output is always valid SpecForgeJsonConfig JSON"
   verify unit "specforge init followed by specforge check produces zero config errors"
+  verify integration "specforge add or the MCP add_extension tool followed by specforge check produces zero errors"
 }
 
 invariant multi_error_collection "Multi-Error Collection" {

@@ -1,8 +1,8 @@
 use specforge_common::{Severity, find_project_root};
 use specforge_emitter::{
-    EmitFormat, EmitOptions, GraphProtocolSchema, SchemaVersion, detect_breaking_with_diagnostics,
-    emit, generate_schema, persist_schema_cache,
+    GraphProtocolSchema, detect_breaking_with_diagnostics, generate_schema, persist_schema_cache,
 };
+use specforge_ops::export;
 use std::path::{Path, PathBuf};
 
 use crate::pipeline;
@@ -38,7 +38,7 @@ pub fn run(
     path: &Path,
     format: ExportFormat,
     scope: Option<&str>,
-    no_schema: bool,
+    schema: export::Schema,
     schema_version: Option<&str>,
     max_tokens: Option<usize>,
 ) -> i32 {
@@ -59,7 +59,7 @@ pub fn run(
         &generated,
         format,
         scope,
-        no_schema,
+        schema,
         schema_version,
         max_tokens,
     ) {
@@ -98,65 +98,33 @@ fn render_export(
     generated: &GraphProtocolSchema,
     format: ExportFormat,
     scope: Option<&str>,
-    no_schema: bool,
+    schema: export::Schema,
     schema_version: Option<&str>,
     max_tokens: Option<usize>,
 ) -> Result<String, i32> {
-    let fmt = match format {
-        ExportFormat::Graph => EmitFormat::Json,
-        ExportFormat::Brief => EmitFormat::Brief,
-        ExportFormat::Context => EmitFormat::Context,
-        ExportFormat::Dot => EmitFormat::Dot,
+    let format = match format {
+        ExportFormat::Graph => export::Format::Graph,
+        ExportFormat::Brief => export::Format::Brief,
+        ExportFormat::Context => export::Format::Context,
+        ExportFormat::Dot => export::Format::Dot,
     };
-
-    let emitted = if no_schema || fmt == EmitFormat::Dot {
-        let options = EmitOptions {
-            format: fmt,
-            scope,
-            schema: None,
-            token_budget: max_tokens,
-            kind_registry: Some(&ctx.kind_registry),
-            field_registry: Some(&ctx.field_registry),
-            ..Default::default()
-        };
-        emit(&ctx.graph, &options)
-    } else {
-        let mut schema = generated.clone();
-
-        if let Some(ver_str) = schema_version {
-            match ver_str.parse::<SchemaVersion>() {
-                Ok(requested) => {
-                    // Real negotiation: same major as the produced schema,
-                    // minor/patch from 0 up to the produced version.
-                    let max = schema.schema_version.clone();
-                    let min = specforge_emitter::SchemaVersion::new(max.major, 0, 0);
-                    if let Err(e) = specforge_emitter::negotiate_version(&requested, &min, &max) {
-                        eprintln!("{}", e);
-                        return Err(1);
-                    }
-                    schema.schema_version = requested;
-                }
-                Err(e) => {
-                    eprintln!("invalid --schema-version: {}", e);
-                    return Err(1);
-                }
-            }
-        }
-
-        let options = EmitOptions {
-            format: fmt,
-            scope,
-            schema: Some(&schema),
-            token_budget: max_tokens,
-            field_registry: Some(&ctx.field_registry),
-            ..Default::default()
-        };
-        emit(&ctx.graph, &options)
+    let project = export::Project {
+        graph: &ctx.graph,
+        kinds: &ctx.kind_registry,
+        fields: &ctx.field_registry,
+        schema: generated,
     };
-
-    emitted.map_err(|err| {
-        eprintln!("{}", err);
-        err.exit_code()
+    let request = export::Request {
+        format: Some(format),
+        scope,
+        max_tokens,
+        schema,
+        schema_version,
+        ..export::Request::default()
+    };
+    export::export(&project, &request).map_err(|err| {
+        eprintln!("{}", err.message);
+        1
     })
 }
 

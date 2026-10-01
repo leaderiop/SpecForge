@@ -33,6 +33,7 @@ pub use compilation::{
     HOST_API_VERSION,
     ProviderConfig,
     ProviderSchemeRegistry,
+    ProviderStatus,
     RegistryBuild,
     SchemeRegistryEntry,
     // populate
@@ -54,6 +55,7 @@ pub use compilation::{
     // contributions
     register_extension_entity_types,
     register_provider_schemes,
+    register_provider_schemes_with_status,
     register_validation_rules,
     register_verify_kinds,
     validate_extension_testability,

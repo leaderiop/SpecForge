@@ -740,14 +740,18 @@ fn graph_resource_kinds_filter() {
 #[test]
 fn graph_resource_max_tokens_budgets() {
     let mut server = test_server();
+    // The budgeted export leaves the schema out and fits the budget, or
+    // fails with E062 when not even the empty envelope fits, as
+    // `specforge export --max-tokens` does (ADR 0004 D3-a).
     let resp = read_resource(&mut server, "specforge://graph?max_tokens=1");
-    let parsed: Value = serde_json::from_str(&resource_text(&resp)).unwrap();
-    let nodes = parsed["nodes"].as_array().unwrap();
-    assert_eq!(
-        nodes.len(),
-        1,
-        "a one-token budget must trim to the last keepable node"
-    );
+    let message = resp["error"]["message"].as_str().unwrap_or_default();
+    assert!(message.starts_with("E062"), "{resp}");
+
+    let resp = read_resource(&mut server, "specforge://graph?max_tokens=200");
+    let text = resource_text(&resp);
+    let parsed: Value = serde_json::from_str(&text).unwrap();
+    assert!(parsed.get("schema").is_none(), "{parsed}");
+    assert!(specforge_emitter::estimate_tokens(&text) <= 200, "{text}");
 }
 
 // B:expose_context_as_mcp_resource — verify unit "context entity template scopes to the subgraph"

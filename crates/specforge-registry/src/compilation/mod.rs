@@ -14,9 +14,10 @@ pub use detection::{
 };
 pub use populate::{apply_entity_enhancements, populate_registries};
 pub use provider::{
-    ProviderConfig, ProviderSchemeRegistry, SchemeRegistryEntry, load_extension_manifests,
-    load_provider_configurations, register_extension_entity_types, register_provider_schemes,
-    validate_provider_kinds, validate_provider_ref, validate_ref_target_format,
+    ProviderConfig, ProviderSchemeRegistry, ProviderStatus, SchemeRegistryEntry,
+    load_extension_manifests, load_provider_configurations, register_extension_entity_types,
+    register_provider_schemes, register_provider_schemes_with_status, validate_provider_kinds,
+    validate_provider_ref, validate_ref_target_format,
 };
 pub use validate::{
     HOST_API_VERSION, detect_circular_peer_dependencies, detect_duplicate_entity_kinds,

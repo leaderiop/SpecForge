@@ -4,12 +4,15 @@ expression: mcp_snap
 ---
 {
   "check": {
-    "diagnostics": [],
+    "diagnostics": [
+      "Warning W001"
+    ],
     "ok": true
   },
   "config": {
     "extensions": [
-      "@specforge/software"
+      "@specforge/software",
+      "@specforge/product"
     ],
     "name": "demo",
     "registries": [
@@ -25,11 +28,13 @@ expression: mcp_snap
   "files": {
     "spec/main.spec": "behavior alpha \"Alpha\" {\n  category \"core\"\n  contract \"The system MUST work\"\n}\n"
   },
-  "ok": false,
+  "ok": true,
   "payload": {
-    "error": {
-      "code": -32602,
-      "message": "R005: Registry network error: error sending request for url (http://127.0.0.1:9/v1/packages/@specforge%2Fproduct)"
-    }
+    "changed": true,
+    "extension": "@specforge/product",
+    "installed": true,
+    "note": "re-run specforge.analyze (use_cached=false) to load it",
+    "peers_enabled": [],
+    "source": "builtin"
   }
 }

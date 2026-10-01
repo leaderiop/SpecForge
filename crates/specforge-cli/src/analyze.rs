@@ -160,15 +160,10 @@ pub fn run(
 
     // Apply strictness and compute the error state uniformly across every
     // report source (built-in passes, extension passes, prove).
+    let policy = specforge_project::DiagnosticPolicy::strict(strict);
     let mut has_errors = false;
     for report in &mut reports {
-        if strict {
-            for d in &mut report.findings {
-                if d.severity == Severity::Warning {
-                    d.severity = Severity::Error;
-                }
-            }
-        }
+        policy.promote(&mut report.findings);
         if report
             .findings
             .iter()

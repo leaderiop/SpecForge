@@ -372,6 +372,7 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" },
                     "severity_filter": { "type": "string", "description": "Only report diagnostics of this severity (error, warning, info)" },
                     "strict": { "type": "boolean", "description": "Promote warnings to errors, before severity_filter applies", "default": false },
+                    "lint": { "type": "array", "items": { "type": "string" }, "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json)" },
                     "use_cached": { "type": "boolean", "description": "Report cached diagnostics from the last compile instead of recompiling", "default": false }
                 }
             }),
@@ -400,7 +401,9 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                 "properties": {
                     "format": { "type": "string", "enum": ["graph", "context", "brief"], "default": "graph" },
                     "scope": { "type": "string", "description": "Scope to entity subgraph" },
-                    "max_tokens": { "type": "integer", "description": "Optional token budget; truncates the export to the most central entities that fit" }
+                    "max_tokens": { "type": "integer", "description": "Optional token budget; truncates the export to the most central entities that fit" },
+                    "with_schema": { "type": "boolean", "description": "Embed the Graph Protocol schema in a context, brief or budgeted graph export (a full graph export embeds it already); under max_tokens it counts toward the budget" },
+                    "no_schema": { "type": "boolean", "description": "Leave the schema out of a graph export (Graph Protocol 1.0)" }
                 }
             }),
             category: Some("core".into()),
@@ -650,7 +653,7 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                     "path": { "type": "string", "description": "Directory for the new project, outside the current one" },
                     "name": { "type": "string", "description": "Project name (defaults to the directory name)" },
                     "version": { "type": "string", "description": "Project version", "default": "0.1.0" },
-                    "extensions": { "type": "array", "items": { "type": "string" }, "description": "Builtin extensions to enable, e.g. @specforge/software" }
+                    "extensions": { "type": "array", "items": { "type": "string" }, "description": "Builtin extensions to enable (e.g. @specforge/software) and local .wasm files to install" }
                 },
                 "required": ["path"]
             }),
