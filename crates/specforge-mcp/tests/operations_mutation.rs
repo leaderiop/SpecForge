@@ -412,6 +412,60 @@ fn rename_rewrites_the_declaration_and_every_reference() {
     assert_eq!(references(&server, "login"), ["token_distinct"]);
 }
 
+/// Each `(field, type)` of a spec type holds in `value`: `string`,
+/// `integer`, `boolean`, or `string[]`.
+fn assert_fields(value: &Value, fields: &[(&str, &str)]) {
+    for (field, kind) in fields {
+        let v = &value[*field];
+        let holds = match *kind {
+            "string" => v.is_string(),
+            "integer" => v.is_u64() || v.is_i64(),
+            "boolean" => v.is_boolean(),
+            "string[]" => v.as_array().is_some_and(|a| a.iter().all(Value::is_string)),
+            other => panic!("no check for {other}"),
+        };
+        assert!(holds, "{field} is not {kind}: {value}");
+    }
+}
+
+#[specforge_test(type = "McpRenameResult", verify = "McpRenameResult schema is valid")]
+fn rename_result_is_an_mcp_rename_result() {
+    let (mut server, _root) = server_with_token_project();
+
+    let parsed = rename(
+        &mut server,
+        json!({"entity_id": "token_unique", "new_name": "token_distinct", "dry_run": true}),
+    );
+
+    assert_fields(
+        &parsed,
+        &[
+            ("old_name", "string"),
+            ("new_name", "string"),
+            ("affected_files", "string[]"),
+        ],
+    );
+    assert_eq!(
+        parsed["affected_files"],
+        json!(["spec/login.spec", "spec/tokens.spec"]),
+        "{parsed}"
+    );
+    let edits = parsed["edits"].as_array().unwrap();
+    assert_eq!(edits.len(), 2, "{parsed}");
+    for edit in edits {
+        assert_fields(
+            edit,
+            &[
+                ("file", "string"),
+                ("line", "integer"),
+                ("start_col", "integer"),
+                ("end_col", "integer"),
+                ("new_text", "string"),
+            ],
+        );
+    }
+}
+
 /// With `spec_root` set, spans are relative to the spec root, not the
 /// project root: rename must read and write the files there (plan 01, D8).
 #[specforge_test(

@@ -260,9 +260,22 @@ type McpCoverageResult {
 type McpRenameResult {
   old_name       string @readonly
   new_name       string @readonly
-  affected_files integer
-  edits          TextEdit[]
+  /// The files the rename edits, relative to the spec root.
+  affected_files string[]
+  edits          McpRenameEdit[]
   verify unit "McpRenameResult schema is valid"
+}
+
+type McpRenameEdit "One occurrence of the old identifier a rename replaces" {
+  /// The file, relative to the spec root.
+  file      string @readonly
+  /// 1-based line.
+  line      integer
+  /// Byte columns of the occurrence on its line.
+  start_col integer
+  end_col   integer
+  new_text  string
+  verify unit "McpRenameEdit schema is valid"
 }
 
 type McpTracePlanResult "Trace tool response when plan parameter is provided" {

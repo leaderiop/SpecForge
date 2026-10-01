@@ -79,7 +79,7 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     dry_run_side_effect_freedom,
   ]
   category   mutation
-  types      [McpRenameResult, TextEdit, McpToolDescriptor]
+  types      [McpRenameResult, McpRenameEdit, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed]
   requires {
@@ -98,8 +98,8 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     accepts entity_id (required), new_name (required), and dry_run? (optional
     boolean, default false). The tool MUST rename the entity and update all
     references across all spec files. The response MUST include the list of
-    TextEdit operations applied. When dry_run is true, the tool MUST return
-    the rename plan (affected files and TextEdit operations) without applying
+    McpRenameEdit operations applied. When dry_run is true, the tool MUST return
+    the rename plan (affected files and McpRenameEdit operations) without applying
     any changes. If the entity does not exist, the tool MUST return an error.
     If new_name is invalid (e.g., not a legal entity ID), the tool MUST return
     a validation error. After a successful rename, the tool MUST trigger
