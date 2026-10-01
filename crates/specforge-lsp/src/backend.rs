@@ -403,26 +403,10 @@ pub fn uri_to_file_path(uri: &Url) -> String {
         .unwrap_or_else(|_| uri.to_string())
 }
 
-/// docs/diagnostics.md as built into this binary: the anchors a docs link
-/// may point at.
-const DIAGNOSTICS_DOC: &str = include_str!("../../../docs/diagnostics.md");
-
-/// The page on the canonical repository (the workspace's Cargo
-/// `repository`, ADR 0004 D6-b) that documents every catalogued code.
-const DIAGNOSTICS_DOC_URL: &str = concat!(
-    env!("CARGO_PKG_REPOSITORY"),
-    "/blob/main/docs/diagnostics.md"
-);
-
-/// The docs link for `code`, or `None` when docs/diagnostics.md has no
-/// section for it (a third-party code, or anything outside the catalog).
+/// The docs link for `code`, or `None` when the catalog has no entry for it
+/// (a third-party code, or anything outside the catalog).
 fn docs_href(code: &str) -> Option<Url> {
-    let heading = format!("## {code}");
-    DIAGNOSTICS_DOC
-        .lines()
-        .any(|line| line == heading)
-        .then(|| Url::parse(&format!("{DIAGNOSTICS_DOC_URL}#{}", code.to_lowercase())).ok())
-        .flatten()
+    specforge_diagnostics::docs_href(code).and_then(|href| Url::parse(&href).ok())
 }
 
 fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic, content: Option<&str>) -> Diagnostic {
@@ -449,8 +433,8 @@ fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic, content: Option<&str>)
     Diagnostic {
         range,
         code: Some(NumberOrString::String(diag.code.clone())),
-        // C4-10: editors can render this as a "view docs" link; the target
-        // page is generated from the `specforge explain` catalog.
+        // C4-10: editors can render this as a "view docs" link to the
+        // code's section of docs/diagnostics.md.
         code_description: docs_href(&diag.code).map(|href| CodeDescription { href }),
         severity: Some(match diag.severity {
             specforge_common::Severity::Error => DiagnosticSeverity::ERROR,

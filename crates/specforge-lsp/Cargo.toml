@@ -11,6 +11,7 @@ name = "tests"
 path = "tests/main.rs"
 
 [dependencies]
+specforge-diagnostics = { path = "../specforge-diagnostics" }
 specforge-common = { workspace = true }
 specforge-emitter = { path = "../specforge-emitter" }
 specforge-formatter = { workspace = true }
