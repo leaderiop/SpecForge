@@ -168,8 +168,35 @@ fn the_gate_percentage_is_proven_over_testable_and_vacuous_without_testables() {
     let mut summary = Summary::default();
     assert_eq!(summary.proof_pct(), 100.0);
     summary.testable_total = 4;
-    summary.discharge_funnel.entities_proven = 1;
+    summary.testable_proven = 1;
     assert_eq!(summary.proof_pct(), 25.0);
+}
+
+#[specforge_test(
+    behavior = "te_coverage_gate",
+    verify = "a proven entity whose kind is not testable does not raise the gate"
+)]
+fn only_testable_entities_count_toward_the_gate() {
+    let (_, out) = assess_input(json!({
+        "entities": [
+            {"id": "login", "kind": "behavior", "testable": true,
+             "verify_kinds": ["unit"], "verify_texts": ["a known user logs in"]},
+            {"id": "logout", "kind": "behavior", "testable": true,
+             "verify_kinds": ["unit"], "verify_texts": ["the session ends"]},
+            {"id": "no_lost_login", "kind": "property", "testable": false,
+             "verify_kinds": ["unit"], "verify_texts": ["no login is lost"]}
+        ],
+        "test_results": {"results": {
+            "login": {"tests": [{"name": "t", "status": "pass", "verify": "a known user logs in"}]},
+            "no_lost_login": {"tests": [{"name": "u", "status": "pass", "verify": "no login is lost"}]}
+        }}
+    }));
+    // Both proven entities are in the funnel; only the testable one is
+    // in the gate's numerator.
+    assert_eq!(out.summary.discharge_funnel.entities_proven, 2);
+    assert_eq!(out.summary.testable_proven, 1);
+    assert_eq!(out.summary.testable_total, 2);
+    assert_eq!(out.summary.proof_pct(), 50.0);
 }
 
 /// `tests/fixtures/coverage-cases.json`: the rule's golden vectors. The

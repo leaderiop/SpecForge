@@ -240,20 +240,25 @@ pub fn run(
             );
             return 2;
         };
-        let total = coverage_report.summary["testable_total"]
-            .as_u64()
-            .unwrap_or(0);
-        let proven = coverage_report.summary["discharge_funnel"]["entities_proven"]
-            .as_u64()
-            .unwrap_or(0);
-        let pct = if total == 0 {
-            100.0 // nothing testable: the gate is vacuously satisfied
-        } else {
-            proven as f64 * 100.0 / total as f64
+        // The pass's summary is the coverage rule's typed `Summary`: a
+        // missing or renamed key is an error, never a silent 0.
+        let summary: specforge_emitter::coverage::Summary = match serde_json::from_value(
+            coverage_report.summary.clone(),
+        ) {
+            Ok(summary) => summary,
+            Err(e) => {
+                eprintln!(
+                    "error: the coverage pass summary is not the shape this specforge reads ({e}); update @specforge/testing"
+                );
+                return 2;
+            }
         };
+        // Nothing testable satisfies any threshold.
+        let pct = summary.proof_pct();
         if pct + f64::EPSILON < min_pct {
             eprintln!(
-                "error[E048]: proof coverage {pct:.1}% is below the required minimum {min_pct:.1}% ({proven}/{total} entities proven)"
+                "error[E048]: proof coverage {pct:.1}% is below the required minimum {min_pct:.1}% ({}/{} testable entities proven)",
+                summary.testable_proven, summary.testable_total
             );
             return 1;
         }

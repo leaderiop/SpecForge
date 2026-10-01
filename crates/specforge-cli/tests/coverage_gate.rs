@@ -97,6 +97,51 @@ fn min_gate_fails_when_coverage_below_threshold() {
     assert!(stderr.contains("below the required minimum"), "{stderr}");
 }
 
+#[specforge_test(
+    behavior = "te_coverage_gate",
+    verify = "a proven entity whose kind is not testable does not raise the gate"
+)]
+fn a_feature_with_a_passing_test_does_not_raise_the_gate() {
+    let tmp = TempDir::new().unwrap();
+    std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+    std::fs::write(
+        tmp.path().join("specforge.json"),
+        r#"{"name":"cov","spec_root":"src","extensions":["@specforge/software","@specforge/testing","@specforge/product"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        tmp.path().join("src/a.spec"),
+        "type widget \"Widget\" {\n  id string @unique\n  verify unit \"widget valid\"\n}\n\n\
+         feature signin \"Sign in\" {\n  problem \"Users cannot reach their data\"\n  solution \"Let them log in\"\n}\n",
+    )
+    .unwrap();
+    // The only testable entity's test fails; the feature's passes.
+    std::fs::write(
+        tmp.path().join("specforge-report.json"),
+        r#"{"runner":"r","results":{
+            "widget":{"tests":[{"name":"w","status":"fail","verify":"widget valid"}]},
+            "signin":{"tests":[{"name":"s","status":"pass"}]}}}"#,
+    )
+    .unwrap();
+    let out = specforge()
+        .args([
+            "analyze",
+            "--path",
+            tmp.path().to_str().unwrap(),
+            "coverage",
+            "--min",
+            "50",
+        ])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{stderr}");
+    assert!(
+        stderr.contains("proof coverage 0.0%") && stderr.contains("(0/1 testable entities proven)"),
+        "{stderr}"
+    );
+}
+
 #[specforge_test(behavior = "te_coverage_gate", verify = "the gate needs test results")]
 fn min_requires_test_results() {
     let tmp = TempDir::new().unwrap();

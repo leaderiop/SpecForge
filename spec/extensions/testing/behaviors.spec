@@ -106,7 +106,9 @@ behavior te_coverage_gate "Proof Coverage Gate" {
   contract """
     `specforge analyze coverage --min N` MUST exit non-zero (E048) when
     the share of testable entities the coverage pass proved is below N
-    percent, after printing the full analysis. It needs test results
+    percent, after printing the full analysis. A proven entity of a kind
+    that is not testable counts in the discharge funnel but not toward
+    the gate: the summary's testable_proven is its numerator. It needs test results
     (the project's specforge-report.json or --test-results) and the
     coverage pass, and a project with nothing testable satisfies any
     threshold.
@@ -119,4 +121,5 @@ behavior te_coverage_gate "Proof Coverage Gate" {
   verify unit "coverage at or above the threshold passes"
   verify unit "coverage below the threshold fails with E048"
   verify unit "the gate needs test results"
+  verify unit "a proven entity whose kind is not testable does not raise the gate"
 }

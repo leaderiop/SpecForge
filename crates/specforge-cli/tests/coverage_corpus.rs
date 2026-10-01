@@ -204,11 +204,13 @@ fn fx1_analyze_coverage_today() {
         "{summary}"
     );
     // login, Payload, plus logout (zero obligations, passing test: D2-a,
-    // S10) and the feature signin (not testable: S9).
+    // S10) and the feature signin, which is not testable, so the gate's
+    // numerator leaves it out (S9).
     assert_eq!(
         summary["discharge_funnel"]["entities_proven"], 4,
         "{summary}"
     );
+    assert_eq!(summary["testable_proven"], 3, "{summary}");
 
     let expected: Vec<(String, String)> = [
         ("A001", "behavior 'logout' declares no verify obligations"),

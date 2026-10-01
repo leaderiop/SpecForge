@@ -228,6 +228,10 @@ pub struct Summary {
     pub testable_total: usize,
     /// Testable entities that declare at least one obligation.
     pub testable_verified: usize,
+    /// Testable entities [`Verdict::is_proven`] holds for: the `--min`
+    /// gate's numerator. (`discharge_funnel.entities_proven` counts proven
+    /// entities of every kind.)
+    pub testable_proven: usize,
     pub obligations: usize,
     /// Obligations per verify kind (`untyped` for a bare `verify`).
     pub obligation_kinds: BTreeMap<String, usize>,
@@ -240,13 +244,13 @@ pub struct Summary {
 }
 
 impl Summary {
-    /// The `--min` gate's percentage: proven entities over testable ones.
-    /// Nothing testable satisfies any threshold (100%).
+    /// The `--min` gate's percentage: proven testable entities over
+    /// testable ones. Nothing testable satisfies any threshold (100%).
     pub fn proof_pct(&self) -> f64 {
         if self.testable_total == 0 {
             100.0
         } else {
-            self.discharge_funnel.entities_proven as f64 * 100.0 / self.testable_total as f64
+            self.testable_proven as f64 * 100.0 / self.testable_total as f64
         }
     }
 }
@@ -280,7 +284,7 @@ pub fn assess(
     let mut findings = Vec::new();
     let mut verdicts = BTreeMap::new();
     let mut obligation_kinds: BTreeMap<String, usize> = BTreeMap::new();
-    let (mut testable_total, mut testable_verified) = (0usize, 0usize);
+    let (mut testable_total, mut testable_verified, mut testable_proven) = (0usize, 0usize, 0usize);
     let mut funnel = Funnel::default();
     let (mut invariant_orphans, mut obligations_proven) = (0usize, 0usize);
     // risk -> (invariants, invariants without obligations)
@@ -350,6 +354,9 @@ pub fn assess(
             }
             if verdict.is_proven() {
                 funnel.entities_proven += 1;
+                if entity.testable {
+                    testable_proven += 1;
+                }
             }
         }
         let failed: Vec<&str> = tests
@@ -442,6 +449,7 @@ pub fn assess(
     let summary = Summary {
         testable_total,
         testable_verified,
+        testable_proven,
         obligations: obligation_kinds.values().sum(),
         obligation_kinds,
         invariant_enforced: invariant_total - invariant_orphans,
