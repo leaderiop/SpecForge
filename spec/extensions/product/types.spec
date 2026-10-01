@@ -41,8 +41,8 @@ type ArtifactType {
   verify property "ArtifactType"
 }
 
-// Module family is an open enum with a recommended standard set. No rule
-// checks the value.
+// Module family is an open enum with a recommended standard set. A value
+// outside it produces I062 (info).
 type ModuleFamily {
   values [core, platform, extension, integration, advisory]
   verify property "ModuleFamily"
@@ -163,7 +163,7 @@ type ProductMilestone {
 
 type ProductModule {
   // Standard values: core, platform, extension, integration, advisory.
-  // See ModuleFamily enum (not enforced).
+  // See ModuleFamily enum (other values produce I062).
   family      ModuleFamily @optional
   description string       @optional
   features    EntityId[]   @optional

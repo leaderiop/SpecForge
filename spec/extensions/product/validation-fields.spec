@@ -156,13 +156,14 @@ behavior validate_module_family_field "Validate Module Family Field" {
   category validation
   types    [Diagnostic, ProductModule, ModuleFamily]
   contract """
-    The @specforge/product extension SHOULD validate that when a module's
-    family field is present, its value is one of the ModuleFamily enum
-    members: core, platform, extension, integration, advisory. Non-standard
-    family values SHOULD produce an I062 info diagnostic with a fuzzy-match
-    suggestion from the ModuleFamily enum. Info-level allows custom family
-    values while suggesting standardization. The ModuleFamily enum is an
-    open set — custom values are valid but produce informational notices.
+    The @specforge/product extension MUST declare a field_value_constraint
+    one_of rule on the module family field with the ModuleFamily members:
+    core, platform, extension, integration, advisory. A module whose family
+    is present and not one of them MUST produce an I062 info diagnostic:
+    "module '{id}' has non-standard family '{value}' — standard families:
+    core, platform, extension, integration, advisory". Info-level allows
+    custom family values while suggesting standardization: the ModuleFamily
+    enum is an open set. A module with no family field produces nothing.
 
     Enum semantics:
       core        — fundamental library or framework component
@@ -175,13 +176,13 @@ behavior validate_module_family_field "Validate Module Family Field" {
     fires_non_standard  "module with family value not in ModuleFamily enum produces I062"
     suppresses_standard "module with family value in ModuleFamily enum suppresses I062"
     absent_passes       "module with no family produces no I062"
-    suggests_match      "I062 includes fuzzy-match suggestion from ModuleFamily enum"
+    lists_standard      "I062 names the value and lists the standard families"
   }
   features [pe_validation_suite]
   verify unit "module with family=core passes"
   verify unit "module with family=integration passes"
   verify unit "module with family=advisory passes"
-  verify unit "module with non-standard family produces I062 with suggestion"
+  verify unit "module with non-standard family produces I062 listing the standard families"
   verify unit "module with no family produces no I062"
 }
 
@@ -189,12 +190,14 @@ behavior validate_milestone_target_date_format "Validate Milestone Target Date F
   category validation
   types    [Diagnostic, ProductMilestone]
   contract """
-    The @specforge/product extension SHOULD validate that when a milestone's
-    target_date field is present, its value matches the ISO 8601 date format
-    YYYY-MM-DD. Invalid formats SHOULD produce an I053 info diagnostic.
-    Uses a field_value_constraint validation pattern with regex
-    ^\d{4}-\d{2}-\d{2}$. Info-level respects incremental adoption —
-    projects may use free-form dates before standardizing.
+    The @specforge/product extension MUST declare a field_value_constraint
+    matches rule on the milestone target_date field with the regex
+    ^\d{4}-\d{2}-\d{2}$ (YYYY-MM-DD). A milestone whose target_date is
+    present and doesn't match MUST produce an I053 info diagnostic:
+    "milestone '{id}' has target_date '{value}' — expected YYYY-MM-DD".
+    The regex checks the shape only, not that the date exists. Info-level
+    respects incremental adoption — projects may use free-form dates
+    before standardizing.
   """
   ensures {
     fires_invalid_format "milestone with non-YYYY-MM-DD target_date produces I053"
@@ -211,17 +214,19 @@ behavior validate_deliverable_version_format "Validate Deliverable Version Forma
   category validation
   types    [Diagnostic, ProductDeliverable]
   contract """
-    The @specforge/product extension SHOULD validate that when a deliverable's
-    version field is present, its value conforms to Semantic Versioning 2.0.0
-    (https://semver.org). The full regex is:
+    The @specforge/product extension MUST declare a field_value_constraint
+    matches rule on the deliverable version field that accepts Semantic
+    Versioning 2.0.0 (https://semver.org). The regex is:
       ^\d+\.\d+\.\d+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?(\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$
     This accepts:
       - Core versions: 1.0.0, 0.1.0, 2.3.4
       - Pre-release tags: 1.0.0-alpha, 1.0.0-alpha.1, 1.0.0-0.3.7
       - Build metadata: 1.0.0+build.42, 1.0.0-beta+exp.sha.5114f85
-    Invalid formats (e.g., "v1.0", "1.0", "latest") SHOULD produce an I061
-    info diagnostic. Info-level respects incremental adoption — projects may
-    use free-form versions before standardizing.
+    A deliverable whose version is present and doesn't match (e.g., "v1.0",
+    "1.0", "latest") MUST produce an I061 info diagnostic: "deliverable
+    '{id}' has version '{value}' — expected semver (e.g., 1.0.0)".
+    Info-level respects incremental adoption — projects may use free-form
+    versions before standardizing.
   """
   ensures {
     fires_invalid_format   "deliverable with non-semver version produces I061"
@@ -243,48 +248,59 @@ behavior validate_tag_format "Validate Tag Format" {
   category validation
   types    [Diagnostic]
   contract """
-    The @specforge/product extension SHOULD validate that tags on all 9 entity
-    kinds follow the naming convention: lowercase, hyphen-separated, matching
-    the pattern [a-z0-9][a-z0-9-]*[a-z0-9] with minimum length 2 and maximum
-    length 50. Tags violating this pattern SHOULD produce an I068 info diagnostic
-    with a suggested normalized form (lowercased, spaces/underscores replaced
-    with hyphens, trimmed to 50 chars). Empty strings in tags arrays are silently
-    ignored without diagnostics.
+    The @specforge/product extension MUST declare, for each of its 9 entity
+    kinds, a field_value_constraint matches rule on the tags field. The
+    rule sees the tags list joined with ", ", and its regex accepts a list
+    whose every entry is empty or matches [a-z0-9][a-z0-9-]{0,48}[a-z0-9]:
+    lowercase letters, digits and hyphens, 2 to 50 characters, not starting
+    or ending with a hyphen. An entity with any other tag MUST produce one
+    I068 info diagnostic naming its tags: "{kind} '{id}' has a tag that is
+    not lowercase-hyphenated (2-50 of a-z, 0-9, -, not starting or ending
+    with -): tags [{value}]". Empty strings in tags arrays are ignored.
+    Entities of other extensions' kinds are not checked.
   """
   ensures {
-    fires_on_uppercase     "tag with uppercase characters produces I068 with lowercased suggestion"
-    fires_on_spaces        "tag with spaces produces I068 with hyphenated suggestion"
-    fires_on_underscores   "tag with underscores produces I068 with hyphenated suggestion"
+    fires_on_uppercase     "tag with uppercase characters produces I068"
+    fires_on_spaces        "tag with spaces produces I068"
+    fires_on_underscores   "tag with underscores produces I068"
     fires_on_single_char   "single-character tag produces I068"
-    fires_on_too_long      "tag exceeding 50 characters produces I068 with truncated suggestion"
+    fires_on_too_long      "tag exceeding 50 characters produces I068"
     suppresses_valid       "tag matching [a-z0-9][a-z0-9-]*[a-z0-9] suppresses I068"
     ignores_empty          "empty string in tags array is silently ignored"
     fires_on_special_chars "tag with special characters (!, @, #, etc.) produces I068"
   }
   features [pe_validation_suite]
   verify unit "lowercase hyphen-separated tag passes"
-  verify unit "uppercase tag produces I068 with lowercase suggestion"
-  verify unit "tag with spaces produces I068 with hyphenated suggestion"
+  verify unit "uppercase tag produces I068"
+  verify unit "tag with spaces produces I068"
+  verify unit "tag with underscores produces I068"
+  verify unit "tag with special characters produces I068"
   verify unit "single-character tag produces I068"
   verify unit "tag exceeding 50 chars produces I068"
   verify unit "empty string in tags array is silently ignored"
+  verify unit "tags on every product kind are checked"
 }
 
 behavior validate_journey_flow_non_empty "Validate Journey Flow Non-Empty" {
   category validation
   types    [ProductJourney, Diagnostic]
   contract """
-    The @specforge/product extension SHOULD detect journeys with an empty
-    flow field. Journeys without flow steps SHOULD produce an I050 info
-    diagnostic. A journey with at least one flow step is valid.
+    The @specforge/product extension MUST declare a field_value_constraint
+    non_empty rule on the journey flow field. A journey that declares an
+    empty flow (flow []) MUST produce an I050 info diagnostic: "journey
+    '{id}' has an empty flow". A journey with no flow field at all gets the
+    core's E006 instead, since flow is required, and no I050. A journey
+    with at least one flow step is valid.
   """
   ensures {
     fires_when_empty     "journey with empty flow produces I050"
     suppresses_non_empty "journey with at least one flow step suppresses I050"
+    missing_is_e006      "journey without a flow field produces E006 and no I050"
   }
   features [pe_validation_suite]
   verify unit "journey with empty flow produces I050"
   verify unit "journey with flow steps suppresses I050"
+  verify unit "journey without a flow field produces E006 and no I050"
 }
 
 behavior validate_channel_references "Validate Channel References" {
@@ -309,24 +325,22 @@ behavior detect_term_see_also_non_term_refs "Detect Term See-Also Non-Term Refer
   category validation
   types    [Diagnostic, ProductTerm]
   contract """
-    The @specforge/product extension SHOULD detect when a term's see_also
-    field references entities that are NOT term entities. Per decision
-    pe_term_see_also_term_only, only term-to-term references create
-    TermReferencesRelatedTerm graph edges; cross-kind references pass E001 resolution
-    but are documentation-only and produce no edges. This behavior SHOULD
-    produce an I056 info diagnostic for each non-term reference in
-    see_also to inform the user that no graph edge was created.
+    A term's see_also field is declared as a reference list targeting
+    terms. Per decision pe_term_see_also_term_only, a see_also entry that
+    resolves to an entity of another kind is the core's E022 error
+    ("reference targets wrong kind"); the product extension declares no
+    rule of its own for it, and no I056 exists.
   """
   ensures {
-    fires_non_term  "see_also reference to a non-term entity produces I056"
-    suppresses_term "see_also reference to another term produces no I056"
-    empty_passes    "term with empty see_also produces no I056"
+    fires_non_term  "see_also reference to a non-term entity produces E022"
+    suppresses_term "see_also reference to another term produces no E022"
+    empty_passes    "term with empty see_also produces no E022"
   }
   features [pe_validation_suite]
-  verify unit "term see_also referencing another term produces no I056"
-  verify unit "term see_also referencing a module produces I056"
-  verify unit "term see_also referencing a feature produces I056"
-  verify unit "term with empty see_also produces no I056"
+  verify unit "term see_also referencing another term produces no E022"
+  verify unit "term see_also referencing a module produces E022"
+  verify unit "term see_also referencing a feature produces E022"
+  verify unit "term with empty see_also produces no E022"
 }
 
 behavior detect_term_alias_conflicts "Detect Term Alias Conflicts" {

@@ -640,6 +640,20 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A `feature` has no `acceptance` field, or an empty one. Add acceptance criteria describing when the feature is done; they can be added progressively.",
     },
     CodeEntry {
+        code: "I050",
+        title: "Journey with empty flow",
+        owner: "@specforge/product",
+        level: Level::Info,
+        explanation: "A `journey` declares `flow []`: it has no steps. Add the steps the user goes through. (A journey with no `flow` field at all is the core's E006, since `flow` is required.)",
+    },
+    CodeEntry {
+        code: "I053",
+        title: "Milestone target date not YYYY-MM-DD",
+        owner: "@specforge/product",
+        level: Level::Info,
+        explanation: "A `milestone`'s `target_date` doesn't match `YYYY-MM-DD` (for example `Q3 2026` or `June`). Write the date as an ISO 8601 calendar date, e.g. `2026-06-30`.",
+    },
+    CodeEntry {
         code: "I059",
         title: "Deferred feature missing reason",
         owner: "@specforge/product",
@@ -654,6 +668,20 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A `milestone` has `status: blocked` but no `blockers` field listing what's blocking it. Add a `blockers` field describing what is blocking progress.",
     },
     CodeEntry {
+        code: "I061",
+        title: "Deliverable version not semver",
+        owner: "@specforge/product",
+        level: Level::Info,
+        explanation: "A `deliverable`'s `version` isn't a Semantic Versioning 2.0.0 version (for example `v1.0`, `1.0` or `latest`). Use `MAJOR.MINOR.PATCH`, optionally with a pre-release tag (`1.0.0-alpha.1`) or build metadata (`1.0.0+build.42`).",
+    },
+    CodeEntry {
+        code: "I062",
+        title: "Non-standard module family",
+        owner: "@specforge/product",
+        level: Level::Info,
+        explanation: "A `module`'s `family` isn't one of the standard families: core, platform, extension, integration, advisory. Custom families are allowed; use a standard one if it fits.",
+    },
+    CodeEntry {
         code: "I066",
         title: "Deprecated deliverable missing reason",
         owner: "@specforge/product",
@@ -666,6 +694,13 @@ pub const CATALOG: &[CodeEntry] = &[
         owner: "@specforge/product",
         level: Level::Info,
         explanation: "A `module` has no edge to a `feature`: no `features` field, an empty list, or only references that don't resolve. A module that implements no features is likely incomplete. List the features it implements in `features`.",
+    },
+    CodeEntry {
+        code: "I068",
+        title: "Tag not lowercase-hyphenated",
+        owner: "@specforge/product",
+        level: Level::Info,
+        explanation: "An entity of a product kind has a `tags` entry that isn't lowercase-hyphenated: 2 to 50 characters of a-z, 0-9 and `-`, not starting or ending with `-` (for example `Core`, `my_tag`, `a` or a tag with spaces). Empty entries are ignored. Rewrite the tag, e.g. `My Tag` as `my-tag`.",
     },
     CodeEntry {
         code: "I069",

@@ -1000,6 +1000,31 @@ Owner: @specforge/product
 Level: info
 ```
 
+## I050
+
+```
+I050: Journey with empty flow
+
+A `journey` declares `flow []`: it has no steps. Add the steps the user goes
+through. (A journey with no `flow` field at all is the core's E006, since `flow`
+is required.)
+
+Owner: @specforge/product
+Level: info
+```
+
+## I053
+
+```
+I053: Milestone target date not YYYY-MM-DD
+
+A `milestone`'s `target_date` doesn't match `YYYY-MM-DD` (for example `Q3 2026`
+or `June`). Write the date as an ISO 8601 calendar date, e.g. `2026-06-30`.
+
+Owner: @specforge/product
+Level: info
+```
+
 ## I059
 
 ```
@@ -1019,6 +1044,32 @@ I060: Blocked milestone missing blockers
 
 A `milestone` has `status: blocked` but no `blockers` field listing what's
 blocking it. Add a `blockers` field describing what is blocking progress.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I061
+
+```
+I061: Deliverable version not semver
+
+A `deliverable`'s `version` isn't a Semantic Versioning 2.0.0 version (for
+example `v1.0`, `1.0` or `latest`). Use `MAJOR.MINOR.PATCH`, optionally with a
+pre-release tag (`1.0.0-alpha.1`) or build metadata (`1.0.0+build.42`).
+
+Owner: @specforge/product
+Level: info
+```
+
+## I062
+
+```
+I062: Non-standard module family
+
+A `module`'s `family` isn't one of the standard families: core, platform,
+extension, integration, advisory. Custom families are allowed; use a standard
+one if it fits.
 
 Owner: @specforge/product
 Level: info
@@ -1044,6 +1095,20 @@ I067: Module without features
 A `module` has no edge to a `feature`: no `features` field, an empty list, or
 only references that don't resolve. A module that implements no features is
 likely incomplete. List the features it implements in `features`.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I068
+
+```
+I068: Tag not lowercase-hyphenated
+
+An entity of a product kind has a `tags` entry that isn't lowercase-hyphenated:
+2 to 50 characters of a-z, 0-9 and `-`, not starting or ending with `-` (for
+example `Core`, `my_tag`, `a` or a tag with spaces). Empty entries are ignored.
+Rewrite the tag, e.g. `My Tag` as `my-tag`.
 
 Owner: @specforge/product
 Level: info

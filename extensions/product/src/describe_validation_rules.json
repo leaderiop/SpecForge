@@ -377,6 +377,207 @@
       "wasm_function": null
     },
     {
+      "check": "field_value_constraint",
+      "code": "I062",
+      "constraint": {
+        "kind": "one_of",
+        "pattern": null,
+        "values": [
+          "core",
+          "platform",
+          "extension",
+          "integration",
+          "advisory"
+        ]
+      },
+      "edge_type": null,
+      "field": "family",
+      "message_template": "module '{id}' has non-standard family '{value}' — standard families: core, platform, extension, integration, advisory",
+      "severity": "info",
+      "target_kind": "module",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I053",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "target_date",
+      "message_template": "milestone '{id}' has target_date '{value}' — expected YYYY-MM-DD",
+      "severity": "info",
+      "target_kind": "milestone",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I061",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^\\d+\\.\\d+\\.\\d+(-[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*)?(\\+[a-zA-Z0-9]+(\\.[a-zA-Z0-9]+)*)?$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "version",
+      "message_template": "deliverable '{id}' has version '{value}' — expected semver (e.g., 1.0.0)",
+      "severity": "info",
+      "target_kind": "deliverable",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I050",
+      "constraint": {
+        "kind": "non_empty",
+        "pattern": null,
+        "values": []
+      },
+      "edge_type": null,
+      "field": "flow",
+      "message_template": "journey '{id}' has an empty flow",
+      "severity": "info",
+      "target_kind": "journey",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I068",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^(?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?(?:, (?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?)*$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "tags",
+      "message_template": "{kind} '{id}' has a tag that is not lowercase-hyphenated (2-50 of a-z, 0-9, -, not starting or ending with -): tags [{value}]",
+      "severity": "info",
+      "target_kind": "feature",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I068",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^(?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?(?:, (?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?)*$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "tags",
+      "message_template": "{kind} '{id}' has a tag that is not lowercase-hyphenated (2-50 of a-z, 0-9, -, not starting or ending with -): tags [{value}]",
+      "severity": "info",
+      "target_kind": "journey",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I068",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^(?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?(?:, (?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?)*$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "tags",
+      "message_template": "{kind} '{id}' has a tag that is not lowercase-hyphenated (2-50 of a-z, 0-9, -, not starting or ending with -): tags [{value}]",
+      "severity": "info",
+      "target_kind": "deliverable",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I068",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^(?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?(?:, (?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?)*$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "tags",
+      "message_template": "{kind} '{id}' has a tag that is not lowercase-hyphenated (2-50 of a-z, 0-9, -, not starting or ending with -): tags [{value}]",
+      "severity": "info",
+      "target_kind": "milestone",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I068",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^(?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?(?:, (?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?)*$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "tags",
+      "message_template": "{kind} '{id}' has a tag that is not lowercase-hyphenated (2-50 of a-z, 0-9, -, not starting or ending with -): tags [{value}]",
+      "severity": "info",
+      "target_kind": "module",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I068",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^(?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?(?:, (?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?)*$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "tags",
+      "message_template": "{kind} '{id}' has a tag that is not lowercase-hyphenated (2-50 of a-z, 0-9, -, not starting or ending with -): tags [{value}]",
+      "severity": "info",
+      "target_kind": "term",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I068",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^(?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?(?:, (?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?)*$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "tags",
+      "message_template": "{kind} '{id}' has a tag that is not lowercase-hyphenated (2-50 of a-z, 0-9, -, not starting or ending with -): tags [{value}]",
+      "severity": "info",
+      "target_kind": "persona",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I068",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^(?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?(?:, (?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?)*$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "tags",
+      "message_template": "{kind} '{id}' has a tag that is not lowercase-hyphenated (2-50 of a-z, 0-9, -, not starting or ending with -): tags [{value}]",
+      "severity": "info",
+      "target_kind": "channel",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I068",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^(?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?(?:, (?:[a-z0-9][a-z0-9-]{0,48}[a-z0-9])?)*$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "tags",
+      "message_template": "{kind} '{id}' has a tag that is not lowercase-hyphenated (2-50 of a-z, 0-9, -, not starting or ending with -): tags [{value}]",
+      "severity": "info",
+      "target_kind": "release",
+      "wasm_function": null
+    },
+    {
       "check": "missing_field_when_flag_set",
       "code": "W049",
       "constraint": null,
