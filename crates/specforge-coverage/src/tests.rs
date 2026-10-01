@@ -199,6 +199,46 @@ fn only_testable_entities_count_toward_the_gate() {
     assert_eq!(out.summary.proof_pct(), 50.0);
 }
 
+#[specforge_test(
+    behavior = "te_coverage_pass",
+    verify = "an entity with no obligations is never proven, even by passing tests"
+)]
+fn passing_tests_do_not_prove_an_entity_with_no_obligations() {
+    let (_, out) = assess_input(json!({
+        "entities": [{"id": "logout", "kind": "behavior", "testable": true}],
+        "test_results": {"results": {
+            "logout": {"tests": [{"name": "logout works", "status": "pass"}]}
+        }}
+    }));
+    let verdict = &out.verdicts["logout"];
+    assert!(!verdict.is_proven(), "{verdict:?}");
+    assert_eq!(verdict.status(), Status::Uncovered);
+    assert_eq!(out.summary.discharge_funnel.entities_proven, 0);
+    assert_eq!(out.summary.testable_proven, 0);
+    assert_eq!(codes(&out), vec!["A001"]);
+}
+
+#[specforge_test(
+    behavior = "te_coverage_pass",
+    verify = "an entity whose obligations are all formally discharged is proven without tests"
+)]
+fn a_formally_discharged_entity_is_proven_without_tests() {
+    let (_, out) = assess_input(json!({
+        "entities": [{
+            "id": "unique_ids", "kind": "invariant", "testable": true, "incoming_edge_count": 1,
+            "verify_kinds": ["property"], "verify_texts": ["ids never collide"]
+        }],
+        "test_results": {"results": {}},
+        "proved_claims": ["unique_ids"]
+    }));
+    let verdict = &out.verdicts["unique_ids"];
+    assert_eq!(verdict.tests, 0);
+    assert!(verdict.is_proven(), "{verdict:?}");
+    assert_eq!(verdict.status(), Status::Covered);
+    assert_eq!(out.summary.discharge_funnel.entities_proven, 1);
+    assert_eq!(out.summary.testable_proven, 1);
+}
+
 /// `tests/fixtures/coverage-cases.json`: the rule's golden vectors. The
 /// testing extension's native tests hold its Wasm pass to the same file.
 #[test]

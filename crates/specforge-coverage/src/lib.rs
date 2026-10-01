@@ -155,9 +155,13 @@ impl Verdict {
     }
 
     /// Whether the entity counts as proven (the `--min` gate's numerator):
-    /// it has tests, all of them pass, and nothing it declares is unproven.
+    /// it declares at least one obligation, every one is proven, and none
+    /// of its recorded tests fails (ADR 0004, D2-a). A test that proves
+    /// nothing declared is not proof, so an entity with no obligations is
+    /// never proven; an entity whose obligations are all formally
+    /// discharged is proven without a test.
     pub fn is_proven(&self) -> bool {
-        self.tests > 0 && self.unproven.is_empty() && self.failing == 0
+        self.obligations > 0 && self.unproven.is_empty() && self.failing == 0
     }
 
     /// The per-entity view, from the same facts as [`Verdict::is_proven`].

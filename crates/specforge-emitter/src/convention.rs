@@ -11,7 +11,8 @@
 //!    (`mod add_item { fn rejects_a_duplicate_item() }`).
 //!
 //! The name after the entity proves an obligation when it's that
-//! obligation's [`slug`]; otherwise the test proves the entity alone.
+//! obligation's [`slug`]; otherwise the test is linked to the entity but
+//! proves none of its obligations.
 //! Tests no rule links are left out silently: plain tests are the norm.
 
 use crate::collect::{CollectedTest, EntityResults, KnownEntities, UnlinkedTest};

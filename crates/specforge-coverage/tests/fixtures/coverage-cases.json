@@ -135,7 +135,7 @@
     }
   },
   {
-    "name": "a formal proof without tests discharges every obligation but does not prove the entity",
+    "name": "a formal proof without tests discharges every obligation and proves the entity",
     "input": {
       "entities": [{"id": "no_lost_login", "kind": "property", "testable": false,
         "verify_kinds": ["property"], "verify_texts": ["no login is lost"]}],
@@ -145,19 +145,19 @@
     "expect": {
       "findings": [],
       "verdicts": {
-        "no_lost_login": {"obligations": 1, "proven": 1, "unproven": [], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "covered"}
+        "no_lost_login": {"obligations": 1, "proven": 1, "unproven": [], "undeclared": [], "tests": 0, "failing": 0, "is_proven": true, "status": "covered"}
       },
       "summary": {
         "testable_total": 0, "testable_verified": 0, "testable_proven": 0, "obligations": 1, "obligation_kinds": {"property": 1},
         "invariant_enforced": 0, "invariant_orphans": 0,
-        "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 0, "formally_discharged": 1},
-        "test_results": {"runner": "cargo-test", "entities_recorded": 0, "tests_recorded": 0, "tests_failed": 0, "entities_proven": 0, "obligations_proven": 1},
+        "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 1, "report_failures": 0, "formally_discharged": 1},
+        "test_results": {"runner": "cargo-test", "entities_recorded": 0, "tests_recorded": 0, "tests_failed": 0, "entities_proven": 1, "obligations_proven": 1},
         "invariants": []
       }
     }
   },
   {
-    "name": "the fx1 corpus: an entity of any kind with passing tests counts as proven; only testable ones raise the gate",
+    "name": "the fx1 corpus: passing tests prove only entities that declare obligations; only testable ones raise the gate",
     "input": {
       "entities": [
         {"id": "login", "kind": "behavior", "testable": true,
@@ -188,14 +188,14 @@
         "login": {"obligations": 1, "proven": 1, "unproven": [], "undeclared": [], "tests": 1, "failing": 0, "is_proven": true, "status": "covered"},
         "Status": {"obligations": 0, "proven": 0, "unproven": [], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"},
         "Payload": {"obligations": 1, "proven": 1, "unproven": [], "undeclared": [], "tests": 1, "failing": 0, "is_proven": true, "status": "covered"},
-        "signin": {"obligations": 0, "proven": 0, "unproven": [], "undeclared": [], "tests": 1, "failing": 0, "is_proven": true, "status": "uncovered"},
+        "signin": {"obligations": 0, "proven": 0, "unproven": [], "undeclared": [], "tests": 1, "failing": 0, "is_proven": false, "status": "uncovered"},
         "no_lost_login": {"obligations": 1, "proven": 0, "unproven": ["no login is lost"], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"}
       },
       "summary": {
         "testable_total": 3, "testable_verified": 2, "testable_proven": 2, "obligations": 3, "obligation_kinds": {"unit": 3},
         "invariant_enforced": 0, "invariant_orphans": 0,
-        "discharge_funnel": {"entities_with_obligations": 3, "entities_proven": 3, "report_failures": 0, "formally_discharged": 0},
-        "test_results": {"runner": "cargo-test", "entities_recorded": 3, "tests_recorded": 3, "tests_failed": 0, "entities_proven": 3, "obligations_proven": 2},
+        "discharge_funnel": {"entities_with_obligations": 3, "entities_proven": 2, "report_failures": 0, "formally_discharged": 0},
+        "test_results": {"runner": "cargo-test", "entities_recorded": 3, "tests_recorded": 3, "tests_failed": 0, "entities_proven": 2, "obligations_proven": 2},
         "invariants": []
       }
     }
