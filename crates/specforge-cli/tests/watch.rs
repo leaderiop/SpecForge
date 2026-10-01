@@ -137,7 +137,17 @@ fn watch_reports_diagnostics_on_broken_edit() {
     )
     .unwrap();
 
-    let rebuilt = wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60));
+    // As in watch_rebuilds_on_file_change: a late event for the initial
+    // write can rebuild unchanged content first; the rebuild for this edit
+    // is the one that modifies `one` and reports the error.
+    let rebuilt =
+        wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60)).and_then(|first| {
+            if first.contains("\"errors\":0") && first.contains("\"modified_nodes\":0") {
+                wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60))
+            } else {
+                Some(first)
+            }
+        });
     let _ = child.kill();
     let _ = child.wait();
 
