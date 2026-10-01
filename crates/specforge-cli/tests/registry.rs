@@ -471,7 +471,7 @@ const SPECFORGE_DEV_ALLOWED: &[(&str, &str)] = &[
         "\"https://specforge.dev/schema/graph-protocol-v{}.json\"",
     ),
     (
-        "crates/specforge-cli/src/init.rs",
+        "crates/specforge-ops/src/init.rs",
         "\"$schema\": \"https://specforge.dev/schema/specforge.json\"",
     ),
 ];

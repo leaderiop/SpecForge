@@ -278,6 +278,24 @@ fn add_from_registry(
     )
 }
 
+/// The name and version the extension binary at `path` declares, checked
+/// as `add` checks it (loadable, not a builtin's name), without installing
+/// it.
+pub fn declared(path: &Path) -> Result<(String, String), OpError> {
+    let wasm = std::fs::read(path).map_err(|e| {
+        OpError::new(
+            "E054",
+            if path.exists() {
+                format!("cannot read {}: {e}", path.display())
+            } else {
+                format!("file not found: {}", path.display())
+            },
+        )
+    })?;
+    let declared = Declared::of(&wasm)?;
+    Ok((declared.name, declared.version))
+}
+
 /// What an extension binary's handshake declares.
 struct Declared {
     name: String,

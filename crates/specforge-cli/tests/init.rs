@@ -1022,7 +1022,22 @@ fn non_interactive_full_cycle_performance() {
 fn non_interactive_unknown_extension_rejected() {
     let dir = TempDir::new().unwrap();
 
-    // Invalid extension specifier (no @scope/name format)
+    // A well-formed name nothing can install: it used to pass the syntax
+    // check, exit 0 and report the extension installed, and `check` then
+    // failed E028.
+    specforge_cmd()
+        .args(["init", "--name", "bad-ext", "--extensions", "@acme/unknown"])
+        .current_dir(dir.path())
+        .assert()
+        .code(1)
+        .stderr(predicates::str::contains(
+            "unresolvable extension '@acme/unknown'",
+        ));
+
+    // Nothing is written on failure.
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+
+    // A malformed one, too.
     specforge_cmd()
         .args([
             "init",
@@ -1035,8 +1050,6 @@ fn non_interactive_unknown_extension_rejected() {
         .assert()
         .failure()
         .stderr(predicates::str::contains("unresolvable extension"));
-
-    // No specforge.json should be created on failure
     assert!(!dir.path().join("specforge.json").exists());
 
     // Empty extension
@@ -1415,4 +1428,70 @@ fn init_ignores_generated_files() {
         gitignore,
         "/target\nspecforge-report.json\nspecforge-infer.json\n.specforge/\n"
     );
+}
+
+#[specforge_test(
+    behavior = "non_interactive_init",
+    verify = "--extensions splits a comma-separated list into its extensions"
+)]
+fn extensions_flag_splits_a_comma_separated_list() {
+    let dir = TempDir::new().unwrap();
+
+    specforge_cmd()
+        .args([
+            "init",
+            "--name",
+            "listed",
+            "--extensions",
+            "@specforge/software,@specforge/product",
+        ])
+        .current_dir(dir.path())
+        .assert()
+        .success();
+
+    let config: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.path().join("specforge.json")).unwrap())
+            .unwrap();
+    // Two entries (and software's testing), not one "a,b" entry.
+    assert_eq!(
+        config["extensions"],
+        serde_json::json!([
+            "@specforge/software",
+            "@specforge/product",
+            "@specforge/testing"
+        ])
+    );
+    specforge_cmd()
+        .args(["check"])
+        .arg(dir.path())
+        .assert()
+        .success();
+}
+
+#[specforge_test(
+    behavior = "non_interactive_init",
+    verify = "a one-character project name is rejected before its starter can fail E014"
+)]
+fn one_character_name_is_rejected() {
+    let dir = TempDir::new().unwrap();
+
+    specforge_cmd()
+        .args(["init", "--name", "a"])
+        .current_dir(dir.path())
+        .assert()
+        .code(1)
+        .stderr(predicates::str::contains("invalid project name 'a'"));
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+
+    // Two characters is the shortest ID: its starter checks clean.
+    specforge_cmd()
+        .args(["init", "--name", "ab"])
+        .current_dir(dir.path())
+        .assert()
+        .success();
+    specforge_cmd()
+        .args(["check"])
+        .arg(dir.path())
+        .assert()
+        .success();
 }

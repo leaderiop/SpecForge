@@ -652,7 +652,7 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                     "path": { "type": "string", "description": "Directory for the new project, outside the current one" },
                     "name": { "type": "string", "description": "Project name (defaults to the directory name)" },
                     "version": { "type": "string", "description": "Project version", "default": "0.1.0" },
-                    "extensions": { "type": "array", "items": { "type": "string" }, "description": "Builtin extensions to enable, e.g. @specforge/software" }
+                    "extensions": { "type": "array", "items": { "type": "string" }, "description": "Builtin extensions to enable (e.g. @specforge/software) and local .wasm files to install" }
                 },
                 "required": ["path"]
             }),

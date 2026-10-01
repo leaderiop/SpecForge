@@ -593,7 +593,7 @@ fn init_extensions_in_result() {
             "@specforge/testing"
         ])
     );
-    assert_eq!(parsed["starter_file"], "spec/specforge.spec");
+    assert_eq!(parsed["starter_file"], "spec/hello.spec");
 }
 
 #[specforge_test(
@@ -722,7 +722,7 @@ fn init_contract() {
         json!({"path": dir.path().to_str().unwrap(), "name": "contractproject"}),
     );
     assert_eq!(read_config(dir.path())["name"], "contractproject");
-    assert!(dir.path().join("spec/specforge.spec").is_file());
+    assert!(dir.path().join("spec/hello.spec").is_file());
 
     // path_outside_current: a path inside the server's project is refused.
     let current = server.state().project_root.clone().unwrap();

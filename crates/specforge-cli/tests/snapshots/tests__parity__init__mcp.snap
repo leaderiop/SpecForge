@@ -8,12 +8,15 @@ expression: mcp_snap
     "ok": true
   },
   "config": {
+    "$schema": "https://specforge.dev/schema/specforge.json",
     "extensions": [],
     "name": "demo",
+    "spec_root": "spec",
     "version": "0.1.0"
   },
   "files": {
-    "spec/specforge.spec": "spec \"demo\" {\n  version \"0.1.0\"\n}\n"
+    ".gitignore": "specforge-infer.json\nspecforge-report.json\n.specforge/\n",
+    "spec/hello.spec": "// demo — starter spec file\n//\n// This file uses only structural syntax that the core compiler\n// understands without any extensions. Install extensions to unlock\n// domain-specific entity types.\n//\n// Try: specforge check\n\nspec \"demo\" {\n  version \"0.1.0\"\n}\n"
   },
   "ok": true,
   "payload": {
@@ -21,7 +24,7 @@ expression: mcp_snap
     "extensions_installed": [],
     "name": "demo",
     "project_path": "[ROOT]",
-    "starter_file": "spec/specforge.spec",
+    "starter_file": "spec/hello.spec",
     "version": "0.1.0"
   }
 }

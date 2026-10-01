@@ -41,16 +41,6 @@ const ASPECTS: [Aspect; 4] = [
 /// Where the CLI and MCP behave differently today, and why. Later steps of
 /// plan 03 delete rows; only spec-sanctioned differences should remain.
 const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
-    // init (O7): the CLI writes `.gitignore` and `spec/hello.spec` from a
-    // template; MCP writes a minimal `spec/specforge.spec`.
-    ("init", Aspect::Files, "starter file and .gitignore differ"),
-    // init (O7): the CLI's config has `$schema` and `spec_root`; MCP's has
-    // neither.
-    (
-        "init",
-        Aspect::Config,
-        "MCP config lacks $schema and spec_root",
-    ),
     // export: both surfaces export through `specforge_ops::export` (O2), but
     // only the CLI keeps `.specforge/schema-cache.json` for its W053 check.
     // The MCP export tool is a read-only query with nowhere to show W053: if
@@ -814,4 +804,49 @@ fn providers_listings_match() {
             {"scheme": "file", "alias": "local", "extension": "@specforge/software", "status": "not_a_provider"},
         ])
     );
+}
+
+// ── init: one scaffold (O7) ─────────────────────────────────────────────────
+
+#[specforge_test_macros::test(
+    behavior = "provide_mcp_init_tool",
+    verify = "specforge.init writes the files and config specforge init writes for the same inputs"
+)]
+fn mcp_init_writes_what_cli_init_writes() {
+    let cli_dir = tempfile::tempdir().unwrap();
+    let mcp_dir = tempfile::tempdir().unwrap();
+    let (cli_root, mcp_root) = (cli_dir.path().join("demo"), mcp_dir.path().join("demo"));
+    std::fs::create_dir(&cli_root).unwrap();
+
+    let out = cli()
+        .args([
+            "init",
+            "--extensions",
+            "@specforge/software,@specforge/product",
+        ])
+        .current_dir(&cli_root)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let mut server = McpServer::new();
+    let init = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}});
+    server.handle_message(&init.to_string());
+    let reply = mcp_document(
+        &mut server,
+        "tools/call",
+        json!({"name": "specforge.init", "arguments": {
+            "path": s(&mcp_root),
+            "extensions": ["@specforge/software", "@specforge/product"],
+        }}),
+    );
+    assert_eq!(reply["starter_file"], "spec/hello.spec", "{reply}");
+
+    let files = files_under(&cli_root);
+    assert_eq!(
+        files.keys().collect::<Vec<_>>(),
+        [".gitignore", "spec/hello.spec"]
+    );
+    assert_eq!(files, files_under(&mcp_root));
+    assert_eq!(read_config(&cli_root), read_config(&mcp_root));
+    assert_eq!(check(&mcp_root)["ok"], true);
 }

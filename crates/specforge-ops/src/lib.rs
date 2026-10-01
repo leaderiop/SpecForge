@@ -11,6 +11,7 @@
 pub mod config;
 pub mod export;
 pub mod extension;
+pub mod init;
 pub mod registry;
 
 use std::borrow::Cow;

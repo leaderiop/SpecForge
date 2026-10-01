@@ -179,16 +179,23 @@ behavior non_interactive_init "Non-Interactive Init" {
     { project_root, config_path, spec_file_path, extensions_installed[] }.
     When --version is specified, it MUST override the default version
     (0.1.0) in the generated specforge.json.
-    If --extensions specifies an extension name that cannot be resolved
-    (not found in registry, bundled index, or local cache), the system
-    MUST reject the operation with a diagnostic naming the unresolvable
-    extension and exit code 1.
+    --extensions takes builtins and local .wasm files, several to a flag
+    separated by commas: init enables a builtin and installs a local file
+    through the add operation (ADR 0004 D3-e), so it never writes an entry
+    specforge check cannot load. Any other extension (a registry package,
+    which needs a registry a new project has not configured yet) MUST be
+    rejected with a diagnostic naming it and exit code 1. A project name
+    whose starter spec ID would break the identifier contract (2-60
+    characters) MUST be rejected the same way. Everything is validated
+    before any file is written.
   """
   verify unit "non-interactive init creates valid specforge.json"
   verify unit "non-interactive init skips all prompts"
   verify unit "non-interactive init with --extensions populates extensions list"
   verify unit "non-interactive init with unknown extension rejects with diagnostic and exit code 1"
   verify unit "invalid project name is rejected with InitError::invalid_name"
+  verify integration "--extensions splits a comma-separated list into its extensions"
+  verify integration "a one-character project name is rejected before its starter can fail E014"
   verify integration "non-interactive output matches interactive output for same inputs"
   verify unit "non-interactive init with --format=json outputs InitOutput JSON"
   verify unit "non-interactive init --format=json includes all 4 required fields: project_root, config_path, spec_file_path, extensions_installed"

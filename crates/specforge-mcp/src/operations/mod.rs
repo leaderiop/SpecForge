@@ -4,7 +4,7 @@
 //! real work or refuses with an explicit error; it never lies).
 
 use serde_json::{Value, json};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use specforge_common::find_project_root;
 use specforge_wasm::read_lock_file;
@@ -290,25 +290,12 @@ fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcom
 // ── init ────────────────────────────────────────────────────────────────────
 
 fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+    use specforge_ops::init;
+
     let Some(path) = args.get("path").and_then(|v| v.as_str()).map(PathBuf::from) else {
         return err_invalid(id, "Missing required parameter: path");
     };
-    let name = args
-        .get("name")
-        .and_then(|v| v.as_str())
-        .map(str::to_string)
-        .unwrap_or_else(|| {
-            path.file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("my-project")
-                .to_string()
-        });
-    let version = args
-        .get("version")
-        .and_then(|v| v.as_str())
-        .unwrap_or("0.1.0")
-        .to_string();
-    let mut extensions: Vec<String> = args
+    let extensions: Vec<String> = args
         .get("extensions")
         .and_then(|v| v.as_array())
         .map(|arr| {
@@ -319,112 +306,35 @@ fn init_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome 
         })
         .unwrap_or_default();
 
-    if let Err(reason) = specforge_common::validate_project_name(&name) {
-        return err_invalid(id, format!("invalid project name '{name}': {reason}"));
-    }
-    // Init only enables builtins; anything else installs afterwards.
-    let builtins: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
-        .iter()
-        .map(|(builtin, _)| *builtin)
-        .collect();
-    if let Some(unknown) = extensions.iter().find(|e| !builtins.contains(&e.as_str())) {
-        let message = format!("unknown extension '{unknown}': not a builtin extension");
-        return ToolOutcome::refused_with_data(
-            error_codes::INVALID_PARAMS,
-            message.clone(),
-            json!({
-                "code": "extension_not_found",
-                "extension": unknown,
-                "diagnostic": {
-                    "severity": "error",
-                    "message": message,
-                    "suggestion": format!(
-                        "init with builtins ({}), then install it with specforge.add_extension",
-                        builtins.join(", ")
-                    ),
-                },
-            }),
-        );
-    }
-    // Test obligations on software kinds come from @specforge/testing (ADR 0002).
-    if extensions.iter().any(|e| e == "@specforge/software")
-        && !extensions.iter().any(|e| e == "@specforge/testing")
-    {
-        extensions.push("@specforge/testing".to_string());
-    }
-
-    // The new project must not land inside the one this server serves.
-    let absolute = |p: &Path| {
-        std::path::absolute(p)
-            .map(|p| p.canonicalize().unwrap_or(p))
-            .unwrap_or_else(|_| p.to_path_buf())
+    // The scaffold `specforge init` writes; the new project must not land
+    // inside the one this server serves.
+    let request = init::Request {
+        dir: &path,
+        name: args.get("name").and_then(|v| v.as_str()),
+        version: args.get("version").and_then(|v| v.as_str()),
+        extensions: &extensions,
+        forbid_inside: state.project_root.as_deref(),
     };
-    if let Some(current) = &state.project_root {
-        let current = absolute(current);
-        let mut target = absolute(&path);
-        // Canonicalize through the nearest existing ancestor.
-        let mut existing = target.clone();
-        let mut rest = Vec::new();
-        while !existing.exists() {
-            let Some(name) = existing.file_name().map(|n| n.to_os_string()) else {
-                break;
-            };
-            rest.push(name);
-            if !existing.pop() {
-                break;
-            }
-        }
-        if let Ok(canonical) = existing.canonicalize() {
-            target = rest.iter().rev().fold(canonical, |p, part| p.join(part));
-        }
-        if target.starts_with(&current) {
-            return err_invalid(
-                id,
-                format!(
-                    "{} is inside the current project at {}",
-                    path.display(),
-                    current.display()
-                ),
-            );
-        }
-    }
-
-    // Refuse to clobber an existing project.
-    if path.join("specforge.json").exists() {
-        return err_invalid(id, format!("project already exists at {}", path.display()));
-    }
-
-    let config = serde_json::json!({
-        "name": name,
-        "version": version,
-        "extensions": extensions,
-    });
-    if let Err(e) = std::fs::create_dir_all(path.join("spec")) {
-        return err_invalid(id, format!("cannot create project: {e}"));
-    }
-    if let Err(e) = specforge_ops::config::write(&path, &config) {
-        return err_invalid(id, format!("cannot write specforge.json: {}", e.message));
-    }
-    let starter = format!("spec \"{name}\" {{\n  version \"{version}\"\n}}\n");
-    if let Err(e) = std::fs::write(path.join("spec").join("specforge.spec"), starter) {
-        return err_invalid(id, format!("cannot write starter file: {e}"));
-    }
-    state.push_event(
-        "project_initialized",
-        json!({"path": path.display().to_string(), "name": name}),
-    );
-
-    ok(
+    let outcome = match init::plan(&request).and_then(|plan| init::apply(&path, &plan)) {
+        Ok(outcome) => outcome,
+        Err(error) => return err_op(id, error),
+    };
+    let result = ok(
         id,
         json!({
             "project_path": path.display().to_string(),
             "config_file": "specforge.json",
-            "starter_file": "spec/specforge.spec",
-            "extensions_installed": extensions,
-            "name": name,
-            "version": version,
+            "starter_file": init::STARTER_FILE,
+            "extensions_installed": outcome.extensions,
+            "name": outcome.name,
+            "version": outcome.version,
         }),
-    )
+    );
+    state.push_event(
+        "project_initialized",
+        json!({"path": path.display().to_string(), "name": outcome.name}),
+    );
+    result
 }
 
 // ── add / remove ────────────────────────────────────────────────────────────

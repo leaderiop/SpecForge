@@ -2241,7 +2241,7 @@ fn mcp_tool_init_returns_project() {
     assert_eq!(content["project_path"], dir.path().to_str().unwrap());
     assert!(dir.path().join("specforge.json").is_file());
     assert_eq!(content["config_file"], "specforge.json");
-    assert_eq!(content["starter_file"], "spec/specforge.spec");
+    assert_eq!(content["starter_file"], "spec/hello.spec");
 
     // specforge.json is on disk: the given name, default version, no
     // extensions.
@@ -2250,13 +2250,17 @@ fn mcp_tool_init_returns_project() {
             .expect("specforge.json written"),
     )
     .expect("specforge.json is JSON");
+    // The config `specforge init` writes.
     assert_eq!(
         config,
-        serde_json::json!({ "name": "fresh", "version": "0.1.0", "extensions": [] })
+        serde_json::json!({
+            "$schema": "https://specforge.dev/schema/specforge.json",
+            "name": "fresh", "version": "0.1.0", "spec_root": "spec", "extensions": []
+        })
     );
     // The spec directory is scaffolded with the starter file.
     assert!(
-        dir.path().join("spec/specforge.spec").is_file(),
+        dir.path().join("spec/hello.spec").is_file(),
         "starter spec written"
     );
 }

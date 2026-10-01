@@ -133,8 +133,8 @@ fn mutation_effect(name: &str, outcome: &Value) -> (usize, usize) {
         "specforge.format" => (count("changed_files"), 0),
         // The files holding the entity or a reference to it; one entity.
         "specforge.rename" => (count("affected_files"), 1),
-        // The project config and the starter spec file.
-        "specforge.init" => (2, 0),
+        // The project config, the starter spec file and .gitignore.
+        "specforge.init" => (3, 0),
         // The extension module, the lock file and the project config.
         "specforge.add_extension" if outcome["installed"] == true => (3, 0),
         // The same three; entities whose kind only it defined lose it.

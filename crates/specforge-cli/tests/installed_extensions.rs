@@ -194,6 +194,32 @@ fn an_enabled_extension_that_is_not_installed_is_e028_with_a_remedy() {
     assert!(suggestion.contains("specforge add"), "{suggestion}");
 }
 
+#[specforge_test(
+    invariant = "init_config_validity",
+    verify = "specforge init followed by specforge check produces zero config errors"
+)]
+fn init_installs_a_local_extension_check_loads() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("greet.wasm"), greet_wasm()).unwrap();
+
+    // D3-e: init installs a local file through the add operation.
+    specforge()
+        .args(["init", "--name", "hello", "--extensions", "greet.wasm"])
+        .current_dir(dir.path())
+        .assert()
+        .success();
+    std::fs::write(dir.path().join("spec/greet.spec"), GREETING).unwrap();
+
+    assert_eq!(enabled(dir.path()), json!(["@sdk/greet"]));
+    assert_eq!(
+        lock_entry(dir.path(), "@sdk/greet")["source"],
+        "local:greet.wasm"
+    );
+    let (ok, found) = check(dir.path());
+    assert!(ok, "{found:?}");
+    assert!(!codes(&found).contains(&"E024"), "{found:?}");
+}
+
 #[test]
 fn a_legacy_versioned_entry_still_loads() {
     let dir = greeting_project();

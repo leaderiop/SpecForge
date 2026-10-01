@@ -145,7 +145,11 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
     be added to the config and their manifests validated. MCP init is always
     non-interactive — extension selection is provided via the extensions
     parameter. Interactive extension selection (TTY prompting) is only
-    available via the CLI init command.
+    available via the CLI init command. The tool MUST scaffold what
+    specforge init scaffolds for the same inputs, through the same
+    operation: specforge.json with $schema and spec_root, the .gitignore
+    entries, and the starter file spec/hello.spec from the enabled
+    extensions' templates.
   """
   verify unit "specforge.init creates specforge.json project"
   verify unit "extensions installed when specified"
@@ -156,6 +160,7 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
   verify unit "version parameter overrides default 0.1.0"
   verify unit "specforge.init result includes the starter file path and installed extensions"
   verify integration "MCP init followed by check produces zero errors"
+  verify integration "specforge.init writes the files and config specforge init writes for the same inputs"
   verify contract "Provide MCP Init Tool: MCP init tool holds — filesystem_available, project_created, path_outside_current, extensions_validated, project_initialized_emitted, tool_invoked_emitted"
 }
 
