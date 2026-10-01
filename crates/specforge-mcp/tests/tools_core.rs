@@ -526,11 +526,11 @@ fn search_missing_query() {
 
 // --- specforge.schema ---
 
-// B:provide_mcp_schema_tool — verify unit "returns schema with entity kinds"
-#[specforge_test(
-    behavior = "provide_mcp_schema_tool",
-    verify = "specforge.schema returns full GraphProtocolSchema"
-)]
+// NOT LINKED to "specforge.schema returns full GraphProtocolSchema": the tool
+// returns a summary of the graph (each kind with the fields its entities
+// use, the edge labels, the graph format's version), not the
+// GraphProtocolSchema. This pins the summary.
+#[test]
 fn schema_tool_returns_kinds() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.schema", json!({}));

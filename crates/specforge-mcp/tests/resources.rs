@@ -164,11 +164,10 @@ fn graph_resource_has_mime_type() {
     assert_eq!(alpha["fields"]["contract"], "The system MUST do alpha");
 }
 
-// B:expose_schema_as_mcp_resource — verify unit "returns schema with entity kinds derived from graph"
-#[specforge_test(
-    behavior = "expose_schema_as_mcp_resource",
-    verify = "specforge://schema resource returns GraphProtocolSchema JSON"
-)]
+// NOT LINKED to "specforge://schema resource returns GraphProtocolSchema JSON":
+// the resource returns the same graph summary as specforge.schema, not
+// the GraphProtocolSchema. This pins the summary.
+#[test]
 fn schema_resource_returns_kinds() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://schema");
