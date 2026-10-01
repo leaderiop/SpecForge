@@ -132,7 +132,9 @@ fn init_server_with_surfaces() -> (McpServer, TempDir) {
         name: "test.list_items".into(),
         description: "List all items via MCP".into(),
         input_schema: json!({"type": "object", "properties": {"kind": {"type": "string"}}}),
-        category: Some("extension".into()),
+        category: Some("core".into()),
+        source: Some("@test/ext".into()),
+        ..Default::default()
     });
     state.resource_registry.push(McpResourceDescriptor {
         uri: "specforge://test/items".into(),
@@ -216,13 +218,17 @@ fn capabilities_include_extension_counts() {
         name: "ext.tool_a".into(),
         description: "Tool A".into(),
         input_schema: json!({"type": "object", "properties": {}}),
-        category: Some("extension".into()),
+        category: Some("core".into()),
+        source: Some("@test/ext".into()),
+        ..Default::default()
     });
     state.tool_registry.push(McpToolDescriptor {
         name: "ext.tool_b".into(),
         description: "Tool B".into(),
         input_schema: json!({"type": "object", "properties": {}}),
-        category: Some("extension".into()),
+        category: Some("core".into()),
+        source: Some("@test/ext".into()),
+        ..Default::default()
     });
 
     let resp = call(&mut server, "tools/list", json!({}));
@@ -428,8 +434,8 @@ fn recompilation_refreshes_surfaces() {
     let listed = |resp: &Value| -> Vec<String> {
         let tools = resp["result"]["tools"].as_array().unwrap();
         for tool in tools {
-            assert_ne!(
-                tool["category"], "extension",
+            assert_eq!(
+                tool["source"], "core",
                 "no extension is installed, yet {tool} is listed"
             );
         }
@@ -505,7 +511,9 @@ fn cli_command_auto_promoted_to_mcp_tool() {
 
     let listed = listed_tool(&mut server, "specforge.cmds.report").expect("report promoted");
     assert_eq!(listed["description"], "Write a coverage report");
-    assert_eq!(listed["category"], "extension");
+    // Its role is core; where it comes from is its source.
+    assert_eq!(listed["category"], "core");
+    assert_eq!(listed["source"], "@test/cmds");
 
     // A call reaches the command's cmd__ export with the tool arguments,
     // and the command's stdout is the tool result.
@@ -613,7 +621,8 @@ fn explicit_mcp_tool_wins_over_auto_promoted() {
             "name": "specforge.cmds.check",
             "description": "Explicit check tool",
             "inputSchema": {"type": "object", "properties": {"strict": {"type": "boolean"}}},
-            "category": "extension"
+            "category": "core",
+            "source": "@test/cmds"
         })]
     );
     let i017: Vec<_> = server

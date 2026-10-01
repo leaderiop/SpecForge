@@ -1273,7 +1273,9 @@ fn add_extension_surface(server: &mut McpServer, name: &str, enabled: bool) {
         name: format!("ext.{name}"),
         description: format!("{name} tool"),
         input_schema: json!({"type": "object"}),
-        category: Some("extension".into()),
+        category: Some("core".into()),
+        source: Some("@test/ext".into()),
+        ..Default::default()
     });
     state.resource_registry.push(McpResourceDescriptor {
         uri: format!("specforge://ext/{name}"),

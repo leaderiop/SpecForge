@@ -51,14 +51,23 @@ pub struct McpServerInfo {
     pub version: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct McpToolDescriptor {
     pub name: String,
     pub description: String,
     #[serde(rename = "inputSchema")]
     pub input_schema: Value,
+    /// The tool's role: one of the spec's `McpToolCategory` values.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
+    /// Where the tool comes from: `core`, or the contributing extension's
+    /// name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    /// MCP `ToolAnnotations` (`readOnlyHint`, ...); none for an extension
+    /// tool, whose manifest declares none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

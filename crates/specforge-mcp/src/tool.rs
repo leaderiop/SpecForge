@@ -12,15 +12,14 @@ use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
 use crate::types::McpToolDescriptor;
 
-/// A tool's role (the spec's `McpToolCategory`), plus the `inference`
-/// group the listing still shows.
+/// A tool's role: the spec's `McpToolCategory`. Where a tool comes from is
+/// its `source`, a separate field (ADR 0004 D4-b).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Category {
     Core,
     Navigation,
     Mutation,
     Management,
-    Inference,
 }
 
 impl Category {
@@ -31,7 +30,58 @@ impl Category {
             Category::Navigation => "navigation",
             Category::Mutation => "mutation",
             Category::Management => "management",
-            Category::Inference => "inference",
+        }
+    }
+
+    /// The category named `name`, if it is one of the four.
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "core" => Some(Category::Core),
+            "navigation" => Some(Category::Navigation),
+            "mutation" => Some(Category::Mutation),
+            "management" => Some(Category::Management),
+            _ => None,
+        }
+    }
+}
+
+/// The `source` of every core tool; an extension tool's is the
+/// extension's name.
+pub const CORE_SOURCE: &str = "core";
+
+/// What a tool does to its environment, as MCP's tool annotations say it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Access {
+    /// It only reads: `readOnlyHint`.
+    ReadOnly,
+    /// It writes files.
+    Writes {
+        /// It may overwrite or remove what is there (`destructiveHint`).
+        destructive: bool,
+        /// Calling it again with the same arguments changes nothing more
+        /// (`idempotentHint`).
+        idempotent: bool,
+        /// It reaches beyond the project: a registry, a test runner
+        /// (`openWorldHint`).
+        open_world: bool,
+    },
+}
+
+impl Access {
+    /// The MCP `ToolAnnotations` for this access.
+    pub fn annotations(self) -> Value {
+        match self {
+            Access::ReadOnly => json!({ "readOnlyHint": true, "openWorldHint": false }),
+            Access::Writes {
+                destructive,
+                idempotent,
+                open_world,
+            } => json!({
+                "readOnlyHint": false,
+                "destructiveHint": destructive,
+                "idempotentHint": idempotent,
+                "openWorldHint": open_world,
+            }),
         }
     }
 }
@@ -43,7 +93,7 @@ pub struct Effect {
     pub entities_affected: usize,
 }
 
-/// How a tool that changes files reports it.
+/// How a tool that changes the project reports it.
 #[derive(Debug, Clone, Copy)]
 pub struct MutationSpec {
     /// Whether a call with these arguments writes (false for a dry run or a
@@ -70,10 +120,14 @@ pub struct ToolSpec {
     pub name: &'static str,
     pub description: &'static str,
     pub category: Category,
+    /// What it does to its environment: the listing's annotations.
+    pub access: Access,
     pub schema: fn() -> Value,
     /// The fields of the handler's `Args` struct ([`crate::args::fields`]):
     /// the arguments it reads.
     pub fields: fn() -> &'static [&'static str],
+    /// How a mutation reports what it changed: present exactly for the
+    /// `mutation` category.
     pub mutation: Option<MutationSpec>,
     /// The handler, reading its `Args` from the call's `arguments`.
     pub call: fn(&mut McpState, Value) -> ToolOutcome,
@@ -87,18 +141,8 @@ impl ToolSpec {
             description: self.description.into(),
             input_schema: (self.schema)(),
             category: Some(self.category.as_str().into()),
-        }
-    }
-
-    /// The `McpToolCategory` its `mcp_tool_invoked` events carry: a tool
-    /// that writes is a mutation; the inference group is core.
-    pub fn event_category(&self) -> &'static str {
-        if self.mutation.is_some() {
-            return Category::Mutation.as_str();
-        }
-        match self.category {
-            Category::Inference => Category::Core.as_str(),
-            category => category.as_str(),
+            source: Some(CORE_SOURCE.into()),
+            annotations: Some(self.access.annotations()),
         }
     }
 }

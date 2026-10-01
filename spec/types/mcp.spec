@@ -65,14 +65,28 @@ type McpResourceDescriptor {
 }
 
 type McpToolDescriptor {
-  name          string          @readonly
+  name          string             @readonly
   description   string
   input_schema  JsonSchema
-  output_schema JsonSchema      @optional
-  category      McpToolCategory @optional
+  output_schema JsonSchema         @optional
+  /// The tool's role, never where it comes from.
+  category      McpToolCategory    @optional
   /// "core" for built-in tools, extension name for contributed tools
-  source        string          @optional
+  source        string             @optional
+  /// MCP ToolAnnotations: what the tool does to its environment.
+  annotations   McpToolAnnotations @optional
   verify unit "McpToolDescriptor schema is valid"
+}
+
+// MCP's ToolAnnotations (wire names readOnlyHint, destructiveHint,
+// idempotentHint, openWorldHint). A core tool's derive from the same
+// definition its mutation events do.
+type McpToolAnnotations {
+  read_only_hint   boolean @optional
+  destructive_hint boolean @optional
+  idempotent_hint  boolean @optional
+  open_world_hint  boolean @optional
+  verify unit "McpToolAnnotations schema is valid"
 }
 
 type McpSubscription {

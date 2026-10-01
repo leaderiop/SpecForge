@@ -80,7 +80,7 @@ fn handle_start(_state: &McpState, args: &Args, project_root: &std::path::Path) 
     }
 
     let session_id = generate_session_id();
-    let now = now_iso8601();
+    let now = now_rfc3339();
 
     let session = InferenceSession {
         session_id: session_id.clone(),
@@ -152,7 +152,7 @@ fn handle_mark_analyzed(
         path: source_file.clone(),
         content_hash,
         entities_produced: entities.clone(),
-        analyzed_at: now_iso8601(),
+        analyzed_at: now_rfc3339(),
     });
 
     let sessions = read_sessions_from_manifest(project_root);
@@ -197,7 +197,7 @@ fn handle_end(_state: &McpState, args: &Args, project_root: &std::path::Path) ->
     match session {
         Some(s) if s.status == "active" => {
             s.status = status.clone();
-            s.ended_at = Some(now_iso8601());
+            s.ended_at = Some(now_rfc3339());
         }
         Some(_) => {
             return ToolOutcome::error(
@@ -223,22 +223,28 @@ fn handle_end(_state: &McpState, args: &Args, project_root: &std::path::Path) ->
     }))
 }
 
+/// A new session's ID: a random (version 4) UUID, as `InferenceSession`'s
+/// `session_id` is (`start_inference_session`: "a generated UUID").
 fn generate_session_id() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let ts = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    format!("sess_{:x}", ts)
+    let mut bytes = [0u8; 16];
+    getrandom::fill(&mut bytes).expect("OS entropy unavailable");
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // the RFC 9562 variant
+    let hex: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+    format!(
+        "{}-{}-{}-{}-{}",
+        &hex[0..8],
+        &hex[8..12],
+        &hex[12..16],
+        &hex[16..20],
+        &hex[20..32]
+    )
 }
 
-fn now_iso8601() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let dur = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default();
-    let secs = dur.as_secs();
-    format!("{}Z", secs)
+/// The current time as an RFC 3339 UTC timestamp, as the session and
+/// source-file records store it.
+fn now_rfc3339() -> String {
+    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
 }
 
 fn sessions_path(project_root: &std::path::Path) -> std::path::PathBuf {

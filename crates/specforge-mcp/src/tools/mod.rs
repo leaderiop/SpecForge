@@ -27,7 +27,7 @@ use specforge_registry::{SurfaceRegistryEntry, SurfaceType};
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
-use crate::tool::{Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
+use crate::tool::{Category, Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
 pub use table::CORE_TOOLS;
 
 /// An I020 report for each kind in a `kinds` filter that no registered
@@ -117,16 +117,17 @@ fn command_tool_result(
     }
 }
 
-/// The `McpToolCategory` an extension tool's invocation reports: its
-/// registered category when it is one of the four, else `core`.
+/// The `McpToolCategory` an extension tool's invocation reports: the one
+/// it is listed with.
 fn extension_category(state: &McpState, name: &str) -> &'static str {
-    let registered = state.tool_registry.iter().find(|t| t.name == name);
-    match registered.and_then(|t| t.category.as_deref()) {
-        Some("navigation") => "navigation",
-        Some("mutation") => "mutation",
-        Some("management") => "management",
-        _ => "core",
-    }
+    state
+        .tool_registry
+        .iter()
+        .find(|t| t.name == name)
+        .and_then(|t| t.category.as_deref())
+        .and_then(Category::parse)
+        .unwrap_or(Category::Core)
+        .as_str()
 }
 
 /// The core tool named `name`.
@@ -196,7 +197,7 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
     };
 
     let category = match spec {
-        Some(spec) => spec.event_category(),
+        Some(spec) => spec.category.as_str(),
         None => extension_category(state, name),
     };
     let mut event = json!({

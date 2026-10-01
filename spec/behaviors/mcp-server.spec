@@ -128,7 +128,7 @@ behavior list_mcp_tools "List MCP Tools" {
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   ports      [McpProtocol, CompilerApi]
-  types      [McpToolDescriptor, McpToolCategory]
+  types      [McpToolDescriptor, McpToolCategory, McpToolAnnotations]
   produces   [mcp_discovery_invoked]
   requires {
     server_initialized "MCP server has been initialized and all extensions loaded"
@@ -147,7 +147,14 @@ behavior list_mcp_tools "List MCP Tools" {
     complete and reflect the current set of loaded extensions. Every core
     tool it lists MUST be callable: a call never fails as an unknown tool
     or operation. Each core tool's inputSchema MUST advertise exactly the
-    arguments its handler reads.
+    arguments its handler reads. Each listed tool's category is its role,
+    one of McpToolCategory, and its source says where it comes from: core,
+    or the contributing extension's name. An extension tool is listed once,
+    whatever category it declares, however often the project recompiles.
+    Each core tool carries MCP annotations derived from the definition its
+    mutation events come from: a tool that only reads is readOnlyHint; a
+    tool that writes says whether it is destructive, idempotent and open
+    world.
   """
   verify unit "returns all registered tool descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
@@ -156,6 +163,9 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "tools have categories"
   verify unit "every listed core tool dispatches to its handler"
   verify unit "each core tool's input schema advertises exactly the arguments its handler reads"
+  verify unit "every listed tool has a spec category and a source"
+  verify unit "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
+  verify unit "an extension tool is listed once across recompiles"
 }
 
 behavior list_mcp_prompts "List MCP Prompts" {

@@ -1,6 +1,7 @@
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_registry::ManifestV2;
+use specforge_test::prelude::*;
 use tempfile::TempDir;
 
 fn init_server(project_dir: &std::path::Path) -> McpServer {
@@ -211,7 +212,7 @@ fn infer_session_start_creates_active_session() {
     let parsed: Value = serde_json::from_str(&text).unwrap();
 
     assert_eq!(parsed["status"], "active");
-    assert!(parsed["session_id"].as_str().unwrap().starts_with("sess_"));
+    assert!(parsed["session_id"].is_string(), "{parsed}");
 }
 
 #[test]
@@ -502,4 +503,94 @@ fn infer_progress_discovers_both_rust_and_typescript() {
     let files: Vec<&str> = unanalyzed.iter().map(|v| v.as_str().unwrap()).collect();
     assert!(files.contains(&"src/lib.rs"));
     assert!(files.contains(&"src/app.ts"));
+}
+
+/// Whether `id` is a version 4 UUID: 8-4-4-4-12 lowercase hex digits,
+/// version nibble 4, variant 8, 9, a or b.
+fn is_uuid_v4(id: &str) -> bool {
+    let groups: Vec<&str> = id.split('-').collect();
+    groups.iter().map(|g| g.len()).eq([8, 4, 4, 4, 12])
+        && groups.iter().all(|g| {
+            g.chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        })
+        && groups[2].starts_with('4')
+        && groups[3].starts_with(['8', '9', 'a', 'b'])
+}
+
+/// The sessions specforge-infer.json records.
+fn recorded_sessions(root: &std::path::Path) -> Vec<Value> {
+    let text = std::fs::read_to_string(root.join("specforge-infer.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&text).unwrap();
+    manifest["sessions"].as_array().cloned().unwrap_or_default()
+}
+
+#[specforge_test(
+    behavior = "start_inference_session",
+    verify = "start assigns unique session ID"
+)]
+fn infer_session_ids_are_unique_uuids() {
+    let tmp = TempDir::new().unwrap();
+    let mut server = init_server(tmp.path());
+    let mut ids = Vec::new();
+    for _ in 0..2 {
+        let started = call_tool(
+            &mut server,
+            "specforge.infer_session",
+            json!({"action": "start", "agent": "claude"}),
+        );
+        let id = serde_json::from_str::<Value>(&tool_text(&started)).unwrap()["session_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(is_uuid_v4(&id), "not a UUID: {id}");
+        call_tool(
+            &mut server,
+            "specforge.infer_session",
+            json!({"action": "end", "session_id": id}),
+        );
+        ids.push(id);
+    }
+    assert_ne!(ids[0], ids[1]);
+}
+
+#[specforge_test(
+    behavior = "end_inference_session",
+    verify = "end sets ended_at timestamp"
+)]
+fn infer_session_timestamps_are_rfc_3339() {
+    let tmp = TempDir::new().unwrap();
+    std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+    std::fs::write(tmp.path().join("src/lib.rs"), "pub fn f() {}\n").unwrap();
+    let mut server = init_server(tmp.path());
+    let started = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "start"}),
+    );
+    let id = serde_json::from_str::<Value>(&tool_text(&started)).unwrap()["session_id"].clone();
+    call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "mark_analyzed", "source_file": "src/lib.rs"}),
+    );
+    call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({"action": "end", "session_id": id}),
+    );
+
+    let session = recorded_sessions(tmp.path()).pop().unwrap();
+    let text = std::fs::read_to_string(tmp.path().join("specforge-infer.json")).unwrap();
+    let manifest: Value = serde_json::from_str(&text).unwrap();
+    let analyzed_at = &manifest["source_index"][0]["analyzed_at"];
+    for stamp in [&session["started_at"], &session["ended_at"], analyzed_at] {
+        let stamp = stamp
+            .as_str()
+            .unwrap_or_else(|| panic!("no timestamp: {text}"));
+        assert!(
+            chrono::DateTime::parse_from_rfc3339(stamp).is_ok(),
+            "not RFC 3339: {stamp}"
+        );
+    }
 }

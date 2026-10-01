@@ -5,6 +5,7 @@ use specforge_registry::{
 
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
+use crate::tool::Category;
 use crate::types::{
     McpPromptArgument, McpPromptDescriptor, McpResourceDescriptor, McpToolDescriptor,
 };
@@ -22,13 +23,15 @@ pub fn register_extension_surfaces(
     state: &mut McpState,
     manifest_surfaces: &[(String, SurfaceContributions)],
 ) {
-    for (_ext_name, surfaces) in manifest_surfaces {
+    for (ext_name, surfaces) in manifest_surfaces {
         for tool in &surfaces.mcp_tools {
             state.tool_registry.push(McpToolDescriptor {
                 name: tool.name.clone(),
                 description: tool.description.clone(),
                 input_schema: tool.input_schema.clone(),
-                category: tool.category.clone().or_else(|| Some("extension".into())),
+                category: Some(extension_category(tool.category.as_deref()).into()),
+                source: Some(ext_name.clone()),
+                annotations: None,
             });
         }
 
@@ -108,7 +111,10 @@ fn auto_promote_commands(
                 name: tool.name.clone(),
                 description: cmd.description.clone(),
                 input_schema: derived_input_schema(tool.input_schema, &cmd.args),
-                category: Some("extension".into()),
+                // A command's own category is a CLI grouping, not a role.
+                category: Some(Category::Core.as_str().into()),
+                source: Some(ext_name.clone()),
+                annotations: None,
             });
             state.surface_entries.push(SurfaceRegistryEntry {
                 surface_type: SurfaceType::AutoPromotedTool,
@@ -126,6 +132,15 @@ fn auto_promote_commands(
             json!({"promotedCount": promoted_count, "conflictCount": conflict_count}),
         );
     }
+}
+
+/// An extension tool's role: the category it declares when that is one of
+/// the four, else `core`. Where it comes from is its `source`.
+fn extension_category(declared: Option<&str>) -> &'static str {
+    declared
+        .and_then(Category::parse)
+        .unwrap_or(Category::Core)
+        .as_str()
 }
 
 /// The manifest spelling of a command arg type.

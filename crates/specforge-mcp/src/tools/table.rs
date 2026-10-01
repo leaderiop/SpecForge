@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use super::*;
 use crate::args::{NoArgs, fields};
 use crate::operations;
-use crate::tool::{Category, Effect, MutationSpec, ToolSpec, writes_unless_dry_run};
+use crate::tool::{Access, Category, Effect, MutationSpec, ToolSpec, writes_unless_dry_run};
 
 /// A handler reading its typed arguments: refused when they don't parse.
 macro_rules! typed {
@@ -43,6 +43,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.query",
         description: "Query the graph at multiple resolutions",
         category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -64,6 +65,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.validate",
         description: "Recompile and validate the spec project",
         category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -84,6 +86,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.analyze",
         description: "Run analysis passes (coverage: proof obligations and discharge funnel; contracts: clause symmetry) over the compiled project",
         category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -104,6 +107,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.export",
         description: "Export the graph in various formats",
         category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -124,6 +128,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.trace",
         description: "Show traceability chain for an entity, or check an agent plan for gaps (entity_id or plan)",
         category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -141,6 +146,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.search",
         description: "Fuzzy search over graph nodes",
         category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -163,6 +169,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.schema",
         description: "Get the graph schema definition",
         category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -181,6 +188,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.model",
         description: "Render the logical data model (entity kinds, fields, relationships)",
         category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -228,6 +236,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.outline_extensions",
         description: "Renders the extension architecture hierarchy — how extensions relate via dependencies, enhancements, and cross-extension edges. Shows entity kinds, edge types, validation rules, and surface contributions per extension. Use this to understand the project's extension topology before making structural changes.",
         category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -258,6 +267,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.coverage",
         description: "Get coverage status per entity",
         category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -276,6 +286,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.stats",
         description: "Get project statistics",
         category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -290,6 +301,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.list",
         description: "List entities, optionally filtered by kind",
         category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -306,6 +318,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.inspect",
         description: "Get full detail for a specific entity",
         category: Category::Navigation,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -323,6 +336,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.find_definition",
         description: "Find the source location of an entity definition",
         category: Category::Navigation,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -340,6 +354,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.find_references",
         description: "Find all references to an entity",
         category: Category::Navigation,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -357,6 +372,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.outline",
         description: "Get entity outline for a file",
         category: Category::Navigation,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -374,6 +390,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.suggest_fixes",
         description: "Get suggested fixes for diagnostics",
         category: Category::Navigation,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -392,6 +409,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.format",
         description: "Format spec files",
         category: Category::Mutation,
+        access: Access::Writes {
+            destructive: true,
+            idempotent: true,
+            open_world: false,
+        },
         schema: || {
             json!({
                 "type": "object",
@@ -416,6 +438,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.rename",
         description: "Rename an entity across all files",
         category: Category::Mutation,
+        access: Access::Writes {
+            destructive: true,
+            idempotent: false,
+            open_world: false,
+        },
         schema: || {
             json!({
                 "type": "object",
@@ -440,6 +467,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.init",
         description: "Initialize a new SpecForge project",
         category: Category::Mutation,
+        access: Access::Writes {
+            destructive: false,
+            idempotent: true,
+            open_world: false,
+        },
         schema: || {
             json!({
                 "type": "object",
@@ -464,6 +496,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.add_extension",
         description: "Install an extension",
         category: Category::Mutation,
+        access: Access::Writes {
+            destructive: false,
+            idempotent: true,
+            open_world: true,
+        },
         schema: || {
             json!({
                 "type": "object",
@@ -494,6 +531,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.remove_extension",
         description: "Remove an installed extension",
         category: Category::Mutation,
+        access: Access::Writes {
+            destructive: true,
+            idempotent: true,
+            open_world: false,
+        },
         schema: || {
             json!({
                 "type": "object",
@@ -524,6 +566,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.migrate",
         description: "Run migration pipeline",
         category: Category::Mutation,
+        access: Access::Writes {
+            destructive: true,
+            idempotent: true,
+            open_world: false,
+        },
         schema: || {
             json!({
                 "type": "object",
@@ -553,6 +600,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.extensions",
         description: "List installed extensions",
         category: Category::Management,
+        access: Access::ReadOnly,
         schema: || json!({ "type": "object", "properties": {} }),
         mutation: None,
         fields: fields::<NoArgs>,
@@ -562,6 +610,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.providers",
         description: "List configured providers",
         category: Category::Management,
+        access: Access::ReadOnly,
         schema: || json!({ "type": "object", "properties": {} }),
         mutation: None,
         fields: fields::<NoArgs>,
@@ -571,6 +620,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.doctor",
         description: "Run health checks",
         category: Category::Management,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -587,6 +637,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.collect",
         description: "Record which entities the project's tests prove, from the test runner's report (runs the runner only with run: true and prior approval)",
         category: Category::Management,
+        access: Access::Writes {
+            destructive: true,
+            idempotent: false,
+            open_world: true,
+        },
         schema: || {
             json!({
                 "type": "object",
@@ -605,6 +660,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.render",
         description: "Render output in a specified format",
         category: Category::Management,
+        access: Access::Writes {
+            destructive: true,
+            idempotent: true,
+            open_world: false,
+        },
         schema: || {
             json!({
                 "type": "object",
@@ -623,7 +683,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.infer_progress",
         description: "Check inference progress: summary of analyzed vs unanalyzed source files, stale entries, and entity counts",
-        category: Category::Inference,
+        category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -637,7 +698,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.infer_gaps",
         description: "Analyze inference gaps: public Rust items not yet covered by spec entities (approximate)",
-        category: Category::Inference,
+        category: Category::Core,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -651,7 +713,12 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     ToolSpec {
         name: "specforge.infer_session",
         description: "Manage inference sessions: start a new session, mark files as analyzed, or end a session",
-        category: Category::Inference,
+        category: Category::Mutation,
+        access: Access::Writes {
+            destructive: false,
+            idempotent: false,
+            open_world: false,
+        },
         schema: || {
             json!({
                 "type": "object",
@@ -704,6 +771,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.find_implementation",
         description: "Find source code locations that implement a specforge entity",
         category: Category::Navigation,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
@@ -724,6 +792,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         name: "specforge.find_spec_for_source",
         description: "Find specforge entities anchored to a source file",
         category: Category::Navigation,
+        access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",

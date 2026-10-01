@@ -155,3 +155,123 @@ fn every_listed_core_resource_is_readable() {
         "listed resources that do not read: {unreadable:#?}"
     );
 }
+
+/// `tools/list` of a server over the fake extension `@test/cmds`, which
+/// contributes an explicit tool and two auto-promoted commands.
+fn tools_with_an_extension() -> (McpServer, Vec<Value>) {
+    let ext = crate::fake_extension::FakeExtension::new();
+    let (mut server, _ext, dir) = crate::fake_extension::initialized(ext);
+    std::mem::forget(dir); // the server keeps serving it
+    let listed = call(&mut server, "tools/list", json!({}));
+    let tools = listed["result"]["tools"].as_array().cloned().unwrap();
+    (server, tools)
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "every listed tool has a spec category and a source"
+)]
+fn every_listed_tool_has_a_spec_category_and_a_source() {
+    let (_server, tools) = tools_with_an_extension();
+    let core: Vec<&str> = specforge_mcp::tools::CORE_TOOLS
+        .iter()
+        .map(|t| t.name)
+        .collect();
+    for tool in &tools {
+        let category = tool["category"].as_str().unwrap_or_default();
+        assert!(
+            ["core", "navigation", "mutation", "management"].contains(&category),
+            "a role, never a provenance: {tool}"
+        );
+        let expected = if core.contains(&tool["name"].as_str().unwrap()) {
+            "core"
+        } else {
+            crate::fake_extension::EXT
+        };
+        assert_eq!(tool["source"], expected, "{tool}");
+    }
+    let listed = |name: &str| {
+        tools
+            .iter()
+            .find(|t| t["name"] == name)
+            .unwrap_or_else(|| panic!("{name} listed"))
+            .clone()
+    };
+    // infer_session rewrites specforge-infer.json; the other two only read.
+    assert_eq!(listed("specforge.infer_session")["category"], "mutation");
+    assert_eq!(listed("specforge.infer_progress")["category"], "core");
+    assert_eq!(listed("specforge.infer_gaps")["category"], "core");
+    assert_eq!(listed("specforge.cmds.check")["source"], "@test/cmds");
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
+)]
+fn core_tool_annotations_follow_what_each_tool_does() {
+    use specforge_mcp::tool::{Access, Category};
+    let (_server, tools) = tools_with_an_extension();
+    for spec in specforge_mcp::tools::CORE_TOOLS {
+        // One definition: a mutation is exactly a tool with a mutation
+        // effect, and it writes.
+        assert_eq!(
+            spec.mutation.is_some(),
+            spec.category == Category::Mutation,
+            "{}",
+            spec.name
+        );
+        if spec.mutation.is_some() {
+            assert_ne!(spec.access, Access::ReadOnly, "{}", spec.name);
+        }
+        let listed = tools.iter().find(|t| t["name"] == spec.name).unwrap();
+        let hints = &listed["annotations"];
+        match spec.access {
+            Access::ReadOnly => {
+                assert_eq!(hints["readOnlyHint"], true, "{listed}");
+                assert_eq!(hints["openWorldHint"], false, "{listed}");
+            }
+            Access::Writes {
+                destructive,
+                idempotent,
+                open_world,
+            } => {
+                assert_eq!(hints["readOnlyHint"], false, "{listed}");
+                assert_eq!(hints["destructiveHint"], destructive, "{listed}");
+                assert_eq!(hints["idempotentHint"], idempotent, "{listed}");
+                assert_eq!(hints["openWorldHint"], open_world, "{listed}");
+            }
+        }
+    }
+    let hint = |name: &str, key: &str| {
+        tools.iter().find(|t| t["name"] == name).unwrap()["annotations"][key].clone()
+    };
+    assert_eq!(hint("specforge.query", "readOnlyHint"), true);
+    assert_eq!(hint("specforge.format", "destructiveHint"), true);
+    assert_eq!(hint("specforge.add_extension", "openWorldHint"), true);
+    assert_eq!(hint("specforge.infer_session", "readOnlyHint"), false);
+    // An extension declares no annotations: none are made up for it.
+    let extension = tools.iter().find(|t| t["name"] == "specforge.cmds.check");
+    assert!(extension.unwrap().get("annotations").is_none());
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "an extension tool is listed once across recompiles"
+)]
+fn an_extension_tool_is_listed_once_across_recompiles() {
+    let (mut server, _) = tools_with_an_extension();
+    for _ in 0..2 {
+        // validate recompiles the served project.
+        call(
+            &mut server,
+            "tools/call",
+            json!({"name": "specforge.validate", "arguments": {}}),
+        );
+    }
+    let listed = call(&mut server, "tools/list", json!({}));
+    let tools = listed["result"]["tools"].as_array().unwrap();
+    for name in ["specforge.cmds.check", "specforge.cmds.report"] {
+        let count = tools.iter().filter(|t| t["name"] == name).count();
+        assert_eq!(count, 1, "{name} listed {count} times");
+    }
+}
