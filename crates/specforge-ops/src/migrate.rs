@@ -103,11 +103,20 @@ impl Outcome {
 /// The migration hooks that ran (`extension:hook`), and why any failed.
 pub type HookRun = (Vec<String>, Vec<String>);
 
+/// What a migration hook is called with: the format versions the project
+/// moves between and the files the core migration rewrote.
+#[derive(Debug, Clone)]
+pub struct HookInput {
+    pub from: String,
+    pub to: String,
+    pub files: Vec<String>,
+}
+
 /// Migrate the project, running its extensions (and their migration hooks)
 /// in `runtime`.
 pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
-    run_with_hooks(request, runtime, &mut |manifests| match runtime {
-        Some(runtime) => invoke_hooks(manifests, runtime),
+    run_with_hooks(request, runtime, &mut |manifests, input| match runtime {
+        Some(runtime) => invoke_hooks(manifests, runtime, input),
         None => (Vec::new(), Vec::new()),
     })
 }
@@ -117,7 +126,7 @@ pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
 pub fn run_with_hooks(
     request: &Request,
     runtime: Option<&dyn WasmRuntime>,
-    hooks: &mut dyn FnMut(&[ManifestV2]) -> HookRun,
+    hooks: &mut dyn FnMut(&[ManifestV2], &HookInput) -> HookRun,
 ) -> Outcome {
     let root = request.root;
     let target = &request.target;
@@ -158,7 +167,18 @@ pub fn run_with_hooks(
     }
 
     // Extension hooks run on the migrated files, before validation.
-    let (invoked, failures) = hooks(&pre.env.registries.manifests);
+    let input = HookInput {
+        from: outcome.from.to_string(),
+        to: outcome.to.to_string(),
+        files: outcome
+            .summary
+            .results
+            .iter()
+            .filter(|r| r.status == specforge_migrate::MigrationStatus::Migrated)
+            .map(|r| r.file_path.clone())
+            .collect(),
+    };
+    let (invoked, failures) = hooks(&pre.env.registries.manifests, &input);
     outcome.hooks_invoked = invoked;
     outcome.hook_failures = failures;
     if !outcome.hook_failures.is_empty() {
@@ -196,7 +216,18 @@ fn schema_of(project: &CompiledProject) -> specforge_emitter::GraphProtocolSchem
 /// Run each extension's declared migration hook, in dependency order. A
 /// hook that traps is recorded and the rest still run. Returns the hooks
 /// run (`extension:hook`) and the failures.
-pub fn invoke_hooks(manifests: &[ManifestV2], runtime: &dyn WasmRuntime) -> HookRun {
+pub fn invoke_hooks(
+    manifests: &[ManifestV2],
+    runtime: &dyn WasmRuntime,
+    input: &HookInput,
+) -> HookRun {
+    let payload = serde_json::json!({
+        "from": input.from,
+        "to": input.to,
+        "files": input.files,
+    })
+    .to_string()
+    .into_bytes();
     use specforge_wasm::runtime::WasmCallResult;
 
     let order = match specforge_wasm::topological_sort_extensions(manifests) {
@@ -218,7 +249,7 @@ pub fn invoke_hooks(manifests: &[ManifestV2], runtime: &dyn WasmRuntime) -> Hook
         let Some(hook) = manifest.migration_hook.as_deref().filter(|h| !h.is_empty()) else {
             continue;
         };
-        match runtime.call_export(name, hook, b"{}") {
+        match runtime.call_export(name, hook, &payload) {
             WasmCallResult::Ok(_) => invoked.push(format!("{name}:{hook}")),
             WasmCallResult::Trap(trap) => failures.push(format!(
                 "migration hook '{hook}' of {name} did not execute: {}: {}",
@@ -267,7 +298,7 @@ mod tests {
         let file = dir.path().join("old.spec");
 
         // A hook that renames the entity: the graph loses `alpha`.
-        let outcome = run_with_hooks(&request(dir.path()), None, &mut |_| {
+        let outcome = run_with_hooks(&request(dir.path()), None, &mut |_, _| {
             let migrated = std::fs::read_to_string(&file).unwrap();
             std::fs::write(&file, migrated.replace("alpha", "beta")).unwrap();
             (vec!["@acme/x:migrate".into()], Vec::new())
@@ -295,7 +326,7 @@ mod tests {
     fn a_migration_whose_hook_fails_is_rolled_back() {
         let dir = project();
 
-        let outcome = run_with_hooks(&request(dir.path()), None, &mut |_| {
+        let outcome = run_with_hooks(&request(dir.path()), None, &mut |_, _| {
             (
                 Vec::new(),
                 vec!["migration hook 'm' of @acme/x trapped".into()],
@@ -330,7 +361,7 @@ mod tests {
         std::fs::write(dir.path().join("old.spec"), "behavior alpha \"A\" {\n}\n").unwrap();
         let mut called = false;
 
-        let outcome = run_with_hooks(&request(dir.path()), None, &mut |_| {
+        let outcome = run_with_hooks(&request(dir.path()), None, &mut |_, _| {
             called = true;
             (Vec::new(), Vec::new())
         });
@@ -490,6 +521,47 @@ mod tests {
         .unwrap()
     }
 
+    /// Records each hook's input.
+    struct Inputs {
+        seen: Mutex<Vec<serde_json::Value>>,
+    }
+
+    impl WasmRuntime for Inputs {
+        fn load_module(&self, _: &Path) -> Result<(), String> {
+            Ok(())
+        }
+
+        fn call_export(&self, _: &str, _: &str, input: &[u8]) -> WasmCallResult {
+            self.seen
+                .lock()
+                .unwrap()
+                .push(serde_json::from_slice(input).unwrap());
+            WasmCallResult::Ok(Vec::new())
+        }
+    }
+
+    #[specforge_test(
+        behavior = "invoke_extension_migration_hooks",
+        verify = "a migration hook receives the from and to format versions and the migrated files"
+    )]
+    fn a_hook_receives_the_versions_and_the_migrated_files() {
+        let runtime = Inputs {
+            seen: Mutex::new(Vec::new()),
+        };
+        let input = HookInput {
+            from: "0.9".into(),
+            to: "1.0".into(),
+            files: vec!["old.spec".into()],
+        };
+
+        invoke_hooks(&[manifest("@acme/a", "migrate_a")], &runtime, &input);
+
+        assert_eq!(
+            *runtime.seen.lock().unwrap(),
+            [serde_json::json!({"from": "0.9", "to": "1.0", "files": ["old.spec"]})]
+        );
+    }
+
     #[specforge_test(
         behavior = "invoke_extension_migration_hooks",
         verify = "hook that traps collects WasmTrapInfo and continues"
@@ -503,7 +575,12 @@ mod tests {
             manifest("@acme/b", "migrate_b"),
         ];
 
-        let (invoked, failures) = invoke_hooks(&manifests, &runtime);
+        let input = HookInput {
+            from: "0.9".into(),
+            to: "1.0".into(),
+            files: Vec::new(),
+        };
+        let (invoked, failures) = invoke_hooks(&manifests, &runtime, &input);
 
         assert_eq!(invoked, ["@acme/b:migrate_b"]);
         assert_eq!(failures.len(), 1, "{failures:?}");

@@ -400,7 +400,10 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
     The `migration_hook` field is a string naming the Wasm export; if the
     field is absent or empty, no hook is invoked for that extension.
     Extension hooks are invoked after core format migration completes but
-    before post-migration validation.
+    before post-migration validation. The hook's input is a JSON object
+    `{"from", "to", "files"}`: the format version the project is migrated
+    from and to, and the paths of the files the core migration rewrote, so
+    the hook knows which data to transform.
 
     Migration hook lifecycle: core migration runs first (transforming .spec
     file syntax), then extension hooks run (transforming extension-specific
@@ -434,6 +437,7 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
     a trap — the compiler MUST terminate the hook execution, collect a
     WasmTrapInfo diagnostic, and continue with the next extension.
   """
+  verify unit "a migration hook receives the from and to format versions and the migrated files"
   verify unit "extension with migration_hook field has it invoked during migrate"
   verify unit "extension without migration_hook field is skipped silently"
   verify unit "extension with empty migration_hook field is skipped silently"
