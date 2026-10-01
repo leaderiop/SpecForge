@@ -340,10 +340,11 @@ fn populate_kind_keywords_available() {
     assert!(keywords.contains(&"feature".to_string()));
 }
 
-#[spec(
-    behavior = "populate_kind_registry_from_extensions",
-    verify = "population completes before validation"
-)]
+// Not linked to "population completes before validation": it validates
+// with the test-only validate_registered_entity_fields, which no load
+// runs. specforge-project/tests/registered_fields.rs proves the obligation
+// through CompiledProject::compile.
+#[test]
 fn populate_kind_completes_before_validation() {
     // The first extension's field points at a kind only the second declares.
     let early: ManifestV2 = serde_json::from_str(

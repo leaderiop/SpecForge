@@ -298,3 +298,70 @@ fn field_cross_validation_holds_on_load() {
     );
     assert!(env.registries.kinds.contains("task") && env.registries.kinds.contains("person"));
 }
+
+/// The extension whose `task.owner` targets `person` loads before the peer
+/// that declares `person`: a validation run while only the first extension
+/// was registered would report the target (W021) and the `person` entity
+/// (E024). A real compile reports neither and resolves `owner` to `p1`, so
+/// every kind was registered before the first check.
+#[specforge_test(
+    behavior = "populate_kind_registry_from_extensions",
+    verify = "population completes before validation"
+)]
+fn population_completes_before_any_validation() {
+    let runtime = KindExtensions(vec![
+        serde_json::json!({
+            "name": "@test/tasks",
+            "peers": ["@test/people"],
+            "entities": [{
+                "name": "task",
+                "fields": [{
+                    "name": "owner", "field_type": "reference",
+                    "target_kind": "person", "edge": "owned_by"
+                }]
+            }],
+            "edges": [{ "label": "owned_by", "source_kind": "task", "target_kind": "person" }]
+        }),
+        serde_json::json!({
+            "name": "@test/people",
+            "entities": [{ "name": "person" }]
+        }),
+    ]);
+    let dir = TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "p", "version": "0.1.0", "extensions": ["@test/tasks", "@test/people"]
+    });
+    fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        "task t1 \"T\" {\n  owner p1\n}\n\nperson p1 \"P\" {\n}\n",
+    )
+    .unwrap();
+
+    let project = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+
+    let loaded: Vec<&str> = project
+        .env
+        .registries
+        .manifests
+        .iter()
+        .map(|m| m.name.as_str())
+        .collect();
+    assert_eq!(loaded, ["@test/tasks", "@test/people"], "load order");
+    let diagnostics = project.diagnostics();
+    assert!(
+        !diagnostics
+            .iter()
+            .any(|d| d.code == "W021" || d.code == "E024"),
+        "{diagnostics:?}"
+    );
+    assert!(
+        project
+            .graph
+            .edges_from("t1")
+            .iter()
+            .any(|e| e.label == "owner" && e.target == "p1"),
+        "{:?}",
+        project.graph.edges()
+    );
+}
