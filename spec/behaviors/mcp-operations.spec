@@ -366,13 +366,19 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
   contract   """
     In MCP server mode, the system MUST register a specforge.doctor tool with
     no required parameters. The tool MUST check project health: extension
-    conflicts, stale Wasm cache entries, missing specforge.json fields, version
-    mismatches, and orphan entities. The response MUST include detected issues
-    and deterministic resolution steps.
+    conflicts, stale Wasm cache entries, extensions that fail to load (E028,
+    E033), missing specforge.json fields, version mismatches, and orphan
+    entities. The response MUST include detected issues and deterministic
+    resolution steps. Like specforge.validate, the tool MUST compile the
+    project afresh before checking it, so it sees edits made outside the
+    server; with use_cached (optional boolean, default false) it MUST report
+    on the server's last compile instead.
   """
   verify unit "specforge.doctor detects extension conflicts"
   verify unit "response checks wasm cache integrity"
   verify unit "response provides deterministic resolution steps"
+  verify unit "specforge.doctor reports an extension that fails to load (E028, E033) as an error"
+  verify unit "specforge.doctor compiles the project afresh unless use_cached is set"
   verify contract "Provide MCP Doctor Tool: MCP doctor tool holds — compiler_api_available, health_checked, resolution_steps_provided, tool_invoked_emitted"
 }
 

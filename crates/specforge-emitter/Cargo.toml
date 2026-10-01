@@ -19,6 +19,7 @@ specforge-registry = { workspace = true }
 specforge-validator = { path = "../specforge-validator" }
 specforge-wasm = { path = "../specforge-wasm" }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
+semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

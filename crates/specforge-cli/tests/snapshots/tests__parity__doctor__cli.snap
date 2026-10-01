@@ -63,6 +63,7 @@ expression: cli_snap
     "extensions_checked": 0,
     "findings": [],
     "issues": [],
+    "load_failures": [],
     "shadowed": [],
     "status": "healthy",
     "z3_available": "[Z3]"

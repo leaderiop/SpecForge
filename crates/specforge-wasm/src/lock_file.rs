@@ -96,10 +96,15 @@ pub enum DoctorStatus {
         expected: String,
         actual: String,
     },
+    /// `name` requires `peer` at the range `required`; `installed` is the
+    /// version the lock records for the peer (`None`: not installed). A
+    /// recorded version that isn't semver, or a range that doesn't parse,
+    /// can't be compared, so it is a mismatch too.
     PeerMismatch {
         name: String,
         peer: String,
         required: String,
+        installed: Option<String>,
     },
 }
 
@@ -142,39 +147,23 @@ pub fn run_doctor_check(
     for entry in &lock.entries {
         for peer in &entry.peer_dependencies {
             let installed = installed_versions.get(&peer.name);
-            match installed {
-                None => {
-                    if !peer.optional {
-                        results.push(DoctorStatus::PeerMismatch {
-                            name: entry.name.clone(),
-                            peer: peer.name.clone(),
-                            required: peer.version.clone(),
-                        });
-                    }
-                }
-                Some(version) => match semver::VersionReq::parse(&peer.version) {
-                    Ok(req) => match semver::Version::parse(version) {
-                        Ok(v) if req.matches(&v) => {}
-                        Ok(v) => results.push(DoctorStatus::PeerMismatch {
-                            name: entry.name.clone(),
-                            peer: peer.name.clone(),
-                            required: format!("{} (installed {})", peer.version, v),
-                        }),
-                        Err(_) => results.push(DoctorStatus::PeerMismatch {
-                            name: entry.name.clone(),
-                            peer: peer.name.clone(),
-                            required: format!(
-                                "{} (installed version '{}' is not semver)",
-                                peer.version, version
-                            ),
-                        }),
-                    },
-                    Err(_) => results.push(DoctorStatus::PeerMismatch {
-                        name: entry.name.clone(),
-                        peer: peer.name.clone(),
-                        required: format!("unparseable requirement '{}'", peer.version),
-                    }),
+            let satisfied = match installed {
+                None => peer.optional,
+                Some(version) => match (
+                    semver::VersionReq::parse(&peer.version),
+                    semver::Version::parse(version),
+                ) {
+                    (Ok(req), Ok(v)) => req.matches(&v),
+                    _ => false,
                 },
+            };
+            if !satisfied {
+                results.push(DoctorStatus::PeerMismatch {
+                    name: entry.name.clone(),
+                    peer: peer.name.clone(),
+                    required: peer.version.clone(),
+                    installed: installed.cloned(),
+                });
             }
         }
     }
@@ -582,11 +571,13 @@ mod peer_check_tests {
             name,
             peer,
             required,
+            installed,
         } = mismatches[0]
         {
             assert_eq!(name, "@a/ext");
             assert_eq!(peer, "@b/lib", "names the actual peer (not self)");
-            assert!(required.contains("2.0.0"));
+            assert_eq!(required, "^2.0.0");
+            assert_eq!(installed.as_deref(), Some("1.0.0"));
         }
     }
 

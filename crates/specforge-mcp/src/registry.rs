@@ -719,7 +719,12 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
         McpToolDescriptor {
             name: "specforge.doctor".into(),
             description: "Run health checks".into(),
-            input_schema: json!({ "type": "object", "properties": {} }),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "use_cached": { "type": "boolean", "description": "Check the last compile instead of recompiling the project", "default": false }
+                }
+            }),
             category: Some("management".into()),
         },
         McpToolDescriptor {

@@ -5,8 +5,8 @@
 //! manifests and the diagnostics) plus the project's lock file on disk:
 //! enabled extensions with their enhancement counts, enhancements grouped
 //! by the entity kind they target, extension conflicts with a resolution
-//! suggestion, keywords that shadow an entity kind, installed-binary
-//! integrity, and whether the z3 solver is on PATH.
+//! suggestion, keywords that shadow an entity kind, extensions that failed
+//! to load, installed-binary integrity, and whether the z3 solver is on PATH.
 
 use serde::Serialize;
 use specforge_common::{Diagnostic, Severity};
@@ -24,6 +24,11 @@ pub const CONFLICT_CODES: [&str; 6] = ["E017", "E018", "E023", "E026", "E057", "
 /// (a kind keyword is registered twice). E023 and E026 are also conflicts.
 pub const SHADOWING_CODES: [&str; 3] = ["E013", "E023", "E026"];
 
+/// Codes that mean an enabled extension did not load: E028 (not installed,
+/// or its protocol load failed) and E033 (its installed binary no longer
+/// matches the lock file's hash).
+pub const LOAD_FAILURE_CODES: [&str; 2] = ["E028", "E033"];
+
 /// Everything `specforge doctor` reports about a project.
 #[derive(Debug, Clone, Serialize)]
 pub struct DoctorReport {
@@ -35,6 +40,9 @@ pub struct DoctorReport {
     pub conflicts: Vec<Conflict>,
     /// Names shadowing a grammar-level construct (see [`SHADOWING_CODES`]).
     pub shadowed: Vec<ShadowedConstruct>,
+    /// Enabled extensions the compile could not load (see
+    /// [`LOAD_FAILURE_CODES`]), in diagnostic order.
+    pub load_failures: Vec<LoadFailure>,
     /// Installed binaries that do not match the lock file.
     pub issues: Vec<BinaryIssue>,
     /// Lock entries whose binaries were checked.
@@ -83,6 +91,14 @@ pub struct ShadowedConstruct {
     pub suggestion: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct LoadFailure {
+    pub code: String,
+    pub message: String,
+    /// The diagnostic's own suggestion, else a pointer to `specforge explain`.
+    pub suggestion: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum BinaryIssue {
@@ -97,7 +113,12 @@ pub enum BinaryIssue {
     PeerMismatch {
         name: String,
         peer: String,
+        /// The range `name` requires.
         required: String,
+        /// The version the lock records for `peer`; absent when it isn't
+        /// installed.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        installed: Option<String>,
     },
 }
 
@@ -219,9 +240,18 @@ pub fn diagnose_with(
             )
         })
         .unwrap_or_default();
-    let reinstall = |name: &str| match installed_versions.get(name) {
-        Some(version) => format!("run `specforge add {name}@{version}` to reinstall it"),
-        None => format!("run `specforge add {name}` to reinstall it"),
+    // A local install reinstalls from its path; a registry one at the
+    // version it is locked at, when that is a version a registry can serve.
+    let reinstall = |name: &str| {
+        let entry = lock_entries.iter().find(|e| e.name == name);
+        let specifier = match entry {
+            Some(e) if e.source.starts_with("local:") => e.source["local:".len()..].to_string(),
+            Some(e) if semver::Version::parse(&e.version).is_ok() => {
+                format!("{name}@{}", e.version)
+            }
+            _ => name.to_string(),
+        };
+        format!("run `specforge add {specifier}` to reinstall it")
     };
     let mut issues = Vec::new();
     for status in statuses {
@@ -257,19 +287,60 @@ pub fn diagnose_with(
                 name,
                 peer,
                 required,
-            } => (
-                BinaryIssue::PeerMismatch {
-                    name: name.clone(),
-                    peer: peer.clone(),
-                    required: required.clone(),
-                },
-                Finding {
-                    check: format!("extension {name}: requires peer {peer} at {required}"),
-                    status: FindingStatus::Error,
-                    code: "peer_mismatch".into(),
-                    remediation: format!("run `specforge add {peer}@{required}`"),
-                },
-            ),
+                installed,
+            } => {
+                let range_ok = semver::VersionReq::parse(&required).is_ok();
+                let version_ok = installed
+                    .as_deref()
+                    .is_none_or(|v| semver::Version::parse(v).is_ok());
+                let (check, remediation) = match &installed {
+                    // The requirement itself is broken: reinstall the requirer.
+                    _ if !range_ok => (
+                        format!(
+                            "extension {name}: its peer requirement '{required}' on {peer} \
+                             is not a semver range"
+                        ),
+                        reinstall(&name),
+                    ),
+                    // The peer's recorded version can't be compared:
+                    // reinstalling it records its declared version.
+                    Some(version) if !version_ok => (
+                        format!(
+                            "extension {name}: requires peer {peer} at {required}, but the \
+                             lock records {peer} at '{version}', which is not semver"
+                        ),
+                        reinstall(&peer),
+                    ),
+                    Some(version) => (
+                        format!(
+                            "extension {name}: requires peer {peer} at {required}, \
+                             installed {version}"
+                        ),
+                        format!("run `specforge add {peer}@{required}`"),
+                    ),
+                    None => (
+                        format!(
+                            "extension {name}: requires peer {peer} at {required}, \
+                             not installed"
+                        ),
+                        format!("run `specforge add {peer}@{required}`"),
+                    ),
+                };
+                (
+                    BinaryIssue::PeerMismatch {
+                        name: name.clone(),
+                        peer: peer.clone(),
+                        required: required.clone(),
+                        installed: installed.clone(),
+                    },
+                    Finding {
+                        check,
+                        status: FindingStatus::Error,
+                        code: "peer_mismatch".into(),
+                        remediation,
+                    },
+                )
+            }
         };
         issues.push(issue);
         findings.push(finding);
@@ -284,6 +355,33 @@ pub fn diagnose_with(
     } else {
         CacheStatus::Ok
     };
+
+    // Extensions the compile could not load: `check` fails on them, so
+    // doctor does too.
+    let mut load_failures = Vec::new();
+    for diag in diagnostics {
+        if !LOAD_FAILURE_CODES.contains(&diag.code.as_str()) {
+            continue;
+        }
+        let suggestion = diag
+            .suggestion
+            .clone()
+            .unwrap_or_else(|| format!("run `specforge explain {}`", diag.code));
+        findings.push(Finding {
+            check: diag.message.clone(),
+            status: match diag.severity {
+                Severity::Error => FindingStatus::Error,
+                _ => FindingStatus::Warn,
+            },
+            code: diag.code.clone(),
+            remediation: suggestion.clone(),
+        });
+        load_failures.push(LoadFailure {
+            code: diag.code.clone(),
+            message: diag.message.clone(),
+            suggestion,
+        });
+    }
 
     // Conflicts and shadowed keywords the compile reported.
     let mut conflicts = Vec::new();
@@ -345,6 +443,7 @@ pub fn diagnose_with(
         enhancements,
         conflicts,
         shadowed,
+        load_failures,
         issues,
         extensions_checked: lock_entries.len(),
         cache_status,

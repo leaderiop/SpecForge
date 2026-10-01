@@ -669,12 +669,22 @@ fn providers_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcom
 
 // ── doctor ──────────────────────────────────────────────────────────────────
 
-fn doctor_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcome {
-    let Some(root) = &state.project_root else {
+fn doctor_op(state: &mut McpState, args: Value, id: Option<Value>) -> ToolOutcome {
+    let Some(root) = state.project_root.clone() else {
         return err_invalid(id, "doctor needs a project root");
     };
-    // The same report `specforge doctor` prints, over the server's compile.
-    let report = specforge_emitter::doctor::diagnose(root, &state.manifests, &state.diagnostics);
+    // Like specforge.validate, a fresh compile unless the caller opts into
+    // the last one (ADR 0004 D3-d): the agent may have edited the project
+    // since, and the session would not know.
+    let use_cached = args
+        .get("use_cached")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    if !use_cached || state.loaded_at.is_none() {
+        state.recompile(&root);
+    }
+    // The same report `specforge doctor` prints.
+    let report = specforge_ops::doctor::diagnose(&root, &state.manifests, &state.diagnostics);
     let conflicts: Vec<&str> = report
         .conflicts
         .iter()
@@ -683,7 +693,7 @@ fn doctor_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcome {
     ok(
         id,
         json!({
-            "extensions_ok": report.issues.is_empty(),
+            "extensions_ok": report.issues.is_empty() && report.load_failures.is_empty(),
             "conflicts": conflicts,
             "cache_status": report.cache_status,
             "findings": report.findings,
@@ -691,6 +701,9 @@ fn doctor_op(state: &McpState, _args: Value, id: Option<Value>) -> ToolOutcome {
             "extensions": report.extensions,
             "enhancements": report.enhancements,
             "shadowed": report.shadowed,
+            "load_failures": report.load_failures,
+            "issues": report.issues,
+            "z3_available": report.z3_available,
         }),
     )
 }

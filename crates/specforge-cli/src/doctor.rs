@@ -1,6 +1,6 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_emitter::doctor::{BinaryIssue, DoctorReport, FindingStatus, diagnose};
+use specforge_ops::doctor::{BinaryIssue, DoctorReport, FindingStatus, diagnose};
 use specforge_registry::client::credentials::{credentials_path, read_credentials};
 use std::path::Path;
 
@@ -142,8 +142,24 @@ fn render_human(
                 name,
                 peer,
                 required,
-            } => line!("  [PEER] {name} — requires {peer} v{required}"),
+                installed,
+            } => match installed {
+                Some(version) => {
+                    line!("  [PEER] {name} — requires {peer} {required}, installed '{version}'")
+                }
+                None => line!("  [PEER] {name} — requires {peer} {required}, not installed"),
+            },
         }
+    }
+
+    line!();
+    line!("Extension load failures:");
+    if report.load_failures.is_empty() {
+        line!("  none");
+    }
+    for failure in &report.load_failures {
+        line!("  [{}] {}", failure.code, failure.message);
+        line!("    fix: {}", failure.suggestion);
     }
     if !report.z3_available {
         line!();

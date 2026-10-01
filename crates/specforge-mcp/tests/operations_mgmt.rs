@@ -540,6 +540,76 @@ fn doctor_gives_each_issue_the_same_remediation_every_time() {
     );
 }
 
+/// The finding with `code` in a doctor report.
+fn finding<'a>(report: &'a Value, code: &str) -> Option<&'a Value> {
+    report["findings"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no findings: {report}"))
+        .iter()
+        .find(|f| f["code"] == code)
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_doctor_tool",
+    verify = "specforge.doctor reports an extension that fails to load (E028, E033) as an error"
+)]
+fn doctor_reports_an_extension_that_fails_to_load() {
+    let (mut server, root) = server_with_product();
+
+    // A binary that no longer matches its lock entry is refused (E033).
+    tamper_with_installed_binary(&root);
+    let tampered = doctor(&mut server);
+    let e033 = finding(&tampered, "E033").unwrap_or_else(|| panic!("no E033: {tampered}"));
+    assert_eq!(e033["status"], "error", "{e033}");
+    assert!(e033["check"].as_str().unwrap().contains(GREET), "{e033}");
+    assert_eq!(tampered["extensions_ok"], false, "{tampered}");
+
+    // Enabled but not installed at all: no lock entry, nothing for the
+    // binary check to see. Only the load says so (E028).
+    std::fs::remove_file(root.join("specforge.lock")).unwrap();
+    std::fs::remove_dir_all(root.join(".specforge")).unwrap();
+    let missing = doctor(&mut server);
+    let e028 = finding(&missing, "E028").unwrap_or_else(|| panic!("no E028: {missing}"));
+    assert_eq!(e028["status"], "error", "{e028}");
+    assert!(
+        e028["remediation"]
+            .as_str()
+            .unwrap()
+            .contains(&format!("specforge add {GREET}")),
+        "{e028}"
+    );
+    assert_eq!(missing["extensions_ok"], false, "{missing}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_doctor_tool",
+    verify = "specforge.doctor compiles the project afresh unless use_cached is set"
+)]
+fn doctor_compiles_afresh_unless_use_cached() {
+    let (mut server, root) = software_project();
+    assert!(finding(&doctor(&mut server), "E028").is_none());
+
+    // The agent enables an extension by editing the config directly.
+    std::fs::write(
+        root.join("specforge.json"),
+        json!({"name": "t", "version": "0.1.0",
+               "extensions": ["@specforge/software", "@acme/missing"]})
+        .to_string(),
+    )
+    .unwrap();
+
+    let resp = call_tool(&mut server, "specforge.doctor", json!({"use_cached": true}));
+    let cached: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert!(finding(&cached, "E028").is_none(), "{cached}");
+
+    let fresh = doctor(&mut server);
+    let e028 = finding(&fresh, "E028").unwrap_or_else(|| panic!("no E028: {fresh}"));
+    assert!(
+        e028["check"].as_str().unwrap().contains("@acme/missing"),
+        "{e028}"
+    );
+}
+
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
     verify = "specforge.doctor detects extension conflicts"
@@ -568,7 +638,10 @@ fn doctor_lists_extension_conflicts_from_the_compile() {
             suggestion: None,
         });
 
-    let report = doctor(&mut server);
+    // Over those diagnostics, as the last compile's, not a fresh compile.
+    server.state_mut().loaded_at = Some(std::time::SystemTime::now());
+    let resp = call_tool(&mut server, "specforge.doctor", json!({"use_cached": true}));
+    let report: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
 
     let conflicts = report["conflicts"].as_array().unwrap();
     assert_eq!(conflicts.len(), 1, "{report}");

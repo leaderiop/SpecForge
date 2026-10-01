@@ -1942,12 +1942,16 @@ fn contract_doctor() {
     let report = tool(&mut server, "specforge.doctor", json!({}));
     assert_eq!(report["extensions_ok"], false, "{report}");
     assert_eq!(report["cache_status"], "stale");
-    // resolution_steps_provided: a deterministic step for the issue.
+    // resolution_steps_provided: a deterministic step for the issue. A
+    // local install reinstalls from the path it was installed from.
     let finding = find(&report["findings"], "code", "stale_hash");
     assert_eq!(finding["status"], "error");
     assert_eq!(
         finding["remediation"],
-        "run `specforge add @sdk/greet@0.1.0` to reinstall it"
+        format!(
+            "run `specforge add {}` to reinstall it",
+            product_wasm().display()
+        )
     );
     assert_eq!(tool(&mut server, "specforge.doctor", json!({})), report);
 

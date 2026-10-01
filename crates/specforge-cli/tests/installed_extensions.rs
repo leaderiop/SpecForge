@@ -267,3 +267,113 @@ fn update_never_replaces_a_local_install() {
         "update asked the registry about a local build"
     );
 }
+
+/// `specforge doctor --format json` on `root`: whether it passed, and the
+/// report.
+fn doctor(root: &Path) -> (bool, Value) {
+    let home = TempDir::new().unwrap();
+    let out = specforge()
+        .args(["doctor", "--format", "json", "--path"])
+        .arg(root)
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+    let report = serde_json::from_slice(&out.stdout)
+        .unwrap_or_else(|e| panic!("doctor is not JSON ({e}): {out:?}"));
+    (out.status.success(), report)
+}
+
+fn finding<'a>(report: &'a Value, code: &str) -> &'a Value {
+    report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["code"] == code)
+        .unwrap_or_else(|| panic!("no {code} finding: {report}"))
+}
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor reports an extension that fails to load (E028, E033) as an error"
+)]
+fn doctor_reports_an_extension_that_fails_to_load() {
+    // A binary that no longer matches its lock entry: check refuses it (E033).
+    let tampered = greeting_project();
+    add_local_greet(tampered.path());
+    let installed = tampered
+        .path()
+        .join(".specforge/extensions/@sdk/greet/extension.wasm");
+    let mut bytes = std::fs::read(&installed).unwrap();
+    bytes.extend_from_slice(b"tampered");
+    std::fs::write(&installed, bytes).unwrap();
+
+    let (ok, report) = doctor(tampered.path());
+    assert!(!ok, "{report}");
+    let e033 = finding(&report, "E033");
+    assert_eq!(e033["status"], "error", "{e033}");
+    assert!(e033["check"].as_str().unwrap().contains("@sdk/greet"));
+
+    // Enabled, but neither locked nor installed: only the load knows (E028).
+    let missing = greeting_project();
+    add_local_greet(missing.path());
+    std::fs::remove_file(missing.path().join("specforge.lock")).unwrap();
+    std::fs::remove_dir_all(missing.path().join(".specforge")).unwrap();
+
+    let (ok, report) = doctor(missing.path());
+    assert!(!ok, "{report}");
+    assert_eq!(report["status"], "issues_found", "{report}");
+    let e028 = finding(&report, "E028");
+    assert_eq!(e028["status"], "error", "{e028}");
+    assert!(
+        e028["remediation"]
+            .as_str()
+            .unwrap()
+            .contains("specforge add @sdk/greet"),
+        "{e028}"
+    );
+}
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "a peer whose installed version doctor cannot compare is remedied with a runnable command"
+)]
+fn a_peer_recorded_at_a_non_semver_version_is_remedied_by_reinstalling_it() {
+    let dir = TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        json!({"name": "p", "version": "0.1.0", "extensions": []}).to_string(),
+    )
+    .unwrap();
+    // A lock from before installs recorded their declared version: the
+    // local `@sdk/greet` is at "local", which no range can be checked against.
+    let wasm = b"module";
+    for name in ["@acme/uses-greet", "@sdk/greet"] {
+        let installed = dir.path().join(".specforge/extensions").join(name);
+        std::fs::create_dir_all(&installed).unwrap();
+        std::fs::write(installed.join("extension.wasm"), wasm).unwrap();
+    }
+    let hash = specforge_wasm::hex_sha256(wasm);
+    let lock = json!({
+        "lockfile_version": 1,
+        "entries": [
+            {"name": "@acme/uses-greet", "version": "1.0.0", "source": "registry",
+             "wasm_hash": hash,
+             "peer_dependencies": [{"name": "@sdk/greet", "version": "^0.1.0"}]},
+            {"name": "@sdk/greet", "version": "local", "source": "registry", "wasm_hash": hash},
+        ],
+    });
+    std::fs::write(dir.path().join("specforge.lock"), lock.to_string()).unwrap();
+
+    let (ok, report) = doctor(dir.path());
+
+    assert!(!ok, "{report}");
+    let peer = finding(&report, "peer_mismatch");
+    let remediation = peer["remediation"].as_str().unwrap();
+    assert_eq!(
+        remediation,
+        "run `specforge add @sdk/greet` to reinstall it"
+    );
+    let check = peer["check"].as_str().unwrap();
+    assert!(check.contains("'local'"), "{check}");
+    assert!(check.contains("^0.1.0"), "{check}");
+}

@@ -787,8 +787,11 @@ behavior run_doctor_check "Run Doctor Check" {
     produce a human-readable report listing installed extensions, their
     enhancements, any conflicts with actionable resolution suggestions,
     and additional checks (shadowed fields, unknown target entities,
-    edge label conflicts). The --json flag MUST produce machine-readable
-    JSON output for CI integration.
+    edge label conflicts). An enabled extension that fails to load (E028:
+    not installed; E033: its binary no longer matches the lock) MUST be
+    reported as an error. A remediation that names a command MUST name
+    one the user can run as written. The --json flag MUST produce machine-readable JSON
+    output for CI integration.
   """
   produces   [doctor_check_completed]
   verify unit "doctor lists all installed extensions with enhancement counts"
@@ -796,6 +799,8 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor reports conflicts with resolution suggestions"
   verify unit "doctor detects shadowed grammar-level constructs"
   verify unit "doctor --json produces valid JSON output"
+  verify unit "doctor reports an extension that fails to load (E028, E033) as an error"
+  verify unit "a peer whose installed version doctor cannot compare is remedied with a runnable command"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
 }
 
