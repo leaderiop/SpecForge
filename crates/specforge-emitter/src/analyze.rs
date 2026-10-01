@@ -520,3 +520,63 @@ fn parse_pass_output(
         .collect();
     Ok((diagnostics, summary))
 }
+
+#[cfg(test)]
+mod order_tests {
+    use super::order_passes;
+    use specforge_protocol_types::CompilerPassDescriptor;
+
+    fn pass(name: &str, after: Option<&str>, before: Option<&str>) -> CompilerPassDescriptor {
+        CompilerPassDescriptor {
+            name: name.to_string(),
+            after: after.map(str::to_string),
+            before: before.map(str::to_string),
+            phase: None,
+        }
+    }
+
+    fn names(passes: &[CompilerPassDescriptor]) -> Vec<&str> {
+        passes.iter().map(|p| p.name.as_str()).collect()
+    }
+
+    #[test]
+    fn after_constraints_order_dependencies_first() {
+        let passes = vec![
+            pass("layering_verify", Some("condition_check"), None),
+            pass("condition_check", Some("resolve"), None),
+            pass("event_graph_analyze", Some("layering_verify"), None),
+        ];
+        assert_eq!(
+            names(&order_passes(&passes)),
+            vec!["condition_check", "layering_verify", "event_graph_analyze"]
+        );
+    }
+
+    #[test]
+    fn before_constraints_run_this_pass_first() {
+        // `before: "first"` means this pass runs BEFORE "first".
+        let passes = vec![
+            pass("second", None, Some("first")),
+            pass("first", None, None),
+        ];
+        assert_eq!(names(&order_passes(&passes)), vec!["second", "first"]);
+    }
+
+    #[test]
+    fn ties_resolve_in_declaration_order() {
+        let passes = vec![pass("b", None, None), pass("a", None, None)];
+        assert_eq!(names(&order_passes(&passes)), vec!["b", "a"]);
+    }
+
+    #[test]
+    fn unknown_constraint_names_are_ignored() {
+        let passes = vec![pass("solo", Some("resolve"), None)];
+        assert_eq!(names(&order_passes(&passes)), vec!["solo"]);
+    }
+
+    #[test]
+    fn constraint_cycles_fall_back_to_declaration_order() {
+        let passes = vec![pass("a", Some("b"), None), pass("b", Some("a"), None)];
+        assert_eq!(names(&order_passes(&passes)), vec!["a", "b"]);
+    }
+}
