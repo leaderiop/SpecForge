@@ -13,13 +13,11 @@ path = "tests/main.rs"
 [dependencies]
 specforge-common = { workspace = true }
 specforge-emitter = { path = "../specforge-emitter" }
-specforge-component = { path = "../specforge-component" }
 specforge-formatter = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
 specforge-parser = { workspace = true }
+specforge-project = { path = "../specforge-project" }
 specforge-registry = { path = "../specforge-registry" }
-specforge-validator = { path = "../specforge-validator" }
-specforge-wasm = { path = "../specforge-wasm" }
 specforge-watch = { path = "../specforge-watch" }
 tree-sitter = { workspace = true }
 tower-lsp = { workspace = true }
@@ -28,6 +26,8 @@ serde_json = { workspace = true }
 strsim = { workspace = true }
 
 [dev-dependencies]
+specforge-component = { path = "../specforge-component" }
+specforge-wasm = { path = "../specforge-wasm" }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 tempfile = { workspace = true }

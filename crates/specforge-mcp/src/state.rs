@@ -60,10 +60,10 @@ impl McpState {
             .map(|root| root.join(".specforge").join("graph.json"))
     }
 
-    /// Rebuild the graph when watch has written a newer snapshot (C9-07).
-    /// No-op without a project root, without a snapshot, or when fresh.
+    /// Recompile the served project when watch has written a newer
+    /// snapshot (C9-07). No-op without a project root, without a snapshot,
+    /// or when fresh.
     pub fn refresh_if_stale(&mut self) {
-        use std::time::SystemTime;
         let Some(marker) = self.snapshot_marker() else {
             return;
         };
@@ -80,24 +80,7 @@ impl McpState {
             return;
         }
         if let Some(root) = self.project_root.clone() {
-            let previous_graph = self.graph.clone();
-            let previous_diagnostics = self.diagnostics.clone();
-            let compiled = self.compile(&root);
-            self.graph = compiled.graph;
-            self.diagnostics = compiled.diagnostics;
-            self.kind_registry = compiled.kind_registry;
-            self.field_registry = compiled.field_registry;
-            self.edge_registry = compiled.edge_registry;
-            self.extension_info = compiled.extension_info;
-            self.manifests = compiled.manifests;
-            self.spec_root = Some(compiled.spec_root);
-            self.loaded_at = Some(SystemTime::now());
-            // Subscribed clients learn what changed (C9-01).
-            crate::notifications::enqueue_compile_notifications(
-                self,
-                &previous_graph,
-                &previous_diagnostics,
-            );
+            self.recompile(&root);
         }
     }
 }
@@ -157,8 +140,7 @@ impl McpState {
 
     /// Compile the project at `root` with its extensions in [`Self::wasm_runtime`].
     pub fn compile(&self, root: &std::path::Path) -> specforge_project::CompilationContext {
-        let runtime = self.wasm_runtime(root);
-        specforge_project::CompiledProject::compile(root, Some(runtime.as_ref())).into_context()
+        self.compile_project(root).into_context()
     }
 
     pub fn is_initialized(&self) -> bool {
@@ -191,36 +173,66 @@ impl McpState {
         self.events.push(McpEvent { name, params });
     }
 
-    /// Compile `root` afresh into this state: graph, diagnostics, registries
-    /// and extension surfaces. Subscribed clients learn what changed.
-    pub fn recompile(&mut self, root: &std::path::Path) {
-        let previous_graph = self.graph.clone();
-        let previous_diagnostics = self.diagnostics.clone();
-        let result = self.compile(root);
-        self.graph = result.graph;
-        self.diagnostics = result.diagnostics;
-        self.kind_registry = result.kind_registry;
-        self.field_registry = result.field_registry;
-        self.edge_registry = result.edge_registry;
-        self.extension_info = result.extension_info;
-        self.surface_entries = result.surface_entries;
-        self.manifests = result.manifests;
-        self.spec_root = Some(result.spec_root);
+    /// Compile the project at `root` with its extensions in
+    /// [`Self::wasm_runtime`], without serving it.
+    pub fn compile_project(&self, root: &std::path::Path) -> specforge_project::CompiledProject {
+        let runtime = self.wasm_runtime(root);
+        specforge_project::CompiledProject::compile(root, Some(runtime.as_ref()))
+    }
+
+    /// Whether `root` names a project other than the one this server
+    /// serves. With no project served yet, no path is another's.
+    pub fn serves_other_than(&self, root: &std::path::Path) -> bool {
+        let canonical =
+            |p: &std::path::Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+        self.project_root
+            .as_deref()
+            .is_some_and(|served| canonical(served) != canonical(root))
+    }
+
+    /// Serve `project`, compiled from `root`. Its graph, diagnostics,
+    /// registries, config, and extension tools and resources replace the
+    /// previous project's all at once: the tools and resources listed are
+    /// the defaults plus what this project's extensions contribute, so
+    /// nothing a previous compile contributed survives, and nothing is
+    /// listed twice. Subscribed clients learn what changed. The one place
+    /// a compile becomes the served project (initialize, a stale refresh,
+    /// validate, analyze, and the mutation tools all come through here).
+    pub fn install(&mut self, root: &std::path::Path, project: specforge_project::CompiledProject) {
+        let diagnostics = project.diagnostics();
+        let specforge_project::CompiledProject { env, graph, .. } = project;
+        let specforge_project::Environment {
+            config,
+            spec_root,
+            registries,
+            ..
+        } = env;
+        let previous_graph = std::mem::replace(&mut self.graph, graph);
+        let previous_diagnostics = std::mem::replace(&mut self.diagnostics, diagnostics);
+        self.kind_registry = registries.kinds;
+        self.field_registry = registries.fields;
+        self.edge_registry = registries.edges;
+        self.extension_info = registries.extension_info;
+        self.manifests = registries.manifests;
+        self.surface_entries = registries.surfaces;
+        self.project_config = config;
+        self.spec_root = Some(spec_root);
+        self.project_root = Some(root.to_path_buf());
         self.loaded_at = Some(std::time::SystemTime::now());
 
-        // Re-register extension surfaces (remove old extension tools/resources first)
-        self.tool_registry
-            .retain(|t| t.category.as_deref() != Some("extension"));
-        self.resource_registry.retain(|r| {
-            // Keep core resources, remove extension-added ones
-            r.uri.starts_with("specforge://") && !r.uri.starts_with("specforge://ext/")
-        });
-        crate::registry::register_extension_surfaces(self, &result.manifest_surfaces);
+        crate::registry::register_defaults(self);
+        crate::registry::register_extension_surfaces(self, &registries.manifest_surfaces);
         crate::notifications::enqueue_compile_notifications(
             self,
             &previous_graph,
             &previous_diagnostics,
         );
+    }
+
+    /// Compile `root` afresh and serve it ([`Self::install`]).
+    pub fn recompile(&mut self, root: &std::path::Path) {
+        let project = self.compile_project(root);
+        self.install(root, project);
     }
 
     pub fn shutdown(&mut self) {

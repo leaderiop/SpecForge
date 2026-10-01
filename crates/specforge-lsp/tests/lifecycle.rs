@@ -102,6 +102,16 @@ async fn init_zero_extensions() {
 
 // -- lsp_shutdown -------------------------------------------------------------
 
+/// Apply an editor buffer to the state's project session.
+fn edit(state: &mut specforge_lsp::LspState, path: &str, text: &str) {
+    state.session_mut().expect("no update is running").update(
+        specforge_project::SourceChange::Buffer {
+            path,
+            text: Some(text),
+        },
+    );
+}
+
 #[spec(
     behavior = "lsp_shutdown",
     verify = "shutdown releases in-memory graph"
@@ -109,18 +119,18 @@ async fn init_zero_extensions() {
 fn shutdown_clears_state() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///p/login.spec", LOGIN);
-    state
-        .pipeline_mut()
-        .update_open_file("/p/login.spec", Some(LOGIN), |_| None);
+    edit(&mut state, "/p/login.spec", LOGIN);
     assert!(state.graph().node("login").is_some());
-    assert_eq!(state.pipeline().diagnostics().len(), 1, "the E003");
+    let pipeline = state.session().unwrap().pipeline();
+    assert_eq!(pipeline.diagnostics().len(), 1, "the E003");
 
     state.shutdown();
 
     assert_eq!(state.graph().node_count(), 0);
     assert_eq!(state.graph().edges().len(), 0);
-    assert!(state.pipeline().diagnostics().is_empty());
-    assert!(state.pipeline().diagnostic_files().is_empty());
+    let session = state.session().unwrap();
+    assert!(session.diagnostics().is_empty());
+    assert!(session.pipeline().diagnostic_files().is_empty());
     assert!(!state.is_open("file:///p/login.spec"));
     assert!(state.is_shutdown());
 }
@@ -154,28 +164,31 @@ fn lsp_state_holds_graph() {
     let mut state = specforge_lsp::LspState::new();
     assert_eq!(state.graph().node_count(), 0);
 
-    // The graph the LSP serves is the one owned by its watch pipeline.
-    assert!(std::ptr::eq(state.graph(), state.pipeline().graph()));
+    // The graph the LSP serves is the one owned by its project session,
+    // the type `specforge watch` holds.
+    let session: &specforge_project::ProjectSession = state.session().unwrap();
+    assert!(std::ptr::eq(state.graph(), session.graph()));
 
-    // A change driven through the pipeline is what the LSP's features see.
+    // A change driven through the session is what the LSP's features see.
     let limit = "invariant session_limit \"Limit\" {\n}\n";
-    state
-        .pipeline_mut()
-        .update_open_file("/p/login.spec", Some(LOGIN), |_| None);
-    state
-        .pipeline_mut()
-        .update_open_file("/p/limit.spec", Some(limit), |_| None);
+    edit(&mut state, "/p/login.spec", LOGIN);
+    edit(&mut state, "/p/limit.spec", limit);
     let def = specforge_lsp::go_to_definition(state.graph(), "session_limit")
-        .expect("the pipeline's entity is navigable");
+        .expect("the session's entity is navigable");
     assert_eq!(def.file, "/p/limit.spec");
     let refs = specforge_lsp::find_all_references(state.graph(), "session_limit");
     let ref_files: Vec<&str> = refs.iter().map(|r| r.file.as_str()).collect();
     assert_eq!(ref_files, ["/p/limit.spec", "/p/login.spec"]);
 
-    // `specforge watch` fed the same changes builds the same graph.
-    let mut watch = specforge_watch::IncrementalPipeline::empty();
-    watch.update_open_file("/p/login.spec", Some(LOGIN), |_| None);
-    watch.update_open_file("/p/limit.spec", Some(limit), |_| None);
+    // A session fed the same changes, as `specforge watch` feeds its own,
+    // builds the same graph and reports the same diagnostics.
+    let mut watch = specforge_project::ProjectSession::detached();
+    for (path, text) in [("/p/login.spec", LOGIN), ("/p/limit.spec", limit)] {
+        watch.update(specforge_project::SourceChange::Buffer {
+            path,
+            text: Some(text),
+        });
+    }
     let ids = |g: &specforge_graph::Graph| {
         let mut ids: Vec<String> = g.nodes().iter().map(|n| n.id.raw.to_string()).collect();
         ids.sort();
@@ -184,6 +197,7 @@ fn lsp_state_holds_graph() {
     assert_eq!(ids(state.graph()), ["login", "session_limit"]);
     assert_eq!(ids(state.graph()), ids(watch.graph()));
     assert_eq!(state.graph().edges().len(), watch.graph().edges().len());
+    assert_eq!(state.session().unwrap().diagnostics(), watch.diagnostics());
 }
 
 #[spec(
@@ -191,52 +205,19 @@ fn lsp_state_holds_graph() {
     verify = "graph update serves all LSP features"
 )]
 fn graph_update_serves_all_features() {
-    use specforge_common::SourceSpan;
-    use specforge_graph::{Edge, Node};
-    use specforge_parser::{EntityId, EntityKind, FieldMap};
-
     let mut state = specforge_lsp::LspState::new();
 
-    // Build a graph through the shared state
-    state.graph_mut().add_node(Node {
-        id: EntityId {
-            raw: "login".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("User Login".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "auth.spec".into(),
-            start_line: 0,
-            start_col: 0,
-            end_line: 3,
-            end_col: 1,
-        },
-        methods: Vec::new(),
-    });
-    state.graph_mut().add_node(Node {
-        id: EntityId {
-            raw: "token".into(),
-        },
-        kind: EntityKind { raw: "type".into() },
-        title: Some("Auth Token".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "types.spec".into(),
-            start_line: 5,
-            start_col: 0,
-            end_line: 8,
-            end_col: 1,
-        },
-        methods: Vec::new(),
-    });
-    state.graph_mut().add_edge(Edge {
-        source: "login".into(),
-        target: "token".into(),
-        label: "types".into(),
-    });
+    // Build a graph through the shared session.
+    edit(
+        &mut state,
+        "/p/auth.spec",
+        "behavior login \"User Login\" {\n  types [token]\n}\n",
+    );
+    edit(
+        &mut state,
+        "/p/types.spec",
+        "type token \"Auth Token\" {\n}\n",
+    );
 
     // The same graph serves go-to-definition
     let def = specforge_lsp::go_to_definition(state.graph(), "token");
@@ -245,8 +226,8 @@ fn graph_update_serves_all_features() {
     // The same graph serves find-all-references
     let refs = specforge_lsp::find_all_references(state.graph(), "token");
     assert!(
-        !refs.is_empty(),
-        "find-all-references must use shared graph"
+        refs.iter().any(|r| r.file == "/p/auth.spec"),
+        "find-all-references must use shared graph: {refs:?}"
     );
 
     // The same graph serves hover
@@ -272,13 +253,25 @@ fn lsp_debounces_like_watch() {
 
 #[spec(behavior = "lsp_shutdown", verify = "shutdown releases Wasm engines")]
 fn shutdown_frees_the_wasm_runtime() {
+    let project = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        project.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
+    let runtime: specforge_project::SharedRuntime =
+        std::sync::Arc::new(specforge_component::ComponentRuntime::new());
+    let engine = std::sync::Arc::downgrade(&runtime);
     let mut state = specforge_lsp::LspState::new();
-    state.set_runtime(specforge_component::ComponentRuntime::new());
-    let engine = std::sync::Arc::downgrade(state.runtime().unwrap());
+    state.set_session(specforge_project::ProjectSession::open_with_runtime(
+        project.path(),
+        Some(runtime),
+    ));
+    assert!(state.session().unwrap().runtime().is_some());
 
     state.shutdown();
 
-    assert!(state.runtime().is_none());
+    assert!(state.session().unwrap().runtime().is_none());
     assert!(
         engine.upgrade().is_none(),
         "the engine is freed, not just forgotten"

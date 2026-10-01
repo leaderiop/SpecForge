@@ -28,13 +28,13 @@ mod trace;
 // --- Primary API (use these) ---
 pub use compile::{CompilationContext, WasmCustomRules, build_validation_entities, compile_simple};
 pub use diagnostic_fmt::{
-    MAX_DIAGNOSTICS, diagnostic_summary, format_diagnostic, serialize_diagnostics,
-    truncate_diagnostics,
+    DiagnosticJson, MAX_DIAGNOSTICS, diagnostic_summary, diagnostics_json, format_diagnostic,
+    serialize_diagnostics, truncate_diagnostics,
 };
 pub use dot::DotOptions;
 pub use emit::{EmitFormat, EmitOptions, emit};
 pub use error::EmitterError;
-pub use exit_code::{compute_exit_code, compute_exit_code_strict};
+pub use exit_code::compute_exit_code;
 pub use json::{SCHEMA_VERSION, field_map_to_json, field_value_to_json};
 pub use plan::{PlanGap, PlanGapKind, PlanValidationResult, serialize_plan_result, validate_plan};
 pub use query::query;

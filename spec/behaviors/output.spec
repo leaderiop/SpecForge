@@ -386,6 +386,44 @@ behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
   verify unit "no truncation under limit"
 }
 
+// One JSON shape for diagnostics on every surface (ADR 0004 D1-c): a
+// superset of the CLI's nested span and MCP's flat location, so no reader
+// of either breaks.
+behavior present_diagnostics_as_json "Present Diagnostics as JSON" {
+  features   [ci_integration, diagnostic_reporting]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
+  types      [Diagnostic]
+  ports      [CompilerApi]
+  requires {
+    diagnostics_collected "the diagnostics to present have been collected"
+  }
+  ensures {
+    one_shape_everywhere "specforge check --format json, MCP validate, the specforge://diagnostics resource and tool _meta present diagnostics in one shape"
+    location_both_ways   "each entry carries its span nested under span and the span's start flat as file, line and column"
+  }
+  contract   """
+    Wherever SpecForge prints diagnostics as JSON (specforge check
+    --format json, specforge collect and specforge watch --json, the MCP
+    specforge.validate tool, the specforge://diagnostics resource and the
+    diagnostics in a tool result's _meta), it MUST present them in one
+    shape: an array of
+    entries with code, severity, message and suggestion (null when there
+    is none), the span nested under span (file, start_line, start_col,
+    end_line, end_col; null without a location), and the span's start
+    flat as file, line and column (null without a location). The shape
+    is a superset of the nested and the flat shapes these surfaces used
+    before, so no reader of either breaks.
+  """
+  verify unit "diagnostics are presented as one JSON array"
+  verify unit "each diagnostic carries code, severity, message, file, line and column"
+  verify unit "suggestion is included when available"
+  verify unit "the presented JSON is valid and parseable"
+  verify unit "the span is nested beside the flat location, with its end positions"
+  verify integration "check and MCP validate present the same diagnostics identically"
+  verify contract "Present Diagnostics as JSON: JSON diagnostic presentation holds — diagnostics_collected, one_shape_everywhere, location_both_ways"
+}
+
 // ── Agent-Optimized Export (Principle 3: agents are first-class consumers) ──
 // `specforge export` writes to stdout for agent/interactive consumption (context, brief, graph formats).
 // `specforge render` writes files to disk for batch/CI output (json, dot, markdown via extensions).

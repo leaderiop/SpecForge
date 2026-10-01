@@ -2,6 +2,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use specforge_lsp::LspState;
+use specforge_project::SourceChange;
 use specforge_test_macros::test as spec;
 
 /// Helper: create an `Arc<RwLock<LspState>>` pre-loaded with a single document.
@@ -89,8 +90,10 @@ async fn concurrent_reads_see_consistent_state() {
     {
         let mut s = state.write().await;
         s.open_document(URI, &text(1));
-        s.pipeline_mut()
-            .update_open_file(PATH, Some(&text(1)), |_| None);
+        s.session_mut().unwrap().update(SourceChange::Buffer {
+            path: PATH,
+            text: Some(&text(1)),
+        });
     }
 
     /// What a reader sees: the buffer's version and the versions of the
@@ -123,21 +126,24 @@ async fn concurrent_reads_see_consistent_state() {
     };
 
     // The writer updates the way the server does: the buffer first, then a
-    // recompile with the pipeline taken out of the state, then put back.
+    // recompile with the session taken out of the state, then put back.
     let writer = {
         let state = state.clone();
         tokio::spawn(async move {
             for v in 2..=30 {
-                let mut pipeline = {
+                let mut session = {
                     let mut s = state.write().await;
                     s.open_document(URI, &text(v));
-                    s.take_pipeline()
+                    s.take_session().expect("no other update is running")
                 };
                 // A reader during the recompile.
                 assert_consistent(observe(&state).await);
-                pipeline.update_open_file(PATH, Some(&text(v)), |_| None);
+                session.update(SourceChange::Buffer {
+                    path: PATH,
+                    text: Some(&text(v)),
+                });
                 tokio::task::yield_now().await;
-                state.write().await.set_pipeline(pipeline);
+                state.write().await.set_session(session);
             }
         })
     };

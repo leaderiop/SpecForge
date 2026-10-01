@@ -372,6 +372,7 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" },
                     "severity_filter": { "type": "string", "description": "Only report diagnostics of this severity (error, warning, info)" },
                     "strict": { "type": "boolean", "description": "Promote warnings to errors, before severity_filter applies", "default": false },
+                    "lint": { "type": "array", "items": { "type": "string" }, "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json)" },
                     "use_cached": { "type": "boolean", "description": "Report cached diagnostics from the last compile instead of recompiling", "default": false }
                 }
             }),

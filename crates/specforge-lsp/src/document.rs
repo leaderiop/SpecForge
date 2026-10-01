@@ -1,6 +1,6 @@
 /// A text buffer for an open document. Incremental parse trees are owned by
-/// the shared [`specforge_watch::IncrementalPipeline`]; the buffer only holds
-/// editor text and position math.
+/// the shared project session (`specforge_project::ProjectSession`); the
+/// buffer only holds editor text and position math.
 pub struct DocumentBuffer {
     uri: String,
     content: String,

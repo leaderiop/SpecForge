@@ -467,6 +467,9 @@ fn unknown_kind(kind: &str, suggestion: Option<&str>) -> Value {
         "message": format!("unknown entity kind '{kind}'"),
         "span": null,
         "suggestion": suggestion.map(|s| format!("did you mean '{s}'?")),
+        "file": null,
+        "line": null,
+        "column": null,
     })
 }
 
@@ -1716,6 +1719,8 @@ fn contract_validate() {
                 "code": "E006",
                 "severity": "Error",
                 "message": "behavior 'wave' is missing required field 'contract'",
+                "span": {"file": "broken.spec", "start_line": 1, "start_col": 1, "end_line": 3, "end_col": 2},
+                "suggestion": null,
                 "file": "broken.spec",
                 "line": 1,
                 "column": 1,
@@ -1724,6 +1729,8 @@ fn contract_validate() {
                 "code": "W004",
                 "severity": "Warning",
                 "message": "behavior 'wave' is testable but declares no verify obligations and no gherkin scenario",
+                "span": {"file": "broken.spec", "start_line": 1, "start_col": 1, "end_line": 3, "end_col": 2},
+                "suggestion": null,
                 "file": "broken.spec",
                 "line": 1,
                 "column": 1,
@@ -2089,9 +2096,12 @@ fn contract_diagnostics_resource() {
         bag,
         json!([
             {"code": "E003", "severity": "Error", "message": "unresolved reference 'ghost'",
+             "span": {"file": "feat.spec", "start_line": 2, "start_col": 14, "end_line": 2, "end_col": 0},
+             "suggestion": null,
              "file": "feat.spec", "line": 2, "column": 14},
             {"code": "W001", "severity": "Warning", "message": "a warning",
-             "suggestion": "fix W001"},
+             "span": null, "suggestion": "fix W001",
+             "file": null, "line": null, "column": null},
         ])
     );
 
