@@ -90,7 +90,17 @@ fn watch_rebuilds_on_file_change() {
     )
     .unwrap();
 
-    let rebuilt = wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60));
+    // A late event for the project's initial write can still arrive after
+    // `ready` (macOS coalesces file events) and rebuild unchanged content;
+    // the rebuild for this edit is the one that adds a node.
+    let rebuilt =
+        wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60)).and_then(|first| {
+            if first.contains("\"added_nodes\":0") && first.contains("\"modified_nodes\":0") {
+                wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60))
+            } else {
+                Some(first)
+            }
+        });
     let _ = child.kill();
     let _ = child.wait();
 
