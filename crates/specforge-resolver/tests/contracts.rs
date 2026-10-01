@@ -1,5 +1,5 @@
 use specforge_common::Severity;
-use specforge_resolver::{linker::link_references, resolve_project};
+use specforge_resolver::resolve_project;
 use specforge_test_macros::test as specforge_test;
 use std::fs;
 use tempfile::TempDir;
@@ -107,54 +107,5 @@ fn detect_import_cycles_contract() {
     assert!(
         !result.files.is_empty(),
         "files must still be resolved despite cycle"
-    );
-}
-
-// B:link_entity_references — verify contract "requires/ensures consistency for entity reference linking"
-#[specforge_test(
-    behavior = "link_entity_references",
-    verify = "Link Entity References: entity reference linking holds — registries_populated, all_files_parsed, all_references_resolved, no_silent_ignoring"
-)]
-fn link_entity_references_contract() {
-    // Requires: project with cross-file entity references
-    // Ensures: valid references produce edges, invalid produce E003
-    let dir = setup_project(&[(
-        "main.spec",
-        r#"
-behavior alpha "A" { contract "first" }
-behavior beta "B" { contract "second" }
-feature gamma "G" {
-  behaviors [alpha, beta, nonexistent]
-}"#,
-    )]);
-
-    let resolved = resolve_project(dir.path());
-    let (edges, diagnostics) = link_references(&resolved);
-
-    // Valid references produce edges
-    assert_eq!(
-        edges.len(),
-        2,
-        "two valid references must produce two edges"
-    );
-    assert!(
-        edges.iter().any(|e| e.target == "alpha"),
-        "alpha reference must produce edge"
-    );
-    assert!(
-        edges.iter().any(|e| e.target == "beta"),
-        "beta reference must produce edge"
-    );
-    assert!(
-        edges.iter().all(|e| e.source == "gamma"),
-        "all edges must originate from gamma"
-    );
-
-    // Invalid reference produces E003
-    let e001s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
-    assert_eq!(e001s.len(), 1, "unresolvable reference must produce E003");
-    assert!(
-        e001s[0].message.contains("nonexistent"),
-        "E003 must mention the unresolved ID"
     );
 }

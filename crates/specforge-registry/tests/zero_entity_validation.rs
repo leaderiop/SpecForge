@@ -710,10 +710,8 @@ fn duplicate_codes_across_extensions_produce_warning() {
     );
 }
 
-#[specforge_test(
-    behavior = "register_extension_validation_rules",
-    verify = "rules sorted by code for deterministic order"
-)]
+// Unlinked: the compile runs rules in manifest order; only this helper sorts.
+#[test]
 fn rules_sorted_by_code_for_deterministic_order() {
     let m1: ManifestV2 = serde_json::from_str(
         r#"{
@@ -745,10 +743,8 @@ fn rules_sorted_by_code_for_deterministic_order() {
     assert_eq!(codes, vec!["W100", "W200", "W300"]);
 }
 
-#[specforge_test(
-    behavior = "register_extension_validation_rules",
-    verify = "Register Extension Validation Rules: cross-extension rule aggregation holds — extension_manifests_loaded_fired, individual_rules_parsed, unified_rule_set_produced, deterministic_order_enforced, duplicate_codes_warned"
-)]
+// Unlinked: its deterministic_order_enforced part holds for this helper only.
+#[test]
 fn register_extension_validation_rules_contract() {
     // requires: each extension's rules are parsed, out of code order, and
     // both extensions declare W100.

@@ -826,6 +826,139 @@ fn setup_project(files: &[(&str, &str)]) -> tempfile::TempDir {
     dir
 }
 
+/// The project at `dir`, resolved and built into a graph.
+fn resolve_and_build(dir: &std::path::Path) -> (Graph, Vec<specforge_common::Diagnostic>) {
+    let resolved = specforge_resolver::resolve_project(dir);
+    let spec_files: Vec<_> = resolved.files.iter().map(|f| f.spec_file.clone()).collect();
+    specforge_graph::build_graph(&spec_files)
+}
+
+// The E003 span covers the unresolved identifier token itself, not the
+// whole entity block, even when the bad entry is not first and the entity
+// spans several lines.
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "E003 span covers exactly the unresolved identifier token"
+)]
+fn e003_span_points_at_reference_token() {
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
+behavior fulfillment "F" { contract "ships orders" }
+entity order {
+  title "Order"
+  depends_on [fulfillment, ghost]
+}"#,
+    )]);
+
+    let (_, diagnostics) = resolve_and_build(dir.path());
+
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+    assert_eq!(errors.len(), 1, "{diagnostics:?}");
+    assert!(errors[0].message.contains("ghost"));
+    // `ghost` sits on line 5 of main.spec in
+    // `  depends_on [fulfillment, ghost]`, columns 28-32.
+    let span = errors[0].span.as_ref().expect("E003 must carry a span");
+    assert!(span.file.as_str().ends_with("main.spec"), "{}", span.file);
+    assert_eq!(span.start_line, 5, "bad entry is on the 5th source line");
+    assert_eq!(span.start_col, 28, "span starts at 'g' of ghost");
+    assert_eq!(span.end_line, 5, "span must not extend past the token");
+    assert_eq!(span.end_col, 33, "exclusive end column, one past 't'");
+}
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "Link Entity References: entity reference linking holds — registries_populated, all_files_parsed, all_references_resolved, no_silent_ignoring"
+)]
+fn link_entity_references_contract() {
+    // all_files_parsed: the references cross files.
+    let dir = setup_project(&[
+        (
+            "a.spec",
+            "behavior alpha \"A\" { contract \"first\" }\nbehavior beta \"B\" { contract \"second\" }\n",
+        ),
+        (
+            "main.spec",
+            "feature gamma \"G\" {\n  behaviors [alpha, beta, nonexistent]\n}\n",
+        ),
+    ]);
+
+    let (graph, diagnostics) = resolve_and_build(dir.path());
+
+    // all_references_resolved: each resolvable reference is an edge from
+    // gamma.
+    let targets: Vec<&str> = graph
+        .edges_from("gamma")
+        .iter()
+        .map(|e| e.target.as_str())
+        .collect();
+    assert_eq!(targets.len(), 2, "{targets:?}");
+    assert!(targets.contains(&"alpha") && targets.contains(&"beta"));
+    // no_silent_ignoring: the unresolvable one is an E003 naming it.
+    let e003: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+    assert_eq!(e003.len(), 1, "{diagnostics:?}");
+    assert!(e003[0].message.contains("nonexistent"));
+}
+
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "cross-file duplicate entity ID produces E002 naming the first declaration"
+)]
+fn cross_file_duplicate_entity_id_produces_e002() {
+    let dir = setup_project(&[
+        (
+            "a.spec",
+            r#"behavior alpha "Alpha in file A" { contract "first" }"#,
+        ),
+        (
+            "b.spec",
+            r#"behavior alpha "Alpha in file B" { contract "second" }"#,
+        ),
+    ]);
+
+    let (_, diagnostics) = resolve_and_build(dir.path());
+
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1, "{diagnostics:?}");
+    assert!(e002[0].message.contains("'alpha'"), "{}", e002[0].message);
+    assert!(e002[0].message.contains("a.spec"), "{}", e002[0].message);
+    assert!(
+        e002[0]
+            .span
+            .as_ref()
+            .unwrap()
+            .file
+            .as_str()
+            .ends_with("b.spec")
+    );
+}
+
+// One ID declared as two kinds across files is an ambiguous identity, and
+// warns.
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "same ID different kind across files warns W060 with both kinds named"
+)]
+fn same_id_different_kind_across_files_warns_w060() {
+    let dir = setup_project(&[
+        (
+            "a.spec",
+            r#"behavior alpha "Alpha behavior" { contract "first" }"#,
+        ),
+        (
+            "b.spec",
+            r#"feature alpha "Alpha feature" { problem "different kind" }"#,
+        ),
+    ]);
+
+    let (_, diagnostics) = resolve_and_build(dir.path());
+
+    let w060: Vec<_> = diagnostics.iter().filter(|d| d.code == "W060").collect();
+    assert_eq!(w060.len(), 1, "{diagnostics:?}");
+    let msg = &w060[0].message;
+    assert!(msg.contains("behavior") && msg.contains("feature"), "{msg}");
+}
+
 #[specforge_test(
     behavior = "build_in_memory_graph",
     verify = "graph contains one node per entity"

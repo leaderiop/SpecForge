@@ -12,6 +12,7 @@ use specforge_common::Diagnostic;
 
 use super::detection::generate_required_field_rules;
 use super::populate::populate_registries;
+use super::validate::register_validation_rules;
 use super::validation_engine::{
     ValidationRulePattern, parse_all_rule_patterns, resolve_edge_rules,
 };
@@ -51,7 +52,8 @@ pub struct RegistryBuild {
     pub manifest_surfaces: Vec<(String, SurfaceContributions)>,
     /// (name, version) of each loaded extension.
     pub extension_info: Vec<(String, String)>,
-    /// Populate (E026, W018, W019, I004) then rule-parse (W112)
+    /// Populate (E026, W018, W019, I004), rule-parse (W112), then
+    /// duplicate rule codes (W023)
     /// diagnostics, in that order.
     pub registry_diagnostics: Vec<Diagnostic>,
     /// Surface registration conflicts (E039). `specforge check` reports
@@ -70,6 +72,8 @@ pub fn build_registries(manifests: Vec<ManifestV2>) -> RegistryBuild {
         .collect();
     let (mut rules, rule_diagnostics) = parse_all_rule_patterns(&rule_inputs);
     registry_diagnostics.extend(rule_diagnostics);
+    // W023: two extensions declaring the same rule code.
+    registry_diagnostics.extend(register_validation_rules(&manifests).1);
     resolve_edge_rules(&mut rules, &edges, &kinds);
     // Required fields (`required: true`) get host-generated, declarative
     // E006 rules: originless, so never dispatched to an extension.

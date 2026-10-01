@@ -101,7 +101,7 @@ behavior link_entity_references "Link Entity References" {
   verify unit "close match triggers did-you-mean suggestion"
   verify contract "Link Entity References: entity reference linking holds — registries_populated, all_files_parsed, all_references_resolved, no_silent_ignoring"
   verify unit "E003 span covers exactly the unresolved identifier token"
-  verify unit "cross-file duplicate entity ID produces W122"
+  verify unit "cross-file duplicate entity ID produces E002 naming the first declaration"
   verify unit "same ID different kind across files warns W060 with both kinds named"
 }
 

@@ -1065,13 +1065,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "Two extensions register a validation rule using the same diagnostic code. Change one extension's rule to use a unique code.",
     },
     CodeEntry {
-        code: "W026",
-        title: "Invalid verify kind",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "A `verify` statement uses a kind that no installed extension has registered, or uses a kind that is registered but not allowed for that entity's kind. Use one of the verify kinds listed as allowed in the diagnostic.",
-    },
-    CodeEntry {
         code: "W027",
         title: "Re-export binding not found",
         owner: "core",
@@ -1209,14 +1202,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Malformed semver version",
         owner: "core",
         level: Level::Warning,
-        explanation: "An extension manifest declares a peer dependency range, a version, or a `host_api_version` that is not valid semver. Use a valid semver version (e.g. `1.0.0`) or range (e.g. `^1.0.0`, `~1.2.0`, `>=1.0.0`).",
-    },
-    CodeEntry {
-        code: "W063",
-        title: "Circular peer dependency",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "Two or more installed extensions declare peer dependencies on each other, forming a cycle. Break the cycle by removing one of the peer dependency declarations.",
+        explanation: "An extension manifest declares a peer dependency range or a version that is not valid semver. Use a valid semver version (e.g. `1.0.0`) or range (e.g. `^1.0.0`, `~1.2.0`, `>=1.0.0`).",
     },
     CodeEntry {
         code: "W077",
@@ -1310,13 +1296,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "The `z3` SMT solver could not be found on `PATH`, or failed to execute, so formal entailment and consistency checks during `--prove` were skipped. Install z3 (https://github.com/Z3Prover/z3) and ensure it is executable to enable these checks.",
     },
     CodeEntry {
-        code: "W099",
-        title: "Reference outside import graph",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "An entity references another entity that resolves only through the global entity index, not through the referencing file's own declarations or its `use` imports. Add a `use` import that makes the dependency explicit, even though the reference still resolves.",
-    },
-    CodeEntry {
         code: "W110",
         title: "Refines non-abstract behavior",
         owner: "@specforge/formal",
@@ -1385,13 +1364,6 @@ pub const CATALOG: &[CodeEntry] = &[
         owner: "@specforge/governance",
         level: Level::Warning,
         explanation: "A `failure_mode` entity's `detection` or `post_detection` field is not one of the recognized values (`certain`, `likely`, `moderate`, `unlikely`, `undetectable`). Set the field to one of these values.",
-    },
-    CodeEntry {
-        code: "W122",
-        title: "Duplicate entity ID across files",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "The same entity ID and kind are declared in more than one `.spec` file. Use unique entity IDs across files, or use imports to share a single definition instead of redeclaring it.",
     },
     CodeEntry {
         code: "W123",
@@ -1495,8 +1467,12 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("E047", Some("W139")),
     ("W024", None),
     ("W025", None),
+    ("W026", None),
+    ("W063", None),
+    ("W099", None),
     ("W111", None),
     ("W120", None),
+    ("W122", None),
 ];
 
 /// Look up a retired code (case-insensitive): `Some(replacement)`.

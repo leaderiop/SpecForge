@@ -1,4 +1,3 @@
-pub mod linker;
 mod resolve;
 
 pub use resolve::{

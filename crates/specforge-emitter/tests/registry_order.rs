@@ -139,6 +139,9 @@ fn registry_diagnostics_keep_their_order() {
         "<W018>: warning[W018]: edge type 'GadgetUses' from '@test/beta' duplicates 'GadgetUses' from '@test/alpha' (first wins)",
         "<W112>: warning[W112]: extension '@test/alpha': unrecognized validation pattern kind 'no_such_check_alpha'",
         "<W112>: warning[W112]: extension '@test/beta': unrecognized validation pattern kind 'no_such_check_beta'",
+        // Both extensions declare rule W900 (05·R4 wired W023, after the
+        // rule-parse diagnostics).
+        "<W023>: warning[W023]: validation rule code 'W900' from '@test/beta' duplicates code from '@test/alpha'",
         "main.spec:3:1: error[E002]: duplicate entity ID 'widget' (first declared at main.spec:1:1)\n  help: rename one of the entities to avoid the collision",
         "<E039>: error[E039]: duplicate surface command ID 'hello': extension '@test/beta' conflicts with '@test/alpha'",
     ];

@@ -16,7 +16,6 @@
 //   - detect_duplicate_entity_kinds (4+1 verifies)
 //   - validate_peer_dependencies (4 verifies)
 //   - validate_extension_testability (5 verifies)
-//   - register_verify_kinds_from_manifest (4 verifies)
 //   - register_validation_rules_from_manifest (6 verifies)
 //   - register_extension_validation_rules (3 verifies)
 //   - apply_entity_enhancements (5 verifies)
@@ -29,8 +28,8 @@ use specforge_registry::{
     EdgeRegistry, FieldEnhancement, FieldRegistry, FieldRegistryEntry, KindRegistry,
     ManifestEdgeType, ManifestField, ManifestFieldType, ManifestV2, apply_entity_enhancements,
     detect_duplicate_entity_kinds, detect_unknown_entity_fields, populate_registries,
-    register_validation_rules, register_verify_kinds, validate_extension_testability,
-    validate_manifest, validate_manifest_consistency, validate_manifest_consistency_with_peers,
+    register_validation_rules, validate_extension_testability, validate_manifest,
+    validate_manifest_consistency, validate_manifest_consistency_with_peers,
     validate_peer_dependencies, validate_registered_entity_fields,
 };
 
@@ -1637,85 +1636,6 @@ fn testability_contract() {
 }
 
 // ===========================================================================
-// B:register_verify_kinds_from_manifest (4 verifies)
-// ===========================================================================
-
-#[spec(
-    behavior = "register_verify_kinds_from_manifest",
-    verify = "custom verify kinds registered from manifest"
-)]
-fn verify_kinds_registered() {
-    let manifest: ManifestV2 = serde_json::from_str(
-        r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
-            "verifyKinds":["smoke","contract","acceptance"]}"#,
-    )
-    .unwrap();
-    let (kinds, diags) = register_verify_kinds(&[manifest]);
-    assert!(diags.is_empty());
-    assert!(kinds.contains(&"smoke".to_string()));
-    assert!(kinds.contains(&"contract".to_string()));
-    assert!(kinds.contains(&"acceptance".to_string()));
-}
-
-#[spec(
-    behavior = "register_verify_kinds_from_manifest",
-    verify = "no hardcoded verify kinds in core"
-)]
-fn verify_kinds_no_hardcoded() {
-    let (kinds, _) = register_verify_kinds(&[]);
-    assert!(
-        kinds.is_empty(),
-        "with no manifests, verify kinds should be empty"
-    );
-}
-
-#[spec(
-    behavior = "register_verify_kinds_from_manifest",
-    verify = "unknown verify kind in .spec produces W-level diagnostic in Phase 2"
-)]
-fn verify_kinds_unknown_w026() {
-    let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
-    let registered_kinds = vec![
-        "unit".to_string(),
-        "contract".to_string(),
-        "integration".to_string(),
-    ];
-    let entities = vec![(
-        "behavior".to_string(),
-        "b1".to_string(),
-        vec!["chaos".to_string()], // not registered
-        span("test.spec"),
-    )];
-    let diags = specforge_registry::compilation::detect_unknown_verify_kinds(
-        &entities,
-        &registered_kinds,
-        &kind_reg,
-    );
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "W026" && d.message.contains("chaos"))
-    );
-}
-
-#[spec(
-    behavior = "register_verify_kinds_from_manifest",
-    verify = "Register Verify Kinds From Manifest: verify kind registration holds — extension_manifests_loaded_fired, verify_kinds_registered, no_hardcoded_kinds"
-)]
-fn verify_kinds_contract() {
-    let m: ManifestV2 = serde_json::from_str(
-        r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
-            "verifyKinds":["smoke","contract"]}"#,
-    )
-    .unwrap();
-    let (kinds, diags) = register_verify_kinds(&[m]);
-    assert_eq!(kinds.len(), 2);
-    assert!(kinds.contains(&"smoke".to_string()));
-    assert!(kinds.contains(&"contract".to_string()));
-    assert!(diags.is_empty());
-}
-
-// ===========================================================================
 // B:register_validation_rules_from_manifest (6 verifies)
 // ===========================================================================
 
@@ -1798,10 +1718,8 @@ fn validation_rule_invalid_ref_warning() {
 // B:register_extension_validation_rules (3 verifies — from spec)
 // ===========================================================================
 
-#[spec(
-    behavior = "register_extension_validation_rules",
-    verify = "rules sorted by code for deterministic order"
-)]
+// Unlinked: the compile runs rules in manifest order; only this helper sorts.
+#[test]
 fn ext_validation_rules_sorted() {
     let m1: ManifestV2 = serde_json::from_str(
         r#"{"name":"@ext/a","version":"1.0.0","manifestVersion":2,"wasmPath":"a.wasm",

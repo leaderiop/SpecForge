@@ -30,7 +30,6 @@ pub use manifest::types::{
 // --- Compilation / extension logic ---
 pub use compilation::{
     EntityView,
-    HOST_API_VERSION,
     ProviderConfig,
     ProviderSchemeRegistry,
     ProviderStatus,
@@ -39,7 +38,6 @@ pub use compilation::{
     // populate
     apply_entity_enhancements,
     build_registries,
-    detect_circular_peer_dependencies,
     // validate
     detect_duplicate_entity_kinds,
     // detection
@@ -49,17 +47,13 @@ pub use compilation::{
     // populate/validate (above)
     generate_required_field_rules,
     // provider
-    load_extension_manifests,
     load_provider_configurations,
     populate_registries,
     // contributions
-    register_extension_entity_types,
     register_provider_schemes,
     register_provider_schemes_with_status,
     register_validation_rules,
-    register_verify_kinds,
     validate_extension_testability,
-    validate_host_api_versions,
     validate_peer_dependencies,
     validate_registered_entity_fields,
 };

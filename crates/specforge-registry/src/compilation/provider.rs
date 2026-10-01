@@ -1,4 +1,4 @@
-use crate::{KindRegistry, ManifestV2};
+use crate::ManifestV2;
 use specforge_common::{Diagnostic, Severity};
 
 /// One entry of the `providers` array in specforge.json (ADR 0004 D3-c):
@@ -213,60 +213,4 @@ pub fn register_provider_schemes_with_status(
     }
 
     (registry, statuses, diagnostics)
-}
-
-/// Load extension manifests from a directory.
-/// Each .json file in the directory is parsed as a ManifestV2.
-pub fn load_extension_manifests(dir: &std::path::Path) -> (Vec<ManifestV2>, Vec<Diagnostic>) {
-    let mut manifests = Vec::new();
-    let mut diagnostics = Vec::new();
-
-    let entries = match std::fs::read_dir(dir) {
-        Ok(entries) => entries,
-        Err(_) => return (manifests, diagnostics),
-    };
-
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().is_some_and(|e| e == "json") {
-            match std::fs::read_to_string(&path) {
-                Ok(content) => match serde_json::from_str::<ManifestV2>(&content) {
-                    Ok(m) => manifests.push(m),
-                    Err(e) => {
-                        diagnostics.push(Diagnostic {
-                            code: "E030".to_string(),
-                            severity: Severity::Error,
-                            message: format!("malformed manifest at '{}': {}", path.display(), e),
-                            span: None,
-                            suggestion: Some("check the manifest JSON syntax".to_string()),
-                        });
-                    }
-                },
-                Err(e) => {
-                    diagnostics.push(Diagnostic {
-                        code: "E030".to_string(),
-                        severity: Severity::Error,
-                        message: format!("cannot read manifest at '{}': {}", path.display(), e),
-                        span: None,
-                        suggestion: None,
-                    });
-                }
-            }
-        }
-    }
-
-    (manifests, diagnostics)
-}
-
-/// Register entity types from manifests into registries.
-/// Delegates to populate_registries under the hood.
-pub fn register_extension_entity_types(
-    manifests: &[ManifestV2],
-) -> (
-    KindRegistry,
-    crate::FieldRegistry,
-    crate::EdgeRegistry,
-    Vec<Diagnostic>,
-) {
-    crate::populate_registries(manifests)
 }

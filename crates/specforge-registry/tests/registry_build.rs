@@ -169,6 +169,39 @@ fn surface_conflicts_land_in_their_own_bucket() {
     assert_eq!(build.manifest_surfaces.len(), 2);
 }
 
+/// Two extensions declaring one rule code: the build warns (W023), after
+/// the rule-parse diagnostics, and keeps both rules.
+#[spec(
+    behavior = "register_extension_validation_rules",
+    verify = "duplicate codes across extensions produce warning"
+)]
+fn a_rule_code_declared_by_two_extensions_warns() {
+    let rule = |name: &str| {
+        manifest(&format!(
+            r#"{{"name":"{name}","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
+                "validationRules":[{{"code":"W100","severity":"warning","messageTemplate":"m",
+                "check":"no_incoming_edges"}}]}}"#
+        ))
+    };
+
+    let build = build_registries(vec![rule("@ext/a"), rule("@ext/b")]);
+
+    let codes: Vec<&str> = build
+        .registry_diagnostics
+        .iter()
+        .map(|d| d.code.as_str())
+        .collect();
+    assert_eq!(codes, ["W023"]);
+    let message = &build.registry_diagnostics[0].message;
+    for part in ["'W100'", "'@ext/a'", "'@ext/b'"] {
+        assert!(message.contains(part), "{message}");
+    }
+    assert_eq!(
+        build.rules.iter().filter(|(r, _)| r.code == "W100").count(),
+        2
+    );
+}
+
 #[test]
 fn no_manifests_build_empty_registries() {
     let build = build_registries(Vec::new());

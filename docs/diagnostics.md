@@ -1728,19 +1728,6 @@ Owner: core
 Level: warning
 ```
 
-## W026
-
-```
-W026: Invalid verify kind
-
-A `verify` statement uses a kind that no installed extension has registered, or
-uses a kind that is registered but not allowed for that entity's kind. Use one
-of the verify kinds listed as allowed in the diagnostic.
-
-Owner: core
-Level: warning
-```
-
 ## W027
 
 ```
@@ -1997,22 +1984,9 @@ Level: warning
 ```
 W062: Malformed semver version
 
-An extension manifest declares a peer dependency range, a version, or a
-`host_api_version` that is not valid semver. Use a valid semver version (e.g.
-`1.0.0`) or range (e.g. `^1.0.0`, `~1.2.0`, `>=1.0.0`).
-
-Owner: core
-Level: warning
-```
-
-## W063
-
-```
-W063: Circular peer dependency
-
-Two or more installed extensions declare peer dependencies on each other,
-forming a cycle. Break the cycle by removing one of the peer dependency
-declarations.
+An extension manifest declares a peer dependency range or a version that is not
+valid semver. Use a valid semver version (e.g. `1.0.0`) or range (e.g. `^1.0.0`,
+`~1.2.0`, `>=1.0.0`).
 
 Owner: core
 Level: warning
@@ -2185,20 +2159,6 @@ Owner: core
 Level: warning
 ```
 
-## W099
-
-```
-W099: Reference outside import graph
-
-An entity references another entity that resolves only through the global entity
-index, not through the referencing file's own declarations or its `use` imports.
-Add a `use` import that makes the dependency explicit, even though the reference
-still resolves.
-
-Owner: core
-Level: warning
-```
-
 ## W110
 
 ```
@@ -2332,19 +2292,6 @@ the recognized values (`certain`, `likely`, `moderate`, `unlikely`,
 `undetectable`). Set the field to one of these values.
 
 Owner: @specforge/governance
-Level: warning
-```
-
-## W122
-
-```
-W122: Duplicate entity ID across files
-
-The same entity ID and kind are declared in more than one `.spec` file. Use
-unique entity IDs across files, or use imports to share a single definition
-instead of redeclaring it.
-
-Owner: core
 Level: warning
 ```
 
@@ -2536,5 +2483,9 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E047 | [W139](#w139) |
 | W024 | (nothing) |
 | W025 | (nothing) |
+| W026 | (nothing) |
+| W063 | (nothing) |
+| W099 | (nothing) |
 | W111 | (nothing) |
 | W120 | (nothing) |
+| W122 | (nothing) |
