@@ -1,7 +1,7 @@
 // Channels — interaction mediums for SpecForge
 //
 // First-class entity kinds declared by @specforge/product.
-// Referenced by journeys via the channels field (JourneyChannel edge).
+// Referenced by journeys via the channels field (JourneyUsesChannel edge).
 
 channel cli "Command-Line Interface" {
   description       "The specforge CLI binary. Primary interaction surface for developers and CI pipelines. Supports init, check, export, format, watch, trace, stats, and extension management commands."

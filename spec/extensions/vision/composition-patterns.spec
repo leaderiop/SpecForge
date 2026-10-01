@@ -26,8 +26,8 @@ behavior cp_software_team "Composition Pattern: Software Team" {
       - governance (3): decision, constraint, failure_mode
 
     Cross-extension edges active:
-      - Implements (behavior -> feature) via software's peer_dependency on product
-      - MilestoneBehavior (milestone -> behavior) via software's entity_enhancement
+      - BehaviorImplementsFeature (behavior -> feature) via software's peer_dependency on product
+      - MilestoneIncludesBehavior (milestone -> behavior) via software's entity_enhancement
       - ConstrainsBehavior (constraint -> behavior) via governance's peer_dependency on software
       - DecisionInvariant (decision -> invariant) via governance cross-ref
       - ProtectsInvariant (constraint -> invariant) via governance cross-ref
@@ -61,8 +61,8 @@ behavior cp_software_team "Composition Pattern: Software Team" {
     all_validation_fires   "Validation rules from all 4 extensions execute"
   }
   verify unit "16 entity kinds registered across product, software, governance"
-  verify unit "Implements edge resolves behavior to feature without I004"
-  verify unit "MilestoneBehavior edge resolves milestone to behavior"
+  verify unit "BehaviorImplementsFeature edge resolves behavior to feature without I004"
+  verify unit "MilestoneIncludesBehavior edge resolves milestone to behavior"
   verify unit "ConstrainsBehavior edge resolves constraint to behavior"
   verify unit "coverage discovers behavior, invariant, event, constraint as testable"
   verify unit "entity enhancements add behaviors field to feature and milestone"
@@ -201,9 +201,9 @@ behavior cp_minimal "Composition Pattern: Minimal (Product Only)" {
       - product (8): journey, deliverable, milestone, module, term, feature, persona, channel
 
     Product edge types active (9):
-      - JourneyFeature, DeliverableJourney, ModuleDependsOn,
-        MilestoneFeature, DeliverableModule, ModuleFeature,
-        FeatureDependsOn, JourneyPersona, JourneyChannel
+      - JourneyExercisesFeature, DeliverableSupportsJourney, ModuleDependsOn,
+        MilestoneDeliversFeature, DeliverableContainsModule, ModuleContainsFeature,
+        FeatureDependsOn, JourneyTargetsPersona, JourneyUsesChannel
 
     No entity enhancements are active. Feature has only problem,
     solution, and items fields. Milestone has only status, items, and
@@ -272,7 +272,7 @@ behavior cp_missing_product_from_software "Missing @specforge/product: Software 
     4. Store the reference as unresolved — it is NOT discarded.
     5. NOT emit E003 (error) — the reference is soft, not hard.
 
-    The Implements edge (behavior -> feature) is declared in software's
+    The BehaviorImplementsFeature edge (behavior -> feature) is declared in software's
     manifest but its target_kind "feature" is unregistered. The edge
     type is still loaded in the EdgeRegistry but no edges of this type
     can be instantiated because the target kind does not exist.
@@ -295,7 +295,7 @@ behavior cp_missing_product_from_software "Missing @specforge/product: Software 
     i004_emitted         "I004 info diagnostic emitted for unresolved feature kind"
     e003_not_emitted     "E003 error is NOT emitted for cross-extension soft references"
     enhancements_skipped "entity_enhancements targeting product kinds are silently ignored"
-    edge_type_loaded     "Implements edge type exists in EdgeRegistry but no instances created"
+    edge_type_loaded     "BehaviorImplementsFeature edge type exists in EdgeRegistry but no instances created"
     future_resolution    "Installing @specforge/product resolves the references without .spec changes"
   }
   verify unit "features field parsed and stored when product not installed"
@@ -415,19 +415,19 @@ behavior cp_validation_rules_skip_absent_kinds "Validation Rules Skip Absent Tar
   verify unit "intra-extension validation rules always fire"
 }
 
-behavior cp_milestone_behavior_edge_absent "Product MilestoneBehavior Edge When Software Absent" {
+behavior cp_milestone_behavior_edge_absent "Product MilestoneIncludesBehavior Edge When Software Absent" {
   features [pe_cross_extension_cooperation, entity_enhancement]
   types    [ManifestEdgeType, PeerDependency]
   category command
   contract """
-    The MilestoneBehavior edge is declared in @specforge/software's
+    The MilestoneIncludesBehavior edge is declared in @specforge/software's
     manifest with source_kind="milestone" (product) and
     target_kind="behavior" (software). This edge supports the
     entity_enhancement that adds a behaviors field to milestone.
 
     When @specforge/software is NOT installed:
 
-    1. The MilestoneBehavior edge type does not exist in the EdgeRegistry
+    1. The MilestoneIncludesBehavior edge type does not exist in the EdgeRegistry
        (it is declared by software, which is not loaded).
     2. The milestone entity kind has no behaviors field (the
        entity_enhancement from software is not applied).
@@ -443,7 +443,7 @@ behavior cp_milestone_behavior_edge_absent "Product MilestoneBehavior Edge When 
 
     When @specforge/product is installed but @specforge/software is NOT:
 
-    4. Product's own MilestoneFeature edge (milestone -> feature) works
+    4. Product's own MilestoneDeliversFeature edge (milestone -> feature) works
        normally — both kinds are owned by product.
     5. Milestone's generic items field works normally for any reference.
     6. Only software-specific enhancements are absent.
@@ -458,16 +458,16 @@ behavior cp_milestone_behavior_edge_absent "Product MilestoneBehavior Edge When 
     software_not_installed "@specforge/software is NOT installed"
   }
   ensures {
-    no_milestone_behavior_edge "MilestoneBehavior edge type not in EdgeRegistry"
+    no_milestone_behavior_edge "MilestoneIncludesBehavior edge type not in EdgeRegistry"
     no_behaviors_field         "milestone entity kind does not have behaviors field"
     unknown_field_diagnostic   "Using behaviors field on milestone emits field validation error"
-    milestone_feature_works    "MilestoneFeature edge (product-internal) works normally"
+    milestone_feature_works    "MilestoneDeliversFeature edge (product-internal) works normally"
     items_field_works          "milestone items field accepts any reference"
     graceful_degradation       "Milestones remain functional for product-level planning"
   }
-  verify unit "MilestoneBehavior edge absent when software not installed"
+  verify unit "MilestoneIncludesBehavior edge absent when software not installed"
   verify unit "milestone has no behaviors field when software not installed"
   verify unit "behaviors field on milestone emits unknown field diagnostic"
-  verify unit "MilestoneFeature edge works normally without software"
+  verify unit "MilestoneDeliversFeature edge works normally without software"
   verify unit "milestone items field resolves references normally"
 }

@@ -40,8 +40,8 @@ behavior pe_query_deliverable_traceability "Query Deliverable Traceability" {
   produces [pe_deliverable_traceability_queried, pe_traceability_computed]
   contract """
     The @specforge/product extension MUST enumerate all transitive features
-    reachable from a deliverable via two paths: journeys (DeliverableJourney
-    -> JourneyFeature) and modules (DeliverableModule -> ModuleFeature).
+    reachable from a deliverable via two paths: journeys (DeliverableSupportsJourney
+    -> JourneyExercisesFeature) and modules (DeliverableContainsModule -> ModuleContainsFeature).
     The union of both path sets gives the deliverable's full feature scope.
   """
   requires {
@@ -174,8 +174,8 @@ behavior pe_query_feature_deliverables "Query Feature Deliverables" {
   contract """
     The @specforge/product extension MUST compute which deliverables
     transitively contain a given feature by traversing reverse paths:
-    feature <- JourneyFeature <- journey <- DeliverableJourney <- deliverable
-    and feature <- ModuleFeature <- module <- DeliverableModule <- deliverable.
+    feature <- JourneyExercisesFeature <- journey <- DeliverableSupportsJourney <- deliverable
+    and feature <- ModuleContainsFeature <- module <- DeliverableContainsModule <- deliverable.
     The union of both path sets gives the feature's full deliverable scope.
   """
   requires {
@@ -202,13 +202,13 @@ behavior pe_query_feature_milestones "Query Feature Milestones" {
   produces [pe_feature_milestones_queried]
   contract """
     The @specforge/product extension MUST compute which milestones
-    schedule a given feature by traversing reverse MilestoneFeature edges.
+    schedule a given feature by traversing reverse MilestoneDeliversFeature edges.
   """
   requires {
     graph_ready "product graph is built and in ready state"
   }
   ensures {
-    reverse_traversal "milestones found via reverse MilestoneFeature edge traversal"
+    reverse_traversal "milestones found via reverse MilestoneDeliversFeature edge traversal"
     empty_feature     "feature not in any milestone returns empty milestones list"
     sorted_by_id      "milestones are returned sorted alphabetically by entity ID for deterministic ordering"
     deterministic     "same graph input always produces same result"
@@ -225,13 +225,13 @@ behavior pe_query_persona_journeys "Query Persona Journeys" {
   produces [pe_persona_journeys_queried]
   contract """
     The @specforge/product extension MUST compute which journeys
-    reference a given persona by traversing reverse JourneyPersona edges.
+    reference a given persona by traversing reverse JourneyTargetsPersona edges.
   """
   requires {
     graph_ready "product graph is built and in ready state"
   }
   ensures {
-    reverse_traversal "journeys found via reverse JourneyPersona edge traversal"
+    reverse_traversal "journeys found via reverse JourneyTargetsPersona edge traversal"
     empty_persona     "persona not in any journey returns empty journeys list"
     sorted_by_id      "journeys are returned sorted alphabetically by entity ID for deterministic ordering"
     deterministic     "same graph input always produces same result"
@@ -248,13 +248,13 @@ behavior pe_query_channel_journeys "Query Channel Journeys" {
   produces [pe_channel_journeys_queried]
   contract """
     The @specforge/product extension MUST compute which journeys
-    reference a given channel by traversing reverse JourneyChannel edges.
+    reference a given channel by traversing reverse JourneyUsesChannel edges.
   """
   requires {
     graph_ready "product graph is built and in ready state"
   }
   ensures {
-    reverse_traversal "journeys found via reverse JourneyChannel edge traversal"
+    reverse_traversal "journeys found via reverse JourneyUsesChannel edge traversal"
     empty_channel     "channel not in any journey returns empty journeys list"
     sorted_by_id      "journeys are returned sorted alphabetically by entity ID for deterministic ordering"
     deterministic     "same graph input always produces same result"
@@ -271,13 +271,13 @@ behavior pe_query_module_deliverables "Query Module Deliverables" {
   produces [pe_module_deliverables_queried]
   contract """
     The @specforge/product extension MUST compute which deliverables
-    contain a given module by traversing reverse DeliverableModule edges.
+    contain a given module by traversing reverse DeliverableContainsModule edges.
   """
   requires {
     graph_ready "product graph is built and in ready state"
   }
   ensures {
-    reverse_traversal "deliverables found via reverse DeliverableModule edge traversal"
+    reverse_traversal "deliverables found via reverse DeliverableContainsModule edge traversal"
     empty_module      "module not in any deliverable returns empty deliverables list"
     sorted_by_id      "deliverables are returned sorted alphabetically by entity ID for deterministic ordering"
     deterministic     "same graph input always produces same result"
@@ -294,7 +294,7 @@ behavior pe_query_term_graph "Query Term Graph" {
   produces [pe_term_graph_queried]
   contract """
     The @specforge/product extension MUST compute related terms reachable
-    from a given term via N-hop TermSeeAlso traversal. The maxHops
+    from a given term via N-hop TermReferencesRelatedTerm traversal. The maxHops
     parameter limits traversal depth (default 1).
   """
   requires {
@@ -325,13 +325,13 @@ behavior pe_query_milestone_deliverables "Query Milestone Deliverables" {
   produces [pe_milestone_deliverables_queried]
   contract """
     The @specforge/product extension MUST compute which deliverables
-    include a given milestone by traversing reverse DeliverableMilestone edges.
+    include a given milestone by traversing reverse DeliverableTrackedByMilestone edges.
   """
   requires {
     graph_ready "product graph is built and in ready state"
   }
   ensures {
-    reverse_traversal "deliverables found via reverse DeliverableMilestone edge traversal"
+    reverse_traversal "deliverables found via reverse DeliverableTrackedByMilestone edge traversal"
     empty_milestone   "milestone not in any deliverable returns empty deliverables list"
     sorted_by_id      "deliverables are returned sorted alphabetically by entity ID for deterministic ordering"
     deterministic     "same graph input always produces same result"
@@ -348,13 +348,13 @@ behavior pe_query_module_features "Query Module Features" {
   produces [pe_module_features_queried]
   contract """
     The @specforge/product extension MUST compute which features a given
-    module implements by traversing outgoing ModuleFeature edges.
+    module implements by traversing outgoing ModuleContainsFeature edges.
   """
   requires {
     graph_ready "product graph is built and in ready state"
   }
   ensures {
-    forward_traversal "features found via outgoing ModuleFeature edge traversal"
+    forward_traversal "features found via outgoing ModuleContainsFeature edge traversal"
     empty_module      "module with no features returns empty features list"
     sorted_by_id      "features are returned sorted alphabetically by entity ID for deterministic ordering"
     deterministic     "same graph input always produces same result"
@@ -403,7 +403,7 @@ behavior pe_query_deliverable_completion "Query Deliverable Completion" {
   produces [pe_deliverable_completion_queried]
   contract """
     The @specforge/product extension MUST compute the aggregate milestone
-    completion for a deliverable by traversing all DeliverableMilestone
+    completion for a deliverable by traversing all DeliverableTrackedByMilestone
     edges. completion_ratio = completed_count (milestones with
     status=completed) / milestone_count. Deliverable with zero milestones
     returns completion_ratio 0.0.
@@ -474,7 +474,7 @@ behavior pe_query_persona_features "Query Persona Features" {
   produces [pe_persona_features_queried]
   contract """
     The @specforge/product extension MUST provide a multi-hop query that
-    traverses persona -> JourneyPersona -> journey -> JourneyFeature ->
+    traverses persona -> JourneyTargetsPersona -> journey -> JourneyExercisesFeature ->
     feature to return all features reachable from a given persona. The
     result includes the intermediate journey IDs for traceability. This
     answers the question: "What features does this persona need?"
@@ -484,7 +484,7 @@ behavior pe_query_persona_features "Query Persona Features" {
     persona_exists "persona with given ID exists in the graph"
   }
   ensures {
-    multi_hop_traversal "traverses persona->journey->feature via JourneyPersona and JourneyFeature edges"
+    multi_hop_traversal "traverses persona->journey->feature via JourneyTargetsPersona and JourneyExercisesFeature edges"
     deduplicates        "features appearing in multiple journeys are listed once"
     includes_journeys   "via_journey_ids contains all intermediate journeys traversed"
     count_matches       "count equals features array length"
@@ -507,9 +507,9 @@ behavior pe_query_feature_impact "Query Feature Impact" {
     The @specforge/product extension MUST provide a transitive impact
     analysis query that, given a feature ID, returns all entities that
     would be affected if the feature were deferred or removed. The query
-    traverses: reverse JourneyFeature -> affected journeys, reverse
-    MilestoneFeature -> affected milestones, reverse ModuleFeature ->
-    affected modules, then DeliverableJourney/DeliverableModule ->
+    traverses: reverse JourneyExercisesFeature -> affected journeys, reverse
+    MilestoneDeliversFeature -> affected milestones, reverse ModuleContainsFeature ->
+    affected modules, then DeliverableSupportsJourney/DeliverableContainsModule ->
     affected deliverables, and forward FeatureDependsOn -> dependent
     features. total_affected_entities is the count of all unique affected
     entities across all categories.
@@ -542,7 +542,7 @@ behavior pe_query_unscheduled_features "Query Unscheduled Features" {
   contract """
     The @specforge/product extension MUST provide a query that returns
     all features not scheduled in any milestone. A feature is unscheduled
-    if it has zero incoming MilestoneFeature edges. The result MUST include
+    if it has zero incoming MilestoneDeliversFeature edges. The result MUST include
     total_features (all features in graph), scheduled_count, and the
     unscheduled feature IDs. This enables planners and agents to identify
     features that exist but have not been committed to any release phase.
@@ -551,7 +551,7 @@ behavior pe_query_unscheduled_features "Query Unscheduled Features" {
     graph_ready "product graph is in ready state"
   }
   ensures {
-    correct_set      "returned features have zero MilestoneFeature incoming edges"
+    correct_set      "returned features have zero MilestoneDeliversFeature incoming edges"
     exhaustive       "no unscheduled feature is omitted"
     count_consistent "count == features.length AND count + scheduled_count == total_features"
   }
@@ -569,8 +569,8 @@ behavior pe_query_feature_overlap "Query Cross-Deliverable Feature Overlap" {
   contract """
     The @specforge/product extension MUST provide a query that returns
     features shared across multiple deliverables. A feature overlaps if
-    it is reachable from 2+ deliverables via DeliverableJourney→JourneyFeature
-    or DeliverableModule→ModuleFeature paths. The result MUST list each
+    it is reachable from 2+ deliverables via DeliverableSupportsJourney→JourneyExercisesFeature
+    or DeliverableContainsModule→ModuleContainsFeature paths. The result MUST list each
     overlapping feature with its containing deliverable IDs. This enables
     release planners to identify shared dependencies across delivery streams.
   """
@@ -598,7 +598,7 @@ behavior pe_query_persona_coverage_matrix "Query Persona Coverage Matrix" {
     The @specforge/product extension MUST provide a query that computes
     a coverage matrix showing which features each persona can reach via
     their journeys. For each persona, the result MUST include: reachable
-    features (via JourneyPersona→journey→JourneyFeature traversal),
+    features (via JourneyTargetsPersona→journey→JourneyExercisesFeature traversal),
     unreachable features (all features minus reachable), coverage_ratio
     (reachable/total), and journey count. The overall_coverage is the
     mean of all persona coverage_ratios. Personas with zero journeys
@@ -636,7 +636,7 @@ behavior pe_query_channel_coverage_matrix "Query Channel Coverage Matrix" {
     The @specforge/product extension MUST provide a query that computes
     a coverage matrix showing which features each channel can reach via
     its journeys. For each channel, the result MUST include: reachable
-    features (via JourneyChannel→journey→JourneyFeature traversal),
+    features (via JourneyUsesChannel→journey→JourneyExercisesFeature traversal),
     unreachable features (all features minus reachable), coverage_ratio
     (reachable/total), and journey count. The overall_coverage is the
     mean of all channel coverage_ratios. Channels with zero journeys
@@ -656,7 +656,7 @@ behavior pe_query_channel_coverage_matrix "Query Channel Coverage Matrix" {
     deduplicated        "shared features across journeys are counted once per channel"
     sorted_by_id        "channels sorted alphabetically by entity ID"
     deterministic       "same graph always produces identical result"
-    product_edges_only  "traversal uses only JourneyChannel and JourneyFeature edges"
+    product_edges_only  "traversal uses only JourneyUsesChannel and JourneyExercisesFeature edges"
   }
   features [pe_query_coverage_analysis]
   verify unit "channel with journeys covering all features has coverage_ratio=1.0"
@@ -709,15 +709,15 @@ behavior pe_query_persona_channels "Query Persona Channels" {
   produces [pe_persona_channels_queried]
   contract """
     The @specforge/product extension MUST compute which channels a given
-    persona uses by traversing the multi-hop path: persona <- JourneyPersona
-    <- journey -> JourneyChannel -> channel. Returns a deduplicated channel
+    persona uses by traversing the multi-hop path: persona <- JourneyTargetsPersona
+    <- journey -> JourneyUsesChannel -> channel. Returns a deduplicated channel
     list for a persona.
   """
   requires {
     graph_ready "product graph is built and in ready state"
   }
   ensures {
-    multi_hop_traversal "channels found via persona <- JourneyPersona <- journey -> JourneyChannel -> channel"
+    multi_hop_traversal "channels found via persona <- JourneyTargetsPersona <- journey -> JourneyUsesChannel -> channel"
     deduplication       "channels reachable via multiple journeys appear once in the result"
     empty_persona       "persona with no journeys returns empty channels list"
     sorted_by_id        "channels are returned sorted alphabetically by entity ID for deterministic ordering"
@@ -738,13 +738,13 @@ behavior pe_query_journey_deliverables "Query Journey Deliverables" {
   produces [pe_journey_deliverables_queried]
   contract """
     The @specforge/product extension MUST compute which deliverables
-    contain a given journey by traversing reverse DeliverableJourney edges.
+    contain a given journey by traversing reverse DeliverableSupportsJourney edges.
   """
   requires {
     graph_ready "product graph is built and in ready state"
   }
   ensures {
-    reverse_traversal "deliverables found via reverse DeliverableJourney edge traversal"
+    reverse_traversal "deliverables found via reverse DeliverableSupportsJourney edge traversal"
     empty_journey     "journey not in any deliverable returns empty deliverables list"
     sorted_by_id      "deliverables are returned sorted alphabetically by entity ID for deterministic ordering"
     deterministic     "same graph input always produces same result"
@@ -815,8 +815,8 @@ behavior pe_query_deliverable_priority "Query Deliverable Priority" {
   contract """
     The @specforge/product extension MUST derive deliverable priority from
     constituent milestones and journeys. Algorithm: highest priority among
-    all milestones (via DeliverableMilestone) and journeys (via
-    DeliverableJourney) referenced by the deliverable that have an
+    all milestones (via DeliverableTrackedByMilestone) and journeys (via
+    DeliverableSupportsJourney) referenced by the deliverable that have an
     explicit priority field. Entities without a priority field are excluded
     from the derivation (not treated as medium).
     critical > high > medium > low. Deliverable returns null priority when:
@@ -855,8 +855,8 @@ behavior pe_query_deliverable_personas "Query Deliverable Personas" {
   produces [pe_deliverable_personas_queried]
   contract """
     The @specforge/product extension MUST compute which personas a
-    deliverable serves by traversing: deliverable -> DeliverableJourney ->
-    journey -> JourneyPersona -> persona. Returns the deduplicated set of
+    deliverable serves by traversing: deliverable -> DeliverableSupportsJourney ->
+    journey -> JourneyTargetsPersona -> persona. Returns the deduplicated set of
     personas with the intermediate journey IDs that connect them. This is
     a convenience query avoiding the two-hop traversal that would otherwise
     be required to answer "which personas does this deliverable serve?"
@@ -872,7 +872,7 @@ behavior pe_query_deliverable_personas "Query Deliverable Personas" {
     empty_journeys        "deliverable with journeys that have no persona returns empty personas list"
     sorted_by_id          "personas are returned sorted alphabetically by entity ID"
     deterministic         "same graph input always produces same result"
-    product_edges_only    "traversal uses only DeliverableJourney and JourneyPersona edges"
+    product_edges_only    "traversal uses only DeliverableSupportsJourney and JourneyTargetsPersona edges"
   }
   features [pe_query_traceability]
   verify unit "deliverable with one journey and one persona returns that persona"
@@ -923,8 +923,8 @@ behavior pe_query_channel_features "Query Channel Features" {
   produces [pe_channel_features_queried]
   contract """
     The @specforge/product extension MUST compute which features are reachable
-    from a channel by traversing: channel -> JourneyChannel (reverse) -> journey
-    -> JourneyFeature -> feature. Returns the deduplicated set of features with
+    from a channel by traversing: channel -> JourneyUsesChannel (reverse) -> journey
+    -> JourneyExercisesFeature -> feature. Returns the deduplicated set of features with
     the intermediate journey IDs that connect them. This is the symmetric
     counterpart to pe_query_persona_features (persona->journey->feature) and
     closes the channel→features query gap.
@@ -940,7 +940,7 @@ behavior pe_query_channel_features "Query Channel Features" {
     empty_journeys        "channel with journeys that have no features returns empty features list"
     sorted_by_id          "features are returned sorted alphabetically by entity ID"
     deterministic         "same graph input always produces same result"
-    product_edges_only    "traversal uses only JourneyChannel and JourneyFeature edges"
+    product_edges_only    "traversal uses only JourneyUsesChannel and JourneyExercisesFeature edges"
   }
   features [pe_query_traceability]
   verify unit "channel with one journey and features returns those features"
@@ -959,9 +959,9 @@ behavior pe_query_term_clusters "Query Term Clusters" {
   produces [pe_term_clusters_queried]
   contract """
     The @specforge/product extension MUST compute connected components in
-    the TermSeeAlso subgraph. Each cluster is a set of terms reachable
-    from each other via TermSeeAlso edges (treated as undirected for
-    clustering). Terms with zero TermSeeAlso edges are "isolated" and
+    the TermReferencesRelatedTerm subgraph. Each cluster is a set of terms reachable
+    from each other via TermReferencesRelatedTerm edges (treated as undirected for
+    clustering). Terms with zero TermReferencesRelatedTerm edges are "isolated" and
     reported in isolated_count but not included in any cluster. Clusters
     are sorted by size descending (largest first), with ties broken by
     alphabetical order of the first term ID. This provides a global
@@ -972,14 +972,14 @@ behavior pe_query_term_clusters "Query Term Clusters" {
     graph_ready "product graph is built and in ready state"
   }
   ensures {
-    connected_components "each cluster is a maximal connected component via TermSeeAlso"
-    undirected_treatment "TermSeeAlso edges are treated as undirected for clustering"
-    isolated_excluded    "terms with zero TermSeeAlso edges are counted in isolated_count, not in clusters"
+    connected_components "each cluster is a maximal connected component via TermReferencesRelatedTerm"
+    undirected_treatment "TermReferencesRelatedTerm edges are treated as undirected for clustering"
+    isolated_excluded    "terms with zero TermReferencesRelatedTerm edges are counted in isolated_count, not in clusters"
     no_overlap           "no term appears in more than one cluster"
     total_correct        "sum of all cluster term_counts + isolated_count == total_terms"
     sorted_by_size       "clusters sorted by term_count descending, ties broken alphabetically"
     deterministic        "same graph always produces identical cluster assignments"
-    product_edges_only   "only TermSeeAlso edges are traversed"
+    product_edges_only   "only TermReferencesRelatedTerm edges are traversed"
   }
   features [pe_query_traceability]
   verify unit "three terms in a connected chain produce one cluster of size 3"
@@ -998,7 +998,7 @@ behavior pe_query_term_density "Query Term Density" {
   produces [pe_term_density_queried]
   contract """
     The @specforge/product extension MUST compute connectivity statistics
-    for the TermSeeAlso subgraph: total terms, total see_also edges,
+    for the TermReferencesRelatedTerm subgraph: total terms, total see_also edges,
     average connections per term, maximum connections, hub terms (terms
     with connections > 2× average, minimum 3 connections), and isolated
     terms (zero connections). This metric helps identify glossary health:
@@ -1010,12 +1010,12 @@ behavior pe_query_term_density "Query Term Density" {
   }
   ensures {
     avg_computed        "avg_connections = total_see_also / total_terms (null when total_terms=0)"
-    max_computed        "max_connections is the highest TermSeeAlso degree across all terms"
+    max_computed        "max_connections is the highest TermReferencesRelatedTerm degree across all terms"
     hub_threshold       "hub_terms have connections > 2 * avg_connections AND >= 3"
-    isolated_zero_edges "isolated_terms have exactly zero TermSeeAlso edges"
+    isolated_zero_edges "isolated_terms have exactly zero TermReferencesRelatedTerm edges"
     counts_consistent   "hub_terms + isolated_terms <= total_terms"
     deterministic       "same graph always produces identical density metrics"
-    product_edges_only  "only TermSeeAlso edges are counted"
+    product_edges_only  "only TermReferencesRelatedTerm edges are counted"
   }
   features [pe_query_traceability]
   verify unit "5 terms with 8 edges computes correct average"

@@ -103,7 +103,7 @@ term t_entity_enhancement "Entity Enhancement" {
 
 term peer_dependency "Peer Dependency" {
   definition "A declaration in an extension's manifest that it requires another extension to be installed for certain features to work. Peer dependencies enable cross-extension edges and entity enhancements while keeping each extension independently installable."
-  context    "Example: @specforge/software declares an optional peer_dependency on @specforge/product for its Implements edges (behavior->feature); without product those references are I004 hints. A required peer is enabled with its dependent by `specforge add`. The product extension has no peer dependencies — it is fully standalone."
+  context    "Example: @specforge/software declares an optional peer_dependency on @specforge/product for its BehaviorImplementsFeature edges (behavior->feature); without product those references are I004 hints. A required peer is enabled with its dependent by `specforge add`. The product extension has no peer dependencies — it is fully standalone."
   aliases    ["extension_dependency", "peer_dep"]
   see_also   [cross_extension_coexistence]
   tags       ["extension", "architecture"]
@@ -111,7 +111,7 @@ term peer_dependency "Peer Dependency" {
 
 term cross_extension_coexistence "Cross-Extension Coexistence" {
   definition "The behavior of multiple installed extensions operating on the same entity graph without conflicts. Each extension owns its entity kinds, edge types, and diagnostic codes. Cross-extension interactions occur only via peer_dependency declarations and entity_enhancements. Product queries operate exclusively on product-owned entities and edges."
-  context    "When @specforge/software is co-installed with @specforge/product, software creates Implements edges (behavior->feature) but product queries do not traverse these edges. Product queries are standalone by design."
+  context    "When @specforge/software is co-installed with @specforge/product, software creates BehaviorImplementsFeature edges (behavior->feature) but product queries do not traverse these edges. Product queries are standalone by design."
   aliases    ["extension_coexistence", "multi_extension"]
   tags       ["extension", "architecture"]
 }
@@ -153,7 +153,7 @@ term planning_entity "Planning Entity" {
 }
 
 term product_graph "Product Graph" {
-  definition "The subgraph of the SpecForge entity graph consisting of only the 9 product entity kinds and 16 product edge types. Product queries operate exclusively on this subgraph — they do not traverse edges owned by other extensions. The product graph enables planning-to-delivery traceability without coupling to domain-specific extensions."
+  definition "The subgraph of the SpecForge entity graph consisting of only the 9 product entity kinds and 20 product edge types. Product queries operate exclusively on this subgraph — they do not traverse edges owned by other extensions. The product graph enables planning-to-delivery traceability without coupling to domain-specific extensions."
   context    "Product graph isolation is enforced by pe_cross_extension_query_isolation. The graph is the product of @specforge/product — consumed by product managers, agents, and dashboards."
   aliases    ["product_subgraph", "planning_graph"]
   see_also   [graph_protocol, traceability_chain, cross_extension_coexistence]
@@ -169,7 +169,7 @@ term health_score "Health Score" {
 }
 
 term impact_analysis "Impact Analysis" {
-  definition "A transitive graph traversal that computes all entities affected by a change to a given feature. Starting from a feature, follows reverse JourneyFeature, MilestoneFeature, ModuleFeature to find affected containers, then DeliverableJourney/DeliverableModule to find affected deliverables, and forward FeatureDependsOn for transitive dependent features."
+  definition "A transitive graph traversal that computes all entities affected by a change to a given feature. Starting from a feature, follows reverse JourneyExercisesFeature, MilestoneDeliversFeature, ModuleContainsFeature to find affected containers, then DeliverableSupportsJourney/DeliverableContainsModule to find affected deliverables, and forward FeatureDependsOn for transitive dependent features."
   context    "Queried via pe_query_feature_impact. Answers: 'What breaks if I defer this feature?' Used by product managers for prioritization decisions."
   aliases    ["blast_radius", "change_impact"]
   see_also   [traceability_chain, what_if_simulation]

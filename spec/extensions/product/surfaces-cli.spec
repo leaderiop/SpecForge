@@ -71,10 +71,10 @@ behavior surface_list_journeys "Surface: List Journeys" {
   }
   ensures {
     returns_list       "stdout is a valid JourneyListResult JSON object"
-    persona_filter     "when --persona is set, only journeys referencing that persona (via JourneyPersona edge) are returned"
+    persona_filter     "when --persona is set, only journeys referencing that persona (via JourneyTargetsPersona edge) are returned"
     pagination_correct "total reflects unfiltered count; has_more is true iff offset + limit < total"
-    channel_count      "each entry's channel_count reflects the number of JourneyChannel edges"
-    feature_count      "each entry's feature_count reflects the number of JourneyFeature edges"
+    channel_count      "each entry's channel_count reflects the number of JourneyUsesChannel edges"
+    feature_count      "each entry's feature_count reflects the number of JourneyExercisesFeature edges"
     exit_zero          "exit code 0 on success"
   }
   features [pe_surface_contributions]
@@ -101,8 +101,8 @@ behavior surface_list_deliverables "Surface: List Deliverables" {
     returns_list         "stdout is a valid DeliverableListResult JSON object"
     artifact_type_filter "when --artifact-type is set, only deliverables with matching ArtifactType are returned"
     status_filter        "when --status is set, only deliverables with matching DeliverableStatus are returned"
-    journey_count        "each entry's journey_count reflects the number of DeliverableJourney edges"
-    module_count         "each entry's module_count reflects the number of DeliverableModule edges"
+    journey_count        "each entry's journey_count reflects the number of DeliverableSupportsJourney edges"
+    module_count         "each entry's module_count reflects the number of DeliverableContainsModule edges"
     exit_zero            "exit code 0 on success"
   }
   features [pe_surface_contributions]
@@ -128,7 +128,7 @@ behavior surface_list_milestones "Surface: List Milestones" {
     returns_list    "stdout is a valid MilestoneListResult JSON object"
     status_filter   "when --status is set, only milestones with matching MilestoneStatus are returned"
     priority_filter "when --priority is set, only milestones with matching Priority are returned"
-    feature_count   "each entry's feature_count reflects the number of MilestoneFeature edges"
+    feature_count   "each entry's feature_count reflects the number of MilestoneDeliversFeature edges"
     exit_zero       "exit code 0 on success"
   }
   features [pe_surface_contributions]
@@ -153,7 +153,7 @@ behavior surface_list_modules "Surface: List Modules" {
   ensures {
     returns_list  "stdout is a valid ModuleListResult JSON object"
     family_filter "when --family is set, only modules with matching family are returned"
-    feature_count "each entry's feature_count reflects the number of ModuleFeature edges"
+    feature_count "each entry's feature_count reflects the number of ModuleContainsFeature edges"
     depends_on    "each entry's depends_on lists outgoing ModuleDependsOn target IDs"
     exit_zero     "exit code 0 on success"
   }
@@ -204,7 +204,7 @@ behavior surface_list_personas "Surface: List Personas" {
   ensures {
     returns_list           "stdout is a valid PersonaListResult JSON object"
     technical_level_filter "when --technical-level is set, only personas with matching TechnicalLevel are returned"
-    journey_count          "each entry's journey_count reflects the number of reverse JourneyPersona edges"
+    journey_count          "each entry's journey_count reflects the number of reverse JourneyTargetsPersona edges"
     exit_zero              "exit code 0 on success"
   }
   features [pe_surface_contributions]
@@ -230,7 +230,7 @@ behavior surface_list_channels "Surface: List Channels" {
   ensures {
     returns_list             "stdout is a valid ChannelListResult JSON object"
     interaction_model_filter "when --interaction-model is set, only channels with matching InteractionModel are returned"
-    journey_count            "each entry's journey_count reflects the number of reverse JourneyChannel edges"
+    journey_count            "each entry's journey_count reflects the number of reverse JourneyUsesChannel edges"
     exit_zero                "exit code 0 on success"
   }
   features [pe_surface_contributions]
@@ -1056,7 +1056,7 @@ behavior surface_term_clusters "Surface: Term Clusters" {
   types    [TermClusterPayload, TermCluster, ProductSurfaceError]
   contract """
     The product:term-clusters CLI command MUST return connected components
-    in the TermSeeAlso subgraph. Accepts --format flag (json/table/brief).
+    in the TermReferencesRelatedTerm subgraph. Accepts --format flag (json/table/brief).
     Table format shows cluster ID, term count, and term IDs in aligned
     columns. Brief format outputs cluster_count and isolated_count.
     Auto-promoted to MCP tool.
@@ -1083,7 +1083,7 @@ behavior surface_term_density "Surface: Term Density" {
   types    [TermDensityPayload, ProductSurfaceError]
   contract """
     The product:term-density CLI command MUST return connectivity statistics
-    for the TermSeeAlso subgraph. Accepts --format flag (json/table/brief).
+    for the TermReferencesRelatedTerm subgraph. Accepts --format flag (json/table/brief).
     Table format shows total terms, edges, avg connections, hub count,
     and isolated count. Brief format outputs avg_connections and hub count.
     Auto-promoted to MCP tool.

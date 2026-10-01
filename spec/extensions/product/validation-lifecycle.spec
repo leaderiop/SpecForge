@@ -363,7 +363,7 @@ behavior detect_shipped_deliverable_incomplete_milestones "Detect Shipped Delive
   contract   """
     The @specforge/product extension SHOULD detect deliverables with
     status=shipped that contain milestones not having status=completed
-    via DeliverableMilestone edges. A shipped deliverable with incomplete
+    via DeliverableTrackedByMilestone edges. A shipped deliverable with incomplete
     milestones indicates a status inconsistency. Produces an I065 info
     diagnostic per incomplete milestone.
   """
@@ -637,7 +637,7 @@ behavior detect_deliverable_version_release_mismatch "Detect Deliverable-Release
     The @specforge/product extension SHOULD detect deliverables whose
     version field does not match the version of the release they ship in.
     When a deliverable has a version field AND is referenced by a release
-    (via ReleaseDeliverable edge) that also has a version field, the
+    (via ReleaseIncludesDeliverable edge) that also has a version field, the
     deliverable version SHOULD be a prefix of or equal to the release
     version, OR the deliverable version SHOULD be independently consistent
     within the release.

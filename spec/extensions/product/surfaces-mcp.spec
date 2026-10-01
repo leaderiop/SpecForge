@@ -691,7 +691,7 @@ behavior resource_term_clusters "Resource: Term Clusters" {
   types    [TermClusterPayload, ProductSurfaceResponse, ProductSurfaceError]
   contract """
     The specforge://product/term-clusters MCP resource MUST return connected
-    components in the TermSeeAlso subgraph. Delegates to pe_query_term_clusters.
+    components in the TermReferencesRelatedTerm subgraph. Delegates to pe_query_term_clusters.
     Returns TermClusterPayload wrapped in ProductSurfaceResponse envelope.
     Wasm export: mcp__product_term_clusters.
     URI: specforge://product/term-clusters
@@ -713,7 +713,7 @@ behavior resource_term_density "Resource: Term Density" {
   types    [TermDensityPayload, ProductSurfaceResponse, ProductSurfaceError]
   contract """
     The specforge://product/term-density MCP resource MUST return connectivity
-    statistics for the TermSeeAlso subgraph. Delegates to pe_query_term_density.
+    statistics for the TermReferencesRelatedTerm subgraph. Delegates to pe_query_term_density.
     Returns TermDensityPayload wrapped in ProductSurfaceResponse envelope.
     Wasm export: mcp__product_term_density.
     URI: specforge://product/term-density

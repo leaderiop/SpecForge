@@ -18,7 +18,7 @@ behavior detect_orphan_journeys "Detect Orphan Journeys" {
     deliverable. Orphan journeys MUST produce a W042 warning.
   """
   ensures {
-    fires_when_orphan      "journey with zero incoming DeliverableJourney edges produces W042"
+    fires_when_orphan      "journey with zero incoming DeliverableSupportsJourney edges produces W042"
     suppresses_deliverable "journey in at least one deliverable suppresses W042"
   }
   features [pe_validation_suite]
@@ -35,7 +35,7 @@ behavior detect_orphan_modules "Detect Orphan Modules" {
     deliverable. Orphan modules MUST produce a W044 warning.
   """
   ensures {
-    fires_when_orphan      "module with zero incoming DeliverableModule edges produces W044"
+    fires_when_orphan      "module with zero incoming DeliverableContainsModule edges produces W044"
     suppresses_deliverable "module in at least one deliverable suppresses W044"
   }
   features [pe_validation_suite]
@@ -53,7 +53,7 @@ behavior detect_orphan_terms "Detect Orphan Terms" {
     terms MUST produce an I010 info diagnostic.
   """
   ensures {
-    fires_when_orphan     "term with zero incoming TermSeeAlso edges produces I010"
+    fires_when_orphan     "term with zero incoming TermReferencesRelatedTerm edges produces I010"
     suppresses_referenced "term referenced by at least one see_also suppresses I010"
   }
   features [pe_validation_suite]
@@ -72,7 +72,7 @@ behavior detect_orphan_personas "Detect Orphan Personas" {
     personas may be declared before journeys reference them.
   """
   ensures {
-    fires_when_orphan     "persona with zero incoming JourneyPersona edges produces I046"
+    fires_when_orphan     "persona with zero incoming JourneyTargetsPersona edges produces I046"
     suppresses_referenced "persona referenced by at least one journey suppresses I046"
   }
   features [pe_validation_suite]
@@ -91,7 +91,7 @@ behavior detect_orphan_channels "Detect Orphan Channels" {
     channels may be declared before journeys reference them.
   """
   ensures {
-    fires_when_orphan     "channel with zero incoming JourneyChannel edges produces I047"
+    fires_when_orphan     "channel with zero incoming JourneyUsesChannel edges produces I047"
     suppresses_referenced "channel referenced by at least one journey suppresses I047"
   }
   features [pe_validation_suite]
@@ -241,7 +241,7 @@ behavior detect_milestone_feature_module_gap "Detect Milestone Feature-Module Ga
   contract   """
     For each milestone, the @specforge/product extension SHOULD check
     that features scheduled in the milestone are reachable from the
-    milestone's modules via ModuleFeature edges. A scheduled feature
+    milestone's modules via ModuleContainsFeature edges. A scheduled feature
     not covered by any module indicates a structural gap between
     planning (features) and implementation (modules). Gaps SHOULD
     produce an I051 info diagnostic per uncovered feature.

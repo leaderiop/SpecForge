@@ -19,15 +19,15 @@ decision pe_nine_entity_kinds "Nine Entity Kinds" {
     Register 9 entity kinds: feature, journey, deliverable, milestone, module,
     term, persona, channel, release. All have testable=false — they are planning
     constructs tested indirectly through behavior chains from domain extensions.
-    Connected by 16 edge types forming a complete traceability graph from user
+    Connected by 20 edge types forming a complete traceability graph from user
     need to shipped artifact. Release was added in v1.1 to coordinate
-    multi-deliverable shipping with ReleaseDeliverable and ReleaseMilestone edges.
+    multi-deliverable shipping with ReleaseIncludesDeliverable and ReleaseCompletesMilestone edges.
   """
   consequences [
     "Complete planning-to-delivery traceability chain",
     "Domain-neutral — works for any industry",
     "All 9 kinds are non-testable planning constructs",
-    "16 edge types cover all structural relationships",
+    "20 edge types cover all structural relationships",
     "Validated by RES-27 10-expert panel consensus",
     "Release entity enables coordinated multi-deliverable shipping",
   ]
@@ -51,8 +51,8 @@ decision pe_persona_channel_as_entities "Persona and Channel as First-Class Enti
   """
   decision     """
     Declare persona and channel as first-class entity kinds in
-    @specforge/product. Journeys reference them via JourneyPersona and
-    JourneyChannel edges. Both are testable=false. Orphan detection
+    @specforge/product. Journeys reference them via JourneyTargetsPersona and
+    JourneyUsesChannel edges. Both are testable=false. Orphan detection
     via I046 (persona) and I047 (channel) at info level to support
     incremental adoption.
   """
@@ -116,18 +116,18 @@ decision pe_all_non_testable "All Product Entities Non-Testable" {
   invariants   [pe_feature_non_testable, pe_persona_non_testable, pe_channel_non_testable]
 }
 
-decision pe_term_see_also_term_only "TermSeeAlso Edge Restricted to Term-to-Term" {
+decision pe_term_see_also_term_only "TermReferencesRelatedTerm Edge Restricted to Term-to-Term" {
   status       accepted
   date         2026-03-10
   context      """
     The term entity's see_also field accepts EntityId[] and passes E001
-    resolution against any entity kind. However, TermSeeAlso graph edges
+    resolution against any entity kind. However, TermReferencesRelatedTerm graph edges
     are only created for term-to-term references. References to non-term
     entities (modules, deliverables, etc.) are valid for documentation but
     do not produce graph edges.
   """
   decision     """
-    Only term-to-term references in see_also produce TermSeeAlso edges.
+    Only term-to-term references in see_also produce TermReferencesRelatedTerm edges.
     Cross-kind references are documentation-only — they pass resolution
     (E001) but create no graph edges. Terms are navigation aids for
     vocabulary consistency, not dependency-tracking nodes. Cross-kind
@@ -135,10 +135,10 @@ decision pe_term_see_also_term_only "TermSeeAlso Edge Restricted to Term-to-Term
     and graph traversal with non-structural relationships.
   """
   consequences [
-    "TermSeeAlso edges form a clean term-only navigation graph",
+    "TermReferencesRelatedTerm edges form a clean term-only navigation graph",
     "Cross-kind references still pass E001 resolution",
     "No pollution of dependency analysis with vocabulary links",
-    "Graph queries on TermSeeAlso return only term neighbors",
+    "Graph queries on TermReferencesRelatedTerm return only term neighbors",
     "Agents can build term relationship maps without noise",
     "Cross-kind documentation links use the standard refs field instead of see_also",
   ]
@@ -446,12 +446,12 @@ decision pe_term_weak_connectivity "Term Weak Connectivity" {
   status       accepted
   date         2026-03-11
   context      """
-    Terms connected only via TermSeeAlso edges have weak graph connectivity
+    Terms connected only via TermReferencesRelatedTerm edges have weak graph connectivity
     compared to other entity kinds. Terms can exist as isolated vocabulary
     entries with no incoming or outgoing structural edges. This is intentional.
   """
   decision     """
-    Terms are vocabulary aids, not dependency nodes. TermSeeAlso edges are
+    Terms are vocabulary aids, not dependency nodes. TermReferencesRelatedTerm edges are
     optional navigation links — a term is valid without any see_also
     references. I010 detects unreferenced terms at info level for awareness,
     but term isolation is not a structural defect. Terms serve a fundamentally
@@ -461,7 +461,7 @@ decision pe_term_weak_connectivity "Term Weak Connectivity" {
   consequences [
     "Terms are valid in isolation — no mandatory incoming edges",
     "I010 is info-level, not warning-level",
-    "Term graph query (N-hop) works on the TermSeeAlso subgraph only",
+    "Term graph query (N-hop) works on the TermReferencesRelatedTerm subgraph only",
     "Agents use terms for vocabulary lookup, not dependency analysis",
   ]
 }
@@ -523,7 +523,7 @@ decision pe_term_isolation_boundary "Term Isolation as Design Boundary" {
   status       accepted
   date         2026-03-11
   context      """
-    Terms are connected to the product graph only via TermSeeAlso edges
+    Terms are connected to the product graph only via TermReferencesRelatedTerm edges
     (term-to-term). No other entity kind can reference a term via a graph
     edge. This means terms are structurally isolated from the main product
     graph (features, journeys, deliverables, milestones, modules).
@@ -545,7 +545,7 @@ decision pe_term_isolation_boundary "Term Isolation as Design Boundary" {
     "Terms remain structurally isolated in the base product extension",
     "Extensions can add term connectivity via entity_enhancements",
     "No unnecessary fields on entity kinds that don't need term links",
-    "Term graph query (N-hop) remains clean — only TermSeeAlso edges",
+    "Term graph query (N-hop) remains clean — only TermReferencesRelatedTerm edges",
     "Future @specforge/documentation extension could add terms fields to all kinds",
     "Extension integration pattern: declare a 'terms' field (EntityId[] @optional) via entity_enhancements targeting desired entity kinds, with a custom edge type (e.g., EntityTerm) in the extension manifest",
   ]
@@ -584,7 +584,7 @@ decision pe_no_persona_channel_edge "No Direct PersonaChannel Edge" {
   date         2026-03-11
   context      """
     "Which channels does this persona use?" requires multi-hop traversal
-    (persona <- JourneyPersona <- journey -> JourneyChannel -> channel).
+    (persona <- JourneyTargetsPersona <- journey -> JourneyUsesChannel -> channel).
     A direct PersonaChannel edge would simplify this but create denormalization.
   """
   decision     """
@@ -717,14 +717,14 @@ decision pe_adopt_cross_extension_query_isolation "Cross-Extension Query Isolati
   date         2026-03-11
   context      """
     When @specforge/software is co-installed with @specforge/product, software
-    creates Implements edges (behavior->feature) via peer_dependency. This raises
+    creates BehaviorImplementsFeature edges (behavior->feature) via peer_dependency. This raises
     the question: should product queries (milestone completion, journey coverage,
-    deliverable traceability) traverse Implements edges to discover behaviors
+    deliverable traceability) traverse BehaviorImplementsFeature edges to discover behaviors
     linked to features?
   """
   decision     """
     Product queries MUST NOT traverse edges owned by other extensions. Product
-    queries operate exclusively on the 16 product-owned edge types. The Implements
+    queries operate exclusively on the 20 product-owned edge types. The BehaviorImplementsFeature
     edge is owned by @specforge/software and is invisible to product queries.
     This ensures:
     1. Product extension is fully standalone — works without any peer extension
@@ -1065,8 +1065,8 @@ decision pe_priority_propagation_algorithm "Priority Propagation Algorithm" {
   """
   decision     """
     The priority propagation algorithm uses max-priority semantics:
-    1. Collect priorities from all milestones (via DeliverableMilestone)
-       and journeys (via DeliverableJourney) referencing the deliverable.
+    1. Collect priorities from all milestones (via DeliverableTrackedByMilestone)
+       and journeys (via DeliverableSupportsJourney) referencing the deliverable.
     2. Filter out null priorities — only explicit priorities participate.
     3. If no explicit priorities exist, return null (priority unknown).
     4. Otherwise, return the highest priority: critical > high > medium > low.
@@ -1214,7 +1214,7 @@ decision pe_deliverable_persona_composite "Deliverable-Persona Composite Query" 
   date         2026-03-11
   context      """
     "Which personas does this deliverable serve?" requires two-hop traversal:
-    deliverable -> DeliverableJourney -> journey -> JourneyPersona -> persona.
+    deliverable -> DeliverableSupportsJourney -> journey -> JourneyTargetsPersona -> persona.
     Unlike persona-channel (also multi-hop), deliverable-persona is a
     high-frequency product management question: product managers routinely
     need to know which user roles are served by each shippable artifact.
@@ -1437,7 +1437,7 @@ decision pe_planning_queries "Advanced Planning Queries" {
   """
   decision     """
     Add four new query methods to ProductQueryPort:
-    1. queryUnscheduledFeatures — features with zero MilestoneFeature edges
+    1. queryUnscheduledFeatures — features with zero MilestoneDeliversFeature edges
     2. queryFeatureOverlap — features reachable from 2+ deliverables
     3. queryPersonaCoverageMatrix — per-persona feature reachability matrix
     4. queryCriticalPath — longest incomplete milestone chain with slack
@@ -1551,7 +1551,7 @@ decision pe_release_ninth_entity "Release as Ninth Entity Kind" {
   """
   decision     """
     Add release as the 9th product entity kind. Releases group deliverables
-    via ReleaseDeliverable edges and target milestones via ReleaseMilestone
+    via ReleaseIncludesDeliverable edges and target milestones via ReleaseCompletesMilestone
     edges. Lifecycle: planned->in_progress->released->recalled. Two new edge
     types (total 16). Previous 8-kinds invariant updated to 9.
   """
@@ -1674,7 +1674,7 @@ decision pe_release_v1_1_migration "Release Entity v1.1 Migration Path" {
        the other 8 kinds — no conditional registration path.
     2. All release fields are @optional — a project with zero release blocks
        parses and validates identically to v1.0.
-    3. ReleaseDeliverable and ReleaseMilestone edge types are registered but
+    3. ReleaseIncludesDeliverable and ReleaseCompletesMilestone edge types are registered but
        produce zero edges when no release entities exist — no phantom edges.
     4. Validation rules targeting releases (W092-W094, I080-I091) fire only
        when release entities are present in the graph. Zero releases = zero
@@ -1707,11 +1707,11 @@ decision pe_cross_extension_query_depth "Cross-Extension Query Depth" {
   status       proposed
   reason       "Deferred until extension interop protocol is stable"
   context      """
-    Product queries traverse only the 16 product-owned edge types. Cross-extension
+    Product queries traverse only the 20 product-owned edge types. Cross-extension
     queries require following foreign edges.
   """
   decision     """
-    Defer cross-extension reverse queries. The 16-edge isolation guarantees
+    Defer cross-extension reverse queries. The 20-edge isolation guarantees
     are valuable for predictability. Cross-extension queries should be provided
     by extensions via surface contributions.
   """

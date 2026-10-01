@@ -224,7 +224,7 @@ constraint product_entity_registration_determinism "Product Entity Registration 
   category    reliability
   priority    critical
   metric      """
-    Registration of 9 entity kinds, 16 edge types, and all field
+    Registration of 9 entity kinds, 20 edge types, and all field
     definitions MUST be deterministic — same manifest input always
     produces same KindRegistry and FieldRegistry state. Registration
     order MUST NOT affect validation outcomes.
@@ -671,7 +671,7 @@ constraint product_pagination_sort_stability "Pagination Sort Stability" {
 }
 
 constraint product_cross_extension_integration_correctness "Cross-Extension Integration Correctness" {
-  description "Product queries must return identical results with or without peer extensions, enforced by the 16-edge-type allowlist."
+  description "Product queries must return identical results with or without peer extensions, enforced by the 20-edge-type allowlist."
   category    reliability
   priority    critical
   metric      """
@@ -679,14 +679,14 @@ constraint product_cross_extension_integration_correctness "Cross-Extension Inte
     (1) product queries MUST return identical results to standalone operation
     (no foreign edges followed), (2) entity_enhancements from software MUST
     add fields to product entity kinds without affecting query behavior,
-    (3) the Implements edge MUST be traversable by software queries but
-    invisible to product queries. The 16-edge-type allowlist MUST be the
+    (3) the BehaviorImplementsFeature edge MUST be traversable by software queries but
+    invisible to product queries. The 20-edge-type allowlist MUST be the
     sole enforcement mechanism.
   """
   constrains  [pe_cross_extension_integration]
   verify integration "product queries identical with and without software extension"
   verify integration "entity enhancement adds fields without changing query results"
-  verify unit "16-edge-type allowlist rejects Implements edge"
+  verify unit "20-edge-type allowlist rejects BehaviorImplementsFeature edge"
   verify contract "product manifest peer_dependencies is empty"
 }
 
@@ -724,7 +724,7 @@ constraint product_new_query_correctness "Product New Query Correctness" {
     All 4 new query methods (queryUnscheduledFeatures, queryFeatureOverlap,
     queryPersonaCoverageMatrix, queryCriticalPath) MUST return correct
     results for all graph topologies. Unscheduled features MUST have zero
-    MilestoneFeature edges. Feature overlap MUST be detected via both
+    MilestoneDeliversFeature edges. Feature overlap MUST be detected via both
     journey and module paths. Coverage matrix ratios MUST be mathematically
     correct. Critical path MUST be the longest incomplete milestone chain.
   """
@@ -734,7 +734,7 @@ constraint product_new_query_correctness "Product New Query Correctness" {
     pe_query_persona_coverage_matrix,
     pe_query_critical_path,
   ]
-  verify unit "unscheduled features have zero MilestoneFeature edges"
+  verify unit "unscheduled features have zero MilestoneDeliversFeature edges"
   verify unit "feature overlap detected via both journey and module paths"
   verify unit "coverage matrix ratios are mathematically correct"
   verify unit "critical path is the longest incomplete chain"

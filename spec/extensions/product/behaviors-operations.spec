@@ -199,8 +199,8 @@ behavior pe_cross_extension_query_boundary "Cross-Extension Query Boundary" {
   ports    [GraphQueryPort]
   contract """
     All product graph queries MUST traverse only product-owned edge types
-    (the 16 declared in the manifest). Queries MUST NOT traverse edges
-    owned by other extensions (e.g., Implements from @specforge/software).
+    (the 20 declared in the manifest). Queries MUST NOT traverse edges
+    owned by other extensions (e.g., BehaviorImplementsFeature from @specforge/software).
     When a product entity has incoming edges from other extensions, those
     edges are invisible to product queries. This ensures product query
     results are identical regardless of which other extensions are installed.
@@ -209,11 +209,14 @@ behavior pe_cross_extension_query_boundary "Cross-Extension Query Boundary" {
     product-owned edge type string to GraphQueryPort.getIncomingEdges() and
     GraphQueryPort.getOutgoingEdges(). Product queries MUST NOT call these
     methods without an edgeType parameter or with a wildcard. The allowed
-    edge type strings are exactly: JourneyFeature, DeliverableJourney,
-    ModuleDependsOn, MilestoneFeature, DeliverableModule, ModuleFeature,
-    FeatureDependsOn, JourneyPersona, JourneyChannel, MilestoneModule,
-    TermSeeAlso, MilestoneDependsOn, DeliverableMilestone,
-    DeliverableDependsOn, ReleaseDeliverable, ReleaseMilestone.
+    edge type strings are exactly: FeatureDependsOn, FeatureRelatesTo,
+    JourneyExercisesFeature, JourneyTargetsPersona, JourneyUsesChannel,
+    DeliverableSupportsJourney, DeliverableContainsModule,
+    DeliverableTrackedByMilestone, DeliverableDependsOn,
+    MilestoneDeliversFeature, MilestoneScopesModule, MilestoneDependsOn,
+    ModuleContainsFeature, ModuleDependsOn, TermReferencesRelatedTerm,
+    TermBelongsToModule, ReleaseIncludesDeliverable, ReleaseCompletesMilestone,
+    ReleaseDependsOn, PersonaPrioritizesFeature.
     Any traversal using an edge type not in this allowlist is a bug in
     the product extension.
   """
@@ -223,14 +226,14 @@ behavior pe_cross_extension_query_boundary "Cross-Extension Query Boundary" {
   ensures {
     explicit_edge_type    "every getIncomingEdges/getOutgoingEdges call passes an explicit product edge type"
     no_wildcard_traversal "no query uses wildcard or empty edgeType parameter"
-    allowlist_enforced    "only the 16 declared edge type strings are used in traversal calls"
-    own_edges_only        "queries traverse only the 16 product edge types"
+    allowlist_enforced    "only the 20 declared edge type strings are used in traversal calls"
+    own_edges_only        "queries traverse only the 20 product edge types"
     ignores_foreign_edges "edges from @specforge/software or other extensions are not followed"
     results_stable        "query results identical with and without @specforge/software installed"
     no_leakage            "no foreign entity kinds appear in query results"
   }
   maintains {
-    edge_type_allowlist "the set of allowed edge types is exactly the 16 declared in the manifest"
+    edge_type_allowlist "the set of allowed edge types is exactly the 20 declared in the manifest"
   }
   features [
     pe_query_dependency_analysis,
@@ -238,12 +241,12 @@ behavior pe_cross_extension_query_boundary "Cross-Extension Query Boundary" {
     pe_query_coverage_analysis,
     pe_query_lifecycle_metrics,
   ]
-  verify unit "milestone completion ignores Implements edges from software extension"
+  verify unit "milestone completion ignores BehaviorImplementsFeature edges from software extension"
   verify unit "feature impact does not follow non-product edge types"
   verify unit "query results are identical with and without @specforge/software"
   verify unit "no traversal call uses empty or wildcard edgeType"
   verify integration "product queries with @specforge/software co-installed return same results as standalone"
-  verify property "all traversal calls use only one of the 16 product edge type strings"
+  verify property "all traversal calls use only one of the 20 product edge type strings"
 }
 
 behavior pe_render_product_entities "Render Product Entities in Graph Protocol" {
@@ -273,7 +276,7 @@ behavior pe_render_product_entities "Render Product Entities in Graph Protocol" 
   requires {
     kinds_registered  "all 9 product entity kinds are in KindRegistry"
     fields_registered "all product field definitions are in FieldRegistry"
-    edges_registered  "all 16 product edge types are in EdgeTypeRegistry"
+    edges_registered  "all 20 product edge types are in EdgeTypeRegistry"
   }
   ensures {
     context_format         "context export includes full entity fields and resolved edges"
@@ -298,10 +301,11 @@ behavior pe_render_product_entities "Render Product Entities in Graph Protocol" 
 behavior pe_cross_extension_integration "Cross-Extension Integration with Peer Extensions" {
   category query
   contract """
-    When @specforge/software is installed as a peer extension, the Implements
-    edge (behavior->feature) and MilestoneBehavior entity_enhancement MUST
+    When @specforge/software is installed as a peer extension, the BehaviorImplementsFeature
+    edge (behavior->feature) and the entity_enhancement that adds a behaviors
+    field to milestone (MilestoneIncludesBehavior edges) MUST
     integrate correctly with product entities. Product queries MUST NOT follow
-    Implements edges (cross-extension isolation), but the Implements edge MUST
+    BehaviorImplementsFeature edges (cross-extension isolation), but the BehaviorImplementsFeature edge MUST
     be traversable by software extension queries. Entity enhancements from
     peer extensions MUST add fields to product entity kinds without modifying
     the product manifest.
@@ -310,16 +314,16 @@ behavior pe_cross_extension_integration "Cross-Extension Integration with Peer E
     product_registered "all 9 product entity kinds are in KindRegistry"
   }
   ensures {
-    isolation_maintained   "product queries never follow Implements edges"
-    enhancement_visible    "MilestoneBehavior fields appear on milestone entities when software is installed"
+    isolation_maintained   "product queries never follow BehaviorImplementsFeature edges"
+    enhancement_visible    "the behaviors field appears on milestone entities when software is installed"
     standalone_works       "product queries work identically without peer extensions"
-    implements_traversable "Implements edges are traversable by software extension queries"
+    implements_traversable "BehaviorImplementsFeature edges are traversable by software extension queries"
   }
   features [pe_cross_extension_cooperation]
   verify integration "product queries return same results with and without @specforge/software installed"
-  verify integration "milestone entity gains MilestoneBehavior fields when software extension enhances it"
-  verify integration "Implements edge creates traversable link from behavior to feature"
-  verify unit "pe_cross_extension_query_boundary rejects Implements edge traversal"
+  verify integration "milestone entity gains a behaviors field when software extension enhances it"
+  verify integration "BehaviorImplementsFeature edge creates traversable link from behavior to feature"
+  verify unit "pe_cross_extension_query_boundary rejects BehaviorImplementsFeature edge traversal"
   verify unit "product standalone: no errors when software extension absent"
 }
 

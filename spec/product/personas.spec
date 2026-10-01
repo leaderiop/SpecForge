@@ -1,7 +1,7 @@
 // Personas — who interacts with SpecForge
 //
 // First-class entity kinds declared by @specforge/product.
-// Referenced by journeys via the persona field (JourneyPersona edge).
+// Referenced by journeys via the persona field (JourneyTargetsPersona edge).
 
 persona developer "Developer" {
   description     "A software engineer who writes .spec files, runs CLI commands, and uses IDE features to specify, validate, and export structured context for AI agents."

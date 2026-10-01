@@ -10,12 +10,12 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     The @specforge/product extension MUST declare a v2 manifest with name
     "@specforge/product", manifestVersion 2. The manifest MUST declare
     exactly 9 entity kinds (journey, deliverable, milestone, module,
-    term, feature, persona, channel, release), 16 edge types (JourneyFeature,
-    DeliverableJourney, ModuleDependsOn, MilestoneFeature,
-    DeliverableModule, ModuleFeature, FeatureDependsOn,
-    JourneyPersona, JourneyChannel, MilestoneModule, TermSeeAlso,
-    MilestoneDependsOn, DeliverableMilestone, DeliverableDependsOn,
-    ReleaseDeliverable, ReleaseMilestone),
+    term, feature, persona, channel, release), 16 edge types (JourneyExercisesFeature,
+    DeliverableSupportsJourney, ModuleDependsOn, MilestoneDeliversFeature,
+    DeliverableContainsModule, ModuleContainsFeature, FeatureDependsOn,
+    JourneyTargetsPersona, JourneyUsesChannel, MilestoneScopesModule, TermReferencesRelatedTerm,
+    MilestoneDependsOn, DeliverableTrackedByMilestone, DeliverableDependsOn,
+    ReleaseIncludesDeliverable, ReleaseCompletesMilestone),
     and all associated validation rules. Diagnostic codes: E007-E009,
     E015, E052, W041-W046, W049, W057, W075-W095, I010, I046-I097.
   """
@@ -27,7 +27,7 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     nine_entity_kinds            "entityKinds.length == 9"
     sixteen_edge_types           "edgeTypes.length == 16"
     all_kinds_named              "entityKinds contains journey, deliverable, milestone, module, term, feature, persona, channel, release"
-    all_edges_named              "edgeTypes contains JourneyFeature, DeliverableJourney, ModuleDependsOn, MilestoneFeature, DeliverableModule, ModuleFeature, FeatureDependsOn, JourneyPersona, JourneyChannel, MilestoneModule, TermSeeAlso, MilestoneDependsOn, DeliverableMilestone, DeliverableDependsOn, ReleaseDeliverable, ReleaseMilestone"
+    all_edges_named              "edgeTypes contains JourneyExercisesFeature, DeliverableSupportsJourney, ModuleDependsOn, MilestoneDeliversFeature, DeliverableContainsModule, ModuleContainsFeature, FeatureDependsOn, JourneyTargetsPersona, JourneyUsesChannel, MilestoneScopesModule, TermReferencesRelatedTerm, MilestoneDependsOn, DeliverableTrackedByMilestone, DeliverableDependsOn, ReleaseIncludesDeliverable, ReleaseCompletesMilestone"
     contributes_entities         "contributes.entities is true"
     contributes_validators       "contributes.validators is true"
     contributes_no_renderers     "contributes.renderers is false — product provides no rendering"
@@ -37,10 +37,10 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     contributes_no_parsers       "contributes.parsers is false — product uses default parser"
     contributes_no_grammars      "contributes.grammars is false — product uses default grammar"
     contributes_no_body_parsers  "contributes.body_parsers is false — product uses default body parsing"
-    no_entity_enhancements       "entity_enhancements is empty — product DECLARES no enhancements on other extensions' entity kinds. However, product IS the target of enhancements from peer extensions (e.g., @specforge/software adds MilestoneBehavior fields to product's milestone kind via its own entity_enhancements). The directionality is: software enhances product, not the reverse."
+    no_entity_enhancements       "entity_enhancements is empty — product DECLARES no enhancements on other extensions' entity kinds. However, product IS the target of enhancements from peer extensions (e.g., @specforge/software adds a behaviors field (MilestoneIncludesBehavior edges) to product's milestone kind via its own entity_enhancements). The directionality is: software enhances product, not the reverse."
     acceptance_verify_kind       "verify_kinds declares ['acceptance'] — feature, deliverable, and milestone support verify acceptance annotations linking to external acceptance test files"
     no_query_extensions          "query_extensions is empty — product uses standard graph traversal APIs (getIncomingEdges, getOutgoingEdges, getNodesByKind, detectCycles) and declares no custom query operators"
-    no_peer_deps                 "peer_dependencies is empty — product is standalone and requires no other extensions. Peer extensions like @specforge/software declare product as THEIR peer_dependency to contribute entity_enhancements (e.g., MilestoneBehavior on milestone) and cross-extension edges (e.g., Implements: behavior→feature)."
+    no_peer_deps                 "peer_dependencies is empty — product is standalone and requires no other extensions. Peer extensions like @specforge/software declare product as THEIR peer_dependency to contribute entity_enhancements (e.g., a behaviors field on milestone) and cross-extension edges (e.g., BehaviorImplementsFeature: behavior→feature)."
     no_migration_hook            "migration_hook is null — intentionally absent in v1 (no prior version)"
     no_passes                    "passes is empty — product declares no custom compiler passes"
     no_feature_flags             "feature_flags is empty — product declares no feature flags"
@@ -103,11 +103,11 @@ invariant pe_manifest_nine_entity_kinds "Nine Entity Kinds" {
 invariant pe_manifest_sixteen_edge_types "Sixteen Edge Types" {
   guarantee """
     The @specforge/product manifest MUST declare exactly 16 edge types:
-    JourneyFeature, DeliverableJourney, ModuleDependsOn,
-    MilestoneFeature, DeliverableModule, ModuleFeature,
-    FeatureDependsOn, JourneyPersona, JourneyChannel, MilestoneModule,
-    TermSeeAlso, MilestoneDependsOn, DeliverableMilestone,
-    DeliverableDependsOn, ReleaseDeliverable, ReleaseMilestone.
+    JourneyExercisesFeature, DeliverableSupportsJourney, ModuleDependsOn,
+    MilestoneDeliversFeature, DeliverableContainsModule, ModuleContainsFeature,
+    FeatureDependsOn, JourneyTargetsPersona, JourneyUsesChannel, MilestoneScopesModule,
+    TermReferencesRelatedTerm, MilestoneDependsOn, DeliverableTrackedByMilestone,
+    DeliverableDependsOn, ReleaseIncludesDeliverable, ReleaseCompletesMilestone.
     These edges model relationships between the 9 entity kinds.
   """
   risk      medium

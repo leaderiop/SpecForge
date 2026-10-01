@@ -312,7 +312,7 @@ behavior detect_term_see_also_non_term_refs "Detect Term See-Also Non-Term Refer
     The @specforge/product extension SHOULD detect when a term's see_also
     field references entities that are NOT term entities. Per decision
     pe_term_see_also_term_only, only term-to-term references create
-    TermSeeAlso graph edges; cross-kind references pass E001 resolution
+    TermReferencesRelatedTerm graph edges; cross-kind references pass E001 resolution
     but are documentation-only and produce no edges. This behavior SHOULD
     produce an I056 info diagnostic for each non-term reference in
     see_also to inform the user that no graph edge was created.

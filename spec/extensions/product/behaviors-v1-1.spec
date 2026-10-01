@@ -32,17 +32,17 @@ behavior pe_register_release_edges "Register Release Edge Types" {
   types    [ManifestEdgeType]
   contract """
     The @specforge/product extension MUST register 2 release-specific edge types:
-    ReleaseDeliverable (release->deliverable) and ReleaseMilestone (release->milestone).
+    ReleaseIncludesDeliverable (release->deliverable) and ReleaseCompletesMilestone (release->milestone).
   """
   requires {
     entity_kinds_registered "All 9 entity kinds are in the KindRegistry"
   }
   ensures {
-    release_deliverable_registered "EdgeTypeRegistry contains ReleaseDeliverable: source=release, target=deliverable, label=ships"
-    release_milestone_registered   "EdgeTypeRegistry contains ReleaseMilestone: source=release, target=milestone, label=targets"
+    release_deliverable_registered "EdgeTypeRegistry contains ReleaseIncludesDeliverable: source=release, target=deliverable, label=ships"
+    release_milestone_registered   "EdgeTypeRegistry contains ReleaseCompletesMilestone: source=release, target=milestone, label=targets"
   }
-  verify unit "ReleaseDeliverable edge type is registered"
-  verify unit "ReleaseMilestone edge type is registered"
+  verify unit "ReleaseIncludesDeliverable edge type is registered"
+  verify unit "ReleaseCompletesMilestone edge type is registered"
 }
 
 behavior pe_register_ownership_fields "Register Ownership Fields" {
@@ -156,14 +156,14 @@ behavior pe_query_release_deliverables "Query Release Deliverables" {
   produces [pe_release_deliverables_queried]
   contract """
     The product extension MUST provide a query that returns all deliverables
-    grouped under a release via ReleaseDeliverable edges.
+    grouped under a release via ReleaseIncludesDeliverable edges.
   """
   requires {
     graph_ready    "Graph is built and queryable"
     release_exists "Release ID resolves to a release entity"
   }
   ensures {
-    deliverables_listed "All ReleaseDeliverable targets are included"
+    deliverables_listed "All ReleaseIncludesDeliverable targets are included"
     count_matches       "count == deliverables.length"
   }
   verify unit "release with 3 deliverables returns count=3"
@@ -177,14 +177,14 @@ behavior pe_query_release_milestones "Query Release Milestones" {
   produces [pe_release_milestones_queried]
   contract """
     The product extension MUST provide a query that returns all milestones
-    targeted by a release via ReleaseMilestone edges.
+    targeted by a release via ReleaseCompletesMilestone edges.
   """
   requires {
     graph_ready    "Graph is built and queryable"
     release_exists "Release ID resolves to a release entity"
   }
   ensures {
-    milestones_listed "All ReleaseMilestone targets are included"
+    milestones_listed "All ReleaseCompletesMilestone targets are included"
     count_matches     "count == milestones.length"
   }
   verify unit "release with 2 milestones returns count=2"

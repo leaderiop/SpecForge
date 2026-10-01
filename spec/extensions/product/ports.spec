@@ -46,7 +46,7 @@ port ProductQueryPort {
   method queryReleaseMilestones(releaseId: EntityId) -> Result<ReleaseMilestonePayload, ProductQueryError>
   method queryReleaseCompletion(releaseId: EntityId) -> Result<ReleaseCompletionPayload, ProductQueryError>
   method queryChannelFeatures(channelId: EntityId) -> Result<ChannelFeaturePayload, ProductQueryError>
-  // Term analytics — global views over the TermSeeAlso subgraph
+  // Term analytics — global views over the TermReferencesRelatedTerm subgraph
   method queryTermClusters() -> Result<TermClusterPayload, ProductQueryError>
   method queryTermDensity() -> Result<TermDensityPayload, ProductQueryError>
   // Module analytics — dependency structure metrics
@@ -85,8 +85,8 @@ port ProductRegistrationPort {
     manifest_valid "ManifestV2 has been parsed and schema-validated"
   }
   ensures {
-    nine_kinds    "KindRegistry contains exactly 9 product entity kinds"
-    sixteen_edges "EdgeTypeSet contains exactly 16 product edge types"
+    nine_kinds   "KindRegistry contains exactly 9 product entity kinds"
+    twenty_edges "EdgeTypeSet contains exactly 20 product edge types"
   }
   verify unit "ProductRegistrationPort"
 }

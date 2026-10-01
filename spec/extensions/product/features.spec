@@ -6,7 +6,7 @@
 feature pe_core_entity_kinds "Product Entity Kind Registration" {
   problem  """
     The @specforge/product extension must register 9 entity kinds with
-    full metadata, 16 edge types, field definitions, and validation rules.
+    full metadata, 20 edge types, field definitions, and validation rules.
     Without this registration, the compiler has zero knowledge of product
     planning concepts including the domain-neutral feature entity, who
     uses the system (persona), through which medium (channel), or how
@@ -16,14 +16,14 @@ feature pe_core_entity_kinds "Product Entity Kind Registration" {
     A comprehensive manifest declaration provides all entity kinds with
     testability flags, LSP metadata (semantic tokens, icons), DOT shapes,
     typed field definitions with edge mappings, and declarative validation
-    rules. All 16 edge types produce traversable graph edges — no
+    rules. All 20 edge types produce traversable graph edges — no
     reference field is left unwired. Registration follows the zero-entity
     core protocol defined in ManifestV2. Feature is a domain-neutral hub:
     any extension's entities can reference features via their own fields
     and peer dependencies. Persona and channel are first-class entity
-    kinds referenced by journeys via JourneyPersona and JourneyChannel
+    kinds referenced by journeys via JourneyTargetsPersona and JourneyUsesChannel
     edges. Release coordinates multi-deliverable shipping via
-    ReleaseDeliverable and ReleaseMilestone edges.
+    ReleaseIncludesDeliverable and ReleaseCompletesMilestone edges.
   """
 }
 
@@ -59,16 +59,16 @@ feature pe_query_traceability "Product Traceability Queries" {
     related entities: deliverable traceability (transitive features via
     journeys and modules), feature deliverables (reverse traversal from
     feature to containing deliverables), feature milestones (reverse
-    MilestoneFeature), persona journeys (reverse JourneyPersona), channel
-    journeys (reverse JourneyChannel), module deliverables (reverse
-    DeliverableModule), journey deliverables (reverse DeliverableJourney),
+    MilestoneDeliversFeature), persona journeys (reverse JourneyTargetsPersona), channel
+    journeys (reverse JourneyUsesChannel), module deliverables (reverse
+    DeliverableContainsModule), journey deliverables (reverse DeliverableSupportsJourney),
     deliverable personas (multi-hop deliverable->journey->persona traversal),
-    milestone deliverables (reverse DeliverableMilestone), module features
-    (forward ModuleFeature), persona channels (multi-hop persona->journey->
+    milestone deliverables (reverse DeliverableTrackedByMilestone), module features
+    (forward ModuleContainsFeature), persona channels (multi-hop persona->journey->
     channel traversal), persona features (multi-hop persona->journey->feature
     traversal), channel features (multi-hop channel->journey->feature
-    traversal), term graph (N-hop TermSeeAlso traversal), term clusters
-    (connected components via TermSeeAlso), and term density (terms per
+    traversal), term graph (N-hop TermReferencesRelatedTerm traversal), term clusters
+    (connected components via TermReferencesRelatedTerm), and term density (terms per
     entity kind ratio). Entity-not-found errors include fuzzy-match
     suggestions.
   """
@@ -85,7 +85,7 @@ feature pe_query_coverage_analysis "Product Coverage Analysis Queries" {
   solution """
     Coverage-focused query behaviors: journey coverage (features with
     status=done per journey), unscheduled features (features with zero
-    MilestoneFeature edges), feature overlap (features reachable from 2+
+    MilestoneDeliversFeature edges), feature overlap (features reachable from 2+
     deliverables), persona coverage matrix (per-persona reachability with
     coverage ratios), and channel coverage matrix (per-channel reachability
     with coverage ratios). Entity-not-found errors include fuzzy-match
@@ -104,7 +104,7 @@ feature pe_query_lifecycle_metrics "Product Lifecycle Metrics Queries" {
   solution """
     Lifecycle-focused query behaviors: milestone completion (ratio of features
     with status=done), deliverable completion (aggregate milestone completion
-    across DeliverableMilestone edges), milestone timeline (chronological
+    across DeliverableTrackedByMilestone edges), milestone timeline (chronological
     sort with query-time overdue detection via as_of_date parameter —
     not emitted during specforge check), milestone velocity (feature counts
     by status with days elapsed/remaining and features per day, using
@@ -240,15 +240,15 @@ feature pe_cross_extension_cooperation "Cross-Extension Cooperation" {
   problem  """
     @specforge/product declares no peer_dependencies and operates standalone,
     but @specforge/software declares a peer_dependency on product and
-    contributes the Implements edge (behavior->feature) and MilestoneBehavior
-    entity_enhancement. There is no specification for how cross-extension
+    contributes the BehaviorImplementsFeature edge (behavior->feature) and an entity_enhancement
+    adding a behaviors field to milestone. There is no specification for how cross-extension
     cooperation is validated end-to-end.
   """
   solution """
     Cross-extension integration is validated through: (1) product queries
-    respect the 16-edge-type allowlist and never follow foreign edges,
+    respect the 20-edge-type allowlist and never follow foreign edges,
     (2) entity_enhancements from peer extensions add fields to product
-    entity kinds without modifying the product manifest, (3) the Implements
+    entity kinds without modifying the product manifest, (3) the BehaviorImplementsFeature
     edge from @specforge/software creates a traversable link from behaviors
     to features without product extension awareness. Integration testing
     verifies the product+software combination produces correct traceability.
@@ -301,7 +301,7 @@ feature pe_planning_insights "Advanced Planning Insights" {
   """
   solution """
     Four new query methods covering the planning blind spots:
-    (1) queryUnscheduledFeatures returns features with zero MilestoneFeature
+    (1) queryUnscheduledFeatures returns features with zero MilestoneDeliversFeature
     edges, (2) queryFeatureOverlap returns features reachable from 2+
     deliverables, (3) queryPersonaCoverageMatrix computes per-persona
     reachability with coverage ratios, (4) queryCriticalPath computes
@@ -375,7 +375,7 @@ feature pe_release_coordination "Release Coordination" {
     Add release as the 9th product entity kind with fields: version,
     status (planned->in_progress->released->recalled), deliverables,
     milestones, release_date, changelog, depends_on, owner, contributors.
-    Two new edge types: ReleaseDeliverable and ReleaseMilestone.
+    Two new edge types: ReleaseIncludesDeliverable and ReleaseCompletesMilestone.
   """
   tags     ["release", "coordination", "v1-1"]
 }

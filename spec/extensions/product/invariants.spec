@@ -201,7 +201,7 @@ invariant deliverable_journey_module_consistency "Deliverable Journey-Module Con
 invariant milestone_feature_module_consistency "Milestone Feature-Module Consistency" {
   guarantee """
     Features scheduled in a milestone MUST be reachable from the
-    milestone's modules via ModuleFeature edges. Gaps produce I051
+    milestone's modules via ModuleContainsFeature edges. Gaps produce I051
     info diagnostics.
   """
   risk      medium
@@ -211,7 +211,7 @@ invariant milestone_feature_module_consistency "Milestone Feature-Module Consist
 invariant module_feature_reachability "Module-Feature Reachability" {
   guarantee """
     Every module SHOULD have at least one feature assigned via
-    ModuleFeature edges. Modules without features produce I067.
+    ModuleContainsFeature edges. Modules without features produce I067.
   """
   risk      low
   verify unit "module with features has reachable feature set"
