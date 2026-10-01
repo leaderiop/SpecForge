@@ -15,6 +15,7 @@ use "types/zero-entity-core"
 
 // No consumes — synchronous helper called by register_validation_rules_from_manifest
 behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
+  features   [declarative_validation_rules]
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
   category   command
   types      [ValidationRulePattern, ValidationPatternKind, FieldConstraint]
@@ -42,6 +43,7 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
 }
 
 behavior execute_validation_pattern "Execute Validation Pattern" {
+  features   [declarative_validation_rules]
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
   category   command
   types      [ValidationRulePattern, ValidationPatternKind, Diagnostic]
@@ -86,6 +88,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
 }
 
 behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
+  features   [declarative_validation_rules]
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
   category   command
   types      [ValidationRulePattern, Diagnostic]
@@ -113,6 +116,7 @@ behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
 }
 
 behavior register_extension_validation_rules "Register Extension Validation Rules" {
+  features   [declarative_validation_rules]
   invariants [
     zero_domain_knowledge_core,
     declarative_validation_determinism,
@@ -152,6 +156,7 @@ behavior register_extension_validation_rules "Register Extension Validation Rule
 }
 
 behavior register_custom_validation_patterns "Register Custom Validation Patterns" {
+  features   [declarative_validation_rules]
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
   category   command
   types      [ValidationRulePattern, CustomValidationPattern, ManifestV2]
@@ -197,6 +202,7 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
 // -- Field Validation --------------------------------------------------------
 
 behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
+  features   [zero_entity_validation, dynamic_entity_registration]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
   types      [FieldRegistryEntry, KindRegistryEntry, Diagnostic]
@@ -232,6 +238,7 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
 }
 
 behavior check_field_value_types "Check Field Value Types" {
+  features   [dynamic_entity_registration]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
   types      [FieldRegistryEntry, Diagnostic]
@@ -278,6 +285,7 @@ behavior check_field_value_types "Check Field Value Types" {
 // detect_entity_kind_collision (behaviors/wasm-extensions.spec) as part of its
 // orchestration — focuses exclusively on inter-extension kind collisions (E026).
 behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
+  features   [entity_kind_conflict_prevention]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
   types      [ManifestV2, ManifestEntityKind, KindRegistryEntry, Diagnostic]
@@ -304,6 +312,7 @@ behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
 }
 
 behavior validate_peer_dependencies "Validate Peer Dependencies" {
+  features   [wasm_extension_runtime]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
   types      [ManifestV2, PeerDependency, ExtensionError]
@@ -339,6 +348,7 @@ behavior validate_peer_dependencies "Validate Peer Dependencies" {
 
 // Moved from behaviors/validation.spec — belongs with zero-entity core validation
 behavior validate_extension_testability "Validate Extension Testability" {
+  features   [extension_manifest]
   invariants [testable_entity_classification, zero_domain_knowledge_core]
   category   validation
   types      [Diagnostic, KindRegistryEntry]

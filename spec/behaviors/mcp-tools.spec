@@ -21,6 +21,7 @@ use "types/output"
 // ---------------------------------------------------------------------------
 
 behavior provide_mcp_query_tool "Provide MCP Query Tool" {
+  features   [mcp_core_tools]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -66,6 +67,7 @@ behavior provide_mcp_query_tool "Provide MCP Query Tool" {
 // the same output. It does NOT imply execution caching — each invocation
 // performs a full compilation pass.
 behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
+  features   [mcp_core_tools]
   invariants [
     multi_error_collection,
     diagnostic_determinism,
@@ -117,6 +119,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
 }
 
 behavior provide_mcp_export_tool "Provide MCP Export Tool" {
+  features   [mcp_core_tools]
   invariants [
     graph_traversal_integrity,
     graph_schema_completeness,
@@ -165,6 +168,7 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
 }
 
 behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
+  features   [mcp_core_tools]
   invariants [
     graph_traversal_integrity,
     reference_resolution_completeness,
@@ -204,6 +208,7 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
 }
 
 behavior provide_mcp_search_tool "Provide MCP Search Tool" {
+  features   [mcp_core_tools]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -273,6 +278,7 @@ behavior provide_mcp_explain_tool "Provide MCP Explain Tool" {
 }
 
 behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
+  features   [mcp_core_tools]
   invariants [
     graph_schema_completeness,
     diagnostic_determinism,
@@ -307,6 +313,7 @@ behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
 }
 
 behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
+  features   [mcp_core_tools]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -360,6 +367,7 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
 }
 
 behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
+  features   [mcp_core_tools]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -401,6 +409,7 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
 // ---------------------------------------------------------------------------
 
 behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
+  features   [mcp_navigation_tools]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -449,6 +458,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
 }
 
 behavior provide_mcp_find_definition_tool "Provide MCP Find Definition Tool" {
+  features   [mcp_navigation_tools]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -481,6 +491,7 @@ behavior provide_mcp_find_definition_tool "Provide MCP Find Definition Tool" {
 }
 
 behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
+  features   [mcp_navigation_tools]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -515,6 +526,7 @@ behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
 }
 
 behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
+  features   [mcp_navigation_tools]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -550,6 +562,7 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
 }
 
 behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {
+  features   [mcp_navigation_tools]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -587,6 +600,7 @@ behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {
 }
 
 behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
+  features   [mcp_core_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   types      [McpToolDescriptor]
@@ -623,6 +637,7 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
 }
 
 behavior provide_mcp_entities_by_kind "List Entities by Kind over MCP" {
+  features   [mcp_core_tools]
   invariants [graph_traversal_integrity, mcp_tool_idempotency]
   category   query
   types      [McpToolDescriptor]

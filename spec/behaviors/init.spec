@@ -14,6 +14,7 @@ use "types/config"
 // fires it when zero extensions are selected. These are mutually exclusive paths
 // in interactive mode (exactly one fires per init invocation).
 behavior scaffold_new_project "Scaffold New Project" {
+  features   [project_initialization]
   category   command
   invariants [
     spec_root_singleton,
@@ -63,6 +64,7 @@ behavior scaffold_new_project "Scaffold New Project" {
 
 // Sub-step of scaffold_new_project — not an independent entry point
 behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
+  features   [project_initialization]
   category   command
   invariants [zero_domain_knowledge_core, init_config_validity]
   types      [CompilerConfig, InitError]
@@ -109,6 +111,7 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
 // Sub-step of scaffold_new_project — does not produce an independent event.
 // The project_initialized event is produced by the parent orchestrator.
 behavior interactive_extension_selection "Interactive Extension Selection" {
+  features   [project_initialization]
   category   command
   invariants [spec_root_singleton, init_config_validity, zero_domain_knowledge_core]
   types      [CompilerConfig, BundledExtensionCatalog, BundledExtensionEntry]
@@ -152,6 +155,7 @@ behavior interactive_extension_selection "Interactive Extension Selection" {
 }
 
 behavior non_interactive_init "Non-Interactive Init" {
+  features   [project_initialization]
   category   command
   invariants [spec_root_singleton, init_config_validity, zero_domain_knowledge_core]
   types      [CompilerConfig, InitConfig, InitOutput, InitError, BundledExtensionCatalog]
@@ -207,6 +211,7 @@ behavior non_interactive_init "Non-Interactive Init" {
 // L7: Lock file interaction (download, integrity checks, version pinning) is
 // handled by the write_lock_file behavior — see behaviors/wasm-extensions.spec.
 behavior add_extension_to_existing_project "Add Extension to Existing Project" {
+  features   [project_initialization]
   category   command
   invariants [
     spec_root_singleton,
@@ -275,6 +280,7 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
 }
 
 behavior graceful_zero_extension_init "Graceful Zero-Extension Init" {
+  features   [project_initialization]
   category   command
   invariants [spec_root_singleton, init_config_validity, zero_domain_knowledge_core]
   types      [CompilerConfig]
@@ -312,6 +318,7 @@ behavior graceful_zero_extension_init "Graceful Zero-Extension Init" {
 }
 
 behavior find_project_root "Find Project Root" {
+  features   [project_initialization]
   category   internal
   requires {
     filesystem_available "FileSystem port is available for directory traversal and symlink resolution"

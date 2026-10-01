@@ -1,5 +1,22 @@
 // @specforge/compliance extension features
 
+feature ce_core_entity_kinds "Compliance Entity Kind Registration" {
+  problem  """
+    The @specforge/compliance extension must register 4 entity kinds,
+    4 edge types, field definitions, and validation rules. Without this
+    registration, the compiler has zero knowledge of compliance concepts:
+    regulations, the controls that implement them, the evidence for each
+    control, and audits.
+  """
+  solution """
+    A v2 manifest declares the regulation, control, evidence and audit
+    kinds, the Governs, ImplementedBy, ProvidedBy and Audits edge types,
+    typed field definitions with edge mappings, and declarative validation
+    rules. Registration follows the zero-entity core protocol defined in
+    ManifestV2.
+  """
+}
+
 feature compliance_validation "Compliance Validation" {
   problem  """
     Regulatory compliance specifications (SOC 2, HIPAA, GDPR, ISO 27001)

@@ -69,6 +69,7 @@ behavior validate_feature_status_transition "Validate Feature Status Transition"
 }
 
 behavior validate_milestone_status_transition "Validate Milestone Status Transition" {
+  features [pe_validation_suite]
   category validation
   types    [Diagnostic, MilestoneStatusTransition, StatusTransitionViolation]
   contract """
@@ -94,6 +95,7 @@ behavior validate_milestone_status_transition "Validate Milestone Status Transit
 }
 
 behavior validate_deliverable_status_transition "Validate Deliverable Status Transition" {
+  features [pe_validation_suite]
   category validation
   types    [Diagnostic, DeliverableStatusTransition, StatusTransitionViolation]
   contract """
@@ -117,6 +119,7 @@ behavior validate_deliverable_status_transition "Validate Deliverable Status Tra
 }
 
 behavior validate_persona_status_transition "Validate Persona Status Transition" {
+  features [pe_validation_suite]
   category validation
   types    [Diagnostic, PersonaStatusTransition, StatusTransitionViolation]
   contract """
@@ -137,6 +140,7 @@ behavior validate_persona_status_transition "Validate Persona Status Transition"
 }
 
 behavior validate_channel_status_transition "Validate Channel Status Transition" {
+  features [pe_validation_suite]
   category validation
   types    [Diagnostic, ChannelStatusTransition, StatusTransitionViolation]
   contract """
@@ -535,6 +539,7 @@ behavior detect_transitive_deprecated_channel "Detect Transitive Deprecated Chan
 // ════════════════════════════════════════════════════════════════
 
 behavior detect_deliverable_chain_gap "Detect Deliverable End-to-End Chain Gap" {
+  features [pe_chain_validation]
   category validation
   types    [Diagnostic]
   contract """
@@ -557,6 +562,7 @@ behavior detect_deliverable_chain_gap "Detect Deliverable End-to-End Chain Gap" 
 }
 
 behavior detect_feature_multi_milestone "Detect Feature in Multiple Milestones" {
+  features [pe_chain_validation]
   category validation
   types    [Diagnostic]
   contract """
@@ -577,6 +583,7 @@ behavior detect_feature_multi_milestone "Detect Feature in Multiple Milestones" 
 }
 
 behavior detect_priority_escalation_gap "Detect Priority Escalation Gap" {
+  features [pe_chain_validation]
   category validation
   types    [Diagnostic, Priority]
   contract """
@@ -598,6 +605,7 @@ behavior detect_priority_escalation_gap "Detect Priority Escalation Gap" {
 }
 
 behavior detect_milestone_implicit_ordering "Detect Milestone Implicit Ordering Conflict" {
+  features [pe_chain_validation]
   category validation
   types    [Diagnostic]
   contract """
@@ -668,6 +676,7 @@ behavior detect_deliverable_version_release_mismatch "Detect Deliverable-Release
 // ════════════════════════════════════════════════════════════════
 
 behavior detect_release_dependency_cycles "Detect Release Dependency Cycles" {
+  features    [pe_release_coordination]
   category    validation
   invariants  [release_dag]
   produces    [pe_release_cycle_detected]
@@ -754,6 +763,7 @@ behavior detect_invalid_release_date "Detect Invalid Release Date" {
 }
 
 behavior detect_invalid_start_date "Detect Invalid Start Date" {
+  features    [pe_temporal_planning]
   category    validation
   invariants  [pe_milestone_temporal_consistency]
   contract    """
@@ -798,6 +808,7 @@ behavior detect_release_version_not_semver "Detect Release Version Not SemVer" {
 }
 
 behavior validate_release_status_transition "Validate Release Status Transition" {
+  features    [pe_release_coordination]
   category    validation
   invariants  [pe_release_status_transition]
   produces    [pe_release_status_transition_validated]
@@ -818,6 +829,7 @@ behavior validate_release_status_transition "Validate Release Status Transition"
 }
 
 behavior detect_missing_owner "Detect Missing Owner" {
+  features    [pe_ownership_tracking]
   category    validation
   invariants  [pe_ownership_field_awareness]
   contract    """

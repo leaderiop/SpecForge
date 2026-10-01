@@ -16,6 +16,7 @@ use "types/wasm"
 use "types/zero-entity-core"
 
 behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
+  features   [spec_file_migration]
   invariants [multi_error_collection, zero_domain_knowledge_core, diagnostic_determinism]
   category   validation
   types      [SpecFile, FormatVersion]
@@ -57,6 +58,7 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
 // directly (v1→v3). Each step is a self-contained transform function. This
 // ensures that each version boundary is validated independently.
 behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
+  features   [spec_file_migration]
   invariants [
     multi_error_collection,
     migration_idempotency,
@@ -123,6 +125,7 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
 }
 
 behavior generate_migration_diff "Generate Migration Diff" {
+  features   [spec_file_migration]
   invariants [
     diagnostic_determinism,
     migration_idempotency,
@@ -165,6 +168,7 @@ behavior generate_migration_diff "Generate Migration Diff" {
 }
 
 behavior validate_post_migration_integrity "Validate Post-Migration Integrity" {
+  features   [spec_file_migration]
   invariants [
     multi_error_collection,
     graph_traversal_integrity,
@@ -210,6 +214,7 @@ behavior validate_post_migration_integrity "Validate Post-Migration Integrity" {
 }
 
 behavior capture_pre_migration_schema_snapshot "Capture Pre-Migration Schema Snapshot" {
+  features   [spec_file_migration]
   invariants [migration_event_ordering, graph_schema_completeness, zero_domain_knowledge_core]
   category   command
   types      [Graph, SchemaEntityKind, SchemaEdgeType, PreMigrationSnapshot]
@@ -240,6 +245,7 @@ behavior capture_pre_migration_schema_snapshot "Capture Pre-Migration Schema Sna
 }
 
 behavior verify_graph_protocol_compatibility_after_migration "Verify Graph Protocol Compatibility After Migration" {
+  features   [spec_file_migration, graph_protocol_versioning]
   invariants [
     graph_traversal_integrity,
     graph_schema_completeness,
@@ -320,6 +326,7 @@ behavior verify_graph_protocol_compatibility_after_migration "Verify Graph Proto
 }
 
 behavior rollback_failed_migration "Rollback Failed Migration" {
+  features   [spec_file_migration]
   invariants [migration_backup_safety, migration_atomicity, zero_domain_knowledge_core]
   category   command
   types      [MigrationResult, MigrationSummary, MigrationBackup]
@@ -365,6 +372,7 @@ behavior rollback_failed_migration "Rollback Failed Migration" {
 }
 
 behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
+  features   [spec_file_migration]
   // multi_error_collection applies here because extension hook failures are
   // collected into the DiagnosticBag (not fail-fast) — each hook failure is
   // an independent error that must be reported alongside others.

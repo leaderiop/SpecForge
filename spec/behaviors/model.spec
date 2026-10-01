@@ -10,6 +10,7 @@ use "types/model"
 use "types/output"
 
 behavior build_model_intermediate "Build Model Intermediate Representation" {
+  features   [logical_data_model]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [
@@ -54,6 +55,7 @@ behavior build_model_intermediate "Build Model Intermediate Representation" {
 }
 
 behavior render_model_markdown "Render Model as Markdown" {
+  features   [model_multi_format]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [ModelIntermediate, ModelOptions, ModelFormat]
@@ -92,6 +94,7 @@ behavior render_model_markdown "Render Model as Markdown" {
 }
 
 behavior render_model_mermaid "Render Model as Mermaid erDiagram" {
+  features   [model_multi_format]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [ModelIntermediate, ModelOptions, ModelFormat, Cardinality]
@@ -126,6 +129,7 @@ behavior render_model_mermaid "Render Model as Mermaid erDiagram" {
 }
 
 behavior render_model_dot "Render Model as DOT" {
+  features   [model_multi_format]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [ModelIntermediate, ModelOptions, ModelFormat]
@@ -164,6 +168,7 @@ behavior render_model_dot "Render Model as DOT" {
 }
 
 behavior render_model_json "Render Model as ERD JSON" {
+  features   [model_multi_format]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [ModelIntermediate, ModelOptions, ModelFormat]
@@ -196,6 +201,7 @@ behavior render_model_json "Render Model as ERD JSON" {
 }
 
 behavior render_model_dbml "Render Model as DBML" {
+  features   [model_multi_format]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [ModelIntermediate, ModelOptions, ModelFormat]
@@ -235,6 +241,7 @@ behavior render_model_dbml "Render Model as DBML" {
 }
 
 behavior filter_model "Filter Model by Extension, Kind, or Depth" {
+  features   [model_filtering]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [ModelIntermediate, ModelOptions]
@@ -272,6 +279,7 @@ behavior filter_model "Filter Model by Extension, Kind, or Depth" {
 }
 
 behavior expose_model_mcp_tool "Expose Model as MCP Tool" {
+  features   [model_agent_access]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [ModelIntermediate, ModelOptions, ModelFormat, McpToolDescriptor]

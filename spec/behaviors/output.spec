@@ -16,6 +16,7 @@ use "types/zero-entity-core"
 // render_markdown_documentation moved to spec/extensions/markdown-renderer/behaviors.spec
 
 behavior serialize_json_graph "Serialize JSON Graph" {
+  features   [json_and_dot_render]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -61,6 +62,7 @@ behavior serialize_json_graph "Serialize JSON Graph" {
 // and render_extension_defined_edge_styles. See features/output.spec for
 // the full P7 rationale.
 behavior serialize_dot_visualization "Serialize DOT Visualization" {
+  features   [json_and_dot_render]
   invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [Graph, OutputFile, EmitterError]
@@ -96,6 +98,7 @@ behavior serialize_dot_visualization "Serialize DOT Visualization" {
 }
 
 behavior compute_traceability_chain "Compute Traceability Chain" {
+  features   [traceability_serialization]
   invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [Graph, TraceChain, TraceLink, TraceLinkStatus]
@@ -176,6 +179,7 @@ behavior compute_project_statistics "Compute Project Statistics" {
 }
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {
+  features   [diagnostic_reporting]
   invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
   category   command
   types      [Diagnostic, DiagnosticBag]
@@ -205,6 +209,7 @@ behavior print_diagnostics_structured "Print Diagnostics Structured" {
 }
 
 behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic Severity" {
+  features   [ci_integration]
   invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
   category   command
   types      [DiagnosticBag]
@@ -234,6 +239,7 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
 }
 
 behavior serialize_traceability_data "Serialize Traceability Data" {
+  features   [traceability_serialization]
   invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [Graph, TraceChain, TraceLink, OutputFile]
@@ -263,6 +269,7 @@ behavior serialize_traceability_data "Serialize Traceability Data" {
 }
 
 behavior validate_agent_plan "Validate Agent Implementation Plan" {
+  features   [traceability_serialization]
   invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
   category   validation
   types      [
@@ -311,6 +318,7 @@ behavior validate_agent_plan "Validate Agent Implementation Plan" {
 // spec/extensions/markdown-renderer/behaviors.spec
 
 behavior deterministic_output "Deterministic Output" {
+  features   [ci_integration]
   invariants [diagnostic_determinism, zero_domain_knowledge_core, graph_traversal_integrity]
   category   command
   types      [OutputFile]
@@ -338,6 +346,7 @@ behavior deterministic_output "Deterministic Output" {
 }
 
 behavior check_mode_for_ci "Check Mode for CI" {
+  features   [ci_integration]
   invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
   category   validation
   types      [DiagnosticBag]
@@ -364,6 +373,7 @@ behavior check_mode_for_ci "Check Mode for CI" {
 }
 
 behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
+  features   [ci_integration, diagnostic_reporting]
   invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [DiagnosticBag, Diagnostic, DiagnosticFormat]
@@ -440,6 +450,7 @@ behavior present_diagnostics_as_json "Present Diagnostics as JSON" {
 // `specforge render` writes files to disk for batch/CI output (json, dot, markdown via extensions).
 
 behavior export_agent_context_format "Export Agent Context Format" {
+  features   [agent_export]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -498,6 +509,7 @@ behavior export_agent_context_format "Export Agent Context Format" {
 }
 
 behavior export_agent_brief_format "Export Agent Brief Format" {
+  features   [agent_export]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -534,6 +546,7 @@ behavior export_agent_brief_format "Export Agent Brief Format" {
 }
 
 behavior export_agent_graph_format "Export Agent Graph Format" {
+  features   [agent_export]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -577,6 +590,7 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
 }
 
 behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
+  features   [agent_export]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -627,6 +641,7 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
 // ── Token Economics (Principle 3: agents are first-class consumers) ────
 
 behavior enforce_token_budget "Enforce Token Budget" {
+  features   [agent_export]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,

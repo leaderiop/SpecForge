@@ -4,6 +4,7 @@ use "extensions/governance/types"
 use "types/zero-entity-core"
 
 behavior ge_declare_manifest "Declare @specforge/governance Manifest" {
+  features [ge_core_entity_kinds]
   category command
   types    [ManifestV2, ManifestEntityKind, ManifestEdgeType]
   contract """

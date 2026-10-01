@@ -249,6 +249,7 @@ behavior cp_minimal "Composition Pattern: Minimal (Product Only)" {
 // ---------------------------------------------------------------------------
 
 behavior cp_missing_product_from_software "Missing @specforge/product: Software Features Field" {
+  features [pe_cross_extension_cooperation, reference_resolution]
   types    [PeerDependency]
   category command
   contract """
@@ -305,6 +306,7 @@ behavior cp_missing_product_from_software "Missing @specforge/product: Software 
 }
 
 behavior cp_missing_software_from_governance "Missing @specforge/software: Governance Cross-Refs" {
+  features [pe_cross_extension_cooperation, reference_resolution]
   types    [PeerDependency]
   category command
   contract """
@@ -361,6 +363,7 @@ behavior cp_missing_software_from_governance "Missing @specforge/software: Gover
 }
 
 behavior cp_validation_rules_skip_absent_kinds "Validation Rules Skip Absent Target Kinds" {
+  features [declarative_validation_rules]
   types    [ValidationRulePattern, KindRegistryEntry]
   category command
   contract """
@@ -413,6 +416,7 @@ behavior cp_validation_rules_skip_absent_kinds "Validation Rules Skip Absent Tar
 }
 
 behavior cp_milestone_behavior_edge_absent "Product MilestoneBehavior Edge When Software Absent" {
+  features [pe_cross_extension_cooperation, entity_enhancement]
   types    [ManifestEdgeType, PeerDependency]
   category command
   contract """

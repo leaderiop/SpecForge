@@ -5,6 +5,7 @@ use "extensions/software/types"
 use "types/zero-entity-core"
 
 behavior se_validate_orphan_behaviors "W001: Orphan Behaviors" {
+  features   [se_validation_suite]
   category   query
   invariants [se_edge_consistency]
   types      [ValidationRulePattern]
@@ -26,6 +27,7 @@ behavior se_validate_orphan_behaviors "W001: Orphan Behaviors" {
 }
 
 behavior se_validate_orphan_types "W002: Orphan Types" {
+  features [se_validation_suite]
   category query
   types    [ValidationRulePattern]
   contract """
@@ -43,6 +45,7 @@ behavior se_validate_orphan_types "W002: Orphan Types" {
 }
 
 behavior se_validate_unused_invariants "W003: Unused Invariants" {
+  features [se_validation_suite]
   category query
   types    [ValidationRulePattern]
   contract """
@@ -63,6 +66,7 @@ behavior se_validate_unused_invariants "W003: Unused Invariants" {
 }
 
 behavior se_validate_orphan_ports "W005: Orphan Ports" {
+  features [se_validation_suite]
   category query
   types    [ValidationRulePattern]
   contract """
@@ -79,6 +83,7 @@ behavior se_validate_orphan_ports "W005: Orphan Ports" {
 // W006 is allocated to @specforge/product (Orphan Capabilities → W042)
 
 behavior se_validate_event_triggers "E051: Invalid Event Triggers" {
+  features   [se_validation_suite]
   category   query
   invariants [se_event_trigger_validity]
   types      [ValidationRulePattern, ValidationPatternKind]
@@ -103,6 +108,7 @@ behavior se_validate_event_triggers "E051: Invalid Event Triggers" {
 }
 
 behavior se_validate_orphan_events "W007: Orphan Events" {
+  features [se_validation_suite]
   category query
   types    [ValidationRulePattern]
   contract """
@@ -117,6 +123,7 @@ behavior se_validate_orphan_events "W007: Orphan Events" {
 }
 
 behavior se_validate_features_with_empty_behaviors "W008: Features with Empty Behaviors" {
+  features [se_validation_suite]
   category query
   types    [ValidationRulePattern]
   contract """
@@ -132,6 +139,7 @@ behavior se_validate_features_with_empty_behaviors "W008: Features with Empty Be
 }
 
 behavior se_validate_port_methods "E004: Invalid Port Methods" {
+  features [se_validation_suite]
   category query
   types    [ValidationRulePattern, PortOperation]
   contract """
@@ -151,6 +159,7 @@ behavior se_validate_port_methods "E004: Invalid Port Methods" {
 }
 
 behavior se_validate_type_field_annotations "W010: Unknown Field Annotations" {
+  features [se_validation_suite]
   category query
   types    [ValidationRulePattern, FieldAnnotation]
   contract """

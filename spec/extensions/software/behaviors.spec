@@ -5,6 +5,7 @@ use "extensions/software/types"
 use "types/zero-entity-core"
 
 behavior se_register_entity_kinds "Register Software Entity Kinds" {
+  features   [se_core_entity_kinds]
   category   command
   invariants [se_manifest_six_entity_kinds]
   types      [
@@ -41,6 +42,7 @@ behavior se_register_entity_kinds "Register Software Entity Kinds" {
 }
 
 behavior se_register_edge_types "Register Software Edge Types" {
+  features   [se_core_entity_kinds]
   category   command
   invariants [se_manifest_nine_edge_types]
   types      [ManifestEdgeType]
@@ -70,6 +72,7 @@ behavior se_register_edge_types "Register Software Edge Types" {
 }
 
 behavior se_register_field_definitions "Register Software Field Definitions" {
+  features [se_core_entity_kinds]
   category command
   types    [
     ManifestField,
@@ -102,6 +105,7 @@ behavior se_register_field_definitions "Register Software Field Definitions" {
 }
 
 behavior se_register_validation_rules "Register Software Validation Rules" {
+  features [se_core_entity_kinds, se_validation_suite]
   category command
   types    [ValidationRulePattern, ValidationPatternKind]
   contract """
@@ -121,6 +125,7 @@ behavior se_register_validation_rules "Register Software Validation Rules" {
 }
 
 behavior se_register_lsp_metadata "Register Software LSP Metadata" {
+  features [se_core_entity_kinds]
   category command
   types    [ManifestEntityKind, KindRegistryEntry]
   contract """
@@ -136,6 +141,7 @@ behavior se_register_lsp_metadata "Register Software LSP Metadata" {
 }
 
 behavior se_validate_entity_fields "Validate Software Entity Fields" {
+  features   [se_core_entity_kinds, dynamic_entity_registration]
   category   query
   invariants [se_port_direction_constraint]
   types      [ManifestField, ManifestEntityKind]
@@ -158,6 +164,7 @@ behavior se_validate_entity_fields "Validate Software Entity Fields" {
 }
 
 behavior se_parse_gherkin_statements "Register Gherkin Field" {
+  features [se_gherkin_bridge]
   category command
   contract """
     The @specforge/software extension MUST declare a gherkin field with
@@ -175,6 +182,7 @@ behavior se_parse_gherkin_statements "Register Gherkin Field" {
 }
 
 behavior se_validate_entity_references "Validate Software Entity References" {
+  features [reference_resolution]
   category query
   types    [ManifestField, ManifestEdgeType]
   contract """

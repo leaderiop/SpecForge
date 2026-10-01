@@ -3,6 +3,7 @@
 use "types/wasm"
 
 behavior vt_declare_vitest_collector "Declare the vitest Collector" {
+  features [vt_vitest_collection, ts_test_collection]
   category query
   types    [CollectorContribution]
   contract """
@@ -27,6 +28,7 @@ behavior vt_declare_vitest_collector "Declare the vitest Collector" {
 }
 
 behavior vt_map_vitest_report "Map vitest Reports to Entities" {
+  features [vt_vitest_collection]
   category query
   types    [CollectorDispatchInput, CollectorReport]
   contract """

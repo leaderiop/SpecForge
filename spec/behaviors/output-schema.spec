@@ -14,6 +14,7 @@ use "types/zero-entity-core"
 // ── Self-Describing Graph Protocol Schema ─────────────────────────────
 
 behavior generate_schema_from_registries "Generate Schema From Registries" {
+  features   [self_describing_graph_protocol]
   invariants [
     graph_schema_completeness,
     diagnostic_determinism,
@@ -67,6 +68,7 @@ behavior generate_schema_from_registries "Generate Schema From Registries" {
 }
 
 behavior embed_schema_in_export "Embed Schema in Export" {
+  features   [self_describing_graph_protocol]
   invariants [
     graph_traversal_integrity,
     graph_schema_completeness,
@@ -110,6 +112,7 @@ behavior embed_schema_in_export "Embed Schema in Export" {
 }
 
 behavior persist_schema_cache "Persist Schema Cache" {
+  features   [graph_protocol_versioning]
   invariants [
     graph_schema_completeness,
     diagnostic_determinism,
@@ -143,6 +146,7 @@ behavior persist_schema_cache "Persist Schema Cache" {
 }
 
 behavior serve_schema_resource "Serve Schema Resource" {
+  features   [self_describing_graph_protocol]
   invariants [
     graph_traversal_integrity,
     graph_schema_completeness,
@@ -186,6 +190,7 @@ behavior serve_schema_resource "Serve Schema Resource" {
 // behaviors/mcp-server.spec (expose_graph_as_mcp_resource, etc.).
 // Cross-feature: contributes to agent_export feature (features/output.spec).
 behavior serve_graph_resource "Serve Graph Resource via MCP" {
+  features   [agent_export, mcp_resource_exposure]
   invariants [
     graph_traversal_integrity,
     graph_schema_completeness,
@@ -244,6 +249,7 @@ behavior serve_graph_resource "Serve Graph Resource via MCP" {
 // ── Graph Protocol Versioning ─────────────────────────────────────
 
 behavior negotiate_schema_version "Negotiate Schema Version" {
+  features   [graph_protocol_versioning]
   invariants [
     graph_schema_completeness,
     diagnostic_determinism,
@@ -285,6 +291,7 @@ behavior negotiate_schema_version "Negotiate Schema Version" {
 }
 
 behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
+  features   [graph_protocol_versioning]
   invariants [
     graph_schema_completeness,
     diagnostic_determinism,
@@ -351,6 +358,7 @@ behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
 }
 
 behavior compute_schema_version "Compute Schema Version" {
+  features   [graph_protocol_versioning]
   invariants [
     graph_schema_completeness,
     diagnostic_determinism,
@@ -396,6 +404,7 @@ behavior compute_schema_version "Compute Schema Version" {
 }
 
 behavior publish_schema_specification "Publish Schema Specification" {
+  features   [graph_protocol_versioning]
   invariants [
     graph_schema_completeness,
     diagnostic_determinism,

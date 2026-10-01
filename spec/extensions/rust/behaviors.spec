@@ -11,6 +11,7 @@ use "invariants/core"
 use "types/core"
 
 behavior resolve_entity_mapping "Resolve Entity Mapping" {
+  features   [rust_test_collection]
   types      [EntityMappingEntry, MappingResolutionLevel]
   category   query
   invariants [entity_mapping_precedence]
@@ -28,6 +29,7 @@ behavior resolve_entity_mapping "Resolve Entity Mapping" {
 }
 
 behavior record_test_via_drop_guard "Record Test via Drop Guard" {
+  features   [rust_proc_macro_annotation]
   invariants [entity_mapping_precedence]
   category   command
   types      [TestGuard, TestRegistry, RustFramework, RustFrameworkSupport, RustSupportLevel]

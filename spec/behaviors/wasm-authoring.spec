@@ -8,6 +8,7 @@ use "types/errors"
 use "types/wasm"
 
 behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
+  features   [wasm_extension_authoring]
   invariants [extension_operation_atomicity]
   category   command
   types      [ManifestV2]
@@ -41,6 +42,7 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
 }
 
 behavior build_wasm_extension "Build Wasm Extension" {
+  features   [wasm_extension_authoring]
   invariants [extension_operation_atomicity]
   category   command
   types      [ManifestV2, ExtensionError]
@@ -70,6 +72,7 @@ behavior build_wasm_extension "Build Wasm Extension" {
 }
 
 behavior validate_wasm_extension_locally "Validate Wasm Extension Locally" {
+  features   [wasm_extension_authoring]
   invariants [wasm_sandbox_integrity]
   category   validation
   types      [ManifestV2, SandboxPolicy, ExtensionError]
@@ -112,6 +115,7 @@ behavior validate_wasm_extension_locally "Validate Wasm Extension Locally" {
 // Implementation detail for publish_to_registry in behaviors/extensions.spec.
 // Handles Wasm binary packaging and upload.
 behavior publish_wasm_extension "Publish Wasm Extension" {
+  features   [wasm_extension_authoring]
   invariants [registry_integrity, registry_api_openness]
   category   command
   types      [ManifestV2, ExtensionError]

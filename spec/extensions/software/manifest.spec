@@ -4,6 +4,7 @@ use "extensions/software/types"
 use "types/zero-entity-core"
 
 behavior se_declare_manifest "Declare @specforge/software Manifest" {
+  features [se_core_entity_kinds]
   category command
   types    [ManifestV2, ManifestEntityKind, ManifestEdgeType]
   contract """

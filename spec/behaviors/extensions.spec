@@ -20,6 +20,7 @@ use "types/zero-entity-core"
 // validation. After all manifests are loaded, it triggers registry population
 // via the behaviors in behaviors/zero-entity-core.spec.
 behavior load_extension_manifests "Load Extension Manifests" {
+  features   [extension_management]
   invariants [
     registry_population_before_validation,
     zero_domain_knowledge_core,
@@ -83,6 +84,7 @@ behavior load_extension_manifests "Load Extension Manifests" {
 // KindRegistry population, field registry setup, and edge type registration —
 // are defined in the zero-entity-core behaviors.
 behavior register_extension_entity_types "Register Extension Entity Types" {
+  features   [extension_management]
   invariants [reference_resolution_completeness, zero_domain_knowledge_core]
   category   command
   types      [ManifestV2, KindRegistryEntry]
@@ -121,6 +123,7 @@ behavior register_extension_entity_types "Register Extension Entity Types" {
 }
 
 behavior load_provider_configurations "Load Provider Configurations" {
+  features   [provider_based_ref_validation]
   invariants [reference_resolution_completeness, zero_domain_knowledge_core]
   category   query
   types      [ProviderConfig, CompilerConfig]
@@ -157,6 +160,7 @@ behavior load_provider_configurations "Load Provider Configurations" {
 }
 
 behavior register_provider_schemes "Register Provider Schemes" {
+  features   [provider_based_ref_validation]
   invariants [reference_resolution_completeness, diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [ProviderConfig, ManifestV2, SchemeRegistryEntry, Diagnostic]
@@ -196,6 +200,7 @@ behavior register_provider_schemes "Register Provider Schemes" {
 }
 
 behavior validate_provider_refs "Validate Provider Refs" {
+  features   [provider_based_ref_validation]
   invariants [reference_resolution_completeness, zero_domain_knowledge_core]
   category   validation
   types      [SchemeRegistryEntry, Diagnostic]
@@ -229,6 +234,7 @@ behavior validate_provider_refs "Validate Provider Refs" {
 // Wasm lifecycle cleanup. This behavior owns the CLI interaction and post-removal
 // diagnostic messaging; uninstall_wasm_extension owns the implementation.
 behavior remove_extension "Remove Extension" {
+  features   [extension_management]
   invariants [
     reference_resolution_completeness,
     zero_domain_knowledge_core,
@@ -280,6 +286,7 @@ behavior remove_extension "Remove Extension" {
 
 // Read-only query. (produces [] declared below; no event of its own.)
 behavior list_installed_extensions "List Installed Extensions" {
+  features   [extension_management]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [ManifestV2, KindRegistryEntry]
@@ -309,6 +316,7 @@ behavior list_installed_extensions "List Installed Extensions" {
 
 // Read-only query. (produces [] declared below; no event of its own.)
 behavior list_configured_providers "List Configured Providers" {
+  features   [provider_based_ref_validation]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
   types      [ProviderConfig, SchemeRegistryEntry]
@@ -342,6 +350,7 @@ behavior list_configured_providers "List Configured Providers" {
 // Called imperatively by validate_provider_refs (which consumes provider_schemes_registered).
 // Depends on SchemeRegistryEntry data populated during provider registration.
 behavior validate_ref_target_format "Validate Ref Target Format" {
+  features   [provider_based_ref_validation]
   invariants [reference_resolution_completeness, zero_domain_knowledge_core, diagnostic_determinism]
   category   validation
   types      [Diagnostic, SchemeRegistryEntry]
@@ -369,6 +378,7 @@ behavior validate_ref_target_format "Validate Ref Target Format" {
 // Called imperatively by validate_provider_refs (which consumes provider_schemes_registered).
 // Depends on SchemeRegistryEntry data populated during provider registration.
 behavior validate_provider_kinds "Validate Provider Kinds" {
+  features   [provider_based_ref_validation]
   invariants [reference_resolution_completeness, zero_domain_knowledge_core, diagnostic_determinism]
   category   validation
   types      [Diagnostic, SchemeRegistryEntry]
@@ -395,6 +405,7 @@ behavior validate_provider_kinds "Validate Provider Kinds" {
 // -- Registry Behaviors -----
 
 behavior resolve_registry_source "Resolve Registry Source" {
+  features   [extension_registry]
   invariants [
     registry_integrity,
     multi_error_collection,
@@ -435,6 +446,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
 }
 
 behavior search_registry "Search Registry" {
+  features   [extension_registry]
   invariants [diagnostic_determinism, multi_error_collection, offline_first_extension_resolution]
   category   query
   types      [RegistryConfig, RegistrySearchResult, RegistryResponse, CompilerConfig, ContributesSummary]
@@ -477,6 +489,7 @@ behavior search_registry "Search Registry" {
 // CLI entry point: `specforge publish`. Delegates Wasm binary packaging
 // to publish_wasm_extension in behaviors/wasm-lifecycle.spec.
 behavior publish_to_registry "Publish to Registry" {
+  features   [extension_registry]
   invariants [registry_integrity, multi_error_collection, credential_secrecy]
   category   command
   types      [ManifestV2, RegistryConfig, ExtensionError]
@@ -514,6 +527,7 @@ behavior publish_to_registry "Publish to Registry" {
 }
 
 behavior verify_registry_integrity "Verify Registry Integrity" {
+  features   [extension_registry]
   invariants [registry_integrity, wasm_compile_cache_integrity, offline_first_extension_resolution]
   category   validation
   types      [RegistryResponse, LockFileEntry, TrustLevel, ExtensionError]
@@ -552,6 +566,7 @@ behavior verify_registry_integrity "Verify Registry Integrity" {
 }
 
 behavior configure_registries "Configure Registries" {
+  features   [extension_registry]
   invariants [
     diagnostic_determinism,
     zero_domain_knowledge_core,
@@ -612,6 +627,7 @@ behavior configure_registries "Configure Registries" {
 // not event-driven. Auth is request-time, triggered by 401 responses or
 // pre-configured credentials.
 behavior authenticate_registry_request "Authenticate Registry Request" {
+  features   [registry_authentication]
   invariants [
     registry_integrity,
     multi_error_collection,
@@ -670,6 +686,7 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
 }
 
 behavior retry_registry_request "Retry Registry Request" {
+  features   [registry_authentication]
   invariants [registry_integrity, multi_error_collection, credential_secrecy]
   category   command
   types      [RegistryConfig, RegistryError, ExtensionError]
@@ -699,6 +716,7 @@ behavior retry_registry_request "Retry Registry Request" {
 }
 
 behavior validate_registry_credentials "Validate Registry Credentials" {
+  features   [registry_authentication]
   invariants [registry_integrity, diagnostic_determinism, credential_secrecy]
   category   validation
   types      [RegistryCredential, RegistryConfig, RegistryError]
@@ -733,6 +751,7 @@ behavior validate_registry_credentials "Validate Registry Credentials" {
 }
 
 behavior logout_registry "Logout Registry" {
+  features   [registry_authentication]
   invariants [registry_integrity, diagnostic_determinism, credential_secrecy]
   category   command
   types      [RegistryConfig, RegistryCredential, RegistryError]
@@ -766,6 +785,7 @@ behavior logout_registry "Logout Registry" {
 }
 
 behavior support_private_registries "Support Private Registries" {
+  features   [registry_authentication]
   invariants [registry_integrity, wasm_sandbox_integrity, credential_secrecy]
   category   command
   types      [RegistryConfig, RegistryCredential, TrustLevel, RegistryResponse]

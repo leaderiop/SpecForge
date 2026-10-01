@@ -9,6 +9,7 @@ use "types/errors"
 use "types/wasm"
 
 behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
+  features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity, extension_isolation]
   category   command
   types      [SandboxPolicy, ExtensionError]
@@ -45,6 +46,7 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
 }
 
 behavior compile_wasm_component_with_cache "Compile Wasm Component With Cache" {
+  features   [wasm_performance_optimization]
   invariants [wasm_compile_cache_integrity]
   category   command
   types      [ManifestV2]
@@ -78,6 +80,7 @@ behavior compile_wasm_component_with_cache "Compile Wasm Component With Cache" {
 }
 
 behavior reuse_session_runtime "Reuse Session Runtime" {
+  features   [wasm_performance_optimization]
   invariants [extension_isolation]
   category   command
   types      [ExtensionLifecycleState]
@@ -110,6 +113,7 @@ behavior reuse_session_runtime "Reuse Session Runtime" {
 // -- Error Recovery -----
 
 behavior handle_wasm_trap "Handle Wasm Trap" {
+  features   [wasm_extension_runtime]
   invariants [extension_isolation, wasm_sandbox_integrity]
   category   command
   types      [WasmTrapInfo, ExtensionLifecycleState, ExtensionError]
@@ -152,6 +156,7 @@ behavior handle_wasm_trap "Handle Wasm Trap" {
 // their manifest's allowed_output_extensions field. This prevents accidental
 // config-file generation by extensions that do not intend it.
 behavior configure_sandbox_policy "Configure Sandbox Policy" {
+  features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity]
   category   command
   types      [SandboxPolicy, ManifestV2]

@@ -12,6 +12,7 @@ use "types/wasm"
 // -- Wasm Module Lifecycle -----
 
 behavior load_wasm_module "Load Wasm Module" {
+  features   [wasm_extension_runtime]
   invariants [wasm_sandbox_integrity]
   category   command
   types      [ManifestV2, ExtensionError]
@@ -51,6 +52,7 @@ behavior load_wasm_module "Load Wasm Module" {
 }
 
 behavior initialize_wasm_extension "Initialize Wasm Extension" {
+  features   [wasm_extension_runtime]
   invariants [peer_dependency_satisfaction]
   category   command
   types      [ManifestV2, ExtensionLifecycleState]
@@ -94,6 +96,7 @@ behavior initialize_wasm_extension "Initialize Wasm Extension" {
 }
 
 behavior call_extension_validators "Call Extension Validators" {
+  features   [wasm_extension_runtime]
   invariants [extension_load_order_determinism]
   category   command
   types      [ManifestV2, ExtensionLifecycleState]
@@ -125,6 +128,7 @@ behavior call_extension_validators "Call Extension Validators" {
 // -- Dependencies -----
 
 behavior validate_extension_peer_dependencies "Validate Extension Peer Dependencies" {
+  features   [wasm_extension_runtime]
   invariants [peer_dependency_satisfaction]
   category   validation
   types      [PeerDependency, ManifestV2, ExtensionError]
@@ -150,6 +154,7 @@ behavior validate_extension_peer_dependencies "Validate Extension Peer Dependenc
 }
 
 behavior topological_sort_extensions "Topological Sort Extensions" {
+  features   [wasm_extension_runtime]
   invariants [extension_load_order_determinism]
   category   command
   types      [PeerDependency, ManifestV2]
@@ -178,6 +183,7 @@ behavior topological_sort_extensions "Topological Sort Extensions" {
 // -- Extension Lifecycle -----
 
 behavior install_wasm_extension "Install Wasm Extension" {
+  features   [wasm_extension_installation]
   invariants [
     wasm_compile_cache_integrity,
     extension_operation_atomicity,
@@ -219,6 +225,7 @@ behavior install_wasm_extension "Install Wasm Extension" {
 }
 
 behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
+  features   [wasm_extension_installation]
   invariants [peer_dependency_satisfaction, extension_operation_atomicity]
   category   mutation
   types      [ManifestV2, PeerDependency, ExtensionInstallResult, ExtensionError]
@@ -256,6 +263,7 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
 // is the user-facing CLI entry point. This behavior handles all Wasm-specific
 // cleanup; remove_extension handles CLI interaction and post-removal messaging.
 behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
+  features   [wasm_extension_installation]
   invariants [
     peer_dependency_satisfaction,
     extension_load_order_determinism,
@@ -296,6 +304,7 @@ behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
 // -- Manifest Validation -----
 
 behavior validate_extension_manifest "Validate Extension Manifest" {
+  features   [contribution_based_extensions]
   invariants [host_function_type_safety]
   category   validation
   types      [ManifestV2, ExtensionError]
@@ -329,6 +338,7 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
 }
 
 behavior verify_wasm_integrity "Verify Wasm Integrity" {
+  features   [wasm_lock_management]
   invariants [wasm_compile_cache_integrity, registry_integrity]
   category   validation
   types      [ManifestV2, LockFileEntry, ExtensionError]

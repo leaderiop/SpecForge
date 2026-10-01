@@ -5,6 +5,7 @@ use "extensions/testing/types"
 use "types/zero-entity-core"
 
 behavior te_contribute_testability "Contribute Testability to Owned Kinds" {
+  features   [te_test_vocabulary]
   category   command
   invariants [te_testable_kinds_from_one_table, te_owners_declare_no_test_vocabulary]
   types      [TestingVerifyKind]
@@ -27,6 +28,7 @@ behavior te_contribute_testability "Contribute Testability to Owned Kinds" {
 }
 
 behavior te_validate_unverified_testable "W004: Unverified Testable Entities" {
+  features   [te_test_vocabulary]
   category   query
   invariants [te_testable_kinds_from_one_table]
   types      [ValidationRulePattern]
@@ -58,6 +60,7 @@ behavior te_validate_unverified_testable "W004: Unverified Testable Entities" {
 }
 
 behavior te_validate_verify_kind_allowlist "W009: Verify Kind Outside the Kind's Allowlist" {
+  features   [te_test_vocabulary]
   category   query
   invariants [te_testable_kinds_from_one_table]
   types      [ValidationRulePattern, TestingVerifyKind]
@@ -76,6 +79,7 @@ behavior te_validate_verify_kind_allowlist "W009: Verify Kind Outside the Kind's
 }
 
 behavior te_coverage_pass "Coverage Analysis Pass" {
+  features   [te_coverage_analysis]
   category   query
   invariants [te_testable_kinds_from_one_table]
   types      [TestingVerifyKind]
@@ -122,6 +126,7 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
 }
 
 behavior te_coverage_gate "Proof Coverage Gate" {
+  features [te_coverage_analysis]
   category validation
   types    [TestingVerifyKind]
   contract """

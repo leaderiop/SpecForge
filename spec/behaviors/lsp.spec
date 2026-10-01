@@ -17,6 +17,7 @@ use "types/wasm"
 use "types/zero-entity-core"
 
 behavior lsp_initialize "LSP Initialize" {
+  features   [lsp_lifecycle]
   invariants [zero_domain_knowledge_core, lsp_extension_reload_consistency]
   category   command
   types      [KindRegistryEntry, FieldRegistryEntry, SemanticTokenLegendEntry]
@@ -51,6 +52,7 @@ behavior lsp_initialize "LSP Initialize" {
 }
 
 behavior lsp_shutdown "LSP Shutdown" {
+  features   [lsp_lifecycle]
   invariants [incremental_correctness]
   category   command
   types      [Graph]
@@ -79,6 +81,7 @@ behavior lsp_shutdown "LSP Shutdown" {
 }
 
 behavior document_open_close "Document Open/Close" {
+  features   [lsp_lifecycle]
   invariants [incremental_correctness, lsp_state_concurrency_safety]
   category   command
   types      [SourceSpan]
@@ -111,6 +114,7 @@ behavior document_open_close "Document Open/Close" {
 // Event consumer chain: didChange -> file_changed -> debounce window ->
 // incremental rebuild (see shared_incremental_pipeline and behaviors/incremental.spec).
 behavior handle_text_document_change "Handle Text Document Change" {
+  features   [live_diagnostics]
   types      [SpecFile, SourceSpan, ContentChangeEvent]
   category   command
   ports      [LspProtocol]
@@ -136,6 +140,7 @@ behavior handle_text_document_change "Handle Text Document Change" {
 }
 
 behavior go_to_definition "Go-to-Definition" {
+  features   [go_to_definition_and_references]
   category   query
   invariants [reference_resolution_completeness, lsp_response_latency, zero_domain_knowledge_core]
   types      [EntityId, SourceSpan]
@@ -160,6 +165,7 @@ behavior go_to_definition "Go-to-Definition" {
 }
 
 behavior find_all_references "Find All References" {
+  features   [go_to_definition_and_references]
   category   query
   invariants [reference_resolution_completeness, lsp_response_latency, zero_domain_knowledge_core]
   types      [EntityId, SourceSpan]
@@ -183,6 +189,7 @@ behavior find_all_references "Find All References" {
 }
 
 behavior hover_information "Hover Information" {
+  features   [hover_and_autocomplete]
   category   query
   invariants [zero_domain_knowledge_core, reference_resolution_completeness, lsp_response_latency]
   types      [EntityId, Node, KindRegistryEntry, FieldRegistryEntry, HoverContent]
@@ -240,6 +247,7 @@ behavior hover_diagnostic "Hover a Diagnostic" {
 // also cover verify declaration editing — verify kind names are suggested via the
 // same completion pipeline.
 behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
+  features   [hover_and_autocomplete]
   category   query
   invariants [zero_domain_knowledge_core, reference_resolution_completeness, lsp_response_latency]
   types      [EntityId, CompletionItem]
@@ -272,6 +280,7 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
 }
 
 behavior prepare_rename "Prepare Rename" {
+  features   [rename_refactoring]
   category   query
   invariants [entity_id_uniqueness, lsp_response_latency, zero_domain_knowledge_core]
   types      [EntityId, SourceSpan]
@@ -297,6 +306,7 @@ behavior prepare_rename "Prepare Rename" {
 }
 
 behavior rename_entity_id "Rename Entity ID" {
+  features   [rename_refactoring]
   invariants [
     entity_id_uniqueness,
     lsp_response_latency,
@@ -330,6 +340,7 @@ behavior rename_entity_id "Rename Entity ID" {
 }
 
 behavior emit_live_diagnostics "Live Diagnostics" {
+  features   [live_diagnostics]
   invariants [
     multi_error_collection,
     incremental_correctness,
@@ -372,7 +383,7 @@ behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
   category   validation
   types      [KindRegistryEntry, CodeAction, CodeActionKind]
   ports      [LspProtocol]
-  features   [extension_driven_code_actions]
+  features   [extension_driven_code_actions, code_actions]
   requires {
     kind_registry_available "KindRegistry is populated with testable flags and allowed_verify_kinds"
     graph_available         "in-memory graph is built and entity verify declarations are queryable"
@@ -408,6 +419,7 @@ behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
 }
 
 behavior outline_view "Outline View" {
+  features   [outline_and_symbol_search]
   category   query
   invariants [zero_domain_knowledge_core, reference_resolution_completeness, lsp_response_latency]
   types      [Node, EntityId, KindRegistryEntry, DocumentSymbolEntry, SymbolKind]
@@ -436,6 +448,7 @@ behavior outline_view "Outline View" {
 }
 
 behavior workspace_symbol_search "Workspace Symbol Search" {
+  features   [outline_and_symbol_search]
   category   query
   invariants [zero_domain_knowledge_core, reference_resolution_completeness, lsp_response_latency]
   types      [EntityId, SourceSpan, KindRegistryEntry, WorkspaceSymbolEntry]
@@ -464,6 +477,7 @@ behavior workspace_symbol_search "Workspace Symbol Search" {
 // debounce_file_changes -> invalidate_changed_files -> rebuild_affected_subgraph ->
 // emit_incremental_diagnostics
 behavior shared_incremental_pipeline "Shared Incremental Pipeline" {
+  features   [incremental_compilation, live_diagnostics]
   invariants [
     incremental_correctness,
     zero_domain_knowledge_core,
@@ -502,6 +516,7 @@ behavior shared_incremental_pipeline "Shared Incremental Pipeline" {
 }
 
 behavior provide_semantic_tokens "Provide Semantic Tokens" {
+  features   [semantic_tokens]
   category   query
   invariants [zero_domain_knowledge_core, lsp_response_latency]
   types      [SourceSpan, KindRegistryEntry, SemanticTokenLegendEntry, SemanticToken]
@@ -563,6 +578,7 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
 }
 
 behavior complete_field_names "Complete Field Names" {
+  features   [hover_and_autocomplete, extension_driven_lsp]
   category   query
   invariants [zero_domain_knowledge_core, lsp_response_latency]
   types      [EntityId, FieldRegistryEntry, CompletionItem]
@@ -590,6 +606,7 @@ behavior complete_field_names "Complete Field Names" {
 }
 
 behavior complete_keywords "Complete Keywords" {
+  features   [hover_and_autocomplete]
   category   query
   invariants [zero_domain_knowledge_core]
   types      [EntityId, KindRegistryEntry, CompletionItem]
@@ -620,6 +637,7 @@ behavior complete_keywords "Complete Keywords" {
 }
 
 behavior goto_import_definition "Go-to-Definition on Imports" {
+  features   [go_to_definition_and_references]
   category   query
   invariants [reference_resolution_completeness, lsp_response_latency, zero_domain_knowledge_core]
   types      [SourceSpan]
@@ -645,7 +663,7 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
   invariants [zero_domain_knowledge_core, lsp_response_latency, lsp_text_edit_non_overlapping]
   types      [EntityId, KindRegistryEntry, FieldRegistryEntry, CodeAction]
   ports      [LspProtocol]
-  features   [extension_driven_code_actions]
+  features   [extension_driven_code_actions, code_actions]
   requires {
     graph_available          "in-memory graph is built and E003 diagnostics are available"
     field_registry_available "FieldRegistry is populated with target_kind constraints for kind inference"
@@ -680,6 +698,7 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
 }
 
 behavior incremental_document_sync "Incremental Document Sync" {
+  features   [live_diagnostics]
   invariants [incremental_correctness, lsp_response_latency, lsp_utf16_positions]
   category   command
   types      [SourceSpan]

@@ -21,6 +21,7 @@ use "types/zero-entity-core"
 // ── Registration & Validation ───────────────────────────────
 
 behavior register_surface_contributions "Register Surface Contributions" {
+  features   [surface_contributions]
   invariants [surface_contribution_uniqueness]
   category   command
   types      [ManifestV2, SurfaceContributions, SurfaceRegistryEntry, SurfaceType, SurfaceError]
@@ -54,6 +55,7 @@ behavior register_surface_contributions "Register Surface Contributions" {
 }
 
 behavior validate_surface_exports "Validate Surface Exports" {
+  features   [surface_contributions]
   invariants [surface_sandbox_ceiling, host_function_type_safety]
   category   validation
   types      [ManifestV2, SurfaceContributions, SurfaceError]
@@ -88,6 +90,7 @@ behavior validate_surface_exports "Validate Surface Exports" {
 }
 
 behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {
+  features   [surface_contributions]
   invariants [surface_schema_validity]
   category   validation
   types      [McpToolContribution, SurfaceError, JsonSchema]
@@ -116,6 +119,7 @@ behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {
 }
 
 behavior validate_command_arg_types "Validate Command Arg Types" {
+  features   [surface_contributions]
   invariants [surface_schema_validity]
   category   validation
   types      [CommandContribution, CommandArg, CommandArgType, SurfaceError]
@@ -145,6 +149,7 @@ behavior validate_command_arg_types "Validate Command Arg Types" {
 // ── Auto-Promotion ──────────────────────────────────────────
 
 behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools" {
+  features   [surface_contributions]
   invariants [surface_contribution_uniqueness]
   category   command
   types      [CommandContribution, AutoPromotedMcpTool, SurfaceRegistryEntry]
@@ -178,6 +183,7 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
 // ── Dispatch ────────────────────────────────────────────────
 
 behavior dispatch_surface_command "Dispatch Surface Command" {
+  features   [surface_contributions]
   invariants [surface_sandbox_ceiling, wasm_sandbox_integrity, extension_isolation]
   category   command
   types      [CommandContribution, CommandInput, CommandOutput, SurfaceError, WasmTrapInfo]
@@ -218,6 +224,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
 }
 
 behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
+  features   [surface_contributions]
   invariants [
     surface_sandbox_ceiling,
     wasm_sandbox_integrity,
@@ -270,6 +277,7 @@ behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
 }
 
 behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
+  features   [surface_contributions]
   invariants [
     surface_sandbox_ceiling,
     wasm_sandbox_integrity,
@@ -316,6 +324,7 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
 // ── Sandbox Enforcement ─────────────────────────────────────
 
 behavior enforce_surface_sandbox "Enforce Surface Sandbox" {
+  features   [surface_contributions]
   invariants [surface_sandbox_ceiling, wasm_sandbox_integrity]
   category   command
   types      [SurfaceSandboxOverride, SandboxPolicy, SurfaceType, SurfaceError]
@@ -350,6 +359,7 @@ behavior enforce_surface_sandbox "Enforce Surface Sandbox" {
 // ── Configuration ───────────────────────────────────────────
 
 behavior toggle_surface_contributions "Toggle Surface Contributions" {
+  features   [surface_contributions]
   invariants [surface_contribution_uniqueness]
   category   command
   types      [SurfaceRegistryEntry, SurfaceType]

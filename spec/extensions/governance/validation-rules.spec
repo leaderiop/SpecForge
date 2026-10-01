@@ -10,6 +10,7 @@ use "invariants/validation"
 use "types/diagnostics"
 
 behavior validate_rpn_arithmetic "Validate RPN Arithmetic" {
+  features   [ge_validation_suite]
   invariants [rpn_arithmetic_integrity]
   category   validation
   types      [Diagnostic]
@@ -26,6 +27,7 @@ behavior validate_rpn_arithmetic "Validate RPN Arithmetic" {
 }
 
 behavior detect_unmitigated_high_risk_invariants "Detect Unmitigated High-Risk Invariants" {
+  features [ge_validation_suite]
   types    [Diagnostic]
   category validation
   contract """
@@ -40,6 +42,7 @@ behavior detect_unmitigated_high_risk_invariants "Detect Unmitigated High-Risk I
 }
 
 behavior detect_constraints_with_no_protected_invariants "Detect Constraints with No Protected Invariants" {
+  features [ge_validation_suite]
   types    [Diagnostic]
   category validation
   contract """

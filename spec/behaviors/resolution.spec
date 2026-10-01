@@ -10,6 +10,7 @@ use "types/errors"
 use "types/graph"
 
 behavior resolve_use_imports "Resolve Use Imports" {
+  features   [reference_resolution]
   invariants [import_dag, reference_resolution_completeness, compilation_pipeline_ordering]
   category   query
   types      [SpecFile, FileEntry]
@@ -49,6 +50,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
 
 // No consumes — called inline during use import resolution
 behavior detect_import_cycles "Detect Import Cycles" {
+  features   [reference_resolution]
   invariants [import_dag]
   category   validation
   types      [CycleError, FileEntry]
@@ -76,6 +78,7 @@ behavior detect_import_cycles "Detect Import Cycles" {
 }
 
 behavior link_entity_references "Link Entity References" {
+  features   [reference_resolution]
   invariants [string_interning_consistency, entity_id_uniqueness, reference_resolution_completeness]
   category   command
   types      [EntityId, Graph, Edge, ResolutionError]
@@ -106,6 +109,7 @@ behavior link_entity_references "Link Entity References" {
 }
 
 behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension References" {
+  features   [reference_resolution]
   invariants [reference_resolution_completeness]
   category   query
   types      [EntityId]
@@ -142,6 +146,7 @@ behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension R
 
 // No consumes — called inline during reference resolution
 behavior resolve_external_ref_declarations "Resolve External Ref Declarations" {
+  features   [reference_resolution]
   invariants [reference_resolution_completeness]
   category   query
   types      [EntityId, Graph]
@@ -169,6 +174,7 @@ behavior resolve_external_ref_declarations "Resolve External Ref Declarations" {
 }
 
 behavior resolve_reexports "Resolve pub use Re-exports" {
+  features   [reference_resolution]
   invariants [import_dag]
   category   query
   types      [FileEntry]

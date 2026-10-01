@@ -6,6 +6,7 @@ use "types/core"
 use "types/graph"
 
 behavior build_in_memory_graph "Build In-Memory Graph" {
+  features   [graph_construction]
   invariants [string_interning_consistency, entity_id_uniqueness]
   category   command
   types      [Graph, Node, Edge, SpecFile, EdgeType, FileIndex, JsonValue, JsonObject]
@@ -46,6 +47,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
 }
 
 behavior maintain_mutable_graph "Maintain Mutable Graph" {
+  features   [graph_construction, incremental_compilation]
   invariants [incremental_correctness, graph_traversal_integrity]
   category   command
   types      [Graph, Subgraph]
@@ -74,6 +76,7 @@ behavior maintain_mutable_graph "Maintain Mutable Graph" {
 }
 
 behavior compute_subgraph_for_invalidation "Compute Subgraph for Invalidation" {
+  features   [incremental_compilation]
   invariants [incremental_correctness, graph_traversal_integrity]
   category   query
   types      [Graph, Subgraph, FileEntry]

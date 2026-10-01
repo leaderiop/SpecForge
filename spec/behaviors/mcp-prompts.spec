@@ -16,6 +16,7 @@ use "types/graph"
 use "types/mcp"
 
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {
+  features   [mcp_prompts]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -56,6 +57,7 @@ behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {
 }
 
 behavior provide_mcp_review_prompt "Provide MCP Review Prompt" {
+  features   [mcp_prompts]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -91,6 +93,7 @@ behavior provide_mcp_review_prompt "Provide MCP Review Prompt" {
 }
 
 behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {
+  features   [mcp_prompts]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,
@@ -128,6 +131,7 @@ behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {
 }
 
 behavior provide_mcp_explore_prompt "Provide MCP Explore Prompt" {
+  features   [mcp_prompts]
   invariants [
     graph_traversal_integrity,
     diagnostic_determinism,

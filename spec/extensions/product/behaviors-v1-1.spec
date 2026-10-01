@@ -8,6 +8,7 @@ use "extensions/product/types"
 use "types/zero-entity-core"
 
 behavior pe_register_release_kind "Register Release Entity Kind" {
+  features   [pe_release_coordination]
   category   command
   invariants [pe_release_non_testable]
   types      [ManifestEntityKind, ProductRelease, ReleaseStatus]
@@ -26,6 +27,7 @@ behavior pe_register_release_kind "Register Release Entity Kind" {
 }
 
 behavior pe_register_release_edges "Register Release Edge Types" {
+  features [pe_release_coordination]
   category command
   types    [ManifestEdgeType]
   contract """
@@ -63,6 +65,7 @@ behavior pe_register_ownership_fields "Register Ownership Fields" {
 }
 
 behavior pe_register_effort_field "Register Effort Field" {
+  features [pe_effort_estimation]
   category command
   types    [Effort]
   contract """
@@ -92,6 +95,7 @@ behavior pe_register_temporal_fields "Register Temporal Fields" {
 }
 
 behavior pe_query_owner_workload "Query Owner Workload" {
+  features   [pe_ownership_tracking]
   category   query
   invariants [pe_ownership_field_awareness]
   types      [OwnerWorkloadPayload, OwnerWorkloadEntry, OwnerKindBreakdown]
@@ -116,6 +120,7 @@ behavior pe_query_owner_workload "Query Owner Workload" {
 }
 
 behavior pe_query_weighted_milestone_completion "Query Weighted Milestone Completion" {
+  features   [pe_effort_estimation]
   category   query
   invariants [pe_effort_weighted_completion]
   types      [WeightedMilestoneCompletionPayload, EffortBreakdownEntry, Effort]
@@ -145,6 +150,7 @@ behavior pe_query_weighted_milestone_completion "Query Weighted Milestone Comple
 }
 
 behavior pe_query_release_deliverables "Query Release Deliverables" {
+  features [pe_release_coordination]
   category query
   types    [ReleaseDeliverablePayload]
   produces [pe_release_deliverables_queried]
@@ -165,6 +171,7 @@ behavior pe_query_release_deliverables "Query Release Deliverables" {
 }
 
 behavior pe_query_release_milestones "Query Release Milestones" {
+  features [pe_release_coordination]
   category query
   types    [ReleaseMilestonePayload]
   produces [pe_release_milestones_queried]
@@ -184,6 +191,7 @@ behavior pe_query_release_milestones "Query Release Milestones" {
 }
 
 behavior pe_query_release_completion "Query Release Completion" {
+  features [pe_release_coordination]
   category query
   types    [ReleaseCompletionPayload]
   produces [pe_release_completion_queried]

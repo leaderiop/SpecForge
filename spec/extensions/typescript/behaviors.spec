@@ -11,6 +11,7 @@ use "types/diagnostics"
 // ── Source Scanning ────────────────────────────────────────────
 
 behavior scan_typescript_project "Scan TypeScript Project" {
+  features   [ts_source_scanning]
   types      [TsScanResult, TsSourceItem, TsSourceFile, TsMonorepoInfo, TsFrameworkDetection]
   category   query
   ports      [FileSystem, TsSourceScanner]
@@ -36,6 +37,7 @@ behavior scan_typescript_project "Scan TypeScript Project" {
 }
 
 behavior classify_source_file "Classify Source File" {
+  features   [ts_source_scanning]
   types      [TsSourceFile, TsFileRole, TsFileRoleSignal, TsTestFilePattern]
   category   query
   invariants [ts_file_role_accuracy]
@@ -63,6 +65,7 @@ behavior classify_source_file "Classify Source File" {
 }
 
 behavior extract_source_items "Extract Source Items" {
+  features   [ts_source_scanning]
   types      [TsSourceItem, TsItemKind, TsExportKind, TsParameter, TsJsDocTag, TsDecorator]
   category   query
   ports      [TsSourceScanner]
@@ -93,6 +96,7 @@ behavior extract_source_items "Extract Source Items" {
 }
 
 behavior detect_react_components "Detect React Components" {
+  features   [ts_source_scanning]
   types      [TsSourceItem, TsReactInfo, TsReactComponentType]
   category   query
   invariants [ts_react_component_detection]
@@ -127,6 +131,7 @@ behavior detect_react_components "Detect React Components" {
 }
 
 behavior detect_frameworks "Detect Frameworks" {
+  features [ts_framework_inference]
   types    [TsFrameworkDetection, TsFramework]
   category query
   ports    [FileSystem]
@@ -150,6 +155,7 @@ behavior detect_frameworks "Detect Frameworks" {
 // ── Monorepo Support ───────────────────────────────────────────
 
 behavior detect_monorepo "Detect Monorepo Structure" {
+  features [ts_monorepo_support]
   types    [TsMonorepoInfo, TsMonorepoTool, TsPackageInfo]
   category query
   ports    [FileSystem]
@@ -176,6 +182,7 @@ behavior detect_monorepo "Detect Monorepo Structure" {
 // ── Entity ID Mapping ──────────────────────────────────────────
 
 behavior map_typescript_entity_ids "Map TypeScript Entity IDs" {
+  features   [ts_entity_mapping]
   types      [TsEntityIdMapping, TsMappingResolution, TsSourceItem]
   category   query
   invariants [ts_entity_mapping_precedence]
@@ -203,6 +210,7 @@ behavior map_typescript_entity_ids "Map TypeScript Entity IDs" {
 // ── Inference ──────────────────────────────────────────────────
 
 behavior infer_entity_kinds "Infer Entity Kinds from TypeScript Signals" {
+  features [ts_framework_inference]
   types    [TsInferenceSignal, TsSignalKind, TsSuggestedEntity, TsSourceItem]
   category query
   contract """
@@ -238,6 +246,7 @@ behavior infer_entity_kinds "Infer Entity Kinds from TypeScript Signals" {
 // ── Source Anchoring ───────────────────────────────────────────
 
 behavior anchor_entity_to_source "Anchor Entity to Source" {
+  features   [ts_entity_mapping]
   types      [TsSourceAnchor, TsSecondaryLocation, TsSecondaryRole]
   category   query
   ports      [TsSourceScanner]

@@ -13,6 +13,7 @@ use "types/graph"
 use "types/zero-entity-core"
 
 behavior watch_file_system_for_changes "Watch File System for Changes" {
+  features   [incremental_compilation]
   invariants [incremental_correctness, watch_mode_response_latency]
   category   command
   types      [FileEntry]
@@ -39,6 +40,7 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {
+  features   [incremental_compilation]
   invariants [incremental_correctness, graph_traversal_integrity]
   category   validation
   types      [Graph, Subgraph, FileEntry]
@@ -75,6 +77,7 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
 }
 
 behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
+  features   [incremental_compilation]
   invariants [incremental_correctness, graph_traversal_integrity, zero_domain_knowledge_core]
   category   command
   types      [Graph, Subgraph, FileEntry]
@@ -121,6 +124,7 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
 }
 
 behavior emit_incremental_diagnostics "Emit Incremental Diagnostics" {
+  features   [incremental_compilation]
   invariants [
     multi_error_collection,
     incremental_correctness,
@@ -175,6 +179,7 @@ behavior emit_incremental_diagnostics "Emit Incremental Diagnostics" {
 }
 
 behavior debounce_file_changes "Debounce File Changes" {
+  features   [incremental_compilation]
   invariants [incremental_correctness, diagnostic_determinism, watch_mode_response_latency]
   category   command
   types      [FileEntry, CompilerConfig]
@@ -204,6 +209,7 @@ behavior debounce_file_changes "Debounce File Changes" {
 }
 
 behavior track_import_dag_incrementally "Track Import DAG Incrementally" {
+  features   [incremental_compilation]
   // Runs synchronously before rebuild_affected_subgraph — the import DAG
   // must be up-to-date before any subgraph rebuild begins.
   category   command
@@ -239,6 +245,7 @@ behavior track_import_dag_incrementally "Track Import DAG Incrementally" {
 // ── Incremental Graph Delta ───────────────────────────────────
 
 behavior compute_graph_delta "Compute Graph Delta" {
+  features   [incremental_graph_deltas]
   invariants [
     incremental_correctness,
     graph_traversal_integrity,
@@ -285,6 +292,7 @@ behavior compute_graph_delta "Compute Graph Delta" {
 }
 
 behavior dispatch_incremental_validators "Dispatch Incremental Validators" {
+  features   [incremental_graph_deltas]
   invariants [incremental_correctness, diagnostic_determinism, zero_domain_knowledge_core]
   category   command
   types      [GraphDelta, Graph, ManifestEntityKind]
@@ -322,6 +330,7 @@ behavior dispatch_incremental_validators "Dispatch Incremental Validators" {
 }
 
 behavior notify_delta_subscribers "Notify Delta Subscribers" {
+  features   [incremental_graph_deltas]
   invariants [incremental_correctness, diagnostic_determinism, graph_traversal_integrity]
   category   command
   types      [GraphDelta, DiagnosticsDelta]
@@ -357,6 +366,7 @@ behavior notify_delta_subscribers "Notify Delta Subscribers" {
 }
 
 behavior validate_delta_correctness "Validate Delta Correctness" {
+  features   [incremental_graph_deltas]
   invariants [incremental_correctness, graph_delta_determinism]
   category   validation
   types      [Graph, GraphDelta]

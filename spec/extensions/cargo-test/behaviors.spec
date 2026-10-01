@@ -3,6 +3,7 @@
 use "types/wasm"
 
 behavior ct_declare_cargo_collector "Declare the cargo test Collector" {
+  features [ct_cargo_test_collection]
   category query
   types    [CollectorContribution]
   contract """
@@ -26,6 +27,7 @@ behavior ct_declare_cargo_collector "Declare the cargo test Collector" {
 }
 
 behavior ct_map_binary_reports "Map specforge-test Reports to Entities" {
+  features [ct_cargo_test_collection]
   category query
   types    [CollectorDispatchInput, CollectorReport]
   contract """
@@ -45,6 +47,7 @@ behavior ct_map_binary_reports "Map specforge-test Reports to Entities" {
 }
 
 behavior ct_report_unlinked_tests "Report Plain Tests as Unlinked" {
+  features [ct_cargo_test_collection]
   category query
   types    [CollectorDispatchInput, CollectorReport]
   contract """

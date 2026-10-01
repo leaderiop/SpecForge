@@ -21,6 +21,7 @@ use "types/mcp"
 use "types/output"
 
 behavior mcp_initialize "MCP Initialize" {
+  features   [mcp_lifecycle]
   types      [McpCapabilities, CompilerConfig]
   category   command
   ports      [CompilerApi, WasmRuntime]
@@ -65,6 +66,7 @@ behavior mcp_initialize "MCP Initialize" {
 }
 
 behavior mcp_shutdown "MCP Shutdown" {
+  features   [mcp_lifecycle]
   types      [McpSubscription, timestamp]
   category   command
   ports      [CompilerApi, WasmRuntime]
@@ -92,6 +94,7 @@ behavior mcp_shutdown "MCP Shutdown" {
 }
 
 behavior list_mcp_resources "List MCP Resources" {
+  features   [mcp_discovery]
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   ports      [McpProtocol, CompilerApi]
@@ -125,6 +128,7 @@ behavior list_mcp_resources "List MCP Resources" {
 }
 
 behavior list_mcp_tools "List MCP Tools" {
+  features   [mcp_discovery]
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   ports      [McpProtocol, CompilerApi]
@@ -171,6 +175,7 @@ behavior list_mcp_tools "List MCP Tools" {
 }
 
 behavior list_mcp_prompts "List MCP Prompts" {
+  features   [mcp_discovery]
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   ports      [McpProtocol, CompilerApi]
@@ -201,6 +206,7 @@ behavior list_mcp_prompts "List MCP Prompts" {
 // ---------------------------------------------------------------------------
 
 behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
+  features   [mcp_resource_exposure]
   invariants [
     graph_traversal_integrity,
     graph_schema_completeness,
@@ -236,6 +242,7 @@ behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
 }
 
 behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
+  features   [mcp_resource_exposure]
   invariants [
     graph_schema_completeness,
     diagnostic_determinism,
@@ -268,6 +275,7 @@ behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
 }
 
 behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
+  features   [mcp_resource_exposure]
   invariants [
     graph_traversal_integrity,
     graph_schema_completeness,
@@ -299,6 +307,7 @@ behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
 }
 
 behavior expose_brief_as_mcp_resource "Expose Brief as MCP Resource" {
+  features   [mcp_resource_exposure]
   invariants [
     graph_traversal_integrity,
     graph_schema_completeness,
@@ -330,6 +339,7 @@ behavior expose_brief_as_mcp_resource "Expose Brief as MCP Resource" {
 }
 
 behavior expose_diagnostics_as_mcp_resource "Expose Diagnostics as MCP Resource" {
+  features   [mcp_resource_exposure]
   invariants [diagnostic_determinism, mcp_structured_error_responses]
   category   command
   types      [DiagnosticBag, McpResourceDescriptor]
@@ -359,6 +369,7 @@ behavior expose_diagnostics_as_mcp_resource "Expose Diagnostics as MCP Resource"
 }
 
 behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
+  features   [mcp_resource_exposure]
   invariants [
     graph_traversal_integrity,
     graph_schema_completeness,
@@ -399,6 +410,7 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
 // (behaviors/incremental.spec). It adapts the delta notification to the
 // MCP transport protocol.
 behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
+  features   [mcp_delta_notifications]
   invariants [
     incremental_correctness,
     graph_traversal_integrity,
@@ -437,6 +449,7 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
 }
 
 behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
+  features   [mcp_delta_notifications]
   invariants [
     incremental_correctness,
     diagnostic_determinism,
@@ -476,6 +489,7 @@ behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
 // ---------------------------------------------------------------------------
 
 behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
+  features   [mcp_protocol_compliance]
   invariants [mcp_structured_error_responses]
   category   command
   types      [McpError, JsonRpcErrorCode, McpErrorCode]
@@ -638,6 +652,7 @@ behavior listen_for_mcp_resource_updates "Listen for MCP Resource Updates" {
 }
 
 behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
+  features   [mcp_protocol_compliance]
   invariants [mcp_structured_error_responses]
   category   command
   types      [McpError]
@@ -665,6 +680,7 @@ behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
 }
 
 behavior guard_mcp_reinitialization "Guard MCP Reinitialization" {
+  features   [mcp_protocol_compliance]
   invariants [mcp_structured_error_responses]
   category   command
   types      [McpCapabilities]

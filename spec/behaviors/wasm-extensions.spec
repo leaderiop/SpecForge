@@ -16,6 +16,7 @@ use "types/zero-entity-core"
 // -- Query Extensions -----
 
 behavior provide_extension_query_extensions "Provide Extension Query Extensions" {
+  features   [extension_query_contributions]
   invariants [host_function_type_safety]
   category   query
   types      [ManifestV2, QueryExtension, QueryFileKind, ExtensionError]
@@ -48,6 +49,7 @@ behavior provide_extension_query_extensions "Provide Extension Query Extensions"
 }
 
 behavior compose_query_files_from_extensions "Compose Query Files From Extensions" {
+  features   [extension_query_contributions]
   invariants [extension_load_order_determinism]
   category   query
   types      [QueryExtension, QueryFileKind]
@@ -81,6 +83,7 @@ behavior compose_query_files_from_extensions "Compose Query Files From Extension
 // -- Entity Kind Conflict Prevention -----
 
 behavior reject_reserved_entity_kind "Reject Reserved Entity Kind" {
+  features   [entity_kind_conflict_prevention]
   invariants [entity_kind_uniqueness]
   category   command
   types      [KindRegistryEntry, ManifestV2]
@@ -124,6 +127,7 @@ behavior reject_reserved_entity_kind "Reject Reserved Entity Kind" {
 // (behaviors/zero-entity-validation.spec) which handles registry-level detection
 // during manifest loading. This behavior handles the policy-based resolution UI.
 behavior detect_entity_kind_collision "Detect Entity Kind Collision" {
+  features   [entity_kind_conflict_prevention]
   invariants [entity_kind_uniqueness]
   category   validation
   types      [ManifestV2, ExtensionError, EntityKindConflict]
@@ -155,6 +159,7 @@ behavior detect_entity_kind_collision "Detect Entity Kind Collision" {
 // -- Entity Enhancement -----
 
 behavior load_extension_manifest "Load Extension Manifest" {
+  features   [extension_manifest]
   invariants [extension_load_order_determinism]
   category   command
   types      [ManifestV2, ExtensionError]
@@ -201,6 +206,7 @@ behavior load_extension_manifest "Load Extension Manifest" {
 }
 
 behavior register_entity_enhancements "Register Entity Enhancements" {
+  features   [entity_enhancement]
   invariants [enhancement_field_uniqueness, enhancement_builtin_precedence]
   category   command
   types      [ManifestV2, FieldEnhancement, DynamicEdgeType]
@@ -238,6 +244,7 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
 }
 
 behavior detect_enhancement_conflicts "Detect Enhancement Conflicts" {
+  features   [entity_enhancement]
   invariants [enhancement_field_uniqueness, enhancement_builtin_precedence]
   category   validation
   types      [
@@ -273,6 +280,7 @@ behavior detect_enhancement_conflicts "Detect Enhancement Conflicts" {
 }
 
 behavior resolve_enhancement_conflicts "Resolve Enhancement Conflicts" {
+  features   [entity_enhancement]
   invariants [enhancement_field_uniqueness]
   category   query
   types      [EnhancementConflict, ConflictResolution, EnhancementPolicy]
@@ -302,6 +310,7 @@ behavior resolve_enhancement_conflicts "Resolve Enhancement Conflicts" {
 // -- Contribution Model -----
 
 behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
+  features   [contribution_based_extensions]
   invariants [extension_load_order_determinism, renderer_output_restriction]
   category   query
   types      [ManifestV2, ExtensionContributions, ExtensionError]
@@ -359,6 +368,7 @@ behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
 }
 
 behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
+  features   [contribution_based_extensions]
   invariants [wasm_sandbox_integrity]
   category   command
   types      [ManifestV2, SandboxPolicy]
@@ -402,6 +412,7 @@ behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
 }
 
 behavior validate_contribution_exports "Validate Contribution Exports" {
+  features   [contribution_based_extensions]
   invariants [host_function_type_safety]
   category   validation
   types      [ManifestV2, ExtensionError]
@@ -431,6 +442,7 @@ behavior validate_contribution_exports "Validate Contribution Exports" {
 }
 
 behavior toggle_extension_contributions "Toggle Extension Contributions" {
+  features   [contribution_based_extensions]
   invariants [extension_load_order_determinism]
   category   command
   types      [ManifestV2, ExtensionContributions]
@@ -468,6 +480,7 @@ behavior toggle_extension_contributions "Toggle Extension Contributions" {
 // ingest_collector_report. The CLI entry point is `specforge collect`; the
 // MCP entry point is provide_mcp_collect_tool (behaviors/mcp-operations.spec).
 behavior register_collector_contributions "Register Collector Contributions" {
+  features   [test_result_collection]
   invariants [extension_load_order_determinism]
   category   query
   types      [ManifestV2, CollectorContribution, CollectorAutoDetect]
@@ -496,6 +509,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
 // NOTE: auto_detect_collector does not produce an event because dispatch is
 // CLI-initiated (specforge collect), not event-driven.
 behavior auto_detect_collector "Auto-Detect Collector" {
+  features   [test_result_collection]
   invariants [extension_load_order_determinism]
   category   validation
   types      [CollectorContribution, CollectorAutoDetect]
@@ -530,6 +544,7 @@ behavior auto_detect_collector "Auto-Detect Collector" {
 }
 
 behavior approve_collector_command "Approve Collector Command" {
+  features   [test_result_collection]
   invariants [extension_isolation]
   category   validation
   types      [CollectorContribution]
@@ -563,6 +578,7 @@ behavior approve_collector_command "Approve Collector Command" {
 }
 
 behavior run_collector_command "Run Collector Command" {
+  features   [test_result_collection]
   invariants [extension_isolation]
   category   command
   types      [CollectorContribution]
@@ -605,6 +621,7 @@ behavior run_collector_command "Run Collector Command" {
 }
 
 behavior dispatch_collector "Dispatch Collector" {
+  features   [test_result_collection]
   invariants [wasm_sandbox_integrity, extension_isolation]
   category   query
   types      [CollectorContribution, CollectorDispatchInput, CollectorReport, WasmTrapInfo]
@@ -636,6 +653,7 @@ behavior dispatch_collector "Dispatch Collector" {
 }
 
 behavior ingest_collector_report "Ingest Collector Report" {
+  features   [test_result_collection]
   invariants [collector_output_conformance]
   category   query
   types      [CollectorReport, Graph]
@@ -669,6 +687,7 @@ behavior ingest_collector_report "Ingest Collector Report" {
 }
 
 behavior resolve_test_conventions "Resolve Test Naming Conventions" {
+  features   [test_result_collection]
   invariants [collector_output_conformance]
   category   query
   consumes   [collector_dispatched]
@@ -708,6 +727,7 @@ behavior resolve_test_conventions "Resolve Test Naming Conventions" {
 }
 
 behavior slug_obligation_text "Slug an Obligation Text" {
+  features   [test_result_collection]
   invariants [collector_output_conformance]
   category   query
   ensures {
@@ -728,6 +748,7 @@ behavior slug_obligation_text "Slug an Obligation Text" {
 // -- Discovery & Configuration -----
 
 behavior discover_extensions "Discover Extensions" {
+  features   [wasm_extension_maintenance]
   invariants [
     extension_load_order_determinism,
     registry_integrity,
@@ -765,6 +786,7 @@ behavior discover_extensions "Discover Extensions" {
 }
 
 behavior run_doctor_check "Run Doctor Check" {
+  features   [entity_enhancement]
   // Doctor REPORTS on invariant violations — it does not ENFORCE them.
   // Enforcement is done by the behaviors listed in each invariant's enforced_by.
   category   validation
@@ -810,6 +832,7 @@ behavior run_doctor_check "Run Doctor Check" {
 // -- Extension Source Resolution -----
 
 behavior parse_extension_specifier "Parse Extension Specifier" {
+  features   [wasm_extension_installation]
   invariants [registry_integrity]
   category   command
   types      [ExtensionSpecifier, ExtensionSource, ExtensionError]
@@ -836,6 +859,7 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
 }
 
 behavior resolve_extension_source "Resolve Extension Source" {
+  features   [wasm_extension_installation]
   invariants [registry_integrity]
   category   query
   types      [ManifestV2, ExtensionSpecifier, ExtensionSource, ExtensionError]
@@ -867,6 +891,7 @@ behavior resolve_extension_source "Resolve Extension Source" {
 // -- Lock File Management -----
 
 behavior write_lock_file "Write Lock File" {
+  features   [wasm_lock_management]
   invariants [extension_load_order_determinism, registry_integrity]
   category   command
   types      [ManifestV2, LockFile, LockFileEntry]
@@ -896,6 +921,7 @@ behavior write_lock_file "Write Lock File" {
 }
 
 behavior read_lock_file "Read Lock File" {
+  features   [wasm_lock_management]
   invariants [extension_load_order_determinism]
   category   command
   types      [ManifestV2, LockFile, LockFileEntry, ExtensionError]
@@ -926,6 +952,7 @@ behavior read_lock_file "Read Lock File" {
 // ── Extension Update ──────────────────────────────────────────
 
 behavior update_all_extensions "Update All Extensions" {
+  features   [wasm_extension_maintenance]
   invariants [
     wasm_sandbox_integrity,
     peer_dependency_satisfaction,
@@ -974,6 +1001,7 @@ behavior update_all_extensions "Update All Extensions" {
 }
 
 behavior refresh_lock_file "Refresh Lock File" {
+  features   [wasm_lock_management]
   invariants [wasm_compile_cache_integrity, registry_integrity]
   category   command
   types      [LockFileEntry, ManifestV2]

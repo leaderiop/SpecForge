@@ -12,6 +12,7 @@ use "types/graph"
 use "types/zero-entity-core"
 
 behavior detect_dangling_references "Detect Dangling References" {
+  features   [structural_validation]
   invariants [
     reference_resolution_completeness,
     diagnostic_determinism,
@@ -45,6 +46,7 @@ behavior detect_dangling_references "Detect Dangling References" {
 }
 
 behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
+  features   [structural_validation]
   invariants [string_interning_consistency, entity_id_uniqueness]
   category   validation
   types      [Diagnostic, DuplicateIdError]
@@ -99,6 +101,7 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
 // entity) are extension-defined ValidationRulePatterns.
 
 behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
+  features   [structural_validation]
   invariants [
     reference_resolution_completeness,
     diagnostic_determinism,
@@ -158,6 +161,7 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
 // concern: it is declared as a missing_field_when_flag_set ValidationRulePattern
 // by the owning extension, not hardcoded in core. The core only handles E016.
 behavior validate_file_reference_paths "Validate File Reference Paths" {
+  features   [structural_validation, se_gherkin_bridge]
   // reference_resolution_completeness applies here because file paths are a form
   // of reference that must resolve: just as entity-ID references must resolve to
   // graph nodes, file-path references must resolve to existing filesystem entries.

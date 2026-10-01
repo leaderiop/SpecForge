@@ -15,6 +15,7 @@ use "types/wasm"
 use "types/zero-entity-core"
 
 behavior compute_extension_query_scope "Compute Extension Query Scope" {
+  features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity, host_function_type_safety]
   category   query
   types      [HostFunctionBinding, ManifestV2, SandboxPolicy]
@@ -47,6 +48,7 @@ behavior compute_extension_query_scope "Compute Extension Query Scope" {
 }
 
 behavior provide_host_function_query_graph "Provide Host Function: query_graph" {
+  features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity, host_function_type_safety]
   category   query
   types      [HostFunctionBinding]
@@ -74,6 +76,7 @@ behavior provide_host_function_query_graph "Provide Host Function: query_graph" 
 }
 
 behavior provide_host_function_emit_diagnostic "Provide Host Function: emit_diagnostic" {
+  features   [wasm_host_function_api]
   invariants [host_function_type_safety]
   category   query
   types      [HostFunctionBinding]
@@ -109,6 +112,7 @@ behavior provide_host_function_emit_diagnostic "Provide Host Function: emit_diag
 // they add instances of already-declared kinds to the graph.
 
 behavior provide_host_function_add_graph_node "Provide Host Function: add_graph_node" {
+  features   [wasm_host_function_api]
   invariants [host_function_type_safety, zero_domain_knowledge_core]
   category   query
   types      [HostFunctionBinding, ManifestV2]
@@ -139,6 +143,7 @@ behavior provide_host_function_add_graph_node "Provide Host Function: add_graph_
 }
 
 behavior provide_host_function_add_graph_edge "Provide Host Function: add_graph_edge" {
+  features   [wasm_host_function_api]
   invariants [host_function_type_safety, zero_domain_knowledge_core]
   category   query
   types      [HostFunctionBinding]
@@ -170,6 +175,7 @@ behavior provide_host_function_add_graph_edge "Provide Host Function: add_graph_
 }
 
 behavior provide_host_function_read_file "Provide Host Function: read_file" {
+  features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity, host_function_type_safety, extension_isolation]
   category   query
   types      [HostFunctionBinding, SandboxPolicy]
@@ -213,6 +219,7 @@ behavior provide_host_function_read_file "Provide Host Function: read_file" {
 }
 
 behavior provide_host_function_emit_file "Provide Host Function: emit_file" {
+  features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity, host_function_type_safety, extension_isolation]
   category   query
   types      [HostFunctionBinding, SandboxPolicy]
@@ -263,6 +270,7 @@ behavior provide_host_function_emit_file "Provide Host Function: emit_file" {
 }
 
 behavior provide_host_function_http_get "Provide Host Function: http_get" {
+  features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity, host_function_type_safety, extension_isolation]
   category   query
   types      [HostFunctionBinding, SandboxPolicy]

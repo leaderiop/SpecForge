@@ -10,6 +10,7 @@ use "types/core"
 use "types/formatting"
 
 behavior format_spec_files "Format Spec Files" {
+  features   [code_formatting]
   invariants [
     formatting_idempotency,
     formatting_consistency,
@@ -46,6 +47,7 @@ behavior format_spec_files "Format Spec Files" {
 }
 
 behavior preserve_comments "Preserve Comments During Formatting" {
+  features   [code_formatting]
   invariants [comment_preservation]
   category   command
   types      [FormatConfig]
@@ -76,6 +78,7 @@ behavior preserve_comments "Preserve Comments During Formatting" {
 }
 
 behavior check_formatting "Check Formatting Without Modifying Files" {
+  features   [code_formatting]
   // Dry-run mode: does not emit format_complete (no files modified)
   category   validation
   invariants [
@@ -110,6 +113,7 @@ behavior check_formatting "Check Formatting Without Modifying Files" {
 }
 
 behavior show_formatting_diff "Show Formatting Diff" {
+  features   [code_formatting]
   // Dry-run mode: does not emit format_complete (no files modified)
   category   query
   invariants [
@@ -144,6 +148,7 @@ behavior show_formatting_diff "Show Formatting Diff" {
 }
 
 behavior format_from_stdin "Format from Standard Input" {
+  features   [code_formatting]
   invariants [
     formatting_idempotency,
     formatting_consistency,
@@ -181,6 +186,7 @@ behavior format_from_stdin "Format from Standard Input" {
 }
 
 behavior load_format_config "Load Format Configuration" {
+  features   [code_formatting]
   invariants [config_defaults_valid]
   category   query
   types      [FormatConfig]
@@ -214,6 +220,7 @@ behavior load_format_config "Load Format Configuration" {
 }
 
 behavior apply_format_rules "Apply Format Rules" {
+  features   [code_formatting]
   // Extension format rules are discovered via the contribution registry at format time
   category   query
   invariants [
@@ -282,6 +289,7 @@ behavior apply_format_rules "Apply Format Rules" {
 }
 
 behavior maintain_format_idempotency "Maintain Format Idempotency" {
+  features   [code_formatting]
   invariants [formatting_idempotency, formatting_semantic_preservation]
   category   query
   types      [FormatConfig]
@@ -306,6 +314,7 @@ behavior maintain_format_idempotency "Maintain Format Idempotency" {
 }
 
 behavior lsp_format_document "LSP Format Document" {
+  features   [lsp_formatting]
   invariants [
     formatting_idempotency,
     formatting_consistency,
@@ -350,6 +359,7 @@ behavior lsp_format_document "LSP Format Document" {
 }
 
 behavior lsp_format_range "LSP Format Range" {
+  features   [lsp_formatting]
   invariants [
     formatting_idempotency,
     formatting_consistency,
@@ -389,6 +399,7 @@ behavior lsp_format_range "LSP Format Range" {
 }
 
 behavior lsp_respect_editor_config "LSP Respect Editor Config" {
+  features   [lsp_formatting]
   invariants [config_defaults_valid, format_rule_determinism]
   category   command
   types      [FormatConfig]
@@ -411,6 +422,7 @@ behavior lsp_respect_editor_config "LSP Respect Editor Config" {
 }
 
 behavior format_with_parse_errors "Format Files with Parse Errors" {
+  features   [code_formatting]
   // formatting_consistency applies to well-formed regions only; error regions
   // are preserved verbatim and do not participate in consistency checks.
   category   query
@@ -455,6 +467,7 @@ behavior format_with_parse_errors "Format Files with Parse Errors" {
 }
 
 behavior discover_format_targets "Discover Format Targets" {
+  features   [code_formatting]
   invariants [discover_completeness]
   category   query
   types      [FormatConfig, CompilerConfig]

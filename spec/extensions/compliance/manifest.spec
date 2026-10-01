@@ -3,6 +3,7 @@
 use "types/zero-entity-core"
 
 behavior ce_declare_manifest "Declare @specforge/compliance Manifest" {
+  features [ce_core_entity_kinds]
   category command
   types    [ManifestV2, ManifestEntityKind, ManifestEdgeType]
   contract """

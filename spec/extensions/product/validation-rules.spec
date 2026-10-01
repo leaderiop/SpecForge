@@ -11,6 +11,7 @@ use "types/diagnostics"
 use "types/graph"
 
 behavior detect_orphan_features "Detect Orphan Features" {
+  features [pe_validation_suite]
   category validation
   types    [Diagnostic]
   contract """
@@ -24,6 +25,7 @@ behavior detect_orphan_features "Detect Orphan Features" {
 }
 
 behavior detect_library_cycles "Detect Library Cycles" {
+  features   [pe_validation_suite]
   invariants [library_dag]
   category   validation
   types      [Diagnostic]
@@ -38,6 +40,7 @@ behavior detect_library_cycles "Detect Library Cycles" {
 }
 
 behavior validate_behavior_ranges_in_roadmaps "Validate Behavior Ranges in Roadmaps" {
+  features   [pe_validation_suite]
   invariants [reference_resolution_completeness]
   category   validation
   types      [Diagnostic]
@@ -53,6 +56,7 @@ behavior validate_behavior_ranges_in_roadmaps "Validate Behavior Ranges in Roadm
 }
 
 behavior detect_orphan_capabilities "Detect Orphan Capabilities" {
+  features [pe_validation_suite]
   types    [Diagnostic]
   category validation
   contract """
@@ -65,6 +69,7 @@ behavior detect_orphan_capabilities "Detect Orphan Capabilities" {
 }
 
 behavior detect_deliverables_with_no_capabilities "Detect Deliverables with No Capabilities" {
+  features [pe_validation_suite]
   types    [Diagnostic]
   category validation
   contract """
@@ -77,6 +82,7 @@ behavior detect_deliverables_with_no_capabilities "Detect Deliverables with No C
 }
 
 behavior detect_orphan_libraries "Detect Orphan Libraries" {
+  features [pe_validation_suite]
   types    [Diagnostic]
   category validation
   contract """
@@ -89,6 +95,7 @@ behavior detect_orphan_libraries "Detect Orphan Libraries" {
 }
 
 behavior detect_unused_glossary_terms "Detect Unused Glossary Terms" {
+  features [pe_validation_suite]
   types    [Diagnostic]
   category validation
   contract """
@@ -102,6 +109,7 @@ behavior detect_unused_glossary_terms "Detect Unused Glossary Terms" {
 }
 
 behavior validate_persona_references "Validate Persona References" {
+  features   [pe_validation_suite]
   category   validation
   invariants [diagnostic_code_uniqueness]
   types      [Diagnostic]
@@ -117,6 +125,7 @@ behavior validate_persona_references "Validate Persona References" {
 }
 
 behavior validate_surface_references "Validate Surface References" {
+  features   [pe_validation_suite]
   invariants [diagnostic_code_uniqueness]
   category   validation
   types      [Diagnostic]

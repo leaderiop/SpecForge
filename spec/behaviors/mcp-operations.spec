@@ -27,6 +27,7 @@ use "types/output"
 // ---------------------------------------------------------------------------
 
 behavior provide_mcp_format_tool "Provide MCP Format Tool" {
+  features   [mcp_mutation_tools]
   invariants [
     diagnostic_determinism,
     formatting_idempotency,
@@ -71,6 +72,7 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
 }
 
 behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
+  features   [mcp_mutation_tools]
   invariants [
     entity_id_uniqueness,
     graph_traversal_integrity,
@@ -117,6 +119,7 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
 // to scaffold a new project elsewhere. For bootstrapping the very first
 // project, use the CLI: specforge init.
 behavior provide_mcp_init_tool "Provide MCP Init Tool" {
+  features   [mcp_mutation_tools]
   invariants [
     diagnostic_determinism,
     init_config_validity,
@@ -171,6 +174,7 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
 }
 
 behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
+  features   [mcp_mutation_tools]
   invariants [
     diagnostic_determinism,
     mcp_structured_error_responses,
@@ -226,6 +230,7 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
 }
 
 behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
+  features   [mcp_mutation_tools]
   invariants [
     diagnostic_determinism,
     mcp_structured_error_responses,
@@ -267,6 +272,7 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
 }
 
 behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
+  features   [mcp_mutation_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, dry_run_side_effect_freedom]
   category   mutation
   types      [MigrationResult, MigrationSummary, McpToolDescriptor]
@@ -316,6 +322,7 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
 // ---------------------------------------------------------------------------
 
 behavior provide_mcp_extensions_tool "Provide MCP Extensions Tool" {
+  features   [mcp_project_management_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   types      [McpExtensionInfo, McpToolDescriptor]
@@ -341,6 +348,7 @@ behavior provide_mcp_extensions_tool "Provide MCP Extensions Tool" {
 }
 
 behavior provide_mcp_providers_tool "Provide MCP Providers Tool" {
+  features   [mcp_project_management_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   types      [McpProviderInfo, McpToolDescriptor]
@@ -365,6 +373,7 @@ behavior provide_mcp_providers_tool "Provide MCP Providers Tool" {
 }
 
 behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
+  features   [mcp_project_management_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   types      [McpDoctorReport, McpToolDescriptor, McpDoctorFinding]
@@ -398,6 +407,7 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
 }
 
 behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
+  features   [mcp_project_management_tools]
   invariants [diagnostic_determinism, mcp_structured_error_responses]
   category   query
   types      [McpCollectResult, McpCollectRunner, McpToolDescriptor]
@@ -434,6 +444,7 @@ behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
 }
 
 behavior provide_mcp_render_tool "Provide MCP Render Tool" {
+  features   [mcp_project_management_tools]
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses]
   category   query
   types      [McpRenderResult, McpToolDescriptor]

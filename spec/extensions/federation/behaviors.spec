@@ -11,6 +11,7 @@ use "types/graph"
 use "types/output"
 
 behavior load_federation_config "Load Federation Config" {
+  features   [cross_project_references]
   category   command
   invariants [cross_project_reference_safety]
   types      [ProjectDependency, FederatedGraph, Diagnostic, FederationConfig]
@@ -34,6 +35,7 @@ behavior load_federation_config "Load Federation Config" {
 }
 
 behavior resolve_cross_project_references "Resolve Cross-Project References" {
+  features   [cross_project_references]
   category   command
   invariants [
     cross_project_reference_safety,
@@ -62,6 +64,7 @@ behavior resolve_cross_project_references "Resolve Cross-Project References" {
 }
 
 behavior load_remote_project_graph "Load Remote Project Graph" {
+  features   [cross_project_references]
   category   command
   invariants [cross_project_reference_safety]
   types      [ProjectDependency, Graph, FederatedGraph]
@@ -82,6 +85,7 @@ behavior load_remote_project_graph "Load Remote Project Graph" {
 }
 
 behavior validate_cross_project_edge_consistency "Validate Cross-Project Edge Consistency" {
+  features   [cross_project_references]
   category   query
   invariants [
     cross_project_reference_safety,
@@ -109,6 +113,7 @@ behavior validate_cross_project_edge_consistency "Validate Cross-Project Edge Co
 }
 
 behavior export_federated_graph "Export Federated Graph" {
+  features   [federated_graph_export]
   category   command
   invariants [
     federated_graph_traversal_integrity,

@@ -9,6 +9,7 @@ use "types/zero-entity-core"
 // -- Extension-Driven LSP ----------------------------------------------------
 
 behavior complete_extension_defined_keywords "Complete Extension-Defined Keywords" {
+  features   [extension_driven_lsp, hover_and_autocomplete]
   invariants [zero_domain_knowledge_core, lsp_response_latency]
   category   command
   types      [KindRegistryEntry]
@@ -34,6 +35,7 @@ behavior complete_extension_defined_keywords "Complete Extension-Defined Keyword
 }
 
 behavior provide_extension_entity_semantic_tokens "Provide Extension Entity Semantic Tokens" {
+  features   [extension_driven_lsp, semantic_tokens]
   invariants [zero_domain_knowledge_core, lsp_response_latency]
   category   query
   types      [KindRegistryEntry]
@@ -64,6 +66,7 @@ behavior provide_extension_entity_semantic_tokens "Provide Extension Entity Sema
 }
 
 behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
+  features   [extension_driven_lsp, hover_and_autocomplete]
   invariants [zero_domain_knowledge_core, lsp_response_latency]
   category   query
   types      [KindRegistryEntry, HoverContent]
@@ -98,6 +101,7 @@ behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
 }
 
 behavior provide_extension_defined_lsp_icons "Provide Extension-Defined LSP Icons" {
+  features   [extension_driven_lsp, outline_and_symbol_search]
   invariants [zero_domain_knowledge_core, lsp_response_latency]
   category   query
   types      [KindRegistryEntry]
