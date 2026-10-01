@@ -350,8 +350,9 @@ feature pe_temporal_planning "Temporal Planning" {
     consistency of start dates.
   """
   solution """
-    Add start_date (string @optional, ISO 8601) to milestones. No rule
-    checks its format or its order relative to target_date.
+    Add start_date (string @optional, ISO 8601) to milestones. I087 reports
+    a start_date not in YYYY-MM-DD shape; no rule checks its order relative
+    to target_date.
   """
   tags     ["temporal", "planning", "v1-1"]
 }

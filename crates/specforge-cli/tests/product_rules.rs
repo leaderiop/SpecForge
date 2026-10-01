@@ -644,3 +644,368 @@ term empty "Empty" {
     assert_eq!(e022_on("empty"), 0, "{diags:?}");
     assert!(diags.iter().all(|(c, _)| c != "I056"));
 }
+
+#[specforge_test(
+    behavior = "detect_blocked_milestone_without_dependency",
+    verify = "blocked milestone with depends_on suppresses I057"
+)]
+#[specforge_test(
+    behavior = "detect_blocked_milestone_without_dependency",
+    verify = "blocked milestone without depends_on produces I057"
+)]
+#[specforge_test(
+    behavior = "detect_blocked_milestone_without_dependency",
+    verify = "in_progress milestone without depends_on suppresses I057"
+)]
+fn i057_reports_blocked_milestones_without_dependencies() {
+    let diags = product_diagnostics(
+        r#"
+milestone base "Base" {
+  status planned
+}
+milestone blocked_with_deps "Blocked, with deps" {
+  status blocked
+  blockers ["vendor"]
+  depends_on [base]
+}
+milestone blocked_bare "Blocked, bare" {
+  status blocked
+  blockers ["vendor"]
+}
+milestone blocked_empty "Blocked, empty deps" {
+  status blocked
+  blockers ["vendor"]
+  depends_on []
+}
+milestone running "Running" {
+  status in_progress
+}
+"#,
+    );
+    assert_quiet(&diags, "I057", "blocked_with_deps");
+    assert_fires(&diags, "I057", "blocked_bare");
+    assert_fires(&diags, "I057", "blocked_empty");
+    assert_quiet(&diags, "I057", "running");
+    assert_eq!(
+        reported(&diags, "I057", "blocked_bare")[0],
+        "milestone 'blocked_bare' has status 'blocked' but no depends_on"
+    );
+}
+
+#[specforge_test(
+    behavior = "detect_blocked_milestone_without_reason",
+    verify = "blocked milestone with reason but no blockers produces I060"
+)]
+#[specforge_test(
+    behavior = "detect_blocked_milestone_without_reason",
+    verify = "blocked milestone with blockers but no reason produces no I060"
+)]
+fn i060_reads_blockers_not_reason() {
+    let diags = product_diagnostics(
+        r#"
+milestone with_reason "Reason only" {
+  status blocked
+  reason "waiting on legal"
+}
+milestone with_blockers "Blockers only" {
+  status blocked
+  blockers ["legal review"]
+}
+"#,
+    );
+    assert_fires(&diags, "I060", "with_reason");
+    assert_quiet(&diags, "I060", "with_blockers");
+}
+
+#[specforge_test(
+    behavior = "detect_journeys_without_persona",
+    verify = "journey with persona suppresses I054"
+)]
+#[specforge_test(
+    behavior = "detect_journeys_without_persona",
+    verify = "journey without persona produces I054"
+)]
+fn i054_reports_journeys_without_a_persona() {
+    let diags = product_diagnostics(
+        r#"
+persona dev "Developer" {
+  description "d"
+}
+journey with_persona "With" {
+  flow ["step"]
+  persona dev
+}
+journey without_persona "Without" {
+  flow ["step"]
+}
+"#,
+    );
+    assert_quiet(&diags, "I054", "with_persona");
+    assert_fires(&diags, "I054", "without_persona");
+    assert_eq!(
+        reported(&diags, "I054", "without_persona")[0],
+        "journey 'without_persona' has no persona"
+    );
+}
+
+#[specforge_test(
+    behavior = "detect_journeys_without_channels",
+    verify = "journey with channels suppresses I055"
+)]
+#[specforge_test(
+    behavior = "detect_journeys_without_channels",
+    verify = "journey without channels produces I055"
+)]
+#[specforge_test(
+    behavior = "detect_journeys_without_channels",
+    verify = "journey with an empty channels list produces I055"
+)]
+fn i055_reports_journeys_without_channels() {
+    let diags = product_diagnostics(
+        r#"
+channel web "Web" {
+  description "d"
+}
+journey with_channels "With" {
+  flow ["step"]
+  channels [web]
+}
+journey without_channels "Without" {
+  flow ["step"]
+}
+journey empty_channels "Empty" {
+  flow ["step"]
+  channels []
+}
+"#,
+    );
+    assert_quiet(&diags, "I055", "with_channels");
+    assert_fires(&diags, "I055", "without_channels");
+    assert_fires(&diags, "I055", "empty_channels");
+    assert!(reported(&diags, "I055", "without_channels")[0].contains("uses no channels"));
+}
+
+const RELEASE_PEERS: &str = r#"
+deliverable d1 "D" {
+  artifact_type cli
+}
+milestone ms1 "MS" {
+  status completed
+}
+"#;
+
+#[specforge_test(
+    behavior = "detect_release_without_deliverables",
+    verify = "release with deliverables produces no I082"
+)]
+#[specforge_test(
+    behavior = "detect_release_without_deliverables",
+    verify = "release with empty deliverables list produces I082"
+)]
+#[specforge_test(
+    behavior = "detect_release_without_deliverables",
+    verify = "release without a deliverables field produces I082"
+)]
+#[specforge_test(
+    behavior = "detect_release_without_milestones",
+    verify = "release with milestones produces no I083"
+)]
+#[specforge_test(
+    behavior = "detect_release_without_milestones",
+    verify = "release without milestones produces I083"
+)]
+fn i082_i083_report_releases_without_deliverables_or_milestones() {
+    let spec = format!(
+        r#"{RELEASE_PEERS}
+release full "Full" {{
+  version "1.0.0"
+  deliverables [d1]
+  milestones [ms1]
+}}
+release empty "Empty" {{
+  version "1.1.0"
+  deliverables []
+}}
+release bare "Bare" {{
+  version "1.2.0"
+}}
+"#
+    );
+    let diags = product_diagnostics(&spec);
+    assert_quiet(&diags, "I082", "full");
+    assert_fires(&diags, "I082", "empty");
+    assert_fires(&diags, "I082", "bare");
+    assert_quiet(&diags, "I083", "full");
+    assert_fires(&diags, "I083", "bare");
+    assert!(reported(&diags, "I082", "bare")[0].contains("includes no deliverables"));
+    assert!(reported(&diags, "I083", "bare")[0].contains("completes no milestones"));
+}
+
+#[specforge_test(
+    behavior = "detect_recalled_release_without_reason",
+    verify = "recalled release with reason produces no I089"
+)]
+#[specforge_test(
+    behavior = "detect_recalled_release_without_reason",
+    verify = "recalled release without reason produces I089"
+)]
+#[specforge_test(
+    behavior = "detect_recalled_release_without_reason",
+    verify = "released release without reason produces no I089"
+)]
+fn i089_reports_recalled_releases_without_a_reason() {
+    let diags = product_diagnostics(
+        r#"
+release explained "Explained" {
+  version "1.0.0"
+  status recalled
+  reason "data loss bug"
+}
+release unexplained "Unexplained" {
+  version "1.0.1"
+  status recalled
+}
+release shipped "Shipped" {
+  version "1.0.2"
+  status released
+}
+"#,
+    );
+    assert_quiet(&diags, "I089", "explained");
+    assert_fires(&diags, "I089", "unexplained");
+    assert_quiet(&diags, "I089", "shipped");
+}
+
+#[specforge_test(
+    behavior = "detect_invalid_release_date",
+    verify = "release_date '2026-06-01' produces no I086"
+)]
+#[specforge_test(
+    behavior = "detect_invalid_release_date",
+    verify = "release_date 'June 2026' produces I086"
+)]
+fn i086_reports_release_dates_not_yyyy_mm_dd() {
+    let diags = product_diagnostics(
+        r#"
+release iso "ISO" {
+  version "1.0.0"
+  release_date "2026-06-01"
+}
+release prose "Prose" {
+  version "1.1.0"
+  release_date "June 2026"
+}
+"#,
+    );
+    assert_quiet(&diags, "I086", "iso");
+    assert_fires(&diags, "I086", "prose");
+    assert!(reported(&diags, "I086", "prose")[0].contains("release_date 'June 2026'"));
+}
+
+#[specforge_test(
+    behavior = "detect_invalid_start_date",
+    verify = "start_date '2026-01-15' produces no I087"
+)]
+#[specforge_test(
+    behavior = "detect_invalid_start_date",
+    verify = "start_date 'Jan 15' produces I087"
+)]
+fn i087_reports_milestone_start_dates_not_yyyy_mm_dd() {
+    let diags = product_diagnostics(
+        r#"
+milestone iso "ISO" {
+  start_date "2026-01-15"
+}
+milestone prose "Prose" {
+  start_date "Jan 15"
+}
+"#,
+    );
+    assert_quiet(&diags, "I087", "iso");
+    assert_fires(&diags, "I087", "prose");
+    assert!(reported(&diags, "I087", "prose")[0].contains("start_date 'Jan 15'"));
+}
+
+#[specforge_test(
+    behavior = "detect_missing_owner",
+    verify = "feature with owner produces no I080"
+)]
+#[specforge_test(
+    behavior = "detect_missing_owner",
+    verify = "feature without owner produces I080"
+)]
+#[specforge_test(
+    behavior = "detect_missing_owner",
+    verify = "milestone without owner produces I080"
+)]
+#[specforge_test(
+    behavior = "detect_missing_owner",
+    verify = "deliverable without owner produces I080"
+)]
+#[specforge_test(
+    behavior = "detect_missing_owner",
+    verify = "release without owner produces I080"
+)]
+#[specforge_test(
+    behavior = "detect_missing_owner",
+    verify = "journey without owner produces no I080"
+)]
+fn i080_reports_owned_kinds_without_an_owner() {
+    let diags = product_diagnostics(
+        r#"
+feature owned "Owned" {
+  problem "p"
+  owner "team-a"
+}
+feature unowned "Unowned" {
+  problem "p"
+}
+milestone ms1 "MS" {
+  status planned
+}
+deliverable d1 "D" {
+  artifact_type cli
+}
+release r1 "R" {
+  version "1.0.0"
+}
+journey j1 "J" {
+  flow ["step"]
+}
+"#,
+    );
+    assert_quiet(&diags, "I080", "owned");
+    for id in ["unowned", "ms1", "d1", "r1"] {
+        assert_fires(&diags, "I080", id);
+    }
+    assert_quiet(&diags, "I080", "j1");
+    assert_eq!(
+        reported(&diags, "I080", "r1")[0],
+        "release 'r1' has no owner"
+    );
+}
+
+#[specforge_test(
+    behavior = "detect_missing_effort",
+    verify = "feature with effort produces no I081"
+)]
+#[specforge_test(
+    behavior = "detect_missing_effort",
+    verify = "feature without effort produces I081"
+)]
+fn i081_reports_features_without_effort() {
+    let diags = product_diagnostics(
+        r#"
+feature sized "Sized" {
+  problem "p"
+  effort m
+}
+feature unsized "Unsized" {
+  problem "p"
+}
+"#,
+    );
+    assert_quiet(&diags, "I081", "sized");
+    assert_fires(&diags, "I081", "unsized");
+    assert!(reported(&diags, "I081", "unsized")[0].contains("has no effort estimate"));
+}

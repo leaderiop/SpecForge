@@ -1025,6 +1025,44 @@ Owner: @specforge/product
 Level: info
 ```
 
+## I054
+
+```
+I054: Journey without persona
+
+A `journey` has no `persona` field, so it names no user role. Set `persona` to
+the persona who takes the journey.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I055
+
+```
+I055: Journey without channels
+
+A `journey` has no edge to a `channel`: no `channels` field, an empty list, or
+only references that don't resolve. List the channels the journey happens
+through in `channels`.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I057
+
+```
+I057: Blocked milestone without dependencies
+
+A `milestone` has `status: blocked` but no `depends_on` entries, so nothing in
+the plan says what it waits for; the status may be stale. Add the milestones it
+depends on to `depends_on`, or update the status.
+
+Owner: @specforge/product
+Level: info
+```
+
 ## I059
 
 ```
@@ -1133,6 +1171,91 @@ I070: Deprecated channel missing reason
 
 A `channel` has `status: deprecated` but no `reason` field explaining why. Add a
 `reason` field documenting why it was deprecated.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I080
+
+```
+I080: Entity without owner
+
+A `feature`, `milestone`, `deliverable` or `release` has no `owner` field. Set
+`owner` to the person or team responsible.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I081
+
+```
+I081: Feature without effort estimate
+
+A `feature` has no `effort` field. Set `effort` to one of xs, s, m, l, xl.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I082
+
+```
+I082: Release without deliverables
+
+A `release` has no edge to a `deliverable`: no `deliverables` field, an empty
+list, or only references that don't resolve. List the deliverables it ships in
+`deliverables`.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I083
+
+```
+I083: Release without milestones
+
+A `release` has no edge to a `milestone`: no `milestones` field, an empty list,
+or only references that don't resolve. List the milestones it completes in
+`milestones`.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I086
+
+```
+I086: Release date not YYYY-MM-DD
+
+A `release`'s `release_date` doesn't match `YYYY-MM-DD` (for example `June
+2026`). Write the date as an ISO 8601 calendar date, e.g. `2026-06-01`.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I087
+
+```
+I087: Milestone start date not YYYY-MM-DD
+
+A `milestone`'s `start_date` doesn't match `YYYY-MM-DD` (for example `Jan 15`).
+Write the date as an ISO 8601 calendar date, e.g. `2026-01-15`.
+
+Owner: @specforge/product
+Level: info
+```
+
+## I089
+
+```
+I089: Recalled release without reason
+
+A `release` has `status: recalled` but no `reason` field, or an empty one. Add a
+`reason` explaining why the release was recalled.
 
 Owner: @specforge/product
 Level: info

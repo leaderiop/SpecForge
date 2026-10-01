@@ -578,6 +578,36 @@
       "wasm_function": null
     },
     {
+      "check": "field_value_constraint",
+      "code": "I086",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "release_date",
+      "message_template": "release '{id}' has release_date '{value}' — expected YYYY-MM-DD",
+      "severity": "info",
+      "target_kind": "release",
+      "wasm_function": null
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "I087",
+      "constraint": {
+        "kind": "matches",
+        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+        "values": []
+      },
+      "edge_type": null,
+      "field": "start_date",
+      "message_template": "milestone '{id}' has start_date '{value}' — expected YYYY-MM-DD",
+      "severity": "info",
+      "target_kind": "milestone",
+      "wasm_function": null
+    },
+    {
       "check": "missing_field_when_flag_set",
       "code": "W049",
       "constraint": null,
@@ -691,6 +721,40 @@
       "wasm_function": null
     },
     {
+      "check": "conditional_field_required",
+      "code": "I057",
+      "constraint": {
+        "kind": "when_field_equals",
+        "pattern": "status",
+        "values": [
+          "blocked"
+        ]
+      },
+      "edge_type": null,
+      "field": "depends_on",
+      "message_template": "milestone '{id}' has status 'blocked' but no depends_on",
+      "severity": "info",
+      "target_kind": "milestone",
+      "wasm_function": null
+    },
+    {
+      "check": "conditional_field_required",
+      "code": "I089",
+      "constraint": {
+        "kind": "when_field_equals",
+        "pattern": "status",
+        "values": [
+          "recalled"
+        ]
+      },
+      "edge_type": null,
+      "field": "reason",
+      "message_template": "release '{id}' has status 'recalled' but no reason",
+      "severity": "info",
+      "target_kind": "release",
+      "wasm_function": null
+    },
+    {
       "check": "no_outgoing_edges",
       "code": "W043",
       "constraint": null,
@@ -724,12 +788,111 @@
       "wasm_function": null
     },
     {
+      "check": "no_outgoing_edges",
+      "code": "I055",
+      "constraint": null,
+      "edge_type": "JourneyUsesChannel",
+      "field": null,
+      "message_template": "journey '{id}' uses no channels",
+      "severity": "info",
+      "target_kind": "journey",
+      "wasm_function": null
+    },
+    {
+      "check": "no_outgoing_edges",
+      "code": "I082",
+      "constraint": null,
+      "edge_type": "ReleaseIncludesDeliverable",
+      "field": null,
+      "message_template": "release '{id}' includes no deliverables",
+      "severity": "info",
+      "target_kind": "release",
+      "wasm_function": null
+    },
+    {
+      "check": "no_outgoing_edges",
+      "code": "I083",
+      "constraint": null,
+      "edge_type": "ReleaseCompletesMilestone",
+      "field": null,
+      "message_template": "release '{id}' completes no milestones",
+      "severity": "info",
+      "target_kind": "release",
+      "wasm_function": null
+    },
+    {
       "check": "missing_required_field",
       "code": "I048",
       "constraint": null,
       "edge_type": null,
       "field": "acceptance",
       "message_template": "feature '{id}' has no acceptance criteria",
+      "severity": "info",
+      "target_kind": "feature",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_required_field",
+      "code": "I054",
+      "constraint": null,
+      "edge_type": null,
+      "field": "persona",
+      "message_template": "journey '{id}' has no persona",
+      "severity": "info",
+      "target_kind": "journey",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_required_field",
+      "code": "I080",
+      "constraint": null,
+      "edge_type": null,
+      "field": "owner",
+      "message_template": "{kind} '{id}' has no owner",
+      "severity": "info",
+      "target_kind": "feature",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_required_field",
+      "code": "I080",
+      "constraint": null,
+      "edge_type": null,
+      "field": "owner",
+      "message_template": "{kind} '{id}' has no owner",
+      "severity": "info",
+      "target_kind": "milestone",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_required_field",
+      "code": "I080",
+      "constraint": null,
+      "edge_type": null,
+      "field": "owner",
+      "message_template": "{kind} '{id}' has no owner",
+      "severity": "info",
+      "target_kind": "deliverable",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_required_field",
+      "code": "I080",
+      "constraint": null,
+      "edge_type": null,
+      "field": "owner",
+      "message_template": "{kind} '{id}' has no owner",
+      "severity": "info",
+      "target_kind": "release",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_required_field",
+      "code": "I081",
+      "constraint": null,
+      "edge_type": null,
+      "field": "effort",
+      "message_template": "feature '{id}' has no effort estimate",
       "severity": "info",
       "target_kind": "feature",
       "wasm_function": null

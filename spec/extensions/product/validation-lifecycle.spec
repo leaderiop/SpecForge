@@ -253,13 +253,15 @@ behavior detect_blocked_milestone_without_dependency "Detect Blocked Milestone W
   category validation
   types    [Diagnostic, ProductMilestone]
   contract """
-    The @specforge/product extension SHOULD detect milestones with
-    status=blocked but no depends_on references. A blocked milestone
-    with no dependencies has nothing to wait for — the status may be
-    stale. Produces an I057 info diagnostic.
+    The @specforge/product extension MUST declare a conditional_field_required
+    rule on milestones: when status is blocked, depends_on is required. A
+    blocked milestone with no depends_on field, or an empty one, MUST
+    produce an I057 info diagnostic: "milestone '{id}' has status 'blocked'
+    but no depends_on". A blocked milestone with no dependencies has
+    nothing to wait for — the status may be stale.
   """
   ensures {
-    fires_blocked_empty    "blocked milestone with empty depends_on produces I057"
+    fires_blocked_empty    "blocked milestone with no or empty depends_on produces I057"
     suppresses_with_deps   "blocked milestone with at least one depends_on suppresses I057"
     suppresses_non_blocked "non-blocked milestone without depends_on suppresses I057"
   }
@@ -293,20 +295,19 @@ behavior detect_blocked_milestone_without_reason "Detect Blocked Milestone Witho
   category validation
   types    [Diagnostic, ProductMilestone, MilestoneStatus]
   contract """
-    The @specforge/product extension SHOULD detect milestones with
-    status=blocked but empty or missing reason field. A blocked milestone
-    without a reason has no documented explanation for the block.
-    Produces an I060 info diagnostic.
+    No rule checks a blocked milestone's reason field. The rule for blocked
+    milestones is I060, a conditional_field_required rule on blockers (see
+    detect_blocked_milestone_without_blockers): a blocked milestone with a
+    reason but no blockers still produces I060, and one with blockers but
+    no reason produces none.
   """
   ensures {
-    fires_blocked_empty    "blocked milestone with empty reason produces I060"
-    suppresses_with_reason "blocked milestone with non-empty reason suppresses I060"
-    suppresses_non_blocked "non-blocked milestone without reason suppresses I060"
+    reason_does_not_suppress "blocked milestone with a reason but no blockers produces I060"
+    reason_not_required      "blocked milestone with blockers but no reason produces no I060"
   }
   features [pe_validation_suite]
-  verify unit "blocked milestone with reason suppresses I060"
-  verify unit "blocked milestone without reason produces I060"
-  verify unit "planned milestone without reason suppresses I060"
+  verify unit "blocked milestone with reason but no blockers produces I060"
+  verify unit "blocked milestone with blockers but no reason produces no I060"
 }
 
 behavior detect_done_feature_with_incomplete_deps "Detect Done Feature With Incomplete Dependencies" {
@@ -385,11 +386,12 @@ behavior detect_journeys_without_persona "Detect Journeys without Persona" {
   category validation
   types    [Diagnostic, ProductJourney]
   contract """
-    The @specforge/product extension SHOULD detect journeys that have no
-    persona reference. A journey without a persona has no defined user role,
-    weakening traceability. Journeys without a persona SHOULD produce an
-    I054 info diagnostic. Info-level respects incremental adoption —
-    journeys may be authored before personas are defined.
+    The @specforge/product extension MUST declare a missing_required_field
+    rule on the journey persona field. A journey with no persona field MUST
+    produce an I054 info diagnostic: "journey '{id}' has no persona". A
+    journey without a persona has no defined user role, weakening
+    traceability. Info-level respects incremental adoption — journeys may
+    be authored before personas are defined.
   """
   ensures {
     fires_when_absent  "journey without persona reference produces I054"
@@ -404,12 +406,14 @@ behavior detect_journeys_without_channels "Detect Journeys without Channels" {
   category validation
   types    [Diagnostic, ProductJourney]
   contract """
-    The @specforge/product extension SHOULD detect journeys that have no
-    channel references. A journey without channels has no defined
-    interaction medium, weakening traceability. Journeys without channels
-    SHOULD produce an I055 info diagnostic. Info-level respects
-    incremental adoption — journeys may be authored before channels
-    are defined.
+    The @specforge/product extension MUST declare a no_outgoing_edges rule
+    on journeys scoped to the JourneyUsesChannel edge. A journey with no
+    edge to a channel (no channels field, an empty list, or only references
+    that don't resolve) MUST produce an I055 info diagnostic: "journey
+    '{id}' uses no channels". A journey without channels has no defined
+    interaction medium, weakening traceability. Info-level respects
+    incremental adoption — journeys may be authored before channels are
+    defined.
   """
   ensures {
     fires_when_absent  "journey without channel references produces I055"
@@ -418,6 +422,7 @@ behavior detect_journeys_without_channels "Detect Journeys without Channels" {
   features [pe_validation_suite]
   verify unit "journey with channels suppresses I055"
   verify unit "journey without channels produces I055"
+  verify unit "journey with an empty channels list produces I055"
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -696,22 +701,29 @@ behavior detect_release_without_deliverables "Detect Release Without Deliverable
   category    validation
   features    [pe_release_coordination]
   contract    """
-    A release with an empty or absent deliverables field SHOULD produce
-    an I082 info diagnostic.
+    The @specforge/product extension MUST declare a no_outgoing_edges rule
+    on releases scoped to the ReleaseIncludesDeliverable edge. A release
+    with no edge to a deliverable (no deliverables field, an empty list, or
+    only references that don't resolve) SHOULD produce an I082 info
+    diagnostic: "release '{id}' includes no deliverables".
   """
   diagnostic  I082
   severity    info
   description "Release has no deliverables"
   verify unit "release with deliverables produces no I082"
   verify unit "release with empty deliverables list produces I082"
+  verify unit "release without a deliverables field produces I082"
 }
 
 behavior detect_release_without_milestones "Detect Release Without Milestones" {
   category    validation
   features    [pe_release_coordination]
   contract    """
-    A release with an empty or absent milestones field SHOULD produce
-    an I083 info diagnostic.
+    The @specforge/product extension MUST declare a no_outgoing_edges rule
+    on releases scoped to the ReleaseCompletesMilestone edge. A release
+    with no edge to a milestone (no milestones field, an empty list, or
+    only references that don't resolve) SHOULD produce an I083 info
+    diagnostic: "release '{id}' completes no milestones".
   """
   diagnostic  I083
   severity    info
@@ -739,21 +751,30 @@ behavior detect_recalled_release_without_reason "Detect Recalled Release Without
   category    validation
   features    [pe_release_coordination]
   contract    """
-    A release with status=recalled SHOULD have a non-empty reason field.
+    The @specforge/product extension MUST declare a
+    conditional_field_required rule on releases: when status is recalled,
+    reason is required. A recalled release with no reason, or an empty
+    one, SHOULD produce an I089 info diagnostic: "release '{id}' has
+    status 'recalled' but no reason".
   """
   diagnostic  I089
   severity    info
   description "Recalled release without reason"
   verify unit "recalled release with reason produces no I089"
   verify unit "recalled release without reason produces I089"
+  verify unit "released release without reason produces no I089"
 }
 
 behavior detect_invalid_release_date "Detect Invalid Release Date" {
   category    validation
   features    [pe_release_coordination]
   contract    """
-    A release with a release_date field that is not valid ISO 8601 date
-    format (YYYY-MM-DD) SHOULD produce an I086 info diagnostic.
+    The @specforge/product extension MUST declare a field_value_constraint
+    matches rule on the release release_date field with the regex
+    ^\d{4}-\d{2}-\d{2}$ (YYYY-MM-DD). A release whose release_date is
+    present and doesn't match SHOULD produce an I086 info diagnostic:
+    "release '{id}' has release_date '{value}' — expected YYYY-MM-DD".
+    The regex checks the shape only, not that the date exists.
   """
   diagnostic  I086
   severity    info
@@ -767,8 +788,12 @@ behavior detect_invalid_start_date "Detect Invalid Start Date" {
   category    validation
   invariants  [pe_milestone_temporal_consistency]
   contract    """
-    A milestone with a start_date field that is not valid ISO 8601 date
-    format (YYYY-MM-DD) SHOULD produce an I087 info diagnostic.
+    The @specforge/product extension MUST declare a field_value_constraint
+    matches rule on the milestone start_date field with the regex
+    ^\d{4}-\d{2}-\d{2}$ (YYYY-MM-DD). A milestone whose start_date is
+    present and doesn't match SHOULD produce an I087 info diagnostic:
+    "milestone '{id}' has start_date '{value}' — expected YYYY-MM-DD".
+    The regex checks the shape only, not that the date exists.
   """
   diagnostic  I087
   severity    info
@@ -833,8 +858,11 @@ behavior detect_missing_owner "Detect Missing Owner" {
   category    validation
   invariants  [pe_ownership_field_awareness]
   contract    """
-    Features, milestones, deliverables, and releases without an owner
-    field SHOULD produce an I080 info diagnostic.
+    The @specforge/product extension MUST declare a missing_required_field
+    rule on the owner field for each of feature, milestone, deliverable and
+    release. An entity of those kinds without an owner field SHOULD
+    produce an I080 info diagnostic: "{kind} '{id}' has no owner". Other
+    kinds have no owner field and are not checked.
   """
   diagnostic  I080
   severity    info
@@ -851,8 +879,10 @@ behavior detect_missing_effort "Detect Missing Effort" {
   category    validation
   features    [pe_effort_estimation]
   contract    """
-    Features without an effort field SHOULD produce an I081 info diagnostic.
-    Features without effort default to m=3 in weighted queries.
+    The @specforge/product extension MUST declare a missing_required_field
+    rule on the feature effort field. A feature without an effort field
+    SHOULD produce an I081 info diagnostic: "feature '{id}' has no effort
+    estimate". Features without effort default to m=3 in weighted queries.
   """
   diagnostic  I081
   severity    info

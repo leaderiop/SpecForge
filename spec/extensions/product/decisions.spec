@@ -164,7 +164,7 @@ decision pe_acceptance_free_form "Acceptance Criteria as Free-Form Prose" {
     "Acceptance criteria work for any domain without format constraints",
     "No machine-parseable structure for automated acceptance checking",
     "Verification occurs at the behavior level via verify statements",
-    "No rule checks acceptance criteria",
+    "No rule checks the criteria's content; I048 only reports a feature that has none",
     "Domain neutrality preserved — healthcare, finance, and education all use natural language",
   ]
 }
@@ -1575,8 +1575,8 @@ decision pe_temporal_start_date "Start Date on Milestones" {
     computed and critical path analysis is topology-only.
   """
   decision     """
-    Add start_date (string @optional, ISO 8601) to milestones. No rule checks
-    start_date's format or ordering.
+    Add start_date (string @optional, ISO 8601) to milestones. I087 reports
+    a start_date not in YYYY-MM-DD shape; no rule checks its order.
   """
   consequences [
     "Duration is computable (target_date - start_date)",

@@ -119,9 +119,9 @@ type ProductDeliverable {
   status        DeliverableStatus @optional // default: draft (when absent)
   journeys      EntityId[]        @optional
   modules       EntityId[]        @optional
-  // Semantic Versioning 2.0.0 (semver.org). Core format: MAJOR.MINOR.PATCH
-  // (^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$). Pre-release tags
-  // (e.g., 1.0.0-alpha.1) and build metadata (e.g., 1.0.0+build.42) are valid.
+  // Semantic Versioning 2.0.0 (semver.org). Core format: MAJOR.MINOR.PATCH.
+  // Pre-release tags (e.g., 1.0.0-alpha.1) and build metadata (e.g.,
+  // 1.0.0+build.42) are valid. Non-conforming values produce I061.
   version       string            @optional
   milestones    EntityId[]        @optional
   depends_on    EntityId[]        @optional
@@ -141,11 +141,11 @@ type ProductMilestone {
   // (e.g., "all features in [some_feature] done") are "anchored" and
   // enable automated verification.
   exit_criteria string[]        @optional
-  // ISO 8601 date format: YYYY-MM-DD (validated by regex ^\d{4}-\d{2}-\d{2}$).
-  // No rule checks the format. Absent target_date is valid (incremental adoption).
+  // ISO 8601 date format: YYYY-MM-DD. A value not matching ^\d{4}-\d{2}-\d{2}$
+  // produces I053. Absent target_date is valid (incremental adoption).
   target_date   string          @optional
-  // ISO 8601 date format: YYYY-MM-DD, no later than target_date. No rule
-  // checks the format or the order.
+  // ISO 8601 date format: YYYY-MM-DD, no later than target_date. A value
+  // not in YYYY-MM-DD shape produces I087; no rule checks the order.
   start_date    string          @optional
   modules       EntityId[]      @optional
   depends_on    EntityId[]      @optional
@@ -218,7 +218,7 @@ type ProductRelease {
   deliverables EntityId[]    @optional
   milestones   EntityId[]    @optional
   target_date  string        @optional
-  // ISO 8601 date format: YYYY-MM-DD.
+  // ISO 8601 date format: YYYY-MM-DD. Other values produce I086.
   release_date string        @optional
   changelog    string        @optional
   depends_on   EntityId[]    @optional
