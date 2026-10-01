@@ -263,6 +263,42 @@ fn assert_fields(value: &Value, fields: &[(&str, &str)]) {
     }
 }
 
+#[specforge_test(type = "McpExtensionInfo", verify = "McpExtensionInfo schema is valid")]
+fn each_listed_extension_is_an_mcp_extension_info() {
+    let (mut server, _root) = server_with_product();
+
+    let resp = call_tool(&mut server, "specforge.extensions", json!({}));
+    let listing: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+
+    let entries = listing["extensions"].as_array().unwrap();
+    assert!(!entries.is_empty(), "{listing}");
+    for entry in entries {
+        assert_fields(
+            entry,
+            &[
+                ("name", "string"),
+                ("version", "string"),
+                ("source", "string"),
+                ("entity_kinds", "string[]"),
+                ("entity_count", "integer"),
+                ("validation_rules", "integer"),
+                ("status", "string"),
+            ],
+        );
+        let status = entry["status"].as_str().unwrap();
+        assert!(
+            ["loaded", "not_loaded", "not_configured"].contains(&status),
+            "{entry}"
+        );
+    }
+    let greet = entries.iter().find(|e| e["name"] == GREET).unwrap();
+    assert_eq!(greet["entity_kinds"], json!(["greeting"]), "{greet}");
+    assert!(
+        greet["source"].as_str().unwrap().starts_with("local:"),
+        "{greet}"
+    );
+}
+
 fn collected(root: &std::path::Path) -> Value {
     let mut server = test_server();
     let resp = call_tool(

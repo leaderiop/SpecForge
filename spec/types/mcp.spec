@@ -169,11 +169,19 @@ type McpDiagnosticSummary {
 }
 
 type McpExtensionInfo {
-  name               string @readonly
-  version            string @readonly
-  entity_kinds       string[]
-  contribution_types string[]
-  status             string @optional
+  name             string @readonly
+  /// The loaded version, else the locked one; absent when neither.
+  version          string @optional
+  /// "builtin", or the lock entry's source ("registry", "local:<path>").
+  source           string @readonly
+  /// The entity kinds the extension contributes.
+  entity_kinds     string[]
+  /// The project's entities of those kinds.
+  entity_count     integer
+  validation_rules integer
+  /// "loaded"; "not_loaded" (enabled, but not installed or it failed to
+  /// load); "not_configured" (installed, but not enabled).
+  status           "loaded" | "not_loaded" | "not_configured"
   verify unit "McpExtensionInfo schema is valid"
 }
 
