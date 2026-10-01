@@ -21,6 +21,7 @@ fn minimal_protocol_extension(
             peer_dependencies: vec![],
             sandbox_policy: None,
             starter_template: None,
+            migration_hook: None,
         },
         descriptions: ExtensionDescriptions {
             entity_kinds,
@@ -571,6 +572,7 @@ fn convert_metadata_peer_deps_sandbox_flags() {
                 file_system_access: Some(true),
             }),
             starter_template: Some("spec \"{project}\" {}\n".to_string()),
+            migration_hook: None,
         },
         descriptions: ExtensionDescriptions::default(),
     };
@@ -830,6 +832,7 @@ fn parity_protocol_vs_manifest_registries() {
             peer_dependencies: vec![],
             sandbox_policy: None,
             starter_template: None,
+            migration_hook: None,
         },
         descriptions: ExtensionDescriptions {
             entity_kinds: vec![EntityKindDescriptor {

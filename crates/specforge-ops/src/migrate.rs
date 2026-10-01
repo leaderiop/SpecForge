@@ -346,6 +346,113 @@ mod tests {
         assert_eq!(parse_target(None).unwrap(), CURRENT_FORMAT_VERSION);
     }
 
+    /// An extension served over the protocol whose handshake names its
+    /// migration hook; it records every export the host calls.
+    struct HookedExtension {
+        hook: Option<&'static str>,
+        calls: Mutex<Vec<String>>,
+    }
+
+    impl WasmRuntime for HookedExtension {
+        fn load_module(&self, _: &Path) -> Result<(), String> {
+            Ok(())
+        }
+
+        fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
+            self.calls.lock().unwrap().push(export.to_string());
+            let reply = match export {
+                "__handshake" => {
+                    let mut handshake = serde_json::json!({
+                        "protocol_version": "1.0.0",
+                        "name": extension,
+                        "version": "1.0.0",
+                        "contribution_flags": {},
+                        "peer_dependencies": [],
+                        "sandbox_policy": null
+                    });
+                    if let Some(hook) = self.hook {
+                        handshake["migration_hook"] = hook.into();
+                    }
+                    handshake
+                }
+                "__describe" => {
+                    let request: serde_json::Value = serde_json::from_slice(input).unwrap();
+                    serde_json::json!({ "category": request["category"], "items": [] })
+                }
+                _ => serde_json::json!({}),
+            };
+            WasmCallResult::Ok(reply.to_string().into_bytes())
+        }
+    }
+
+    fn project_with_extension() -> tempfile::TempDir {
+        let dir = project();
+        std::fs::write(
+            dir.path().join("specforge.json"),
+            r#"{"name": "p", "version": "0.1.0", "extensions": ["@acme/x"]}"#,
+        )
+        .unwrap();
+        dir
+    }
+
+    #[specforge_test(
+        behavior = "invoke_extension_migration_hooks",
+        verify = "extension with migration_hook field has it invoked during migrate"
+    )]
+    fn the_hook_an_extension_declares_in_its_handshake_runs_on_migrate() {
+        let dir = project_with_extension();
+        let runtime = HookedExtension {
+            hook: Some("migrate_acme"),
+            calls: Mutex::new(Vec::new()),
+        };
+
+        let outcome = run(&request(dir.path()), Some(&runtime));
+
+        assert!(outcome.migrated(), "{outcome:?}");
+        assert_eq!(outcome.hooks_invoked, ["@acme/x:migrate_acme"]);
+        assert!(outcome.hook_failures.is_empty(), "{outcome:?}");
+        assert!(
+            runtime
+                .calls
+                .lock()
+                .unwrap()
+                .contains(&"migrate_acme".to_string())
+        );
+    }
+
+    #[specforge_test(
+        behavior = "invoke_extension_migration_hooks",
+        verify = "extension without migration_hook field is skipped silently"
+    )]
+    fn an_extension_whose_handshake_names_no_hook_is_skipped_silently() {
+        let dir = project_with_extension();
+        let runtime = HookedExtension {
+            hook: None,
+            calls: Mutex::new(Vec::new()),
+        };
+
+        let outcome = run(&request(dir.path()), Some(&runtime));
+
+        assert!(outcome.migrated(), "{outcome:?}");
+        assert!(outcome.hooks_invoked.is_empty() && outcome.hook_failures.is_empty());
+        assert!(
+            runtime
+                .calls
+                .lock()
+                .unwrap()
+                .iter()
+                .all(|c| c.starts_with("__")),
+            "only the protocol exports are called"
+        );
+        assert!(
+            !outcome
+                .post_diagnostics
+                .iter()
+                .any(|d| d.message.contains("hook")),
+            "{outcome:?}"
+        );
+    }
+
     /// Two extensions with hooks; the first one's traps.
     struct Hooks {
         calls: Mutex<Vec<String>>,

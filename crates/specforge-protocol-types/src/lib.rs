@@ -106,6 +106,10 @@ pub struct HandshakeRequest {
 /// `{project}` in it stands for the project's entity id. It is omitted from
 /// the wire when absent, so handshakes of extensions without one are
 /// unchanged.
+///
+/// `migration_hook` is optional too: the name of the export `specforge
+/// migrate` calls after it migrates the project's files. Omitted from the
+/// wire when absent; an extension without one has no hook to run.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HandshakeResponse {
     pub protocol_version: String,
@@ -116,6 +120,8 @@ pub struct HandshakeResponse {
     pub sandbox_policy: Option<SandboxPolicy>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub starter_template: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub migration_hook: Option<String>,
 }
 
 /// Declares which contribution categories an extension provides.

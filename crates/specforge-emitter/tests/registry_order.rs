@@ -40,6 +40,7 @@ impl WasmRuntime for Extensions {
                 peer_dependencies: vec![],
                 sandbox_policy: None,
                 starter_template: None,
+                migration_hook: None,
             })
             .unwrap(),
             "__describe" => {

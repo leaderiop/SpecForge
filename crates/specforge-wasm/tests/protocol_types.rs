@@ -77,6 +77,7 @@ fn handshake_response_round_trip() {
             file_system_access: Some(false),
         }),
         starter_template: Some("spec \"{project}\" {}\n".to_string()),
+        migration_hook: None,
     };
     let json = serde_json::to_string(&resp).unwrap();
     let decoded: HandshakeResponse = serde_json::from_str(&json).unwrap();

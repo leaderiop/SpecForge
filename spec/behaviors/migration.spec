@@ -393,9 +393,10 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
   }
   contract   """
     When migrating spec files, the compiler MUST invoke each installed
-    extension's migration hook — a Wasm export whose name is declared in
-    the extension manifest's `migration_hook` field on ManifestV2
-    (signature: `fn(source_version: i32, target_version: i32) -> i32`).
+    extension's migration hook — a Wasm export whose name the extension's
+    `__handshake` response declares in its optional `migration_hook`
+    field, which the host carries onto the extension's ManifestV2. The
+    host calls the export through the protocol's JSON call convention.
     The `migration_hook` field is a string naming the Wasm export; if the
     field is absent or empty, no hook is invoked for that extension.
     Extension hooks are invoked after core format migration completes but

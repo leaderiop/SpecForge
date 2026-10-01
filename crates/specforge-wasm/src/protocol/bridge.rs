@@ -53,7 +53,7 @@ pub fn protocol_extension_to_manifest(ext: &ProtocolExtension) -> ManifestV2 {
             .collect(),
         incremental: None,
         reserved_keywords: vec![],
-        migration_hook: None,
+        migration_hook: ext.handshake.migration_hook.clone(),
         peer_dependencies: ext
             .handshake
             .peer_dependencies

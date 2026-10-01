@@ -107,6 +107,9 @@ pub struct ExtensionMeta {
     /// The starter `.spec` file `specforge init` writes for a project that
     /// enables this extension; `{project}` stands for the project's id.
     pub starter_template: Option<String>,
+    /// The export `specforge migrate` calls after migrating the project's
+    /// files.
+    pub migration_hook: Option<String>,
 }
 
 impl ExtensionMeta {
@@ -238,6 +241,14 @@ impl ContributionsBuilder {
         self
     }
 
+    /// Name the export `specforge migrate` calls, after it migrates the
+    /// project's `.spec` files, so the extension can migrate its own data.
+    /// The extension must export a function by that name.
+    pub fn migration_hook(&mut self, export: &str) -> &mut Self {
+        self.meta.migration_hook = Some(export.to_string());
+        self
+    }
+
     /// Escape hatch for categories the SDK does not model yet. `items` is the
     /// raw JSON array the host receives for `category`.
     pub fn raw_category(&mut self, category: &str, items: serde_json::Value) -> &mut Self {
@@ -283,6 +294,7 @@ impl ContributionsBuilder {
             peer_dependencies: self.meta.peer_dependencies.clone(),
             sandbox_policy: self.meta.sandbox_policy.clone(),
             starter_template: self.meta.starter_template.clone(),
+            migration_hook: self.meta.migration_hook.clone(),
         }
     }
 
@@ -767,6 +779,17 @@ mod raw_category_flag_tests {
             with["starter_template"],
             serde_json::json!("spec \"{project}\" {}\n")
         );
+    }
+
+    #[test]
+    fn a_migration_hook_rides_the_handshake() {
+        let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+        let without: serde_json::Value = serde_json::from_str(&b.handshake_json()).unwrap();
+        assert!(without.get("migration_hook").is_none(), "{without}");
+
+        b.migration_hook("migrate_acme");
+        let with: serde_json::Value = serde_json::from_str(&b.handshake_json()).unwrap();
+        assert_eq!(with["migration_hook"], serde_json::json!("migrate_acme"));
     }
 }
 
