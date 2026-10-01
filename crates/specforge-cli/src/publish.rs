@@ -73,7 +73,10 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
 
     // No registry configured: fail before any network call (ADR 0004 N1).
     let registries = match specforge_ops::registry::configured(path, "publish") {
-        Ok(registries) => registries,
+        Ok(configured) => {
+            format.eprint_diagnostics(&configured.diagnostics);
+            configured.registries
+        }
         Err(error) => {
             format.print_op_error(&error);
             return 1;

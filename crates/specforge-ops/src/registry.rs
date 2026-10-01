@@ -6,6 +6,7 @@
 
 use crate::OpError;
 use crate::config::CONFIG_FILE;
+use specforge_common::Diagnostic;
 use specforge_registry::registry_client::RegistryResponse;
 use specforge_registry::{
     HttpRegistryClient, ManifestV2, PeerDependency, RegistryConfig, find_registry_for_specifier,
@@ -22,19 +23,50 @@ pub const NO_REGISTRY: &str = "E063";
 pub const CONFIGURE_HINT: &str = "add a \"registries\" array to specforge.json, e.g. \
      \"registries\": [{\"alias\": \"main\", \"url\": \"<registry URL>\", \"default_registry\": true}]";
 
-/// The registries the project at `root` configures, in declaration order.
+/// The registries a project configures, and what reading them reported.
+#[derive(Debug, Clone)]
+pub struct Configured {
+    /// The entries that could be read, in declaration order.
+    pub registries: Vec<RegistryConfig>,
+    /// E067 for each entry that couldn't be read (it is skipped), W140 for
+    /// a duplicate alias, I003 when no entry is the default. The caller
+    /// shows them.
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+/// The diagnostic for a registry configuration that can't be read.
+const INVALID_CONFIG: &str = "E067";
+
+/// The registries the project at `root` configures.
 ///
 /// `operation` names the command for the message (`add`, `search`, ...).
 /// No `specforge.json`, one that can't be read, or one without a
-/// `registries` entry all fail with E063.
-pub fn configured(root: &Path, operation: &str) -> Result<Vec<RegistryConfig>, OpError> {
-    let registries = std::fs::read_to_string(root.join(CONFIG_FILE))
-        .map(|content| parse_registries_from_config(&content).0)
-        .unwrap_or_default();
-    if registries.is_empty() {
+/// `registries` entry all fail with E063. When `registries` has entries but
+/// none can be read, it fails with E067 naming them.
+pub fn configured(root: &Path, operation: &str) -> Result<Configured, OpError> {
+    let Ok(content) = std::fs::read_to_string(root.join(CONFIG_FILE)) else {
         return Err(no_registry(operation));
+    };
+    let (registries, diagnostics) = parse_registries_from_config(&content);
+    if registries.is_empty() {
+        let unreadable: Vec<&str> = diagnostics
+            .iter()
+            .filter(|d| d.code == INVALID_CONFIG)
+            .map(|d| d.message.as_str())
+            .collect();
+        if unreadable.is_empty() {
+            return Err(no_registry(operation));
+        }
+        return Err(
+            OpError::new(INVALID_CONFIG, unreadable.join("; ")).with_suggestion(
+                "fix the \"registries\" entries in specforge.json: each needs an \"alias\" and a \"url\"",
+            ),
+        );
     }
-    Ok(registries)
+    Ok(Configured {
+        registries,
+        diagnostics,
+    })
 }
 
 /// E063 for `operation`.
@@ -90,7 +122,7 @@ pub fn is_range(range: &str) -> bool {
 /// the network or failing: with no registry configured, each call fails
 /// with E063 before any request.
 pub struct HttpRegistry {
-    registries: Result<Vec<RegistryConfig>, OpError>,
+    registries: Result<Configured, OpError>,
     client: HttpRegistryClient,
 }
 
@@ -104,8 +136,18 @@ impl HttpRegistry {
         }
     }
 
+    /// What reading the registry configuration reported (see
+    /// [`Configured::diagnostics`]); none when it failed outright, since
+    /// each registry call then fails with that error.
+    pub fn diagnostics(&self) -> &[Diagnostic] {
+        match &self.registries {
+            Ok(configured) => &configured.diagnostics,
+            Err(_) => &[],
+        }
+    }
+
     fn registry_for(&self, name: &str) -> Result<(&[RegistryConfig], &RegistryConfig), OpError> {
-        let registries = self.registries.as_ref().map_err(Clone::clone)?;
+        let registries = &self.registries.as_ref().map_err(Clone::clone)?.registries;
         let registry = find_registry_for_specifier(name, registries)
             .or_else(|| registries.first())
             .ok_or_else(|| no_registry("add"))?;

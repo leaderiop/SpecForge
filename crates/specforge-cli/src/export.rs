@@ -89,7 +89,7 @@ pub fn run(
 
 /// A spanless diagnostic as `severity[CODE]: message`, with its suggestion
 /// on a `= help:` line.
-fn render_plain(diagnostic: &specforge_common::Diagnostic) -> String {
+pub(crate) fn render_plain(diagnostic: &specforge_common::Diagnostic) -> String {
     let severity = match diagnostic.severity {
         Severity::Error => "error",
         Severity::Warning => "warning",

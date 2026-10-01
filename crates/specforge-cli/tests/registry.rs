@@ -370,6 +370,126 @@ fn mcp_add_extension_without_registry_makes_no_network_call() {
     assert_eq!(spy.hits(), 0, "add_extension reached the network");
 }
 
+// ===============================================================
+// The registry configuration's own diagnostics are shown
+// ===============================================================
+//
+// Reading `registries` reports E067 (an unreadable entry), W140 (a
+// duplicate alias) and I003 (no default registry). The registry commands
+// show them on stderr; an entry that can't be read is skipped, and when
+// none can be read the command fails with E067 instead of E063.
+
+const UNREACHABLE: &str = "http://registry.invalid/v1";
+
+/// A project whose specforge.json has `registries` set to `registries`.
+fn project_with_registries(registries: serde_json::Value) -> TempDir {
+    let dir = TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "demo",
+        "version": "0.1.0",
+        "extensions": [],
+        "registries": registries,
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    dir
+}
+
+/// `specforge <args> --path <dir>` under a spy; returns its output.
+fn run_spied(args: &[&str], dir: &TempDir) -> std::process::Output {
+    NetSpy::start()
+        .command(args)
+        .arg("--path")
+        .arg(dir.path())
+        .output()
+        .unwrap()
+}
+
+fn stderr_of(output: &std::process::Output) -> String {
+    String::from_utf8_lossy(&output.stderr).into_owned()
+}
+
+#[specforge_test(
+    behavior = "configure_registries",
+    verify = "duplicate alias produces warning"
+)]
+fn search_shows_a_duplicate_registry_alias() {
+    let dir = project_with_registries(serde_json::json!([
+        {"alias": "main", "url": UNREACHABLE, "default_registry": true},
+        {"alias": "main", "url": UNREACHABLE},
+    ]));
+    let stderr = stderr_of(&run_spied(&["search", "widget"], &dir));
+    assert!(
+        stderr.contains("warning[W140]: Duplicate registry alias \"main\""),
+        "{stderr}"
+    );
+}
+
+#[test]
+fn add_from_a_registry_shows_a_duplicate_registry_alias() {
+    let dir = project_with_registries(serde_json::json!([
+        {"alias": "main", "url": UNREACHABLE, "default_registry": true},
+        {"alias": "main", "url": UNREACHABLE},
+    ]));
+    let stderr = stderr_of(&run_spied(&["add", "@acme/widget@1.0.0"], &dir));
+    assert!(stderr.contains("warning[W140]"), "{stderr}");
+}
+
+#[test]
+fn adding_a_builtin_does_not_read_the_registries() {
+    let dir = project_with_registries(serde_json::json!([
+        {"alias": "main", "url": UNREACHABLE, "default_registry": true},
+        {"alias": "main", "url": UNREACHABLE},
+    ]));
+    let output = run_spied(&["add", "@specforge/software"], &dir);
+    assert!(output.status.success(), "{}", stderr_of(&output));
+    assert!(
+        !stderr_of(&output).contains("W140"),
+        "{}",
+        stderr_of(&output)
+    );
+}
+
+#[test]
+fn search_shows_that_no_registry_is_the_default() {
+    let dir = project_with_registries(serde_json::json!([
+        {"alias": "main", "url": UNREACHABLE},
+    ]));
+    let stderr = stderr_of(&run_spied(&["search", "widget"], &dir));
+    assert!(stderr.contains("info[I003]"), "{stderr}");
+}
+
+#[test]
+fn login_shows_an_unreadable_registry_entry_and_skips_it() {
+    let dir = project_with_registries(serde_json::json!([
+        {"alias": "main", "url": UNREACHABLE, "default_registry": true},
+        {"alias": "broken"},
+    ]));
+    let output = run_spied(&["login", "--token", "t"], &dir);
+    let stderr = stderr_of(&output);
+    assert!(
+        stderr.contains("error[E067]: Failed to parse registry entry at index 1"),
+        "{stderr}"
+    );
+}
+
+#[test]
+fn search_with_no_readable_registry_entry_fails_with_e067() {
+    let dir = project_with_registries(serde_json::json!([{"alias": "broken"}]));
+    let output = run_spied(&["search", "widget", "--format", "json"], &dir);
+    assert!(!output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let json: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(json["code"], "E067", "{json}");
+    assert!(
+        json["error"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("index 0"),
+        "{json}"
+    );
+}
+
 #[specforge_test(
     behavior = "configure_registries",
     verify = "builtins and local .wasm files install with no registry configured"

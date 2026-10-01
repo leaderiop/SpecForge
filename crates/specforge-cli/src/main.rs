@@ -135,6 +135,15 @@ impl OutputFormat {
         }
     }
 
+    /// Report diagnostics that don't stop the command (the registry
+    /// configuration's E067/W140/I003): `severity[CODE]: message` on
+    /// stderr in either format, so JSON stdout stays one document.
+    fn eprint_diagnostics(self, diagnostics: &[specforge_common::Diagnostic]) {
+        for diagnostic in diagnostics {
+            eprintln!("{}", export::render_plain(diagnostic));
+        }
+    }
+
     /// Report an operation's failure: `{"error", "code", "suggestion"}` on
     /// stdout as JSON, or `error[CODE]: …` and a hint on stderr.
     fn print_op_error(self, error: &specforge_ops::OpError) {

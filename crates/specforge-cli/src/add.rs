@@ -1,6 +1,6 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Trust};
+use specforge_ops::extension::{self, AddOutcome, AddRequest, Origin, Source, Trust};
 use specforge_ops::registry::HttpRegistry;
 use std::path::Path;
 
@@ -19,6 +19,11 @@ pub fn run(
             return 1;
         }
     };
+    let registry = HttpRegistry::for_project(path, "add");
+    // Only a registry package reads the registry configuration.
+    if matches!(source, Source::Registry { .. }) {
+        format.eprint_diagnostics(registry.diagnostics());
+    }
     let request = AddRequest {
         root: path,
         source,
@@ -30,7 +35,6 @@ pub fn run(
         },
         dry_run: false,
     };
-    let registry = HttpRegistry::for_project(path, "add");
     match extension::add(&request, &registry) {
         Ok(outcome) => {
             present(&outcome, format);

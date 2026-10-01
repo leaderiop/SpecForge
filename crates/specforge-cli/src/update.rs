@@ -51,7 +51,10 @@ pub fn run(
     // registry: with none, fail before any network call (ADR 0004 N1).
     let registries = if entries_to_update.iter().any(|e| e.source == "registry") {
         match specforge_ops::registry::configured(path, "update") {
-            Ok(registries) => registries,
+            Ok(configured) => {
+                format.eprint_diagnostics(&configured.diagnostics);
+                configured.registries
+            }
             Err(error) => {
                 format.print_op_error(&error);
                 return 1;
