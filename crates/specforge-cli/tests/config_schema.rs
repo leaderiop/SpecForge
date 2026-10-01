@@ -128,3 +128,30 @@ fn no_unread_coverage_config_is_documented() {
         }
     }
 }
+
+/// Nothing reads a `test_dirs` key: each collector extension knows where
+/// its runner's tests are. The schema and the docs must not offer one.
+#[test]
+fn no_unread_test_dirs_config_is_documented() {
+    let doc: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(schema_path()).unwrap()).unwrap();
+    assert!(
+        doc["properties"].get("test_dirs").is_none(),
+        "properties.test_dirs"
+    );
+    assert!(
+        !doc["$comment"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("test_dirs"),
+        "$comment lists test_dirs as consumed"
+    );
+    for doc in [
+        "docs/entities/spec.md",
+        "docs/quick-reference.md",
+        "spec/types/config.spec",
+    ] {
+        let text = std::fs::read_to_string(repo_root().join(doc)).unwrap();
+        assert!(!text.contains("test_dirs"), "{doc} documents `test_dirs`");
+    }
+}

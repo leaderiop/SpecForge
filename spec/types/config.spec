@@ -22,7 +22,6 @@ type CompilerConfig {
   display_prefix        string            @optional
   extensions            string[]
   providers             ProviderConfig[]  @optional
-  test_dirs             string[]          @optional
   // Coverage configuration is owned by @specforge/coverage extension.
   // At runtime this is a FieldMap deserialized into the extension's CoverageConfig type.
   coverage              FieldMap          @optional
@@ -136,7 +135,7 @@ type InitOutput {
 
 // ProjectConfig is the serialization shape of specforge.json — the subset
 // of CompilerConfig that users edit directly. CompilerConfig extends this
-// with computed fields (schema, test_dirs, watch settings, etc.) derived
+// with computed fields (schema, watch settings, etc.) derived
 // at compile time. ProjectConfig -> CompilerConfig is a one-way transform.
 type ProjectConfig {
   name       string

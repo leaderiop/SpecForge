@@ -118,14 +118,6 @@
         "$ref": "#/$defs/surface"
       }
     },
-    "test_dirs": {
-      "type": "array",
-      "description": "Glob patterns for test directories used in traceability analysis.",
-      "items": {
-        "type": "string"
-      },
-      "default": []
-    },
     "inference": {
       "type": "object",
       "description": "Project-level inference hints that override or append to extension defaults.",
@@ -253,5 +245,5 @@
       ]
     }
   },
-  "$comment": "Keys consumed via raw passthrough by the compiler (not typed on ProjectConfig): providers, personas, surfaces, test_dirs, enhancement_policy, enhancement_overrides, entity_kind_policy, entity_kinds, strict, namespace, display_prefix. Registry client reads 'registries'; inference is typed on ProjectConfig."
+  "$comment": "Keys consumed via raw passthrough by the compiler (not typed on ProjectConfig): providers, personas, surfaces, enhancement_policy, enhancement_overrides, entity_kind_policy, entity_kinds, strict, namespace, display_prefix. Registry client reads 'registries'; inference is typed on ProjectConfig."
 }

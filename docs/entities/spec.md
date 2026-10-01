@@ -30,8 +30,6 @@ spec "my-service" {
     }
   }
 
-  test_dirs ["tests/", "src/**/*.test.*"]
-
   gen typescript {
     out       "src/generated/"
     result    "hex-di"
@@ -59,14 +57,15 @@ spec "my-service" {
 | `display_prefix` | string | Optional prefix for human-readable reports (e.g., `"MS"`). Does not affect entity IDs. |
 | `extensions` | string list | Installed extension packages (e.g., `"@specforge/product"`, `"@specforge/governance"`). |
 | `providers` | block | *(planned — not yet implemented)* Provider configurations for external platform integrations. See [extension-model.md](../extension-model.md). |
-| `test_dirs` | string list | Glob patterns for directories containing test files. Used by coverage scanning. |
 | `persona` | sub-block(s) | Persona definitions. Validates that every `persona` in a `journey` block matches a defined persona. |
 | `surface` | sub-block(s) | Surface definitions. Validates that every `surface` in a `journey` block matches a defined surface. |
 | `gen` | block(s) | *(planned — not yet implemented)* Code generation configuration per target language. |
 
 There is no coverage configuration: `specforge analyze coverage` reads the
 project's `specforge-report.json` (or `--test-results <path>`), and
-`--min N` is the proof gate.
+`--min N` is the proof gate. Nor is there a list of test directories: each
+collector extension (`@specforge/cargo-test`, `@specforge/vitest`) knows
+where its runner's tests are.
 
 ### Persona Sub-Block
 
@@ -254,8 +253,6 @@ spec "healthcare-platform" {
   surface web     "Web Portal"
   surface mobile  "Mobile App"
   surface api     "HL7 FHIR API"
-
-  test_dirs ["tests/", "services/**/tests/"]
 
   gen typescript {
     out       "packages/shared/src/generated/"
