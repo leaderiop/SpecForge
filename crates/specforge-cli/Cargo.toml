@@ -6,6 +6,15 @@ license.workspace = true
 repository.workspace = true
 autotests = false
 
+# `cargo binstall --git <repo> specforge-cli` downloads the prebuilt release archive.
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/specforge-{ target }{ archive-suffix }"
+bin-dir = "specforge-{ target }/{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"
+
 [[test]]
 name = "tests"
 path = "tests/main.rs"

@@ -42,12 +42,24 @@ specforge export      # emit the typed graph for an agent to consume
 
 ## Install
 
-SpecForge is a single binary. Build it from source with a stable Rust toolchain:
+SpecForge is a single self-contained binary. Pick one:
 
 ```bash
+# macOS / Linux — prebuilt binary, checksum-verified
+curl -fsSL https://raw.githubusercontent.com/leaderiop/SpecForge/main/install.sh | sh
+
+# Homebrew (once the tap is published)
+brew install leaderiop/tap/specforge
+
+# Prebuilt binary via cargo-binstall
+cargo binstall --git https://github.com/leaderiop/SpecForge specforge-cli
+
+# From source (stable Rust toolchain)
 git clone https://github.com/leaderiop/SpecForge && cd SpecForge
 cargo install --path crates/specforge-cli     # installs `specforge` into ~/.cargo/bin
 ```
+
+Prebuilt archives for macOS, Linux and Windows are on the [Releases page](https://github.com/leaderiop/SpecForge/releases). Formal proofs (`@specforge/formal`) additionally need the [`z3`](https://github.com/Z3Prover/z3) solver on your `PATH`; everything else works without it.
 
 The builtin extensions are embedded in the binary; no extra toolchain is needed to install it.
 
@@ -197,3 +209,7 @@ A comprehensive business plan lives in **[business/](business/README.md)**.
 | [RES-25](spec/research/RES-25-formal-methods-integration.md) | Formal methods integration |
 | [RES-26](spec/research/RES-26-zero-entity-core-architecture.md) | Zero-entity core architecture |
 | [RES-27](spec/research/RES-27-software-eng-entity-redesign.md) | Software engineering entity redesign |
+
+## License
+
+Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT) at your option.
