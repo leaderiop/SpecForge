@@ -3007,10 +3007,13 @@ dependencies = [
 name = "specforge-ops"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "semver",
+ "serde",
  "serde_json",
  "specforge-common",
  "specforge-component",
+ "specforge-diagnostics",
  "specforge-emitter",
  "specforge-formatter",
  "specforge-graph",

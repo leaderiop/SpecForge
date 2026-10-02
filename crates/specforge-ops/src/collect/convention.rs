@@ -15,7 +15,7 @@
 //! proves none of its obligations.
 //! Tests no rule links are left out silently: plain tests are the norm.
 
-use crate::collect::{CollectedTest, EntityResults, KnownEntities, UnlinkedTest};
+use super::{CollectedTest, EntityResults, KnownEntities, UnlinkedTest};
 use specforge_common::{Diagnostic, Severity, slug};
 use std::collections::BTreeMap;
 

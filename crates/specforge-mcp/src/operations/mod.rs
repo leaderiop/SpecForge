@@ -718,17 +718,14 @@ pub(crate) fn doctor_op(state: &mut McpState, args: DoctorArgs) -> ToolOutcome {
     if !use_cached || state.loaded_at.is_none() {
         state.reload(&root);
     }
-    // The same report `specforge doctor` prints.
+    // The same report `specforge doctor` prints, as the spec's
+    // McpDoctorReport plus its sections. Credential health is the user's,
+    // not the project's: only the CLI reports it.
     let report =
         specforge_ops::doctor::diagnose(&root, &state.registries().manifests, &state.diagnostics());
-    let conflicts: Vec<&str> = report
-        .conflicts
-        .iter()
-        .map(|c| c.message.as_str())
-        .collect();
     ok(json!({
-        "extensions_ok": report.issues.is_empty() && report.load_failures.is_empty(),
-        "conflicts": conflicts,
+        "extensions_ok": report.extensions_ok(),
+        "conflicts": report.conflict_messages(),
         "cache_status": report.cache_status,
         "findings": report.findings,
         "installed_count": report.extensions_checked,
@@ -754,7 +751,7 @@ pub struct CollectArgs {
 }
 
 pub(crate) fn collect_op(state: &mut McpState, args: CollectArgs) -> ToolOutcome {
-    use specforge_emitter::collect::{self, Mode, Request, RunnerOutput};
+    use specforge_ops::collect::{self, Consent, Mode, Request, RunnerOutput};
 
     let Some(root) = project_root_of(state, args.path.as_deref()) else {
         return ToolOutcome::no_project("collect needs a project root (pass {\"path\": ...})");
@@ -779,10 +776,6 @@ pub(crate) fn collect_op(state: &mut McpState, args: CollectArgs) -> ToolOutcome
     };
     let known = collect::KnownEntities::from_graph(graph);
 
-    // The server never prompts: a command runs only if the user already
-    // approved it for this project with `specforge collect` in a terminal.
-    let store = collect::consent_path();
-    let mut approve = |c: &collect::Collector, _: &[String]| collect::is_approved(&store, c, &root);
     let request = Request {
         root: &root,
         runner,
@@ -798,15 +791,12 @@ pub(crate) fn collect_op(state: &mut McpState, args: CollectArgs) -> ToolOutcome
         manifests,
         runtime.as_ref(),
         &known,
-        &mut approve,
+        // The server never prompts: a command runs only if the user already
+        // approved it for this project with `specforge collect` in a terminal.
+        Consent::Approved,
         &mut |_, _| {},
     ) {
-        Ok(outcome) => ok(json!({
-            "status": "collected",
-            "runners": outcome.runners,
-            "diagnostics": outcome.diagnostics,
-            "report": outcome.report.display().to_string(),
-        })),
+        Ok(outcome) => ok(outcome.to_json()),
         Err(e) if e.code == "E059" => McpError::from_diagnostic(&Diagnostic::error(
             e.code,
             format!(
@@ -816,7 +806,7 @@ pub(crate) fn collect_op(state: &mut McpState, args: CollectArgs) -> ToolOutcome
             ),
         ))
         .into(),
-        Err(e) => McpError::from_diagnostic(&Diagnostic::error(e.code, e.message)).into(),
+        Err(e) => McpError::from_diagnostic(&Diagnostic::error(e.code.as_ref(), e.message)).into(),
     }
 }
 

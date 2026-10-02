@@ -7,17 +7,24 @@
 //! consent, runs the declared command, reads the report and merges the
 //! extension's answer into `specforge-report.json`. The extension never
 //! runs anything itself.
+//!
+//! The CLI and MCP are adapters: they choose the [`Consent`] (a terminal
+//! prompt, `--yes`, or only what was approved before) and present the
+//! [`Outcome`].
 
-use crate::analyze::{ReportedEntity, ReportedTest, TestReport};
+mod convention;
+
+use crate::OpError;
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, Severity};
+use specforge_emitter::analyze::{ReportedEntity, ReportedTest, TestReport};
 use specforge_registry::ManifestV2;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 
 /// Where `collect` writes the merged results `analyze` reads.
-pub const REPORT_FILE: &str = "specforge-report.json";
+pub use specforge_emitter::coverage::REPORT_FILE;
 
 /// Environment variable the host sets to the absolute report path when it
 /// runs a collector, so a runner integration can write there directly.
@@ -173,13 +180,13 @@ pub fn command_line(collector: &Collector, report: &Path) -> Vec<String> {
 #[derive(Debug, Default, Serialize, Deserialize)]
 struct ConsentStore {
     #[serde(default)]
-    approved: Vec<Consent>,
+    approved: Vec<Approval>,
 }
 
 /// One approval: this project may run this extension's collector command.
 /// A changed command is a different approval.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-struct Consent {
+struct Approval {
     project: String,
     extension: String,
     collector: String,
@@ -199,9 +206,9 @@ pub fn consent_path() -> PathBuf {
     home.join(".specforge").join("collector-consent.json")
 }
 
-fn consent_for(collector: &Collector, root: &Path) -> Consent {
+fn consent_for(collector: &Collector, root: &Path) -> Approval {
     let project = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-    Consent {
+    Approval {
         project: project.display().to_string(),
         extension: collector.extension.clone(),
         collector: collector.name.clone(),
@@ -494,7 +501,7 @@ impl KnownEntities {
             .nodes()
             .iter()
             .map(|node| {
-                let texts = crate::coverage::obligations(node)
+                let texts = specforge_emitter::coverage::obligations(node)
                     .iter()
                     .map(|s| s.description.clone())
                     .collect();
@@ -631,18 +638,50 @@ pub struct Request<'a> {
     pub mode: Mode<'a>,
 }
 
-/// A failed collect, with the diagnostic code that explains it.
-#[derive(Debug)]
-pub struct CollectError {
-    pub code: &'static str,
-    pub message: String,
+/// Who decides whether a collector's command may run (ADR 0002: consent is
+/// given per project, extension and command).
+pub enum Consent<'a> {
+    /// Every command may run (`--yes`, for CI).
+    Yes,
+    /// Only a command the user approved for this project before: MCP,
+    /// which never prompts, and a CLI with nobody to ask.
+    Approved,
+    /// A command not approved yet is put to `ask`; a yes is remembered in
+    /// the consent store ([`consent_path`]).
+    Prompt(&'a mut dyn FnMut(&Collector, &[String]) -> bool),
 }
 
-fn fail(code: &'static str, message: impl Into<String>) -> CollectError {
-    CollectError {
-        code,
-        message: message.into(),
+impl Consent<'_> {
+    /// Whether `collector`'s command `argv` may run in `root`, with the
+    /// approvals in `store`. An approval that could not be remembered is
+    /// noted in `unsaved`.
+    fn allows(
+        &mut self,
+        store: &Path,
+        collector: &Collector,
+        argv: &[String],
+        root: &Path,
+        unsaved: &mut Vec<String>,
+    ) -> bool {
+        match self {
+            Consent::Yes => true,
+            _ if is_approved(store, collector, root) => true,
+            Consent::Approved => false,
+            Consent::Prompt(ask) => {
+                if !ask(collector, argv) {
+                    return false;
+                }
+                if let Err(e) = approve(store, collector, root) {
+                    unsaved.push(e);
+                }
+                true
+            }
+        }
     }
+}
+
+fn fail(code: &'static str, message: impl Into<String>) -> OpError {
+    OpError::new(code, message)
 }
 
 /// What happened for one collector.
@@ -661,25 +700,41 @@ pub struct RunnerResult {
 }
 
 /// The outcome of a successful collect.
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub struct Outcome {
     pub runners: Vec<RunnerResult>,
     pub diagnostics: Vec<Diagnostic>,
     pub report: PathBuf,
+    /// Approvals given at a prompt that could not be remembered (the
+    /// consent store could not be written), each with why.
+    pub unsaved_approvals: Vec<String>,
+}
+
+impl Outcome {
+    /// The document both surfaces answer with:
+    /// `{status, runners, diagnostics, report}`.
+    pub fn to_json(&self) -> serde_json::Value {
+        serde_json::json!({
+            "status": "collected",
+            "runners": self.runners,
+            "diagnostics": specforge_emitter::diagnostics_json(&self.diagnostics),
+            "report": self.report.display().to_string(),
+        })
+    }
 }
 
 /// Collect test results for the project: select collectors, run or read
 /// each one's report, map it through the extension and merge the answer
-/// into `specforge-report.json`. `approve` decides whether a collector's
+/// into `specforge-report.json`. `consent` decides whether a collector's
 /// command may run; `announce` is told just before it runs.
 pub fn collect(
     request: &Request,
     manifests: &[ManifestV2],
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
     known: &KnownEntities,
-    approve: &mut dyn FnMut(&Collector, &[String]) -> bool,
+    mut consent: Consent,
     announce: &mut dyn FnMut(&Collector, &[String]),
-) -> Result<Outcome, CollectError> {
+) -> Result<Outcome, OpError> {
     let root = request.root;
     let available = collectors(manifests);
     let parse_only = !matches!(request.mode, Mode::Run(_));
@@ -700,6 +755,8 @@ pub fn collect(
     let mut report = load_report(root);
     let mut runners = Vec::new();
     let mut diagnostics = Vec::new();
+    let mut unsaved_approvals = Vec::new();
+    let store = consent_path();
     for collector in selected {
         let report_at = report_path(collector, root).map_err(|m| fail("E058", m))?;
         let capturing = captures_stdout(collector).map_err(|m| fail("E058", m))?;
@@ -708,7 +765,7 @@ pub fn collect(
         let mut since = None;
         let mut stdout = None;
         if let Mode::Run(output) = request.mode {
-            if !approve(collector, &argv) {
+            if !consent.allows(&store, collector, &argv, root, &mut unsaved_approvals) {
                 return Err(fail(
                     "E059",
                     format!(
@@ -757,7 +814,7 @@ pub fn collect(
 
         let mut collected =
             dispatch(runtime, collector, &files, stdout.as_deref()).map_err(|m| fail("E028", m))?;
-        let (by_convention, diags) = crate::convention::resolve(&collected.unlinked, known);
+        let (by_convention, diags) = convention::resolve(&collected.unlinked, known);
         diagnostics.extend(diags);
         let by_convention_count = by_convention.iter().map(|e| e.test_results.len()).sum();
         collected.entity_results.extend(by_convention);
@@ -779,6 +836,7 @@ pub fn collect(
         runners,
         diagnostics,
         report,
+        unsaved_approvals,
     })
 }
 
@@ -788,7 +846,7 @@ fn select<'a>(
     available: &'a [Collector],
     runner: Option<&str>,
     root: &Path,
-) -> Result<Vec<&'a Collector>, CollectError> {
+) -> Result<Vec<&'a Collector>, OpError> {
     if available.is_empty() {
         return Err(fail(
             "E058",
@@ -837,10 +895,10 @@ fn select<'a>(
 
 /// The report `collect` merges new results into: `specforge-report.json`,
 /// or an empty report when it's missing or unreadable. Unlike the readers
-/// that score coverage ([`crate::coverage::read_report`]), collect is the
+/// that score coverage ([`specforge_emitter::coverage::read_report`]), collect is the
 /// writer: it replaces a report it cannot read.
 pub fn load_report(root: &Path) -> TestReport {
-    crate::coverage::read_report(root)
+    specforge_emitter::coverage::read_report(root)
         .ok()
         .flatten()
         .unwrap_or(TestReport {
@@ -941,6 +999,39 @@ mod tests {
         );
         approve(&store, &c, root).unwrap();
         assert_eq!(load_consent(&store).approved.len(), 1, "approval replaced");
+    }
+
+    #[test]
+    fn consent_yes_approved_and_prompt_decide_as_documented() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let store = dir.path().join("consent.json");
+        let c = collector("r.json");
+        let argv = c.run.clone();
+        let mut unsaved = Vec::new();
+
+        // --yes runs it and remembers nothing.
+        assert!(Consent::Yes.allows(&store, &c, &argv, dir.path(), &mut unsaved));
+        assert!(!is_approved(&store, &c, dir.path()));
+        // Nothing approved yet: refused without asking.
+        assert!(!Consent::Approved.allows(&store, &c, &argv, dir.path(), &mut unsaved));
+        // A prompt that says no is not remembered...
+        let mut no = |_: &Collector, _: &[String]| false;
+        assert!(!Consent::Prompt(&mut no).allows(&store, &c, &argv, dir.path(), &mut unsaved));
+        assert!(!is_approved(&store, &c, dir.path()));
+        // ...a yes is, and is not asked again.
+        let mut asked = 0;
+        let mut yes = |_: &Collector, _: &[String]| {
+            asked += 1;
+            true
+        };
+        {
+            let mut prompt = Consent::Prompt(&mut yes);
+            assert!(prompt.allows(&store, &c, &argv, dir.path(), &mut unsaved));
+            assert!(prompt.allows(&store, &c, &argv, dir.path(), &mut unsaved));
+        }
+        assert_eq!(asked, 1);
+        assert!(Consent::Approved.allows(&store, &c, &argv, dir.path(), &mut unsaved));
+        assert!(unsaved.is_empty(), "{unsaved:?}");
     }
 
     #[specforge_test(

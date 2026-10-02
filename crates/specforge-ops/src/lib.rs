@@ -9,13 +9,9 @@
 //! JSON-RPC stream). The crate denies `clippy::print_stdout`.
 
 pub mod analyze;
+pub mod collect;
 pub mod config;
-/// `specforge doctor` and the MCP `specforge.doctor` tool: one report,
-/// built from a compile's manifests and diagnostics (it lives in the
-/// emitter, which the LSP and watch also reach).
-pub mod doctor {
-    pub use specforge_emitter::doctor::*;
-}
+pub mod doctor;
 pub mod export;
 pub mod extension;
 pub mod format;

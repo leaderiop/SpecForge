@@ -1,14 +1,11 @@
 pub mod analyze;
 mod brief;
 mod budget;
-pub mod collect;
 pub use budget::{estimate_tokens, filter_graph_within_budget};
 pub mod compile;
 mod context;
-mod convention;
 pub mod coverage;
 mod diagnostic_fmt;
-pub mod doctor;
 mod dot;
 mod emit;
 mod error;

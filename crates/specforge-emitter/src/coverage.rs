@@ -7,7 +7,6 @@
 //! here, so they cannot disagree.
 
 use crate::analyze::TestReport;
-use crate::collect::REPORT_FILE;
 use crate::compile::build_validation_entities;
 use serde_json::Value;
 use specforge_common::Diagnostic;
@@ -19,6 +18,10 @@ use specforge_registry::validation_engine::{
 use specforge_registry::{FieldRegistry, KindRegistry, ManifestFieldType};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
+
+/// The recorded test report, at the project root: `collect` writes it,
+/// `analyze` and the coverage views read it.
+pub const REPORT_FILE: &str = "specforge-report.json";
 
 pub use specforge_coverage::{Status, Summary, Verdict};
 
