@@ -91,6 +91,8 @@ The `contribution_flags` object tells the host which categories this extension c
 
 `starter_template` is optional: the text of the starter `.spec` file `specforge init` writes for a project that enables the extension, with `{project}` standing for the project's entity id. When several enabled extensions declare one, `init` uses the template of the extension listed first in `specforge.json`; when none does, it writes a structural starter. SDK authors set it with `ContributionsBuilder::starter_template`.
 
+`theme_color` is optional: the hex colour (`#rgb`, `#rrggbb` or `#rrggbbaa`) the `model` and `outline` diagrams draw the extension in; anything else, or none, draws it grey. SDK authors set it with `ContributionsBuilder::theme_color`.
+
 The host checks `protocol_version` for compatibility. If the extension declares a protocol version the host does not support, the host emits a diagnostic and skips the extension.
 
 ### Describe
@@ -176,6 +178,15 @@ Returns entity kind descriptors. Each descriptor declares a DSL keyword, its fie
   ]
 }
 ```
+
+Optional flags, `false` and omitted from the wire unless set (ADR 0007): on
+a kind, `contract_target` (a reference field that targets the kind is a
+contract obligation, A010) and `declares_types` (its entity ids are the type
+names custom validators receive as `declared_types`); on a field, `normative`
+(the context export keeps it), `headline` (the context export lifts it to the
+node's top level; with `normative`, it is the statement MCP `inspect` reports
+as `contract`) and `exempts_obligations` (an entity that sets it owes no
+`verify` obligations).
 
 Field types (`specforge_protocol_types::FieldType`): `string`, `integer`,
 `bool`, `enum` (values in `enum_values`), `string_list`, `reference`,
