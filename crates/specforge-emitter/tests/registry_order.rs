@@ -123,7 +123,7 @@ fn project() -> tempfile::TempDir {
 fn render(diagnostics: &[Diagnostic]) -> Vec<String> {
     diagnostics
         .iter()
-        .map(specforge_emitter::format_diagnostic)
+        .map(specforge_common::format_diagnostic)
         .collect()
 }
 

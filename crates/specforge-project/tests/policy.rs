@@ -16,15 +16,15 @@ fn strict_promotes_warnings_so_the_exit_code_is_one() {
     let root = tempfile::TempDir::new().unwrap();
     let lenient = DiagnosticPolicy::strict(false).apply(root.path(), vec![warning()]);
     assert_eq!(lenient[0].severity, Severity::Warning);
-    assert_eq!(specforge_emitter::compute_exit_code(&lenient), 0);
+    assert_eq!(specforge_common::compute_exit_code(&lenient), 0);
 
     let strict = DiagnosticPolicy::strict(true).apply(root.path(), vec![warning()]);
     assert_eq!(strict[0].severity, Severity::Error);
-    assert_eq!(specforge_emitter::compute_exit_code(&strict), 1);
+    assert_eq!(specforge_common::compute_exit_code(&strict), 1);
 
     // Nothing to promote: still 0.
     let clean = DiagnosticPolicy::strict(true).apply(root.path(), Vec::new());
-    assert_eq!(specforge_emitter::compute_exit_code(&clean), 0);
+    assert_eq!(specforge_common::compute_exit_code(&clean), 0);
 }
 
 /// A lint profile adds nothing when its input is absent: no

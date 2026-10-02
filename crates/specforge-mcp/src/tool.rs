@@ -262,7 +262,7 @@ impl McpError {
     }
 
     pub fn with_diagnostic(mut self, diagnostic: &Diagnostic) -> Self {
-        self.diagnostic = serde_json::to_value(specforge_emitter::diagnostics_json(
+        self.diagnostic = serde_json::to_value(specforge_common::diagnostics_json(
             std::slice::from_ref(diagnostic),
         ))
         .ok()
@@ -485,7 +485,7 @@ pub fn envelope(
     }
     if !diagnostics.is_empty() {
         result["_meta"] = json!({
-            "diagnostics": serde_json::to_value(specforge_emitter::diagnostics_json(&diagnostics))
+            "diagnostics": serde_json::to_value(specforge_common::diagnostics_json(&diagnostics))
                 .unwrap_or_default(),
         });
     }

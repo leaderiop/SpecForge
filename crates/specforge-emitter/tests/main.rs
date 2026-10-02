@@ -1,7 +1,6 @@
 mod builtins;
 mod contracts;
 mod determinism;
-mod diagnostics;
 mod dual_mode;
 mod e2e_pipeline;
 mod emit_brief;

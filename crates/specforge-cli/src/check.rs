@@ -40,7 +40,7 @@ fn run_in(
     // Output
     match format {
         OutputFormat::Json => {
-            let entries = specforge_emitter::diagnostics_json(&all_diagnostics);
+            let entries = specforge_common::diagnostics_json(&all_diagnostics);
             let json = serde_json::to_string_pretty(&entries).unwrap_or_default();
             println!("{}", json);
         }
@@ -73,7 +73,7 @@ fn run_in(
     }
 
     // Strict already promoted warnings: errors alone decide.
-    specforge_emitter::compute_exit_code(&all_diagnostics)
+    specforge_common::compute_exit_code(&all_diagnostics)
 }
 
 pub(crate) fn build_source_map(

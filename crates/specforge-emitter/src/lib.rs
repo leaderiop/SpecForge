@@ -5,12 +5,10 @@ pub use budget::{estimate_tokens, filter_graph_within_budget};
 pub mod compile;
 mod context;
 pub mod coverage;
-mod diagnostic_fmt;
 mod diagram;
 mod dot;
 mod emit;
 mod error;
-mod exit_code;
 pub mod field_types;
 mod json;
 pub mod model;
@@ -25,14 +23,9 @@ mod trace;
 
 // --- Primary API (use these) ---
 pub use compile::{CompilationContext, WasmCustomRules, build_validation_entities, compile_simple};
-pub use diagnostic_fmt::{
-    DiagnosticJson, MAX_DIAGNOSTICS, diagnostics_json, format_diagnostic, serialize_diagnostics,
-    truncate_diagnostics,
-};
 pub use dot::DotOptions;
 pub use emit::{EmitFormat, EmitOptions, emit};
 pub use error::EmitterError;
-pub use exit_code::compute_exit_code;
 pub use json::{SCHEMA_VERSION, field_map_to_json, field_value_to_json};
 pub use plan::{PlanGap, PlanGapKind, PlanValidationResult, serialize_plan_result, validate_plan};
 pub use query::query;

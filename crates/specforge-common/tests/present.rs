@@ -54,7 +54,7 @@ fn error_diagnostic_formatted_with_file_line_col() {
         42,
         8,
     );
-    let formatted = specforge_emitter::format_diagnostic(&diag);
+    let formatted = specforge_common::format_diagnostic(&diag);
     assert!(
         formatted.contains("src/auth.spec"),
         "should include file path"
@@ -77,7 +77,7 @@ fn suggestion_displayed_when_available() {
         "unresolved entity 'behavor'",
         "did you mean 'behavior'?",
     );
-    let formatted = specforge_emitter::format_diagnostic(&diag);
+    let formatted = specforge_common::format_diagnostic(&diag);
     assert!(
         formatted.contains("did you mean 'behavior'?"),
         "should display suggestion"
@@ -100,7 +100,7 @@ fn print_diagnostics_contract() {
         15,
         4,
     );
-    let formatted = specforge_emitter::format_diagnostic(&diag);
+    let formatted = specforge_common::format_diagnostic(&diag);
 
     assert!(
         formatted.contains("src/core.spec"),
@@ -113,7 +113,7 @@ fn print_diagnostics_contract() {
 
     // With suggestion
     let diag2 = diag_with_suggestion("E001", Severity::Error, "unresolved", "did you mean 'bar'?");
-    let formatted2 = specforge_emitter::format_diagnostic(&diag2);
+    let formatted2 = specforge_common::format_diagnostic(&diag2);
     assert!(
         formatted2.contains("did you mean 'bar'?"),
         "must include suggestion"
@@ -144,7 +144,7 @@ fn diagnostics_serialized_as_json_array() {
             0,
         ),
     ];
-    let json = specforge_emitter::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
     let arr = parsed.as_array().expect("should be JSON array");
     assert_eq!(arr.len(), 2);
@@ -164,7 +164,7 @@ fn each_diagnostic_includes_code_severity_message_file_line_column() {
         42,
         8,
     )];
-    let json = specforge_emitter::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     let entry = &parsed[0];
 
@@ -191,7 +191,7 @@ fn suggestion_field_included_in_json_when_available() {
         "unresolved entity 'behavor'",
         "did you mean 'behavior'?",
     )];
-    let json = specforge_emitter::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(
         parsed[0]["suggestion"].as_str().unwrap(),
@@ -209,7 +209,7 @@ fn json_diagnostics_output_is_valid_json() {
         diag_with_span("E001", Severity::Error, "bad ref", "test.spec", 1, 0),
         diag_with_suggestion("W002", Severity::Warning, "unused", "remove it"),
     ];
-    let json = specforge_emitter::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("must be valid JSON");
     assert!(parsed.is_array());
 }
@@ -236,8 +236,8 @@ fn exit_code_zero_no_errors() {
             suggestion: None,
         },
     ];
-    assert_eq!(specforge_emitter::compute_exit_code(&diags), 0);
-    assert_eq!(specforge_emitter::compute_exit_code(&[]), 0);
+    assert_eq!(specforge_common::compute_exit_code(&diags), 0);
+    assert_eq!(specforge_common::compute_exit_code(&[]), 0);
 }
 
 // B:exit_code_reflects_diagnostic_severity — verify unit "exit 1 with errors"
@@ -253,7 +253,7 @@ fn exit_code_one_with_errors() {
         span: None,
         suggestion: None,
     }];
-    assert_eq!(specforge_emitter::compute_exit_code(&diags), 1);
+    assert_eq!(specforge_common::compute_exit_code(&diags), 1);
 }
 
 // B:exit_code_reflects_diagnostic_severity — verify contract "requires/ensures consistency for exit code severity mapping"
@@ -287,8 +287,8 @@ fn exit_code_contract() {
             suggestion: None,
         },
     ];
-    assert_eq!(specforge_emitter::compute_exit_code(&no_errors), 0);
-    assert_eq!(specforge_emitter::compute_exit_code(&with_errors), 1);
+    assert_eq!(specforge_common::compute_exit_code(&no_errors), 0);
+    assert_eq!(specforge_common::compute_exit_code(&with_errors), 1);
 }
 
 #[test]
@@ -303,7 +303,7 @@ fn diagnostic_includes_context_snippet() {
         42,
         8,
     );
-    let formatted = specforge_emitter::format_diagnostic(&diag);
+    let formatted = specforge_common::format_diagnostic(&diag);
 
     // Context snippet is represented as file:line:col location reference
     assert!(
@@ -338,18 +338,18 @@ fn exit_code_unaffected_by_format_flag() {
     )];
 
     // Serialize as JSON (simulating --format=json) — exit code unchanged
-    let _json = specforge_emitter::serialize_diagnostics(&diags_with_errors);
-    assert_eq!(specforge_emitter::compute_exit_code(&diags_with_errors), 1);
+    let _json = specforge_common::serialize_diagnostics(&diags_with_errors);
+    assert_eq!(specforge_common::compute_exit_code(&diags_with_errors), 1);
 
-    let _json = specforge_emitter::serialize_diagnostics(&diags_no_errors);
-    assert_eq!(specforge_emitter::compute_exit_code(&diags_no_errors), 0);
+    let _json = specforge_common::serialize_diagnostics(&diags_no_errors);
+    assert_eq!(specforge_common::compute_exit_code(&diags_no_errors), 0);
 
     // Format as text (default format) — exit code unchanged
-    let _text = specforge_emitter::format_diagnostic(&diags_with_errors[0]);
-    assert_eq!(specforge_emitter::compute_exit_code(&diags_with_errors), 1);
+    let _text = specforge_common::format_diagnostic(&diags_with_errors[0]);
+    assert_eq!(specforge_common::compute_exit_code(&diags_with_errors), 1);
 
-    let _text = specforge_emitter::format_diagnostic(&diags_no_errors[0]);
-    assert_eq!(specforge_emitter::compute_exit_code(&diags_no_errors), 0);
+    let _text = specforge_common::format_diagnostic(&diags_no_errors[0]);
+    assert_eq!(specforge_common::compute_exit_code(&diags_no_errors), 0);
 }
 
 // "exit 1 with warnings in strict mode" is proven by
@@ -368,7 +368,7 @@ fn suggestion_field_null_in_json_when_none() {
         1,
         0,
     )];
-    let json = specforge_emitter::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed[0]["suggestion"].is_null(), "{parsed}");
 }
@@ -393,7 +393,7 @@ fn span_is_nested_beside_the_flat_location() {
         suggestion: None,
     };
     let unlocated = Diagnostic::warning("W113", "circular import detected: a.spec -> b.spec");
-    let json = specforge_emitter::serialize_diagnostics(&[located, unlocated]);
+    let json = specforge_common::serialize_diagnostics(&[located, unlocated]);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     // Nested, as `check` has always printed it, end positions included...
@@ -424,7 +424,7 @@ fn truncate_diagnostics_limits_output() {
         .map(|i| Diagnostic::error("E001", format!("error {}", i)))
         .collect();
 
-    specforge_emitter::truncate_diagnostics(&mut diags);
+    specforge_common::truncate_diagnostics(&mut diags);
 
     assert_eq!(diags.len(), 101, "should be 100 + 1 summary");
     assert_eq!(diags.last().unwrap().code, "I999");
@@ -437,7 +437,7 @@ fn truncate_diagnostics_no_op_under_limit() {
         .map(|i| Diagnostic::error("E001", format!("error {}", i)))
         .collect();
 
-    specforge_emitter::truncate_diagnostics(&mut diags);
+    specforge_common::truncate_diagnostics(&mut diags);
 
     assert_eq!(diags.len(), 50, "should not truncate under limit");
 }
@@ -480,7 +480,7 @@ fn spanless_diagnostic_uses_code_as_fallback() {
         span: None,
         suggestion: None,
     };
-    let formatted = specforge_emitter::format_diagnostic(&diag);
+    let formatted = specforge_common::format_diagnostic(&diag);
     // Should include the diagnostic code in the location fallback
     assert!(
         formatted.contains("<W061>"),
@@ -507,7 +507,7 @@ fn spanless_error_diagnostic_uses_code() {
         span: None,
         suggestion: None,
     };
-    let formatted = specforge_emitter::format_diagnostic(&diag);
+    let formatted = specforge_common::format_diagnostic(&diag);
     assert!(
         formatted.contains("<E001>"),
         "expected code-based fallback, got: {}",
@@ -521,7 +521,7 @@ fn spanless_error_diagnostic_uses_code() {
 )]
 fn spanned_diagnostic_ignores_code_fallback() {
     let diag = diag_with_span("E001", Severity::Error, "bad ref", "src/test.spec", 10, 5);
-    let formatted = specforge_emitter::format_diagnostic(&diag);
+    let formatted = specforge_common::format_diagnostic(&diag);
     // Should use the real span, not the code fallback
     assert!(formatted.contains("src/test.spec:10:5"));
     assert!(!formatted.contains("<E001>"));

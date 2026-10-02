@@ -171,7 +171,7 @@ pub(crate) fn format_op(state: &mut McpState, args: FormatArgs) -> ToolOutcome {
         "total_checked": outcome.checked,
         "all_clean": outcome.changes.is_empty(),
         "check_only": !write,
-        "diagnostics": specforge_emitter::diagnostics_json(&outcome.config_diagnostics),
+        "diagnostics": specforge_common::diagnostics_json(&outcome.config_diagnostics),
     });
     if diff {
         let diffs: Vec<Value> = outcome
@@ -299,7 +299,7 @@ pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
     // the last load included.
     state.reload(&root);
     result["diagnostics"] =
-        serde_json::to_value(specforge_emitter::diagnostics_json(&state.diagnostics()))
+        serde_json::to_value(specforge_common::diagnostics_json(&state.diagnostics()))
             .unwrap_or_default();
     ok(result)
 }
@@ -574,8 +574,8 @@ pub(crate) fn migrate_op(state: &McpState, args: MigrateArgs) -> ToolOutcome {
         "diagnostics": summary.diagnostics,
         "hooks_invoked": outcome.hooks_invoked,
         "hook_failures": outcome.hook_failures,
-        "schema_warnings": specforge_emitter::diagnostics_json(&outcome.schema_warnings),
-        "structural_differences": specforge_emitter::diagnostics_json(&outcome.structural_differences),
+        "schema_warnings": specforge_common::diagnostics_json(&outcome.schema_warnings),
+        "structural_differences": specforge_common::diagnostics_json(&outcome.structural_differences),
         "rolled_back": outcome.rollback.is_some(),
         "rollback": outcome.rollback,
         "post_migration_validated": outcome.validated,
@@ -676,7 +676,7 @@ pub(crate) fn providers_op(state: &McpState, _args: crate::args::NoArgs) -> Tool
     ok(json!({
         "providers": listed,
         "count": count,
-        "diagnostics": specforge_emitter::diagnostics_json(&diagnostics),
+        "diagnostics": specforge_common::diagnostics_json(&diagnostics),
     }))
 }
 

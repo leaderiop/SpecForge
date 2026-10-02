@@ -1,5 +1,10 @@
+//! Diagnostics as every surface prints them: the one-line text form, the
+//! JSON form (with the catalog's title per code), the output cap and the
+//! exit code. The human, source-annotated rendering is
+//! `specforge_validator::render_diagnostics`.
+
+use crate::{Diagnostic, Severity, SourceSpan};
 use serde::Serialize;
-use specforge_common::{Diagnostic, Severity, SourceSpan};
 
 pub fn format_diagnostic(diag: &Diagnostic) -> String {
     let severity_label = match diag.severity {
@@ -94,4 +99,20 @@ pub struct DiagnosticJson<'a> {
     pub file: Option<&'a str>,
     pub line: Option<usize>,
     pub column: Option<usize>,
+}
+
+/// Compute the process exit code from collected diagnostics.
+///
+/// Returns 0 if no error-level diagnostics exist, 1 otherwise. Strict
+/// mode is not a separate rule: `specforge_project::DiagnosticPolicy`
+/// promotes warnings to errors before the exit code is computed.
+pub fn compute_exit_code(diagnostics: &[Diagnostic]) -> i32 {
+    if diagnostics
+        .iter()
+        .any(|d| matches!(d.severity, Severity::Error))
+    {
+        1
+    } else {
+        0
+    }
 }

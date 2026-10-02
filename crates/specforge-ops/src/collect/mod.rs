@@ -717,7 +717,7 @@ impl Outcome {
         serde_json::json!({
             "status": "collected",
             "runners": self.runners,
-            "diagnostics": specforge_emitter::diagnostics_json(&self.diagnostics),
+            "diagnostics": specforge_common::diagnostics_json(&self.diagnostics),
             "report": self.report.display().to_string(),
         })
     }

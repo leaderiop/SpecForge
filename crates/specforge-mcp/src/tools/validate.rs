@@ -66,7 +66,7 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
         .collect();
 
     let filtered: Vec<specforge_common::Diagnostic> = diagnostics.into_iter().cloned().collect();
-    let diag_json = specforge_emitter::serialize_diagnostics(&filtered);
+    let diag_json = specforge_common::serialize_diagnostics(&filtered);
 
     ToolOutcome::text(diag_json)
 }
