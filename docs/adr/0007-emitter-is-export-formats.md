@@ -67,5 +67,6 @@ likewise.
 - **The build cache** (`specforge_project::BuildCache`) records every entity's `status` for the
   product's transition checks (W087–W091). Recording declared fields instead changes the cache
   file and `PassBuildCache` (the SDK, so every blob), and wants a field flag of its own.
-- **`specforge-cli/src/product`** implements product queries natively.
+- ~~**`specforge-cli/src/product`** implements product queries natively.~~ Closed by
+  [ADR 0008](0008-extension-commands-run-over-the-graph.md): they are `@specforge/product`'s commands.
 - The model's DOT cluster ids strip the `@specforge/` scope (snapshot-locked output).
