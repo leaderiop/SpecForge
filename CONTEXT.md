@@ -20,6 +20,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_project::GraphDelta`).
 - **Registry build**: the pure result of turning extension manifests into kind, field and edge
   registries, rules and derived graph inputs (`specforge_registry::build_registries`).
+- **Package registry client**: what talks to a package registry: search, resolve and publish over
+  HTTP, credentials in the OS keyring, publisher trust and package signing
+  (`specforge-registry-client`). Not the Registry build, which is pure and needs none of it.
 - **Project view**: the read-only slice of a compiled project an operation analyses: the graph, the
   kind and field registries, the rules, the manifests and the project root, borrowed
   (`specforge_ops::analyze`'s input). The CLI builds one from its compiled project; MCP builds one from
