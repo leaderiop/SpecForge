@@ -3016,7 +3016,6 @@ dependencies = [
  "specforge-migrate",
  "specforge-parser",
  "specforge-project",
- "specforge-protocol-types",
  "specforge-registry",
  "specforge-test",
  "specforge-test-macros",
