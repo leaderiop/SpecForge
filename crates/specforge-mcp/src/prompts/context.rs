@@ -16,7 +16,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         }
     };
 
-    let node = match state.graph.node(entity_id) {
+    let node = match state.graph().node(entity_id) {
         Some(n) => n,
         None => {
             return JsonRpcResponse::error(
@@ -37,14 +37,14 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         .unwrap_or_default();
 
     let upstream: Vec<String> = state
-        .graph
+        .graph()
         .edges_to(entity_id)
         .iter()
         .map(|e| e.source.to_string())
         .collect();
 
     let downstream: Vec<String> = state
-        .graph
+        .graph()
         .edges_from(entity_id)
         .iter()
         .map(|e| e.target.to_string())
@@ -70,7 +70,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         _ => Vec::new(),
     };
     for constraint_id in requested {
-        let Some(constraint) = state.graph.node(constraint_id) else {
+        let Some(constraint) = state.graph().node(constraint_id) else {
             return JsonRpcResponse::error(
                 id,
                 error_codes::INVALID_PARAMS,

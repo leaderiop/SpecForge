@@ -268,15 +268,16 @@ pub fn enqueue_compile_notifications(
     // Streams opened with subscriptions/listen (MCP 2026-07-28) hear that a
     // resource they listen to changed.
     if !state.listens.is_empty() {
-        let graph_changed = !compute_graph_delta(previous_graph, &state.graph).is_empty();
-        let diagnostics_delta = compute_diagnostics_delta(previous_diagnostics, &state.diagnostics);
+        let graph_changed = !compute_graph_delta(previous_graph, state.graph()).is_empty();
+        let diagnostics_delta =
+            compute_diagnostics_delta(previous_diagnostics, &state.diagnostics());
         let diagnostics_changed =
             !diagnostics_delta.added.is_empty() || !diagnostics_delta.removed.is_empty();
         crate::modern::enqueue_resource_updates(state, graph_changed, diagnostics_changed);
     }
 
     if !subscribers(state, GRAPH_CHANNEL).is_empty() {
-        let graph_delta = compute_graph_delta(previous_graph, &state.graph);
+        let graph_delta = compute_graph_delta(previous_graph, state.graph());
         if !graph_delta.is_empty() {
             state
                 .notification_outbox
@@ -295,7 +296,7 @@ pub fn enqueue_compile_notifications(
     }
 
     if !subscribers(state, DIAGNOSTICS_CHANNEL).is_empty() {
-        let diag_delta = compute_diagnostics_delta(previous_diagnostics, &state.diagnostics);
+        let diag_delta = compute_diagnostics_delta(previous_diagnostics, &state.diagnostics());
         if !diag_delta.added.is_empty() || !diag_delta.removed.is_empty() {
             state
                 .notification_outbox

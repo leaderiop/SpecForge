@@ -60,40 +60,19 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
             Some((root.clone(), state.compile_project(root)))
         }
         Some(root) => {
-            if !use_cached || state.graph.node_count() == 0 {
-                state.recompile(root);
+            if !use_cached || state.graph().node_count() == 0 {
+                state.reload(root);
             }
             None
         }
         None => None,
     };
     let state: &McpState = state;
-    let (graph, kind_registry, field_registry, rules, manifests, project_root) = match &other {
-        Some((root, project)) => (
-            &project.graph,
-            &project.env.registries.kinds,
-            &project.env.registries.fields,
-            project.env.registries.rules.as_slice(),
-            project.env.registries.manifests.as_slice(),
-            Some(root.as_path()),
-        ),
-        None => (
-            &state.graph,
-            &state.kind_registry,
-            &state.field_registry,
-            state.rules.as_slice(),
-            state.manifests.as_slice(),
-            state.project_root.as_deref(),
-        ),
-    };
-
-    let view = ProjectView {
-        graph,
-        kind_registry,
-        field_registry,
-        rules,
-        manifests,
-        root: project_root,
+    let view = match &other {
+        Some((root, project)) => {
+            ProjectView::in_environment(&project.env, &project.graph, Some(root.as_path()))
+        }
+        None => state.project_view(),
     };
     // Without `test_results`, use what `specforge collect` last recorded, as
     // the CLI does. Extension passes need the Wasm runtime, only when a root
@@ -108,7 +87,7 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
         min: None,
         prove: None,
     };
-    let runtime = match project_root {
+    let runtime = match view.root {
         Some(root) => state.wasm_runtime(root),
         None => std::sync::Arc::new(NoRuntime),
     };

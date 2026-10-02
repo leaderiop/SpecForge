@@ -27,6 +27,7 @@ pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
     };
 
     let analyzer_configs: Vec<AnalyzerConfig> = state
+        .registries()
         .manifests
         .iter()
         .flat_map(|m| m.analyzer_contributions.iter())

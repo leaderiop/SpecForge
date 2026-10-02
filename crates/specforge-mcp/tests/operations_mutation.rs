@@ -68,7 +68,7 @@ fn test_server() -> McpServer {
         target: "alpha".into(),
         label: "behaviors".into(),
     });
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
     attach_project(state);
 
     server
@@ -366,7 +366,7 @@ fn server_with_token_project() -> (McpServer, std::path::PathBuf) {
     let init = json!({"jsonrpc":"2.0","id":1,"method":"initialize",
         "params":{"projectRoot": root.to_str().unwrap()}});
     server.handle_message(&init.to_string());
-    assert!(server.state().graph.node("token_unique").is_some());
+    assert!(server.state().graph().node("token_unique").is_some());
     (server, root)
 }
 
@@ -378,7 +378,7 @@ fn rename(server: &mut McpServer, args: Value) -> Value {
 fn references(server: &McpServer, from: &str) -> Vec<String> {
     server
         .state()
-        .graph
+        .graph()
         .edges_from(from)
         .iter()
         .map(|e| e.target.to_string())
@@ -408,8 +408,8 @@ fn rename_rewrites_the_declaration_and_every_reference() {
         std::fs::read_to_string(root.join("spec/login.spec")).unwrap(),
         LOGIN_SPEC.replace("invariants [token_unique]", "invariants [token_distinct]")
     );
-    assert!(server.state().graph.node("token_unique").is_none());
-    assert!(server.state().graph.node("token_distinct").is_some());
+    assert!(server.state().graph().node("token_unique").is_none());
+    assert!(server.state().graph().node("token_distinct").is_some());
     assert_eq!(references(&server, "login"), ["token_distinct"]);
 }
 
@@ -480,8 +480,8 @@ fn rename_edits_the_files_under_a_configured_spec_root() {
         r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"],"spec_root":"spec"}"#,
     )
     .unwrap();
-    server.state_mut().recompile(&root);
-    assert!(server.state().graph.node("token_unique").is_some());
+    server.state_mut().reload(&root);
+    assert!(server.state().graph().node("token_unique").is_some());
 
     let parsed = rename(
         &mut server,
@@ -497,7 +497,7 @@ fn rename_edits_the_files_under_a_configured_spec_root() {
         std::fs::read_to_string(root.join("spec/login.spec")).unwrap(),
         LOGIN_SPEC.replace("invariants [token_unique]", "invariants [token_distinct]")
     );
-    assert!(server.state().graph.node("token_distinct").is_some());
+    assert!(server.state().graph().node("token_distinct").is_some());
 }
 
 #[specforge_test(
@@ -532,7 +532,7 @@ fn rename_dry_run_returns_the_plan_and_changes_nothing() {
         std::fs::read_to_string(root.join("spec/login.spec")).unwrap(),
         LOGIN_SPEC
     );
-    assert!(server.state().graph.node("token_unique").is_some());
+    assert!(server.state().graph().node("token_unique").is_some());
 }
 
 #[test]
@@ -564,7 +564,7 @@ fn rename_contract() {
     );
     assert_eq!(plan["edits"].as_array().unwrap().len(), 2, "{plan}");
     assert_eq!(files_under(&root), before);
-    assert!(server.state().graph.node("token_unique").is_some());
+    assert!(server.state().graph().node("token_unique").is_some());
 
     let parsed = rename(
         &mut server,
@@ -580,8 +580,8 @@ fn rename_contract() {
         std::fs::read_to_string(root.join("spec/login.spec")).unwrap(),
         LOGIN_SPEC.replace("invariants [token_unique]", "invariants [token_distinct]")
     );
-    assert!(server.state().graph.node("token_unique").is_none());
-    assert!(server.state().graph.node("token_distinct").is_some());
+    assert!(server.state().graph().node("token_unique").is_none());
+    assert!(server.state().graph().node("token_distinct").is_some());
     // Two files rewritten, one entity renamed.
     assert_eq!(
         events_named(&server, "mcp_mutation_completed"),
@@ -1044,11 +1044,12 @@ fn remove_extension_warns_about_orphaned_entities() {
     // extension defines; `alpha` is a behavior from elsewhere.
     let mut feature = kind_entry("feature", false);
     feature.source_extension = GREET.into();
-    server.state_mut().kind_registry.register(feature);
-    server
-        .state_mut()
-        .kind_registry
-        .register(kind_entry("behavior", true));
+    server.state_mut().edit_environment(|env| {
+        env.registries.kinds.register(feature);
+    });
+    server.state_mut().edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("behavior", true));
+    });
 
     let resp = call_tool(
         &mut server,

@@ -46,7 +46,7 @@ pub(crate) fn project_coverage(
 ) -> Result<ProjectCoverage, ToolOutcome> {
     let report = recorded_report(state).map_err(|e| report_error_result(&e, tool))?;
     Ok(ProjectCoverage::compute(
-        &state.graph,
+        state.graph(),
         coverage_registries(state),
         report.as_ref(),
     ))
@@ -55,9 +55,9 @@ pub(crate) fn project_coverage(
 /// The served project's registries, as the coverage rule reads them.
 pub(crate) fn coverage_registries(state: &McpState) -> CoverageRegistries<'_> {
     CoverageRegistries {
-        kinds: &state.kind_registry,
-        fields: &state.field_registry,
-        rules: &state.rules,
+        kinds: &state.registries().kinds,
+        fields: &state.registries().fields,
+        rules: &state.registries().rules,
     }
 }
 
@@ -90,9 +90,9 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let status_filter = args.status_filter.as_deref();
 
     // Testability is the extensions' call (their kinds' manifests).
-    let testable = specforge_emitter::coverage::testable_kinds(&state.kind_registry);
+    let testable = specforge_emitter::coverage::testable_kinds(&state.registries().kinds);
     let results: Vec<Value> = state
-        .graph
+        .graph()
         .nodes()
         .into_iter()
         .filter(|n| {

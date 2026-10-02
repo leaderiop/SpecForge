@@ -12,7 +12,7 @@ pub struct Args {
 pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let entity_id = args.entity_id.as_str();
 
-    let node = match state.graph.node(entity_id) {
+    let node = match state.graph().node(entity_id) {
         Some(n) => n,
         None => {
             return McpError::new(
@@ -25,7 +25,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     };
 
     let reference_count =
-        state.graph.edges_to(entity_id).len() + state.graph.edges_from(entity_id).len();
+        state.graph().edges_to(entity_id).len() + state.graph().edges_from(entity_id).len();
 
     let contract = node.fields.get("contract").and_then(|v| match v {
         FieldValue::String(s) => Some(s.clone()),
@@ -37,7 +37,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     // Whether the entity's kind counts toward coverage, as hover, the
     // schema and the outline say (ADR 0004, D2-d); `declared` says whether
     // the entity itself declares obligations.
-    let testable = specforge_emitter::coverage::testable_kinds(&state.kind_registry)
+    let testable = specforge_emitter::coverage::testable_kinds(&state.registries().kinds)
         .contains(node.kind.raw.as_str());
     let verify_declarations: Option<Vec<String>> = declared.then(|| {
         obligations
@@ -47,13 +47,13 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     });
 
     let references: Vec<String> = state
-        .graph
+        .graph()
         .edges_to(entity_id)
         .iter()
         .map(|e| e.source.to_string())
         .chain(
             state
-                .graph
+                .graph()
                 .edges_from(entity_id)
                 .iter()
                 .map(|e| e.target.to_string()),
@@ -61,7 +61,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         .collect();
 
     let entity_diagnostics: Vec<Value> = state
-        .diagnostics
+        .diagnostics()
         .iter()
         .filter(|d| belongs_to(d, node))
         .map(|d| {

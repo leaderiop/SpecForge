@@ -98,16 +98,19 @@ fn test_server() -> McpServer {
         target: "alpha".into(),
         label: "behaviors".into(),
     });
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
     for (kind, testable) in [("behavior", true), ("invariant", true), ("feature", false)] {
-        state.kind_registry.register(kind_entry(kind, testable));
-        // As @specforge/testing does: a testable software kind must declare
-        // obligations (W004), so its entities count toward coverage.
-        if testable {
-            state
-                .rules
-                .push((obligations_rule(kind), "@test/ext".into()));
-        }
+        state.edit_environment(|env| {
+            env.registries.kinds.register(kind_entry(kind, testable));
+            // As @specforge/testing does: a testable software kind must
+            // declare obligations (W004), so its entities count toward
+            // coverage.
+            if testable {
+                env.registries
+                    .rules
+                    .push((obligations_rule(kind), "@test/ext".into()));
+            }
+        });
     }
 
     server
@@ -689,15 +692,17 @@ fn server_with_report(tests: &[(&str, &str)]) -> (McpServer, tempfile::TempDir) 
                 .to_vec(),
         ),
     );
-    server.state_mut().graph.add_node(Node {
-        id: EntityId { raw: "two".into() },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: None,
-        fields,
-        source_span: span(),
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId { raw: "two".into() },
+            kind: EntityKind {
+                raw: "behavior".into(),
+            },
+            title: None,
+            fields,
+            source_span: span(),
+            methods: Vec::new(),
+        });
     });
     let tests: Vec<Value> = tests
         .iter()
@@ -773,17 +778,19 @@ fn coverage_sees_statements_behind_a_verify_field() {
             description: "payload is valid".into(),
         }]),
     );
-    server.state_mut().graph.add_node(Node {
-        id: EntityId {
-            raw: "payload".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: None,
-        fields,
-        source_span: span(),
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId {
+                raw: "payload".into(),
+            },
+            kind: EntityKind {
+                raw: "behavior".into(),
+            },
+            title: None,
+            fields,
+            source_span: span(),
+            methods: Vec::new(),
+        });
     });
 
     let resp = call_tool(
@@ -1082,7 +1089,7 @@ fn analyze_of_another_project_leaves_the_served_one() {
     let (mut server, _ext, _served) = fake_extension::initialized(FakeExtension::new());
     let served_root = server.state_mut().project_root.clone();
     assert!(served_root.is_some());
-    let served_nodes = server.state_mut().graph.node_count();
+    let served_nodes = server.state_mut().graph().node_count();
 
     let other = tempfile::tempdir().unwrap();
     std::fs::write(
@@ -1104,7 +1111,7 @@ fn analyze_of_another_project_leaves_the_served_one() {
     assert_eq!(parsed["passes"][0]["pass"], "contracts", "{parsed}");
 
     assert_eq!(server.state_mut().project_root, served_root);
-    assert_eq!(server.state_mut().graph.node_count(), served_nodes);
+    assert_eq!(server.state_mut().graph().node_count(), served_nodes);
 }
 
 // --- specforge.stats ---
@@ -1141,17 +1148,19 @@ fn stats_returns_statistics() {
     );
 
     // Another behavior shows up in its kind's count.
-    server.state_mut().graph.add_node(Node {
-        id: EntityId {
-            raw: "delta".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: None,
-        fields: FieldMap::new(),
-        source_span: span(),
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId {
+                raw: "delta".into(),
+            },
+            kind: EntityKind {
+                raw: "behavior".into(),
+            },
+            title: None,
+            fields: FieldMap::new(),
+            source_span: span(),
+            methods: Vec::new(),
+        });
     });
     let parsed: Value = serde_json::from_str(&tool_text(&call_tool(
         &mut server,
@@ -1216,15 +1225,15 @@ fn validate_returns_all_diagnostics() {
     let project = project_with_errors_and_warnings();
     let mut server = test_server();
     server.state_mut().project_root = Some(project.path().to_path_buf());
-    assert!(server.state().graph.node("alpha").is_some());
-    assert!(server.state().diagnostics.is_empty());
+    assert!(server.state().graph().node("alpha").is_some());
+    assert!(server.state().diagnostics().is_empty());
 
     let resp = call_tool(&mut server, "specforge.validate", json!({}));
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
 
     // The project was compiled: its entities replaced the injected graph,
     // and its diagnostics are the ones returned.
-    let graph = &server.state().graph;
+    let graph = &server.state().graph();
     assert!(graph.node("lonely").is_some());
     assert!(graph.node("act").is_some());
     assert!(graph.node("alpha").is_none(), "the old graph remains");
@@ -1236,7 +1245,7 @@ fn validate_returns_all_diagnostics() {
         .collect();
     assert!(codes.contains(&"E003"), "{codes:?}");
     assert!(codes.contains(&"W003"), "{codes:?}");
-    assert_eq!(codes.len(), server.state().diagnostics.len());
+    assert_eq!(codes.len(), server.state().diagnostics().len());
 }
 
 /// A project whose check yields errors (E003, E006) and warnings (W003, W006).
@@ -1328,7 +1337,7 @@ fn validate_use_cached_false() {
         !second.contains(&"E003".to_string()),
         "use_cached=false must recompile: {second:?}"
     );
-    assert!(server.state().graph.node("fixed").is_some());
+    assert!(server.state().graph().node("fixed").is_some());
 }
 
 /// The diagnostic codes of a `specforge.validate` response.
@@ -1585,17 +1594,19 @@ fn stats_includes_coverage_percentage() {
             description: "gamma holds".into(),
         }]),
     );
-    server.state_mut().graph.add_node(Node {
-        id: EntityId {
-            raw: "gamma_orphan".into(),
-        },
-        kind: EntityKind {
-            raw: "invariant".into(),
-        },
-        title: Some("Gamma Orphan".into()),
-        fields,
-        source_span: span(),
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId {
+                raw: "gamma_orphan".into(),
+            },
+            kind: EntityKind {
+                raw: "invariant".into(),
+            },
+            title: Some("Gamma Orphan".into()),
+            fields,
+            source_span: span(),
+            methods: Vec::new(),
+        });
     });
     assert_eq!(coverage(&mut server), 100.0);
 }
@@ -1735,7 +1746,7 @@ fn stats_diagnostic_summary_severity_counts() {
         span: Some(span()),
         suggestion: None,
     };
-    server.state_mut().diagnostics = vec![
+    server.state_mut().surface_diagnostics = vec![
         diagnostic("E003", Severity::Error),
         diagnostic("W001", Severity::Warning),
         diagnostic("W003", Severity::Warning),
@@ -1789,7 +1800,7 @@ fn validate_use_cached_true() {
         json!({"use_cached": true}),
     ));
     assert_eq!(cached, first);
-    assert!(server.state().graph.node("fixed").is_none());
+    assert!(server.state().graph().node("fixed").is_none());
 
     // Proof the change on disk is visible to a fresh compile.
     let fresh = codes_of(&call_tool(&mut server, "specforge.validate", json!({})));
@@ -1815,7 +1826,7 @@ fn validate_updates_graph() {
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     let diagnostics = parsed.as_array().unwrap();
     // All of them: as many as the compile produced.
-    assert_eq!(diagnostics.len(), server.state().diagnostics.len());
+    assert_eq!(diagnostics.len(), server.state().diagnostics().len());
     for d in diagnostics {
         for key in ["code", "severity", "message"] {
             assert!(d[key].is_string(), "{key} missing in {d}");

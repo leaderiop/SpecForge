@@ -69,7 +69,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         deps: dep_depth,
     };
 
-    let outline = OutlineIntermediate_from_manifests(&state.manifests);
+    let outline = OutlineIntermediate_from_manifests(&state.registries().manifests);
     let output = render(&outline, &options);
 
     ToolOutcome::text(output)

@@ -87,7 +87,7 @@ fn auto_promote_commands(
         let (tools, diagnostics) =
             specforge_wasm::auto_promote_commands_to_mcp_tools(&commands, &explicit, &short);
         conflict_count += diagnostics.len();
-        state.diagnostics.extend(diagnostics);
+        state.surface_diagnostics.extend(diagnostics);
 
         for tool in tools {
             let Some(cmd) = surfaces
@@ -99,8 +99,7 @@ fn auto_promote_commands(
             };
             // The promoted tool follows its command's enabled state.
             let enabled = state
-                .surface_entries
-                .iter()
+                .surface_entries()
                 .find(|e| {
                     e.surface_type == SurfaceType::Command
                         && e.contribution_name == cmd.id
@@ -117,7 +116,7 @@ fn auto_promote_commands(
                 source: Some(ext_name.clone()),
                 annotations: None,
             });
-            state.surface_entries.push(SurfaceRegistryEntry {
+            state.promoted_surfaces.push(SurfaceRegistryEntry {
                 surface_type: SurfaceType::AutoPromotedTool,
                 contribution_name: tool.name,
                 extension_name: ext_name.clone(),
@@ -159,6 +158,7 @@ fn arg_type_name(arg_type: &CommandArgType) -> &'static str {
 /// else the last segment of its name (`@specforge/product` -> `product`).
 fn ext_short(state: &McpState, ext_name: &str) -> String {
     state
+        .registries()
         .manifests
         .iter()
         .find(|m| m.name == ext_name)
@@ -279,8 +279,7 @@ fn is_template(resource: &McpResourceDescriptor) -> bool {
 /// contribution is disabled: disabled contributions are not advertised.
 fn disabled(state: &McpState, name: &str, types: &[SurfaceType]) -> bool {
     state
-        .surface_entries
-        .iter()
+        .surface_entries()
         .any(|e| !e.enabled && e.contribution_name == name && types.contains(&e.surface_type))
 }
 

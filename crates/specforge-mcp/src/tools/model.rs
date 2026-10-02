@@ -88,10 +88,10 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     };
 
     let schema = generate_schema(
-        &state.kind_registry,
-        &state.edge_registry,
-        &state.field_registry,
-        &state.extension_info,
+        &state.registries().kinds,
+        &state.registries().edges,
+        &state.registries().fields,
+        &state.registries().extension_info,
     );
 
     let model = ModelIntermediate_from_schema(&schema);

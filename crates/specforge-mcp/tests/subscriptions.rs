@@ -143,7 +143,7 @@ fn evolve_project(root: &TempDir, entity: &str) {
 fn subscribe_recompile_delivers_graph_notification() {
     let dir = project();
     let mut server = init_with_project(&dir);
-    assert!(server.state().graph.node_count() > 0);
+    assert!(server.state().graph().node_count() > 0);
 
     let resp = call(
         &mut server,
@@ -238,8 +238,8 @@ fn shutdown_event_counts_what_it_released() {
         .expect("mcp_server_shutdown emitted");
     assert_eq!(event.params["pending_notifications_flushed"], pending);
     assert_eq!(event.params["subscriptions_released"], 2);
-    // The server holds no Wasm engine between requests.
-    assert_eq!(event.params["wasm_engines_released"], 0);
+    // The served project's runtime is released with its session.
+    assert_eq!(event.params["wasm_engines_released"], 1);
 }
 
 fn subscribe_as(server: &mut McpServer, client: &str, uri: &str) {

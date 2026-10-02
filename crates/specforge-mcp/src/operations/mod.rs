@@ -4,10 +4,11 @@
 //! real work or refuses with an explicit error; it never lies).
 
 use serde_json::{Value, json};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use specforge_common::{Diagnostic, find_project_root};
+use specforge_project::SourceChange;
 use specforge_wasm::read_lock_file;
 
 use crate::args::{lenient, strings};
@@ -94,9 +95,9 @@ pub(crate) fn export_graph(
 ) -> Result<String, specforge_ops::OpError> {
     let schema = project_schema(state);
     let project = specforge_ops::export::Project {
-        graph: &state.graph,
-        kinds: &state.kind_registry,
-        fields: &state.field_registry,
+        graph: state.graph(),
+        kinds: &state.registries().kinds,
+        fields: &state.registries().fields,
         schema: &schema,
     };
     specforge_ops::export::export(&project, request)
@@ -107,10 +108,10 @@ pub(crate) fn export_graph(
 /// and the one `specforge.schema` and `specforge://schema` serve.
 pub(crate) fn project_schema(state: &McpState) -> specforge_emitter::GraphProtocolSchema {
     let mut schema = specforge_emitter::generate_schema(
-        &state.kind_registry,
-        &state.edge_registry,
-        &state.field_registry,
-        &state.extension_info,
+        &state.registries().kinds,
+        &state.registries().edges,
+        &state.registries().fields,
+        &state.registries().extension_info,
     );
     if let Some(root) = &state.project_root {
         specforge_emitter::attach_schema_version(&mut schema, &root.join(".specforge"));
@@ -209,7 +210,7 @@ pub(crate) fn format_op(state: &mut McpState, args: FormatArgs) -> ToolOutcome {
     result["failed_files"] = Value::from(failed_files);
     // What was written is on disk: serve it, as a successful run would be.
     if outcome.changes.iter().any(|c| c.written(mode)) && !state.serves_other_than(&project_root) {
-        state.recompile(&project_root);
+        state.reload(&project_root);
     }
     let message = result["message"].as_str().unwrap_or_default().to_string();
     McpError::new(ErrorCode::InternalError, message)
@@ -244,7 +245,7 @@ pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
         );
     }
 
-    if state.graph.node(entity_id).is_none() {
+    if state.graph().node(entity_id).is_none() {
         return McpError::new(
             ErrorCode::EntityNotFound,
             format!("Entity not found: {entity_id}"),
@@ -257,9 +258,11 @@ pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
     };
 
     // Spans are relative to the spec root the graph was compiled from.
-    let spec_root = state.spec_root.clone().unwrap_or_else(|| root.clone());
+    let spec_root = state
+        .spec_root()
+        .map_or_else(|| root.clone(), Path::to_path_buf);
     let Some(edits) =
-        specforge_graph::rename::identifier_edits(&state.graph, entity_id, new_name, |file| {
+        specforge_graph::rename::identifier_edits(state.graph(), entity_id, new_name, |file| {
             std::fs::read_to_string(spec_root.join(file)).ok()
         })
     else {
@@ -312,8 +315,10 @@ pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
             );
         }
     }
-    state.recompile(&root);
-    result["diagnostics"] = serde_json::to_value(&state.diagnostics).unwrap_or_default();
+    // Only the renamed files changed: the session rebuilds them.
+    let changed: Vec<String> = affected_files.iter().map(|f| f.to_string()).collect();
+    state.apply_source_change(&root, SourceChange::Disk(&changed));
+    result["diagnostics"] = serde_json::to_value(state.diagnostics()).unwrap_or_default();
     ok(result)
 }
 
@@ -490,9 +495,9 @@ pub(crate) fn remove_extension_op(state: &McpState, args: RemoveArgs) -> ToolOut
         name: &name,
         force,
         dry_run,
-        loaded: &state.manifests,
-        kinds: &state.kind_registry,
-        graph: &state.graph,
+        loaded: &state.registries().manifests,
+        kinds: &state.registries().kinds,
+        graph: state.graph(),
     };
     match specforge_ops::extension::remove(&request) {
         Ok(outcome) => {
@@ -618,7 +623,12 @@ pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> Too
         return ToolOutcome::no_project("no project root available");
     };
     // The shared listing, over what the session compiled.
-    let entries = extension::list(root, &state.manifests, &state.kind_registry, &state.graph);
+    let entries = extension::list(
+        root,
+        &state.registries().manifests,
+        &state.registries().kinds,
+        state.graph(),
+    );
     let listed: Vec<Value> = entries
         .iter()
         .map(|e| {
@@ -646,7 +656,7 @@ pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> Too
         })
         .unwrap_or_default();
     let kinds: std::collections::BTreeSet<String> = state
-        .graph
+        .graph()
         .nodes()
         .iter()
         .map(|n| n.kind.raw.to_string())
@@ -667,7 +677,8 @@ pub(crate) fn providers_op(state: &McpState, _args: crate::args::NoArgs) -> Tool
     };
     // The providers specforge.json configures, as the scheme registry built
     // from the loaded extensions sees them: the listing the CLI prints.
-    let (providers, diagnostics) = specforge_ops::extension::providers(root, &state.manifests);
+    let (providers, diagnostics) =
+        specforge_ops::extension::providers(root, &state.registries().manifests);
     let listed: Vec<Value> = providers
         .iter()
         .map(|p| {
@@ -704,10 +715,11 @@ pub(crate) fn doctor_op(state: &mut McpState, args: DoctorArgs) -> ToolOutcome {
     // since, and the session would not know.
     let use_cached = args.use_cached.unwrap_or(false);
     if !use_cached || state.loaded_at.is_none() {
-        state.recompile(&root);
+        state.reload(&root);
     }
     // The same report `specforge doctor` prints.
-    let report = specforge_ops::doctor::diagnose(&root, &state.manifests, &state.diagnostics);
+    let report =
+        specforge_ops::doctor::diagnose(&root, &state.registries().manifests, &state.diagnostics());
     let conflicts: Vec<&str> = report
         .conflicts
         .iter()
@@ -740,7 +752,7 @@ pub struct CollectArgs {
     path: Option<String>,
 }
 
-pub(crate) fn collect_op(state: &McpState, args: CollectArgs) -> ToolOutcome {
+pub(crate) fn collect_op(state: &mut McpState, args: CollectArgs) -> ToolOutcome {
     use specforge_emitter::collect::{self, Mode, Request, RunnerOutput};
 
     let Some(root) = project_root_of(state, args.path.as_deref()) else {
@@ -749,9 +761,22 @@ pub(crate) fn collect_op(state: &McpState, args: CollectArgs) -> ToolOutcome {
     let runner = args.runner.as_deref().filter(|r| *r != "auto");
     let run = args.run.unwrap_or(false);
 
-    let runtime = specforge_component::project_runtime(&root);
-    let ctx = specforge_project::CompiledProject::compile(&root, Some(&runtime)).into_context();
-    let known = collect::KnownEntities::from_graph(&ctx.graph);
+    // Tests map to the entities on disk now. The served project is
+    // reloaded and collected with its own runtime; another project is
+    // compiled for the call only.
+    let other = state.serves_other_than(&root);
+    if !other {
+        state.reload(&root);
+    }
+    let state: &McpState = state;
+    let runtime = state.wasm_runtime(&root);
+    let compiled =
+        other.then(|| specforge_project::CompiledProject::compile(&root, Some(runtime.as_ref())));
+    let (graph, manifests) = match &compiled {
+        Some(project) => (&project.graph, &project.env.registries.manifests),
+        None => (state.graph(), &state.registries().manifests),
+    };
+    let known = collect::KnownEntities::from_graph(graph);
 
     // The server never prompts: a command runs only if the user already
     // approved it for this project with `specforge collect` in a terminal.
@@ -769,8 +794,8 @@ pub(crate) fn collect_op(state: &McpState, args: CollectArgs) -> ToolOutcome {
     };
     match collect::collect(
         &request,
-        &ctx.manifests,
-        &runtime,
+        manifests,
+        runtime.as_ref(),
         &known,
         &mut approve,
         &mut |_, _| {},

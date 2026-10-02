@@ -9,7 +9,7 @@ pub struct Args {
 pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let entity_id = args.entity_id.as_str();
 
-    let node = match state.graph.node(entity_id) {
+    let node = match state.graph().node(entity_id) {
         Some(n) => n,
         None => {
             return McpError::new(

@@ -28,6 +28,7 @@ pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
     };
 
     let analyzer_configs: Vec<AnalyzerConfig> = state
+        .registries()
         .manifests
         .iter()
         .flat_map(|m| m.analyzer_contributions.iter())
@@ -44,13 +45,13 @@ pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
     let runtime = state.wasm_runtime(&project_root);
     let (all_items, scanners_used) = scanner_dispatch::scan_source_files(
         runtime.as_ref(),
-        &state.manifests,
+        &state.registries().manifests,
         &project_root,
         &source_files,
     );
 
     let entity_ids: Vec<&str> = state
-        .graph
+        .graph()
         .nodes()
         .into_iter()
         .map(|n| n.id.raw.as_str())

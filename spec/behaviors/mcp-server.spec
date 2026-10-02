@@ -78,7 +78,7 @@ behavior mcp_shutdown "MCP Shutdown" {
   ensures {
     notifications_flushed "All pending notifications flushed before exit"
     subscriptions_removed "All active subscriptions unsubscribed and mcp_subscription_removed emitted"
-    wasm_engines_released "No Wasm engine instance outlives shutdown (compiles hold none between requests)"
+    wasm_engines_released "No Wasm engine instance outlives shutdown (the served project's runtime is released with its session)"
     shutdown_emitted      "mcp_server_shutdown event emitted"
   }
   contract   """

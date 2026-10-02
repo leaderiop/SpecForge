@@ -30,10 +30,10 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     // The same expectations `specforge trace` uses, so both flag the same
     // missing links.
     let expectations = specforge_emitter::TraceExpectations::from_registries(
-        &state.field_registry,
-        &state.kind_registry,
+        &state.registries().fields,
+        &state.registries().kinds,
     );
-    match specforge_emitter::trace_with_expectations(&state.graph, entity_id, &expectations) {
+    match specforge_emitter::trace_with_expectations(state.graph(), entity_id, &expectations) {
         Ok(chain) => {
             let mut trace_val: serde_json::Value = match specforge_emitter::serialize_trace(&chain)
             {
@@ -102,10 +102,11 @@ pub(crate) fn analyze_plan(state: &McpState, plan: &Value) -> Result<PlanAnalysi
         }
     }
 
-    let testable: Vec<&str> = specforge_emitter::coverage::testable_kinds(&state.kind_registry)
-        .into_iter()
-        .collect();
-    let result = specforge_emitter::validate_plan(&state.graph, plan, &testable);
+    let testable: Vec<&str> =
+        specforge_emitter::coverage::testable_kinds(&state.registries().kinds)
+            .into_iter()
+            .collect();
+    let result = specforge_emitter::validate_plan(state.graph(), plan, &testable);
     let gaps = result
         .gaps
         .iter()

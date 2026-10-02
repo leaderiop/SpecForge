@@ -20,8 +20,8 @@ fn enqueue_delivers_graph_and_diagnostics_to_subscribers() {
     let previous = Graph::new();
     let mut current = Graph::new();
     current.add_node(node("alpha"));
-    state.graph = current;
-    state.diagnostics = vec![Diagnostic {
+    state.serve_graph(current, Vec::new());
+    state.surface_diagnostics = vec![Diagnostic {
         code: "V001".into(),
         severity: Severity::Error,
         message: "boom".into(),
@@ -55,7 +55,7 @@ fn enqueue_suppresses_unsubscribed_and_unchanged() {
 
     let mut graph = Graph::new();
     graph.add_node(node("alpha"));
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
 
     // Graph changed but nobody subscribes; diagnostics unchanged anyway.
     enqueue_compile_notifications(&mut state, &Graph::new(), &[]);
@@ -65,7 +65,7 @@ fn enqueue_suppresses_unsubscribed_and_unchanged() {
     );
 
     // Diagnostics changed and the channel is subscribed.
-    state.diagnostics = vec![Diagnostic {
+    state.surface_diagnostics = vec![Diagnostic {
         code: "V001".into(),
         severity: Severity::Error,
         message: "boom".into(),
@@ -271,7 +271,7 @@ fn diagnostics_no_notification_when_unchanged() {
     // diagnostics as they were ...
     let mut state = McpState::new();
     subscriptions::subscribe(&mut state, "c1", DIAGNOSTICS_CHANNEL);
-    state.diagnostics = diags.clone();
+    state.surface_diagnostics = diags.clone();
     enqueue_compile_notifications(&mut state, &Graph::new(), &diags);
     assert!(
         state.notification_outbox.is_empty(),

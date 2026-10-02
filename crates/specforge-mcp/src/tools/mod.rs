@@ -40,10 +40,17 @@ pub(crate) fn unknown_kind_diagnostics(
     kinds: &[&str],
 ) -> Vec<specforge_common::Diagnostic> {
     let mut known: Vec<&str> = state
-        .kind_registry
+        .registries()
+        .kinds
         .keywords()
         .map(String::as_str)
-        .chain(state.graph.nodes().into_iter().map(|n| n.kind.raw.as_str()))
+        .chain(
+            state
+                .graph()
+                .nodes()
+                .into_iter()
+                .map(|n| n.kind.raw.as_str()),
+        )
         .collect();
     known.sort_unstable();
     known.dedup();
@@ -139,8 +146,7 @@ pub fn core_tool(name: &str) -> Option<&'static ToolSpec> {
 /// The enabled extension tool named `name`.
 fn extension_entry(state: &McpState, name: &str) -> Option<SurfaceRegistryEntry> {
     state
-        .surface_entries
-        .iter()
+        .surface_entries()
         .find(|e| {
             (e.surface_type == SurfaceType::McpTool
                 || e.surface_type == SurfaceType::AutoPromotedTool)
@@ -228,14 +234,14 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
 
     if let Some(mutation) = mutation {
         // A mutation that wrote files leaves the server serving what is
-        // on disk: the tool recompiled already (rename), or it is
-        // recompiled now.
+        // on disk: the tool updated the served project already (rename),
+        // or it is reloaded now.
         if mutation.recompiles
             && outcome.succeeded()
             && state.loaded_at == served_since
             && let Some(root) = state.project_root.clone()
         {
-            state.recompile(&root);
+            state.reload(&root);
         }
         // Every call that meant to write reports what its structured
         // result says it changed: nothing, when it failed.

@@ -15,7 +15,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let entities: Vec<Value> = if kind.is_empty() {
         // No kind filter: return all entities
         state
-            .graph
+            .graph()
             .nodes()
             .iter()
             .map(|n| {
@@ -29,7 +29,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     } else {
         // Filter by kind
         state
-            .graph
+            .graph()
             .nodes_by_kind(kind)
             .iter()
             .map(|n| {

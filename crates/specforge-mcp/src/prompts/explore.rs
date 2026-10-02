@@ -9,7 +9,7 @@ use crate::state::McpState;
 /// edge labels along the shortest path. With `kind`, only paths ending at
 /// an entity of that kind are kept.
 fn bfs_paths(state: &McpState, start: &str, kind: Option<&str>) -> Vec<Value> {
-    if state.graph.node(start).is_none() {
+    if state.graph().node(start).is_none() {
         return Vec::new();
     }
     // Entity id -> edge labels on the shortest path from `start`.
@@ -19,13 +19,13 @@ fn bfs_paths(state: &McpState, start: &str, kind: Option<&str>) -> Vec<Value> {
     while let Some(current) = queue.pop_front() {
         let path = labels[&current].clone();
         let mut neighbors: Vec<(String, String)> = state
-            .graph
+            .graph()
             .edges_from(&current)
             .iter()
             .map(|e| (e.target.to_string(), e.label.to_string()))
             .chain(
                 state
-                    .graph
+                    .graph()
                     .edges_to(&current)
                     .iter()
                     .map(|e| (e.source.to_string(), e.label.to_string())),
@@ -46,7 +46,7 @@ fn bfs_paths(state: &McpState, start: &str, kind: Option<&str>) -> Vec<Value> {
     order
         .into_iter()
         .filter(|id| {
-            kind.is_none_or(|kind| state.graph.node(id).is_some_and(|n| n.kind.raw == kind))
+            kind.is_none_or(|kind| state.graph().node(id).is_some_and(|n| n.kind.raw == kind))
         })
         .map(|id| {
             let edge_types = &labels[&id];
@@ -65,7 +65,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
     let kind_filter = args.get("kind").and_then(|v| v.as_str());
 
     let matching: Vec<String> = state
-        .graph
+        .graph()
         .nodes()
         .into_iter()
         .filter(|n| {
@@ -86,12 +86,12 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
 
     // High connectivity: nodes with most edges (exclude zero-edge nodes)
     let mut connectivity: Vec<(String, usize)> = state
-        .graph
+        .graph()
         .nodes()
         .into_iter()
         .map(|n| {
-            let count = state.graph.edges_from(n.id.raw.as_str()).len()
-                + state.graph.edges_to(n.id.raw.as_str()).len();
+            let count = state.graph().edges_from(n.id.raw.as_str()).len()
+                + state.graph().edges_to(n.id.raw.as_str()).len();
             (n.id.raw.to_string(), count)
         })
         .collect();
@@ -112,12 +112,12 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
 
     // Starting points: high out-degree, low in-degree
     let mut starting_points: Vec<(String, i64)> = state
-        .graph
+        .graph()
         .nodes()
         .into_iter()
         .map(|n| {
-            let out = state.graph.edges_from(n.id.raw.as_str()).len() as i64;
-            let in_ = state.graph.edges_to(n.id.raw.as_str()).len() as i64;
+            let out = state.graph().edges_from(n.id.raw.as_str()).len() as i64;
+            let in_ = state.graph().edges_to(n.id.raw.as_str()).len() as i64;
             (n.id.raw.to_string(), out - in_)
         })
         .collect();

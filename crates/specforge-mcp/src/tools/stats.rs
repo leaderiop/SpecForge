@@ -13,9 +13,9 @@ pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
         Err(outcome) => return outcome,
     };
     let stats = specforge_emitter::compute_project_stats(
-        &state.graph,
+        state.graph(),
         &coverage.summary,
-        &state.diagnostics,
+        &state.diagnostics(),
     );
 
     let entity_counts: Vec<Value> = stats

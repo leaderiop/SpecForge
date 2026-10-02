@@ -59,7 +59,7 @@ fn test_server() -> McpServer {
         target: "alpha".into(),
         label: "behaviors".into(),
     });
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
 
     server
 }

@@ -87,7 +87,7 @@ fn init_server_with_kinds() -> McpServer {
         methods: Vec::new(),
     });
 
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
     server
 }
 
@@ -142,19 +142,21 @@ fn init_server_with_surfaces() -> (McpServer, TempDir) {
         description: Some("All items resource".into()),
         mime_type: Some("application/json".into()),
     });
-    state.surface_entries.push(SurfaceRegistryEntry {
-        extension_name: "@test/surfaces".into(),
-        surface_type: SurfaceType::McpTool,
-        contribution_name: "test.list_items".into(),
-        export_name: "mcp__list_items".into(),
-        enabled: true,
-    });
-    state.surface_entries.push(SurfaceRegistryEntry {
-        extension_name: "@test/surfaces".into(),
-        surface_type: SurfaceType::McpResource,
-        contribution_name: "test-items".into(),
-        export_name: "mcp__test_items".into(),
-        enabled: true,
+    state.edit_environment(|env| {
+        env.registries.surfaces.push(SurfaceRegistryEntry {
+            extension_name: "@test/surfaces".into(),
+            surface_type: SurfaceType::McpTool,
+            contribution_name: "test.list_items".into(),
+            export_name: "mcp__list_items".into(),
+            enabled: true,
+        });
+        env.registries.surfaces.push(SurfaceRegistryEntry {
+            extension_name: "@test/surfaces".into(),
+            surface_type: SurfaceType::McpResource,
+            contribution_name: "test-items".into(),
+            export_name: "mcp__test_items".into(),
+            enabled: true,
+        });
     });
 
     (server, dir)
@@ -557,8 +559,7 @@ fn auto_promoted_tool_name_follows_pattern() {
     // specforge.cmds.<command id>, dispatched to the command's export.
     let promoted: Vec<(String, String, String)> = server
         .state()
-        .surface_entries
-        .iter()
+        .surface_entries()
         .filter(|e| e.surface_type == specforge_registry::SurfaceType::AutoPromotedTool)
         .map(|e| {
             (
@@ -629,7 +630,7 @@ fn explicit_mcp_tool_wins_over_auto_promoted() {
     );
     let i017: Vec<_> = server
         .state()
-        .diagnostics
+        .diagnostics()
         .iter()
         .filter(|d| d.code == "I017")
         .map(|d| (d.severity, d.message.clone()))
@@ -690,7 +691,7 @@ fn event_commands_auto_promoted() {
 
 #[specforge_test(
     behavior = "dispatch_surface_mcp_tool",
-    verify = "the served project's runtime loads on the first call that needs it and serves later calls until the project recompiles"
+    verify = "the served project's runtime is the one its compile loaded and serves later calls until the project reloads"
 )]
 fn one_runtime_serves_extension_calls_until_the_next_compile() {
     let dir = TempDir::new().unwrap();
@@ -709,28 +710,34 @@ fn one_runtime_serves_extension_calls_until_the_next_compile() {
         json!({"projectRoot": dir.path().to_str().unwrap()}),
     );
     let root = server.state().project_root.clone().unwrap();
+    let compiled = std::sync::Arc::clone(
+        server
+            .state()
+            .session()
+            .runtime()
+            .expect("the served session runs its extensions"),
+    );
     assert!(
-        !server.state().has_loaded_runtime(),
-        "compiling loads no runtime for later calls"
+        std::sync::Arc::ptr_eq(&compiled, &server.state().wasm_runtime(&root)),
+        "extension calls run in the runtime the compile loaded"
     );
 
-    // analyze runs the extensions' passes: the first call loads the runtime.
+    // analyze runs the extensions' passes in it, call after call.
     let analyze = json!({"use_cached": true});
     call_tool(&mut server, "specforge.analyze", analyze.clone());
-    assert!(server.state().has_loaded_runtime());
-    let first = server.state().wasm_runtime(&root);
     call_tool(&mut server, "specforge.analyze", analyze);
     assert!(
-        std::sync::Arc::ptr_eq(&first, &server.state().wasm_runtime(&root)),
+        std::sync::Arc::ptr_eq(&compiled, &server.state().wasm_runtime(&root)),
         "later calls reuse it"
     );
 
-    // A recompile may load other modules: the next call loads them anew.
+    // A reload may load other modules: later calls run in its runtime.
     call_tool(&mut server, "specforge.validate", json!({}));
-    assert!(!server.state().has_loaded_runtime());
-    assert!(!std::sync::Arc::ptr_eq(
-        &first,
-        &server.state().wasm_runtime(&root)
+    let reloaded = server.state().wasm_runtime(&root);
+    assert!(!std::sync::Arc::ptr_eq(&compiled, &reloaded));
+    assert!(std::sync::Arc::ptr_eq(
+        &reloaded,
+        server.state().session().runtime().unwrap()
     ));
 }
 

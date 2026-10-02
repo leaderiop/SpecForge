@@ -127,9 +127,13 @@ fn test_server() -> McpServer {
         methods: Vec::new(),
     });
     graph.add_edge(edge("beta", "alpha", "behaviors"));
-    state.graph = graph;
-    state.kind_registry.register(kind_entry("behavior", true));
-    state.kind_registry.register(kind_entry("feature", false));
+    state.serve_graph(graph, Vec::new());
+    state.edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("behavior", true));
+    });
+    state.edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("feature", false));
+    });
     attach_project(state);
 
     server
@@ -362,7 +366,7 @@ fn contract_initialize() {
         "initialize must adopt the projectRoot it was given"
     );
     assert_eq!(
-        server.state().extension_info,
+        server.state().registries().extension_info,
         [(EXT.to_string(), "0.1.0".to_string())]
     );
 
@@ -442,9 +446,9 @@ fn contract_shutdown() {
 
     // wasm_engines_released: nothing compiled survives shutdown.
     let state = server.state();
-    assert_eq!(state.graph.node_count(), 0);
-    assert!(state.manifests.is_empty());
-    assert!(state.surface_entries.is_empty());
+    assert_eq!(state.graph().node_count(), 0);
+    assert!(state.registries().manifests.is_empty());
+    assert!(state.surface_entries().next().is_none());
     assert!(state.project_root.is_none());
 
     // shutdown_emitted, with what it released.
@@ -481,7 +485,7 @@ fn unknown_kind(kind: &str, suggestion: Option<&str>) -> Value {
 fn contract_query() {
     let mut server = test_server();
     // graph_available: the tool reads the server's compiled graph.
-    assert_eq!(server.state().graph.node_count(), 2);
+    assert_eq!(server.state().graph().node_count(), 2);
     let resp = call_tool(
         &mut server,
         "specforge.query",
@@ -583,12 +587,14 @@ fn contract_export() {
     // token_budget_enforced: an orphan with a long contract is the first
     // thing a tight budget drops; the connected pair stays.
     let long = "MUST ".repeat(200);
-    server.state_mut().graph.add_node(node(
-        "gamma",
-        "behavior",
-        span_at("test.spec", 10, 0, 12),
-        text_field("contract", &long),
-    ));
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "behavior",
+            span_at("test.spec", 10, 0, 12),
+            text_field("contract", &long),
+        ));
+    });
     let budgeted = tool(
         &mut server,
         "specforge.export",
@@ -797,14 +803,16 @@ fn contract_stats() {
 
     // latest_state_reflected: a new orphan and a warning show up at once.
     let state = server.state_mut();
-    state.graph.add_node(node(
-        "gamma",
-        "behavior",
-        span_at("test.spec", 10, 0, 12),
-        FieldMap::new(),
-    ));
+    state.edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "behavior",
+            span_at("test.spec", 10, 0, 12),
+            FieldMap::new(),
+        ));
+    });
     state
-        .diagnostics
+        .surface_diagnostics
         .push(diagnostic("W001", "a warning", None));
     let stats = tool(&mut server, "specforge.stats", json!({}));
     assert_eq!(
@@ -823,7 +831,7 @@ fn contract_stats() {
 )]
 fn contract_inspect() {
     let mut server = test_server();
-    let diagnostics = &mut server.state_mut().diagnostics;
+    let diagnostics = &mut server.state_mut().surface_diagnostics;
     // One diagnostic inside alpha's span, one in beta's file.
     diagnostics.push(diagnostic(
         "W001",
@@ -868,12 +876,14 @@ fn contract_inspect() {
 )]
 fn contract_find_definition() {
     let mut server = test_server();
-    server.state_mut().graph.add_node(node(
-        "gamma",
-        "behavior",
-        span_at("more/gamma.spec", 7, 2, 9),
-        FieldMap::new(),
-    ));
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "behavior",
+            span_at("more/gamma.spec", 7, 2, 9),
+            FieldMap::new(),
+        ));
+    });
 
     let alpha = tool(
         &mut server,
@@ -955,7 +965,9 @@ fn contract_outline() {
         returns: Some("Bool".into()),
         span: span_at("test.spec", 8, 4, 8),
     });
-    server.state_mut().graph.add_node(gamma);
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(gamma);
+    });
 
     let outline = tool(
         &mut server,
@@ -1029,10 +1041,9 @@ fn contract_coverage() {
     assert_eq!(alpha["unproven"], json!([]));
 
     // testability_respected: the registry, not the kind name, decides.
-    server
-        .state_mut()
-        .kind_registry
-        .register(kind_entry("feature", true));
+    server.state_mut().edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("feature", true));
+    });
     let coverage = tool(&mut server, "specforge.coverage", json!({}));
     let beta = find(&coverage, "entity_id", "beta");
     assert_eq!(beta["obligations"], 0);
@@ -1084,12 +1095,14 @@ fn contract_schema() {
 fn contract_context_prompt() {
     let mut server = test_server();
     // An invariant nothing connects to alpha.
-    server.state_mut().graph.add_node(node(
-        "gamma",
-        "invariant",
-        span_at("inv.spec", 1, 0, 3),
-        text_field("guarantee", "never negative"),
-    ));
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "invariant",
+            span_at("inv.spec", 1, 0, 3),
+            text_field("guarantee", "never negative"),
+        ));
+    });
 
     let context = prompt(
         &mut server,
@@ -1130,20 +1143,28 @@ fn contract_review_prompt() {
     // gamma: a testable behavior of beta with no verify declarations;
     // delta: two hops from beta, outside depth 1.
     let state = server.state_mut();
-    state.graph.add_node(node(
-        "gamma",
-        "behavior",
-        span_at("test.spec", 7, 0, 9),
-        FieldMap::new(),
-    ));
-    state.graph.add_node(node(
-        "delta",
-        "behavior",
-        span_at("test.spec", 11, 0, 13),
-        FieldMap::new(),
-    ));
-    state.graph.add_edge(edge("beta", "gamma", "behaviors"));
-    state.graph.add_edge(edge("gamma", "delta", "depends_on"));
+    state.edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "behavior",
+            span_at("test.spec", 7, 0, 9),
+            FieldMap::new(),
+        ));
+    });
+    state.edit_graph(|graph| {
+        graph.add_node(node(
+            "delta",
+            "behavior",
+            span_at("test.spec", 11, 0, 13),
+            FieldMap::new(),
+        ));
+    });
+    state.edit_graph(|graph| {
+        graph.add_edge(edge("beta", "gamma", "behaviors"));
+    });
+    state.edit_graph(|graph| {
+        graph.add_edge(edge("gamma", "delta", "depends_on"));
+    });
 
     let review = prompt(
         &mut server,
@@ -1229,19 +1250,25 @@ fn contract_explore_prompt() {
     let mut server = test_server();
     // alpha <-behaviors- beta -invariants-> gamma; delta is an orphan.
     let state = server.state_mut();
-    state.graph.add_node(node(
-        "gamma",
-        "invariant",
-        span_at("inv.spec", 1, 0, 3),
-        FieldMap::new(),
-    ));
-    state.graph.add_node(node(
-        "delta",
-        "behavior",
-        span_at("test.spec", 11, 0, 13),
-        FieldMap::new(),
-    ));
-    state.graph.add_edge(edge("beta", "gamma", "invariants"));
+    state.edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "invariant",
+            span_at("inv.spec", 1, 0, 3),
+            FieldMap::new(),
+        ));
+    });
+    state.edit_graph(|graph| {
+        graph.add_node(node(
+            "delta",
+            "behavior",
+            span_at("test.spec", 11, 0, 13),
+            FieldMap::new(),
+        ));
+    });
+    state.edit_graph(|graph| {
+        graph.add_edge(edge("beta", "gamma", "invariants"));
+    });
 
     // exploration_returned: starting points, hubs and orphans.
     let explore = prompt(&mut server, "specforge://prompts/explore", json!({}));
@@ -1303,13 +1330,14 @@ fn add_extension_surface(server: &mut McpServer, name: &str, enabled: bool) {
         (SurfaceType::McpTool, format!("ext.{name}")),
         (SurfaceType::McpResource, format!("ext-{name}")),
     ] {
-        state.surface_entries.push(SurfaceRegistryEntry {
+        let entry = SurfaceRegistryEntry {
             surface_type,
             contribution_name: contribution,
             extension_name: "@test/ext".into(),
             export_name: format!("export_{name}"),
             enabled,
-        });
+        };
+        state.edit_environment(|env| env.registries.surfaces.push(entry));
     }
 }
 
@@ -1376,7 +1404,7 @@ fn contract_list_tools() {
     );
 
     // A disabled auto-promoted command is excluded too.
-    for entry in &mut server.state_mut().surface_entries {
+    for entry in &mut server.state_mut().promoted_surfaces {
         if entry.contribution_name == "specforge.cmds.report" {
             entry.enabled = false;
         }
@@ -1416,8 +1444,7 @@ fn contract_auto_promote_commands() {
     let entries = |ty: SurfaceType| -> Vec<(String, String)> {
         server
             .state()
-            .surface_entries
-            .iter()
+            .surface_entries()
             .filter(|e| e.surface_type == ty)
             .map(|e| (e.contribution_name.clone(), e.export_name.clone()))
             .collect()
@@ -1461,9 +1488,8 @@ fn contract_auto_promote_commands() {
     )
     .clone();
     assert_eq!(check["description"], "Explicit check tool");
-    let i017: Vec<&str> = server
-        .state()
-        .diagnostics
+    let diagnostics = server.state().diagnostics();
+    let i017: Vec<&str> = diagnostics
         .iter()
         .filter(|d| d.code == "I017")
         .map(|d| d.message.as_str())
@@ -1614,7 +1640,7 @@ fn contract_guard_reinit() {
     let state = server.state();
     assert_eq!(state.project_root, root);
     assert_eq!(state.tool_registry.len(), tools);
-    assert_eq!(state.graph.node_count(), 2);
+    assert_eq!(state.graph().node_count(), 2);
     let stats = tool(&mut server, "specforge.stats", json!({}));
     assert_eq!(stats["edge_count"], 1);
 
@@ -1679,7 +1705,7 @@ fn contract_protocol_error() {
     // server_operational: requests after the errors still succeed.
     let listed = call(&mut server, "tools/list", json!({}));
     assert!(!listed["result"]["tools"].as_array().unwrap().is_empty());
-    assert_eq!(server.state().graph.node_count(), 2);
+    assert_eq!(server.state().graph().node_count(), 2);
 
     // error_handled_emitted, once per error with its code.
     let codes: Vec<i64> = events(&server, "mcp_protocol_error_handled")
@@ -1782,7 +1808,7 @@ fn contract_validate() {
 )]
 fn contract_suggest_fixes() {
     let mut server = test_server();
-    server.state_mut().diagnostics.push(diagnostic(
+    server.state_mut().surface_diagnostics.push(diagnostic(
         "W001",
         "inside alpha",
         Some(span_at("test.spec", 2, 4, 2)),
@@ -2104,7 +2130,7 @@ fn contract_brief_resource() {
 )]
 fn contract_diagnostics_resource() {
     let mut server = test_server();
-    let diagnostics = &mut server.state_mut().diagnostics;
+    let diagnostics = &mut server.state_mut().surface_diagnostics;
     diagnostics.push(Diagnostic {
         code: "E003".into(),
         severity: Severity::Error,
@@ -2131,7 +2157,7 @@ fn contract_diagnostics_resource() {
     );
 
     // Updates with the compilation's diagnostics.
-    server.state_mut().diagnostics.clear();
+    server.state_mut().surface_diagnostics.clear();
     let (_, bag) = resource(&mut server, "specforge://diagnostics");
     assert_eq!(bag, json!([]));
 
@@ -2146,13 +2172,17 @@ fn contract_entity_resource() {
     let mut server = test_server();
     // gamma hangs off beta: two hops from alpha.
     let state = server.state_mut();
-    state.graph.add_node(node(
-        "gamma",
-        "invariant",
-        span_at("inv.spec", 1, 0, 3),
-        FieldMap::new(),
-    ));
-    state.graph.add_edge(edge("beta", "gamma", "invariants"));
+    state.edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "invariant",
+            span_at("inv.spec", 1, 0, 3),
+            FieldMap::new(),
+        ));
+    });
+    state.edit_graph(|graph| {
+        graph.add_edge(edge("beta", "gamma", "invariants"));
+    });
 
     // subgraph_returned: alpha, its direct neighbor, the edge between them.
     let (content, entity) = resource(&mut server, "specforge://graph/alpha");
@@ -2412,7 +2442,7 @@ fn moving_an_entity_is_not_a_modification() {
 fn contract_diagnostics_notification() {
     let (mut server, spec) = project_server();
     rebuild(&mut server);
-    let clean = server.state().diagnostics.clone();
+    let clean = server.state().diagnostics().clone();
     subscribe(&mut server, "specforge://diagnostics");
 
     // validation_complete_fired + subscribers_notified: a rebuild whose
@@ -2447,7 +2477,7 @@ fn contract_diagnostics_notification() {
     // subscribers_notified: fixing it sends the removal.
     std::fs::write(&spec, "behavior alpha \"Alpha\" {\n}\n").unwrap();
     rebuild(&mut server);
-    assert_eq!(server.state().diagnostics, clean);
+    assert_eq!(server.state().diagnostics(), clean);
     assert_eq!(
         server.take_notifications(),
         [changed(json!([]), json!([duplicate]))]
@@ -2573,7 +2603,9 @@ fn contract_providers() {
         "contributes": {"providers": true},
     }))
     .unwrap();
-    server.state_mut().manifests.push(github);
+    server
+        .state_mut()
+        .edit_environment(|env| env.registries.manifests.push(github));
 
     // providers_listed: scheme, alias, backing extension and status.
     let listed = tool(&mut server, "specforge.providers", json!({}));

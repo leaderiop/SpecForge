@@ -9,7 +9,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
 
     // The entity and its neighbors up to `depth` hops, or the whole graph.
     let in_scope: Option<std::collections::HashSet<String>> = match entity_filter {
-        Some(entity_id) => match state.graph.subgraph_depth(entity_id, depth) {
+        Some(entity_id) => match state.graph().subgraph_depth(entity_id, depth) {
             Some(sub) => Some(sub.nodes().iter().map(|n| n.id.raw.to_string()).collect()),
             None => {
                 return JsonRpcResponse::error(
@@ -22,9 +22,9 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         None => None,
     };
     // Coverage is about testable entities only, as `specforge.coverage` reports.
-    let testable = specforge_emitter::coverage::testable_kinds(&state.kind_registry);
+    let testable = specforge_emitter::coverage::testable_kinds(&state.registries().kinds);
     let mut nodes: Vec<_> = state
-        .graph
+        .graph()
         .nodes()
         .into_iter()
         .filter(|n| {
@@ -55,7 +55,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
 
     // The same classification `specforge.coverage` reports.
     let project = specforge_emitter::coverage::ProjectCoverage::compute(
-        &state.graph,
+        state.graph(),
         crate::tools::coverage::coverage_registries(state),
         report.as_ref(),
     );
@@ -85,8 +85,8 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         }
 
         // Check for orphans
-        let has_edges = !state.graph.edges_from(node.id.raw.as_str()).is_empty()
-            || !state.graph.edges_to(node.id.raw.as_str()).is_empty();
+        let has_edges = !state.graph().edges_from(node.id.raw.as_str()).is_empty()
+            || !state.graph().edges_to(node.id.raw.as_str()).is_empty();
         if !has_edges {
             findings.push(serde_json::json!({
                 "entity_id": node.id.raw,

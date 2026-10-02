@@ -52,10 +52,10 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
 
     // If references parameter is set, find entities with edges to that target
     if let Some(target) = references_target {
-        let refs = state.graph.edges_to(target);
+        let refs = state.graph().edges_to(target);
         let results: Vec<Value> = refs
             .iter()
-            .filter_map(|e| state.graph.node(e.source.as_str()))
+            .filter_map(|e| state.graph().node(e.source.as_str()))
             .map(|n| {
                 serde_json::json!({
                     "entity_id": n.id.raw,
@@ -74,7 +74,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let query_lower = query.to_lowercase();
 
     let mut scored: Vec<(f64, &specforge_graph::Node)> = state
-        .graph
+        .graph()
         .nodes()
         .into_iter()
         .filter(|n| kind_filter.is_empty() || kind_filter.contains(&n.kind.raw.as_str()))

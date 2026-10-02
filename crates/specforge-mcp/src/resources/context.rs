@@ -19,7 +19,7 @@ pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
     }
 
     let json_str = emit(
-        &state.graph,
+        state.graph(),
         &EmitOptions {
             format: EmitFormat::Context,
             scope: parsed.root,
@@ -29,7 +29,7 @@ pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
             // The entities only: the schema (specforge://schema) is most of
             // the bytes and an agent reading the context needs the graph.
             schema: None,
-            field_registry: Some(&state.field_registry),
+            field_registry: Some(&state.registries().fields),
             ..EmitOptions::default()
         },
     );

@@ -1,8 +1,6 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
-use specforge_common::load_project_config;
-
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::registry::register_defaults;
 use crate::state::{McpState, ServerPhase};
@@ -78,8 +76,7 @@ pub fn handle_initialize(
     let default_tools = crate::registry::default_tool_count();
     let default_resources = crate::registry::default_resource_count();
     let auto_promoted_tools = state
-        .surface_entries
-        .iter()
+        .surface_entries()
         .filter(|e| e.surface_type == specforge_registry::SurfaceType::AutoPromotedTool)
         .count();
     state.push_event(
@@ -88,7 +85,7 @@ pub fn handle_initialize(
             "tools_registered": state.tool_registry.len(),
             "resources_registered": state.resource_registry.len(),
             "prompts_registered": state.prompt_registry.len(),
-            "extensions_loaded": state.extension_info.len(),
+            "extensions_loaded": state.registries().extension_info.len(),
             "surface_tools_registered": state.tool_registry.len().saturating_sub(default_tools),
             "surface_resources_registered": state
                 .resource_registry
@@ -108,13 +105,9 @@ pub fn handle_initialize(
 /// clients learn what it changed (C9-01).
 pub fn serve_project(state: &mut McpState, project_root: Option<PathBuf>) {
     match &project_root {
-        Some(root) if root.exists() => state.recompile(root),
-        _ => {
-            register_defaults(state);
-            if let Some(root) = &project_root {
-                state.project_config = load_project_config(root);
-            }
-        }
+        Some(root) if root.exists() => state.reload(root),
+        // A root that does not exist has no config to read.
+        _ => register_defaults(state),
     }
     state.project_root = project_root;
     state.served = true;
@@ -170,15 +163,16 @@ pub fn handle_shutdown(state: &mut McpState, id: Option<Value>) -> JsonRpcRespon
 
     let pending_notifications = state.notification_outbox.len();
     let subscriptions: usize = state.subscriptions.values().map(Vec::len).sum();
+    // The served project's runtime goes with its session: no engine
+    // outlives shutdown.
+    let engines = usize::from(state.session().runtime().is_some());
     state.shutdown();
-    // Compiles build and drop their own Wasm runtime, so no engine outlives
-    // a request.
     state.push_event(
         "mcp_server_shutdown",
         serde_json::json!({
             "pending_notifications_flushed": pending_notifications,
             "subscriptions_released": subscriptions,
-            "wasm_engines_released": 0,
+            "wasm_engines_released": engines,
         }),
     );
     JsonRpcResponse::success(id, serde_json::json!({}))

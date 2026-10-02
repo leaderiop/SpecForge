@@ -39,10 +39,10 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
             scope: Some(entity_id),
             depth: Some(depth),
             kind_filter: kinds,
-            field_registry: Some(&state.field_registry),
+            field_registry: Some(&state.registries().fields),
             ..EmitOptions::default()
         };
-        emit(&state.graph, &options)
+        emit(state.graph(), &options)
     };
 
     match query_result {

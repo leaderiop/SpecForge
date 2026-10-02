@@ -48,9 +48,9 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
   guarantee """
     The project an MCP server serves is replaced whole or not at all.
     Every compile that replaces it (initialize, a refresh after watch
-    writes a newer snapshot, validate, analyze, a mutation tool that
-    wrote files) installs the graph, diagnostics, registries and
-    extension tools and resources of that one compile together, and
+    writes a newer snapshot, validate, analyze, doctor, collect, a
+    mutation tool that wrote files) installs the graph, diagnostics,
+    registries and extension tools and resources of that one compile together, and
     tells subscribed clients what changed. A tool call whose path names
     another project compiles that project for the call only: the server
     keeps serving its own.

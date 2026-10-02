@@ -71,7 +71,7 @@ fn test_server() -> McpServer {
         label: "behaviors".into(),
     });
 
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
 
     server
 }
@@ -84,17 +84,19 @@ fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
 
 /// Adds `gamma`, a node with no edges, outside every entity's subgraph.
 fn add_unconnected_gamma(server: &mut McpServer) {
-    server.state_mut().graph.add_node(Node {
-        id: EntityId {
-            raw: "gamma".into(),
-        },
-        kind: EntityKind {
-            raw: "invariant".into(),
-        },
-        title: Some("Gamma".into()),
-        fields: FieldMap::new(),
-        source_span: span(),
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId {
+                raw: "gamma".into(),
+            },
+            kind: EntityKind {
+                raw: "invariant".into(),
+            },
+            title: Some("Gamma".into()),
+            fields: FieldMap::new(),
+            source_span: span(),
+            methods: Vec::new(),
+        });
     });
 }
 
@@ -304,7 +306,7 @@ fn diagnostics_resource_returns_array() {
         span: Some(span()),
         suggestion: None,
     };
-    server.state_mut().diagnostics = vec![
+    server.state_mut().surface_diagnostics = vec![
         diagnostic(
             "E003",
             specforge_common::Severity::Error,
@@ -441,17 +443,19 @@ fn graph_refreshes_after_recompilation() {
     let count1 = parsed1["nodes"].as_array().unwrap().len();
 
     // Add a new node to simulate recompilation
-    server.state_mut().graph.add_node(Node {
-        id: EntityId {
-            raw: "delta".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Delta Behavior".into()),
-        fields: FieldMap::new(),
-        source_span: span(),
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId {
+                raw: "delta".into(),
+            },
+            kind: EntityKind {
+                raw: "behavior".into(),
+            },
+            title: Some("Delta Behavior".into()),
+            fields: FieldMap::new(),
+            source_span: span(),
+            methods: Vec::new(),
+        });
     });
 
     let resp2 = read_resource(&mut server, "specforge://graph");
@@ -504,17 +508,19 @@ fn context_refreshes_after_recompilation() {
     let parsed1: Value = serde_json::from_str(&text1).unwrap();
     let count1 = parsed1["nodes"].as_array().unwrap().len();
 
-    server.state_mut().graph.add_node(Node {
-        id: EntityId {
-            raw: "delta".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Delta Behavior".into()),
-        fields: FieldMap::new(),
-        source_span: span(),
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId {
+                raw: "delta".into(),
+            },
+            kind: EntityKind {
+                raw: "behavior".into(),
+            },
+            title: Some("Delta Behavior".into()),
+            fields: FieldMap::new(),
+            source_span: span(),
+            methods: Vec::new(),
+        });
     });
 
     let resp2 = read_resource(&mut server, "specforge://context");
@@ -536,17 +542,19 @@ fn brief_refreshes_after_recompilation() {
     let parsed1: Value = serde_json::from_str(&text1).unwrap();
     let count1 = parsed1["nodes"].as_array().unwrap().len();
 
-    server.state_mut().graph.add_node(Node {
-        id: EntityId {
-            raw: "delta".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Delta Behavior".into()),
-        fields: FieldMap::new(),
-        source_span: span(),
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId {
+                raw: "delta".into(),
+            },
+            kind: EntityKind {
+                raw: "behavior".into(),
+            },
+            title: Some("Delta Behavior".into()),
+            fields: FieldMap::new(),
+            source_span: span(),
+            methods: Vec::new(),
+        });
     });
 
     let resp2 = read_resource(&mut server, "specforge://brief");
@@ -571,7 +579,7 @@ fn diagnostics_updates_after_recompilation() {
     // Add a diagnostic to state
     server
         .state_mut()
-        .diagnostics
+        .surface_diagnostics
         .push(specforge_common::Diagnostic {
             code: "V001".into(),
             severity: specforge_common::Severity::Error,
@@ -603,7 +611,7 @@ fn diagnostics_fields_present() {
 
     server
         .state_mut()
-        .diagnostics
+        .surface_diagnostics
         .push(specforge_common::Diagnostic {
             code: "V001".into(),
             severity: specforge_common::Severity::Error,
@@ -668,17 +676,19 @@ fn entity_refreshes_after_recompilation() {
         .to_string();
 
     // Replace alpha with a new title
-    server.state_mut().graph.add_node(Node {
-        id: EntityId {
-            raw: "alpha".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Alpha Revised".into()),
-        fields: FieldMap::new(),
-        source_span: span(),
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId {
+                raw: "alpha".into(),
+            },
+            kind: EntityKind {
+                raw: "behavior".into(),
+            },
+            title: Some("Alpha Revised".into()),
+            fields: FieldMap::new(),
+            source_span: span(),
+            methods: Vec::new(),
+        });
     });
 
     let resp2 = read_resource(&mut server, "specforge://graph/alpha");
@@ -864,7 +874,7 @@ fn diagnostics_resource_gives_catalogued_codes_their_title() {
         suggestion: None,
     };
     // W008 is catalogued; W901 is a third-party extension's.
-    server.state_mut().diagnostics = vec![diagnostic("W008"), diagnostic("W901")];
+    server.state_mut().surface_diagnostics = vec![diagnostic("W008"), diagnostic("W901")];
     let bag: Value = serde_json::from_str(&resource_text(&read_resource(
         &mut server,
         "specforge://diagnostics",

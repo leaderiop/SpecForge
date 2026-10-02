@@ -9,7 +9,9 @@ fn init_server(project_dir: &std::path::Path) -> McpServer {
     let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
     server.handle_message(&req.to_string());
     server.state_mut().project_root = Some(project_dir.to_path_buf());
-    server.state_mut().manifests = vec![rust_manifest(), typescript_manifest()];
+    server.state_mut().edit_environment(|env| {
+        env.registries.manifests = vec![rust_manifest(), typescript_manifest()];
+    });
     server
 }
 

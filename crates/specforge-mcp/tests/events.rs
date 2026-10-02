@@ -350,7 +350,7 @@ fn event_mcp_prompt_invoked() {
         },
         methods: Vec::new(),
     });
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
     attach_project(state);
 
     call(
