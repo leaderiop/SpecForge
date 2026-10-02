@@ -442,34 +442,6 @@ fn truncate_diagnostics_no_op_under_limit() {
     assert_eq!(diags.len(), 50, "should not truncate under limit");
 }
 
-// === diagnostic summary ===
-
-#[specforge_test(
-    behavior = "aggregate_diagnostic_summary",
-    verify = "summary shows correct counts"
-)]
-fn diagnostic_summary_groups_by_code() {
-    let diags = vec![
-        Diagnostic::error("E001", "ref 1"),
-        Diagnostic::error("E001", "ref 2"),
-        Diagnostic::error("E001", "ref 3"),
-        Diagnostic::warning("W003", "cycle 1"),
-        Diagnostic::info("I004", "extension 1"),
-    ];
-
-    let summary = specforge_emitter::diagnostic_summary(&diags);
-
-    assert!(summary.contains("5 diagnostics"), "should show total count");
-    assert!(summary.contains("3 errors"), "should show error count");
-    assert!(summary.contains("1 warnings"), "should show warning count");
-    assert!(summary.contains("1 info"), "should show info count");
-    assert!(
-        summary.contains("E001"),
-        "should mention most frequent code"
-    );
-    assert!(summary.contains("x3"), "should show E001 count");
-}
-
 // === DiagnosticsExt trait ===
 
 #[test]

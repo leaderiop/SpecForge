@@ -78,62 +78,6 @@ pub fn truncate_diagnostics(diagnostics: &mut Vec<Diagnostic>) {
     }
 }
 
-/// Group diagnostics by code and return a summary string.
-/// Shows the top 5 most frequent diagnostic codes with counts.
-pub fn diagnostic_summary(diagnostics: &[Diagnostic]) -> String {
-    use std::collections::HashMap;
-
-    let mut counts: HashMap<&str, (usize, &Severity)> = HashMap::new();
-    for d in diagnostics {
-        counts
-            .entry(&d.code)
-            .and_modify(|(count, _)| *count += 1)
-            .or_insert((1, &d.severity));
-    }
-
-    let mut sorted: Vec<_> = counts.into_iter().collect();
-    sorted.sort_by_key(|(_, (count, _))| std::cmp::Reverse(*count));
-
-    let errors = diagnostics
-        .iter()
-        .filter(|d| d.severity == Severity::Error)
-        .count();
-    let warnings = diagnostics
-        .iter()
-        .filter(|d| d.severity == Severity::Warning)
-        .count();
-    let infos = diagnostics
-        .iter()
-        .filter(|d| d.severity == Severity::Info)
-        .count();
-
-    let mut summary = format!(
-        "{} diagnostics: {} errors, {} warnings, {} info",
-        diagnostics.len(),
-        errors,
-        warnings,
-        infos,
-    );
-
-    if !sorted.is_empty() {
-        summary.push_str("\n  top codes:");
-        for (code, (count, severity)) in sorted.iter().take(5) {
-            let label = match severity {
-                Severity::Error => "error",
-                Severity::Warning => "warning",
-                Severity::Info => "info",
-            };
-            summary.push_str(&format!("\n    {} ({}) x{}", code, label, count));
-        }
-    }
-
-    if diagnostics.len() > 5 {
-        summary.push_str("\n  run `specforge explain <code>` for details on any diagnostic code");
-    }
-
-    summary
-}
-
 /// One diagnostic as JSON: see [`diagnostics_json`].
 #[derive(Debug, Serialize)]
 pub struct DiagnosticJson<'a> {
