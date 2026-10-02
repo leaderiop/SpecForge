@@ -1722,3 +1722,28 @@ fn add_extension_from_a_registry_reports_a_duplicate_registry_alias() {
     );
     assert!(builtin["result"]["_meta"].is_null(), "{builtin}");
 }
+
+/// The new name follows the entity-ID rule (the grammar's identifier,
+/// 2-60 characters): an illegal one is refused and nothing is written.
+#[test]
+fn rename_refuses_an_illegal_entity_id() {
+    let (mut server, root) = server_with_token_project();
+    for bad in [
+        "a".repeat(61),
+        "token-distinct".to_string(),
+        "9token".to_string(),
+    ] {
+        let resp = call_tool(
+            &mut server,
+            "specforge.rename",
+            json!({"entity_id": "token_unique", "new_name": bad}),
+        );
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "invalid_input", "{bad}: {error}");
+        assert_eq!(error["argument"], "new_name", "{error}");
+    }
+    assert_eq!(
+        std::fs::read_to_string(root.join("spec/tokens.spec")).unwrap(),
+        TOKENS_SPEC
+    );
+}

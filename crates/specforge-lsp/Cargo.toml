@@ -16,6 +16,7 @@ specforge-common = { workspace = true }
 specforge-emitter = { path = "../specforge-emitter" }
 specforge-formatter = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
+specforge-ops = { path = "../specforge-ops" }
 specforge-parser = { workspace = true }
 specforge-project = { path = "../specforge-project" }
 specforge-registry = { path = "../specforge-registry" }

@@ -2948,6 +2948,7 @@ dependencies = [
  "specforge-emitter",
  "specforge-formatter",
  "specforge-graph",
+ "specforge-ops",
  "specforge-parser",
  "specforge-project",
  "specforge-registry",

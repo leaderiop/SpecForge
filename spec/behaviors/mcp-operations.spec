@@ -103,8 +103,9 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     McpRenameEdit operations applied. When dry_run is true, the tool MUST return
     the rename plan (affected files and McpRenameEdit operations) without applying
     any changes. If the entity does not exist, the tool MUST return an error.
-    If new_name is invalid (e.g., not a legal entity ID), the tool MUST return
-    a validation error. After a successful rename, the tool MUST trigger
+    If new_name is not a legal entity ID (t_entity_id: 2-60 letters, digits
+    and underscores, starting with a letter or underscore), the tool MUST
+    return a validation error. After a successful rename, the tool MUST trigger
     recompilation and return updated diagnostics in the response.
   """
   verify unit "specforge.rename renames entity and all references"

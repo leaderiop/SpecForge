@@ -231,51 +231,45 @@ pub struct RenameArgs {
 }
 
 pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
+    use specforge_ops::rename;
     let entity_id = args.entity_id.as_str();
     let new_name = args.new_name.as_str();
     let dry_run = args.dry_run.unwrap_or(false);
 
-    if new_name.is_empty()
-        || new_name.len() < 2
-        || !new_name.chars().all(|c| c.is_alphanumeric() || c == '_')
-    {
-        return ToolOutcome::invalid_input(
-            "new_name",
-            "Invalid entity ID: must be 2-60 alphanumeric/underscore characters",
-        );
-    }
-
-    if state.graph().node(entity_id).is_none() {
-        return McpError::new(
-            ErrorCode::EntityNotFound,
-            format!("Entity not found: {entity_id}"),
-        )
-        .with_entity(entity_id)
-        .into();
-    }
-    let Some(root) = project_root_of(state, args.path.as_deref()) else {
+    // Spans are relative to the spec root the graph was compiled from.
+    let root = project_root_of(state, args.path.as_deref());
+    let spec_root = state
+        .spec_root()
+        .map(Path::to_path_buf)
+        .or_else(|| root.clone());
+    let read = |file: &str| {
+        spec_root
+            .as_ref()
+            .and_then(|dir| std::fs::read_to_string(dir.join(file)).ok())
+    };
+    let plan = match rename::plan(state.graph(), entity_id, new_name, read) {
+        Ok(plan) => plan,
+        Err(e) if e.code == rename::INVALID_ID => {
+            return ToolOutcome::invalid_input("new_name", e.message);
+        }
+        Err(e) if e.code == rename::NOT_FOUND => {
+            return McpError::new(ErrorCode::EntityNotFound, e.message)
+                .with_entity(entity_id)
+                .into();
+        }
+        Err(e) if e.code == rename::TAKEN => {
+            return McpError::new(ErrorCode::Conflict, e.message)
+                .with_entity(entity_id)
+                .into();
+        }
+        Err(e) => return fail(ErrorCode::InternalError, e.message),
+    };
+    let (Some(root), Some(spec_root)) = (root, spec_root) else {
         return ToolOutcome::no_project("rename needs a project root (pass {\"path\": ...})");
     };
 
-    // Spans are relative to the spec root the graph was compiled from.
-    let spec_root = state
-        .spec_root()
-        .map_or_else(|| root.clone(), Path::to_path_buf);
-    let Some(edits) =
-        specforge_graph::rename::identifier_edits(state.graph(), entity_id, new_name, |file| {
-            std::fs::read_to_string(spec_root.join(file)).ok()
-        })
-    else {
-        return McpError::new(
-            ErrorCode::Conflict,
-            format!("cannot rename '{entity_id}': '{new_name}' exists"),
-        )
-        .with_entity(entity_id)
-        .into();
-    };
-    let affected_files: std::collections::BTreeSet<&str> =
-        edits.iter().map(|e| e.file.as_str()).collect();
-    let edit_json: Vec<serde_json::Value> = edits
+    let edit_json: Vec<serde_json::Value> = plan
+        .edits
         .iter()
         .map(|e| {
             json!({
@@ -290,30 +284,15 @@ pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
     let mut result = json!({
         "old_name": entity_id,
         "new_name": new_name,
-        "affected_files": affected_files,
+        "affected_files": plan.affected_files(),
         "edits": edit_json,
     });
     if dry_run {
         result["dry_run"] = Value::from(true);
         return ok(result);
     }
-
-    for file in &affected_files {
-        let path = spec_root.join(file);
-        let Ok(text) = std::fs::read_to_string(&path) else {
-            return fail(
-                ErrorCode::InternalError,
-                format!("failed to read {}", path.display()),
-            );
-        };
-        let renamed =
-            specforge_graph::rename::apply_edits(&text, edits.iter().filter(|e| e.file == *file));
-        if let Err(e) = std::fs::write(&path, renamed) {
-            return fail(
-                ErrorCode::InternalError,
-                format!("failed to write {}: {e}", path.display()),
-            );
-        }
+    if let Err(e) = rename::apply(&plan, &spec_root) {
+        return fail(ErrorCode::InternalError, e.message);
     }
     // Recompile from disk, not just the renamed files: the diagnostics
     // returned are what `specforge check` reports now, edits made since

@@ -170,6 +170,41 @@ async fn rename_is_atomic() {
     assert!(nothing["result"].is_null(), "{nothing}");
 }
 
+/// The new name follows the shared entity-ID rule: the editor gets an
+/// error saying why, and no edit.
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "rename to an illegal entity ID is refused with why"
+)]
+#[tokio::test]
+async fn rename_to_an_illegal_id_is_refused_with_why() {
+    use crate::contracts::wire::{Session, uri_of};
+    use serde_json::json;
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let login = dir.path().join("login.spec");
+    let text = "behavior login \"Login\" {\n}\n";
+    std::fs::write(&login, text).unwrap();
+    let (mut session, _) = Session::start(Some(dir.path())).await;
+    let uri = uri_of(&login);
+    session.open(&uri, text).await;
+    session.diagnostics(&uri).await;
+
+    let refused = session
+        .request(
+            "textDocument/rename",
+            json!({
+                "textDocument": {"uri": uri},
+                "position": {"line": 0, "character": 10},
+                "newName": "log-in",
+            }),
+        )
+        .await;
+    assert!(refused["result"].is_null(), "{refused}");
+    let message = refused["error"]["message"].as_str().unwrap_or_default();
+    assert!(message.contains("invalid entity ID 'log-in'"), "{refused}");
+}
+
 #[spec(behavior = "rename_entity_id", verify = "rename across multiple files")]
 fn rename_across_files() {
     let mut g = Graph::new();

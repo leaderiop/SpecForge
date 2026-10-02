@@ -20,6 +20,7 @@ pub mod init;
 pub mod migrate;
 pub mod prove;
 pub mod registry;
+pub mod rename;
 
 use std::borrow::Cow;
 

@@ -330,12 +330,15 @@ behavior rename_entity_id "Rename Entity ID" {
     When a user renames an entity ID via the LSP, the system MUST
     update the entity declaration and every reference to it across
     all .spec files. The rename MUST be atomic — all files are updated
-    or none are.
+    or none are. The new ID follows the same rule as the MCP rename tool's:
+    a name that is not a legal entity ID, or that is taken, MUST be refused
+    with an error saying why.
   """
   verify unit "rename updates declaration and all references"
   verify unit "rename is atomic — all or nothing"
   verify unit "rename across multiple files"
   verify unit "rename rejects new name that duplicates existing entity ID"
+  verify unit "rename to an illegal entity ID is refused with why"
   verify contract "Rename Entity ID: entity rename holds — graph_available, prepare_rename_ready, all_references_updated, rename_atomic, entity_renamed_emitted"
 }
 

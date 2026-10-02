@@ -1177,22 +1177,15 @@ impl LanguageServer for Backend {
         };
 
         // Each whole-word occurrence inside the declaration and the
-        // entities that reference it, read from the open buffer, else disk.
-        // A site whose file cannot be read would be left behind: the
-        // rename is all or nothing, so it is refused instead.
-        let unreadable = std::cell::Cell::new(false);
-        let edits = match specforge_graph::rename::identifier_edits(
-            state.graph(),
-            &word,
-            &new_name,
-            |file| {
-                let text = file_content(&state, file);
-                unreadable.set(unreadable.get() || text.is_none());
-                text
-            },
-        ) {
-            Some(e) if !unreadable.get() => e,
-            _ => return Ok(None),
+        // entities that reference it, read from the open buffer, else disk,
+        // planned by the shared rename (the MCP tool's rules). A rename is
+        // all or nothing: one that cannot be done whole is refused with why.
+        let edits = match specforge_ops::rename::plan(state.graph(), &word, &new_name, |file| {
+            file_content(&state, file)
+        }) {
+            Ok(plan) => plan.edits,
+            Err(e) if e.code == specforge_ops::rename::NOT_FOUND => return Ok(None),
+            Err(e) => return Err(tower_lsp::jsonrpc::Error::invalid_params(e.message)),
         };
 
         let mut changes: std::collections::HashMap<Url, Vec<TextEdit>> =
