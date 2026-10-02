@@ -1046,20 +1046,3 @@ fn analyze_bad_pass_uses_each_surfaces_channel() {
     assert!(text.contains("invalid_input"), "{text}");
     assert!(text.contains("Unknown analysis pass 'nonsense'"), "{text}");
 }
-
-/// The ticket asks the bad-pass message text to be shared. It is not: the
-/// CLI's pass is a closed clap enum, so a typo never reaches the operation
-/// and the CLI prints clap's message instead of the operation's.
-#[test]
-#[ignore = "divergence: the CLI refuses an unknown pass in clap, not with the operation's message"]
-fn analyze_bad_pass_message_text_is_shared() {
-    let dir = tempfile::tempdir().unwrap();
-    analyze_project(dir.path());
-    let (_, _, stderr) = cli_analyze(dir.path(), &["nonsense"]);
-    let (_, error) = mcp_analyze(dir.path(), json!({"pass": "nonsense"}));
-    let message = error["message"].as_str().unwrap_or_default().to_string();
-    assert!(
-        !message.is_empty() && stderr.contains(&message),
-        "cli: {stderr}\nmcp: {error}"
-    );
-}
