@@ -47,7 +47,7 @@ fn extension() -> ContributionsBuilder {
         r.target_kind("thing");
         r.field("style");
         r.constraint(|fc| {
-            fc.kind("matches");
+            fc.kind(ConstraintKind::Matches);
             fc.pattern("^(warm|formal)$");
         });
         r.severity(ValidationSeverity::Error);
@@ -170,4 +170,82 @@ fn older_sdk_check_names_still_load() {
     assert!(unread.is_empty(), "host could not read: {unread:?}");
     assert!(build.rules.iter().any(|(p, _)| p.code == "W900"));
     assert!(build.rules.iter().any(|(p, _)| p.code == "G101"));
+}
+
+/// Every constraint kind the SDK can name loads on the check that reads it:
+/// `non_empty`, `one_of` and `matches` on `field_value_constraint`,
+/// `when_field_equals` on `conditional_field_required`, `one_of` on
+/// `verify_kind_allowlist`.
+#[test]
+fn sdk_constraint_kinds_load_for_the_checks_that_read_them() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@you/constraints", "0.1.0"));
+    c.kind("thing", |k| {
+        k.field("status", |f| {
+            f.field_type(FieldType::String);
+        });
+        k.field("reason", |f| {
+            f.field_type(FieldType::String);
+        });
+    });
+    let uses = [
+        (ConstraintKind::NonEmpty, CheckKind::FieldValueConstraint),
+        (ConstraintKind::OneOf, CheckKind::FieldValueConstraint),
+        (ConstraintKind::Matches, CheckKind::FieldValueConstraint),
+        (
+            ConstraintKind::WhenFieldEquals,
+            CheckKind::ConditionalFieldRequired,
+        ),
+        (ConstraintKind::OneOf, CheckKind::VerifyKindAllowlist),
+    ];
+    for kind in ConstraintKind::ALL {
+        assert!(
+            uses.iter().any(|(k, _)| k == kind),
+            "constraint kind {kind} has no check that reads it"
+        );
+    }
+    for (i, (kind, check)) in uses.iter().enumerate() {
+        c.rule(&format!("X{i:03}"), |r| {
+            r.check(*check);
+            r.target_kind("thing");
+            if *check != CheckKind::VerifyKindAllowlist {
+                r.field("reason");
+            }
+            r.constraint(|fc| {
+                fc.kind(*kind);
+                match kind {
+                    ConstraintKind::Matches => {
+                        fc.pattern("^[a-z]+$");
+                    }
+                    ConstraintKind::WhenFieldEquals => {
+                        fc.pattern("status").values(&["deferred"]);
+                    }
+                    _ => {
+                        fc.values(&["unit", "a"]);
+                    }
+                }
+            });
+            r.message_template("thing '{id}'");
+        });
+    }
+
+    let build = build_registries(vec![protocol_extension_to_manifest(&loaded(&c))]);
+    let unread: Vec<_> = build
+        .registry_diagnostics
+        .iter()
+        .filter(|d| d.code == "W019" || d.code == "W112")
+        .collect();
+    assert!(unread.is_empty(), "host could not read: {unread:?}");
+    for (i, (kind, _)) in uses.iter().enumerate() {
+        let code = format!("X{i:03}");
+        let (pattern, _) = build
+            .rules
+            .iter()
+            .find(|(p, _)| p.code == code)
+            .unwrap_or_else(|| panic!("rule {code} not registered"));
+        assert_eq!(
+            pattern.constraint.as_ref().and_then(|c| c.kind),
+            Some(*kind),
+            "rule {code}"
+        );
+    }
 }

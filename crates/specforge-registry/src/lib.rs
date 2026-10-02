@@ -19,7 +19,7 @@ pub use registries::{
 };
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---
-pub use specforge_protocol_types::{CheckKind, FieldType};
+pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType};
 
 // --- Manifest types ---
 pub use manifest::surface::{

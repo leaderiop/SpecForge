@@ -10,7 +10,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 mod vocabulary;
-pub use vocabulary::{CheckKind, FieldType};
+pub use vocabulary::{CheckKind, ConstraintKind, FieldType};
 
 /// Protocol version for the extension wire format (semver).
 /// Extensions with the same major version are considered compatible.
@@ -335,6 +335,7 @@ pub enum ValidationSeverity {
 /// Constraint on a field value.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FieldConstraintDescriptor {
+    /// A [`ConstraintKind`] name.
     pub kind: String,
     #[serde(default)]
     pub pattern: Option<String>,

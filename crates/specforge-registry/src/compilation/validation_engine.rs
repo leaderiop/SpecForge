@@ -1,5 +1,6 @@
 use crate::ManifestValidationRule;
 use specforge_common::{Diagnostic, Severity};
+use specforge_protocol_types::ConstraintKind;
 
 /// Parsed and validated rule pattern, ready for execution.
 #[derive(Debug, Clone)]
@@ -30,7 +31,10 @@ const VERIFY_FIELD: &str = "verify";
 
 #[derive(Debug, Clone)]
 pub struct FieldConstraintPattern {
-    pub kind: String,
+    /// `None` for a name this host does not read. Only
+    /// `field_value_constraint` dispatches on the kind, and it rejects such
+    /// a name at parse time; the other checks read `pattern` and `values`.
+    pub kind: Option<ConstraintKind>,
     pub pattern: Option<String>,
     pub values: Vec<String>,
     /// Regex compiled once at parse time for `field_value_constraint` rules
@@ -153,29 +157,30 @@ pub(crate) fn parse_rule_pattern(
                     "check 'field_value_constraint' requires a constraint but none is set",
                 ));
             }
-            Some(c) => match c.kind.as_str() {
-                "non_empty" => {}
-                "one_of" if c.values.is_empty() => {
+            Some(c) => match ConstraintKind::parse(&c.kind) {
+                Some(ConstraintKind::NonEmpty) => {}
+                Some(ConstraintKind::OneOf) if c.values.is_empty() => {
                     return Err(unexecutable_rule(
                         extension_name,
                         &rule.code,
                         "one_of constraint has an empty values list — every field value would be flagged as a violation",
                     ));
                 }
-                "matches" if c.pattern.is_none() => {
+                Some(ConstraintKind::Matches) if c.pattern.is_none() => {
                     return Err(unexecutable_rule(
                         extension_name,
                         &rule.code,
                         "matches constraint has no pattern — no value can ever be checked",
                     ));
                 }
-                "one_of" | "matches" => {}
-                other => {
+                Some(ConstraintKind::OneOf | ConstraintKind::Matches) => {}
+                Some(ConstraintKind::WhenFieldEquals) | None => {
                     return Err(unexecutable_rule(
                         extension_name,
                         &rule.code,
                         &format!(
-                            "unknown constraint kind '{other}' for check 'field_value_constraint' (expected non_empty, one_of, or matches)"
+                            "unknown constraint kind '{}' for check 'field_value_constraint' (expected non_empty, one_of, or matches)",
+                            c.kind
                         ),
                     ));
                 }
@@ -229,8 +234,9 @@ pub(crate) fn parse_rule_pattern(
 
     let constraint = match rule.constraint.as_ref() {
         Some(c) => {
+            let kind = ConstraintKind::parse(&c.kind);
             let compiled_pattern = if matches!(check, ValidationPatternKind::FieldValueConstraint)
-                && c.kind == "matches"
+                && kind == Some(ConstraintKind::Matches)
             {
                 match c.pattern.as_deref().map(regex::Regex::new) {
                     Some(Ok(re)) => Some(re),
@@ -255,7 +261,7 @@ pub(crate) fn parse_rule_pattern(
                 None
             };
             Some(FieldConstraintPattern {
-                kind: c.kind.clone(),
+                kind,
                 pattern: c.pattern.clone(),
                 values: c.values.clone(),
                 compiled_pattern,
@@ -461,10 +467,10 @@ pub fn execute_pattern(
                 if let (Some(field_name), Some(constraint)) = (&pattern.field, &pattern.constraint)
                 {
                     if let Some(value) = entity.fields.get(field_name) {
-                        match constraint.kind.as_str() {
-                            "non_empty" => value.is_empty(),
-                            "one_of" => !constraint.values.contains(value),
-                            "matches" => {
+                        match constraint.kind {
+                            Some(ConstraintKind::NonEmpty) => value.is_empty(),
+                            Some(ConstraintKind::OneOf) => !constraint.values.contains(value),
+                            Some(ConstraintKind::Matches) => {
                                 // The regex was compiled once at parse time; a
                                 // malformed pattern is rejected at load time with
                                 // a W112 diagnostic, so `None` here only means the
@@ -693,7 +699,7 @@ mod tests {
             edge_peer_kind: None,
             field: None,
             constraint: Some(FieldConstraintPattern {
-                kind: "one_of".to_string(),
+                kind: Some(ConstraintKind::OneOf),
                 pattern: None,
                 values: allowed.iter().map(|s| s.to_string()).collect(),
                 compiled_pattern: None,
@@ -1679,7 +1685,7 @@ mod tests {
         assert_eq!(pattern.field.as_deref(), Some("reason"));
         assert_eq!(
             pattern.constraint.as_ref().unwrap().kind,
-            "when_field_equals"
+            Some(ConstraintKind::WhenFieldEquals)
         );
         assert_eq!(
             pattern.constraint.as_ref().unwrap().pattern.as_deref(),

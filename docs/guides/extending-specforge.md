@@ -169,7 +169,7 @@ c.rule("G101", |r| {
     r.target_kind("greeting");
     r.field("style");
     r.constraint(|fc| {
-        fc.kind("matches");
+        fc.kind(ConstraintKind::Matches);
         fc.pattern("^(warm|formal)$");
     });
     r.severity(ValidationSeverity::Error);

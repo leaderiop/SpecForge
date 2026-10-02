@@ -116,7 +116,7 @@ impl Contributions for Testing {
                         "entity '{id}' has verify kind '{value}' not in allowed set {allowed}",
                     )
                     .constraint(|k| {
-                        k.kind("one_of").values(t.verify_kinds);
+                        k.kind(ConstraintKind::OneOf).values(t.verify_kinds);
                     });
             });
         }

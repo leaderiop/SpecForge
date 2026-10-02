@@ -12,10 +12,11 @@
 
 pub use specforge_extension_sdk_macros::extension;
 
-/// The extension vocabulary — field types and validation check kinds — as
-/// the host's registry build reads it. `Custom` hands the decision to the
-/// rule's `wasm_function` (see [`RuleBuilder::wasm_function`]).
-pub use specforge_protocol_types::{CheckKind, FieldType};
+/// The extension vocabulary — field types, validation check kinds and
+/// constraint kinds — as the host's registry build reads it. `Custom` hands
+/// the decision to the rule's `wasm_function` (see
+/// [`RuleBuilder::wasm_function`]).
+pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType};
 
 pub use specforge_protocol_types::{
     ContributionFlags, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
@@ -551,8 +552,8 @@ impl Default for FieldConstraintBuilder {
     }
 }
 impl FieldConstraintBuilder {
-    pub fn kind(&mut self, k: &str) -> &mut Self {
-        self.0.kind = k.to_string();
+    pub fn kind(&mut self, k: ConstraintKind) -> &mut Self {
+        self.0.kind = k.as_str().to_string();
         self
     }
     pub fn pattern(&mut self, p: &str) -> &mut Self {
@@ -659,11 +660,11 @@ pub use specforge_extension_sdk_macros::compiler_pass;
 
 pub mod prelude {
     pub use crate::{
-        CheckKind, Contributions, ContributionsBuilder, EdgeBuilder, EnhancementBuilder,
-        ExtensionMeta, FieldBuilder, FieldConstraintBuilder, FieldType, KindBuilder,
-        PassBuildCache, PassBuilder, PassCachedStatus, PassDiagnostic, PassEdge, PassEntity,
-        PassEntityResults, PassInput, PassOutput, PassSeverity, PassSpan, PassTestResult,
-        PassTestResults, RuleBuilder,
+        CheckKind, ConstraintKind, Contributions, ContributionsBuilder, EdgeBuilder,
+        EnhancementBuilder, ExtensionMeta, FieldBuilder, FieldConstraintBuilder, FieldType,
+        KindBuilder, PassBuildCache, PassBuilder, PassCachedStatus, PassDiagnostic, PassEdge,
+        PassEntity, PassEntityResults, PassInput, PassOutput, PassSeverity, PassSpan,
+        PassTestResult, PassTestResults, RuleBuilder,
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,

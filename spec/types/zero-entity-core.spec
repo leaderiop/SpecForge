@@ -164,11 +164,17 @@ type ValidationRulePattern {
 }
 
 type FieldConstraint {
-  kind    string   @readonly
-  pattern string   @optional
-  values  string[] @optional
+  kind    ConstraintKind @readonly
+  pattern string         @optional
+  values  string[]       @optional
   verify unit "FieldConstraint schema is valid"
 }
+
+// How a constraint reads its pattern and values (ConstraintKind in
+// specforge-protocol-types): non_empty, one_of and matches for
+// field_value_constraint, when_field_equals for conditional_field_required,
+// one_of for verify_kind_allowlist.
+type ConstraintKind = non_empty | one_of | matches | when_field_equals
 
 // The check kinds of the extension vocabulary (CheckKind in
 // specforge-protocol-types — the SDK writes these names, the registry build

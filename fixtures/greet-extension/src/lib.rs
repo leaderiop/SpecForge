@@ -25,7 +25,7 @@ impl Contributions for Greet {
             r.target_kind("greeting");
             r.field("style");
             r.constraint(|fc| {
-                fc.kind("matches");
+                fc.kind(ConstraintKind::Matches);
                 fc.pattern("^(warm|formal)$");
             });
             r.severity(ValidationSeverity::Error);

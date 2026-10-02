@@ -1,10 +1,10 @@
-//! The extension vocabulary: the names an extension uses for a field's type
-//! and a validation rule's check kind.
+//! The extension vocabulary: the names an extension uses for a field's type,
+//! a validation rule's check kind and its constraint's kind.
 //!
 //! These enums are the one place the names are defined. The SDK writes them
 //! (`as_str`), the host's registry build reads them (`parse`). On the wire
 //! the descriptors still carry plain strings (`FieldDescriptor::field_type`,
-//! `ValidationRuleDescriptor::check`), so a name this host does not know
+//! `ValidationRuleDescriptor::check`, `FieldConstraintDescriptor::kind`), so a name this host does not know
 //! costs the one field or rule a diagnostic instead of failing the whole
 //! describe payload.
 //!
@@ -150,6 +150,24 @@ vocabulary! {
     }
 }
 
+vocabulary! {
+    /// How a rule's `constraint` reads its `pattern` and `values`.
+    ConstraintKind {
+        /// `field_value_constraint`: the value must not be empty.
+        NonEmpty = "non_empty",
+        /// The value must be one of `values` (`field_value_constraint`,
+        /// `verify_kind_allowlist`).
+        OneOf = "one_of",
+        /// `field_value_constraint`: the value must match the regex in
+        /// `pattern`.
+        Matches = "matches",
+        /// `conditional_field_required`: the condition holds when the field
+        /// named by `pattern` has one of `values`.
+        WhenFieldEquals = "when_field_equals",
+    }
+    aliases {}
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -166,6 +184,11 @@ mod tests {
             assert_eq!(CheckKind::parse(c.as_str()), Some(*c));
             let json = serde_json::to_string(c).unwrap();
             assert_eq!(serde_json::from_str::<CheckKind>(&json).unwrap(), *c);
+        }
+        for k in ConstraintKind::ALL {
+            assert_eq!(ConstraintKind::parse(k.as_str()), Some(*k));
+            let json = serde_json::to_string(k).unwrap();
+            assert_eq!(serde_json::from_str::<ConstraintKind>(&json).unwrap(), *k);
         }
     }
 
@@ -193,6 +216,8 @@ mod tests {
     fn unknown_names_are_rejected() {
         assert_eq!(FieldType::parse("date"), None);
         assert_eq!(CheckKind::parse("nope"), None);
+        // The greet fixture once declared this; no host ever read it.
+        assert_eq!(ConstraintKind::parse("field-constraint"), None);
         assert!(serde_json::from_str::<CheckKind>("\"nope\"").is_err());
     }
 }

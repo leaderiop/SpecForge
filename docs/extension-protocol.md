@@ -294,6 +294,13 @@ check drops the rule with W112):
 Older spellings earlier SDK releases emitted (`missing_field`,
 `field_constraint`, `cycle`, `conditional_required`) are still read.
 
+Constraint kinds (`specforge_protocol_types::ConstraintKind`): `non_empty`,
+`one_of` and `matches` (regex in `pattern`) for `field_value_constraint`;
+`when_field_equals` (condition field in `pattern`, triggering values in
+`values`) for `conditional_field_required`; `one_of` for
+`verify_kind_allowlist`. Any other kind on a `field_value_constraint` rule
+drops the rule with W112.
+
 ### Category: surfaces
 
 Returns CLI command, MCP tool, and MCP resource descriptors. CLI commands auto-promote to MCP tools. Each surface declares its arguments, sandbox overrides, and export name.
