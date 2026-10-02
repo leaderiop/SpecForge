@@ -183,6 +183,12 @@ impl Serialize for SpannedRef {
     }
 }
 
+/// The field the parser gives a union body (`type X = a | b`) its variants
+/// under. The name is the parser's own, not the user's: a field the user
+/// writes as `values [a, b]` is also a [`FieldValue::VariantList`], under
+/// its own key, and is not a union.
+pub const UNION_VARIANTS_FIELD: &str = "variants";
+
 #[derive(Debug, Clone, Serialize)]
 pub enum FieldValue {
     String(String),

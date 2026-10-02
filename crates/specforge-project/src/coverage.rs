@@ -10,6 +10,7 @@ use crate::compile::build_validation_entities;
 use serde::Deserialize;
 use specforge_common::Diagnostic;
 use specforge_graph::{FieldValue, Graph, Node};
+use specforge_parser::UNION_VARIANTS_FIELD;
 use specforge_registry::validation_engine::{
     ValidationEntity, ValidationPatternKind, ValidationRulePattern,
 };
@@ -149,8 +150,12 @@ pub fn obligation_exempt(node: &Node, fields: &FieldRegistry) -> bool {
         .entries()
         .iter()
         .any(|entry| match &entry.value {
-            // The union syntax is structural: its body is the variant list.
-            FieldValue::VariantList(variants) => !variants.is_empty(),
+            // The union syntax is structural: its body is the variant list,
+            // under the parser's own key (a user's `values [a, b]` is a
+            // variant list too, and exempts nothing).
+            FieldValue::VariantList(variants) if entry.key.as_str() == UNION_VARIANTS_FIELD => {
+                !variants.is_empty()
+            }
             value => {
                 is_set(value)
                     && fields
@@ -422,6 +427,15 @@ mod tests {
             &FieldRegistry::new(),
         );
         assert_eq!(ids, ["Plain"]);
+    }
+
+    #[test]
+    fn an_enum_values_list_is_not_a_union() {
+        let ids = w004_ids(
+            "type Priority \"Priority\" {\n  values [high, low]\n}\n",
+            &FieldRegistry::new(),
+        );
+        assert_eq!(ids, ["Priority"]);
     }
 
     #[specforge_test(

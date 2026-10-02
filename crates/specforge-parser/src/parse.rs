@@ -529,7 +529,10 @@ impl<'a> ParseContext<'a> {
         }
 
         let mut fields = FieldMap::new();
-        fields.push(Sym::new("variants"), FieldValue::VariantList(variants));
+        fields.push(
+            Sym::new(crate::ast::UNION_VARIANTS_FIELD),
+            FieldValue::VariantList(variants),
+        );
 
         self.entities.push(Entity {
             kind: EntityKind { raw: kind },
