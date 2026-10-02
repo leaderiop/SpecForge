@@ -47,6 +47,24 @@ impl<'a> ProjectView<'a> {
             root: Some(root),
         }
     }
+
+    /// The view of `graph`, built in `env`, rooted at `root`: a project
+    /// session's, or a compiled project's.
+    pub fn in_environment(
+        env: &'a specforge_project::Environment,
+        graph: &'a Graph,
+        root: Option<&'a Path>,
+    ) -> Self {
+        let registries = &env.registries;
+        Self {
+            graph,
+            kind_registry: &registries.kinds,
+            field_registry: &registries.fields,
+            rules: &registries.rules,
+            manifests: &registries.manifests,
+            root,
+        }
+    }
 }
 
 /// Where the test report comes from.
