@@ -300,16 +300,20 @@ fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Val
         }
     }
     let runtime = state.wasm_runtime(&root);
-    let input = serde_json::to_vec(&arguments).unwrap_or_default();
     if entry.surface_type == SurfaceType::AutoPromotedTool {
-        // An auto-promoted CLI command runs its cmd__ export.
-        return command_tool_result(specforge_wasm::dispatch_surface_command(
+        // An auto-promoted CLI command runs its cmd__ export over the served
+        // graph, as `specforge <ext> <command>` does over the compiled one.
+        let args = arguments.as_object().cloned().unwrap_or_default();
+        return command_tool_result(specforge_ops::command::run_command(
+            runtime.as_ref(),
             &entry.extension_name,
             &entry.export_name,
-            &input,
-            runtime.as_ref(),
+            state.graph(),
+            &args,
+            &root,
         ));
     }
+    let input = serde_json::to_vec(&arguments).unwrap_or_default();
     match specforge_wasm::dispatch_surface_mcp_tool(
         &entry.extension_name,
         &entry.export_name,

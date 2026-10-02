@@ -1474,13 +1474,13 @@ fn contract_auto_promote_commands() {
         json!({"format": "json"}),
     );
     assert_eq!(resp["result"]["content"][0]["text"], "report written");
+    let calls = ext.calls();
     assert_eq!(
-        ext.calls(),
-        [(
-            EXT.to_string(),
-            "cmd__report".to_string(),
-            json!({"format": "json"})
-        )]
+        calls
+            .iter()
+            .map(|(ext, export, input)| (ext.as_str(), export.as_str(), &input["args"]))
+            .collect::<Vec<_>>(),
+        [(EXT, "cmd__report", &json!({"format": "json"}))]
     );
 
     // explicit_tool_wins: `check` stays the explicit tool, with I017.

@@ -282,6 +282,49 @@ fn list_tool_returns_entities_by_kind() {
     assert!(ids.contains(&"feat_search"));
 }
 
+/// The ids `specforge.list` returns for `args`.
+fn listed_ids(server: &mut McpServer, args: Value) -> Vec<String> {
+    let resp = call_tool(server, "specforge.list", args);
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["id"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_entities_by_kind",
+    verify = "specforge.list keeps the entities whose fields hold the where values"
+)]
+fn list_tool_filters_by_field_values() {
+    let mut server = init_server_with_kinds();
+    let planned = json!({"kind": "feature", "where": {"status": "planned"}});
+    assert_eq!(
+        listed_ids(&mut server, planned),
+        ["feat_auth", "feat_search"]
+    );
+    let by_contract = json!({"where": {"contract": "MUST login"}});
+    assert_eq!(listed_ids(&mut server, by_contract), ["login_behavior"]);
+    let done = json!({"kind": "feature", "where": {"status": "done"}});
+    assert!(listed_ids(&mut server, done).is_empty());
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_entities_by_kind",
+    verify = "specforge.list pages the entities sorted by id with offset and limit"
+)]
+fn list_tool_pages_sorted_entities() {
+    let mut server = init_server_with_kinds();
+    assert_eq!(
+        listed_ids(&mut server, json!({})),
+        ["feat_auth", "feat_search", "login_behavior"]
+    );
+    let page = json!({"offset": 1, "limit": 1});
+    assert_eq!(listed_ids(&mut server, page), ["feat_search"]);
+}
+
 // B:provide_mcp_entities_by_kind — verify unit "specforge.list returns empty array for unknown kind"
 #[specforge_test(
     behavior = "provide_mcp_entities_by_kind",
@@ -518,18 +561,23 @@ fn cli_command_auto_promoted_to_mcp_tool() {
     assert_eq!(listed["category"], "core");
     assert_eq!(listed["source"], "@test/cmds");
 
-    // A call reaches the command's cmd__ export with the tool arguments,
-    // and the command's stdout is the tool result.
+    // A call reaches the command's cmd__ export with the tool arguments as
+    // its args, beside the project root and the served graph, and the
+    // command's stdout is the tool result.
     let args = json!({"format": "md", "verbose": true});
     let resp = call_tool(&mut server, "specforge.cmds.report", args.clone());
     assert_eq!(
         resp["result"],
         json!({"content": [{"type": "text", "text": "3 of 4 covered"}], "isError": false})
     );
-    assert_eq!(
-        ext.calls(),
-        [(EXT.to_string(), "cmd__report".to_string(), args)]
-    );
+    let calls = ext.calls();
+    let [(extension, export, input)] = calls.as_slice() else {
+        panic!("one call: {calls:?}")
+    };
+    assert_eq!((extension.as_str(), export.as_str()), (EXT, "cmd__report"));
+    assert_eq!(input["args"], args);
+    assert!(input["cwd"].is_string(), "{input}");
+    assert!(input["graph"]["nodes"].is_array(), "{input}");
 
     // A failing command is a failed tool result carrying its stderr.
     let failing = json!({"exit_code": 2, "stdout": "", "stderr": "no tests found"});

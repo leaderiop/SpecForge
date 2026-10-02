@@ -11,6 +11,7 @@
 pub mod analyze;
 pub mod builtin_passes;
 pub mod collect;
+pub mod command;
 pub mod config;
 pub mod doctor;
 pub mod export;

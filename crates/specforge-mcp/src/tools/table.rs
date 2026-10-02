@@ -366,14 +366,21 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     },
     ToolSpec {
         name: "specforge.list",
-        description: "List entities, optionally filtered by kind",
+        description: "List entities sorted by id, optionally filtered by kind and field values, and paged",
         category: Category::Core,
         access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
                 "properties": {
-                    "kind": { "type": "string", "description": "Filter by entity kind (e.g. 'feature', 'behavior')" }
+                    "kind": { "type": "string", "description": "Filter by entity kind (e.g. 'feature', 'behavior')" },
+                    "where": {
+                        "type": "object",
+                        "description": "Only entities whose fields hold these values, e.g. {\"status\": \"done\"}",
+                        "additionalProperties": true
+                    },
+                    "limit": { "type": "integer", "minimum": 0, "description": "Return at most this many entities" },
+                    "offset": { "type": "integer", "minimum": 0, "description": "Skip this many entities first" }
                 }
             })
         },
