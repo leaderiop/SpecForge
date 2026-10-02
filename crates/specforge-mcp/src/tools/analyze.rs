@@ -103,7 +103,7 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
         strict: args.strict.unwrap_or(false),
         report: match args.test_results {
             Some(named) => ReportSource::File(PathBuf::from(named)),
-            None => ReportSource::Recorded,
+            None => ReportSource::RecordedInRoot,
         },
         min: None,
         prove: None,
@@ -122,9 +122,7 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
             error.tool = Some("specforge.analyze".to_string());
             error.into()
         }
-        // `min` is never set here.
-        Err(e @ AnalyzeError::MinNeedsTestResults) => {
-            ToolOutcome::invalid_input("test_results", e.to_string())
-        }
+        // `min` is never set here, so this is not reached today.
+        Err(e) => ToolOutcome::invalid_input("test_results", e.to_string()),
     }
 }

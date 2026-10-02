@@ -55,6 +55,9 @@ pub enum ReportSource {
     /// What `specforge collect` last recorded in the project, if anything.
     #[default]
     Recorded,
+    /// What `collect` recorded in the root as given, without looking at
+    /// ancestors (a sub-path does not inherit its parent's report).
+    RecordedInRoot,
     /// A named report file, which must exist.
     File(PathBuf),
     /// No report.
@@ -219,9 +222,9 @@ impl std::fmt::Display for AnalyzeError {
                 available.join(", ")
             ),
             AnalyzeError::UnusableReport(e) => e.fmt(f),
-            AnalyzeError::MinNeedsTestResults => {
-                f.write_str("a minimum coverage needs test results")
-            }
+            AnalyzeError::MinNeedsTestResults => f.write_str(
+                "--min needs test results: run `specforge collect` or pass --test-results",
+            ),
         }
     }
 }
@@ -415,6 +418,7 @@ fn read_report(
     let read = match source {
         ReportSource::None => Ok(None),
         ReportSource::File(path) => coverage::read_report_file(path).map(Some),
+        ReportSource::RecordedInRoot => view.root.map_or(Ok(None), coverage::read_report),
         ReportSource::Recorded => view
             .root
             .and_then(specforge_common::find_project_root)
@@ -642,6 +646,28 @@ mod tests {
             ..Default::default()
         };
         assert!(project.run(&options).is_ok());
+    }
+
+    #[test]
+    fn a_sub_path_reads_the_ancestors_report_only_when_asked_to_look_up() {
+        let project = Project::new();
+        std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
+        let sub = project.dir.path().join("sub");
+        std::fs::create_dir(&sub).unwrap();
+        let mut view = project.view();
+        view.root = Some(&sub);
+        let min = |report| AnalyzeOptions {
+            min: Some(50.0),
+            report,
+            ..Default::default()
+        };
+        // The CLI looks up to the project root.
+        assert!(analyze(&view, &Fake::new(), &min(ReportSource::Recorded)).is_ok());
+        // MCP reads the root it was given and nothing above it.
+        assert_eq!(
+            analyze(&view, &Fake::new(), &min(ReportSource::RecordedInRoot)).unwrap_err(),
+            AnalyzeError::MinNeedsTestResults
+        );
     }
 
     #[test]
