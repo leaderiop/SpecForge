@@ -1,15 +1,14 @@
 //! `specforge analyze` — static analysis passes over the compiled graph.
 //!
-//! Pass bodies live in [`specforge_emitter::analyze`] so the CLI, the MCP
-//! tool, and any future surface run identical code, behind
-//! [`specforge_ops::analyze`]. This module is the CLI half: arguments in,
-//! rendering and exit codes out.
+//! The analysis itself is [`specforge_ops::analyze`], shared with the MCP
+//! tool. This module is the CLI half: arguments in, rendering and exit
+//! codes out.
 
 use std::path::Path;
 
 use specforge_emitter::truncate_diagnostics;
 use specforge_ops::analyze::{
-    AnalyzeError, AnalyzeOptions, Gate, ProjectView, ProveOptions, ReportSource, analyze,
+    AnalyzeOptions, Gate, ProjectView, ProveOptions, ReportSource, analyze,
 };
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 
@@ -42,12 +41,6 @@ pub fn run(
     };
     let outcome = match analyze(&ProjectView::of(&ctx, path), &runtime, &options) {
         Ok(outcome) => outcome,
-        Err(AnalyzeError::MinNeedsTestResults) => {
-            eprintln!(
-                "error: --min needs test results: run `specforge collect` or pass --test-results"
-            );
-            return 2;
-        }
         Err(e) => {
             eprintln!("error: {e}");
             return 2;

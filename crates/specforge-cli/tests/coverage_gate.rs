@@ -163,6 +163,45 @@ fn min_requires_test_results() {
 }
 
 #[specforge_test(
+    behavior = "te_coverage_gate",
+    verify = "a gate without the coverage pass exits 2 with E068"
+)]
+fn min_without_the_coverage_pass_exits_2_with_e068() {
+    let tmp = TempDir::new().unwrap();
+    std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+    std::fs::write(
+        tmp.path().join("specforge.json"),
+        r#"{"name":"cov","spec_root":"src","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        tmp.path().join("src/a.spec"),
+        "type widget \"Widget\" {\n  id string @unique\n}\n",
+    )
+    .unwrap();
+    report(tmp.path(), true, None);
+    let out = specforge()
+        .args([
+            "analyze",
+            "--path",
+            tmp.path().to_str().unwrap(),
+            "all",
+            "--test-results",
+            tmp.path().join("specforge-report.json").to_str().unwrap(),
+            "--min",
+            "50",
+        ])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.code(), Some(2), "{stderr}");
+    assert!(
+        stderr.contains("error[E068]: --min requires the coverage pass"),
+        "{stderr}"
+    );
+}
+
+#[specforge_test(
     behavior = "te_orphaned_test_records",
     verify = "an unknown entity in a test record warns W097 with a close-match hint and does not fail the run"
 )]
