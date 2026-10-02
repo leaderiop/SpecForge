@@ -10,8 +10,7 @@ use crate::analyze::TestReport;
 use crate::compile::build_validation_entities;
 use serde_json::Value;
 use specforge_common::Diagnostic;
-use specforge_graph::{FieldMap, FieldValue, Graph, Node};
-use specforge_parser::VerifyStatement;
+use specforge_graph::{FieldValue, Graph, Node};
 use specforge_registry::validation_engine::{
     ValidationEntity, ValidationPatternKind, ValidationRulePattern,
 };
@@ -35,27 +34,7 @@ pub fn testable_kinds(reg: &KindRegistry) -> BTreeSet<&str> {
         .collect()
 }
 
-/// An entity's obligations: its `verify` statements, in declaration order.
-///
-/// They are found wherever they sit among the entity's fields. A type may
-/// declare a struct member named `verify` (`verify string @optional`); that
-/// member is a field, not an obligation, and must not hide the statements,
-/// which a first-match lookup of the `verify` key would do.
-pub fn obligations(node: &Node) -> &[VerifyStatement] {
-    obligations_in(&node.fields)
-}
-
-/// [`obligations`] over a bare field map.
-pub fn obligations_in(fields: &FieldMap) -> &[VerifyStatement] {
-    fields
-        .entries()
-        .iter()
-        .find_map(|entry| match &entry.value {
-            FieldValue::VerifyList(stmts) => Some(stmts.as_slice()),
-            _ => None,
-        })
-        .unwrap_or(&[])
-}
+use specforge_graph::obligations;
 
 /// Why a test report could not be used.
 #[derive(Debug, Clone, PartialEq, Eq)]

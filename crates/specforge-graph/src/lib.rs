@@ -5,7 +5,9 @@ mod derive;
 pub use derive::{DerivedFrom, DerivedReference};
 pub mod cycles;
 mod graph;
+mod obligations;
 pub use cycles::{CycleOptions, find_cycles};
+pub use obligations::obligations;
 pub mod rename;
 
 pub use build::{

@@ -90,7 +90,7 @@ pub fn validate_plan(graph: &Graph, plan: &Value, testable_kinds: &[&str]) -> Pl
         if !testable_set.contains(node.kind.raw.as_str()) {
             continue;
         }
-        let has_verify = !crate::coverage::obligations(node).is_empty();
+        let has_verify = !specforge_graph::obligations(node).is_empty();
         if has_verify && !plan_id_set.contains(node.id.raw.as_str()) {
             let message = format!(
                 "testable entity '{}' ({}) is not covered by the plan",

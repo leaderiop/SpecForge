@@ -501,7 +501,7 @@ impl KnownEntities {
             .nodes()
             .iter()
             .map(|node| {
-                let texts = specforge_emitter::coverage::obligations(node)
+                let texts = specforge_graph::obligations(node)
                     .iter()
                     .map(|s| s.description.clone())
                     .collect();

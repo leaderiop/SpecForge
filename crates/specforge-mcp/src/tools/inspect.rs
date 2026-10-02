@@ -32,7 +32,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         _ => None,
     });
 
-    let obligations = specforge_emitter::coverage::obligations(node);
+    let obligations = specforge_graph::obligations(node);
     let declared = !obligations.is_empty();
     // Whether the entity's kind counts toward coverage, as hover, the
     // schema and the outline say (ADR 0004, D2-d); `declared` says whether

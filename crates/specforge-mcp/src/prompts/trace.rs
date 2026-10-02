@@ -66,7 +66,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
             state
                 .graph()
                 .node(eid)
-                .map(|n| specforge_emitter::coverage::obligations(n).is_empty())
+                .map(|n| specforge_graph::obligations(n).is_empty())
                 .unwrap_or(true)
         })
         .cloned()

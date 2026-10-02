@@ -50,7 +50,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         .map(|e| e.target.to_string())
         .collect();
 
-    let verify_expectations: Vec<String> = specforge_emitter::coverage::obligations(node)
+    let verify_expectations: Vec<String> = specforge_graph::obligations(node)
         .iter()
         .map(|s| format!("{} {}", s.kind, s.description))
         .collect();
