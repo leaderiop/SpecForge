@@ -9,7 +9,7 @@ use std::path::Path;
 
 use specforge_emitter::truncate_diagnostics;
 use specforge_ops::analyze::{
-    AnalyzeError, AnalyzeOptions, ProjectView, ProveOptions, ReportSource, analyze,
+    AnalyzeError, AnalyzeOptions, Gate, ProjectView, ProveOptions, ReportSource, analyze,
 };
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 
@@ -102,37 +102,30 @@ pub fn run(
         );
     }
 
-    // D2: coverage gate — after the reports print, so the operator still
-    // sees the full analysis; the gate only decides the exit code.
-    if let Some(min_pct) = min {
-        let coverage_report = reports
-            .iter()
-            .find(|r| r.name == specforge_emitter::analyze::COVERAGE_PASS);
-        let Some(coverage_report) = coverage_report else {
+    // The gate comes after the reports print, so the operator still sees the
+    // full analysis; it only decides the exit code.
+    match &outcome.gate {
+        Gate::NotRequested | Gate::Met => {}
+        Gate::NoCoveragePass => {
             eprintln!(
                 "error[E068]: --min requires the coverage pass (pass=coverage or all) from @specforge/testing — enable it with `specforge add @specforge/testing`"
             );
             return 2;
-        };
-        // The pass's summary is the coverage rule's typed `Summary`: a
-        // missing or renamed key is an error, never a silent 0.
-        let summary: specforge_emitter::coverage::Summary = match serde_json::from_value(
-            coverage_report.summary.clone(),
-        ) {
-            Ok(summary) => summary,
-            Err(e) => {
-                eprintln!(
-                    "error: the coverage pass summary is not the shape this specforge reads ({e}); update @specforge/testing"
-                );
-                return 2;
-            }
-        };
-        // Nothing testable satisfies any threshold.
-        let pct = summary.proof_pct();
-        if pct + f64::EPSILON < min_pct {
+        }
+        Gate::UnreadableSummary(e) => {
             eprintln!(
-                "error[E048]: proof coverage {pct:.1}% is below the required minimum {min_pct:.1}% ({}/{} testable entities proven)",
-                summary.testable_proven, summary.testable_total
+                "error: the coverage pass summary is not the shape this specforge reads ({e}); update @specforge/testing"
+            );
+            return 2;
+        }
+        Gate::Below {
+            pct,
+            min,
+            proven,
+            total,
+        } => {
+            eprintln!(
+                "error[E048]: proof coverage {pct:.1}% is below the required minimum {min:.1}% ({proven}/{total} testable entities proven)"
             );
             return 1;
         }

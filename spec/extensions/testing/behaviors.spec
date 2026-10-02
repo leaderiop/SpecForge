@@ -138,7 +138,11 @@ behavior te_coverage_gate "Proof Coverage Gate" {
     the gate: the summary's testable_proven is its numerator. It needs test results
     (the project's specforge-report.json or --test-results) and the
     coverage pass, and a project with nothing testable satisfies any
-    threshold.
+    threshold. The analyze operation computes where the gate landed
+    (not requested, met, below, no coverage pass, unreadable summary)
+    and leaves the analysis result untouched; the CLI maps it to the
+    exit code. A coverage pass that did not run, or whose summary cannot
+    be read, is an error rather than a pass.
   """
   ensures {
     below_fails   "proof coverage below the threshold fails with E048"
@@ -149,4 +153,6 @@ behavior te_coverage_gate "Proof Coverage Gate" {
   verify unit "coverage below the threshold fails with E048"
   verify unit "the gate needs test results"
   verify unit "a proven entity whose kind is not testable does not raise the gate"
+  verify unit "the analysis reports where the gate landed and leaves the analysis result alone"
+  verify unit "a gate without a readable coverage pass is not met"
 }
