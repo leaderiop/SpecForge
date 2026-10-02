@@ -1,5 +1,4 @@
 use serde_json::Value;
-use specforge_graph::FieldValue;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
@@ -27,14 +26,11 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         }
     };
 
-    let contract_text = node
-        .fields
-        .get("contract")
-        .and_then(|v| match v {
-            FieldValue::String(s) => Some(s.clone()),
-            _ => None,
-        })
-        .unwrap_or_default();
+    // The statement the extension declares (headline and normative), e.g.
+    // a behavior's `contract`; empty for a kind that declares none.
+    let contract_text =
+        specforge_emitter::context::headline_statement(node, &state.registries().fields)
+            .unwrap_or_default();
 
     let upstream: Vec<String> = state
         .graph()

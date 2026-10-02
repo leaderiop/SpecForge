@@ -1,5 +1,4 @@
 use serde_json::Value;
-use specforge_graph::FieldValue;
 
 use crate::state::McpState;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
@@ -27,10 +26,9 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let reference_count =
         state.graph().edges_to(entity_id).len() + state.graph().edges_from(entity_id).len();
 
-    let contract = node.fields.get("contract").and_then(|v| match v {
-        FieldValue::String(s) => Some(s.clone()),
-        _ => None,
-    });
+    // The statement the extension declares (headline and normative): a
+    // behavior's `contract`; `null` for a kind that declares none.
+    let contract = specforge_emitter::context::headline_statement(node, &state.registries().fields);
 
     let obligations = specforge_graph::obligations(node);
     let declared = !obligations.is_empty();

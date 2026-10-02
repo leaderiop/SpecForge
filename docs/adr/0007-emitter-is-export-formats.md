@@ -38,13 +38,20 @@ the compiler must not know (principle 2): union `variants`, `abstract`, the `inv
 | `theme_color` | handshake / manifest | the model and outline palettes keyed by extension name | software, product, governance, formal |
 
 A union body (`kind X = a | b`) is structural syntax: it owes no obligations because it has no
-body to hold them, decided from the value's shape, not the `variants` name. `title` (the entity
+body to hold them. It is recognised by the key the parser itself gives it
+(`specforge_parser::UNION_VARIANTS_FIELD`), not by a value's shape alone: the parser also turns
+a user's `values [a, b]` into a variant list, and that exempts nothing. `title` (the entity
 title) and `verify` (ADR 0002) stay structural. The flags are optional on the wire and in
 `ManifestV2`; the Graph Protocol schema does not carry them, so exports are unchanged.
 
+MCP `inspect`'s `contract` and the context prompt's `contract_text` are the entity's field
+declared both `headline` and `normative` (`specforge_emitter::context::headline_statement`): a
+behavior's or an event's `contract`; a `status` is headline only.
+
 One visible consequence: the context export lifts only declared headline fields, so a struct
 member that happens to be named `status` on an open-fields kind (a `type`) is no longer shown
-as the entity's status, as `abstract` already exempts nothing unless declared.
+as the entity's status, as `abstract` already exempts nothing unless declared; MCP's `contract`
+likewise.
 
 ## Known gaps
 
@@ -53,9 +60,12 @@ as the entity's status, as `abstract` already exempts nothing unless declared.
   unknown-field check accepts `expression` on every kind for it. Moving that needs a manifest
   declaration of bound and claim fields; it waits for the shared prove code (D3-f).
 - **The coverage rule** (`specforge-coverage`, owned by `@specforge/testing`, D2-f) names
-  `invariant`, `property` and their `risk`; the host passes `risk` by name into it.
+  `invariant` and its `risk` (A002, the risk tallies) and the `property` verify kind; the host
+  passes `risk` by name into it. `contract_target` is not a substitute: it also marks formal's
+  `property` kind, which would gain risk tallies and A002. It needs a declaration of the
+  risk-graded kind and its risk field, sent to the testing pass.
 - **The build cache** (`specforge_project::BuildCache`) records every entity's `status` for the
-  product's transition checks (W087–W091).
-- **MCP** `inspect` and the context prompt print an entity's `contract` under that key.
+  product's transition checks (W087–W091). Recording declared fields instead changes the cache
+  file and `PassBuildCache` (the SDK, so every blob), and wants a field flag of its own.
 - **`specforge-cli/src/product`** implements product queries natively.
 - The model's DOT cluster ids strip the `@specforge/` scope (snapshot-locked output).

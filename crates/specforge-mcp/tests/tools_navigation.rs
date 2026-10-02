@@ -137,6 +137,21 @@ fn tool_text(resp: &Value) -> String {
 
 // --- specforge.inspect ---
 
+/// The statement inspect reports is the field the extension declares
+/// headline and normative, not whatever field is named `contract`.
+#[test]
+fn inspect_reports_no_contract_its_kind_does_not_declare() {
+    let mut server = test_server();
+    let resp = call_tool(
+        &mut server,
+        "specforge.inspect",
+        json!({"entity_id": "alpha"}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert!(parsed["contract"].is_null(), "{parsed}");
+    assert!(parsed["fields"]["contract"].is_string(), "{parsed}");
+}
+
 // B:provide_mcp_inspect_tool — verify unit "returns entity details"
 #[specforge_test(
     behavior = "provide_mcp_inspect_tool",
@@ -144,6 +159,7 @@ fn tool_text(resp: &Value) -> String {
 )]
 fn inspect_returns_details() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
     let resp = call_tool(
         &mut server,
         "specforge.inspect",

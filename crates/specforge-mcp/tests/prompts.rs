@@ -730,6 +730,7 @@ fn explore_high_connectivity() {
 )]
 fn context_includes_contract() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
     let resp = call_prompt(
         &mut server,
         "specforge://prompts/context",

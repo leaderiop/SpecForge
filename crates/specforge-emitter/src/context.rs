@@ -55,6 +55,22 @@ pub(crate) fn headline_fields(
         .collect()
 }
 
+/// The text that states what `node` promises, as an agent reads it first:
+/// its first string field the extension declares both `headline` and
+/// `normative` (a behavior's or an event's `contract`; a `status` is
+/// headline but not normative). `None` when its kind declares none.
+pub fn headline_statement<'n>(node: &'n Node, registry: &FieldRegistry) -> Option<&'n str> {
+    node.fields.entries().iter().find_map(|entry| {
+        let declared = registry
+            .get(node.kind.raw.as_str(), entry.key.as_str())
+            .is_some_and(|f| f.headline && f.normative);
+        match &entry.value {
+            FieldValue::String(s) if declared => Some(s.as_str()),
+            _ => None,
+        }
+    })
+}
+
 fn is_headline(node: &Node, field: &str, registry: &FieldRegistry) -> bool {
     registry
         .get(node.kind.raw.as_str(), field)

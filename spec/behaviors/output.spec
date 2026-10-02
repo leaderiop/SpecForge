@@ -487,7 +487,8 @@ behavior export_agent_context_format "Export Agent Context Format" {
     a decision's decision text), so every kind keeps the text that states
     what it promises; core reads the flag and knows no field by name. The
     fields an extension declares headline (a behavior's contract, a status)
-    sit at the entity's top level instead. The output MUST omit
+    sit at the entity's top level instead; a field no extension declares
+    headline is never lifted, whatever its name. The output MUST omit
     verbose fields (full descriptions, prose) to minimize token consumption.
     The format MUST be valid JSON conforming to the Graph Protocol schema.
     The output MUST include a schema_version field identifying the Graph

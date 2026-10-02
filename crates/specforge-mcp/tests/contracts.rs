@@ -832,6 +832,7 @@ fn contract_stats() {
 )]
 fn contract_inspect() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
     let diagnostics = &mut server.state_mut().surface_diagnostics;
     // One diagnostic inside alpha's span, one in beta's file.
     diagnostics.push(diagnostic(
@@ -1095,6 +1096,7 @@ fn contract_schema() {
 )]
 fn contract_context_prompt() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
     // An invariant nothing connects to alpha.
     server.state_mut().edit_graph(|graph| {
         graph.add_node(node(

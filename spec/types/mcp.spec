@@ -128,6 +128,8 @@ type McpInspectResult {
   reference_count     integer
   summary             string       @optional
   source_span         SourceSpan   @readonly
+  /// The field the entity's extension declares headline and normative (a
+  /// behavior's contract); absent when its kind declares none.
   contract            string       @optional
   fields              FieldMap     @optional
   references          string[]     @optional
@@ -383,6 +385,8 @@ type McpRemoveExtensionResult {
 type McpContextPromptResult "Context Prompt Result" {
   entity_id              string   @readonly
   kind                   string   @readonly
+  // The field the extension declares headline and normative (a behavior's
+  // contract); empty when the entity's kind declares none.
   contract_text          string
   upstream_entities      string[]
   downstream_entities    string[]
