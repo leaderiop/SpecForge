@@ -933,7 +933,7 @@ fn resolve_one_import_by_the_compile_cascade() {
 /// not resolve: E025, as for a relative import.
 #[specforge_test(
     behavior = "resolve_use_imports",
-    verify = "relative import traversing above spec_root is rejected"
+    verify = "an import reaching above spec_root by any cascade step produces E025"
 )]
 fn no_import_reaches_above_the_spec_root() {
     let outer = TempDir::new().unwrap();

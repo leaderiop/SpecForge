@@ -29,18 +29,22 @@ behavior resolve_use_imports "Resolve Use Imports" {
     The resolver MUST process use directives by locating the target .spec
     file relative to the spec root directory. The .spec extension MUST be
     appended implicitly; a path that already ends in .spec names the same
-    file. Missing files MUST produce an E025 diagnostic.
+    file. Missing files MUST produce an E025 diagnostic. A target above
+    the spec root does not resolve, whichever step of the cascade
+    (relative, @alias, bare path) names it: E025.
     The resolver MUST build the file dependency graph from imports.
     A .spec file whose path relative to the spec root contains one of the
     exclude entries of specforge.json MUST NOT be compiled, on every
     surface (check, watch, the LSP and MCP). Entries are plain substrings,
     not globs: "drafts/" excludes drafts/a.spec, "drafts/**" matches no
-    path.
+    path. A file under a skipped directory (target, node_modules, .git,
+    .hg, dist, build) is not compiled either, on every surface.
   """
   verify unit "resolve use path to file on disk"
   verify unit "missing import file produces E025"
   verify unit "an import path may spell out the .spec extension"
   verify unit "relative import traversing above spec_root is rejected"
+  verify unit "an import reaching above spec_root by any cascade step produces E025"
   verify integration "imports across nested directories resolve correctly"
   verify contract "Resolve Use Imports: use import resolution holds — registries_populated_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"
   verify unit "resolve extension import path"

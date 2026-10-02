@@ -28,7 +28,7 @@ mod session;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use specforge_common::{Diagnostic, ProjectConfig, is_excluded, load_project_config};
+use specforge_common::{Diagnostic, ProjectConfig, is_discovered, load_project_config};
 use specforge_emitter::analyze::TestReport;
 use specforge_emitter::compile::{GraphChecks, check_graph, load_extensions, probe_custom_rules};
 use specforge_emitter::coverage::{CoverageRegistries, ProjectCoverage};
@@ -177,10 +177,12 @@ impl Environment {
         }
     }
 
-    /// Whether a `.spec` file (its path relative to the spec root) is left
-    /// out of the project by an `exclude` entry.
+    /// Whether a file (its path relative to the spec root) is left out of
+    /// the project, as discovery leaves it out: not a `.spec` file, under a
+    /// skipped directory (`target`, `node_modules`, ...) or matched by an
+    /// `exclude` entry.
     pub fn excludes(&self, relative: &str) -> bool {
-        is_excluded(relative, &self.config.exclude)
+        !is_discovered(relative, &self.config.exclude)
     }
 
     /// Discover, parse and resolve the project's `.spec` files.

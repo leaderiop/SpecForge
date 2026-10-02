@@ -1034,3 +1034,172 @@ fn notify_delta_subscribers_contract() {
     assert_eq!(update.delta.affected_files, ["c.spec"]);
     assert_eq!(update.rebuilt_files.len(), 4);
 }
+
+/// A small deterministic generator (xorshift), so a failing sequence
+/// replays from its seed.
+struct Rng(u64);
+
+impl Rng {
+    fn next(&mut self) -> u64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        self.0
+    }
+
+    fn below(&mut self, n: usize) -> usize {
+        (self.next() % n as u64) as usize
+    }
+
+    fn pick<'a>(&mut self, items: &[&'a str]) -> &'a str {
+        items[self.below(items.len())]
+    }
+}
+
+/// A random `.spec` text: imports of every kind (relative, bare, index,
+/// missing, above the spec root) and entities whose IDs collide across
+/// files and kinds and whose references may dangle.
+fn random_spec(rng: &mut Rng) -> String {
+    const IMPORTS: &[&str] = &[
+        "a",
+        "b.spec",
+        "sub",
+        "sub/c",
+        "./c",
+        "../a",
+        "missing",
+        "../../outside",
+        "drafts/d",
+    ];
+    const BEHAVIORS: &[&str] = &["b0", "b1", "b2", "b3", "i1"];
+    const INVARIANTS: &[&str] = &["i0", "i1", "i2", "b1"];
+    let mut text = String::new();
+    for _ in 0..rng.below(3) {
+        text.push_str(&format!("use \"{}\"\n", rng.pick(IMPORTS)));
+    }
+    for n in 0..1 + rng.below(3) {
+        if rng.below(3) == 0 {
+            let id = rng.pick(INVARIANTS);
+            text.push_str(&format!(
+                "\ninvariant {id} \"I{n}\" {{\n  guarantee \"The system MUST {id}\"\n  risk low\n}}\n"
+            ));
+        } else {
+            let id = rng.pick(BEHAVIORS);
+            let refs = [rng.pick(INVARIANTS), rng.pick(&["i0", "i2", "gone"])].join(", ");
+            text.push_str(&format!(
+                "\nbehavior {id} \"B{n}\" {{\n  category command\n  invariants [{refs}]\n  contract \"The system MUST {id} {n}\"\n}}\n"
+            ));
+        }
+    }
+    if rng.below(8) == 0 {
+        text.push_str("\nbehavior broken \"Broken\" {\n");
+    }
+    text
+}
+
+/// Random sequences of edits, creations, deletions, renames (a delete and
+/// an add in one batch) and editor buffers, over nested, excluded and
+/// never-discovered (`build/`) paths: after each update the session holds
+/// what a fresh compile of the disk builds, and its delta is the full one.
+#[specforge_test(
+    invariant = "incremental_correctness",
+    verify = "incremental recompilation produces the same graph as a full rebuild"
+)]
+fn random_updates_leave_what_a_fresh_compile_builds() {
+    const PATHS: &[&str] = &[
+        "a.spec",
+        "b.spec",
+        "sub/c.spec",
+        "sub/index.spec",
+        "sub/deep/e.spec",
+        "drafts/d.spec",
+        "build/f.spec",
+    ];
+    let config = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/testing"],"spec_root":"spec","exclude":["drafts/"]}"#;
+    for seed in [
+        0x9E37_79B9_7F4A_7C15_u64,
+        0xD1B5_4A32_D192_ED03,
+        0x2545_F491_4F6C_DD1D,
+    ] {
+        let mut rng = Rng(seed);
+        let dir = project(config, &[]);
+        let root = dir.path();
+        let spec = root.join("spec");
+        fs::write(root.join("outside.spec"), "behavior outside \"O\" {\n}\n").unwrap();
+        for path in &PATHS[..3] {
+            write(&spec, path, &random_spec(&mut rng));
+        }
+        let mut session = ProjectSession::open(root);
+        session.set_verify_incremental(true);
+        assert_matches_a_fresh_compile(&session, root);
+
+        for step in 0..30 {
+            let mut touched: Vec<String> = Vec::new();
+            let mut buffer: Option<(String, String)> = None;
+            match rng.below(5) {
+                // Rename: one file moves to another path in the same batch.
+                0 => {
+                    let (from, to) = (rng.pick(PATHS), rng.pick(PATHS));
+                    if from != to && spec.join(from).is_file() {
+                        let text = fs::read_to_string(spec.join(from)).unwrap();
+                        fs::remove_file(spec.join(from)).unwrap();
+                        write(&spec, to, &text);
+                        touched.extend([from.to_string(), to.to_string()]);
+                    }
+                }
+                1 => {
+                    let path = rng.pick(PATHS);
+                    if spec.join(path).is_file() {
+                        fs::remove_file(spec.join(path)).unwrap();
+                        touched.push(path.to_string());
+                    }
+                }
+                // An editor buffer, saved so the fresh compile sees it.
+                2 => {
+                    let path = rng.pick(PATHS);
+                    let text = random_spec(&mut rng);
+                    write(&spec, path, &text);
+                    buffer = Some((path.to_string(), text));
+                }
+                _ => {
+                    for _ in 0..1 + rng.below(3) {
+                        let path = rng.pick(PATHS);
+                        write(&spec, path, &random_spec(&mut rng));
+                        touched.push(path.to_string());
+                    }
+                }
+            }
+            let previous = session.graph().clone();
+            let update = match &buffer {
+                Some((path, text)) => session.update(SourceChange::Buffer {
+                    path,
+                    text: Some(text),
+                }),
+                None => session.update(SourceChange::Disk(&touched)),
+            };
+            let context = format!("seed {seed:#x} step {step}");
+            assert!(
+                matches!(update.verification, None | Some(Ok(()))),
+                "{context}: {:?}",
+                update.verification
+            );
+            assert_eq!(
+                update.delta,
+                specforge_project::compute_graph_delta(&previous, session.graph()),
+                "{context}"
+            );
+            let runtime = specforge_component::project_runtime(root);
+            let fresh = CompiledProject::compile(root, Some(&runtime));
+            assert_eq!(
+                graph_contents(session.graph()),
+                graph_contents(&fresh.graph),
+                "{context}"
+            );
+            assert_eq!(
+                diagnostic_set(&session.diagnostics()),
+                diagnostic_set(&fresh.diagnostics()),
+                "{context}"
+            );
+        }
+    }
+}

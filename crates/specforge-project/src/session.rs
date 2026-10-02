@@ -172,7 +172,8 @@ impl ProjectSession {
     }
 
     /// Apply a change to the project's sources, then run every check.
-    /// Files an `exclude` entry matches are ignored.
+    /// Files discovery would not find (an `exclude` entry, a skipped
+    /// directory, not `.spec`) are ignored.
     pub fn update(&mut self, change: SourceChange<'_>) -> Update {
         self.update_with(change, CheckMode::Full)
     }
@@ -182,13 +183,13 @@ impl ProjectSession {
         let changes: Vec<(String, Option<String>)> = match change {
             SourceChange::Disk(paths) => paths
                 .iter()
-                .filter(|path| !self.env.excludes(path))
+                .filter(|path| !self.excludes(path))
                 .map(|path| {
                     let text = std::fs::read_to_string(self.env.spec_root.join(path)).ok();
                     (path.clone(), text)
                 })
                 .collect(),
-            SourceChange::Buffer { path, .. } if self.env.excludes(path) => Vec::new(),
+            SourceChange::Buffer { path, .. } if self.excludes(path) => Vec::new(),
             SourceChange::Buffer { path, text } => {
                 vec![(path.to_string(), text.map(str::to_string))]
             }
@@ -318,6 +319,12 @@ impl ProjectSession {
     /// How many `.spec` files the project has.
     pub fn file_count(&self) -> usize {
         self.build.parsed_files().len()
+    }
+
+    /// Whether a changed file is outside the project. A detached session
+    /// takes every buffer: it has no spec root to discover files under.
+    fn excludes(&self, path: &str) -> bool {
+        !self.detached && self.env.excludes(path)
     }
 
     fn resolve_imports(&self) -> Vec<Diagnostic> {
