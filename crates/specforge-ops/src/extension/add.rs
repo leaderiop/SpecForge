@@ -231,20 +231,57 @@ fn add_from_registry(
             origin,
         });
     }
-    let package = registry.fetch(name, &version)?;
+    let checked = fetch_checked(
+        registry,
+        &lock,
+        name,
+        &version,
+        req.allow_unsigned,
+        req.trust,
+    )?;
+    install(
+        req.root,
+        &mut lock,
+        &checked.declared,
+        &checked.package.wasm,
+        &checked.package.sha256,
+        checked.key_id,
+        &origin,
+    )
+}
+
+/// A registry package downloaded and checked as `add` checks it: its
+/// integrity, its publisher signature under the TOFU pin policy, the
+/// ADR-0001 diamond gate against `lock`, and that the binary is the
+/// package it claims to be. Nothing is written but a trust pin.
+pub(super) struct Checked {
+    pub(super) package: crate::registry::Package,
+    pub(super) declared: Declared,
+    pub(super) key_id: Option<String>,
+}
+
+pub(super) fn fetch_checked(
+    registry: &dyn Registry,
+    lock: &specforge_wasm::LockFile,
+    name: &str,
+    version: &str,
+    allow_unsigned: bool,
+    trust: Trust,
+) -> Result<Checked, OpError> {
+    let package = registry.fetch(name, version)?;
 
     // Publisher signature and the TOFU pin policy (one implementation,
     // shared with every surface).
-    let (assume_yes, format) = match req.trust {
+    let (assume_yes, format) = match trust {
         Trust::Refuse => (false, "json"),
         Trust::AssumeYes => (true, "human"),
         Trust::Prompt => (false, "human"),
     };
-    let trust = specforge_registry::client::trust_flow::check_and_pin(
+    let trusted = specforge_registry::client::trust_flow::check_and_pin(
         &package.name,
         &package.response,
         &package.wasm,
-        req.allow_unsigned,
+        allow_unsigned,
         assume_yes,
         format,
         None,
@@ -254,7 +291,7 @@ fn add_from_registry(
     // The peers the published manifest declares decide the diamond gate
     // before anything is loaded; the binary must then be the package it
     // claims to be.
-    check_diamonds(&lock, &package.name, &package.peers, &|peer| {
+    check_diamonds(lock, &package.name, &package.peers, &|peer| {
         registry.versions(peer)
     })?;
     let declared = Declared::of(&package.wasm)?;
@@ -267,15 +304,11 @@ fn add_from_registry(
             ),
         ));
     }
-    install(
-        req.root,
-        &mut lock,
-        &declared,
-        &package.wasm,
-        &package.sha256,
-        trust.key_id,
-        &origin,
-    )
+    Ok(Checked {
+        package,
+        declared,
+        key_id: trusted.key_id,
+    })
 }
 
 /// The name and version the extension binary at `path` declares, checked
@@ -297,10 +330,10 @@ pub fn declared(path: &Path) -> Result<(String, String), OpError> {
 }
 
 /// What an extension binary's handshake declares.
-struct Declared {
-    name: String,
-    version: String,
-    peers: Vec<specforge_registry::PeerDependency>,
+pub(super) struct Declared {
+    pub(super) name: String,
+    pub(super) version: String,
+    pub(super) peers: Vec<specforge_registry::PeerDependency>,
 }
 
 impl Declared {
@@ -379,23 +412,15 @@ fn install(
     key_id: Option<String>,
     origin: &Origin,
 ) -> Result<AddOutcome, OpError> {
-    let result = install_extension(
-        &declared.name,
-        &declared.version,
+    let result = place(
+        root,
+        lock,
+        declared,
         wasm,
         sha256,
-        &extensions_dir(root),
-        lock,
         key_id.as_deref(),
-        declared.peers.clone(),
-    )
-    .map_err(OpError::from)?;
-    if let Some(entry) = lock.entries.iter_mut().find(|e| e.name == declared.name) {
-        if let Origin::Installed { source } = origin {
-            entry.source = source.clone();
-        }
-        entry.peer_dependencies = declared.peers.clone();
-    }
+        origin,
+    )?;
     write_lock_file(lock, &lock_path(root)).map_err(OpError::from)?;
     crate::config::add_extension(root, &declared.name, &declared.name).map_err(config_error)?;
     Ok(AddOutcome::Installed {
@@ -405,6 +430,37 @@ fn install(
         key_id,
         origin: origin.clone(),
     })
+}
+
+/// Place the binary under `.specforge/extensions/` and record it in `lock`
+/// (in memory) as `origin`, with its declared version and peers.
+pub(super) fn place(
+    root: &Path,
+    lock: &mut specforge_wasm::LockFile,
+    declared: &Declared,
+    wasm: &[u8],
+    sha256: &str,
+    key_id: Option<&str>,
+    origin: &Origin,
+) -> Result<specforge_wasm::InstallResult, OpError> {
+    let result = install_extension(
+        &declared.name,
+        &declared.version,
+        wasm,
+        sha256,
+        &extensions_dir(root),
+        lock,
+        key_id,
+        declared.peers.clone(),
+    )
+    .map_err(OpError::from)?;
+    if let Some(entry) = lock.entries.iter_mut().find(|e| e.name == declared.name) {
+        if let Origin::Installed { source } = origin {
+            entry.source = source.clone();
+        }
+        entry.peer_dependencies = declared.peers.clone();
+    }
+    Ok(result)
 }
 
 /// `path` as the lock records it: relative to the project root when it

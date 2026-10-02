@@ -26,7 +26,6 @@ mod remove;
 mod search;
 mod stats;
 mod trace;
-mod trust_flow;
 mod update;
 mod watch;
 
@@ -126,15 +125,6 @@ impl AnalysisPass {
     }
 }
 impl OutputFormat {
-    /// Canonical flag spelling — the value name accepted by registry-client
-    /// APIs that take the raw output-format string.
-    fn as_str(self) -> &'static str {
-        match self {
-            OutputFormat::Human => "human",
-            OutputFormat::Json => "json",
-        }
-    }
-
     /// Report diagnostics that don't stop the command (the registry
     /// configuration's E067/W140/I003): `severity[CODE]: message` on
     /// stderr in either format, so JSON stdout stays one document.
@@ -144,16 +134,22 @@ impl OutputFormat {
         }
     }
 
+    /// An operation's failure as the JSON document every command prints:
+    /// `{"error", "code", "suggestion"}`.
+    fn op_error_json(error: &specforge_ops::OpError) -> serde_json::Value {
+        serde_json::json!({
+            "error": error.message,
+            "code": error.code,
+            "suggestion": error.suggestion,
+        })
+    }
+
     /// Report an operation's failure: `{"error", "code", "suggestion"}` on
     /// stdout as JSON, or `error[CODE]: …` and a hint on stderr.
     fn print_op_error(self, error: &specforge_ops::OpError) {
         match self {
             OutputFormat::Json => {
-                let output = serde_json::json!({
-                    "error": error.message,
-                    "code": error.code,
-                    "suggestion": error.suggestion,
-                });
+                let output = Self::op_error_json(error);
                 println!("{}", serde_json::to_string_pretty(&output).unwrap());
             }
             OutputFormat::Human => {
@@ -525,6 +521,11 @@ enum Commands {
         /// Output format: human or json
         #[arg(long, default_value = "human")]
         format: OutputFormat,
+
+        /// Allow new major versions (otherwise each extension stays within
+        /// its locked version's caret range)
+        #[arg(long, default_value_t = false)]
+        major: bool,
 
         /// Accept unsigned packages (publisher verification skipped)
         #[arg(long, default_value_t = false)]
@@ -1042,9 +1043,10 @@ fn main() {
             name,
             path,
             format,
+            major,
             allow_unsigned,
             yes,
-        } => update::run(name.as_deref(), &path, format, allow_unsigned, yes),
+        } => update::run(name.as_deref(), &path, format, major, allow_unsigned, yes),
         Commands::Login {
             registry,
             token,

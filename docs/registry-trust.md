@@ -97,8 +97,9 @@ registry install, so pins are auditable per project.
 
 ## Residual risks (stated plainly)
 
-- **Registry-controlled version lists**: `specforge update` resolves "latest"
-  from the registry, and a compromised registry can serve an *older*, still
+- **Registry-controlled version lists**: `specforge update` resolves the
+  newest version within the locked version's caret range (any version with
+  `--major`) from the registry, and a compromised registry can serve an *older*, still
   validly signed version (a downgrade within the semver range you accept).
   Version-list signatures (TUF-style) are deferred past v1. Pin exact versions
   via `specforge.lock` when this matters.
