@@ -378,6 +378,24 @@ fn a_list_command_renders_human_by_default_and_json_on_request() {
 }
 
 #[test]
+fn a_list_command_refuses_a_page_that_is_not_a_count() {
+    for args in [
+        serde_json::json!({"limit": -1}),
+        serde_json::json!({"offset": "many"}),
+    ] {
+        let out =
+            crate::commands::run("cmd__product_features", &input(args.clone(), sample())).unwrap();
+        assert_eq!(out.exit_code, 2, "{args}");
+        assert_eq!(out.stdout, "", "{args}");
+        assert!(
+            out.stderr.contains("must be a non-negative integer"),
+            "{args}: {}",
+            out.stderr
+        );
+    }
+}
+
+#[test]
 fn a_query_about_a_missing_entity_fails_on_stderr() {
     let out = crate::commands::run(
         "cmd__product_milestone_completion",

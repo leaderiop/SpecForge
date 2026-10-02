@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_product.wasm",
-  "artifact_sha256": "def23bec04d639d8a3289dfcbaf3cdbba3921a39d2f84d81226d9ee6b698451d",
+  "artifact_sha256": "822757f82d1705617193f242fba188bee21f20b97e3d7810aa250aefd6e1c6e5",
   "built_with": "rustc 1.99.0 (b940084d7 2026-09-28)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
@@ -14,7 +14,7 @@
     "crates/specforge-protocol-types/src/vocabulary.rs": "5ac29ff84aee649bd56a873d2fae8941e0c1beb6c6255aa98631a3a650c2247d",
     "extensions/product/Cargo.lock": "5ed487736b195d99319616277df2ff637e0f0f174756ad9d376ac91196793184",
     "extensions/product/Cargo.toml": "75e34d130b2413e918692c4948a976f1463726099f478fce1fd81ebdcb0b0710",
-    "extensions/product/src/commands.rs": "e1c07ffb300087814f26681b9f1217e4158521120be685099209cdd0ee14757b",
+    "extensions/product/src/commands.rs": "d2b14c55298fc7f5b13d1d9992e57c02b8c30ec9a34ce59556d7baa817b6bf0a",
     "extensions/product/src/describe_edges.json": "66f44eeb9bf9eb336707256da7f5829bc1f1deb2a47380e06b880b85b6c3df3e",
     "extensions/product/src/describe_enhancements.json": "cf3751fc455ccc2b0d43292e63dae7472f9c0a2fdc3b766179fe440133ae750b",
     "extensions/product/src/describe_entities.json": "595d93c4229fe798d614aecb4e57e35b3631131441bf1c94a6c8dea62ac4d968",

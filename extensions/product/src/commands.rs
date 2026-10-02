@@ -108,8 +108,22 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
     })
 }
 
-/// A list command over `kind`, with the filters its args set.
+/// A list command over `kind`, with the filters its args set. A `limit` or
+/// `offset` that is not a count (negative, say) fails rather than lists
+/// everything.
 fn list(input: &CommandInput, kind: &str) -> CommandOutput {
+    for page in ["limit", "offset"] {
+        if input.args.contains_key(page) && input.arg_usize(page).is_none() {
+            return CommandOutput {
+                exit_code: 2,
+                stdout: String::new(),
+                stderr: format!(
+                    "error: {page} must be a non-negative integer, got {}\n",
+                    input.args[page]
+                ),
+            };
+        }
+    }
     let filter = ListFilter {
         kind,
         status: input.arg_str("status"),
