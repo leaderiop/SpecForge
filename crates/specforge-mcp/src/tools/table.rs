@@ -105,7 +105,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: Some(
-            || json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "passes": { "type": "array" } }, "required": ["ok", "passes"] }),
+            || json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "passes": { "type": "array" }, "orphans": { "type": "array" } }, "required": ["ok", "passes"] }),
         ),
         fields: fields::<analyze::Args>,
         call: typed!(analyze::call, analyze::Args),

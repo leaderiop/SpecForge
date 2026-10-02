@@ -36,7 +36,7 @@ pub fn run(
     let options = AnalyzeOptions {
         pass: pass.unwrap_or(AnalysisPass::All).name().to_string(),
         strict,
-        report: report.clone(),
+        report,
         min,
         prove: prove.then(ProveOptions::default),
     };
@@ -53,7 +53,21 @@ pub fn run(
             return 2;
         }
     };
-    warn_orphans(&ctx, path, &report);
+    // D3: orphaned test records, on stderr before the reports. Exact
+    // matching is preserved; the warning only surfaces what was silently
+    // dropped before.
+    for orphan in &outcome.orphans {
+        match &orphan.near {
+            Some(near) => eprintln!(
+                "W097: test record references unknown entity '{}' (did you mean '{near}'?)",
+                orphan.entity_id
+            ),
+            None => eprintln!(
+                "W097: test record references unknown entity '{}'",
+                orphan.entity_id
+            ),
+        }
+    }
     let reports = &outcome.passes;
     let sources = build_source_map(&ctx.spec_root, &ctx.resolved.files);
 
@@ -139,40 +153,6 @@ pub fn run(
     }
 
     if outcome.ok { 0 } else { 1 }
-}
-
-/// D3: orphaned test records, report entries for entities the graph does
-/// not know, on stderr. Exact matching is preserved; the warning only
-/// surfaces what was silently dropped before.
-// TODO(#39): the operation returns these as data; this goes away then.
-fn warn_orphans(
-    ctx: &specforge_emitter::compile::CompilationContext,
-    path: &Path,
-    source: &ReportSource,
-) {
-    let report = match source {
-        ReportSource::File(p) => specforge_emitter::coverage::read_report_file(p).ok(),
-        _ => specforge_common::find_project_root(path).and_then(|root| {
-            specforge_emitter::coverage::read_report(&root)
-                .ok()
-                .flatten()
-        }),
-    };
-    let Some(report) = report else { return };
-    for entity_id in report.results.keys() {
-        if ctx.graph.node(entity_id).is_none() {
-            let suggestion = specforge_common::suggest::find_close_match(
-                entity_id,
-                ctx.graph.nodes().iter().map(|n| n.id.raw.as_str()),
-            );
-            match suggestion {
-                Some(near) => eprintln!(
-                    "W097: test record references unknown entity '{entity_id}' (did you mean '{near}'?)"
-                ),
-                None => eprintln!("W097: test record references unknown entity '{entity_id}'"),
-            }
-        }
-    }
 }
 
 /// A pass summary as `key: value` lines, nested keys dotted. Its shape is

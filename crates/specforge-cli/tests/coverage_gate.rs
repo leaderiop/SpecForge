@@ -162,7 +162,10 @@ fn min_requires_test_results() {
     assert!(stderr.contains("--min needs test results"), "{stderr}");
 }
 
-#[test]
+#[specforge_test(
+    behavior = "te_orphaned_test_records",
+    verify = "an unknown entity in a test record warns W097 with a close-match hint and does not fail the run"
+)]
 fn orphaned_test_records_warn_with_suggestion() {
     let tmp = TempDir::new().unwrap();
     seed(tmp.path());
@@ -189,6 +192,72 @@ fn orphaned_test_records_warn_with_suggestion() {
     );
     // Warnings do not fail the run.
     assert!(out.status.success(), "orphan warnings don't gate: {stderr}");
+}
+
+fn write_report(path: &Path, ids: &[&str]) {
+    let results: serde_json::Map<String, serde_json::Value> = ids
+        .iter()
+        .map(|id| {
+            (
+                id.to_string(),
+                serde_json::json!({"tests": [{"name": "t", "status": "pass", "verify": "widget valid"}]}),
+            )
+        })
+        .collect();
+    let doc = serde_json::json!({"runner": "r", "results": results});
+    std::fs::write(path.join("specforge-report.json"), doc.to_string()).unwrap();
+}
+
+fn analyze_json(path: &Path, strict: bool) -> (Option<i32>, serde_json::Value) {
+    let mut args = vec![
+        "analyze",
+        "--path",
+        path.to_str().unwrap(),
+        "coverage",
+        "--json",
+    ];
+    if strict {
+        args.push("--strict");
+    }
+    let out = specforge().args(args).output().unwrap();
+    let doc = serde_json::from_slice(&out.stdout)
+        .unwrap_or_else(|e| panic!("{e}: {}", String::from_utf8_lossy(&out.stderr)));
+    (out.status.code(), doc)
+}
+
+#[specforge_test(
+    behavior = "te_orphaned_test_records",
+    verify = "orphans appear in the json output only when records exist"
+)]
+fn json_carries_orphans_only_when_records_exist() {
+    let tmp = TempDir::new().unwrap();
+    seed(tmp.path());
+    write_report(tmp.path(), &["widget"]);
+    let (_, clean) = analyze_json(tmp.path(), false);
+    assert!(clean.get("orphans").is_none(), "{clean}");
+
+    write_report(tmp.path(), &["widget", "wodget"]);
+    let (_, doc) = analyze_json(tmp.path(), false);
+    assert_eq!(
+        doc["orphans"],
+        serde_json::json!([{"entity_id": "wodget", "near": "widget"}]),
+        "{doc}"
+    );
+}
+
+#[specforge_test(
+    behavior = "te_orphaned_test_records",
+    verify = "strict neither promotes an orphan nor changes ok or the exit code"
+)]
+fn strict_leaves_orphans_alone() {
+    let tmp = TempDir::new().unwrap();
+    seed(tmp.path());
+    write_report(tmp.path(), &["widget", "wodget"]);
+    let (lax_code, lax) = analyze_json(tmp.path(), false);
+    let (strict_code, strict) = analyze_json(tmp.path(), true);
+    assert_eq!(lax_code, strict_code);
+    assert_eq!(lax["ok"], strict["ok"]);
+    assert_eq!(lax["orphans"], strict["orphans"]);
 }
 
 // C1-06 rot guard: the flagship example's traceability loop must keep

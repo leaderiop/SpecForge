@@ -100,6 +100,15 @@ pub struct PassOutcome {
     pub summary: serde_json::Value,
 }
 
+/// W097: a test record naming an entity the graph does not know, with the
+/// closest known id when one is near. Not a finding of any pass, so strict
+/// never promotes it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Orphan {
+    pub entity_id: String,
+    pub near: Option<String>,
+}
+
 /// What an analysis found. Strictness is already applied.
 #[derive(Debug, Clone)]
 pub struct AnalyzeOutcome {
@@ -107,12 +116,15 @@ pub struct AnalyzeOutcome {
     pub ok: bool,
     /// Built-in passes, extension passes in their declared order, `prove` last.
     pub passes: Vec<PassOutcome>,
+    /// Test records for unknown entities, outside the pass reports.
+    pub orphans: Vec<Orphan>,
 }
 
 impl AnalyzeOutcome {
-    /// The JSON document `{ok, passes: [{pass, findings, summary}]}`.
+    /// The JSON document `{ok, passes: [{pass, findings, summary}]}`, plus
+    /// `orphans` when there are any.
     pub fn to_json(&self) -> serde_json::Value {
-        serde_json::json!({
+        let mut doc = serde_json::json!({
             "ok": self.ok,
             "passes": self
                 .passes
@@ -123,7 +135,15 @@ impl AnalyzeOutcome {
                     "summary": r.summary,
                 }))
                 .collect::<Vec<_>>(),
-        })
+        });
+        if !self.orphans.is_empty() {
+            doc["orphans"] = self
+                .orphans
+                .iter()
+                .map(|o| serde_json::json!({"entity_id": o.entity_id, "near": o.near}))
+                .collect();
+        }
+        doc
     }
 }
 
@@ -172,6 +192,8 @@ pub fn analyze(
     if options.min.is_some() && report.is_none() {
         return Err(AnalyzeError::MinNeedsTestResults);
     }
+
+    let orphans = find_orphans(view.graph, report.as_ref());
 
     let base = AnalysisContext {
         graph: view.graph,
@@ -245,7 +267,29 @@ pub fn analyze(
     Ok(AnalyzeOutcome {
         ok,
         passes: passes_run,
+        orphans,
     })
+}
+
+/// Report entries for entities the graph does not know. Matching is exact;
+/// a close match is only a hint.
+fn find_orphans(graph: &Graph, report: Option<&passes::TestReport>) -> Vec<Orphan> {
+    let Some(report) = report else {
+        return Vec::new();
+    };
+    report
+        .results
+        .keys()
+        .filter(|id| graph.node(id).is_none())
+        .map(|id| Orphan {
+            entity_id: id.clone(),
+            near: specforge_common::suggest::find_close_match(
+                id,
+                graph.nodes().iter().map(|n| n.id.raw.as_str()),
+            )
+            .map(str::to_string),
+        })
+        .collect()
 }
 
 struct Selection {
@@ -578,5 +622,102 @@ mod tests {
         let outcome = analyze(&project.view(), &fake, &options).unwrap();
         assert_eq!(names(&outcome), vec!["contracts", "@t/x:scan", "prove"]);
         assert_eq!(*fake.proved_seen.lock().unwrap(), vec![json!([])]);
+    }
+
+    fn write_report(project: &Project, ids: &[&str]) {
+        let results: serde_json::Map<String, Value> = ids
+            .iter()
+            .map(|id| {
+                (
+                    id.to_string(),
+                    json!({"tests": [{"name": "t", "status": "pass"}]}),
+                )
+            })
+            .collect();
+        std::fs::write(
+            project.dir.path().join("specforge-report.json"),
+            json!({"runner": "r", "results": results}).to_string(),
+        )
+        .unwrap();
+    }
+
+    fn add_entity(project: &mut Project, id: &str) {
+        use specforge_common::{SourceSpan, Sym};
+        use specforge_parser::{EntityId, EntityKind, FieldMap};
+        project.graph.add_node(specforge_graph::Node {
+            id: EntityId { raw: Sym::new(id) },
+            kind: EntityKind {
+                raw: Sym::new("behavior"),
+            },
+            title: None,
+            fields: FieldMap::new(),
+            source_span: SourceSpan {
+                file: Sym::new("t.spec"),
+                start_line: 1,
+                start_col: 1,
+                end_line: 1,
+                end_col: 1,
+            },
+            methods: Vec::new(),
+        });
+    }
+
+    #[test]
+    fn a_record_for_an_unknown_entity_is_an_orphan_with_a_close_match() {
+        let mut project = Project::new();
+        add_entity(&mut project, "widget");
+        write_report(&project, &["widget", "wodget", "zzzzzzzz"]);
+        let outcome = project.run(&pass("contracts")).unwrap();
+        assert_eq!(
+            outcome.orphans,
+            vec![
+                Orphan {
+                    entity_id: "wodget".to_string(),
+                    near: Some("widget".to_string()),
+                },
+                Orphan {
+                    entity_id: "zzzzzzzz".to_string(),
+                    near: None,
+                },
+            ]
+        );
+        assert_eq!(
+            outcome.to_json()["orphans"],
+            json!([
+                {"entity_id": "wodget", "near": "widget"},
+                {"entity_id": "zzzzzzzz", "near": null}
+            ])
+        );
+    }
+
+    #[test]
+    fn orphans_are_never_promoted_by_strict_and_change_neither_ok_nor_the_list() {
+        let mut project = Project::new();
+        add_entity(&mut project, "widget");
+        write_report(&project, &["wodget"]);
+        let lax = project.run(&pass("contracts")).unwrap();
+        let strict = project
+            .run(&AnalyzeOptions {
+                strict: true,
+                ..pass("contracts")
+            })
+            .unwrap();
+        assert!(lax.ok && strict.ok);
+        assert_eq!(lax.orphans, strict.orphans);
+        assert_eq!(strict.orphans.len(), 1);
+        assert!(strict.passes.iter().all(|p| p.findings.is_empty()));
+    }
+
+    #[test]
+    fn the_orphans_key_is_absent_when_there_are_none() {
+        let mut project = Project::new();
+        add_entity(&mut project, "widget");
+        write_report(&project, &["widget"]);
+        let outcome = project.run(&pass("contracts")).unwrap();
+        assert!(outcome.orphans.is_empty());
+        assert!(outcome.to_json().get("orphans").is_none());
+
+        let none = Project::new().run(&pass("contracts")).unwrap();
+        assert!(none.to_json().get("orphans").is_none());
     }
 }
