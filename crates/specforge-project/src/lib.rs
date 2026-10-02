@@ -20,6 +20,8 @@
 
 mod build_cache;
 mod check_passes;
+mod delta;
+mod incremental;
 mod policy;
 mod session;
 
@@ -43,6 +45,7 @@ pub use build_cache::{
     BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus, record_build_cache,
 };
 pub use check_passes::CheckPass;
+pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
 pub use policy::{DiagnosticPolicy, apply_policy};
 pub use session::{CheckMode, ProjectSession, SharedRuntime, SourceChange, Update};
 pub use specforge_emitter::compile::CompilationContext;

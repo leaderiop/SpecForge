@@ -409,11 +409,9 @@ fn contract_shutdown() {
         json!({"uri": "specforge://diagnostics"}),
     );
     // A compile left a graph notification pending for the subscriber.
-    specforge_mcp::notifications::enqueue_compile_notifications(
-        server.state_mut(),
-        &Graph::new(),
-        &[],
-    );
+    let delta =
+        specforge_mcp::notifications::compute_graph_delta(&Graph::new(), server.state().graph());
+    specforge_mcp::notifications::enqueue_compile_notifications(server.state_mut(), &delta, &[]);
     assert_eq!(server.state().notification_outbox.len(), 1);
 
     let resp = call(&mut server, "shutdown", json!({}));

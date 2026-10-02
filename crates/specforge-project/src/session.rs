@@ -8,8 +8,9 @@ use specforge_graph::{Graph, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_resolver::resolve_parsed;
 use specforge_wasm::WasmRuntime;
-use specforge_watch::{GraphDelta, ImportDag, IncrementalPipeline, compute_graph_delta};
 
+use crate::delta::{GraphDelta, compute_graph_delta};
+use crate::incremental::IncrementalBuild;
 use crate::{Environment, sources_in_path_order};
 
 /// The runtime a session runs its project's extensions in (every
@@ -21,8 +22,7 @@ pub enum SourceChange<'a> {
     /// Files changed, created or deleted on disk, by path relative to the
     /// spec root. A file that can no longer be read was deleted.
     Disk(&'a [String]),
-    /// An editor buffer is the truth for one file (`None`: it is gone);
-    /// the files its change invalidates are re-read from disk.
+    /// An editor buffer is the truth for one file (`None`: it is gone).
     Buffer {
         path: &'a str,
         text: Option<&'a str>,
@@ -45,7 +45,7 @@ pub enum CheckMode<'a> {
 #[derive(Debug)]
 pub struct Update {
     pub delta: GraphDelta,
-    /// The files re-parsed (sorted).
+    /// The files re-parsed or dropped: exactly the changed ones (sorted).
     pub rebuilt_files: Vec<String>,
     /// Files whose graph-build diagnostics changed (sorted).
     pub changed_diagnostic_files: Vec<String>,
@@ -58,11 +58,12 @@ pub struct Update {
 
 /// A compiled project that accepts source changes and environment reloads.
 ///
-/// It is seeded by one cold build, then kept current incrementally: the
-/// graph through the shared [`IncrementalPipeline`], import diagnostics
-/// (E025, I004, W113, W027) through the resolver over the cached parses,
-/// and the graph checks re-run on the updated graph. After any sequence of
-/// updates, [`ProjectSession::diagnostics`] is the set
+/// It is seeded by one cold build, then kept current incrementally: only
+/// the changed files are re-parsed and the graph is patched with them
+/// ([`crate::incremental`]), the imports of every cached parse are
+/// resolved again (E025, I004, W113, W027), and the graph checks re-run on
+/// the patched graph. After any sequence of updates,
+/// [`ProjectSession::diagnostics`] is the set
 /// [`crate::CompiledProject::diagnostics`] reports for the same sources.
 pub struct ProjectSession {
     /// Shared, so a reader can keep the environment an update started
@@ -72,7 +73,7 @@ pub struct ProjectSession {
     /// The session built its runtime, so a reload builds a fresh one (the
     /// extensions' `.wasm` files may have changed).
     owns_runtime: bool,
-    pipeline: IncrementalPipeline,
+    build: IncrementalBuild,
     import_diagnostics: Vec<Diagnostic>,
     check_diagnostics: Vec<Diagnostic>,
     verify_incremental: bool,
@@ -90,7 +91,7 @@ impl ProjectSession {
             env: Arc::new(Environment::empty()),
             runtime: None,
             owns_runtime: false,
-            pipeline: IncrementalPipeline::empty(),
+            build: IncrementalBuild::empty(),
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
             verify_incremental: false,
@@ -114,11 +115,10 @@ impl ProjectSession {
             env,
             runtime: None,
             owns_runtime: false,
-            pipeline: IncrementalPipeline::from_cold_build(
+            build: IncrementalBuild::from_cold_build(
                 Vec::new(),
                 graph,
-                ImportDag::new(),
-                graph_diagnostics,
+                &graph_diagnostics,
                 graph_config,
             ),
             import_diagnostics: Vec::new(),
@@ -144,36 +144,17 @@ impl ProjectSession {
         let (paths, specs): (Vec<String>, Vec<SpecFile>) =
             sources_in_path_order(&resolved).into_iter().unzip();
         let graph_config = env.graph_config();
-        // The one cold build: the pipeline is seeded with its graph.
+        // The one cold build seeds the incremental one.
         let (graph, graph_diagnostics) = build_graph_with_config(&specs, &graph_config);
         let files: Vec<(String, SpecFile)> = paths.into_iter().zip(specs).collect();
-
-        // Every file is known before any import is resolved against them.
-        let mut dag = ImportDag::new();
-        for (path, _) in &files {
-            dag.set_imports(path, Vec::new());
-        }
-        for (path, spec_file) in &files {
-            let imports = spec_file
-                .imports
-                .iter()
-                .map(|i| i.path.to_string())
-                .collect();
-            dag.set_imports_resolved(path, imports);
-        }
-        let pipeline = IncrementalPipeline::from_cold_build(
-            files,
-            graph,
-            dag,
-            graph_diagnostics,
-            graph_config,
-        );
+        let build =
+            IncrementalBuild::from_cold_build(files, graph, &graph_diagnostics, graph_config);
 
         let mut session = ProjectSession {
             env: Arc::new(env),
             runtime,
             owns_runtime: false,
-            pipeline,
+            build,
             import_diagnostics: resolved.diagnostics,
             check_diagnostics: Vec::new(),
             verify_incremental: false,
@@ -187,7 +168,7 @@ impl ProjectSession {
     /// build of watch does it always).
     pub fn set_verify_incremental(&mut self, enabled: bool) {
         self.verify_incremental = enabled;
-        self.pipeline.set_verify_incremental(enabled);
+        self.build.set_verify(enabled);
     }
 
     /// Apply a change to the project's sources, then run every check.
@@ -198,27 +179,26 @@ impl ProjectSession {
 
     /// [`Self::update`], running the checks `mode` asks for.
     pub fn update_with(&mut self, change: SourceChange<'_>, mode: CheckMode<'_>) -> Update {
-        let spec_root = self.env.spec_root.clone();
-        let read = |file: &str| std::fs::read_to_string(spec_root.join(file)).ok();
-        let result = match change {
-            SourceChange::Disk(paths) => {
-                let paths: Vec<String> = paths
-                    .iter()
-                    .filter(|path| !self.env.excludes(path))
-                    .cloned()
-                    .collect();
-                self.pipeline.rebuild(&paths, read)
+        let changes: Vec<(String, Option<String>)> = match change {
+            SourceChange::Disk(paths) => paths
+                .iter()
+                .filter(|path| !self.env.excludes(path))
+                .map(|path| {
+                    let text = std::fs::read_to_string(self.env.spec_root.join(path)).ok();
+                    (path.clone(), text)
+                })
+                .collect(),
+            SourceChange::Buffer { path, .. } if self.env.excludes(path) => Vec::new(),
+            SourceChange::Buffer { path, text } => {
+                vec![(path.to_string(), text.map(str::to_string))]
             }
-            SourceChange::Buffer { path, .. } if self.env.excludes(path) => {
-                self.pipeline.rebuild(&[], read)
-            }
-            SourceChange::Buffer { path, text } => self.pipeline.update_open_file(path, text, read),
         };
+        let result = self.build.rebuild(changes);
         self.import_diagnostics = self.resolve_imports();
         self.check_diagnostics = match mode {
             CheckMode::SyntaxOnlyIfParseErrorsIn(path)
                 if self
-                    .pipeline
+                    .build
                     .file_diagnostics(path)
                     .iter()
                     .any(|d| d.code == "E001") =>
@@ -239,11 +219,10 @@ impl ProjectSession {
     /// `specforge.json` or an extension changed: load the environment again
     /// and rebuild from the sources on disk.
     pub fn reload_environment(&mut self) -> Update {
-        let previous = self.pipeline.graph().clone();
         if self.detached {
             // Nothing on disk to load again.
             return Update {
-                delta: compute_graph_delta(&previous, self.graph()),
+                delta: GraphDelta::default(),
                 rebuilt_files: Vec::new(),
                 changed_diagnostic_files: Vec::new(),
                 diagnostics: self.diagnostics(),
@@ -259,18 +238,22 @@ impl ProjectSession {
         let mut next = Self::open_with_runtime(&root, runtime);
         next.owns_runtime = self.owns_runtime;
         next.set_verify_incremental(self.verify_incremental);
-        *self = next;
-        let mut rebuilt_files: Vec<String> = self
-            .pipeline
-            .parsed_files()
-            .into_iter()
-            .map(|(path, _)| path.to_string())
-            .collect();
-        rebuilt_files.sort();
+        let previous = std::mem::replace(self, next);
+        self.replaced(&previous)
+    }
+
+    /// The update that replacing `previous` with this session amounts to:
+    /// every file rebuilt, the delta between the two graphs.
+    pub fn replaced(&self, previous: &ProjectSession) -> Update {
         Update {
-            delta: compute_graph_delta(&previous, self.graph()),
-            rebuilt_files,
-            changed_diagnostic_files: self.pipeline.diagnostic_files(),
+            delta: compute_graph_delta(previous.graph(), self.graph()),
+            rebuilt_files: self
+                .build
+                .parsed_files()
+                .into_iter()
+                .map(|(path, _)| path.to_string())
+                .collect(),
+            changed_diagnostic_files: self.build.diagnostic_files(),
             diagnostics: self.diagnostics(),
             verification: None,
         }
@@ -284,14 +267,14 @@ impl ProjectSession {
             .diagnostics()
             .chain(&self.import_diagnostics)
             .cloned()
-            .chain(self.pipeline.diagnostics())
+            .chain(self.build.diagnostics())
             .chain(self.check_diagnostics.iter().cloned())
             .chain(self.env.surface_diagnostics().iter().cloned())
             .collect()
     }
 
     pub fn graph(&self) -> &Graph {
-        self.pipeline.graph()
+        self.build.graph()
     }
 
     /// Whether the session has no project on disk ([`Self::detached`],
@@ -316,15 +299,25 @@ impl ProjectSession {
         self.runtime.as_ref()
     }
 
-    /// The incremental core the session drives (its import DAG, cached
-    /// parses and per-file diagnostics).
-    pub fn pipeline(&self) -> &IncrementalPipeline {
-        &self.pipeline
+    /// The graph build's diagnostics: duplicates, unresolved references,
+    /// reference cycles, parse errors (no import's, no check's).
+    pub fn graph_diagnostics(&self) -> Vec<Diagnostic> {
+        self.build.diagnostics()
+    }
+
+    /// The graph build's diagnostics in one file (relative to the spec root).
+    pub fn file_diagnostics(&self, path: &str) -> &[Diagnostic] {
+        self.build.file_diagnostics(path)
+    }
+
+    /// Every file with graph-build diagnostics (sorted).
+    pub fn diagnostic_files(&self) -> Vec<String> {
+        self.build.diagnostic_files()
     }
 
     /// How many `.spec` files the project has.
     pub fn file_count(&self) -> usize {
-        self.pipeline.parsed_files().len()
+        self.build.parsed_files().len()
     }
 
     fn resolve_imports(&self) -> Vec<Diagnostic> {
@@ -333,7 +326,7 @@ impl ProjectSession {
         }
         resolve_parsed(
             &self.env.spec_root,
-            &self.pipeline.parsed_files(),
+            &self.build.parsed_files(),
             &self.env.resolve_config(),
             &|path: &Path| path.is_file(),
         )
@@ -342,7 +335,7 @@ impl ProjectSession {
 
     fn check(&self) -> Vec<Diagnostic> {
         self.env
-            .run_checks(self.pipeline.graph(), self.runtime.as_deref())
+            .run_checks(self.build.graph(), self.runtime.as_deref())
     }
 }
 

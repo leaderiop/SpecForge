@@ -13,11 +13,12 @@ feature incremental_compilation "Incremental Compilation" {
   """
   solution """
     Watch mode monitors the filesystem for changes, debounces rapid edits,
-    computes the minimal invalidation set (changed file + transitive
-    dependents), updates the import DAG, re-parses only invalidated files,
-    rebuilds affected subgraph edges, and re-validates. The incremental
-    pipeline is shared between CLI watch mode and LSP to ensure identical
-    behavior. Target: <100ms file-change-to-diagnostics.
+    re-parses only the changed files (references resolve across the
+    project without use, so no importer needs it), patches the graph with
+    them, resolves every file's imports again, and re-validates. The
+    incremental rebuild lives in the project session that CLI watch mode,
+    the LSP and MCP each hold, to ensure identical behavior. Target:
+    <100ms file-change-to-diagnostics.
   """
 }
 

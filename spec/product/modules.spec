@@ -77,7 +77,7 @@ module specforge_emitter "specforge-emitter" {
 
 module specforge_watch "specforge-watch" {
   family      core
-  description "File watching and incremental rebuild pipeline with debouncing"
+  description "File watching with debouncing (the incremental rebuild is the project session's)"
   features    [incremental_compilation]
   depends_on  [specforge_graph, specforge_validator]
   tags        ["watch", "incremental"]

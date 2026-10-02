@@ -207,10 +207,10 @@ term t_renderer "renderer" {
 
 term t_incremental_compilation "incremental compilation" {
   definition """
-    The watch mode strategy: file change triggers invalidation of the
-    changed file plus transitive dependents, re-parsing only invalidated
-    files, rebuilding affected subgraph edges, and re-validating the
-    affected subgraph. Target: <100ms file-change-to-diagnostics.
+    The watch mode strategy: a file change re-parses only the changed
+    files, patches the graph with their entities, re-links references
+    across the whole graph, resolves every file's imports again and
+    re-validates. Target: <100ms file-change-to-diagnostics.
   """
   aliases    ["incremental recompilation", "watch mode"]
 }

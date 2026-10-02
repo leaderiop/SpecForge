@@ -171,7 +171,7 @@ event subgraph_invalidated "Subgraph Invalidated" {
   }
   verify integration "emits subgraph_invalidated with correct invalidatedFiles list and nodeCount"
   verify integration "consumer rebuild_affected_subgraph receives event and re-parses invalidated files"
-  verify integration "consumer track_import_dag_incrementally updates file dependency edges"
+  verify integration "consumer resolve_imports_on_update resolves every file's imports again"
 }
 
 event import_dag_updated "Import DAG Updated" {
@@ -182,7 +182,7 @@ event import_dag_updated "Import DAG Updated" {
     cyclesDetected integer
     timestamp      timestamp
   }
-  verify integration "emits import_dag_updated after file dependency edges are added or removed"
+  verify integration "emits import_dag_updated after every file's imports are resolved again"
   verify integration "consumer rebuild_affected_subgraph waits for import DAG to be current before rebuilding"
 }
 

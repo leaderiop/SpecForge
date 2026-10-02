@@ -292,16 +292,17 @@ impl McpState {
     /// analyze, doctor, collect and the mutation tools all come through
     /// here).
     pub fn reload(&mut self, root: &Path) {
-        let previous_graph = self.session.graph().clone();
         let previous_diagnostics = self.diagnostics();
-        if self.serves_session_at(root) {
-            self.session.reload_environment();
+        let update = if self.serves_session_at(root) {
+            self.session.reload_environment()
         } else {
-            self.session = match &self.extension_runtime {
+            let next = match &self.extension_runtime {
                 Some(runtime) => ProjectSession::open_with_runtime(root, Some(Arc::clone(runtime))),
                 None => ProjectSession::open(root),
             };
-        }
+            let previous = std::mem::replace(&mut self.session, next);
+            self.session.replaced(&previous)
+        };
         self.project_root = Some(root.to_path_buf());
         self.loaded_at = Some(SystemTime::now());
 
@@ -312,7 +313,7 @@ impl McpState {
         crate::registry::register_extension_surfaces(self, &env.registries.manifest_surfaces);
         crate::notifications::enqueue_compile_notifications(
             self,
-            &previous_graph,
+            &update.delta,
             &previous_diagnostics,
         );
     }
@@ -335,7 +336,7 @@ impl McpState {
     pub fn edit_graph(&mut self, edit: impl FnOnce(&mut Graph)) {
         let mut graph = self.graph().clone();
         edit(&mut graph);
-        let diagnostics = self.session.pipeline().diagnostics();
+        let diagnostics = self.session.graph_diagnostics();
         self.serve_graph(graph, diagnostics);
     }
 
@@ -344,7 +345,7 @@ impl McpState {
     pub fn edit_environment(&mut self, edit: impl FnOnce(&mut Environment)) {
         let session = std::mem::replace(&mut self.session, ProjectSession::detached());
         let graph = session.graph().clone();
-        let diagnostics = session.pipeline().diagnostics();
+        let diagnostics = session.graph_diagnostics();
         let mut env = session.shared_environment();
         drop(session);
         edit(Arc::get_mut(&mut env).expect("the served environment is shared elsewhere"));

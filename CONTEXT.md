@@ -12,6 +12,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   reloads. Watch, the LSP and MCP each hold one (`specforge_project::ProjectSession`). MCP serves its
   project through it: every fresh compile (validate, analyze, doctor, collect, a mutation, a refresh
   after watch writes a newer snapshot) is an environment reload, which re-reads every source.
+- **Update**: one change applied to a project session. It re-parses exactly the changed files (an
+  importer parses the same, since references resolve without `use`), patches the graph, resolves
+  every file's imports again and re-runs the checks (`specforge_project::Update`, ADR 0006).
+- **Graph delta**: what an update or a reload changed in the graph: added, removed and modified
+  nodes (source positions ignored) and edges. Watch prints it and MCP notifies it
+  (`specforge_project::GraphDelta`).
 - **Registry build**: the pure result of turning extension manifests into kind, field and edge
   registries, rules and derived graph inputs (`specforge_registry::build_registries`).
 - **Project view**: the read-only slice of a compiled project an operation analyses: the graph, the

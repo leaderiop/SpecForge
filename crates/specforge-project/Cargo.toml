@@ -24,7 +24,7 @@ specforge-parser = { workspace = true }
 specforge-registry = { workspace = true }
 specforge-resolver = { path = "../specforge-resolver" }
 specforge-wasm = { workspace = true }
-specforge-watch = { path = "../specforge-watch" }
+tree-sitter = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
