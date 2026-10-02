@@ -125,8 +125,10 @@ feature pe_surface_contributions "Product Surface Contributions" {
     the surface contract at compile time.
   """
   solution """
-    The manifest declares no surfaces. The specforge product subcommands
-    are CLI built-ins: listing for all 9 kinds (features, journeys,
+    The manifest declares the specforge product commands as surface
+    contributions, run by the extension's own cmd__product_* exports over
+    the graph the host passes (MCP tools specforge.product.<id> by
+    auto-promotion): listing for all 9 kinds (features, journeys,
     deliverables, milestones, modules, terms, personas, channels,
     releases) and the queries milestone-completion, journey-coverage,
     feature-impact, feature-dependents, persona-features and

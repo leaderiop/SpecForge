@@ -19,19 +19,24 @@ behavior pe_declare_surface_contributions "Declare Surface Contributions" {
   ]
   produces [pe_cli_command_executed, pe_surface_error]
   contract """
-    The @specforge/product extension declares no surface contributions: its
-    manifest's surfaces list is empty and its module exports no cmd__ or
-    mcp__ functions. The specforge product subcommands (features, journeys,
-    deliverables, milestones, modules, terms, personas, channels, releases,
-    milestone-completion, journey-coverage, feature-impact,
-    feature-dependents, persona-features, channel-features, bulk-status,
-    health) are built into the CLI.
+    The @specforge/product extension MUST declare its CLI commands in its
+    manifest's surfaces, each answered by its own cmd__product_<id> export
+    over the graph the host passes: the list commands features, journeys,
+    deliverables, milestones, modules, terms, personas, channels and
+    releases, and the queries milestone_completion, journey_coverage,
+    feature_impact, feature_dependents, persona_features, channel_features,
+    bulk_status and health. The CLI runs them as specforge product <id>
+    (an id's underscores spelled as dashes, a required arg positional), and
+    MCP auto-promotes each to the tool specforge.product.<id>. It declares
+    no explicit MCP tools or resources, and the host knows none of its
+    commands.
   """
   ensures {
-    no_surfaces "manifest surfaces is empty"
+    commands_declared "manifest surfaces declares the 17 product commands"
+    exports_answer    "every declared command's export answers with a CommandOutput"
   }
   features [pe_surface_contributions, product_surface_access]
-  verify unit "manifest surfaces is empty"
+  verify unit "manifest surfaces declares the specforge product commands, each answered by its export"
 }
 
 behavior pe_migration_hook_absent "Migration Hook Absent in v1" {

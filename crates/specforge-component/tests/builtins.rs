@@ -1,4 +1,5 @@
 use specforge_component::{ComponentRuntime, builtins};
+use specforge_test_macros::test as specforge_test;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
 #[test]
@@ -138,6 +139,66 @@ fn builtin_handshakes_survive_sdk_migration() {
             value["sandbox_policy"].is_null(),
             !has_sandbox,
             "{name}: sandbox policy presence"
+        );
+    }
+}
+
+#[specforge_test(
+    behavior = "pe_declare_surface_contributions",
+    verify = "manifest surfaces declares the specforge product commands, each answered by its export"
+)]
+fn product_declares_its_commands_and_exports_them() {
+    let runtime = ComponentRuntime::new();
+    builtins::load_builtins(&runtime).unwrap();
+
+    let input = br#"{"category":"surfaces"}"#;
+    let WasmCallResult::Ok(bytes) = runtime.call_export("@specforge/product", "__describe", input)
+    else {
+        panic!("describe surfaces failed");
+    };
+    let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let commands = value["items"][0]["commands"].as_array().unwrap();
+    let ids: Vec<&str> = commands.iter().map(|c| c["id"].as_str().unwrap()).collect();
+    assert_eq!(
+        ids,
+        [
+            "features",
+            "journeys",
+            "deliverables",
+            "milestones",
+            "modules",
+            "terms",
+            "personas",
+            "channels",
+            "releases",
+            "milestone_completion",
+            "journey_coverage",
+            "feature_impact",
+            "feature_dependents",
+            "persona_features",
+            "channel_features",
+            "bulk_status",
+            "health",
+        ]
+    );
+    // Every command answers over an empty graph: a list, or "not found".
+    let empty = br#"{"args":{"format":"json"},"cwd":"/p","graph":{"nodes":[],"edges":[]}}"#;
+    for command in commands {
+        let export = command["export"].as_str().unwrap();
+        let WasmCallResult::Ok(bytes) = runtime.call_export("@specforge/product", export, empty)
+        else {
+            panic!("{export} is declared but not exported");
+        };
+        let output: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        let positional = command["args"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|a| a["required"] == true);
+        assert_eq!(
+            output["exit_code"],
+            i32::from(positional),
+            "{export}: {output}"
         );
     }
 }
