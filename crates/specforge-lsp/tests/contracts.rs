@@ -441,16 +441,19 @@ fn goto_import_definition_contract() {
     )
     .unwrap();
 
-    let spec_root = tmp.path().to_str().unwrap();
+    let config = specforge_resolver::ResolveConfig::default();
+    let goto = |import: &str| {
+        specforge_lsp::goto_import_definition(import, "main.spec", tmp.path(), &config)
+    };
 
-    let result = specforge_lsp::goto_import_definition("behaviors/auth", spec_root);
+    let result = goto("behaviors/auth");
     let loc = result.expect("valid import path must resolve");
     assert!(
         loc.file.as_str().ends_with("behaviors/auth.spec"),
         "must resolve to correct file"
     );
 
-    let missing = specforge_lsp::goto_import_definition("nonexistent/path", spec_root);
+    let missing = goto("nonexistent/path");
     assert!(missing.is_none(), "missing import must return None");
 }
 

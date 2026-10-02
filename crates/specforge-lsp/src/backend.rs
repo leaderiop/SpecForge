@@ -1085,12 +1085,15 @@ impl LanguageServer for Backend {
             .lines()
             .nth(pos.line as usize)
             .and_then(import_path_on_line)
+            && !state.spec_root().as_os_str().is_empty()
         {
-            let spec_root = state.spec_root().to_string_lossy().into_owned();
-            if !spec_root.is_empty() {
-                let span = goto_import_definition(import_path, &spec_root);
-                return Ok(span.map(|s| GotoDefinitionResponse::Scalar(location_of(&state, &s))));
-            }
+            let span = goto_import_definition(
+                import_path,
+                &key_of(&state, &uri),
+                state.spec_root(),
+                &state.environment().resolve_config(),
+            );
+            return Ok(span.map(|s| GotoDefinitionResponse::Scalar(location_of(&state, &s))));
         }
 
         let word = match word_at_position(&content, pos.line as usize, pos.character as usize) {

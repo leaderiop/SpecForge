@@ -650,8 +650,10 @@ behavior goto_import_definition "Go-to-Definition on Imports" {
   }
   contract   """
     When a user Ctrl+clicks on a `use` import path (e.g., `use behaviors/core`),
-    the LSP MUST navigate to the target .spec file. The definition site
-    MUST be the first line of the resolved file.
+    the LSP MUST navigate to the target .spec file, resolved as the
+    compile resolves imports (resolve_use_imports: relative, alias, bare,
+    index.spec, never above the spec root). The definition site MUST be
+    the first line of the resolved file.
   """
   verify unit "go-to-def on use path navigates to target file"
   verify unit "go-to-def on non-existent use path returns no result"
