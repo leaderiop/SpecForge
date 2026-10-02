@@ -12,6 +12,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   reloads. Watch, the LSP and MCP each hold one (`specforge_project::ProjectSession`).
 - **Registry build**: the pure result of turning extension manifests into kind, field and edge
   registries, rules and derived graph inputs (`specforge_registry::build_registries`).
+- **Project view**: the read-only slice of a compiled project an operation analyses: the graph, the
+  kind and field registries, the rules, the manifests and the project root, borrowed
+  (`specforge_ops::analyze`'s input). The CLI builds one from its compiled project; MCP builds one from
+  the served or another project. It exists while MCP holds no `ProjectSession`.
 - **Obligation**: one `verify` statement on an entity. **Proven** when a passing test names its
   exact text, or a formal claim discharges it.
 - **Verdict**: an entity's obligations, the proven ones, and the tests that bear on them. It gives

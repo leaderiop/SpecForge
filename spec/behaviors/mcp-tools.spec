@@ -629,10 +629,23 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     findings and summary, plus an `ok` flag that is false when any finding
     is an error. The tool does not run the prove pass, so extension passes
     MUST receive no proved claims, as `specforge analyze` without --prove.
+    The tool runs through the shared analyze operation of specforge-ops, the
+    one the CLI runs: a `pass` that is not `all`, `coverage`, `contracts` or a
+    declared `<extension>:<pass>` MUST be an invalid-input error on `pass`
+    listing the available passes, and `strict` MUST be applied once over
+    every pass. A `path` naming another project analyzes that project for the
+    call and leaves the served project untouched. When the test report holds
+    records for entities the graph does not know, the result MUST carry a
+    top-level `orphans` list of `{entity_id, near}`, outside the passes and
+    never promoted by `strict`; the field is absent when there are none.
   """
   verify unit "analyze reads the project's specforge-report.json by default"
   verify unit "a malformed test report is an error result"
   verify unit "extension passes receive no proved claims, as specforge analyze without --prove"
+  verify unit "an unknown or undeclared pass is an invalid-input error listing the available passes"
+  verify unit "strict promotes warnings and clears ok"
+  verify unit "analyzing another project leaves the served project untouched"
+  verify unit "orphaned test records come back as an optional orphans field"
   verify contract "Provide MCP Analyze Tool: MCP analyze tool holds — graph_available, passes_run, results_structured, tool_invoked_emitted"
 }
 

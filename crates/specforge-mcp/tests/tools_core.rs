@@ -867,6 +867,42 @@ fn analyze_reads_the_project_report_by_default() {
     assert!(a015[0]["message"].as_str().unwrap().contains("\"b\""));
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "orphaned test records come back as an optional orphans field"
+)]
+fn analyze_returns_orphans_only_when_records_are_orphaned() {
+    let project = tempfile::tempdir().unwrap();
+    let root = project.path();
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    std::fs::write(root.join("app.spec"), "behavior widget \"Widget\" {\n}\n").unwrap();
+    let report = root.join("specforge-report.json");
+    let mut server = test_server();
+    let mut run = |strict: bool| -> Value {
+        let resp = call_tool(
+            &mut server,
+            "specforge.analyze",
+            json!({"path": root.to_str().unwrap(), "pass": "contracts", "strict": strict}),
+        );
+        serde_json::from_str(&tool_text(&resp)).unwrap()
+    };
+
+    std::fs::write(&report, r#"{"results":{"widget":{"tests":[]}}}"#).unwrap();
+    assert!(run(false).get("orphans").is_none());
+
+    std::fs::write(&report, r#"{"results":{"wodget":{"tests":[]}}}"#).unwrap();
+    let expected = json!([{"entity_id": "wodget", "near": "widget"}]);
+    let lax = run(false);
+    assert_eq!(lax["orphans"], expected, "{lax}");
+    let strict = run(true);
+    assert_eq!(strict["orphans"], expected, "{strict}");
+    assert_eq!(strict["ok"], lax["ok"]);
+}
+
 /// The `McpError` an `isError` tool result carries.
 fn mcp_error(resp: &Value) -> Value {
     assert!(resp["error"].is_null(), "not a JSON-RPC error: {resp}");
@@ -970,6 +1006,105 @@ fn analyze_hands_extension_passes_no_proved_claims() {
         .unwrap_or_else(|| panic!("the pass never ran: {calls:?}"));
     // Prove did not run: no claims, not an empty set of them.
     assert_eq!(input["proved_claims"], Value::Null, "{input}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "an unknown or undeclared pass is an invalid-input error listing the available passes"
+)]
+fn analyze_refuses_an_undeclared_pass() {
+    use crate::fake_extension::{self, FakeExtension};
+
+    let ext = FakeExtension::new()
+        .with_passes(&["audit"])
+        .with_output("__pass_audit", json!({"diagnostics": []}));
+    let (mut server, _ext, _project) = fake_extension::initialized(ext);
+
+    for requested in ["foo:bar", "@test/cmds:typo", "nope"] {
+        let error = mcp_error(&call_tool(
+            &mut server,
+            "specforge.analyze",
+            json!({"pass": requested}),
+        ));
+        assert_eq!(error["code"], "invalid_input", "{error}");
+        assert_eq!(error["argument"], "pass", "{error}");
+        let message = error["message"].as_str().unwrap();
+        for available in ["all", "coverage", "contracts", "@test/cmds:audit"] {
+            assert!(message.contains(available), "{available} in {message}");
+        }
+    }
+
+    // A manifest-declared pass and the `coverage` alias are accepted.
+    for requested in ["@test/cmds:audit", "coverage", "contracts", "all"] {
+        let resp = call_tool(&mut server, "specforge.analyze", json!({"pass": requested}));
+        assert_ne!(resp["result"]["isError"], true, "{requested}: {resp}");
+    }
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "strict promotes warnings and clears ok"
+)]
+fn analyze_strict_promotes_warnings() {
+    use crate::fake_extension::{self, FakeExtension};
+
+    let ext = FakeExtension::new().with_passes(&["audit"]).with_output(
+        "__pass_audit",
+        json!({"diagnostics": [
+            {"code": "W900", "severity": "Warning", "message": "careful"}
+        ]}),
+    );
+    let (mut server, _ext, _project) = fake_extension::initialized(ext);
+    let run = |server: &mut McpServer, args: Value| -> Value {
+        let resp = call_tool(server, "specforge.analyze", args);
+        serde_json::from_str(&tool_text(&resp)).unwrap()
+    };
+
+    let lenient = run(&mut server, json!({"pass": "@test/cmds:audit"}));
+    assert_eq!(lenient["ok"], true, "{lenient}");
+    assert_eq!(lenient["passes"][0]["findings"][0]["severity"], "Warning");
+
+    let strict = run(
+        &mut server,
+        json!({"pass": "@test/cmds:audit", "strict": true}),
+    );
+    assert_eq!(strict["ok"], false, "{strict}");
+    assert_eq!(strict["passes"][0]["findings"][0]["severity"], "Error");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "analyzing another project leaves the served project untouched"
+)]
+fn analyze_of_another_project_leaves_the_served_one() {
+    use crate::fake_extension::{self, FakeExtension};
+
+    let (mut server, _ext, _served) = fake_extension::initialized(FakeExtension::new());
+    let served_root = server.state_mut().project_root.clone();
+    assert!(served_root.is_some());
+    let served_nodes = server.state_mut().graph.node_count();
+
+    let other = tempfile::tempdir().unwrap();
+    std::fs::write(
+        other.path().join("specforge.json"),
+        r#"{"name":"o","version":"0.1.0","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        other.path().join("app.spec"),
+        "behavior solo \"Solo\" {\n}\n",
+    )
+    .unwrap();
+    let resp = call_tool(
+        &mut server,
+        "specforge.analyze",
+        json!({"path": other.path().to_str().unwrap(), "pass": "contracts"}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed["passes"][0]["pass"], "contracts", "{parsed}");
+
+    assert_eq!(server.state_mut().project_root, served_root);
+    assert_eq!(server.state_mut().graph.node_count(), served_nodes);
 }
 
 // --- specforge.stats ---

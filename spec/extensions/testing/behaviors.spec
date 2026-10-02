@@ -138,7 +138,17 @@ behavior te_coverage_gate "Proof Coverage Gate" {
     the gate: the summary's testable_proven is its numerator. It needs test results
     (the project's specforge-report.json or --test-results) and the
     coverage pass, and a project with nothing testable satisfies any
-    threshold.
+    threshold. The analyze operation computes where the gate landed
+    (not requested, met, below, no coverage pass, unreadable summary)
+    and leaves the analysis result untouched; the CLI maps it to the
+    exit code. A coverage pass that did not run, or whose summary cannot
+    be read, is an error rather than a pass.
+
+    Exit codes: below the threshold (E048) exits 1; E068 (no coverage
+    pass), an unreadable coverage summary and missing test results exit 2.
+    E048 and E068 take precedence over any other finding. The coverage
+    pass must have run, so `pass` is `coverage` or `all`; naming another
+    pass alone does not satisfy the gate.
   """
   ensures {
     below_fails   "proof coverage below the threshold fails with E048"
@@ -149,4 +159,31 @@ behavior te_coverage_gate "Proof Coverage Gate" {
   verify unit "coverage below the threshold fails with E048"
   verify unit "the gate needs test results"
   verify unit "a proven entity whose kind is not testable does not raise the gate"
+  verify unit "the analysis reports where the gate landed and leaves the analysis result alone"
+  verify unit "a gate without a readable coverage pass is not met"
+  verify unit "a gate without the coverage pass exits 2 with E068"
+}
+
+behavior te_orphaned_test_records "Orphaned Test Records" {
+  features [te_coverage_analysis]
+  category validation
+  contract """
+    `specforge analyze` MUST report each test record that names an entity
+    the graph does not know as W097, with the closest known entity id as a
+    "did you mean" hint when one is near. Matching stays exact: the record
+    is never reassigned to the near match. The operation returns these
+    orphans as data outside the pass reports, so `--strict` never promotes
+    them and neither `ok` nor the exit code changes. The CLI prints the W097
+    lines to stderr before the reports. The CLI `--json` output and the MCP
+    analyze result gain a top-level `orphans` list of `{entity_id, near}`
+    only when it is non-empty; with no orphans the output is unchanged.
+  """
+  ensures {
+    warns_with_hint "an unknown entity in a test record warns W097 with a close-match hint and does not fail the run"
+    optional_field  "orphans appear in the json output only when records exist"
+    not_promoted    "strict neither promotes an orphan nor changes ok or the exit code"
+  }
+  verify unit "an unknown entity in a test record warns W097 with a close-match hint and does not fail the run"
+  verify unit "orphans appear in the json output only when records exist"
+  verify unit "strict neither promotes an orphan nor changes ok or the exit code"
 }

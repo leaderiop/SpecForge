@@ -891,3 +891,158 @@ fn mcp_init_writes_what_cli_init_writes() {
     assert_eq!(read_config(&cli_root), read_config(&mcp_root));
     assert_eq!(check(&mcp_root)["ok"], true);
 }
+
+// ── analyze: one payload on both surfaces (wayfinder #41) ───────────────────
+
+/// A project with the testing extension and a `widget` the report can prove.
+fn analyze_project(root: &Path) {
+    std::fs::create_dir_all(root.join("spec")).unwrap();
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"cov","spec_root":"spec","extensions":["@specforge/software","@specforge/testing"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("spec/a.spec"),
+        "type widget \"Widget\" {\n  id string @unique\n  verify unit \"widget valid\"\n}\n\
+         invariant soft \"Softly unverified\" {\n  guarantee \"x\"\n  risk low\n}\n",
+    )
+    .unwrap();
+}
+
+/// A test report proving `widget` and, when `orphan` is set, naming an
+/// entity the project does not have.
+fn analyze_report(root: &Path, orphan: Option<&str>) -> String {
+    let mut results = json!({"widget": {"tests": [{"name": "w", "status": "pass"}]}});
+    if let Some(id) = orphan {
+        results[id] = json!({"tests": [{"name": "x", "status": "pass"}]});
+    }
+    let path = root.join("report.json");
+    std::fs::write(
+        &path,
+        json!({"runner": "r", "results": results}).to_string(),
+    )
+    .unwrap();
+    s(&path)
+}
+
+/// What `specforge analyze --json` printed, its exit code and its stderr.
+fn cli_analyze(root: &Path, extra: &[&str]) -> (Option<i32>, Value, String) {
+    let out = cli()
+        .args(["analyze", "--path", &s(root), "--json"])
+        .args(extra)
+        .current_dir(root)
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let payload = serde_json::from_str(&stdout).unwrap_or(Value::Null);
+    (
+        out.status.code(),
+        payload,
+        String::from_utf8_lossy(&out.stderr).to_string(),
+    )
+}
+
+/// What `specforge.analyze` answered: whether it refused, and the document
+/// (the payload, or the error object).
+fn mcp_analyze(root: &Path, arguments: Value) -> (bool, Value) {
+    let mut server = mcp_on(root);
+    let req = json!({
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {"name": "specforge.analyze", "arguments": arguments}
+    });
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    let result = &resp["result"];
+    let text = result["content"][0]["text"].as_str().unwrap_or_default();
+    (
+        result["isError"] == true,
+        serde_json::from_str(text).unwrap_or(Value::String(text.to_string())),
+    )
+}
+
+/// Both surfaces answer with the same payload, and neither has a top-level
+/// field or a pass field the other lacks (named, so the failure says which).
+fn assert_same_analyze_payload(cli_payload: &Value, mcp_payload: &Value) {
+    let keys = |v: &Value| -> Vec<String> { v.as_object().unwrap().keys().cloned().collect() };
+    assert_eq!(
+        keys(cli_payload),
+        keys(mcp_payload),
+        "top-level fields differ\ncli: {cli_payload}\nmcp: {mcp_payload}"
+    );
+    let cli_passes = cli_payload["passes"].as_array().unwrap();
+    let mcp_passes = mcp_payload["passes"].as_array().unwrap();
+    assert_eq!(cli_passes.len(), mcp_passes.len(), "pass count differs");
+    for (c, m) in cli_passes.iter().zip(mcp_passes) {
+        assert_eq!(keys(c), keys(m), "pass fields differ\ncli: {c}\nmcp: {m}");
+    }
+    assert_eq!(cli_payload, mcp_payload);
+}
+
+#[test]
+fn analyze_payload_is_equal_on_both_surfaces_by_default() {
+    let dir = tempfile::tempdir().unwrap();
+    analyze_project(dir.path());
+    let report = analyze_report(dir.path(), None);
+
+    let (code, cli_payload, _) = cli_analyze(dir.path(), &["--test-results", &report]);
+    let (refused, mcp_payload) = mcp_analyze(dir.path(), json!({"test_results": report}));
+
+    assert_eq!(code, Some(0));
+    assert!(!refused, "{mcp_payload}");
+    assert!(cli_payload["passes"].as_array().unwrap().len() >= 2);
+    assert!(cli_payload.get("orphans").is_none(), "{cli_payload}");
+    assert_same_analyze_payload(&cli_payload, &mcp_payload);
+}
+
+#[test]
+fn analyze_payload_is_equal_on_both_surfaces_under_strict() {
+    let dir = tempfile::tempdir().unwrap();
+    analyze_project(dir.path());
+    let report = analyze_report(dir.path(), None);
+
+    let (code, cli_payload, _) = cli_analyze(dir.path(), &["--strict", "--test-results", &report]);
+    let (_, mcp_payload) = mcp_analyze(dir.path(), json!({"strict": true, "test_results": report}));
+
+    assert_eq!(code, Some(1), "strict must promote the warning");
+    assert_eq!(cli_payload["ok"], false);
+    assert_same_analyze_payload(&cli_payload, &mcp_payload);
+}
+
+#[test]
+fn analyze_payload_is_equal_on_both_surfaces_with_orphaned_records() {
+    let dir = tempfile::tempdir().unwrap();
+    analyze_project(dir.path());
+    let report = analyze_report(dir.path(), Some("wodget"));
+
+    let (code, cli_payload, stderr) = cli_analyze(dir.path(), &["--test-results", &report]);
+    let (_, mcp_payload) = mcp_analyze(dir.path(), json!({"test_results": report}));
+
+    assert_eq!(code, Some(0), "orphans never fail the run: {stderr}");
+    assert!(
+        cli_payload["orphans"]
+            .as_array()
+            .is_some_and(|o| o.len() == 1),
+        "{cli_payload}"
+    );
+    assert_same_analyze_payload(&cli_payload, &mcp_payload);
+}
+
+#[test]
+fn analyze_bad_pass_uses_each_surfaces_channel() {
+    let dir = tempfile::tempdir().unwrap();
+    analyze_project(dir.path());
+
+    // CLI: clap's closed enum refuses it, exit 2, on stderr.
+    let (code, stdout, stderr) = cli_analyze(dir.path(), &["nonsense"]);
+    assert_eq!(code, Some(2));
+    assert_eq!(stdout, Value::Null, "nothing on stdout");
+    assert!(stderr.contains("'nonsense'"), "{stderr}");
+
+    // MCP: an invalid_input error naming the pass.
+    let (refused, error) = mcp_analyze(dir.path(), json!({"pass": "nonsense"}));
+    assert!(refused, "{error}");
+    let text = error.to_string();
+    assert!(text.contains("invalid_input"), "{text}");
+    assert!(text.contains("Unknown analysis pass 'nonsense'"), "{text}");
+}
