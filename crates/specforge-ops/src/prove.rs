@@ -670,7 +670,6 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
         "solver": solver_version,
         "solver_available": solver_available,
         "solver_runtime_failure": solver_runtime_failure,
-        "solver_timed_out": solver_timed_out,
         "constraints_with_metrics": constraints_with_metrics,
         "axioms": axioms.len(),
         "conjuncts": conjunct_count,
@@ -994,7 +993,6 @@ mod tests {
             .find(|f| f.code == "W098")
             .expect("W098 expected");
         assert!(w098.message.contains("timed out"), "{}", w098.message);
-        assert_eq!(report.summary["solver_timed_out"], true);
     }
 
     #[test]
