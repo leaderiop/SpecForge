@@ -18,3 +18,7 @@ wat = "=1.258.0"
 serde_json = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
+
+[[test]]
+name = "caught_signals"
+harness = false

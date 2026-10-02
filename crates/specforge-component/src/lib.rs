@@ -164,6 +164,13 @@ impl ComponentRuntime {
         // and the [`EpochTicker`] thread advances the engine epoch so long
         // loops trap instead of pinning a host thread past their budget.
         config.epoch_interruption(true);
+        // Unix signals, not Mach ports, catch guest faults on macOS too.
+        // wasmtime's Mach-port handler thread aborts the whole process when
+        // its `mach_msg` wait is interrupted (MACH_RCV_INTERRUPTED), which
+        // happens whenever a caught signal (e.g. a SIGCHLD handler some
+        // library installs) is delivered to that thread. Signal-based traps
+        // have no such thread and are what Linux uses already.
+        config.macos_use_mach_ports(false);
         if let Some(dir) = &cache_dir
             && let Err(e) = enable_compile_cache(&mut config, dir)
         {
