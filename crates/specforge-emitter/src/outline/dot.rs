@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use super::{OutlineDetail, OutlineIntermediate, OutlineOptions};
-use crate::diagram::{escape_dot, extension_id as sanitize_id, theme_color};
+use crate::diagram::{escape_dot, escape_record_field, extension_id as sanitize_id, theme_color};
 
 pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
     let mut out = String::new();
@@ -16,20 +16,21 @@ pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> St
     writeln!(out, "    edge [fontname=\"Helvetica\", fontsize=10];").unwrap();
     writeln!(out).unwrap();
 
-    // Extension nodes
+    // Extension nodes: record labels, each field escaped on its own so the
+    // template's separators stay the only record syntax.
     for ext in &outline.extensions {
         let id = sanitize_id(&ext.name);
         let color = theme_color(ext.color.as_deref());
         let label = if options.detail == OutlineDetail::All {
-            let kinds: Vec<&str> = ext
+            let kinds: Vec<String> = ext
                 .entity_kinds
                 .iter()
-                .map(|k| k.keyword.as_str())
+                .map(|k| escape_record_field(&k.keyword))
                 .collect();
             format!(
                 "{{ {} | {} | {} entities, {} edges | {} }}",
-                ext.name,
-                ext.version,
+                escape_record_field(&ext.name),
+                escape_record_field(&ext.version),
                 ext.entity_kinds.len(),
                 ext.edge_types.len(),
                 kinds.join(", ")
@@ -37,8 +38,8 @@ pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> St
         } else {
             format!(
                 "{{ {} | {} | {} entities, {} edges }}",
-                ext.name,
-                ext.version,
+                escape_record_field(&ext.name),
+                escape_record_field(&ext.version),
                 ext.entity_kinds.len(),
                 ext.edge_types.len()
             )
@@ -46,9 +47,7 @@ pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> St
         writeln!(
             out,
             "    {} [label=\"{}\", fillcolor=\"{}\", fontcolor=\"white\"];",
-            id,
-            escape_dot(&label),
-            color
+            id, label, color
         )
         .unwrap();
     }
