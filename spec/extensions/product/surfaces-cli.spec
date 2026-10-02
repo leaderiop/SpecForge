@@ -769,7 +769,9 @@ behavior surface_feature_impact "Surface: Feature Impact" {
   contract """
     The product:feature-impact CLI command MUST accept a positional
     feature_id argument and return a FeatureImpactPayload with transitive
-    impact analysis. Delegates to pe_query_feature_impact.
+    impact analysis. Delegates to pe_query_feature_impact. Each list
+    names the referencing entities sorted by id, whatever order the
+    references were declared in (product_impact_query_correctness).
     Wasm export: cmd__product_feature_impact.
   """
   requires {

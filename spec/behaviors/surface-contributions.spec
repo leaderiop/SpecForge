@@ -196,7 +196,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   }
   ensures {
     args_serialized                    "Command arguments, the project root and the graph are serialized as JSON and passed to the cmd__ export"
-    sandbox_restricted                 "Per-command sandbox override is intersected with extension policy (can only restrict, never expand)"
+    sandbox_restricted                 "The cmd__ export is granted no capability (no preopened directory, environment, inherited stdio or network); a per-command sandbox override, computed as its intersection with the extension policy, can only restrict, never expand"
     traps_caught                       "Wasm traps are caught and reported as ExtensionError diagnostics"
     output_returned                    "Exit code, stdout, and stderr are returned to the CLI caller"
     surface_command_dispatched_emitted "surface_command_dispatched event is emitted after command execution completes"
@@ -208,9 +208,15 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     project root and the compiled graph), and call the cmd__{id} export.
     The CLI routes specforge {ext_short} {command} to it, the command line
     built from the declared args; an auto-promoted MCP tool runs the same
-    export with its arguments as the args, over the served graph. The per-command sandbox override (if declared) MUST be
-    intersected with the extension's SandboxPolicy — the override can
-    only restrict, never expand. Wasm traps MUST be caught and reported
+    export with its arguments as the args, over the served graph. The
+    export MUST be granted no capability: its WASI context preopens no
+    directory and passes no environment, arguments, inherited stdio or
+    network, so cwd is a path it is told, not one it can open, and the
+    graph is all it reads. The per-command sandbox override (if declared)
+    is intersected with the extension's SandboxPolicy (it can only
+    restrict, never expand); while the host grants commands nothing,
+    there is nothing for the override to withhold, and it is not applied
+    to the call. Wasm traps MUST be caught and reported
     as ExtensionError diagnostics. The command's exit code, stdout, and
     stderr MUST be returned to the CLI caller.
 

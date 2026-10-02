@@ -20,12 +20,16 @@ listed the product module. Both close here: the queries are `@specforge/product`
 - **The CLI routes** any first argument that is not a built-in command (clap's external
   subcommand) to the extension of that short name (`ext_short`, else the last segment of its name):
   `specforge product features`, or `product:features`, the form the product spec writes. It reads
-  `--path` (default `.`) before parsing, compiles that project, and builds the command line from
-  the declarations: a subcommand per enabled command, named by its id with `_` as `-`; a required
-  arg is positional, in declaration order, any other a `--flag`; enum args take their values,
-  integer args parse; `--path` is the host's on every command. Clap prints help and usage errors
-  (exit 2). The export's stdout and stderr are printed as returned, its exit code is the CLI's;
-  a trap is an E028 on stderr, exit 1. `specforge_ops::command` holds what both surfaces share:
+  `--path` (default `.`) before parsing and loads only that project's environment (config and
+  extensions) to route; it builds the command line from the declarations: a subcommand per enabled
+  command, named by its id with `_` as `-`; a required arg is positional, in declaration order, any
+  other (and every bool) a `--flag`; enum args take their values, integer args parse; `--path` and
+  `--help` are the host's on every command, so a command declaring an arg of either name, or two
+  args of one name, is refused (exit 2). Clap prints help and usage errors (exit 2). Only a matched
+  command has the project's sources read and its graph built (without the checks a compile runs).
+  `specforge completions` adds the commands of the project in the current directory. The export's
+  stdout and stderr are printed as returned, its exit code is the CLI's; a trap is an E028 on
+  stderr, exit 1. `specforge_ops::command` holds what both surfaces share:
   the routing table (disabled commands left out), the short name, the input and the call.
 - **MCP** auto-promotes each command to `specforge.<ext_short>.<id>` (already built), and now
   calls the export with the same `CommandInput`, over the served session's graph.
@@ -48,6 +52,8 @@ product's tools' (`specforge.product.features`).
 
 A command that must write files, read beyond the graph (test reports, the build cache), or stream:
 `CommandInput` would need more than the graph, and the sandbox override the spec describes for
-commands would then have to be enforced (it is declared, not applied). And the spec's richer
-product surfaces (`--tags`, sorting, `table`/`brief` formats, `has_more`) are still unbuilt; they
-are the extension's to add, with no host change.
+commands would then have to be enforced. Today it is declared, not applied: the host grants a
+`cmd__` export no capability (its WASI context preopens no directory, passes no environment, stdio
+or network), so there is nothing for an override to withhold. And the spec's richer product
+surfaces (`--tags`, sorting, `table`/`brief` formats, `has_more`) are still unbuilt; they are the
+extension's to add, with no host change.
