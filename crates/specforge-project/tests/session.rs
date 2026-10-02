@@ -398,3 +398,32 @@ fn a_reload_reads_the_environment_again() {
     assert!(update.diagnostics.iter().any(|d| d.code == "E028"));
     assert_matches_a_fresh_compile(&session, root);
 }
+
+/// A session over a graph built in memory serves that graph and the
+/// diagnostics given for it, in its environment, with nothing to reload.
+#[test]
+fn a_session_from_a_graph_serves_it_as_given() {
+    let dir = project(CONFIG, &[("a.spec", "term alpha \"Alpha\" {\n}\n")]);
+    let compiled = CompiledProject::compile(dir.path(), None);
+    let built = compiled.graph.clone();
+    let warning = Diagnostic::warning("W001", "given");
+
+    let mut session = ProjectSession::from_graph(
+        std::sync::Arc::new(specforge_project::Environment::empty()),
+        built,
+        vec![warning.clone()],
+    );
+
+    assert!(session.is_detached());
+    assert_eq!(
+        graph_contents(session.graph()),
+        graph_contents(&compiled.graph)
+    );
+    assert_eq!(session.diagnostics(), vec![warning.clone()]);
+    let update = session.reload_environment();
+    assert!(
+        update.delta.added_nodes.is_empty() && update.delta.removed_nodes.is_empty(),
+        "nothing on disk to reload"
+    );
+    assert_eq!(session.diagnostics(), vec![warning]);
+}

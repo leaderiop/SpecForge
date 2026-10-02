@@ -10,8 +10,8 @@
 //!   the built graph. Its [`CompiledProject::diagnostics`] are, by
 //!   definition, what `specforge check` reports;
 //! - a [`ProjectSession`] is a long-lived compiled project that accepts
-//!   source changes and environment reloads (watch and the LSP each hold
-//!   one). After any
+//!   source changes and environment reloads (watch, the LSP and MCP each
+//!   hold one). After any
 //!   sequence of updates its diagnostics are the set a fresh compile
 //!   reports.
 //!
@@ -70,6 +70,19 @@ pub struct Environment {
 }
 
 impl Environment {
+    /// No project: the default config, no spec root, no extension.
+    pub fn empty() -> Self {
+        Environment {
+            root: PathBuf::new(),
+            config: ProjectConfig::default(),
+            spec_root: PathBuf::new(),
+            registries: RegistryBuild::default(),
+            provider_schemes: HashSet::new(),
+            load_diagnostics: Vec::new(),
+            check_passes: Vec::new(),
+        }
+    }
+
     /// Read the project's config and load its extensions through `runtime`
     /// (none without one), then build the registries from them.
     pub fn load(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {

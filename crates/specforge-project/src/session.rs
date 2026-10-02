@@ -1,20 +1,20 @@
-//! A long-lived compiled project: what watch and the LSP hold.
+//! A long-lived compiled project: what watch, the LSP and MCP hold.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
-use specforge_common::{Diagnostic, ProjectConfig};
+use specforge_common::Diagnostic;
 use specforge_graph::{Graph, build_graph_with_config};
 use specforge_parser::SpecFile;
-use specforge_registry::RegistryBuild;
 use specforge_resolver::resolve_parsed;
 use specforge_wasm::WasmRuntime;
 use specforge_watch::{GraphDelta, ImportDag, IncrementalPipeline, compute_graph_delta};
 
 use crate::{Environment, sources_in_path_order};
 
-/// The runtime a session runs its project's extensions in.
-pub type SharedRuntime = Arc<dyn WasmRuntime + Send + Sync>;
+/// The runtime a session runs its project's extensions in (every
+/// [`WasmRuntime`] is `Send + Sync`).
+pub type SharedRuntime = Arc<dyn WasmRuntime>;
 
 /// What changed in a session's sources.
 pub enum SourceChange<'a> {
@@ -86,20 +86,41 @@ impl ProjectSession {
     /// A session with no project: no config, no extension and no file
     /// until a buffer is added.
     pub fn detached() -> Self {
-        let env = Environment {
-            root: PathBuf::new(),
-            config: ProjectConfig::default(),
-            spec_root: PathBuf::new(),
-            registries: RegistryBuild::default(),
-            provider_schemes: Default::default(),
-            load_diagnostics: Vec::new(),
-            check_passes: Vec::new(),
-        };
         ProjectSession {
-            env: Arc::new(env),
+            env: Arc::new(Environment::empty()),
             runtime: None,
             owns_runtime: false,
             pipeline: IncrementalPipeline::empty(),
+            import_diagnostics: Vec::new(),
+            check_diagnostics: Vec::new(),
+            verify_incremental: false,
+            detached: true,
+        }
+    }
+
+    /// A session serving `graph`, built in memory rather than from
+    /// sources, in `env`: a host that assembles its graph itself (and a
+    /// test) serves one. It has no file and runs no extension; it reports
+    /// the environment's diagnostics and `graph_diagnostics` as its graph
+    /// build's. Like a [`Self::detached`] session, it has nothing on disk
+    /// to reload.
+    pub fn from_graph(
+        env: Arc<Environment>,
+        graph: Graph,
+        graph_diagnostics: Vec<Diagnostic>,
+    ) -> Self {
+        let graph_config = env.graph_config();
+        ProjectSession {
+            env,
+            runtime: None,
+            owns_runtime: false,
+            pipeline: IncrementalPipeline::from_cold_build(
+                Vec::new(),
+                graph,
+                ImportDag::new(),
+                graph_diagnostics,
+                graph_config,
+            ),
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
             verify_incremental: false,
@@ -118,7 +139,7 @@ impl ProjectSession {
     /// Open the project at `root` with `runtime` (none: no extension
     /// loads). A reload keeps using the same runtime.
     pub fn open_with_runtime(root: &Path, runtime: Option<SharedRuntime>) -> Self {
-        let env = Environment::load(root, runtime.as_deref().map(as_runtime));
+        let env = Environment::load(root, runtime.as_deref());
         let resolved = env.resolve();
         let (paths, specs): (Vec<String>, Vec<SpecFile>) =
             sources_in_path_order(&resolved).into_iter().unzip();
@@ -273,6 +294,13 @@ impl ProjectSession {
         self.pipeline.graph()
     }
 
+    /// Whether the session has no project on disk ([`Self::detached`],
+    /// [`Self::from_graph`]): no spec root to read changed files from and
+    /// nothing to reload.
+    pub fn is_detached(&self) -> bool {
+        self.detached
+    }
+
     pub fn environment(&self) -> &Environment {
         &self.env
     }
@@ -313,17 +341,11 @@ impl ProjectSession {
     }
 
     fn check(&self) -> Vec<Diagnostic> {
-        self.env.run_checks(
-            self.pipeline.graph(),
-            self.runtime.as_deref().map(as_runtime),
-        )
+        self.env
+            .run_checks(self.pipeline.graph(), self.runtime.as_deref())
     }
 }
 
 fn project_runtime(root: &Path) -> SharedRuntime {
     Arc::new(specforge_component::project_runtime(root))
-}
-
-fn as_runtime(runtime: &(dyn WasmRuntime + Send + Sync)) -> &dyn WasmRuntime {
-    runtime
 }
