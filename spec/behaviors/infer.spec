@@ -331,14 +331,18 @@ behavior provide_infer_status_cli "Provide CLI Infer-Status Command" {
   contract """
     Register a CLI subcommand 'infer-status' that reads specforge-infer.json
     and displays inference progress. Default output is a human-readable
-    summary table. --format json produces machine-readable output. --gaps
-    lists unanalyzed source files grouped by directory with counts per
-    directory. --stale lists files whose content changed since last analysis.
-    If specforge-infer.json does not exist, print a message directing the
-    user to the infer prompt.
+    summary table. --format json produces machine-readable output: the
+    document specforge.infer_progress answers with, plus
+    unanalyzed_by_directory with --gaps and gap_analysis (the
+    specforge.infer_gaps report) with --gaps-detail. --gaps lists unanalyzed
+    source files grouped by directory with counts per directory. --stale
+    lists files whose content changed since last analysis. If
+    specforge-infer.json does not exist, print a message directing the user
+    to the infer prompt.
   """
   verify unit "displays summary table"
   verify unit "--format json produces valid JSON"
+  verify unit "--format json includes the gaps --gaps and --gaps-detail ask for"
   verify unit "--gaps lists unanalyzed files grouped by directory"
   verify unit "--stale lists files with changed content"
   verify unit "missing manifest shows helpful message"

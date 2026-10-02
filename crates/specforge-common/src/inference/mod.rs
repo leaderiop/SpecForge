@@ -12,7 +12,8 @@ use sha2::{Digest, Sha256};
 pub use discovery::{AnalyzerConfig, SourceDiscoveryConfig, discover_source_files};
 
 const CURRENT_VERSION: u32 = 1;
-const MANIFEST_FILENAME: &str = "specforge-infer.json";
+/// The inference manifest, at the project root.
+pub const MANIFEST_FILENAME: &str = "specforge-infer.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InferenceManifest {

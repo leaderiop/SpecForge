@@ -19,6 +19,7 @@ pub mod doctor {
 pub mod export;
 pub mod extension;
 pub mod format;
+pub mod infer;
 pub mod init;
 pub mod migrate;
 pub mod prove;

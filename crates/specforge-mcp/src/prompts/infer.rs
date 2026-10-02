@@ -287,37 +287,9 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
 
     let (summary, unanalyzed, stale) = match project_root {
         Some(root) => {
-            let manifest =
-                specforge_common::inference::load_inference_manifest(root).unwrap_or_default();
-            let analyzer_configs: Vec<specforge_common::AnalyzerConfig> = state
-                .registries()
-                .manifests
-                .iter()
-                .flat_map(|m| m.analyzer_contributions.iter())
-                .map(|ac| specforge_common::AnalyzerConfig {
-                    language: ac.language.clone(),
-                    file_extensions: ac.file_extensions.clone(),
-                    excluded_dirs: ac.excluded_dirs.clone(),
-                })
-                .collect();
-            let discovery_config = specforge_common::inference::discovery::SourceDiscoveryConfig::from_analyzer_configs(&analyzer_configs);
-            let source_files = specforge_common::inference::discover_source_files(
-                root,
-                &manifest.source_roots,
-                &discovery_config,
-            );
-            let index_map = manifest.source_index_map();
-
-            let unanalyzed: Vec<String> = source_files
-                .iter()
-                .filter(|f| !index_map.contains_key(f.as_str()))
-                .cloned()
-                .collect();
-
-            let (stale_entries, _deleted) =
-                specforge_common::inference::detect_stale_entries(root, &manifest);
-            let summary = manifest.compute_summary(source_files.len());
-            (summary, unanalyzed, stale_entries)
+            let progress =
+                specforge_ops::infer::progress_or_fresh(root, &state.registries().manifests);
+            (progress.summary, progress.unanalyzed, progress.stale)
         }
         None => {
             let summary = specforge_common::InferenceSummary {

@@ -1046,3 +1046,110 @@ fn analyze_bad_pass_uses_each_surfaces_channel() {
     assert!(text.contains("invalid_input"), "{text}");
     assert!(text.contains("Unknown analysis pass 'nonsense'"), "{text}");
 }
+
+// ── infer: one progress and gap document on both surfaces ───────────────────
+
+/// A Rust project half-way through inference: `src/lib.rs` is indexed and
+/// its `alpha` has an entity, `src/net/wire.rs` is not.
+fn infer_project(root: &Path) {
+    std::fs::create_dir_all(root.join("spec")).unwrap();
+    std::fs::create_dir_all(root.join("src/net")).unwrap();
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"inf","spec_root":"spec","extensions":["@specforge/software","@specforge/rust"]}"#,
+    )
+    .unwrap();
+    std::fs::write(root.join("spec/a.spec"), MAIN_SPEC).unwrap();
+    std::fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() {}\npub fn beta() {}\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("src/net/wire.rs"), "pub struct Wire;\n").unwrap();
+    std::fs::write(
+        root.join("specforge-infer.json"),
+        json!({
+            "version": 1,
+            "source_roots": ["src"],
+            "source_index": [{
+                "path": "src/lib.rs", "content_hash": "stale",
+                "entities_produced": ["alpha"], "analyzed_at": "2026-10-01T00:00:00Z"
+            }]
+        })
+        .to_string(),
+    )
+    .unwrap();
+}
+
+/// `specforge infer-status --format json` with `flags`.
+fn cli_infer_status(root: &Path, flags: &[&str]) -> Value {
+    let out = cli()
+        .args(["infer-status", "--format", "json", "--path", &s(root)])
+        .args(flags)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    serde_json::from_slice(&out.stdout).unwrap()
+}
+
+/// What the tool `name` answered on a server rooted at `root`.
+fn mcp_tool(root: &Path, name: &str) -> Value {
+    let mut server = mcp_on(root);
+    let req = json!({
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {"name": name, "arguments": {}}
+    });
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    assert_ne!(resp["result"]["isError"], true, "{resp}");
+    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
+    serde_json::from_str(text).unwrap()
+}
+
+#[test]
+fn infer_progress_is_equal_on_both_surfaces() {
+    let dir = tempfile::tempdir().unwrap();
+    infer_project(dir.path());
+
+    let cli_doc = cli_infer_status(dir.path(), &[]);
+    let mcp_doc = mcp_tool(dir.path(), "specforge.infer_progress");
+
+    assert_eq!(
+        cli_doc["unanalyzed"],
+        json!(["src/net/wire.rs"]),
+        "{cli_doc}"
+    );
+    assert_eq!(cli_doc["stale"], json!(["src/lib.rs"]), "{cli_doc}");
+    assert_eq!(cli_doc, mcp_doc);
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_infer_status_cli",
+    verify = "--format json includes the gaps --gaps and --gaps-detail ask for"
+)]
+fn infer_status_json_carries_the_gaps_asked_for() {
+    let dir = tempfile::tempdir().unwrap();
+    infer_project(dir.path());
+
+    let plain = cli_infer_status(dir.path(), &[]);
+    assert!(plain.get("unanalyzed_by_directory").is_none(), "{plain}");
+    assert!(plain.get("gap_analysis").is_none(), "{plain}");
+
+    let doc = cli_infer_status(dir.path(), &["--gaps", "--gaps-detail"]);
+    assert_eq!(
+        doc["unanalyzed_by_directory"],
+        json!([{"directory": "src/net", "count": 1, "files": ["src/net/wire.rs"]}])
+    );
+    // The gap report is the one specforge.infer_gaps answers with.
+    let gaps = &doc["gap_analysis"];
+    assert_eq!(gaps, &mcp_tool(dir.path(), "specforge.infer_gaps"));
+    let names: Vec<&str> = gaps["by_directory"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|d| d["items"].as_array().unwrap())
+        .map(|i| i["name"].as_str().unwrap())
+        .collect();
+    assert!(names.contains(&"beta") && names.contains(&"Wire"), "{gaps}");
+    assert!(!names.contains(&"alpha"), "alpha has an entity: {gaps}");
+}

@@ -54,6 +54,7 @@ pub(crate) fn op_error(error: specforge_ops::OpError) -> McpError {
         "extension_not_found" => ErrorCode::ExtensionNotFound,
         "config_not_found" => ErrorCode::FileNotFound,
         "config_invalid" | "invalid_schema_version" => ErrorCode::SchemaMismatch,
+        specforge_ops::infer::MANIFEST_INVALID => ErrorCode::SchemaMismatch,
         "unknown_format" => ErrorCode::InvalidInput,
         "extension_conflict" | "project_exists" => ErrorCode::Conflict,
         "invalid_name" => ErrorCode::InvalidInput,
