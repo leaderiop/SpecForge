@@ -165,7 +165,6 @@ type SchemaCompatibility {
 // versions without requiring a Graph Protocol major version bump.
 // Arrays MUST be sorted by EntityId.raw (lexicographic) for deterministic output
 type GraphDelta {
-  timestamp      timestamp @readonly
   added_nodes    NodeChange[]
   removed_nodes  NodeChange[]
   modified_nodes ModifiedNodeChange[]
