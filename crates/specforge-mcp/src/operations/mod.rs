@@ -298,7 +298,9 @@ pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
     // returned are what `specforge check` reports now, edits made since
     // the last load included.
     state.reload(&root);
-    result["diagnostics"] = serde_json::to_value(state.diagnostics()).unwrap_or_default();
+    result["diagnostics"] =
+        serde_json::to_value(specforge_emitter::diagnostics_json(&state.diagnostics()))
+            .unwrap_or_default();
     ok(result)
 }
 

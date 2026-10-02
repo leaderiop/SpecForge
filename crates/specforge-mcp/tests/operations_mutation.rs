@@ -452,10 +452,22 @@ fn rename_recompiles_files_it_did_not_edit() {
         .collect();
     let returned = parsed["diagnostics"].as_array().unwrap();
     assert_eq!(codes(returned), codes(&fresh), "{parsed}");
+    let e003 = returned
+        .iter()
+        .find(|d| d["code"] == "E003")
+        .unwrap_or_else(|| {
+            panic!("the unresolved reference in the unrenamed file is reported: {parsed}")
+        });
+    // The shape every mutation tool returns: catalogue title and the flat
+    // file/line/column beside the span.
+    assert!(e003["title"].is_string(), "{e003}");
     assert!(
-        returned.iter().any(|d| d["code"] == "E003"),
-        "the unresolved reference in the unrenamed file is reported: {parsed}"
+        e003["file"]
+            .as_str()
+            .is_some_and(|f| f.ends_with("logout.spec")),
+        "{e003}"
     );
+    assert!(e003["line"].is_u64() && e003["column"].is_u64(), "{e003}");
 }
 
 /// Each `(field, type)` of a spec type holds in `value`: `string`,
