@@ -189,14 +189,9 @@ pub struct FieldConstraint {
     pub values: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct PeerDependency {
-    pub name: String,
-    pub version: String,
-    #[serde(default)]
-    pub optional: bool,
-}
+/// The protocol's own type: its fields read the same in the manifest's
+/// camelCase JSON and the protocol's snake_case JSON.
+pub use specforge_protocol_types::PeerDependency;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

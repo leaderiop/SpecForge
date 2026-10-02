@@ -125,11 +125,11 @@ fn test_all_command_arg_type_variants_deserialize() {
     ]"#;
     let args: Vec<CommandArg> = serde_json::from_str(json).unwrap();
     assert_eq!(args.len(), 5);
-    assert_eq!(args[0].arg_type, CommandArgType::StringArg);
-    assert_eq!(args[1].arg_type, CommandArgType::PathArg);
-    assert_eq!(args[2].arg_type, CommandArgType::BoolArg);
-    assert!(matches!(args[3].arg_type, CommandArgType::EnumArg { .. }));
-    assert_eq!(args[4].arg_type, CommandArgType::IntegerArg);
+    assert_eq!(args[0].arg_type, CommandArgType::String);
+    assert_eq!(args[1].arg_type, CommandArgType::Path);
+    assert_eq!(args[2].arg_type, CommandArgType::Bool);
+    assert!(matches!(args[3].arg_type, CommandArgType::Enum { .. }));
+    assert_eq!(args[4].arg_type, CommandArgType::Integer);
 }
 
 // B:register_surface_contributions — verify unit "commands, tools, resources collected"

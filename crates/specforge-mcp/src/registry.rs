@@ -147,11 +147,11 @@ fn extension_category(declared: Option<&str>) -> &'static str {
 /// The manifest spelling of a command arg type.
 fn arg_type_name(arg_type: &CommandArgType) -> &'static str {
     match arg_type {
-        CommandArgType::StringArg => "string",
-        CommandArgType::PathArg => "path",
-        CommandArgType::BoolArg => "bool",
-        CommandArgType::EnumArg { .. } => "enum",
-        CommandArgType::IntegerArg => "integer",
+        CommandArgType::String => "string",
+        CommandArgType::Path => "path",
+        CommandArgType::Bool => "bool",
+        CommandArgType::Enum { .. } => "enum",
+        CommandArgType::Integer => "integer",
     }
 }
 
@@ -180,7 +180,7 @@ fn derived_input_schema(mut schema: Value, args: &[CommandArg]) -> Value {
         let Some(property) = schema["properties"].get_mut(&arg.name) else {
             continue;
         };
-        if let CommandArgType::EnumArg { values } = &arg.arg_type {
+        if let CommandArgType::Enum { values } = &arg.arg_type {
             property["enum"] = json!(values);
         }
         if let Some(description) = &arg.description {

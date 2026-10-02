@@ -2,6 +2,11 @@
 //!
 //! Converts `ProtocolExtension` -> `ManifestV2` so that existing
 //! `populate_registries()` logic can be reused without duplication.
+//!
+//! Types whose JSON reads the same in both formats (`PeerDependency`,
+//! `CommandArgType`, the vocabulary names in `field_type` / `check`) are
+//! shared, not converted. What is converted here differs in shape: the
+//! manifest is camelCase JSON on disk, the protocol snake_case on the wire.
 
 use specforge_common::Diagnostic;
 use specforge_registry::{
@@ -54,12 +59,7 @@ pub fn protocol_extension_to_manifest(ext: &ProtocolExtension) -> ManifestV2 {
         incremental: None,
         reserved_keywords: vec![],
         migration_hook: ext.handshake.migration_hook.clone(),
-        peer_dependencies: ext
-            .handshake
-            .peer_dependencies
-            .iter()
-            .map(convert_peer_dependency)
-            .collect(),
+        peer_dependencies: ext.handshake.peer_dependencies.clone(),
         sandbox_policy: ext
             .handshake
             .sandbox_policy
@@ -123,14 +123,6 @@ fn convert_contribution_flags(
         grammars: flags.grammars,
         body_parsers: flags.body_parsers,
         analyzers: flags.analyzers,
-    }
-}
-
-fn convert_peer_dependency(dep: &PeerDependency) -> specforge_registry::PeerDependency {
-    specforge_registry::PeerDependency {
-        name: dep.name.clone(),
-        version: dep.version.clone(),
-        optional: dep.optional,
     }
 }
 
@@ -287,7 +279,7 @@ fn convert_surface_descriptor(desc: &SurfaceDescriptor) -> SurfaceContributions 
                     .iter()
                     .map(|a| specforge_registry::CommandArg {
                         name: a.name.clone(),
-                        arg_type: convert_command_arg_type(&a.arg_type),
+                        arg_type: a.arg_type.clone(),
                         required: a.required,
                         default_value: a.default_value.clone(),
                         description: a.description.clone(),
@@ -321,18 +313,6 @@ fn convert_surface_descriptor(desc: &SurfaceDescriptor) -> SurfaceContributions 
                 sandbox: r.sandbox.as_ref().map(convert_surface_sandbox),
             })
             .collect(),
-    }
-}
-
-fn convert_command_arg_type(t: &CommandArgType) -> specforge_registry::CommandArgType {
-    match t {
-        CommandArgType::String => specforge_registry::CommandArgType::StringArg,
-        CommandArgType::Path => specforge_registry::CommandArgType::PathArg,
-        CommandArgType::Bool => specforge_registry::CommandArgType::BoolArg,
-        CommandArgType::Integer => specforge_registry::CommandArgType::IntegerArg,
-        CommandArgType::Enum { values } => specforge_registry::CommandArgType::EnumArg {
-            values: values.clone(),
-        },
     }
 }
 

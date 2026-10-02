@@ -41,20 +41,9 @@ pub struct CommandArg {
     pub description: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub enum CommandArgType {
-    #[serde(rename = "string")]
-    StringArg,
-    #[serde(rename = "path")]
-    PathArg,
-    #[serde(rename = "bool")]
-    BoolArg,
-    #[serde(rename = "enum")]
-    EnumArg { values: Vec<String> },
-    #[serde(rename = "integer")]
-    IntegerArg,
-}
+/// The protocol's own type: one wire shape (`"string"`, `{"enum":
+/// {"values": [..]}}`, ...) for manifests and describe payloads alike.
+pub use specforge_protocol_types::CommandArgType;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
