@@ -447,9 +447,7 @@ access files.
 > pure-compute wasip2 components; the host passes all needed context as call
 > input (e.g. the `ValidatorContext` snapshot for `validate__*` exports). A
 > typed component host-import surface is future work — the names below are
-> what the host's permission matrix already enforces
-> (`specforge-wasm::host_functions`), kept in lockstep with this table by a
-> drift guard test.
+> the planned surface, specified in `spec/behaviors/wasm-host-functions.spec`.
 
 ### Host Function Table
 

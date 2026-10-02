@@ -1,8 +1,18 @@
-use crate::host_functions::CallSite;
 use crate::runtime::{WasmCallResult, WasmRuntime};
 use specforge_common::{Diagnostic, Severity};
 use specforge_registry::{FieldEnhancement, ManifestV2};
 use std::collections::HashSet;
+
+/// The contribution an export is dispatched for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CallSite {
+    Validator,
+    Renderer,
+    Provider,
+    Parser,
+    Collector,
+    Analyzer,
+}
 
 /// Dispatch contribution exports for an extension based on its manifest.
 /// Routes to the correct namespaced Wasm export function.

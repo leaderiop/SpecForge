@@ -597,24 +597,6 @@ Owner: @specforge/product
 Level: error
 ```
 
-## E053
-
-```
-E053: Host call denied by sandbox
-
-An extension's Wasm host call was refused by the sandbox: it was made from a
-call site that isn't allowed for that operation, the relevant policy flag
-(`file_system_access`/`network_access`) is disabled, a file path escaped
-`spec_root`/the output directory or used a `..` component, an output extension
-is blocked or not allowlisted, an HTTP domain isn't in `allowed_domains`, or a
-graph node/edge referenced an undeclared kind/label or a nonexistent node.
-Adjust the extension's `sandbox_policy` or the call itself to stay within the
-granted permissions.
-
-Owner: core
-Level: error
-```
-
 ## E054
 
 ```
@@ -2728,6 +2710,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E037 | (nothing) |
 | E038 | (nothing) |
 | E047 | [W139](#w139) |
+| E053 | (nothing) |
 | I006 | (nothing) |
 | W024 | (nothing) |
 | W025 | (nothing) |

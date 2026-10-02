@@ -444,13 +444,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "The `depends_on` edges between `deliverable` entities form a cycle. Break the cycle by removing or inverting one of the dependencies.",
     },
     CodeEntry {
-        code: "E053",
-        title: "Host call denied by sandbox",
-        owner: "core",
-        level: Level::Error,
-        explanation: "An extension's Wasm host call was refused by the sandbox: it was made from a call site that isn't allowed for that operation, the relevant policy flag (`file_system_access`/`network_access`) is disabled, a file path escaped `spec_root`/the output directory or used a `..` component, an output extension is blocked or not allowlisted, an HTTP domain isn't in `allowed_domains`, or a graph node/edge referenced an undeclared kind/label or a nonexistent node. Adjust the extension's `sandbox_policy` or the call itself to stay within the granted permissions.",
-    },
-    CodeEntry {
         code: "E054",
         title: "Invalid extension specifier",
         owner: "core",
@@ -1572,6 +1565,7 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("E037", None),
     ("E038", None),
     ("E047", Some("W139")),
+    ("E053", None),
     ("I006", None),
     ("W024", None),
     ("W025", None),
