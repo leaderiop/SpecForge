@@ -138,8 +138,8 @@ pub fn emit_dot(graph: &Graph, options: &DotOptions<'_>) -> String {
     edges.sort_by(|a, b| (&a.source, &a.target, &a.label).cmp(&(&b.source, &b.target, &b.label)));
 
     for edge in &edges {
-        let keep = graph.node(edge.source.as_str()).is_none_or(&included)
-            && graph.node(edge.target.as_str()).is_none_or(&included);
+        let keep = graph.node(edge.source.as_str()).is_none_or(included)
+            && graph.node(edge.target.as_str()).is_none_or(included);
         if !keep {
             continue;
         }
