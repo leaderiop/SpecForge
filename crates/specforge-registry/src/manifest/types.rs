@@ -48,6 +48,9 @@ pub struct ManifestV2 {
     pub analyzer_contributions: Vec<AnalyzerContribution>,
     #[serde(default)]
     pub surfaces: Option<SurfaceContributions>,
+    /// The colour diagrams draw the extension in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme_color: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -110,6 +113,12 @@ pub struct ManifestEntityKind {
     pub open_fields: bool,
     #[serde(default)]
     pub inference_guide: Option<String>,
+    /// Reference fields that target this kind are contract obligations.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub contract_target: bool,
+    /// Its entity ids name types (custom validators' `declared_types`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub declares_types: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,6 +163,12 @@ pub struct ManifestField {
     /// The field states what the entity promises rather than prose.
     #[serde(default)]
     pub normative: bool,
+    /// Set on an entity, the entity owes no obligations of its own.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub exempts_obligations: bool,
+    /// The context export carries the field at the node's top level.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub headline: bool,
     /// Where the host derives this reference field's edges from
     /// (`type_expressions` or `method_signatures`), when it does.
     #[serde(default, skip_serializing_if = "Option::is_none")]

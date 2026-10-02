@@ -239,6 +239,7 @@ fn schema_resource_returns_the_graph_protocol_schema() {
 )]
 fn context_resource_returns_context_graph() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
     let resp = read_resource(&mut server, "specforge://context");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();

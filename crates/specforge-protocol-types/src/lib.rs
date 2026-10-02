@@ -125,6 +125,11 @@ pub struct HandshakeResponse {
     pub starter_template: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub migration_hook: Option<String>,
+    /// The colour diagrams draw the extension in (`#rrggbb`): its cluster
+    /// in `specforge model --format dot`, its node in `specforge outline`.
+    /// Omitted from the wire when absent; diagrams then use a neutral grey.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme_color: Option<String>,
 }
 
 /// Declares which contribution categories an extension provides.
@@ -242,6 +247,15 @@ pub struct EntityKindDescriptor {
     pub verify_kinds: Vec<String>,
     #[serde(default)]
     pub inference_guide: Option<String>,
+    /// Its entities are contract clauses: a reference field that targets
+    /// this kind is a contract obligation of the entity that declares it
+    /// (the `contracts` analysis, A010).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub contract_target: bool,
+    /// Its entity ids name types: custom validators receive them as
+    /// `ValidatorContext::declared_types`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub declares_types: bool,
 }
 
 // ── Field Descriptor ──
@@ -273,6 +287,16 @@ pub struct FieldDescriptor {
     /// rather than prose; token-optimized exports keep it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub normative: bool,
+    /// Set on an entity (`true`, or a non-empty value), the entity owes no
+    /// obligations of its own: W004, the coverage rule and stats leave it
+    /// out (ADR 0004, D2-b). E.g. a specification-only `abstract` flag.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub exempts_obligations: bool,
+    /// The context export carries this field at the node's top level, as
+    /// the line an agent reads first (a contract, a status), instead of
+    /// among the normative `fields`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub headline: bool,
     /// The host fills this reference field's edges from type names the
     /// entity writes elsewhere: `type_expressions` (its field types) or
     /// `method_signatures` (its method parameter and return types).

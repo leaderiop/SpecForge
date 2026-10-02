@@ -90,6 +90,8 @@ fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEnt
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
     }
 }
 

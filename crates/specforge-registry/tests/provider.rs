@@ -29,6 +29,7 @@ fn default_manifest() -> ManifestV2 {
         host_api_version: None,
         entity_enhancements: vec![],
         starter_template: None,
+        theme_color: None,
         ext_short: None,
         query_scope: None,
         collector_contributions: vec![],

@@ -451,10 +451,10 @@ pub fn execute_pattern(
             }
             ValidationPatternKind::MissingFieldWhenFlagSet => {
                 if let Some(ref field_name) = pattern.field {
-                    // Union types (type X = A | B) have a "variants" field but
-                    // cannot syntactically hold verify statements, so skip them
-                    // for verify-related checks.
-                    if field_name == "verify" && entity.fields.contains_key("variants") {
+                    // An entity that owes no obligations (a union, which has
+                    // no body to hold them, or one an extension's flag
+                    // exempts: `obligation_exempt`) is not missing `verify`.
+                    if field_name == VERIFY_FIELD && entity.obligation_exempt {
                         false
                     } else {
                         !entity.fields.contains_key(field_name)

@@ -41,6 +41,8 @@ fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::Kind
             dot_color: None,
             dot_fillcolor: None,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
         });
     }
     registry

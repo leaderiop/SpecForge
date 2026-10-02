@@ -221,6 +221,8 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
             inference_guide: None,
         }];
         let mut m2 = make_manifest("ext2", &[]);
@@ -241,6 +243,8 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
             inference_guide: None,
         }];
 

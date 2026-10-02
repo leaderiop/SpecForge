@@ -184,6 +184,8 @@ fn complete_field_names_from_registry() {
         required: false,
         inverse_of: None,
         normative: false,
+        exempts_obligations: false,
+        headline: false,
         derived_from: None,
     });
     reg.register(FieldRegistryEntry {
@@ -198,6 +200,8 @@ fn complete_field_names_from_registry() {
         required: false,
         inverse_of: None,
         normative: false,
+        exempts_obligations: false,
+        headline: false,
         derived_from: None,
     });
     let fields = specforge_lsp::complete_field_names("behavior", Some(&reg));

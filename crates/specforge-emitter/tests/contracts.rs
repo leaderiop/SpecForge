@@ -221,7 +221,10 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     // Requires: finalized graph
     let mut graph = build_graph();
     graph.add_node(described_node("d")); // disconnected from a -> b -> c
-    let json = specforge_emitter::context::emit_context(&graph);
+    let json = specforge_emitter::context::emit_context_with_fields(
+        &graph,
+        Some(&crate::support::headline_registry(&["behavior", "feature"])),
+    );
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     // schema_version_present
@@ -821,6 +824,8 @@ fn dot_emits_registry_declared_styles() {
         dot_color: Some("firebrick".to_string()),
         dot_fillcolor: Some("#ffeeee".to_string()),
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
     });
 
     let dot = specforge_emitter::dot::emit_dot(

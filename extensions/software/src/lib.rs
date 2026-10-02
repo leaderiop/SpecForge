@@ -24,6 +24,8 @@ impl Contributions for Software {
     fn contribute(c: &mut ContributionsBuilder) {
         // Optional: product provides the kinds behind the feature, module
         // and milestone links; without it those links are inert (I004).
+        // Diagrams (`model`, `outline`) draw the extension in this colour.
+        c.theme_color("#4a90d9");
         c.meta.peer_dependencies.push(PeerDependency {
             name: "@specforge/product".to_string(),
             version: "^1.0".to_string(),
@@ -64,7 +66,7 @@ impl Contributions for Software {
 // ── Custom validators (`check: "custom"` rules) ────────────────────────────
 // Wire ABI v1: a `validate__<rule>` export receives a `ValidatorContext`
 // (`specforge-protocol-types`) and returns a `ValidatorVerdict`. The host
-// precomputes everything the native walks in `emitter/compile.rs` touched,
+// precomputes everything the native walks in `project/compile.rs` touched,
 // so each validator is a pure function of the context. The exports use the
 // same `#[plugin_fn]` wrapping the SDK's `#[compiler_pass]` generates for
 // `__pass_<name>` exports.

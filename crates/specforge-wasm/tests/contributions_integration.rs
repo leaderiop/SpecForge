@@ -30,6 +30,7 @@ fn default_manifest() -> ManifestV2 {
         host_api_version: None,
         entity_enhancements: vec![],
         starter_template: None,
+        theme_color: None,
         ext_short: None,
         query_scope: None,
         collector_contributions: vec![],
@@ -63,6 +64,8 @@ fn register_enhancement_new_field() {
             enum_values: vec![],
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         }],
         edge_types: vec![],
@@ -90,6 +93,8 @@ fn register_enhancement_conflict_e017() {
         enum_values: vec![],
         inverse_of: None,
         normative: false,
+        exempts_obligations: false,
+        headline: false,
         derived_from: None,
     };
 

@@ -18,6 +18,10 @@ pub struct KindRegistryEntry {
     pub dot_color: Option<String>,
     pub dot_fillcolor: Option<String>,
     pub open_fields: bool,
+    /// Reference fields that target this kind are contract obligations.
+    pub contract_target: bool,
+    /// Its entity ids name types (custom validators' `declared_types`).
+    pub declares_types: bool,
 }
 
 #[derive(Debug, Default)]

@@ -20,6 +20,8 @@ fn kind(name: &str, extension: &str) -> KindRegistryEntry {
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
     }
 }
 
@@ -43,6 +45,8 @@ pub fn reference(
         required: false,
         inverse_of: inverse_of.map(str::to_string),
         normative: false,
+        exempts_obligations: false,
+        headline: false,
         derived_from: None,
     }
 }

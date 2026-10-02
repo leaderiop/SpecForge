@@ -24,6 +24,8 @@ impl Contributions for Product {
     fn contribute(c: &mut ContributionsBuilder) {
         // `specforge init` writes this as the starter spec of a project that
         // enables product.
+        // Diagrams (`model`, `outline`) draw the extension in this colour.
+        c.theme_color("#2ecc71");
         c.starter_template(include_str!("starter.spec"));
 
         for (category, bytes) in [

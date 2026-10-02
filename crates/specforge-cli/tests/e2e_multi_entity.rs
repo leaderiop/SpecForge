@@ -220,7 +220,10 @@ fn export_brief_includes_all_entity_kinds() {
     verify = "context format includes entity IDs and contracts"
 )]
 fn export_context_shows_contracts_for_all_kinds() {
-    let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
+    let dir = setup_project(&[
+        ("specforge.json", BUILTINS_CONFIG),
+        ("main.spec", MULTI_EXTENSION_SPEC),
+    ]);
 
     let output = specforge_cmd()
         .args(["export", "--format=context"])

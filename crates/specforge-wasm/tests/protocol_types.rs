@@ -77,6 +77,7 @@ fn handshake_response_round_trip() {
             file_system_access: Some(false),
         }),
         starter_template: Some("spec \"{project}\" {}\n".to_string()),
+        theme_color: None,
         migration_hook: None,
     };
     let json = serde_json::to_string(&resp).unwrap();
@@ -238,6 +239,8 @@ fn entity_kind_descriptor_full_round_trip() {
                 enum_values: vec![],
                 inverse_of: None,
                 normative: false,
+                exempts_obligations: false,
+                headline: false,
                 derived_from: None,
             },
             FieldDescriptor {
@@ -252,6 +255,8 @@ fn entity_kind_descriptor_full_round_trip() {
                 enum_values: vec![],
                 inverse_of: None,
                 normative: false,
+                exempts_obligations: false,
+                headline: false,
                 derived_from: None,
             },
         ],
@@ -261,6 +266,8 @@ fn entity_kind_descriptor_full_round_trip() {
         incremental: Some(true),
         has_body_parser: false,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
         semantic_token: Some("function".to_string()),
         lsp_icon: Some("Method".to_string()),
         dot_shape: Some("ellipse".to_string()),
@@ -304,6 +311,8 @@ fn field_descriptor_with_edge_and_target() {
         enum_values: vec![],
         inverse_of: None,
         normative: false,
+        exempts_obligations: false,
+        headline: false,
         derived_from: None,
     };
     let json = serde_json::to_string(&field).unwrap();
@@ -329,6 +338,8 @@ fn field_descriptor_with_enum_values() {
         ],
         inverse_of: None,
         normative: false,
+        exempts_obligations: false,
+        headline: false,
         derived_from: None,
     };
     let json = serde_json::to_string(&field).unwrap();
@@ -351,6 +362,8 @@ fn field_descriptor_enum_values_skipped_when_empty() {
         enum_values: vec![],
         inverse_of: None,
         normative: false,
+        exempts_obligations: false,
+        headline: false,
         derived_from: None,
     };
     let json = serde_json::to_string(&field).unwrap();
@@ -403,6 +416,8 @@ fn shared_field_descriptor_is_field_descriptor() {
         enum_values: vec!["draft".to_string(), "active".to_string()],
         inverse_of: None,
         normative: false,
+        exempts_obligations: false,
+        headline: false,
         derived_from: None,
     };
     let json = serde_json::to_string(&shared).unwrap();
@@ -430,6 +445,8 @@ fn entity_enhancement_descriptor_round_trip() {
             enum_values: vec![],
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         }],
         edge_types: vec![EdgeTypeDescriptor {

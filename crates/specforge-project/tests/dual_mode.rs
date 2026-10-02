@@ -52,6 +52,7 @@ impl MockRuntime {
             peer_dependencies: vec![],
             sandbox_policy: None,
             starter_template: None,
+            theme_color: None,
             migration_hook: None,
         };
         self.call_results.insert(
@@ -267,6 +268,7 @@ fn protocol_version_mismatch_produces_e028() {
         peer_dependencies: vec![],
         sandbox_policy: None,
         starter_template: None,
+        theme_color: None,
         migration_hook: None,
     };
     let runtime = MockRuntime {

@@ -25,6 +25,7 @@ fn software_builder() -> ContributionsBuilder {
     });
 
     let mut b = ContributionsBuilder::new(meta);
+    b.theme_color("#4a90d9");
     b.starter_template(include_str!(
         "../../../extensions/software/src/starter.spec"
     ));
@@ -39,6 +40,7 @@ fn software_builder() -> ContributionsBuilder {
                 f.field_type(FieldType::String)
                     .required()
                     .normative()
+                    .headline()
                     .description("The behavioral contract this behavior guarantees");
             })
             .field("invariants", |f| {

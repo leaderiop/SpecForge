@@ -1185,7 +1185,7 @@ fn mcp_tool_outline_returns_entities_in_file() {
     verify = "format parameter changes output serialization"
 )]
 fn mcp_tool_query_format_context() {
-    let responses = mcp_session(
+    let responses = mcp_session_with_builtins(
         BASIC_SPEC,
         &[
             mcp_request(
@@ -1368,7 +1368,7 @@ fn mcp_tool_export_format_context() {
             }),
         )
     };
-    let responses = mcp_session(
+    let responses = mcp_session_with_builtins(
         BASIC_SPEC,
         &[export(1, "context"), export(2, "brief"), export(3, "graph")],
     );
@@ -1550,7 +1550,7 @@ fn mcp_resource_read_schema() {
     verify = "specforge://context resource returns token-optimized format"
 )]
 fn mcp_resource_read_context() {
-    let responses = mcp_session(
+    let responses = mcp_session_with_builtins(
         BASIC_SPEC,
         &[
             mcp_request(

@@ -1,6 +1,6 @@
 use serde::Serialize;
 use serde_json::Value;
-use specforge_graph::{Graph, Node};
+use specforge_graph::{FieldValue, Graph, Node};
 use specforge_registry::FieldRegistry;
 use std::collections::BTreeMap;
 
@@ -19,23 +19,52 @@ struct ContextNode {
     kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    contract: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    status: Option<String>,
+    /// The fields an extension declares `headline` (a contract, a status),
+    /// by name.
+    #[serde(flatten)]
+    headline: BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     verify: Option<Value>,
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     fields: BTreeMap<String, Value>,
 }
 
-/// Fields a context node carries at its top level, never repeated in
-/// `fields`.
-const TOP_LEVEL_FIELDS: [&str; 3] = ["contract", "status", "verify"];
+/// Keys a context node has of its own, which no headline field may take.
+const NODE_KEYS: [&str; 5] = ["id", "kind", "title", "verify", "fields"];
+
+/// The fields of `node` its extension declares `headline`, as text, for the
+/// context node's top level. Empty without a registry.
+pub(crate) fn headline_fields(
+    node: &Node,
+    registry: Option<&FieldRegistry>,
+) -> BTreeMap<String, Value> {
+    let Some(registry) = registry else {
+        return BTreeMap::new();
+    };
+    node.fields
+        .entries()
+        .iter()
+        .filter(|entry| is_headline(node, entry.key.as_str(), registry))
+        .filter(|entry| !NODE_KEYS.contains(&entry.key.as_str()))
+        .filter_map(|entry| match &entry.value {
+            FieldValue::String(s) | FieldValue::Identifier(s) => {
+                Some((entry.key.to_string(), Value::String(s.clone())))
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn is_headline(node: &Node, field: &str, registry: &FieldRegistry) -> bool {
+    registry
+        .get(node.kind.raw.as_str(), field)
+        .is_some_and(|f| f.headline)
+}
 
 /// The fields of `node` its extension declares normative (the text that
 /// states what the entity promises), except those a context node already
-/// carries at its top level. Empty without a registry.
+/// carries at its top level (its headline fields and obligations). Empty
+/// without a registry.
 pub(crate) fn normative_fields(
     node: &Node,
     registry: Option<&FieldRegistry>,
@@ -46,7 +75,8 @@ pub(crate) fn normative_fields(
     node.fields
         .entries()
         .iter()
-        .filter(|entry| !TOP_LEVEL_FIELDS.contains(&entry.key.as_str()))
+        .filter(|entry| !matches!(entry.value, FieldValue::VerifyList(_)))
+        .filter(|entry| !is_headline(node, entry.key.as_str(), registry))
         .filter(|entry| {
             registry
                 .get(node.kind.raw.as_str(), entry.key.as_str())
@@ -72,23 +102,13 @@ pub fn emit_context_with_fields(graph: &Graph, registry: Option<&FieldRegistry>)
         .nodes()
         .iter()
         .map(|n| {
-            let contract = n.fields.get("contract").and_then(|v| match v {
-                specforge_graph::FieldValue::String(s) => Some(s.clone()),
-                _ => None,
-            });
-            let status = n.fields.get("status").and_then(|v| match v {
-                specforge_graph::FieldValue::Identifier(s) => Some(s.clone()),
-                specforge_graph::FieldValue::String(s) => Some(s.clone()),
-                _ => None,
-            });
             let verify = crate::json::obligations_json(n);
 
             ContextNode {
                 id: n.id.raw.to_string(),
                 kind: n.kind.raw.to_string(),
                 title: n.title.clone(),
-                contract,
-                status,
+                headline: headline_fields(n, registry),
                 verify,
                 fields: normative_fields(n, registry),
             }

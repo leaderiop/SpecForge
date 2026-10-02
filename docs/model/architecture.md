@@ -67,6 +67,8 @@ pub struct ModelExtension {
     pub version: String,
     pub entity_count: usize,
     pub edge_count: usize,
+    /// The manifest's `theme_color` (`with_theme_colors`); not serialized.
+    pub color: Option<String>,
 }
 
 pub struct ModelEntity {

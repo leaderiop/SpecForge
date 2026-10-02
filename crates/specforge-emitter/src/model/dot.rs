@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use super::{GroupBy, ModelIntermediate, ModelOptions};
-use crate::diagram::{escape_dot, extension_color};
+use crate::diagram::escape_dot;
 
 pub fn render_dot(model: &ModelIntermediate, options: &ModelOptions) -> String {
     let mut out = String::new();
@@ -45,7 +45,7 @@ fn render_grouped(model: &ModelIntermediate, out: &mut String) {
             continue;
         }
 
-        let ext_color = extension_color(&ext.name);
+        let ext_color = model.extension_color(&ext.name);
         let cluster_id = ext.name.replace("@specforge/", "").replace('/', "_");
 
         writeln!(out).unwrap();
@@ -66,7 +66,7 @@ fn render_flat(model: &ModelIntermediate, out: &mut String) {
     for entity in &model.entities {
         render_entity(
             entity,
-            entity_color(entity, extension_color(&entity.extension)),
+            entity_color(entity, model.extension_color(&entity.extension)),
             out,
         );
     }

@@ -26,5 +26,6 @@
   ],
   "protocol_version": "1.0.0",
   "sandbox_policy": null,
+  "theme_color": "#e74c3c",
   "version": "1.0.0"
 }

@@ -485,7 +485,9 @@ behavior export_agent_context_format "Export Agent Context Format" {
     contracts, relationships, and coverage status. Each entity also carries
     the fields its extension declares normative (an invariant's guarantee,
     a decision's decision text), so every kind keeps the text that states
-    what it promises; core reads the flag and knows no field by name. The output MUST omit
+    what it promises; core reads the flag and knows no field by name. The
+    fields an extension declares headline (a behavior's contract, a status)
+    sit at the entity's top level instead. The output MUST omit
     verbose fields (full descriptions, prose) to minimize token consumption.
     The format MUST be valid JSON conforming to the Graph Protocol schema.
     The output MUST include a schema_version field identifying the Graph

@@ -193,9 +193,10 @@ pub fn detect_identifier_length_violations(entities: &[EntityView]) -> Vec<Diagn
 }
 
 /// Detect unknown entity fields by checking each field name against the FieldRegistry.
-/// `title` is structural and always valid. So is `expression`: the core
+/// `title` is structural and always valid. So is `expression`: the host's
 /// prove pass reads it on any entity as a formal claim
-/// (docs/guides/formal-verification.md). `verify` is reserved syntax whose
+/// (docs/guides/formal-verification.md); until extensions declare claim
+/// fields, it is accepted everywhere (ADR 0007, known gaps). `verify` is reserved syntax whose
 /// meaning comes from extensions (ADR 0002): it is valid only on kinds an
 /// extension made testable (`supports_verify`), e.g. via @specforge/testing.
 /// Entities with unregistered kinds are skipped to avoid cascading diagnostics.
@@ -1220,6 +1221,8 @@ mod tests {
             required: true,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         });
         reg.register(FieldRegistryEntry {
@@ -1234,6 +1237,8 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         });
         reg.register(FieldRegistryEntry {
@@ -1248,6 +1253,8 @@ mod tests {
             required: true,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         });
 

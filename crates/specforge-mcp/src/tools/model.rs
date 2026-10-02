@@ -94,7 +94,8 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         &state.registries().extension_info,
     );
 
-    let model = ModelIntermediate_from_schema(&schema);
+    let model =
+        ModelIntermediate_from_schema(&schema).with_theme_colors(&state.registries().manifests);
     let model = filter_entities(&model, &options);
     let model = filter_fields(&model, options.fields);
     let output = render(&model, &options);

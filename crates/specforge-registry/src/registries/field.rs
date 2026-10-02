@@ -44,6 +44,10 @@ pub struct FieldRegistryEntry {
     pub inverse_of: Option<String>,
     /// The field states what the entity promises rather than prose.
     pub normative: bool,
+    /// Set on an entity, the entity owes no obligations of its own.
+    pub exempts_obligations: bool,
+    /// The context export carries the field at the node's top level.
+    pub headline: bool,
     /// Where the host derives the field's edges from, when it does
     /// (`type_expressions` or `method_signatures`).
     pub derived_from: Option<String>,
@@ -190,6 +194,8 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         });
         assert!(registry.get("behavior", "title").is_none());
@@ -227,6 +233,8 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         });
 
@@ -255,6 +263,8 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         };
         registry.register(entry.clone());
@@ -273,6 +283,8 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         };
         registry.register(entry2);
@@ -291,6 +303,8 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         });
         assert_eq!(registry.len(), 2);
@@ -312,6 +326,8 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         });
         registry.register(FieldRegistryEntry {
@@ -326,6 +342,8 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         });
 

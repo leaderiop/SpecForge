@@ -126,8 +126,14 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
         .collect();
 
     // Extension validation rules (declarative + custom via wasm).
-    let extension_diags =
-        run_extension_validation(patterns, graph, field_reg, runtime, &edge_label_to_field);
+    let extension_diags = run_extension_validation(
+        patterns,
+        graph,
+        kind_reg,
+        field_reg,
+        runtime,
+        &edge_label_to_field,
+    );
     diagnostics.extend(extension_diags);
 
     diagnostics
@@ -385,6 +391,9 @@ pub struct WasmCustomRules<'a> {
     /// Extension whose module owns the `wasm_function` export.
     pub extension: &'a str,
     pub graph: &'a Graph,
+    /// The ids of the graph's entities whose kind declares types
+    /// (`declares_types`), sent as `context.declared_types`.
+    pub declared_types: &'a [String],
 }
 
 /// Type names accepted by E004 without a declared `type` entity. Sent to
@@ -492,14 +501,6 @@ impl<'a> WasmCustomRules<'a> {
             }
         }
 
-        let declared_types: Vec<String> = self
-            .graph
-            .nodes()
-            .iter()
-            .filter(|n| n.kind.raw.as_str() == "type")
-            .map(|n| n.id.raw.to_string())
-            .collect();
-
         Ok(ValidatorContext {
             entity: ValidatorEntity {
                 id: node.id.raw.to_string(),
@@ -536,7 +537,7 @@ impl<'a> WasmCustomRules<'a> {
                     .collect(),
             },
             referenced,
-            declared_types,
+            declared_types: self.declared_types.to_vec(),
             primitives: PRIMITIVE_TYPES.iter().map(|s| s.to_string()).collect(),
         })
     }
@@ -656,9 +657,25 @@ pub fn probe_custom_rules(
     diagnostics
 }
 
+/// The ids of `graph`'s entities whose kind an extension declares
+/// `declares_types` (`@specforge/software`'s `type`), in graph order.
+pub fn declared_type_ids(graph: &Graph, kinds: &KindRegistry) -> Vec<String> {
+    graph
+        .nodes()
+        .iter()
+        .filter(|n| {
+            kinds
+                .get(n.kind.raw.as_str())
+                .is_some_and(|kind| kind.declares_types)
+        })
+        .map(|n| n.id.raw.to_string())
+        .collect()
+}
+
 fn run_extension_validation(
     patterns: &[(ValidationRulePattern, String)],
     graph: &Graph,
+    kinds: &KindRegistry,
     fields: &FieldRegistry,
     runtime: Option<&dyn WasmRuntime>,
     edge_label_to_field: &HashMap<String, String>,
@@ -668,6 +685,7 @@ fn run_extension_validation(
     }
 
     let entities = build_validation_entities(graph, fields);
+    let declared_types = declared_type_ids(graph, kinds);
 
     if std::env::var("SPECFORGE_DEBUG_RULES").is_ok() {
         for (p, ext) in patterns {
@@ -695,6 +713,7 @@ fn run_extension_validation(
                 runtime,
                 extension,
                 graph,
+                declared_types: &declared_types,
             });
             let diags = execute_pattern(
                 pattern,

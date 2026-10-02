@@ -128,6 +128,8 @@ fn register_entity_kinds(
             dot_color: kind.dot_color.clone(),
             dot_fillcolor: kind.dot_fillcolor.clone(),
             open_fields: kind.open_fields,
+            contract_target: kind.contract_target,
+            declares_types: kind.declares_types,
         };
         if let Some(existing) = registry.register(entry) {
             // Duplicate — first extension wins (already registered), emit E026
@@ -203,6 +205,8 @@ fn register_single_field(
         required: field.required,
         inverse_of: field.inverse_of.clone(),
         normative: field.normative,
+        exempts_obligations: field.exempts_obligations,
+        headline: field.headline,
         derived_from: field.derived_from.clone(),
     });
 }
@@ -995,6 +999,8 @@ mod tests {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    exempts_obligations: false,
+                    headline: false,
                     derived_from: None,
                 }],
                 edge_types: vec![],
@@ -1031,6 +1037,8 @@ mod tests {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    exempts_obligations: false,
+                    headline: false,
                     derived_from: None,
                 }],
                 edge_types: vec![],
@@ -1117,6 +1125,8 @@ mod tests {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    exempts_obligations: false,
+                    headline: false,
                     derived_from: None,
                 }],
                 edge_types: vec![],
@@ -1153,6 +1163,8 @@ mod tests {
                         enum_values: vec![],
                         inverse_of: None,
                         normative: false,
+                        exempts_obligations: false,
+                        headline: false,
                         derived_from: None,
                     }],
                     edge_types: vec![],
@@ -1176,6 +1188,8 @@ mod tests {
                         enum_values: vec![],
                         inverse_of: None,
                         normative: false,
+                        exempts_obligations: false,
+                        headline: false,
                         derived_from: None,
                     }],
                     edge_types: vec![],

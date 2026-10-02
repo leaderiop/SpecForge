@@ -12,4 +12,5 @@ mod query;
 mod schema;
 mod scope;
 mod stress;
+mod support;
 mod token_budget;

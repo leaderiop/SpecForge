@@ -73,6 +73,7 @@ pub fn protocol_extension_to_manifest(ext: &ProtocolExtension) -> ManifestV2 {
             .map(convert_enhancement)
             .collect(),
         starter_template: ext.handshake.starter_template.clone(),
+        theme_color: ext.handshake.theme_color.clone(),
         ext_short: None,
         query_scope: None,
         collector_contributions: ext
@@ -157,6 +158,8 @@ fn convert_entity_kind(desc: &EntityKindDescriptor) -> specforge_registry::Manif
         incremental: desc.incremental,
         has_body_parser: desc.has_body_parser,
         open_fields: desc.open_fields,
+        contract_target: desc.contract_target,
+        declares_types: desc.declares_types,
         inference_guide: desc.inference_guide.clone(),
     }
 }
@@ -175,6 +178,8 @@ fn convert_field(desc: &FieldDescriptor) -> specforge_registry::ManifestField {
         enum_values: desc.enum_values.clone(),
         inverse_of: desc.inverse_of.clone(),
         normative: desc.normative,
+        exempts_obligations: desc.exempts_obligations,
+        headline: desc.headline,
         derived_from: desc.derived_from.clone(),
     }
 }

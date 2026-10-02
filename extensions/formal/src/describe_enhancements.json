@@ -109,6 +109,7 @@
           "default_value": null,
           "description": "Marks a specification-only behavior that concrete behaviors refine; it carries no verify obligations of its own",
           "edge": null,
+          "exempts_obligations": true,
           "field_type": "bool",
           "file_reference": false,
           "inverse_of": null,

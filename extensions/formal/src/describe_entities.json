@@ -2,6 +2,7 @@
   "category": "entities",
   "items": [
     {
+      "contract_target": true,
       "description": "A temporal property assertion (safety, liveness, fairness)",
       "dot_color": "#0D47A1",
       "dot_fillcolor": "#E3F2FD",

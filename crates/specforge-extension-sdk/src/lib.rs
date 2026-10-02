@@ -53,6 +53,8 @@ pub struct ExtensionMeta {
     /// The export `specforge migrate` calls after migrating the project's
     /// files.
     pub migration_hook: Option<String>,
+    /// The colour diagrams draw the extension in (`#rrggbb`).
+    pub theme_color: Option<String>,
 }
 
 impl ExtensionMeta {
@@ -184,6 +186,13 @@ impl ContributionsBuilder {
         self
     }
 
+    /// The colour diagrams draw this extension in (`#rrggbb`): its cluster
+    /// in `specforge model --format dot`, its node in `specforge outline`.
+    pub fn theme_color(&mut self, color: &str) -> &mut Self {
+        self.meta.theme_color = Some(color.to_string());
+        self
+    }
+
     /// Name the export `specforge migrate` calls, after it migrates the
     /// project's `.spec` files, so the extension can migrate its own data.
     /// The extension must export a function by that name.
@@ -237,6 +246,7 @@ impl ContributionsBuilder {
             peer_dependencies: self.meta.peer_dependencies.clone(),
             sandbox_policy: self.meta.sandbox_policy.clone(),
             starter_template: self.meta.starter_template.clone(),
+            theme_color: self.meta.theme_color.clone(),
             migration_hook: self.meta.migration_hook.clone(),
         }
     }
@@ -328,6 +338,18 @@ impl KindBuilder {
         self.0.open_fields = o;
         self
     }
+    /// Reference fields that target this kind are contract obligations of
+    /// the entity that declares them (the `contracts` analysis, A010).
+    pub fn contract_target(&mut self) -> &mut Self {
+        self.0.contract_target = true;
+        self
+    }
+    /// The kind's entity ids name types: custom validators receive them as
+    /// `ValidatorContext::declared_types`.
+    pub fn declares_types(&mut self) -> &mut Self {
+        self.0.declares_types = true;
+        self
+    }
     pub fn semantic_token(&mut self, t: &str) -> &mut Self {
         self.0.semantic_token = Some(t.to_string());
         self
@@ -401,6 +423,17 @@ impl FieldBuilder {
     /// guarantee) rather than prose, so token-optimized exports keep it.
     pub fn normative(&mut self) -> &mut Self {
         self.0.normative = true;
+        self
+    }
+    /// Set on an entity (`true`, or a non-empty value), the entity owes no
+    /// obligations of its own (W004, coverage and stats leave it out).
+    pub fn exempts_obligations(&mut self) -> &mut Self {
+        self.0.exempts_obligations = true;
+        self
+    }
+    /// The context export carries the field at the node's top level.
+    pub fn headline(&mut self) -> &mut Self {
+        self.0.headline = true;
         self
     }
     pub fn default_value(&mut self, v: &str) -> &mut Self {

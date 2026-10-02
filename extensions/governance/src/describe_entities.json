@@ -13,6 +13,7 @@
           "edge": null,
           "field_type": "string",
           "file_reference": false,
+          "headline": true,
           "inverse_of": null,
           "name": "status",
           "required": true,

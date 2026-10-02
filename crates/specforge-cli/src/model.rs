@@ -64,7 +64,7 @@ pub fn run(
         depth,
     };
 
-    let model = ModelIntermediate_from_schema(&schema);
+    let model = ModelIntermediate_from_schema(&schema).with_theme_colors(&ctx.manifests);
     for warning in &model.warnings {
         eprintln!("warning (model): {warning}");
     }

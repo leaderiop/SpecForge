@@ -563,10 +563,9 @@ struct ContextNodeV2 {
     kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    contract: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    status: Option<String>,
+    /// The fields an extension declares `headline`, by name.
+    #[serde(flatten)]
+    headline: std::collections::BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     verify: Option<Value>,
     #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
@@ -590,23 +589,13 @@ pub(crate) fn emit_context_attached(
         .nodes()
         .iter()
         .map(|n| {
-            let contract = n.fields.get("contract").and_then(|v| match v {
-                specforge_graph::FieldValue::String(s) => Some(s.clone()),
-                _ => None,
-            });
-            let status = n.fields.get("status").and_then(|v| match v {
-                specforge_graph::FieldValue::Identifier(s) => Some(s.clone()),
-                specforge_graph::FieldValue::String(s) => Some(s.clone()),
-                _ => None,
-            });
             let verify = crate::json::obligations_json(n);
 
             ContextNodeV2 {
                 id: n.id.raw.to_string(),
                 kind: n.kind.raw.to_string(),
                 title: n.title.clone(),
-                contract,
-                status,
+                headline: crate::context::headline_fields(n, registry),
                 verify,
                 fields: crate::context::normative_fields(n, registry),
             }

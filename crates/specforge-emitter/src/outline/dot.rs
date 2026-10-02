@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use super::{OutlineDetail, OutlineIntermediate, OutlineOptions};
-use crate::diagram::{escape_dot, extension_color, extension_id as sanitize_id};
+use crate::diagram::{escape_dot, extension_id as sanitize_id, theme_color};
 
 pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
     let mut out = String::new();
@@ -19,7 +19,7 @@ pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> St
     // Extension nodes
     for ext in &outline.extensions {
         let id = sanitize_id(&ext.name);
-        let color = extension_color(&ext.name);
+        let color = theme_color(ext.color.as_deref());
         let label = if options.detail == OutlineDetail::All {
             let kinds: Vec<&str> = ext
                 .entity_kinds

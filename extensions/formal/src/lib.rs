@@ -25,6 +25,8 @@ struct Formal;
 
 impl Contributions for Formal {
     fn contribute(c: &mut ContributionsBuilder) {
+        // Diagrams (`model`, `outline`) draw the extension in this colour.
+        c.theme_color("#9b59b6");
         c.meta.peer_dependencies.push(PeerDependency {
             name: "@specforge/software".to_string(),
             version: "^1.0".to_string(),

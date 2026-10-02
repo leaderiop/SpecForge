@@ -44,6 +44,8 @@ type ManifestV2 {
   collector_contributions CollectorContribution[] @optional
   // Surface contributions: CLI commands, MCP tools, MCP resources (Phase 1)
   surfaces                SurfaceContributions    @optional
+  // The colour diagrams (model, outline) draw the extension in; grey when absent
+  theme_color             string                  @optional
   verify unit "ManifestV2 schema is valid"
 }
 
@@ -82,6 +84,10 @@ type ManifestEntityKind {
   // Whether this entity kind receives GraphDelta (true) or full Graph (false) during incremental validation
   incremental          boolean         @optional
   has_body_parser      boolean         @optional
+  // Reference fields that target this kind are contract obligations (A010)
+  contract_target      boolean         @optional
+  // Its entity ids name types: custom validators receive them as declared_types
+  declares_types       boolean         @optional
   verify unit "ManifestEntityKind schema is valid"
 }
 
@@ -110,18 +116,24 @@ type EntityKindConflict {
 }
 
 type ManifestField {
-  name           string                 @readonly
-  field_type     ManifestFieldType      @readonly
-  edge           string                 @optional
-  target_kind    string                 @optional
-  file_reference boolean                @optional
-  required       boolean                @optional
+  name                string                 @readonly
+  field_type          ManifestFieldType      @readonly
+  edge                string                 @optional
+  target_kind         string                 @optional
+  file_reference      boolean                @optional
+  required            boolean                @optional
   /// The field states what the entity promises (a behavior's contract, an
   /// invariant's guarantee), as opposed to prose; token-optimized exports keep it.
-  normative      boolean                @optional
+  normative           boolean                @optional
+  /// Set on an entity (true, or a non-empty value), the entity owes no
+  /// obligations of its own: W004, coverage and stats leave it out.
+  exempts_obligations boolean                @optional
+  /// The context export carries the field at the node's top level (a
+  /// behavior's contract, a feature's status).
+  headline            boolean                @optional
   /// The host fills the field's edges from type names the entity writes
   /// elsewhere (behavior link_derived_references).
-  derived_from   DerivedReferenceSource @optional
+  derived_from        DerivedReferenceSource @optional
   verify unit "ManifestField schema is valid"
 }
 
@@ -201,16 +213,18 @@ type CustomValidationPattern {
 }
 
 type FieldRegistryEntry {
-  kind_name        string                 @readonly
-  field_name       string                 @readonly
-  field_type       ManifestFieldType      @readonly
-  source_extension string                 @readonly
-  edge             string                 @optional
-  target_kind      string                 @optional
-  file_reference   boolean                @optional
-  required         boolean                @optional
-  normative        boolean                @optional
-  derived_from     DerivedReferenceSource @optional
+  kind_name           string                 @readonly
+  field_name          string                 @readonly
+  field_type          ManifestFieldType      @readonly
+  source_extension    string                 @readonly
+  edge                string                 @optional
+  target_kind         string                 @optional
+  file_reference      boolean                @optional
+  required            boolean                @optional
+  normative           boolean                @optional
+  exempts_obligations boolean                @optional
+  headline            boolean                @optional
+  derived_from        DerivedReferenceSource @optional
   verify unit "FieldRegistryEntry schema is valid"
 }
 
@@ -228,6 +242,8 @@ type KindRegistryEntry {
   dot_shape            string   @optional
   dot_color            string   @optional
   dot_fillcolor        string   @optional
+  contract_target      boolean  @optional
+  declares_types       boolean  @optional
   verify unit "KindRegistryEntry schema is valid"
 }
 

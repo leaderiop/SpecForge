@@ -26,11 +26,6 @@ pub const COVERAGE_PASS: &str = "@specforge/testing:coverage";
 
 // ── contracts ───────────────────────────────────────────────────────────────
 
-/// Reference fields count as contract obligations when they target the
-/// formal contract kinds (invariants and properties) — e.g. the formal
-/// extension's requires/ensures/maintains/satisfies.
-const CONTRACT_TARGET_KINDS: &[&str] = &["invariant", "property"];
-
 /// `contracts` — requires/ensures/maintains contract coverage (RES-25).
 ///
 /// A contract-bearing kind (any kind with registered reference fields such as
@@ -46,10 +41,14 @@ pub fn pass_contracts(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value
         ) {
             continue;
         }
+        // A reference to a contract kind (an extension declares which:
+        // `contract_target`, e.g. invariants and formal properties) is a
+        // contract obligation.
         if entry
             .target_kind
             .as_deref()
-            .is_some_and(|t| CONTRACT_TARGET_KINDS.contains(&t))
+            .and_then(|t| ctx.kind_registry.get(t))
+            .is_some_and(|kind| kind.contract_target)
         {
             contract_fields.entry(kind).or_default().push(field);
         }

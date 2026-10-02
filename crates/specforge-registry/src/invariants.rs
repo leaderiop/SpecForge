@@ -34,6 +34,7 @@ mod tests {
             host_api_version: None,
             entity_enhancements: vec![],
             starter_template: None,
+            theme_color: None,
             ext_short: None,
             query_scope: None,
             collector_contributions: vec![],
@@ -60,6 +61,8 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
             inference_guide: None,
         }
     }
@@ -148,6 +151,8 @@ mod tests {
             enum_values: vec![],
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
         });
 

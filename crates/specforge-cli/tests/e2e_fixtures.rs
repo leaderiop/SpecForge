@@ -289,6 +289,22 @@ pub fn mcp_initialize(id: u64) -> String {
 
 /// Send requests to MCP after a standard `initialize` (id 0), collect all
 /// response lines. Returns parsed JSON values for each non-empty stdout line.
+/// A `specforge.json` enabling the builtins whose kinds the fixtures use.
+pub const BUILTINS_CONFIG: &str = r#"{"name":"test","version":"0.1.0","extensions":["@specforge/software","@specforge/product","@specforge/governance"]}"#;
+
+/// [`mcp_session`] in a project that enables [`BUILTINS_CONFIG`]'s
+/// extensions, so the registry declares the fields the exports read.
+pub fn mcp_session_with_builtins(
+    spec_content: &str,
+    requests: &[String],
+) -> Vec<serde_json::Value> {
+    let dir = setup_project(&[
+        ("specforge.json", BUILTINS_CONFIG),
+        ("main.spec", spec_content),
+    ]);
+    mcp_session_in(&dir, requests)
+}
+
 pub fn mcp_session(spec_content: &str, requests: &[String]) -> Vec<serde_json::Value> {
     let dir = setup_project(&[("main.spec", spec_content)]);
     mcp_session_in(&dir, requests)

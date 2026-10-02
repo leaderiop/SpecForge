@@ -84,6 +84,7 @@ fn handshake_response_json(name: &str, entities: bool, validators: bool) -> Vec<
         peer_dependencies: vec![],
         sandbox_policy: None,
         starter_template: None,
+        theme_color: None,
         migration_hook: None,
     };
     serde_json::to_vec(&resp).unwrap()
@@ -130,6 +131,7 @@ fn handshake_applies_declared_max_execution_ms() {
         peer_dependencies: vec![],
         sandbox_policy: Some(policy),
         starter_template: None,
+        theme_color: None,
         migration_hook: None,
     };
     let runtime =
@@ -208,6 +210,7 @@ fn validate_protocol_version_compatible() {
         peer_dependencies: vec![],
         sandbox_policy: None,
         starter_template: None,
+        theme_color: None,
         migration_hook: None,
     };
     assert!(host.validate_protocol_version(&resp).is_ok());
@@ -225,6 +228,7 @@ fn validate_protocol_version_incompatible() {
         peer_dependencies: vec![],
         sandbox_policy: None,
         starter_template: None,
+        theme_color: None,
         migration_hook: None,
     };
     let err = host.validate_protocol_version(&resp).unwrap_err();
@@ -399,6 +403,7 @@ fn validate_protocol_version_compatible_patch_bump() {
         peer_dependencies: vec![],
         sandbox_policy: None,
         starter_template: None,
+        theme_color: None,
         migration_hook: None,
     };
     assert!(
@@ -420,6 +425,7 @@ fn validate_protocol_version_compatible_minor_bump() {
         peer_dependencies: vec![],
         sandbox_policy: None,
         starter_template: None,
+        theme_color: None,
         migration_hook: None,
     };
     assert!(
@@ -441,6 +447,7 @@ fn validate_protocol_version_incompatible_major_bump() {
         peer_dependencies: vec![],
         sandbox_policy: None,
         starter_template: None,
+        theme_color: None,
         migration_hook: None,
     };
     let err = host.validate_protocol_version(&resp).unwrap_err();
@@ -469,6 +476,7 @@ fn validate_protocol_version_exact_match_still_works() {
         peer_dependencies: vec![],
         sandbox_policy: None,
         starter_template: None,
+        theme_color: None,
         migration_hook: None,
     };
     assert!(host.validate_protocol_version(&resp).is_ok());
@@ -484,6 +492,7 @@ fn load_protocol_extension_version_mismatch_propagated() {
         peer_dependencies: vec![],
         sandbox_policy: None,
         starter_template: None,
+        theme_color: None,
         migration_hook: None,
     };
     // Patch protocol_version to something incompatible

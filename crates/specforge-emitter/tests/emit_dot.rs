@@ -186,6 +186,8 @@ fn dot_cluster_by_extension_groups_nodes() {
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
     });
     registry.register(specforge_registry::KindRegistryEntry {
         kind_name: "term".to_string(),
@@ -202,6 +204,8 @@ fn dot_cluster_by_extension_groups_nodes() {
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
     });
     let mut graph = Graph::new();
     graph.add_node(node("beh_b", "behavior", None));

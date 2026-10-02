@@ -22,6 +22,8 @@ struct Governance;
 
 impl Contributions for Governance {
     fn contribute(c: &mut ContributionsBuilder) {
+        // Diagrams (`model`, `outline`) draw the extension in this colour.
+        c.theme_color("#e74c3c");
         c.meta.peer_dependencies.push(PeerDependency {
             name: "@specforge/software".to_string(),
             version: "^1.0".to_string(),

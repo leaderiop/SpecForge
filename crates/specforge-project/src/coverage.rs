@@ -13,7 +13,7 @@ use specforge_graph::{FieldValue, Graph, Node};
 use specforge_registry::validation_engine::{
     ValidationEntity, ValidationPatternKind, ValidationRulePattern,
 };
-use specforge_registry::{FieldRegistry, KindRegistry, ManifestFieldType};
+use specforge_registry::{FieldRegistry, KindRegistry};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
@@ -137,33 +137,40 @@ pub fn read_report_file(path: &Path) -> Result<TestReport, ReportError> {
 }
 
 /// Whether an entity owes no obligations of its own, whatever it declares
-/// (ADR 0004, D2-b): a union type (`type X = A | B`, which has no body to
-/// hold them), or an entity marked `abstract true` through a boolean field
-/// its kind's registry entry declares. Decided from the entity's structure
-/// and the field registry: a struct member that only happens to be named
-/// `abstract`, `variants` or `gherkin` exempts nothing.
+/// (ADR 0004, D2-b): a union (`type X = A | B`, which has no body to hold
+/// them), or an entity that sets a field its kind's registry entry declares
+/// `exempts_obligations` (as `@specforge/formal` declares `abstract true`).
+/// Decided from the entity's structure and the field registry, never from
+/// field names: a struct member that only happens to be named `abstract`
+/// exempts nothing.
 pub fn obligation_exempt(node: &Node, fields: &FieldRegistry) -> bool {
     let kind = node.kind.raw.as_str();
-    node.fields.entries().iter().any(|entry| {
-        let key = entry.key.as_str();
-        match &entry.value {
-            FieldValue::VariantList(variants) => key == UNION_VARIANTS && !variants.is_empty(),
-            FieldValue::Boolean(true) => {
-                key == ABSTRACT_FLAG
+    node.fields
+        .entries()
+        .iter()
+        .any(|entry| match &entry.value {
+            // The union syntax is structural: its body is the variant list.
+            FieldValue::VariantList(variants) => !variants.is_empty(),
+            value => {
+                is_set(value)
                     && fields
-                        .get(kind, key)
-                        .is_some_and(|f| f.field_type == ManifestFieldType::Bool)
+                        .get(kind, entry.key.as_str())
+                        .is_some_and(|f| f.exempts_obligations)
             }
-            _ => false,
-        }
-    })
+        })
 }
 
-/// The field the parser gives a union type's variants.
-const UNION_VARIANTS: &str = "variants";
-/// The flag that marks a specification-only entity, when its kind's
-/// registry entry declares it.
-const ABSTRACT_FLAG: &str = "abstract";
+/// A field value that turns an exempting flag on: `true`, or any value
+/// that is not empty.
+fn is_set(value: &FieldValue) -> bool {
+    match value {
+        FieldValue::Boolean(b) => *b,
+        FieldValue::String(s) | FieldValue::Identifier(s) => !s.is_empty(),
+        FieldValue::StringList(list) => !list.is_empty(),
+        FieldValue::ReferenceList(refs) => !refs.is_empty(),
+        _ => false,
+    }
+}
 
 /// The kinds whose entities must declare obligations: those a
 /// `no_verify_statements` rule (W004) targets. A testable kind no such rule
@@ -342,6 +349,8 @@ mod tests {
             dot_color: None,
             dot_fillcolor: None,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
         }
     }
 
@@ -359,7 +368,7 @@ mod tests {
             kind_name: "behavior".into(),
             field_name: "abstract".into(),
             description: None,
-            field_type: ManifestFieldType::Bool,
+            field_type: specforge_registry::ManifestFieldType::Bool,
             source_extension: "@test/formal".into(),
             edge: None,
             target_kind: None,
@@ -367,6 +376,8 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: true,
+            headline: false,
             derived_from: None,
         });
         fields

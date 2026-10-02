@@ -13,6 +13,7 @@
           "edge": null,
           "field_type": "string",
           "file_reference": false,
+          "headline": true,
           "inverse_of": null,
           "name": "contract",
           "normative": true,
@@ -113,6 +114,7 @@
           "edge": null,
           "field_type": "string",
           "file_reference": false,
+          "headline": true,
           "inverse_of": null,
           "name": "status",
           "required": false,
@@ -157,6 +159,7 @@
           "edge": null,
           "field_type": "string",
           "file_reference": false,
+          "headline": true,
           "inverse_of": null,
           "name": "contract",
           "normative": true,
@@ -257,6 +260,7 @@
           "edge": null,
           "field_type": "string",
           "file_reference": false,
+          "headline": true,
           "inverse_of": null,
           "name": "status",
           "required": false,
@@ -310,6 +314,7 @@
       "verify_kinds": []
     },
     {
+      "contract_target": true,
       "description": "A system-wide constraint that must always hold true",
       "dot_color": "#C62828",
       "dot_fillcolor": "#FFEBEE",
@@ -497,6 +502,7 @@
           "edge": null,
           "field_type": "string",
           "file_reference": false,
+          "headline": true,
           "inverse_of": null,
           "name": "contract",
           "normative": true,
@@ -518,6 +524,7 @@
       "verify_kinds": []
     },
     {
+      "declares_types": true,
       "description": "A data structure or domain model definition",
       "dot_color": "#2E7D32",
       "dot_fillcolor": "#E8F5E9",

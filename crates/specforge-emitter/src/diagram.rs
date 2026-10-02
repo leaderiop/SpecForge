@@ -31,27 +31,14 @@ pub(crate) fn extension_id(name: &str) -> String {
         .collect()
 }
 
-/// The colour an extension's nodes and clusters are drawn in.
-pub(crate) fn extension_color(name: &str) -> &'static str {
-    // Exact slug match (text after the final '/'), never substring: an
-    // extension named "governance-tools-plus" must not inherit the
-    // governance palette (C13-03).
-    let slug = name.rsplit('/').next().unwrap_or(name);
-    EXTENSION_COLORS
-        .iter()
-        .find(|(key, _)| slug == *key)
-        .map_or(FALLBACK_COLOR, |(_, color)| color)
+/// The colour an extension's nodes and clusters are drawn in: the
+/// `theme_color` its manifest declares, or a neutral grey.
+pub(crate) fn theme_color(declared: Option<&str>) -> &str {
+    declared.unwrap_or(FALLBACK_COLOR)
 }
 
-const EXTENSION_COLORS: &[(&str, &str)] = &[
-    ("product", "#2ecc71"),
-    ("software", "#4a90d9"),
-    ("governance", "#e74c3c"),
-    ("formal", "#9b59b6"),
-];
-
 /// The colour of an extension that declares none.
-pub(crate) const FALLBACK_COLOR: &str = "#95a5a6";
+const FALLBACK_COLOR: &str = "#95a5a6";
 
 #[cfg(test)]
 mod tests {

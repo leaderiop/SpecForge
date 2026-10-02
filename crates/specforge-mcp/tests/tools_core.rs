@@ -169,6 +169,8 @@ fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEnt
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
     }
 }
 
@@ -336,6 +338,7 @@ fn export_graph_format() {
 )]
 fn export_context_format() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
     let resp = call_tool(
         &mut server,
         "specforge.export",
@@ -1618,6 +1621,7 @@ fn stats_includes_coverage_percentage() {
 )]
 fn query_format_parameter() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
     // context format
     let resp = call_tool(
         &mut server,

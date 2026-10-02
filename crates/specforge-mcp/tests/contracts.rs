@@ -80,6 +80,8 @@ fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEnt
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
     }
 }
 
@@ -545,6 +547,7 @@ fn contract_query() {
 )]
 fn contract_export() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
 
     // format_produced: each format carries the graph in its own shape.
     let graph = tool(&mut server, "specforge.export", json!({"format": "graph"}));
@@ -2076,6 +2079,7 @@ fn contract_schema_resource() {
 )]
 fn contract_context_resource() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
     let (content, context) = resource(&mut server, "specforge://context");
     assert_eq!(content["uri"], "specforge://context");
     let alpha = find(&context["nodes"], "id", "alpha");

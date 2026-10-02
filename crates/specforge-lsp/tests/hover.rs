@@ -200,6 +200,8 @@ fn hover_shows_extension_source() {
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
     });
 
     let text =
@@ -317,6 +319,8 @@ fn hover_shows_entity_kind_description() {
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
     });
 
     let text =
@@ -343,6 +347,8 @@ fn hover_shows_field_description() {
         required: false,
         inverse_of: None,
         normative: false,
+        exempts_obligations: false,
+        headline: false,
         derived_from: None,
     });
 
@@ -382,6 +388,8 @@ fn make_field_registry() -> specforge_registry::FieldRegistry {
         required: false,
         inverse_of: None,
         normative: false,
+        exempts_obligations: false,
+        headline: false,
         derived_from: None,
     });
     reg.register(FieldRegistryEntry {
@@ -396,6 +404,8 @@ fn make_field_registry() -> specforge_registry::FieldRegistry {
         required: true,
         inverse_of: None,
         normative: false,
+        exempts_obligations: false,
+        headline: false,
         derived_from: None,
     });
     reg
