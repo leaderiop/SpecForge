@@ -1,6 +1,6 @@
 //! `specforge analyze`: run the analysis passes over a [`ProjectView`].
 //!
-//! One operation serves the CLI (and, later, MCP): it validates the pass
+//! One operation serves the CLI and the MCP tool: it validates the pass
 //! selection, reads the test report, runs the built-in passes, the
 //! extension passes (through the [`WasmRuntime`] port) and, when asked,
 //! `prove`, then applies strictness once and computes `ok` once. The shape of

@@ -143,6 +143,12 @@ behavior te_coverage_gate "Proof Coverage Gate" {
     and leaves the analysis result untouched; the CLI maps it to the
     exit code. A coverage pass that did not run, or whose summary cannot
     be read, is an error rather than a pass.
+
+    Exit codes: below the threshold (E048) exits 1; E068 (no coverage
+    pass), an unreadable coverage summary and missing test results exit 2.
+    E048 and E068 take precedence over any other finding. The coverage
+    pass must have run, so `pass` is `coverage` or `all`; naming another
+    pass alone does not satisfy the gate.
   """
   ensures {
     below_fails   "proof coverage below the threshold fails with E048"
@@ -155,6 +161,7 @@ behavior te_coverage_gate "Proof Coverage Gate" {
   verify unit "a proven entity whose kind is not testable does not raise the gate"
   verify unit "the analysis reports where the gate landed and leaves the analysis result alone"
   verify unit "a gate without a readable coverage pass is not met"
+  verify unit "a gate without the coverage pass exits 2 with E068"
 }
 
 behavior te_orphaned_test_records "Orphaned Test Records" {

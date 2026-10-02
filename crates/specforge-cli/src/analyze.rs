@@ -1,9 +1,8 @@
 //! `specforge analyze` — static analysis passes over the compiled graph.
 //!
-//! Pass bodies live in [`specforge_emitter::analyze`] so the CLI, the MCP
-//! tool, and any future surface run identical code, behind
-//! [`specforge_ops::analyze`]. This module is the CLI half: arguments in,
-//! rendering and exit codes out.
+//! The analysis itself is [`specforge_ops::analyze`], shared with the MCP
+//! tool. This module is the CLI half: arguments in, rendering and exit
+//! codes out.
 
 use std::path::Path;
 
