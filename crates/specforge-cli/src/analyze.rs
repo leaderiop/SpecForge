@@ -8,7 +8,7 @@ use std::path::Path;
 
 use specforge_emitter::truncate_diagnostics;
 use specforge_ops::analyze::{
-    AnalyzeError, AnalyzeOptions, Gate, ProjectView, ProveOptions, ReportSource, analyze,
+    AnalyzeOptions, Gate, ProjectView, ProveOptions, ReportSource, analyze,
 };
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 
