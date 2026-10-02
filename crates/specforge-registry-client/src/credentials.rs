@@ -254,9 +254,7 @@ mod tests {
         use std::sync::OnceLock;
         static ONCE: OnceLock<()> = OnceLock::new();
         ONCE.get_or_init(|| {
-            keyring::set_default_credential_builder(Box::new(
-                crate::client::secrets::tests::mock::Builder,
-            ));
+            keyring::set_default_credential_builder(Box::new(crate::secrets::tests::mock::Builder));
         });
     }
 

@@ -8,7 +8,7 @@ use super::registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
 };
 use super::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
-use crate::ManifestV2;
+use specforge_registry::ManifestV2;
 
 #[derive(Deserialize)]
 struct PackageVersionResponse {

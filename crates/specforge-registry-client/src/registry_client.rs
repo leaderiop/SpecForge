@@ -1,7 +1,7 @@
 use specforge_common::{Diagnostic, Severity};
 
 use super::registry_config::{RegistryConfig, RegistryCredential};
-use crate::ManifestV2;
+use specforge_registry::ManifestV2;
 
 /// Response from fetching an extension package from a registry.
 #[derive(Debug, Clone)]

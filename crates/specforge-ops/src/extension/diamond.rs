@@ -36,7 +36,7 @@ pub fn check_diamonds(
 
         let requirers = collect_peer_requirers(lock, &peer.name, Some((package, &peer.version)));
         let published = versions(&peer.name)?;
-        return match specforge_registry::resolver::unify_diamond(&peer.name, &published, &requirers)
+        return match specforge_registry_client::resolver::unify_diamond(&peer.name, &published, &requirers)
         {
             Ok(unified) => Err(OpError::new(
                 "R-RES-006",

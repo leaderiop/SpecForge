@@ -9,7 +9,7 @@ use super::registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
 };
 use super::registry_config::{RegistryConfig, RegistryCredential, find_registry_for_specifier};
-use crate::ManifestV2;
+use specforge_registry::ManifestV2;
 
 /// Compute the hex-encoded SHA256 digest of the given data.
 fn hex_sha256(data: &[u8]) -> String {

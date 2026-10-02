@@ -1,6 +1,6 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_registry::{HttpRegistryClient, search_registries};
+use specforge_registry_client::{HttpRegistryClient, search_registries};
 use std::path::Path;
 
 pub fn run(query: &str, path: &Path, format: OutputFormat) -> i32 {

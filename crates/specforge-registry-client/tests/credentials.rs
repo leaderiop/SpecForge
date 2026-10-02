@@ -1,4 +1,4 @@
-use specforge_registry::client::credentials::{
+use specforge_registry_client::credentials::{
     CredentialEntry, CredentialStore, read_credentials, write_credentials,
 };
 use tempfile::TempDir;
@@ -57,7 +57,7 @@ fn get_credential_returns_bearer() {
     let cred = store.get_credential("myregistry").unwrap();
     assert_eq!(cred.alias, "myregistry");
     match cred.auth_method {
-        specforge_registry::AuthMethod::Bearer(t) => assert_eq!(t, "my_token"),
+        specforge_registry_client::AuthMethod::Bearer(t) => assert_eq!(t, "my_token"),
         _ => panic!("expected Bearer"),
     }
 }

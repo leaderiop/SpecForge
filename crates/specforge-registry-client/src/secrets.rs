@@ -56,7 +56,7 @@ pub fn delete_secret(alias: &str) {
 }
 
 fn secrets_dir() -> PathBuf {
-    crate::client::credentials::dirs_home()
+    crate::credentials::dirs_home()
         .join(".specforge")
         .join("secrets")
 }

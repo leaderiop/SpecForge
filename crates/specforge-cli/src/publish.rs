@@ -1,10 +1,10 @@
 use crate::OutputFormat;
 use serde_json::json;
 use specforge_common::Diagnostic;
-use specforge_registry::{
-    AuthMethod, CredentialStore, HttpRegistryClient, ManifestV2, RegistryConfig,
-    RegistryCredential,
-    client::credentials::{credentials_path, read_credentials},
+use specforge_registry::ManifestV2;
+use specforge_registry_client::{
+    AuthMethod, CredentialStore, HttpRegistryClient, RegistryConfig, RegistryCredential,
+    credentials::{credentials_path, read_credentials},
     find_registry_for_specifier, load_or_create_signing_key, publish_to_registry,
 };
 use std::path::Path;
@@ -182,7 +182,7 @@ mod tests {
         // Legacy plaintext form (what a pre-keyring credentials.json holds).
         store.registries.insert(
             alias.to_string(),
-            specforge_registry::client::credentials::CredentialEntry::Token {
+            specforge_registry_client::credentials::CredentialEntry::Token {
                 token: token.to_string(),
                 expires_at: None,
                 in_keyring: false,

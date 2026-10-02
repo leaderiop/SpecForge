@@ -296,7 +296,7 @@ mod tests {
     use super::*;
     use crate::registry::Package;
     use specforge_registry::PeerDependency;
-    use specforge_registry::registry_client::RegistryResponse;
+    use specforge_registry_client::registry_client::RegistryResponse;
     use specforge_test_macros::test as specforge_test;
     use specforge_wasm::{LockFileEntry, hex_sha256};
     use std::cell::RefCell;

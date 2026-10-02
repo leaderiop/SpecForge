@@ -1,11 +1,12 @@
 use parking_lot::Mutex;
 
 use specforge_common::Severity;
-use specforge_registry::registry_ops::{
+use specforge_registry::ManifestV2;
+use specforge_registry_client::registry_ops::{
     publish_to_registry, resolve_from_registry, search_registries, verify_registry_integrity,
 };
-use specforge_registry::{
-    AuthMethod, ManifestV2, RegistryClient, RegistryConfig, RegistryCredential, RegistryError,
+use specforge_registry_client::{
+    AuthMethod, RegistryClient, RegistryConfig, RegistryCredential, RegistryError,
     RegistryResponse, RegistrySearchResult, SigningKey,
 };
 
@@ -527,7 +528,7 @@ fn error_messages_do_not_leak_auth_details() {
     }
 
     // Also verify sanitize_token works correctly
-    let sanitized = specforge_registry::sanitize_token(raw_token);
+    let sanitized = specforge_registry_client::sanitize_token(raw_token);
     assert!(!sanitized.contains("super_secret"));
     assert!(sanitized.ends_with("****"));
 }
@@ -561,7 +562,7 @@ fn publish_signs_package_when_key_provided() {
 
     let sigs = client.publish_signatures();
     assert_eq!(sigs.len(), 1);
-    let sig: specforge_registry::PackageSignature =
+    let sig: specforge_registry_client::PackageSignature =
         serde_json::from_str(sigs[0].as_deref().expect("signature present")).unwrap();
     assert_eq!(sig.key_id, key.key_id());
     assert_eq!(sig.public_key, key.public_key_hex());

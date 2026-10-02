@@ -1,4 +1,4 @@
-use specforge_registry::client::http_client::parse_specifier;
+use specforge_registry_client::http_client::parse_specifier;
 
 #[test]
 fn parse_specifier_scoped_with_version() {

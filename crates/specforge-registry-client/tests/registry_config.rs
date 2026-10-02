@@ -1,5 +1,5 @@
 use specforge_common::Severity;
-use specforge_registry::registry_config::{
+use specforge_registry_client::registry_config::{
     RegistryConfig, find_registry_for_specifier, parse_registries_from_config,
 };
 

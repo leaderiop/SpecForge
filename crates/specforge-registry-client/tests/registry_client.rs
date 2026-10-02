@@ -2,11 +2,12 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use specforge_common::Severity;
-use specforge_registry::registry_client::{
+use specforge_registry::ManifestV2;
+use specforge_registry_client::auth;
+use specforge_registry_client::registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
 };
-use specforge_registry::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
-use specforge_registry::{ManifestV2, auth};
+use specforge_registry_client::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
 
 // ---------------------------------------------------------------------------
 // Mock client

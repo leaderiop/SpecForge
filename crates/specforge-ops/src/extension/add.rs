@@ -277,7 +277,7 @@ pub(super) fn fetch_checked(
         Trust::AssumeYes => (true, "human"),
         Trust::Prompt => (false, "human"),
     };
-    let trusted = specforge_registry::client::trust_flow::check_and_pin(
+    let trusted = specforge_registry_client::trust_flow::check_and_pin(
         &package.name,
         &package.response,
         &package.wasm,

@@ -7,11 +7,11 @@
 use crate::OpError;
 use crate::config::CONFIG_FILE;
 use specforge_common::Diagnostic;
-use specforge_registry::registry_client::RegistryResponse;
-use specforge_registry::{
-    HttpRegistryClient, ManifestV2, PeerDependency, RegistryConfig, find_registry_for_specifier,
-    parse_registries_from_config, resolve_from_registry, resolve_version,
-    verify_registry_integrity,
+use specforge_registry::{ManifestV2, PeerDependency};
+use specforge_registry_client::registry_client::RegistryResponse;
+use specforge_registry_client::{
+    HttpRegistryClient, RegistryConfig, find_registry_for_specifier, parse_registries_from_config,
+    resolve_from_registry, resolve_version, verify_registry_integrity,
 };
 use std::path::Path;
 

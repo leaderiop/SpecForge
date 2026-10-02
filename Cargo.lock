@@ -2795,6 +2795,7 @@ dependencies = [
  "specforge-project",
  "specforge-protocol-types",
  "specforge-registry",
+ "specforge-registry-client",
  "specforge-resolver",
  "specforge-test",
  "specforge-test-macros",
@@ -3017,6 +3018,7 @@ dependencies = [
  "specforge-parser",
  "specforge-project",
  "specforge-registry",
+ "specforge-registry-client",
  "specforge-test",
  "specforge-test-macros",
  "specforge-wasm",
@@ -3074,21 +3076,11 @@ dependencies = [
 name = "specforge-registry"
 version = "0.1.0"
 dependencies = [
- "chrono",
- "ed25519-dalek",
- "form_urlencoded",
- "getrandom 0.3.4",
- "hex",
- "httpdate",
  "insta",
- "keyring",
- "parking_lot",
  "regex",
- "reqwest",
  "semver",
  "serde",
  "serde_json",
- "sha2",
  "specforge-common",
  "specforge-emitter",
  "specforge-graph",
@@ -3096,6 +3088,27 @@ dependencies = [
  "specforge-protocol-types",
  "specforge-test",
  "specforge-test-macros",
+]
+
+[[package]]
+name = "specforge-registry-client"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "ed25519-dalek",
+ "form_urlencoded",
+ "getrandom 0.3.4",
+ "hex",
+ "httpdate",
+ "keyring",
+ "parking_lot",
+ "reqwest",
+ "semver",
+ "serde",
+ "serde_json",
+ "sha2",
+ "specforge-common",
+ "specforge-registry",
  "tempfile",
 ]
 
@@ -3116,6 +3129,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "specforge-registry",
+ "specforge-registry-client",
  "tempfile",
  "tokio",
  "tower 0.5.3",

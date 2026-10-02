@@ -1,3 +1,11 @@
+//! The package-registry client: talking to a SpecForge package registry
+//! over HTTP (search, resolve, publish), registry credentials in the OS
+//! keyring, publisher trust (TOFU key pinning) and ed25519 package signing.
+//!
+//! It is separate from the Registry build (`specforge-registry`), which is
+//! pure: manifests in, kind/field/edge registries and rules out. This crate
+//! depends on it only for the manifest types it publishes and resolves.
+
 pub mod auth;
 pub mod credentials;
 pub mod http_client;
@@ -6,6 +14,7 @@ pub mod registry_config;
 pub mod registry_ops;
 pub mod resolver;
 pub mod secrets;
+pub mod signing;
 pub mod trust;
 pub mod trust_flow;
 
@@ -27,6 +36,9 @@ pub use registry_ops::{
     verify_package_signature, verify_registry_integrity,
 };
 pub use resolver::{resolve_diamond, resolve_version};
+pub use signing::{
+    PackageSignature, SigningKey, load_or_create_signing_key, signing_key_path, verify_signature,
+};
 pub use trust::{
     KnownKeys, known_keys_path, load_known_keys, load_known_keys_at, save_known_keys,
     save_known_keys_at,

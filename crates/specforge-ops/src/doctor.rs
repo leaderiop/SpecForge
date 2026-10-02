@@ -533,10 +533,10 @@ pub struct CredentialHealth {
 /// The user's credential health: the credential store and signing key
 /// under `~/.specforge`.
 pub fn user_credential_health() -> CredentialHealth {
-    use specforge_registry::client::credentials::credentials_path;
+    use specforge_registry_client::credentials::credentials_path;
     credential_health(
         &credentials_path(),
-        &specforge_registry::signing::signing_key_path(),
+        &specforge_registry_client::signing::signing_key_path(),
         chrono::Utc::now(),
     )
 }
@@ -548,7 +548,7 @@ pub fn credential_health(
     signing_key: &Path,
     now: chrono::DateTime<chrono::Utc>,
 ) -> CredentialHealth {
-    use specforge_registry::client::credentials::{CredentialEntry, read_credentials};
+    use specforge_registry_client::credentials::{CredentialEntry, read_credentials};
     let mut lines = Vec::new();
     let mut failures = 0usize;
     let store = read_credentials(credentials).unwrap_or_default();

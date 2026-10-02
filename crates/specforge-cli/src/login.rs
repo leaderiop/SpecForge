@@ -1,8 +1,8 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_registry::{
+use specforge_registry_client::{
     AuthMethod, HttpRegistryClient, RegistryCredential,
-    client::credentials::{credentials_path, read_credentials, write_credentials},
+    credentials::{credentials_path, read_credentials, write_credentials},
     validate_credentials,
 };
 use std::path::Path;
@@ -106,7 +106,7 @@ pub fn run_logout(registry_alias: Option<&str>, format: OutputFormat) -> i32 {
 
     let mut store = read_credentials(&cred_path).unwrap_or_default();
     let removed = store.remove(alias);
-    specforge_registry::client::secrets::delete_secret(alias);
+    specforge_registry_client::secrets::delete_secret(alias);
 
     if !removed {
         match format {

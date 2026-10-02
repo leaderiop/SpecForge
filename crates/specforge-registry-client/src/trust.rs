@@ -52,7 +52,7 @@ impl KnownKeys {
 
 /// Default on-disk location of the known-keys store.
 pub fn known_keys_path() -> PathBuf {
-    crate::client::credentials::dirs_home()
+    crate::credentials::dirs_home()
         .join(".specforge")
         .join("known-keys.json")
 }
