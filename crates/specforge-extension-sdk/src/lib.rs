@@ -703,6 +703,7 @@ pub mod prelude {
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,
         CollectUnlinkedTest, CollectorBuilder,
     };
+    pub use crate::{CommandGraph, CommandInput, CommandOutput, GraphEdge, GraphNode};
     pub use specforge_extension_sdk_macros::{compiler_pass, extension};
     pub use specforge_protocol_types::{
         PeerDependency, SandboxPolicy, ValidationSeverity, ValidatorContext, ValidatorVerdict,
@@ -938,6 +939,279 @@ pub struct CollectTestResult {
     pub verify: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duration_ms: Option<f64>,
+}
+
+// ── Surface command ABI (v1) ───────────────────────────────────────────────
+// A CLI command an extension contributes is a `cmd__<name>` export. The host
+// parses the command line against the command's declared args, compiles the
+// project and calls the export with a [`CommandInput`]: the args, the
+// project root, and the compiled graph in the graph export's shape
+// (`specforge export --format graph` without the schema). The export answers
+// with a [`CommandOutput`]. The same export serves the MCP tool the command
+// is auto-promoted to (`specforge.<ext_short>.<id>`), so it never reads the
+// file system: the graph is all it knows.
+
+/// What a `cmd__<name>` export receives.
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
+pub struct CommandInput {
+    /// The declared args the caller set, by name: strings (string, path and
+    /// enum args), integers and booleans. An arg the caller left out is
+    /// absent unless the host applied its declared default.
+    #[serde(default)]
+    pub args: serde_json::Map<String, serde_json::Value>,
+    /// The project root.
+    #[serde(default)]
+    pub cwd: String,
+    /// The compiled project's graph.
+    #[serde(default)]
+    pub graph: CommandGraph,
+}
+
+impl CommandInput {
+    /// A string arg (string, path or enum), when set.
+    pub fn arg_str(&self, name: &str) -> Option<&str> {
+        self.args.get(name).and_then(|v| v.as_str())
+    }
+
+    /// A non-negative integer arg, when set: a JSON number, or a string
+    /// holding one.
+    pub fn arg_usize(&self, name: &str) -> Option<usize> {
+        match self.args.get(name)? {
+            serde_json::Value::Number(n) => n.as_u64().map(|n| n as usize),
+            serde_json::Value::String(s) => s.parse().ok(),
+            _ => None,
+        }
+    }
+
+    /// A boolean arg; `false` when unset.
+    pub fn arg_bool(&self, name: &str) -> bool {
+        match self.args.get(name) {
+            Some(serde_json::Value::Bool(b)) => *b,
+            Some(serde_json::Value::String(s)) => s == "true",
+            _ => false,
+        }
+    }
+}
+
+/// The compiled graph a command reads: its entities sorted by id, its
+/// resolved references sorted by (source, target, label).
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(from = "GraphWire", into = "GraphWire")]
+pub struct CommandGraph {
+    nodes: Vec<GraphNode>,
+    edges: Vec<GraphEdge>,
+    by_id: std::collections::HashMap<String, usize>,
+    from: std::collections::HashMap<String, Vec<usize>>,
+    to: std::collections::HashMap<String, Vec<usize>>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct GraphWire {
+    #[serde(default)]
+    nodes: Vec<GraphNode>,
+    #[serde(default)]
+    edges: Vec<GraphEdge>,
+}
+
+impl From<GraphWire> for CommandGraph {
+    fn from(wire: GraphWire) -> Self {
+        CommandGraph::new(wire.nodes, wire.edges)
+    }
+}
+
+impl From<CommandGraph> for GraphWire {
+    fn from(graph: CommandGraph) -> Self {
+        GraphWire {
+            nodes: graph.nodes,
+            edges: graph.edges,
+        }
+    }
+}
+
+impl CommandGraph {
+    /// A graph of `nodes` and `edges`, indexed for lookups.
+    pub fn new(nodes: Vec<GraphNode>, edges: Vec<GraphEdge>) -> Self {
+        let mut graph = CommandGraph {
+            nodes,
+            edges,
+            ..Default::default()
+        };
+        for (i, node) in graph.nodes.iter().enumerate() {
+            graph.by_id.insert(node.id.clone(), i);
+        }
+        for (i, edge) in graph.edges.iter().enumerate() {
+            graph.from.entry(edge.source.clone()).or_default().push(i);
+            graph.to.entry(edge.target.clone()).or_default().push(i);
+        }
+        graph
+    }
+
+    /// Every entity, sorted by id.
+    pub fn nodes(&self) -> &[GraphNode] {
+        &self.nodes
+    }
+
+    /// Every resolved reference.
+    pub fn edges(&self) -> &[GraphEdge] {
+        &self.edges
+    }
+
+    /// The entity `id`.
+    pub fn node(&self, id: &str) -> Option<&GraphNode> {
+        self.by_id.get(id).map(|&i| &self.nodes[i])
+    }
+
+    /// The entities of `kind`, sorted by id.
+    pub fn nodes_of_kind<'a>(&'a self, kind: &'a str) -> impl Iterator<Item = &'a GraphNode> + 'a {
+        self.nodes.iter().filter(move |n| n.kind == kind)
+    }
+
+    /// The references out of `id`.
+    pub fn edges_from(&self, id: &str) -> Vec<&GraphEdge> {
+        self.indexed(&self.from, id)
+    }
+
+    /// The references into `id`.
+    pub fn edges_to(&self, id: &str) -> Vec<&GraphEdge> {
+        self.indexed(&self.to, id)
+    }
+
+    fn indexed(
+        &self,
+        index: &std::collections::HashMap<String, Vec<usize>>,
+        id: &str,
+    ) -> Vec<&GraphEdge> {
+        index
+            .get(id)
+            .map(|is| is.iter().map(|&i| &self.edges[i]).collect())
+            .unwrap_or_default()
+    }
+}
+
+/// One entity of a [`CommandGraph`]: fields as the graph export writes them
+/// (text as strings, lists as arrays).
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct GraphNode {
+    pub id: String,
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub fields: std::collections::BTreeMap<String, serde_json::Value>,
+}
+
+impl GraphNode {
+    /// A text field's value (a string or an identifier); `None` when the
+    /// field is absent or holds a list, a number or a block.
+    pub fn text(&self, field: &str) -> Option<&str> {
+        self.fields.get(field).and_then(|v| v.as_str())
+    }
+
+    /// Whether the entity sets `field`, whatever its value.
+    pub fn has_field(&self, field: &str) -> bool {
+        self.fields.contains_key(field)
+    }
+
+    /// A list field's string items, in declaration order; empty when the
+    /// field is absent or not a list.
+    pub fn list(&self, field: &str) -> Vec<&str> {
+        self.fields
+            .get(field)
+            .and_then(|v| v.as_array())
+            .map(|items| items.iter().filter_map(|i| i.as_str()).collect())
+            .unwrap_or_default()
+    }
+}
+
+/// One resolved reference of a [`CommandGraph`]; `label` is the field it
+/// was declared in.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct GraphEdge {
+    pub source: String,
+    pub target: String,
+    pub label: String,
+}
+
+/// What a `cmd__<name>` export returns: the exit code the CLI exits with
+/// (nonzero fails the MCP call), and the text for stdout and stderr.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct CommandOutput {
+    pub exit_code: i32,
+    #[serde(default)]
+    pub stdout: String,
+    #[serde(default)]
+    pub stderr: String,
+}
+
+impl CommandOutput {
+    /// Success, printing `stdout`.
+    pub fn ok(stdout: impl Into<String>) -> Self {
+        CommandOutput {
+            exit_code: 0,
+            stdout: stdout.into(),
+            stderr: String::new(),
+        }
+    }
+
+    /// Failure with exit code 1, printing `stderr`.
+    pub fn fail(stderr: impl Into<String>) -> Self {
+        CommandOutput {
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: stderr.into(),
+        }
+    }
+
+    /// The wire bytes the export returns.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(self).expect("command output serialization cannot fail")
+    }
+}
+
+#[cfg(test)]
+mod command_abi_tests {
+    use super::*;
+
+    #[test]
+    fn a_command_input_reads_its_args_and_graph() {
+        let input: CommandInput = serde_json::from_value(serde_json::json!({
+            "args": {"status": "done", "limit": 2, "offset": "1", "all": true},
+            "cwd": "/p",
+            "graph": {
+                "format_version": "1.0",
+                "nodes": [
+                    {"id": "a", "kind": "k", "title": "A", "file": "x.spec", "line": 1,
+                     "fields": {"status": "done", "refs": ["b"]}},
+                    {"id": "b", "kind": "k", "file": "x.spec", "line": 2, "fields": {}}
+                ],
+                "edges": [{"source": "a", "target": "b", "label": "refs"}]
+            }
+        }))
+        .unwrap();
+        assert_eq!(input.arg_str("status"), Some("done"));
+        assert_eq!(input.arg_usize("limit"), Some(2));
+        assert_eq!(input.arg_usize("offset"), Some(1));
+        assert!(input.arg_bool("all"));
+        assert!(!input.arg_bool("none"));
+        let a = input.graph.node("a").unwrap();
+        assert_eq!(a.text("status"), Some("done"));
+        assert_eq!(a.text("refs"), None);
+        assert_eq!(a.list("refs"), ["b"]);
+        assert_eq!(input.graph.nodes_of_kind("k").count(), 2);
+        assert_eq!(input.graph.edges_from("a")[0].target, "b");
+        assert_eq!(input.graph.edges_to("b")[0].source, "a");
+        assert!(input.graph.edges_to("a").is_empty());
+    }
+
+    #[test]
+    fn a_command_output_is_the_wire_shape_the_host_reads() {
+        let out: serde_json::Value =
+            serde_json::from_slice(&CommandOutput::fail("nope\n").to_bytes()).unwrap();
+        assert_eq!(
+            out,
+            serde_json::json!({"exit_code": 1, "stdout": "", "stderr": "nope\n"})
+        );
+    }
 }
 
 /// A pass result carrying a summary beside its diagnostics. A pass may return
