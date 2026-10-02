@@ -223,60 +223,6 @@ fn a_format_that_wrote_files_is_served() {
     assert_eq!(after, Some(on_disk.lines().count()));
 }
 
-/// A change to the served sources goes through the served session: the
-/// graph and diagnostics follow it incrementally, as a fresh compile would
-/// report them, the environment (and the runtime it loaded) stays, and
-/// subscribed clients learn what changed.
-#[test]
-fn a_source_change_updates_the_served_session_in_place() {
-    let dir = project(
-        &["@specforge/software"],
-        "behavior login \"Login\" {\n  contract \"MUST log in\"\n}\n",
-    );
-    let mut server = McpServer::new();
-    initialize(&mut server, dir.path());
-    call(
-        &mut server,
-        "resources/subscribe",
-        json!({"uri": "specforge://graph"}),
-    );
-    server.take_notifications();
-    let root = server.state().project_root.clone().unwrap();
-    let runtime = server.state().wasm_runtime(&root);
-
-    fs::write(
-        dir.path().join("main.spec"),
-        "behavior login \"Login\" {\n  contract \"MUST log in\"\n}\n\
-         behavior logout \"Logout\" {\n}\n",
-    )
-    .unwrap();
-    let changed = vec!["main.spec".to_string()];
-    server
-        .state_mut()
-        .apply_source_change(&root, specforge_project::SourceChange::Disk(&changed));
-
-    let state = server.state();
-    assert!(state.graph().node("logout").is_some());
-    assert!(
-        Arc::ptr_eq(&runtime, &state.wasm_runtime(&root)),
-        "the environment was not reloaded"
-    );
-    let codes = |diagnostics: Vec<specforge_common::Diagnostic>| {
-        let mut codes: Vec<String> = diagnostics.into_iter().map(|d| d.code).collect();
-        codes.sort();
-        codes
-    };
-    let fresh = server.state().compile_project(&root);
-    assert_eq!(codes(state.diagnostics()), codes(fresh.diagnostics()));
-    let notifications = server.take_notifications();
-    assert!(
-        notifications
-            .iter()
-            .any(|n| n["method"] == "specforge/graphChanged"),
-        "{notifications:?}"
-    );
-}
-
 /// Shutdown stops serving the project whole: its graph, diagnostics,
 /// config and spec root go with its session.
 #[test]

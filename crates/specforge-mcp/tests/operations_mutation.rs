@@ -413,6 +413,51 @@ fn rename_rewrites_the_declaration_and_every_reference() {
     assert_eq!(references(&server, "login"), ["token_distinct"]);
 }
 
+/// A rename recompiles the project from disk: a file edited since the
+/// server last loaded it, and not touched by the rename, is served too,
+/// and the diagnostics returned are what a fresh compile reports.
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
+)]
+fn rename_recompiles_files_it_did_not_edit() {
+    let (mut server, root) = server_with_token_project();
+    // Edited without watch: the server does not know yet.
+    std::fs::write(
+        root.join("spec/logout.spec"),
+        "behavior logout \"Log out\" {\n  invariants [missing_invariant]\n}\n",
+    )
+    .unwrap();
+
+    let parsed = rename(
+        &mut server,
+        json!({"entity_id": "token_unique", "new_name": "token_distinct"}),
+    );
+
+    assert!(server.state().graph().node("logout").is_some());
+    let codes = |diagnostics: &[Value]| {
+        let mut codes: Vec<String> = diagnostics
+            .iter()
+            .map(|d| d["code"].as_str().unwrap_or_default().to_string())
+            .collect();
+        codes.sort();
+        codes
+    };
+    let fresh: Vec<Value> = server
+        .state()
+        .compile_project(&root)
+        .diagnostics()
+        .iter()
+        .map(|d| serde_json::to_value(d).unwrap())
+        .collect();
+    let returned = parsed["diagnostics"].as_array().unwrap();
+    assert_eq!(codes(returned), codes(&fresh), "{parsed}");
+    assert!(
+        returned.iter().any(|d| d["code"] == "E003"),
+        "the unresolved reference in the unrenamed file is reported: {parsed}"
+    );
+}
+
 /// Each `(field, type)` of a spec type holds in `value`: `string`,
 /// `integer`, `boolean`, or `string[]`.
 fn assert_fields(value: &Value, fields: &[(&str, &str)]) {

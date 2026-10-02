@@ -1,9 +1,7 @@
 use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_graph::Graph;
 use specforge_ops::analyze::ProjectView;
-use specforge_project::{
-    CompiledProject, Environment, ProjectSession, SharedRuntime, SourceChange,
-};
+use specforge_project::{CompiledProject, Environment, ProjectSession, SharedRuntime};
 use specforge_registry::{RegistryBuild, SurfaceRegistryEntry};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -312,27 +310,6 @@ impl McpState {
         crate::registry::register_defaults(self);
         let env = self.session.shared_environment();
         crate::registry::register_extension_surfaces(self, &env.registries.manifest_surfaces);
-        crate::notifications::enqueue_compile_notifications(
-            self,
-            &previous_graph,
-            &previous_diagnostics,
-        );
-    }
-
-    /// Apply a change to the served project's sources (`specforge.json`
-    /// and the extensions unchanged): the session updates incrementally
-    /// and subscribed clients learn what changed. Without a session on
-    /// disk to update, the project at `root` is loaded whole
-    /// ([`Self::reload`]).
-    pub fn apply_source_change(&mut self, root: &Path, change: SourceChange<'_>) {
-        if !self.serves_session_at(root) {
-            self.reload(root);
-            return;
-        }
-        let previous_graph = self.session.graph().clone();
-        let previous_diagnostics = self.diagnostics();
-        self.session.update(change);
-        self.loaded_at = Some(SystemTime::now());
         crate::notifications::enqueue_compile_notifications(
             self,
             &previous_graph,

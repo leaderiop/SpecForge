@@ -8,7 +8,6 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use specforge_common::{Diagnostic, find_project_root};
-use specforge_project::SourceChange;
 use specforge_wasm::read_lock_file;
 
 use crate::args::{lenient, strings};
@@ -315,9 +314,10 @@ pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
             );
         }
     }
-    // Only the renamed files changed: the session rebuilds them.
-    let changed: Vec<String> = affected_files.iter().map(|f| f.to_string()).collect();
-    state.apply_source_change(&root, SourceChange::Disk(&changed));
+    // Recompile from disk, not just the renamed files: the diagnostics
+    // returned are what `specforge check` reports now, edits made since
+    // the last load included.
+    state.reload(&root);
     result["diagnostics"] = serde_json::to_value(state.diagnostics()).unwrap_or_default();
     ok(result)
 }

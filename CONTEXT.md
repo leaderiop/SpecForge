@@ -10,9 +10,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   diagnostics are, by definition, what `specforge check` reports (`specforge_project::CompiledProject`).
 - **Project session**: a long-lived compiled project that accepts source changes and environment
   reloads. Watch, the LSP and MCP each hold one (`specforge_project::ProjectSession`). MCP serves its
-  project through it: a mutation that knows the files it wrote applies them as a source change, and a
-  fresh compile (validate, analyze, doctor, collect, the other mutations, a refresh after watch writes
-  a newer snapshot) is an environment reload.
+  project through it: every fresh compile (validate, analyze, doctor, collect, a mutation, a refresh
+  after watch writes a newer snapshot) is an environment reload, which re-reads every source.
 - **Registry build**: the pure result of turning extension manifests into kind, field and edge
   registries, rules and derived graph inputs (`specforge_registry::build_registries`).
 - **Project view**: the read-only slice of a compiled project an operation analyses: the graph, the
