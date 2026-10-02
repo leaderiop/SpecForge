@@ -1,7 +1,7 @@
 use specforge_common::{Diagnostic, Severity};
 use specforge_registry::{
     ManifestV2, compilation::detect_duplicate_entity_kinds, validate_manifest,
-    validate_peer_dependencies,
+    validate_peer_dependencies_of,
 };
 use std::path::Path;
 
@@ -17,14 +17,8 @@ pub fn validate_extension_manifest(
     // Schema validation (delegates to specforge-registry)
     diagnostics.extend(validate_manifest(manifest));
 
-    // Peer dependency validation (delegates to specforge-registry)
-    let peer_diags = validate_peer_dependencies(all_manifests);
-    // Filter to only this manifest's peer dep errors
-    let relevant: Vec<_> = peer_diags
-        .into_iter()
-        .filter(|d| d.message.contains(&manifest.name))
-        .collect();
-    diagnostics.extend(relevant);
+    // The peers this manifest declares (delegates to specforge-registry)
+    diagnostics.extend(validate_peer_dependencies_of(manifest, all_manifests));
 
     diagnostics
 }

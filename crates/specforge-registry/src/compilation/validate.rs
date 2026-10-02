@@ -85,68 +85,78 @@ pub fn detect_duplicate_entity_kinds(manifests: &[ManifestV2]) -> Vec<Diagnostic
 /// not, must satisfy its range (E027; W062 for malformed semver). An
 /// optional peer that is not installed is fine.
 pub fn validate_peer_dependencies(manifests: &[ManifestV2]) -> Vec<Diagnostic> {
+    manifests
+        .iter()
+        .flat_map(|manifest| validate_peer_dependencies_of(manifest, manifests))
+        .collect()
+}
+
+/// [`validate_peer_dependencies`] for the peers `manifest` declares, against
+/// the `installed` extensions (`manifest` itself may be among them).
+pub fn validate_peer_dependencies_of(
+    manifest: &ManifestV2,
+    installed: &[ManifestV2],
+) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
-    let installed: std::collections::HashMap<&str, &str> = manifests
+    let installed: std::collections::HashMap<&str, &str> = installed
         .iter()
         .map(|m| (m.name.as_str(), m.version.as_str()))
         .collect();
 
-    for manifest in manifests {
-        for peer in &manifest.peer_dependencies {
-            match installed.get(peer.name.as_str()) {
-                None if peer.optional => {}
-                None => {
+    for peer in &manifest.peer_dependencies {
+        match installed.get(peer.name.as_str()) {
+            None if peer.optional => {}
+            None => {
+                diagnostics.push(Diagnostic {
+                    code: "E027".to_string(),
+                    severity: Severity::Error,
+                    message: format!(
+                        "extension '{}' requires peer dependency '{}' {} which is not installed",
+                        manifest.name, peer.name, peer.version
+                    ),
+                    span: None,
+                    suggestion: Some(format!("install it with: specforge add {}", peer.name)),
+                });
+            }
+            Some(installed_version) => {
+                // Validate that both the required range and installed version are parseable semver
+                let req_parse = semver::VersionReq::parse(&peer.version);
+                let ver_parse = semver::Version::parse(installed_version);
+
+                if req_parse.is_err() {
+                    diagnostics.push(Diagnostic {
+                        code: "W062".to_string(),
+                        severity: Severity::Warning,
+                        message: format!(
+                            "extension '{}' declares peer dependency '{}' with malformed semver range '{}'",
+                            manifest.name, peer.name, peer.version
+                        ),
+                        span: None,
+                        suggestion: Some("use a valid semver range like ^1.0.0, ~1.2.0, or >=1.0.0".to_string()),
+                    });
+                } else if ver_parse.is_err() {
+                    diagnostics.push(Diagnostic {
+                        code: "W062".to_string(),
+                        severity: Severity::Warning,
+                        message: format!(
+                            "extension '{}' has malformed version '{}' (not valid semver)",
+                            peer.name, installed_version
+                        ),
+                        span: None,
+                        suggestion: Some("use a valid semver version like 1.0.0".to_string()),
+                    });
+                } else if !version_satisfies(installed_version, &peer.version) {
                     diagnostics.push(Diagnostic {
                         code: "E027".to_string(),
                         severity: Severity::Error,
                         message: format!(
-                            "extension '{}' requires peer dependency '{}' {} which is not installed",
-                            manifest.name, peer.name, peer.version
+                            "extension '{}' requires peer dependency '{}' {} but version {} is installed",
+                            manifest.name, peer.name, peer.version, installed_version
                         ),
                         span: None,
-                        suggestion: Some(format!("install it with: specforge add {}", peer.name)),
+                        suggestion: None,
                     });
-                }
-                Some(installed_version) => {
-                    // Validate that both the required range and installed version are parseable semver
-                    let req_parse = semver::VersionReq::parse(&peer.version);
-                    let ver_parse = semver::Version::parse(installed_version);
-
-                    if req_parse.is_err() {
-                        diagnostics.push(Diagnostic {
-                            code: "W062".to_string(),
-                            severity: Severity::Warning,
-                            message: format!(
-                                "extension '{}' declares peer dependency '{}' with malformed semver range '{}'",
-                                manifest.name, peer.name, peer.version
-                            ),
-                            span: None,
-                            suggestion: Some("use a valid semver range like ^1.0.0, ~1.2.0, or >=1.0.0".to_string()),
-                        });
-                    } else if ver_parse.is_err() {
-                        diagnostics.push(Diagnostic {
-                            code: "W062".to_string(),
-                            severity: Severity::Warning,
-                            message: format!(
-                                "extension '{}' has malformed version '{}' (not valid semver)",
-                                peer.name, installed_version
-                            ),
-                            span: None,
-                            suggestion: Some("use a valid semver version like 1.0.0".to_string()),
-                        });
-                    } else if !version_satisfies(installed_version, &peer.version) {
-                        diagnostics.push(Diagnostic {
-                            code: "E027".to_string(),
-                            severity: Severity::Error,
-                            message: format!(
-                                "extension '{}' requires peer dependency '{}' {} but version {} is installed",
-                                manifest.name, peer.name, peer.version, installed_version
-                            ),
-                            span: None,
-                            suggestion: None,
-                        });
-                    }
                 }
             }
         }

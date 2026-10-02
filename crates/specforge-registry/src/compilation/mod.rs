@@ -26,7 +26,9 @@ pub use provider::{
 };
 // Peer dependencies (compile reports them; `add` checks them first), and the
 // kind collisions the Wasm manifest bridge reports.
-pub use validate::{detect_duplicate_entity_kinds, validate_peer_dependencies};
+pub use validate::{
+    detect_duplicate_entity_kinds, validate_peer_dependencies, validate_peer_dependencies_of,
+};
 
 #[cfg(test)]
 mod tests;

@@ -41,6 +41,7 @@ pub use compilation::{
     detect_mistyped_references, detect_reserved_entity_ids, detect_unknown_entity_fields,
     detect_unknown_entity_kinds, load_provider_configurations, populate_registries,
     register_provider_schemes, register_provider_schemes_with_status, validate_peer_dependencies,
+    validate_peer_dependencies_of,
 };
 pub use signing::{
     PackageSignature, SigningKey, load_or_create_signing_key, signing_key_path, verify_signature,
