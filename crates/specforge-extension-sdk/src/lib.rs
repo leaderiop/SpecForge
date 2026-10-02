@@ -12,6 +12,11 @@
 
 pub use specforge_extension_sdk_macros::extension;
 
+/// The extension vocabulary — field types and validation check kinds — as
+/// the host's registry build reads it. `Custom` hands the decision to the
+/// rule's `wasm_function` (see [`RuleBuilder::wasm_function`]).
+pub use specforge_protocol_types::{CheckKind, FieldType};
+
 pub use specforge_protocol_types::{
     ContributionFlags, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
     FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse,
@@ -32,69 +37,6 @@ pub struct HostApi;
 
 /// Runtime-free testing of an extension's contributions.
 pub mod testing;
-
-/// How a field's value is interpreted by the compiler and emitters.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FieldType {
-    String,
-    Integer,
-    Boolean,
-    Enum,
-    Date,
-    Reference,
-    ReferenceList,
-}
-
-impl FieldType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            FieldType::String => "string",
-            FieldType::Integer => "integer",
-            FieldType::Boolean => "boolean",
-            FieldType::Enum => "enum",
-            FieldType::Date => "date",
-            FieldType::Reference => "reference",
-            FieldType::ReferenceList => "reference_list",
-        }
-    }
-}
-
-/// Declarative check kinds understood by the host's validation engine
-/// (`specforge-registry` `validation_engine.rs`). `Custom` dispatches back into
-/// the extension via a wasm function — requires a runtime that passes a
-/// `WasmValidationRuntime` (not yet wired in production; see audit C10).
-#[derive(Debug, Clone)]
-pub enum CheckKind {
-    NoOutgoingEdges,
-    NoIncomingEdges,
-    MissingField,
-    FieldConstraint,
-    Cycle,
-    FileExists,
-    ConditionalRequired,
-    /// A testable entity declares no `verify` obligations.
-    NoVerifyStatements,
-    /// `verify` kinds must be within the rule constraint's `values`.
-    VerifyKindAllowlist,
-    Custom(String),
-}
-
-impl CheckKind {
-    pub fn as_str(&self) -> &str {
-        match self {
-            CheckKind::NoOutgoingEdges => "no_outgoing_edges",
-            CheckKind::NoIncomingEdges => "no_incoming_edges",
-            CheckKind::MissingField => "missing_field",
-            CheckKind::FieldConstraint => "field_constraint",
-            CheckKind::Cycle => "cycle",
-            CheckKind::FileExists => "file_exists",
-            CheckKind::ConditionalRequired => "conditional_required",
-            CheckKind::NoVerifyStatements => "no_verify_statements",
-            CheckKind::VerifyKindAllowlist => "verify_kind_allowlist",
-            CheckKind::Custom(s) => s,
-        }
-    }
-}
 
 /// Identity of the extension: what `__handshake` reports.
 #[derive(Debug, Clone, Default)]

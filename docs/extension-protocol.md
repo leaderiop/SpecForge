@@ -177,6 +177,12 @@ Returns entity kind descriptors. Each descriptor declares a DSL keyword, its fie
 }
 ```
 
+Field types (`specforge_protocol_types::FieldType`): `string`, `integer`,
+`bool`, `enum` (values in `enum_values`), `string_list`, `reference`,
+`reference_list`, `block`. The host also reads the `_type`-suffixed
+spellings (`string_type`, ...) and `boolean`; an unknown type drops the
+field with W019.
+
 ### Category: edges
 
 Returns edge type descriptors. Each descriptor declares a labeled relationship between entity kinds.
@@ -267,17 +273,26 @@ Returns both declarative rules (pattern-based, evaluated by the host) and custom
 }
 ```
 
-Declarative check types:
+Declarative check types (`specforge_protocol_types::CheckKind`; an unknown
+check drops the rule with W112):
 
 | Check | Behavior |
 |-------|----------|
 | `no_incoming_edges` | Warns when entity has no incoming edges of the specified type |
 | `no_outgoing_edges` | Warns when entity has no outgoing edges of the specified type |
-| `missing_field_when_flag_set` | Warns when a field is empty but a condition is met |
-| `field_value_constraint` | Warns when a field value violates a pattern or enum constraint |
+| `no_edges` | Warns when entity has no edges in either direction |
+| `missing_field_when_flag_set` | Warns when `field` is absent (union types exempt for `verify`) |
+| `missing_required_field` | Warns when `field` is absent |
+| `conditional_field_required` | Warns when `field` is empty while the field named by `constraint.pattern` holds one of `constraint.values` |
+| `field_value_constraint` | Warns when a field value violates its constraint (`non_empty`, `one_of`, `matches`) |
 | `cycle_detection` | Errors when edges of the specified type form a cycle |
 | `file_exists` | Errors when a file-reference field points to a nonexistent file |
-| `custom` | Delegates to a `validate__*` Wasm export |
+| `verify_kind_allowlist` | Warns when a `verify` kind is not in `constraint.values` |
+| `no_verify_statements` | Warns when a testable entity declares no `verify` obligations |
+| `custom` | Delegates to the rule's `wasm_function` export |
+
+Older spellings earlier SDK releases emitted (`missing_field`,
+`field_constraint`, `cycle`, `conditional_required`) are still read.
 
 ### Category: surfaces
 

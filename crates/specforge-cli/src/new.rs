@@ -161,7 +161,7 @@ impl Contributions for Extension {{
 
         // Contribute a validation rule (delete if not needed):
         c.rule("W900", |r| {{
-            r.check(CheckKind::MissingField);
+            r.check(CheckKind::MissingRequiredField);
             r.target_kind("thing");
             r.field("description");
             r.severity(ValidationSeverity::Warning);
@@ -238,5 +238,44 @@ mod tests {
         assert!(lib.contains("#[specforge_extension_sdk::extension("));
         assert!(lib.contains("impl Contributions for Extension"));
         assert!(lib.contains("component_guest!"));
+    }
+
+    /// Every field type and check kind the scaffold names is one the
+    /// host's registry build reads, so a freshly scaffolded extension loads
+    /// without W019/W112 (the scaffold once used a check name it rejected).
+    #[test]
+    fn scaffold_uses_only_vocabulary_the_host_reads() {
+        use specforge_protocol_types::{CheckKind, FieldType};
+
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("my-ext");
+        scaffold(&project, "@you/my-ext").unwrap();
+        let lib = std::fs::read_to_string(project.join("src/lib.rs")).unwrap();
+
+        let named = |prefix: &str| -> Vec<String> {
+            lib.match_indices(prefix)
+                .map(|(at, _)| {
+                    lib[at + prefix.len()..]
+                        .chars()
+                        .take_while(|c| c.is_ascii_alphanumeric())
+                        .collect()
+                })
+                .collect()
+        };
+        let checks = named("CheckKind::");
+        let types = named("FieldType::");
+        assert!(!checks.is_empty() && !types.is_empty(), "{lib}");
+        for name in checks {
+            assert!(
+                CheckKind::ALL.iter().any(|c| format!("{c:?}") == name),
+                "scaffold names unknown CheckKind::{name}"
+            );
+        }
+        for name in types {
+            assert!(
+                FieldType::ALL.iter().any(|t| format!("{t:?}") == name),
+                "scaffold names unknown FieldType::{name}"
+            );
+        }
     }
 }

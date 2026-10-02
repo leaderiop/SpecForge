@@ -21,11 +21,11 @@ impl Contributions for Greet {
             });
         });
         c.rule("G101", |r| {
-            r.check(CheckKind::FieldConstraint);
+            r.check(CheckKind::FieldValueConstraint);
             r.target_kind("greeting");
             r.field("style");
             r.constraint(|fc| {
-                fc.kind("field-constraint");
+                fc.kind("matches");
                 fc.pattern("^(warm|formal)$");
             });
             r.severity(ValidationSeverity::Error);

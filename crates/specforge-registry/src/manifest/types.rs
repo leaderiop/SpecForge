@@ -406,8 +406,11 @@ fn derived_from_problem(field: &ManifestField, source: &str) -> Option<&'static 
         return Some("expected 'type_expressions' or 'method_signatures'");
     }
     let reference = matches!(
-        field.field_type.as_str(),
-        "reference" | "reference_type" | "reference_list" | "reference_list_type"
+        specforge_protocol_types::FieldType::parse(&field.field_type),
+        Some(
+            specforge_protocol_types::FieldType::Reference
+                | specforge_protocol_types::FieldType::ReferenceList
+        )
     );
     if !reference || field.target_kind.is_none() {
         return Some("only a reference field with a target_kind derives edges");

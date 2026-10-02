@@ -21,3 +21,4 @@ semver = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+specforge-extension-sdk = { path = "../specforge-extension-sdk" }

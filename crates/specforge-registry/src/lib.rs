@@ -18,6 +18,9 @@ pub use registries::{
     KindRegistryEntry, ManifestFieldType,
 };
 
+// --- Extension vocabulary (shared with the SDK through the protocol types) ---
+pub use specforge_protocol_types::{CheckKind, FieldType};
+
 // --- Manifest types ---
 pub use manifest::surface::{
     CommandArg, CommandArgType, CommandContribution, McpResourceContribution, McpToolContribution,

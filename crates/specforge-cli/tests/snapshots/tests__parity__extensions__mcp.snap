@@ -4,9 +4,7 @@ expression: mcp_snap
 ---
 {
   "check": {
-    "diagnostics": [
-      "Warning W112"
-    ],
+    "diagnostics": [],
     "ok": true
   },
   "config": {

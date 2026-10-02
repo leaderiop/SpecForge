@@ -497,10 +497,16 @@ fn build_example_for_kind(kind_name: &str, fields: &[specforge_registry::Manifes
         lines.push(format!("  {} \"...\"", f.name));
     }
     for f in &optional_fields {
-        match f.field_type.as_str() {
-            "reference_list" => lines.push(format!("  {} [ref_1, ref_2]", f.name)),
-            "string_list" => lines.push(format!("  {} [\"item1\", \"item2\"]", f.name)),
-            "reference" => lines.push(format!("  {} ref_id", f.name)),
+        match specforge_registry::FieldType::parse(&f.field_type) {
+            Some(specforge_registry::FieldType::ReferenceList) => {
+                lines.push(format!("  {} [ref_1, ref_2]", f.name))
+            }
+            Some(specforge_registry::FieldType::StringList) => {
+                lines.push(format!("  {} [\"item1\", \"item2\"]", f.name))
+            }
+            Some(specforge_registry::FieldType::Reference) => {
+                lines.push(format!("  {} ref_id", f.name))
+            }
             _ => lines.push(format!("  {} \"...\"", f.name)),
         }
     }

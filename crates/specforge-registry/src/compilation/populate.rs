@@ -208,17 +208,7 @@ fn register_single_field(
 }
 
 fn parse_field_type(s: &str) -> Option<ManifestFieldType> {
-    match s {
-        "string" | "string_type" => Some(ManifestFieldType::String),
-        "integer" | "integer_type" => Some(ManifestFieldType::Integer),
-        "bool" | "bool_type" => Some(ManifestFieldType::Bool),
-        "enum" | "enum_type" => Some(ManifestFieldType::Enum(vec![])),
-        "string_list" | "string_list_type" => Some(ManifestFieldType::StringList),
-        "reference" | "reference_type" => Some(ManifestFieldType::Reference),
-        "reference_list" | "reference_list_type" => Some(ManifestFieldType::ReferenceList),
-        "block" | "block_type" => Some(ManifestFieldType::Block),
-        _ => None,
-    }
+    specforge_protocol_types::FieldType::parse(s).map(ManifestFieldType::from)
 }
 
 /// Register explicit edge types from a manifest.

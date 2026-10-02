@@ -12,6 +12,24 @@ pub enum ManifestFieldType {
     Block,
 }
 
+/// An enum field's values come with the field, not its type name, so the
+/// conversion leaves them empty.
+impl From<specforge_protocol_types::FieldType> for ManifestFieldType {
+    fn from(t: specforge_protocol_types::FieldType) -> Self {
+        use specforge_protocol_types::FieldType as T;
+        match t {
+            T::String => Self::String,
+            T::Integer => Self::Integer,
+            T::Bool => Self::Bool,
+            T::Enum => Self::Enum(Vec::new()),
+            T::StringList => Self::StringList,
+            T::Reference => Self::Reference,
+            T::ReferenceList => Self::ReferenceList,
+            T::Block => Self::Block,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FieldRegistryEntry {
     pub kind_name: String,

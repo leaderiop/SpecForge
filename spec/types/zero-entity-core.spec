@@ -138,6 +138,10 @@ type DerivedReferenceSource = type_expressions | method_signatures
 // dedicated rule (parse_verify_statements). Whether an entity kind supports
 // verify is declared via the supports_verify flag on ManifestEntityKind, not
 // via field type registration.
+//
+// On the wire the names drop the _type suffix (string, bool, block, ...;
+// FieldType in specforge-protocol-types); the suffixed spellings and
+// "boolean" are read as aliases.
 type ManifestFieldType = string_type
   | integer_type
   | bool_type
@@ -166,12 +170,21 @@ type FieldConstraint {
   verify unit "FieldConstraint schema is valid"
 }
 
+// The check kinds of the extension vocabulary (CheckKind in
+// specforge-protocol-types — the SDK writes these names, the registry build
+// reads them; it also reads the older SDK spellings missing_field,
+// field_constraint, cycle and conditional_required).
 type ValidationPatternKind = no_incoming_edges
   | no_outgoing_edges
+  | no_edges
   | missing_field_when_flag_set
+  | missing_required_field
+  | conditional_field_required
   | field_value_constraint
   | cycle_detection
   | file_exists
+  | verify_kind_allowlist
+  | no_verify_statements
   | custom
 
 type CustomValidationPattern {

@@ -97,8 +97,9 @@ fn a_local_install_loads_through_check() {
 
     let (ok, after) = check(dir.path());
     assert!(ok, "{after:?}");
-    // `greeting` is a known kind now, and nothing failed to load.
-    for code in ["E024", "E028", "E033"] {
+    // `greeting` is a known kind now, and nothing failed to load — its
+    // field types (W019) and rule (W112) included.
+    for code in ["E024", "E028", "E033", "W019", "W112"] {
         assert!(!codes(&after).contains(&code), "{code}: {after:?}");
     }
 }

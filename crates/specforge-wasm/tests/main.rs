@@ -8,4 +8,5 @@ mod protocol_bridge;
 mod protocol_host;
 mod protocol_types;
 mod sandbox_integration;
+mod sdk_vocabulary;
 mod wasm_lifecycle;

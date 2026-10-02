@@ -389,7 +389,7 @@ The field's Rust type determines the `field_type`:
 | Rust Type | Protocol Field Type |
 |-----------|-------------------|
 | `String` | `string` |
-| `bool` | `boolean` |
+| `bool` | `bool` |
 | `i64` | `integer` |
 | `Vec<String>` | `string_list` |
 | `EntityRef` | `reference` |

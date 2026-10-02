@@ -9,6 +9,9 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
+mod vocabulary;
+pub use vocabulary::{CheckKind, FieldType};
+
 /// Protocol version for the extension wire format (semver).
 /// Extensions with the same major version are considered compatible.
 pub const PROTOCOL_VERSION: &str = "1.0.0";
@@ -247,6 +250,8 @@ pub struct EntityKindDescriptor {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FieldDescriptor {
     pub name: String,
+    /// A [`FieldType`] name (kept a string so an unknown name costs this
+    /// field a diagnostic, not the whole describe payload).
     pub field_type: String,
     #[serde(default)]
     pub required: bool,
@@ -343,6 +348,8 @@ pub struct ValidationRuleDescriptor {
     pub code: String,
     pub severity: ValidationSeverity,
     pub message_template: String,
+    /// A [`CheckKind`] name (kept a string so an unknown name costs this
+    /// rule a diagnostic, not the whole describe payload).
     pub check: String,
     #[serde(default)]
     pub target_kind: Option<String>,

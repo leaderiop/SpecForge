@@ -19,30 +19,11 @@ pub struct ValidationRulePattern {
     pub wasm_function: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ValidationPatternKind {
-    NoIncomingEdges,
-    NoOutgoingEdges,
-    NoEdges,
-    MissingFieldWhenFlagSet,
-    FieldValueConstraint,
-    CycleDetection,
-    FileExists,
-    Custom,
-    /// When a condition field equals a specific value, a required field must be present.
-    /// Uses `constraint.pattern` as the condition field name, `constraint.values` as
-    /// the triggering values, and `field` as the required field.
-    ConditionalFieldRequired,
-    /// A field declared `required: true` must be present on every entity of its kind.
-    /// Produces E006 at Error severity.
-    MissingRequiredField,
-    /// Verify statement kinds must be within the rule's `values` allowlist
-    /// (mirrors the kind descriptor's `verify_kinds`).
-    VerifyKindAllowlist,
-    /// A testable entity declares neither verify obligations nor a gherkin
-    /// scenario.
-    NoVerifyStatements,
-}
+/// What a rule checks — the extension vocabulary's [`CheckKind`], under
+/// the name the validation engine has always used for it.
+///
+/// [`CheckKind`]: specforge_protocol_types::CheckKind
+pub type ValidationPatternKind = specforge_protocol_types::CheckKind;
 
 /// The statement that declares an entity's obligations.
 const VERIFY_FIELD: &str = "verify";
@@ -139,31 +120,17 @@ pub(crate) fn parse_rule_pattern(
     rule: &ManifestValidationRule,
     extension_name: &str,
 ) -> Result<ValidationRulePattern, Diagnostic> {
-    let check = match rule.check.as_str() {
-        "no_incoming_edges" => ValidationPatternKind::NoIncomingEdges,
-        "no_outgoing_edges" => ValidationPatternKind::NoOutgoingEdges,
-        "no_edges" => ValidationPatternKind::NoEdges,
-        "missing_field_when_flag_set" => ValidationPatternKind::MissingFieldWhenFlagSet,
-        "field_value_constraint" => ValidationPatternKind::FieldValueConstraint,
-        "cycle_detection" => ValidationPatternKind::CycleDetection,
-        "file_exists" => ValidationPatternKind::FileExists,
-        "custom" => ValidationPatternKind::Custom,
-        "verify_kind_allowlist" => ValidationPatternKind::VerifyKindAllowlist,
-        "no_verify_statements" => ValidationPatternKind::NoVerifyStatements,
-        "conditional_field_required" => ValidationPatternKind::ConditionalFieldRequired,
-        "missing_required_field" => ValidationPatternKind::MissingRequiredField,
-        other => {
-            return Err(Diagnostic {
-                code: "W112".to_string(),
-                severity: Severity::Warning,
-                message: format!(
-                    "extension '{}': unrecognized validation pattern kind '{}'",
-                    extension_name, other
-                ),
-                span: None,
-                suggestion: None,
-            });
-        }
+    let Some(check) = ValidationPatternKind::parse(&rule.check) else {
+        return Err(Diagnostic {
+            code: "W112".to_string(),
+            severity: Severity::Warning,
+            message: format!(
+                "extension '{}': unrecognized validation pattern kind '{}'",
+                extension_name, rule.check
+            ),
+            span: None,
+            suggestion: None,
+        });
     };
 
     let severity = match rule.severity.as_str() {
@@ -247,7 +214,7 @@ pub(crate) fn parse_rule_pattern(
             return Err(unexecutable_rule(
                 extension_name,
                 &rule.code,
-                &format!("check '{}' requires a field but none is set", rule.check),
+                &format!("check '{check}' requires a field but none is set"),
             ));
         }
         ValidationPatternKind::Custom if rule.wasm_function.is_none() => {
