@@ -23,10 +23,9 @@ mod invariants;
 pub(crate) mod test_helpers;
 
 pub use contributions::{
-    CallSite, ContributionToggle, EnhancementConflict, EnhancementOverride, EnhancementPolicy,
-    dispatch_contribution_exports, is_contribution_disabled, register_entity_enhancements,
-    reject_reserved_entity_kind, required_contribution_exports, resolve_enhancement_conflicts,
-    validate_contribution_exports,
+    ContributionToggle, EnhancementConflict, EnhancementOverride, EnhancementPolicy,
+    is_contribution_disabled, register_entity_enhancements, reject_reserved_entity_kind,
+    required_contribution_exports, resolve_enhancement_conflicts, validate_contribution_exports,
 };
 pub use discovery::{
     ExtensionSource, ExtensionSpecifier, ResolvedExtension, discover_extensions,
