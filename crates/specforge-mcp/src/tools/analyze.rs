@@ -4,8 +4,26 @@ use std::path::PathBuf;
 use crate::args::lenient;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
-use specforge_emitter::analyze::{AnalysisContext, TestReport, run_pass};
-use specforge_project::{CompiledProject, DiagnosticPolicy};
+use specforge_ops::analyze::{AnalyzeError, AnalyzeOptions, ProjectView, ReportSource, analyze};
+use specforge_project::CompiledProject;
+use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
+
+/// The runtime of a rootless analysis, which runs no extension pass.
+struct NoRuntime;
+
+impl WasmRuntime for NoRuntime {
+    fn load_module(&self, _: &std::path::Path) -> Result<(), String> {
+        Err("no project root".to_string())
+    }
+
+    fn call_export(&self, extension: &str, export: &str, _: &[u8]) -> WasmCallResult {
+        WasmCallResult::Trap(specforge_wasm::runtime::WasmTrapInfo {
+            kind: "export_not_found".to_string(),
+            message: format!("{extension}: no project root"),
+            export_name: export.to_string(),
+        })
+    }
+}
 
 #[derive(Debug, Deserialize)]
 pub struct Args {
@@ -69,113 +87,44 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
         ),
     };
 
-    // `strict` promotes warnings in every pass's findings, as the CLI does.
-    let policy = DiagnosticPolicy::strict(args.strict.unwrap_or(false));
-
-    // Without `test_results`, use what `specforge collect` last recorded, as
-    // the CLI does; otherwise proof coverage would silently read nothing.
-    // A report that can't be used is an error result, as the CLI exits 2.
-    let read = match args.test_results.as_deref() {
-        Some(named) => {
-            specforge_emitter::coverage::read_report_file(&PathBuf::from(named)).map(Some)
-        }
-        None => match project_root {
-            Some(root) => specforge_emitter::coverage::read_report(root),
-            None => Ok(None),
-        },
-    };
-    let parsed_report: Option<TestReport> = match read {
-        Ok(report) => report,
-        Err(e) => return super::coverage::report_error_result(&e, "specforge.analyze"),
-    };
-
-    // The tool doesn't run prove, so no claim is proved: `None`, as
-    // `specforge analyze` without --prove passes (ADR 0004 D3-f). An empty
-    // set would tell extension passes that prove ran and proved nothing.
-    let context = AnalysisContext {
-        proved_claims: None,
+    let view = ProjectView {
         graph,
         kind_registry,
         field_registry,
         rules,
-        project_root,
-        test_results: parsed_report.as_ref(),
+        manifests,
+        root: project_root,
     };
-
-    let requested = args.pass.unwrap_or_else(|| "all".to_string());
-    // Coverage is an extension pass owned by @specforge/testing (ADR 0002).
-    let requested = if requested == "coverage" {
-        specforge_emitter::analyze::COVERAGE_PASS.to_string()
-    } else {
-        requested
+    // Without `test_results`, use what `specforge collect` last recorded, as
+    // the CLI does. Extension passes need the Wasm runtime, only when a root
+    // is known.
+    let options = AnalyzeOptions {
+        pass: args.pass.unwrap_or_else(|| "all".to_string()),
+        strict: args.strict.unwrap_or(false),
+        report: match args.test_results {
+            Some(named) => ReportSource::File(PathBuf::from(named)),
+            None => ReportSource::Recorded,
+        },
+        min: None,
+        prove: None,
     };
-    let pass_names: Vec<&str> = if requested == "all" {
-        specforge_emitter::analyze::PASS_NAMES.to_vec()
-    } else if specforge_emitter::analyze::PASS_NAMES.contains(&requested.as_str()) {
-        vec![requested.as_str()]
-    } else if requested.contains(':') {
-        // `<extension>:<pass>` selects an extension pass only.
-        Vec::new()
-    } else {
-        return ToolOutcome::invalid_input(
-            "pass",
-            format!(
-                "Unknown analysis pass '{requested}' (available: all, coverage, {})",
-                specforge_emitter::analyze::PASS_NAMES.join(", ")
-            ),
-        );
+    let runtime = match project_root {
+        Some(root) => state.wasm_runtime(root),
+        None => std::sync::Arc::new(NoRuntime),
     };
-
-    let mut passes = Vec::new();
-    let mut has_errors = false;
-    for name in pass_names {
-        let Some(mut report) = run_pass(&context, name) else {
-            continue;
-        };
-        policy.promote(&mut report.findings);
-        if report
-            .findings
-            .iter()
-            .any(|d| d.severity == specforge_common::Severity::Error)
-        {
-            has_errors = true;
+    match analyze(&view, runtime.as_ref(), &options) {
+        Ok(outcome) => ToolOutcome::ok(outcome.to_json()),
+        Err(e @ AnalyzeError::UnknownPass { .. }) => {
+            ToolOutcome::invalid_input("pass", e.to_string())
         }
-        passes.push(serde_json::json!({
-            "pass": report.name,
-            "findings": report.findings,
-            "summary": report.summary,
-        }));
-    }
-
-    // Extension-owned passes run through the Wasm runtime, same as the CLI
-    // (RES-25 ordering: declared `after` constraints are advisory here too).
-    if !manifests.is_empty()
-        && let Some(root) = project_root
-    {
-        let runtime = state.wasm_runtime(root);
-        let extension_reports = specforge_emitter::analyze::run_extension_passes(
-            manifests,
-            &context,
-            runtime.as_ref(),
-            &requested,
-        );
-        for mut report in extension_reports {
-            policy.promote(&mut report.findings);
-            if report
-                .findings
-                .iter()
-                .any(|d| d.severity == specforge_common::Severity::Error)
-            {
-                has_errors = true;
-            }
-            passes.push(serde_json::json!({
-                "pass": report.name,
-                "findings": report.findings,
-                "summary": report.summary,
-            }));
+        Err(AnalyzeError::UnusableReport(e)) => {
+            let mut error = crate::operations::op_error(e);
+            error.tool = Some("specforge.analyze".to_string());
+            error.into()
+        }
+        // `min` is never set here.
+        Err(e @ AnalyzeError::MinNeedsTestResults) => {
+            ToolOutcome::invalid_input("test_results", e.to_string())
         }
     }
-
-    let doc = serde_json::json!({ "ok": !has_errors, "passes": passes });
-    ToolOutcome::ok(doc)
 }
