@@ -181,7 +181,10 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     let mut failure = None;
     for (name, checked) in &planned {
         let previous = std::fs::read(installed_wasm_path(&extensions_dir(req.root), name)).ok();
-        match place(
+        // Recorded before placing: a placement that fails part-way may
+        // already have removed the previous binary.
+        placed.push((name.clone(), previous));
+        if let Err(error) = place(
             req.root,
             &mut lock,
             &checked.declared,
@@ -190,11 +193,8 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
             checked.key_id.as_deref(),
             &origin,
         ) {
-            Ok(_) => placed.push((name.clone(), previous)),
-            Err(error) => {
-                failure = Some((name.clone(), error));
-                break;
-            }
+            failure = Some((name.clone(), error));
+            break;
         }
     }
     if failure.is_none()
@@ -548,6 +548,40 @@ mod tests {
         assert_eq!(name, "@sdk/greet");
         assert!(error.message.contains("breaks @acme/user"), "{error:?}");
         assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
+    }
+
+    #[cfg(unix)]
+    #[specforge_test(
+        behavior = "update_all_extensions",
+        verify = "failed upgrade rolls back all changes"
+    )]
+    fn a_lock_that_cannot_be_written_puts_the_old_binaries_back() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
+        let lock_before = std::fs::read(lock_path(dir.path())).unwrap();
+        let registry = FakeRegistry::new().publish("@sdk/greet", &["0.1.0"]).serve(
+            "@sdk/greet",
+            "0.1.0",
+            greet(),
+        );
+        // The binaries can be placed, the lock beside them cannot be written.
+        let mode = |m| std::fs::Permissions::from_mode(m);
+        std::fs::set_permissions(dir.path(), mode(0o555)).unwrap();
+        if std::fs::write(dir.path().join("probe"), b"").is_ok() {
+            // Running as a user permissions don't bind (root): nothing to test.
+            std::fs::set_permissions(dir.path(), mode(0o755)).unwrap();
+            return;
+        }
+
+        let outcome = update(&request(dir.path(), true), &registry).unwrap();
+        std::fs::set_permissions(dir.path(), mode(0o755)).unwrap();
+
+        assert!(!outcome.applied(), "{outcome:?}");
+        let (_, error) = outcome.failures().next().unwrap();
+        assert_eq!(error.code, "E033", "{error:?}");
+        assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
+        let installed = installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet");
+        assert_eq!(std::fs::read(installed).unwrap(), b"old");
     }
 
     #[test]
