@@ -107,6 +107,57 @@ pub struct AnalyzeOutcome {
     pub ok: bool,
     /// Built-in passes, extension passes in their declared order, `prove` last.
     pub passes: Vec<PassOutcome>,
+    /// The `min` proof-coverage gate. It never changes `ok` or `passes`; the
+    /// caller decides what a failed gate costs (CLI: exit code).
+    pub gate: Gate,
+}
+
+/// Where the proof-coverage gate landed.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Gate {
+    /// `min` was not set.
+    NotRequested,
+    /// Proof coverage is at or above `min` (nothing testable always is).
+    Met,
+    /// Proof coverage is under `min`.
+    Below {
+        pct: f64,
+        min: f64,
+        proven: usize,
+        total: usize,
+    },
+    /// `min` was set but the coverage pass did not run.
+    NoCoveragePass,
+    /// The coverage pass ran but its summary is not the shape read here;
+    /// carries the parse error.
+    UnreadableSummary(String),
+}
+
+impl Gate {
+    fn of(min: Option<f64>, passes: &[PassOutcome]) -> Gate {
+        let Some(min) = min else {
+            return Gate::NotRequested;
+        };
+        let Some(pass) = passes.iter().find(|r| r.name == COVERAGE_PASS) else {
+            return Gate::NoCoveragePass;
+        };
+        // A missing or renamed key is an error, never a silent 0.
+        let summary: coverage::Summary = match serde_json::from_value(pass.summary.clone()) {
+            Ok(summary) => summary,
+            Err(e) => return Gate::UnreadableSummary(e.to_string()),
+        };
+        let pct = summary.proof_pct();
+        if pct + f64::EPSILON < min {
+            Gate::Below {
+                pct,
+                min,
+                proven: summary.testable_proven,
+                total: summary.testable_total,
+            }
+        } else {
+            Gate::Met
+        }
+    }
 }
 
 impl AnalyzeOutcome {
@@ -242,9 +293,11 @@ pub fn analyze(
             ok = false;
         }
     }
+    let gate = Gate::of(options.min, &passes_run);
     Ok(AnalyzeOutcome {
         ok,
         passes: passes_run,
+        gate,
     })
 }
 
@@ -322,6 +375,7 @@ fn read_report(
 mod tests {
     use super::*;
     use serde_json::{Value, json};
+    use specforge_test_macros::test as specforge_test;
     use specforge_wasm::runtime::{WasmCallResult, WasmTrapInfo};
     use std::sync::Mutex;
 
@@ -578,5 +632,142 @@ mod tests {
         let outcome = analyze(&project.view(), &fake, &options).unwrap();
         assert_eq!(names(&outcome), vec!["contracts", "@t/x:scan", "prove"]);
         assert_eq!(*fake.proved_seen.lock().unwrap(), vec![json!([])]);
+    }
+
+    /// A `@specforge/testing` whose `coverage` pass answers `summary`.
+    struct Coverage {
+        summary: Value,
+    }
+
+    impl WasmRuntime for Coverage {
+        fn load_module(&self, _: &Path) -> Result<(), String> {
+            Ok(())
+        }
+
+        fn call_export(&self, _ext: &str, export: &str, _: &[u8]) -> WasmCallResult {
+            let ok = |v: Value| WasmCallResult::Ok(v.to_string().into_bytes());
+            match export {
+                "__describe" => ok(json!({"category": "passes", "items": [{"name": "coverage"}]})),
+                "__pass_coverage" => ok(json!({"diagnostics": [], "summary": self.summary})),
+                _ => WasmCallResult::Trap(WasmTrapInfo {
+                    kind: "export_not_found".into(),
+                    message: export.into(),
+                    export_name: export.into(),
+                }),
+            }
+        }
+    }
+
+    /// A project with a (blank) recorded report, gated at `min`, whose
+    /// testing extension reports `proven` of `total`.
+    fn gate_of(pass_name: &str, min: Option<f64>, summary: Value) -> Gate {
+        let mut project = Project::new();
+        project.manifests = vec![
+            serde_json::from_value(json!({
+                "name": "@specforge/testing", "version": "1.0.0",
+                "manifestVersion": 2, "wasmPath": ""
+            }))
+            .unwrap(),
+        ];
+        std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
+        let options = AnalyzeOptions {
+            pass: pass_name.to_string(),
+            min,
+            ..Default::default()
+        };
+        analyze(&project.view(), &Coverage { summary }, &options)
+            .unwrap()
+            .gate
+    }
+
+    fn tally(proven: usize, total: usize) -> Value {
+        serde_json::to_value(coverage::Summary {
+            testable_proven: proven,
+            testable_total: total,
+            ..Default::default()
+        })
+        .unwrap()
+    }
+
+    #[specforge_test(
+        behavior = "te_coverage_gate",
+        verify = "the analysis reports where the gate landed and leaves the analysis result alone"
+    )]
+    fn the_gate_is_not_requested_without_min() {
+        assert_eq!(gate_of("all", None, tally(0, 4)), Gate::NotRequested);
+    }
+
+    #[specforge_test(
+        behavior = "te_coverage_gate",
+        verify = "the analysis reports where the gate landed and leaves the analysis result alone"
+    )]
+    fn the_gate_is_met_at_or_above_the_minimum() {
+        assert_eq!(gate_of("all", Some(50.0), tally(2, 4)), Gate::Met);
+        assert_eq!(gate_of("coverage", Some(50.0), tally(3, 4)), Gate::Met);
+    }
+
+    #[specforge_test(
+        behavior = "te_coverage_gate",
+        verify = "the analysis reports where the gate landed and leaves the analysis result alone"
+    )]
+    fn nothing_testable_satisfies_any_minimum() {
+        assert_eq!(gate_of("all", Some(100.0), tally(0, 0)), Gate::Met);
+    }
+
+    #[specforge_test(
+        behavior = "te_coverage_gate",
+        verify = "the analysis reports where the gate landed and leaves the analysis result alone"
+    )]
+    fn the_gate_is_below_with_the_numbers_to_print() {
+        assert_eq!(
+            gate_of("all", Some(75.0), tally(1, 4)),
+            Gate::Below {
+                pct: 25.0,
+                min: 75.0,
+                proven: 1,
+                total: 4
+            }
+        );
+    }
+
+    #[specforge_test(
+        behavior = "te_coverage_gate",
+        verify = "the analysis reports where the gate landed and leaves the analysis result alone"
+    )]
+    fn a_failed_gate_leaves_ok_and_the_reports_alone() {
+        let mut project = Project::new();
+        project.manifests.clear();
+        std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
+        let outcome = project
+            .run(&AnalyzeOptions {
+                min: Some(10.0),
+                ..Default::default()
+            })
+            .unwrap();
+        assert_eq!(outcome.gate, Gate::NoCoveragePass);
+        assert!(outcome.ok);
+        assert_eq!(names(&outcome), vec!["contracts"]);
+    }
+
+    #[specforge_test(
+        behavior = "te_coverage_gate",
+        verify = "a gate without a readable coverage pass is not met"
+    )]
+    fn selecting_a_pass_other_than_coverage_has_no_coverage_pass() {
+        assert_eq!(
+            gate_of("contracts", Some(10.0), tally(4, 4)),
+            Gate::NoCoveragePass
+        );
+    }
+
+    #[specforge_test(
+        behavior = "te_coverage_gate",
+        verify = "a gate without a readable coverage pass is not met"
+    )]
+    fn a_summary_of_another_shape_is_unreadable_not_zero() {
+        assert_eq!(
+            gate_of("all", Some(10.0), json!({"testable_total": "many"})),
+            Gate::UnreadableSummary("invalid type: string \"many\", expected usize".into())
+        );
     }
 }
