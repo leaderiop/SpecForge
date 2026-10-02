@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::OutputFormat;
-use crate::pipeline;
 
 pub fn run(
     path: &Path,
@@ -14,7 +13,7 @@ pub fn run(
     lint_profiles: &[String],
     cache: bool,
 ) -> i32 {
-    let runtime = pipeline::project_runtime(path);
+    let runtime = specforge_component::project_runtime(path);
     run_in(path, &runtime, strict, format, lint_profiles, cache)
 }
 

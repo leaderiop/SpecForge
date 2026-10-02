@@ -31,7 +31,7 @@ pub fn run(
 
     // The shared migration: migrate, run the extensions' hooks, then check
     // the graph kept its structure, rolling back when it didn't.
-    let runtime = crate::pipeline::build_runtime(path);
+    let runtime = specforge_component::project_runtime(path);
     let request = Request {
         root: path,
         target,

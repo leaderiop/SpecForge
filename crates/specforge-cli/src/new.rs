@@ -11,8 +11,7 @@ use std::path::{Path, PathBuf};
 
 pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i32 {
     if !extension {
-        print_error(
-            format,
+        format.print_error(
             "only `--extension` scaffolding is supported right now",
             "E065",
         );
@@ -20,14 +19,13 @@ pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i3
     }
 
     if let Err(message) = validate_name(name) {
-        print_error(format, &message, "E065");
+        format.print_error(&message, "E065");
         return 1;
     }
 
     let dir = target_dir(path, name);
     if dir.exists() {
-        print_error(
-            format,
+        format.print_error(
             &format!("destination '{}' already exists", dir.display()),
             "E065",
         );
@@ -35,7 +33,7 @@ pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i3
     }
 
     if let Err(message) = scaffold(&dir, name) {
-        print_error(format, &message, "E066");
+        format.print_error(&message, "E066");
         return 1;
     }
 
@@ -183,16 +181,6 @@ specforge_extension_sdk::component_guest!(
     std::fs::write(src.join("lib.rs"), lib_rs)
         .map_err(|e| format!("failed to write src/lib.rs: {}", e))?;
     Ok(())
-}
-
-fn print_error(format: OutputFormat, message: &str, code: &str) {
-    match format {
-        OutputFormat::Json => {
-            let output = json!({"error": message, "code": code});
-            println!("{}", serde_json::to_string_pretty(&output).unwrap());
-        }
-        OutputFormat::Human => eprintln!("error[{}]: {}", code, message),
-    }
 }
 
 #[cfg(test)]
