@@ -325,6 +325,22 @@ fn list_tool_pages_sorted_entities() {
     assert_eq!(listed_ids(&mut server, page), ["feat_search"]);
 }
 
+#[test]
+fn list_tool_refuses_a_malformed_filter_or_page() {
+    let mut server = init_server_with_kinds();
+    for args in [
+        json!({"where": "status=done"}),
+        json!({"limit": -1}),
+        json!({"offset": "one"}),
+        json!({"limit": 1.5}),
+    ] {
+        let resp = call_tool(&mut server, "specforge.list", args.clone());
+        assert_eq!(resp["result"]["isError"], true, "{args}: {resp}");
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "invalid_input", "{args}: {error}");
+    }
+}
+
 // B:provide_mcp_entities_by_kind — verify unit "specforge.list returns empty array for unknown kind"
 #[specforge_test(
     behavior = "provide_mcp_entities_by_kind",

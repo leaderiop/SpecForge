@@ -7,12 +7,15 @@ use crate::tool::ToolOutcome;
 pub struct Args {
     #[serde(default, deserialize_with = "crate::args::lenient")]
     kind: Option<String>,
-    /// Field name to the text the field must hold.
-    #[serde(default, rename = "where", deserialize_with = "crate::args::lenient")]
+    /// Field name to the value the field must hold. Unlike `kind`, read
+    /// strictly: a `where`, `limit` or `offset` of the wrong type (a
+    /// negative or fractional count) is invalid input, an `isError` result
+    /// (ADR 0004 D4-a), never a silently unfiltered list.
+    #[serde(default, rename = "where")]
     where_fields: Option<Map<String, Value>>,
-    #[serde(default, deserialize_with = "crate::args::lenient")]
+    #[serde(default)]
     limit: Option<usize>,
-    #[serde(default, deserialize_with = "crate::args::lenient")]
+    #[serde(default)]
     offset: Option<usize>,
 }
 
