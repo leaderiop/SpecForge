@@ -867,6 +867,42 @@ fn analyze_reads_the_project_report_by_default() {
     assert!(a015[0]["message"].as_str().unwrap().contains("\"b\""));
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "orphaned test records come back as an optional orphans field"
+)]
+fn analyze_returns_orphans_only_when_records_are_orphaned() {
+    let project = tempfile::tempdir().unwrap();
+    let root = project.path();
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    std::fs::write(root.join("app.spec"), "behavior widget \"Widget\" {\n}\n").unwrap();
+    let report = root.join("specforge-report.json");
+    let mut server = test_server();
+    let mut run = |strict: bool| -> Value {
+        let resp = call_tool(
+            &mut server,
+            "specforge.analyze",
+            json!({"path": root.to_str().unwrap(), "pass": "contracts", "strict": strict}),
+        );
+        serde_json::from_str(&tool_text(&resp)).unwrap()
+    };
+
+    std::fs::write(&report, r#"{"results":{"widget":{"tests":[]}}}"#).unwrap();
+    assert!(run(false).get("orphans").is_none());
+
+    std::fs::write(&report, r#"{"results":{"wodget":{"tests":[]}}}"#).unwrap();
+    let expected = json!([{"entity_id": "wodget", "near": "widget"}]);
+    let lax = run(false);
+    assert_eq!(lax["orphans"], expected, "{lax}");
+    let strict = run(true);
+    assert_eq!(strict["orphans"], expected, "{strict}");
+    assert_eq!(strict["ok"], lax["ok"]);
+}
+
 /// The `McpError` an `isError` tool result carries.
 fn mcp_error(resp: &Value) -> Value {
     assert!(resp["error"].is_null(), "not a JSON-RPC error: {resp}");
