@@ -458,14 +458,15 @@ fn watch_writes_no_schema_cache() {
     use std::process::Stdio;
 
     let dir = software_project();
-    let mut child = std::process::Command::new(assert_cmd::cargo_bin!("specforge"))
-        .args(["watch", "--json", "--path"])
-        .arg(dir.path())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .unwrap();
-    let stdout = child.stdout.take().unwrap();
+    let mut watch = std::process::Command::new(assert_cmd::cargo_bin!("specforge"));
+    watch.args(["watch", "--json", "--path"]).arg(dir.path());
+    let mut child = crate::child_guard::ChildGuard::spawn(
+        crate::child_guard::guarded_command(&watch)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null()),
+    )
+    .unwrap();
+    let stdout = child.take_stdout().unwrap();
     let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         for line in BufReader::new(stdout).lines().map_while(Result::ok) {
@@ -494,8 +495,7 @@ fn watch_writes_no_schema_cache() {
     )
     .unwrap();
     let rebuilt = wait_for("\"event\":\"rebuilt\"");
-    let _ = child.kill();
-    let _ = child.wait();
+    drop(child);
 
     assert!(ready, "watch never reported ready");
     assert!(rebuilt, "watch never rebuilt");

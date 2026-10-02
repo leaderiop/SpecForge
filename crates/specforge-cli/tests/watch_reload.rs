@@ -7,6 +7,8 @@ use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
+use crate::child_guard::{ChildGuard, guarded_command};
+
 #[test]
 fn watch_reloads_extension_environment_on_config_change() {
     let dir = TempDir::new().unwrap();
@@ -26,17 +28,19 @@ fn watch_reloads_extension_environment_on_config_change() {
     )
     .unwrap();
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_specforge"))
-        .args(["watch", "--path", dir.path().to_str().unwrap(), "--json"])
-        .stdout(Stdio::piped())
-        // stderr must be drained (or discarded): an un-read pipe fills and
-        // blocks the child mid-run. Debug goes to a file for this test.
-        .stderr(Stdio::from(fs::File::create("/tmp/watch-dbg.log").unwrap()))
-        .spawn()
-        .expect("watch spawns");
+    let mut watch = Command::new(env!("CARGO_BIN_EXE_specforge"));
+    watch.args(["watch", "--path", dir.path().to_str().unwrap(), "--json"]);
+    let mut child = ChildGuard::spawn(
+        guarded_command(&watch)
+            .stdout(Stdio::piped())
+            // stderr must be drained (or discarded): an un-read pipe fills and
+            // blocks the child mid-run. Debug goes to a file for this test.
+            .stderr(Stdio::from(fs::File::create("/tmp/watch-dbg.log").unwrap())),
+    )
+    .expect("watch spawns");
 
     // Wait for readiness (the `ready` event) with generous CI headroom.
-    let stdout = child.stdout.take().unwrap();
+    let stdout = child.take_stdout().unwrap();
     let mut reader = std::io::BufReader::new(stdout);
     let deadline = Instant::now() + Duration::from_secs(60);
     let mut ready = false;
@@ -95,7 +99,5 @@ fn watch_reloads_extension_environment_on_config_change() {
     }
     assert!(saw_reload);
 
-    // The watch loop never exits on its own — kill first, then reap.
-    let _ = child.kill();
-    let _ = child.wait();
+    // The watch loop never exits on its own; the guard stops and reaps it.
 }
