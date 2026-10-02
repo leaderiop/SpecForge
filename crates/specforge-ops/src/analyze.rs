@@ -61,11 +61,7 @@ pub enum ReportSource {
     None,
 }
 
-/// Options of the SMT proof pass. Empty for now; the solver timeout joins
-/// it with the prove work.
-#[derive(Debug, Clone, Default)]
-#[non_exhaustive]
-pub struct ProveOptions {}
+pub use crate::prove::ProveOptions;
 
 /// What to run. `Default` is a plain `analyze all`.
 #[derive(Debug, Clone)]
@@ -218,6 +214,18 @@ pub fn analyze(
     runtime: &dyn WasmRuntime,
     options: &AnalyzeOptions,
 ) -> Result<AnalyzeOutcome, AnalyzeError> {
+    analyze_via(view, runtime, options, &crate::prove::run_prove_with)
+}
+
+/// The prove step as the operation sees it; tests swap in a scripted solver.
+type ProveFn<'a> = &'a dyn Fn(&AnalysisContext, &ProveOptions) -> crate::prove::ProveReport;
+
+fn analyze_via(
+    view: &ProjectView,
+    runtime: &dyn WasmRuntime,
+    options: &AnalyzeOptions,
+    prove: ProveFn,
+) -> Result<AnalyzeOutcome, AnalyzeError> {
     let selection = select(view, runtime, &options.pass)?;
     let report = read_report(view, &options.report)?;
     if options.min.is_some() && report.is_none() {
@@ -240,7 +248,7 @@ pub fn analyze(
     let proved = options
         .prove
         .as_ref()
-        .map(|_| crate::prove::run_prove(&base));
+        .map(|prove_options| prove(&base, prove_options));
     let proved_claims: std::collections::HashSet<String> = proved
         .as_ref()
         .map(|r| r.proved_claim_ids.iter().cloned().collect())
@@ -769,5 +777,62 @@ mod tests {
             gate_of("all", Some(10.0), json!({"testable_total": "many"})),
             Gate::UnreadableSummary("invalid type: string \"many\", expected usize".into())
         );
+    }
+
+    struct NoZ3;
+    impl crate::prove::Solver for NoZ3 {
+        fn version(&self) -> Option<String> {
+            None
+        }
+        fn solve(&self, _: &str) -> Result<String, crate::prove::SolveFailure> {
+            unreachable!("no solver, nothing to solve")
+        }
+    }
+
+    fn prove_options(secs: u64) -> AnalyzeOptions {
+        AnalyzeOptions {
+            prove: Some(ProveOptions {
+                z3_timeout: std::time::Duration::from_secs(secs),
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn the_z3_timeout_reaches_the_prove_step_and_its_claims_reach_coverage() {
+        let project = Project::new();
+        let fake = Fake::new();
+        let seen = Mutex::new(None);
+        let prove = |ctx: &AnalysisContext, o: &ProveOptions| {
+            *seen.lock().unwrap() = Some(o.z3_timeout);
+            let mut r = crate::prove::analyze_with(ctx, &NoZ3);
+            r.proved_claim_ids = vec!["claim_a".to_string()];
+            r
+        };
+        analyze_via(&project.view(), &fake, &prove_options(7), &prove).unwrap();
+        assert_eq!(
+            *seen.lock().unwrap(),
+            Some(std::time::Duration::from_secs(7))
+        );
+        assert_eq!(*fake.proved_seen.lock().unwrap(), vec![json!(["claim_a"])]);
+    }
+
+    #[test]
+    fn prove_with_z3_missing_is_a_last_w098_report_with_empty_proved_claims() {
+        let project = Project::new();
+        let fake = Fake::new();
+        let prove =
+            |ctx: &AnalysisContext, _: &ProveOptions| crate::prove::analyze_with(ctx, &NoZ3);
+        let mut options = prove_options(1);
+        let lenient = analyze_via(&project.view(), &fake, &options, &prove).unwrap();
+        assert_eq!(names(&lenient).last().copied(), Some("prove"));
+        let report = lenient.passes.last().unwrap();
+        assert!(report.findings.iter().any(|f| f.code == "W098"));
+        assert!(lenient.ok);
+        assert_eq!(*fake.proved_seen.lock().unwrap(), vec![json!([])]);
+
+        options.strict = true;
+        let strict = analyze_via(&project.view(), &Fake::new(), &options, &prove).unwrap();
+        assert!(!strict.ok, "strict promotes the prove report too");
     }
 }

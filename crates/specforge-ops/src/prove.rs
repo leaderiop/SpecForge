@@ -153,7 +153,7 @@ fn encode_conjunction(parts: &[SpannedExpr]) -> Option<String> {
 
 /// Why a solver call produced no answer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SolveFailure {
+pub(crate) enum SolveFailure {
     /// The solver ran past its timeout and was killed.
     TimedOut,
     /// The solver could not be executed or died without an answer.
@@ -162,7 +162,7 @@ enum SolveFailure {
 
 /// Private seam over the SMT solver. Production: [`Z3`] (shells out with a
 /// timeout). Tests: a scripted adapter. Not part of any public interface.
-trait Solver {
+pub(crate) trait Solver {
     /// First line of the solver's version banner, `None` when unavailable.
     fn version(&self) -> Option<String>;
     /// Run an SMT-LIB2 script and return the solver's full stdout.
@@ -440,7 +440,7 @@ pub fn run_prove_with(ctx: &AnalysisContext, options: &ProveOptions) -> ProveRep
 }
 
 /// The prove step over an injected solver (the seam used by ops tests).
-fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveReport {
+pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveReport {
     let mut findings = Vec::new();
     let mut skipped_prose_lines = 0usize;
     let mut constraints_with_metrics = 0usize;
