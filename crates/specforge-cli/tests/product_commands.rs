@@ -1,4 +1,11 @@
+//! The `specforge product <command>` commands: `@specforge/product`'s
+//! `cmd__product_*` exports, which the CLI routes to from the commands the
+//! extension declares (ADR 0008). Output, flags and names are the ones the
+//! built-in `product` subcommands had.
+
+use crate::e2e_fixtures::{find_response, mcp_request, mcp_session_in, parse_tool_content};
 use assert_cmd::cargo_bin_cmd;
+use specforge_test_macros::test as specforge_test;
 use std::fs;
 use tempfile::TempDir;
 
@@ -422,4 +429,120 @@ fn test_product_nonexistent_milestone_exits_one() {
         dir.path().to_str().unwrap(),
     ]);
     cmd.assert().failure();
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "exit code, stdout, stderr returned to CLI"
+)]
+fn an_extension_command_prints_what_its_export_returns() {
+    let dir = setup_product_project();
+    let path = dir.path().to_str().unwrap();
+    let output = cargo_bin_cmd!("specforge")
+        .args(["product", "milestone-completion", "m1", "--path", path])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "Milestone: m1 (planned)\nCompletion: 50% (1/2 features done)\n  f1 [proposed]\n  f2 [done]\n"
+    );
+    assert!(output.stderr.is_empty(), "{output:?}");
+
+    let output = cargo_bin_cmd!("specforge")
+        .args(["product", "milestone-completion", "nope", "--path", path])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty(), "{output:?}");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "milestone 'nope' not found\n"
+    );
+}
+
+#[test]
+fn an_extension_command_has_the_declared_command_line() {
+    let dir = setup_product_project();
+    let path = dir.path().to_str().unwrap();
+    // `ext:command` names the same command as `ext command`.
+    let output = cargo_bin_cmd!("specforge")
+        .args(["product:features", "--path", path, "--limit", "1"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "2 feature entities (showing 1):\n  f1 Core Feature [proposed] pri=high in=4 out=0\n"
+    );
+    // The declared enum refuses other values; an undeclared flag is refused.
+    for args in [
+        ["product", "features", "--format", "xml"],
+        ["product", "journeys", "--status", "done"],
+    ] {
+        let output = cargo_bin_cmd!("specforge")
+            .args(args)
+            .args(["--path", path])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2), "{args:?}: {output:?}");
+    }
+    // A name no built-in command or extension has is refused.
+    let output = cargo_bin_cmd!("specforge")
+        .args(["nonesuch", "features", "--path", path])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("unrecognized subcommand 'nonesuch'"),
+        "{output:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "surface_list_features",
+    verify = "status filter reduces result set"
+)]
+fn the_features_command_is_an_mcp_tool_with_its_filters() {
+    let dir = setup_product_project();
+    let call = |id: u64, args: serde_json::Value| {
+        mcp_request(
+            id,
+            "tools/call",
+            serde_json::json!({"name": "specforge.product.features", "arguments": args}),
+        )
+    };
+    let responses = mcp_session_in(
+        &dir,
+        &[
+            call(1, serde_json::json!({"format": "json"})),
+            call(2, serde_json::json!({"format": "json", "status": "done"})),
+        ],
+    );
+    let all = parse_tool_content(find_response(&responses, 1).unwrap());
+    assert_eq!(all["total"], 2, "{all}");
+    let done = parse_tool_content(find_response(&responses, 2).unwrap());
+    assert_eq!(done["total"], 1, "{done}");
+    assert_eq!(done["entities"][0]["id"], "f2");
+}
+
+#[specforge_test(
+    behavior = "surface_list_features",
+    verify = "pagination offset and limit are respected"
+)]
+fn the_features_command_pages_after_counting() {
+    let dir = setup_product_project();
+    let output = cargo_bin_cmd!("specforge")
+        .args(["product", "features", "--offset", "1", "--limit", "1"])
+        .args(["--format", "json", "--path", dir.path().to_str().unwrap()])
+        .output()
+        .unwrap();
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["total"], 2);
+    let ids: Vec<&str> = result["entities"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["f2"]);
 }

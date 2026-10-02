@@ -5,6 +5,7 @@
 // using the naming convention cmd__{id} and mcp__{name}.
 
 use "types/core"
+use "types/graph"
 use "types/mcp"
 use "types/wasm"
 
@@ -31,6 +32,9 @@ type CommandContribution {
   verify unit "CommandContribution schema is valid"
 }
 
+// On the command line (specforge {ext_short} {id with _ as -}), a required
+// arg is positional, in declaration order; any other is --{name with _ as -}.
+// --path names the project and is the host's on every command.
 type CommandArg {
   name          string   @readonly
   arg_type      CommandArgType
@@ -44,10 +48,16 @@ type CommandArg {
 
 type CommandArgType = string_arg | path_arg | bool_arg | enum_arg | integer_arg
 
+// What a cmd__{id} export receives. args holds the declared args the
+// caller set (the CLI's parsed command line, or the auto-promoted MCP
+// tool's arguments), typed as declared; cwd is the project root; graph is
+// the compiled project's graph in the graph export's shape (entities
+// sorted by id, edges by source, target and label). The export reads no
+// files: the same call serves the CLI and MCP.
 type CommandInput {
   args  FieldMap
-  flags FieldMap @optional
   cwd   string
+  graph Graph
   verify unit "CommandInput schema is valid"
 }
 

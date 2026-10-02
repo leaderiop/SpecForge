@@ -195,7 +195,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     command_args_validated_fired    "command_args_validated event has fired, confirming arg types are valid for this extension"
   }
   ensures {
-    args_serialized                    "Command arguments are serialized as JSON and passed to the cmd__ export"
+    args_serialized                    "Command arguments, the project root and the graph are serialized as JSON and passed to the cmd__ export"
     sandbox_restricted                 "Per-command sandbox override is intersected with extension policy (can only restrict, never expand)"
     traps_caught                       "Wasm traps are caught and reported as ExtensionError diagnostics"
     output_returned                    "Exit code, stdout, and stderr are returned to the CLI caller"
@@ -204,8 +204,11 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   contract   """
     When a CLI command from an extension is invoked, the compiler MUST
     lazily load the extension's Wasm module (if not already loaded),
-    serialize the command arguments as JSON, and call the cmd__{id}
-    export. The per-command sandbox override (if declared) MUST be
+    serialize the command's input as JSON (CommandInput: its args, the
+    project root and the compiled graph), and call the cmd__{id} export.
+    The CLI routes specforge {ext_short} {command} to it, the command line
+    built from the declared args; an auto-promoted MCP tool runs the same
+    export with its arguments as the args, over the served graph. The per-command sandbox override (if declared) MUST be
     intersected with the extension's SandboxPolicy — the override can
     only restrict, never expand. Wasm traps MUST be caught and reported
     as ExtensionError diagnostics. The command's exit code, stdout, and

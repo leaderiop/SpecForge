@@ -7,6 +7,7 @@ mod doctor;
 mod explain;
 mod export;
 mod extension_authoring;
+mod extension_command;
 mod extensions;
 mod format;
 mod infer_status;
@@ -18,7 +19,6 @@ mod model;
 mod new;
 mod outline;
 mod pipeline;
-mod product;
 mod providers;
 mod publish;
 mod query;
@@ -34,7 +34,12 @@ use clap_complete::Shell;
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
-#[command(name = "specforge", version, about = "SpecForge compiler")]
+#[command(
+    name = "specforge",
+    version,
+    about = "SpecForge compiler",
+    after_help = "Extensions add commands: specforge <extension> <command>, e.g. `specforge product features`.\n`specforge <extension> --help` lists an extension's commands."
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -684,170 +689,10 @@ enum Commands {
         #[command(subcommand)]
         action: ExtensionAction,
     },
-    /// Product entity queries and analytics
-    Product {
-        #[command(subcommand)]
-        action: ProductAction,
-    },
-}
-
-#[derive(Subcommand)]
-enum ProductAction {
-    /// List features
-    Features {
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long)]
-        status: Option<String>,
-        #[arg(long)]
-        priority: Option<String>,
-        #[arg(long)]
-        limit: Option<usize>,
-        #[arg(long)]
-        offset: Option<usize>,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// List journeys
-    Journeys {
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long)]
-        limit: Option<usize>,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// List deliverables
-    Deliverables {
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long)]
-        status: Option<String>,
-        #[arg(long)]
-        limit: Option<usize>,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// List milestones
-    Milestones {
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long)]
-        status: Option<String>,
-        #[arg(long)]
-        limit: Option<usize>,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// List modules
-    Modules {
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long)]
-        limit: Option<usize>,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// List terms
-    Terms {
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long)]
-        limit: Option<usize>,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// List personas
-    Personas {
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long)]
-        limit: Option<usize>,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// List channels
-    Channels {
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long)]
-        limit: Option<usize>,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// List releases
-    Releases {
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long)]
-        status: Option<String>,
-        #[arg(long)]
-        limit: Option<usize>,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// Show milestone completion progress
-    MilestoneCompletion {
-        milestone: String,
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// Show journey feature-module coverage
-    JourneyCoverage {
-        journey: String,
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// Show feature impact analysis
-    FeatureImpact {
-        feature: String,
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// Show features that depend on a given feature
-    FeatureDependents {
-        feature: String,
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// Show features reachable from a persona (via journeys)
-    PersonaFeatures {
-        persona: String,
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// Show features reachable from a channel (via journeys)
-    ChannelFeatures {
-        channel: String,
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// Show status breakdown across all entity kinds
-    BulkStatus {
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
-    /// Show project health score
-    Health {
-        #[arg(long, default_value = ".")]
-        path: PathBuf,
-        #[arg(long, default_value = "human")]
-        format: OutputFormat,
-    },
+    /// An extension's command: `specforge <extension> <command>`, e.g.
+    /// `specforge product features` (the project's extensions declare them)
+    #[command(external_subcommand)]
+    External(Vec<String>),
 }
 
 #[derive(Subcommand)]
@@ -1107,123 +952,13 @@ fn main() {
             stale,
             gaps_detail,
         } => infer_status::run(&path, format, gaps, stale, gaps_detail),
-        Commands::Product { action } => match action {
-            ProductAction::Features {
-                path,
-                status,
-                priority,
-                limit,
-                offset,
-                format,
-            } => product::run_list(
-                &path,
-                "feature",
-                status.as_deref(),
-                priority.as_deref(),
-                limit,
-                offset,
-                format,
-            ),
-            ProductAction::Journeys {
-                path,
-                limit,
-                format,
-            } => product::run_list(&path, "journey", None, None, limit, None, format),
-            ProductAction::Deliverables {
-                path,
-                status,
-                limit,
-                format,
-            } => product::run_list(
-                &path,
-                "deliverable",
-                status.as_deref(),
-                None,
-                limit,
-                None,
-                format,
-            ),
-            ProductAction::Milestones {
-                path,
-                status,
-                limit,
-                format,
-            } => product::run_list(
-                &path,
-                "milestone",
-                status.as_deref(),
-                None,
-                limit,
-                None,
-                format,
-            ),
-            ProductAction::Modules {
-                path,
-                limit,
-                format,
-            } => product::run_list(&path, "module", None, None, limit, None, format),
-            ProductAction::Terms {
-                path,
-                limit,
-                format,
-            } => product::run_list(&path, "term", None, None, limit, None, format),
-            ProductAction::Personas {
-                path,
-                limit,
-                format,
-            } => product::run_list(&path, "persona", None, None, limit, None, format),
-            ProductAction::Channels {
-                path,
-                limit,
-                format,
-            } => product::run_list(&path, "channel", None, None, limit, None, format),
-            ProductAction::Releases {
-                path,
-                status,
-                limit,
-                format,
-            } => product::run_list(
-                &path,
-                "release",
-                status.as_deref(),
-                None,
-                limit,
-                None,
-                format,
-            ),
-            ProductAction::MilestoneCompletion {
-                milestone,
-                path,
-                format,
-            } => product::run_milestone_completion(&path, &milestone, format),
-            ProductAction::JourneyCoverage {
-                journey,
-                path,
-                format,
-            } => product::run_journey_coverage(&path, &journey, format),
-            ProductAction::FeatureImpact {
-                feature,
-                path,
-                format,
-            } => product::run_feature_impact(&path, &feature, format),
-            ProductAction::FeatureDependents {
-                feature,
-                path,
-                format,
-            } => product::run_feature_dependents(&path, &feature, format),
-            ProductAction::PersonaFeatures {
-                persona,
-                path,
-                format,
-            } => product::run_persona_features(&path, &persona, format),
-            ProductAction::ChannelFeatures {
-                channel,
-                path,
-                format,
-            } => product::run_channel_features(&path, &channel, format),
-            ProductAction::BulkStatus { path, format } => product::run_bulk_status(&path, format),
-            ProductAction::Health { path, format } => product::run_health(&path, format),
-        },
+        Commands::External(argv) => {
+            let builtins: Vec<String> = Cli::command()
+                .get_subcommands()
+                .map(|c| c.get_name().to_string())
+                .collect();
+            extension_command::run(&argv, &builtins)
+        }
         Commands::Extension { action } => match action {
             ExtensionAction::Init { name, path, format } => {
                 extension_authoring::run_init(&path, name.as_deref(), format)
