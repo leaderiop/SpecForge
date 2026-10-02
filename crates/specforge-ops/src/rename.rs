@@ -108,7 +108,8 @@ pub fn plan(
 
 /// Write `plan`'s edits to the files under `spec_root`: every file is
 /// read and edited first, then written; if a write fails, the files
-/// already written get their old text back.
+/// already written, and the one that failed part-way, get their old text
+/// back.
 pub fn apply(plan: &RenamePlan, spec_root: &Path) -> Result<(), OpError> {
     let mut changes = Vec::new();
     for file in plan.affected_files() {
@@ -124,7 +125,7 @@ pub fn apply(plan: &RenamePlan, spec_root: &Path) -> Result<(), OpError> {
     }
     for (i, (path, _, new)) in changes.iter().enumerate() {
         if let Err(e) = std::fs::write(path, new) {
-            for (written, old, _) in &changes[..i] {
+            for (written, old, _) in &changes[..=i] {
                 let _ = std::fs::write(written, old);
             }
             return Err(OpError::new(
@@ -192,6 +193,30 @@ mod tests {
         assert!(login.contains("invariants [session_cap]"), "{login}");
         let limit = std::fs::read_to_string(dir.path().join("limit.spec")).unwrap();
         assert!(limit.starts_with("invariant session_cap "), "{limit}");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_failed_write_puts_every_file_back() {
+        use std::os::unix::fs::PermissionsExt;
+        let (dir, graph) = project(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
+        let read = |f: &str| std::fs::read_to_string(dir.path().join(f)).ok();
+        let plan = plan(&graph, "session_limit", "session_cap", read).unwrap();
+        // limit.spec is written first; login.spec cannot be.
+        let login = dir.path().join("login.spec");
+        std::fs::set_permissions(&login, std::fs::Permissions::from_mode(0o444)).unwrap();
+        if std::fs::OpenOptions::new().write(true).open(&login).is_ok() {
+            return; // permissions don't bind this user (root)
+        }
+
+        let error = apply(&plan, dir.path()).unwrap_err();
+
+        assert_eq!(error.code, UNREADABLE);
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("limit.spec")).unwrap(),
+            LIMIT
+        );
+        assert_eq!(std::fs::read_to_string(&login).unwrap(), LOGIN);
     }
 
     #[test]
