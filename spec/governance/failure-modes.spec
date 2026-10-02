@@ -15,7 +15,7 @@ failure_mode incremental_divergence "Incremental Divergence" {
   occurrence         occasional
   detection          unlikely
   rpn                84
-  cause              "Bug in invalidation logic misses a transitive dependent, leaving stale nodes in graph"
+  cause              "Bug in the red-green rebuild leaves a stale node or edge, or misses a cross-file effect of a change"
   effect             "Incremental build produces different diagnostics than cold rebuild — user sees phantom errors or missed errors"
   mitigation         "Property test comparing incremental result to cold rebuild for randomized file changes"
   post_mitigation {
@@ -67,7 +67,7 @@ failure_mode duplicate_id_detection_miss "Duplicate ID Detection Miss" {
 
 failure_mode import_cycle_detection_miss "Import Cycle Detection Miss" {
   invariant          import_dag
-  affected_behaviors [compute_subgraph_for_invalidation, build_in_memory_graph]
+  affected_behaviors [detect_import_cycles, build_in_memory_graph]
   severity           medium
   occurrence         unlikely
   detection          moderate
