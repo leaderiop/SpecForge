@@ -1,3 +1,7 @@
+//! The checks a built graph goes through, and loading the extensions they
+//! come from: core validation, the registry checks, the extensions'
+//! declarative rules and their Wasm `check: "custom"` rules.
+
 use specforge_common::{Diagnostic, Severity, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph};
 use specforge_registry::{
@@ -17,8 +21,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 /// The flat view of a compiled project that older callers read
-/// (`specforge_project::CompiledProject::into_context` builds it; the
-/// compile itself lives in `specforge-project`).
+/// ([`crate::CompiledProject::into_context`] builds it).
 pub struct CompilationContext {
     pub graph: Graph,
     pub kind_registry: KindRegistry,

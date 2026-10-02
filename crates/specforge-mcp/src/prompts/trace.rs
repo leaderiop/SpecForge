@@ -34,7 +34,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
                 format!("Entity not found: {}", entity_id),
             );
         }
-        let gaps = serde_json::to_value(specforge_emitter::detect_trace_gaps(state.graph()))
+        let gaps = serde_json::to_value(specforge_ops::trace::detect_trace_gaps(state.graph()))
             .unwrap_or_default();
         (
             vec![entity_id.to_string()],
@@ -46,7 +46,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
     // Everything the seeds' trace chains reach, the seeds included.
     let mut affected: Vec<String> = seeds.clone();
     for seed in &seeds {
-        if let Ok(chain) = specforge_emitter::trace(state.graph(), seed) {
+        if let Ok(chain) = specforge_ops::trace::trace(state.graph(), seed) {
             affected.extend(
                 chain
                     .upstream

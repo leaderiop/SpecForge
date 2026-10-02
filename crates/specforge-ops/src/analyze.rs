@@ -11,11 +11,13 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::builtin_passes::{COVERAGE_PASS, PASS_NAMES};
 use specforge_common::{Diagnostic, Severity};
-use specforge_emitter::analyze::{self as passes, AnalysisContext, COVERAGE_PASS, PASS_NAMES};
-use specforge_emitter::compile::CompilationContext;
-use specforge_emitter::coverage::{self, ReportError};
 use specforge_graph::Graph;
+use specforge_project::CompilationContext;
+use specforge_project::coverage::TestReport;
+use specforge_project::coverage::{self, ReportError};
+use specforge_project::passes::{self, AnalysisContext};
 use specforge_registry::validation_engine::ValidationRulePattern;
 use specforge_registry::{FieldRegistry, KindRegistry, ManifestV2};
 use specforge_wasm::runtime::WasmRuntime;
@@ -303,7 +305,7 @@ fn analyze_via(
 
     let mut passes_run: Vec<PassOutcome> = Vec::new();
     for name in &selection.builtins {
-        if let Some(r) = passes::run_pass(&input, name) {
+        if let Some(r) = crate::builtin_passes::run_pass(&input, name) {
             passes_run.push(PassOutcome {
                 name: r.name.to_string(),
                 description: r.description.to_string(),
@@ -355,7 +357,7 @@ fn analyze_via(
 
 /// Report entries for entities the graph does not know. Matching is exact;
 /// a close match is only a hint.
-fn find_orphans(graph: &Graph, report: Option<&passes::TestReport>) -> Vec<Orphan> {
+fn find_orphans(graph: &Graph, report: Option<&TestReport>) -> Vec<Orphan> {
     let Some(report) = report else {
         return Vec::new();
     };
@@ -432,7 +434,7 @@ fn declared_pass_names(view: &ProjectView, runtime: &dyn WasmRuntime) -> Vec<Str
 fn read_report(
     view: &ProjectView,
     source: &ReportSource,
-) -> Result<Option<passes::TestReport>, AnalyzeError> {
+) -> Result<Option<TestReport>, AnalyzeError> {
     let read = match source {
         ReportSource::None => Ok(None),
         ReportSource::File(path) => coverage::read_report_file(path).map(Some),

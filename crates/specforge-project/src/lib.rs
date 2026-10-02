@@ -20,18 +20,21 @@
 
 mod build_cache;
 mod check_passes;
+pub mod compile;
+pub mod coverage;
 mod delta;
+pub mod field_types;
 mod incremental;
+pub mod passes;
 mod policy;
 mod session;
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
+use compile::{GraphChecks, check_graph, load_extensions, probe_custom_rules};
+use coverage::{CoverageRegistries, ProjectCoverage, TestReport};
 use specforge_common::{Diagnostic, ProjectConfig, is_discovered, load_project_config};
-use specforge_emitter::analyze::TestReport;
-use specforge_emitter::compile::{GraphChecks, check_graph, load_extensions, probe_custom_rules};
-use specforge_emitter::coverage::{CoverageRegistries, ProjectCoverage};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_registry::{
@@ -45,10 +48,10 @@ pub use build_cache::{
     BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus, record_build_cache,
 };
 pub use check_passes::CheckPass;
+pub use compile::CompilationContext;
 pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
 pub use policy::{DiagnosticPolicy, apply_policy};
 pub use session::{CheckMode, ProjectSession, SharedRuntime, SourceChange, Update};
-pub use specforge_emitter::compile::CompilationContext;
 
 /// Everything derived from `specforge.json` and the loaded extensions,
 /// before any `.spec` file is read.
@@ -129,7 +132,7 @@ impl Environment {
     pub fn graph_config(&self) -> GraphConfig {
         GraphConfig {
             known_provider_schemes: self.provider_schemes.clone(),
-            ..specforge_emitter::compile::graph_config(&self.registries)
+            ..compile::graph_config(&self.registries)
         }
     }
 

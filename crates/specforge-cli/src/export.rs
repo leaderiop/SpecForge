@@ -1,9 +1,9 @@
 use specforge_common::{Severity, find_project_root};
-use specforge_emitter::{
-    GraphProtocolSchema, attach_schema_version, detect_breaking_with_diagnostics, generate_schema,
-    persist_schema_cache,
-};
+use specforge_emitter::{GraphProtocolSchema, generate_schema};
 use specforge_ops::export;
+use specforge_ops::schema_cache::{
+    attach_schema_version, detect_breaking_with_diagnostics, persist_schema_cache,
+};
 use std::path::{Path, PathBuf};
 
 use crate::pipeline;

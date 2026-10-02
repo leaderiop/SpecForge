@@ -285,7 +285,7 @@ fn starter_template(extensions: &[String], installs: &[PathBuf]) -> Option<Strin
     }
     // A load failure only costs the extension its template.
     let mut ignored = Vec::new();
-    specforge_emitter::compile::load_extensions(extensions, &runtime, &mut ignored)
+    specforge_project::compile::load_extensions(extensions, &runtime, &mut ignored)
         .into_iter()
         .find_map(|manifest| manifest.starter_template)
 }

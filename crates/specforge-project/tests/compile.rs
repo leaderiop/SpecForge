@@ -130,7 +130,7 @@ fn graceful_degradation_contract() {
     assert_eq!(alpha.kind.raw.as_str(), "thing");
     assert_eq!(compiled.graph.edges_from("alpha").len(), 1);
     // valid_export_produced
-    let json = specforge_emitter::emit_json(&compiled.graph);
+    let json = specforge_emitter::json::emit_json(&compiled.graph);
     let exported: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(exported["nodes"].as_array().unwrap().len(), 2);
 }

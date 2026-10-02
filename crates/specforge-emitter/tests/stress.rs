@@ -52,7 +52,7 @@ fn build_graph(n: usize) -> Graph {
 #[ignore] // Run with: cargo test -p specforge-emitter -- stress --ignored
 fn stress_emit_json_1000() {
     let graph = build_graph(1000);
-    let output = specforge_emitter::emit_json(&graph);
+    let output = specforge_emitter::json::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
     assert_eq!(parsed["nodes"].as_array().unwrap().len(), 1000);
 }
@@ -61,7 +61,7 @@ fn stress_emit_json_1000() {
 #[ignore]
 fn stress_emit_context_1000() {
     let graph = build_graph(1000);
-    let output = specforge_emitter::emit_context(&graph);
+    let output = specforge_emitter::context::emit_context(&graph);
     assert!(!output.is_empty());
 }
 
@@ -69,7 +69,7 @@ fn stress_emit_context_1000() {
 #[ignore]
 fn stress_emit_brief_1000() {
     let graph = build_graph(1000);
-    let output = specforge_emitter::emit_brief(&graph);
+    let output = specforge_emitter::brief::emit_brief(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&output).unwrap();
     assert_eq!(parsed["nodes"].as_array().unwrap().len(), 1000);
 }

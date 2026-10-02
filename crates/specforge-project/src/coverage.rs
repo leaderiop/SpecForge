@@ -6,9 +6,8 @@
 //! exports, the MCP coverage, inspect, review and trace views) reads it
 //! here, so they cannot disagree.
 
-use crate::analyze::TestReport;
 use crate::compile::build_validation_entities;
-use serde_json::Value;
+use serde::Deserialize;
 use specforge_common::Diagnostic;
 use specforge_graph::{FieldValue, Graph, Node};
 use specforge_registry::validation_engine::{
@@ -22,6 +21,38 @@ use std::path::{Path, PathBuf};
 /// `analyze` and the coverage views read it.
 pub const REPORT_FILE: &str = "specforge-report.json";
 
+/// The recorded test report (`specforge-report.json`, RES-15).
+#[derive(Debug, Deserialize, serde::Serialize)]
+pub struct TestReport {
+    #[serde(default)]
+    pub runner: Option<String>,
+    #[serde(default)]
+    pub results: std::collections::BTreeMap<String, ReportedEntity>,
+}
+
+#[derive(Debug, Deserialize, serde::Serialize)]
+pub struct ReportedEntity {
+    #[serde(default)]
+    pub file: Option<String>,
+    #[serde(default)]
+    pub tests: Vec<ReportedTest>,
+}
+
+#[derive(Debug, Deserialize, serde::Serialize)]
+pub struct ReportedTest {
+    #[serde(default)]
+    pub name: Option<String>,
+    pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub duration_ms: Option<f64>,
+    /// The `verify` obligation the test proves, when it says so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verify: Option<String>,
+    /// The collector that recorded the test.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runner: Option<String>,
+}
+
 pub use specforge_coverage::{Status, Summary, Verdict};
 
 /// The kinds that count toward coverage: those an extension's manifest
@@ -33,8 +64,6 @@ pub fn testable_kinds(reg: &KindRegistry) -> BTreeSet<&str> {
         .map(|(name, _)| name.as_str())
         .collect()
 }
-
-use specforge_graph::obligations;
 
 /// Why a test report could not be used.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -289,20 +318,6 @@ impl ProjectCoverage {
     pub fn status(&self, id: &str) -> Status {
         self.verdict(id).map_or(Status::Uncovered, Verdict::status)
     }
-}
-
-/// The obligations as the exports write them (`[{kind, description}]`), or
-/// `None` when the entity declares none.
-pub(crate) fn obligations_json(node: &Node) -> Option<Value> {
-    let stmts = obligations(node);
-    (!stmts.is_empty()).then(|| {
-        Value::Array(
-            stmts
-                .iter()
-                .map(|s| serde_json::json!({"kind": s.kind, "description": s.description}))
-                .collect(),
-        )
-    })
 }
 
 #[cfg(test)]

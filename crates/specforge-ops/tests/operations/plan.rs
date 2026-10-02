@@ -80,7 +80,7 @@ fn plan_with_all_valid_entity_ids_passes() {
         ]
     });
 
-    let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
+    let result = specforge_ops::plan::validate_plan(&graph, &plan, &["behavior"]);
     assert!(
         result.errors.is_empty(),
         "no errors expected: {:?}",
@@ -102,7 +102,7 @@ fn plan_referencing_nonexistent_entity_produces_error() {
         ]
     });
 
-    let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
+    let result = specforge_ops::plan::validate_plan(&graph, &plan, &["behavior"]);
     assert!(
         result
             .errors
@@ -127,7 +127,7 @@ fn testable_entity_missing_from_plan_produces_warning() {
         ]
     });
 
-    let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
+    let result = specforge_ops::plan::validate_plan(&graph, &plan, &["behavior"]);
     // One warning, for c; none for the covered b or the untestable a.
     assert_eq!(
         result.warnings,
@@ -136,7 +136,7 @@ fn testable_entity_missing_from_plan_produces_warning() {
     assert_eq!(result.gaps.len(), 1);
     assert_eq!(
         result.gaps[0].kind,
-        specforge_emitter::PlanGapKind::MissingPlanEntry
+        specforge_ops::plan::PlanGapKind::MissingPlanEntry
     );
     assert_eq!(result.gaps[0].target, "c");
     // A plan covering both behaviors warns about nothing.
@@ -146,7 +146,7 @@ fn testable_entity_missing_from_plan_produces_warning() {
             { "entity_id": "b", "action": "implement" },
         ]
     });
-    let covered = specforge_emitter::validate_plan(&graph, &full, &["behavior"]);
+    let covered = specforge_ops::plan::validate_plan(&graph, &full, &["behavior"]);
     assert!(covered.warnings.is_empty(), "{:?}", covered.warnings);
 }
 
@@ -166,7 +166,7 @@ fn plan_dependency_order_contradicting_graph_produces_diagnostic() {
         ]
     });
 
-    let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
+    let result = specforge_ops::plan::validate_plan(&graph, &plan, &["behavior"]);
     assert!(
         result
             .ordering_violations
@@ -187,8 +187,8 @@ fn plan_validation_output_is_structured_json() {
         ]
     });
 
-    let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
-    let json = specforge_emitter::serialize_plan_result(&result);
+    let result = specforge_ops::plan::validate_plan(&graph, &plan, &["behavior"]);
+    let json = specforge_ops::plan::serialize_plan_result(&result);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     assert!(parsed["errors"].is_array());
@@ -214,7 +214,7 @@ fn plan_validation_contract_consistency() {
         ]
     });
 
-    let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
+    let result = specforge_ops::plan::validate_plan(&graph, &plan, &["behavior"]);
 
     // unresolvable_ids_diagnosed: E003 for the unknown ID.
     assert_eq!(
@@ -235,7 +235,7 @@ fn plan_validation_contract_consistency() {
             { "entity_id": "c", "action": "implement" },
         ]
     });
-    let ordered = specforge_emitter::validate_plan(&graph, &misordered, &["behavior"]);
+    let ordered = specforge_ops::plan::validate_plan(&graph, &misordered, &["behavior"]);
     assert_eq!(
         ordered.ordering_violations,
         vec!["'b' depends on 'c' (via depends_on), but 'c' appears later in the plan".to_string()]
@@ -246,7 +246,7 @@ fn plan_validation_contract_consistency() {
             { "entity_id": "b", "action": "implement" },
         ]
     });
-    let fine = specforge_emitter::validate_plan(&graph, &fixed, &["behavior"]);
+    let fine = specforge_ops::plan::validate_plan(&graph, &fixed, &["behavior"]);
     assert!(
         fine.ordering_violations.is_empty(),
         "{:?}",
@@ -255,7 +255,7 @@ fn plan_validation_contract_consistency() {
 
     // structured_report_produced: validated entries, gaps and ordering
     // violations as JSON.
-    let json = specforge_emitter::serialize_plan_result(&result);
+    let json = specforge_ops::plan::serialize_plan_result(&result);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(
         parsed,
@@ -268,7 +268,7 @@ fn plan_validation_contract_consistency() {
         })
     );
     let report: serde_json::Value =
-        serde_json::from_str(&specforge_emitter::serialize_plan_result(&ordered)).unwrap();
+        serde_json::from_str(&specforge_ops::plan::serialize_plan_result(&ordered)).unwrap();
     assert_eq!(
         report["ordering_violations"],
         serde_json::json!([

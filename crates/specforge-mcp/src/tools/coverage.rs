@@ -1,6 +1,6 @@
 use serde_json::Value;
-use specforge_emitter::analyze::TestReport;
-use specforge_emitter::coverage::{CoverageRegistries, ProjectCoverage, ReportError, Status};
+use specforge_project::coverage::TestReport;
+use specforge_project::coverage::{CoverageRegistries, ProjectCoverage, ReportError, Status};
 
 use crate::state::McpState;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
@@ -11,7 +11,7 @@ use crate::tool::{ErrorCode, McpError, ToolOutcome};
 /// but unreadable is an error, as in the CLI (ADR 0004, D2-e).
 pub(crate) fn recorded_report(state: &McpState) -> Result<Option<TestReport>, ReportError> {
     match &state.project_root {
-        Some(root) => specforge_emitter::coverage::read_report(root),
+        Some(root) => specforge_project::coverage::read_report(root),
         None => Ok(None),
     }
 }
@@ -90,7 +90,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let status_filter = args.status_filter.as_deref();
 
     // Testability is the extensions' call (their kinds' manifests).
-    let testable = specforge_emitter::coverage::testable_kinds(&state.registries().kinds);
+    let testable = specforge_project::coverage::testable_kinds(&state.registries().kinds);
     let results: Vec<Value> = state
         .graph()
         .nodes()

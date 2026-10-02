@@ -2,10 +2,8 @@
 //! `phase: "check"` run with every compile, after the graph checks, and
 //! what they report is the compile's (behavior `run_check_phase_passes`).
 
+use crate::passes::{AnalysisContext, call_pass, declared_passes, is_check_phase, pass_input};
 use specforge_common::Diagnostic;
-use specforge_emitter::analyze::{
-    AnalysisContext, call_pass, declared_passes, is_check_phase, pass_input,
-};
 use specforge_graph::Graph;
 use specforge_registry::ManifestV2;
 use specforge_wasm::WasmRuntime;

@@ -57,7 +57,7 @@ fn context_includes_contracts_and_verify() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
-    let json = specforge_emitter::emit_context(&graph);
+    let json = specforge_emitter::context::emit_context(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     let node = &parsed["nodes"].as_array().unwrap()[0];
@@ -83,7 +83,7 @@ fn context_omits_verbose_prose_fields() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
-    let json = specforge_emitter::emit_context(&graph);
+    let json = specforge_emitter::context::emit_context(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     let node = &parsed["nodes"].as_array().unwrap()[0];
@@ -127,7 +127,7 @@ fn context_includes_edges_and_schema_version() {
         label: Sym::new("behaviors"),
     });
 
-    let json = specforge_emitter::emit_context(&graph);
+    let json = specforge_emitter::context::emit_context(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     assert!(parsed["schema_version"].is_string());
@@ -143,7 +143,7 @@ fn context_conforms_to_graph_protocol_schema() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
-    let json = specforge_emitter::emit_context(&graph);
+    let json = specforge_emitter::context::emit_context(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     // Graph Protocol requires: schema_version, nodes array, edges array
@@ -168,8 +168,8 @@ fn context_is_smaller_than_full_json() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
-    let context = specforge_emitter::emit_context(&graph);
-    let full = specforge_emitter::emit_json(&graph);
+    let context = specforge_emitter::context::emit_context(&graph);
+    let full = specforge_emitter::json::emit_json(&graph);
     assert!(
         context.len() < full.len(),
         "context ({}) should be smaller than full ({})",

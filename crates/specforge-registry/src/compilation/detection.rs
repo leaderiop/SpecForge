@@ -971,7 +971,7 @@ mod tests {
         let source = "thing my_thing \"A Thing\" {\n  data \"hello\"\n}\n";
         let parsed = specforge_parser::parse(source, "test.spec");
         let (graph, _) = specforge_graph::build_graph(&[parsed]);
-        let json = specforge_emitter::emit_json(&graph);
+        let json = specforge_emitter::json::emit_json(&graph);
         // Should be valid JSON
         let parsed_json: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!(parsed_json.is_object());
@@ -983,7 +983,7 @@ mod tests {
         let source = "thing my_thing \"A Thing\" {\n  data \"hello\"\n}\n";
         let parsed = specforge_parser::parse(source, "test.spec");
         let (graph, _) = specforge_graph::build_graph(&[parsed]);
-        let json = specforge_emitter::emit_json(&graph);
+        let json = specforge_emitter::json::emit_json(&graph);
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         let nodes = v["nodes"].as_array().unwrap();
         assert!(nodes.iter().any(|n| n["id"] == "my_thing"));
@@ -995,7 +995,7 @@ mod tests {
         let source = "thing a \"A\" {\n  refs [b]\n}\nthing b \"B\" {\n  data \"ok\"\n}\n";
         let parsed = specforge_parser::parse(source, "test.spec");
         let (graph, _) = specforge_graph::build_graph(&[parsed]);
-        let json = specforge_emitter::emit_json(&graph);
+        let json = specforge_emitter::json::emit_json(&graph);
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         let edges = v["edges"].as_array().unwrap();
         assert!(

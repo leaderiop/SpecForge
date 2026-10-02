@@ -2,10 +2,10 @@
 //! `check_graph` every surface (check, watch, LSP) runs.
 
 use specforge_common::Diagnostic;
-use specforge_emitter::compile::{GraphChecks, check_graph};
-use specforge_emitter::field_types::field_coercions;
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::FieldValue;
+use specforge_project::compile::{GraphChecks, check_graph};
+use specforge_project::field_types::field_coercions;
 use specforge_registry::{ManifestV2, populate_registries};
 use specforge_test_macros::test as specforge_test;
 

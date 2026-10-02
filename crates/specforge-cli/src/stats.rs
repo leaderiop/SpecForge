@@ -1,5 +1,5 @@
-use specforge_emitter::coverage::{CoverageRegistries, ProjectCoverage};
-use specforge_emitter::{ProjectStats, compute_project_stats};
+use specforge_ops::stats::{ProjectStats, compute_project_stats};
+use specforge_project::coverage::{CoverageRegistries, ProjectCoverage};
 use std::path::Path;
 
 use crate::OutputFormat;
@@ -9,7 +9,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
     // The proof percentage reads what `specforge collect` last recorded; a
     // report that is there but unusable is an error, as in `analyze`.
-    let report = match specforge_emitter::coverage::read_report(path) {
+    let report = match specforge_project::coverage::read_report(path) {
         Ok(report) => report,
         Err(e) => {
             eprintln!("error: {e}");

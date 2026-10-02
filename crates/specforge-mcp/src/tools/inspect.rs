@@ -37,7 +37,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     // Whether the entity's kind counts toward coverage, as hover, the
     // schema and the outline say (ADR 0004, D2-d); `declared` says whether
     // the entity itself declares obligations.
-    let testable = specforge_emitter::coverage::testable_kinds(&state.registries().kinds)
+    let testable = specforge_project::coverage::testable_kinds(&state.registries().kinds)
         .contains(node.kind.raw.as_str());
     let verify_declarations: Option<Vec<String>> = declared.then(|| {
         obligations

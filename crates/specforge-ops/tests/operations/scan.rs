@@ -1,5 +1,5 @@
 use specforge_component::ComponentRuntime;
-use specforge_emitter::scanner_dispatch;
+use specforge_ops::scan;
 use specforge_registry::{AnalyzerContribution, ExtensionContributions, ManifestV2};
 use tempfile::TempDir;
 
@@ -69,7 +69,7 @@ fn scan_only_matching_extensions() {
     let source_files = vec!["lib.rs".into(), "readme.md".into(), "app.txt".into()];
 
     let (items, scanners) =
-        scanner_dispatch::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+        scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].name, "hello");
@@ -85,8 +85,7 @@ fn scan_empty_source_list() {
     let runtime = rust_only_runtime();
     let manifests = vec![rust_manifest()];
 
-    let (items, scanners) =
-        scanner_dispatch::scan_source_files(&runtime, &manifests, dir.path(), &[]);
+    let (items, scanners) = scan::scan_source_files(&runtime, &manifests, dir.path(), &[]);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -100,8 +99,7 @@ fn scan_no_manifests_skips_all_files() {
     let runtime = rust_only_runtime();
     let source_files = vec!["lib.rs".into()];
 
-    let (items, scanners) =
-        scanner_dispatch::scan_source_files(&runtime, &[], dir.path(), &source_files);
+    let (items, scanners) = scan::scan_source_files(&runtime, &[], dir.path(), &source_files);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -116,7 +114,7 @@ fn scan_missing_file_skipped_gracefully() {
     let source_files = vec!["nonexistent.rs".into()];
 
     let (items, scanners) =
-        scanner_dispatch::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+        scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -136,7 +134,7 @@ fn default_runtime_scans_rust_files() {
     let source_files = vec!["main.rs".into()];
 
     let (items, scanners) =
-        scanner_dispatch::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+        scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 2);
     assert_eq!(items[0].name, "process_order");
@@ -208,7 +206,7 @@ fn multi_scanner_mixed_project() {
     ];
 
     let (items, scanners) =
-        scanner_dispatch::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+        scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 5);
 

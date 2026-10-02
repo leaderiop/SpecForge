@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use specforge_emitter::TraceExpectations;
+use specforge_ops::trace::TraceExpectations;
 
 use crate::OutputFormat;
 use crate::pipeline;
@@ -14,7 +14,7 @@ pub fn run(path: &Path, entity: Option<&str>, format: OutputFormat) -> i32 {
 
     let chains = match entity {
         Some(entity) => {
-            match specforge_emitter::trace_with_expectations(&ctx.graph, entity, &expectations) {
+            match specforge_ops::trace::trace_with_expectations(&ctx.graph, entity, &expectations) {
                 Ok(chain) => vec![chain],
                 Err(err) => {
                     eprintln!("{err}");
@@ -22,22 +22,22 @@ pub fn run(path: &Path, entity: Option<&str>, format: OutputFormat) -> i32 {
                 }
             }
         }
-        None => specforge_emitter::trace_all_with_expectations(&ctx.graph, &expectations),
+        None => specforge_ops::trace::trace_all_with_expectations(&ctx.graph, &expectations),
     };
 
     match format {
         OutputFormat::Human => {
             let text: Vec<String> = chains
                 .iter()
-                .map(specforge_emitter::render_trace_human)
+                .map(specforge_ops::trace::render_trace_human)
                 .collect();
             print!("{}", text.join("\n"));
             0
         }
         OutputFormat::Json => {
             let json = match entity {
-                Some(_) => specforge_emitter::serialize_trace(&chains[0]),
-                None => specforge_emitter::serialize_trace_all(&chains),
+                Some(_) => specforge_ops::trace::serialize_trace(&chains[0]),
+                None => specforge_ops::trace::serialize_trace_all(&chains),
             };
             match json {
                 Ok(json) => {

@@ -1,5 +1,5 @@
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use specforge_emitter::{emit_brief, emit_context, emit_json};
+use specforge_emitter::{brief::emit_brief, context::emit_context, json::emit_json};
 use specforge_graph::build_graph;
 use specforge_parser::parse;
 

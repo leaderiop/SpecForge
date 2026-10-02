@@ -1,16 +1,17 @@
-//! Shared analysis passes over a compiled project.
-//!
-//! One implementation serves every surface: `specforge analyze` (CLI) and
-//! the `specforge.analyze` MCP tool run the same passes over the same
-//! `AnalysisContext`. Findings are standard host diagnostics with `A`-codes.
+//! Extension compiler passes: what an extension declares (`__describe
+//! passes`), in which order they run, the input every `__pass_<name>`
+//! export receives and how its answer is read. Check-phase passes run with
+//! every compile ([`crate::check_passes`]); the others under
+//! `specforge analyze` (`specforge_ops::analyze`). Findings are standard host
+//! diagnostics.
 
 use serde::Deserialize;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_parser::FieldValue;
-use specforge_registry::{FieldRegistry, KindRegistry, ManifestFieldType};
-use std::collections::HashMap;
+use specforge_registry::{FieldRegistry, KindRegistry};
 use std::path::Path;
+
+use crate::coverage::TestReport;
 
 /// Everything a pass may inspect. Built once per analysis invocation.
 pub struct AnalysisContext<'a> {
@@ -37,164 +38,6 @@ pub struct AnalysisContext<'a> {
 
 /// A diagnostic returned by an analysis pass, ready for host rendering.
 pub type Finding = Diagnostic;
-
-/// Result of one analysis pass.
-pub struct PassReport {
-    pub name: &'static str,
-    pub description: &'static str,
-    pub findings: Vec<Finding>,
-    pub summary: serde_json::Value,
-}
-
-/// Built-in passes. Coverage is owned by `@specforge/testing`
-/// (`@specforge/testing:coverage`, ADR 0002).
-pub const PASS_NAMES: &[&str] = &["contracts"];
-
-/// The extension pass that owns proof coverage (and the `--min` gate).
-pub const COVERAGE_PASS: &str = "@specforge/testing:coverage";
-
-// ── Layer 3: proof (specforge-report.json, RES-15) ─────────────────────────
-
-#[derive(Debug, Deserialize, serde::Serialize)]
-pub struct TestReport {
-    #[serde(default)]
-    pub runner: Option<String>,
-    #[serde(default)]
-    pub results: std::collections::BTreeMap<String, ReportedEntity>,
-}
-
-#[derive(Debug, Deserialize, serde::Serialize)]
-pub struct ReportedEntity {
-    #[serde(default)]
-    pub file: Option<String>,
-    #[serde(default)]
-    pub tests: Vec<ReportedTest>,
-}
-
-#[derive(Debug, Deserialize, serde::Serialize)]
-pub struct ReportedTest {
-    #[serde(default)]
-    pub name: Option<String>,
-    pub status: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub duration_ms: Option<f64>,
-    /// The `verify` obligation the test proves, when it says so.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verify: Option<String>,
-    /// The collector that recorded the test.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub runner: Option<String>,
-}
-
-// ── contracts ───────────────────────────────────────────────────────────────
-
-/// Reference fields count as contract obligations when they target the
-/// formal contract kinds (invariants and properties) — e.g. the formal
-/// extension's requires/ensures/maintains/satisfies.
-const CONTRACT_TARGET_KINDS: &[&str] = &["invariant", "property"];
-
-/// `contracts` — requires/ensures/maintains contract coverage (RES-25).
-///
-/// A contract-bearing kind (any kind with registered reference fields such as
-/// `requires`/`ensures`/`maintains`) whose entities declare none of them is
-/// reported as unconstrained. Reference existence is already checked by the
-/// compiler (E003) and is not repeated here.
-pub fn pass_contracts(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value) {
-    let mut contract_fields: HashMap<&str, Vec<&str>> = HashMap::new();
-    for (kind, field, entry) in ctx.field_registry.iter() {
-        if !matches!(
-            entry.field_type,
-            ManifestFieldType::Reference | ManifestFieldType::ReferenceList
-        ) {
-            continue;
-        }
-        if entry
-            .target_kind
-            .as_deref()
-            .is_some_and(|t| CONTRACT_TARGET_KINDS.contains(&t))
-        {
-            contract_fields.entry(kind).or_default().push(field);
-        }
-    }
-    for fields in contract_fields.values_mut() {
-        // Suggestions render this list — keep it registry-order-independent
-        // (hardening-plan D4 / R-6).
-        fields.sort_unstable();
-    }
-
-    let mut findings = Vec::new();
-    let mut contract_entities = 0usize;
-    let mut unconstrained = 0usize;
-    let mut obligation_refs = 0usize;
-
-    // Sorted node order: findings must not depend on HashMap seeding (R-6).
-    let mut nodes: Vec<_> = ctx.graph.nodes();
-    nodes.sort_by_key(|n| n.id.raw);
-    for node in nodes {
-        let Some(fields) = contract_fields.get(node.kind.raw.as_str()) else {
-            continue;
-        };
-        let declared = fields
-            .iter()
-            .filter(|f| {
-                matches!(
-                    node.fields.get(f),
-                    Some(FieldValue::ReferenceList(items)) if !items.is_empty()
-                )
-            })
-            .count();
-        if declared > 0 {
-            contract_entities += 1;
-            obligation_refs += declared;
-        } else {
-            unconstrained += 1;
-            findings.push(
-                Diagnostic::info(
-                    "A010",
-                    format!(
-                        "{} '{}' declares no contract obligations",
-                        node.kind.raw, node.id.raw
-                    ),
-                )
-                .with_span(node.source_span.clone())
-                .with_suggestion(format!(
-                    "add requires/ensures/maintains references (registered for '{}': {})",
-                    node.kind.raw,
-                    fields.join(", ")
-                )),
-            );
-        }
-    }
-
-    let summary = serde_json::json!({
-        "contract_entities": contract_entities,
-        "unconstrained_entities": unconstrained,
-        "obligation_references": obligation_refs,
-    });
-    (findings, summary)
-}
-
-/// Run one named built-in pass. Returns `None` for unknown pass names.
-pub fn run_pass(ctx: &AnalysisContext, pass: &str) -> Option<PassReport> {
-    let (name, description, findings, summary) = match pass {
-        "contracts" => {
-            let (findings, summary) = pass_contracts(ctx);
-            (
-                "contracts",
-                "entities of contract-bearing kinds without requires/ensures/maintains obligations",
-                findings,
-                summary,
-            )
-        }
-        _ => return None,
-    };
-    Some(PassReport {
-        name,
-        description,
-        findings,
-        summary,
-    })
-}
 
 // ── Extension-owned compiler passes (WASM-only migration, Phase 4) ─────────
 

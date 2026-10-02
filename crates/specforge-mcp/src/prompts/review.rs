@@ -22,7 +22,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         None => None,
     };
     // Coverage is about testable entities only, as `specforge.coverage` reports.
-    let testable = specforge_emitter::coverage::testable_kinds(&state.registries().kinds);
+    let testable = specforge_project::coverage::testable_kinds(&state.registries().kinds);
     let mut nodes: Vec<_> = state
         .graph()
         .nodes()
@@ -54,7 +54,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
     };
 
     // The same classification `specforge.coverage` reports.
-    let project = specforge_emitter::coverage::ProjectCoverage::compute(
+    let project = specforge_project::coverage::ProjectCoverage::compute(
         state.graph(),
         crate::tools::coverage::coverage_registries(state),
         report.as_ref(),

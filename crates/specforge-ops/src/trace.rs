@@ -3,8 +3,7 @@ use specforge_graph::Graph;
 use specforge_registry::{FieldRegistry, KindRegistry, ManifestFieldType};
 use std::collections::{BTreeMap, HashSet, VecDeque};
 
-use crate::error::EmitterError;
-use crate::json::SCHEMA_VERSION;
+use specforge_emitter::{EmitterError, SCHEMA_VERSION};
 
 #[derive(Debug, Serialize)]
 pub struct TraceChain {
@@ -270,7 +269,7 @@ pub fn detect_trace_gaps(graph: &Graph) -> Vec<String> {
     gaps
 }
 
-pub fn serialize_trace_all(chains: &[TraceChain]) -> Result<String, crate::error::EmitterError> {
+pub fn serialize_trace_all(chains: &[TraceChain]) -> Result<String, EmitterError> {
     #[derive(Serialize)]
     struct TraceAllOutput<'a> {
         schema_version: &'static str,
@@ -283,10 +282,10 @@ pub fn serialize_trace_all(chains: &[TraceChain]) -> Result<String, crate::error
     };
 
     serde_json::to_string_pretty(&output)
-        .map_err(|e| crate::error::EmitterError::SerializationError(e.to_string()))
+        .map_err(|e| EmitterError::SerializationError(e.to_string()))
 }
 
-pub fn serialize_trace(chain: &TraceChain) -> Result<String, crate::error::EmitterError> {
+pub fn serialize_trace(chain: &TraceChain) -> Result<String, EmitterError> {
     #[derive(Serialize)]
     struct TraceOutput<'a> {
         schema_version: &'static str,
@@ -307,7 +306,7 @@ pub fn serialize_trace(chain: &TraceChain) -> Result<String, crate::error::Emitt
     };
 
     serde_json::to_string_pretty(&output)
-        .map_err(|e| crate::error::EmitterError::SerializationError(e.to_string()))
+        .map_err(|e| EmitterError::SerializationError(e.to_string()))
 }
 
 /// A chain as terminal text: the entity, then its upstream, downstream and

@@ -43,21 +43,24 @@ pub fn compute_stats_with_diagnostics(
     testable_kinds: &[&str],
     diagnostics: &[Diagnostic],
 ) -> ProjectStats {
-    let coverage =
-        crate::coverage::ProjectCoverage::with_testable_kinds(graph, testable_kinds, None);
+    let coverage = specforge_project::coverage::ProjectCoverage::with_testable_kinds(
+        graph,
+        testable_kinds,
+        None,
+    );
     compute_project_stats(graph, &coverage.summary, diagnostics)
 }
 
 /// The project's statistics. The testable and verified counts are the
 /// coverage rule's (`coverage`, from
-/// [`crate::coverage::ProjectCoverage`]), so stats and `analyze coverage`
+/// [`specforge_project::coverage::ProjectCoverage`]), so stats and `analyze coverage`
 /// report the same numbers: testable entities are those that count toward
 /// coverage (entities W004 exempts and that declare nothing are left
 /// out), and an entity is verified when it declares at least one
 /// obligation.
 pub fn compute_project_stats(
     graph: &Graph,
-    coverage: &crate::coverage::Summary,
+    coverage: &specforge_project::coverage::Summary,
     diagnostics: &[Diagnostic],
 ) -> ProjectStats {
     let mut entities_by_kind = BTreeMap::new();

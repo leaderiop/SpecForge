@@ -3,7 +3,7 @@ use serde_json::Value;
 use specforge_graph::Graph;
 use std::collections::{HashMap, HashSet};
 
-use crate::json::SCHEMA_VERSION;
+use specforge_emitter::SCHEMA_VERSION;
 
 #[derive(Debug)]
 pub struct PlanValidationResult {

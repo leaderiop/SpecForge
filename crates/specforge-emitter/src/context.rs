@@ -81,7 +81,7 @@ pub fn emit_context_with_fields(graph: &Graph, registry: Option<&FieldRegistry>)
                 specforge_graph::FieldValue::String(s) => Some(s.clone()),
                 _ => None,
             });
-            let verify = crate::coverage::obligations_json(n);
+            let verify = crate::json::obligations_json(n);
 
             ContextNode {
                 id: n.id.raw.to_string(),

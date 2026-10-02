@@ -114,7 +114,7 @@ pub(crate) fn project_schema(state: &McpState) -> specforge_emitter::GraphProtoc
         &state.registries().extension_info,
     );
     if let Some(root) = &state.project_root {
-        specforge_emitter::attach_schema_version(&mut schema, &root.join(".specforge"));
+        specforge_ops::schema_cache::attach_schema_version(&mut schema, &root.join(".specforge"));
     }
     schema
 }

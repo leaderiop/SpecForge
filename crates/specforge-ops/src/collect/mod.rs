@@ -17,14 +17,14 @@ mod convention;
 use crate::OpError;
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, Severity};
-use specforge_emitter::analyze::{ReportedEntity, ReportedTest, TestReport};
+use specforge_project::coverage::{ReportedEntity, ReportedTest, TestReport};
 use specforge_registry::ManifestV2;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 
 /// Where `collect` writes the merged results `analyze` reads.
-pub use specforge_emitter::coverage::REPORT_FILE;
+pub use specforge_project::coverage::REPORT_FILE;
 
 /// Environment variable the host sets to the absolute report path when it
 /// runs a collector, so a runner integration can write there directly.
@@ -895,10 +895,10 @@ fn select<'a>(
 
 /// The report `collect` merges new results into: `specforge-report.json`,
 /// or an empty report when it's missing or unreadable. Unlike the readers
-/// that score coverage ([`specforge_emitter::coverage::read_report`]), collect is the
+/// that score coverage ([`specforge_project::coverage::read_report`]), collect is the
 /// writer: it replaces a report it cannot read.
 pub fn load_report(root: &Path) -> TestReport {
-    specforge_emitter::coverage::read_report(root)
+    specforge_project::coverage::read_report(root)
         .ok()
         .flatten()
         .unwrap_or(TestReport {

@@ -60,7 +60,7 @@ fn build_graph() -> Graph {
 )]
 fn same_input_produces_identical_json_across_runs() {
     let outputs: Vec<String> = (0..5)
-        .map(|_| specforge_emitter::emit_json(&build_graph()))
+        .map(|_| specforge_emitter::json::emit_json(&build_graph()))
         .collect();
     for output in &outputs[1..] {
         assert_eq!(
@@ -76,7 +76,10 @@ fn same_input_produces_identical_json_across_runs() {
 fn same_input_produces_identical_dot_across_runs() {
     let outputs: Vec<String> = (0..5)
         .map(|_| {
-            specforge_emitter::emit_dot(&build_graph(), &specforge_emitter::DotOptions::default())
+            specforge_emitter::dot::emit_dot(
+                &build_graph(),
+                &specforge_emitter::DotOptions::default(),
+            )
         })
         .collect();
     for output in &outputs[1..] {
@@ -92,7 +95,7 @@ fn same_input_produces_identical_dot_across_runs() {
 #[specforge_test(behavior = "deterministic_output")]
 fn same_input_produces_identical_brief_across_runs() {
     let outputs: Vec<String> = (0..5)
-        .map(|_| specforge_emitter::emit_brief(&build_graph()))
+        .map(|_| specforge_emitter::brief::emit_brief(&build_graph()))
         .collect();
     for output in &outputs[1..] {
         assert_eq!(
@@ -107,7 +110,7 @@ fn same_input_produces_identical_brief_across_runs() {
 #[specforge_test(behavior = "deterministic_output")]
 fn same_input_produces_identical_context_across_runs() {
     let outputs: Vec<String> = (0..5)
-        .map(|_| specforge_emitter::emit_context(&build_graph()))
+        .map(|_| specforge_emitter::context::emit_context(&build_graph()))
         .collect();
     for output in &outputs[1..] {
         assert_eq!(
@@ -124,7 +127,7 @@ fn same_input_produces_identical_context_across_runs() {
 )]
 fn json_nodes_sorted_by_id() {
     let graph = build_graph();
-    let json = specforge_emitter::emit_json(&graph);
+    let json = specforge_emitter::json::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     let ids: Vec<&str> = parsed["nodes"]
         .as_array()
@@ -165,8 +168,8 @@ fn json_edges_sorted_deterministically() {
         }
         graph
     };
-    let forward = specforge_emitter::emit_json(&with_edges(edges.iter().collect()));
-    let backward = specforge_emitter::emit_json(&with_edges(edges.iter().rev().collect()));
+    let forward = specforge_emitter::json::emit_json(&with_edges(edges.iter().collect()));
+    let backward = specforge_emitter::json::emit_json(&with_edges(edges.iter().rev().collect()));
     assert_eq!(forward, backward, "edge insertion order must not matter");
 
     // Sorted by source, then target, then label.
@@ -196,7 +199,7 @@ fn json_edges_sorted_deterministically() {
 
     // DOT lists edges in the same order.
     let graph = with_edges(edges.iter().rev().collect());
-    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     let dot_edges: Vec<&str> = dot.lines().filter(|l| l.contains("->")).collect();
     assert_eq!(
         dot_edges,
@@ -219,10 +222,10 @@ fn json_output_contains_no_timestamps() {
     let graph = build_graph();
     let emit_all = |graph: &Graph| -> Vec<String> {
         vec![
-            specforge_emitter::emit_json(graph),
-            specforge_emitter::emit_context(graph),
-            specforge_emitter::emit_brief(graph),
-            specforge_emitter::emit_dot(graph, &specforge_emitter::DotOptions::default()),
+            specforge_emitter::json::emit_json(graph),
+            specforge_emitter::context::emit_context(graph),
+            specforge_emitter::brief::emit_brief(graph),
+            specforge_emitter::dot::emit_dot(graph, &specforge_emitter::DotOptions::default()),
         ]
     };
 
@@ -349,53 +352,12 @@ fn file_emission_order_independent_of_filesystem() {
         });
     }
 
-    let json1 = specforge_emitter::emit_json(&graph1);
-    let json2 = specforge_emitter::emit_json(&graph2);
+    let json1 = specforge_emitter::json::emit_json(&graph1);
+    let json2 = specforge_emitter::json::emit_json(&graph2);
     assert_eq!(
         json1, json2,
         "output must be identical regardless of node insertion order (simulating different readdir orders)"
     );
-}
-
-// B:deterministic_output — verify property "stats output is deterministic"
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "same input produces identical output across runs"
-)]
-fn stats_output_is_deterministic() {
-    let outputs: Vec<_> = (0..5)
-        .map(|_| {
-            let stats = specforge_emitter::compute_stats(&build_graph());
-            format!("{:?}", stats)
-        })
-        .collect();
-    for output in &outputs[1..] {
-        assert_eq!(
-            &outputs[0], output,
-            "stats output must be identical across runs"
-        );
-    }
-}
-
-// B:deterministic_output — verify property "trace output is deterministic"
-#[specforge_test(
-    behavior = "deterministic_output",
-    verify = "same input produces identical output across runs"
-)]
-fn trace_output_is_deterministic() {
-    let graph = build_graph();
-    let outputs: Vec<_> = (0..5)
-        .map(|_| {
-            specforge_emitter::serialize_trace(&specforge_emitter::trace(&graph, "alpha").unwrap())
-                .unwrap()
-        })
-        .collect();
-    for output in &outputs[1..] {
-        assert_eq!(
-            &outputs[0], output,
-            "trace output must be identical across runs"
-        );
-    }
 }
 
 // B:deterministic_output — verify property "scoped emit is deterministic"
@@ -406,7 +368,7 @@ fn trace_output_is_deterministic() {
 fn scoped_json_output_is_deterministic() {
     let graph = build_graph();
     let outputs: Vec<_> = (0..5)
-        .map(|_| specforge_emitter::emit_json_scoped(&graph, "zebra").unwrap())
+        .map(|_| specforge_emitter::scope::emit_json_scoped(&graph, "zebra").unwrap())
         .collect();
     for output in &outputs[1..] {
         assert_eq!(
@@ -424,7 +386,7 @@ fn scoped_json_output_is_deterministic() {
 fn scoped_context_output_is_deterministic() {
     let graph = build_graph();
     let outputs: Vec<_> = (0..5)
-        .map(|_| specforge_emitter::emit_context_scoped(&graph, "zebra").unwrap())
+        .map(|_| specforge_emitter::scope::emit_context_scoped(&graph, "zebra").unwrap())
         .collect();
     for output in &outputs[1..] {
         assert_eq!(

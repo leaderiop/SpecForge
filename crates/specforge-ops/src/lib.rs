@@ -9,6 +9,7 @@
 //! JSON-RPC stream). The crate denies `clippy::print_stdout`.
 
 pub mod analyze;
+pub mod builtin_passes;
 pub mod collect;
 pub mod config;
 pub mod doctor;
@@ -18,9 +19,14 @@ pub mod format;
 pub mod infer;
 pub mod init;
 pub mod migrate;
+pub mod plan;
 pub mod prove;
 pub mod registry;
 pub mod rename;
+pub mod scan;
+pub mod schema_cache;
+pub mod stats;
+pub mod trace;
 
 use std::borrow::Cow;
 

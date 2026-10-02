@@ -26,8 +26,8 @@
 use std::process::Command;
 
 use specforge_common::{Diagnostic, SourceSpan, Sym};
-use specforge_emitter::analyze::AnalysisContext;
 use specforge_parser::{Expr, SpannedExpr, parse_expression};
+use specforge_project::passes::AnalysisContext;
 
 /// Result of one prove run over the compiled project.
 pub struct ProveReport {

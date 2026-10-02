@@ -118,8 +118,7 @@ pub fn gaps(
     runtime: &dyn WasmRuntime,
 ) -> Result<Gaps, OpError> {
     let files = source_files(root, manifests, &manifest(root)?);
-    let (items, scanners_used) =
-        specforge_emitter::scanner_dispatch::scan_source_files(runtime, manifests, root, &files);
+    let (items, scanners_used) = crate::scan::scan_source_files(runtime, manifests, root, &files);
     let entity_ids: Vec<&str> = graph
         .nodes()
         .into_iter()

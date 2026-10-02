@@ -58,7 +58,7 @@ fn stats_reports_correct_entity_counts() {
     graph.add_node(node("b", "behavior"));
     graph.add_node(node("c", "feature"));
 
-    let stats = specforge_emitter::compute_stats(&graph);
+    let stats = specforge_ops::stats::compute_stats(&graph);
     assert_eq!(stats.total_entities, 3);
     assert_eq!(stats.entities_by_kind["behavior"], 2);
     assert_eq!(stats.entities_by_kind["feature"], 1);
@@ -77,7 +77,7 @@ fn stats_reports_edge_count() {
         label: Sym::new("behaviors"),
     });
 
-    let stats = specforge_emitter::compute_stats(&graph);
+    let stats = specforge_ops::stats::compute_stats(&graph);
     assert_eq!(stats.total_edges, 1);
 }
 
@@ -97,7 +97,7 @@ fn stats_reports_orphan_count() {
         label: Sym::new("behaviors"),
     });
 
-    let stats = specforge_emitter::compute_stats(&graph);
+    let stats = specforge_ops::stats::compute_stats(&graph);
     assert_eq!(stats.orphan_count, 1); // only "a" is orphan
 }
 
@@ -109,7 +109,7 @@ fn stats_reports_verified_count() {
     graph.add_node(node_with_verify("a", "behavior"));
     graph.add_node(node("b", "behavior")); // no verify
 
-    let stats = specforge_emitter::compute_stats(&graph);
+    let stats = specforge_ops::stats::compute_stats(&graph);
     assert_eq!(stats.verified_count, 1);
 }
 
@@ -118,7 +118,7 @@ fn stats_reports_verified_count() {
 #[specforge_test(behavior = "compute_project_statistics")]
 fn stats_on_empty_graph() {
     let graph = Graph::new();
-    let stats = specforge_emitter::compute_stats(&graph);
+    let stats = specforge_ops::stats::compute_stats(&graph);
     assert_eq!(stats.total_entities, 0);
     assert_eq!(stats.total_edges, 0);
     assert_eq!(stats.orphan_count, 0);
@@ -137,7 +137,7 @@ fn stats_coverage_with_testable_kinds() {
     graph.add_node(node("c", "feature")); // not testable
 
     let testable = &["behavior"];
-    let stats = specforge_emitter::compute_stats_with_testable(&graph, testable);
+    let stats = specforge_ops::stats::compute_stats_with_testable(&graph, testable);
     // 1 verified out of 2 testable = 50%
     assert_eq!(stats.testable_count, 2);
     assert_eq!(stats.verified_count, 1);
@@ -154,7 +154,7 @@ fn stats_coverage_zero_when_no_testable_entities() {
     graph.add_node(node("a", "feature")); // not testable
 
     let testable: &[&str] = &["behavior"]; // no behaviors in graph
-    let stats = specforge_emitter::compute_stats_with_testable(&graph, testable);
+    let stats = specforge_ops::stats::compute_stats_with_testable(&graph, testable);
     assert_eq!(stats.testable_count, 0);
     assert_eq!(stats.coverage_pct, 0.0);
 }
@@ -182,7 +182,7 @@ fn stats_includes_diagnostic_summary() {
             suggestion: None,
         },
     ];
-    let stats = specforge_emitter::compute_stats_with_diagnostics(&graph, &[], &diagnostics);
+    let stats = specforge_ops::stats::compute_stats_with_diagnostics(&graph, &[], &diagnostics);
     assert_eq!(stats.error_count, 1);
     assert_eq!(stats.warning_count, 1);
     assert_eq!(stats.info_count, 0);
@@ -207,7 +207,7 @@ fn stats_counts_obligations_behind_a_verify_member() {
     graph.add_node(payload);
     graph.add_node(node("Status", "type"));
 
-    let stats = specforge_emitter::compute_stats_with_testable(&graph, &["type"]);
+    let stats = specforge_ops::stats::compute_stats_with_testable(&graph, &["type"]);
     assert_eq!(stats.testable_count, 2);
     assert_eq!(stats.verified_count, 1, "Payload declares an obligation");
     assert!((stats.coverage_pct - 50.0).abs() < 0.01);
@@ -235,7 +235,7 @@ fn stats_leaves_union_types_out_of_the_testable_count() {
     graph.add_node(named);
     graph.add_node(node_with_verify("Payload", "type"));
 
-    let stats = specforge_emitter::compute_stats_with_testable(&graph, &["type"]);
+    let stats = specforge_ops::stats::compute_stats_with_testable(&graph, &["type"]);
     assert_eq!(stats.testable_count, 2, "Named and Payload");
     assert!((stats.coverage_pct - 50.0).abs() < 0.01);
 }

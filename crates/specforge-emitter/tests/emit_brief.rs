@@ -64,7 +64,7 @@ fn brief_includes_only_ids_kinds_titles_and_edges() {
         label: Sym::new("behaviors"),
     });
 
-    let json = specforge_emitter::emit_brief(&graph);
+    let json = specforge_emitter::brief::emit_brief(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     let nodes = parsed["nodes"].as_array().unwrap();
@@ -101,8 +101,8 @@ fn brief_is_smaller_than_full_json() {
         "The system MUST do alpha things with lots of verbose prose that makes the output larger.",
     ));
 
-    let brief = specforge_emitter::emit_brief(&graph);
-    let full = specforge_emitter::emit_json(&graph);
+    let brief = specforge_emitter::brief::emit_brief(&graph);
+    let full = specforge_emitter::json::emit_json(&graph);
     assert!(
         brief.len() < full.len(),
         "brief ({}) should be smaller than full ({})",
@@ -131,7 +131,7 @@ fn brief_conforms_to_graph_protocol_schema() {
         label: Sym::new("behaviors"),
     });
 
-    let json = specforge_emitter::emit_brief(&graph);
+    let json = specforge_emitter::brief::emit_brief(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     // Graph Protocol requires: schema_version, nodes array, edges array
@@ -168,7 +168,7 @@ fn brief_export_contract() {
         label: "behaviors".into(),
     });
 
-    let json = specforge_emitter::emit_brief(&graph);
+    let json = specforge_emitter::brief::emit_brief(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     // Minimal representation: IDs, kinds, titles present
@@ -203,9 +203,9 @@ fn brief_schema_version_matches_graph_format() {
     graph.add_node(node("x", "behavior", Some("X")));
 
     let brief: serde_json::Value =
-        serde_json::from_str(&specforge_emitter::emit_brief(&graph)).unwrap();
+        serde_json::from_str(&specforge_emitter::brief::emit_brief(&graph)).unwrap();
     let full: serde_json::Value =
-        serde_json::from_str(&specforge_emitter::emit_json(&graph)).unwrap();
+        serde_json::from_str(&specforge_emitter::json::emit_json(&graph)).unwrap();
     assert_eq!(brief["schema_version"], "0.1.0", "{brief}");
     assert_eq!(
         brief["schema_version"], full["schema_version"],

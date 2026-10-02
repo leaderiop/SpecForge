@@ -19,7 +19,7 @@ fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime
 }
 
 /// Helper: write spec files to a temp dir and run the simple compilation pipeline.
-fn compile_specs(files: &[(&str, &str)]) -> specforge_emitter::compile::CompilationContext {
+fn compile_specs(files: &[(&str, &str)]) -> specforge_project::CompilationContext {
     let dir = TempDir::new().unwrap();
     for (name, content) in files {
         let path = dir.path().join(name);
@@ -28,14 +28,14 @@ fn compile_specs(files: &[(&str, &str)]) -> specforge_emitter::compile::Compilat
         }
         fs::write(&path, content).unwrap();
     }
-    specforge_emitter::compile_simple(dir.path())
+    specforge_project::compile::compile_simple(dir.path())
 }
 
 /// Helper: compile with the builtin runtime for the given extensions (full pipeline).
 fn compile_with_builtins(
     extensions: &[&str],
     files: &[(&str, &str)],
-) -> specforge_emitter::compile::CompilationContext {
+) -> specforge_project::CompilationContext {
     let dir = TempDir::new().unwrap();
     let ext_json = extensions
         .iter()
@@ -290,7 +290,7 @@ fn single_entity_roundtrip() {
     assert_eq!(node.title.as_deref(), Some("User Login"));
 
     // Emit as JSON — should produce valid JSON
-    let json = specforge_emitter::emit_json(&ctx.graph);
+    let json = specforge_emitter::json::emit_json(&ctx.graph);
     let parsed: serde_json::Value =
         serde_json::from_str(&json).expect("emitted JSON must be valid");
     let nodes = parsed["nodes"].as_array().expect("must have nodes array");
@@ -443,7 +443,7 @@ fn validation_diagnostics_surface() {
 )]
 fn empty_project_produces_empty_graph() {
     let dir = TempDir::new().unwrap();
-    let ctx = specforge_emitter::compile_simple(dir.path());
+    let ctx = specforge_project::compile::compile_simple(dir.path());
 
     assert!(
         ctx.graph.nodes().is_empty(),
@@ -477,26 +477,28 @@ invariant security "Security Invariant" {
     )]);
 
     // JSON format
-    let json = specforge_emitter::emit_json(&ctx.graph);
+    let json = specforge_emitter::json::emit_json(&ctx.graph);
     assert!(
         serde_json::from_str::<serde_json::Value>(&json).is_ok(),
         "JSON must be valid"
     );
 
     // Brief format
-    let brief = specforge_emitter::emit_brief(&ctx.graph);
+    let brief = specforge_emitter::brief::emit_brief(&ctx.graph);
     assert!(!brief.is_empty(), "brief must not be empty");
     assert!(brief.contains("auth"), "brief must mention entity");
 
     // Context format
-    let context = specforge_emitter::emit_context(&ctx.graph);
+    let context = specforge_emitter::context::emit_context(&ctx.graph);
     assert!(!context.is_empty(), "context must not be empty");
 
     // DOT format
-    let dot = specforge_emitter::emit_dot(&ctx.graph, &specforge_emitter::DotOptions::default());
+    let dot =
+        specforge_emitter::dot::emit_dot(&ctx.graph, &specforge_emitter::DotOptions::default());
     assert!(dot.contains("digraph"), "DOT must contain digraph");
 
-    // Stats
-    let stats = specforge_emitter::compute_stats(&ctx.graph);
-    assert!(stats.total_entities >= 2, "should have at least 2 entities");
+    assert!(
+        ctx.graph.node_count() >= 2,
+        "should have at least 2 entities"
+    );
 }
