@@ -1,6 +1,7 @@
 use std::fmt::Write;
 
 use super::{OutlineDetail, OutlineIntermediate, OutlineOptions};
+use crate::diagram::extension_id as sanitize_id;
 
 /// Color palette for extension cards.
 /// Each entry: (subgraph_fill, subgraph_stroke, inner_stroke, text_color)
@@ -249,13 +250,6 @@ fn build_card_content(
     }
 
     parts.join("<br>")
-}
-
-fn sanitize_id(name: &str) -> String {
-    name.chars()
-        .filter(|c| *c != '@')
-        .map(|c| if c == '/' || c == '-' { '_' } else { c })
-        .collect()
 }
 
 fn palette(index: usize) -> (&'static str, &'static str, &'static str, &'static str) {

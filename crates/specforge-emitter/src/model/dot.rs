@@ -1,12 +1,7 @@
 use std::fmt::Write;
 
 use super::{GroupBy, ModelIntermediate, ModelOptions};
-
-const COLOR_SOFTWARE: &str = "#4a90d9";
-const COLOR_PRODUCT: &str = "#2ecc71";
-const COLOR_GOVERNANCE: &str = "#e74c3c";
-const COLOR_FORMAL: &str = "#9b59b6";
-const COLOR_FALLBACK: &str = "#95a5a6";
+use crate::diagram::{escape_dot, extension_color};
 
 pub fn render_dot(model: &ModelIntermediate, options: &ModelOptions) -> String {
     let mut out = String::new();
@@ -26,7 +21,10 @@ pub fn render_dot(model: &ModelIntermediate, options: &ModelOptions) -> String {
         writeln!(
             out,
             "  {} -> {} [label=\"{}\\n[{}]\"];",
-            rel.source, rel.target, rel.name, rel.cardinality
+            rel.source,
+            rel.target,
+            escape_dot(&rel.name),
+            rel.cardinality
         )
         .unwrap();
     }
@@ -52,7 +50,7 @@ fn render_grouped(model: &ModelIntermediate, out: &mut String) {
 
         writeln!(out).unwrap();
         writeln!(out, "  subgraph cluster_{} {{", cluster_id).unwrap();
-        writeln!(out, "    label=\"{}\";", ext.name).unwrap();
+        writeln!(out, "    label=\"{}\";", escape_dot(&ext.name)).unwrap();
         writeln!(out, "    style=dashed;").unwrap();
         writeln!(out, "    color=\"{}\";", ext_color).unwrap();
 
@@ -153,15 +151,5 @@ fn render_entity(entity: &super::ModelEntity, color: &str, out: &mut String) {
 
         writeln!(out, "      </table>").unwrap();
         writeln!(out, "    >];").unwrap();
-    }
-}
-
-fn extension_color(name: &str) -> &str {
-    match name {
-        "@specforge/software" => COLOR_SOFTWARE,
-        "@specforge/product" => COLOR_PRODUCT,
-        "@specforge/governance" => COLOR_GOVERNANCE,
-        "@specforge/formal" => COLOR_FORMAL,
-        _ => COLOR_FALLBACK,
     }
 }

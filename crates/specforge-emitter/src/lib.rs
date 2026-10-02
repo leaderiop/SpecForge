@@ -6,6 +6,7 @@ pub mod compile;
 mod context;
 pub mod coverage;
 mod diagnostic_fmt;
+mod diagram;
 mod dot;
 mod emit;
 mod error;

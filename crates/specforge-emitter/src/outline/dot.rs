@@ -1,13 +1,7 @@
 use std::fmt::Write;
 
 use super::{OutlineDetail, OutlineIntermediate, OutlineOptions};
-
-const COLORS: &[(&str, &str)] = &[
-    ("product", "#2ecc71"),
-    ("software", "#4a90d9"),
-    ("governance", "#e74c3c"),
-    ("formal", "#9b59b6"),
-];
+use crate::diagram::{escape_dot, extension_color, extension_id as sanitize_id};
 
 pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> String {
     let mut out = String::new();
@@ -52,7 +46,9 @@ pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> St
         writeln!(
             out,
             "    {} [label=\"{}\", fillcolor=\"{}\", fontcolor=\"white\"];",
-            id, label, color
+            id,
+            escape_dot(&label),
+            color
         )
         .unwrap();
     }
@@ -68,14 +64,18 @@ pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> St
             writeln!(
                 out,
                 "    {} -> {} [label=\"optional {}\", style=dashed];",
-                from_id, to_id, dep.version
+                from_id,
+                to_id,
+                escape_dot(&dep.version)
             )
             .unwrap();
         } else {
             writeln!(
                 out,
                 "    {} -> {} [label=\"depends {}\"];",
-                from_id, to_id, dep.version
+                from_id,
+                to_id,
+                escape_dot(&dep.version)
             )
             .unwrap();
         }
@@ -88,7 +88,10 @@ pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> St
         writeln!(
             out,
             "    {} -> {} [label=\"enhances {} (+{})\", style=dashed, color=\"#999999\"];",
-            from_id, to_id, enh.target_kind, enh.field_count
+            from_id,
+            to_id,
+            escape_dot(&enh.target_kind),
+            enh.field_count
         )
         .unwrap();
     }
@@ -100,31 +103,13 @@ pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> St
         writeln!(
             out,
             "    {} -> {} [label=\"{}\", style=dotted, color=\"#e74c3c\"];",
-            from_id, to_id, ce.edge_label
+            from_id,
+            to_id,
+            escape_dot(&ce.edge_label)
         )
         .unwrap();
     }
 
     writeln!(out, "}}").unwrap();
     out
-}
-
-fn sanitize_id(name: &str) -> String {
-    name.chars()
-        .filter(|c| *c != '@')
-        .map(|c| if c == '/' || c == '-' { '_' } else { c })
-        .collect()
-}
-
-fn extension_color(name: &str) -> &'static str {
-    // Exact slug match (text after the final '/'), never substring: an
-    // extension named "governance-tools-plus" must not inherit the
-    // governance palette (C13-03).
-    let slug = name.rsplit('/').next().unwrap_or(name);
-    for (key, color) in COLORS {
-        if slug == *key {
-            return color;
-        }
-    }
-    "#95a5a6"
 }
