@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_formal.wasm",
-  "artifact_sha256": "08a8b54f8889fd01ab4c222926bdb76a59f2623ae45d1852966c4e315586eb23",
+  "artifact_sha256": "7087a7cdee6f3686dc1df69f17658ef3f71575f4573116baf58223134f666150",
   "built_with": "rustc 1.99.0 (b940084d7 2026-09-28)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
@@ -9,11 +9,11 @@
     "crates/specforge-extension-sdk-macros/Cargo.toml": "59cc8cc8c2114164fd010871307a627d6ab52dcab777a08129894bdd6229e0d3",
     "crates/specforge-extension-sdk-macros/src/lib.rs": "ad2948c86a0d8ac7228edd933c41316d8f5f6db2a9548d68068304337615d8a2",
     "crates/specforge-extension-sdk/Cargo.toml": "e7db8c0db19d8d743d5dfe67f5fd63170b0f8d2f23645ed3d2318b834dfb6a98",
-    "crates/specforge-extension-sdk/src/lib.rs": "06d727b0992a565f443c7534182b37553ee0b5473f05e679861f0458aab0d7cf",
+    "crates/specforge-extension-sdk/src/lib.rs": "31422474938f194ab5b4149308d31f28fd52d487f760e380d3688621dd2d59c9",
     "crates/specforge-extension-sdk/src/testing.rs": "8fcab95aa132910d6b72406ecbdb70a802d5a6825966b2b4314fdd2234c70f6b",
     "crates/specforge-protocol-types/Cargo.toml": "23b687b57122d2594874b0e096ad9d992bf26f9f69a43aaa25b634e345e05620",
-    "crates/specforge-protocol-types/src/lib.rs": "a7af2a12b54715e7305f49f02ac460ea3ad9b2fb480659f21e05ec5bf742c577",
-    "crates/specforge-protocol-types/src/vocabulary.rs": "87374e8be4ce6c951bd37cb4ba41449b7cc9559174f9b5fa3d4c227163bdfb1d",
+    "crates/specforge-protocol-types/src/lib.rs": "15d8b325487012ed9ab299ce2751955e91ce888d85de5662e30418add7caa759",
+    "crates/specforge-protocol-types/src/vocabulary.rs": "5ac29ff84aee649bd56a873d2fae8941e0c1beb6c6255aa98631a3a650c2247d",
     "extensions/formal/Cargo.lock": "57014bca1969d002fb0a5f1d2539f597a9704e195f4d9f08f552b8bc488c7dfc",
     "extensions/formal/Cargo.toml": "a0733bbdd4c9783c214e14ee14cbf996188006f05dca61ca7779627a6d3982dc",
     "extensions/formal/src/describe_edges.json": "e42689c2bd27d95fe8cba7ae14aef9a159f52ce5259a956f825baa6f8fc8a7eb",
