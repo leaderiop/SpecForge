@@ -192,6 +192,13 @@ impl Environment {
     pub fn resolve(&self) -> ResolvedProject {
         resolve_project_with_config(&self.spec_root, &self.resolve_config())
     }
+
+    /// The graph of the project's sources, as a compile builds it, without
+    /// the checks a compile then runs on it: what a query over the project
+    /// reads (an extension command, ADR 0008).
+    pub fn build_graph(&self) -> Graph {
+        build_graph_with_config(&source_files(&self.resolve()), &self.graph_config()).0
+    }
 }
 
 /// Register the `providers` specforge.json configures against the loaded
@@ -247,6 +254,14 @@ fn structural_only_notice(configured: &[String]) -> Diagnostic {
     }
 }
 
+/// The resolved files a graph is built from, in path order.
+fn source_files(resolved: &ResolvedProject) -> Vec<SpecFile> {
+    sources_in_path_order(resolved)
+        .into_iter()
+        .map(|(_, spec_file)| spec_file)
+        .collect()
+}
+
 /// The resolved files as the graph is built from them: in path order, the
 /// order an incremental rebuild applies first-writer-wins in too.
 fn sources_in_path_order(resolved: &ResolvedProject) -> Vec<(String, SpecFile)> {
@@ -279,11 +294,8 @@ impl CompiledProject {
     pub fn compile(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
         let env = Environment::load(root, runtime);
         let resolved = env.resolve();
-        let spec_files: Vec<SpecFile> = sources_in_path_order(&resolved)
-            .into_iter()
-            .map(|(_, spec_file)| spec_file)
-            .collect();
-        let (graph, graph_diagnostics) = build_graph_with_config(&spec_files, &env.graph_config());
+        let (graph, graph_diagnostics) =
+            build_graph_with_config(&source_files(&resolved), &env.graph_config());
         let check_diagnostics = env.run_checks(&graph, runtime);
         CompiledProject {
             env,

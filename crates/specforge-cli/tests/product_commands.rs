@@ -546,3 +546,31 @@ fn the_features_command_pages_after_counting() {
         .collect();
     assert_eq!(ids, ["f2"]);
 }
+
+#[test]
+fn completions_include_the_commands_of_the_project_here() {
+    let dir = setup_product_project();
+    let output = cargo_bin_cmd!("specforge")
+        .current_dir(dir.path())
+        .args(["completions", "bash"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let script = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        script.contains("specforge__subcmd__product__subcmd__milestone__subcmd__completion"),
+        "the product commands are completed"
+    );
+
+    // Outside a project, the built-ins only.
+    let empty = TempDir::new().unwrap();
+    let output = cargo_bin_cmd!("specforge")
+        .current_dir(empty.path())
+        .args(["completions", "bash"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let script = String::from_utf8_lossy(&output.stdout);
+    assert!(script.contains("specforge__subcmd__check"));
+    assert!(!script.contains("specforge__subcmd__product"));
+}

@@ -15,16 +15,25 @@ use clap::builder::PossibleValuesParser;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use serde_json::{Map, Value};
 use specforge_ops::command::{ExtensionCommand, ext_short, extension_commands, run_command};
-use specforge_registry::{CommandArg, CommandArgType};
+use specforge_project::Environment;
+use specforge_registry::{CommandArg, CommandArgType, CommandContribution};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// The host's own option on every extension command: where the project is.
 const PATH: &str = "path";
 
+/// The options the host gives every extension command, which no declared
+/// arg may take.
+const RESERVED: &[&str] = &[PATH, "help"];
+
 /// Run the extension command `argv` names (`argv[0]` is the extension).
 /// `builtins` are the CLI's own commands, suggested for a name no extension
 /// has.
+///
+/// Only the project's environment (its config and its extensions' declared
+/// surfaces) is loaded to route the command; the project's sources are read
+/// and its graph built only once a declared command is matched.
 pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let Some((first, rest)) = argv.split_first() else {
         return 2;
@@ -41,10 +50,12 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
 
     let root = project_path(&rest);
     let runtime = specforge_component::project_runtime(&root);
-    let project = specforge_project::CompiledProject::compile(&root, Some(&runtime));
-    let build = &project.env.registries;
-    let commands: Vec<ExtensionCommand> = extension_commands(build)
-        .into_iter()
+    let env = Environment::load(&root, Some(&runtime));
+    let build = &env.registries;
+    let all = extension_commands(build);
+    let commands: Vec<ExtensionCommand> = all
+        .iter()
+        .copied()
         .filter(|c| ext_short(&build.manifests, c.extension) == ext)
         .collect();
     if commands.is_empty() {
@@ -52,12 +63,24 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
             "error: unrecognized subcommand '{ext}': no built-in command, and no extension of the project at {} with that name contributes commands",
             root.display()
         );
+        let mut names: Vec<String> = builtins.to_vec();
+        names.extend(all.iter().map(|c| ext_short(&build.manifests, c.extension)));
         if let Some(close) =
-            specforge_common::find_close_match(&ext, builtins.iter().map(String::as_str))
+            specforge_common::find_close_match(&ext, names.iter().map(String::as_str))
         {
             eprintln!("\n  tip: a similar subcommand exists: '{close}'");
         }
         eprintln!("\nFor more information, try 'specforge --help'.");
+        return 2;
+    }
+    if let Some(requested) = rest.first()
+        && let Some(command) = commands.iter().find(|c| c.cli_name() == *requested)
+        && let Some(why) = collision(command.contribution)
+    {
+        eprintln!(
+            "error: {}'s command '{requested}' cannot run on the command line: {why}",
+            command.extension
+        );
         return 2;
     }
 
@@ -82,7 +105,7 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
         &runtime,
         command.extension,
         &command.contribution.export,
-        &project.graph,
+        &env.build_graph(),
         &args,
         &cwd,
     ) {
@@ -96,6 +119,53 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
             1
         }
     }
+}
+
+/// `cli` with a subcommand per extension of the project at `root` that
+/// contributes commands, as `specforge <ext>` routes them: what shell
+/// completions are generated from. An extension whose short name is a
+/// built-in command's is left out (the built-in wins), and so is any
+/// command whose args [`collision`] refuses.
+pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
+    let runtime = specforge_component::project_runtime(root);
+    let env = Environment::load(root, Some(&runtime));
+    let build = &env.registries;
+    let mut by_ext: Vec<(String, Vec<ExtensionCommand>)> = Vec::new();
+    for command in extension_commands(build) {
+        if collision(command.contribution).is_some() {
+            continue;
+        }
+        let short = ext_short(&build.manifests, command.extension);
+        match by_ext.iter_mut().find(|(ext, _)| *ext == short) {
+            Some((_, commands)) => commands.push(command),
+            None => by_ext.push((short, vec![command])),
+        }
+    }
+    for (ext, commands) in by_ext {
+        if cli.find_subcommand(&ext).is_none() {
+            let about = format!("{ext} extension commands");
+            cli = cli.subcommand(command_line(&ext, &commands).about(about));
+        }
+    }
+    cli
+}
+
+/// Why `contribution`'s args cannot be a command line, if they cannot: an
+/// arg takes an option the host reserves (`--path`, `--help`), or two args
+/// share a name.
+fn collision(contribution: &CommandContribution) -> Option<String> {
+    let mut seen: Vec<String> = Vec::new();
+    for arg in &contribution.args {
+        let name = arg.name.replace('_', "-");
+        if RESERVED.contains(&name.as_str()) {
+            return Some(format!("its arg '{}' takes the host's --{name}", arg.name));
+        }
+        if seen.contains(&name) {
+            return Some(format!("it declares the arg '{name}' twice"));
+        }
+        seen.push(name);
+    }
+    None
 }
 
 /// `--path <dir>` or `--path=<dir>` among `args`, else `.`: the project the
@@ -115,7 +185,8 @@ fn project_path(args: &[String]) -> PathBuf {
     PathBuf::from(".")
 }
 
-/// `specforge <ext>`'s command line: one subcommand per command.
+/// `specforge <ext>`'s command line: one subcommand per command, none of
+/// them refused by [`collision`].
 fn command_line(ext: &str, commands: &[ExtensionCommand]) -> Command {
     let mut cli = Command::new(ext.to_string())
         .bin_name(format!("specforge {ext}"))
@@ -130,27 +201,27 @@ fn command_line(ext: &str, commands: &[ExtensionCommand]) -> Command {
         for arg in &contribution.args {
             sub = sub.arg(declared_arg(arg));
         }
-        if !contribution.args.iter().any(|a| a.name == PATH) {
-            sub = sub.arg(
-                Arg::new(PATH)
-                    .long(PATH)
-                    .value_name("PATH")
-                    .default_value(".")
-                    .help("Path to the project"),
-            );
-        }
+        sub = sub.arg(
+            Arg::new(PATH)
+                .long(PATH)
+                .value_name("PATH")
+                .default_value(".")
+                .help("Path to the project"),
+        );
         cli = cli.subcommand(sub);
     }
     cli
 }
 
-/// A declared arg on the command line: required ones are positional.
+/// A declared arg on the command line: required ones are positional, but a
+/// bool, which is always a `--flag` (set or not).
 fn declared_arg(declared: &CommandArg) -> Arg {
     let mut arg = Arg::new(declared.name.clone());
-    if !matches!(declared.arg_type, CommandArgType::Bool) {
+    let flag = matches!(declared.arg_type, CommandArgType::Bool);
+    if !flag {
         arg = arg.value_name(declared.name.to_uppercase());
     }
-    if declared.required {
+    if declared.required && !flag {
         arg = arg.required(true);
     } else {
         arg = arg.long(declared.name.replace('_', "-"));
@@ -263,6 +334,51 @@ mod tests {
         assert!(parse(&["milestone-completion"]).is_err());
         assert!(parse(&["milestone-completion", "m1", "--format", "xml"]).is_err());
         assert!(parse(&["milestone-completion", "m1", "--limit", "many"]).is_err());
+    }
+
+    #[test]
+    fn a_required_bool_is_a_flag_and_a_repeated_flag_is_refused() {
+        let mut c = contribution();
+        c.args.push(arg("strict", CommandArgType::Bool, true, None));
+        let commands = [ExtensionCommand {
+            extension: "@acme/x",
+            contribution: &c,
+        }];
+        let parse = |argv: &[&str]| {
+            command_line("x", &commands)
+                .try_get_matches_from(["specforge x", "milestone-completion"].iter().chain(argv))
+        };
+        let matches = parse(&["m1", "--strict"]).unwrap();
+        let (_, sub) = matches.subcommand().unwrap();
+        assert_eq!(arg_values(&c.args, sub)["strict"], true);
+        let matches = parse(&["m1"]).unwrap();
+        let (_, sub) = matches.subcommand().unwrap();
+        assert_eq!(arg_values(&c.args, sub)["strict"], false);
+        assert!(parse(&["m1", "--limit", "1", "--limit", "2"]).is_err());
+    }
+
+    #[test]
+    fn an_arg_taking_a_host_option_or_another_args_name_is_refused() {
+        let with = |args: Vec<CommandArg>| CommandContribution {
+            args,
+            ..contribution()
+        };
+        assert_eq!(collision(&contribution()), None);
+        for name in ["path", "help"] {
+            let c = with(vec![arg(name, CommandArgType::String, false, None)]);
+            assert_eq!(
+                collision(&c),
+                Some(format!("its arg '{name}' takes the host's --{name}"))
+            );
+        }
+        let twice = with(vec![
+            arg("all_kinds", CommandArgType::Bool, false, None),
+            arg("all-kinds", CommandArgType::Bool, false, None),
+        ]);
+        assert_eq!(
+            collision(&twice),
+            Some("it declares the arg 'all-kinds' twice".into())
+        );
     }
 
     #[test]

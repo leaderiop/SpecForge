@@ -33,8 +33,10 @@ type CommandContribution {
 }
 
 // On the command line (specforge {ext_short} {id with _ as -}), a required
-// arg is positional, in declaration order; any other is --{name with _ as -}.
-// --path names the project and is the host's on every command.
+// arg is positional, in declaration order; any other, and every bool_arg, is
+// --{name with _ as -}. --path names the project and is the host's on every
+// command, as --help is: a command with an arg named path or help, or two
+// args of one name, is refused on the command line (exit 2).
 type CommandArg {
   name          string   @readonly
   arg_type      CommandArgType

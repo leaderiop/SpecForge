@@ -651,7 +651,8 @@ enum Commands {
         #[arg(long, default_value = "human")]
         format: OutputFormat,
     },
-    /// Generate shell completions
+    /// Generate shell completions: the built-in commands, and the commands
+    /// of the extensions the project in the current directory enables
     Completions {
         /// Target shell
         #[arg(value_enum)]
@@ -925,7 +926,10 @@ fn main() {
         Commands::Doctor { path, format } => doctor::run(&path, format),
         Commands::Mcp { path } => mcp::run(&path),
         Commands::Completions { shell } => {
-            let mut cmd = Cli::command();
+            // The built-ins, and the commands the extensions of the project
+            // in the current directory contribute (`specforge product ...`).
+            let mut cmd =
+                extension_command::with_extension_commands(Cli::command(), Path::new("."));
             clap_complete::generate(shell, &mut cmd, "specforge", &mut std::io::stdout());
             0
         }
