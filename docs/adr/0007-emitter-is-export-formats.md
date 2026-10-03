@@ -55,18 +55,24 @@ likewise.
 
 ## Known gaps
 
-- **The prove pass** (`specforge_ops::prove`) is host-side because z3 is native. It reads
+- ~~**The prove pass** (`specforge_ops::prove`) is host-side because z3 is native. It reads
   `constraint` entities' `metric` as bounds and any entity's `expression` as a claim, and the
   unknown-field check accepts `expression` on every kind for it. Moving that needs a manifest
-  declaration of bound and claim fields; it waits for the shared prove code (D3-f).
-- **The coverage rule** (`specforge-coverage`, owned by `@specforge/testing`, D2-f) names
+  declaration of bound and claim fields; it waits for the shared prove code (D3-f).~~ Closed by
+  [ADR 0009](0009-host-passes-read-declarations.md): fields declare a proof role, and the pass
+  stays host-side.
+- ~~**The coverage rule** (`specforge-coverage`, owned by `@specforge/testing`, D2-f) names
   `invariant` and its `risk` (A002, the risk tallies) and the `property` verify kind; the host
   passes `risk` by name into it. `contract_target` is not a substitute: it also marks formal's
   `property` kind, which would gain risk tallies and A002. It needs a declaration of the
-  risk-graded kind and its risk field, sent to the testing pass.
-- **The build cache** (`specforge_project::BuildCache`) records every entity's `status` for the
+  risk-graded kind and its risk field, sent to the testing pass.~~ Closed by
+  [ADR 0009](0009-host-passes-read-declarations.md): `@specforge/testing` passes its risk
+  grading to the rule. The `property` verify kind stays: it is testing's own vocabulary.
+- ~~**The build cache** (`specforge_project::BuildCache`) records every entity's `status` for the
   product's transition checks (W087–W091). Recording declared fields instead changes the cache
-  file and `PassBuildCache` (the SDK, so every blob), and wants a field flag of its own.
+  file and `PassBuildCache` (the SDK, so every blob), and wants a field flag of its own.~~ Closed
+  by [ADR 0009](0009-host-passes-read-declarations.md): a kind declares its lifecycle field, and
+  the cache file and `PassBuildCache` are unchanged.
 - ~~**`specforge-cli/src/product`** implements product queries natively.~~ Closed by
   [ADR 0008](0008-extension-commands-run-over-the-graph.md): they are `@specforge/product`'s commands.
 - The model's DOT cluster ids strip the `@specforge/` scope (snapshot-locked output).
