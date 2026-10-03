@@ -13,7 +13,6 @@ print_stdout = "deny"
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
-chrono = "0.4.41"
 specforge-diagnostics = { path = "../specforge-diagnostics" }
 specforge-common = { workspace = true }
 specforge-component = { workspace = true }
@@ -24,7 +23,6 @@ specforge-migrate = { workspace = true }
 specforge-parser = { workspace = true }
 specforge-project = { workspace = true }
 specforge-registry = { workspace = true }
-specforge-registry-client = { path = "../specforge-registry-client" }
 specforge-wasm = { workspace = true }
 semver = { workspace = true }
 

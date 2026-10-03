@@ -24,6 +24,7 @@ members = [
     "crates/specforge-mcp",
     "crates/specforge-migrate",
     "crates/specforge-ops",
+    "crates/specforge-ops-registry",
     "crates/specforge-project",
     "crates/specforge-cli",
     "crates/specforge-registry-server",

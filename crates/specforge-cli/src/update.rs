@@ -1,7 +1,7 @@
 use crate::OutputFormat;
 use serde_json::json;
 use specforge_ops::extension::{self, Trust, UpdateRequest};
-use specforge_ops::registry::HttpRegistry;
+use specforge_ops_registry::HttpRegistry;
 use std::path::Path;
 
 /// `specforge update`: the shared update operation, presented. Exit 1

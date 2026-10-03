@@ -1,0 +1,21 @@
+[package]
+name = "specforge-ops-registry"
+description = "The package registry behind specforge-ops' Registry port: HTTP, integrity, publisher trust"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints.clippy]
+# MCP owns stdout (it is the JSON-RPC stream): shared operations never print.
+print_stdout = "deny"
+
+[dependencies]
+serde_json = { workspace = true }
+specforge-common = { workspace = true }
+specforge-ops = { workspace = true }
+specforge-registry = { workspace = true }
+specforge-registry-client = { path = "../specforge-registry-client" }
+
+[dev-dependencies]
+tempfile = { workspace = true }

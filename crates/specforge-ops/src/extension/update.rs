@@ -165,7 +165,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
                         from: entry.version.clone(),
                         to: checked.declared.version.clone(),
                         sha256: checked.package.sha256.clone(),
-                        key_id: checked.key_id.clone(),
+                        key_id: checked.package.key_id.clone(),
                     };
                     if let Some(staged_entry) =
                         staged.entries.iter_mut().find(|e| e.name == entry.name)
@@ -223,7 +223,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
             &checked.declared,
             &checked.package.wasm,
             &checked.package.sha256,
-            checked.key_id.as_deref(),
+            checked.package.key_id.as_deref(),
             &origin,
         ) {
             failure = Some((name.clone(), error));
@@ -329,7 +329,6 @@ mod tests {
     use super::*;
     use crate::registry::Package;
     use specforge_registry::PeerDependency;
-    use specforge_registry_client::registry_client::RegistryResponse;
     use specforge_test_macros::test as specforge_test;
     use specforge_wasm::{LockFileEntry, hex_sha256};
     use std::cell::RefCell;
@@ -384,28 +383,26 @@ mod tests {
                 .ok_or_else(|| OpError::new("R-RES-004", format!("no {name} matches {range}")))
         }
 
-        fn fetch(&self, name: &str, version: &str) -> Result<Package, OpError> {
+        /// Serves unsigned packages; the tests allow them.
+        fn fetch(
+            &self,
+            name: &str,
+            version: &str,
+            _allow_unsigned: bool,
+            _trust: Trust,
+        ) -> Result<Package, OpError> {
             let (_, _, wasm) = self
                 .served
                 .iter()
                 .find(|(n, v, _)| *n == name && *v == version)
                 .ok_or_else(|| OpError::new("R-RES-001", format!("{name}@{version} not served")))?;
-            let sha256 = hex_sha256(wasm);
             Ok(Package {
                 name: name.to_string(),
                 version: version.to_string(),
                 wasm: wasm.clone(),
-                sha256: sha256.clone(),
+                sha256: hex_sha256(wasm),
                 peers: Vec::new(),
-                response: RegistryResponse {
-                    name: name.to_string(),
-                    version: version.to_string(),
-                    wasm_url: String::new(),
-                    sha256,
-                    signature: String::new(),
-                    key_id: String::new(),
-                    manifest: String::new(),
-                },
+                key_id: None,
             })
         }
 
@@ -658,7 +655,7 @@ mod tests {
         assert_eq!(error.code, NO_LOCK);
 
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
-        let unconfigured = crate::registry::HttpRegistry::for_project(dir.path(), "update");
+        let unconfigured = crate::registry::Unconfigured("update");
         let error = update(&request(dir.path(), false), &unconfigured).unwrap_err();
         assert_eq!(error.code, NO_REGISTRY);
     }

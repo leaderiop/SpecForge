@@ -245,7 +245,7 @@ fn add_from_registry(
         &checked.declared,
         &checked.package.wasm,
         &checked.package.sha256,
-        checked.key_id,
+        checked.package.key_id,
         &origin,
     )
 }
@@ -257,7 +257,6 @@ fn add_from_registry(
 pub(super) struct Checked {
     pub(super) package: crate::registry::Package,
     pub(super) declared: Declared,
-    pub(super) key_id: Option<String>,
 }
 
 pub(super) fn fetch_checked(
@@ -268,25 +267,9 @@ pub(super) fn fetch_checked(
     allow_unsigned: bool,
     trust: Trust,
 ) -> Result<Checked, OpError> {
-    let package = registry.fetch(name, version)?;
-
-    // Publisher signature and the TOFU pin policy (one implementation,
-    // shared with every surface).
-    let (assume_yes, format) = match trust {
-        Trust::Refuse => (false, "json"),
-        Trust::AssumeYes => (true, "human"),
-        Trust::Prompt => (false, "human"),
-    };
-    let trusted = specforge_registry_client::trust_flow::check_and_pin(
-        &package.name,
-        &package.response,
-        &package.wasm,
-        allow_unsigned,
-        assume_yes,
-        format,
-        None,
-    )
-    .map_err(OpError::from)?;
+    // Integrity, then the publisher signature under the TOFU pin policy:
+    // the registry adapter's (one implementation, shared with every surface).
+    let package = registry.fetch(name, version, allow_unsigned, trust)?;
 
     // The peers the published manifest declares decide the diamond gate
     // before anything is loaded; the binary must then be the package it
@@ -304,11 +287,7 @@ pub(super) fn fetch_checked(
             ),
         ));
     }
-    Ok(Checked {
-        package,
-        declared,
-        key_id: trusted.key_id,
-    })
+    Ok(Checked { package, declared })
 }
 
 /// The name and version the extension binary at `path` declares, checked

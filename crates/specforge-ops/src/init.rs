@@ -174,7 +174,7 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
             .map_err(|e| write_error(".gitignore", e))?;
         std::fs::write(dir.join(STARTER_FILE), &plan.starter)
             .map_err(|e| write_error(STARTER_FILE, e))?;
-        let registry = crate::registry::HttpRegistry::for_project(dir, "init");
+        let registry = crate::registry::Unconfigured("init");
         for wasm in &plan.installs {
             extension::add(
                 &extension::AddRequest {

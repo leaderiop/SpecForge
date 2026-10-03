@@ -379,7 +379,7 @@ fn add_extension_op(state: &McpState, args: AddArgs) -> ToolOutcome {
         Err(error) => return err_op(error),
     };
 
-    let registry = specforge_ops::registry::HttpRegistry::for_project(&root, "add_extension");
+    let registry = specforge_ops_registry::HttpRegistry::for_project(&root, "add_extension");
     // What reading the registry configuration reported (E067, W140,
     // I003), as `specforge add` shows it: only a registry package reads it.
     let reported = match &source {
