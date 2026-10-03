@@ -151,8 +151,12 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     the default, or json; a command declaring an arg of one of those
     names is refused, exit 2); an auto-promoted MCP tool runs the same
     export with its arguments as the args, over the served graph, always
-    asking for json: a JSON object the command prints on success is the
-    tool result's structured content too. The extension renders both
+    asking for json: a JSON object the command prints on success (with
+    nothing on stderr) is the tool result's structured content too, and
+    a failure that prints one JSON object on stderr and nothing on stdout
+    is an isError result carrying that object; any other output (an
+    array, a scalar, prose) is text blocks, isError when the exit code
+    is not zero. The extension renders both
     formats; the host knows no payload (ADR 0011). The export
     MUST be granted no capability: its WASI context preopens no
     directory and passes no environment, arguments, inherited stdio or
@@ -176,6 +180,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "the CommandInput carries the format the caller asked for and the host's date"
   verify unit "a command declaring an arg named format is refused on the command line"
   verify integration "over MCP a command is asked for json and its JSON output is the tool's structured content"
+  verify unit "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"
   verify contract "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted"
 }
 

@@ -611,6 +611,90 @@ fn cli_command_auto_promoted_to_mcp_tool() {
     );
 }
 
+/// The `tools/call` result of `specforge.cmds.report` when its export
+/// returns `output`, and the input the export got.
+fn promoted_report(output: Value) -> (Value, Value) {
+    let (mut server, ext, _dir) =
+        fake_extension::initialized(FakeExtension::new().with_output("cmd__report", output));
+    let resp = call_tool(
+        &mut server,
+        "specforge.cmds.report",
+        json!({"format": "md"}),
+    );
+    let calls = ext.calls();
+    let [(_, _, input)] = calls.as_slice() else {
+        panic!("one call: {calls:?}")
+    };
+    (resp["result"].clone(), input.clone())
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"
+)]
+fn over_mcp_a_commands_output_is_structured_only_when_it_is_one_object() {
+    let ran = |exit_code: i32, stdout: &str, stderr: &str| {
+        promoted_report(json!({"exit_code": exit_code, "stdout": stdout, "stderr": stderr})).0
+    };
+    let text = |blocks: &[&str]| -> Value {
+        blocks
+            .iter()
+            .map(|t| json!({"type": "text", "text": t}))
+            .collect()
+    };
+
+    // The command is asked for json, with the host's UTC date.
+    let (_, input) = promoted_report(json!({"exit_code": 0, "stdout": "{}", "stderr": ""}));
+    assert_eq!(input["format"], "json", "{input}");
+    let today = input["today"].as_str().unwrap();
+    assert!(
+        chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d").is_ok(),
+        "{input}"
+    );
+    assert_eq!(input["args"], json!({"format": "md"}), "only declared args");
+
+    // One object on stdout is the structured result, beside its text.
+    let result = ran(0, r#"{"covered": 3}"#, "");
+    assert_eq!(result["isError"], false, "{result}");
+    assert_eq!(result["structuredContent"], json!({"covered": 3}));
+
+    // JSON that is not an object, or an object beside a warning, is text.
+    for stdout in ["[1, 2]", "3", "\"done\""] {
+        let result = ran(0, stdout, "");
+        assert_eq!(
+            result,
+            json!({"content": text(&[stdout]), "isError": false}),
+            "{stdout}"
+        );
+    }
+    let result = ran(0, "{}", "warning: stale");
+    assert_eq!(
+        result,
+        json!({"content": text(&["{}", "warning: stale"]), "isError": false})
+    );
+
+    // A failure's one error object on stderr is the isError result.
+    let error = json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found"});
+    let result = ran(1, "", &error.to_string());
+    assert_eq!(result["isError"], true, "{result}");
+    assert_eq!(result["structuredContent"], error);
+    assert_eq!(result["content"], text(&[&error.to_string()]));
+
+    // A failure that wrote prose, or an array, is a failed text result.
+    for stderr in ["error: no tests found", "[\"a\"]"] {
+        let result = ran(2, "", stderr);
+        assert_eq!(
+            result,
+            json!({"content": text(&["", stderr]), "isError": true}),
+            "{stderr}"
+        );
+    }
+    // A failure's object beside stdout is not the error object alone.
+    let result = ran(1, "partial", &error.to_string());
+    assert_eq!(result["isError"], true, "{result}");
+    assert!(result.get("structuredContent").is_none(), "{result}");
+}
+
 #[specforge_test(
     behavior = "auto_promote_commands_to_mcp_tools",
     verify = "auto-promoted tool name follows specforge.{ext}.{cmd} pattern"
