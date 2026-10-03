@@ -10,6 +10,7 @@
       "inverse_of": null,
       "name": "expression",
       "normative": true,
+      "proof_role": "claim",
       "required": true,
       "target_kind": null
     },
@@ -66,6 +67,7 @@
       "inverse_of": null,
       "name": "expression",
       "normative": true,
+      "proof_role": "bound",
       "required": true,
       "target_kind": null
     },

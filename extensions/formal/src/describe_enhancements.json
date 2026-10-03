@@ -190,6 +190,26 @@
       ],
       "source_extension": "@specforge/formal",
       "target_kind": "event"
+    },
+    {
+      "edge_types": [],
+      "fields": [
+        {
+          "default_value": null,
+          "description": "Machine-checkable claim the prove pass must entail from the declared bounds",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "expression",
+          "normative": true,
+          "proof_role": "claim",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "source_extension": "@specforge/formal",
+      "target_kind": "invariant"
     }
   ]
 }

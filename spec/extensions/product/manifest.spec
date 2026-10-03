@@ -21,7 +21,10 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     PersonaPrioritizesFeature), and 61 validation rules. Diagnostic codes:
     E007, E015, E052, W041-W046, W049, W057, W077-W080, W083-W085, W092,
     W093, W095, I010, I046-I048, I050, I053-I055, I057, I059-I062,
-    I066-I070, I080-I083, I086, I087, I089.
+    I066-I070, I080-I083, I086, I087, I089. Feature, milestone,
+    deliverable, persona, channel and release MUST declare status as their
+    lifecycle field, the state the build cache records for the transition
+    rules (W087-W091, W094; ADR 0009).
   """
   requires {
     valid_manifest_version "manifestVersion == 2"
@@ -57,6 +60,7 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     no_reserved_keywords         "reserved_keywords is empty — product has no keywords to reserve"
     query_scope_own              "query_scope is 'own' — product queries only its own and peer entity kinds"
     wasm_path_declared           "wasm_path points to the product extension Wasm binary"
+    lifecycle_fields_declared    "feature, milestone, deliverable, persona, channel and release declare lifecycle_field status"
     fields_declared              "fields declares shared fields (tags: string[] @optional) applied to all 9 entity kinds"
     no_grammar_contributions     "grammar_contributions is empty — product uses default grammar"
     no_body_parser_contributions "body_parser_contributions is empty — product uses default body parsing"
@@ -86,6 +90,7 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
   verify unit "query_scope is own"
   verify unit "wasm_path points to valid binary"
   verify unit "fields declares shared tags field"
+  verify unit "the six lifecycle kinds declare status as their lifecycle field"
   verify unit "grammar_contributions is empty"
   verify unit "body_parser_contributions is empty"
   verify unit "collector_contributions is empty"

@@ -372,3 +372,69 @@ export * from './barrel';
     assert_eq!(resp.items[9].item_kind, "function");
     assert_eq!(resp.items[9].visibility.as_deref(), Some("default"));
 }
+
+/// The proof role of `kind`'s `field` as the protocol bridge reads it,
+/// looking at the manifest's enhancements of `kind` too.
+fn proof_role(manifest: &ManifestV2, kind: &str, field: &str) -> Option<String> {
+    let own = manifest
+        .entity_kinds
+        .iter()
+        .filter(|k| k.keyword == kind)
+        .flat_map(|k| &k.fields);
+    let enhanced = manifest
+        .entity_enhancements
+        .iter()
+        .filter(|e| e.target_kind == kind)
+        .flat_map(|e| &e.fields);
+    own.chain(enhanced)
+        .find(|f| f.name == field)
+        .unwrap_or_else(|| panic!("{} declares no {kind}.{field}", manifest.name))
+        .proof_role
+        .clone()
+}
+
+#[specforge_test_macros::test(
+    behavior = "ge_register_field_definitions",
+    verify = "constraint metric field declares the bound proof role"
+)]
+fn governance_constraint_metric_is_a_bound() {
+    let manifest = load_via_protocol("@specforge/governance");
+    assert_eq!(
+        proof_role(&manifest, "constraint", "metric").as_deref(),
+        Some("bound")
+    );
+    assert_eq!(proof_role(&manifest, "constraint", "threshold"), None);
+}
+
+#[specforge_test_macros::test(
+    behavior = "fa_declare_manifest",
+    verify = "property and invariant expressions are claims and axiom expressions bounds"
+)]
+fn formal_expressions_declare_their_proof_roles() {
+    let manifest = load_via_protocol("@specforge/formal");
+    let role = |kind| proof_role(&manifest, kind, "expression");
+    assert_eq!(role("property").as_deref(), Some("claim"));
+    assert_eq!(role("axiom").as_deref(), Some("bound"));
+    assert_eq!(role("invariant").as_deref(), Some("claim"));
+}
+
+#[specforge_test_macros::test(
+    behavior = "pe_declare_manifest",
+    verify = "the six lifecycle kinds declare status as their lifecycle field"
+)]
+fn product_lifecycle_kinds_declare_status() {
+    let manifest = load_via_protocol("@specforge/product");
+    let lifecycle: Vec<(&str, Option<&str>)> = manifest
+        .entity_kinds
+        .iter()
+        .map(|k| (k.keyword.as_str(), k.lifecycle_field.as_deref()))
+        .collect();
+    for (kind, field) in lifecycle {
+        let expected = matches!(
+            kind,
+            "feature" | "milestone" | "deliverable" | "persona" | "channel" | "release"
+        )
+        .then_some("status");
+        assert_eq!(field, expected, "{kind}'s lifecycle field");
+    }
+}

@@ -66,14 +66,16 @@ behavior ge_register_field_definitions "Register Governance Field Definitions" {
   ]
   contract """
     The @specforge/governance extension MUST register field definitions for
-    each entity kind with name, type, edge mapping, and target kind.
+    each entity kind with name, type, edge mapping, and target kind. A
+    constraint's metric MUST declare the bound proof role: its comparisons
+    are facts the prove pass assumes (ADR 0009).
   """
   requires {
     kinds_and_edges_registered "all 3 kinds and 4 edge types are registered"
   }
   ensures {
     decision_fields     "decision has: status(string), date(string), context(string), decision(string), consequences(string[]), invariants(reference[]->invariant, DecisionInvariant)"
-    constraint_fields   "constraint has: category(string), priority(string), metric(string), constrains(reference[]->behavior, ConstrainsBehavior), protects(reference[]->invariant, ProtectsInvariant)"
+    constraint_fields   "constraint has: category(string), priority(string), metric(string, proof_role bound), constrains(reference[]->behavior, ConstrainsBehavior), protects(reference[]->invariant, ProtectsInvariant)"
     failure_mode_fields "failure_mode has: invariant(reference->invariant, FailureModeInvariant), severity(integer), occurrence(integer), detection(integer), rpn(integer), cause(string), effect(string), mitigation(string), post_mitigation(block)"
   }
   features [ge_core_entity_kinds]
@@ -81,6 +83,7 @@ behavior ge_register_field_definitions "Register Governance Field Definitions" {
   verify unit "constraint constrains field registered with ConstrainsBehavior edge"
   verify unit "constraint protects field registered with ProtectsInvariant edge"
   verify unit "failure_mode post_mitigation field registered as block type"
+  verify unit "constraint metric field declares the bound proof role"
 }
 
 behavior ge_register_validation_rules "Register Governance Validation Rules" {

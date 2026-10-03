@@ -236,6 +236,7 @@
           "inverse_of": null,
           "name": "metric",
           "normative": true,
+          "proof_role": "bound",
           "required": false,
           "target_kind": null
         },
