@@ -666,7 +666,7 @@ behavior goto_import_definition "Go-to-Definition on Imports" {
 behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
   category   mutation
   invariants [zero_domain_knowledge_core, lsp_response_latency, lsp_text_edit_non_overlapping]
-  types      [EntityId, KindRegistryEntry, FieldRegistryEntry, CodeAction]
+  types      [EntityId, KindRegistryEntry, FieldRegistryEntry, CodeAction, Diagnostic]
   ports      [LspProtocol]
   features   [extension_driven_code_actions, code_actions]
   requires {
@@ -686,7 +686,10 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
     FieldRegistry — this is extension-driven metadata, not hardcoded logic.
     When no target_kind constraint exists on the enclosing field, the code
     action MUST NOT be offered (the kind cannot be inferred without domain
-    knowledge). The stub MUST be placed in the current file. The code
+    knowledge). The unresolved target, the entity that names it and the
+    field it is named in MUST be read from the diagnostic's data
+    (DiagnosticData), never parsed from its message, which is
+    presentation. The stub MUST be placed in the current file. The code
     action MUST use CodeActionKind::Refactor.
     The generated stub MUST contain only the structural entity block
     (keyword, ID, placeholder fields). It MUST NOT generate application
@@ -694,6 +697,7 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
     structural context; agents produce implementation.
   """
   verify unit "code action offered on E003 for non-existent entity"
+  verify unit "the stub is read from the diagnostic's data, whatever its message says"
   verify unit "stub uses correct entity kind from FieldRegistry target_kind"
   verify unit "no code action when enclosing field has no target_kind"
   verify unit "stub is inserted at end of current file"

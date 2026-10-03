@@ -12,7 +12,8 @@ mod symbols;
 
 pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};
 pub use code_actions::{
-    CodeAction, code_action_create_stub, code_actions_from_diagnostics, code_actions_missing_verify,
+    CodeAction, code_action_create_stub, code_actions_create_stubs, code_actions_from_diagnostics,
+    code_actions_missing_verify,
 };
 pub use completion::{
     CompletionItem, CursorContext, complete_entity_ids, complete_entity_ids_filtered,

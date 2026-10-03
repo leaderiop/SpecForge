@@ -12,7 +12,7 @@ use specforge_project::{CheckMode, ProjectSession, SourceChange};
 use specforge_registry::KindRegistry;
 
 use crate::{
-    LspState, classify_tokens, code_action_create_stub, code_actions_from_diagnostics,
+    LspState, classify_tokens, code_actions_create_stubs, code_actions_from_diagnostics,
     code_actions_missing_verify, complete_entity_ids, complete_entity_ids_filtered,
     complete_keywords, cursor_context, document_symbols, find_all_references, go_to_definition,
     goto_import_definition, hover_field_info, hover_info_with_registries, server_capabilities,
@@ -449,6 +449,12 @@ fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic, content: Option<&str>)
             Some(suggestion) => format!("{}\n\nsuggestion: {suggestion}", diag.message),
             None => diag.message.clone(),
         },
+        // The typed payload, as the diagnostics JSON presents it: a client
+        // echoes it back in a code-action request's context.
+        data: diag
+            .data
+            .as_deref()
+            .and_then(|data| serde_json::to_value(data).ok()),
         ..Default::default()
     }
 }
@@ -1235,37 +1241,14 @@ impl LanguageServer for Backend {
             actions.extend(code_actions_from_diagnostics(&file_diags, text));
         }
 
-        // An E003 for an id that exists nowhere: offer a stub of the kind
-        // the enclosing field targets (FieldRegistry target_kind).
-        let mut stubbed = std::collections::HashSet::new();
-        for diag in file_diags.iter().filter(|d| d.code == "E003") {
-            // "unresolved reference '<target>' in entity '<source>'"
-            let mut quoted = diag.message.split('\'');
-            let (Some(target), Some(source)) = (quoted.nth(1), quoted.nth(1)) else {
-                continue;
-            };
-            let graph = state.graph();
-            if graph.node(target).is_some() || !stubbed.insert(target.to_string()) {
-                continue;
-            }
-            let Some(node) = graph.node(source) else {
-                continue;
-            };
-            let field = node.fields.entries().iter().find(|entry| {
-                matches!(&entry.value, specforge_parser::FieldValue::ReferenceList(refs)
-                    if refs.iter().any(|r| r.id == target))
-            });
-            let target_kind = field
-                .and_then(|entry| {
-                    state
-                        .field_registry()
-                        .get(node.kind.raw.as_str(), entry.key.as_str())
-                })
-                .and_then(|entry| entry.target_kind.as_deref());
-            if let Some(action) = code_action_create_stub(target, target_kind, &file_path) {
-                actions.push(action);
-            }
-        }
+        // An unresolved reference to an id that exists nowhere: a stub of
+        // the kind its field targets.
+        actions.extend(code_actions_create_stubs(
+            &file_diags,
+            state.graph(),
+            state.field_registry(),
+            &file_path,
+        ));
 
         if actions.is_empty() {
             return Ok(None);
