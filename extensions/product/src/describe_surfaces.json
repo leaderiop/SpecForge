@@ -177,7 +177,7 @@
         {
           "id": "milestone_completion",
           "title": "Show milestone completion progress",
-          "description": "How many of a milestone's features are done, with each feature's status.",
+          "description": "How many of a milestone's features are done: the count, the ratio in [0, 1] and their ids.",
           "category": "query",
           "export": "cmd__product_milestone_completion",
           "args": [
@@ -192,7 +192,7 @@
         {
           "id": "journey_coverage",
           "title": "Show journey feature-module coverage",
-          "description": "How many of a journey's features some module contains.",
+          "description": "How many of a journey's features are done, and the ones that are not.",
           "category": "query",
           "export": "cmd__product_journey_coverage",
           "args": [
@@ -222,7 +222,7 @@
         {
           "id": "feature_dependents",
           "title": "Show features that depend on a given feature",
-          "description": "The entities that declare depends_on the feature.",
+          "description": "The features that declare depends_on the feature, sorted by id.",
           "category": "query",
           "export": "cmd__product_feature_dependents",
           "args": [
@@ -237,7 +237,7 @@
         {
           "id": "persona_features",
           "title": "Show features reachable from a persona (via journeys)",
-          "description": "The features of every journey the persona undertakes, sorted.",
+          "description": "The features of every journey the persona undertakes, and those journeys, sorted.",
           "category": "query",
           "export": "cmd__product_persona_features",
           "args": [
@@ -252,7 +252,7 @@
         {
           "id": "channel_features",
           "title": "Show features reachable from a channel (via journeys)",
-          "description": "The features of every journey that uses the channel, sorted.",
+          "description": "The features of every journey that uses the channel, and those journeys, sorted.",
           "category": "query",
           "export": "cmd__product_channel_features",
           "args": [

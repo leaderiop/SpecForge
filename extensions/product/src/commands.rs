@@ -4,10 +4,16 @@
 //! host asked for (`input.format`: `human`, the CLI default, or `json`,
 //! always over MCP; ADR 0011). The same exports serve the MCP tools
 //! `specforge.product.<id>`.
+//!
+//! Under `json` a command prints one object, the payload type its surface
+//! behavior names; under `human` its layout here, a table with a header row
+//! where the payload is tabular. A command that cannot answer prints one
+//! `ProductSurfaceError` to stderr and nothing to stdout: `ENTITY_NOT_FOUND`
+//! (exit 1) with the nearest id of the kind, or `INVALID_INPUT` (exit 2).
 
 use crate::queries::{self, ListFilter};
 use serde::Serialize;
-use specforge_extension_sdk::prelude::{CommandInput, CommandOutput};
+use specforge_extension_sdk::prelude::{CommandError, CommandGraph, CommandInput, CommandOutput};
 use std::fmt::Write as _;
 
 /// Run the command behind `export`; `None` when no command has it.
@@ -37,7 +43,9 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
                 let _ = writeln!(
                     out,
                     "Completion: {:.0}% ({}/{} features done)",
-                    r.completion_pct, r.done_features, r.total_features
+                    r.completion_ratio * 100.0,
+                    r.done_count,
+                    r.total_features
                 );
                 for f in &r.features {
                     let _ = writeln!(out, "  {} [{}]", f.id, f.status.as_deref().unwrap_or("-"));
@@ -52,11 +60,22 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
                     r.journey_id,
                     r.persona.as_deref().unwrap_or("-")
                 );
+                let pct = if r.total_features > 0 {
+                    r.covered_count as f64 / r.total_features as f64 * 100.0
+                } else {
+                    0.0
+                };
                 let _ = writeln!(
                     out,
-                    "Coverage: {:.0}% ({}/{} features covered by modules)",
-                    r.coverage_pct, r.covered_by_modules, r.total_features
+                    "Coverage: {pct:.0}% ({}/{} features done)",
+                    r.covered_count, r.total_features
                 );
+                if !r.uncovered_features.is_empty() {
+                    let _ = writeln!(out, "Uncovered:");
+                    for f in &r.uncovered_features {
+                        let _ = writeln!(out, "  {f}");
+                    }
+                }
             })
         }
         "cmd__product_feature_impact" => {
@@ -69,36 +88,50 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
                 let _ = writeln!(out, "  Depended on by: {:?}", r.depended_on_by);
             })
         }
-        "cmd__product_feature_dependents" => id_list(
-            input,
-            "feature",
-            "Features depending on",
-            queries::feature_dependents,
-        ),
-        "cmd__product_persona_features" => id_list(
-            input,
-            "persona",
-            "Features for persona",
-            queries::persona_features,
-        ),
-        "cmd__product_channel_features" => id_list(
-            input,
-            "channel",
-            "Features for channel",
-            queries::channel_features,
-        ),
+        "cmd__product_feature_dependents" => {
+            lookup(input, "feature", queries::feature_dependents, |r, out| {
+                ids(
+                    out,
+                    &format!("Features depending on '{}'", r.feature_id),
+                    &r.dependents,
+                );
+            })
+        }
+        "cmd__product_persona_features" => {
+            lookup(input, "persona", queries::persona_features, |r, out| {
+                ids(
+                    out,
+                    &format!("Features for persona '{}'", r.persona_id),
+                    &r.features,
+                );
+            })
+        }
+        "cmd__product_channel_features" => {
+            lookup(input, "channel", queries::channel_features, |r, out| {
+                ids(
+                    out,
+                    &format!("Features for channel '{}'", r.channel_id),
+                    &r.features,
+                );
+            })
+        }
         "cmd__product_bulk_status" => {
-            let results = queries::bulk_status(&input.graph);
-            render(input, &results, |out| {
-                for bs in &results {
-                    let _ = writeln!(out, "{} ({} total):", bs.kind, bs.total);
-                    for sc in &bs.by_status {
-                        let _ = writeln!(out, "  {}: {}", sc.status, sc.count);
-                    }
-                }
-                if results.is_empty() {
+            let result = queries::bulk_status(&input.graph);
+            render(input, &result, |out| {
+                if result.kinds.is_empty() {
                     let _ = writeln!(out, "No status-bearing entities found.");
+                    return;
                 }
+                let rows: Vec<Vec<String>> = result
+                    .kinds
+                    .iter()
+                    .flat_map(|k| {
+                        k.by_status
+                            .iter()
+                            .map(|s| vec![k.kind.clone(), s.status.clone(), s.count.to_string()])
+                    })
+                    .collect();
+                out.push_str(&table(&["kind", "status", "count"], &rows));
             })
         }
         "cmd__product_health" => {
@@ -110,19 +143,19 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
 }
 
 /// A list command over `kind`, with the filters its args set. A `limit` or
-/// `offset` that is not a count (negative, say) fails rather than lists
-/// everything.
+/// `offset` that is not a count (negative, say) is `INVALID_INPUT` rather
+/// than a list of everything.
 fn list(input: &CommandInput, kind: &str) -> CommandOutput {
     for page in ["limit", "offset"] {
         if input.args.contains_key(page) && input.arg_usize(page).is_none() {
-            return CommandOutput {
-                exit_code: 2,
-                stdout: String::new(),
-                stderr: format!(
-                    "error: {page} must be a non-negative integer, got {}\n",
+            return fail(
+                input,
+                &queries::invalid_input(format!(
+                    "{page} must be a non-negative integer, got {}",
                     input.args[page]
-                ),
-            };
+                )),
+                queries::INVALID_INPUT_EXIT,
+            );
         }
     }
     let filter = ListFilter {
@@ -156,41 +189,37 @@ fn list(input: &CommandInput, kind: &str) -> CommandOutput {
     })
 }
 
-/// A query about the entity the `kind` arg names: its result rendered, or
-/// `<kind> '<id>' not found` on stderr with exit code 1.
+/// A query about the entity the positional arg `kind` names: its payload
+/// rendered, or `ENTITY_NOT_FOUND` (exit 1) with the nearest id of the kind.
 fn lookup<T: Serialize>(
     input: &CommandInput,
     kind: &str,
-    query: fn(&specforge_extension_sdk::prelude::CommandGraph, &str) -> Option<T>,
+    query: fn(&CommandGraph, &str) -> Option<T>,
     human: impl FnOnce(&T, &mut String),
 ) -> CommandOutput {
     let id = input.arg_str(kind).unwrap_or_default();
     match query(&input.graph, id) {
         Some(result) => render(input, &result, |out| human(&result, out)),
-        None => CommandOutput::fail(format!("{kind} '{id}' not found\n")),
+        None => fail(
+            input,
+            &queries::not_found(&input.graph, kind, id),
+            queries::NOT_FOUND_EXIT,
+        ),
     }
 }
 
-/// A query returning entity ids, printed one per line under `heading`.
-fn id_list(
-    input: &CommandInput,
-    kind: &str,
-    heading: &str,
-    query: fn(&specforge_extension_sdk::prelude::CommandGraph, &str) -> Option<Vec<String>>,
-) -> CommandOutput {
-    let id = input.arg_str(kind).unwrap_or_default().to_string();
-    lookup(input, kind, query, |ids, out| {
-        let _ = writeln!(out, "{heading} '{id}':");
-        for i in ids {
-            let _ = writeln!(out, "  {i}");
-        }
-        if ids.is_empty() {
-            let _ = writeln!(out, "  (none)");
-        }
-    })
+/// Entity ids, one per line under `heading`.
+fn ids(out: &mut String, heading: &str, ids: &[String]) {
+    let _ = writeln!(out, "{heading}:");
+    for i in ids {
+        let _ = writeln!(out, "  {i}");
+    }
+    if ids.is_empty() {
+        let _ = writeln!(out, "  (none)");
+    }
 }
 
-fn health(report: &queries::HealthReport, out: &mut String) {
+fn health(report: &queries::HealthPayload, out: &mut String) {
     let _ = writeln!(out, "Project Health Score: {:.0}/100", report.score.overall);
     let _ = writeln!(out, "  Coverage:     {:.0}%", report.score.coverage);
     let _ = writeln!(out, "  Connectivity: {:.0}%", report.score.connectivity);
@@ -207,6 +236,36 @@ fn health(report: &queries::HealthReport, out: &mut String) {
             let _ = writeln!(out, "  {}: {}/{}", oc.kind, oc.orphans, oc.total);
         }
     }
+}
+
+/// `rows` under `headers`, each column as wide as its widest cell, two
+/// spaces apart; no trailing spaces.
+pub fn table(headers: &[&str], rows: &[Vec<String>]) -> String {
+    let mut widths: Vec<usize> = headers.iter().map(|h| h.chars().count()).collect();
+    for row in rows {
+        for (width, cell) in widths.iter_mut().zip(row) {
+            *width = (*width).max(cell.chars().count());
+        }
+    }
+    let mut out = String::new();
+    let header: Vec<String> = headers.iter().map(|h| h.to_string()).collect();
+    for row in std::iter::once(&header).chain(rows) {
+        let mut line = String::new();
+        for (i, (cell, width)) in row.iter().zip(&widths).enumerate() {
+            if i > 0 {
+                line.push_str("  ");
+            }
+            let _ = write!(line, "{cell:<width$}");
+        }
+        out.push_str(line.trim_end());
+        out.push('\n');
+    }
+    out
+}
+
+/// `error` on stderr in the format the host asked for, exit `exit_code`.
+fn fail(input: &CommandInput, error: &CommandError, exit_code: i32) -> CommandOutput {
+    CommandOutput::error(input.format, error, exit_code)
 }
 
 /// `result` as pretty JSON when the host asked for json, else as `human`

@@ -161,7 +161,9 @@ fn test_product_milestone_completion() {
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(result["milestone_id"], "m1");
     assert_eq!(result["total_features"], 2);
-    assert_eq!(result["done_features"], 1); // f2 is done
+    assert_eq!(result["done_count"], 1); // f2 is done
+    assert_eq!(result["done_features"], serde_json::json!(["f2"]));
+    assert_eq!(result["completion_ratio"], 0.5);
 }
 
 #[test]
@@ -250,11 +252,10 @@ fn test_product_feature_dependents() {
     let output = cmd.output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let deps = result.as_array().unwrap();
-    assert!(
-        deps.iter().any(|v| v == "f2"),
-        "f2 depends on f1: {:?}",
-        deps
+    // f2 depends on f1.
+    assert_eq!(
+        result,
+        serde_json::json!({"feature_id": "f1", "dependents": ["f2"], "count": 1})
     );
 }
 
@@ -385,7 +386,8 @@ fn test_product_journey_coverage() {
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(result["journey_id"], "j1");
     assert_eq!(result["total_features"], 2);
-    assert_eq!(result["covered_by_modules"], 1); // f1 is in mod1
+    assert_eq!(result["covered_count"], 1); // f2 is done
+    assert_eq!(result["uncovered_features"], serde_json::json!(["f1"]));
 }
 
 #[test]
@@ -404,8 +406,10 @@ fn test_product_persona_features() {
     let output = cmd.output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let features = result.as_array().unwrap();
-    assert_eq!(features.len(), 2); // f1 and f2 via journey j1
+    // f1 and f2 via journey j1
+    assert_eq!(result["features"], serde_json::json!(["f1", "f2"]));
+    assert_eq!(result["via_journey_ids"], serde_json::json!(["j1"]));
+    assert_eq!(result["count"], 2);
 }
 
 #[test]
@@ -424,8 +428,10 @@ fn test_product_channel_features() {
     let output = cmd.output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let features = result.as_array().unwrap();
-    assert_eq!(features.len(), 2); // f1 and f2 via journey j1
+    // f1 and f2 via journey j1
+    assert_eq!(result["channel_id"], "cli");
+    assert_eq!(result["features"], serde_json::json!(["f1", "f2"]));
+    assert_eq!(result["count"], 2);
 }
 
 #[test]
@@ -443,12 +449,22 @@ fn test_product_bulk_status() {
     let output = cmd.output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let arr = result.as_array().unwrap();
-    // Should have entries for feature, milestone, deliverable, persona, channel, release
-    assert!(
-        arr.len() >= 4,
-        "Expected at least 4 status-bearing kinds, got {}",
-        arr.len()
+    let kinds: Vec<&str> = result["kinds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|k| k["kind"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            "feature",
+            "milestone",
+            "deliverable",
+            "persona",
+            "channel",
+            "release"
+        ]
     );
 }
 
@@ -492,7 +508,7 @@ fn an_extension_command_prints_what_its_export_returns() {
     assert!(output.stdout.is_empty(), "{output:?}");
     assert_eq!(
         String::from_utf8_lossy(&output.stderr),
-        "milestone 'nope' not found\n"
+        "error: milestone 'nope' not found\n"
     );
 }
 
@@ -698,4 +714,67 @@ fn an_mcp_tool_call_returns_the_json_payload() {
         parse_tool_content(find_response(&responses, 1).unwrap()),
         cli
     );
+}
+
+#[specforge_test(
+    behavior = "surface_error_handling",
+    verify = "CLI errors go to stderr"
+)]
+fn a_command_that_cannot_answer_writes_its_error_to_stderr() {
+    let dir = setup_product_project();
+    let path = dir.path().to_str().unwrap();
+    let run = |args: &[&str]| {
+        cargo_bin_cmd!("specforge")
+            .args(["product"])
+            .args(args)
+            .args(["--path", path])
+            .output()
+            .unwrap()
+    };
+    // A typo of m1: the nearest milestone is suggested.
+    let human = run(&["milestone-completion", "m2"]);
+    assert_eq!(human.status.code(), Some(1));
+    assert!(human.stdout.is_empty(), "{human:?}");
+    assert_eq!(
+        String::from_utf8_lossy(&human.stderr),
+        "error: milestone 'm2' not found\ndid you mean 'm1'?\n"
+    );
+    let json = run(&["milestone-completion", "m2", "--format", "json"]);
+    assert_eq!(json.status.code(), Some(1));
+    assert!(json.stdout.is_empty(), "{json:?}");
+    let error: serde_json::Value = serde_json::from_slice(&json.stderr).unwrap();
+    assert_eq!(
+        error,
+        serde_json::json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found",
+            "entity_id": "m2", "suggestion": "m1"})
+    );
+    // An input the command refuses exits 2, as clap's usage errors do.
+    let invalid = run(&["features", "--limit=-1", "--format", "json"]);
+    assert_eq!(invalid.status.code(), Some(2), "{invalid:?}");
+    assert!(invalid.stdout.is_empty(), "{invalid:?}");
+    let error: serde_json::Value = serde_json::from_slice(&invalid.stderr).unwrap();
+    assert_eq!(error["code"], "INVALID_INPUT", "{error}");
+}
+
+#[specforge_test(
+    behavior = "surface_error_handling",
+    verify = "MCP tool errors are isError results carrying the error object"
+)]
+fn over_mcp_an_error_is_an_is_error_result_with_the_object() {
+    let dir = setup_product_project();
+    let responses = structured_session(
+        &dir,
+        &[tool_call(
+            1,
+            "specforge.product.journey_coverage",
+            serde_json::json!({"journey": "j2"}),
+        )],
+    );
+    let response = find_response(&responses, 1).unwrap();
+    let result = &response["result"];
+    assert_eq!(result["isError"], true, "{response}");
+    let expected = serde_json::json!({"code": "ENTITY_NOT_FOUND",
+        "message": "journey 'j2' not found", "entity_id": "j2", "suggestion": "j1"});
+    assert_eq!(parse_tool_content(response), expected);
+    assert_eq!(result["structuredContent"], expected);
 }

@@ -150,8 +150,9 @@ fn milestone_completion_counts_done_features_in_declared_order() {
     });
     let mc = milestone_completion(&g.build(), "ms1").unwrap();
     assert_eq!(mc.total_features, 2);
-    assert_eq!(mc.done_features, 1);
-    assert!((mc.completion_pct - 50.0).abs() < 0.01);
+    assert_eq!(mc.done_count, 1);
+    assert_eq!(mc.done_features, ["f2"]);
+    assert!((mc.completion_ratio - 0.5).abs() < 1e-9);
     assert_eq!(mc.status.as_deref(), Some("active"));
     let ids: Vec<&str> = mc.features.iter().map(|f| f.id.as_str()).collect();
     assert_eq!(ids, ["f2", "f1"]);
@@ -167,15 +168,15 @@ fn milestone_completion_of_a_milestone_only() {
     assert!(milestone_completion(&g, "f1").is_none());
     let empty = milestone_completion(&g, "ms1").unwrap();
     assert_eq!(empty.total_features, 0);
-    assert!(empty.completion_pct.abs() < 0.01);
+    assert_eq!(empty.completion_ratio, 0.0);
 }
 
 #[test]
-fn journey_coverage_counts_features_some_module_contains() {
+fn journey_coverage_counts_done_features_not_module_ownership() {
     let g = G::default()
         .node("j1", "journey", &[("persona", "dev")])
         .n("f1", "feature")
-        .n("f2", "feature")
+        .node("f2", "feature", &[("status", "done")])
         .n("mod1", "module")
         .edge("j1", "f1", "features")
         .edge("j1", "f2", "features")
@@ -183,8 +184,8 @@ fn journey_coverage_counts_features_some_module_contains() {
         .build();
     let jc = journey_coverage(&g, "j1").unwrap();
     assert_eq!(jc.total_features, 2);
-    assert_eq!(jc.covered_by_modules, 1);
-    assert!((jc.coverage_pct - 50.0).abs() < 0.01);
+    assert_eq!(jc.covered_count, 1);
+    assert_eq!(jc.uncovered_features, ["f1"]);
     assert_eq!(jc.persona.as_deref(), Some("dev"));
     assert!(journey_coverage(&g, "f1").is_none());
     assert!(journey_coverage(&g, "nonexistent").is_none());
@@ -239,7 +240,11 @@ fn feature_dependents_are_the_depends_on_sources() {
         .edge("f2", "f1", "depends_on")
         .edge("f3", "f1", "depends_on")
         .build();
-    assert_eq!(feature_dependents(&g, "f1").unwrap(), ["f2", "f3"]);
+    let fd = feature_dependents(&g, "f1").unwrap();
+    assert_eq!(
+        (fd.dependents, fd.count),
+        (vec!["f2".to_string(), "f3".into()], 2)
+    );
     assert!(feature_dependents(&g, "nonexistent").is_none());
 }
 
@@ -251,7 +256,7 @@ fn persona_features_follow_the_field_or_the_reference() {
         .n("f1", "feature")
         .edge("j1", "f1", "features")
         .build();
-    assert_eq!(persona_features(&by_field, "p1").unwrap(), ["f1"]);
+    assert_eq!(persona_features(&by_field, "p1").unwrap().features, ["f1"]);
     let by_edge = G::default()
         .n("p1", "persona")
         .n("j1", "journey")
@@ -259,7 +264,11 @@ fn persona_features_follow_the_field_or_the_reference() {
         .edge("j1", "p1", "persona")
         .edge("j1", "f1", "features")
         .build();
-    assert_eq!(persona_features(&by_edge, "p1").unwrap(), ["f1"]);
+    let pf = persona_features(&by_edge, "p1").unwrap();
+    assert_eq!(
+        (pf.features, pf.via_journey_ids),
+        (vec!["f1".to_string()], vec!["j1".into()])
+    );
     assert!(persona_features(&by_edge, "f1").is_none());
     assert!(persona_features(&by_edge, "nonexistent").is_none());
 }
@@ -276,7 +285,10 @@ fn channel_features_deduplicate_across_journeys() {
         .edge("j1", "f1", "features")
         .edge("j2", "f1", "features")
         .build();
-    assert_eq!(channel_features(&g, "ch1").unwrap(), ["f1"]);
+    let cf = channel_features(&g, "ch1").unwrap();
+    assert_eq!(cf.features, ["f1"]);
+    assert_eq!(cf.via_journey_ids, ["j1", "j2"]);
+    assert_eq!(cf.count, 1);
     assert!(channel_features(&g, "f1").is_none());
     assert!(channel_features(&g, "nonexistent").is_none());
 }
@@ -291,7 +303,7 @@ fn bulk_status_aggregates_by_kind() {
         .n("f3", "feature")
         .node("ms1", "milestone", &[("status", "active")])
         .build();
-    let results = bulk_status(&g);
+    let results = bulk_status(&g).kinds;
     let feat = results.iter().find(|r| r.kind == "feature").unwrap();
     assert_eq!(feat.total, 3);
     let counts: Vec<(&str, usize)> = feat
@@ -308,7 +320,7 @@ fn bulk_status_aggregates_by_kind() {
             .total,
         1
     );
-    assert!(bulk_status(&CommandGraph::default()).is_empty());
+    assert!(bulk_status(&CommandGraph::default()).kinds.is_empty());
 }
 
 #[test]
@@ -425,7 +437,7 @@ fn a_query_about_a_missing_entity_fails_on_stderr() {
     .unwrap();
     assert_eq!(out.exit_code, 1);
     assert_eq!(out.stdout, "");
-    assert_eq!(out.stderr, "milestone 'nope' not found\n");
+    assert_eq!(out.stderr, "error: milestone 'nope' not found\n");
 }
 
 #[test]
@@ -461,4 +473,68 @@ fn every_declared_command_has_its_export() {
         crate::commands::run("cmd__product_nope", &input(serde_json::json!({}), sample()))
             .is_none()
     );
+}
+
+// ── errors and tables ──────────────────────────────────────────────────────
+
+#[test]
+fn the_nearest_id_of_the_kind_within_two_edits_is_suggested() {
+    let g = G::default()
+        .n("launch", "milestone")
+        .n("lunch", "milestone")
+        .n("launchx", "feature")
+        .build();
+    assert_eq!(suggest(&g, "milestone", "launc").as_deref(), Some("launch"));
+    // Equally near: the first by id.
+    assert_eq!(
+        suggest(&g, "milestone", "laanch").as_deref(),
+        Some("launch")
+    );
+    assert_eq!(suggest(&g, "milestone", "lnch").as_deref(), Some("lunch"));
+    assert_eq!(suggest(&g, "milestone", "dinner"), None);
+    // Only ids of the kind asked about.
+    assert_eq!(suggest(&g, "feature", "launch").as_deref(), Some("launchx"));
+    assert_eq!(suggest(&g, "journey", "launch"), None);
+    let error = not_found(&g, "milestone", "launc");
+    assert_eq!(error.code, "ENTITY_NOT_FOUND");
+    assert_eq!(error.entity_id.as_deref(), Some("launc"));
+    assert_eq!(error.suggestion.as_deref(), Some("launch"));
+    assert_eq!(invalid_input("bad").code, "INVALID_INPUT");
+}
+
+#[test]
+fn an_error_is_json_on_stderr_when_json_was_asked_for() {
+    let out = crate::commands::run(
+        "cmd__product_milestone_completion",
+        &json_input(serde_json::json!({"milestone": "nope"}), sample()),
+    )
+    .unwrap();
+    assert_eq!((out.exit_code, out.stdout.as_str()), (1, ""));
+    let error: serde_json::Value = serde_json::from_str(&out.stderr).unwrap();
+    assert_eq!(
+        error,
+        serde_json::json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'nope' not found",
+            "entity_id": "nope"})
+    );
+    let out = crate::commands::run(
+        "cmd__product_features",
+        &json_input(serde_json::json!({"limit": -1}), sample()),
+    )
+    .unwrap();
+    assert_eq!(out.exit_code, 2);
+    let error: serde_json::Value = serde_json::from_str(&out.stderr).unwrap();
+    assert_eq!(error["code"], "INVALID_INPUT");
+}
+
+#[test]
+fn a_table_aligns_its_columns_under_a_header() {
+    let rows = vec![
+        vec!["feature".to_string(), "done".into(), "12".into()],
+        vec!["milestone".to_string(), "in_progress".into(), "3".into()],
+    ];
+    assert_eq!(
+        crate::commands::table(&["kind", "status", "count"], &rows),
+        "kind       status       count\nfeature    done         12\nmilestone  in_progress  3\n"
+    );
+    assert_eq!(crate::commands::table(&["id"], &[]), "id\n");
 }
