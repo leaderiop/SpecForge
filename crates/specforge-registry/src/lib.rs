@@ -23,7 +23,7 @@ pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType};
 pub use manifest::surface::{
     CommandArg, CommandArgType, CommandContribution, McpResourceContribution, McpToolContribution,
     SurfaceContributions, SurfaceRegistryEntry, SurfaceSandboxOverride, SurfaceType,
-    register_surface_contributions,
+    refuse_malformed_tool_schemas, register_surface_contributions,
 };
 pub use manifest::types::{
     AnalyzerContribution, CollectorAutoDetect, CollectorContribution, ExtensionContributions,

@@ -148,14 +148,12 @@ fn init_server_with_surfaces() -> (McpServer, TempDir) {
             surface_type: SurfaceType::McpTool,
             contribution_name: "test.list_items".into(),
             export_name: "mcp__list_items".into(),
-            enabled: true,
         });
         env.registries.surfaces.push(SurfaceRegistryEntry {
             extension_name: "@test/surfaces".into(),
             surface_type: SurfaceType::McpResource,
             contribution_name: "test-items".into(),
             export_name: "mcp__test_items".into(),
-            enabled: true,
         });
     });
 

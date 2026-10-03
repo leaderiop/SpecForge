@@ -97,15 +97,6 @@ fn auto_promote_commands(
             else {
                 continue;
             };
-            // The promoted tool follows its command's enabled state.
-            let enabled = state
-                .surface_entries()
-                .find(|e| {
-                    e.surface_type == SurfaceType::Command
-                        && e.contribution_name == cmd.id
-                        && &e.extension_name == ext_name
-                })
-                .is_none_or(|e| e.enabled);
             state.tool_registry.push(McpToolDescriptor {
                 name: tool.name.clone(),
                 description: cmd.description.clone(),
@@ -121,7 +112,6 @@ fn auto_promote_commands(
                 contribution_name: tool.name,
                 extension_name: ext_name.clone(),
                 export_name: cmd.export.clone(),
-                enabled,
             });
             promoted_count += 1;
         }
@@ -194,13 +184,6 @@ pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResp
     let tools: Vec<Value> = state
         .tool_registry
         .iter()
-        .filter(|t| {
-            !disabled(
-                state,
-                &t.name,
-                &[SurfaceType::McpTool, SurfaceType::AutoPromotedTool],
-            )
-        })
         .map(|t| {
             let mut tool = serde_json::to_value(t).unwrap();
             if !structured && let Some(listed) = tool.as_object_mut() {
@@ -217,7 +200,9 @@ pub fn handle_list_resources(state: &mut McpState, id: Option<Value>) -> JsonRpc
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
-    let resources: Vec<Value> = listed_resources(state)
+    let resources: Vec<Value> = state
+        .resource_registry
+        .iter()
         .filter(|r| !is_template(r))
         .map(|r| serde_json::to_value(r).unwrap())
         .collect();
@@ -231,7 +216,9 @@ pub fn handle_list_resource_templates(state: &mut McpState, id: Option<Value>) -
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
-    let templates: Vec<Value> = listed_resources(state)
+    let templates: Vec<Value> = state
+        .resource_registry
+        .iter()
         .filter(|r| is_template(r))
         .map(|r| {
             let mut template = json!({ "uriTemplate": r.uri, "name": r.name });
@@ -248,26 +235,9 @@ pub fn handle_list_resource_templates(state: &mut McpState, id: Option<Value>) -
     JsonRpcResponse::success(id, json!({ "resourceTemplates": templates }))
 }
 
-/// The registered resources a listing advertises: all but disabled
-/// extension contributions.
-fn listed_resources(state: &McpState) -> impl Iterator<Item = &McpResourceDescriptor> {
-    state
-        .resource_registry
-        .iter()
-        .filter(|r| !disabled(state, &r.name, &[SurfaceType::McpResource]))
-}
-
 /// Whether a resource's URI is an RFC 6570 template (`{placeholder}`).
 fn is_template(resource: &McpResourceDescriptor) -> bool {
     resource.uri.contains('{')
-}
-
-/// Whether an extension contributed `name` as one of `types` and that
-/// contribution is disabled: disabled contributions are not advertised.
-fn disabled(state: &McpState, name: &str, types: &[SurfaceType]) -> bool {
-    state
-        .surface_entries()
-        .any(|e| !e.enabled && e.contribution_name == name && types.contains(&e.surface_type))
 }
 
 pub fn handle_list_prompts(state: &mut McpState, id: Option<Value>) -> JsonRpcResponse {

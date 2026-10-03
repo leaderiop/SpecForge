@@ -148,13 +148,14 @@ impl<'a> ProtocolHost<'a> {
             descs.analyzers = self.describe_typed(extension_name, "analyzers")?;
         }
 
-        // Always request surfaces, passes, and feature_flags if extension declares any
+        // Always request surfaces, passes, and feature_flags if extension declares any.
+        // A surfaces description that does not parse (an unknown arg type, a
+        // missing field) fails the load like any other category (ADR 0011).
         if flags.entities || flags.validators || flags.collectors {
-            if let Ok(surfaces_vec) =
-                self.describe_typed::<SurfaceDescriptor>(extension_name, "surfaces")
-            {
-                descs.surfaces = surfaces_vec.into_iter().next();
-            }
+            descs.surfaces = self
+                .describe_typed::<SurfaceDescriptor>(extension_name, "surfaces")?
+                .into_iter()
+                .next();
             descs.passes = self.describe_typed(extension_name, "passes")?;
             descs.feature_flags = self.describe_typed(extension_name, "feature_flags")?;
         }
@@ -169,7 +170,13 @@ impl<'a> ProtocolHost<'a> {
         category: &str,
     ) -> Result<Vec<T>, ProtocolError> {
         let response = self.describe(extension_name, category)?;
-        response.parse_items()
+        // Name the category whose items do not parse.
+        response
+            .parse_items()
+            .map_err(|e| ProtocolError::DescribeFailed {
+                category: category.to_string(),
+                reason: e.to_string(),
+            })
     }
 }
 

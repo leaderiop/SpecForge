@@ -156,7 +156,7 @@ pub fn core_tool(name: &str) -> Option<&'static ToolSpec> {
     CORE_TOOLS.iter().find(|t| t.name == name)
 }
 
-/// The enabled extension tool named `name`.
+/// The extension tool named `name`.
 fn extension_entry(state: &McpState, name: &str) -> Option<SurfaceRegistryEntry> {
     state
         .surface_entries()
@@ -164,7 +164,6 @@ fn extension_entry(state: &McpState, name: &str) -> Option<SurfaceRegistryEntry>
             (e.surface_type == SurfaceType::McpTool
                 || e.surface_type == SurfaceType::AutoPromotedTool)
                 && e.contribution_name == name
-                && e.enabled
         })
         .cloned()
 }

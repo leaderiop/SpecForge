@@ -551,8 +551,8 @@ behavior validate_contribution_exports "Validate Contribution Exports" {
     exports all functions required by its declared compile-time contributions.
     Missing exports MUST produce an E020 diagnostic listing the expected export
     names. Extra exports beyond declared contributions MUST be ignored.
-    Surface contribution exports (cmd__, mcp__) are validated separately by
-    validate_surface_exports (behaviors/surface-contributions.spec).
+    Surface contribution exports (cmd__, mcp__) are not checked at load:
+    a missing one is an E028 when dispatched (ADR 0011).
   """
   produces   [contribution_exports_validated, contribution_export_validation_failed]
   verify unit "all declared contribution exports present passes"

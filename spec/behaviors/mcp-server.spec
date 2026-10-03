@@ -105,16 +105,14 @@ behavior list_mcp_resources "List MCP Resources" {
   }
   ensures {
     complete_list_returned "All registered resource descriptors returned including extension-contributed"
-    disabled_excluded      "Disabled surface contributions excluded from the list"
     discovery_emitted      "mcp_discovery_invoked event emitted"
   }
   contract   """
     The MCP server MUST return all registered resource descriptors,
     including both core-provided and extension-contributed capabilities.
     Extension-contributed MCP resources (from manifest surfaces.mcp_resources)
-    MUST be included alongside core resources. Disabled surface contributions
-    MUST be excluded. The list MUST be complete and reflect the current set
-    of loaded extensions. Every core resource it lists MUST be readable.
+    MUST be included alongside core resources. The list MUST be complete
+    and reflect the current set of loaded extensions. Every core resource it lists MUST be readable.
     A resource whose URI is a template (it holds a {placeholder}) MUST be
     listed by resources/templates/list as a resource template, not by
     resources/list.
@@ -123,7 +121,7 @@ behavior list_mcp_resources "List MCP Resources" {
   verify unit "returns all registered resource descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects resources from newly loaded extension"
-  verify contract "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
+  verify contract "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, discovery_emitted"
   verify unit "every listed core resource is readable"
 }
 
@@ -139,7 +137,6 @@ behavior list_mcp_tools "List MCP Tools" {
   }
   ensures {
     complete_list_returned "All registered tool descriptors returned including auto-promoted CLI commands"
-    disabled_excluded      "Disabled surface contributions excluded from the list"
     discovery_emitted      "mcp_discovery_invoked event emitted"
   }
   contract   """
@@ -147,10 +144,9 @@ behavior list_mcp_tools "List MCP Tools" {
     including both core-provided and extension-contributed capabilities.
     Extension-contributed MCP tools (from manifest surfaces.mcp_tools)
     and auto-promoted CLI commands MUST be included alongside core tools.
-    Disabled surface contributions MUST be excluded. The list MUST be
-    complete and reflect the current set of loaded extensions. Every core
-    tool it lists MUST be callable: a call never fails as an unknown tool
-    or operation. Each core tool's inputSchema MUST advertise exactly the
+    The list MUST be complete and reflect the current set of loaded
+    extensions. Every core tool it lists MUST be callable: a call never
+    fails as an unknown tool or operation. Each core tool's inputSchema MUST advertise exactly the
     arguments its handler reads. Each listed tool's category is its role,
     one of McpToolCategory, and its source says where it comes from: core,
     or the contributing extension's name. An extension tool is listed once,
@@ -164,7 +160,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "returns all registered tool descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects tools from newly loaded extension"
-  verify contract "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
+  verify contract "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted"
   verify unit "tools have categories"
   verify unit "every listed core tool dispatches to its handler"
   verify unit "each core tool's input schema advertises exactly the arguments its handler reads"

@@ -223,14 +223,15 @@ invariant renderer_output_restriction "Renderer Output Restriction" {
 
 invariant surface_schema_validity "Surface Schema Validity" {
   guarantee """
-    Extension-contributed MCP tool input schemas and CLI command argument
-    types MUST conform to JSON Schema draft 2020-12 and declared type
-    constraints. Invalid schemas MUST produce E055. Unknown argument types
-    MUST produce E055.
+    Every registered extension MCP tool MUST have an input_schema that is
+    a JSON object, and an output_schema, when declared, that is a JSON
+    object: a tool with another value produces E055 and is not
+    registered. Every command arg MUST have a CommandArgType: the type is
+    closed, so a surfaces description with another one does not parse and
+    fails its extension's load (E028).
   """
   risk      medium
-  verify unit "valid MCP tool schema passes validation"
-  verify unit "invalid MCP tool schema produces E055"
-  verify unit "known command arg type passes validation"
-  verify unit "unknown command arg type produces E055"
+  verify unit "a tool whose schemas are JSON objects is registered"
+  verify unit "a tool whose input_schema is not a JSON object is E055 and not registered"
+  verify unit "a surfaces description with an unknown arg type fails the extension's load"
 }

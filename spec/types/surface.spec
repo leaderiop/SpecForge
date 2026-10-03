@@ -35,8 +35,10 @@ type CommandContribution {
 // On the command line (specforge {ext_short} {id with _ as -}), a required
 // arg is positional, in declaration order; any other, and every bool_arg, is
 // --{name with _ as -}. --path names the project and is the host's on every
-// command, as --help is: a command with an arg named path or help, or two
-// args of one name, is refused on the command line (exit 2).
+// command, as --help is, and --format (human, the default, or json): a
+// command with an arg named path, help or format, or two args of one name,
+// is refused on the command line (exit 2). A list of values is a string arg
+// the command splits (--tags a,b): there is no list arg type (ADR 0011).
 type CommandArg {
   name          string   @readonly
   arg_type      CommandArgType
@@ -54,14 +56,23 @@ type CommandArgType = string_arg | path_arg | bool_arg | enum_arg | integer_arg
 // caller set (the CLI's parsed command line, or the auto-promoted MCP
 // tool's arguments), typed as declared; cwd is the project root; graph is
 // the compiled project's graph in the graph export's shape (entities
-// sorted by id, edges by source, target and label). The export reads no
-// files: the same call serves the CLI and MCP.
+// sorted by id, edges by source, target and label); format is the output
+// the caller asked for (the CLI's --format, json over MCP); today is the
+// host's date at the call, UTC. The export reads no files and no clock:
+// the same call serves the CLI and MCP (ADR 0011).
 type CommandInput {
-  args  FieldMap
-  cwd   string
-  graph Graph
+  args   FieldMap
+  cwd    string
+  graph  Graph
+  format CommandFormat
+  today  string
   verify unit "CommandInput schema is valid"
 }
+
+// human: the extension's layout for a reader (a table with a header row
+// where the payload is tabular); json: one root object, the command's
+// payload type. The host owns the flag; the extension renders both.
+type CommandFormat = human | json
 
 type CommandOutput {
   exit_code integer
@@ -72,14 +83,17 @@ type CommandOutput {
 
 // ── MCP Tool Contributions ──────────────────────────────────
 
+// input_schema and output_schema must be JSON objects: a tool with
+// another value is E055 and is not registered.
 type McpToolContribution {
-  name         string                 @readonly
-  description  string                 @optional
-  category     McpToolCategory        @optional
+  name          string                 @readonly
+  description   string
+  category      McpToolCategory        @optional
   // Wasm export name: mcp__{name}
-  export       string                 @readonly
-  input_schema JsonSchema
-  sandbox      SurfaceSandboxOverride @optional
+  export        string                 @readonly
+  input_schema  JsonSchema
+  output_schema JsonSchema             @optional
+  sandbox       SurfaceSandboxOverride @optional
   verify unit "McpToolContribution schema is valid"
 }
 
@@ -126,7 +140,6 @@ type SurfaceRegistryEntry {
   contribution_name string @readonly
   extension_name    string @readonly
   export_name       string @readonly
-  enabled           boolean
   verify unit "SurfaceRegistryEntry schema is valid"
 }
 

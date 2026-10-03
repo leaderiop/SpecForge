@@ -1313,7 +1313,7 @@ fn contract_explore_prompt() {
 }
 
 /// Register an extension tool and resource, each with its surface entry.
-fn add_extension_surface(server: &mut McpServer, name: &str, enabled: bool) {
+fn add_extension_surface(server: &mut McpServer, name: &str) {
     use specforge_mcp::types::{McpResourceDescriptor, McpToolDescriptor};
     use specforge_registry::{SurfaceRegistryEntry, SurfaceType};
     let state = server.state_mut();
@@ -1340,7 +1340,6 @@ fn add_extension_surface(server: &mut McpServer, name: &str, enabled: bool) {
             contribution_name: contribution,
             extension_name: "@test/ext".into(),
             export_name: format!("export_{name}"),
-            enabled,
         };
         state.edit_environment(|env| env.registries.surfaces.push(entry));
     }
@@ -1348,15 +1347,14 @@ fn add_extension_surface(server: &mut McpServer, name: &str, enabled: bool) {
 
 #[specforge_test(
     behavior = "list_mcp_tools",
-    verify = "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
+    verify = "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted"
 )]
 fn contract_list_tools() {
     use crate::fake_extension::{self, FakeExtension};
     // server_initialized: over a project whose extension contributes an
     // MCP tool and two CLI commands.
     let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
-    add_extension_surface(&mut server, "on", true);
-    add_extension_surface(&mut server, "off", false);
+    add_extension_surface(&mut server, "on");
 
     let resp = call(&mut server, "tools/list", json!({}));
     let names: Vec<&str> = resp["result"]["tools"]
@@ -1396,8 +1394,7 @@ fn contract_list_tools() {
         assert!(names.contains(&core), "{core} missing: {names:?}");
     }
     // complete_list_returned: every core tool, then the extension's
-    // explicit tool, its auto-promoted command, and the injected tool;
-    // disabled_excluded: ext.off is not listed.
+    // auto-promoted commands, and the injected tool.
     let core: Vec<String> = specforge_mcp::registry::default_tools()
         .into_iter()
         .map(|t| t.name)
@@ -1408,34 +1405,16 @@ fn contract_list_tools() {
         ["specforge.cmds.check", "specforge.cmds.report", "ext.on"]
     );
 
-    // A disabled auto-promoted command is excluded too.
-    for entry in &mut server.state_mut().promoted_surfaces {
-        if entry.contribution_name == "specforge.cmds.report" {
-            entry.enabled = false;
-        }
-    }
-    let resp = call(&mut server, "tools/list", json!({}));
-    let after: Vec<&str> = resp["result"]["tools"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|t| t["name"].as_str().unwrap())
-        .collect();
-    assert_eq!(after[core.len()..], ["specforge.cmds.check", "ext.on"]);
-
     // discovery_emitted: the count is what the client got.
     assert_eq!(
         events(&server, "mcp_discovery_invoked"),
-        [
-            json!({"discoveryType": "tools", "resultCount": core.len() + 3}),
-            json!({"discoveryType": "tools", "resultCount": core.len() + 2}),
-        ]
+        [json!({"discoveryType": "tools", "resultCount": core.len() + 3})]
     );
 }
 
 #[specforge_test(
     behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surface_contributions_registered_fired, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted"
+    verify = "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted"
 )]
 fn contract_auto_promote_commands() {
     use crate::fake_extension::{self, EXT, FakeExtension};
@@ -1444,7 +1423,7 @@ fn contract_auto_promote_commands() {
     let (mut server, ext, _dir) =
         fake_extension::initialized(FakeExtension::new().with_output("cmd__report", output));
 
-    // surface_contributions_registered_fired: the compile registered the
+    // surfaces_registered: the compile registered the
     // extension's contributions, commands included.
     let entries = |ty: SurfaceType| -> Vec<(String, String)> {
         server
@@ -1648,12 +1627,11 @@ fn event_surface_command_dispatched() {
 
 #[specforge_test(
     behavior = "list_mcp_resources",
-    verify = "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
+    verify = "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, discovery_emitted"
 )]
 fn contract_list_resources() {
     let mut server = test_server();
-    add_extension_surface(&mut server, "on", true);
-    add_extension_surface(&mut server, "off", false);
+    add_extension_surface(&mut server, "on");
 
     let resp = call(&mut server, "resources/list", json!({}));
     let mut uris: Vec<&str> = resp["result"]["resources"]
@@ -1663,9 +1641,8 @@ fn contract_list_resources() {
         .map(|r| r["uri"].as_str().unwrap())
         .collect();
     uris.sort();
-    // complete_list_returned: every core resource plus the enabled
-    // extension's, templated ones under resources/templates/list;
-    // disabled_excluded: not the disabled one.
+    // complete_list_returned: every core resource plus the extension's,
+    // templated ones under resources/templates/list.
     assert_eq!(
         uris,
         [
@@ -1694,7 +1671,7 @@ fn contract_list_resources() {
         ]
     );
 
-    // The count is what the client got: disabled surfaces excluded.
+    // The count is what the client got.
     assert_eq!(
         events(&server, "mcp_discovery_invoked"),
         [
@@ -1745,7 +1722,7 @@ fn contract_list_prompts() {
         ]
     );
 
-    // The count is what the client got: disabled surfaces excluded.
+    // The count is what the client got.
     assert_eq!(
         events(&server, "mcp_discovery_invoked"),
         [json!({"discoveryType": "prompts", "resultCount": names.len()})]

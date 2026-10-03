@@ -3212,6 +3212,8 @@ dependencies = [
  "specforge-extension-sdk",
  "specforge-protocol-types",
  "specforge-registry",
+ "specforge-test",
+ "specforge-test-macros",
  "tempfile",
 ]
 

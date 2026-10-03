@@ -15,19 +15,13 @@ port ProductQueryPort {
   method queryDeliverableTraceability(deliverableId: EntityId) -> Result<DeliverableTraceabilityPayload, ProductQueryError>
   method queryJourneyCoverage(journeyId: EntityId) -> Result<JourneyCoveragePayload, ProductQueryError>
   method queryFeatureOrdering() -> Result<FeatureOrderingPayload, ProductQueryError>
+  // asOfDate defaults to the host-passed `today` (CommandInput.today, ADR 0011)
   method queryMilestoneTimeline(asOfDate?: string) -> Result<MilestoneTimelinePayload, ProductQueryError>
   method queryFeatureDeliverables(featureId: EntityId) -> Result<FeatureDeliverablePayload, ProductQueryError>
-  method queryFeatureMilestones(featureId: EntityId) -> Result<FeatureMilestonePayload, ProductQueryError>
-  method queryPersonaJourneys(personaId: EntityId) -> Result<PersonaJourneyPayload, ProductQueryError>
-  method queryChannelJourneys(channelId: EntityId) -> Result<ChannelJourneyPayload, ProductQueryError>
-  method queryModuleDeliverables(moduleId: EntityId) -> Result<ModuleDeliverablePayload, ProductQueryError>
-  method queryMilestoneDeliverables(milestoneId: EntityId) -> Result<MilestoneDeliverablePayload, ProductQueryError>
-  method queryModuleFeatures(moduleId: EntityId) -> Result<ModuleFeaturePayload, ProductQueryError>
   // maxHops defaults to 1 when omitted; values > 5 are clamped to 5
   method queryTermGraph(termId: EntityId, maxHops?: integer) -> Result<TermGraphPayload, ProductQueryError>
   method queryDeliverableCompletion(deliverableId: EntityId) -> Result<DeliverableCompletionPayload, ProductQueryError>
   method queryPersonaChannels(personaId: EntityId) -> Result<PersonaChannelPayload, ProductQueryError>
-  method queryJourneyDeliverables(journeyId: EntityId) -> Result<JourneyDeliverablePayload, ProductQueryError>
   method queryFeatureDependents(featureId: EntityId) -> Result<FeatureDependentPayload, ProductQueryError>
   method queryDeliverableDependents(deliverableId: EntityId) -> Result<DeliverableDependentPayload, ProductQueryError>
   method queryDeliverablePriority(deliverableId: EntityId) -> Result<DeliverablePriorityPayload, ProductQueryError>
@@ -36,14 +30,14 @@ port ProductQueryPort {
   method queryMilestoneVelocity(milestoneId: EntityId, asOfDate?: string) -> Result<MilestoneVelocityPayload, ProductQueryError>
   method queryDeliverablePersonas(deliverableId: EntityId) -> Result<DeliverablePersonaPayload, ProductQueryError>
   method queryUnscheduledFeatures() -> Result<UnscheduledFeaturesPayload, ProductQueryError>
-  method queryFeatureOverlap(pagination?: PaginatedQueryInput) -> Result<FeatureOverlapPayload, ProductQueryError>
-  method queryPersonaCoverageMatrix(pagination?: PaginatedQueryInput) -> Result<PersonaCoverageMatrixPayload, ProductQueryError>
+  method queryFeatureOverlap(offset?: integer, limit?: integer) -> Result<FeatureOverlapPayload, ProductQueryError>
+  method queryPersonaCoverageMatrix(offset?: integer, limit?: integer) -> Result<PersonaCoverageMatrixPayload, ProductQueryError>
   method queryCriticalPath() -> Result<CriticalPathPayload, ProductQueryError>
   // v1.1 methods — ownership, effort, release
-  method queryOwnerWorkload(pagination?: PaginatedQueryInput) -> Result<OwnerWorkloadPayload, ProductQueryError>
+  // Paged queries take offset (default 0) and limit (default 100, clamped to
+  // [1, 1000]) like the list commands; payloads carry total and has_more.
+  method queryOwnerWorkload(offset?: integer, limit?: integer) -> Result<OwnerWorkloadPayload, ProductQueryError>
   method queryWeightedMilestoneCompletion(milestoneId: EntityId) -> Result<WeightedMilestoneCompletionPayload, ProductQueryError>
-  method queryReleaseDeliverables(releaseId: EntityId) -> Result<ReleaseDeliverablePayload, ProductQueryError>
-  method queryReleaseMilestones(releaseId: EntityId) -> Result<ReleaseMilestonePayload, ProductQueryError>
   method queryReleaseCompletion(releaseId: EntityId) -> Result<ReleaseCompletionPayload, ProductQueryError>
   method queryChannelFeatures(channelId: EntityId) -> Result<ChannelFeaturePayload, ProductQueryError>
   // Term analytics — global views over the TermReferencesRelatedTerm subgraph
@@ -51,9 +45,9 @@ port ProductQueryPort {
   method queryTermDensity() -> Result<TermDensityPayload, ProductQueryError>
   // Module analytics — dependency structure metrics
   method queryModuleDependencyDepth(moduleId: EntityId) -> Result<ModuleDependencyDepthPayload, ProductQueryError>
-  method queryModuleCoupling(pagination?: PaginatedQueryInput) -> Result<ModuleCouplingPayload, ProductQueryError>
+  method queryModuleCoupling(offset?: integer, limit?: integer) -> Result<ModuleCouplingPayload, ProductQueryError>
   // Channel analytics — symmetric counterpart to queryPersonaCoverageMatrix
-  method queryChannelCoverageMatrix(pagination?: PaginatedQueryInput) -> Result<ChannelCoverageMatrixPayload, ProductQueryError>
+  method queryChannelCoverageMatrix(offset?: integer, limit?: integer) -> Result<ChannelCoverageMatrixPayload, ProductQueryError>
   verify unit "ProductQueryPort"
 }
 

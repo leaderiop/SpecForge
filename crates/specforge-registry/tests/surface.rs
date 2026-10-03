@@ -180,7 +180,6 @@ fn of_type(entries: &[SurfaceRegistryEntry], surface_type: SurfaceType) -> Vec<(
         .filter(|e| e.surface_type == surface_type)
         .inspect(|e| {
             assert_eq!(e.extension_name, "@ext/test");
-            assert!(e.enabled);
         })
         .map(|e| (e.contribution_name.as_str(), e.export_name.as_str()))
         .collect()
@@ -305,7 +304,6 @@ fn test_register_surface_contributions_contract() {
     let (entries, diags) = register_surface_contributions(&manifests);
     assert!(diags.is_empty());
     assert_eq!(entries.len(), 3);
-    assert!(entries.iter().all(|e| e.enabled));
     assert!(entries.iter().all(|e| e.extension_name == "@ext/a"));
 
     // ensures: None surfaces are skipped
@@ -323,4 +321,92 @@ fn test_register_surface_contributions_contract() {
     ];
     let (_, diags3) = register_surface_contributions(&manifests3);
     assert!(diags3.iter().all(|d| d.code == "E039"));
+}
+
+/// The registry build over one extension contributing `tools`: the tools
+/// it registered (and lists to MCP), and its surface diagnostics.
+fn build_with_tools(tools: Vec<McpToolContribution>) -> (Vec<String>, Vec<String>, Vec<String>) {
+    let mut manifest: ManifestV2 = serde_json::from_str(
+        r#"{"name": "@ext/t", "version": "1.0.0", "manifestVersion": 2, "wasmPath": "t.wasm"}"#,
+    )
+    .unwrap();
+    manifest.surfaces = Some(make_surfaces(vec![], tools, vec![]));
+    let build = specforge_registry::build_registries(vec![manifest]);
+    let registered = build
+        .surfaces
+        .iter()
+        .filter(|e| e.surface_type == SurfaceType::McpTool)
+        .map(|e| e.contribution_name.clone())
+        .collect();
+    let listed = build
+        .manifest_surfaces
+        .iter()
+        .flat_map(|(_, s)| s.mcp_tools.iter().map(|t| t.name.clone()))
+        .collect();
+    let codes = build
+        .surface_diagnostics
+        .iter()
+        .map(|d| d.code.clone())
+        .collect();
+    (registered, listed, codes)
+}
+
+#[specforge_test(
+    behavior = "validate_mcp_tool_schemas",
+    verify = "a tool whose input_schema is not a JSON object is E055 and not registered"
+)]
+fn a_tool_whose_input_schema_is_not_an_object_is_refused() {
+    let mut tool = make_tool("bad", "mcp__bad");
+    tool.input_schema = serde_json::json!("object");
+    let (registered, listed, codes) = build_with_tools(vec![tool, make_tool("ok", "mcp__ok")]);
+    assert_eq!(registered, ["ok"]);
+    assert_eq!(listed, ["ok"]);
+    assert_eq!(codes, ["E055"]);
+}
+
+#[specforge_test(
+    behavior = "validate_mcp_tool_schemas",
+    verify = "a tool whose output_schema is not a JSON object is E055 and not registered"
+)]
+fn a_tool_whose_output_schema_is_not_an_object_is_refused() {
+    let mut tool = make_tool("bad", "mcp__bad");
+    tool.output_schema = Some(serde_json::json!([1]));
+    let (registered, listed, codes) = build_with_tools(vec![tool]);
+    assert!(registered.is_empty() && listed.is_empty());
+    assert_eq!(codes, ["E055"]);
+}
+
+#[specforge_test(
+    behavior = "validate_mcp_tool_schemas",
+    verify = "a tool whose schemas are JSON objects is registered"
+)]
+fn a_tool_whose_schemas_are_objects_is_registered() {
+    let mut tool = make_tool("ok", "mcp__ok");
+    tool.output_schema = Some(serde_json::json!({"type": "object"}));
+    let (registered, listed, codes) = build_with_tools(vec![tool]);
+    assert_eq!(registered, ["ok"]);
+    assert_eq!(listed, ["ok"]);
+    assert!(codes.is_empty(), "{codes:?}");
+}
+
+#[specforge_test(
+    invariant = "surface_schema_validity",
+    verify = "a tool whose schemas are JSON objects is registered"
+)]
+fn the_invariant_keeps_a_wellformed_tool() {
+    let (registered, _, codes) = build_with_tools(vec![make_tool("ok", "mcp__ok")]);
+    assert_eq!(registered, ["ok"]);
+    assert!(codes.is_empty());
+}
+
+#[specforge_test(
+    invariant = "surface_schema_validity",
+    verify = "a tool whose input_schema is not a JSON object is E055 and not registered"
+)]
+fn the_invariant_refuses_a_malformed_tool() {
+    let mut tool = make_tool("bad", "mcp__bad");
+    tool.input_schema = serde_json::json!(null);
+    let (registered, _, codes) = build_with_tools(vec![tool]);
+    assert!(registered.is_empty());
+    assert_eq!(codes, ["E055"]);
 }

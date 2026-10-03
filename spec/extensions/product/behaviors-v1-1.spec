@@ -102,16 +102,12 @@ behavior pe_query_owner_workload "Query Owner Workload" {
   category   query
   invariants [pe_ownership_field_awareness]
   types      [OwnerWorkloadPayload, OwnerWorkloadEntry, OwnerKindBreakdown]
-  produces   [pe_owner_workload_queried]
   contract   """
     The product extension MUST provide a query that aggregates ownership
     across features, milestones, deliverables, and releases. The result
     groups entities by owner string, counts entities per kind, and reports
     the number of unowned entities.
   """
-  requires {
-    graph_ready "Graph is built and queryable"
-  }
   ensures {
     grouped_by_owner "Each unique owner string appears exactly once in the owners array"
     unowned_counted  "unowned_count equals the number of entities with no owner field"
@@ -127,23 +123,18 @@ behavior pe_query_weighted_milestone_completion "Query Weighted Milestone Comple
   category   query
   invariants [pe_effort_weighted_completion]
   types      [WeightedMilestoneCompletionPayload, EffortBreakdownEntry, Effort]
-  produces   [pe_weighted_completion_queried]
   contract   """
     The product extension MUST provide a query that computes effort-weighted
-    milestone completion. Default effort weights follow a Fibonacci-inspired
-    scale: xs=1, s=2, m=3, l=5, xl=8. Teams MAY override weights via the
-    effort_weights map in the @specforge/product extension configuration
-    within specforge.json. Features without effort default to m (default
-    weight 3). When custom weights are configured, the query uses those
-    weights instead of the defaults.
+    milestone completion. The weights are the effort scale's definition,
+    Fibonacci-inspired and fixed: xs=1, s=2, m=3, l=5, xl=8. Features
+    without effort weigh as m (3). No project configuration changes them
+    (ADR 0011).
   """
   requires {
-    graph_ready      "Graph is built and queryable"
     milestone_exists "Milestone ID resolves to a milestone entity"
   }
   ensures {
-    default_weights   "default weights xs=1, s=2, m=3, l=5, xl=8 are used when no custom weights configured"
-    custom_weights    "custom weights from effort_weights config override defaults when present"
+    fixed_weights     "weights are xs=1, s=2, m=3, l=5, xl=8"
     default_to_medium "Features without effort field are weighted as m (default weight 3)"
     null_when_empty   "Milestone with zero features returns completion_ratio=null"
   }
@@ -152,58 +143,15 @@ behavior pe_query_weighted_milestone_completion "Query Weighted Milestone Comple
   verify unit "empty milestone returns null completion_ratio"
 }
 
-behavior pe_query_release_deliverables "Query Release Deliverables" {
-  features [pe_release_coordination]
-  category query
-  types    [ReleaseDeliverablePayload]
-  produces [pe_release_deliverables_queried]
-  contract """
-    The product extension MUST provide a query that returns all deliverables
-    grouped under a release via ReleaseIncludesDeliverable edges.
-  """
-  requires {
-    graph_ready    "Graph is built and queryable"
-    release_exists "Release ID resolves to a release entity"
-  }
-  ensures {
-    deliverables_listed "All ReleaseIncludesDeliverable targets are included"
-    count_matches       "count == deliverables.length"
-  }
-  verify unit "release with 3 deliverables returns count=3"
-  verify unit "release with no deliverables returns empty array and count=0"
-}
-
-behavior pe_query_release_milestones "Query Release Milestones" {
-  features [pe_release_coordination]
-  category query
-  types    [ReleaseMilestonePayload]
-  produces [pe_release_milestones_queried]
-  contract """
-    The product extension MUST provide a query that returns all milestones
-    targeted by a release via ReleaseCompletesMilestone edges.
-  """
-  requires {
-    graph_ready    "Graph is built and queryable"
-    release_exists "Release ID resolves to a release entity"
-  }
-  ensures {
-    milestones_listed "All ReleaseCompletesMilestone targets are included"
-    count_matches     "count == milestones.length"
-  }
-  verify unit "release with 2 milestones returns count=2"
-}
-
 behavior pe_query_release_completion "Query Release Completion" {
   features [pe_release_coordination]
   category query
   types    [ReleaseCompletionPayload]
-  produces [pe_release_completion_queried]
   contract """
     The product extension MUST provide a query that computes release
     completion as the ratio of shipped deliverables to total deliverables.
   """
   requires {
-    graph_ready    "Graph is built and queryable"
     release_exists "Release ID resolves to a release entity"
   }
   ensures {

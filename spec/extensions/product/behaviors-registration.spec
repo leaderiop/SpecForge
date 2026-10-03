@@ -186,7 +186,6 @@ behavior pe_validate_persona_fields "Validate Persona Fields" {
   invariants [persona_channel_lifecycle]
   category   validation
   types      [ProductPersona, TechnicalLevel, Diagnostic]
-  produces   [pe_query_failed]
   contract   """
     The @specforge/product extension MUST declare the persona description
     field required, so the core reports a persona without one (E006). The

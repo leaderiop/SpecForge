@@ -11,7 +11,7 @@
 use serde_json::{Map, Value};
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_registry::{CommandContribution, ManifestV2, RegistryBuild, SurfaceType};
+use specforge_registry::{CommandContribution, ManifestV2, RegistryBuild};
 use specforge_wasm::CommandOutput;
 use specforge_wasm::runtime::WasmRuntime;
 use std::path::Path;
@@ -32,8 +32,7 @@ impl ExtensionCommand<'_> {
     }
 }
 
-/// The commands a project's extensions contribute, in manifest order, but
-/// those its configuration disables: a disabled command is not routed.
+/// The commands a project's extensions contribute, in manifest order.
 pub fn extension_commands(build: &RegistryBuild) -> Vec<ExtensionCommand<'_>> {
     build
         .manifest_surfaces
@@ -46,17 +45,6 @@ pub fn extension_commands(build: &RegistryBuild) -> Vec<ExtensionCommand<'_>> {
                     extension,
                     contribution,
                 })
-        })
-        .filter(|command| {
-            build
-                .surfaces
-                .iter()
-                .find(|e| {
-                    e.surface_type == SurfaceType::Command
-                        && e.contribution_name == command.contribution.id
-                        && e.extension_name == command.extension
-                })
-                .is_none_or(|e| e.enabled)
         })
         .collect()
 }
@@ -118,7 +106,6 @@ mod tests {
     use specforge_common::{SourceSpan, Sym};
     use specforge_graph::Node;
     use specforge_parser::{EntityId, EntityKind, FieldMap};
-    use specforge_registry::{SurfaceContributions, SurfaceRegistryEntry};
     use specforge_test_macros::test as specforge_test;
     use specforge_wasm::runtime::{WasmCallResult, WasmTrapInfo};
     use std::sync::Mutex;
@@ -297,36 +284,33 @@ mod tests {
     }
 
     #[specforge_test(
-        behavior = "toggle_surface_contributions",
-        verify = "disabled command excluded from CLI routing"
+        behavior = "dispatch_surface_command",
+        verify = "a declared export the guest does not route is an ExtensionError when dispatched"
     )]
-    fn a_disabled_command_is_not_routed() {
-        let build = RegistryBuild {
-            manifest_surfaces: vec![(
-                "@acme/x".into(),
-                SurfaceContributions {
-                    commands: vec![command("on"), command("off")],
-                    mcp_tools: Vec::new(),
-                    mcp_resources: Vec::new(),
-                },
-            )],
-            surfaces: ["on", "off"]
-                .into_iter()
-                .map(|id| SurfaceRegistryEntry {
-                    surface_type: SurfaceType::Command,
-                    contribution_name: id.into(),
-                    extension_name: "@acme/x".into(),
-                    export_name: format!("cmd__{id}"),
-                    enabled: id == "on",
-                })
-                .collect(),
-            ..Default::default()
-        };
-        let routed: Vec<&str> = extension_commands(&build)
-            .iter()
-            .map(|c| c.contribution.id.as_str())
-            .collect();
-        assert_eq!(routed, ["on"]);
+    fn an_export_the_guest_does_not_route_is_an_extension_error() {
+        let dir = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            dir.path().join("specforge.json"),
+            json!({"name": "p", "version": "0.1.0", "extensions": ["@specforge/product"]})
+                .to_string(),
+        )
+        .unwrap();
+        let runtime = specforge_component::project_runtime(dir.path());
+        let err = run_command(
+            &runtime,
+            "@specforge/product",
+            "cmd__product_no_such_command",
+            &graph(),
+            &Map::new(),
+            dir.path(),
+        )
+        .unwrap_err();
+        assert_eq!(err.code, "E028");
+        assert!(
+            err.message.contains("cmd__product_no_such_command"),
+            "{}",
+            err.message
+        );
     }
 
     #[test]

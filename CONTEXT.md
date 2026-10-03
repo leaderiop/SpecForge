@@ -37,9 +37,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
   independent of surface. The CLI and MCP are adapters over it (`specforge-ops`).
 - **Extension command**: a CLI command an extension declares in its surfaces, answered by its
-  `cmd__` export over the graph the host passes (`CommandInput`: args, project root, graph). The
-  CLI runs it as `specforge <ext_short> <command>`, MCP as the auto-promoted tool
-  `specforge.<ext_short>.<id>`; neither knows any command (`specforge_ops::command`, ADR 0008).
+  `cmd__` export over the graph the host passes (`CommandInput`: args, project root, graph, the
+  command format and today's date). The CLI runs it as `specforge <ext_short> <command>`, MCP as
+  the auto-promoted tool `specforge.<ext_short>.<id>`; neither knows any command
+  (`specforge_ops::command`, ADR 0008).
+- **Command format**: the output an extension command is asked for, `human` (the CLI default) or
+  `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
+  only it knows its payloads (ADR 0011).
 - **Tool spec**: the single definition of an MCP tool, from which its descriptor, typed arguments,
   output schema, annotations, mutation event and reply are derived (`specforge_mcp`'s `ToolSpec` table).
 - **Stateless request**: an MCP request whose `_meta` names its protocol version (MCP 2026-07-28),

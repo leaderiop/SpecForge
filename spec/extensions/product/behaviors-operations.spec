@@ -8,35 +8,37 @@ use "types/zero-entity-core"
 
 behavior pe_declare_surface_contributions "Declare Surface Contributions" {
   category command
-  types    [
-    ManifestV2,
-    ProductListFilter,
-    ProductSurfaceResponse,
-    ProductSurfaceError,
-    ProductSurfaceFailedPayload,
-    ProductSurfaceOperationPayload,
-    SurfaceResponseStatus,
-  ]
-  produces [pe_cli_command_executed, pe_surface_error]
+  types    [ManifestV2, ProductListFilter, ProductSurfaceError]
   contract """
     The @specforge/product extension MUST declare its CLI commands in its
     manifest's surfaces, each answered by its own cmd__product_<id> export
-    over the graph the host passes: the list commands features, journeys,
+    over the graph the host passes: the 40 commands surfaces-cli.spec
+    specifies. Built today: the list commands features, journeys,
     deliverables, milestones, modules, terms, personas, channels and
     releases, and the queries milestone_completion, journey_coverage,
     feature_impact, feature_dependents, persona_features, channel_features,
-    bulk_status and health. The CLI runs them as specforge product <id>
-    (an id's underscores spelled as dashes, a required arg positional), and
-    MCP auto-promotes each to the tool specforge.product.<id>. It declares
-    no explicit MCP tools or resources, and the host knows none of its
-    commands.
+    bulk_status and health. To build: deliverable_traceability,
+    feature_deliverables, persona_channels, deliverable_personas,
+    deliverable_completion, release_completion, deliverable_priority,
+    unscheduled_features, owner_workload, feature_ordering, critical_path,
+    module_depth, module_coupling, deliverable_dependents, coverage_matrix,
+    channel_coverage_matrix, feature_overlap, term_graph, term_clusters,
+    term_density, milestone_timeline, milestone_velocity and
+    weighted_milestone_completion. The CLI runs them as specforge product
+    <id> (an id's underscores spelled as dashes, a required arg
+    positional, the host's --format human|json on each), and MCP
+    auto-promotes each to the tool specforge.product.<id>. It declares no
+    explicit MCP tools and no MCP resources (ADR 0011), and the host knows
+    none of its commands.
   """
   ensures {
-    commands_declared "manifest surfaces declares the 17 product commands"
+    commands_declared "manifest surfaces declares the 40 product commands surfaces-cli.spec specifies"
     exports_answer    "every declared command's export answers with a CommandOutput"
+    no_resources      "manifest surfaces declares no explicit MCP tools and no MCP resources"
   }
   features [pe_surface_contributions, product_surface_access]
   verify unit "manifest surfaces declares the specforge product commands, each answered by its export"
+  verify unit "manifest surfaces declares the 40 commands surfaces-cli.spec specifies"
 }
 
 behavior pe_migration_hook_absent "Migration Hook Absent in v1" {

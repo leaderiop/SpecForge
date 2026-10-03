@@ -55,7 +55,7 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     no_sandbox_policy            "sandbox_policy is null — product declares no sandbox policy"
     host_api_declared            "host_api_version is 1.0.0"
     starter_tmpl_declared        "starter_template is the product starter in src/starter.spec"
-    surfaces_declared            "surfaces declares the specforge product CLI commands (cmd__product_* exports, auto-promoted to MCP tools) and no explicit MCP tools or resources"
+    surfaces_declared            "surfaces declares the 40 specforge product CLI commands (cmd__product_* exports, auto-promoted to MCP tools) and no explicit MCP tools or resources"
     ext_short_declared           "ext_short is 'product' for MCP tool naming (specforge.product.{cmd_id})"
     no_reserved_keywords         "reserved_keywords is empty — product has no keywords to reserve"
     query_scope_own              "query_scope is 'own' — product queries only its own and peer entity kinds"

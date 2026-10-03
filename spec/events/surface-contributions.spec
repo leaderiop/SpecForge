@@ -1,57 +1,9 @@
-// Surface contribution events — CLI command, MCP tool, and MCP resource lifecycle
+// Surface contribution events — what MCP records about extension surfaces.
+// The registry build that registers and checks surfaces is pure: its
+// diagnostics are its record, and it emits no event (ADR 0011).
 
 use "types/mcp"
 use "types/surface"
-
-event surface_contributions_registered "Surface Contributions Registered" {
-  channel "surface.contributions_registered"
-  payload {
-    extensionName    string
-    commandCount     integer
-    mcpToolCount     integer
-    mcpResourceCount integer
-  }
-  verify integration "emits surface_contributions_registered with correct counts per extension"
-}
-
-event surface_exports_validated "Surface Exports Validated" {
-  channel "surface.exports_validated"
-  payload {
-    extensionName    string
-    validatedExports integer
-  }
-  verify integration "emits surface_exports_validated after all cmd__ and mcp__ exports verified"
-}
-
-event surface_export_validation_failed "Surface Export Validation Failed" {
-  channel "surface.export_validation_failed"
-  payload {
-    extensionName    string
-    missingExports   string[]
-    declaredSurfaces string[]
-  }
-  verify integration "emits surface_export_validation_failed with missing export names"
-}
-
-event mcp_tool_schemas_validated "MCP Tool Schemas Validated" {
-  channel "surface.mcp_tool_schemas_validated"
-  payload {
-    extensionName string
-    validCount    integer
-    invalidCount  integer
-  }
-  verify integration "emits mcp_tool_schemas_validated with valid and invalid counts"
-}
-
-event command_args_validated "Command Args Validated" {
-  channel "surface.command_args_validated"
-  payload {
-    extensionName string
-    commandCount  integer
-    warningCount  integer
-  }
-  verify integration "emits command_args_validated with correct command and warning counts"
-}
 
 event commands_auto_promoted "Commands Auto-Promoted" {
   channel "surface.commands_auto_promoted"
@@ -93,15 +45,4 @@ event surface_mcp_resource_dispatched "Surface MCP Resource Dispatched" {
     durationMs    integer
   }
   verify integration "emits surface_mcp_resource_dispatched with correct uriTemplate"
-}
-
-event surface_contribution_toggled "Surface Contribution Toggled" {
-  channel "surface.contribution_toggled"
-  payload {
-    extensionName    string
-    surfaceType      string
-    contributionName string
-    enabled          boolean
-  }
-  verify integration "emits surface_contribution_toggled with correct enabled state"
 }

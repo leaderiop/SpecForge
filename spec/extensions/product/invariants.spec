@@ -304,29 +304,22 @@ invariant pe_effort_enum_validity "Effort Enum Validity" {
 // Surface and Query Invariants
 // ════════════════════════════════════════════════════════════════
 
-invariant pe_surface_response_envelope "Surface Response Envelope" {
-  guarantee """
-    All MCP resource responses MUST use the ProductSurfaceResponse
-    envelope with status, data, and optional error fields.
-  """
-  risk      high
-  verify unit "MCP resources return ProductSurfaceResponse envelope"
-}
-
 invariant pe_surface_error_consistency "Surface Error Consistency" {
   guarantee """
-    All product surfaces MUST use exactly three error codes:
-    ENTITY_NOT_FOUND, GRAPH_NOT_READY, INVALID_INPUT.
+    All product commands MUST use exactly two error codes:
+    ENTITY_NOT_FOUND (exit 1) and INVALID_INPUT (exit 2), written to
+    stderr with nothing on stdout.
   """
   risk      high
-  verify unit "surface errors use the three defined error codes"
+  verify unit "command errors use the two defined error codes"
 }
 
 invariant pe_list_pagination_correctness "List Pagination Correctness" {
   guarantee """
-    All list commands MUST return correct pagination: total is the
-    pre-pagination count, has_more is total > offset + returned count,
-    limit defaults to 100, offset defaults to 0.
+    All paged commands (the lists and the matrix queries) MUST return
+    correct pagination: total is the count after filters and before
+    paging, has_more is total > offset + returned count, limit defaults
+    to 100 (clamped to [1, 1000]), offset defaults to 0.
   """
   risk      high
   verify unit "pagination metadata is correct"

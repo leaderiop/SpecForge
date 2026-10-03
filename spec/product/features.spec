@@ -54,12 +54,13 @@ feature product_surface_access "Product Surface Access" {
   """
   solution     """
     CLI commands declared in the manifest surfaces field are
-    auto-promoted to MCP tools; MCP resources expose the remaining
-    query-port methods. All surfaces have typed input/output schemas.
+    auto-promoted to MCP tools, which always answer in JSON; one-hop
+    navigation is core's query. All surfaces have typed input/output
+    schemas (ADR 0011).
   """
   acceptance   [
     "Every promoted CLI command responds to --help with usage and typed arguments",
-    "All MCP resources return valid ProductSurfaceResponse JSON",
+    "Every command answers --format json with its typed payload",
     "CLI commands auto-promoted to MCP tools with matching input schemas",
     "Surface contributions registered from manifest surfaces field without manual wiring",
   ]

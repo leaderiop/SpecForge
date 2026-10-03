@@ -62,12 +62,9 @@ type MilestoneStatus {
   verify property "MilestoneStatus"
 }
 
-// Effort uses t-shirt sizes with configurable weights. Default weights
-// follow a Fibonacci-inspired scale (xs=1, s=2, m=3, l=5, xl=8) but
-// can be overridden via the effort_weights map in specforge.json under
-// the @specforge/product extension configuration. This allows teams to
-// use their own estimation methodology while keeping a standard enum
-// for cross-project compatibility.
+// Effort uses t-shirt sizes whose weights are the scale's definition,
+// Fibonacci-inspired and fixed (xs=1, s=2, m=3, l=5, xl=8); no project
+// configuration changes them (ADR 0011).
 type Effort "Effort T-Shirt Size" {
   values [xs, s, m, l, xl]
   verify property "Effort T-Shirt Size"
@@ -347,48 +344,6 @@ type FeatureDeliverablePayload {
   verify property "FeatureDeliverablePayload"
 }
 
-type FeatureMilestonePayload {
-  feature_id EntityId
-  milestones EntityId[]
-  count      integer
-  verify property "FeatureMilestonePayload"
-}
-
-type PersonaJourneyPayload {
-  persona_id EntityId
-  journeys   EntityId[]
-  count      integer
-  verify property "PersonaJourneyPayload"
-}
-
-type ChannelJourneyPayload {
-  channel_id EntityId
-  journeys   EntityId[]
-  count      integer
-  verify property "ChannelJourneyPayload"
-}
-
-type ModuleDeliverablePayload {
-  module_id    EntityId
-  deliverables EntityId[]
-  count        integer
-  verify property "ModuleDeliverablePayload"
-}
-
-type MilestoneDeliverablePayload {
-  milestone_id EntityId
-  deliverables EntityId[]
-  count        integer
-  verify property "MilestoneDeliverablePayload"
-}
-
-type ModuleFeaturePayload {
-  module_id EntityId
-  features  EntityId[]
-  count     integer
-  verify property "ModuleFeaturePayload"
-}
-
 type TermGraphPayload {
   term_id       EntityId
   related_terms EntityId[]
@@ -410,13 +365,6 @@ type PersonaChannelPayload {
   channels   EntityId[]
   count      integer
   verify property "PersonaChannelPayload"
-}
-
-type JourneyDeliverablePayload {
-  journey_id   EntityId
-  deliverables EntityId[]
-  count        integer
-  verify property "JourneyDeliverablePayload"
 }
 
 type FeatureDependentPayload {
@@ -447,19 +395,8 @@ type ProductTagConsistencyPayload {
   verify property "ProductTagConsistencyPayload"
 }
 
-// ── Surface Observability Payloads ────────────────────────────
-
-type ProductSurfaceOperationPayload {
-  surface_id   string
-  surface_type string
-  entity_id    EntityId @optional
-  duration_ms  integer  @optional
-  status       SurfaceResponseStatus
-  verify property "ProductSurfaceOperationPayload"
-}
-
 // ── Surface I/O Types ─────────────────────────────────────────
-// Input and output schemas for CLI commands and MCP resources.
+// Input and output schemas for CLI commands.
 // Every CLI command is auto-promoted to an MCP tool with the
 // same input schema (JSON Schema) and output schema (JSON body).
 
@@ -663,49 +600,24 @@ type ChannelListResult {
 // CLI flags map to these fields. MCP tool inputs use the same schema.
 
 type MilestoneCompletionInput {
-  milestone_id EntityId
+  milestone EntityId
   verify property "MilestoneCompletionInput"
 }
 
 type JourneyCoverageInput {
-  journey_id EntityId
+  journey EntityId
   verify property "JourneyCoverageInput"
 }
 
 type MilestoneTimelineInput {
-  as_of_date string @optional
+  // YYYY-MM-DD; defaults to the today the host passes (CommandInput.today).
+  as_of string @optional
   verify property "MilestoneTimelineInput"
 }
 
-type MilestoneDeliverablesInput {
-  milestone_id EntityId
-  verify property "MilestoneDeliverablesInput"
-}
-
-type ModuleFeaturesInput {
-  module_id EntityId
-  verify property "ModuleFeaturesInput"
-}
-
-// -- MCP resource response envelope --
-// All MCP resources return this envelope wrapping the query payload.
-
-type SurfaceResponseStatus {
-  values [ok, error]
-  verify property "SurfaceResponseStatus"
-}
-
-type ProductSurfaceResponse {
-  status     SurfaceResponseStatus
-  data       any                 @optional
-  error      ProductSurfaceError @optional
-  _resource  string
-  _timestamp string
-  verify property "ProductSurfaceResponse"
-}
-
+// What a command writes to stderr under --format json when it cannot
+// answer: code ENTITY_NOT_FOUND (exit 1) or INVALID_INPUT (exit 2).
 type ProductSurfaceError {
-  _tag       "ProductSurfaceError"
   code       string
   message    string
   entity_id  EntityId @optional
@@ -921,6 +833,10 @@ type FeatureOverlapPayload {
   overlapping_features FeatureOverlapEntry[]
   count                integer
   total_features       integer
+  total                integer
+  offset               integer
+  limit                integer
+  has_more             boolean
   verify property "FeatureOverlapPayload"
 }
 
@@ -939,6 +855,10 @@ type PersonaCoverageMatrixPayload {
   personas         PersonaCoverageEntry[]
   total_features   integer
   overall_coverage float @optional
+  total            integer
+  offset           integer
+  limit            integer
+  has_more         boolean
   verify property "PersonaCoverageMatrixPayload"
 }
 
@@ -957,6 +877,10 @@ type ChannelCoverageMatrixPayload {
   channels         ChannelCoverageEntry[]
   total_features   integer
   overall_coverage float @optional
+  total            integer
+  offset           integer
+  limit            integer
+  has_more         boolean
   verify property "ChannelCoverageMatrixPayload"
 }
 
@@ -1002,6 +926,10 @@ type OwnerWorkloadPayload {
   owners         OwnerWorkloadEntry[]
   unowned_count  integer
   total_entities integer
+  total          integer
+  offset         integer
+  limit          integer
+  has_more       boolean
   verify property "OwnerWorkloadPayload"
 }
 
@@ -1019,20 +947,6 @@ type WeightedMilestoneCompletionPayload {
   completion_ratio float @optional
   effort_breakdown EffortBreakdownEntry[]
   verify property "WeightedMilestoneCompletionPayload"
-}
-
-type ReleaseDeliverablePayload {
-  release_id   EntityId
-  deliverables EntityId[]
-  count        integer
-  verify property "ReleaseDeliverablePayload"
-}
-
-type ReleaseMilestonePayload {
-  release_id EntityId
-  milestones EntityId[]
-  count      integer
-  verify property "ReleaseMilestonePayload"
 }
 
 type ReleaseCompletionPayload {
@@ -1113,6 +1027,10 @@ type ModuleCouplingPayload {
   avg_fan_out     float    @optional
   most_coupled_id EntityId @optional
   total_modules   integer
+  total           integer
+  offset          integer
+  limit           integer
+  has_more        boolean
   verify property "ModuleCouplingPayload"
 }
 
@@ -1126,63 +1044,78 @@ type ChannelFeaturePayload {
   verify property "ChannelFeaturePayload"
 }
 
-// ── Cursor-Based Pagination ───────────────────────────────────
-// For matrix/analytics queries that may return large result sets.
-// Cursor is an opaque string encoding the position in the result set.
-// Queries returning paginated results use PaginatedQueryInput as
-// an optional parameter and include cursor metadata in their payload.
-
-type PaginatedQueryInput {
-  // Opaque cursor from a previous response. Omit for the first page.
-  cursor    string  @optional
-  // Maximum number of entries per page. Default: 100, max: 1000.
-  page_size integer @optional
-  verify property "PaginatedQueryInput"
-}
+// ── Offset Pagination ─────────────────────────────────────────
+// The one pagination contract (ADR 0011): the list commands and the
+// matrix queries take --offset (integer, default 0) and --limit
+// (integer, default 100, clamped to [1, 1000]) and report where the page
+// sits. There are no cursors.
 
 type PaginationMetadata {
-  // Opaque cursor for the next page. Null when no more pages.
-  next_cursor string @optional
-  // Total number of entries across all pages (computed once on first request).
-  total       integer
-  // Whether more pages are available.
-  has_more    boolean
+  // Entries after filters, before paging.
+  total    integer
+  offset   integer
+  limit    integer
+  // offset + entries on this page < total.
+  has_more boolean
   verify property "PaginationMetadata"
 }
 
-// ── Error Event Payloads ─────────────────────────────────────
-// Payloads for error events emitted when queries or surface
-// operations fail. These enable external observability of
-// failure paths (MCP notifications, CI alerting, dashboards).
+// ── Project-wide summaries ───────────────────────────────────
 
-type ProductQueryFailedPayload {
-  // The query behavior ID that failed (e.g., "pe_query_milestone_completion").
-  query_name string
-  // The entity ID passed to the query, if entity-scoped.
-  entity_id  EntityId @optional
-  // The error code: ENTITY_NOT_FOUND, GRAPH_NOT_READY, or INVALID_INPUT.
-  error_code string
-  // Human-readable error message.
-  message    string
-  // Fuzzy-match suggestion when error_code is ENTITY_NOT_FOUND.
-  suggestion string   @optional
-  // ISO 8601 timestamp of the failure.
-  timestamp  string
-  verify property "ProductQueryFailedPayload"
+type StatusCount {
+  status string
+  count  integer
+  verify property "StatusCount"
 }
 
-type ProductSurfaceFailedPayload {
-  // The surface type: "cli" or "mcp".
-  surface_type string
-  // The command or resource name that failed.
-  surface_name string
-  // The error code from ProductSurfaceError.
-  error_code   string
-  // Human-readable error message.
-  message      string
-  // The entity ID involved, if entity-scoped.
-  entity_id    EntityId @optional
-  // ISO 8601 timestamp of the failure.
-  timestamp    string
-  verify property "ProductSurfaceFailedPayload"
+type KindStatusCounts {
+  kind      string
+  total     integer
+  by_status StatusCount[]
+  verify property "KindStatusCounts"
+}
+
+// bulk-status: one entry per lifecycle kind with entities, in the order
+// feature, milestone, deliverable, persona, channel, release.
+type BulkStatusPayload {
+  kinds KindStatusCounts[]
+  verify property "BulkStatusPayload"
+}
+
+type HealthScore {
+  // Each in [0, 100]; overall is the mean of the other three.
+  overall      float
+  coverage     float
+  connectivity float
+  completeness float
+  verify property "HealthScore"
+}
+
+type KindCount {
+  kind  string
+  count integer
+  verify property "KindCount"
+}
+
+type KindOrphanCount {
+  kind    string
+  orphans integer
+  total   integer
+  verify property "KindOrphanCount"
+}
+
+type HealthCompleteness {
+  features_with_status     integer
+  features_total           integer
+  milestones_with_features integer
+  milestones_total         integer
+  verify property "HealthCompleteness"
+}
+
+type HealthPayload {
+  score         HealthScore
+  entity_counts KindCount[]
+  orphan_counts KindOrphanCount[]
+  completeness  HealthCompleteness
+  verify property "HealthPayload"
 }

@@ -455,7 +455,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Invalid surface contribution schema",
         owner: "core",
         level: Level::Error,
-        explanation: "A surface contribution's schema is malformed: an MCP tool's `input_schema` or `output_schema` isn't a JSON object, or a CLI command declares an argument type outside the known set (`string`, `path`, `bool`, `enum`, `integer`). Fix the schema or argument type in the manifest.",
+        explanation: "An extension's explicit MCP tool declares an `input_schema` or `output_schema` that isn't a JSON object, so the tool is not registered. Declare the schema as a JSON Schema object. (A command argument type outside `string`, `path`, `bool`, `enum` and `integer` fails the extension's load as E028: its surfaces don't parse.)",
     },
     CodeEntry {
         code: "E056",

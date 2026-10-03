@@ -196,20 +196,19 @@ fn read(state: &McpState, uri: &str) -> ReadOutcome {
 }
 
 /// Whether `uri` names a resource the server serves: a core one, or one an
-/// enabled extension contributes.
+/// extension contributes.
 pub(crate) fn is_served(state: &McpState, uri: &str) -> bool {
     CORE_RESOURCES.iter().any(|r| r.matches(uri))
         || (uri.starts_with("specforge://ext/") && extension_resource_entry(state, uri).is_some())
 }
 
-/// The enabled extension resource whose URI template `uri` matches.
+/// The extension resource whose URI template `uri` matches.
 fn extension_resource_entry<'a>(
     state: &'a McpState,
     uri: &str,
 ) -> Option<&'a specforge_registry::SurfaceRegistryEntry> {
     state.surface_entries().find(|e| {
         e.surface_type == specforge_registry::SurfaceType::McpResource
-            && e.enabled
             && uri_template(state, e).is_some_and(|template| matches_uri_template(template, uri))
     })
 }
