@@ -18,8 +18,8 @@ pub fn run(
 }
 
 /// `specforge check` with the project's extensions running in `runtime`.
-/// With `cache`, a check that passes records the build's statuses in
-/// `specforge-cache.json`.
+/// With `cache`, a check that passes records the build's lifecycle states
+/// (the fields kinds declare as `lifecycle_field`) in `specforge-cache.json`.
 fn run_in(
     path: &Path,
     runtime: &dyn WasmRuntime,
@@ -56,7 +56,12 @@ fn run_in(
     }
 
     if cache {
-        match specforge_project::record_build_cache(path, &ctx.graph, &all_diagnostics) {
+        match specforge_project::record_build_cache(
+            path,
+            &ctx.graph,
+            &ctx.kind_registry,
+            &all_diagnostics,
+        ) {
             Ok(true) => {}
             Ok(false) => eprintln!(
                 "note: {} not written: the check failed",

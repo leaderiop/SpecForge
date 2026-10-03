@@ -25,20 +25,26 @@ fn check(dir: &Path, args: &[&str]) -> assert_cmd::assert::Assert {
         .assert()
 }
 
+/// Product declares `status` the lifecycle field of feature and milestone;
+/// software's behavior has a `status` too, but no lifecycle field.
 const SOURCES: &[(&str, &str)] = &[
     (
+        "specforge.json",
+        r#"{"extensions": ["@specforge/software", "@specforge/product"]}"#,
+    ),
+    (
         "b.spec",
-        "feature zeta \"Z\" {\n  status in_progress\n}\n\nbehavior beta \"B\" {\n  contract \"no status\"\n}\n",
+        "feature zeta \"Z\" {\n  problem \"p\"\n  status in_progress\n}\n\nbehavior beta \"B\" {\n  contract \"a status, but no lifecycle\"\n  status draft\n}\n",
     ),
     (
         "a.spec",
-        "feature alpha \"A\" {\n  status done\n}\n\nmilestone mid \"M\" {\n  status \"planned\"\n}\n",
+        "feature alpha \"A\" {\n  problem \"p\"\n  status done\n}\n\nmilestone mid \"M\" {\n  status \"planned\"\n}\n",
     ),
 ];
 
 #[specforge_test(
     behavior = "write_build_cache",
-    verify = "check --cache records each entity's kind and status"
+    verify = "check --cache records each entity's kind and lifecycle state"
 )]
 fn check_cache_records_kinds_and_statuses() {
     let dir = project(SOURCES);

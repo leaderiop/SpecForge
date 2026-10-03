@@ -1843,7 +1843,11 @@ decision pe_status_transition_via_cache "Status Transitions via Explicit Build C
   decision     """
     Status transition validation uses an explicit, opt-in build cache file
     (specforge-cache.json) as a declared compiler input. The cache records
-    entity statuses from the previous successful build. When present,
+    entity statuses from the previous successful build: product declares
+    `status` the lifecycle field of feature, milestone, deliverable,
+    persona, channel and release, and the host records the lifecycle field
+    of each kind that declares one, naming no field itself (ADR 0009).
+    When present,
     W087-W091/W094 compare current status against cached status. When
     absent, transition rules are suppressed and only enum validity
     (W077-W085) is checked.

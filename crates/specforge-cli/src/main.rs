@@ -210,8 +210,9 @@ enum Commands {
         #[arg(long, value_delimiter = ',')]
         lint: Vec<String>,
 
-        /// Record each entity's status in specforge-cache.json when the
-        /// check passes (the build cache history rules compare against)
+        /// Record each entity's lifecycle state (e.g. a feature's status) in
+        /// specforge-cache.json when the check passes (the build cache history
+        /// rules compare against)
         #[arg(long)]
         cache: bool,
     },

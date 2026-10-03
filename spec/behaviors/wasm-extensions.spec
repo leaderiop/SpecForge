@@ -426,27 +426,30 @@ behavior write_build_cache "Write the Build Cache" {
     project_compiled "the project compiled and its diagnostics are known"
   }
   ensures {
-    statuses_recorded "check --cache writes every entity that declares a status, with its kind and status, to specforge-cache.json at the project root"
+    statuses_recorded "check --cache writes every entity whose kind declares a lifecycle field, with its kind and that field's value, to specforge-cache.json at the project root"
     deterministic     "the file is byte-identical for the same sources"
     opt_in            "check without --cache never writes the file, and no other command or surface writes it"
     clean_builds_only "the file is written only when check exits 0; otherwise the previous file is left as it was"
   }
   contract """
-    The build cache is the explicit, opt-in record of the statuses of one
-    build, so history rules (status transitions) compare against a
+    The build cache is the explicit, opt-in record of the lifecycle states
+    of one build, so history rules (status transitions) compare against a
     declared input, never hidden state. `specforge check --cache` writes
     it after the compile, to `specforge-cache.json` beside
     `specforge.json`:
     `{"format": 1, "statuses": {"<entity id>": {"kind": "<kind>",
     "status": "<status>"}}}`, entities sorted by id, pretty-printed with
-    a final newline. Only entities that declare a `status` field are
-    recorded. The file is replaced atomically (written beside, then
+    a final newline. Only entities whose kind declares a `lifecycle_field`
+    (ADR 0009) and that give it a text value are recorded, the value under
+    `status` whatever the field is called; no field name is known to the
+    cache. The file is replaced atomically (written beside, then
     renamed). A check that exits non-zero (errors, or warnings under
     `--strict`) does not write it: a broken build is not a baseline.
     CI may commit the file to check transitions across builds.
   """
   produces []
-  verify unit "check --cache records each entity's kind and status"
+  verify unit "check --cache records each entity's kind and lifecycle state"
+  verify unit "a kind without a lifecycle field is not recorded"
   verify unit "the cache file is deterministic"
   verify integration "check without --cache never writes the cache"
   verify unit "check --cache with errors leaves the cache untouched"
