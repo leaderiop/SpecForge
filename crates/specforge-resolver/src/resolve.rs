@@ -1,5 +1,5 @@
 use crate::{FileScope, ReexportDeclaration, ResolvedFile, ResolvedProject};
-use specforge_common::{Diagnostic, Severity, find_close_match};
+use specforge_common::{Diagnostic, DiagnosticData, Severity, find_close_match};
 use specforge_parser::{SpecFile, parse};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
@@ -169,16 +169,17 @@ pub fn resolve_parsed(
                     });
                 }
                 Target::NotFound => {
-                    let suggestion =
-                        find_close_match(import.path.as_str(), candidates.iter().copied())
-                            .map(|m| format!("did you mean '{}'?", m));
+                    let close = find_close_match(import.path.as_str(), candidates.iter().copied());
                     diagnostics.push(Diagnostic {
                         code: "E025".to_string(),
                         severity: Severity::Error,
                         message: format!("import target not found: {}", import.path),
                         span: Some(import.span.clone()),
-                        suggestion,
-                        data: None,
+                        suggestion: close.map(|m| format!("did you mean '{}'?", m)),
+                        data: Some(Box::new(DiagnosticData::UnresolvedImport {
+                            path: import.path.to_string(),
+                            did_you_mean: close.map(str::to_string),
+                        })),
                     });
                 }
             }

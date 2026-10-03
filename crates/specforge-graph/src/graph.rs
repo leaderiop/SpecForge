@@ -1,4 +1,4 @@
-use specforge_common::{Diagnostic, SourceSpan, Sym, find_close_match};
+use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym, find_close_match};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
@@ -423,7 +423,15 @@ impl Graph {
                                         target_id, node_id
                                     ),
                                 )
-                                .with_span(target_ref.span.clone());
+                                .with_span(target_ref.span.clone())
+                                .with_data(
+                                    DiagnosticData::UnresolvedReference {
+                                        target: target_id.to_string(),
+                                        entity: node_id.as_str().to_string(),
+                                        field: entry.key.as_str().to_string(),
+                                        did_you_mean: suggestion.map(str::to_string),
+                                    },
+                                );
                                 if let Some(s) = suggestion {
                                     diag = diag.with_suggestion(format!("did you mean '{}'?", s));
                                 }

@@ -1,4 +1,4 @@
-use specforge_common::{SourceSpan, Sym};
+use specforge_common::{DiagnosticData, SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, GraphConfig, Node, build_graph_with_config};
 use specforge_parser::{EntityId, EntityKind, FieldMap, parse};
 use specforge_test_macros::test as specforge_test;
@@ -63,6 +63,16 @@ feature delta "D" { behaviors [alpha] }
         "exactly one unresolved reference: {diagnostics:?}"
     );
     assert!(e003[0].message.contains("ghost"), "{}", e003[0].message);
+    // What it names is data as well as text: target, entity and field.
+    assert_eq!(
+        e003[0].data.as_deref().cloned(),
+        Some(DiagnosticData::UnresolvedReference {
+            target: "ghost".into(),
+            entity: "gamma".into(),
+            field: "behaviors".into(),
+            did_you_mean: None,
+        })
+    );
 
     // one_node_per_entity: exactly the four declared entities, nothing else.
     let mut ids: Vec<String> = graph.nodes().iter().map(|n| n.id.raw.to_string()).collect();
@@ -212,6 +222,16 @@ feature gamma "G" { behaviors [alpha_parsr] }
     assert!(
         e003[0].suggestion.is_some(),
         "close match must produce suggestion"
+    );
+    // The close match rides in the data, so a quick fix needn't parse it.
+    assert!(
+        matches!(
+            e003[0].data.as_deref(),
+            Some(DiagnosticData::UnresolvedReference { did_you_mean: Some(m), .. })
+                if m == "alpha_parser"
+        ),
+        "{:?}",
+        e003[0].data
     );
 
     let source_far = r#"
