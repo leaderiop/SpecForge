@@ -1,4 +1,4 @@
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, DiagnosticData, Severity};
 use specforge_registry::{
     ManifestV2, compilation::detect_duplicate_entity_kinds, validate_manifest,
     validate_peer_dependencies_of,
@@ -77,7 +77,9 @@ pub fn detect_entity_kind_collision(manifests: &[ManifestV2]) -> Vec<Diagnostic>
                     ),
                     span: None,
                     suggestion: Some("choose a different keyword for this entity kind".to_string()),
-                    data: None,
+                    data: Some(Box::new(DiagnosticData::ShadowedKeyword {
+                        keyword: kind.keyword.clone(),
+                    })),
                 });
             }
         }
@@ -275,11 +277,11 @@ mod tests {
         }];
 
         let diags = detect_entity_kind_collision(&[m1, m2]);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "E026" && d.message.contains("behavior"))
-        );
+        assert!(diags.iter().any(|d| d.code == "E026"
+            && d.data
+                == Some(Box::new(DiagnosticData::ShadowedKeyword {
+                    keyword: "behavior".into()
+                }))));
     }
 
     // B:detect_entity_kind_collision — verify unit "collision with structural keyword → E023"
@@ -312,11 +314,11 @@ mod tests {
         }];
 
         let diags = detect_entity_kind_collision(&[m]);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "E023" && d.message.contains("spec"))
-        );
+        assert!(diags.iter().any(|d| d.code == "E023"
+            && d.data
+                == Some(Box::new(DiagnosticData::ShadowedKeyword {
+                    keyword: "spec".into()
+                }))));
     }
 
     // B:detect_entity_kind_collision — verify unit "no false positives"

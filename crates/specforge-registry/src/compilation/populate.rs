@@ -2,7 +2,7 @@ use crate::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
     KindRegistryEntry, ManifestFieldType, ManifestV2,
 };
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, DiagnosticData, Severity};
 
 /// Populate all three registries from a list of extension manifests.
 /// Manifests should be provided in topological order (dependencies first).
@@ -143,7 +143,9 @@ fn register_entity_kinds(
                 ),
                 span: None,
                 suggestion: None,
-                data: None,
+                data: Some(Box::new(DiagnosticData::ShadowedKeyword {
+                    keyword: kind.keyword.clone(),
+                })),
             });
             // Restore the first registration (it wins)
             registry.register(existing);

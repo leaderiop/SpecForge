@@ -13,7 +13,7 @@
 //! report (`McpDoctorReport`) is about the project, does not.
 
 use serde::Serialize;
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, DiagnosticData, Severity};
 use specforge_registry::ManifestV2;
 use specforge_wasm::{DoctorStatus, read_lock_file, run_doctor_check};
 use std::collections::{BTreeMap, HashMap};
@@ -422,9 +422,12 @@ pub fn diagnose_with(
             code: diag.code.clone(),
             remediation: suggestion.clone(),
         });
-        if shadowing && let Some(keyword) = shadowed_keyword(&diag.message) {
+        // The keyword is the diagnostic's data, not a quoted word of its
+        // message.
+        if shadowing && let Some(DiagnosticData::ShadowedKeyword { keyword }) = diag.data.as_deref()
+        {
             shadowed.push(ShadowedConstruct {
-                keyword: keyword.to_string(),
+                keyword: keyword.clone(),
                 code: diag.code.clone(),
                 message: diag.message.clone(),
                 suggestion: suggestion.clone(),
@@ -463,22 +466,6 @@ pub fn diagnose_with(
         z3_available,
         findings,
     }
-}
-
-/// The keyword a shadowing diagnostic names: the `'quoted'` word right after
-/// "kind" or "keyword" (E023 messages lead with the extension's name), else
-/// the first quoted word.
-fn shadowed_keyword(message: &str) -> Option<&str> {
-    let parts: Vec<&str> = message.split('\'').collect();
-    let quoted = (1..parts.len().saturating_sub(1)).step_by(2);
-    quoted
-        .clone()
-        .find(|&i| {
-            let before = parts[i - 1].trim_end();
-            before.ends_with("kind") || before.ends_with("keyword")
-        })
-        .or_else(|| quoted.clone().next())
-        .map(|i| parts[i])
 }
 
 fn z3_on_path() -> bool {
@@ -648,12 +635,18 @@ mod tests {
     #[test]
     fn a_structural_keyword_collision_is_a_shadowed_construct() {
         let dir = tempfile::TempDir::new().unwrap();
-        // What manifest_bridge reports for an extension kind named `spec`.
-        let diagnostics = [diag(
+        // What manifest_bridge reports for an extension kind named `spec`,
+        // worded so that no quoted word of it is the keyword: only the
+        // data names it.
+        let mut e023 = diag(
             "E023",
-            "extension 'acme': entity kind 'spec' conflicts with structural keyword",
+            "extension 'acme': its entity kind shadows a structural keyword",
             Some("choose a different keyword for this entity kind"),
-        )];
+        );
+        e023.data = Some(Box::new(DiagnosticData::ShadowedKeyword {
+            keyword: "spec".into(),
+        }));
+        let diagnostics = [e023];
 
         let report = diagnose_with(dir.path(), &[], &diagnostics, true);
 
@@ -732,11 +725,15 @@ mod tests {
     #[test]
     fn an_entity_id_that_is_a_kind_keyword_is_shadowed_but_not_a_conflict() {
         let dir = tempfile::TempDir::new().unwrap();
-        let diagnostics = [diag(
+        let mut e013 = diag(
             "E013",
             "entity ID 'behavior' collides with a reserved keyword at project.spec",
             Some("rename the entity"),
-        )];
+        );
+        e013.data = Some(Box::new(DiagnosticData::ShadowedKeyword {
+            keyword: "behavior".into(),
+        }));
+        let diagnostics = [e013];
 
         let report = diagnose_with(dir.path(), &[], &diagnostics, true);
 

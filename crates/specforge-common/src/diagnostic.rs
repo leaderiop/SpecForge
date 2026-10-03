@@ -46,6 +46,10 @@ pub enum DiagnosticData {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         did_you_mean: Option<String>,
     },
+    /// E013, E023, E026: `keyword` — an entity id, or an extension's kind
+    /// keyword — collides with a keyword the grammar or an earlier
+    /// extension already owns.
+    ShadowedKeyword { keyword: String },
 }
 
 impl std::fmt::Display for Severity {

@@ -1,7 +1,7 @@
 use crate::ManifestV2;
 #[cfg(test)]
 use crate::{EdgeRegistry, FieldRegistry, KindRegistry};
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, DiagnosticData, Severity};
 
 /// Cross-validate registered entity fields: check target_kind and edge label references
 /// resolve to registered entries. Test-only: `validate_manifest` reports W021 on load.
@@ -72,7 +72,9 @@ pub fn detect_duplicate_entity_kinds(manifests: &[ManifestV2]) -> Vec<Diagnostic
                     ),
                     span: None,
                     suggestion: None,
-                    data: None,
+                    data: Some(Box::new(DiagnosticData::ShadowedKeyword {
+                        keyword: kind.keyword.clone(),
+                    })),
                 });
             } else {
                 seen.insert(kind.keyword.clone(), manifest.name.clone());

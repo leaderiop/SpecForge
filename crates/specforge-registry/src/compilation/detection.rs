@@ -1,6 +1,6 @@
 use crate::validation_engine::{ValidationPatternKind, ValidationRulePattern};
 use crate::{FieldRegistry, KindRegistry};
-use specforge_common::{Diagnostic, Severity, SourceSpan};
+use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan};
 use std::collections::HashMap;
 
 /// A keyword-to-extension index for suggesting missing extensions.
@@ -162,7 +162,9 @@ pub fn detect_reserved_entity_ids(
             suggestion: Some(format!(
                 "rename the entity (e.g. `{id}_rule`, `{id}_spec`) — reserved words cannot be identifiers"
             )),
-            data: None,
+            data: Some(Box::new(DiagnosticData::ShadowedKeyword {
+                keyword: id.to_string(),
+            })),
         });
     }
     diagnostics
@@ -893,6 +895,12 @@ mod tests {
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "E013");
         assert!(diags[0].message.contains("behavior"));
+        assert_eq!(
+            diags[0].data,
+            Some(Box::new(DiagnosticData::ShadowedKeyword {
+                keyword: "behavior".into()
+            }))
+        );
         assert!(diags[0].suggestion.as_ref().unwrap().contains("rename"));
     }
 
