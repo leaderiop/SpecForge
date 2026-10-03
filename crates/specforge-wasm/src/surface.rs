@@ -1,6 +1,5 @@
 use crate::runtime::{WasmCallResult, WasmRuntime};
 use specforge_common::{Diagnostic, Severity};
-use specforge_registry::SandboxPolicy;
 use std::collections::HashSet;
 
 /// Validate that all declared surface exports are present in the Wasm module.
@@ -328,66 +327,6 @@ pub fn dispatch_surface_mcp_resource(
             data: None,
         }),
     }
-}
-
-/// Enforce surface sandbox: intersect override with extension ceiling.
-/// Override cannot expand beyond extension policy.
-pub fn enforce_surface_sandbox(
-    override_: &SurfaceSandboxOverrideValues,
-    extension_policy: &SandboxPolicy,
-) -> EffectiveSandbox {
-    let fs_read = match (override_.fs_read, extension_policy.file_system_access) {
-        (Some(true), Some(false)) => false, // Cannot expand beyond ceiling
-        (Some(v), _) => v,
-        (None, Some(v)) => v,
-        (None, None) => true,
-    };
-
-    let fs_write = match (override_.fs_write, extension_policy.file_system_access) {
-        (Some(true), Some(false)) => false,
-        (Some(v), _) => v,
-        (None, Some(v)) => v,
-        (None, None) => false,
-    };
-
-    let network = match (override_.network, extension_policy.network_access) {
-        (Some(true), Some(false)) => false,
-        (Some(v), _) => v,
-        (None, Some(v)) => v,
-        (None, None) => false,
-    };
-
-    EffectiveSandbox {
-        fs_read,
-        fs_write,
-        network,
-    }
-}
-
-/// Surface sandbox override values (simplified for enforcement).
-#[derive(Debug, Clone, Default)]
-pub struct SurfaceSandboxOverrideValues {
-    pub fs_read: Option<bool>,
-    pub fs_write: Option<bool>,
-    pub network: Option<bool>,
-}
-
-/// Effective sandbox after enforcement.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EffectiveSandbox {
-    pub fs_read: bool,
-    pub fs_write: bool,
-    pub network: bool,
-}
-
-/// Enforce that MCP resources never get fs_write.
-pub fn enforce_resource_sandbox(
-    override_: &SurfaceSandboxOverrideValues,
-    extension_policy: &SandboxPolicy,
-) -> EffectiveSandbox {
-    let mut sandbox = enforce_surface_sandbox(override_, extension_policy);
-    sandbox.fs_write = false; // Resources are always read-only
-    sandbox
 }
 
 /// Toggle a surface contribution on/off. Returns true if found.
@@ -780,64 +719,6 @@ mod tests {
         assert_eq!(mime, "text/plain");
     }
 
-    // -- enforce_surface_sandbox --
-
-    // B:enforce_surface_sandbox — verify unit "effective sandbox = intersection of override and ceiling"
-    #[test]
-    fn test_enforce_sandbox_intersection() {
-        let override_ = SurfaceSandboxOverrideValues {
-            fs_read: Some(true),
-            fs_write: Some(true),
-            network: Some(true),
-        };
-        let policy = SandboxPolicy {
-            file_system_access: Some(true),
-            network_access: Some(false),
-            ..Default::default()
-        };
-        let effective = enforce_surface_sandbox(&override_, &policy);
-        assert!(effective.fs_read);
-        assert!(effective.fs_write);
-        assert!(!effective.network); // Ceiling denies network
-    }
-
-    // B:enforce_surface_sandbox — verify unit "override cannot expand beyond extension policy"
-    #[test]
-    fn test_enforce_sandbox_cannot_expand() {
-        let override_ = SurfaceSandboxOverrideValues {
-            fs_read: Some(true),
-            fs_write: Some(true),
-            network: Some(true),
-        };
-        let policy = SandboxPolicy {
-            file_system_access: Some(false),
-            network_access: Some(false),
-            ..Default::default()
-        };
-        let effective = enforce_surface_sandbox(&override_, &policy);
-        assert!(!effective.fs_read);
-        assert!(!effective.fs_write);
-        assert!(!effective.network);
-    }
-
-    // B:enforce_surface_sandbox — verify unit "MCP resource fs_write denied regardless"
-    #[test]
-    fn test_enforce_resource_sandbox_fs_write_denied() {
-        let override_ = SurfaceSandboxOverrideValues {
-            fs_read: Some(true),
-            fs_write: Some(true), // Should still be denied for resources
-            network: None,
-        };
-        let policy = SandboxPolicy {
-            file_system_access: Some(true),
-            network_access: Some(true),
-            ..Default::default()
-        };
-        let effective = enforce_resource_sandbox(&override_, &policy);
-        assert!(effective.fs_read);
-        assert!(!effective.fs_write); // Always denied for resources
-    }
-
     // -- toggle_surface_contribution --
 
     // B:toggle_surface_contribution — verify unit "disabled command excluded"
@@ -896,9 +777,9 @@ mod tests {
         assert!(entries[0].enabled);
     }
 
-    // B:toggle_surface_contribution + sandbox — verify contract
+    // B:toggle_surface_contribution — verify contract
     #[test]
-    fn test_toggle_and_sandbox_contract() {
+    fn test_toggle_contract() {
         // Toggle contract: found returns true, not found returns false
         let mut entries = vec![SurfaceEntry {
             name: "x".to_string(),
@@ -911,27 +792,5 @@ mod tests {
             "nonexistent",
             false
         ));
-
-        // Sandbox contract: intersection semantics
-        let override_ = SurfaceSandboxOverrideValues {
-            fs_read: Some(true),
-            fs_write: None,
-            network: Some(false),
-        };
-        let policy = SandboxPolicy {
-            file_system_access: Some(true),
-            network_access: Some(true),
-            ..Default::default()
-        };
-        let eff = enforce_surface_sandbox(&override_, &policy);
-        assert!(eff.fs_read);
-        assert!(!eff.network); // Override restricts
-
-        // Resource sandbox: fs_write always denied
-        let eff2 = enforce_resource_sandbox(
-            &SurfaceSandboxOverrideValues::default(),
-            &SandboxPolicy::default(),
-        );
-        assert!(!eff2.fs_write);
     }
 }

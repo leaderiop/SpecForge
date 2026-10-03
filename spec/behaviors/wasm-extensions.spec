@@ -515,9 +515,10 @@ behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
     extension_file_parsers). Calls to unauthorized host functions MUST be
     rejected.
 
-    Surface contributions (cmd__, mcp__ exports) have their own sandbox
-    enforcement via enforce_surface_sandbox (behaviors/surface-contributions.spec).
-    This behavior covers compile-time contribution call sites only.
+    Surface contributions (cmd__, mcp__ exports) are granted no
+    capability at all (invariant surface_sandbox_ceiling,
+    behaviors/surface-contributions.spec). This behavior covers
+    compile-time contribution call sites only.
   """
   produces   [contribution_permission_denied]
   verify unit "validator export limited to query_graph and emit_diagnostic"

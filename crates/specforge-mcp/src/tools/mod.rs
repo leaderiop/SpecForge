@@ -108,6 +108,19 @@ fn extension_error(diag: &specforge_common::Diagnostic) -> ToolOutcome {
     McpError::from_diagnostic(diag).into()
 }
 
+/// The id of the command an auto-promoted tool runs: the one its extension
+/// declares with the tool's export.
+fn command_id(state: &McpState, entry: &SurfaceRegistryEntry) -> String {
+    state
+        .registries()
+        .manifest_surfaces
+        .iter()
+        .filter(|(extension, _)| *extension == entry.extension_name)
+        .flat_map(|(_, surfaces)| &surfaces.commands)
+        .find(|command| command.export == entry.export_name)
+        .map_or_else(|| entry.contribution_name.clone(), |c| c.id.clone())
+}
+
 /// An auto-promoted command's run as a tool result: its stdout, then its
 /// stderr when it wrote any; a nonzero exit code fails the call.
 fn command_tool_result(
@@ -304,14 +317,30 @@ fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Val
         // An auto-promoted CLI command runs its cmd__ export over the served
         // graph, as `specforge <ext> <command>` does over the compiled one.
         let args = arguments.as_object().cloned().unwrap_or_default();
-        return command_tool_result(specforge_ops::command::run_command(
+        let started = std::time::Instant::now();
+        let outcome = specforge_ops::command::run_command(
             runtime.as_ref(),
             &entry.extension_name,
             &entry.export_name,
             state.graph(),
             &args,
             &root,
-        ));
+        );
+        // A command whose export returned is a dispatched command; a trap
+        // is the tool's error.
+        let dispatched = outcome.as_ref().ok().map(|output| {
+            json!({
+                "extensionName": entry.extension_name,
+                "commandId": command_id(state, entry),
+                "exitCode": output.exit_code,
+                "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+            })
+        });
+        let result = command_tool_result(outcome);
+        return match dispatched {
+            Some(event) => result.with_event("surface_command_dispatched", event),
+            None => result,
+        };
     }
     let input = serde_json::to_vec(&arguments).unwrap_or_default();
     match specforge_wasm::dispatch_surface_mcp_tool(

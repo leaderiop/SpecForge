@@ -56,10 +56,9 @@ pub use sandbox::{
     is_output_extension_allowed, is_path_allowed, validate_total_memory,
 };
 pub use surface::{
-    AutoPromotedMcpTool, CommandOutput, EffectiveSandbox, SurfaceEntry, SurfaceEntryType,
-    SurfaceSandboxOverrideValues, auto_promote_commands_to_mcp_tools, dispatch_surface_command,
-    dispatch_surface_mcp_resource, dispatch_surface_mcp_tool, enforce_resource_sandbox,
-    enforce_surface_sandbox, toggle_surface_contribution, validate_command_arg_types,
+    AutoPromotedMcpTool, CommandOutput, SurfaceEntry, SurfaceEntryType,
+    auto_promote_commands_to_mcp_tools, dispatch_surface_command, dispatch_surface_mcp_resource,
+    dispatch_surface_mcp_tool, toggle_surface_contribution, validate_command_arg_types,
     validate_mcp_tool_schemas, validate_surface_exports,
 };
 pub use toposort::topological_sort_extensions;

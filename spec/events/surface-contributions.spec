@@ -95,18 +95,6 @@ event surface_mcp_resource_dispatched "Surface MCP Resource Dispatched" {
   verify integration "emits surface_mcp_resource_dispatched with correct uriTemplate"
 }
 
-event surface_permission_denied "Surface Permission Denied" {
-  channel "surface.permission_denied"
-  payload {
-    extensionName    string
-    surfaceType      string
-    contributionId   string
-    deniedCapability string
-    reason           string
-  }
-  verify integration "emits surface_permission_denied with correct denied capability and reason"
-}
-
 event surface_contribution_toggled "Surface Contribution Toggled" {
   channel "surface.contribution_toggled"
   payload {

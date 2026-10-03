@@ -1514,6 +1514,139 @@ fn contract_auto_promote_commands() {
 }
 
 #[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted"
+)]
+fn contract_dispatch_surface_command() {
+    // The sandbox probe (fixtures/sandbox-probe), in the component runtime
+    // every extension runs in. Its `probe` command reports its input and
+    // what it got when it tried every capability; its `trap` command panics.
+    let probe =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/sandbox-probe/probe.wasm");
+    let runtime = specforge_component::ComponentRuntime::new();
+    runtime
+        .load_module_bytes("@test/probe", &std::fs::read(probe).unwrap())
+        .unwrap();
+    let dir = project_dir(
+        json!({"name": "probed", "version": "0.1.0", "extensions": ["@test/probe"]}),
+        "probe_target t1 \"Target\" {\n}\n",
+    );
+    std::fs::write(dir.path().join("secret.txt"), "secret").unwrap();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let mut server = McpServer::new();
+    server.state_mut().extension_runtime = Some(std::sync::Arc::new(runtime));
+    let init = call(
+        &mut server,
+        "initialize",
+        json!({"projectRoot": dir.path().to_str().unwrap()}),
+    );
+    assert!(init["error"].is_null(), "{init}");
+    let root = server.state().project_root.clone().unwrap();
+
+    // command_declared: the commands the probe declares are its tools.
+    let tools = call(&mut server, "tools/list", json!({}));
+    for name in ["specforge.probe.probe", "specforge.probe.trap"] {
+        find(&tools["result"]["tools"], "name", name);
+    }
+
+    let resp = call_tool(&mut server, "specforge.probe.probe", json!({"port": port}));
+    // output_returned: its stdout, then its stderr; exit code 3 fails the
+    // call.
+    let result = &resp["result"];
+    assert_eq!(result["isError"], true, "{resp}");
+    assert_eq!(result["content"][1]["text"], "probed\n", "{resp}");
+    let out = tool_json(&resp);
+
+    // args_serialized: the args, the project root and the served graph.
+    assert_eq!(out["args"], json!({"port": port}));
+    assert_eq!(out["cwd"], root.display().to_string());
+    assert_eq!(out["nodes"], json!(["t1"]));
+
+    // sandbox_restricted: though its declaration asks for every capability,
+    // the export could not read or write the project root, see the
+    // environment, its arguments or stdin, connect, or resolve a name.
+    let sandbox = &out["sandbox"];
+    for attempt in [
+        "read_root",
+        "read_dir",
+        "read_file",
+        "write_file",
+        "connect",
+        "resolve",
+    ] {
+        assert_eq!(sandbox[attempt]["granted"], false, "{attempt}: {sandbox}");
+    }
+    for empty in ["env_vars", "args", "stdin_bytes"] {
+        assert_eq!(sandbox[empty], 0, "{empty}: {sandbox}");
+    }
+    assert!(!dir.path().join("probe.txt").exists());
+    assert_eq!(
+        listener.accept().map(|_| ()).unwrap_err().kind(),
+        std::io::ErrorKind::WouldBlock
+    );
+
+    // surface_command_dispatched_emitted: once the export returned.
+    let mut dispatched = events(&server, "surface_command_dispatched");
+    assert_eq!(dispatched.len(), 1, "{dispatched:?}");
+    let duration = dispatched[0]
+        .as_object_mut()
+        .unwrap()
+        .remove("durationMs")
+        .unwrap();
+    assert!(duration.is_u64(), "{duration}");
+    assert_eq!(
+        dispatched,
+        [json!({"extensionName": "@test/probe", "commandId": "probe", "exitCode": 3})]
+    );
+
+    // traps_caught: a panicking command is the tool's E028 error, and no
+    // dispatch is recorded.
+    let resp = call_tool(&mut server, "specforge.probe.trap", json!({}));
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("surface command cmd__trap() trapped"),
+        "{error}"
+    );
+    assert_eq!(events(&server, "surface_command_dispatched").len(), 1);
+}
+
+#[specforge_test(
+    behavior = "surface_command_dispatched",
+    verify = "emits surface_command_dispatched with correct commandId and exitCode"
+)]
+fn event_surface_command_dispatched() {
+    use crate::fake_extension::{self, FakeExtension};
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new().with_output(
+        "cmd__report",
+        json!({"exit_code": 0, "stdout": "ok", "stderr": ""}),
+    ));
+    call_tool(
+        &mut server,
+        "specforge.cmds.report",
+        json!({"format": "md"}),
+    );
+    let dispatched: Vec<(Value, Value, Value)> = events(&server, "surface_command_dispatched")
+        .into_iter()
+        .map(|e| {
+            (
+                e["extensionName"].clone(),
+                e["commandId"].clone(),
+                e["exitCode"].clone(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        dispatched,
+        [(json!(fake_extension::EXT), json!("report"), json!(0))]
+    );
+}
+
+#[specforge_test(
     behavior = "list_mcp_resources",
     verify = "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
 )]

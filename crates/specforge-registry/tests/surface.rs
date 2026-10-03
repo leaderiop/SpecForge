@@ -1,7 +1,9 @@
 use specforge_registry::{
     CommandArg, CommandArgType, CommandContribution, ManifestV2, McpResourceContribution,
-    McpToolContribution, SurfaceContributions, SurfaceType, register_surface_contributions,
+    McpToolContribution, SurfaceContributions, SurfaceRegistryEntry, SurfaceType,
+    register_surface_contributions,
 };
+use specforge_test_macros::test as specforge_test;
 
 fn make_surfaces(
     commands: Vec<CommandContribution>,
@@ -132,39 +134,98 @@ fn test_all_command_arg_type_variants_deserialize() {
     assert_eq!(args[4].arg_type, CommandArgType::Integer);
 }
 
-// B:register_surface_contributions — verify unit "commands, tools, resources collected"
-#[test]
-fn test_register_surface_contributions_collects_all() {
-    let surfaces = make_surfaces(
-        vec![make_command("analyze", "cmd__analyze")],
-        vec![make_tool("search", "mcp__search")],
-        vec![make_resource("graph", "mcp__graph")],
-    );
-
-    let manifests = vec![("@ext/test".to_string(), Some(surfaces))];
-    let (entries, diags) = register_surface_contributions(&manifests);
-    assert!(diags.is_empty());
+/// The registry entries of one manifest, parsed from its JSON, whose
+/// `surfaces` field declares a command, an MCP tool and an MCP resource.
+fn registered_from_manifest() -> Vec<SurfaceRegistryEntry> {
+    let manifest: ManifestV2 = serde_json::from_str(
+        r#"{
+        "name": "@ext/test",
+        "version": "1.0.0",
+        "manifestVersion": 2,
+        "wasmPath": "test.wasm",
+        "surfaces": {
+            "commands": [{
+                "id": "analyze",
+                "title": "Analyze",
+                "description": "Run analysis",
+                "export": "cmd__analyze"
+            }],
+            "mcpTools": [{
+                "name": "search",
+                "description": "Search entities",
+                "export": "mcp__search",
+                "inputSchema": {"type": "object"}
+            }],
+            "mcpResources": [{
+                "uriTemplate": "spec://graph",
+                "name": "graph",
+                "export": "mcp__graph",
+                "mimeType": "application/json"
+            }]
+        }
+    }"#,
+    )
+    .unwrap();
+    let (entries, diags) =
+        register_surface_contributions(&[(manifest.name.clone(), manifest.surfaces.clone())]);
+    assert!(diags.is_empty(), "{diags:?}");
     assert_eq!(entries.len(), 3);
+    entries
+}
 
-    assert!(
-        entries
-            .iter()
-            .any(|e| e.surface_type == SurfaceType::Command && e.contribution_name == "analyze")
-    );
-    assert!(
-        entries
-            .iter()
-            .any(|e| e.surface_type == SurfaceType::McpTool && e.contribution_name == "search")
-    );
-    assert!(
-        entries
-            .iter()
-            .any(|e| e.surface_type == SurfaceType::McpResource && e.contribution_name == "graph")
+/// `(name, export)` of every registered entry of `surface_type`.
+fn of_type(entries: &[SurfaceRegistryEntry], surface_type: SurfaceType) -> Vec<(&str, &str)> {
+    entries
+        .iter()
+        .filter(|e| e.surface_type == surface_type)
+        .inspect(|e| {
+            assert_eq!(e.extension_name, "@ext/test");
+            assert!(e.enabled);
+        })
+        .map(|e| (e.contribution_name.as_str(), e.export_name.as_str()))
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "commands parsed from manifest surfaces field"
+)]
+fn a_manifests_commands_are_registered() {
+    let entries = registered_from_manifest();
+    assert_eq!(
+        of_type(&entries, SurfaceType::Command),
+        [("analyze", "cmd__analyze")]
     );
 }
 
-// B:register_surface_contributions — verify unit "duplicate command ID → E039"
-#[test]
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "MCP tools parsed from manifest surfaces field"
+)]
+fn a_manifests_mcp_tools_are_registered() {
+    let entries = registered_from_manifest();
+    assert_eq!(
+        of_type(&entries, SurfaceType::McpTool),
+        [("search", "mcp__search")]
+    );
+}
+
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "MCP resources parsed from manifest surfaces field"
+)]
+fn a_manifests_mcp_resources_are_registered() {
+    let entries = registered_from_manifest();
+    assert_eq!(
+        of_type(&entries, SurfaceType::McpResource),
+        [("graph", "mcp__graph")]
+    );
+}
+
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "duplicate command ID across extensions produces E039"
+)]
 fn test_register_duplicate_command_id_e039() {
     let s1 = make_surfaces(
         vec![make_command("analyze", "cmd__analyze")],
@@ -187,8 +248,10 @@ fn test_register_duplicate_command_id_e039() {
     assert!(diags[0].message.contains("analyze"));
 }
 
-// B:register_surface_contributions — verify unit "duplicate MCP tool name → E039"
-#[test]
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "duplicate MCP tool name across extensions produces E039"
+)]
 fn test_register_duplicate_mcp_tool_e039() {
     let s1 = make_surfaces(vec![], vec![make_tool("search", "mcp__search")], vec![]);
     let s2 = make_surfaces(vec![], vec![make_tool("search", "mcp__search_v2")], vec![]);
@@ -203,8 +266,10 @@ fn test_register_duplicate_mcp_tool_e039() {
     assert!(diags[0].message.contains("search"));
 }
 
-// B:register_surface_contributions — verify unit "no duplicates → clean registration"
-#[test]
+#[specforge_test(
+    behavior = "register_surface_contributions",
+    verify = "registration succeeds with no duplicates"
+)]
 fn test_register_no_duplicates_clean() {
     let s1 = make_surfaces(
         vec![make_command("analyze", "cmd__analyze")],

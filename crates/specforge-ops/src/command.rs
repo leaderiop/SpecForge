@@ -240,6 +240,63 @@ mod tests {
     }
 
     #[specforge_test(
+        behavior = "dispatch_surface_command",
+        verify = "the command runs in the runtime that read the project's declarations, which loaded only the extensions the project enables"
+    )]
+    fn a_command_runs_in_the_runtime_that_read_the_declarations() {
+        use specforge_wasm::runtime::WasmRuntime as _;
+        let dir = tempfile::TempDir::new().unwrap();
+        std::fs::write(
+            dir.path().join("specforge.json"),
+            json!({"name": "p", "version": "0.1.0", "extensions": ["@specforge/product"]})
+                .to_string(),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.path().join("main.spec"),
+            "feature f1 \"One\" {\n  status done\n  problem \"p\"\n}\n",
+        )
+        .unwrap();
+
+        // What the CLI does: one runtime, the project's environment read
+        // through it, then the routed command run in it.
+        let runtime = specforge_component::project_runtime(dir.path());
+        let loaded = runtime.loaded_names();
+        assert_eq!(
+            loaded,
+            ["@specforge/product"],
+            "only what the project enables"
+        );
+        let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+        let commands = extension_commands(&env.registries);
+        let features = commands
+            .iter()
+            .find(|c| c.contribution.id == "features")
+            .expect("product declares `features`");
+        assert!(runtime.load_failure(features.extension).is_none());
+
+        let mut args = Map::new();
+        args.insert("format".into(), json!("json"));
+        let out = run_command(
+            &runtime,
+            features.extension,
+            &features.contribution.export,
+            &env.build_graph(),
+            &args,
+            dir.path(),
+        )
+        .unwrap();
+        assert_eq!(out.exit_code, 0, "{}", String::from_utf8_lossy(&out.stderr));
+        let listed: Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(listed["entities"][0]["id"], "f1", "{listed}");
+        assert_eq!(
+            runtime.loaded_names(),
+            loaded,
+            "running it loaded no module"
+        );
+    }
+
+    #[specforge_test(
         behavior = "toggle_surface_contributions",
         verify = "disabled command excluded from CLI routing"
     )]

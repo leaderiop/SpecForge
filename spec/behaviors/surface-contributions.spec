@@ -1,6 +1,6 @@
 // Surface contribution behaviors — CLI commands, MCP tools, MCP resources
 //
-// 10 behaviors for Phase 1 of the surface contribution model (RES-24).
+// 9 behaviors for Phase 1 of the surface contribution model (RES-24).
 // Extensions declare surface contributions in their manifest's `surfaces`
 // field. Core discovers, validates, and dispatches to Wasm exports using
 // the cmd__{id} and mcp__{name} naming conventions.
@@ -41,9 +41,10 @@ behavior register_surface_contributions "Register Surface Contributions" {
     commands, MCP tools, and MCP resources in the SurfaceRegistry.
     Registration MUST detect duplicate contribution names within each
     surface type across all extensions — duplicates MUST produce E039.
-    Registration MUST happen after manifest loading but before Wasm
-    module loading, because surface contributions are manifest-driven
-    (declarative) like entity kinds.
+    Registration happens when the project's registries are built from
+    the manifests its extensions describe, before any surface export is
+    dispatched: surface contributions are declarative, like entity
+    kinds.
   """
   verify unit "commands parsed from manifest surfaces field"
   verify unit "MCP tools parsed from manifest surfaces field"
@@ -188,48 +189,45 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   category   command
   types      [CommandContribution, CommandInput, CommandOutput, SurfaceError, WasmTrapInfo]
   ports      [WasmRuntime]
-  consumes   [surface_exports_validated, command_args_validated]
   produces   [surface_command_dispatched]
   requires {
-    surface_exports_validated_fired "surface_exports_validated event has fired, confirming cmd__ exports are present in the Wasm binary"
-    command_args_validated_fired    "command_args_validated event has fired, confirming arg types are valid for this extension"
+    command_declared "The command is one an extension the project enables declares in its surfaces, read when the project's environment loaded, and the configuration does not disable"
   }
   ensures {
     args_serialized                    "Command arguments, the project root and the graph are serialized as JSON and passed to the cmd__ export"
-    sandbox_restricted                 "The cmd__ export is granted no capability (no preopened directory, environment, inherited stdio or network); a per-command sandbox override, computed as its intersection with the extension policy, can only restrict, never expand"
+    sandbox_restricted                 "The cmd__ export is granted no capability (no preopened directory, environment, arguments, stdin or network), whatever sandbox override its declaration asks for"
     traps_caught                       "Wasm traps are caught and reported as ExtensionError diagnostics"
-    output_returned                    "Exit code, stdout, and stderr are returned to the CLI caller"
-    surface_command_dispatched_emitted "surface_command_dispatched event is emitted after command execution completes"
+    output_returned                    "Exit code, stdout, and stderr are returned to the caller"
+    surface_command_dispatched_emitted "Over MCP, a surface_command_dispatched event records the command and its exit code once its export returns; the CLI has no event sink"
   }
   contract   """
-    When a CLI command from an extension is invoked, the compiler MUST
-    lazily load the extension's Wasm module (if not already loaded),
+    When a CLI command from an extension is invoked, the host MUST
     serialize the command's input as JSON (CommandInput: its args, the
-    project root and the compiled graph), and call the cmd__{id} export.
-    The CLI routes specforge {ext_short} {command} to it, the command line
-    built from the declared args; an auto-promoted MCP tool runs the same
-    export with its arguments as the args, over the served graph. The
-    export MUST be granted no capability: its WASI context preopens no
+    project root and the compiled graph) and call the cmd__{id} export,
+    in the runtime that loaded the project's extensions to read their
+    declarations: only the extensions the project enables are loaded,
+    each compiled once per process (from the wasm compile cache when it
+    is warm), and dispatching a command loads no module. The CLI routes
+    specforge {ext_short} {command} to it, the command line built from
+    the declared args; an auto-promoted MCP tool runs the same export
+    with its arguments as the args, over the served graph. The export
+    MUST be granted no capability: its WASI context preopens no
     directory and passes no environment, arguments, inherited stdio or
     network, so cwd is a path it is told, not one it can open, and the
-    graph is all it reads. The per-command sandbox override (if declared)
-    is intersected with the extension's SandboxPolicy (it can only
-    restrict, never expand); while the host grants commands nothing,
-    there is nothing for the override to withhold, and it is not applied
-    to the call. Wasm traps MUST be caught and reported
-    as ExtensionError diagnostics. The command's exit code, stdout, and
-    stderr MUST be returned to the CLI caller.
-
-    BARRIER: This behavior MUST NOT execute until both
-    validate_surface_exports and validate_command_arg_types have
-    completed for the extension.
+    graph is all it reads. A per-command sandbox override (if declared)
+    is not applied: with nothing granted there is nothing for it to
+    withhold, and no override grants more (surface_sandbox_ceiling).
+    Wasm traps MUST be caught and reported as ExtensionError
+    diagnostics. The command's exit code, stdout, and stderr MUST be
+    returned to the caller. The MCP server records each command whose
+    export returned as a surface_command_dispatched event.
   """
-  verify unit "lazy Wasm load on first command invocation"
+  verify unit "the command runs in the runtime that read the project's declarations, which loaded only the extensions the project enables"
   verify unit "args serialized as JSON to cmd__ export"
-  verify unit "sandbox override intersected with extension policy"
+  verify unit "a cmd__ export is granted no capability, whatever sandbox its declaration asks for"
   verify unit "Wasm trap caught and reported as ExtensionError"
   verify unit "exit code, stdout, stderr returned to CLI"
-  verify contract "Dispatch Surface Command: surface command dispatch holds — surface_exports_validated_fired, command_args_validated_fired, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted"
+  verify contract "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted"
 }
 
 behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
@@ -252,7 +250,7 @@ behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
   }
   ensures {
     input_validated                     "Input is validated against the tool's declared input_schema before dispatch"
-    sandbox_restricted                  "Per-tool sandbox override is intersected with extension policy (can only restrict, never expand)"
+    sandbox_restricted                  "The mcp__ export is granted no capability, whatever sandbox override its declaration asks for"
     traps_as_mcp_errors                 "Wasm traps are caught and returned as structured MCP error responses"
     tool_result_returned                "Tool output is returned as a standard MCP tool result"
     surface_mcp_tool_dispatched_emitted "surface_mcp_tool_dispatched event is emitted after tool execution completes"
@@ -260,10 +258,11 @@ behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
   contract   """
     When an MCP tool contributed by an extension is invoked, the MCP
     server MUST validate the input against the tool's declared
-    input_schema, lazily load the extension's Wasm module (if not
-    already loaded), and call the mcp__{name} export with the validated
-    input JSON. The per-tool sandbox override (if declared) MUST be
-    intersected with the extension's SandboxPolicy. Wasm traps MUST be
+    input_schema and call the mcp__{name} export with the validated
+    input JSON, in the runtime the served project's compile loaded. The
+    export MUST be granted no capability, like every surface export: a
+    per-tool sandbox override (if declared) is not applied, and no
+    override grants more (surface_sandbox_ceiling). Wasm traps MUST be
     caught and returned as structured MCP error responses. The tool
     output MUST be returned as a standard MCP tool result. When the tool
     declares an output_schema, an output that does not match it MUST be
@@ -276,10 +275,9 @@ behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
   """
   verify unit "input validated against declared input_schema"
   verify unit "output that does not match the declared output_schema is a schema_mismatch error"
-  verify unit "lazy Wasm load on first tool invocation"
   verify unit "the served project's runtime is the one its compile loaded and serves later calls until the project reloads"
   verify unit "input JSON passed to mcp__ export"
-  verify unit "sandbox override intersected with extension policy"
+  verify unit "an mcp__ tool export is granted no capability, whatever sandbox its declaration asks for"
   verify unit "Wasm trap returned as structured MCP error"
   verify unit "tool output returned as MCP tool result"
   verify contract "Dispatch Surface MCP Tool: surface MCP tool dispatch holds — surface_exports_validated_fired, mcp_tool_schemas_validated_fired, commands_auto_promoted_fired, input_validated, sandbox_restricted, traps_as_mcp_errors, tool_result_returned, surface_mcp_tool_dispatched_emitted"
@@ -303,18 +301,19 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
   }
   ensures {
     uri_matched                             "Requested URI is matched against registered URI templates"
-    fs_write_denied                         "MCP resources have no fs_write access regardless of extension policy"
+    fs_write_denied                         "MCP resources have no fs_write access (no capability at all), whatever their sandbox override asks for"
     traps_as_mcp_errors                     "Wasm traps are caught and returned as structured MCP error responses"
     content_returned                        "Resource content and mime_type are returned to the MCP client"
     surface_mcp_resource_dispatched_emitted "surface_mcp_resource_dispatched event is emitted after resource read completes"
   }
   contract   """
     When an MCP resource contributed by an extension is read, the MCP
-    server MUST match the requested URI against registered URI templates,
-    lazily load the extension's Wasm module (if not already loaded), and
-    call the mcp__{name} export with the URI. MCP resources MUST NOT
-    have fs_write access — the sandbox ceiling for resources denies
-    writes. Wasm traps MUST be caught and returned as structured MCP
+    server MUST match the requested URI against registered URI templates
+    and call the mcp__{name} export with the URI, in the runtime the
+    served project's compile loaded. MCP resources MUST NOT have
+    fs_write access: like every surface export, a resource's export is
+    granted no capability, whatever its sandbox override asks for
+    (surface_sandbox_ceiling). Wasm traps MUST be caught and returned as structured MCP
     error responses. The resource content and mime_type MUST be returned
     to the MCP client.
 
@@ -322,47 +321,11 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
     validate_surface_exports has completed for the extension.
   """
   verify unit "URI matched against registered templates"
-  verify unit "lazy Wasm load on first resource read"
   verify unit "URI passed to mcp__ export"
   verify unit "fs_write denied for resource contributions"
   verify unit "Wasm trap returned as structured MCP error"
   verify unit "resource content and mime_type returned to client"
   verify contract "Dispatch Surface MCP Resource: surface MCP resource dispatch holds — surface_exports_validated_fired, uri_matched, fs_write_denied, traps_as_mcp_errors, content_returned, surface_mcp_resource_dispatched_emitted"
-}
-
-// ── Sandbox Enforcement ─────────────────────────────────────
-
-behavior enforce_surface_sandbox "Enforce Surface Sandbox" {
-  features   [surface_contributions]
-  invariants [surface_sandbox_ceiling, wasm_sandbox_integrity]
-  category   command
-  types      [SurfaceSandboxOverride, SandboxPolicy, SurfaceType, SurfaceError]
-  produces   [surface_permission_denied]
-  requires {
-    sandbox_policy_available "Extension's SandboxPolicy is loaded and accessible for intersection"
-    surface_type_known       "The surface type (CLI command, MCP tool, or MCP resource) is determined for ceiling lookup"
-  }
-  ensures {
-    effective_sandbox_computed "Effective sandbox is the intersection of per-contribution override, extension policy, and surface-type ceiling"
-    ceiling_enforced           "Per-contribution overrides cannot expand beyond the surface-type ceiling"
-    denial_event_produced      "Attempts to exceed the ceiling produce a surface_permission_denied event and deny the call"
-  }
-  contract   """
-    Before dispatching any surface contribution Wasm export, the compiler
-    MUST compute the effective sandbox by intersecting the per-contribution
-    override with the extension's SandboxPolicy and the surface-type
-    ceiling. Surface-type ceilings: MCP resources cannot fs_write. CLI
-    commands have no additional ceiling beyond the extension policy. MCP
-    tools have no additional ceiling beyond the extension policy.
-    Per-contribution overrides can only restrict below the ceiling, never
-    expand. Attempts to exceed the ceiling MUST produce a
-    surface_permission_denied event and deny the call.
-  """
-  verify unit "effective sandbox is intersection of override, policy, and ceiling"
-  verify unit "MCP resource fs_write attempt denied"
-  verify unit "per-contribution override cannot expand beyond extension policy"
-  verify unit "permission denial produces surface_permission_denied event"
-  verify contract "Enforce Surface Sandbox: surface sandbox enforcement holds — sandbox_policy_available, surface_type_known, effective_sandbox_computed, ceiling_enforced, denial_event_produced"
 }
 
 // ── Configuration ───────────────────────────────────────────

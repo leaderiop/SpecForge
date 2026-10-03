@@ -918,3 +918,150 @@ fn the_schema_check_finds_type_enum_and_required_violations() {
     );
     assert_eq!(check(json!(3)), ["$: expected object, got integer"]);
 }
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "input JSON passed to mcp__ export"
+)]
+fn an_extension_tool_export_gets_its_arguments_as_json() {
+    let (mut server, ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
+    );
+    call_tool(&mut server, "specforge.cmds.check", json!({"strict": true}));
+    assert_eq!(
+        ext.calls(),
+        [(
+            EXT.to_string(),
+            "mcp__check".to_string(),
+            json!({"strict": true})
+        )]
+    );
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "Wasm trap returned as structured MCP error"
+)]
+fn a_trapping_extension_tool_is_a_structured_error() {
+    // No output for mcp__check: the export traps.
+    let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    let resp = call_tool(&mut server, "specforge.cmds.check", json!({}));
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "internal_error", "{error}");
+    assert_eq!(error["diagnostic"]["code"], "E028", "{error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("MCP tool mcp__check() trapped: export_not_found"),
+        "{error}"
+    );
+    assert_eq!(error["tool"], "specforge.cmds.check", "{error}");
+    assert_eq!(ext.calls().len(), 1, "the export was called");
+    // The server keeps serving.
+    assert!(call(&mut server, "ping", json!({}))["result"].is_object());
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "tool output returned as MCP tool result"
+)]
+fn an_extension_tools_output_is_its_result() {
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
+    );
+    let resp = call_tool(&mut server, "specforge.cmds.check", json!({}));
+    let result = &resp["result"];
+    assert_eq!(result["isError"], false, "{resp}");
+    assert_eq!(result["structuredContent"], json!({"checked": true}));
+    let text: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(text, json!({"checked": true}));
+}
+
+const SUMMARY: &str = "specforge://ext/cmds/summary";
+
+fn with_summary() -> FakeExtension {
+    FakeExtension::new().with_output(
+        "mcp__summary",
+        json!({"content": "{\"commands\":2}", "mime_type": "application/json"}),
+    )
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "URI matched against registered templates"
+)]
+fn an_extension_resource_is_found_by_its_uri_template() {
+    let (mut server, ext, _dir) = fake_extension::initialized(with_summary());
+    let resp = read_resource(&mut server, SUMMARY);
+    assert!(resp["error"].is_null(), "{resp}");
+    // A URI no template of an extension matches reaches no export: the
+    // template has no placeholder, so it names itself only.
+    for other in [
+        "specforge://ext/other/summary",
+        "specforge://ext/cmds/summary/more",
+    ] {
+        let resp = read_resource(&mut server, other);
+        assert_eq!(resp["error"]["code"], -32602, "{resp}");
+        assert_eq!(
+            resp["error"]["message"],
+            format!("Unknown resource URI: {other}")
+        );
+    }
+    assert_eq!(ext.calls().len(), 1, "{:?}", ext.calls());
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "URI passed to mcp__ export"
+)]
+fn an_extension_resource_export_gets_the_uri() {
+    let (mut server, ext, _dir) = fake_extension::initialized(with_summary());
+    read_resource(&mut server, SUMMARY);
+    assert_eq!(
+        ext.calls(),
+        [(
+            EXT.to_string(),
+            "mcp__summary".to_string(),
+            json!({"uri": SUMMARY})
+        )]
+    );
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "Wasm trap returned as structured MCP error"
+)]
+fn a_trapping_extension_resource_is_a_structured_error() {
+    // No output for mcp__summary: the export traps.
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    let resp = read_resource(&mut server, SUMMARY);
+    let error = resp["error"]
+        .as_object()
+        .unwrap_or_else(|| panic!("{resp}"));
+    let mut keys: Vec<&str> = error.keys().map(String::as_str).collect();
+    keys.sort_unstable();
+    assert_eq!(keys, ["code", "message"], "{resp}");
+    assert_eq!(error["code"], -32602, "{resp}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("E028: MCP resource mcp__summary() trapped: export_not_found"),
+        "{resp}"
+    );
+    assert!(call(&mut server, "ping", json!({}))["result"].is_object());
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "resource content and mime_type returned to client"
+)]
+fn an_extension_resources_content_and_mime_type_are_returned() {
+    let (mut server, _ext, _dir) = fake_extension::initialized(with_summary());
+    let resp = read_resource(&mut server, SUMMARY);
+    let content = &resp["result"]["contents"][0];
+    assert_eq!(content["uri"], SUMMARY, "{resp}");
+    assert_eq!(content["mimeType"], "application/json", "{resp}");
+    assert_eq!(content["text"], "{\"commands\":2}", "{resp}");
+}
