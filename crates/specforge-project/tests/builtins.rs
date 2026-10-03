@@ -180,7 +180,8 @@ fn formal_extension_loads_via_protocol() {
         "formal needs at least 6 validation rules, got {}",
         manifest.validation_rules.len()
     );
-    assert_eq!(manifest.entity_enhancements.len(), 2);
+    // behavior, event, and invariant (its `expression` claim, ADR 0009).
+    assert_eq!(manifest.entity_enhancements.len(), 3);
     assert_eq!(manifest.peer_dependencies.len(), 1);
     assert!(manifest.contributes.entities);
     assert!(manifest.contributes.validators);
