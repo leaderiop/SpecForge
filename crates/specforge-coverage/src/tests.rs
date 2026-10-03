@@ -45,13 +45,28 @@ struct PassEntityResults {
     tests: Vec<RecordedTest>,
 }
 
+/// `@specforge/testing`'s grading: invariants, an error at high risk.
+fn testing_grading() -> RiskGrading {
+    RiskGrading {
+        kind: "invariant".to_string(),
+        error_at: "high".to_string(),
+    }
+}
+
 fn assess_input(input: Value) -> (Vec<Entity>, Assessment) {
+    assess_graded(input, Some(&testing_grading()))
+}
+
+/// As the testing pass does: the risk field is read for the graded kind only.
+fn assess_graded(input: Value, grading: Option<&RiskGrading>) -> (Vec<Entity>, Assessment) {
     let input: PassInput = serde_json::from_value(input).unwrap();
     let entities: Vec<Entity> = input
         .entities
         .into_iter()
         .map(|e| Entity {
-            risk: e.fields.get("risk").cloned(),
+            risk: grading
+                .filter(|g| g.kind == e.kind)
+                .and_then(|_| e.fields.get("risk").cloned()),
             referenced: e.incoming_edge_count > 0,
             id: e.id,
             kind: e.kind,
@@ -65,7 +80,12 @@ fn assess_input(input: Value) -> (Vec<Entity>, Assessment) {
         runner: r.runner,
         entities: r.results.into_iter().map(|(id, e)| (id, e.tests)).collect(),
     });
-    let assessment = assess(&entities, results.as_ref(), input.proved_claims.as_ref());
+    let assessment = assess(
+        &entities,
+        results.as_ref(),
+        input.proved_claims.as_ref(),
+        grading,
+    );
     (entities, assessment)
 }
 
@@ -324,4 +344,47 @@ fn the_rule_matches_the_shared_golden_vectors() {
             "verdicts of {name:?}"
         );
     }
+}
+
+#[specforge_test(
+    behavior = "te_coverage_pass",
+    verify = "without a risk grading no kind is risk-tallied and nothing is A002"
+)]
+fn without_grading_no_kind_is_risk_tallied_and_nothing_is_a002() {
+    let input = json!({
+        "entities": [
+            {"id": "no_overdraft", "kind": "invariant", "fields": {"risk": "high"}},
+            {"id": "ids_unique", "kind": "invariant", "fields": {"risk": "low"},
+             "incoming_edge_count": 1}
+        ]
+    });
+    let (_, graded) = assess_input(input.clone());
+    assert_eq!(codes(&graded), ["A002", "A002"]);
+    assert_eq!(graded.summary.invariants.len(), 2);
+
+    let (entities, ungraded) = assess_graded(input, None);
+    assert!(entities.iter().all(|e| e.risk.is_none()));
+    assert!(ungraded.findings.is_empty(), "{:?}", ungraded.findings);
+    assert!(ungraded.summary.invariants.is_empty());
+    assert_eq!(ungraded.summary.invariant_enforced, 0);
+    assert_eq!(ungraded.summary.invariant_orphans, 0);
+
+    // A grading names any kind; the messages name it.
+    let grading = RiskGrading {
+        kind: "hazard".to_string(),
+        error_at: "severe".to_string(),
+    };
+    let (_, hazards) = assess_graded(
+        json!({"entities": [{"id": "fire", "kind": "hazard", "fields": {"risk": "severe"}}]}),
+        Some(&grading),
+    );
+    assert_eq!(
+        hazards.findings[0].message,
+        "hazard 'fire' declares no verify obligations"
+    );
+    assert_eq!(hazards.findings[0].severity, Severity::Error);
+    assert_eq!(
+        hazards.findings[0].suggestion.as_deref(),
+        Some("severe-risk hazard: add at least one `verify property` obligation")
+    );
 }

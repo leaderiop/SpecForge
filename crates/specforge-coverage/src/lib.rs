@@ -20,14 +20,23 @@ use std::collections::{BTreeMap, BTreeSet};
 pub const PASSING_STATUS: &str = "pass";
 /// The verify kind a formal claim the prove pass entailed discharges.
 pub const PROPERTY_VERIFY_KIND: &str = "property";
-/// The kind whose entities carry risk-graded guarantees (A002, the tallies).
-pub const INVARIANT_KIND: &str = "invariant";
 /// The summary's name for obligations written without a kind (`verify "..."`).
 const UNTYPED_OBLIGATION: &str = "untyped";
-/// An invariant's risk when it declares none.
+/// A graded entity's risk when it declares none.
 const UNSPECIFIED_RISK: &str = "unspecified";
-/// The risk at which an invariant without obligations is an error.
-const HIGH_RISK: &str = "high";
+
+/// The coverage owner's risk policy for one kind (ADR 0009, B): its
+/// entities' risk is tallied, those nothing references are counted as
+/// orphans, and one with no obligations is A002, an error at `error_at`
+/// and a warning otherwise. `@specforge/testing` supplies it; without it
+/// no kind is graded.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RiskGrading {
+    /// The graded kind.
+    pub kind: String,
+    /// The risk at which one of its entities without obligations is an error.
+    pub error_at: String,
+}
 
 /// An entity as the rule sees it.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -52,10 +61,11 @@ pub struct Entity {
     /// The obligations' texts, parallel to `verify_kinds`.
     #[serde(default)]
     pub verify_texts: Vec<String>,
-    /// An invariant's declared `risk`, if any.
+    /// A graded entity's declared risk, if any: filled by the caller for
+    /// the kind its [`RiskGrading`] names.
     #[serde(default)]
     pub risk: Option<String>,
-    /// Something references the entity. An invariant nothing references is
+    /// Something references the entity. A graded entity nothing references is
     /// an orphan: counted in the summary, reported by software's W003.
     #[serde(default)]
     pub referenced: bool,
@@ -207,7 +217,7 @@ pub struct Finding {
     /// The entity it is about: an index into the slice given to [`assess`].
     pub entity: usize,
     pub message: String,
-    pub suggestion: Option<&'static str>,
+    pub suggestion: Option<String>,
 }
 
 /// The discharge funnel: from intent to proof.
@@ -293,18 +303,22 @@ pub struct Assessment {
 /// Score a project at three layers.
 ///
 /// - Intent: a testable entity with no obligations is A001; an invariant
-///   with none is A002, an error when its risk is high.
-/// - Enforcement: invariants nothing references are counted, not reported.
+///   of the graded kind with none is A002, an error at the grading's error
+///   level.
+/// - Enforcement: graded entities nothing references are counted, not
+///   reported.
 /// - Proof, only with recorded `results`: an obligation nothing proves is
 ///   A015, a test naming an obligation the entity doesn't declare is A016,
 ///   and a failing test is A014.
 ///
 /// `proved` holds the entities whose formal claims the prove pass entailed
-/// (`None` when it did not run).
+/// (`None` when it did not run). `grading` names the risk-graded kind;
+/// without it nothing is tallied by risk and nothing is A002.
 pub fn assess(
     entities: &[Entity],
     results: Option<&TestResults>,
     proved: Option<&BTreeSet<String>>,
+    grading: Option<&RiskGrading>,
 ) -> Assessment {
     let mut findings = Vec::new();
     let mut verdicts = BTreeMap::new();
@@ -322,13 +336,13 @@ pub fn assess(
         let entity = &entities[index];
         let (kind, id) = (entity.kind.as_str(), entity.id.as_str());
         let obligations = entity.obligations();
-        let mut finding = |code, severity, message: String, suggestion| {
+        let mut finding = |code, severity, message: String, suggestion: Option<&str>| {
             findings.push(Finding {
                 code,
                 severity,
                 entity: index,
                 message,
-                suggestion,
+                suggestion: suggestion.map(str::to_string),
             });
         };
 
@@ -429,9 +443,11 @@ pub fn assess(
             }
         }
 
-        if kind == INVARIANT_KIND {
+        if let Some(grading) = grading
+            && kind == grading.kind
+        {
             let risk = entity.risk.as_deref().unwrap_or(UNSPECIFIED_RISK);
-            let high_risk = risk == HIGH_RISK;
+            let error_level = risk == grading.error_at;
             let tally = invariants.entry(risk.to_string()).or_insert((0, 0));
             tally.0 += 1;
             if !entity.referenced {
@@ -439,22 +455,25 @@ pub fn assess(
             }
             if obligations == 0 {
                 tally.1 += 1;
-                let (severity, suggestion) = if high_risk {
+                let (severity, suggestion) = if error_level {
                     (
                         Severity::Error,
-                        "high-risk invariant: add at least one `verify property` obligation",
+                        format!(
+                            "{}-risk {kind}: add at least one `verify property` obligation",
+                            grading.error_at
+                        ),
                     )
                 } else {
                     (
                         Severity::Warning,
-                        "add a `verify property` or `verify unit` obligation",
+                        "add a `verify property` or `verify unit` obligation".to_string(),
                     )
                 };
                 finding(
                     "A002",
                     severity,
-                    format!("invariant '{id}' declares no verify obligations"),
-                    Some(suggestion),
+                    format!("{kind} '{id}' declares no verify obligations"),
+                    Some(suggestion.as_str()),
                 );
             }
         }

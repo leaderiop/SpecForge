@@ -234,7 +234,9 @@ pub fn rule_entity(
         exempt: entity.obligation_exempt || !obligated,
         verify_kinds: entity.verify_kinds.clone(),
         verify_texts: entity.verify_texts.clone(),
-        risk: entity.fields.get("risk").cloned(),
+        // The host grades no kind by risk (ADR 0009, B): the testing
+        // pass reads risk for the kind it grades.
+        risk: None,
         referenced: entity.incoming_edge_count > 0,
     }
 }
@@ -269,12 +271,15 @@ pub fn recorded_tests(report: &TestReport) -> specforge_coverage::TestResults {
 ///
 /// Formal discharge needs the prove pass, which a per-entity view does not
 /// run: as `analyze coverage` without `--prove`, a `verify property`
-/// obligation is proven only by a passing test.
+/// obligation is proven only by a passing test. The host grades no kind by
+/// risk (ADR 0009, B): its summary has no risk tallies and its findings no
+/// A002; the risk grading is `@specforge/testing`'s.
 #[derive(Debug, Clone, Default)]
 pub struct ProjectCoverage {
     /// Per entity id, for every entity in the graph.
     pub verdicts: BTreeMap<String, Verdict>,
-    /// The summary the `coverage` pass reports for the same inputs.
+    /// The summary the `coverage` pass reports for the same inputs, less
+    /// what its risk grading adds (the risk tallies and enforcement counts).
     pub summary: Summary,
 }
 
@@ -314,7 +319,7 @@ impl ProjectCoverage {
 
     fn assess(entities: &[specforge_coverage::Entity], report: Option<&TestReport>) -> Self {
         let results = report.map(recorded_tests);
-        let assessment = specforge_coverage::assess(entities, results.as_ref(), None);
+        let assessment = specforge_coverage::assess(entities, results.as_ref(), None, None);
         ProjectCoverage {
             verdicts: assessment.verdicts,
             summary: assessment.summary,
