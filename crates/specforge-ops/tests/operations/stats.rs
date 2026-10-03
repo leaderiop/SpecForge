@@ -173,6 +173,7 @@ fn stats_includes_diagnostic_summary() {
             message: "bad ref".to_string(),
             span: None,
             suggestion: None,
+            data: None,
         },
         specforge_common::Diagnostic {
             code: "W012".to_string(),
@@ -180,6 +181,7 @@ fn stats_includes_diagnostic_summary() {
             message: "orphan".to_string(),
             span: None,
             suggestion: None,
+            data: None,
         },
     ];
     let stats = specforge_ops::stats::compute_stats_with_diagnostics(&graph, &[], &diagnostics);

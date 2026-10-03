@@ -174,6 +174,7 @@ pub fn compute_inference_diagnostics(
             severity: crate::Severity::Info,
             span: None,
             suggestion: Some("Re-analyze this file to update inferred entities".to_string()),
+            data: None,
         });
     }
 
@@ -204,6 +205,7 @@ pub fn compute_inference_diagnostics(
                 severity: crate::Severity::Info,
                 span: None,
                 suggestion: Some("Consider whether some inferred entities should be merged or removed".to_string()),
+                data: None,
             });
         }
     }

@@ -42,6 +42,7 @@ pub fn uninstall_extension(
             suggestion: Some(
                 "use --force to uninstall anyway, or remove dependent extensions first".to_string(),
             ),
+            data: None,
         });
     }
 
@@ -77,6 +78,7 @@ pub fn uninstall_extension(
             ),
             span: None,
             suggestion: Some(format!("manually remove '{}'", ext_dir.display())),
+            data: None,
         });
     }
 

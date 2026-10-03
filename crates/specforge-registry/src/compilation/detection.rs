@@ -116,6 +116,7 @@ pub fn detect_unknown_entity_kinds(
             ),
             span: Some(span.clone()),
             suggestion,
+            data: None,
         });
     }
 
@@ -161,6 +162,7 @@ pub fn detect_reserved_entity_ids(
             suggestion: Some(format!(
                 "rename the entity (e.g. `{id}_rule`, `{id}_spec`) — reserved words cannot be identifiers"
             )),
+            data: None,
         });
     }
     diagnostics
@@ -187,6 +189,7 @@ pub fn detect_identifier_length_violations(entities: &[EntityView]) -> Vec<Diagn
             suggestion: Some(
                 "pick a descriptive identifier between 2 and 60 characters".to_string(),
             ),
+            data: None,
         });
     }
     diagnostics
@@ -242,6 +245,7 @@ pub fn detect_unknown_entity_fields(
                 ),
                 span: Some(span.clone()),
                 suggestion,
+                data: None,
             });
         }
     }
@@ -294,6 +298,7 @@ pub fn detect_mistyped_references(
                         ),
                         span: Some(span.clone()),
                         suggestion: None,
+                        data: None,
                     });
                 }
             }

@@ -269,6 +269,7 @@ fn diagnostic(code: &str, message: &str, span: Option<SourceSpan>) -> Diagnostic
         message: message.into(),
         span,
         suggestion: Some(format!("fix {code}")),
+        data: None,
     }
 }
 
@@ -2141,6 +2142,7 @@ fn contract_diagnostics_resource() {
         message: "unresolved reference 'ghost'".into(),
         span: Some(span_at("feat.spec", 2, 14, 2)),
         suggestion: None,
+        data: None,
     });
     diagnostics.push(diagnostic("W001", "a warning", None));
 

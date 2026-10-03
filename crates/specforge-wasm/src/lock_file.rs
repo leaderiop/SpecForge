@@ -52,6 +52,7 @@ pub fn write_lock_file(lock: &LockFile, path: &Path) -> Result<(), Diagnostic> {
         message: format!("failed to serialize lock file: {}", e),
         span: None,
         suggestion: None,
+        data: None,
     })?;
 
     // Write a sibling file, then rename it over the lock: a write that
@@ -69,6 +70,7 @@ pub fn write_lock_file(lock: &LockFile, path: &Path) -> Result<(), Diagnostic> {
                 message: format!("failed to write lock file at '{}': {}", path.display(), e),
                 span: None,
                 suggestion: None,
+                data: None,
             }
         })
 }
@@ -81,6 +83,7 @@ pub fn read_lock_file(path: &Path) -> Result<LockFile, Diagnostic> {
         message: format!("failed to read lock file at '{}': {}", path.display(), e),
         span: None,
         suggestion: None,
+        data: None,
     })?;
 
     serde_json::from_str::<LockFile>(&content).map_err(|e| Diagnostic {
@@ -91,6 +94,7 @@ pub fn read_lock_file(path: &Path) -> Result<LockFile, Diagnostic> {
         suggestion: Some(
             "delete the lock file and run `specforge install` to regenerate".to_string(),
         ),
+        data: None,
     })
 }
 

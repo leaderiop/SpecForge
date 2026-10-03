@@ -38,6 +38,7 @@ pub fn resolve_from_registry(
             "Configure a default registry or add a scope-filtered registry matching this package."
                 .to_string(),
         ),
+        data: None,
     })?;
 
     client.fetch(specifier, registry).map_err(|e| {
@@ -116,6 +117,7 @@ pub fn publish_to_registry(
         message: format!("failed to serialize manifest: {}", e),
         span: None,
         suggestion: None,
+        data: None,
     })?;
 
     // Sign when a key is provided: the payload binds the exact uploaded
@@ -180,6 +182,7 @@ pub fn verify_registry_integrity(data: &[u8], expected_sha256: &str) -> Result<(
                 "The downloaded package may be corrupted or tampered with. Try downloading again."
                     .to_string(),
             ),
+            data: None,
         })
     }
 }
@@ -219,6 +222,7 @@ pub fn verify_package_signature(
             ),
             span: None,
             suggestion: Some("refuse this package; the registry response is malformed".to_string()),
+            data: None,
         })?;
 
     // Cross-check the server-extracted key id against the signature object:
@@ -234,6 +238,7 @@ pub fn verify_package_signature(
             ),
             span: None,
             suggestion: Some("refuse this package and verify the registry".to_string()),
+            data: None,
         });
     }
 
@@ -257,6 +262,7 @@ pub fn verify_package_signature(
         suggestion: Some(
             "the package does not match its publisher signature; do not install it".to_string(),
         ),
+        data: None,
     })?;
 
     Ok(TrustCheck::Verified {

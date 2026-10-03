@@ -27,6 +27,7 @@ fn enqueue_delivers_graph_and_diagnostics_to_subscribers() {
         message: "boom".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
 
     let delta = compute_graph_delta(&previous, state.graph());
@@ -73,6 +74,7 @@ fn enqueue_suppresses_unsubscribed_and_unchanged() {
         message: "boom".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
     let delta = compute_graph_delta(&Graph::new(), state.graph());
     enqueue_compile_notifications(&mut state, &delta, &[]);
@@ -169,6 +171,7 @@ fn diagnostics_delta_detects_added() {
         message: "test error".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
 
     let delta = compute_diagnostics_delta(&old, &new);
@@ -184,6 +187,7 @@ fn diagnostics_delta_detects_removed() {
         message: "test error".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
     let new: Vec<Diagnostic> = vec![];
 
@@ -205,6 +209,7 @@ fn diagnostics_notification_format() {
         message: "test warning".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
 
     let delta = compute_diagnostics_delta(&old, &new);
@@ -264,6 +269,7 @@ fn diagnostics_no_notification_when_unchanged() {
         message: "test error".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
 
     let delta = compute_diagnostics_delta(&diags, &diags);

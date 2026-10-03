@@ -250,6 +250,7 @@ pub fn load_extensions(
                     message: format!("extension '{}': protocol loading failed: {}", ext_name, e),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             }
         }
@@ -651,6 +652,7 @@ pub fn probe_custom_rules(
                 suggestion: Some(format!(
                     "export '{wasm_function}' from '{extension}', or fix the rule's wasm_function"
                 )),
+                data: None,
             });
         }
     }
@@ -816,6 +818,7 @@ pub fn detect_cycles(
                 message,
                 span: Some(node.source_span.clone()),
                 suggestion: None,
+                data: None,
             });
         }
     }

@@ -512,6 +512,7 @@ fn diagnostic_at(
             end_col: end,
         }),
         suggestion: None,
+        data: None,
     }
 }
 

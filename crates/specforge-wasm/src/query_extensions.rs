@@ -46,6 +46,7 @@ pub fn validate_query_extensions(
                 ),
                 span: None,
                 suggestion: Some("provide a non-empty tree-sitter query pattern".to_string()),
+                data: None,
             });
             continue;
         }
@@ -60,6 +61,7 @@ pub fn validate_query_extensions(
                 ),
                 span: None,
                 suggestion: Some("remove null bytes from the query pattern".to_string()),
+                data: None,
             });
             continue;
         }

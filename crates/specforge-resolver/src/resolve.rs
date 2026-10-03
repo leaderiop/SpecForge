@@ -50,6 +50,7 @@ pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> 
                     message: format!("cannot read file: {}", e),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
                 continue;
             }
@@ -164,6 +165,7 @@ pub fn resolve_parsed(
                         ),
                         span: Some(import.span.clone()),
                         suggestion: None,
+                        data: None,
                     });
                 }
                 Target::NotFound => {
@@ -176,6 +178,7 @@ pub fn resolve_parsed(
                         message: format!("import target not found: {}", import.path),
                         span: Some(import.span.clone()),
                         suggestion,
+                        data: None,
                     });
                 }
             }
@@ -193,6 +196,7 @@ pub fn resolve_parsed(
             message: format!("circular import detected: {}", cycle.join(" -> ")),
             span: None,
             suggestion: Some("break the cycle by removing one of the `use` imports or extracting shared entities into a separate file".to_string()),
+            data: None,
         });
     }
 
@@ -562,6 +566,7 @@ fn compute_file_scopes(
                                 ),
                                 span: Some(reexport.span.clone()),
                                 suggestion: None,
+                                data: None,
                             });
                         }
                     }

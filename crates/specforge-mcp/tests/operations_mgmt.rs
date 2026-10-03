@@ -736,6 +736,7 @@ fn doctor_lists_extension_conflicts_from_the_compile() {
             message: "entity kind 'feature' is already registered by '@specforge/product'".into(),
             span: None,
             suggestion: None,
+            data: None,
         });
     server
         .state_mut()
@@ -746,6 +747,7 @@ fn doctor_lists_extension_conflicts_from_the_compile() {
             message: "an unrelated warning".into(),
             span: None,
             suggestion: None,
+            data: None,
         });
 
     // Over those diagnostics, as the last compile's, not a fresh compile.

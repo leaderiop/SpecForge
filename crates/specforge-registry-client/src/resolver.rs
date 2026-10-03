@@ -25,6 +25,7 @@ pub fn resolve_version(
             ),
             span: None,
             suggestion: Some("check the package name and registry configuration".to_string()),
+            data: None,
         },
         other => other.to_diagnostic(),
     })?;
@@ -36,6 +37,7 @@ pub fn resolve_version(
             message: format!("no versions published for '{}'", name),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -49,6 +51,7 @@ pub fn resolve_version(
         message: format!("invalid version range '{}': {}", range, e),
         span: None,
         suggestion: Some("use semver syntax: ^1.0, ~2.3, >=1.0.0 <2.0.0".to_string()),
+        data: None,
     })?;
 
     let mut matching: Vec<Version> = versions
@@ -75,6 +78,7 @@ pub fn resolve_version(
             suggestion: Some(
                 "try a different version range or check available versions".to_string(),
             ),
+            data: None,
         })
 }
 
@@ -104,6 +108,7 @@ pub fn resolve_diamond(
             ),
             span: None,
             suggestion: Some("check the package name and registry configuration".to_string()),
+            data: None,
         },
         other => other.to_diagnostic(),
     })?;
@@ -130,6 +135,7 @@ pub fn unify_diamond(
             ),
             span: None,
             suggestion: Some("use semver syntax: ^1.0, ~2.3, >=1.0.0 <2.0.0".to_string()),
+            data: None,
         })?;
         reqs.push((requirer.as_str(), range.as_str(), req));
     }
@@ -164,6 +170,7 @@ pub fn unify_diamond(
             suggestion: Some(
                 "no version unifies these ranges; upgrade the requirer with the narrowest range or pin a compatible peer version manually".to_string(),
             ),
+            data: None,
         }
     })
 }
@@ -185,6 +192,7 @@ fn pick_highest(versions: &[String], name: &str) -> Result<String, Diagnostic> {
             message: format!("no valid semver versions found for '{}'", name),
             span: None,
             suggestion: None,
+            data: None,
         })
 }
 

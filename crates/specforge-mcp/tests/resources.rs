@@ -306,6 +306,7 @@ fn diagnostics_resource_returns_array() {
         message: message.into(),
         span: Some(span()),
         suggestion: None,
+        data: None,
     };
     server.state_mut().surface_diagnostics = vec![
         diagnostic(
@@ -593,6 +594,7 @@ fn diagnostics_updates_after_recompilation() {
                 end_col: 10,
             }),
             suggestion: None,
+            data: None,
         });
 
     let resp2 = read_resource(&mut server, "specforge://diagnostics");
@@ -625,6 +627,7 @@ fn diagnostics_fields_present() {
                 end_col: 10,
             }),
             suggestion: None,
+            data: None,
         });
 
     let resp = read_resource(&mut server, "specforge://diagnostics");
@@ -873,6 +876,7 @@ fn diagnostics_resource_gives_catalogued_codes_their_title() {
         message: "m".into(),
         span: None,
         suggestion: None,
+        data: None,
     };
     // W008 is catalogued; W901 is a third-party extension's.
     server.state_mut().surface_diagnostics = vec![diagnostic("W008"), diagnostic("W901")];

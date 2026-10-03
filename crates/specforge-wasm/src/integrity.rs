@@ -15,6 +15,7 @@ pub fn verify_wasm_integrity(wasm_path: &Path, expected_hash: &str) -> Result<()
         ),
         span: None,
         suggestion: None,
+        data: None,
     })?;
 
     let actual_hash = hex_sha256(&bytes);
@@ -31,6 +32,7 @@ pub fn verify_wasm_integrity(wasm_path: &Path, expected_hash: &str) -> Result<()
             ),
             span: None,
             suggestion: Some("re-install the extension or verify the source".to_string()),
+            data: None,
         });
     }
 
@@ -62,6 +64,7 @@ pub fn verify_wasm_integrity_or_skip(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             }],
         );
     }

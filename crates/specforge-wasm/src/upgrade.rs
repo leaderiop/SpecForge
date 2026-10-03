@@ -84,6 +84,7 @@ pub fn upgrade_extension(
             ),
             span: None,
             suggestion: Some("use --force to override peer dependency checks".to_string()),
+            data: None,
         });
     }
 

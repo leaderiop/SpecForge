@@ -27,6 +27,7 @@ pub fn validate_registered_entity_fields(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
         }
 
@@ -43,6 +44,7 @@ pub fn validate_registered_entity_fields(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
         }
     }
@@ -70,6 +72,7 @@ pub fn detect_duplicate_entity_kinds(manifests: &[ManifestV2]) -> Vec<Diagnostic
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             } else {
                 seen.insert(kind.keyword.clone(), manifest.name.clone());
@@ -117,6 +120,7 @@ pub fn validate_peer_dependencies_of(
                     ),
                     span: None,
                     suggestion: Some(format!("install it with: specforge add {}", peer.name)),
+                    data: None,
                 });
             }
             Some(installed_version) => {
@@ -134,6 +138,7 @@ pub fn validate_peer_dependencies_of(
                         ),
                         span: None,
                         suggestion: Some("use a valid semver range like ^1.0.0, ~1.2.0, or >=1.0.0".to_string()),
+                        data: None,
                     });
                 } else if ver_parse.is_err() {
                     diagnostics.push(Diagnostic {
@@ -145,6 +150,7 @@ pub fn validate_peer_dependencies_of(
                         ),
                         span: None,
                         suggestion: Some("use a valid semver version like 1.0.0".to_string()),
+                        data: None,
                     });
                 } else if !version_satisfies(installed_version, &peer.version) {
                     diagnostics.push(Diagnostic {
@@ -156,6 +162,7 @@ pub fn validate_peer_dependencies_of(
                         ),
                         span: None,
                         suggestion: None,
+                        data: None,
                     });
                 }
             }
@@ -197,6 +204,7 @@ pub(crate) fn validate_extension_testability(kind_reg: &crate::KindRegistry) -> 
                 ),
                 span: None,
                 suggestion: Some("set supportsVerify: true in the manifest".to_string()),
+                data: None,
             });
         }
     }
@@ -228,6 +236,7 @@ pub fn register_validation_rules(
                         ),
                         span: None,
                         suggestion: None,
+                        data: None,
                     });
                 }
             } else {

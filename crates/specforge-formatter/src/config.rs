@@ -88,6 +88,7 @@ fn parse_config_file(
                 message: format!("Failed to read config file {}: {}", path.display(), e),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             return (FormatConfig::default(), std::mem::take(diagnostics));
         }
@@ -102,6 +103,7 @@ fn parse_config_file(
                 message: format!("Invalid TOML in {}: {}", path.display(), e),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             return (FormatConfig::default(), std::mem::take(diagnostics));
         }
@@ -123,6 +125,7 @@ fn parse_config_file(
                     ),
                     span: None,
                     suggestion: Some("indent_width must be an integer between 1 and 16".into()),
+                    data: None,
                 });
             }
         }
@@ -142,6 +145,7 @@ fn parse_config_file(
                     ),
                     span: None,
                     suggestion: Some("use_tabs must be true or false".into()),
+                    data: None,
                 });
             }
         }
@@ -161,6 +165,7 @@ fn parse_config_file(
                     ),
                     span: None,
                     suggestion: Some("max_width must be an integer between 40 and 200".into()),
+                    data: None,
                 });
             }
         }

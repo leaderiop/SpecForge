@@ -113,6 +113,7 @@ fn unexecutable_rule(extension_name: &str, rule_code: &str, why: &str) -> Diagno
         ),
         span: None,
         suggestion: None,
+        data: None,
     }
 }
 
@@ -134,6 +135,7 @@ pub(crate) fn parse_rule_pattern(
             ),
             span: None,
             suggestion: None,
+            data: None,
         });
     };
 
@@ -253,6 +255,7 @@ pub(crate) fn parse_rule_pattern(
                             ),
                             span: None,
                             suggestion: None,
+                            data: None,
                         });
                     }
                     None => None,
@@ -634,6 +637,7 @@ pub fn execute_pattern(
                 message,
                 span: Some(entity.span.clone()),
                 suggestion: None,
+                data: None,
             });
         }
     }

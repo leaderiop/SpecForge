@@ -72,6 +72,7 @@ pub fn detect_breaking_with_diagnostics(
                     suggestion: Some(
                         "Run a full compilation to regenerate the schema cache.".to_string(),
                     ),
+                    data: None,
                 });
             }
             None
@@ -91,6 +92,7 @@ pub fn detect_breaking_with_diagnostics(
                  update them, or keep the extension versions that produced the old schema."
                     .to_string(),
             ),
+            data: None,
         });
     }
     (migration, diagnostics)

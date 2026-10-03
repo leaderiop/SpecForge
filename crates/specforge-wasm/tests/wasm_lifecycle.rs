@@ -241,6 +241,7 @@ fn test_call_validators_collects_diagnostics() {
         message: "custom warning".to_string(),
         span: None,
         suggestion: None,
+        data: None,
     }])
     .unwrap();
 

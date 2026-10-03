@@ -15,6 +15,7 @@ pub fn handle_wasm_trap(module: &mut LoadedModule, trap: &WasmTrapInfo) -> Diagn
         suggestion: Some(
             "check the extension for bugs or report to the extension author".to_string(),
         ),
+        data: None,
     }
 }
 

@@ -36,6 +36,7 @@ pub fn load_extension_manifest_from_path(path: &Path) -> Result<ManifestV2, Diag
         ),
         span: None,
         suggestion: None,
+        data: None,
     })?;
 
     serde_json::from_str::<ManifestV2>(&content).map_err(|e| Diagnostic {
@@ -48,6 +49,7 @@ pub fn load_extension_manifest_from_path(path: &Path) -> Result<ManifestV2, Diag
         ),
         span: None,
         suggestion: Some("check the manifest JSON syntax".to_string()),
+        data: None,
     })
 }
 
@@ -75,6 +77,7 @@ pub fn detect_entity_kind_collision(manifests: &[ManifestV2]) -> Vec<Diagnostic>
                     ),
                     span: None,
                     suggestion: Some("choose a different keyword for this entity kind".to_string()),
+                    data: None,
                 });
             }
         }

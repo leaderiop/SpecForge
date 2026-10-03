@@ -99,6 +99,7 @@ pub fn check_field_value_types(
                         .unwrap_or_else(|| node.source_span.clone()),
                 ),
                 suggestion: mismatch.suggestion,
+                data: None,
             });
         }
     }

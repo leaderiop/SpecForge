@@ -604,6 +604,7 @@ pub fn merge(
             message: format!("{runner} reported tests for unknown entity '{id}'"),
             span: None,
             suggestion: Some("check the test's entity annotation for a rename or typo".to_string()),
+            data: None,
         });
     }
 

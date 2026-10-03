@@ -29,6 +29,7 @@ pub fn register_entity_enhancements(
                     ),
                     span: None,
                     suggestion: Some("rename the field or coordinate with the conflicting extension".to_string()),
+                    data: None,
                 });
             }
         }
@@ -72,6 +73,7 @@ pub fn reject_reserved_entity_kind(
             ),
             span: None,
             suggestion: Some("choose a different entity kind name".to_string()),
+            data: None,
         });
     }
 
@@ -86,6 +88,7 @@ pub fn reject_reserved_entity_kind(
             ),
             span: None,
             suggestion: Some("use lowercase letters, digits, and underscores only".to_string()),
+            data: None,
         });
     }
 
@@ -101,6 +104,7 @@ pub fn reject_reserved_entity_kind(
                 ),
                 span: None,
                 suggestion: Some("choose a different entity kind name".to_string()),
+                data: None,
             });
         }
     }
@@ -154,6 +158,7 @@ pub fn validate_contribution_exports(
                     "add #[export_name = \"{}\"] to the Wasm module",
                     export
                 )),
+                data: None,
             });
         }
     }
@@ -225,6 +230,7 @@ pub fn resolve_enhancement_conflicts(
                 ),
                 span: None,
                 suggestion: Some("only one extension may provide grammar for a given entity kind".to_string()),
+                data: None,
             });
             continue;
         }
@@ -245,6 +251,7 @@ pub fn resolve_enhancement_conflicts(
                 ),
                 span: None,
                 suggestion: Some("add an explicit override in specforge.json to resolve".to_string()),
+                data: None,
             });
         }
     }

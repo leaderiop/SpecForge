@@ -75,6 +75,7 @@ pub fn apply_entity_enhancements(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             continue;
         }
@@ -142,6 +143,7 @@ fn register_entity_kinds(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             // Restore the first registration (it wins)
             registry.register(existing);
@@ -188,6 +190,7 @@ fn register_single_field(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             return;
         }
@@ -242,6 +245,7 @@ fn register_edge_types(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             // Restore first registration
             registry.register(existing);

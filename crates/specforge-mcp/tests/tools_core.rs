@@ -1749,6 +1749,7 @@ fn stats_diagnostic_summary_severity_counts() {
         message: "m".into(),
         span: Some(span()),
         suggestion: None,
+        data: None,
     };
     server.state_mut().surface_diagnostics = vec![
         diagnostic("E003", Severity::Error),

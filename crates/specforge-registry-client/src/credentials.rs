@@ -71,6 +71,7 @@ impl CredentialStore {
                             "run: specforge login --registry {} --token <NEW_TOKEN>",
                             alias
                         )),
+                        data: None,
                     });
                 }
                 let secret = if *in_keyring {
@@ -89,6 +90,7 @@ impl CredentialStore {
                                     "run: specforge login --registry {} --token <NEW_TOKEN>",
                                     alias
                                 )),
+                                data: None,
                             });
                         }
                         Err(message) => {
@@ -101,6 +103,7 @@ impl CredentialStore {
                                     "run: specforge login --registry {} --token <NEW_TOKEN>",
                                     alias
                                 )),
+                                data: None,
                             });
                         }
                     }
@@ -186,6 +189,7 @@ pub fn read_credentials(path: &Path) -> Result<CredentialStore, Diagnostic> {
         message: format!("failed to read credentials file: {}", e),
         span: None,
         suggestion: Some(format!("check permissions on '{}'", path.display())),
+        data: None,
     })?;
 
     serde_json::from_str(&content).map_err(|e| Diagnostic {
@@ -197,6 +201,7 @@ pub fn read_credentials(path: &Path) -> Result<CredentialStore, Diagnostic> {
             "delete '{}' and run `specforge login` again",
             path.display()
         )),
+        data: None,
     })
 }
 
@@ -208,6 +213,7 @@ pub fn write_credentials(path: &Path, store: &CredentialStore) -> Result<(), Dia
             message: format!("failed to create credentials directory: {}", e),
             span: None,
             suggestion: None,
+            data: None,
         })?;
     }
 
@@ -217,6 +223,7 @@ pub fn write_credentials(path: &Path, store: &CredentialStore) -> Result<(), Dia
         message: format!("failed to serialize credentials: {}", e),
         span: None,
         suggestion: None,
+        data: None,
     })?;
 
     std::fs::write(path, json).map_err(|e| Diagnostic {
@@ -225,6 +232,7 @@ pub fn write_credentials(path: &Path, store: &CredentialStore) -> Result<(), Dia
         message: format!("failed to write credentials file: {}", e),
         span: None,
         suggestion: Some(format!("check write permissions on '{}'", path.display())),
+        data: None,
     })?;
     restrict_permissions(path);
     Ok(())

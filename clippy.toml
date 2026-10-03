@@ -1,0 +1,4 @@
+# `specforge_common::Diagnostic` (128 bytes) is the error type of many
+# `Result`s across the workspace, returned whole for the surfaces to
+# present. An error larger than it still trips `result_large_err`.
+large-error-threshold = 129

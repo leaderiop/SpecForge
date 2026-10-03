@@ -484,6 +484,7 @@ fn diagnostic_json_contract_complete_fields() {
             end_col: 20,
         }),
         suggestion: Some("did you mean 'foo'?".into()),
+        data: None,
     }];
 
     let json = specforge_common::serialize_diagnostics(&diags);
@@ -511,6 +512,7 @@ fn diagnostic_json_array() {
             message: "err".into(),
             span: None,
             suggestion: None,
+            data: None,
         },
         Diagnostic {
             code: "W001".into(),
@@ -518,6 +520,7 @@ fn diagnostic_json_array() {
             message: "warn".into(),
             span: None,
             suggestion: None,
+            data: None,
         },
     ];
     let json = specforge_common::serialize_diagnostics(&diags);
@@ -543,6 +546,7 @@ fn diagnostic_json_all_fields() {
             end_col: 15,
         }),
         suggestion: None,
+        data: None,
     }];
     let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -566,6 +570,7 @@ fn diagnostic_json_valid_parseable() {
         message: "msg with \"quotes\"".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
     let json = specforge_common::serialize_diagnostics(&diags);
     let result: Result<serde_json::Value, _> = serde_json::from_str(&json);
@@ -580,6 +585,7 @@ fn diagnostic_exit_code_unaffected_by_format() {
         message: "err".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
     // Exit code should be based on severity regardless of format
     let exit = specforge_common::compute_exit_code(&diags);
@@ -600,6 +606,7 @@ fn diagnostic_suggestion_included() {
         message: "unresolved".into(),
         span: None,
         suggestion: Some("did you mean 'bar'?".into()),
+        data: None,
     }];
     let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();

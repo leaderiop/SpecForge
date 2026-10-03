@@ -31,6 +31,7 @@ pub fn load_wasm_module(
                 "install the extension with: specforge add {}",
                 extension_name
             )),
+            data: None,
         });
     }
 
@@ -46,6 +47,7 @@ pub fn load_wasm_module(
         ),
         span: None,
         suggestion: None,
+        data: None,
     })?;
     let wasm_hash = hex_sha256(&bytes);
 
@@ -66,6 +68,7 @@ pub fn load_wasm_module(
                 "the installed binary changed after install — re-install it: specforge remove \"{0}\" && specforge add \"{0}\"",
                 extension_name
             )),
+            data: None,
         });
     }
 
@@ -80,6 +83,7 @@ pub fn load_wasm_module(
             ),
             span: None,
             suggestion: None,
+            data: None,
         })?;
 
     Ok(LoadedModule {
@@ -110,6 +114,7 @@ pub fn initialize_extension(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             })
         }
     }
@@ -149,6 +154,7 @@ pub fn call_extension_validators(
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
                 // Continue to next extension — don't stop
             }
@@ -348,6 +354,7 @@ mod tests {
             message: "custom warning".to_string(),
             span: None,
             suggestion: None,
+            data: None,
         }])
         .unwrap();
 

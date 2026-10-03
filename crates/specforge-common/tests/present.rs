@@ -1,4 +1,4 @@
-use specforge_common::{Diagnostic, Severity, SourceSpan, Sym};
+use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan, Sym};
 use specforge_test::prelude::*;
 
 fn diag_with_span(
@@ -21,6 +21,7 @@ fn diag_with_span(
             end_col: col + 5,
         }),
         suggestion: None,
+        data: None,
     }
 }
 
@@ -37,6 +38,7 @@ fn diag_with_suggestion(code: &str, severity: Severity, msg: &str, suggestion: &
             end_col: 20,
         }),
         suggestion: Some(suggestion.to_string()),
+        data: None,
     }
 }
 
@@ -227,6 +229,7 @@ fn exit_code_zero_no_errors() {
             message: "unused entity".to_string(),
             span: None,
             suggestion: None,
+            data: None,
         },
         Diagnostic {
             code: "I003".to_string(),
@@ -234,6 +237,7 @@ fn exit_code_zero_no_errors() {
             message: "note".to_string(),
             span: None,
             suggestion: None,
+            data: None,
         },
     ];
     assert_eq!(specforge_common::compute_exit_code(&diags), 0);
@@ -252,6 +256,7 @@ fn exit_code_one_with_errors() {
         message: "unresolved".to_string(),
         span: None,
         suggestion: None,
+        data: None,
     }];
     assert_eq!(specforge_common::compute_exit_code(&diags), 1);
 }
@@ -270,6 +275,7 @@ fn exit_code_contract() {
         message: "w".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
     let with_errors = vec![
         Diagnostic {
@@ -278,6 +284,7 @@ fn exit_code_contract() {
             message: "e".into(),
             span: None,
             suggestion: None,
+            data: None,
         },
         Diagnostic {
             code: "W001".into(),
@@ -285,6 +292,7 @@ fn exit_code_contract() {
             message: "w".into(),
             span: None,
             suggestion: None,
+            data: None,
         },
     ];
     assert_eq!(specforge_common::compute_exit_code(&no_errors), 0);
@@ -391,6 +399,7 @@ fn span_is_nested_beside_the_flat_location() {
             end_col: 2,
         }),
         suggestion: None,
+        data: None,
     };
     let unlocated = Diagnostic::warning("W113", "circular import detected: a.spec -> b.spec");
     let json = specforge_common::serialize_diagnostics(&[located, unlocated]);
@@ -479,6 +488,7 @@ fn spanless_diagnostic_uses_code_as_fallback() {
         message: "some warning without location".to_string(),
         span: None,
         suggestion: None,
+        data: None,
     };
     let formatted = specforge_common::format_diagnostic(&diag);
     // Should include the diagnostic code in the location fallback
@@ -506,6 +516,7 @@ fn spanless_error_diagnostic_uses_code() {
         message: "unresolved".to_string(),
         span: None,
         suggestion: None,
+        data: None,
     };
     let formatted = specforge_common::format_diagnostic(&diag);
     assert!(
@@ -525,4 +536,80 @@ fn spanned_diagnostic_ignores_code_fallback() {
     // Should use the real span, not the code fallback
     assert!(formatted.contains("src/test.spec:10:5"));
     assert!(!formatted.contains("<E001>"));
+}
+
+// B:present_diagnostics_as_json — verify unit "a typed payload is presented under data, and its absence adds no key"
+#[specforge_test(
+    behavior = "present_diagnostics_as_json",
+    verify = "a typed payload is presented under data, and its absence adds no key"
+)]
+fn a_typed_payload_is_presented_under_data_and_its_absence_adds_no_key() {
+    let plain = diag_with_suggestion(
+        "E003",
+        Severity::Error,
+        "unresolved reference 'tokn' in entity 'login'",
+        "did you mean 'token'?",
+    );
+    let typed = plain
+        .clone()
+        .with_data(DiagnosticData::UnresolvedReference {
+            target: "tokn".into(),
+            entity: "login".into(),
+            field: "invariants".into(),
+            did_you_mean: Some("token".into()),
+        });
+
+    // Without data the entry is byte for byte what it was before data existed.
+    assert_eq!(
+        specforge_common::serialize_diagnostics(std::slice::from_ref(&plain)),
+        concat!(
+            r#"[{"code":"E003","title":"Unresolved reference","severity":"Error","#,
+            r#""message":"unresolved reference 'tokn' in entity 'login'","#,
+            r#""span":{"file":"test.spec","start_line":10,"start_col":4,"end_line":10,"end_col":20},"#,
+            r#""suggestion":"did you mean 'token'?","file":"test.spec","line":10,"column":4}]"#,
+        )
+    );
+
+    // With it, the same entry plus `data`, tagged by kind.
+    let json = specforge_common::serialize_diagnostics(&[typed]);
+    let mut parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        parsed[0]["data"],
+        serde_json::json!({
+            "kind": "unresolved_reference",
+            "target": "tokn",
+            "entity": "login",
+            "field": "invariants",
+            "did_you_mean": "token",
+        })
+    );
+    parsed[0].as_object_mut().unwrap().remove("data");
+    let before: serde_json::Value =
+        serde_json::from_str(&specforge_common::serialize_diagnostics(&[plain])).unwrap();
+    assert_eq!(parsed, before, "data is the only key it adds");
+}
+
+// The Diagnostic itself round-trips its payload, and one serialized
+// before `data` existed still reads.
+#[test]
+fn a_diagnostic_round_trips_its_payload_and_reads_without_one() {
+    let typed = Diagnostic::error("E025", "import target not found: ./autth.spec").with_data(
+        DiagnosticData::UnresolvedImport {
+            path: "./autth.spec".into(),
+            did_you_mean: None,
+        },
+    );
+    let json = serde_json::to_value(&typed).unwrap();
+    assert_eq!(
+        json["data"],
+        serde_json::json!({"kind": "unresolved_import", "path": "./autth.spec"})
+    );
+    assert_eq!(serde_json::from_value::<Diagnostic>(json).unwrap(), typed);
+
+    let old = serde_json::json!({
+        "code": "W113", "severity": "Warning", "message": "m", "span": null, "suggestion": null,
+    });
+    let read: Diagnostic = serde_json::from_value(old.clone()).unwrap();
+    assert_eq!(read.data, None);
+    assert_eq!(serde_json::to_value(&read).unwrap(), old);
 }

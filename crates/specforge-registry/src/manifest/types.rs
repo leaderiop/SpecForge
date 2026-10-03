@@ -312,6 +312,7 @@ pub fn unknown_manifest_fields(raw: &serde_json::Value) -> Vec<Diagnostic> {
             message: format!("unknown manifest field '{key}' is ignored"),
             span: None,
             suggestion: Some("check the spelling against the manifest v2 schema".to_string()),
+            data: None,
         })
         .collect()
 }
@@ -329,6 +330,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
             ),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -339,6 +341,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
             message: "extension manifest: 'name' field is required".to_string(),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -349,6 +352,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
             message: format!("extension '{}': 'version' field is required", manifest.name),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -362,6 +366,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
             ),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -376,6 +381,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
         }
         if ac.file_extensions.is_empty() {
@@ -388,6 +394,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
         }
         for export in [&ac.scan_export, &ac.classify_export, &ac.map_export] {
@@ -401,6 +408,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             }
         }
@@ -502,6 +510,7 @@ pub fn validate_manifest_consistency_with_peers(
         message,
         span: None,
         suggestion: None,
+        data: None,
     };
 
     // Validate target_kind and edge references in entity kind fields

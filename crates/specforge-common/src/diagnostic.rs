@@ -14,6 +14,38 @@ pub struct Diagnostic {
     pub message: String,
     pub span: Option<SourceSpan>,
     pub suggestion: Option<String>,
+    /// What the diagnostic is about, typed, for the consumers that act on
+    /// it (the LSP's quick fixes) — so none of them parses `message`, which
+    /// is presentation. Absent for most diagnostics, and then serialized
+    /// not at all. Boxed so a diagnostic without one stays small (it is
+    /// the error type of many `Result`s).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<Box<DiagnosticData>>,
+}
+
+/// A diagnostic's structured payload: the values its message names, as
+/// data. Serialized with a `kind` tag (`{"kind": "unresolved_reference",
+/// …}`); a variant exists only for a diagnostic some consumer acts on.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum DiagnosticData {
+    /// E003: `entity`'s reference field `field` names `target`, which no
+    /// entity declares. `did_you_mean` is the closest declared id, when one
+    /// is close enough to suggest.
+    UnresolvedReference {
+        target: String,
+        entity: String,
+        field: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        did_you_mean: Option<String>,
+    },
+    /// E025: a `use` import names `path`, which resolves to no `.spec`
+    /// file. `did_you_mean` is the closest known path, when one is close.
+    UnresolvedImport {
+        path: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        did_you_mean: Option<String>,
+    },
 }
 
 impl std::fmt::Display for Severity {
@@ -40,6 +72,7 @@ impl Diagnostic {
             message: message.into(),
             span: None,
             suggestion: None,
+            data: None,
         }
     }
 
@@ -50,6 +83,7 @@ impl Diagnostic {
             message: message.into(),
             span: None,
             suggestion: None,
+            data: None,
         }
     }
 
@@ -60,6 +94,7 @@ impl Diagnostic {
             message: message.into(),
             span: None,
             suggestion: None,
+            data: None,
         }
     }
 
@@ -70,6 +105,11 @@ impl Diagnostic {
 
     pub fn with_suggestion(mut self, suggestion: impl Into<String>) -> Self {
         self.suggestion = Some(suggestion.into());
+        self
+    }
+
+    pub fn with_data(mut self, data: DiagnosticData) -> Self {
+        self.data = Some(Box::new(data));
         self
     }
 

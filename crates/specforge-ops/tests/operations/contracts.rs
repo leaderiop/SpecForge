@@ -204,6 +204,7 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
             message: "err".into(),
             span: None,
             suggestion: None,
+            data: None,
         },
         Diagnostic {
             code: "W002".into(),
@@ -211,6 +212,7 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
             message: "warn".into(),
             span: None,
             suggestion: None,
+            data: None,
         },
     ];
 

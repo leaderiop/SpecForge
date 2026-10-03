@@ -126,6 +126,7 @@ pub fn register_surface_contributions(
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             } else {
                 seen_commands.insert(cmd.id.clone(), ext_name.clone());
@@ -150,6 +151,7 @@ pub fn register_surface_contributions(
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             } else {
                 seen_tools.insert(tool.name.clone(), ext_name.clone());
@@ -174,6 +176,7 @@ pub fn register_surface_contributions(
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             } else {
                 seen_resources.insert(resource.name.clone(), ext_name.clone());

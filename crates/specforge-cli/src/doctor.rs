@@ -204,6 +204,7 @@ mod tests {
             message: message.into(),
             span: None,
             suggestion: suggestion.map(String::from),
+            data: None,
         }
     }
 

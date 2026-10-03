@@ -27,6 +27,7 @@ pub fn validate_surface_exports(
                     "add #[export_name = \"{}\"] to the Wasm module",
                     expected
                 )),
+                data: None,
             });
         }
     }
@@ -46,6 +47,7 @@ pub fn validate_surface_exports(
                     "add #[export_name = \"{}\"] to the Wasm module",
                     expected
                 )),
+                data: None,
             });
         }
     }
@@ -65,6 +67,7 @@ pub fn validate_surface_exports(
                     "add #[export_name = \"{}\"] to the Wasm module",
                     expected
                 )),
+                data: None,
             });
         }
     }
@@ -86,6 +89,7 @@ pub fn validate_mcp_tool_schemas(
                 message: format!("MCP tool '{}': input_schema must be a JSON object", name),
                 span: None,
                 suggestion: Some("provide a valid JSON Schema object".to_string()),
+                data: None,
             });
         }
         if let Some(out) = output_schema
@@ -97,6 +101,7 @@ pub fn validate_mcp_tool_schemas(
                 message: format!("MCP tool '{}': output_schema must be a JSON object", name),
                 span: None,
                 suggestion: Some("provide a valid JSON Schema object".to_string()),
+                data: None,
             });
         }
     }
@@ -120,6 +125,7 @@ pub fn validate_command_arg_types(
                     message: format!("command '{}': unknown argument type '{}'", id, arg_type),
                     span: None,
                     suggestion: Some(format!("known types: {}", known_types.join(", "))),
+                    data: None,
                 });
             }
         }
@@ -160,6 +166,7 @@ pub fn auto_promote_commands_to_mcp_tools(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             continue;
         }
@@ -245,6 +252,7 @@ pub fn dispatch_surface_command(
             ),
             span: None,
             suggestion: None,
+            data: None,
         }),
     }
 }
@@ -263,6 +271,7 @@ pub fn dispatch_surface_mcp_tool(
             message: format!("MCP tool {}() returned invalid JSON: {}", export_name, e),
             span: None,
             suggestion: None,
+            data: None,
         }),
         WasmCallResult::Trap(trap) => Err(Diagnostic {
             code: "E028".to_string(),
@@ -273,6 +282,7 @@ pub fn dispatch_surface_mcp_tool(
             ),
             span: None,
             suggestion: None,
+            data: None,
         }),
     }
 }
@@ -315,6 +325,7 @@ pub fn dispatch_surface_mcp_resource(
             ),
             span: None,
             suggestion: None,
+            data: None,
         }),
     }
 }

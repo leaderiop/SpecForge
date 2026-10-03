@@ -326,6 +326,7 @@ fn inspect_diagnostics_are_the_entitys_own() {
         message: message.into(),
         span,
         suggestion: None,
+        data: None,
     };
     state.surface_diagnostics = vec![
         diagnostic(
@@ -544,6 +545,7 @@ fn suggest_fixes_returns_suggestions() {
             message: "alpha has no tests field".into(),
             span: Some(span()),
             suggestion: Some("Add a tests field".into()),
+            data: None,
         });
 
     let resp = call_tool(
@@ -569,6 +571,7 @@ fn server_with_fixable_diagnostics() -> McpServer {
         message: "alpha is missing a field".into(),
         span: Some(span()),
         suggestion: Some("fix alpha".into()),
+        data: None,
     });
     server.state_mut().surface_diagnostics.push(Diagnostic {
         code: "W001".into(),
@@ -576,6 +579,7 @@ fn server_with_fixable_diagnostics() -> McpServer {
         message: "feature 'beta' has no owner".into(),
         span: None,
         suggestion: Some("fix beta".into()),
+        data: None,
     });
     server
 }
@@ -604,6 +608,7 @@ fn suggest_fixes_for_a_clean_entity_is_empty() {
         message: "alpha is missing a field".into(),
         span: Some(span()),
         suggestion: Some("fix alpha".into()),
+        data: None,
     });
     // About another entity whose id merely contains beta's.
     server.state_mut().surface_diagnostics.push(Diagnostic {
@@ -612,6 +617,7 @@ fn suggest_fixes_for_a_clean_entity_is_empty() {
         message: "feature 'beta_two' has no owner".into(),
         span: None,
         suggestion: Some("fix beta_two".into()),
+        data: None,
     });
 
     assert!(fix_titles(&mut server, json!({"entity_id": "beta"})).is_empty());

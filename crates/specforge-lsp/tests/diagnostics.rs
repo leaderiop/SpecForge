@@ -14,6 +14,7 @@ fn diagnostics_update_after_change() {
         message: "E003: unresolved reference 'b'".into(),
         severity: Severity::Error,
         span: None,
+        data: None,
     }];
     state.set_diagnostics("file:///a.spec", diags.clone());
 
@@ -36,6 +37,7 @@ fn only_changed_file_diagnostics_refreshed() {
             message: "error in a".into(),
             severity: Severity::Error,
             span: None,
+            data: None,
         }],
     );
     state.set_diagnostics(
@@ -46,6 +48,7 @@ fn only_changed_file_diagnostics_refreshed() {
             message: "error in b".into(),
             severity: Severity::Error,
             span: None,
+            data: None,
         }],
     );
 
@@ -78,6 +81,7 @@ fn diagnostics_appear_within_latency_budget() {
             message: "unresolved reference 'also_missing'".into(),
             severity: Severity::Error,
             span: None,
+            data: None,
         }],
     );
 

@@ -3,7 +3,7 @@
 //! exit code. The human, source-annotated rendering is
 //! `specforge_validator::render_diagnostics`.
 
-use crate::{Diagnostic, Severity, SourceSpan};
+use crate::{Diagnostic, DiagnosticData, Severity, SourceSpan};
 use serde::Serialize;
 
 pub fn format_diagnostic(diag: &Diagnostic) -> String {
@@ -38,9 +38,11 @@ pub fn format_diagnostic(diag: &Diagnostic) -> String {
 /// one entry per diagnostic with code, the catalogue's title for it,
 /// severity, message, suggestion, the
 /// span nested under `span`, and the span's start flat as `file`, `line`
-/// and `column`. Absent values are `null`, never missing keys. The shape
-/// is the superset of the nested (CLI) and flat (MCP) shapes the surfaces
-/// printed before, so readers of either keep working.
+/// and `column`. Absent values are `null`, never missing keys — except
+/// `data`, the typed payload, which is there only when the diagnostic
+/// carries one (so a diagnostic without it prints as it always has). The
+/// shape is the superset of the nested (CLI) and flat (MCP) shapes the
+/// surfaces printed before, so readers of either keep working.
 pub fn diagnostics_json(diagnostics: &[Diagnostic]) -> Vec<DiagnosticJson<'_>> {
     diagnostics
         .iter()
@@ -54,6 +56,7 @@ pub fn diagnostics_json(diagnostics: &[Diagnostic]) -> Vec<DiagnosticJson<'_>> {
             file: d.span.as_ref().map(|s| s.file.as_str()),
             line: d.span.as_ref().map(|s| s.start_line),
             column: d.span.as_ref().map(|s| s.start_col),
+            data: d.data.as_deref(),
         })
         .collect()
 }
@@ -99,6 +102,10 @@ pub struct DiagnosticJson<'a> {
     pub file: Option<&'a str>,
     pub line: Option<usize>,
     pub column: Option<usize>,
+    /// The diagnostic's typed payload ([`DiagnosticData`]); the key is
+    /// absent when it has none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub data: Option<&'a DiagnosticData>,
 }
 
 /// Compute the process exit code from collected diagnostics.

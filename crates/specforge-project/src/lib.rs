@@ -251,6 +251,7 @@ fn structural_only_notice(configured: &[String]) -> Diagnostic {
         message,
         span: None,
         suggestion: Some(suggestion),
+        data: None,
     }
 }
 

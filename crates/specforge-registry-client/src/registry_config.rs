@@ -42,6 +42,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
                 message: format!("Failed to parse registry config JSON: {e}"),
                 span: None,
                 suggestion: Some("Ensure the configuration is valid JSON.".to_string()),
+                data: None,
             });
             return (Vec::new(), diagnostics);
         }
@@ -56,6 +57,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
                 message: "No registries configured and no default registry set.".to_string(),
                 span: None,
                 suggestion: Some("Add a \"registries\" array to your configuration.".to_string()),
+                data: None,
             });
             return (Vec::new(), diagnostics);
         }
@@ -70,6 +72,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
                 message: "\"registries\" must be a JSON array.".to_string(),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             return (Vec::new(), diagnostics);
         }
@@ -91,6 +94,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
                         ),
                         span: None,
                         suggestion: Some("Use unique aliases for each registry.".to_string()),
+                        data: None,
                     });
                 }
                 registries.push(reg);
@@ -102,6 +106,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
                     message: format!("Failed to parse registry entry at index {i}: {e}"),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             }
         }
@@ -117,6 +122,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
             suggestion: Some(
                 "Set \"default_registry\": true on one of your registries.".to_string(),
             ),
+            data: None,
         });
     }
 

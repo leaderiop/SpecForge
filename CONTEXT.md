@@ -47,3 +47,6 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   explanation (`specforge_diagnostics::CATALOG`). `specforge explain`, MCP `specforge.explain`,
   diagnostics JSON titles, doctor and the LSP hover all read it; `docs/diagnostics.md` is generated
   from it.
+- **Diagnostic data**: a diagnostic's optional typed payload, the values its message names
+  (`specforge_common::DiagnosticData`, e.g. an E003's unresolved target). Consumers that act on a
+  diagnostic, such as the LSP's quick fixes, read it; none parses the message, which is presentation.
