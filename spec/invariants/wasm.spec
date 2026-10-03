@@ -156,6 +156,32 @@ invariant registry_integrity "Registry Integrity" {
   verify unit "trust level recorded in lock file"
 }
 
+invariant publisher_trust "Publisher Trust" {
+  guarantee """
+    A registry package is installed only when its publisher signature
+    verifies over the downloaded bytes and the served manifest, or when it
+    is unsigned and the user passed --allow-unsigned; a broken signature is
+    never installed. The first verified key for a package is pinned, and a
+    package signed by another key is refused unless the user consents.
+  """
+  risk      high
+  verify integration "specforge add refuses an unsigned package without --allow-unsigned"
+  verify integration "specforge add pins the publisher key and records it in specforge.lock"
+  verify integration "specforge add refuses a package signed by another key than the pinned one"
+}
+
+invariant registry_reply_binding "Registry Reply Binding" {
+  guarantee """
+    What a registry install verifies, pins and installs is the package and
+    version that was requested, described by a manifest that can be read:
+    a reply or manifest for another package or version, or a missing or
+    unreadable manifest, is refused before any key is pinned.
+  """
+  risk      high
+  verify integration "a manifest describing another package is refused"
+  verify integration "a package served without a manifest is refused"
+}
+
 invariant extension_operation_atomicity "Extension Operation Atomicity" {
   guarantee """
     Extension install, uninstall, and update operations MUST be atomic.

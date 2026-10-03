@@ -565,6 +565,111 @@ behavior verify_registry_integrity "Verify Registry Integrity" {
   verify contract "Verify Registry Integrity: registry integrity verification holds — wasm_binary_downloaded, registry_response_available, hash_verified, mismatch_aborts, trust_level_assigned, lock_file_updated, integrity_verified_emitted, receive"
 }
 
+// Package trust after the SHA256 check (docs/registry-trust.md). The
+// registry is not the trust anchor: these checks use only the bytes
+// downloaded, the metadata and manifest served, and the user's pins.
+
+behavior check_registry_reply "Check Registry Reply" {
+  features   [extension_registry]
+  invariants [registry_reply_binding, registry_integrity]
+  category   validation
+  types      [RegistryResponse, ExtensionError]
+  ports      [RegistryClient]
+  requires {
+    reply_received "The registry answered a request for name@version and its download passed the SHA256 check"
+  }
+  ensures {
+    reply_names_request    "A reply naming another package or version than the one requested is refused with R-TRUST-004"
+    key_id_consistent      "A reply whose key id differs from the key id inside its signature is refused with R-TRUST-004"
+    manifest_names_request "A served manifest naming another package or version is refused with R-TRUST-004"
+    manifest_fails_closed  "A missing or unreadable served manifest is refused with R-OPS-004, never read as declaring no peers"
+    peers_from_manifest    "The peers the served manifest declares are the ones the ADR-0001 diamond gate checks"
+  }
+  contract   """
+    Before a registry package's signature is checked or its key pinned,
+    the system MUST refuse the reply when it describes another package or
+    version than the one requested, or when its manifest does: the
+    signature covers the name and version the reply carries, and the pin
+    is keyed by name, so an answer for another package would otherwise be
+    verified, pinned and installed in its place (R-TRUST-004). A reply
+    whose key id differs from the one inside its signature MUST be
+    refused (R-TRUST-004). The served manifest declares the package's
+    peers, which decide the diamond gate: a missing manifest, or one that
+    isn't a readable extension manifest, MUST be refused (R-OPS-004)
+    rather than read as declaring no peers. A refused reply pins no key
+    and installs nothing.
+  """
+  verify integration "a reply for another package is refused and pins nothing"
+  verify integration "a key id the signature does not carry is refused"
+  verify integration "a manifest that cannot be read is refused and pins nothing"
+  verify integration "the peers the served manifest declares reach the package"
+}
+
+behavior verify_publisher_signature "Verify Publisher Signature" {
+  features   [extension_registry]
+  invariants [publisher_trust, registry_integrity]
+  category   validation
+  types      [RegistryResponse, ExtensionError]
+  ports      [RegistryClient]
+  requires {
+    reply_checked "The registry reply passed the SHA256 check and names the package requested"
+  }
+  ensures {
+    broken_signature_refused "A signature that is malformed or doesn't verify is refused with R-TRUST-002, even with --allow-unsigned"
+    unsigned_refused         "An unsigned package is refused with R-TRUST-001 unless --allow-unsigned is given"
+    unsigned_pins_nothing    "An unsigned package accepted with --allow-unsigned pins no key"
+  }
+  contract   """
+    A registry package's Ed25519 publisher signature MUST be verified
+    over the canonical payload {name, version, wasmSha256, manifestSha256,
+    signedAt} re-derived from the downloaded Wasm bytes and the manifest
+    the registry serves, with the public key carried in the signature
+    object. A malformed signature, or one that doesn't verify (tampered
+    binary or swapped manifest), MUST be refused with R-TRUST-002, and
+    --allow-unsigned MUST NOT bypass it. A package with no signature MUST
+    be refused with R-TRUST-001 unless the user passes --allow-unsigned;
+    one accepted that way pins no key.
+  """
+  verify integration "a signature over other bytes is refused even with --allow-unsigned"
+  verify integration "a swapped manifest breaks the signature"
+  verify integration "a malformed signature object is refused"
+  verify integration "an unsigned package is refused without --allow-unsigned"
+  verify integration "an unsigned package is accepted with --allow-unsigned and pins no key"
+}
+
+behavior pin_publisher_key "Pin Publisher Key" {
+  features   [extension_registry]
+  invariants [publisher_trust]
+  category   command
+  types      [RegistryResponse, LockFileEntry, ExtensionError]
+  ports      [FileSystem]
+  requires {
+    signature_verified "The package's publisher signature verified"
+  }
+  ensures {
+    first_key_pinned    "The key of the first verified install of a package is pinned in the known-keys store"
+    same_key_accepted   "A later install signed by the pinned key is accepted unchanged"
+    changed_key_refused "A key other than the pinned one is refused with R-TRUST-003 and both key ids, unless the user consents"
+    consent_repins      "Consent to a key change (--yes, or yes at the prompt) re-pins the new key"
+    denied_key_refused  "A key on denied_keys is refused with R-TRUST-005, even with consent"
+  }
+  contract   """
+    Trust on first use: the first time a signed package verifies, its
+    publisher key id MUST be pinned for the package name in the user's
+    known-keys store, and later installs signed by that key MUST be
+    accepted. A package signed by another key MUST be refused with
+    R-TRUST-003 naming both key ids unless the user consents (--yes, an
+    interactive yes, or the key on trusted_keys); --allow-unsigned is not
+    consent. Consent MUST re-pin the new key. A key on denied_keys MUST be
+    refused with R-TRUST-005 whatever the consent. A refused package
+    leaves the pin as it was.
+  """
+  verify integration "the key of the first verified install is pinned and accepted again"
+  verify integration "a package signed by another key than the pinned one is refused"
+  verify integration "consent to a key change re-pins the new key"
+  verify integration "a denied key is refused even with consent"
+}
+
 behavior configure_registries "Configure Registries" {
   features   [extension_registry]
   invariants [

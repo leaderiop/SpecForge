@@ -611,7 +611,10 @@ fn known_keys(home: &TempDir) -> std::path::PathBuf {
     home.path().join(".specforge").join("known-keys.json")
 }
 
-#[test]
+#[specforge_test(
+    invariant = "publisher_trust",
+    verify = "specforge add pins the publisher key and records it in specforge.lock"
+)]
 fn add_installs_a_signed_package_and_pins_its_key() {
     use crate::fake_registry::{FakeRegistry, Package};
     let key = specforge_registry_client::SigningKey::generate();
@@ -637,7 +640,10 @@ fn add_installs_a_signed_package_and_pins_its_key() {
     );
 }
 
-#[test]
+#[specforge_test(
+    invariant = "publisher_trust",
+    verify = "specforge add refuses a package signed by another key than the pinned one"
+)]
 fn add_refuses_a_package_signed_by_another_key_than_the_pinned_one() {
     use crate::fake_registry::{FakeRegistry, Package};
     let pinned = specforge_registry_client::SigningKey::generate();
@@ -658,7 +664,10 @@ fn add_refuses_a_package_signed_by_another_key_than_the_pinned_one() {
     assert_eq!(known.pin_for("@sdk/greet"), Some(pinned.key_id().as_str()));
 }
 
-#[test]
+#[specforge_test(
+    invariant = "publisher_trust",
+    verify = "specforge add refuses an unsigned package without --allow-unsigned"
+)]
 fn add_refuses_an_unsigned_package_without_allow_unsigned() {
     use crate::fake_registry::{FakeRegistry, Package};
     let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
