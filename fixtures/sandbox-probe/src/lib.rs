@@ -135,9 +135,11 @@ fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
             let uri = value.get("uri").and_then(Value::as_str).unwrap_or_default();
             let dir = uri.strip_prefix("specforge://ext/probe").unwrap_or("/");
             let content = json!({"uri": uri, "sandbox": report(dir, None)});
-            Some(Ok(json!({"content": content.to_string(), "mime_type": "application/json"})
-                .to_string()
-                .into_bytes()))
+            Some(Ok(
+                json!({"content": content.to_string(), "mime_type": "application/json"})
+                    .to_string()
+                    .into_bytes(),
+            ))
         }
         _ => None,
     }
