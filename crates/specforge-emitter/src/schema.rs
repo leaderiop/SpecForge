@@ -1046,17 +1046,20 @@ pub fn publish_json_schema_format(
     }
 
     let node_schema: serde_json::Value = match format {
+        // Every other key of a context node is a field its extension
+        // declares `headline`, written as text and never under one of the
+        // node's own keys (`context::headline_fields`), so the schema types
+        // them without naming them (ADR 0009, D).
         EmitFormat::Context => serde_json::json!({
             "type": "object",
-            "additionalProperties": false,
+            "additionalProperties": { "type": "string" },
             "required": ["id", "kind"],
             "properties": {
                 "id": { "type": "string" },
                 "kind": node_kind_schema,
                 "title": { "type": "string" },
-                "contract": { "type": ["string", "null"] },
-                "status": { "type": ["string", "null"] },
-                "verify": { "type": ["object", "array", "null"] }
+                "verify": { "type": ["object", "array", "null"] },
+                "fields": { "type": "object" }
             }
         }),
         EmitFormat::Brief => serde_json::json!({

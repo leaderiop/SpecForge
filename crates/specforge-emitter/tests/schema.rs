@@ -10,7 +10,7 @@ use specforge_emitter::{
     compute_schema_version, diff_schemas, diff_schemas_optional, emit_schema, emit_schema_for_kind,
     generate_schema, negotiate_version, publish_json_schema_format,
 };
-use specforge_graph::{Edge, Graph, Node};
+use specforge_graph::{Edge, FieldValue, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_registry::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
@@ -2016,4 +2016,65 @@ fn published_schema_constrains_fields_per_kind() {
             .len(),
         2
     );
+}
+
+// B:publish_schema_specification — verify unit "published context schema admits declared headline and normative fields"
+#[specforge_test(
+    behavior = "publish_schema_specification",
+    verify = "published context schema admits declared headline and normative fields"
+)]
+fn published_context_schema_admits_declared_headline_and_normative_fields() {
+    let mut fields = FieldRegistry::new();
+    // A headline field named neither `contract` nor `status`.
+    let mut stage = make_field_entry("task", "stage", ManifestFieldType::String, false);
+    stage.headline = true;
+    fields.register(stage);
+    let mut goal = make_field_entry("task", "goal", ManifestFieldType::String, false);
+    goal.normative = true;
+    fields.register(goal);
+
+    let mut task = node("ship", "task", Some("Ship it"));
+    task.fields
+        .push(Sym::new("stage"), FieldValue::String("doing".to_string()));
+    task.fields.push(
+        Sym::new("goal"),
+        FieldValue::String("users have it".to_string()),
+    );
+    let mut graph = Graph::new();
+    graph.add_node(task);
+
+    let schema = GraphProtocolSchema::empty();
+    let export = specforge_emitter::emit(
+        &graph,
+        &specforge_emitter::EmitOptions {
+            format: EmitFormat::Context,
+            schema: Some(&schema),
+            field_registry: Some(&fields),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let export: serde_json::Value = serde_json::from_str(&export).unwrap();
+    let published: serde_json::Value =
+        serde_json::from_str(&publish_json_schema_format(&schema, EmitFormat::Context).unwrap())
+            .unwrap();
+    let node_schema = &published["properties"]["nodes"]["items"];
+    let properties = node_schema["properties"].as_object().unwrap();
+    assert!(!properties.contains_key("contract"), "{node_schema}");
+    assert!(!properties.contains_key("status"), "{node_schema}");
+    assert_eq!(properties["fields"]["type"], "object");
+    assert_eq!(
+        node_schema["additionalProperties"],
+        serde_json::json!({ "type": "string" })
+    );
+
+    let node = &export["nodes"][0];
+    assert_eq!(node["stage"], "doing");
+    assert_eq!(node["fields"]["goal"], "users have it");
+    for (key, value) in node.as_object().unwrap() {
+        assert!(
+            properties.contains_key(key) || value.is_string(),
+            "context node key '{key}' is neither declared nor a string: {value}"
+        );
+    }
 }

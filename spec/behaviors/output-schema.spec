@@ -442,6 +442,7 @@ behavior publish_schema_specification "Publish Schema Specification" {
   verify unit "third-party validator can use published schema"
   verify unit "published schema validates known-good export"
   verify unit "published schema requires the Graph Protocol top-level properties"
+  verify unit "published context schema admits declared headline and normative fields"
   verify contract "Publish Schema Specification: schema specification publication holds — schema_version_computed_fired, validation_complete_fired, valid_json_schema_produced, all_kinds_described, third_party_usable, render_complete_emitted"
   verify unit "description includes version"
 }
