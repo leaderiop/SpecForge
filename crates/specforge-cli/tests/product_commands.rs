@@ -199,6 +199,39 @@ fn test_product_feature_impact() {
     );
 }
 
+#[specforge_test(
+    behavior = "pe_query_feature_impact",
+    verify = "a feature that only relates to the feature is not a dependent"
+)]
+fn a_related_feature_is_not_a_dependent_in_the_impact() {
+    let dir = setup_product_project();
+    // f3 relates to f1 (`features`); f2 depends on it (`depends_on`).
+    fs::write(
+        dir.path().join("related.spec"),
+        "feature f3 \"Related Feature\" {\n    status proposed\n    features [f1]\n}\n",
+    )
+    .unwrap();
+    let output = cargo_bin_cmd!("specforge")
+        .args([
+            "product",
+            "feature-impact",
+            "f1",
+            "--format",
+            "json",
+            "--path",
+        ])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        result["depended_on_by"],
+        serde_json::json!(["f2"]),
+        "{result}"
+    );
+}
+
 #[test]
 fn test_product_feature_dependents() {
     let dir = setup_product_project();

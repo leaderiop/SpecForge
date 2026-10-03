@@ -206,7 +206,9 @@ pub fn feature_impact(graph: &CommandGraph, feature_id: &str) -> Option<FeatureI
             Some("journey") => &mut impact.referenced_by_journeys,
             Some("milestone") => &mut impact.referenced_by_milestones,
             Some("module") => &mut impact.referenced_by_modules,
-            Some("feature") => &mut impact.depended_on_by,
+            // A feature listing this one under `features` relates to it;
+            // only `depends_on` makes it a dependent.
+            Some("feature") if edge.label == "depends_on" => &mut impact.depended_on_by,
             _ => continue,
         };
         list.push(edge.source.clone());

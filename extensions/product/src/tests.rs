@@ -216,6 +216,19 @@ fn feature_impact_groups_references_by_kind() {
 }
 
 #[test]
+fn a_feature_that_only_relates_to_the_feature_is_not_a_dependent() {
+    let g = G::default()
+        .n("f1", "feature")
+        .n("f2", "feature")
+        .n("f3", "feature")
+        .edge("f2", "f1", "features")
+        .edge("f3", "f1", "depends_on")
+        .build();
+    let fi = feature_impact(&g, "f1").unwrap();
+    assert_eq!(fi.depended_on_by, ["f3"]);
+}
+
+#[test]
 fn feature_dependents_are_the_depends_on_sources() {
     let g = G::default()
         .n("f1", "feature")

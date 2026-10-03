@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_product.wasm",
-  "artifact_sha256": "8d1b7022b912536465cfb931eeff692b2dd5f13503609ec58d4cd4c8b5c4a7a3",
+  "artifact_sha256": "90cac341f3f93336192707b0930dca9ba6cc9989f3b4e516258990ec7212ffae",
   "built_with": "rustc 1.99.0 (b940084d7 2026-09-28)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
@@ -25,7 +25,7 @@
     "extensions/product/src/describe_surfaces.json": "7bb5ddb235ff45e3246160530d3cbb27e7a2f39f6a327eedad103192bab190ee",
     "extensions/product/src/describe_validation_rules.json": "b959cd0ae6a76dbecdac3924313cfa4d5509d75ae119a9f8f07f509f34d58fd4",
     "extensions/product/src/lib.rs": "5e2a337ff35d6a4781e3c2592cb529f3c5f42bfdf08b958343fa8f20d9904d32",
-    "extensions/product/src/queries.rs": "8d946066b8506e3e5bead7e337fb3e091fc089a888fe719a857ba7d0dc11cea7",
+    "extensions/product/src/queries.rs": "a193e6e5efe1aa8210f7bb406099eee67b45caeea8b16fcd64d0175bfeb4aa69",
     "extensions/product/src/starter.spec": "9b81ba74199d429976b0b659e3a1af7fd6c11177dc084fc28f3cd7b7a0a0650b"
   }
 }
