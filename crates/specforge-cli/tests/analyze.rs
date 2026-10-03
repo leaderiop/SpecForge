@@ -792,10 +792,12 @@ fn analyze_proved_claims_discharge_verify_property_obligations() {
         "z3 is required for this test: install it (brew install z3 / apt-get install z3)"
     );
 
+    // A constraint's metric is a bound (governance), an invariant's
+    // expression a claim (formal's enhancement of software's invariant).
     let dir = TempDir::new().unwrap();
     fs::write(
         dir.path().join("specforge.json"),
-        r#"{"extensions": ["@specforge/governance", "@specforge/testing"]}"#,
+        r#"{"extensions": ["@specforge/software", "@specforge/governance", "@specforge/formal", "@specforge/testing"]}"#,
     )
     .unwrap();
     fs::create_dir(dir.path().join("spec")).unwrap();
@@ -847,6 +849,78 @@ invariant responsive "System Stays Responsive" {
         1,
         "the proved claim must discharge the verify property obligation"
     );
+}
+
+#[specforge_test(
+    behavior = "detect_unknown_entity_fields",
+    verify = "expression is checked like any other field (W020 where undeclared)"
+)]
+fn analyze_reads_no_claim_from_an_expression_no_extension_declares() {
+    // Without @specforge/formal nothing declares an invariant's
+    // `expression`: check reports W020 and the prove pass reads no claim.
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"extensions": ["@specforge/software", "@specforge/governance"]}"#,
+    )
+    .unwrap();
+    fs::create_dir(dir.path().join("spec")).unwrap();
+    fs::write(
+        dir.path().join("spec/main.spec"),
+        r#"
+constraint budget "Latency Budget" {
+    description "Budget"
+    metric expr {
+        latency < 100ms
+    }
+}
+
+invariant responsive "System Stays Responsive" {
+    guarantee "The system MUST stay responsive"
+    expression expr {
+        latency < 250ms
+    }
+}
+"#,
+    )
+    .unwrap();
+
+    let output = specforge_cmd()
+        .args(["check", dir.path().to_str().unwrap(), "--format", "json"])
+        .output()
+        .unwrap();
+    let diagnostics: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let w020: Vec<&serde_json::Value> = diagnostics
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|d| d["code"] == "W020")
+        .collect();
+    assert_eq!(w020.len(), 1, "{diagnostics}");
+    assert!(
+        w020[0]["message"].as_str().unwrap().contains("expression"),
+        "{diagnostics}"
+    );
+
+    let output = specforge_cmd()
+        .args([
+            "analyze",
+            "--prove",
+            "--path",
+            dir.path().to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let prove = doc["passes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["pass"] == "prove")
+        .expect("prove pass must be dispatched");
+    assert_eq!(prove["summary"]["claims"], 0, "{prove}");
+    assert_eq!(prove["summary"]["entities_with_bounds"], 1, "{prove}");
 }
 
 // A formal `property` accepts verify statements (`supports_verify`) but its

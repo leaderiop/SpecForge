@@ -548,11 +548,13 @@ Level: error
 ## E046
 
 ```
-E046: Metric bounds are contradictory
+E046: Declared bounds are contradictory
 
-`specforge analyze --prove`'s SMT solver found the declared `constraint` metric
-bounds mutually unsatisfiable; the cited bounds form the conflicting core. Relax
-or correct one of the listed bounds.
+`specforge analyze --prove`'s SMT solver found the declared bounds mutually
+unsatisfiable; the cited bounds form the conflicting core. Bounds are the fields
+an extension declares with the `bound` proof role (a governance constraint's
+`metric`, a formal axiom's `expression`). Relax or correct one of the listed
+bounds.
 
 Owner: core
 Level: error
@@ -1249,9 +1251,9 @@ Level: info
 I098: Solver could not decide bounds
 
 The `specforge analyze --prove` SMT solver returned an undecided result rather
-than `sat`/`unsat` when checking combined metric bounds, or whether the declared
-bounds entail a claim. Simplify the constraint expressions or supply tighter
-bounds so the solver can decide.
+than `sat`/`unsat` when checking the combined declared bounds, or whether they
+entail a declared claim. Simplify the bound or claim expressions, or supply
+tighter bounds, so the solver can decide.
 
 Owner: core
 Level: info
@@ -2620,13 +2622,14 @@ Level: warning
 ```
 W139: Formal claim not entailed by declared bounds
 
-`specforge analyze --prove` found that a `claim` isn't guaranteed by the
-declared metric bounds: the SMT solver found a counterexample that satisfies
-every bound while violating the claim. The claim isn't wrong; the bounds just
-don't guarantee it yet, and its `verify property` obligation stays unproven.
-Strengthen the declared constraint bounds or weaken the claim. Use `--strict` to
-fail the run on it. This code was E047 until it was renumbered to match its
-severity.
+`specforge analyze --prove` found that a declared claim (a field an extension
+gives the `claim` proof role, such as a formal property's or invariant's
+`expression`) isn't guaranteed by the declared bounds: the SMT solver found a
+counterexample that satisfies every bound while violating the claim. The claim
+isn't wrong; the bounds just don't guarantee it yet, and its `verify property`
+obligation stays unproven. Strengthen the declared bounds or weaken the claim.
+Use `--strict` to fail the run on it. This code was E047 until it was renumbered
+to match its severity.
 
 Owner: core
 Level: warning

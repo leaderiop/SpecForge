@@ -479,7 +479,7 @@ enum Commands {
         #[arg(long)]
         test_results: Option<String>,
 
-        /// Verify constraint metric bounds with an SMT solver (z3)
+        /// Verify declared bounds and claims with an SMT solver (z3)
         #[arg(long, default_value_t = false)]
         prove: bool,
 

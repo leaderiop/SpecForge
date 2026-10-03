@@ -331,7 +331,7 @@ fn analyze_via(
     if let Some(r) = proved {
         passes_run.push(PassOutcome {
             name: "prove".to_string(),
-            description: "numeric constraint bounds verified with an SMT solver".to_string(),
+            description: "declared bounds and claims verified with an SMT solver".to_string(),
             findings: r.findings,
             summary: r.summary,
         });

@@ -22,8 +22,9 @@ use specforge_registry::validation_engine::{
     resolve_edge_rules,
 };
 use specforge_registry::{
-    EdgeRegistry, EdgeRegistryEntry, FieldConstraint, KindRegistry, KindRegistryEntry, ManifestV2,
-    ManifestValidationRule, populate_registries, validate_peer_dependencies,
+    EdgeRegistry, EdgeRegistryEntry, FieldConstraint, FieldRegistryEntry, KindRegistry,
+    KindRegistryEntry, ManifestFieldType, ManifestV2, ManifestValidationRule, populate_registries,
+    validate_peer_dependencies,
 };
 use specforge_test_macros::test as specforge_test;
 
@@ -944,22 +945,52 @@ fn w020_includes_field_name_entity_kind_and_source_span() {
 
 #[specforge_test(
     behavior = "detect_unknown_entity_fields",
-    verify = "an expression claim is accepted on any kind"
+    verify = "expression is checked like any other field (W020 where undeclared)"
 )]
-fn an_expression_claim_is_accepted_on_any_kind() {
+fn expression_is_checked_like_any_other_field() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
-    // software's invariant declares no `expression`; the prove pass reads
-    // it on any entity, so it is no unknown field.
+    // software's invariant and behavior declare no `expression`; without an
+    // extension that declares it (formal enhances invariant), it is W020.
     let entities = vec![
         EntityView::new("invariant", "i1", pinned(span())).with_fields(&["expression"]),
-        EntityView::new("behavior", "b1", pinned(span())).with_fields(&["expression", "bogus"]),
+        EntityView::new("behavior", "b1", pinned(span())).with_fields(&["expression"]),
     ];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );
     let flagged: Vec<&str> = diags.iter().map(|d| d.message.as_str()).collect();
-    assert_eq!(diags.len(), 1, "{flagged:?}");
-    assert!(flagged[0].contains("'bogus'"), "{flagged:?}");
+    assert_eq!(diags.len(), 2, "{flagged:?}");
+    assert!(
+        diags
+            .iter()
+            .all(|d| d.code == "W020" && d.message.contains("'expression'")),
+        "{flagged:?}"
+    );
+
+    // Declared on a kind, it is a field of that kind like any other.
+    let mut field_reg = field_reg;
+    field_reg.register(FieldRegistryEntry {
+        kind_name: "invariant".to_string(),
+        field_name: "expression".to_string(),
+        description: None,
+        field_type: ManifestFieldType::String,
+        source_extension: "@specforge/formal".to_string(),
+        edge: None,
+        target_kind: None,
+        file_reference: false,
+        required: false,
+        inverse_of: None,
+        normative: true,
+        exempts_obligations: false,
+        headline: false,
+        derived_from: None,
+        proof_role: Some(specforge_registry::ProofRole::Claim),
+    });
+    let diags = specforge_registry::compilation::detect_unknown_entity_fields(
+        &entities, &kind_reg, &field_reg,
+    );
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert!(diags[0].message.contains("behavior"), "{diags:?}");
 }
 
 #[specforge_test(
