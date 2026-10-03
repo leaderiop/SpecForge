@@ -10,7 +10,7 @@ silently installing and leaving `doctor` to discover the conflict later.
 We resolve this by **intersection**: collect every requirer's range for the
 shared peer, fetch the peer's published versions from the registry, and pick
 the highest version that satisfies every range simultaneously
-(`specforge_registry_client::resolver::{resolve_diamond, unify_diamond}`).
+(`specforge_ops::extension::check_diamonds`; ADR 0010 moved it out of the registry client).
 If no version satisfies every requirer, `add` fails with a diagnostic
 (`R-RES-005`/`R-RES-006`) naming each conflicting requirer and its range,
 rather than guessing.
