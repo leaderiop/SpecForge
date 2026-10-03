@@ -901,6 +901,13 @@ invariant responsive "System Stays Responsive" {
         w020[0]["message"].as_str().unwrap().contains("expression"),
         "{diagnostics}"
     );
+    // As E024 does for a kind, the W020 names the extension declaring it.
+    assert!(
+        w020[0]["suggestion"]
+            .as_str()
+            .is_some_and(|s| s.contains("specforge add @specforge/formal")),
+        "{diagnostics}"
+    );
 
     let output = specforge_cmd()
         .args([

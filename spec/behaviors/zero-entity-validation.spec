@@ -224,7 +224,11 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
     structural and MUST NOT be checked against the FieldRegistry. Every
     other name, `expression` included, MUST be checked like any field: the
     prove pass reads only fields an extension declares a proof role for
-    (ADR 0009), so an undeclared `expression` is W020.
+    (ADR 0009), so an undeclared `expression` is W020. When a builtin
+    extension's enhancement declares the field on that kind (the bundled
+    field index, e.g. an invariant's `expression` from @specforge/formal),
+    the W020 MUST suggest installing that extension, as E024 does for a
+    kind.
     `verify` is reserved syntax whose meaning extensions supply
     (ADR 0002): it MUST be accepted only on kinds an extension made
     testable (supports_verify) and produce W020 elsewhere. When the entity's kind
@@ -237,6 +241,7 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
   verify unit "structural fields (title, verify) not checked against FieldRegistry"
   verify unit "verify on a kind no extension made testable produces W020"
   verify unit "expression is checked like any other field (W020 where undeclared)"
+  verify unit "an undeclared field a builtin enhancement adds suggests its extension"
   verify unit "field validation skipped when entity kind is unregistered"
   verify contract "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, unknown_fields_diagnosed, cascading_avoided"
 }

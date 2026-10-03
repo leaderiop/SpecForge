@@ -1278,6 +1278,60 @@ fn bundled_keyword_index_maps_every_builtin_keyword() {
     );
 }
 
+#[spec(
+    behavior = "detect_unknown_entity_fields",
+    verify = "an undeclared field a builtin enhancement adds suggests its extension"
+)]
+fn bundled_field_index_maps_every_builtin_enhancement_field() {
+    // The bundled file must say what the builtins' enhancements say.
+    let extensions = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../extensions");
+    let mut expected = std::collections::BTreeMap::new();
+    for entry in std::fs::read_dir(&extensions).unwrap() {
+        let src = entry.unwrap().path().join("src");
+        let Ok(enhancements) = std::fs::read_to_string(src.join("describe_enhancements.json"))
+        else {
+            continue;
+        };
+        let handshake: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(src.join("handshake.json")).unwrap())
+                .unwrap();
+        let name = handshake["name"].as_str().unwrap().to_string();
+        let enhancements: serde_json::Value = serde_json::from_str(&enhancements).unwrap();
+        for item in enhancements["items"].as_array().unwrap() {
+            let kind = item["target_kind"].as_str().unwrap();
+            for field in item["fields"].as_array().into_iter().flatten() {
+                let field = field["name"].as_str().unwrap();
+                expected.insert(format!("{kind}.{field}"), name.clone());
+            }
+        }
+    }
+    assert!(expected.contains_key("invariant.expression"));
+    let bundled_json: std::collections::BTreeMap<String, String> =
+        serde_json::from_str(include_str!("../../../data/field-index.json")).unwrap();
+    assert_eq!(bundled_json, expected);
+
+    // W020 for such a field names the extension, as E024 does for a kind.
+    let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
+    let diags = detect_unknown_entity_fields(
+        &[
+            EntityView::new("invariant", "i1", pinned(span("test.spec")))
+                .with_fields(&["expression", "bogus"]),
+        ],
+        &kind_reg,
+        &field_reg,
+    );
+    assert_eq!(diags.len(), 2, "{diags:?}");
+    assert!(
+        diags[0]
+            .suggestion
+            .as_deref()
+            .unwrap()
+            .contains("specforge add @specforge/formal"),
+        "{diags:?}"
+    );
+    assert_eq!(diags[1].suggestion, None, "{diags:?}");
+}
+
 #[test]
 fn malformed_keyword_index_falls_back_to_search() {
     let index = specforge_registry::compilation::KeywordExtensionIndex::from_json("{not json");

@@ -37,6 +37,15 @@ impl KeywordExtensionIndex {
         static BUNDLED: std::sync::OnceLock<KeywordExtensionIndex> = std::sync::OnceLock::new();
         BUNDLED.get_or_init(|| Self::from_json(include_str!("../../data/keyword-index.json")))
     }
+
+    /// The fields builtin extensions add to other extensions' kinds
+    /// (`data/field-index.json`, keyed `<kind>.<field>`), so W020 can name
+    /// the extension that declares a field the project lacks, as E024
+    /// does for a kind. Parsed on first use.
+    pub fn bundled_fields() -> &'static KeywordExtensionIndex {
+        static BUNDLED: std::sync::OnceLock<KeywordExtensionIndex> = std::sync::OnceLock::new();
+        BUNDLED.get_or_init(|| Self::from_json(include_str!("../../data/field-index.json")))
+    }
 }
 
 /// One entity as the registry checks see it: a borrowed view of a graph
@@ -232,11 +241,19 @@ pub fn detect_unknown_entity_fields(
             if accepted {
                 continue;
             }
-            let suggestion = (field_name == "verify").then(|| {
-                format!(
+            let suggestion = if field_name == "verify" {
+                Some(format!(
                     "'{kind}' accepts no verify obligations: enable an extension that makes it testable (for software kinds, `specforge add @specforge/testing`)"
-                )
-            });
+                ))
+            } else {
+                KeywordExtensionIndex::bundled_fields()
+                    .lookup(&format!("{kind}.{field_name}"))
+                    .map(|ext| {
+                        format!(
+                            "{ext} declares '{field_name}' on '{kind}': install it with: specforge add {ext}"
+                        )
+                    })
+            };
             diagnostics.push(Diagnostic {
                 code: "W020".to_string(),
                 severity: Severity::Warning,
