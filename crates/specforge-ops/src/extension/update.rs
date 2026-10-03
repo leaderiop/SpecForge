@@ -94,6 +94,39 @@ impl UpdateOutcome {
             _ => None,
         })
     }
+
+    /// The `batch_update_completed` event's counts
+    /// (`spec/events/wasm-extensions.spec`). An extension counts as
+    /// updated only when the update was applied; one an aborted update
+    /// would have moved counts as skipped, since nothing changed. The
+    /// adapter that emits the event stamps its `timestamp`.
+    pub fn batch_update_completed(&self) -> BatchUpdateCompleted {
+        let failed_count = self.failures().count();
+        let updated_count = if failed_count == 0 {
+            self.updated().count()
+        } else {
+            0
+        };
+        BatchUpdateCompleted {
+            updated_count,
+            failed_count,
+            skipped_count: self.extensions.len() - updated_count - failed_count,
+        }
+    }
+}
+
+/// The payload of `batch_update_completed`, which an update that ran to
+/// the end (applied or rolled back) produces, its timestamp aside.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct BatchUpdateCompleted {
+    /// Extensions moved to a newer version.
+    pub updated_count: usize,
+    /// Extensions whose newer version could not be fetched, checked or
+    /// installed.
+    pub failed_count: usize,
+    /// Extensions left as they were: up to date, not from a registry, or
+    /// held back because another failed.
+    pub skipped_count: usize,
 }
 
 /// Update the extensions `req` names in the project at `req.root`.
@@ -456,6 +489,14 @@ mod tests {
             outcome.updated().collect::<Vec<_>>(),
             [("@sdk/greet", "0.0.9", "0.1.0")]
         );
+        assert_eq!(
+            outcome.batch_update_completed(),
+            BatchUpdateCompleted {
+                updated_count: 1,
+                failed_count: 0,
+                skipped_count: 0,
+            }
+        );
         let lock = read_lock_file(&lock_path(dir.path())).unwrap();
         assert_eq!(lock.entries[0].version, "0.1.0");
         assert_eq!(lock.entries[0].wasm_hash, hex_sha256(&greet()));
@@ -515,6 +556,15 @@ mod tests {
             .map(|(n, e)| (n, e.code.as_ref()))
             .collect();
         assert_eq!(failures, [("@acme/liar", "E028")]);
+        // greet would have moved but did not: it is skipped, not updated.
+        assert_eq!(
+            outcome.batch_update_completed(),
+            BatchUpdateCompleted {
+                updated_count: 0,
+                failed_count: 1,
+                skipped_count: 1,
+            }
+        );
         assert_eq!(std::fs::read(lock_path(dir.path())).unwrap(), lock_before);
         let installed = installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet");
         assert_eq!(std::fs::read(installed).unwrap(), b"old");

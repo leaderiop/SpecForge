@@ -300,6 +300,8 @@ event batch_update_completed "Batch Update Completed" {
   }
   // After a batch update completes, the new binary hashes are recorded in
   // specforge.lock. The engine compile cache keys on binary content, so
-  // updated extensions never serve stale compiled artifacts.
+  // updated extensions never serve stale compiled artifacts. No behavior
+  // consumes it: `specforge update --format json` reports it under
+  // `batch_update_completed`, for whoever ran the update.
   verify integration "emits batch_update_completed with correct updatedCount after bulk update"
 }

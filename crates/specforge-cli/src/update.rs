@@ -37,6 +37,9 @@ pub fn run(
     if outcome.registry_used {
         format.eprint_diagnostics(registry.diagnostics());
     }
+    // The update ran to the end (applied or rolled back): it emits
+    // `batch_update_completed`, which JSON output carries.
+    let completed = batch_update_completed(&outcome);
 
     if let Some((_, first)) = outcome.failures().next() {
         let failed: Vec<_> = outcome
@@ -48,6 +51,7 @@ pub fn run(
                 let mut output = OutputFormat::op_error_json(first);
                 output["failed"] = json!(failed);
                 output["updated"] = json!([]);
+                output["batch_update_completed"] = completed;
                 println!("{}", serde_json::to_string_pretty(&output).unwrap());
             }
             OutputFormat::Human => {
@@ -69,7 +73,7 @@ pub fn run(
         .collect();
     match format {
         OutputFormat::Json => {
-            let output = json!({"updated": updated});
+            let output = json!({"updated": updated, "batch_update_completed": completed});
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
         OutputFormat::Human if outcome.extensions.is_empty() => {
@@ -84,4 +88,16 @@ pub fn run(
         }
     }
     0
+}
+
+/// The `batch_update_completed` event's payload
+/// (`spec/events/wasm-extensions.spec`), stamped now.
+fn batch_update_completed(outcome: &extension::UpdateOutcome) -> serde_json::Value {
+    let counts = outcome.batch_update_completed();
+    json!({
+        "updatedCount": counts.updated_count,
+        "failedCount": counts.failed_count,
+        "skippedCount": counts.skipped_count,
+        "timestamp": chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+    })
 }
