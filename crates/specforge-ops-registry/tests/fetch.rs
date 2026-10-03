@@ -19,7 +19,8 @@ use tempfile::TempDir;
 const NAME: &str = "@acme/tool";
 const VERSION: &str = "1.0.0";
 const WASM: &[u8] = b"\0asm-acme-tool";
-const MANIFEST: &str = r#"{"name":"@acme/tool","version":"1.0.0","manifestVersion":2}"#;
+const MANIFEST: &str =
+    r#"{"name":"@acme/tool","version":"1.0.0","manifestVersion":2,"wasmPath":"tool.wasm"}"#;
 
 fn sha256(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
@@ -64,9 +65,11 @@ impl Served {
         );
         Served {
             name: name.to_string(),
+            wasm: wasm.to_vec(),
+            sha256: sha256(wasm),
+            manifest: manifest.to_string(),
             signature: serde_json::to_string(&signature).unwrap(),
             key_id: signature.key_id,
-            ..Served::unsigned()
         }
     }
 
@@ -207,7 +210,10 @@ fn a_registry_sha256_that_does_not_match_the_download_is_refused() {
     assert_eq!(error.code, "R-OPS-002", "{error:?}");
 }
 
-#[test]
+#[specforge_test(
+    behavior = "verify_publisher_signature",
+    verify = "a signature over other bytes is refused even with --allow-unsigned"
+)]
 fn a_signature_over_other_bytes_is_refused_even_with_allow_unsigned() {
     // The registry serves a consistent sha256 for the bytes it sends, but
     // the publisher signed different ones: integrity passes, the signature
@@ -225,11 +231,16 @@ fn a_signature_over_other_bytes_is_refused_even_with_allow_unsigned() {
     assert_eq!(project.pinned(), None);
 }
 
-#[test]
+#[specforge_test(
+    behavior = "verify_publisher_signature",
+    verify = "a swapped manifest breaks the signature"
+)]
 fn a_swapped_manifest_breaks_the_signature() {
     let key = SigningKey::generate();
     let served = Served {
-        manifest: r#"{"name":"@acme/tool","version":"1.0.0","manifestVersion":3}"#.to_string(),
+        manifest:
+            r#"{"name":"@acme/tool","version":"1.0.0","manifestVersion":3,"wasmPath":"tool.wasm"}"#
+                .to_string(),
         ..Served::signed(&key)
     };
     let project = Project::on(served);
@@ -238,7 +249,10 @@ fn a_swapped_manifest_breaks_the_signature() {
     assert_eq!(error.code, "R-TRUST-002", "{error:?}");
 }
 
-#[test]
+#[specforge_test(
+    behavior = "verify_publisher_signature",
+    verify = "a malformed signature object is refused"
+)]
 fn a_signature_object_that_is_not_json_is_refused() {
     let served = Served {
         signature: "not a signature".to_string(),
@@ -250,7 +264,10 @@ fn a_signature_object_that_is_not_json_is_refused() {
     assert_eq!(error.code, "R-TRUST-002", "{error:?}");
 }
 
-#[test]
+#[specforge_test(
+    behavior = "check_registry_reply",
+    verify = "a key id the signature does not carry is refused"
+)]
 fn a_key_id_the_signature_does_not_carry_is_refused() {
     let key = SigningKey::generate();
     let served = Served {
@@ -263,7 +280,10 @@ fn a_key_id_the_signature_does_not_carry_is_refused() {
     assert_eq!(error.code, "R-TRUST-004", "{error:?}");
 }
 
-#[test]
+#[specforge_test(
+    behavior = "verify_publisher_signature",
+    verify = "an unsigned package is refused without --allow-unsigned"
+)]
 fn an_unsigned_package_is_refused_without_allow_unsigned() {
     let project = Project::on(Served::unsigned());
 
@@ -279,7 +299,10 @@ fn an_unsigned_package_is_refused_without_allow_unsigned() {
     );
 }
 
-#[test]
+#[specforge_test(
+    behavior = "verify_publisher_signature",
+    verify = "an unsigned package is accepted with --allow-unsigned and pins no key"
+)]
 fn an_unsigned_package_is_accepted_with_allow_unsigned_and_pins_nothing() {
     let project = Project::on(Served::unsigned());
 
@@ -289,7 +312,10 @@ fn an_unsigned_package_is_accepted_with_allow_unsigned_and_pins_nothing() {
     assert_eq!(project.pinned(), None);
 }
 
-#[test]
+#[specforge_test(
+    behavior = "pin_publisher_key",
+    verify = "the key of the first verified install is pinned and accepted again"
+)]
 fn a_correctly_signed_package_is_accepted_and_its_key_pinned() {
     let key = SigningKey::generate();
     let project = Project::on(Served::signed(&key));
@@ -308,7 +334,10 @@ fn a_correctly_signed_package_is_accepted_and_its_key_pinned() {
     assert_eq!(project.pinned(), Some(key.key_id()));
 }
 
-#[test]
+#[specforge_test(
+    behavior = "pin_publisher_key",
+    verify = "a package signed by another key than the pinned one is refused"
+)]
 fn a_package_signed_by_another_key_than_the_pinned_one_is_refused() {
     let pinned = SigningKey::generate();
     let other = SigningKey::generate();
@@ -325,7 +354,10 @@ fn a_package_signed_by_another_key_than_the_pinned_one_is_refused() {
     assert_eq!(project.pinned(), Some(pinned.key_id()), "the pin stands");
 }
 
-#[test]
+#[specforge_test(
+    behavior = "pin_publisher_key",
+    verify = "consent to a key change re-pins the new key"
+)]
 fn consent_to_a_key_change_re_pins_the_new_key() {
     let pinned = SigningKey::generate();
     let other = SigningKey::generate();
@@ -337,7 +369,10 @@ fn consent_to_a_key_change_re_pins_the_new_key() {
     assert_eq!(project.pinned(), Some(other.key_id()));
 }
 
-#[test]
+#[specforge_test(
+    behavior = "pin_publisher_key",
+    verify = "a denied key is refused even with consent"
+)]
 fn a_denied_key_is_refused_even_with_consent() {
     let key = SigningKey::generate();
     let project = Project::on(Served::signed(&key));
@@ -349,7 +384,10 @@ fn a_denied_key_is_refused_even_with_consent() {
     assert_eq!(error.code, "R-TRUST-005", "{error:?}");
 }
 
-#[test]
+#[specforge_test(
+    behavior = "check_registry_reply",
+    verify = "a reply for another package is refused and pins nothing"
+)]
 fn a_registry_answering_with_another_package_is_refused() {
     // `@acme/tool` is pinned; a registry that answers the request with a
     // validly signed `@evil/tool` must not get it past the pin.
@@ -368,4 +406,67 @@ fn a_registry_answering_with_another_package_is_refused() {
         None,
         "nothing is pinned for it"
     );
+}
+
+#[specforge_test(
+    behavior = "check_registry_reply",
+    verify = "the peers the served manifest declares reach the package"
+)]
+fn a_correctly_signed_package_carries_the_peers_its_manifest_declares() {
+    let key = SigningKey::generate();
+    let manifest = r#"{"name":"@acme/tool","version":"1.0.0","manifestVersion":2,"wasmPath":"tool.wasm","peerDependencies":[{"name":"@acme/base","version":"^1.0"}]}"#;
+    let project = Project::on(Served::signed_over(&key, NAME, WASM, manifest));
+
+    let package = project.fetch(false, Trust::Refuse).unwrap();
+    assert_eq!(package.peers.len(), 1, "{:?}", package.peers);
+    assert_eq!(package.peers[0].name, "@acme/base");
+    assert_eq!(package.peers[0].version, "^1.0");
+}
+
+#[specforge_test(
+    behavior = "check_registry_reply",
+    verify = "a manifest that cannot be read is refused and pins nothing"
+)]
+fn a_manifest_that_cannot_be_read_is_refused_and_pins_nothing() {
+    // Signed over the unreadable manifest, so only the manifest itself is
+    // wrong. Read as "no peers", it would slip past the diamond gate.
+    let key = SigningKey::generate();
+    let manifest = r#"{"name":"@acme/tool","peerDependencies":"not a list"}"#;
+    let project = Project::on(Served::signed_over(&key, NAME, WASM, manifest));
+
+    let error = project.fetch(true, Trust::AssumeYes).unwrap_err();
+    assert_eq!(error.code, "R-OPS-004", "{error:?}");
+    assert_eq!(project.pinned(), None, "nothing is pinned for it");
+}
+
+#[specforge_test(
+    invariant = "registry_reply_binding",
+    verify = "a package served without a manifest is refused"
+)]
+fn a_package_served_without_a_manifest_is_refused() {
+    let served = Served {
+        manifest: String::new(),
+        ..Served::unsigned()
+    };
+    let project = Project::on(served);
+
+    let error = project.fetch(true, Trust::AssumeYes).unwrap_err();
+    assert_eq!(error.code, "R-OPS-004", "{error:?}");
+    assert!(error.message.contains("served none"), "{error:?}");
+}
+
+#[specforge_test(
+    invariant = "registry_reply_binding",
+    verify = "a manifest describing another package is refused"
+)]
+fn a_manifest_describing_another_package_is_refused() {
+    let key = SigningKey::generate();
+    let manifest =
+        r#"{"name":"@evil/tool","version":"1.0.0","manifestVersion":2,"wasmPath":"tool.wasm"}"#;
+    let project = Project::on(Served::signed_over(&key, NAME, WASM, manifest));
+
+    let error = project.fetch(true, Trust::AssumeYes).unwrap_err();
+    assert_eq!(error.code, "R-TRUST-004", "{error:?}");
+    assert!(error.message.contains("@evil/tool"), "{error:?}");
+    assert_eq!(project.pinned(), None);
 }

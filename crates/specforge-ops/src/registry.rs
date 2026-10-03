@@ -57,6 +57,8 @@ pub trait Registry {
     /// `name@version`, downloaded and integrity-checked, its publisher
     /// signature checked under the TOFU pin policy: a package with none is
     /// refused unless `allow_unsigned`; a changed key is decided by `trust`.
+    /// An answer for another package or version, or one whose manifest
+    /// can't be read, is refused.
     fn fetch(
         &self,
         name: &str,

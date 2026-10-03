@@ -857,6 +857,13 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "`specforge publish` couldn't serialize the extension manifest to JSON for the upload. This is a SpecForge bug, not a mistake in your manifest; please report it.",
     },
     CodeEntry {
+        code: "R-OPS-004",
+        title: "Package manifest unreadable",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The registry served no manifest for the package, or one that isn't a valid extension manifest. The manifest declares the package's peer dependencies, which `specforge add` checks against the installed extensions before installing anything, so a package whose manifest can't be read is refused rather than treated as having no peers. Nothing is installed and no publisher key is pinned. Don't install the package, and check the registry.",
+    },
+    CodeEntry {
         code: "R-RES-001",
         title: "Package not in the registry",
         owner: "core",
@@ -924,7 +931,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Signature metadata mismatch",
         owner: "core",
         level: Level::Error,
-        explanation: "The registry's answer doesn't match: it describes another package or version than the one requested, or the key ID it reports differs from the key ID inside the signature, so the registry metadata was edited apart from the signature or is stale. Don't install the package, and check the registry.",
+        explanation: "The registry's answer doesn't match: it, or the manifest it serves, describes another package or version than the one requested, or the key ID it reports differs from the key ID inside the signature, so the registry metadata was edited apart from the signature or is stale. Don't install the package, and check the registry.",
     },
     CodeEntry {
         code: "R-TRUST-005",

@@ -1389,6 +1389,22 @@ Owner: core
 Level: error
 ```
 
+## R-OPS-004
+
+```
+R-OPS-004: Package manifest unreadable
+
+The registry served no manifest for the package, or one that isn't a valid
+extension manifest. The manifest declares the package's peer dependencies, which
+`specforge add` checks against the installed extensions before installing
+anything, so a package whose manifest can't be read is refused rather than
+treated as having no peers. Nothing is installed and no publisher key is pinned.
+Don't install the package, and check the registry.
+
+Owner: core
+Level: error
+```
+
 ## R-RES-001
 
 ```
@@ -1510,10 +1526,11 @@ Level: error
 ```
 R-TRUST-004: Signature metadata mismatch
 
-The registry's answer doesn't match: it describes another package or version
-than the one requested, or the key ID it reports differs from the key ID inside
-the signature, so the registry metadata was edited apart from the signature or
-is stale. Don't install the package, and check the registry.
+The registry's answer doesn't match: it, or the manifest it serves, describes
+another package or version than the one requested, or the key ID it reports
+differs from the key ID inside the signature, so the registry metadata was
+edited apart from the signature or is stale. Don't install the package, and
+check the registry.
 
 Owner: core
 Level: error

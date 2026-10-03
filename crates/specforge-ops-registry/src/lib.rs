@@ -33,6 +33,10 @@ pub struct Configured {
 /// metadata disagrees with the signature.
 const METADATA_MISMATCH: &str = "R-TRUST-004";
 
+/// The registry served no manifest for the package, or one that isn't a
+/// readable extension manifest.
+const UNREADABLE_MANIFEST: &str = "R-OPS-004";
+
 /// The diagnostic for a registry configuration that can't be read.
 const INVALID_CONFIG: &str = "E067";
 
@@ -156,6 +160,34 @@ impl Registry for HttpRegistry {
             .map_err(|e| OpError::from(e.to_diagnostic()))?;
         verify_registry_integrity(&wasm, &response.sha256).map_err(OpError::from)?;
 
+        // The served manifest declares the peers the diamond gate (ADR 0001)
+        // decides on. One that can't be read must not pass as "no peers",
+        // and one describing another package must not be installed as this
+        // one. Checked before the signature, so a refused package pins no
+        // key.
+        let manifest = serde_json::from_str::<ManifestV2>(&response.manifest).map_err(|e| {
+            let why = if response.manifest.trim().is_empty() {
+                "the registry served none".to_string()
+            } else {
+                e.to_string()
+            };
+            OpError::new(
+                UNREADABLE_MANIFEST,
+                format!("the manifest of {name}@{version} can't be read: {why}"),
+            )
+            .with_suggestion("don't install the package, and check the registry")
+        })?;
+        if manifest.name != name || manifest.version != version {
+            return Err(OpError::new(
+                METADATA_MISMATCH,
+                format!(
+                    "registry served {name}@{version} with the manifest of {}@{}",
+                    manifest.name, manifest.version
+                ),
+            )
+            .with_suggestion("don't install the package, and check the registry"));
+        }
+
         // Publisher signature and the TOFU pin policy.
         let (assume_yes, format) = match trust {
             Trust::Refuse => (false, "json"),
@@ -173,15 +205,12 @@ impl Registry for HttpRegistry {
         )
         .map_err(OpError::from)?;
 
-        let peers = serde_json::from_str::<ManifestV2>(&response.manifest)
-            .map(|m| m.peer_dependencies)
-            .unwrap_or_default();
         Ok(Package {
             name: response.name,
             version: response.version,
             sha256: response.sha256,
             wasm,
-            peers,
+            peers: manifest.peer_dependencies,
             key_id: trusted.key_id,
         })
     }
