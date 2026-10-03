@@ -1,8 +1,8 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_ops::doctor::{
-    BinaryIssue, CredentialHealth, CredentialLevel, DoctorReport, FindingStatus, diagnose,
-    user_credential_health,
+use specforge_ops::doctor::{BinaryIssue, DoctorReport, FindingStatus, diagnose};
+use specforge_registry_client::credential_health::{
+    CredentialHealth, CredentialLevel, user_credential_health,
 };
 use std::path::Path;
 

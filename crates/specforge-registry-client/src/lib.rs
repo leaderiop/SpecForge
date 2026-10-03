@@ -7,6 +7,7 @@
 //! depends on it only for the manifest types it publishes and resolves.
 
 pub mod auth;
+pub mod credential_health;
 pub mod credentials;
 pub mod http_client;
 pub mod registry_client;
@@ -35,7 +36,7 @@ pub use registry_ops::{
     TrustCheck, publish_to_registry, resolve_from_registry, search_registries,
     verify_package_signature, verify_registry_integrity,
 };
-pub use resolver::{resolve_diamond, resolve_version};
+pub use resolver::resolve_version;
 pub use signing::{
     PackageSignature, SigningKey, load_or_create_signing_key, signing_key_path, verify_signature,
 };
