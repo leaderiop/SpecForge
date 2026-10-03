@@ -16,7 +16,7 @@ use specforge_registry_client::{
     HttpRegistryClient, RegistryConfig, find_registry_for_specifier, parse_registries_from_config,
     resolve_from_registry, resolve_version, verify_registry_integrity,
 };
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// The registries a project configures, and what reading them reported.
 #[derive(Debug, Clone)]
@@ -28,6 +28,10 @@ pub struct Configured {
     /// shows them.
     pub diagnostics: Vec<Diagnostic>,
 }
+
+/// The registry's answer doesn't describe what was asked for, or its
+/// metadata disagrees with the signature.
+const METADATA_MISMATCH: &str = "R-TRUST-004";
 
 /// The diagnostic for a registry configuration that can't be read.
 const INVALID_CONFIG: &str = "E067";
@@ -70,6 +74,9 @@ pub fn configured(root: &Path, operation: &str) -> Result<Configured, OpError> {
 pub struct HttpRegistry {
     registries: Result<Configured, OpError>,
     client: HttpRegistryClient,
+    /// Where publisher keys are pinned; `None` is the user's
+    /// `~/.specforge/known-keys.json`.
+    known_keys: Option<PathBuf>,
 }
 
 impl HttpRegistry {
@@ -79,7 +86,15 @@ impl HttpRegistry {
         Self {
             registries: configured(root, operation),
             client: HttpRegistryClient::new(),
+            known_keys: None,
         }
+    }
+
+    /// Pin and check publisher keys in the store at `path` instead of the
+    /// user's `~/.specforge/known-keys.json` (a test, or a custom home).
+    pub fn with_known_keys(mut self, path: impl Into<PathBuf>) -> Self {
+        self.known_keys = Some(path.into());
+        self
     }
 
     /// What reading the registry configuration reported (see
@@ -121,6 +136,20 @@ impl Registry for HttpRegistry {
         let response =
             resolve_from_registry(&format!("{name}@{version}"), registries, &self.client)
                 .map_err(OpError::from)?;
+        // The signature covers the name and version the registry answers
+        // with, and the pin is keyed by that name: an answer for another
+        // package (or another version) would be verified, pinned and
+        // installed in place of the one asked for.
+        if response.name != name || response.version != version {
+            return Err(OpError::new(
+                METADATA_MISMATCH,
+                format!(
+                    "registry answered {name}@{version} with {}@{}",
+                    response.name, response.version
+                ),
+            )
+            .with_suggestion("don't install the package, and check the registry"));
+        }
         let wasm = self
             .client
             .download_wasm(&response.wasm_url)
@@ -140,7 +169,7 @@ impl Registry for HttpRegistry {
             allow_unsigned,
             assume_yes,
             format,
-            None,
+            self.known_keys.as_deref(),
         )
         .map_err(OpError::from)?;
 

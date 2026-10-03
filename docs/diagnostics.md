@@ -1510,8 +1510,9 @@ Level: error
 ```
 R-TRUST-004: Signature metadata mismatch
 
-The key ID the registry reports for the package differs from the key ID inside
-its signature, so the registry metadata was edited apart from the signature or
+The registry's answer doesn't match: it describes another package or version
+than the one requested, or the key ID it reports differs from the key ID inside
+the signature, so the registry metadata was edited apart from the signature or
 is stale. Don't install the package, and check the registry.
 
 Owner: core

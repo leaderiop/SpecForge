@@ -3030,10 +3030,13 @@ name = "specforge-ops-registry"
 version = "0.1.0"
 dependencies = [
  "serde_json",
+ "sha2",
  "specforge-common",
  "specforge-ops",
  "specforge-registry",
  "specforge-registry-client",
+ "specforge-test",
+ "specforge-test-macros",
  "tempfile",
 ]
 

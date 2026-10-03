@@ -18,4 +18,7 @@ specforge-registry = { workspace = true }
 specforge-registry-client = { path = "../specforge-registry-client" }
 
 [dev-dependencies]
+sha2 = { workspace = true }
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
 tempfile = { workspace = true }
