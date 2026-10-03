@@ -50,10 +50,12 @@ product's tools' (`specforge.product.features`).
 
 ## What would reopen this
 
-A command that must write files, read beyond the graph (test reports, the build cache), or stream:
-`CommandInput` would need more than the graph, and the sandbox override the spec describes for
+A command that must write files, read beyond the graph and the date (test reports, the build
+cache), or stream: `CommandInput` would need more than the graph, the format and today's date
+(ADR 0011 added those two), and the sandbox override the spec describes for
 commands would then have to be enforced. Today it is declared, not applied: the host grants a
 `cmd__` export no capability (its WASI context preopens no directory, passes no environment, stdio
-or network), so there is nothing for an override to withhold. And the spec's richer product
-surfaces (`--tags`, sorting, `table`/`brief` formats, `has_more`) are still unbuilt; they are the
-extension's to add, with no host change.
+or network), so there is nothing for an override to withhold. The command contract (the host's
+`--format human|json`, the error object, offset/limit pagination, the date) is ADR 0011's; the
+product surface it leaves to build (`--tags`, sorting, `has_more`, the 23 commands not yet built)
+is the extension's to add, with no host change.

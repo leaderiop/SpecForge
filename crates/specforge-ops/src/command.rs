@@ -4,9 +4,10 @@
 //! The CLI routes `specforge <ext_short> <command>` to one, and MCP
 //! auto-promotes each to the tool `specforge.<ext_short>.<id>`. Both run it
 //! here: the export receives the SDK's `CommandInput` (the args, the project
-//! root and the compiled graph in the graph export's shape) and answers
-//! with a `CommandOutput`. The host knows no command: which exist, their
-//! args and what they print are the extension's (ADR 0008).
+//! root, the compiled graph in the graph export's shape, the format the
+//! caller asked for and the host's date) and answers with a `CommandOutput`.
+//! The host knows no command: which exist, their args and what they print
+//! are the extension's (ADR 0008). The host owns `--format` (ADR 0011).
 
 use serde_json::{Map, Value};
 use specforge_common::Diagnostic;
@@ -67,12 +68,54 @@ pub fn ext_short(manifests: &[ManifestV2], extension: &str) -> String {
         })
 }
 
-/// What a `cmd__` export receives: `{"args", "cwd", "graph"}`, the graph as
-/// `specforge_emitter::json::emit_json` writes it.
-pub fn command_input(graph: &Graph, args: &Map<String, Value>, cwd: &Path) -> Vec<u8> {
+/// The output a command is asked for: `human` (the CLI default) or `json`
+/// (always, over MCP). The host's, not the command's: no command declares
+/// an arg named `format` (ADR 0011).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum CommandFormat {
+    #[default]
+    Human,
+    Json,
+}
+
+impl CommandFormat {
+    /// Every format, as the CLI's `--format` takes them.
+    pub const ALL: [CommandFormat; 2] = [CommandFormat::Human, CommandFormat::Json];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            CommandFormat::Human => "human",
+            CommandFormat::Json => "json",
+        }
+    }
+
+    pub fn parse(value: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|f| f.as_str() == value)
+    }
+}
+
+/// What the host passes a command beside its args: the format the caller
+/// asked for, and the host's date when it was called (UTC, `YYYY-MM-DD`),
+/// computed by the caller so a test can pin it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CommandContext {
+    pub format: CommandFormat,
+    pub today: String,
+}
+
+/// What a `cmd__` export receives: `{"args", "cwd", "format", "today",
+/// "graph"}`, the graph as `specforge_emitter::json::emit_json` writes it.
+pub fn command_input(
+    graph: &Graph,
+    args: &Map<String, Value>,
+    cwd: &Path,
+    context: &CommandContext,
+) -> Vec<u8> {
     let head = serde_json::json!({
         "args": args,
         "cwd": cwd.display().to_string(),
+        "format": context.format.as_str(),
+        "today": context.today,
     })
     .to_string();
     // Splice the graph export in rather than parse it back into a Value.
@@ -85,8 +128,8 @@ pub fn command_input(graph: &Graph, args: &Map<String, Value>, cwd: &Path) -> Ve
     input.into_bytes()
 }
 
-/// Run `export` of `extension` with `args` over `graph`. Err: the export
-/// trapped (E028).
+/// Run `export` of `extension` with `args` over `graph`, in `context`. Err:
+/// the export trapped (E028).
 pub fn run_command(
     runtime: &dyn WasmRuntime,
     extension: &str,
@@ -94,8 +137,9 @@ pub fn run_command(
     graph: &Graph,
     args: &Map<String, Value>,
     cwd: &Path,
+    context: &CommandContext,
 ) -> Result<CommandOutput, Diagnostic> {
-    let input = command_input(graph, args, cwd);
+    let input = command_input(graph, args, cwd, context);
     specforge_wasm::dispatch_surface_command(extension, export, &input, runtime)
 }
 
@@ -191,6 +235,7 @@ mod tests {
             &graph(),
             args.as_object().unwrap(),
             Path::new("/p"),
+            &CommandContext::default(),
         )
         .unwrap();
         let input = runtime.inputs.lock().unwrap().remove(0);
@@ -206,6 +251,36 @@ mod tests {
 
     #[specforge_test(
         behavior = "dispatch_surface_command",
+        verify = "the CommandInput carries the format the caller asked for and the host's date"
+    )]
+    fn the_input_carries_the_format_and_the_date() {
+        let runtime = Fake::default();
+        for format in CommandFormat::ALL {
+            let context = CommandContext {
+                format,
+                today: "2026-10-03".into(),
+            };
+            run_command(
+                &runtime,
+                "@acme/x",
+                "cmd__ok",
+                &graph(),
+                &Map::new(),
+                Path::new("/p"),
+                &context,
+            )
+            .unwrap();
+            let input = runtime.inputs.lock().unwrap().remove(0);
+            assert_eq!(input["format"], format.as_str());
+            assert_eq!(input["today"], "2026-10-03");
+            assert_eq!(input["args"], json!({}), "the format is not an arg");
+        }
+        assert_eq!(CommandFormat::parse("json"), Some(CommandFormat::Json));
+        assert_eq!(CommandFormat::parse("table"), None);
+    }
+
+    #[specforge_test(
+        behavior = "dispatch_surface_command",
         verify = "Wasm trap caught and reported as ExtensionError"
     )]
     fn a_trapping_command_is_an_extension_error() {
@@ -216,6 +291,7 @@ mod tests {
             &graph(),
             &Map::new(),
             Path::new("/p"),
+            &CommandContext::default(),
         )
         .unwrap_err();
         assert_eq!(err.code, "E028");
@@ -262,15 +338,18 @@ mod tests {
             .expect("product declares `features`");
         assert!(runtime.load_failure(features.extension).is_none());
 
-        let mut args = Map::new();
-        args.insert("format".into(), json!("json"));
+        let json = CommandContext {
+            format: CommandFormat::Json,
+            today: "2026-10-03".into(),
+        };
         let out = run_command(
             &runtime,
             features.extension,
             &features.contribution.export,
             &env.build_graph(),
-            &args,
+            &Map::new(),
             dir.path(),
+            &json,
         )
         .unwrap();
         assert_eq!(out.exit_code, 0, "{}", String::from_utf8_lossy(&out.stderr));
@@ -303,6 +382,7 @@ mod tests {
             &graph(),
             &Map::new(),
             dir.path(),
+            &CommandContext::default(),
         )
         .unwrap_err();
         assert_eq!(err.code, "E028");

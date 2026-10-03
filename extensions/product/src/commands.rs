@@ -1,7 +1,8 @@
 //! The `specforge product <command>` commands: `cmd__product_*` exports the
 //! manifest declares in `describe_surfaces.json`. Each reads its args, runs
-//! a query over the graph the host passes and renders it: `--format human`
-//! (the default) or `json`. The same exports serve the MCP tools
+//! a query over the graph the host passes and renders it in the format the
+//! host asked for (`input.format`: `human`, the CLI default, or `json`,
+//! always over MCP; ADR 0011). The same exports serve the MCP tools
 //! `specforge.product.<id>`.
 
 use crate::queries::{self, ListFilter};
@@ -208,14 +209,15 @@ fn health(report: &queries::HealthReport, out: &mut String) {
     }
 }
 
-/// `result` as pretty JSON under `--format json`, else as `human` writes it.
+/// `result` as pretty JSON when the host asked for json, else as `human`
+/// writes it.
 fn render<T: Serialize>(
     input: &CommandInput,
     result: &T,
     human: impl FnOnce(&mut String),
 ) -> CommandOutput {
     let mut out = String::new();
-    if input.arg_str("format") == Some("json") {
+    if input.is_json() {
         out = serde_json::to_string_pretty(result).unwrap_or_default();
         out.push('\n');
     } else {

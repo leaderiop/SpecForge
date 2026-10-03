@@ -357,6 +357,12 @@ impl ToolOutcome {
         Self::done(Payload::Text(vec![text.into()]), false)
     }
 
+    /// A failed run whose output is a JSON object: a command's error
+    /// object (ADR 0011).
+    pub fn failed(payload: Value) -> Self {
+        Self::done(Payload::Json(payload), true)
+    }
+
     /// Plain-text blocks, failed or not: a command's output.
     pub fn texts(blocks: Vec<String>, is_error: bool) -> Self {
         Self::done(Payload::Text(blocks), is_error)

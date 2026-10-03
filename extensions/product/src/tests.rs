@@ -1,5 +1,7 @@
 use crate::queries::*;
-use specforge_extension_sdk::prelude::{CommandGraph, CommandInput, GraphEdge, GraphNode};
+use specforge_extension_sdk::prelude::{
+    CommandFormat, CommandGraph, CommandInput, GraphEdge, GraphNode,
+};
 
 /// A graph built entity by entity.
 #[derive(Default)]
@@ -350,6 +352,15 @@ fn input(args: serde_json::Value, graph: CommandGraph) -> CommandInput {
         args: args.as_object().unwrap().clone(),
         cwd: "/p".into(),
         graph,
+        ..Default::default()
+    }
+}
+
+/// [`input`], asked for json.
+fn json_input(args: serde_json::Value, graph: CommandGraph) -> CommandInput {
+    CommandInput {
+        format: CommandFormat::Json,
+        ..input(args, graph)
     }
 }
 
@@ -378,10 +389,7 @@ fn a_list_command_renders_human_by_default_and_json_on_request() {
     );
     let json = crate::commands::run(
         "cmd__product_features",
-        &input(
-            serde_json::json!({"format": "json", "status": "done"}),
-            sample(),
-        ),
+        &json_input(serde_json::json!({"status": "done"}), sample()),
     )
     .unwrap();
     let value: serde_json::Value = serde_json::from_str(&json.stdout).unwrap();
@@ -442,10 +450,10 @@ fn every_declared_command_has_its_export() {
             export,
             format!("cmd__product_{}", command["id"].as_str().unwrap())
         );
-        let args = serde_json::json!({"format": "json", "milestone": "x", "journey": "x",
+        let args = serde_json::json!({"milestone": "x", "journey": "x",
             "feature": "x", "persona": "x", "channel": "x"});
         assert!(
-            crate::commands::run(export, &input(args, sample())).is_some(),
+            crate::commands::run(export, &json_input(args, sample())).is_some(),
             "{export} is declared but not exported"
         );
     }

@@ -1625,6 +1625,113 @@ fn event_surface_command_dispatched() {
     );
 }
 
+/// The recorded `name` events, each without its `durationMs`, which must
+/// be a count of milliseconds.
+fn timed_events(server: &McpServer, name: &str) -> Vec<Value> {
+    events(server, name)
+        .into_iter()
+        .map(|mut e| {
+            let duration = e.as_object_mut().unwrap().remove("durationMs");
+            assert!(duration.as_ref().is_some_and(Value::is_u64), "{e}");
+            e
+        })
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "a returned tool call is recorded as a surface_mcp_tool_dispatched event"
+)]
+fn a_returned_tool_call_is_a_dispatched_tool() {
+    use crate::fake_extension::{self, EXT, FakeExtension};
+    let dispatched = |success: bool| json!({"extensionName": EXT, "toolName": "specforge.cmds.check", "success": success});
+    // Its export returned what the tool's output schema describes.
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
+    );
+    call_tool(&mut server, "specforge.cmds.check", json!({}));
+    assert_eq!(
+        timed_events(&server, "surface_mcp_tool_dispatched"),
+        [dispatched(true)]
+    );
+    // It returned an output the schema refuses: dispatched, and failed.
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": "yes"})),
+    );
+    call_tool(&mut server, "specforge.cmds.check", json!({}));
+    assert_eq!(
+        timed_events(&server, "surface_mcp_tool_dispatched"),
+        [dispatched(false)]
+    );
+    // It trapped, or the input was refused before it ran: not dispatched.
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    call_tool(&mut server, "specforge.cmds.check", json!({}));
+    call_tool(&mut server, "specforge.cmds.check", json!({"strict": "no"}));
+    assert!(events(&server, "surface_mcp_tool_dispatched").is_empty());
+}
+
+#[specforge_test(
+    behavior = "surface_mcp_tool_dispatched",
+    verify = "emits surface_mcp_tool_dispatched with correct toolName and success"
+)]
+fn event_surface_mcp_tool_dispatched() {
+    use crate::fake_extension::{self, FakeExtension};
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
+    );
+    call_tool(&mut server, "specforge.cmds.check", json!({"strict": true}));
+    let dispatched: Vec<(Value, Value)> = events(&server, "surface_mcp_tool_dispatched")
+        .into_iter()
+        .map(|e| (e["toolName"].clone(), e["success"].clone()))
+        .collect();
+    assert_eq!(dispatched, [(json!("specforge.cmds.check"), json!(true))]);
+    // An auto-promoted command is a dispatched command, not a tool.
+    assert!(events(&server, "surface_command_dispatched").is_empty());
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "a returned resource read is recorded as a surface_mcp_resource_dispatched event"
+)]
+fn a_returned_resource_read_is_a_dispatched_resource() {
+    use crate::fake_extension::{self, EXT, FakeExtension};
+    let summary = "specforge://ext/cmds/summary";
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new().with_output(
+        "mcp__summary",
+        json!({"content": "{}", "mime_type": "application/json"}),
+    ));
+    resource(&mut server, summary);
+    assert_eq!(
+        timed_events(&server, "surface_mcp_resource_dispatched"),
+        [json!({"extensionName": EXT, "uriTemplate": summary, "mimeType": "application/json"})]
+    );
+    // A core resource is not an extension's; a trapping read is not one
+    // that returned.
+    resource(&mut server, "specforge://graph");
+    assert_eq!(events(&server, "surface_mcp_resource_dispatched").len(), 1);
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    call(&mut server, "resources/read", json!({"uri": summary}));
+    assert!(events(&server, "surface_mcp_resource_dispatched").is_empty());
+}
+
+#[specforge_test(
+    behavior = "surface_mcp_resource_dispatched",
+    verify = "emits surface_mcp_resource_dispatched with correct uriTemplate"
+)]
+fn event_surface_mcp_resource_dispatched() {
+    use crate::fake_extension::{self, FakeExtension};
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new().with_output(
+        "mcp__summary",
+        json!({"content": "{}", "mime_type": "application/json"}),
+    ));
+    resource(&mut server, "specforge://ext/cmds/summary");
+    let templates: Vec<Value> = events(&server, "surface_mcp_resource_dispatched")
+        .into_iter()
+        .map(|e| e["uriTemplate"].clone())
+        .collect();
+    assert_eq!(templates, [json!("specforge://ext/cmds/summary")]);
+}
+
 #[specforge_test(
     behavior = "list_mcp_resources",
     verify = "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, discovery_emitted"

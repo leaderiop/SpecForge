@@ -33,20 +33,6 @@
               "arg_type": "integer",
               "required": false,
               "description": "Skip this many entities first"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -62,20 +48,6 @@
               "arg_type": "integer",
               "required": false,
               "description": "Return at most this many entities"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -97,20 +69,6 @@
               "arg_type": "integer",
               "required": false,
               "description": "Return at most this many entities"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -132,20 +90,6 @@
               "arg_type": "integer",
               "required": false,
               "description": "Return at most this many entities"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -161,20 +105,6 @@
               "arg_type": "integer",
               "required": false,
               "description": "Return at most this many entities"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -190,20 +120,6 @@
               "arg_type": "integer",
               "required": false,
               "description": "Return at most this many entities"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -219,20 +135,6 @@
               "arg_type": "integer",
               "required": false,
               "description": "Return at most this many entities"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -248,20 +150,6 @@
               "arg_type": "integer",
               "required": false,
               "description": "Return at most this many entities"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -283,20 +171,6 @@
               "arg_type": "integer",
               "required": false,
               "description": "Return at most this many entities"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -312,20 +186,6 @@
               "arg_type": "string",
               "required": true,
               "description": "The milestone id"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -341,20 +201,6 @@
               "arg_type": "string",
               "required": true,
               "description": "The journey id"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -370,20 +216,6 @@
               "arg_type": "string",
               "required": true,
               "description": "The feature id"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -399,20 +231,6 @@
               "arg_type": "string",
               "required": true,
               "description": "The feature id"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -428,20 +246,6 @@
               "arg_type": "string",
               "required": true,
               "description": "The persona id"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -457,20 +261,6 @@
               "arg_type": "string",
               "required": true,
               "description": "The channel id"
-            },
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
             }
           ]
         },
@@ -480,22 +270,7 @@
           "description": "For each product kind with a lifecycle, how many entities have each status.",
           "category": "query",
           "export": "cmd__product_bulk_status",
-          "args": [
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
-            }
-          ]
+          "args": []
         },
         {
           "id": "health",
@@ -503,22 +278,7 @@
           "description": "A 0-100 score averaging coverage, connectivity and completeness of the product graph, with entity and orphan counts.",
           "category": "query",
           "export": "cmd__product_health",
-          "args": [
-            {
-              "name": "format",
-              "arg_type": {
-                "enum": {
-                  "values": [
-                    "human",
-                    "json"
-                  ]
-                }
-              },
-              "required": false,
-              "default_value": "human",
-              "description": "Output format: human or json"
-            }
-          ]
+          "args": []
         }
       ]
     }

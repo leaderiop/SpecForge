@@ -716,7 +716,10 @@ pub mod prelude {
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,
         CollectUnlinkedTest, CollectorBuilder,
     };
-    pub use crate::{CommandGraph, CommandInput, CommandOutput, GraphEdge, GraphNode};
+    pub use crate::{
+        CommandError, CommandFormat, CommandGraph, CommandInput, CommandOutput, GraphEdge,
+        GraphNode,
+    };
     pub use specforge_extension_sdk_macros::{compiler_pass, extension};
     pub use specforge_protocol_types::{
         PeerDependency, SandboxPolicy, ValidationSeverity, ValidatorContext, ValidatorVerdict,
@@ -958,11 +961,29 @@ pub struct CollectTestResult {
 // A CLI command an extension contributes is a `cmd__<name>` export. The host
 // parses the command line against the command's declared args, compiles the
 // project and calls the export with a [`CommandInput`]: the args, the
-// project root, and the compiled graph in the graph export's shape
-// (`specforge export --format graph` without the schema). The export answers
-// with a [`CommandOutput`]. The same export serves the MCP tool the command
-// is auto-promoted to (`specforge.<ext_short>.<id>`), so it never reads the
+// project root, the compiled graph in the graph export's shape
+// (`specforge export --format graph` without the schema), the format the
+// caller asked for and the host's date. The export answers with a
+// [`CommandOutput`]. The same export serves the MCP tool the command is
+// auto-promoted to (`specforge.<ext_short>.<id>`), so it never reads the
 // file system: the graph is all it knows.
+//
+// The host owns `--format` (ADR 0011): every command has it, `human` (the
+// CLI default) or `json` (always, over MCP), and no command declares an arg
+// of that name. The extension renders both: under `json` one root object on
+// stdout, under `human` its own layout. A command that cannot answer writes
+// one [`CommandError`] to stderr and nothing to stdout
+// ([`CommandOutput::error`]).
+
+/// The output a command is asked for: `human` (the CLI default) or `json`
+/// (always, over MCP).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CommandFormat {
+    #[default]
+    Human,
+    Json,
+}
 
 /// What a `cmd__<name>` export receives.
 #[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
@@ -978,9 +999,21 @@ pub struct CommandInput {
     /// The compiled project's graph.
     #[serde(default)]
     pub graph: CommandGraph,
+    /// The format the caller asked for (the host's `--format`).
+    #[serde(default)]
+    pub format: CommandFormat,
+    /// The host's date when the command was called, UTC, `YYYY-MM-DD`;
+    /// empty when the host passed none.
+    #[serde(default)]
+    pub today: String,
 }
 
 impl CommandInput {
+    /// Whether the caller asked for `json`.
+    pub fn is_json(&self) -> bool {
+        self.format == CommandFormat::Json
+    }
+
     /// A string arg (string, path or enum), when set.
     pub fn arg_str(&self, name: &str) -> Option<&str> {
         self.args.get(name).and_then(|v| v.as_str())
@@ -1175,9 +1208,60 @@ impl CommandOutput {
         }
     }
 
+    /// A command that cannot answer: `error` on stderr, nothing on stdout,
+    /// exit code `exit_code`. Under `json` the error object
+    /// (`{code, message, entity_id?, suggestion?}`); under `human` the line
+    /// `error: <message>`, then `did you mean '<id>'?` when there is a
+    /// suggestion.
+    pub fn error(format: CommandFormat, error: &CommandError, exit_code: i32) -> Self {
+        let stderr = match format {
+            CommandFormat::Json => {
+                let mut out =
+                    serde_json::to_string(error).expect("command error serialization cannot fail");
+                out.push('\n');
+                out
+            }
+            CommandFormat::Human => {
+                let mut out = format!("error: {}\n", error.message);
+                if let Some(suggestion) = &error.suggestion {
+                    out.push_str(&format!("did you mean '{suggestion}'?\n"));
+                }
+                out
+            }
+        };
+        CommandOutput {
+            exit_code,
+            stdout: String::new(),
+            stderr,
+        }
+    }
+
     /// The wire bytes the export returns.
     pub fn to_bytes(&self) -> Vec<u8> {
         serde_json::to_vec(self).expect("command output serialization cannot fail")
+    }
+}
+
+/// Why a command could not answer, as it writes it under `json`: a code
+/// (`ENTITY_NOT_FOUND`, `INVALID_INPUT`, ...), a message, and the entity it
+/// was asked about and the nearest id of the same kind, when there are.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct CommandError {
+    pub code: String,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggestion: Option<String>,
+}
+
+impl CommandError {
+    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
+        CommandError {
+            code: code.into(),
+            message: message.into(),
+            ..Default::default()
+        }
     }
 }
 
@@ -1214,6 +1298,49 @@ mod command_abi_tests {
         assert_eq!(input.graph.edges_from("a")[0].target, "b");
         assert_eq!(input.graph.edges_to("b")[0].source, "a");
         assert!(input.graph.edges_to("a").is_empty());
+    }
+
+    #[test]
+    fn a_command_input_carries_the_format_and_the_date() {
+        let bare: CommandInput = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(bare.format, CommandFormat::Human);
+        assert!(!bare.is_json());
+        assert_eq!(bare.today, "");
+        let input: CommandInput =
+            serde_json::from_value(serde_json::json!({"format": "json", "today": "2026-10-03"}))
+                .unwrap();
+        assert!(input.is_json());
+        assert_eq!(input.today, "2026-10-03");
+    }
+
+    #[test]
+    fn a_command_error_is_an_object_under_json_and_a_line_under_human() {
+        let error = CommandError {
+            entity_id: Some("m2".into()),
+            suggestion: Some("m1".into()),
+            ..CommandError::new("ENTITY_NOT_FOUND", "milestone 'm2' not found")
+        };
+        let json = CommandOutput::error(CommandFormat::Json, &error, 1);
+        assert_eq!((json.exit_code, json.stdout.as_str()), (1, ""));
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&json.stderr).unwrap(),
+            serde_json::json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found",
+                "entity_id": "m2", "suggestion": "m1"})
+        );
+        let human = CommandOutput::error(CommandFormat::Human, &error, 1);
+        assert_eq!(
+            human.stderr,
+            "error: milestone 'm2' not found\ndid you mean 'm1'?\n"
+        );
+        let plain = CommandOutput::error(
+            CommandFormat::Human,
+            &CommandError::new("INVALID_INPUT", "bad"),
+            2,
+        );
+        assert_eq!(
+            (plain.exit_code, plain.stderr.as_str()),
+            (2, "error: bad\n")
+        );
     }
 
     #[test]

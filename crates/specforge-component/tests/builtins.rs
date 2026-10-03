@@ -182,7 +182,7 @@ fn product_declares_its_commands_and_exports_them() {
         ]
     );
     // Every command answers over an empty graph: a list, or "not found".
-    let empty = br#"{"args":{"format":"json"},"cwd":"/p","graph":{"nodes":[],"edges":[]}}"#;
+    let empty = br#"{"args":{},"cwd":"/p","format":"json","today":"2026-10-03","graph":{"nodes":[],"edges":[]}}"#;
     for command in commands {
         let export = command["export"].as_str().unwrap();
         let WasmCallResult::Ok(bytes) = runtime.call_export("@specforge/product", export, empty)

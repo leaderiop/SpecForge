@@ -4,17 +4,22 @@
 //! Any first argument that is not a built-in command names an extension by
 //! its short name (`product` for `@specforge/product`); `ext:command` is the
 //! same as `ext command`. The project is the one at `--path` (default `.`),
-//! an option every extension command has. Its extensions declare the
+//! and the output the one `--format` asks for (`human`, the default, or
+//! `json`): options every extension command has, the host's, which no
+//! declared arg may take (ADR 0011). Its extensions declare the
 //! commands: this module builds their command line from the declared args
 //! (a required arg is positional, in declaration order; any other is a
 //! `--flag`), compiles the project, and runs the command's `cmd__` export
-//! over the graph (`specforge_ops::command`). The export's stdout and stderr
-//! are printed as they are, and its exit code is the CLI's.
+//! over the graph with the format and today's date (UTC)
+//! (`specforge_ops::command`). The export's stdout and stderr are printed as
+//! they are, and its exit code is the CLI's.
 
 use clap::builder::PossibleValuesParser;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use serde_json::{Map, Value};
-use specforge_ops::command::{ExtensionCommand, ext_short, extension_commands, run_command};
+use specforge_ops::command::{
+    CommandContext, CommandFormat, ExtensionCommand, ext_short, extension_commands, run_command,
+};
 use specforge_project::Environment;
 use specforge_registry::{CommandArg, CommandArgType, CommandContribution};
 use std::io::Write;
@@ -23,9 +28,12 @@ use std::path::{Path, PathBuf};
 /// The host's own option on every extension command: where the project is.
 const PATH: &str = "path";
 
+/// The host's own option on every extension command: the output asked for.
+const FORMAT: &str = "format";
+
 /// The options the host gives every extension command, which no declared
 /// arg may take.
-const RESERVED: &[&str] = &[PATH, "help"];
+const RESERVED: &[&str] = &[PATH, FORMAT, "help"];
 
 /// Run the extension command `argv` names (`argv[0]` is the extension).
 /// `builtins` are the CLI's own commands, suggested for a name no extension
@@ -100,6 +108,10 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     };
 
     let args = arg_values(&command.contribution.args, matches);
+    let context = CommandContext {
+        format: format_value(matches),
+        today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+    };
     let cwd = std::fs::canonicalize(&root).unwrap_or(root);
     match run_command(
         &runtime,
@@ -108,6 +120,7 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
         &env.build_graph(),
         &args,
         &cwd,
+        &context,
     ) {
         Ok(output) => {
             let _ = std::io::stdout().write_all(&output.stdout);
@@ -151,8 +164,8 @@ pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
 }
 
 /// Why `contribution`'s args cannot be a command line, if they cannot: an
-/// arg takes an option the host reserves (`--path`, `--help`), or two args
-/// share a name.
+/// arg takes an option the host reserves (`--path`, `--format`, `--help`),
+/// or two args share a name.
 fn collision(contribution: &CommandContribution) -> Option<String> {
     let mut seen: Vec<String> = Vec::new();
     for arg in &contribution.args {
@@ -194,6 +207,9 @@ fn command_line(ext: &str, commands: &[ExtensionCommand]) -> Command {
         .arg_required_else_help(true);
     for command in commands {
         let contribution = command.contribution;
+        if collision(contribution).is_some() {
+            continue;
+        }
         let mut sub = Command::new(command.cli_name()).about(contribution.title.clone());
         if !contribution.description.is_empty() {
             sub = sub.long_about(contribution.description.clone());
@@ -201,13 +217,24 @@ fn command_line(ext: &str, commands: &[ExtensionCommand]) -> Command {
         for arg in &contribution.args {
             sub = sub.arg(declared_arg(arg));
         }
-        sub = sub.arg(
-            Arg::new(PATH)
-                .long(PATH)
-                .value_name("PATH")
-                .default_value(".")
-                .help("Path to the project"),
-        );
+        sub = sub
+            .arg(
+                Arg::new(PATH)
+                    .long(PATH)
+                    .value_name("PATH")
+                    .default_value(".")
+                    .help("Path to the project"),
+            )
+            .arg(
+                Arg::new(FORMAT)
+                    .long(FORMAT)
+                    .value_name("FORMAT")
+                    .value_parser(PossibleValuesParser::new(
+                        CommandFormat::ALL.map(CommandFormat::as_str),
+                    ))
+                    .default_value(CommandFormat::Human.as_str())
+                    .help("Output format"),
+            );
         cli = cli.subcommand(sub);
     }
     cli
@@ -243,7 +270,16 @@ fn declared_arg(declared: &CommandArg) -> Arg {
     arg
 }
 
-/// The args the command line set (or defaulted), typed as declared.
+/// The host's `--format` the command line set (or defaulted).
+fn format_value(matches: &ArgMatches) -> CommandFormat {
+    matches
+        .get_one::<String>(FORMAT)
+        .and_then(|f| CommandFormat::parse(f))
+        .unwrap_or_default()
+}
+
+/// The args the command line set (or defaulted), typed as declared; never
+/// the host's own options.
 fn arg_values(declared: &[CommandArg], matches: &ArgMatches) -> Map<String, Value> {
     let mut args = Map::new();
     for arg in declared {
@@ -265,6 +301,7 @@ fn arg_values(declared: &[CommandArg], matches: &ArgMatches) -> Map<String, Valu
 mod tests {
     use super::*;
     use specforge_registry::CommandContribution;
+    use specforge_test_macros::test as specforge_test;
 
     fn arg(
         name: &str,
@@ -293,19 +330,21 @@ mod tests {
                 arg("limit", CommandArgType::Integer, false, None),
                 arg("all_kinds", CommandArgType::Bool, false, None),
                 arg(
-                    "format",
+                    "order",
                     CommandArgType::Enum {
-                        values: vec!["human".into(), "json".into()],
+                        values: vec!["asc".into(), "desc".into()],
                     },
                     false,
-                    Some("human"),
+                    Some("asc"),
                 ),
             ],
             sandbox: None,
         }
     }
 
-    fn parse(argv: &[&str]) -> Result<Map<String, Value>, clap::Error> {
+    fn parse_with_format(
+        argv: &[&str],
+    ) -> Result<(Map<String, Value>, CommandFormat), clap::Error> {
         let c = contribution();
         let commands = [ExtensionCommand {
             extension: "@acme/x",
@@ -316,7 +355,11 @@ mod tests {
         let (name, sub) = matches.subcommand().unwrap();
         assert_eq!(name, "milestone-completion");
         assert_eq!(sub.get_one::<String>(PATH).map(String::as_str), Some("."));
-        Ok(arg_values(&c.args, sub))
+        Ok((arg_values(&c.args, sub), format_value(sub)))
+    }
+
+    fn parse(argv: &[&str]) -> Result<Map<String, Value>, clap::Error> {
+        parse_with_format(argv).map(|(args, _)| args)
     }
 
     #[test]
@@ -324,15 +367,33 @@ mod tests {
         let args = parse(&["milestone-completion", "m1", "--limit", "3", "--all-kinds"]).unwrap();
         assert_eq!(
             Value::Object(args),
-            serde_json::json!({"milestone": "m1", "limit": 3, "all_kinds": true, "format": "human"})
+            serde_json::json!({"milestone": "m1", "limit": 3, "all_kinds": true, "order": "asc"})
         );
+    }
+
+    #[specforge_test(
+        behavior = "surface_format_conventions",
+        verify = "default format is human"
+    )]
+    fn every_command_takes_the_hosts_format_human_by_default() {
+        let (args, format) = parse_with_format(&["milestone-completion", "m1"]).unwrap();
+        assert_eq!(format, CommandFormat::Human);
+        assert!(!args.contains_key(FORMAT), "the format is not an arg");
+        let (args, format) =
+            parse_with_format(&["milestone-completion", "m1", "--format", "json"]).unwrap();
+        assert_eq!(format, CommandFormat::Json);
+        assert!(!args.contains_key(FORMAT));
+        // There are no other formats.
+        for other in ["table", "brief", "xml"] {
+            assert!(parse(&["milestone-completion", "m1", "--format", other]).is_err());
+        }
     }
 
     #[test]
     fn the_command_line_refuses_what_the_declaration_does() {
         // A required arg is positional and required; an enum takes its values.
         assert!(parse(&["milestone-completion"]).is_err());
-        assert!(parse(&["milestone-completion", "m1", "--format", "xml"]).is_err());
+        assert!(parse(&["milestone-completion", "m1", "--order", "sideways"]).is_err());
         assert!(parse(&["milestone-completion", "m1", "--limit", "many"]).is_err());
     }
 
@@ -357,14 +418,17 @@ mod tests {
         assert!(parse(&["m1", "--limit", "1", "--limit", "2"]).is_err());
     }
 
-    #[test]
+    #[specforge_test(
+        behavior = "dispatch_surface_command",
+        verify = "a command declaring an arg named format is refused on the command line"
+    )]
     fn an_arg_taking_a_host_option_or_another_args_name_is_refused() {
         let with = |args: Vec<CommandArg>| CommandContribution {
             args,
             ..contribution()
         };
         assert_eq!(collision(&contribution()), None);
-        for name in ["path", "help"] {
+        for name in ["path", "format", "help"] {
             let c = with(vec![arg(name, CommandArgType::String, false, None)]);
             assert_eq!(
                 collision(&c),

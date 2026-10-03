@@ -17,6 +17,9 @@ pub(crate) struct ResourceText {
     pub uri: String,
     pub mime_type: String,
     pub text: String,
+    /// The event the read records beside `mcp_resource_read`: an extension
+    /// resource's `surface_mcp_resource_dispatched`.
+    pub dispatched: Option<Value>,
 }
 
 impl ResourceText {
@@ -25,6 +28,7 @@ impl ResourceText {
             uri: uri.into(),
             mime_type: "application/json".into(),
             text: text.into(),
+            dispatched: None,
         }
     }
 
@@ -68,7 +72,10 @@ pub fn handle_resource_read(
     };
 
     match read(state, &uri) {
-        Ok(content) => {
+        Ok(mut content) => {
+            if let Some(dispatched) = content.dispatched.take() {
+                state.push_event("surface_mcp_resource_dispatched", dispatched);
+            }
             // A read that returned content: its format is its MIME type.
             state.push_event(
                 "mcp_resource_read",
@@ -241,13 +248,22 @@ fn extension_resource(state: &McpState, uri: &str) -> ReadOutcome {
         ));
     };
     let runtime = state.wasm_runtime(&root);
+    let started = std::time::Instant::now();
     match specforge_wasm::dispatch_surface_mcp_resource(
         &entry.extension_name,
         &entry.export_name,
         uri,
         runtime.as_ref(),
     ) {
+        // A read whose export returned is a dispatched resource; a trap is
+        // the read's error, and no dispatch is recorded.
         Ok((content, mime)) => Ok(ResourceText {
+            dispatched: Some(serde_json::json!({
+                "extensionName": entry.extension_name,
+                "uriTemplate": uri_template(state, entry).unwrap_or_default(),
+                "mimeType": mime,
+                "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+            })),
             text: String::from_utf8_lossy(&content).into_owned(),
             uri: uri.to_string(),
             mime_type: mime,

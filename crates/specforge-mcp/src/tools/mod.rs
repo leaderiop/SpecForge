@@ -121,13 +121,34 @@ fn command_id(state: &McpState, entry: &SurfaceRegistryEntry) -> String {
         .map_or_else(|| entry.contribution_name.clone(), |c| c.id.clone())
 }
 
-/// An auto-promoted command's run as a tool result: its stdout, then its
-/// stderr when it wrote any; a nonzero exit code fails the call.
+/// An auto-promoted command's run as a tool result. The command was asked
+/// for json (ADR 0011): a JSON object on stdout, and nothing on stderr, is
+/// the result's structured payload; a failure that wrote one JSON object
+/// on stderr, and nothing on stdout, is an `isError` result carrying it.
+/// Otherwise its stdout, then its stderr when it wrote any; a nonzero exit
+/// code fails the call.
 fn command_tool_result(
     outcome: Result<specforge_wasm::CommandOutput, specforge_common::Diagnostic>,
 ) -> ToolOutcome {
+    let object = |bytes: &[u8]| match serde_json::from_slice::<Value>(bytes) {
+        Ok(object @ Value::Object(_)) => Some(object),
+        _ => None,
+    };
     match outcome {
         Ok(output) => {
+            let failed = output.exit_code != 0;
+            if !failed
+                && output.stderr.is_empty()
+                && let Some(payload) = object(&output.stdout)
+            {
+                return ToolOutcome::ok(payload);
+            }
+            if failed
+                && output.stdout.is_empty()
+                && let Some(error) = object(&output.stderr)
+            {
+                return ToolOutcome::failed(error);
+            }
             let mut blocks = vec![String::from_utf8_lossy(&output.stdout).into_owned()];
             if !output.stderr.is_empty() {
                 blocks.push(String::from_utf8_lossy(&output.stderr).into_owned());
@@ -236,7 +257,13 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
 
     let mut outcome = match (spec, extension) {
         (Some(spec), _) => (spec.call)(state, arguments),
-        (None, Some(entry)) => extension_tool(state, &entry, arguments),
+        (None, Some(entry)) => {
+            let (outcome, dispatched) = extension_tool(state, &entry, arguments);
+            if let Some((event, params)) = dispatched {
+                state.push_event(event, params);
+            }
+            outcome
+        }
         (None, None) => unreachable!("an unknown tool was refused above"),
     }
     .from_tool(name);
@@ -283,14 +310,24 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
     envelope(outcome, id, state.sends_structured_content(), typed)
 }
 
+/// A dispatch event: its name and payload.
+type Dispatched = Option<(&'static str, Value)>;
+
 /// A registered extension tool from surface contributions, run through the
-/// Wasm runtime (WASM-only migration, Phase 4).
-fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Value) -> ToolOutcome {
+/// Wasm runtime (WASM-only migration, Phase 4), and the dispatch event to
+/// record when its export returned (whatever the result: a schema mismatch
+/// is a dispatched tool that failed).
+fn extension_tool(
+    state: &McpState,
+    entry: &SurfaceRegistryEntry,
+    arguments: Value,
+) -> (ToolOutcome, Dispatched) {
     let Some(root) = state.project_root.clone() else {
-        return ToolOutcome::no_project(format!(
+        let refused = ToolOutcome::no_project(format!(
             "Extension tool '{}' needs a project root; pass {{\"path\": ...}} to specforge.analyze first",
             entry.contribution_name
         ));
+        return (refused, None);
     };
     let declared = state
         .tool_registry
@@ -300,7 +337,7 @@ fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Val
     if let Some(schema) = declared.map(|t| &t.input_schema) {
         let violations = crate::json_schema::violations(schema, &arguments);
         if !violations.is_empty() {
-            return McpError::new(
+            let refused = McpError::new(
                 ErrorCode::InvalidInput,
                 format!(
                     "the arguments do not match the tool's input schema: {}",
@@ -309,6 +346,7 @@ fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Val
             )
             .with_data(json!({ "violations": violations }))
             .into();
+            return (refused, None);
         }
     }
     let runtime = state.wasm_runtime(&root);
@@ -316,6 +354,12 @@ fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Val
         // An auto-promoted CLI command runs its cmd__ export over the served
         // graph, as `specforge <ext> <command>` does over the compiled one.
         let args = arguments.as_object().cloned().unwrap_or_default();
+        // Over MCP a command is always asked for json: the tool has no
+        // format argument (ADR 0011).
+        let context = specforge_ops::command::CommandContext {
+            format: specforge_ops::command::CommandFormat::Json,
+            today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+        };
         let started = std::time::Instant::now();
         let outcome = specforge_ops::command::run_command(
             runtime.as_ref(),
@@ -324,6 +368,7 @@ fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Val
             state.graph(),
             &args,
             &root,
+            &context,
         );
         // A command whose export returned is a dispatched command; a trap
         // is the tool's error.
@@ -335,14 +380,14 @@ fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Val
                 "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
             })
         });
-        let result = command_tool_result(outcome);
-        return match dispatched {
-            Some(event) => result.with_event("surface_command_dispatched", event),
-            None => result,
-        };
+        return (
+            command_tool_result(outcome),
+            dispatched.map(|event| ("surface_command_dispatched", event)),
+        );
     }
     let input = serde_json::to_vec(&arguments).unwrap_or_default();
-    match specforge_wasm::dispatch_surface_mcp_tool(
+    let started = std::time::Instant::now();
+    let result = match specforge_wasm::dispatch_surface_mcp_tool(
         &entry.extension_name,
         &entry.export_name,
         &input,
@@ -370,6 +415,16 @@ fn extension_tool(state: &McpState, entry: &SurfaceRegistryEntry, arguments: Val
             }
             None => ToolOutcome::ok(value),
         },
-        Err(diag) => extension_error(&diag),
-    }
+        // A trap is the tool's error, and no dispatch is recorded.
+        Err(diag) => return (extension_error(&diag), None),
+    };
+    // A tool whose export returned is a dispatched tool; it succeeded when
+    // its output is the tool's result.
+    let event = json!({
+        "extensionName": entry.extension_name,
+        "toolName": entry.contribution_name,
+        "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+        "success": result.succeeded(),
+    });
+    (result, Some(("surface_mcp_tool_dispatched", event)))
 }
