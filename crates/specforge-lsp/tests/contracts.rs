@@ -764,6 +764,7 @@ fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::Kind
             open_fields: false,
             contract_target: false,
             declares_types: false,
+            lifecycle_field: None,
         });
     }
     registry

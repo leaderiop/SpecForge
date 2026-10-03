@@ -223,6 +223,7 @@ mod tests {
             open_fields: false,
             contract_target: false,
             declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
         let mut m2 = make_manifest("ext2", &[]);
@@ -245,6 +246,7 @@ mod tests {
             open_fields: false,
             contract_target: false,
             declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
 

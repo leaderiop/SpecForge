@@ -350,6 +350,13 @@ impl KindBuilder {
         self.0.declares_types = true;
         self
     }
+    /// The field holding the kind's lifecycle state, whose previous value
+    /// the build cache records for check-phase passes. Must be one of the
+    /// kind's fields.
+    pub fn lifecycle_field(&mut self, field: &str) -> &mut Self {
+        self.0.lifecycle_field = Some(field.to_string());
+        self
+    }
     pub fn semantic_token(&mut self, t: &str) -> &mut Self {
         self.0.semantic_token = Some(t.to_string());
         self
@@ -434,6 +441,12 @@ impl FieldBuilder {
     /// The context export carries the field at the node's top level.
     pub fn headline(&mut self) -> &mut Self {
         self.0.headline = true;
+        self
+    }
+    /// What the prove pass reads the field as: `"bound"` (a fact the solver
+    /// assumes) or `"claim"` (a statement that must follow from the bounds).
+    pub fn proof_role(&mut self, role: &str) -> &mut Self {
+        self.0.proof_role = Some(role.to_string());
         self
     }
     pub fn default_value(&mut self, v: &str) -> &mut Self {

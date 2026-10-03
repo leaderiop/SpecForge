@@ -5,9 +5,9 @@
 //   - boot_empty_field_registry (4 verifies)
 //   - boot_empty_edge_registry (3 verifies)
 //   - populate_kind_registry_from_extensions (6 verifies)
-//   - populate_field_registry_from_extensions (4 verifies)
+//   - populate_field_registry_from_extensions (6 verifies)
 //   - populate_edge_registry_from_extensions (4 verifies)
-//   - register_entity_kinds_from_manifest (8 verifies)
+//   - register_entity_kinds_from_manifest (9 verifies)
 //   - register_edge_types_from_manifest (6 verifies)
 //   - validate_manifest_v2_schema (5 verifies)
 //   - detect_unknown_entity_kinds (5 verifies)
@@ -253,6 +253,7 @@ fn boot_field_registry_title_not_a_field() {
         exempts_obligations: false,
         headline: false,
         derived_from: None,
+        proof_role: None,
     });
     // title is NOT a field — it's a grammar-level construct
     assert!(registry.get("behavior", "title").is_none());
@@ -538,6 +539,86 @@ fn populate_field_keeps_normative_flag() {
     assert!(!field_reg.get("rule", "description").unwrap().normative);
 }
 
+/// A manifest whose `rule` kind declares `limit` (kind field) and whose
+/// shared `goal` field reaches every kind, with the roles given.
+fn roles_manifest(limit_role: &str, goal_role: &str) -> ManifestV2 {
+    serde_json::from_str(&format!(
+        r#"{{
+            "name": "@test/ext",
+            "version": "1.0.0",
+            "manifestVersion": 2,
+            "wasmPath": "x.wasm",
+            "fields": [
+                {{ "name": "goal", "fieldType": "string", "proofRole": "{goal_role}" }}
+            ],
+            "entityKinds": [
+                {{
+                    "name": "Rule",
+                    "keyword": "rule",
+                    "fields": [
+                        {{ "name": "limit", "fieldType": "string", "proofRole": "{limit_role}" }},
+                        {{ "name": "description", "fieldType": "string" }}
+                    ]
+                }}
+            ]
+        }}"#
+    ))
+    .unwrap()
+}
+
+#[spec(
+    behavior = "populate_field_registry_from_extensions",
+    verify = "a field's proof_role reaches the field registry"
+)]
+fn populate_field_keeps_proof_role() {
+    use specforge_registry::ProofRole;
+    let (mut kind_reg, mut field_reg, _, diags) =
+        populate_registries(&[roles_manifest("bound", "claim")]);
+    assert!(diags.is_empty(), "{diags:?}");
+    let role =
+        |reg: &FieldRegistry, kind: &str, field: &str| reg.get(kind, field).unwrap().proof_role;
+    assert_eq!(role(&field_reg, "rule", "limit"), Some(ProofRole::Bound));
+    assert_eq!(role(&field_reg, "rule", "goal"), Some(ProofRole::Claim));
+    assert_eq!(role(&field_reg, "rule", "description"), None);
+
+    // An enhancement's field carries its role onto the target kind.
+    let mut field: ManifestField =
+        serde_json::from_str(r#"{ "name": "expression", "fieldType": "string" }"#).unwrap();
+    field.proof_role = Some("claim".to_string());
+    let enhancements = vec![(
+        "@test/other".to_string(),
+        FieldEnhancement {
+            verify_kinds: None,
+            target_kind: "rule".to_string(),
+            source_extension: "@test/other".to_string(),
+            edge_types: vec![],
+            fields: vec![field],
+        },
+    )];
+    let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
+    assert!(diags.is_empty(), "{diags:?}");
+    assert_eq!(
+        role(&field_reg, "rule", "expression"),
+        Some(ProofRole::Claim)
+    );
+}
+
+#[spec(
+    behavior = "populate_field_registry_from_extensions",
+    verify = "a proof_role other than bound or claim is refused"
+)]
+fn populate_field_refuses_unknown_proof_role() {
+    let (_, field_reg, _, diags) = populate_registries(&[roles_manifest("assumed", "claim")]);
+    let refused: Vec<_> = diags
+        .iter()
+        .filter(|d| d.code == "W021" && d.message.contains("proof_role 'assumed'"))
+        .collect();
+    assert_eq!(refused.len(), 1, "{diags:?}");
+    assert_eq!(refused[0].severity, Severity::Warning);
+    // The field is registered; it has no role.
+    assert_eq!(field_reg.get("rule", "limit").unwrap().proof_role, None);
+}
+
 #[spec(
     behavior = "populate_field_registry_from_extensions",
     verify = "Populate Field Registry From Extensions: field registry population holds — extension_manifests_loaded_fired, kind_registry_populated, fields_registered, field_types_validated, fields_populated"
@@ -736,6 +817,41 @@ fn register_kind_no_default_testability() {
     let (kind_reg, _, _, _) = populate_registries(&[manifest]);
     let thing = kind_reg.get("thing").unwrap();
     assert!(!thing.testable, "default testability should be false");
+}
+
+#[spec(
+    behavior = "register_entity_kinds_from_manifest",
+    verify = "a kind's lifecycle_field must name a field it declares"
+)]
+fn register_kind_lifecycle_field() {
+    let manifest: ManifestV2 = serde_json::from_str(
+        r#"{
+            "name": "@test/ext",
+            "version": "1.0.0",
+            "manifestVersion": 2,
+            "wasmPath": "x.wasm",
+            "fields": [ { "name": "phase", "fieldType": "string" } ],
+            "entityKinds": [
+                { "name": "Task", "keyword": "task", "lifecycleField": "stage",
+                  "fields": [ { "name": "stage", "fieldType": "string" } ] },
+                { "name": "Epic", "keyword": "epic", "lifecycleField": "phase" },
+                { "name": "Note", "keyword": "note", "lifecycleField": "status" },
+                { "name": "Idea", "keyword": "idea" }
+            ]
+        }"#,
+    )
+    .unwrap();
+    let (kind_reg, _, _, diags) = populate_registries(&[manifest]);
+    let lifecycle = |kind: &str| kind_reg.get(kind).unwrap().lifecycle_field.clone();
+    assert_eq!(lifecycle("task").as_deref(), Some("stage"));
+    // An extension-level shared field is one of the kind's fields.
+    assert_eq!(lifecycle("epic").as_deref(), Some("phase"));
+    assert_eq!(lifecycle("idea"), None);
+    // `note` declares no `status`: refused.
+    assert_eq!(lifecycle("note"), None);
+    let refused: Vec<_> = diags.iter().filter(|d| d.code == "W021").collect();
+    assert_eq!(refused.len(), 1, "{diags:?}");
+    assert!(refused[0].message.contains("lifecycle_field 'status'"));
 }
 
 #[spec(
@@ -1736,6 +1852,7 @@ fn enhancements_merge_fields() {
                 exempts_obligations: false,
                 headline: false,
                 derived_from: None,
+                proof_role: None,
             }],
         },
     )];
@@ -1772,6 +1889,7 @@ fn enhancements_unknown_kind_i004() {
                 exempts_obligations: false,
                 headline: false,
                 derived_from: None,
+                proof_role: None,
             }],
         },
     )];
@@ -1810,6 +1928,7 @@ fn enhancements_no_overwrite() {
                 exempts_obligations: false,
                 headline: false,
                 derived_from: None,
+                proof_role: None,
             }],
         },
     )];
@@ -1849,6 +1968,7 @@ fn enhancements_two_non_conflicting() {
                     exempts_obligations: false,
                     headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
             },
         ),
@@ -1874,6 +1994,7 @@ fn enhancements_two_non_conflicting() {
                     exempts_obligations: false,
                     headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
             },
         ),

@@ -51,6 +51,28 @@ pub struct FieldRegistryEntry {
     /// Where the host derives the field's edges from, when it does
     /// (`type_expressions` or `method_signatures`).
     pub derived_from: Option<String>,
+    /// What the prove pass reads the field as, when anything (ADR 0009, A).
+    pub proof_role: Option<ProofRole>,
+}
+
+/// A field's role in the prove pass, declared by its extension.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProofRole {
+    /// A fact the solver assumes; the bounds must be consistent (E046).
+    Bound,
+    /// A statement that must follow from the bounds (W139 when it does not).
+    Claim,
+}
+
+impl ProofRole {
+    /// The role a manifest names (`bound` or `claim`); None for any other.
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "bound" => Some(Self::Bound),
+            "claim" => Some(Self::Claim),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -197,6 +219,7 @@ mod tests {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         });
         assert!(registry.get("behavior", "title").is_none());
     }
@@ -236,6 +259,7 @@ mod tests {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         });
 
         // These calls should not allocate — they take &str and use HashMap<String,_>::get(&str)
@@ -266,6 +290,7 @@ mod tests {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         };
         registry.register(entry.clone());
         assert_eq!(registry.len(), 1);
@@ -286,6 +311,7 @@ mod tests {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         };
         registry.register(entry2);
         assert_eq!(registry.len(), 1);
@@ -306,6 +332,7 @@ mod tests {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         });
         assert_eq!(registry.len(), 2);
     }
@@ -329,6 +356,7 @@ mod tests {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         });
         registry.register(FieldRegistryEntry {
             kind_name: "event".to_string(),
@@ -345,6 +373,7 @@ mod tests {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         });
 
         let items: Vec<_> = registry.iter().collect();

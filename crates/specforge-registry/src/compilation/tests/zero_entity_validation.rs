@@ -289,6 +289,7 @@ fn kind(name: &str) -> KindRegistryEntry {
         open_fields: false,
         contract_target: false,
         declares_types: false,
+        lifecycle_field: None,
     }
 }
 

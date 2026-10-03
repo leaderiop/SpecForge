@@ -249,6 +249,7 @@ mod tests {
             open_fields: false,
             contract_target: false,
             declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
 
@@ -273,6 +274,7 @@ mod tests {
             open_fields: false,
             contract_target: false,
             declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
 
@@ -310,6 +312,7 @@ mod tests {
             open_fields: false,
             contract_target: false,
             declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
 
@@ -347,6 +350,7 @@ mod tests {
             open_fields: false,
             contract_target: false,
             declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
 
@@ -371,6 +375,7 @@ mod tests {
             open_fields: false,
             contract_target: false,
             declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
 
@@ -406,6 +411,7 @@ mod tests {
             open_fields: false,
             contract_target: false,
             declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
         assert!(detect_entity_kind_collision(&[m.clone()]).is_empty());
@@ -432,6 +438,7 @@ mod tests {
             open_fields: false,
             contract_target: false,
             declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
         let diags = detect_entity_kind_collision(&[bad]);

@@ -1237,6 +1237,7 @@ mod tests {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         });
         reg.register(FieldRegistryEntry {
             kind_name: "behavior".into(),
@@ -1253,6 +1254,7 @@ mod tests {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         });
         reg.register(FieldRegistryEntry {
             kind_name: "invariant".into(),
@@ -1269,6 +1271,7 @@ mod tests {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         });
 
         let rules = generate_required_field_rules(&reg);

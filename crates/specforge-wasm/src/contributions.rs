@@ -292,6 +292,7 @@ mod tests {
                 exempts_obligations: false,
                 headline: false,
                 derived_from: None,
+                proof_role: None,
             }],
         }];
 
@@ -326,6 +327,7 @@ mod tests {
                     exempts_obligations: false,
                     headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
             },
         )];
@@ -352,6 +354,7 @@ mod tests {
                 exempts_obligations: false,
                 headline: false,
                 derived_from: None,
+                proof_role: None,
             }],
         }];
 
@@ -386,6 +389,7 @@ mod tests {
                     exempts_obligations: false,
                     headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
             },
         )];
@@ -412,6 +416,7 @@ mod tests {
                 exempts_obligations: false,
                 headline: false,
                 derived_from: None,
+                proof_role: None,
             }],
         }];
 

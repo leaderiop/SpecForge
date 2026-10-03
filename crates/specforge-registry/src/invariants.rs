@@ -63,6 +63,7 @@ mod tests {
             open_fields: false,
             contract_target: false,
             declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }
     }
@@ -154,6 +155,7 @@ mod tests {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         });
 
         let mut baseline_codes: Option<Vec<String>> = None;

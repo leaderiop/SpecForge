@@ -160,6 +160,7 @@ fn convert_entity_kind(desc: &EntityKindDescriptor) -> specforge_registry::Manif
         open_fields: desc.open_fields,
         contract_target: desc.contract_target,
         declares_types: desc.declares_types,
+        lifecycle_field: desc.lifecycle_field.clone(),
         inference_guide: desc.inference_guide.clone(),
     }
 }
@@ -181,6 +182,7 @@ fn convert_field(desc: &FieldDescriptor) -> specforge_registry::ManifestField {
         exempts_obligations: desc.exempts_obligations,
         headline: desc.headline,
         derived_from: desc.derived_from.clone(),
+        proof_role: desc.proof_role.clone(),
     }
 }
 

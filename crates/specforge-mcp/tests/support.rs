@@ -24,6 +24,7 @@ pub fn declare_headline_fields(server: &mut McpServer, kind: &str) {
                 exempts_obligations: false,
                 headline: true,
                 derived_from: None,
+                proof_role: None,
             });
         }
     });

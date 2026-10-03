@@ -43,6 +43,7 @@ fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::Kind
             open_fields: false,
             contract_target: false,
             declares_types: false,
+            lifecycle_field: None,
         });
     }
     registry
@@ -356,6 +357,7 @@ fn invariants_target_invariant() -> specforge_registry::FieldRegistry {
         exempts_obligations: false,
         headline: false,
         derived_from: None,
+        proof_role: None,
     });
     reg
 }

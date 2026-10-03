@@ -26,6 +26,7 @@ pub fn headline_registry(kinds: &[&str]) -> FieldRegistry {
             exempts_obligations: false,
             headline: true,
             derived_from: None,
+            proof_role: None,
         });
     }
     registry

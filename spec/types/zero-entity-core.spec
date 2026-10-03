@@ -88,6 +88,9 @@ type ManifestEntityKind {
   contract_target      boolean         @optional
   // Its entity ids name types: custom validators receive them as declared_types
   declares_types       boolean         @optional
+  /// The one field (of those the kind declares) holding its entities'
+  /// lifecycle state; the build cache records its value (ADR 0009).
+  lifecycle_field      string          @optional
   verify unit "ManifestEntityKind schema is valid"
 }
 
@@ -134,8 +137,15 @@ type ManifestField {
   /// The host fills the field's edges from type names the entity writes
   /// elsewhere (behavior link_derived_references).
   derived_from        DerivedReferenceSource @optional
+  /// What the prove pass reads the field as: a bound it assumes or a claim
+  /// that must follow from the bounds (ADR 0009). No role: not read.
+  proof_role          ProofRole              @optional
   verify unit "ManifestField schema is valid"
 }
+
+// A field's role in the prove pass: a bound is assumed (bounds must be
+// consistent, E046); a claim must follow from the bounds (W139 when not).
+type ProofRole = bound | claim
 
 // Where a derived reference field takes its targets from: the type names in
 // the entity's type-syntax field values, or in its method signatures.
@@ -225,6 +235,8 @@ type FieldRegistryEntry {
   exempts_obligations boolean                @optional
   headline            boolean                @optional
   derived_from        DerivedReferenceSource @optional
+  /// The prove-pass role its manifest declares; any other value is refused.
+  proof_role          ProofRole              @optional
   verify unit "FieldRegistryEntry schema is valid"
 }
 
@@ -244,6 +256,8 @@ type KindRegistryEntry {
   dot_fillcolor        string   @optional
   contract_target      boolean  @optional
   declares_types       boolean  @optional
+  /// The kind's lifecycle field; a name the kind does not declare is refused.
+  lifecycle_field      string   @optional
   verify unit "KindRegistryEntry schema is valid"
 }
 

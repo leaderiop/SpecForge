@@ -119,6 +119,10 @@ pub struct ManifestEntityKind {
     /// Its entity ids name types (custom validators' `declared_types`).
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub declares_types: bool,
+    /// The field holding its entities' lifecycle state, recorded by the
+    /// build cache. Must name a field the kind declares.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lifecycle_field: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -173,6 +177,9 @@ pub struct ManifestField {
     /// (`type_expressions` or `method_signatures`), when it does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub derived_from: Option<String>,
+    /// What the prove pass reads the field as: `bound` or `claim`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_role: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

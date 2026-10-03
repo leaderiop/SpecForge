@@ -202,6 +202,7 @@ fn hover_shows_extension_source() {
         open_fields: false,
         contract_target: false,
         declares_types: false,
+        lifecycle_field: None,
     });
 
     let text =
@@ -321,6 +322,7 @@ fn hover_shows_entity_kind_description() {
         open_fields: false,
         contract_target: false,
         declares_types: false,
+        lifecycle_field: None,
     });
 
     let text =
@@ -350,6 +352,7 @@ fn hover_shows_field_description() {
         exempts_obligations: false,
         headline: false,
         derived_from: None,
+        proof_role: None,
     });
 
     let text = specforge_lsp::hover_field_info("contract", "behavior", &reg).unwrap();
@@ -391,6 +394,7 @@ fn make_field_registry() -> specforge_registry::FieldRegistry {
         exempts_obligations: false,
         headline: false,
         derived_from: None,
+        proof_role: None,
     });
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
@@ -407,6 +411,7 @@ fn make_field_registry() -> specforge_registry::FieldRegistry {
         exempts_obligations: false,
         headline: false,
         derived_from: None,
+        proof_role: None,
     });
     reg
 }

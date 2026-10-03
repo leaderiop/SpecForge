@@ -67,6 +67,7 @@ fn register_enhancement_new_field() {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         }],
         edge_types: vec![],
     }];
@@ -96,6 +97,7 @@ fn register_enhancement_conflict_e017() {
         exempts_obligations: false,
         headline: false,
         derived_from: None,
+        proof_role: None,
     };
 
     // First extension registers successfully

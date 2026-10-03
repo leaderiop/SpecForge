@@ -1,6 +1,6 @@
 use crate::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, ManifestFieldType, ManifestV2,
+    KindRegistryEntry, ManifestFieldType, ManifestV2, ProofRole,
 };
 use specforge_common::{Diagnostic, DiagnosticData, Severity};
 
@@ -131,6 +131,7 @@ fn register_entity_kinds(
             open_fields: kind.open_fields,
             contract_target: kind.contract_target,
             declares_types: kind.declares_types,
+            lifecycle_field: lifecycle_field(kind, manifest, diagnostics),
         };
         if let Some(existing) = registry.register(entry) {
             // Duplicate — first extension wins (already registered), emit E026
@@ -213,7 +214,65 @@ fn register_single_field(
         exempts_obligations: field.exempts_obligations,
         headline: field.headline,
         derived_from: field.derived_from.clone(),
+        proof_role: proof_role(kind_name, field, source_extension, diagnostics),
     });
+}
+
+/// The field `kind` declares as its lifecycle field, when it declares one
+/// among its own or the extension's shared fields; a name it does not
+/// declare is refused (W021).
+fn lifecycle_field(
+    kind: &crate::ManifestEntityKind,
+    manifest: &ManifestV2,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<String> {
+    let name = kind.lifecycle_field.as_ref()?;
+    let declared = kind
+        .fields
+        .iter()
+        .chain(&manifest.fields)
+        .any(|f| &f.name == name);
+    if declared {
+        return Some(name.clone());
+    }
+    diagnostics.push(Diagnostic {
+        code: "W021".to_string(),
+        severity: Severity::Warning,
+        message: format!(
+            "extension '{}': kind '{}' declares lifecycle_field '{}', which is not one of its fields",
+            manifest.name, kind.keyword, name
+        ),
+        span: None,
+        suggestion: None,
+        data: None,
+    });
+    None
+}
+
+/// The prove-pass role `field` declares, when it names one; any value but
+/// `bound` or `claim` is refused (W021).
+fn proof_role(
+    kind_name: &str,
+    field: &crate::ManifestField,
+    source_extension: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<ProofRole> {
+    let name = field.proof_role.as_deref()?;
+    let role = ProofRole::parse(name);
+    if role.is_none() {
+        diagnostics.push(Diagnostic {
+            code: "W021".to_string(),
+            severity: Severity::Warning,
+            message: format!(
+                "extension '{}': field '{}' on kind '{}' declares proof_role '{}': expected 'bound' or 'claim'",
+                source_extension, field.name, kind_name, name
+            ),
+            span: None,
+            suggestion: None,
+            data: None,
+        });
+    }
+    role
 }
 
 fn parse_field_type(s: &str) -> Option<ManifestFieldType> {
@@ -1008,6 +1067,7 @@ mod tests {
                     exempts_obligations: false,
                     headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
                 edge_types: vec![],
             },
@@ -1046,6 +1106,7 @@ mod tests {
                     exempts_obligations: false,
                     headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
                 edge_types: vec![],
             },
@@ -1134,6 +1195,7 @@ mod tests {
                     exempts_obligations: false,
                     headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
                 edge_types: vec![],
             },
@@ -1172,6 +1234,7 @@ mod tests {
                         exempts_obligations: false,
                         headline: false,
                         derived_from: None,
+                        proof_role: None,
                     }],
                     edge_types: vec![],
                 },
@@ -1197,6 +1260,7 @@ mod tests {
                         exempts_obligations: false,
                         headline: false,
                         derived_from: None,
+                        proof_role: None,
                     }],
                     edge_types: vec![],
                 },

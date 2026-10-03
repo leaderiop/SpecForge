@@ -256,6 +256,11 @@ pub struct EntityKindDescriptor {
     /// `ValidatorContext::declared_types`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub declares_types: bool,
+    /// The one field (of those this kind declares) holding its entities'
+    /// lifecycle state: the build cache records its value for check-phase
+    /// passes that compare against the previous build (ADR 0009, C).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lifecycle_field: Option<String>,
 }
 
 // ── Field Descriptor ──
@@ -302,6 +307,12 @@ pub struct FieldDescriptor {
     /// `method_signatures` (its method parameter and return types).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub derived_from: Option<String>,
+    /// What the prove pass reads this field as: `bound` (a fact the solver
+    /// assumes) or `claim` (a statement that must follow from the bounds).
+    /// Kept a string, as `derived_from`, so an unknown value costs this
+    /// field a diagnostic (ADR 0009, A).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_role: Option<String>,
 }
 
 // ── Edge Type Descriptor ──

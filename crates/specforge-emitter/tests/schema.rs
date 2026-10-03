@@ -59,6 +59,7 @@ fn make_kind_entry(name: &str, ext: &str, testable: bool) -> KindRegistryEntry {
         open_fields: false,
         contract_target: false,
         declares_types: false,
+        lifecycle_field: None,
     }
 }
 
@@ -101,6 +102,7 @@ fn make_field_entry(
         exempts_obligations: false,
         headline: false,
         derived_from: None,
+        proof_role: None,
     }
 }
 

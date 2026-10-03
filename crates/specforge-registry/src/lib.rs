@@ -13,7 +13,7 @@ extern crate self as specforge_registry;
 // --- Core registries ---
 pub use registries::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, ManifestFieldType,
+    KindRegistryEntry, ManifestFieldType, ProofRole,
 };
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---

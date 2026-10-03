@@ -833,6 +833,7 @@ fn dot_emits_registry_declared_styles() {
         open_fields: false,
         contract_target: false,
         declares_types: false,
+        lifecycle_field: None,
     });
 
     let dot = specforge_emitter::dot::emit_dot(

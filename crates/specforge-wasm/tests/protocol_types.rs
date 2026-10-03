@@ -242,6 +242,7 @@ fn entity_kind_descriptor_full_round_trip() {
                 exempts_obligations: false,
                 headline: false,
                 derived_from: None,
+                proof_role: None,
             },
             FieldDescriptor {
                 name: "invariants".to_string(),
@@ -258,6 +259,7 @@ fn entity_kind_descriptor_full_round_trip() {
                 exempts_obligations: false,
                 headline: false,
                 derived_from: None,
+                proof_role: None,
             },
         ],
         testable: true,
@@ -268,6 +270,7 @@ fn entity_kind_descriptor_full_round_trip() {
         open_fields: false,
         contract_target: false,
         declares_types: false,
+        lifecycle_field: None,
         semantic_token: Some("function".to_string()),
         lsp_icon: Some("Method".to_string()),
         dot_shape: Some("ellipse".to_string()),
@@ -314,6 +317,7 @@ fn field_descriptor_with_edge_and_target() {
         exempts_obligations: false,
         headline: false,
         derived_from: None,
+        proof_role: None,
     };
     let json = serde_json::to_string(&field).unwrap();
     let decoded: FieldDescriptor = serde_json::from_str(&json).unwrap();
@@ -341,6 +345,7 @@ fn field_descriptor_with_enum_values() {
         exempts_obligations: false,
         headline: false,
         derived_from: None,
+        proof_role: None,
     };
     let json = serde_json::to_string(&field).unwrap();
     assert!(json.contains("enum_values"));
@@ -365,6 +370,7 @@ fn field_descriptor_enum_values_skipped_when_empty() {
         exempts_obligations: false,
         headline: false,
         derived_from: None,
+        proof_role: None,
     };
     let json = serde_json::to_string(&field).unwrap();
     assert!(
@@ -419,6 +425,7 @@ fn shared_field_descriptor_is_field_descriptor() {
         exempts_obligations: false,
         headline: false,
         derived_from: None,
+        proof_role: None,
     };
     let json = serde_json::to_string(&shared).unwrap();
     let decoded: SharedFieldDescriptor = serde_json::from_str(&json).unwrap();
@@ -448,6 +455,7 @@ fn entity_enhancement_descriptor_round_trip() {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         }],
         edge_types: vec![EdgeTypeDescriptor {
             label: "RequiresCondition".to_string(),

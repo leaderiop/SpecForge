@@ -22,6 +22,9 @@ pub struct KindRegistryEntry {
     pub contract_target: bool,
     /// Its entity ids name types (custom validators' `declared_types`).
     pub declares_types: bool,
+    /// The field holding its entities' lifecycle state, which the build
+    /// cache records (ADR 0009, C).
+    pub lifecycle_field: Option<String>,
 }
 
 #[derive(Debug, Default)]

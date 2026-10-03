@@ -1134,7 +1134,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Undeclared target kind or edge label",
         owner: "core",
         level: Level::Warning,
-        explanation: "A field or edge type references a `target_kind` or edge label that isn't declared — either in the extension's own manifest when it declares no peer dependencies, or in the compiler's global kind/edge registry once all extensions are loaded. Declare the missing kind or edge label, or add the appropriate peer dependency.",
+        explanation: "A field or edge type references a `target_kind` or edge label that isn't declared — either in the extension's own manifest when it declares no peer dependencies, or in the compiler's global kind/edge registry once all extensions are loaded. Declare the missing kind or edge label, or add the appropriate peer dependency. The same code reports a declaration the registry refuses: a `derived_from` that derives nothing, a `proof_role` other than `bound` or `claim`, or a `lifecycle_field` that is not one of the kind's fields.",
     },
     CodeEntry {
         code: "W023",

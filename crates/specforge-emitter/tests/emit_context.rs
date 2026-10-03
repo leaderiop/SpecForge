@@ -227,6 +227,7 @@ fn context_keeps_normative_fields() {
             exempts_obligations: false,
             headline: false,
             derived_from: None,
+            proof_role: None,
         });
     }
 
@@ -297,6 +298,7 @@ fn context_lifts_the_fields_an_extension_declares_headline() {
             exempts_obligations: false,
             headline: true,
             derived_from: None,
+            proof_role: None,
         });
     }
     let options = specforge_emitter::EmitOptions {

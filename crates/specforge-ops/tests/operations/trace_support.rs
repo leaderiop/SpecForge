@@ -22,6 +22,7 @@ fn kind(name: &str, extension: &str) -> KindRegistryEntry {
         open_fields: false,
         contract_target: false,
         declares_types: false,
+        lifecycle_field: None,
     }
 }
 
@@ -48,6 +49,7 @@ pub fn reference(
         exempts_obligations: false,
         headline: false,
         derived_from: None,
+        proof_role: None,
     }
 }
 
