@@ -56,12 +56,8 @@ impl Contributions for Governance {
     }
 }
 
-
 fn dispatch(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
     None
 }
 
-specforge_extension_sdk::component_guest!(
-    build = specforge_extension_build,
-    handler = dispatch
-);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);

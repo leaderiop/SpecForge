@@ -78,13 +78,40 @@ use specforge_extension_sdk::{ValidatorContext, ValidatorVerdict};
 /// `context.primitives`, so the union keeps the guest correct even for a
 /// host that ships an empty list.
 const PRIMITIVE_TYPES: &[&str] = &[
-    "string", "void", "bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64",
-    "usize", "isize", "any",
+    "string",
+    "void",
+    "bool",
+    "i8",
+    "i16",
+    "i32",
+    "i64",
+    "u8",
+    "u16",
+    "u32",
+    "u64",
+    "f32",
+    "f64",
+    "usize",
+    "isize",
+    "any",
     // the portable primitives docs/entities/type.md documents, and `never`
     // for an impossible error channel (docs/entities/port.md)
-    "number", "integer", "boolean", "timestamp", "never",
+    "number",
+    "integer",
+    "boolean",
+    "timestamp",
+    "never",
     // stdlib containers: their type arguments are checked recursively
-    "Result", "Option", "Vec", "Box", "Arc", "Rc", "HashMap", "HashSet", "BTreeMap", "BTreeSet",
+    "Result",
+    "Option",
+    "Vec",
+    "Box",
+    "Arc",
+    "Rc",
+    "HashMap",
+    "HashSet",
+    "BTreeMap",
+    "BTreeSet",
     "String",
 ];
 

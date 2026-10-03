@@ -1056,7 +1056,11 @@ mod coverage_tracking_tests {
             "1 coverage item(s) are not proven by a recorded test or an entailed claim: inv1"
         );
         assert!(
-            !findings[0].suggestion.as_deref().unwrap().contains("tests ["),
+            !findings[0]
+                .suggestion
+                .as_deref()
+                .unwrap()
+                .contains("tests ["),
             "never suggests the retired `tests` field"
         );
     }

@@ -37,7 +37,6 @@ impl Contributions for TypeScriptAnalyzer {
 // ── Analyzer exports ───────────────────────────────────────────────────────
 // Same JSON wire format as the native builtin's `call_analyzer` dispatch.
 
-
 fn parse_req<T: serde::de::DeserializeOwned>(input: &[u8]) -> Result<T, String> {
     serde_json::from_slice(input).map_err(|e| format!("invalid request: {e}"))
 }
@@ -54,17 +53,12 @@ fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
         "classify__typescript" => {
             Some(parse_req(input).and_then(|req| to_json(&classify_typescript(&req))))
         }
-        "map__typescript" => {
-            Some(parse_req(input).and_then(|req| to_json(&map_typescript(&req))))
-        }
+        "map__typescript" => Some(parse_req(input).and_then(|req| to_json(&map_typescript(&req)))),
         _ => None,
     }
 }
 
-specforge_extension_sdk::component_guest!(
-    build = specforge_extension_build,
-    handler = dispatch
-);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);
 
 // ── Analyzer logic (ported verbatim from the native builtin) ───────────────
 

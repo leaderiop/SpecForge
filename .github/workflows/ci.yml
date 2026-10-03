@@ -42,6 +42,14 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+      # Extension crates and the greet fixture live outside the workspace,
+      # so `cargo fmt --all` never sees them; gate each manifest explicitly.
+      - name: Check extension formatting
+        run: |
+          for manifest in extensions/*/Cargo.toml fixtures/greet-extension/Cargo.toml; do
+            cargo fmt --manifest-path "$manifest" -- --check
+          done
+
       # The spec corpora are formatted with the project's own formatter;
       # format_corpus (a test) proves formatting changes only layout.
       - name: Check spec formatting

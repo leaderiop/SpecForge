@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_typescript.wasm",
-  "artifact_sha256": "79b13be6ef36608c9ed5c829d403bfd43ed1252014920db9050cfef02bd605c2",
+  "artifact_sha256": "944d46a9b0d48522e16285ca5a148ae4c4ec71293ae5b1f9d4b4999437404075",
   "built_with": "rustc 1.99.0 (b940084d7 2026-09-28)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
@@ -15,6 +15,6 @@
     "extensions/typescript/Cargo.lock": "4a84e8daae0987704a587411a12a1d95d7b10f0339dc1c086eefe86954062642",
     "extensions/typescript/Cargo.toml": "d0c3e603698b97a98fa449425f9d8e81d67fa6112adf950277a02fc31eb7b0e0",
     "extensions/typescript/src/describe_analyzers.json": "b41c3fd3e25dad9d8b198c5af2b50cfc0f0a82e1e4e8905d07acb886144c8e49",
-    "extensions/typescript/src/lib.rs": "2632551420a280b238be310e1576db8cc1de8d44b7022214d6deb0c1a230cb53"
+    "extensions/typescript/src/lib.rs": "b0f8da0edd28890b220a52fc235cc6626fb95feb9a4c188a5941efc370e909e7"
   }
 }
