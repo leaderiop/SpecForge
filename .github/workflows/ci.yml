@@ -39,6 +39,10 @@ jobs:
       - name: Verify vendored builtin blobs match their sources
         run: cargo run -p xtask --bin build-builtins -- --check
 
+      # Principle 2: core crates name no entity kind outside test code.
+      - name: Check zero-entity core
+        run: bash scripts/check-zero-entity-core.sh
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 
