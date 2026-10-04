@@ -75,9 +75,9 @@ fn vendored_builtin_blobs_embed_current_manifest_payloads() {
         }
     }
     assert!(
-        checked >= 36,
-        "expected >= 36 payload checks (9 per existing guest, formal -2, \
-         rust/typescript +1 each), got {checked}"
+        checked >= 33,
+        "expected >= 33 payload checks (8 per existing guest, formal -2, \
+         rust/typescript +1 each; surfaces are declared in code), got {checked}"
     );
 }
 

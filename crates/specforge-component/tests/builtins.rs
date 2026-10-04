@@ -204,7 +204,8 @@ fn product_declares_its_commands_and_exports_them() {
             "health",
         ]
     );
-    // Every command answers over an empty graph: a list, or "not found".
+    // Every command answers over an empty graph: a list, or, without the
+    // entity id it requires, INVALID_INPUT (exit 2).
     let empty = br#"{"args":{},"cwd":"/p","format":"json","today":"2026-10-03","graph":{"nodes":[],"edges":[]}}"#;
     for command in commands {
         let export = command["export"].as_str().unwrap();
@@ -220,7 +221,7 @@ fn product_declares_its_commands_and_exports_them() {
             .any(|a| a["required"] == true);
         assert_eq!(
             output["exit_code"],
-            i32::from(positional),
+            if positional { 2 } else { 0 },
             "{export}: {output}"
         );
     }
