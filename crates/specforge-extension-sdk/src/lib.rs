@@ -1081,30 +1081,6 @@ impl CommandInput {
     pub fn is_json(&self) -> bool {
         self.format == CommandFormat::Json
     }
-
-    /// A string arg (string, path or enum), when set.
-    pub fn arg_str(&self, name: &str) -> Option<&str> {
-        self.args.get(name).and_then(|v| v.as_str())
-    }
-
-    /// A non-negative integer arg, when set: a JSON number, or a string
-    /// holding one.
-    pub fn arg_usize(&self, name: &str) -> Option<usize> {
-        match self.args.get(name)? {
-            serde_json::Value::Number(n) => n.as_u64().map(|n| n as usize),
-            serde_json::Value::String(s) => s.parse().ok(),
-            _ => None,
-        }
-    }
-
-    /// A boolean arg; `false` when unset.
-    pub fn arg_bool(&self, name: &str) -> bool {
-        match self.args.get(name) {
-            Some(serde_json::Value::Bool(b)) => *b,
-            Some(serde_json::Value::String(s)) => s == "true",
-            _ => false,
-        }
-    }
 }
 
 /// The compiled graph a command reads: its entities sorted by id, its
