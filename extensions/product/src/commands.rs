@@ -309,6 +309,113 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
                 let _ = writeln!(out, "Unowned: {unowned} of {total} entities");
             })
         }
+        "cmd__product_feature_ordering" => {
+            let result = queries::feature_ordering(&input.graph);
+            render(input, &result, |out| {
+                if result.sorted_features.is_empty() {
+                    let _ = writeln!(out, "No features.");
+                    return;
+                }
+                for (n, id) in result.sorted_features.iter().enumerate() {
+                    let flag = if result.cycle_members.contains(id) {
+                        "  (cycle)"
+                    } else {
+                        ""
+                    };
+                    let _ = writeln!(out, "{:>3}. {id}{flag}", n + 1);
+                }
+                if result.has_cycles {
+                    let _ = writeln!(out, "Dependency cycle: {}", result.cycle_members.join(", "));
+                }
+            })
+        }
+        "cmd__product_critical_path" => {
+            let result = queries::critical_path(&input.graph);
+            render(input, &result, |out| {
+                if let Some(message) = &result.message {
+                    let _ = writeln!(out, "No critical path: {message}");
+                    return;
+                }
+                if result.critical_path.is_empty() {
+                    let _ = writeln!(out, "No critical path: no milestone is still open.");
+                    return;
+                }
+                let dash = |v: &Option<String>| v.clone().unwrap_or_else(|| "-".to_string());
+                let rows: Vec<Vec<String>> = result
+                    .critical_path
+                    .iter()
+                    .map(|n| {
+                        vec![
+                            n.entity_id.clone(),
+                            dash(&n.target_date),
+                            dash(&n.status),
+                            n.slack_days.map_or("-".to_string(), |s| s.to_string()),
+                        ]
+                    })
+                    .collect();
+                out.push_str(&table(
+                    &["milestone", "target_date", "status", "slack"],
+                    &rows,
+                ));
+                if !result.bottleneck_ids.is_empty() {
+                    let _ = writeln!(out, "Bottlenecks: {}", result.bottleneck_ids.join(", "));
+                }
+            })
+        }
+        "cmd__product_module_depth" => lookup(
+            input,
+            "module",
+            queries::module_dependency_depth,
+            |r, out| {
+                if r.depth < 0 {
+                    let _ = writeln!(
+                        out,
+                        "Module: {} (depth -1: on or behind a dependency cycle)",
+                        r.module_id
+                    );
+                    let _ = writeln!(out, "Cycle: {}", r.longest_chain.join(", "));
+                } else {
+                    let _ = writeln!(out, "Module: {} (depth {})", r.module_id, r.depth);
+                    let _ = writeln!(out, "Chain: {}", r.longest_chain.join(" -> "));
+                }
+            },
+        ),
+        "cmd__product_module_coupling" => {
+            let coupling = queries::module_coupling(&input.graph);
+            let extra = serde_json::json!({
+                "avg_fan_in": coupling.avg_fan_in,
+                "avg_fan_out": coupling.avg_fan_out,
+                "most_coupled_id": coupling.most_coupled_id,
+                "total_modules": coupling.total_modules,
+            });
+            paged(input, "modules", coupling.modules, extra, |page, out| {
+                let rows: Vec<Vec<String>> = page
+                    .items
+                    .iter()
+                    .map(|m| {
+                        vec![
+                            m.module_id.clone(),
+                            m.fan_in.to_string(),
+                            m.fan_out.to_string(),
+                            m.coupling.to_string(),
+                        ]
+                    })
+                    .collect();
+                out.push_str(&table(&["module", "fan_in", "fan_out", "coupling"], &rows));
+            })
+        }
+        "cmd__product_deliverable_dependents" => lookup(
+            input,
+            "deliverable",
+            queries::deliverable_dependents,
+            |r, out| {
+                ids(
+                    out,
+                    &format!("Deliverables depending on '{}'", r.deliverable_id),
+                    &r.dependents,
+                );
+            },
+        ),
         "cmd__product_bulk_status" => {
             let result = queries::bulk_status(&input.graph);
             render(input, &result, |out| {

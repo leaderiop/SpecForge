@@ -169,6 +169,18 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
   are requested by a `--details` flag. `owner_workload` lists owners with the
   most entities first, ties by owner, and pages them; an empty owner string
   is no owner.
+- **A dependency cycle is reported, never followed.** The dependency
+  queries share one graph of a kind's `depends_on` (levels by Kahn, cycles
+  by an iterative Tarjan, both O(V+E)). `feature_ordering` lists every
+  feature once: those on a cycle or depending on one have no level and come
+  last, ordered as a level is, and only those on a cycle are
+  `cycle_members`. `critical_path` gives no path while any milestone cycle
+  exists (E015), and says so in `CriticalPathPayload.message`, a field added
+  for the "empty path with message" its surface promises; its slack is 0
+  on the path, as a critical path's is, and `null` for a milestone without
+  a `target_date`. `module_depth` is -1 for a module on a cycle or
+  depending on one, its chain the members of the cycles it reaches, since
+  neither has a longest chain. Equally long chains are taken by id.
 
 ## What would reopen this
 

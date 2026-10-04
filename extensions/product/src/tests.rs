@@ -654,6 +654,77 @@ fn owners_are_ranked_by_how_much_they_own() {
     assert_eq!((w.unowned_count, w.total_entities), (1, 4));
 }
 
+// ── dependency graphs ──────────────────────────────────────────────────────
+
+#[test]
+fn a_diamond_orders_once_and_a_cycle_is_reported_not_followed() {
+    // top -> left, right -> base; c1 <-> c2; self -> self; after -> c1.
+    let g = G::default()
+        .n("top", "feature")
+        .n("left", "feature")
+        .n("right", "feature")
+        .n("base", "feature")
+        .n("c1", "feature")
+        .n("c2", "feature")
+        .n("selfish", "feature")
+        .n("after", "feature")
+        .edge("top", "left", "depends_on")
+        .edge("top", "right", "depends_on")
+        .edge("left", "base", "depends_on")
+        .edge("right", "base", "depends_on")
+        .edge("c1", "c2", "depends_on")
+        .edge("c2", "c1", "depends_on")
+        .edge("selfish", "selfish", "depends_on")
+        .edge("after", "c1", "depends_on")
+        .build();
+    let order = feature_ordering(&g);
+    assert_eq!(
+        order.sorted_features,
+        ["base", "left", "right", "top", "after", "c1", "c2", "selfish"]
+    );
+    assert!(order.has_cycles);
+    assert_eq!(order.cycle_members, ["c1", "c2", "selfish"]);
+}
+
+#[test]
+fn a_long_chain_is_walked_without_recursion() {
+    let mut g = G::default();
+    for i in 0..5000 {
+        g = g.n(&format!("m{i:04}"), "module");
+        if i > 0 {
+            g = g.edge(&format!("m{i:04}"), &format!("m{:04}", i - 1), "depends_on");
+        }
+    }
+    let g = g.edge("m0000", "m4999", "depends_on").build();
+    let depth = module_dependency_depth(&g, "m2500").unwrap();
+    assert_eq!(depth.depth, -1);
+    assert_eq!(depth.longest_chain.len(), 5000);
+}
+
+#[test]
+fn a_module_behind_a_cycle_reports_the_cycle_it_reaches() {
+    let g = G::default()
+        .n("app", "module")
+        .n("a", "module")
+        .n("b", "module")
+        .n("leaf", "module")
+        .edge("app", "a", "depends_on")
+        .edge("a", "b", "depends_on")
+        .edge("b", "a", "depends_on")
+        .edge("app", "leaf", "depends_on")
+        .build();
+    let depth = module_dependency_depth(&g, "app").unwrap();
+    assert_eq!(
+        (depth.depth, depth.longest_chain),
+        (-1, vec!["a".to_string(), "b".to_string()])
+    );
+    let leaf = module_dependency_depth(&g, "leaf").unwrap();
+    assert_eq!(
+        (leaf.depth, leaf.longest_chain),
+        (0, vec!["leaf".to_string()])
+    );
+}
+
 // ── commands ───────────────────────────────────────────────────────────────
 
 fn input(args: serde_json::Value, graph: CommandGraph) -> CommandInput {
@@ -782,7 +853,7 @@ fn every_declared_command_has_its_export() {
     let surfaces: serde_json::Value =
         serde_json::from_slice(include_bytes!("describe_surfaces.json")).unwrap();
     let commands = surfaces["items"][0]["commands"].as_array().unwrap();
-    assert_eq!(commands.len(), 26);
+    assert_eq!(commands.len(), 31);
     for command in commands {
         let export = command["export"].as_str().unwrap();
         assert_eq!(

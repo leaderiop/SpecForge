@@ -186,6 +186,11 @@ fn product_declares_its_commands_and_exports_them() {
             "deliverable_priority",
             "unscheduled_features",
             "owner_workload",
+            "feature_ordering",
+            "critical_path",
+            "module_depth",
+            "module_coupling",
+            "deliverable_dependents",
             "bulk_status",
             "health",
         ]

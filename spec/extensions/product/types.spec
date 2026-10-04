@@ -901,6 +901,8 @@ type CriticalPathPayload {
   earliest_completion string @optional
   latest_completion   string @optional
   bottleneck_ids      EntityId[]
+  // Why the path is empty when milestones depend on each other in a cycle.
+  message             string @optional
   verify property "CriticalPathPayload"
 }
 

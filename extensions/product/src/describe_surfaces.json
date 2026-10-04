@@ -669,6 +669,73 @@
           ]
         },
         {
+          "id": "feature_ordering",
+          "title": "Show features in dependency order",
+          "description": "Every feature, dependencies before dependents, by priority within a level (none counts as medium), then by id; features on or behind a depends_on cycle come last, and the cycle's members are reported.",
+          "category": "query",
+          "export": "cmd__product_feature_ordering",
+          "args": []
+        },
+        {
+          "id": "critical_path",
+          "title": "Show the critical path through milestones",
+          "description": "The longest depends_on chain of milestones not yet completed, earliest first, with target dates, zero slack and the blocked or in-progress bottlenecks; empty, with a message, when milestones depend on each other in a cycle.",
+          "category": "query",
+          "export": "cmd__product_critical_path",
+          "args": []
+        },
+        {
+          "id": "module_depth",
+          "title": "Show a module's dependency depth",
+          "description": "The longest depends_on chain from a module, the module first, and its length in edges; -1 and the cycle's members when the module is on or behind a dependency cycle.",
+          "category": "query",
+          "export": "cmd__product_module_depth",
+          "args": [
+            {
+              "name": "module",
+              "arg_type": "string",
+              "required": true,
+              "description": "The module id"
+            }
+          ]
+        },
+        {
+          "id": "module_coupling",
+          "title": "Show module coupling",
+          "description": "Each module's fan-in, fan-out and their sum over depends_on, most coupled first, paged, with the averages and the most coupled module.",
+          "category": "query",
+          "export": "cmd__product_module_coupling",
+          "args": [
+            {
+              "name": "limit",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
+            }
+          ]
+        },
+        {
+          "id": "deliverable_dependents",
+          "title": "Show deliverables that depend on a given deliverable",
+          "description": "The deliverables that declare depends_on the deliverable, sorted by id.",
+          "category": "query",
+          "export": "cmd__product_deliverable_dependents",
+          "args": [
+            {
+              "name": "deliverable",
+              "arg_type": "string",
+              "required": true,
+              "description": "The deliverable id"
+            }
+          ]
+        },
+        {
           "id": "bulk_status",
           "title": "Show status breakdown across all entity kinds",
           "description": "For each product kind with a lifecycle, how many entities have each status.",
