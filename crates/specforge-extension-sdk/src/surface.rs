@@ -1,0 +1,968 @@
+//! Surface contributions: the CLI commands, MCP tools and MCP resources an
+//! extension contributes, each declared together with the function that
+//! answers it.
+//!
+//! One declaration gives both halves of a surface: the `surfaces` describe
+//! payload the host loads (ids, args, exports) and the routing of the
+//! export the host then calls (`cmd__<prefix>_<id>`, `mcp__<name>`) to the
+//! declared handler, so a declared command cannot lack its code, nor code
+//! answer an export nothing declares. A command's handler reads its args
+//! through [`CommandCall`], which only reads args the command declares, with
+//! the type it declares them, after the SDK has checked the caller's values
+//! against the declaration:
+//!
+//! ```ignore
+//! c.command_prefix("acme");
+//! c.command("widgets", |cmd| {
+//!     cmd.title("List widgets")
+//!         .description("Every widget, by id")
+//!         .arg("limit", |a| {
+//!             a.count().description("Return at most this many");
+//!         })
+//!         .handler(|call| {
+//!             let limit = call.count("limit").unwrap_or(100);
+//!             let ids: Vec<&str> = call
+//!                 .graph()
+//!                 .nodes_of_kind("widget")
+//!                 .take(limit)
+//!                 .map(|n| n.id.as_str())
+//!                 .collect();
+//!             call.render(&serde_json::json!({ "widgets": ids }), |out| {
+//!                 out.push_str(&ids.join("\n"));
+//!             })
+//!         });
+//! });
+//! ```
+
+use crate::{CommandError, CommandFormat, CommandGraph, CommandInput, CommandOutput};
+use serde_json::Value;
+use specforge_protocol_types::{
+    CommandArgDescriptor, CommandArgType, CommandDescriptor, McpResourceDescriptor,
+    McpToolDescriptor, SurfaceDescriptor, SurfaceSandboxOverride,
+};
+
+/// The error code of a command called with an arg it cannot use (ADR 0011).
+pub const INVALID_INPUT: &str = "INVALID_INPUT";
+
+/// The exit code of an `INVALID_INPUT` answer, the code clap gives the usage
+/// errors it catches itself (ADR 0011).
+pub const INVALID_INPUT_EXIT: i32 = 2;
+
+/// Arg names the host owns on every command: a command declaring one is
+/// refused on both surfaces (ADR 0008, ADR 0011).
+const HOST_ARGS: &[&str] = &["path", "format", "help"];
+
+type CommandHandler = Box<dyn Fn(&CommandCall<'_>) -> CommandOutput>;
+type ToolHandler = Box<dyn Fn(&Value) -> Result<Value, String>>;
+type ResourceHandler = Box<dyn Fn(&str) -> Result<String, String>>;
+
+/// Every surface an extension declared, with its handlers.
+#[derive(Default)]
+pub(crate) struct Surfaces {
+    prefix: Option<String>,
+    commands: Vec<Command>,
+    tools: Vec<Tool>,
+    resources: Vec<Resource>,
+}
+
+struct Command {
+    descriptor: CommandDescriptor,
+    args: Vec<Arg>,
+    handler: CommandHandler,
+}
+
+struct Arg {
+    descriptor: CommandArgDescriptor,
+    /// An integer arg that must not be negative ([`ArgBuilder::count`]).
+    count: bool,
+}
+
+struct Tool {
+    descriptor: McpToolDescriptor,
+    handler: ToolHandler,
+}
+
+struct Resource {
+    descriptor: McpResourceDescriptor,
+    handler: ResourceHandler,
+}
+
+/// `name` as an export suffix: every character that is not ASCII
+/// alphanumeric or `_` becomes `_` (`probe.tool` is `probe_tool`).
+fn export_suffix(name: &str) -> String {
+    name.chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
+
+impl Surfaces {
+    pub(crate) fn set_prefix(&mut self, prefix: &str) {
+        assert!(
+            self.commands.is_empty(),
+            "command_prefix(\"{prefix}\") must come before the commands it names"
+        );
+        self.prefix = Some(export_suffix(prefix));
+    }
+
+    pub(crate) fn add_command(&mut self, id: &str, f: impl FnOnce(&mut CommandBuilder)) {
+        assert!(
+            !self.commands.iter().any(|c| c.descriptor.id == id),
+            "command '{id}' is declared twice"
+        );
+        let export = match &self.prefix {
+            Some(prefix) => format!("cmd__{prefix}_{}", export_suffix(id)),
+            None => format!("cmd__{}", export_suffix(id)),
+        };
+        let mut b = CommandBuilder {
+            descriptor: CommandDescriptor {
+                id: id.to_string(),
+                title: String::new(),
+                description: String::new(),
+                category: None,
+                export,
+                args: Vec::new(),
+                sandbox: None,
+            },
+            args: Vec::new(),
+            handler: None,
+        };
+        f(&mut b);
+        let Some(handler) = b.handler else {
+            panic!("command '{id}' declares no handler");
+        };
+        let mut descriptor = b.descriptor;
+        descriptor.args = b.args.iter().map(|a| a.descriptor.clone()).collect();
+        self.commands.push(Command {
+            descriptor,
+            args: b.args,
+            handler,
+        });
+    }
+
+    pub(crate) fn add_tool(&mut self, name: &str, f: impl FnOnce(&mut McpToolBuilder)) {
+        let mut b = McpToolBuilder {
+            descriptor: McpToolDescriptor {
+                name: name.to_string(),
+                description: String::new(),
+                category: None,
+                export: format!("mcp__{}", export_suffix(name)),
+                input_schema: serde_json::json!({"type": "object"}),
+                output_schema: None,
+                sandbox: None,
+            },
+            handler: None,
+        };
+        f(&mut b);
+        let Some(handler) = b.handler else {
+            panic!("MCP tool '{name}' declares no handler");
+        };
+        self.tools.push(Tool {
+            descriptor: b.descriptor,
+            handler,
+        });
+    }
+
+    pub(crate) fn add_resource(&mut self, name: &str, f: impl FnOnce(&mut McpResourceBuilder)) {
+        let mut b = McpResourceBuilder {
+            descriptor: McpResourceDescriptor {
+                uri_template: String::new(),
+                name: name.to_string(),
+                description: None,
+                export: format!("mcp__{}", export_suffix(name)),
+                mime_type: "application/json".to_string(),
+                sandbox: None,
+            },
+            handler: None,
+        };
+        f(&mut b);
+        let Some(handler) = b.handler else {
+            panic!("MCP resource '{name}' declares no handler");
+        };
+        self.resources.push(Resource {
+            descriptor: b.descriptor,
+            handler,
+        });
+    }
+
+    /// The `surfaces` describe items: none when nothing is declared, else
+    /// one [`SurfaceDescriptor`] of everything, in declaration order.
+    pub(crate) fn describe_items(&self) -> Value {
+        if self.commands.is_empty() && self.tools.is_empty() && self.resources.is_empty() {
+            return Value::Array(vec![]);
+        }
+        let surface = SurfaceDescriptor {
+            commands: self.commands.iter().map(|c| c.descriptor.clone()).collect(),
+            mcp_tools: self.tools.iter().map(|t| t.descriptor.clone()).collect(),
+            mcp_resources: self
+                .resources
+                .iter()
+                .map(|r| r.descriptor.clone())
+                .collect(),
+        };
+        serde_json::to_value(vec![surface]).expect("surface serialization cannot fail")
+    }
+
+    /// The command whose export is `export`, run on `input`; `None` when no
+    /// command has that export.
+    pub(crate) fn call_command(&self, export: &str, input: &CommandInput) -> Option<CommandOutput> {
+        let command = self
+            .commands
+            .iter()
+            .find(|c| c.descriptor.export == export)?;
+        Some(match CommandCall::new(command, input) {
+            Ok(call) => (command.handler)(&call),
+            Err(error) => CommandOutput::error(input.format, &error, INVALID_INPUT_EXIT),
+        })
+    }
+
+    /// The wire answer of the surface export `export`; `None` when no
+    /// declared surface has it.
+    pub(crate) fn dispatch(&self, export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+        if self.commands.iter().any(|c| c.descriptor.export == export) {
+            let input: CommandInput = match serde_json::from_slice(input) {
+                Ok(input) => input,
+                Err(e) => return Some(Err(format!("invalid command input: {e}"))),
+            };
+            return self
+                .call_command(export, &input)
+                .map(|output| Ok(output.to_bytes()));
+        }
+        if let Some(tool) = self.tools.iter().find(|t| t.descriptor.export == export) {
+            let input: Value = match serde_json::from_slice(input) {
+                Ok(input) => input,
+                Err(e) => return Some(Err(format!("invalid tool input: {e}"))),
+            };
+            return Some((tool.handler)(&input).map(|out| out.to_string().into_bytes()));
+        }
+        let resource = self
+            .resources
+            .iter()
+            .find(|r| r.descriptor.export == export)?;
+        let uri = serde_json::from_slice::<Value>(input)
+            .ok()
+            .and_then(|v| v.get("uri").and_then(Value::as_str).map(str::to_string));
+        let Some(uri) = uri else {
+            return Some(Err("invalid resource input: no uri".to_string()));
+        };
+        Some((resource.handler)(&uri).map(|content| {
+            serde_json::json!({"content": content, "mime_type": resource.descriptor.mime_type})
+                .to_string()
+                .into_bytes()
+        }))
+    }
+}
+
+/// Builder for one command ([`crate::ContributionsBuilder::command`]).
+pub struct CommandBuilder {
+    descriptor: CommandDescriptor,
+    args: Vec<Arg>,
+    handler: Option<CommandHandler>,
+}
+
+impl CommandBuilder {
+    /// The one-line title help lists the command under.
+    pub fn title(&mut self, title: &str) -> &mut Self {
+        self.descriptor.title = title.to_string();
+        self
+    }
+
+    /// What the command answers: its help text and its MCP tool's description.
+    pub fn description(&mut self, description: &str) -> &mut Self {
+        self.descriptor.description = description.to_string();
+        self
+    }
+
+    pub fn category(&mut self, category: &str) -> &mut Self {
+        self.descriptor.category = Some(category.to_string());
+        self
+    }
+
+    /// The capabilities the command asks for. Declared, not granted: the
+    /// host grants a `cmd__` export none (ADR 0008).
+    pub fn sandbox(&mut self, f: impl FnOnce(&mut SandboxBuilder)) -> &mut Self {
+        self.descriptor.sandbox = Some(sandbox(f));
+        self
+    }
+
+    /// Declare the arg `name` (a string unless `f` says otherwise). On the
+    /// command line a required arg is positional, in declaration order; any
+    /// other, and every flag, is `--<name with _ as ->`.
+    ///
+    /// Panics on an arg the host owns (`path`, `format`, `help`) or one
+    /// declared twice, which the host would refuse.
+    pub fn arg(&mut self, name: &str, f: impl FnOnce(&mut ArgBuilder)) -> &mut Self {
+        let id = &self.descriptor.id;
+        assert!(
+            !HOST_ARGS.contains(&name),
+            "command '{id}' declares arg '{name}', which the host owns on every command"
+        );
+        assert!(
+            !self.args.iter().any(|a| a.descriptor.name == name),
+            "command '{id}' declares arg '{name}' twice"
+        );
+        let mut b = ArgBuilder(Arg {
+            descriptor: CommandArgDescriptor {
+                name: name.to_string(),
+                arg_type: CommandArgType::String,
+                required: false,
+                default_value: None,
+                description: None,
+            },
+            count: false,
+        });
+        f(&mut b);
+        self.args.push(b.0);
+        self
+    }
+
+    /// The function that answers the command.
+    pub fn handler(
+        &mut self,
+        handler: impl Fn(&CommandCall<'_>) -> CommandOutput + 'static,
+    ) -> &mut Self {
+        self.handler = Some(Box::new(handler));
+        self
+    }
+}
+
+/// Builder for one command arg ([`CommandBuilder::arg`]).
+pub struct ArgBuilder(Arg);
+
+impl ArgBuilder {
+    /// A string (the default); read with [`CommandCall::str`].
+    pub fn string(&mut self) -> &mut Self {
+        self.set(CommandArgType::String)
+    }
+
+    /// A file system path, passed as a string; read with [`CommandCall::str`].
+    pub fn path(&mut self) -> &mut Self {
+        self.set(CommandArgType::Path)
+    }
+
+    /// A boolean `--flag`; read with [`CommandCall::flag`].
+    pub fn flag(&mut self) -> &mut Self {
+        self.set(CommandArgType::Bool)
+    }
+
+    /// An integer; read with [`CommandCall::integer`].
+    pub fn integer(&mut self) -> &mut Self {
+        self.set(CommandArgType::Integer)
+    }
+
+    /// A non-negative integer (an integer on the wire); read with
+    /// [`CommandCall::count`]. A negative value is `INVALID_INPUT`.
+    pub fn count(&mut self) -> &mut Self {
+        self.set(CommandArgType::Integer);
+        self.0.count = true;
+        self
+    }
+
+    /// One of `values`; read with [`CommandCall::str`]. Any other value is
+    /// `INVALID_INPUT` (the CLI refuses it first).
+    pub fn one_of(&mut self, values: &[&str]) -> &mut Self {
+        self.set(CommandArgType::Enum {
+            values: values.iter().map(|v| v.to_string()).collect(),
+        })
+    }
+
+    /// The caller must set it: a positional arg on the command line.
+    pub fn required(&mut self) -> &mut Self {
+        self.0.descriptor.required = true;
+        self
+    }
+
+    /// The value the host passes when the caller leaves the arg out.
+    pub fn default_value(&mut self, value: &str) -> &mut Self {
+        self.0.descriptor.default_value = Some(value.to_string());
+        self
+    }
+
+    /// The arg's help text and its MCP tool property's description.
+    pub fn description(&mut self, description: &str) -> &mut Self {
+        self.0.descriptor.description = Some(description.to_string());
+        self
+    }
+
+    fn set(&mut self, arg_type: CommandArgType) -> &mut Self {
+        self.0.descriptor.arg_type = arg_type;
+        self.0.count = false;
+        self
+    }
+}
+
+/// Builder for a surface's [`SurfaceSandboxOverride`].
+pub struct SandboxBuilder(SurfaceSandboxOverride);
+
+impl SandboxBuilder {
+    pub fn fs_read(&mut self) -> &mut Self {
+        self.0.fs_read = Some(true);
+        self
+    }
+    pub fn fs_write(&mut self) -> &mut Self {
+        self.0.fs_write = Some(true);
+        self
+    }
+    pub fn network(&mut self) -> &mut Self {
+        self.0.network = Some(true);
+        self
+    }
+}
+
+fn sandbox(f: impl FnOnce(&mut SandboxBuilder)) -> SurfaceSandboxOverride {
+    let mut b = SandboxBuilder(SurfaceSandboxOverride {
+        fs_read: None,
+        fs_write: None,
+        network: None,
+    });
+    f(&mut b);
+    b.0
+}
+
+/// Builder for one MCP tool ([`crate::ContributionsBuilder::mcp_tool`]).
+pub struct McpToolBuilder {
+    descriptor: McpToolDescriptor,
+    handler: Option<ToolHandler>,
+}
+
+impl McpToolBuilder {
+    pub fn description(&mut self, description: &str) -> &mut Self {
+        self.descriptor.description = description.to_string();
+        self
+    }
+    pub fn category(&mut self, category: &str) -> &mut Self {
+        self.descriptor.category = Some(category.to_string());
+        self
+    }
+    /// The JSON Schema of the tool's arguments (default `{"type": "object"}`).
+    pub fn input_schema(&mut self, schema: Value) -> &mut Self {
+        self.descriptor.input_schema = schema;
+        self
+    }
+    pub fn output_schema(&mut self, schema: Value) -> &mut Self {
+        self.descriptor.output_schema = Some(schema);
+        self
+    }
+    pub fn sandbox(&mut self, f: impl FnOnce(&mut SandboxBuilder)) -> &mut Self {
+        self.descriptor.sandbox = Some(sandbox(f));
+        self
+    }
+    /// The function that answers the tool: its arguments in, its JSON
+    /// result out; an `Err` fails the call.
+    pub fn handler(
+        &mut self,
+        handler: impl Fn(&Value) -> Result<Value, String> + 'static,
+    ) -> &mut Self {
+        self.handler = Some(Box::new(handler));
+        self
+    }
+}
+
+/// Builder for one MCP resource ([`crate::ContributionsBuilder::mcp_resource`]).
+pub struct McpResourceBuilder {
+    descriptor: McpResourceDescriptor,
+    handler: Option<ResourceHandler>,
+}
+
+impl McpResourceBuilder {
+    /// The URIs the resource answers (`specforge://ext/acme/{id}`).
+    pub fn uri_template(&mut self, template: &str) -> &mut Self {
+        self.descriptor.uri_template = template.to_string();
+        self
+    }
+    pub fn description(&mut self, description: &str) -> &mut Self {
+        self.descriptor.description = Some(description.to_string());
+        self
+    }
+    /// The content's MIME type (default `application/json`), which every
+    /// read reports.
+    pub fn mime_type(&mut self, mime_type: &str) -> &mut Self {
+        self.descriptor.mime_type = mime_type.to_string();
+        self
+    }
+    pub fn sandbox(&mut self, f: impl FnOnce(&mut SandboxBuilder)) -> &mut Self {
+        self.descriptor.sandbox = Some(sandbox(f));
+        self
+    }
+    /// The function that reads the resource: the URI read in, its content
+    /// out; an `Err` fails the read.
+    pub fn handler(
+        &mut self,
+        handler: impl Fn(&str) -> Result<String, String> + 'static,
+    ) -> &mut Self {
+        self.handler = Some(Box::new(handler));
+        self
+    }
+}
+
+/// One call of a command, as its handler sees it: the args the caller set,
+/// checked against the command's declaration, and the rest of the
+/// [`CommandInput`].
+///
+/// The arg accessors read only args the command declares, as the type it
+/// declares them: reading an undeclared arg, or a declared one as another
+/// type, is a bug in the extension and panics (the host reports the trap
+/// as E028), so a test calling the command finds it.
+pub struct CommandCall<'a> {
+    command: &'a Command,
+    input: &'a CommandInput,
+    /// The declared args the caller set, normalized to their declared type
+    /// (a string, an integer or a boolean).
+    values: serde_json::Map<String, Value>,
+}
+
+impl<'a> CommandCall<'a> {
+    /// `input`'s args checked against `command`'s declaration: a required
+    /// arg missing, or a value of another type, is `INVALID_INPUT`. Args the
+    /// command does not declare are ignored.
+    fn new(command: &'a Command, input: &'a CommandInput) -> Result<Self, CommandError> {
+        let mut values = serde_json::Map::new();
+        for arg in &command.args {
+            let name = arg.descriptor.name.as_str();
+            let Some(value) = input.args.get(name) else {
+                if arg.descriptor.required {
+                    return Err(invalid(format!("missing required arg '{name}'")));
+                }
+                continue;
+            };
+            values.insert(name.to_string(), normalize(arg, value)?);
+        }
+        Ok(CommandCall {
+            command,
+            input,
+            values,
+        })
+    }
+
+    /// The id of the command called.
+    pub fn id(&self) -> &str {
+        &self.command.descriptor.id
+    }
+
+    /// The compiled project's graph.
+    pub fn graph(&self) -> &'a CommandGraph {
+        &self.input.graph
+    }
+
+    /// The format the caller asked for.
+    pub fn format(&self) -> CommandFormat {
+        self.input.format
+    }
+
+    /// Whether the caller asked for `json`.
+    pub fn is_json(&self) -> bool {
+        self.input.is_json()
+    }
+
+    /// The host's date, `YYYY-MM-DD`, UTC; empty when the host passed none.
+    pub fn today(&self) -> &'a str {
+        &self.input.today
+    }
+
+    /// The project root.
+    pub fn cwd(&self) -> &'a str {
+        &self.input.cwd
+    }
+
+    /// Whether the caller set the declared arg `name`.
+    pub fn is_set(&self, name: &str) -> bool {
+        self.declared(name);
+        self.values.contains_key(name)
+    }
+
+    /// The string, path or enum arg `name`, when set.
+    pub fn str(&self, name: &str) -> Option<&str> {
+        let arg = self.declared(name);
+        self.expect(
+            arg,
+            matches!(
+                arg.descriptor.arg_type,
+                CommandArgType::String | CommandArgType::Path | CommandArgType::Enum { .. }
+            ),
+            "a string",
+        );
+        self.values.get(name).and_then(Value::as_str)
+    }
+
+    /// The count arg `name` ([`ArgBuilder::count`]), when set.
+    pub fn count(&self, name: &str) -> Option<usize> {
+        let arg = self.declared(name);
+        self.expect(arg, arg.count, "a count");
+        self.values
+            .get(name)
+            .and_then(Value::as_u64)
+            .map(|n| n as usize)
+    }
+
+    /// The integer (or count) arg `name`, when set.
+    pub fn integer(&self, name: &str) -> Option<i64> {
+        let arg = self.declared(name);
+        self.expect(
+            arg,
+            arg.descriptor.arg_type == CommandArgType::Integer,
+            "an integer",
+        );
+        self.values.get(name).and_then(Value::as_i64)
+    }
+
+    /// The flag `name`; `false` when unset.
+    pub fn flag(&self, name: &str) -> bool {
+        let arg = self.declared(name);
+        self.expect(
+            arg,
+            arg.descriptor.arg_type == CommandArgType::Bool,
+            "a flag",
+        );
+        self.values
+            .get(name)
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    }
+
+    /// `payload` as pretty JSON (one root object, then a newline) when the
+    /// caller asked for `json`, else what `human` writes.
+    pub fn render<T: serde::Serialize>(
+        &self,
+        payload: &T,
+        human: impl FnOnce(&mut String),
+    ) -> CommandOutput {
+        let mut out = String::new();
+        if self.is_json() {
+            out = serde_json::to_string_pretty(payload).unwrap_or_default();
+            out.push('\n');
+        } else {
+            human(&mut out);
+        }
+        CommandOutput::ok(out)
+    }
+
+    /// `error` on stderr in the format the caller asked for, exit
+    /// `exit_code` ([`CommandOutput::error`]).
+    pub fn fail(&self, error: &CommandError, exit_code: i32) -> CommandOutput {
+        CommandOutput::error(self.format(), error, exit_code)
+    }
+
+    fn declared(&self, name: &str) -> &'a Arg {
+        let command = self.command;
+        command
+            .args
+            .iter()
+            .find(|a| a.descriptor.name == name)
+            .unwrap_or_else(|| {
+                panic!(
+                    "command '{}' reads arg '{name}', which it does not declare",
+                    command.descriptor.id
+                )
+            })
+    }
+
+    fn expect(&self, arg: &Arg, ok: bool, what: &str) {
+        assert!(
+            ok,
+            "command '{}' reads arg '{}' as {what}, but declares it {:?}{}",
+            self.command.descriptor.id,
+            arg.descriptor.name,
+            arg.descriptor.arg_type,
+            if arg.count { " (a count)" } else { "" }
+        );
+    }
+}
+
+fn invalid(message: String) -> CommandError {
+    CommandError::new(INVALID_INPUT, message)
+}
+
+/// `value` as `arg` declares it, or `INVALID_INPUT`. Integers and booleans
+/// may come as strings holding one (`"5"`, `"true"`).
+fn normalize(arg: &Arg, value: &Value) -> Result<Value, CommandError> {
+    let name = &arg.descriptor.name;
+    match &arg.descriptor.arg_type {
+        CommandArgType::String | CommandArgType::Path => match value {
+            Value::String(_) => Ok(value.clone()),
+            _ => Err(invalid(format!("{name} must be a string, got {value}"))),
+        },
+        CommandArgType::Enum { values } => match value.as_str() {
+            Some(s) if values.iter().any(|v| v == s) => Ok(value.clone()),
+            Some(s) => Err(invalid(format!(
+                "{name} must be one of {}, got '{s}'",
+                values.join(", ")
+            ))),
+            None => Err(invalid(format!(
+                "{name} must be one of {}, got {value}",
+                values.join(", ")
+            ))),
+        },
+        CommandArgType::Integer if arg.count => {
+            let n = match value {
+                Value::Number(n) => n.as_u64(),
+                Value::String(s) => s.parse::<u64>().ok(),
+                _ => None,
+            };
+            n.map(Value::from).ok_or_else(|| {
+                invalid(format!(
+                    "{name} must be a non-negative integer, got {value}"
+                ))
+            })
+        }
+        CommandArgType::Integer => {
+            let n = match value {
+                Value::Number(n) => n.as_i64(),
+                Value::String(s) => s.parse::<i64>().ok(),
+                _ => None,
+            };
+            n.map(Value::from)
+                .ok_or_else(|| invalid(format!("{name} must be an integer, got {value}")))
+        }
+        CommandArgType::Bool => match value {
+            Value::Bool(_) => Ok(value.clone()),
+            Value::String(s) if s == "true" || s == "false" => Ok(Value::Bool(s == "true")),
+            _ => Err(invalid(format!(
+                "{name} must be true or false, got {value}"
+            ))),
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{CommandFormat, CommandInput, CommandOutput, ContributionsBuilder, ExtensionMeta};
+    use serde_json::json;
+
+    fn builder() -> ContributionsBuilder {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/widgets", "1.0.0"));
+        c.command_prefix("acme");
+        c.command("widgets", |cmd| {
+            cmd.title("List widgets")
+                .description("Every widget")
+                .category("query")
+                .arg("widget", |a| {
+                    a.required().description("The widget id");
+                })
+                .arg("limit", |a| {
+                    a.count();
+                })
+                .arg("shift", |a| {
+                    a.integer();
+                })
+                .arg("all", |a| {
+                    a.flag();
+                })
+                .arg("color", |a| {
+                    a.one_of(&["red", "blue"]);
+                })
+                .handler(|call| {
+                    let out = json!({
+                        "widget": call.str("widget"),
+                        "limit": call.count("limit"),
+                        "shift": call.integer("shift"),
+                        "all": call.flag("all"),
+                        "color": call.str("color"),
+                        "nodes": call.graph().nodes().len(),
+                        "today": call.today(),
+                    });
+                    call.render(&out, |s| s.push_str("human\n"))
+                });
+        });
+        c
+    }
+
+    fn call(c: &ContributionsBuilder, args: serde_json::Value) -> CommandOutput {
+        let input = CommandInput {
+            args: args.as_object().unwrap().clone(),
+            format: CommandFormat::Json,
+            today: "2026-10-04".into(),
+            ..Default::default()
+        };
+        c.call_command("cmd__acme_widgets", &input).unwrap()
+    }
+
+    #[test]
+    fn a_declared_command_is_described_with_its_args_in_order() {
+        let c = builder();
+        let described: serde_json::Value =
+            serde_json::from_str(&c.describe_response_json("surfaces").unwrap()).unwrap();
+        assert_eq!(
+            described["items"],
+            json!([{"commands": [{
+                "id": "widgets", "title": "List widgets", "description": "Every widget",
+                "category": "query", "export": "cmd__acme_widgets",
+                "args": [
+                    {"name": "widget", "arg_type": "string", "required": true,
+                     "description": "The widget id"},
+                    {"name": "limit", "arg_type": "integer", "required": false},
+                    {"name": "shift", "arg_type": "integer", "required": false},
+                    {"name": "all", "arg_type": "bool", "required": false},
+                    {"name": "color", "arg_type": {"enum": {"values": ["red", "blue"]}},
+                     "required": false}
+                ]
+            }]}])
+        );
+    }
+
+    #[test]
+    fn no_surfaces_describe_as_none() {
+        let c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+        let described: serde_json::Value =
+            serde_json::from_str(&c.describe_response_json("surfaces").unwrap()).unwrap();
+        assert_eq!(described, json!({"category": "surfaces", "items": []}));
+    }
+
+    #[test]
+    fn the_handler_reads_the_declared_args_typed() {
+        let out = call(
+            &builder(),
+            json!({"widget": "w1", "limit": "3", "shift": -2, "all": "true", "color": "red",
+                   "undeclared": 1}),
+        );
+        assert_eq!(out.exit_code, 0, "{out:?}");
+        let out: serde_json::Value = serde_json::from_str(&out.stdout).unwrap();
+        assert_eq!(
+            out,
+            json!({"widget": "w1", "limit": 3, "shift": -2, "all": true, "color": "red",
+                   "nodes": 0, "today": "2026-10-04"})
+        );
+    }
+
+    #[test]
+    fn a_value_the_declaration_refuses_is_invalid_input() {
+        let c = builder();
+        for (args, says) in [
+            (json!({}), "missing required arg 'widget'"),
+            (
+                json!({"widget": "w", "limit": -1}),
+                "limit must be a non-negative integer, got -1",
+            ),
+            (
+                json!({"widget": "w", "shift": "x"}),
+                "shift must be an integer, got \"x\"",
+            ),
+            (
+                json!({"widget": "w", "all": 1}),
+                "all must be true or false, got 1",
+            ),
+            (
+                json!({"widget": "w", "color": "green"}),
+                "color must be one of red, blue, got 'green'",
+            ),
+            (json!({"widget": 5}), "widget must be a string, got 5"),
+        ] {
+            let out = call(&c, args.clone());
+            assert_eq!((out.exit_code, out.stdout.as_str()), (2, ""), "{args}");
+            let error: serde_json::Value = serde_json::from_str(&out.stderr).unwrap();
+            assert_eq!(error["code"], "INVALID_INPUT", "{args}");
+            assert_eq!(error["message"], says, "{args}");
+        }
+    }
+
+    #[test]
+    fn the_export_routes_to_the_handler_and_nothing_else() {
+        let c = builder();
+        let input = json!({"args": {"widget": "w1"}, "format": "json"}).to_string();
+        let out: CommandOutput = serde_json::from_slice(
+            &c.dispatch_export("cmd__acme_widgets", input.as_bytes())
+                .unwrap()
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(out.exit_code, 0);
+        assert!(
+            c.dispatch_export("cmd__acme_nope", input.as_bytes())
+                .is_none()
+        );
+        assert!(
+            c.dispatch_export("cmd__acme_widgets", b"not json")
+                .unwrap()
+                .is_err()
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "command 'w' reads arg 'nope', which it does not declare")]
+    fn reading_an_undeclared_arg_panics() {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+        c.command("w", |cmd| {
+            cmd.handler(|call| CommandOutput::ok(call.str("nope").unwrap_or_default()));
+        });
+        c.call_command("cmd__w", &CommandInput::default());
+    }
+
+    #[test]
+    #[should_panic(expected = "reads arg 'n' as a count, but declares it String")]
+    fn reading_an_arg_as_another_type_panics() {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+        c.command("w", |cmd| {
+            cmd.arg("n", |_| {})
+                .handler(|call| CommandOutput::ok(format!("{:?}", call.count("n"))));
+        });
+        c.call_command("cmd__w", &CommandInput::default());
+    }
+
+    #[test]
+    #[should_panic(expected = "declares arg 'format', which the host owns")]
+    fn an_arg_the_host_owns_is_refused() {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+        c.command("w", |cmd| {
+            cmd.arg("format", |_| {});
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "command 'w' declares no handler")]
+    fn a_command_without_a_handler_is_refused() {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+        c.command("w", |cmd| {
+            cmd.title("W");
+        });
+    }
+
+    #[test]
+    fn tools_and_resources_are_described_and_routed() {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+        c.mcp_tool("acme.echo", |t| {
+            t.description("Echo")
+                .sandbox(|s| {
+                    s.network();
+                })
+                .handler(|input| Ok(json!({"echo": input})));
+        });
+        c.mcp_resource("acme-doc", |r| {
+            r.uri_template("specforge://ext/acme/{id}")
+                .mime_type("text/plain")
+                .handler(|uri| Ok(format!("read {uri}")));
+        });
+        let described: serde_json::Value =
+            serde_json::from_str(&c.describe_response_json("surfaces").unwrap()).unwrap();
+        assert_eq!(
+            described["items"],
+            json!([{
+                "commands": [],
+                "mcp_tools": [{"name": "acme.echo", "description": "Echo",
+                    "export": "mcp__acme_echo", "input_schema": {"type": "object"},
+                    "sandbox": {"network": true}}],
+                "mcp_resources": [{"uri_template": "specforge://ext/acme/{id}",
+                    "name": "acme-doc", "export": "mcp__acme_doc", "mime_type": "text/plain"}]
+            }])
+        );
+        let tool = c
+            .dispatch_export("mcp__acme_echo", br#"{"a":1}"#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&tool).unwrap(),
+            json!({"echo": {"a": 1}})
+        );
+        let read = c
+            .dispatch_export("mcp__acme_doc", br#"{"uri":"specforge://ext/acme/d1"}"#)
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&read).unwrap(),
+            json!({"content": "read specforge://ext/acme/d1", "mime_type": "text/plain"})
+        );
+    }
+}

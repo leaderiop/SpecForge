@@ -406,9 +406,9 @@ pub struct ValidationRuleDescriptor {
 pub struct SurfaceDescriptor {
     #[serde(default)]
     pub commands: Vec<CommandDescriptor>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mcp_tools: Vec<McpToolDescriptor>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mcp_resources: Vec<McpResourceDescriptor>,
 }
 
@@ -418,12 +418,12 @@ pub struct CommandDescriptor {
     pub id: String,
     pub title: String,
     pub description: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
     pub export: String,
     #[serde(default)]
     pub args: Vec<CommandArgDescriptor>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sandbox: Option<SurfaceSandboxOverride>,
 }
 
@@ -434,9 +434,9 @@ pub struct CommandArgDescriptor {
     pub arg_type: CommandArgType,
     #[serde(default)]
     pub required: bool,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_value: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
 
@@ -459,13 +459,13 @@ pub enum CommandArgType {
 pub struct McpToolDescriptor {
     pub name: String,
     pub description: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
     pub export: String,
     pub input_schema: serde_json::Value,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output_schema: Option<serde_json::Value>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sandbox: Option<SurfaceSandboxOverride>,
 }
 
@@ -474,22 +474,22 @@ pub struct McpToolDescriptor {
 pub struct McpResourceDescriptor {
     pub uri_template: String,
     pub name: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub export: String,
     pub mime_type: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sandbox: Option<SurfaceSandboxOverride>,
 }
 
 /// Per-surface sandbox override.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SurfaceSandboxOverride {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fs_read: Option<bool>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fs_write: Option<bool>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub network: Option<bool>,
 }
 
