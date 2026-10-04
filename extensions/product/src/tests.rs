@@ -244,28 +244,48 @@ fn journey_coverage_counts_done_features_not_module_ownership() {
 // ── features ───────────────────────────────────────────────────────────────
 
 #[test]
-fn feature_impact_groups_references_by_kind() {
+fn feature_impact_groups_what_it_touches_by_kind() {
     let g = G::default()
         .n("f1", "feature")
         .n("f2", "feature")
         .n("f3", "feature")
+        .n("f4", "feature")
         .n("j1", "journey")
         .n("ms1", "milestone")
         .n("mod1", "module")
+        .n("d1", "deliverable")
+        .n("d2", "deliverable")
         .edge("j1", "f1", "features")
         .edge("ms1", "f1", "features")
         .edge("mod1", "f1", "features")
+        .edge("d1", "j1", "journeys")
+        .edge("d1", "mod1", "modules")
+        .edge("d2", "mod1", "modules")
         .edge("f1", "f2", "depends_on")
         .edge("f3", "f1", "depends_on")
+        .edge("f4", "f3", "depends_on")
         .build();
     let fi = feature_impact(&g, "f1").unwrap();
-    assert_eq!(fi.referenced_by_journeys, ["j1"]);
-    assert_eq!(fi.referenced_by_milestones, ["ms1"]);
-    assert_eq!(fi.referenced_by_modules, ["mod1"]);
-    assert_eq!(fi.depends_on, ["f2"]);
-    assert_eq!(fi.depended_on_by, ["f3"]);
+    assert_eq!(fi.affected_journeys, ["j1"]);
+    assert_eq!(fi.affected_milestones, ["ms1"]);
+    assert_eq!(fi.affected_modules, ["mod1"]);
+    assert_eq!(fi.affected_deliverables, ["d1", "d2"]);
+    // Transitively: f4 depends on f3, which depends on f1.
+    assert_eq!(fi.dependent_features, ["f3", "f4"]);
+    assert_eq!(fi.total_affected_entities, 7);
     assert!(feature_impact(&g, "j1").is_none());
     assert!(feature_impact(&g, "nonexistent").is_none());
+}
+
+#[test]
+fn a_dependency_cycle_ends_the_impact_walk() {
+    let g = G::default()
+        .n("f1", "feature")
+        .n("f2", "feature")
+        .edge("f1", "f2", "depends_on")
+        .edge("f2", "f1", "depends_on")
+        .build();
+    assert_eq!(feature_impact(&g, "f1").unwrap().dependent_features, ["f2"]);
 }
 
 #[test]
@@ -278,7 +298,75 @@ fn a_feature_that_only_relates_to_the_feature_is_not_a_dependent() {
         .edge("f3", "f1", "depends_on")
         .build();
     let fi = feature_impact(&g, "f1").unwrap();
-    assert_eq!(fi.depended_on_by, ["f3"]);
+    assert_eq!(fi.dependent_features, ["f3"]);
+}
+
+// ── traceability ───────────────────────────────────────────────────────────
+
+/// A deliverable with a journey and two modules over three features, f1
+/// reached both ways.
+fn shipped() -> CommandGraph {
+    G::default()
+        .n("d1", "deliverable")
+        .n("d2", "deliverable")
+        .n("j1", "journey")
+        .n("j2", "journey")
+        .n("mod1", "module")
+        .n("dev", "persona")
+        .n("cli", "channel")
+        .n("f1", "feature")
+        .n("f2", "feature")
+        .n("f3", "feature")
+        .edge("d1", "j1", "journeys")
+        .edge("d1", "j2", "journeys")
+        .edge("d1", "mod1", "modules")
+        .edge("j1", "f1", "features")
+        .edge("j1", "f2", "features")
+        .edge("mod1", "f1", "features")
+        .edge("mod1", "f3", "features")
+        .edge("j1", "dev", "persona")
+        .edge("j1", "cli", "channels")
+        .build()
+}
+
+#[test]
+fn deliverable_traceability_unions_both_paths() {
+    let g = shipped();
+    let dt = deliverable_traceability(&g, "d1").unwrap();
+    assert_eq!(dt.transitive_features, ["f1", "f2", "f3"]);
+    assert_eq!((dt.journey_path_count, dt.module_path_count), (2, 2));
+    let empty = deliverable_traceability(&g, "d2").unwrap();
+    assert!(empty.transitive_features.is_empty());
+    assert!(deliverable_traceability(&g, "j1").is_none());
+}
+
+#[test]
+fn feature_deliverables_follow_both_reverse_paths() {
+    let g = shipped();
+    let fd = feature_deliverables(&g, "f1").unwrap();
+    assert_eq!(fd.deliverables, ["d1"]);
+    assert_eq!((fd.via_journey_count, fd.via_module_count), (1, 1));
+    assert_eq!(feature_deliverables(&g, "f3").unwrap().via_journey_count, 0);
+    assert!(feature_deliverables(&g, "d1").is_none());
+}
+
+#[test]
+fn persona_channels_are_the_channels_of_its_journeys() {
+    let g = shipped();
+    let pc = persona_channels(&g, "dev").unwrap();
+    assert_eq!((pc.channels, pc.count), (vec!["cli".to_string()], 1));
+    assert!(persona_channels(&g, "cli").is_none());
+}
+
+#[test]
+fn deliverable_personas_name_the_journeys_that_reach_them() {
+    let g = shipped();
+    let dp = deliverable_personas(&g, "d1").unwrap();
+    assert_eq!(dp.personas, ["dev"]);
+    // j2 targets no persona: it connects none.
+    assert_eq!(dp.via_journey_ids, ["j1"]);
+    assert_eq!(dp.count, 1);
+    assert!(deliverable_personas(&g, "d2").unwrap().personas.is_empty());
 }
 
 #[test]
@@ -535,7 +623,7 @@ fn every_declared_command_has_its_export() {
     let surfaces: serde_json::Value =
         serde_json::from_slice(include_bytes!("describe_surfaces.json")).unwrap();
     let commands = surfaces["items"][0]["commands"].as_array().unwrap();
-    assert_eq!(commands.len(), 17);
+    assert_eq!(commands.len(), 21);
     for command in commands {
         let export = command["export"].as_str().unwrap();
         assert_eq!(
@@ -543,7 +631,7 @@ fn every_declared_command_has_its_export() {
             format!("cmd__product_{}", command["id"].as_str().unwrap())
         );
         let args = serde_json::json!({"milestone": "x", "journey": "x",
-            "feature": "x", "persona": "x", "channel": "x"});
+            "feature": "x", "persona": "x", "channel": "x", "deliverable": "x"});
         assert!(
             crate::commands::run(export, &json_input(args, sample())).is_some(),
             "{export} is declared but not exported"

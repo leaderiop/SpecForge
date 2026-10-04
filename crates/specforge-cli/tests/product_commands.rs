@@ -183,24 +183,9 @@ fn test_product_feature_impact() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(result["feature_id"], "f1");
-    assert!(
-        !result["referenced_by_journeys"]
-            .as_array()
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        !result["referenced_by_milestones"]
-            .as_array()
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        !result["referenced_by_modules"]
-            .as_array()
-            .unwrap()
-            .is_empty()
-    );
+    assert!(!result["affected_journeys"].as_array().unwrap().is_empty());
+    assert!(!result["affected_milestones"].as_array().unwrap().is_empty());
+    assert!(!result["affected_modules"].as_array().unwrap().is_empty());
 }
 
 #[specforge_test(
@@ -230,7 +215,7 @@ fn a_related_feature_is_not_a_dependent_in_the_impact() {
     assert!(output.status.success(), "{output:?}");
     let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(
-        result["depended_on_by"],
+        result["dependent_features"],
         serde_json::json!(["f2"]),
         "{result}"
     );

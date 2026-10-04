@@ -471,7 +471,7 @@
         {
           "id": "feature_impact",
           "title": "Show feature impact analysis",
-          "description": "The journeys, milestones, modules and features that reference a feature, and the features it depends on.",
+          "description": "What deferring or removing a feature touches: the journeys, milestones and modules that list it, the deliverables holding those journeys or modules, the features depending on it (transitively), and their total.",
           "category": "query",
           "export": "cmd__product_feature_impact",
           "args": [
@@ -525,6 +525,66 @@
               "arg_type": "string",
               "required": true,
               "description": "The channel id"
+            }
+          ]
+        },
+        {
+          "id": "deliverable_traceability",
+          "title": "Show the features a deliverable reaches",
+          "description": "Every feature a deliverable reaches through its journeys or its modules, once each, and how many each path reaches.",
+          "category": "query",
+          "export": "cmd__product_deliverable_traceability",
+          "args": [
+            {
+              "name": "deliverable",
+              "arg_type": "string",
+              "required": true,
+              "description": "The deliverable id"
+            }
+          ]
+        },
+        {
+          "id": "feature_deliverables",
+          "title": "Show the deliverables holding a feature",
+          "description": "Every deliverable that holds a feature through one of its journeys or modules, once each, and how many each path reaches.",
+          "category": "query",
+          "export": "cmd__product_feature_deliverables",
+          "args": [
+            {
+              "name": "feature",
+              "arg_type": "string",
+              "required": true,
+              "description": "The feature id"
+            }
+          ]
+        },
+        {
+          "id": "persona_channels",
+          "title": "Show the channels a persona uses (via journeys)",
+          "description": "The channels of every journey the persona undertakes, once each, sorted.",
+          "category": "query",
+          "export": "cmd__product_persona_channels",
+          "args": [
+            {
+              "name": "persona",
+              "arg_type": "string",
+              "required": true,
+              "description": "The persona id"
+            }
+          ]
+        },
+        {
+          "id": "deliverable_personas",
+          "title": "Show the personas a deliverable serves (via journeys)",
+          "description": "The personas the deliverable's journeys target, once each, sorted, and the journeys that connect them.",
+          "category": "query",
+          "export": "cmd__product_deliverable_personas",
+          "args": [
+            {
+              "name": "deliverable",
+              "arg_type": "string",
+              "required": true,
+              "description": "The deliverable id"
             }
           ]
         },

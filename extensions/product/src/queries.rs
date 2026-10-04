@@ -852,40 +852,51 @@ pub fn journey_coverage(graph: &CommandGraph, journey_id: &str) -> Option<Journe
 
 // ── Features ───────────────────────────────────────────────────────────────
 
+/// `FeatureImpactPayload`: what deferring or removing the feature touches.
 #[derive(Debug, Serialize)]
 pub struct FeatureImpact {
     pub feature_id: String,
-    pub referenced_by_journeys: Vec<String>,
-    pub referenced_by_milestones: Vec<String>,
-    pub referenced_by_modules: Vec<String>,
-    pub depends_on: Vec<String>,
-    pub depended_on_by: Vec<String>,
+    pub affected_journeys: Vec<String>,
+    pub affected_milestones: Vec<String>,
+    pub affected_deliverables: Vec<String>,
+    pub affected_modules: Vec<String>,
+    pub dependent_features: Vec<String>,
+    pub total_affected_entities: usize,
 }
 
-/// What references the feature, by kind, and what it depends on; `None`
-/// when `feature_id` is not a feature.
+/// The journeys, milestones and modules that list the feature, the
+/// deliverables holding those journeys or modules, and the features that
+/// depend on it, directly or through one another (only `depends_on`: a
+/// feature listing it under `features` relates to it). Each sorted by id,
+/// once; `None` when `feature_id` is not a feature.
 pub fn feature_impact(graph: &CommandGraph, feature_id: &str) -> Option<FeatureImpact> {
     of_kind(graph, feature_id, "feature")?;
+    let (via_journeys, via_modules) = deliverables_of_feature(graph, feature_id);
+    let mut dependents: Vec<String> = Vec::new();
+    let mut frontier = vec![feature_id.to_string()];
+    while let Some(next) = frontier.pop() {
+        for dependent in into(graph, &next, "depends_on", "feature") {
+            if dependent != feature_id && !dependents.contains(&dependent) {
+                dependents.push(dependent.clone());
+                frontier.push(dependent);
+            }
+        }
+    }
     let mut impact = FeatureImpact {
         feature_id: feature_id.to_string(),
-        referenced_by_journeys: Vec::new(),
-        referenced_by_milestones: Vec::new(),
-        referenced_by_modules: Vec::new(),
-        depends_on: targets(graph, feature_id, "depends_on"),
-        depended_on_by: Vec::new(),
+        affected_journeys: into(graph, feature_id, "features", "journey"),
+        affected_milestones: into(graph, feature_id, "features", "milestone"),
+        affected_deliverables: sorted_dedup([via_journeys, via_modules].concat()),
+        affected_modules: into(graph, feature_id, "features", "module"),
+        dependent_features: sorted_dedup(dependents),
+        total_affected_entities: 0,
     };
-    for edge in graph.edges_to(feature_id) {
-        let list = match kind_of(graph, &edge.source) {
-            Some("journey") => &mut impact.referenced_by_journeys,
-            Some("milestone") => &mut impact.referenced_by_milestones,
-            Some("module") => &mut impact.referenced_by_modules,
-            // A feature listing this one under `features` relates to it;
-            // only `depends_on` makes it a dependent.
-            Some("feature") if edge.label == "depends_on" => &mut impact.depended_on_by,
-            _ => continue,
-        };
-        list.push(edge.source.clone());
-    }
+    // The kinds are disjoint, so the union is the sum.
+    impact.total_affected_entities = impact.affected_journeys.len()
+        + impact.affected_milestones.len()
+        + impact.affected_deliverables.len()
+        + impact.affected_modules.len()
+        + impact.dependent_features.len();
     Some(impact)
 }
 
@@ -902,14 +913,7 @@ pub struct FeatureDependents {
 /// `feature_id` is not a feature.
 pub fn feature_dependents(graph: &CommandGraph, feature_id: &str) -> Option<FeatureDependents> {
     of_kind(graph, feature_id, "feature")?;
-    let dependents = sorted_dedup(
-        graph
-            .edges_to(feature_id)
-            .iter()
-            .filter(|e| e.label == "depends_on" && kind_of(graph, &e.source) == Some("feature"))
-            .map(|e| e.source.clone())
-            .collect(),
-    );
+    let dependents = into(graph, feature_id, "depends_on", "feature");
     Some(FeatureDependents {
         feature_id: feature_id.to_string(),
         count: dependents.len(),
@@ -931,17 +935,7 @@ pub struct PersonaFeatures {
 /// when `persona_id` is not a persona.
 pub fn persona_features(graph: &CommandGraph, persona_id: &str) -> Option<PersonaFeatures> {
     of_kind(graph, persona_id, "persona")?;
-    let journeys = graph
-        .nodes_of_kind("journey")
-        .filter(|j| {
-            j.text("persona") == Some(persona_id)
-                || graph
-                    .edges_from(&j.id)
-                    .iter()
-                    .any(|e| e.label == "persona" && e.target == persona_id)
-        })
-        .map(|j| j.id.clone())
-        .collect();
+    let journeys = journeys_of_persona(graph, persona_id);
     let (features, via_journey_ids) = through_journeys(graph, journeys);
     Some(PersonaFeatures {
         persona_id: persona_id.to_string(),
@@ -965,12 +959,7 @@ pub struct ChannelFeatures {
 /// when `channel_id` is not a channel.
 pub fn channel_features(graph: &CommandGraph, channel_id: &str) -> Option<ChannelFeatures> {
     of_kind(graph, channel_id, "channel")?;
-    let journeys = graph
-        .edges_to(channel_id)
-        .into_iter()
-        .filter(|e| e.label == "channels" && kind_of(graph, &e.source) == Some("journey"))
-        .map(|e| e.source.clone())
-        .collect();
+    let journeys = journeys_of_channel(graph, channel_id);
     let (features, via_journey_ids) = through_journeys(graph, journeys);
     Some(ChannelFeatures {
         channel_id: channel_id.to_string(),
@@ -990,6 +979,169 @@ fn through_journeys(graph: &CommandGraph, journeys: Vec<String>) -> (Vec<String>
         .filter(|f| kind_of(graph, f) == Some("feature"))
         .collect();
     (sorted_dedup(features), journeys)
+}
+
+// ── Traceability ───────────────────────────────────────────────────────────
+
+/// `DeliverableTraceabilityPayload`: every feature the deliverable reaches
+/// through its journeys or its modules, and how many each path reaches.
+#[derive(Debug, Serialize)]
+pub struct DeliverableTraceability {
+    pub deliverable_id: String,
+    pub transitive_features: Vec<String>,
+    pub journey_path_count: usize,
+    pub module_path_count: usize,
+}
+
+/// The features `deliverable -> journeys -> features` and `deliverable ->
+/// modules -> features` reach, once each; `None` when `deliverable_id` is
+/// not a deliverable.
+pub fn deliverable_traceability(
+    graph: &CommandGraph,
+    deliverable_id: &str,
+) -> Option<DeliverableTraceability> {
+    of_kind(graph, deliverable_id, "deliverable")?;
+    let (via_journeys, via_modules) = features_of_deliverable(graph, deliverable_id);
+    Some(DeliverableTraceability {
+        deliverable_id: deliverable_id.to_string(),
+        journey_path_count: via_journeys.len(),
+        module_path_count: via_modules.len(),
+        transitive_features: sorted_dedup([via_journeys, via_modules].concat()),
+    })
+}
+
+/// `FeatureDeliverablePayload`: every deliverable that holds the feature
+/// through a journey or a module, and how many each path reaches.
+#[derive(Debug, Serialize)]
+pub struct FeatureDeliverables {
+    pub feature_id: String,
+    pub deliverables: Vec<String>,
+    pub via_journey_count: usize,
+    pub via_module_count: usize,
+}
+
+/// The deliverables the reverse paths `feature <- journey <- deliverable`
+/// and `feature <- module <- deliverable` reach, once each, sorted; `None`
+/// when `feature_id` is not a feature.
+pub fn feature_deliverables(graph: &CommandGraph, feature_id: &str) -> Option<FeatureDeliverables> {
+    of_kind(graph, feature_id, "feature")?;
+    let (via_journeys, via_modules) = deliverables_of_feature(graph, feature_id);
+    Some(FeatureDeliverables {
+        feature_id: feature_id.to_string(),
+        via_journey_count: via_journeys.len(),
+        via_module_count: via_modules.len(),
+        deliverables: sorted_dedup([via_journeys, via_modules].concat()),
+    })
+}
+
+/// `PersonaChannelPayload`: the channels of every journey the persona
+/// undertakes.
+#[derive(Debug, Serialize)]
+pub struct PersonaChannels {
+    pub persona_id: String,
+    pub channels: Vec<String>,
+    pub count: usize,
+}
+
+/// The channels `persona <- journey -> channels` reaches, sorted, once
+/// each; `None` when `persona_id` is not a persona.
+pub fn persona_channels(graph: &CommandGraph, persona_id: &str) -> Option<PersonaChannels> {
+    of_kind(graph, persona_id, "persona")?;
+    let channels = sorted_dedup(
+        journeys_of_persona(graph, persona_id)
+            .iter()
+            .flat_map(|j| out(graph, j, "channels", "channel"))
+            .collect(),
+    );
+    Some(PersonaChannels {
+        persona_id: persona_id.to_string(),
+        count: channels.len(),
+        channels,
+    })
+}
+
+/// `DeliverablePersonaPayload`: the personas the deliverable's journeys
+/// target, and those journeys.
+#[derive(Debug, Serialize)]
+pub struct DeliverablePersonas {
+    pub deliverable_id: String,
+    pub personas: Vec<String>,
+    pub via_journey_ids: Vec<String>,
+    pub count: usize,
+}
+
+/// The personas `deliverable -> journeys -> persona` reaches, sorted, once
+/// each, and the journeys on those paths (a journey without a persona is on
+/// none); `None` when `deliverable_id` is not a deliverable.
+pub fn deliverable_personas(
+    graph: &CommandGraph,
+    deliverable_id: &str,
+) -> Option<DeliverablePersonas> {
+    of_kind(graph, deliverable_id, "deliverable")?;
+    let mut personas = Vec::new();
+    let mut via_journey_ids = Vec::new();
+    for journey in out(graph, deliverable_id, "journeys", "journey") {
+        let targeted = out(graph, &journey, "persona", "persona");
+        if !targeted.is_empty() {
+            personas.extend(targeted);
+            via_journey_ids.push(journey);
+        }
+    }
+    let personas = sorted_dedup(personas);
+    Some(DeliverablePersonas {
+        deliverable_id: deliverable_id.to_string(),
+        count: personas.len(),
+        personas,
+        via_journey_ids,
+    })
+}
+
+/// The journeys that target `persona`: by the reference, or by the field
+/// naming it.
+fn journeys_of_persona(graph: &CommandGraph, persona: &str) -> Vec<String> {
+    let by_field = graph
+        .nodes_of_kind("journey")
+        .filter(|j| j.text("persona") == Some(persona))
+        .map(|j| j.id.clone());
+    sorted_dedup(
+        into(graph, persona, "persona", "journey")
+            .into_iter()
+            .chain(by_field)
+            .collect(),
+    )
+}
+
+/// The journeys that use `channel`.
+fn journeys_of_channel(graph: &CommandGraph, channel: &str) -> Vec<String> {
+    into(graph, channel, "channels", "journey")
+}
+
+/// The features `deliverable` reaches through its journeys, and through
+/// its modules, each sorted, once each.
+fn features_of_deliverable(graph: &CommandGraph, deliverable: &str) -> (Vec<String>, Vec<String>) {
+    let through = |label: &str, kind: &str| {
+        sorted_dedup(
+            out(graph, deliverable, label, kind)
+                .iter()
+                .flat_map(|hop| out(graph, hop, "features", "feature"))
+                .collect(),
+        )
+    };
+    (through("journeys", "journey"), through("modules", "module"))
+}
+
+/// The deliverables that reach `feature` through a journey, and through a
+/// module, each sorted, once each.
+pub fn deliverables_of_feature(graph: &CommandGraph, feature: &str) -> (Vec<String>, Vec<String>) {
+    let through = |kind: &str, label: &str| {
+        sorted_dedup(
+            into(graph, feature, "features", kind)
+                .iter()
+                .flat_map(|hop| into(graph, hop, label, "deliverable"))
+                .collect(),
+        )
+    };
+    (through("journey", "journeys"), through("module", "modules"))
 }
 
 // ── Project-wide ───────────────────────────────────────────────────────────
@@ -1176,6 +1328,29 @@ fn targets(graph: &CommandGraph, id: &str, label: &str) -> Vec<String> {
         .filter(|e| e.label == label)
         .map(|e| e.target.clone())
         .collect()
+}
+
+/// The `kind` entities `id` references in `label`, sorted, once each.
+fn out(graph: &CommandGraph, id: &str, label: &str, kind: &str) -> Vec<String> {
+    sorted_dedup(
+        targets(graph, id, label)
+            .into_iter()
+            .filter(|t| kind_of(graph, t) == Some(kind))
+            .collect(),
+    )
+}
+
+/// The `source_kind` entities that reference `id` in `label`, sorted,
+/// once each.
+fn into(graph: &CommandGraph, id: &str, label: &str, source_kind: &str) -> Vec<String> {
+    sorted_dedup(
+        graph
+            .edges_to(id)
+            .iter()
+            .filter(|e| e.label == label && kind_of(graph, &e.source) == Some(source_kind))
+            .map(|e| e.source.clone())
+            .collect(),
+    )
 }
 
 /// How many of `id`'s references are declared in `label`.

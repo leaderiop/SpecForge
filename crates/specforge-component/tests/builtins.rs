@@ -177,6 +177,10 @@ fn product_declares_its_commands_and_exports_them() {
             "feature_dependents",
             "persona_features",
             "channel_features",
+            "deliverable_traceability",
+            "feature_deliverables",
+            "persona_channels",
+            "deliverable_personas",
             "bulk_status",
             "health",
         ]

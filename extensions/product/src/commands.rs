@@ -79,12 +79,30 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
         }
         "cmd__product_feature_impact" => {
             lookup(input, "feature", queries::feature_impact, |r, out| {
-                let _ = writeln!(out, "Feature: {}", r.feature_id);
-                let _ = writeln!(out, "  Journeys: {:?}", r.referenced_by_journeys);
-                let _ = writeln!(out, "  Milestones: {:?}", r.referenced_by_milestones);
-                let _ = writeln!(out, "  Modules: {:?}", r.referenced_by_modules);
-                let _ = writeln!(out, "  Depends on: {:?}", r.depends_on);
-                let _ = writeln!(out, "  Depended on by: {:?}", r.depended_on_by);
+                let _ = writeln!(
+                    out,
+                    "Feature: {} ({} affected)",
+                    r.feature_id, r.total_affected_entities
+                );
+                let row = |what: &str, ids: &[String]| {
+                    vec![
+                        what.to_string(),
+                        ids.len().to_string(),
+                        if ids.is_empty() {
+                            "-".to_string()
+                        } else {
+                            ids.join(", ")
+                        },
+                    ]
+                };
+                let rows = [
+                    row("journeys", &r.affected_journeys),
+                    row("milestones", &r.affected_milestones),
+                    row("modules", &r.affected_modules),
+                    row("deliverables", &r.affected_deliverables),
+                    row("dependent features", &r.dependent_features),
+                ];
+                out.push_str(&table(&["affected", "count", "ids"], &rows));
             })
         }
         "cmd__product_feature_dependents" => {
@@ -114,6 +132,57 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
                 );
             })
         }
+        "cmd__product_deliverable_traceability" => lookup(
+            input,
+            "deliverable",
+            queries::deliverable_traceability,
+            |r, out| {
+                ids(
+                    out,
+                    &format!(
+                        "Features of deliverable '{}' ({} via journeys, {} via modules)",
+                        r.deliverable_id, r.journey_path_count, r.module_path_count
+                    ),
+                    &r.transitive_features,
+                );
+            },
+        ),
+        "cmd__product_feature_deliverables" => {
+            lookup(input, "feature", queries::feature_deliverables, |r, out| {
+                ids(
+                    out,
+                    &format!(
+                        "Deliverables holding feature '{}' ({} via journeys, {} via modules)",
+                        r.feature_id, r.via_journey_count, r.via_module_count
+                    ),
+                    &r.deliverables,
+                );
+            })
+        }
+        "cmd__product_persona_channels" => {
+            lookup(input, "persona", queries::persona_channels, |r, out| {
+                ids(
+                    out,
+                    &format!("Channels of persona '{}'", r.persona_id),
+                    &r.channels,
+                );
+            })
+        }
+        "cmd__product_deliverable_personas" => lookup(
+            input,
+            "deliverable",
+            queries::deliverable_personas,
+            |r, out| {
+                ids(
+                    out,
+                    &format!("Personas served by deliverable '{}'", r.deliverable_id),
+                    &r.personas,
+                );
+                if !r.via_journey_ids.is_empty() {
+                    let _ = writeln!(out, "Via journeys: {}", r.via_journey_ids.join(", "));
+                }
+            },
+        ),
         "cmd__product_bulk_status" => {
             let result = queries::bulk_status(&input.graph);
             render(input, &result, |out| {

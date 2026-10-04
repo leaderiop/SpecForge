@@ -153,6 +153,15 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
   order (`priority`: critical first), any other by its text; an entity without the field is
   last in either order; ties are by id ascending in either order.
 
+- **Traversals follow references of the kinds they name.** Every hop keeps only targets (or
+  sources) of the kind its path names, so a peer extension's reference under the same label
+  is not followed. `deliverable_personas`'s `via_journey_ids` are the journeys on a path to a
+  persona: a deliverable's journey that targets no persona connects none and is not listed.
+- **`feature_impact` reports what the feature affects, not what it needs.** Its payload is
+  `FeatureImpactPayload` alone: the `referenced_by_*` lists are `affected_*`, `depended_on_by`
+  is the transitive `dependent_features`, and the features it depends on (`depends_on`, which
+  deferring it does not touch) are no longer listed; the feature's own references answer that.
+
 ## What would reopen this
 
 - A command that must write files, stream, or read beyond the graph and the date (ADR 0008's
