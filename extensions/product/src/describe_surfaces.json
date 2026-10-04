@@ -736,6 +736,69 @@
           ]
         },
         {
+          "id": "coverage_matrix",
+          "title": "Show the persona coverage matrix",
+          "description": "Per persona, by id, the features its journeys reach and the ones they do not, with the coverage ratio and journey count, paged; the feature total and the mean coverage over every persona.",
+          "category": "query",
+          "export": "cmd__product_coverage_matrix",
+          "args": [
+            {
+              "name": "limit",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
+            }
+          ]
+        },
+        {
+          "id": "channel_coverage_matrix",
+          "title": "Show the channel coverage matrix",
+          "description": "Per channel, by id, the features the journeys using it reach and the ones they do not, with the coverage ratio and journey count, paged; the feature total and the mean coverage over every channel.",
+          "category": "query",
+          "export": "cmd__product_channel_coverage_matrix",
+          "args": [
+            {
+              "name": "limit",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
+            }
+          ]
+        },
+        {
+          "id": "feature_overlap",
+          "title": "Show features shared across deliverables",
+          "description": "The features two or more deliverables reach through a journey or a module, with those deliverables, most shared first, paged.",
+          "category": "query",
+          "export": "cmd__product_feature_overlap",
+          "args": [
+            {
+              "name": "limit",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
+            }
+          ]
+        },
+        {
           "id": "bulk_status",
           "title": "Show status breakdown across all entity kinds",
           "description": "For each product kind with a lifecycle, how many entities have each status.",

@@ -191,6 +191,9 @@ fn product_declares_its_commands_and_exports_them() {
             "module_depth",
             "module_coupling",
             "deliverable_dependents",
+            "coverage_matrix",
+            "channel_coverage_matrix",
+            "feature_overlap",
             "bulk_status",
             "health",
         ]

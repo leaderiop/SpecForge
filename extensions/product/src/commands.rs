@@ -417,6 +417,48 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
                 );
             },
         ),
+        "cmd__product_coverage_matrix" => {
+            let matrix = queries::persona_coverage_matrix(&input.graph);
+            coverage(input, "personas", "persona", matrix, |e| {
+                (&e.persona_id, &e.reach)
+            })
+        }
+        "cmd__product_channel_coverage_matrix" => {
+            let matrix = queries::channel_coverage_matrix(&input.graph);
+            coverage(input, "channels", "channel", matrix, |e| {
+                (&e.channel_id, &e.reach)
+            })
+        }
+        "cmd__product_feature_overlap" => {
+            let overlap = queries::feature_overlap(&input.graph);
+            let count = overlap.overlapping_features.len();
+            let total_features = overlap.total_features;
+            let extra = serde_json::json!({"count": count, "total_features": total_features});
+            paged(
+                input,
+                "overlapping_features",
+                overlap.overlapping_features,
+                extra,
+                |page, out| {
+                    let rows: Vec<Vec<String>> = page
+                        .items
+                        .iter()
+                        .map(|f| {
+                            vec![
+                                f.feature_id.clone(),
+                                f.deliverable_count.to_string(),
+                                f.deliverable_ids.join(", "),
+                            ]
+                        })
+                        .collect();
+                    out.push_str(&table(&["feature", "deliverables", "ids"], &rows));
+                    let _ = writeln!(
+                        out,
+                        "{count} of {total_features} features shared by two or more deliverables"
+                    );
+                },
+            )
+        }
         "cmd__product_bulk_status" => {
             let result = queries::bulk_status(&input.graph);
             render(input, &result, |out| {
@@ -557,6 +599,51 @@ fn paged<T: Serialize>(
                 page.total,
                 page.offset + page.items.len()
             );
+        }
+    })
+}
+
+/// A coverage matrix command: one page of its entries (persona or
+/// channel, as `kind` names them) under `key`, with the feature total and
+/// the overall coverage; under `human` a table of each entry's counts and
+/// ratio, then the overall coverage.
+fn coverage<T: Serialize>(
+    input: &CommandInput,
+    key: &str,
+    kind: &str,
+    matrix: queries::CoverageMatrix<T>,
+    reach: impl Fn(&T) -> (&String, &queries::Reach),
+) -> CommandOutput {
+    let extra = serde_json::json!({
+        "total_features": matrix.total_features,
+        "overall_coverage": matrix.overall_coverage,
+    });
+    let overall = matrix.overall_coverage;
+    paged(input, key, matrix.entries, extra, |page, out| {
+        let rows: Vec<Vec<String>> = page
+            .items
+            .iter()
+            .map(|e| {
+                let (id, r) = reach(e);
+                vec![
+                    id.clone(),
+                    r.reachable_features.len().to_string(),
+                    r.unreachable_features.len().to_string(),
+                    format!("{:.0}%", r.coverage_ratio * 100.0),
+                ]
+            })
+            .collect();
+        out.push_str(&table(
+            &[kind, "reachable", "unreachable", "coverage"],
+            &rows,
+        ));
+        match overall {
+            Some(overall) => {
+                let _ = writeln!(out, "Overall coverage: {:.0}%", overall * 100.0);
+            }
+            None => {
+                let _ = writeln!(out, "Overall coverage: - (no {key})");
+            }
         }
     })
 }

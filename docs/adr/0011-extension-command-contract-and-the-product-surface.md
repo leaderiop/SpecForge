@@ -181,6 +181,15 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
   a `target_date`. `module_depth` is -1 for a module on a cycle or
   depending on one, its chain the members of the cycles it reaches, since
   neither has a longest chain. Equally long chains are taken by id.
+- **A matrix is over every entity, its page only what is shown.** The
+  coverage matrices have one entry per persona (or channel), by id; a
+  ratio is reachable over all features, 0 for one without journeys and 0
+  when there are no features, so it is always in [0, 1].
+  `overall_coverage` is the mean over every persona, not the page, and
+  `null` without personas. `feature_overlap` lists the features two or
+  more deliverables reach (a deliverable reaching one through a journey
+  and a module counts once), most shared first, ties by id; its `count`
+  is `total`.
 
 ## What would reopen this
 
