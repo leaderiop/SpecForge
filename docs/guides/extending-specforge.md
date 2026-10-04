@@ -335,7 +335,12 @@ agents as the MCP tool `specforge.greet.greetings`.
   value it cannot use is an `INVALID_INPUT` error, exit 2. `call.str`,
   `call.count`, `call.integer` and `call.flag` read only args the command
   declares, as the type it declares them; anything else panics, so a test
-  that runs the command catches the slip.
+  that runs the command catches the slip (`testing::call_every_command`
+  runs every command with every arg set). A `one_of` arg's values are also
+  what `--help` and the MCP tool's schema list, and the command line
+  refuses any other.
+- **`default_value` holds on every surface.** An arg the caller leaves out
+  takes it, over MCP too; a `required` arg or a `flag` takes none.
 - **The host owns `--path`, `--format` and `--help`.** Don't declare them;
   `call.render` writes your payload as JSON under `--format json` (always,
   over MCP) and your own layout otherwise. `call.fail` writes an error in
@@ -411,6 +416,17 @@ let input = CommandInput {
 };
 let out = c.call_command("cmd__greetings", &input).unwrap();
 assert_eq!(out.exit_code, 0);
+```
+
+To check every handler reads only what its command declares, run them all
+with every arg set (strings from your closure, ids of entities in the graph
+reaching the most code):
+
+```rust
+let graph = CommandGraph::default();
+for (id, out) in specforge_extension_sdk::testing::call_every_command(&c, &graph, "2026-10-04", |_, _| String::new()) {
+    assert_eq!(out.exit_code, 0, "{id}");
+}
 ```
 
 The shipped extensions test exactly this way — see the `raw_category_flag_tests`

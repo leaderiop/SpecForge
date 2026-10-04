@@ -37,7 +37,7 @@ the same flag with the same values, and the extension cannot drift from it.
   the object `{code, message, entity_id?, suggestion?}` (`ProductSurfaceError` for product),
   under `human` `error: <message>` and, when there is one, `did you mean '<id>'?`. The
   suggestion is the nearest id of the same kind within Levenshtein distance 2.
-  `ENTITY_NOT_FOUND` exits 1. `INVALID_INPUT` (a value outside an enum a string arg carries, a
+  `ENTITY_NOT_FOUND` exits 1. `INVALID_INPUT` (a value outside a closed enum, a missing required arg, a
   negative offset, an unknown sort field) exits 2, the code clap gives the usage errors it
   catches itself on the same command line. Over MCP a non-zero exit is an `isError` result
   carrying the same object.
@@ -226,9 +226,20 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
   `INVALID_INPUT` rather than `ENTITY_NOT_FOUND` for `''`. Product's 40 commands left
   `describe_surfaces.json` with their payload unchanged byte for byte (a pinned
   fingerprint), and the empty files of the other builtins went with it. Product's closed
-  filters (`--status`, `--priority`, `--sort-order`) stay `string` args the command
-  checks: declaring them `one_of` would have clap refuse them first and give their MCP
-  tools an enum schema, a payload change for when it is wanted. On the wire an unset
+  filters (`--status`, `--priority`, `--artifact-type`, `--technical-level`,
+  `--interaction-model`) and `--sort-order` are `one_of` their values (`--family` stays an
+  open `string`): the SDK refuses another value with the message the command gave, so the
+  hand-written checks went, and the CLI refuses it first (clap's usage error, exit 2, listing
+  the values), and the MCP tools' schemas carry the enum. That is the one change to the
+  payload (the pin says so), and the drift test checks each `one_of` against the value rule
+  of its field. An absent arg takes its declared default on every surface (the SDK applies it,
+  as clap does on the command line); a declaration that contradicts itself (a required arg or
+  a flag with a default, a required flag, a default its type refuses, two surfaces with one
+  export) panics when the extension is built, so its first test finds it.
+  `testing::call_every_command` runs every command with every arg set, which a test uses to
+  catch a handler reading an arg its command does not declare (a panic, a trap in the host).
+  The surface machinery is reached only through a declaration, so a guest that declares no
+  surface does not link it. On the wire an unset
   optional surface field is absent, not `null`. Raw JSON (`raw_category("surfaces", ..)`)
   still overrides the builder, for an extension not written with it.
 

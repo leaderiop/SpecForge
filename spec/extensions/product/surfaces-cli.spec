@@ -357,7 +357,7 @@ behavior surface_deliverable_traceability "Surface: Deliverable Traceability" {
     delegates       "delegates to pe_query_deliverable_traceability"
     json_output     "stdout is a valid DeliverableTraceabilityPayload JSON"
     not_found_error "missing deliverable returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "deliverable-traceability returns DeliverableTraceabilityPayload JSON"
@@ -377,7 +377,7 @@ behavior surface_feature_deliverables "Surface: Feature Deliverables" {
     delegates       "delegates to pe_query_feature_deliverables"
     json_output     "stdout is a valid FeatureDeliverablePayload JSON"
     not_found_error "missing feature returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "feature-deliverables returns FeatureDeliverablePayload JSON"
@@ -398,7 +398,7 @@ behavior surface_term_graph "Surface: Term Graph" {
     json_output     "stdout is a valid TermGraphPayload JSON"
     max_hops_cap    "maxHops > 5 is clamped to 5 without error"
     not_found_error "missing term returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "term-graph returns TermGraphPayload JSON"
@@ -419,7 +419,7 @@ behavior surface_deliverable_completion "Surface: Deliverable Completion" {
     delegates       "delegates to pe_query_deliverable_completion"
     json_output     "stdout is a valid DeliverableCompletionPayload JSON"
     not_found_error "missing deliverable returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "deliverable-completion returns DeliverableCompletionPayload JSON"
@@ -439,7 +439,7 @@ behavior surface_persona_channels "Surface: Persona Channels" {
     delegates       "delegates to pe_query_persona_channels"
     json_output     "stdout is a valid PersonaChannelPayload JSON"
     not_found_error "missing persona returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "persona-channels returns PersonaChannelPayload JSON"
@@ -459,7 +459,7 @@ behavior surface_feature_dependents "Surface: Feature Dependents" {
     delegates       "delegates to pe_query_feature_dependents"
     json_output     "stdout is a valid FeatureDependentPayload JSON"
     not_found_error "missing feature returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "feature-dependents returns FeatureDependentPayload JSON"
@@ -479,7 +479,7 @@ behavior surface_deliverable_dependents "Surface: Deliverable Dependents" {
     delegates       "delegates to pe_query_deliverable_dependents"
     json_output     "stdout is a valid DeliverableDependentPayload JSON"
     not_found_error "missing deliverable returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "deliverable-dependents returns DeliverableDependentPayload JSON"
@@ -500,7 +500,7 @@ behavior surface_deliverable_priority "Surface: Deliverable Priority" {
     json_output     "stdout is a valid DeliverablePriorityPayload JSON"
     null_priority   "deliverable with no milestones/journeys returns priority=null"
     not_found_error "missing deliverable returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "deliverable-priority returns DeliverablePriorityPayload JSON"
@@ -520,7 +520,7 @@ behavior surface_persona_features "Surface: Persona Features" {
     delegates       "delegates to pe_query_persona_features"
     json_output     "stdout is a valid PersonaFeaturePayload JSON"
     not_found_error "missing persona returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "persona-features returns PersonaFeaturePayload JSON"
@@ -542,7 +542,7 @@ behavior surface_feature_impact "Surface: Feature Impact" {
     delegates       "delegates to pe_query_feature_impact"
     json_output     "stdout is a valid FeatureImpactPayload JSON"
     not_found_error "missing feature returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "feature-impact returns FeatureImpactPayload JSON"
@@ -563,7 +563,7 @@ behavior surface_milestone_velocity "Surface: Milestone Velocity" {
     delegates       "delegates to pe_query_milestone_velocity"
     json_output     "stdout is a valid MilestoneVelocityPayload JSON"
     not_found_error "missing milestone returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "milestone-velocity returns MilestoneVelocityPayload JSON"
@@ -583,7 +583,7 @@ behavior surface_deliverable_personas "Surface: Deliverable Personas" {
     delegates       "delegates to pe_query_deliverable_personas"
     json_output     "stdout is a valid DeliverablePersonaPayload JSON"
     not_found_error "missing deliverable returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "deliverable-personas returns DeliverablePersonaPayload JSON"
@@ -603,7 +603,7 @@ behavior surface_feature_overlap "Surface: Feature Overlap" {
   ensures {
     delegates   "delegates to pe_query_feature_overlap"
     json_output "stdout is a valid FeatureOverlapPayload JSON"
-    exit_code   "exit 0 on success, exit 1 on error"
+    exit_code   "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "feature-overlap returns FeatureOverlapPayload JSON"
@@ -623,7 +623,7 @@ behavior surface_channel_features "Surface: Channel Features" {
     delegates       "delegates to pe_query_channel_features"
     json_output     "stdout is a valid ChannelFeaturePayload JSON"
     not_found_error "missing channel returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "channel-features returns ChannelFeaturePayload JSON"
@@ -849,7 +849,7 @@ behavior surface_module_dependency_depth "Surface: Module Dependency Depth" {
     json_output     "json format returns full ModuleDependencyDepthPayload"
     human_output    "human format shows depth and chain"
     not_found_error "missing module returns ProductSurfaceError with suggestion and exit code 1"
-    exit_code       "exit 0 on success, exit 1 on error"
+    exit_code       "exit 0 on success, 1 on ENTITY_NOT_FOUND, 2 on INVALID_INPUT (surface_error_handling)"
   }
   features [pe_surface_contributions]
   verify unit "product:module-depth returns ModuleDependencyDepthPayload"

@@ -25,9 +25,12 @@ behavior surface_error_handling "Surface Error Handling" {
        entity kind and ID, and a suggestion when an ID of the same kind is
        within Levenshtein distance 2. Exit code 1.
     2. Invalid-input: code="INVALID_INPUT", a message describing the
-       validation failure (a value outside an enum a string arg carries, a
-       negative offset, an unknown sort field, a malformed date). Exit
-       code 2, the code the host gives the usage errors it catches itself.
+       validation failure (a value outside a closed filter's enum, a
+       missing required entity id, a negative offset, an unknown sort
+       field, a malformed date). Exit code 2, the code the host gives the
+       usage errors it catches itself: a closed filter and --sort-order
+       are enum args, so on the command line the host refuses a value
+       outside them first, as it does a missing positional id.
     3. Under --format json the error is the ProductSurfaceError object
        {code, message, entity_id?, suggestion?}; under --format human it
        is the line "error: <message>", then "did you mean '<id>'?" when

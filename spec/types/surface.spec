@@ -11,8 +11,9 @@
 // one declaration, and checks a command's args against their declared
 // types before the handler reads them, through the declaration
 // (CommandCall): a missing required arg or a value of another type is
-// INVALID_INPUT, exit 2. On the wire an unset optional field is absent,
-// not null.
+// INVALID_INPUT, exit 2. Two surfaces cannot share an export (names that
+// differ only in characters an export spells _, or a tool and a resource
+// of one name). On the wire an unset optional field is absent, not null.
 
 use "types/core"
 use "types/graph"
@@ -50,6 +51,11 @@ type CommandContribution {
 // command with an arg named path, help or format, or two args of one name,
 // is refused on the command line (exit 2). A list of values is a string arg
 // the command splits (--tags a,b): there is no list arg type (ADR 0011).
+// default_value is the arg's value when the caller leaves it out, on every
+// surface: the CLI fills it, and the SDK applies it to a call without it
+// (an MCP tool call). A required arg or a bool_arg has none (a bool_arg is
+// false unless set): the SDK refuses such a declaration, and a default its
+// type refuses, when the extension is built.
 type CommandArg {
   name          string   @readonly
   arg_type      CommandArgType
