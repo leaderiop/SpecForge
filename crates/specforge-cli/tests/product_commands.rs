@@ -122,7 +122,7 @@ fn test_product_features_filter_status() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(result["total"], 1);
-    assert_eq!(result["entities"][0]["id"], "f1");
+    assert_eq!(result["features"][0]["id"], "f1");
 }
 
 #[test]
@@ -523,7 +523,7 @@ fn an_extension_command_has_the_declared_command_line() {
         .unwrap();
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
-        "2 feature entities (showing 1):\n  f1 Core Feature [proposed] pri=high in=4 out=0\n"
+        "id  title         status    priority\nf1  Core Feature  proposed  high\n1 of 2 features; --offset 1 for more\n"
     );
     // The declared enum refuses other values; an undeclared flag is refused.
     for args in [
@@ -573,7 +573,7 @@ fn the_features_command_is_an_mcp_tool_with_its_filters() {
     assert_eq!(all["total"], 2, "{all}");
     let done = parse_tool_content(find_response(&responses, 2).unwrap());
     assert_eq!(done["total"], 1, "{done}");
-    assert_eq!(done["entities"][0]["id"], "f2");
+    assert_eq!(done["features"][0]["id"], "f2");
 }
 
 #[specforge_test(
@@ -589,7 +589,7 @@ fn the_features_command_pages_after_counting() {
         .unwrap();
     let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(result["total"], 2);
-    let ids: Vec<&str> = result["entities"]
+    let ids: Vec<&str> = result["features"]
         .as_array()
         .unwrap()
         .iter()

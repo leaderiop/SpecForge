@@ -354,7 +354,7 @@ mod tests {
         .unwrap();
         assert_eq!(out.exit_code, 0, "{}", String::from_utf8_lossy(&out.stderr));
         let listed: Value = serde_json::from_slice(&out.stdout).unwrap();
-        assert_eq!(listed["entities"][0]["id"], "f1", "{listed}");
+        assert_eq!(listed["features"][0]["id"], "f1", "{listed}");
         assert_eq!(
             runtime.loaded_names(),
             loaded,

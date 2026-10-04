@@ -6,7 +6,7 @@
         {
           "id": "features",
           "title": "List features",
-          "description": "List features: each feature's id, title, status, priority and reference counts, sorted by id, with the total before paging.",
+          "description": "List features: each feature's id, title, status, priority, problem and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
           "category": "query",
           "export": "cmd__product_features",
           "args": [
@@ -14,47 +14,101 @@
               "name": "status",
               "arg_type": "string",
               "required": false,
-              "description": "Only entities with this status"
+              "description": "Only features with this status: proposed (also a feature without one), accepted, in_progress, done, deferred or deprecated"
             },
             {
               "name": "priority",
               "arg_type": "string",
               "required": false,
-              "description": "Only entities with this priority"
+              "description": "Only features with this priority: critical, high, medium, low"
+            },
+            {
+              "name": "tags",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only features with at least one of these tags (comma-separated)"
+            },
+            {
+              "name": "sort_by",
+              "arg_type": "string",
+              "required": false,
+              "description": "The field to sort by (default id): id, title or a field a feature declares; ties by id"
+            },
+            {
+              "name": "sort_order",
+              "arg_type": "string",
+              "required": false,
+              "description": "asc (the default) or desc"
             },
             {
               "name": "limit",
               "arg_type": "integer",
               "required": false,
-              "description": "Return at most this many entities"
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
             },
             {
               "name": "offset",
               "arg_type": "integer",
               "required": false,
-              "description": "Skip this many entities first"
+              "description": "Skip this many first (default 0)"
             }
           ]
         },
         {
           "id": "journeys",
           "title": "List journeys",
-          "description": "List journeys: each journey's id, title, status, priority and reference counts, sorted by id, with the total before paging.",
+          "description": "List journeys: each journey's id, title, persona, channel and feature counts, priority and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
           "category": "query",
           "export": "cmd__product_journeys",
           "args": [
             {
+              "name": "priority",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only journeys with this priority: critical, high, medium, low"
+            },
+            {
+              "name": "persona",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only journeys of this persona (its id)"
+            },
+            {
+              "name": "tags",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only journeys with at least one of these tags (comma-separated)"
+            },
+            {
+              "name": "sort_by",
+              "arg_type": "string",
+              "required": false,
+              "description": "The field to sort by (default id): id, title or a field a journey declares; ties by id"
+            },
+            {
+              "name": "sort_order",
+              "arg_type": "string",
+              "required": false,
+              "description": "asc (the default) or desc"
+            },
+            {
               "name": "limit",
               "arg_type": "integer",
               "required": false,
-              "description": "Return at most this many entities"
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
             }
           ]
         },
         {
           "id": "deliverables",
           "title": "List deliverables",
-          "description": "List deliverables: each deliverable's id, title, status, priority and reference counts, sorted by id, with the total before paging.",
+          "description": "List deliverables: each deliverable's id, title, artifact type, status, journey and module counts and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
           "category": "query",
           "export": "cmd__product_deliverables",
           "args": [
@@ -62,20 +116,50 @@
               "name": "status",
               "arg_type": "string",
               "required": false,
-              "description": "Only entities with this status"
+              "description": "Only deliverables with this status: draft (also a deliverable without one), in_progress, shipped or deprecated"
+            },
+            {
+              "name": "artifact_type",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only deliverables of this artifact type: cli, service, library, web_app, mobile_app, api, extension, documentation or package"
+            },
+            {
+              "name": "tags",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only deliverables with at least one of these tags (comma-separated)"
+            },
+            {
+              "name": "sort_by",
+              "arg_type": "string",
+              "required": false,
+              "description": "The field to sort by (default id): id, title or a field a deliverable declares; ties by id"
+            },
+            {
+              "name": "sort_order",
+              "arg_type": "string",
+              "required": false,
+              "description": "asc (the default) or desc"
             },
             {
               "name": "limit",
               "arg_type": "integer",
               "required": false,
-              "description": "Return at most this many entities"
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
             }
           ]
         },
         {
           "id": "milestones",
           "title": "List milestones",
-          "description": "List milestones: each milestone's id, title, status, priority and reference counts, sorted by id, with the total before paging.",
+          "description": "List milestones: each milestone's id, title, status, target date, feature count, priority and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
           "category": "query",
           "export": "cmd__product_milestones",
           "args": [
@@ -83,80 +167,236 @@
               "name": "status",
               "arg_type": "string",
               "required": false,
-              "description": "Only entities with this status"
+              "description": "Only milestones with this status: planned (also a milestone without one), in_progress, completed or blocked"
+            },
+            {
+              "name": "priority",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only milestones with this priority: critical, high, medium, low"
+            },
+            {
+              "name": "tags",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only milestones with at least one of these tags (comma-separated)"
+            },
+            {
+              "name": "sort_by",
+              "arg_type": "string",
+              "required": false,
+              "description": "The field to sort by (default id): id, title or a field a milestone declares; ties by id"
+            },
+            {
+              "name": "sort_order",
+              "arg_type": "string",
+              "required": false,
+              "description": "asc (the default) or desc"
             },
             {
               "name": "limit",
               "arg_type": "integer",
               "required": false,
-              "description": "Return at most this many entities"
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
             }
           ]
         },
         {
           "id": "modules",
           "title": "List modules",
-          "description": "List modules: each module's id, title, status, priority and reference counts, sorted by id, with the total before paging.",
+          "description": "List modules: each module's id, title, family, feature count, the modules it depends on and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
           "category": "query",
           "export": "cmd__product_modules",
           "args": [
             {
+              "name": "family",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only modules of this family (core, platform, extension, integration, advisory, or another)"
+            },
+            {
+              "name": "tags",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only modules with at least one of these tags (comma-separated)"
+            },
+            {
+              "name": "sort_by",
+              "arg_type": "string",
+              "required": false,
+              "description": "The field to sort by (default id): id, title or a field a module declares; ties by id"
+            },
+            {
+              "name": "sort_order",
+              "arg_type": "string",
+              "required": false,
+              "description": "asc (the default) or desc"
+            },
+            {
               "name": "limit",
               "arg_type": "integer",
               "required": false,
-              "description": "Return at most this many entities"
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
             }
           ]
         },
         {
           "id": "terms",
           "title": "List terms",
-          "description": "List terms: each term's id, title, status, priority and reference counts, sorted by id, with the total before paging.",
+          "description": "List terms: each term's id, title, definition, alias count and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
           "category": "query",
           "export": "cmd__product_terms",
           "args": [
             {
+              "name": "tags",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only terms with at least one of these tags (comma-separated)"
+            },
+            {
+              "name": "sort_by",
+              "arg_type": "string",
+              "required": false,
+              "description": "The field to sort by (default id): id, title or a field a term declares; ties by id"
+            },
+            {
+              "name": "sort_order",
+              "arg_type": "string",
+              "required": false,
+              "description": "asc (the default) or desc"
+            },
+            {
               "name": "limit",
               "arg_type": "integer",
               "required": false,
-              "description": "Return at most this many entities"
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
             }
           ]
         },
         {
           "id": "personas",
           "title": "List personas",
-          "description": "List personas: each persona's id, title, status, priority and reference counts, sorted by id, with the total before paging.",
+          "description": "List personas: each persona's id, title, technical level, status, journey count and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
           "category": "query",
           "export": "cmd__product_personas",
           "args": [
             {
+              "name": "status",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only personas with this status: active or deprecated"
+            },
+            {
+              "name": "technical_level",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only personas with this technical level: expert, advanced, intermediate, beginner or non_technical"
+            },
+            {
+              "name": "tags",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only personas with at least one of these tags (comma-separated)"
+            },
+            {
+              "name": "sort_by",
+              "arg_type": "string",
+              "required": false,
+              "description": "The field to sort by (default id): id, title or a field a persona declares; ties by id"
+            },
+            {
+              "name": "sort_order",
+              "arg_type": "string",
+              "required": false,
+              "description": "asc (the default) or desc"
+            },
+            {
               "name": "limit",
               "arg_type": "integer",
               "required": false,
-              "description": "Return at most this many entities"
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
             }
           ]
         },
         {
           "id": "channels",
           "title": "List channels",
-          "description": "List channels: each channel's id, title, status, priority and reference counts, sorted by id, with the total before paging.",
+          "description": "List channels: each channel's id, title, interaction model, status, journey count and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
           "category": "query",
           "export": "cmd__product_channels",
           "args": [
             {
+              "name": "status",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only channels with this status: active or deprecated"
+            },
+            {
+              "name": "interaction_model",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only channels with this interaction model: request_response, event_driven, batch, streaming, bidirectional or manual"
+            },
+            {
+              "name": "tags",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only channels with at least one of these tags (comma-separated)"
+            },
+            {
+              "name": "sort_by",
+              "arg_type": "string",
+              "required": false,
+              "description": "The field to sort by (default id): id, title or a field a channel declares; ties by id"
+            },
+            {
+              "name": "sort_order",
+              "arg_type": "string",
+              "required": false,
+              "description": "asc (the default) or desc"
+            },
+            {
               "name": "limit",
               "arg_type": "integer",
               "required": false,
-              "description": "Return at most this many entities"
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
             }
           ]
         },
         {
           "id": "releases",
           "title": "List releases",
-          "description": "List releases: each release's id, title, status, priority and reference counts, sorted by id, with the total before paging.",
+          "description": "List releases: each release's id, title, version, status, deliverable count, release date and tags, filtered (every filter set must match), sorted (by id unless --sort-by says otherwise) and paged, with the total before paging.",
           "category": "query",
           "export": "cmd__product_releases",
           "args": [
@@ -164,13 +404,37 @@
               "name": "status",
               "arg_type": "string",
               "required": false,
-              "description": "Only entities with this status"
+              "description": "Only releases with this status: planned (also a release without one), in_progress, released or recalled"
+            },
+            {
+              "name": "tags",
+              "arg_type": "string",
+              "required": false,
+              "description": "Only releases with at least one of these tags (comma-separated)"
+            },
+            {
+              "name": "sort_by",
+              "arg_type": "string",
+              "required": false,
+              "description": "The field to sort by (default id): id, title or a field a release declares; ties by id"
+            },
+            {
+              "name": "sort_order",
+              "arg_type": "string",
+              "required": false,
+              "description": "asc (the default) or desc"
             },
             {
               "name": "limit",
               "arg_type": "integer",
               "required": false,
-              "description": "Return at most this many entities"
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
             }
           ]
         },

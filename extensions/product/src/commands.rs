@@ -11,24 +11,23 @@
 //! `ProductSurfaceError` to stderr and nothing to stdout: `ENTITY_NOT_FOUND`
 //! (exit 1) with the nearest id of the kind, or `INVALID_INPUT` (exit 2).
 
-use crate::queries::{self, ListFilter};
+use crate::queries::{self, ListEntry, ListFilter, ListKind};
 use serde::Serialize;
 use specforge_extension_sdk::prelude::{CommandError, CommandGraph, CommandInput, CommandOutput};
 use std::fmt::Write as _;
 
 /// Run the command behind `export`; `None` when no command has it.
 pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
-    let list = |kind| list(input, kind);
     Some(match export {
-        "cmd__product_features" => list("feature"),
-        "cmd__product_journeys" => list("journey"),
-        "cmd__product_deliverables" => list("deliverable"),
-        "cmd__product_milestones" => list("milestone"),
-        "cmd__product_modules" => list("module"),
-        "cmd__product_terms" => list("term"),
-        "cmd__product_personas" => list("persona"),
-        "cmd__product_channels" => list("channel"),
-        "cmd__product_releases" => list("release"),
+        "cmd__product_features" => list::<queries::FeatureListEntry>(input),
+        "cmd__product_journeys" => list::<queries::JourneyListEntry>(input),
+        "cmd__product_deliverables" => list::<queries::DeliverableListEntry>(input),
+        "cmd__product_milestones" => list::<queries::MilestoneListEntry>(input),
+        "cmd__product_modules" => list::<queries::ModuleListEntry>(input),
+        "cmd__product_terms" => list::<queries::TermListEntry>(input),
+        "cmd__product_personas" => list::<queries::PersonaListEntry>(input),
+        "cmd__product_channels" => list::<queries::ChannelListEntry>(input),
+        "cmd__product_releases" => list::<queries::ReleaseListEntry>(input),
         "cmd__product_milestone_completion" => lookup(
             input,
             "milestone",
@@ -142,51 +141,91 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
     })
 }
 
-/// A list command over `kind`, with the filters its args set. A `limit` or
-/// `offset` that is not a count (negative, say) is `INVALID_INPUT` rather
-/// than a list of everything.
-fn list(input: &CommandInput, kind: &str) -> CommandOutput {
-    for page in ["limit", "offset"] {
-        if input.args.contains_key(page) && input.arg_usize(page).is_none() {
-            return fail(
-                input,
-                &queries::invalid_input(format!(
-                    "{page} must be a non-negative integer, got {}",
-                    input.args[page]
-                )),
-                queries::INVALID_INPUT_EXIT,
-            );
-        }
-    }
-    let filter = ListFilter {
-        kind,
-        status: input.arg_str("status"),
-        priority: input.arg_str("priority"),
-        limit: input.arg_usize("limit"),
-        offset: input.arg_usize("offset"),
+/// A list command over `T`'s kind: the page its filter args select, its
+/// entries under the kind's plural. An arg it cannot use is
+/// `INVALID_INPUT`: a page that is not a count, a value outside the enum a
+/// filter takes, a sort field the kind does not have, a sort order that is
+/// not `asc` or `desc`.
+fn list<T: ListEntry>(input: &CommandInput) -> CommandOutput {
+    let filter = match list_filter(input, T::KIND) {
+        Ok(filter) => filter,
+        Err(error) => return fail(input, &error, queries::INVALID_INPUT_EXIT),
     };
-    let result = queries::list_entities(&input.graph, &filter);
-    render(input, &result, |out| {
-        let _ = writeln!(
-            out,
-            "{} {} entities (showing {}):",
-            result.total,
-            kind,
-            result.entities.len()
-        );
-        for e in &result.entities {
+    let page = queries::list::<T>(&input.graph, &filter);
+    render(input, &page.payload(T::KIND.plural), |out| {
+        let rows: Vec<Vec<String>> = page.items.iter().map(ListEntry::row).collect();
+        out.push_str(&table(T::HEADERS, &rows));
+        if page.has_more {
             let _ = writeln!(
                 out,
-                "  {} {} [{}] pri={} in={} out={}",
-                e.id,
-                e.title.as_deref().unwrap_or(""),
-                e.status.as_deref().unwrap_or("-"),
-                e.priority.as_deref().unwrap_or("-"),
-                e.incoming_edges,
-                e.outgoing_edges
+                "{} of {} {}; --offset {} for more",
+                page.items.len(),
+                page.total,
+                T::KIND.plural,
+                page.offset + page.items.len()
             );
         }
     })
+}
+
+/// The `ListFilter` `input`'s args set for `kind`, validated.
+fn list_filter<'a>(
+    input: &'a CommandInput,
+    kind: &'a ListKind,
+) -> Result<ListFilter<'a>, CommandError> {
+    for page in ["limit", "offset"] {
+        if input.args.contains_key(page) && input.arg_usize(page).is_none() {
+            return Err(queries::invalid_input(format!(
+                "{page} must be a non-negative integer, got {}",
+                input.args[page]
+            )));
+        }
+    }
+    let mut filter = ListFilter::all(kind);
+    filter.limit = input.arg_usize("limit");
+    filter.offset = input.arg_usize("offset");
+    for arg in kind.filters {
+        let Some(value) = input.arg_str(arg.arg) else {
+            continue;
+        };
+        if let Some(values) = arg.values {
+            if !values.contains(&value) {
+                return Err(one_of(arg.arg, values, value));
+            }
+        }
+        filter.equals.push((arg.arg, value));
+    }
+    if let Some(tags) = input.arg_str("tags") {
+        filter.tags = tags
+            .split(',')
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+            .collect();
+    }
+    if let Some(field) = input.arg_str("sort_by") {
+        if !queries::sortable(kind.kind, field) {
+            return Err(queries::invalid_input(format!(
+                "sort_by: a {} has no field '{field}'",
+                kind.kind
+            )));
+        }
+        filter.sort_by = field;
+    }
+    if let Some(order) = input.arg_str("sort_order") {
+        if !queries::SORT_ORDER.contains(&order) {
+            return Err(one_of("sort_order", queries::SORT_ORDER, order));
+        }
+        filter.descending = order == "desc";
+    }
+    Ok(filter)
+}
+
+/// `INVALID_INPUT` for `value`, which is not one of `arg`'s `values`.
+fn one_of(arg: &str, values: &[&str], value: &str) -> CommandError {
+    queries::invalid_input(format!(
+        "{arg} must be one of {}, got '{value}'",
+        values.join(", ")
+    ))
 }
 
 /// A query about the entity the positional arg `kind` names: its payload

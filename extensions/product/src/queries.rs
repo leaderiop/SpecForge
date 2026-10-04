@@ -35,63 +35,729 @@ const STATUS_KINDS: &[&str] = &[
 
 // ── Listing ────────────────────────────────────────────────────────────────
 
-/// Which entities a list command returns: one kind, optionally narrowed by
-/// status and priority, then paged.
-#[derive(Debug, Default)]
+/// `Priority`, most important first.
+pub const PRIORITY: &[&str] = &["critical", "high", "medium", "low"];
+const FEATURE_STATUS: &[&str] = &[
+    "proposed",
+    "accepted",
+    "in_progress",
+    "done",
+    "deferred",
+    "deprecated",
+];
+const DELIVERABLE_STATUS: &[&str] = &["draft", "in_progress", "shipped", "deprecated"];
+const MILESTONE_STATUS: &[&str] = &["planned", "in_progress", "completed", "blocked"];
+const RELEASE_STATUS: &[&str] = &["planned", "in_progress", "released", "recalled"];
+const ACTIVE_STATUS: &[&str] = &["active", "deprecated"];
+const ARTIFACT_TYPE: &[&str] = &[
+    "cli",
+    "service",
+    "library",
+    "web_app",
+    "mobile_app",
+    "api",
+    "extension",
+    "documentation",
+    "package",
+];
+const TECHNICAL_LEVEL: &[&str] = &[
+    "expert",
+    "advanced",
+    "intermediate",
+    "beginner",
+    "non_technical",
+];
+const INTERACTION_MODEL: &[&str] = &[
+    "request_response",
+    "event_driven",
+    "batch",
+    "streaming",
+    "bidirectional",
+    "manual",
+];
+
+/// `ProductListSortOrder`.
+pub const SORT_ORDER: &[&str] = &["asc", "desc"];
+
+/// A list's page size when the caller sets none, and the bounds a set one
+/// is clamped to.
+pub const DEFAULT_LIMIT: usize = 100;
+pub const MAX_LIMIT: usize = 1000;
+
+/// An arg a list command filters by: the entities whose `arg` field equals
+/// its value (a reference field matches the id it names).
+#[derive(Debug)]
+pub struct FilterArg {
+    pub arg: &'static str,
+    /// The values a closed enum takes, in its order (which a sort follows);
+    /// `None` for an open value (an id, an open enum like `family`).
+    pub values: Option<&'static [&'static str]>,
+    /// What an entity without the field counts as (`FeatureStatus`: absent
+    /// is `proposed`).
+    pub absent_as: Option<&'static str>,
+}
+
+const fn closed(arg: &'static str, values: &'static [&'static str]) -> FilterArg {
+    FilterArg {
+        arg,
+        values: Some(values),
+        absent_as: None,
+    }
+}
+
+const fn lifecycle(values: &'static [&'static str]) -> FilterArg {
+    FilterArg {
+        arg: "status",
+        values: Some(values),
+        absent_as: Some(values[0]),
+    }
+}
+
+const fn open(arg: &'static str) -> FilterArg {
+    FilterArg {
+        arg,
+        values: None,
+        absent_as: None,
+    }
+}
+
+/// One list command's kind: the payload key its entries are under, and
+/// the args beside `--tags` that filter it.
+#[derive(Debug)]
+pub struct ListKind {
+    pub kind: &'static str,
+    pub plural: &'static str,
+    pub filters: &'static [FilterArg],
+}
+
+impl ListKind {
+    /// The filter on `field`, if the kind has one.
+    fn filter(&self, field: &str) -> Option<&FilterArg> {
+        self.filters.iter().find(|f| f.arg == field)
+    }
+}
+
+pub const FEATURES: ListKind = ListKind {
+    kind: "feature",
+    plural: "features",
+    filters: &[lifecycle(FEATURE_STATUS), closed("priority", PRIORITY)],
+};
+pub const JOURNEYS: ListKind = ListKind {
+    kind: "journey",
+    plural: "journeys",
+    filters: &[closed("priority", PRIORITY), open("persona")],
+};
+pub const DELIVERABLES: ListKind = ListKind {
+    kind: "deliverable",
+    plural: "deliverables",
+    filters: &[
+        lifecycle(DELIVERABLE_STATUS),
+        closed("artifact_type", ARTIFACT_TYPE),
+    ],
+};
+pub const MILESTONES: ListKind = ListKind {
+    kind: "milestone",
+    plural: "milestones",
+    filters: &[lifecycle(MILESTONE_STATUS), closed("priority", PRIORITY)],
+};
+pub const MODULES: ListKind = ListKind {
+    kind: "module",
+    plural: "modules",
+    // `ModuleFamily` is open: a family outside the standard set is I062,
+    // not an error, so it is a value to match, not one to refuse.
+    filters: &[open("family")],
+};
+pub const TERMS: ListKind = ListKind {
+    kind: "term",
+    plural: "terms",
+    filters: &[],
+};
+pub const PERSONAS: ListKind = ListKind {
+    kind: "persona",
+    plural: "personas",
+    filters: &[
+        closed("status", ACTIVE_STATUS),
+        closed("technical_level", TECHNICAL_LEVEL),
+    ],
+};
+pub const CHANNELS: ListKind = ListKind {
+    kind: "channel",
+    plural: "channels",
+    filters: &[
+        closed("status", ACTIVE_STATUS),
+        closed("interaction_model", INTERACTION_MODEL),
+    ],
+};
+pub const RELEASES: ListKind = ListKind {
+    kind: "release",
+    plural: "releases",
+    filters: &[lifecycle(RELEASE_STATUS)],
+};
+
+/// Which entities a list command returns (`ProductListFilter`, validated):
+/// one kind, narrowed by every filter set (AND), sorted, then paged.
+#[derive(Debug)]
 pub struct ListFilter<'a> {
-    pub kind: &'a str,
-    pub status: Option<&'a str>,
-    pub priority: Option<&'a str>,
-    pub limit: Option<usize>,
+    pub kind: &'a ListKind,
+    /// `(field, value)`: the entity's field equals the value.
+    pub equals: Vec<(&'a str, &'a str)>,
+    /// The entity has one of these tags; empty matches every entity.
+    pub tags: Vec<&'a str>,
+    pub sort_by: &'a str,
+    pub descending: bool,
     pub offset: Option<usize>,
+    pub limit: Option<usize>,
 }
 
-#[derive(Debug, Serialize)]
-pub struct ListResult {
-    pub entities: Vec<ListEntity>,
-    /// Matching entities before paging.
+impl<'a> ListFilter<'a> {
+    /// Every entity of `kind`, by id, on the first page.
+    pub fn all(kind: &'a ListKind) -> Self {
+        ListFilter {
+            kind,
+            equals: Vec::new(),
+            tags: Vec::new(),
+            sort_by: "id",
+            descending: false,
+            offset: None,
+            limit: None,
+        }
+    }
+}
+
+/// Whether `kind` entities have `field` to sort by: `id`, `title`, the
+/// shared `tags`, or a field the kind declares.
+pub fn sortable(kind: &str, field: &str) -> bool {
+    matches!(field, "id" | "title" | "tags") || declared_fields(kind).contains(&field)
+}
+
+/// The fields `kind` declares (`describe_entities.json`).
+fn declared_fields(kind: &str) -> Vec<&'static str> {
+    static KINDS: std::sync::OnceLock<serde_json::Value> = std::sync::OnceLock::new();
+    let kinds = KINDS.get_or_init(|| {
+        serde_json::from_slice(crate::DESCRIBE_ENTITIES).unwrap_or(serde_json::Value::Null)
+    });
+    kinds["items"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|k| k["keyword"] == kind)
+        .flat_map(|k| k["fields"].as_array().into_iter().flatten())
+        .filter_map(|f| f["name"].as_str())
+        .collect()
+}
+
+/// The `kind` entities `filter` matches, sorted as it asks: by the field's
+/// enum order when it is a closed enum, else by its text; an entity without
+/// the field last; ties by id ascending.
+pub fn list_nodes<'g>(graph: &'g CommandGraph, filter: &ListFilter) -> Vec<&'g GraphNode> {
+    let kind = filter.kind;
+    let value = |node: &GraphNode, field: &str| -> Option<String> {
+        let absent_as = kind.filter(field).and_then(|f| f.absent_as);
+        match node.fields.get(field) {
+            Some(serde_json::Value::String(s)) => Some(s.clone()),
+            Some(serde_json::Value::Array(items)) => Some(
+                items
+                    .iter()
+                    .filter_map(|i| i.as_str())
+                    .collect::<Vec<_>>()
+                    .join(","),
+            ),
+            Some(serde_json::Value::Number(n)) => Some(n.to_string()),
+            _ => absent_as.map(str::to_string),
+        }
+    };
+    let mut nodes: Vec<&GraphNode> = graph
+        .nodes_of_kind(kind.kind)
+        .filter(|n| {
+            filter.equals.iter().all(|(field, wanted)| {
+                value(n, field).as_deref() == Some(*wanted)
+                    || graph
+                        .edges_from(&n.id)
+                        .iter()
+                        .any(|e| e.label == *field && e.target == *wanted)
+            })
+        })
+        .filter(|n| {
+            filter.tags.is_empty() || n.list("tags").iter().any(|t| filter.tags.contains(t))
+        })
+        .collect();
+
+    #[derive(PartialEq, Eq, PartialOrd, Ord)]
+    enum Key {
+        Rank(usize),
+        Text(String),
+    }
+    let key = |node: &GraphNode| -> Option<Key> {
+        match filter.sort_by {
+            "id" => Some(Key::Text(node.id.clone())),
+            "title" => node.title.clone().map(Key::Text),
+            field => {
+                let v = value(node, field)?;
+                let order = kind.filter(field).and_then(|f| f.values).or(match field {
+                    "priority" => Some(PRIORITY),
+                    _ => None,
+                });
+                Some(match order {
+                    Some(order) => {
+                        Key::Rank(order.iter().position(|o| *o == v).unwrap_or(order.len()))
+                    }
+                    None => Key::Text(v),
+                })
+            }
+        }
+    };
+    nodes.sort_by(|a, b| {
+        let by_key = match (key(a), key(b)) {
+            (Some(x), Some(y)) if filter.descending => y.cmp(&x),
+            (Some(x), Some(y)) => x.cmp(&y),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        };
+        by_key.then_with(|| a.id.cmp(&b.id))
+    });
+    nodes
+}
+
+/// One page of `items` (`PaginationMetadata`): `limit` defaults to
+/// [`DEFAULT_LIMIT`] and is clamped to [1, [`MAX_LIMIT`]]; an offset past
+/// the end is an empty page. `total` counts every item.
+#[derive(Debug)]
+pub struct Page<T> {
+    pub items: Vec<T>,
     pub total: usize,
+    pub offset: usize,
+    pub limit: usize,
+    pub has_more: bool,
+}
+
+pub fn paginate<T>(items: Vec<T>, offset: Option<usize>, limit: Option<usize>) -> Page<T> {
+    let total = items.len();
+    let offset = offset.unwrap_or(0);
+    let limit = limit.unwrap_or(DEFAULT_LIMIT).clamp(1, MAX_LIMIT);
+    let items: Vec<T> = items.into_iter().skip(offset).take(limit).collect();
+    let has_more = offset.saturating_add(items.len()) < total;
+    Page {
+        items,
+        total,
+        offset,
+        limit,
+        has_more,
+    }
+}
+
+impl<T: Serialize> Page<T> {
+    /// The page as its payload: the items under `key`, then the
+    /// pagination metadata.
+    pub fn payload(&self, key: &str) -> serde_json::Value {
+        serde_json::json!({
+            key: self.items,
+            "total": self.total,
+            "offset": self.offset,
+            "limit": self.limit,
+            "has_more": self.has_more,
+        })
+    }
+}
+
+/// An entry of a list command's payload (`FeatureListEntry`, ...), and its
+/// row in the human table.
+pub trait ListEntry: Serialize + Sized {
+    const KIND: &'static ListKind;
+    const HEADERS: &'static [&'static str];
+    fn of(graph: &CommandGraph, node: &GraphNode) -> Self;
+    fn row(&self) -> Vec<String>;
+}
+
+/// The page of `T` entries `filter` selects.
+pub fn list<T: ListEntry>(graph: &CommandGraph, filter: &ListFilter) -> Page<T> {
+    let entries = list_nodes(graph, filter)
+        .into_iter()
+        .map(|n| T::of(graph, n))
+        .collect();
+    paginate(entries, filter.offset, filter.limit)
+}
+
+fn tags(node: &GraphNode) -> Option<Vec<String>> {
+    let tags = node.list("tags");
+    (!tags.is_empty()).then(|| tags.into_iter().map(str::to_string).collect())
+}
+
+fn title(node: &GraphNode) -> String {
+    node.title.clone().unwrap_or_default()
+}
+
+fn cell(value: &Option<String>) -> String {
+    value.clone().unwrap_or_else(|| "-".to_string())
 }
 
 #[derive(Debug, Serialize)]
-pub struct ListEntity {
+pub struct FeatureListEntry {
     pub id: String,
-    pub title: Option<String>,
-    pub kind: String,
+    pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub priority: Option<String>,
-    pub incoming_edges: usize,
-    pub outgoing_edges: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub problem: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
 }
 
-pub fn list_entities(graph: &CommandGraph, filter: &ListFilter) -> ListResult {
-    let matches = |node: &&GraphNode, field: &str, wanted: Option<&str>| {
-        wanted.is_none_or(|w| node.text(field) == Some(w))
-    };
-    let mut entities: Vec<ListEntity> = graph
-        .nodes_of_kind(filter.kind)
-        .filter(|n| matches(n, "status", filter.status))
-        .filter(|n| matches(n, "priority", filter.priority))
-        .map(|n| ListEntity {
+impl ListEntry for FeatureListEntry {
+    const KIND: &'static ListKind = &FEATURES;
+    const HEADERS: &'static [&'static str] = &["id", "title", "status", "priority"];
+    fn of(_: &CommandGraph, n: &GraphNode) -> Self {
+        FeatureListEntry {
             id: n.id.clone(),
-            title: n.title.clone(),
-            kind: n.kind.clone(),
+            title: title(n),
             status: text(n, "status"),
             priority: text(n, "priority"),
-            incoming_edges: graph.edges_to(&n.id).len(),
-            outgoing_edges: graph.edges_from(&n.id).len(),
-        })
-        .collect();
-    entities.sort_by(|a, b| a.id.cmp(&b.id));
-    let total = entities.len();
-    let entities = entities
-        .into_iter()
-        .skip(filter.offset.unwrap_or(0))
-        .take(filter.limit.unwrap_or(usize::MAX))
-        .collect();
-    ListResult { entities, total }
+            problem: text(n, "problem"),
+            tags: tags(n),
+        }
+    }
+    fn row(&self) -> Vec<String> {
+        vec![
+            self.id.clone(),
+            self.title.clone(),
+            cell(&self.status),
+            cell(&self.priority),
+        ]
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct JourneyListEntry {
+    pub id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub persona: Option<String>,
+    pub channel_count: usize,
+    pub feature_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+}
+
+impl ListEntry for JourneyListEntry {
+    const KIND: &'static ListKind = &JOURNEYS;
+    const HEADERS: &'static [&'static str] =
+        &["id", "title", "persona", "channels", "features", "priority"];
+    fn of(graph: &CommandGraph, n: &GraphNode) -> Self {
+        JourneyListEntry {
+            id: n.id.clone(),
+            title: title(n),
+            persona: text(n, "persona"),
+            channel_count: count_out(graph, &n.id, "channels"),
+            feature_count: count_out(graph, &n.id, "features"),
+            priority: text(n, "priority"),
+            tags: tags(n),
+        }
+    }
+    fn row(&self) -> Vec<String> {
+        vec![
+            self.id.clone(),
+            self.title.clone(),
+            cell(&self.persona),
+            self.channel_count.to_string(),
+            self.feature_count.to_string(),
+            cell(&self.priority),
+        ]
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct DeliverableListEntry {
+    pub id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artifact_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    pub journey_count: usize,
+    pub module_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+}
+
+impl ListEntry for DeliverableListEntry {
+    const KIND: &'static ListKind = &DELIVERABLES;
+    const HEADERS: &'static [&'static str] = &[
+        "id",
+        "title",
+        "artifact_type",
+        "status",
+        "journeys",
+        "modules",
+    ];
+    fn of(graph: &CommandGraph, n: &GraphNode) -> Self {
+        DeliverableListEntry {
+            id: n.id.clone(),
+            title: title(n),
+            artifact_type: text(n, "artifact_type"),
+            status: text(n, "status"),
+            journey_count: count_out(graph, &n.id, "journeys"),
+            module_count: count_out(graph, &n.id, "modules"),
+            tags: tags(n),
+        }
+    }
+    fn row(&self) -> Vec<String> {
+        vec![
+            self.id.clone(),
+            self.title.clone(),
+            cell(&self.artifact_type),
+            cell(&self.status),
+            self.journey_count.to_string(),
+            self.module_count.to_string(),
+        ]
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct MilestoneListEntry {
+    pub id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_date: Option<String>,
+    pub feature_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub priority: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+}
+
+impl ListEntry for MilestoneListEntry {
+    const KIND: &'static ListKind = &MILESTONES;
+    const HEADERS: &'static [&'static str] = &[
+        "id",
+        "title",
+        "status",
+        "target_date",
+        "features",
+        "priority",
+    ];
+    fn of(graph: &CommandGraph, n: &GraphNode) -> Self {
+        MilestoneListEntry {
+            id: n.id.clone(),
+            title: title(n),
+            status: text(n, "status"),
+            target_date: text(n, "target_date"),
+            feature_count: count_out(graph, &n.id, "features"),
+            priority: text(n, "priority"),
+            tags: tags(n),
+        }
+    }
+    fn row(&self) -> Vec<String> {
+        vec![
+            self.id.clone(),
+            self.title.clone(),
+            cell(&self.status),
+            cell(&self.target_date),
+            self.feature_count.to_string(),
+            cell(&self.priority),
+        ]
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ModuleListEntry {
+    pub id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub family: Option<String>,
+    pub feature_count: usize,
+    pub depends_on: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+}
+
+impl ListEntry for ModuleListEntry {
+    const KIND: &'static ListKind = &MODULES;
+    const HEADERS: &'static [&'static str] = &["id", "title", "family", "features", "depends_on"];
+    fn of(graph: &CommandGraph, n: &GraphNode) -> Self {
+        ModuleListEntry {
+            id: n.id.clone(),
+            title: title(n),
+            family: text(n, "family"),
+            feature_count: count_out(graph, &n.id, "features"),
+            depends_on: sorted_dedup(targets(graph, &n.id, "depends_on")),
+            tags: tags(n),
+        }
+    }
+    fn row(&self) -> Vec<String> {
+        vec![
+            self.id.clone(),
+            self.title.clone(),
+            cell(&self.family),
+            self.feature_count.to_string(),
+            if self.depends_on.is_empty() {
+                "-".to_string()
+            } else {
+                self.depends_on.join(",")
+            },
+        ]
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct TermListEntry {
+    pub id: String,
+    pub title: String,
+    pub definition: String,
+    pub alias_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+}
+
+impl ListEntry for TermListEntry {
+    const KIND: &'static ListKind = &TERMS;
+    const HEADERS: &'static [&'static str] = &["id", "title", "aliases", "definition"];
+    fn of(_: &CommandGraph, n: &GraphNode) -> Self {
+        TermListEntry {
+            id: n.id.clone(),
+            title: title(n),
+            definition: text(n, "definition").unwrap_or_default(),
+            alias_count: n.list("aliases").len(),
+            tags: tags(n),
+        }
+    }
+    fn row(&self) -> Vec<String> {
+        vec![
+            self.id.clone(),
+            self.title.clone(),
+            self.alias_count.to_string(),
+            self.definition.clone(),
+        ]
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct PersonaListEntry {
+    pub id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub technical_level: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    pub journey_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+}
+
+impl ListEntry for PersonaListEntry {
+    const KIND: &'static ListKind = &PERSONAS;
+    const HEADERS: &'static [&'static str] =
+        &["id", "title", "technical_level", "status", "journeys"];
+    fn of(graph: &CommandGraph, n: &GraphNode) -> Self {
+        PersonaListEntry {
+            id: n.id.clone(),
+            title: title(n),
+            technical_level: text(n, "technical_level"),
+            status: text(n, "status"),
+            journey_count: count_in(graph, &n.id, "persona", "journey"),
+            tags: tags(n),
+        }
+    }
+    fn row(&self) -> Vec<String> {
+        vec![
+            self.id.clone(),
+            self.title.clone(),
+            cell(&self.technical_level),
+            cell(&self.status),
+            self.journey_count.to_string(),
+        ]
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ChannelListEntry {
+    pub id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub interaction_model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    pub journey_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+}
+
+impl ListEntry for ChannelListEntry {
+    const KIND: &'static ListKind = &CHANNELS;
+    const HEADERS: &'static [&'static str] =
+        &["id", "title", "interaction_model", "status", "journeys"];
+    fn of(graph: &CommandGraph, n: &GraphNode) -> Self {
+        ChannelListEntry {
+            id: n.id.clone(),
+            title: title(n),
+            interaction_model: text(n, "interaction_model"),
+            status: text(n, "status"),
+            journey_count: count_in(graph, &n.id, "channels", "journey"),
+            tags: tags(n),
+        }
+    }
+    fn row(&self) -> Vec<String> {
+        vec![
+            self.id.clone(),
+            self.title.clone(),
+            cell(&self.interaction_model),
+            cell(&self.status),
+            self.journey_count.to_string(),
+        ]
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ReleaseListEntry {
+    pub id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    pub deliverable_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub release_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<Vec<String>>,
+}
+
+impl ListEntry for ReleaseListEntry {
+    const KIND: &'static ListKind = &RELEASES;
+    const HEADERS: &'static [&'static str] = &[
+        "id",
+        "title",
+        "version",
+        "status",
+        "deliverables",
+        "release_date",
+    ];
+    fn of(graph: &CommandGraph, n: &GraphNode) -> Self {
+        ReleaseListEntry {
+            id: n.id.clone(),
+            title: title(n),
+            version: text(n, "version"),
+            status: text(n, "status"),
+            deliverable_count: count_out(graph, &n.id, "deliverables"),
+            release_date: text(n, "release_date"),
+            tags: tags(n),
+        }
+    }
+    fn row(&self) -> Vec<String> {
+        vec![
+            self.id.clone(),
+            self.title.clone(),
+            cell(&self.version),
+            cell(&self.status),
+            self.deliverable_count.to_string(),
+            cell(&self.release_date),
+        ]
+    }
 }
 
 // ── Milestones and journeys ────────────────────────────────────────────────
@@ -510,6 +1176,24 @@ fn targets(graph: &CommandGraph, id: &str, label: &str) -> Vec<String> {
         .filter(|e| e.label == label)
         .map(|e| e.target.clone())
         .collect()
+}
+
+/// How many of `id`'s references are declared in `label`.
+fn count_out(graph: &CommandGraph, id: &str, label: &str) -> usize {
+    graph
+        .edges_from(id)
+        .iter()
+        .filter(|e| e.label == label)
+        .count()
+}
+
+/// How many `source_kind` entities reference `id` in `label`.
+fn count_in(graph: &CommandGraph, id: &str, label: &str, source_kind: &str) -> usize {
+    graph
+        .edges_to(id)
+        .iter()
+        .filter(|e| e.label == label && kind_of(graph, &e.source) == Some(source_kind))
+        .count()
 }
 
 /// `ids` sorted, each once.

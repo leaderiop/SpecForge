@@ -42,89 +42,139 @@ impl G {
     }
 }
 
-fn of(kind: &str) -> ListFilter<'_> {
-    ListFilter {
-        kind,
-        ..Default::default()
-    }
+/// The ids `filter` lists over `g`, in order, as features.
+fn listed(g: &CommandGraph, filter: &ListFilter) -> Vec<String> {
+    list::<FeatureListEntry>(g, filter)
+        .items
+        .into_iter()
+        .map(|e| e.id)
+        .collect()
 }
 
-// ── list_entities ──────────────────────────────────────────────────────────
+// ── lists ──────────────────────────────────────────────────────────────────
 
 #[test]
-fn list_entities_filters_by_kind() {
-    let g = G::default().n("f1", "feature").n("b1", "behavior").build();
-    let result = list_entities(&g, &of("feature"));
-    assert_eq!(result.total, 1);
-    assert_eq!(result.entities[0].id, "f1");
-}
-
-#[test]
-fn list_entities_filters_by_status_and_priority() {
-    let g = G::default()
-        .node("f1", "feature", &[("status", "done"), ("priority", "high")])
-        .node(
-            "f2",
-            "feature",
-            &[("status", "draft"), ("priority", "high")],
-        )
-        .node("f3", "feature", &[("status", "done"), ("priority", "low")])
-        .build();
-    let done = list_entities(
-        &g,
-        &ListFilter {
-            status: Some("done"),
-            ..of("feature")
-        },
-    );
-    assert_eq!(done.total, 2);
-    let done_high = list_entities(
-        &g,
-        &ListFilter {
-            status: Some("done"),
-            priority: Some("high"),
-            ..of("feature")
-        },
-    );
-    assert_eq!(done_high.total, 1);
-    assert_eq!(done_high.entities[0].id, "f1");
-}
-
-#[test]
-fn list_entities_pages_after_counting() {
-    let mut g = G::default();
-    for i in 0..5 {
-        g = g.n(&format!("f{i}"), "feature");
-    }
-    let result = list_entities(
-        &g.build(),
-        &ListFilter {
-            offset: Some(1),
-            limit: Some(2),
-            ..of("feature")
-        },
-    );
-    assert_eq!(result.total, 5);
-    let ids: Vec<&str> = result.entities.iter().map(|e| e.id.as_str()).collect();
-    assert_eq!(ids, ["f1", "f2"]);
-}
-
-#[test]
-fn list_entities_sorted_by_id_with_edge_counts() {
+fn a_list_is_of_its_kind_sorted_by_id() {
     let g = G::default()
         .n("z_feature", "feature")
         .n("a_feature", "feature")
-        .n("m1", "milestone")
-        .edge("m1", "z_feature", "features")
+        .n("b1", "behavior")
         .build();
-    let result = list_entities(&g, &of("feature"));
-    assert_eq!(result.entities[0].id, "a_feature");
-    assert_eq!(result.entities[1].id, "z_feature");
-    assert_eq!(result.entities[1].incoming_edges, 1);
-    assert_eq!(result.entities[1].outgoing_edges, 0);
     assert_eq!(
-        list_entities(&CommandGraph::default(), &of("feature")).total,
+        listed(&g, &ListFilter::all(&FEATURES)),
+        ["a_feature", "z_feature"]
+    );
+    assert_eq!(
+        list::<FeatureListEntry>(&CommandGraph::default(), &ListFilter::all(&FEATURES)).total,
         0
+    );
+}
+
+#[test]
+fn list_filters_combine_and_an_absent_status_is_the_first() {
+    let g = G::default()
+        .node("f1", "feature", &[("status", "done"), ("priority", "high")])
+        .node("f2", "feature", &[("priority", "high")])
+        .node("f3", "feature", &[("status", "done"), ("priority", "low")])
+        .build();
+    let with = |equals: Vec<(&'static str, &'static str)>| {
+        let mut filter = ListFilter::all(&FEATURES);
+        filter.equals = equals;
+        listed(&g, &filter)
+    };
+    assert_eq!(with(vec![("status", "done")]), ["f1", "f3"]);
+    assert_eq!(with(vec![("status", "done"), ("priority", "high")]), ["f1"]);
+    assert_eq!(with(vec![("status", "proposed")]), ["f2"]);
+}
+
+#[test]
+fn a_reference_filter_matches_the_field_or_the_edge() {
+    let g = G::default()
+        .node("j1", "journey", &[("persona", "dev")])
+        .n("j2", "journey")
+        .n("j3", "journey")
+        .edge("j2", "dev", "persona")
+        .build();
+    let mut filter = ListFilter::all(&JOURNEYS);
+    filter.equals = vec![("persona", "dev")];
+    let ids: Vec<String> = list::<JourneyListEntry>(&g, &filter)
+        .items
+        .into_iter()
+        .map(|e| e.id)
+        .collect();
+    assert_eq!(ids, ["j1", "j2"]);
+}
+
+#[test]
+fn a_list_sorts_an_enum_by_its_order_and_ties_by_id() {
+    let g = G::default()
+        .node("c", "feature", &[("priority", "low")])
+        .node("b", "feature", &[("priority", "critical")])
+        .node("a", "feature", &[("priority", "low")])
+        .n("d", "feature")
+        .build();
+    let mut filter = ListFilter::all(&FEATURES);
+    filter.sort_by = "priority";
+    assert_eq!(listed(&g, &filter), ["b", "a", "c", "d"]);
+    filter.descending = true;
+    // Ties stay by id ascending; an entity without the field stays last.
+    assert_eq!(listed(&g, &filter), ["a", "c", "b", "d"]);
+    assert!(sortable("feature", "priority"));
+    assert!(sortable("feature", "tags"));
+    assert!(!sortable("feature", "nope"));
+    assert!(!sortable("term", "status"));
+}
+
+#[test]
+fn a_page_counts_before_paging_and_clamps_its_limit() {
+    let page = paginate((0..5).collect(), Some(1), Some(2));
+    assert_eq!(
+        (page.items, page.total, page.has_more),
+        (vec![1, 2], 5, true)
+    );
+    let page = paginate((0..5).collect::<Vec<i32>>(), Some(3), Some(2));
+    assert!(!page.has_more);
+    assert_eq!(
+        paginate((0..5).collect::<Vec<i32>>(), None, Some(0)).limit,
+        1
+    );
+    assert_eq!(
+        paginate((0..5).collect::<Vec<i32>>(), None, Some(5000)).limit,
+        1000
+    );
+    assert_eq!(
+        paginate((0..5).collect::<Vec<i32>>(), None, None).limit,
+        100
+    );
+    let past = paginate((0..5).collect::<Vec<i32>>(), Some(9), None);
+    assert_eq!((past.items.len(), past.total, past.has_more), (0, 5, false));
+}
+
+#[test]
+fn list_entries_count_their_references() {
+    let g = G::default()
+        .node("j1", "journey", &[("persona", "dev")])
+        .n("dev", "persona")
+        .n("cli", "channel")
+        .n("f1", "feature")
+        .n("mod1", "module")
+        .n("mod2", "module")
+        .edge("j1", "dev", "persona")
+        .edge("j1", "cli", "channels")
+        .edge("j1", "f1", "features")
+        .edge("mod1", "f1", "features")
+        .edge("mod1", "mod2", "depends_on")
+        .build();
+    let j = &list::<JourneyListEntry>(&g, &ListFilter::all(&JOURNEYS)).items[0];
+    assert_eq!((j.channel_count, j.feature_count), (1, 1));
+    let p = &list::<PersonaListEntry>(&g, &ListFilter::all(&PERSONAS)).items[0];
+    assert_eq!(p.journey_count, 1);
+    let c = &list::<ChannelListEntry>(&g, &ListFilter::all(&CHANNELS)).items[0];
+    assert_eq!(c.journey_count, 1);
+    let m = &list::<ModuleListEntry>(&g, &ListFilter::all(&MODULES)).items[0];
+    assert_eq!(
+        (m.feature_count, m.depends_on.clone()),
+        (1, vec!["mod2".to_string()])
     );
 }
 
@@ -397,7 +447,19 @@ fn a_list_command_renders_human_by_default_and_json_on_request() {
     assert_eq!(human.exit_code, 0);
     assert_eq!(
         human.stdout,
-        "2 feature entities (showing 2):\n  f1 f1 [proposed] pri=high in=0 out=0\n  f2 f2 [done] pri=- in=0 out=0\n"
+        "id  title  status    priority\nf1  f1     proposed  high\nf2  f2     done      -\n"
+    );
+    let paged = crate::commands::run(
+        "cmd__product_features",
+        &input(serde_json::json!({"limit": 1}), sample()),
+    )
+    .unwrap();
+    assert!(
+        paged
+            .stdout
+            .ends_with("1 of 2 features; --offset 1 for more\n"),
+        "{}",
+        paged.stdout
     );
     let json = crate::commands::run(
         "cmd__product_features",
@@ -406,25 +468,43 @@ fn a_list_command_renders_human_by_default_and_json_on_request() {
     .unwrap();
     let value: serde_json::Value = serde_json::from_str(&json.stdout).unwrap();
     assert_eq!(value["total"], 1);
-    assert_eq!(value["entities"][0]["id"], "f2");
-    assert!(value["entities"][0].get("priority").is_none());
+    assert_eq!(value["features"][0]["id"], "f2");
+    assert!(value["features"][0].get("priority").is_none());
 }
 
 #[test]
-fn a_list_command_refuses_a_page_that_is_not_a_count() {
-    for args in [
-        serde_json::json!({"limit": -1}),
-        serde_json::json!({"offset": "many"}),
+fn a_list_command_refuses_an_arg_it_cannot_use() {
+    for (args, says) in [
+        (
+            serde_json::json!({"limit": -1}),
+            "must be a non-negative integer",
+        ),
+        (
+            serde_json::json!({"offset": "many"}),
+            "must be a non-negative integer",
+        ),
+        (
+            serde_json::json!({"status": "draft"}),
+            "status must be one of proposed,",
+        ),
+        (
+            serde_json::json!({"priority": "urgent"}),
+            "priority must be one of",
+        ),
+        (
+            serde_json::json!({"sort_by": "nope"}),
+            "a feature has no field 'nope'",
+        ),
+        (
+            serde_json::json!({"sort_order": "up"}),
+            "sort_order must be one of asc, desc",
+        ),
     ] {
         let out =
             crate::commands::run("cmd__product_features", &input(args.clone(), sample())).unwrap();
         assert_eq!(out.exit_code, 2, "{args}");
         assert_eq!(out.stdout, "", "{args}");
-        assert!(
-            out.stderr.contains("must be a non-negative integer"),
-            "{args}: {}",
-            out.stderr
-        );
+        assert!(out.stderr.contains(says), "{args}: {}", out.stderr);
     }
 }
 
