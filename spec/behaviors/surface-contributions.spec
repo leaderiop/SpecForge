@@ -97,7 +97,7 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
     surfaces_registered "the registry build has registered the project's CLI command and MCP tool contributions"
   }
   ensures {
-    all_commands_promoted          "Every CLI command contribution is auto-promoted to an MCP tool"
+    all_commands_promoted          "Every CLI command contribution the host does not refuse is auto-promoted to an MCP tool"
     naming_convention_enforced     "Auto-promoted tools follow the specforge.{ext_short}.{cmd_id} naming pattern"
     explicit_tool_wins             "Explicit MCP tool contributions take precedence over auto-promoted tools with I017 emitted"
     commands_auto_promoted_emitted "commands_auto_promoted event is emitted after promotion completes"
@@ -105,7 +105,9 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
   contract   """
     After surface contributions are registered, the compiler MUST
     auto-promote every CLI command contribution to an MCP tool with
-    the naming convention specforge.{ext_short}.{cmd_id}. The derived
+    the naming convention specforge.{ext_short}.{cmd_id}, but one the
+    host refuses on the command line (an arg named path, format or help,
+    or two args of one name): the one rule keeps both surfaces alike. The derived
     input_schema MUST be computed from the command's args declaration.
     If an explicit MCP tool contribution already exists with the same
     name, the explicit tool MUST win and I017 MUST be emitted. Auto-
@@ -115,6 +117,7 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
   verify unit "auto-promoted tool name follows specforge.{ext}.{cmd} pattern"
   verify unit "derived input_schema computed from command args"
   verify unit "explicit MCP tool wins over auto-promoted tool with I017"
+  verify unit "a command the CLI refuses, such as one declaring an arg named format, is not promoted"
   verify contract "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted"
 }
 
@@ -167,7 +170,8 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     Wasm traps MUST be caught and reported as ExtensionError
     diagnostics, as is a declared export the guest does not route (the
     host cannot list a component guest's exports, so presence is known
-    only by calling). The command's exit code, stdout, and stderr MUST be
+    only by calling); under --format json the CLI writes it to stderr as
+    one error object of the shape commands write ({code, message}). The command's exit code, stdout, and stderr MUST be
     returned to the caller. The MCP server records each command whose
     export returned as a surface_command_dispatched event.
   """
@@ -179,6 +183,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "a declared export the guest does not route is an ExtensionError when dispatched"
   verify unit "the CommandInput carries the format the caller asked for and the host's date"
   verify unit "a command declaring an arg named format is refused on the command line"
+  verify unit "under --format json a command whose export trapped prints one JSON error object"
   verify integration "over MCP a command is asked for json and its JSON output is the tool's structured content"
   verify unit "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"
   verify contract "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted"

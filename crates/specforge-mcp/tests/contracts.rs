@@ -1452,7 +1452,7 @@ fn contract_auto_promote_commands() {
     let resp = call_tool(
         &mut server,
         "specforge.cmds.report",
-        json!({"format": "json"}),
+        json!({"style": "json"}),
     );
     assert_eq!(resp["result"]["content"][0]["text"], "report written");
     let calls = ext.calls();
@@ -1461,7 +1461,7 @@ fn contract_auto_promote_commands() {
             .iter()
             .map(|(ext, export, input)| (ext.as_str(), export.as_str(), &input["args"]))
             .collect::<Vec<_>>(),
-        [(EXT, "cmd__report", &json!({"format": "json"}))]
+        [(EXT, "cmd__report", &json!({"style": "json"}))]
     );
 
     // explicit_tool_wins: `check` stays the explicit tool, with I017.
@@ -1604,11 +1604,7 @@ fn event_surface_command_dispatched() {
         "cmd__report",
         json!({"exit_code": 0, "stdout": "ok", "stderr": ""}),
     ));
-    call_tool(
-        &mut server,
-        "specforge.cmds.report",
-        json!({"format": "md"}),
-    );
+    call_tool(&mut server, "specforge.cmds.report", json!({"style": "md"}));
     let dispatched: Vec<(Value, Value, Value)> = events(&server, "surface_command_dispatched")
         .into_iter()
         .map(|e| {

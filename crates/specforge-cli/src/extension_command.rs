@@ -18,10 +18,11 @@ use clap::builder::PossibleValuesParser;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use serde_json::{Map, Value};
 use specforge_ops::command::{
-    CommandContext, CommandFormat, ExtensionCommand, ext_short, extension_commands, run_command,
+    CommandContext, CommandFormat, ExtensionCommand, ext_short, extension_commands, refusal,
+    run_command,
 };
 use specforge_project::Environment;
-use specforge_registry::{CommandArg, CommandArgType, CommandContribution};
+use specforge_registry::{CommandArg, CommandArgType};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -30,10 +31,6 @@ const PATH: &str = "path";
 
 /// The host's own option on every extension command: the output asked for.
 const FORMAT: &str = "format";
-
-/// The options the host gives every extension command, which no declared
-/// arg may take.
-const RESERVED: &[&str] = &[PATH, FORMAT, "help"];
 
 /// Run the extension command `argv` names (`argv[0]` is the extension).
 /// `builtins` are the CLI's own commands, suggested for a name no extension
@@ -83,7 +80,7 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     }
     if let Some(requested) = rest.first()
         && let Some(command) = commands.iter().find(|c| c.cli_name() == *requested)
-        && let Some(why) = collision(command.contribution)
+        && let Some(why) = refusal(command.contribution)
     {
         eprintln!(
             "error: {}'s command '{requested}' cannot run on the command line: {why}",
@@ -128,9 +125,29 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
             output.exit_code
         }
         Err(diagnostic) => {
-            eprintln!("{}", crate::export::render_plain(&diagnostic));
+            eprint!("{}", failed_run(&diagnostic, context.format));
             1
         }
+    }
+}
+
+/// What the CLI writes to stderr when a command's export did not answer
+/// (it trapped: E028), in the format asked for: under `json` one error
+/// object of the shape commands write (`{code, message, suggestion?}`),
+/// under `human` the diagnostic line.
+fn failed_run(diagnostic: &specforge_common::Diagnostic, format: CommandFormat) -> String {
+    match format {
+        CommandFormat::Json => {
+            let mut error = serde_json::json!({
+                "code": diagnostic.code,
+                "message": diagnostic.message,
+            });
+            if let Some(suggestion) = &diagnostic.suggestion {
+                error["suggestion"] = Value::from(suggestion.as_str());
+            }
+            format!("{error}\n")
+        }
+        CommandFormat::Human => format!("{}\n", crate::export::render_plain(diagnostic)),
     }
 }
 
@@ -138,14 +155,14 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
 /// contributes commands, as `specforge <ext>` routes them: what shell
 /// completions are generated from. An extension whose short name is a
 /// built-in command's is left out (the built-in wins), and so is any
-/// command whose args [`collision`] refuses.
+/// command whose args [`refusal`] refuses.
 pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
     let runtime = specforge_component::project_runtime(root);
     let env = Environment::load(root, Some(&runtime));
     let build = &env.registries;
     let mut by_ext: Vec<(String, Vec<ExtensionCommand>)> = Vec::new();
     for command in extension_commands(build) {
-        if collision(command.contribution).is_some() {
+        if refusal(command.contribution).is_some() {
             continue;
         }
         let short = ext_short(&build.manifests, command.extension);
@@ -161,24 +178,6 @@ pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
         }
     }
     cli
-}
-
-/// Why `contribution`'s args cannot be a command line, if they cannot: an
-/// arg takes an option the host reserves (`--path`, `--format`, `--help`),
-/// or two args share a name.
-fn collision(contribution: &CommandContribution) -> Option<String> {
-    let mut seen: Vec<String> = Vec::new();
-    for arg in &contribution.args {
-        let name = arg.name.replace('_', "-");
-        if RESERVED.contains(&name.as_str()) {
-            return Some(format!("its arg '{}' takes the host's --{name}", arg.name));
-        }
-        if seen.contains(&name) {
-            return Some(format!("it declares the arg '{name}' twice"));
-        }
-        seen.push(name);
-    }
-    None
 }
 
 /// `--path <dir>` or `--path=<dir>` among `args`, else `.`: the project the
@@ -199,7 +198,7 @@ fn project_path(args: &[String]) -> PathBuf {
 }
 
 /// `specforge <ext>`'s command line: one subcommand per command, none of
-/// them refused by [`collision`].
+/// them refused by [`refusal`].
 fn command_line(ext: &str, commands: &[ExtensionCommand]) -> Command {
     let mut cli = Command::new(ext.to_string())
         .bin_name(format!("specforge {ext}"))
@@ -207,7 +206,7 @@ fn command_line(ext: &str, commands: &[ExtensionCommand]) -> Command {
         .arg_required_else_help(true);
     for command in commands {
         let contribution = command.contribution;
-        if collision(contribution).is_some() {
+        if refusal(contribution).is_some() {
             continue;
         }
         let mut sub = Command::new(command.cli_name()).about(contribution.title.clone());
@@ -427,11 +426,11 @@ mod tests {
             args,
             ..contribution()
         };
-        assert_eq!(collision(&contribution()), None);
+        assert_eq!(refusal(&contribution()), None);
         for name in ["path", "format", "help"] {
             let c = with(vec![arg(name, CommandArgType::String, false, None)]);
             assert_eq!(
-                collision(&c),
+                refusal(&c),
                 Some(format!("its arg '{name}' takes the host's --{name}"))
             );
         }
@@ -440,8 +439,32 @@ mod tests {
             arg("all-kinds", CommandArgType::Bool, false, None),
         ]);
         assert_eq!(
-            collision(&twice),
+            refusal(&twice),
             Some("it declares the arg 'all-kinds' twice".into())
+        );
+    }
+
+    #[specforge_test(
+        behavior = "dispatch_surface_command",
+        verify = "under --format json a command whose export trapped prints one JSON error object"
+    )]
+    fn a_trapped_command_reports_in_the_format_asked_for() {
+        let trap = specforge_common::Diagnostic::error(
+            "E028",
+            "CLI command cmd__x() trapped: unreachable: the command panicked",
+        );
+        let json = failed_run(&trap, CommandFormat::Json);
+        let error: Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(
+            error,
+            serde_json::json!({"code": "E028",
+                "message": "CLI command cmd__x() trapped: unreachable: the command panicked"})
+        );
+        assert!(json.ends_with('\n') && json.lines().count() == 1, "{json}");
+        let human = failed_run(&trap, CommandFormat::Human);
+        assert!(
+            human.starts_with("error[E028]: CLI command cmd__x() trapped"),
+            "{human}"
         );
     }
 

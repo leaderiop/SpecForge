@@ -578,7 +578,7 @@ fn cli_command_auto_promoted_to_mcp_tool() {
     // A call reaches the command's cmd__ export with the tool arguments as
     // its args, beside the project root and the served graph, and the
     // command's stdout is the tool result.
-    let args = json!({"format": "md", "verbose": true});
+    let args = json!({"style": "md", "verbose": true});
     let resp = call_tool(&mut server, "specforge.cmds.report", args.clone());
     assert_eq!(
         resp["result"],
@@ -597,11 +597,7 @@ fn cli_command_auto_promoted_to_mcp_tool() {
     let failing = json!({"exit_code": 2, "stdout": "", "stderr": "no tests found"});
     let (mut server, _ext, _dir) =
         fake_extension::initialized(FakeExtension::new().with_output("cmd__report", failing));
-    let resp = call_tool(
-        &mut server,
-        "specforge.cmds.report",
-        json!({"format": "md"}),
-    );
+    let resp = call_tool(&mut server, "specforge.cmds.report", json!({"style": "md"}));
     assert_eq!(
         resp["result"],
         json!({"content": [
@@ -616,11 +612,7 @@ fn cli_command_auto_promoted_to_mcp_tool() {
 fn promoted_report(output: Value) -> (Value, Value) {
     let (mut server, ext, _dir) =
         fake_extension::initialized(FakeExtension::new().with_output("cmd__report", output));
-    let resp = call_tool(
-        &mut server,
-        "specforge.cmds.report",
-        json!({"format": "md"}),
-    );
+    let resp = call_tool(&mut server, "specforge.cmds.report", json!({"style": "md"}));
     let calls = ext.calls();
     let [(_, _, input)] = calls.as_slice() else {
         panic!("one call: {calls:?}")
@@ -651,7 +643,7 @@ fn over_mcp_a_commands_output_is_structured_only_when_it_is_one_object() {
         chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d").is_ok(),
         "{input}"
     );
-    assert_eq!(input["args"], json!({"format": "md"}), "only declared args");
+    assert_eq!(input["args"], json!({"style": "md"}), "only declared args");
 
     // One object on stdout is the structured result, beside its text.
     let result = ran(0, r#"{"covered": 3}"#, "");
@@ -727,6 +719,46 @@ fn auto_promoted_tool_name_follows_pattern() {
 
 #[specforge_test(
     behavior = "auto_promote_commands_to_mcp_tools",
+    verify = "a command the CLI refuses, such as one declaring an arg named format, is not promoted"
+)]
+fn a_command_the_cli_refuses_is_no_tool() {
+    let command = |id: &str, arg: &str| {
+        json!({"id": id, "title": id, "description": id, "export": format!("cmd__{id}"),
+            "args": [{"name": arg, "arg_type": "string"}]})
+    };
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        FakeExtension::new()
+            .with_command(command("render", "format"))
+            .with_command(command("open", "path"))
+            .with_command(command("draw", "shape")),
+    );
+    // The rule the CLI refuses a command line by is the one MCP promotes by.
+    let refused = |arg: &str| {
+        specforge_ops::command::refusal(&specforge_registry::CommandContribution {
+            id: "x".into(),
+            title: "x".into(),
+            description: String::new(),
+            category: None,
+            export: "cmd__x".into(),
+            args: vec![specforge_registry::CommandArg {
+                name: arg.into(),
+                arg_type: specforge_registry::CommandArgType::String,
+                required: false,
+                default_value: None,
+                description: None,
+            }],
+            sandbox: None,
+        })
+    };
+    assert!(refused("format").is_some());
+    assert!(refused("shape").is_none());
+    assert!(listed_tool(&mut server, "specforge.cmds.render").is_none());
+    assert!(listed_tool(&mut server, "specforge.cmds.open").is_none());
+    assert!(listed_tool(&mut server, "specforge.cmds.draw").is_some());
+}
+
+#[specforge_test(
+    behavior = "auto_promote_commands_to_mcp_tools",
     verify = "derived input_schema computed from command args"
 )]
 fn derived_input_schema_from_command_args() {
@@ -737,12 +769,12 @@ fn derived_input_schema_from_command_args() {
         json!({
             "type": "object",
             "properties": {
-                "format": {"type": "string", "enum": ["md", "json"], "description": "Output format"},
+                "style": {"type": "string", "enum": ["md", "json"], "description": "Output style"},
                 "verbose": {"type": "boolean"},
                 "limit": {"type": "integer"},
                 "out": {"type": "string"}
             },
-            "required": ["format"]
+            "required": ["style"]
         })
     );
 }
@@ -933,8 +965,8 @@ fn extension_tool_input_is_checked_against_its_schema() {
         error["message"].as_str().unwrap().contains("$.strict"),
         "{error}"
     );
-    // The auto-promoted report requires format, one of md or json.
-    for arguments in [json!({}), json!({"format": "xml"})] {
+    // The auto-promoted report requires style, one of md or json.
+    for arguments in [json!({}), json!({"style": "xml"})] {
         let resp = call_tool(&mut server, "specforge.cmds.report", arguments.clone());
         let error = crate::tool_errors::mcp_error(&resp);
         assert_eq!(error["code"], "invalid_input", "{arguments}: {error}");

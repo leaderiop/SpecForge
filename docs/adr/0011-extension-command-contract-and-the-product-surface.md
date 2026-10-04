@@ -124,6 +124,35 @@ everywhere; `health` keeps its 0 to 100 score.
 `feature_impact` counted features that only list the feature under `features` (a "relates to"
 link) as depending on it. Fixed here: only a `depends_on` reference is a dependency.
 
+## Adjustments made while building it
+
+- **A refused command is on neither surface.** The rule that refuses a command line (an arg
+  named `path`, `format` or `help`, or two args of one name) is one function,
+  `specforge_ops::command::refusal`; MCP does not promote a command it refuses, so a
+  `format` arg never reaches an agent either.
+- **A command whose export trapped answers in the format asked for.** Under `--format json`
+  the CLI writes E028 to stderr as one `{code, message}` object, the shape commands write
+  their own errors in, rather than the diagnostic line.
+- **Extension-command errors go to stderr; core commands' `--format json` errors go to
+  stdout.** Core commands print `{"error", "code", "suggestion"}` on stdout under `json`
+  (`print_op_error` in `specforge-cli`), extension commands print `ProductSurfaceError` on
+  stderr. The difference is known and kept for now: changing core's would break every script
+  reading core errors from stdout, for no consumer that needs the two alike. Reopen it when
+  a consumer reads both kinds of command the same way (an agent driving the CLI rather than
+  MCP), or at core's next breaking output change; then both write one error object to
+  stderr.
+- **Only closed enums are validated.** `--family` takes any value: `ModuleFamily` is open
+  (a family outside the standard set is I062, an info), so refusing it would refuse a valid
+  project. A filter on a reference (`--persona`) matches the id, unvalidated.
+- **An absent lifecycle status is its first value** where the type says so (feature
+  `proposed`, deliverable `draft`, milestone and release `planned`): `--status proposed`
+  lists a feature without a status. Persona and channel statuses have no stated default and
+  match only when set. Entries still report the status as written.
+- **Sorting.** `--sort-by` takes `id`, `title`, `tags` or a field the kind declares (read
+  from the extension's own entity declarations); a closed-enum field sorts in its enum's
+  order (`priority`: critical first), any other by its text; an entity without the field is
+  last in either order; ties are by id ascending in either order.
+
 ## What would reopen this
 
 - A command that must write files, stream, or read beyond the graph and the date (ADR 0008's

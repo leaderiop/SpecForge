@@ -94,6 +94,30 @@ impl CommandFormat {
     }
 }
 
+/// The options the host gives every extension command on the command line
+/// (`--path`, `--format`, `--help`), which no declared arg may take.
+pub const HOST_OPTIONS: &[&str] = &["path", "format", "help"];
+
+/// Why the host refuses `contribution`, if it does: an arg takes an option
+/// the host reserves ([`HOST_OPTIONS`]), or two args share a name (`_` and
+/// `-` spelled alike). A refused command is on neither surface: the CLI
+/// refuses to run it (exit 2) and MCP does not promote it to a tool
+/// (ADR 0011).
+pub fn refusal(contribution: &CommandContribution) -> Option<String> {
+    let mut seen: Vec<String> = Vec::new();
+    for arg in &contribution.args {
+        let name = arg.name.replace('_', "-");
+        if HOST_OPTIONS.contains(&name.as_str()) {
+            return Some(format!("its arg '{}' takes the host's --{name}", arg.name));
+        }
+        if seen.contains(&name) {
+            return Some(format!("it declares the arg '{name}' twice"));
+        }
+        seen.push(name);
+    }
+    None
+}
+
 /// What the host passes a command beside its args: the format the caller
 /// asked for, and the host's date when it was called (UTC, `YYYY-MM-DD`),
 /// computed by the caller so a test can pin it.

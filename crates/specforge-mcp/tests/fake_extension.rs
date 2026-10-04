@@ -25,6 +25,8 @@ pub struct FakeExtension {
     calls: Mutex<Vec<Call>>,
     /// The compiler passes `@test/cmds` declares (`__describe passes`).
     passes: Value,
+    /// Commands declared beside `report` and `check`.
+    commands: Vec<Value>,
 }
 
 impl FakeExtension {
@@ -34,7 +36,14 @@ impl FakeExtension {
             panics: Vec::new(),
             calls: Mutex::new(Vec::new()),
             passes: json!([]),
+            commands: Vec::new(),
         }
+    }
+
+    /// Also declare `command` (a `CommandContribution`).
+    pub fn with_command(mut self, command: Value) -> Self {
+        self.commands.push(command);
+        self
     }
 
     /// Declare the compiler passes named `names`; each runs as the export
@@ -72,7 +81,7 @@ impl FakeExtension {
                     "description": "Write a coverage report",
                     "export": "cmd__report",
                     "args": [
-                        {"name": "format", "arg_type": {"enum": {"values": ["md", "json"]}}, "required": true, "description": "Output format"},
+                        {"name": "style", "arg_type": {"enum": {"values": ["md", "json"]}}, "required": true, "description": "Output style"},
                         {"name": "verbose", "arg_type": "bool"},
                         {"name": "limit", "arg_type": "integer"},
                         {"name": "out", "arg_type": "path"}
@@ -129,7 +138,12 @@ impl WasmRuntime for FakeExtension {
                 let request: Value = serde_json::from_slice(input).unwrap();
                 let category = request["category"].as_str().unwrap().to_string();
                 let items = match category.as_str() {
-                    "surfaces" => json!([Self::surfaces()]),
+                    "surfaces" => {
+                        let mut surfaces = Self::surfaces();
+                        let commands = surfaces["commands"].as_array_mut().unwrap();
+                        commands.extend(self.commands.iter().cloned());
+                        json!([surfaces])
+                    }
                     "passes" => self.passes.clone(),
                     _ => json!([]),
                 };

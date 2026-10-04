@@ -1,6 +1,7 @@
 use serde_json::{Value, json};
 use specforge_registry::{
-    CommandArg, CommandArgType, SurfaceContributions, SurfaceRegistryEntry, SurfaceType,
+    CommandArg, CommandArgType, CommandContribution, SurfaceContributions, SurfaceRegistryEntry,
+    SurfaceType,
 };
 
 use crate::protocol::JsonRpcResponse;
@@ -49,7 +50,8 @@ pub fn register_extension_surfaces(
 
 /// Every extension CLI command becomes the MCP tool
 /// `specforge.{ext_short}.{cmd_id}`, its input schema derived from the
-/// command's args, dispatched to the command's export. A tool already
+/// command's args, dispatched to the command's export; but a command the
+/// host refuses (`specforge_ops::command::refusal`), which no surface runs. A tool already
 /// registered under that name (core or explicitly contributed) wins, and
 /// the command is reported with I017. Emits `commands_auto_promoted` when
 /// any extension contributes commands.
@@ -67,8 +69,14 @@ fn auto_promote_commands(
         any_commands = true;
         let explicit: std::collections::HashSet<String> =
             state.tool_registry.iter().map(|t| t.name.clone()).collect();
-        let args: Vec<Vec<(&str, &str)>> = surfaces
+        // A command the host refuses (an arg taking a host option, such as
+        // `format`) is no tool, as it is no command line.
+        let promotable: Vec<&CommandContribution> = surfaces
             .commands
+            .iter()
+            .filter(|cmd| specforge_ops::command::refusal(cmd).is_none())
+            .collect();
+        let args: Vec<Vec<(&str, &str)>> = promotable
             .iter()
             .map(|cmd| {
                 cmd.args
@@ -77,8 +85,7 @@ fn auto_promote_commands(
                     .collect()
             })
             .collect();
-        let commands: Vec<(&str, &[(&str, &str)])> = surfaces
-            .commands
+        let commands: Vec<(&str, &[(&str, &str)])> = promotable
             .iter()
             .zip(&args)
             .map(|(cmd, args)| (cmd.id.as_str(), args.as_slice()))
@@ -90,11 +97,7 @@ fn auto_promote_commands(
         state.surface_diagnostics.extend(diagnostics);
 
         for tool in tools {
-            let Some(cmd) = surfaces
-                .commands
-                .iter()
-                .find(|c| c.id == tool.source_command_id)
-            else {
+            let Some(cmd) = promotable.iter().find(|c| c.id == tool.source_command_id) else {
                 continue;
             };
             state.tool_registry.push(McpToolDescriptor {
