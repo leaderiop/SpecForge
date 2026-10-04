@@ -144,14 +144,15 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
 - **Only closed enums are validated.** `--family` takes any value: `ModuleFamily` is open
   (a family outside the standard set is I062, an info), so refusing it would refuse a valid
   project. A filter on a reference (`--persona`) matches the id, unvalidated.
-- **An absent lifecycle status is its first value** where the type says so (feature
-  `proposed`, deliverable `draft`, milestone and release `planned`): `--status proposed`
-  lists a feature without a status. Persona and channel statuses have no stated default and
-  match only when set. Entries still report the status as written.
+- **An absent lifecycle status is its first value**, as each status type says (feature
+  `proposed`, deliverable `draft`, milestone and release `planned`, persona and channel
+  `active`): `--status proposed` lists a feature without a status. Entries still report the
+  status as written.
 - **Sorting.** `--sort-by` takes `id`, `title`, `tags` or a field the kind declares (read
   from the extension's own entity declarations); a closed-enum field sorts in its enum's
-  order (`priority`: critical first), any other by its text; an entity without the field is
-  last in either order; ties are by id ascending in either order.
+  order (`priority` critical first, `effort` xs first), any other by its text; an entity
+  without the field is last in either order, but one without a lifecycle status sorts as
+  that status's default; ties are by id ascending in either order.
 
 - **Traversals follow references of the kinds they name.** Every hop keeps only targets (or
   sources) of the kind its path names, so a peer extension's reference under the same label

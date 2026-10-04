@@ -49,6 +49,8 @@ const DELIVERABLE_STATUS: &[&str] = &["draft", "in_progress", "shipped", "deprec
 const MILESTONE_STATUS: &[&str] = &["planned", "in_progress", "completed", "blocked"];
 const RELEASE_STATUS: &[&str] = &["planned", "in_progress", "released", "recalled"];
 const ACTIVE_STATUS: &[&str] = &["active", "deprecated"];
+/// `Effort`, smallest first.
+const EFFORT: &[&str] = &["xs", "s", "m", "l", "xl"];
 const ARTIFACT_TYPE: &[&str] = &[
     "cli",
     "service",
@@ -175,16 +177,18 @@ pub const TERMS: ListKind = ListKind {
 pub const PERSONAS: ListKind = ListKind {
     kind: "persona",
     plural: "personas",
+    // `PersonaStatus`: absent is `active`.
     filters: &[
-        closed("status", ACTIVE_STATUS),
+        lifecycle(ACTIVE_STATUS),
         closed("technical_level", TECHNICAL_LEVEL),
     ],
 };
 pub const CHANNELS: ListKind = ListKind {
     kind: "channel",
     plural: "channels",
+    // `ChannelStatus`: absent is `active`.
     filters: &[
-        closed("status", ACTIVE_STATUS),
+        lifecycle(ACTIVE_STATUS),
         closed("interaction_model", INTERACTION_MODEL),
     ],
 };
@@ -222,6 +226,17 @@ impl<'a> ListFilter<'a> {
             limit: None,
         }
     }
+}
+
+/// The values `field` of a `kind` entity takes when it is a closed enum,
+/// in the enum's order (which a sort follows): a filter's, or `priority`'s
+/// or `effort`'s, which no list filters `effort` by.
+pub fn closed_values(kind: &ListKind, field: &str) -> Option<&'static [&'static str]> {
+    kind.filter(field).and_then(|f| f.values).or(match field {
+        "priority" => Some(PRIORITY),
+        "effort" => Some(EFFORT),
+        _ => None,
+    })
 }
 
 /// Whether `kind` entities have `field` to sort by: `id`, `title`, the
@@ -293,11 +308,7 @@ pub fn list_nodes<'g>(graph: &'g CommandGraph, filter: &ListFilter) -> Vec<&'g G
             "title" => node.title.clone().map(Key::Text),
             field => {
                 let v = value(node, field)?;
-                let order = kind.filter(field).and_then(|f| f.values).or(match field {
-                    "priority" => Some(PRIORITY),
-                    _ => None,
-                });
-                Some(match order {
+                Some(match closed_values(kind, field) {
                     Some(order) => {
                         Key::Rank(order.iter().position(|o| *o == v).unwrap_or(order.len()))
                     }

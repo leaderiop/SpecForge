@@ -895,7 +895,16 @@ fn a_list_filtered_by_status_has_only_that_status() {
         ids_of("milestones", json!({"status": "completed"}), &g),
         ["ms1"]
     );
-    assert_eq!(ids_of("personas", json!({"status": "active"}), &g), ["dev"]);
+    // A persona or channel without a status is active.
+    assert_eq!(
+        ids_of("personas", json!({"status": "active"}), &g),
+        ["dev", "ops"]
+    );
+    assert_eq!(
+        ids_of("channels", json!({"status": "active"}), &g),
+        ["cli", "web"]
+    );
+    assert!(ids_of("personas", json!({"status": "deprecated"}), &g).is_empty());
 }
 
 #[specforge_test(
@@ -988,7 +997,7 @@ fn every_closed_filter_refuses_a_value_outside_its_enum() {
 fn a_list_sorted_by_priority_ties_by_id() {
     let g = catalog();
     let asc = json!({"sort_by": "priority"});
-    // Priority's order, most important first; ties by id; none last.
+    // Priority's order, most important first; ties by id.
     assert_eq!(
         ids_of("features", asc.clone(), &g),
         ["f4", "f1", "f3", "f2"]

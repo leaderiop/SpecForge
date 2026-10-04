@@ -88,6 +88,99 @@ fn list_filters_combine_and_an_absent_status_is_the_first() {
 }
 
 #[test]
+fn an_absent_persona_or_channel_status_is_active() {
+    // `PersonaStatus` and `ChannelStatus`: absent is treated as active.
+    let g = G::default()
+        .node("p1", "persona", &[("status", "deprecated")])
+        .n("p2", "persona")
+        .node("c1", "channel", &[("status", "active")])
+        .n("c2", "channel")
+        .node("c3", "channel", &[("status", "deprecated")])
+        .build();
+    let mut personas = ListFilter::all(&PERSONAS);
+    personas.equals = vec![("status", "active")];
+    let listed_personas: Vec<String> = list::<PersonaListEntry>(&g, &personas)
+        .items
+        .into_iter()
+        .map(|e| e.id)
+        .collect();
+    assert_eq!(listed_personas, ["p2"]);
+    let mut channels = ListFilter::all(&CHANNELS);
+    channels.equals = vec![("status", "active")];
+    let listed_channels: Vec<String> = list::<ChannelListEntry>(&g, &channels)
+        .items
+        .into_iter()
+        .map(|e| e.id)
+        .collect();
+    assert_eq!(listed_channels, ["c1", "c2"]);
+}
+
+#[test]
+fn a_closed_enum_is_the_one_its_validation_rule_checks() {
+    // Every `one_of` value constraint a product kind's field is checked
+    // against (W077, W078, ...) is the enum its list filters and sorts by,
+    // value for value and in order; `family`'s (I062, an info) is open.
+    let rules: serde_json::Value =
+        serde_json::from_slice(crate::DESCRIBE_VALIDATION_RULES).unwrap();
+    let kinds = [
+        &FEATURES,
+        &JOURNEYS,
+        &DELIVERABLES,
+        &MILESTONES,
+        &MODULES,
+        &TERMS,
+        &PERSONAS,
+        &CHANNELS,
+        &RELEASES,
+    ];
+    let mut checked = 0;
+    for rule in rules["items"].as_array().unwrap() {
+        if rule["check"] != "field_value_constraint" || rule["constraint"]["kind"] != "one_of" {
+            continue;
+        }
+        let Some(kind) = kinds.iter().find(|k| rule["target_kind"] == k.kind) else {
+            continue;
+        };
+        let field = rule["field"].as_str().unwrap();
+        let values: Vec<&str> = rule["constraint"]["values"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        let code = &rule["code"];
+        if rule["severity"] == "info" {
+            assert_eq!(closed_values(kind, field), None, "{code}: {field} is open");
+            continue;
+        }
+        assert_eq!(
+            closed_values(kind, field),
+            Some(values.as_slice()),
+            "{code}: {} {field}",
+            kind.kind
+        );
+        checked += 1;
+    }
+    assert!(checked >= 10, "only {checked} rules checked");
+}
+
+#[test]
+fn effort_sorts_smallest_first() {
+    let g = G::default()
+        .node("a", "feature", &[("effort", "xl")])
+        .node("b", "feature", &[("effort", "s")])
+        .node("c", "feature", &[("effort", "m")])
+        .node("d", "feature", &[("effort", "xs")])
+        .n("e", "feature")
+        .build();
+    let mut filter = ListFilter::all(&FEATURES);
+    filter.sort_by = "effort";
+    assert_eq!(listed(&g, &filter), ["d", "b", "c", "a", "e"]);
+    filter.descending = true;
+    assert_eq!(listed(&g, &filter), ["a", "c", "b", "d", "e"]);
+}
+
+#[test]
 fn a_reference_filter_matches_the_field_or_the_edge() {
     let g = G::default()
         .node("j1", "journey", &[("persona", "dev")])
@@ -284,8 +377,11 @@ fn a_dependency_cycle_ends_the_impact_walk() {
         .n("f2", "feature")
         .edge("f1", "f2", "depends_on")
         .edge("f2", "f1", "depends_on")
+        // A feature depending on itself is not its own dependent.
+        .edge("f1", "f1", "depends_on")
         .build();
     assert_eq!(feature_impact(&g, "f1").unwrap().dependent_features, ["f2"]);
+    assert_eq!(feature_impact(&g, "f2").unwrap().dependent_features, ["f1"]);
 }
 
 #[test]

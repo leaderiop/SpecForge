@@ -302,7 +302,7 @@
               "name": "status",
               "arg_type": "string",
               "required": false,
-              "description": "Only personas with this status: active or deprecated"
+              "description": "Only personas with this status: active (also a persona without one) or deprecated"
             },
             {
               "name": "technical_level",
@@ -353,7 +353,7 @@
               "name": "status",
               "arg_type": "string",
               "required": false,
-              "description": "Only channels with this status: active or deprecated"
+              "description": "Only channels with this status: active (also a channel without one) or deprecated"
             },
             {
               "name": "interaction_model",
