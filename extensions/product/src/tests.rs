@@ -1642,6 +1642,11 @@ fn days_remaining_is_a_whole_quotient_when_the_pace_divides_evenly() {
 
 // ── commands ───────────────────────────────────────────────────────────────
 
+/// Run the declared command behind `export`, as the host's call would.
+fn run(export: &str, input: &CommandInput) -> Option<specforge_extension_sdk::CommandOutput> {
+    crate::specforge_extension_build().call_command(export, input)
+}
+
 fn input(args: serde_json::Value, graph: CommandGraph) -> CommandInput {
     CommandInput {
         args: args.as_object().unwrap().clone(),
@@ -1672,7 +1677,7 @@ fn sample() -> CommandGraph {
 
 #[test]
 fn a_list_command_renders_human_by_default_and_json_on_request() {
-    let human = crate::commands::run(
+    let human = run(
         "cmd__product_features",
         &input(serde_json::json!({}), sample()),
     )
@@ -1682,7 +1687,7 @@ fn a_list_command_renders_human_by_default_and_json_on_request() {
         human.stdout,
         "id  title  status    priority\nf1  f1     proposed  high\nf2  f2     done      -\n"
     );
-    let paged = crate::commands::run(
+    let paged = run(
         "cmd__product_features",
         &input(serde_json::json!({"limit": 1}), sample()),
     )
@@ -1694,7 +1699,7 @@ fn a_list_command_renders_human_by_default_and_json_on_request() {
         "{}",
         paged.stdout
     );
-    let json = crate::commands::run(
+    let json = run(
         "cmd__product_features",
         &json_input(serde_json::json!({"status": "done"}), sample()),
     )
@@ -1733,8 +1738,7 @@ fn a_list_command_refuses_an_arg_it_cannot_use() {
             "sort_order must be one of asc, desc",
         ),
     ] {
-        let out =
-            crate::commands::run("cmd__product_features", &input(args.clone(), sample())).unwrap();
+        let out = run("cmd__product_features", &input(args.clone(), sample())).unwrap();
         assert_eq!(out.exit_code, 2, "{args}");
         assert_eq!(out.stdout, "", "{args}");
         assert!(out.stderr.contains(says), "{args}: {}", out.stderr);
@@ -1743,7 +1747,7 @@ fn a_list_command_refuses_an_arg_it_cannot_use() {
 
 #[test]
 fn a_query_about_a_missing_entity_fails_on_stderr() {
-    let out = crate::commands::run(
+    let out = run(
         "cmd__product_milestone_completion",
         &input(serde_json::json!({"milestone": "nope"}), sample()),
     )
@@ -1755,7 +1759,7 @@ fn a_query_about_a_missing_entity_fails_on_stderr() {
 
 #[test]
 fn an_id_list_says_none_when_empty() {
-    let out = crate::commands::run(
+    let out = run(
         "cmd__product_feature_dependents",
         &input(serde_json::json!({"feature": "f1"}), sample()),
     )
@@ -1764,10 +1768,14 @@ fn an_id_list_says_none_when_empty() {
 }
 
 #[test]
-fn every_declared_command_has_its_export() {
-    let surfaces: serde_json::Value =
-        serde_json::from_slice(include_bytes!("describe_surfaces.json")).unwrap();
-    let commands = surfaces["items"][0]["commands"].as_array().unwrap();
+fn every_declared_command_answers_its_export() {
+    let described: serde_json::Value = serde_json::from_str(
+        &crate::specforge_extension_build()
+            .describe_response_json("surfaces")
+            .unwrap(),
+    )
+    .unwrap();
+    let commands = described["items"][0]["commands"].as_array().unwrap();
     assert_eq!(commands.len(), 40);
     for command in commands {
         let export = command["export"].as_str().unwrap();
@@ -1775,17 +1783,43 @@ fn every_declared_command_has_its_export() {
             export,
             format!("cmd__product_{}", command["id"].as_str().unwrap())
         );
-        let args = serde_json::json!({"milestone": "x", "journey": "x",
-            "feature": "x", "persona": "x", "channel": "x", "deliverable": "x",
-            "release": "x", "module": "x", "term": "x"});
-        assert!(
-            crate::commands::run(export, &json_input(args, sample())).is_some(),
-            "{export} is declared but not exported"
-        );
+        // Every declared arg set, so every handler reads every arg it reads
+        // (an undeclared one would panic).
+        let args: serde_json::Map<String, serde_json::Value> = command["args"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|arg| {
+                let name = arg["name"].as_str().unwrap().to_string();
+                let value = match (name.as_str(), arg["arg_type"].as_str()) {
+                    (_, Some("integer")) => serde_json::json!(1),
+                    (_, Some("bool")) => serde_json::json!(true),
+                    ("as_of", _) => serde_json::json!("2026-10-04"),
+                    _ => serde_json::json!("x"),
+                };
+                (name, value)
+            })
+            .collect();
+        let out = run(
+            export,
+            &json_input(serde_json::Value::Object(args), sample()),
+        )
+        .unwrap_or_else(|| panic!("{export} is declared but not answered"));
+        assert!(out.exit_code <= 2, "{export}: {out:?}");
     }
-    assert!(
-        crate::commands::run("cmd__product_nope", &input(serde_json::json!({}), sample()))
-            .is_none()
+    assert!(run("cmd__product_nope", &input(serde_json::json!({}), sample())).is_none());
+}
+
+#[test]
+fn a_missing_entity_id_is_invalid_input() {
+    let out = run(
+        "cmd__product_milestone_completion",
+        &input(serde_json::json!({}), sample()),
+    )
+    .unwrap();
+    assert_eq!(
+        (out.exit_code, out.stderr.as_str()),
+        (2, "error: missing required arg 'milestone'\n")
     );
 }
 
@@ -1818,7 +1852,7 @@ fn the_nearest_id_of_the_kind_within_two_edits_is_suggested() {
 
 #[test]
 fn an_error_is_json_on_stderr_when_json_was_asked_for() {
-    let out = crate::commands::run(
+    let out = run(
         "cmd__product_milestone_completion",
         &json_input(serde_json::json!({"milestone": "nope"}), sample()),
     )
@@ -1830,7 +1864,7 @@ fn an_error_is_json_on_stderr_when_json_was_asked_for() {
         serde_json::json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'nope' not found",
             "entity_id": "nope"})
     );
-    let out = crate::commands::run(
+    let out = run(
         "cmd__product_features",
         &json_input(serde_json::json!({"limit": -1}), sample()),
     )
