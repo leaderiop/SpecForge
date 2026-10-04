@@ -89,9 +89,17 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
         return 2;
     }
 
+    // Known before parsing, so a usage error is written in the format asked
+    // for wherever `--format` is on the command line, or if parsing stops
+    // before reaching it.
+    let json = asks_for_json(&rest);
     rest.insert(0, format!("specforge {ext}"));
     let matches = match command_line(&ext, &commands).try_get_matches_from(rest) {
         Ok(matches) => matches,
+        Err(e) if json && !is_display(&e) => {
+            eprintln!("{}", usage_error(&e));
+            return INVALID_INPUT_EXIT;
+        }
         Err(e) => {
             let _ = e.print();
             return e.exit_code();
@@ -178,6 +186,134 @@ pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
         }
     }
     cli
+}
+
+/// The exit code of a usage error clap catches, `INVALID_INPUT`'s: the
+/// one commands give the usage errors they catch themselves (ADR 0011).
+const INVALID_INPUT_EXIT: i32 = 2;
+
+/// Whether `args` ask for `--format json` (`--format json` or
+/// `--format=json`), read before the command line is parsed.
+fn asks_for_json(args: &[String]) -> bool {
+    let flag = format!("--{FORMAT}");
+    let json = CommandFormat::Json.as_str();
+    let mut args = args.iter().take_while(|a| *a != "--");
+    while let Some(arg) = args.next() {
+        if *arg == flag {
+            if args.next().is_some_and(|v| v == json) {
+                return true;
+            }
+        } else if arg.strip_prefix(&format!("{flag}=")) == Some(json) {
+            return true;
+        }
+    }
+    false
+}
+
+/// Whether `e` is clap's help or version rather than a usage error.
+fn is_display(e: &clap::Error) -> bool {
+    use clap::error::ErrorKind;
+    matches!(
+        e.kind(),
+        ErrorKind::DisplayHelp
+            | ErrorKind::DisplayVersion
+            | ErrorKind::DisplayHelpOnMissingArgumentOrSubcommand
+    )
+}
+
+/// A usage error clap caught on an extension's command line, as the error
+/// object commands write under `json` (`{code, message, suggestion?}`):
+/// `INVALID_INPUT`, the message naming the arg as declared, as the SDK's
+/// would (`status must be one of ..., got 'x'`, `missing required arg
+/// 'milestone'`), and clap's suggestion when it has one.
+fn usage_error(e: &clap::Error) -> Value {
+    use clap::error::{ContextKind, ContextValue, ErrorKind};
+    let text = |kind| match e.get(kind) {
+        Some(ContextValue::String(s)) => Some(s.clone()),
+        Some(ContextValue::Strings(s)) => s.first().cloned(),
+        _ => None,
+    };
+    let arg = text(ContextKind::InvalidArg).map(|a| declared_name(&a));
+    let value = text(ContextKind::InvalidValue).unwrap_or_default();
+    let (message, suggestion) = match e.kind() {
+        ErrorKind::InvalidValue => {
+            let arg = arg.unwrap_or_default();
+            let message = match e.get(ContextKind::ValidValue) {
+                Some(ContextValue::Strings(values)) => {
+                    format!("{arg} must be one of {}, got '{value}'", values.join(", "))
+                }
+                _ => format!("invalid value '{value}' for {arg}"),
+            };
+            (message, text(ContextKind::SuggestedValue))
+        }
+        ErrorKind::ValueValidation => {
+            let arg = arg.unwrap_or_default();
+            let integer = std::error::Error::source(e)
+                .is_some_and(|s| s.downcast_ref::<std::num::ParseIntError>().is_some());
+            let message = match std::error::Error::source(e) {
+                _ if integer => format!("{arg} must be an integer, got '{value}'"),
+                Some(why) => format!("invalid value '{value}' for {arg}: {why}"),
+                None => format!("invalid value '{value}' for {arg}"),
+            };
+            (message, None)
+        }
+        ErrorKind::MissingRequiredArgument => {
+            let names = match e.get(ContextKind::InvalidArg) {
+                Some(ContextValue::Strings(args)) => args
+                    .iter()
+                    .map(|a| format!("'{}'", declared_name(a)))
+                    .collect::<Vec<_>>(),
+                _ => Vec::new(),
+            };
+            let s = if names.len() > 1 { "s" } else { "" };
+            (
+                format!("missing required arg{s} {}", names.join(", ")),
+                None,
+            )
+        }
+        ErrorKind::UnknownArgument => (
+            format!(
+                "unknown argument '{}'",
+                text(ContextKind::InvalidArg).unwrap_or_default()
+            ),
+            text(ContextKind::SuggestedArg),
+        ),
+        ErrorKind::InvalidSubcommand => (
+            format!(
+                "unknown command '{}'",
+                text(ContextKind::InvalidSubcommand).unwrap_or_default()
+            ),
+            text(ContextKind::SuggestedSubcommand),
+        ),
+        _ => {
+            let rendered = e.render().to_string();
+            let first = rendered.lines().next().unwrap_or_default();
+            (
+                first.strip_prefix("error: ").unwrap_or(first).to_string(),
+                None,
+            )
+        }
+    };
+    let mut error = serde_json::json!({"code": "INVALID_INPUT", "message": message});
+    if let Some(suggestion) = suggestion {
+        error["suggestion"] = Value::from(suggestion);
+    }
+    error
+}
+
+/// The declared name of an arg as clap shows it: `<MILESTONE>` is
+/// `milestone`, `--sort-order <SORT_ORDER>` is `sort_order`, `--details`
+/// is `details` (a value name is the declared name upper-cased).
+fn declared_name(shown: &str) -> String {
+    match shown.split_once('<') {
+        Some((_, rest)) => rest.split('>').next().unwrap_or_default().to_lowercase(),
+        None => shown
+            .trim_start_matches('-')
+            .split(['=', ' '])
+            .next()
+            .unwrap_or_default()
+            .replace('-', "_"),
+    }
 }
 
 /// `--path <dir>` or `--path=<dir>` among `args`, else `.`: the project the

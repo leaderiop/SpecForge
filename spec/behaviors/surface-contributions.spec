@@ -174,7 +174,15 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     diagnostics, as is a declared export the guest does not route (the
     host cannot list a component guest's exports, so presence is known
     only by calling); under --format json the CLI writes it to stderr as
-    one error object of the shape commands write ({code, message}). The command's exit code, stdout, and stderr MUST be
+    one error object of the shape commands write ({code, message}). A
+    usage error the command line catches before the command runs (a
+    value outside a one_of, a missing required arg, an unknown flag, a
+    value that is not an integer) is, under --format json (wherever it
+    is on the command line), one INVALID_INPUT error object of that
+    shape on stderr ({code, message, suggestion?}, the message naming
+    the arg as declared and, for a one_of, its values), nothing on
+    stdout, exit 2; under human it is clap's usage text, exit 2; --help
+    is clap's, exit 0. The command's exit code, stdout, and stderr MUST be
     returned to the caller. The MCP server records each command whose
     export returned as a surface_command_dispatched event.
   """
@@ -187,6 +195,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "the CommandInput carries the format the caller asked for and the host's date"
   verify unit "a command declaring an arg named format is refused on the command line"
   verify unit "under --format json a command whose export trapped prints one JSON error object"
+  verify integration "under --format json a usage error the command line catches is one INVALID_INPUT error object on stderr, exit 2"
   verify integration "over MCP a command is asked for json and its JSON output is the tool's structured content"
   verify unit "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"
   verify contract "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted"

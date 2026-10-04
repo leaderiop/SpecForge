@@ -771,6 +771,81 @@ fn a_command_that_cannot_answer_writes_its_error_to_stderr() {
 }
 
 #[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "under --format json a usage error the command line catches is one INVALID_INPUT error object on stderr, exit 2"
+)]
+fn under_json_a_usage_error_is_an_invalid_input_object() {
+    let dir = setup_product_project();
+    let path = dir.path().to_str().unwrap();
+    let run = |args: &[&str]| {
+        cargo_bin_cmd!("specforge")
+            .arg("product")
+            .args(args)
+            .args(["--path", path])
+            .output()
+            .unwrap()
+    };
+    let cases: [(&[&str], serde_json::Value); 4] = [
+        (
+            &["features", "--status", "bogus"],
+            serde_json::json!({"code": "INVALID_INPUT",
+                "message": "status must be one of proposed, accepted, in_progress, done, deferred, deprecated, got 'bogus'"}),
+        ),
+        (
+            &["milestone-completion"],
+            serde_json::json!({"code": "INVALID_INPUT",
+                "message": "missing required arg 'milestone'"}),
+        ),
+        (
+            &["features", "--statsu", "done"],
+            serde_json::json!({"code": "INVALID_INPUT",
+                "message": "unknown argument '--statsu'", "suggestion": "--status"}),
+        ),
+        (
+            &["features", "--limit", "abc"],
+            serde_json::json!({"code": "INVALID_INPUT",
+                "message": "limit must be an integer, got 'abc'"}),
+        ),
+    ];
+    for (args, expected) in &cases {
+        // `--format json` before or after the bad arg, in either spelling.
+        for (before, after) in [
+            (vec!["--format", "json"], vec![]),
+            (vec![], vec!["--format", "json"]),
+            (vec![], vec!["--format=json"]),
+        ] {
+            let (command, rest) = args.split_first().unwrap();
+            let mut argv = vec![*command];
+            argv.extend(&before);
+            argv.extend(rest);
+            argv.extend(&after);
+            let output = run(&argv);
+            assert_eq!(output.status.code(), Some(2), "{argv:?}: {output:?}");
+            assert!(output.stdout.is_empty(), "{argv:?}: {output:?}");
+            let error: serde_json::Value = serde_json::from_slice(&output.stderr)
+                .unwrap_or_else(|e| panic!("{argv:?}: {e}: {output:?}"));
+            assert_eq!(&error, expected, "{argv:?}");
+        }
+        // Under human the error is clap's usage text.
+        let output = run(args);
+        assert_eq!(output.status.code(), Some(2), "{args:?}: {output:?}");
+        assert!(output.stdout.is_empty(), "{args:?}: {output:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.starts_with("error: ") && stderr.contains("For more information, try '--help'."),
+            "{args:?}: {stderr}"
+        );
+    }
+    // Help is clap's whatever the format, exit 0.
+    let help = run(&["features", "--help", "--format", "json"]);
+    assert_eq!(help.status.code(), Some(0), "{help:?}");
+    assert!(
+        String::from_utf8_lossy(&help.stdout).contains("Usage: specforge product features"),
+        "{help:?}"
+    );
+}
+
+#[specforge_test(
     behavior = "surface_error_handling",
     verify = "MCP tool errors are isError results carrying the error object"
 )]

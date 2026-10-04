@@ -230,8 +230,10 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
   `--interaction-model`) and `--sort-order` are `one_of` their values (`--family` stays an
   open `string`): the SDK refuses another value with the message the command gave, so the
   hand-written checks went, and the CLI refuses it first (clap's usage error, exit 2, listing
-  the values), and the MCP tools' schemas carry the enum. That is the one change to the
-  payload (the pin says so), and the drift test checks each `one_of` against the value rule
+  the values; under `--format json`, wherever it is on the command line, any usage error clap
+  catches is instead the same `INVALID_INPUT` object, `{code, message, suggestion?}`, the
+  message the SDK's for a `one_of`, so an agent never parses prose), and the MCP tools'
+  schemas carry the enum. That is the one change to the payload (the pin says so), and the drift test checks each `one_of` against the value rule
   of its field. An absent arg takes its declared default on every surface (the SDK applies it,
   as clap does on the command line); a declaration that contradicts itself (a required arg or
   a flag with a default, a required flag, a default its type refuses, two surfaces with one
