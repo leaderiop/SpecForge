@@ -1852,3 +1852,28 @@ fn a_table_aligns_its_columns_under_a_header() {
     );
     assert_eq!(crate::commands::table(&["id"], &[]), "id\n");
 }
+
+// ── the surfaces payload ───────────────────────────────────────────────────
+
+/// FNV-1a, 64 bits: a fingerprint stable across Rust releases.
+fn fnv1a(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(0xcbf2_9ce4_8422_2325, |hash, &b| {
+        (hash ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
+    })
+}
+
+/// The `surfaces` describe payload, byte for byte, as the host receives
+/// it: pinned when it was the hand-written `describe_surfaces.json`, so
+/// declaring the commands with the SDK's builder changed no byte of it.
+/// A deliberate surface change updates the pin.
+#[test]
+fn the_surfaces_payload_is_pinned() {
+    let payload = crate::specforge_extension_build()
+        .describe_response_json("surfaces")
+        .unwrap();
+    assert_eq!(
+        (payload.len(), fnv1a(payload.as_bytes())),
+        (35633, 0xcd3d_3de9_1ccf_a2b0),
+        "the surfaces payload changed"
+    );
+}
