@@ -11,7 +11,9 @@
 //! the type it declares them, after the SDK has checked the caller's values
 //! against the declaration:
 //!
-//! ```ignore
+//! ```
+//! # use specforge_extension_sdk::prelude::*;
+//! # let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/widgets", "1.0.0"));
 //! c.command_prefix("acme");
 //! c.command("widgets", |cmd| {
 //!     cmd.title("List widgets")
@@ -32,7 +34,13 @@
 //!             })
 //!         });
 //! });
+//! # let out = c.call_command("cmd__acme_widgets", &CommandInput::default()).unwrap();
+//! # assert_eq!(out.exit_code, 0);
 //! ```
+//!
+//! [`crate::testing::call_every_command`] runs every declared command once
+//! with every arg set, so a test catches a handler reading an arg its
+//! command does not declare.
 
 use crate::{CommandError, CommandFormat, CommandGraph, CommandInput, CommandOutput};
 use serde_json::Value;
@@ -63,7 +71,28 @@ pub(crate) struct Surfaces {
     commands: Vec<Command>,
     tools: Vec<Tool>,
     resources: Vec<Resource>,
+    /// The describing and routing code, set by the first declaration. It is
+    /// only reachable through a declaration, so a guest that declares no
+    /// surface does not link it (the arg checks, the command input's and the
+    /// descriptors' serde code).
+    machinery: Option<Machinery>,
 }
+
+/// The wire answer of an export: `None` when nothing declared answers it.
+type ExportAnswer = Option<Result<Vec<u8>, String>>;
+
+#[derive(Clone, Copy)]
+struct Machinery {
+    describe: fn(&Surfaces) -> Value,
+    dispatch: fn(&Surfaces, &str, &[u8]) -> ExportAnswer,
+    call_command: fn(&Surfaces, &str, &CommandInput) -> Option<CommandOutput>,
+}
+
+const MACHINERY: Machinery = Machinery {
+    describe: Surfaces::describe_declared,
+    dispatch: Surfaces::dispatch_declared,
+    call_command: Surfaces::call_declared_command,
+};
 
 struct Command {
     descriptor: CommandDescriptor,
@@ -102,6 +131,35 @@ fn export_suffix(name: &str) -> String {
 }
 
 impl Surfaces {
+    /// Panics when a declared surface already answers `export`: two names
+    /// that differ only in characters an export spells `_` (`a.b`, `a-b`,
+    /// `a_b`), or a tool and a resource of one name.
+    fn assert_free(&self, export: &str, what: &str) {
+        let taken = self
+            .commands
+            .iter()
+            .map(|c| (&c.descriptor.export, &c.descriptor.id))
+            .chain(
+                self.tools
+                    .iter()
+                    .map(|t| (&t.descriptor.export, &t.descriptor.name)),
+            )
+            .chain(
+                self.resources
+                    .iter()
+                    .map(|r| (&r.descriptor.export, &r.descriptor.name)),
+            )
+            .find(|(e, _)| *e == export);
+        if let Some((_, other)) = taken {
+            panic!("{what}'s export {export} is already '{other}''s");
+        }
+    }
+
+    /// Every declared command's descriptor, in declaration order.
+    pub(crate) fn command_descriptors(&self) -> impl Iterator<Item = &CommandDescriptor> {
+        self.commands.iter().map(|c| &c.descriptor)
+    }
+
     pub(crate) fn set_prefix(&mut self, prefix: &str) {
         assert!(
             self.commands.is_empty(),
@@ -111,6 +169,7 @@ impl Surfaces {
     }
 
     pub(crate) fn add_command(&mut self, id: &str, f: impl FnOnce(&mut CommandBuilder)) {
+        self.machinery = Some(MACHINERY);
         assert!(
             !self.commands.iter().any(|c| c.descriptor.id == id),
             "command '{id}' is declared twice"
@@ -136,6 +195,7 @@ impl Surfaces {
         let Some(handler) = b.handler else {
             panic!("command '{id}' declares no handler");
         };
+        self.assert_free(&b.descriptor.export, &format!("command '{id}'"));
         let mut descriptor = b.descriptor;
         descriptor.args = b.args.iter().map(|a| a.descriptor.clone()).collect();
         self.commands.push(Command {
@@ -146,6 +206,7 @@ impl Surfaces {
     }
 
     pub(crate) fn add_tool(&mut self, name: &str, f: impl FnOnce(&mut McpToolBuilder)) {
+        self.machinery = Some(MACHINERY);
         let mut b = McpToolBuilder {
             descriptor: McpToolDescriptor {
                 name: name.to_string(),
@@ -162,6 +223,7 @@ impl Surfaces {
         let Some(handler) = b.handler else {
             panic!("MCP tool '{name}' declares no handler");
         };
+        self.assert_free(&b.descriptor.export, &format!("MCP tool '{name}'"));
         self.tools.push(Tool {
             descriptor: b.descriptor,
             handler,
@@ -169,6 +231,7 @@ impl Surfaces {
     }
 
     pub(crate) fn add_resource(&mut self, name: &str, f: impl FnOnce(&mut McpResourceBuilder)) {
+        self.machinery = Some(MACHINERY);
         let mut b = McpResourceBuilder {
             descriptor: McpResourceDescriptor {
                 uri_template: String::new(),
@@ -184,6 +247,7 @@ impl Surfaces {
         let Some(handler) = b.handler else {
             panic!("MCP resource '{name}' declares no handler");
         };
+        self.assert_free(&b.descriptor.export, &format!("MCP resource '{name}'"));
         self.resources.push(Resource {
             descriptor: b.descriptor,
             handler,
@@ -193,9 +257,25 @@ impl Surfaces {
     /// The `surfaces` describe items: none when nothing is declared, else
     /// one [`SurfaceDescriptor`] of everything, in declaration order.
     pub(crate) fn describe_items(&self) -> Value {
-        if self.commands.is_empty() && self.tools.is_empty() && self.resources.is_empty() {
-            return Value::Array(vec![]);
+        match self.machinery {
+            Some(m) => (m.describe)(self),
+            None => Value::Array(vec![]),
         }
+    }
+
+    /// The command whose export is `export`, run on `input`; `None` when no
+    /// command has that export.
+    pub(crate) fn call_command(&self, export: &str, input: &CommandInput) -> Option<CommandOutput> {
+        (self.machinery?.call_command)(self, export, input)
+    }
+
+    /// The wire answer of the surface export `export`; `None` when no
+    /// declared surface has it.
+    pub(crate) fn dispatch(&self, export: &str, input: &[u8]) -> ExportAnswer {
+        (self.machinery?.dispatch)(self, export, input)
+    }
+
+    fn describe_declared(&self) -> Value {
         let surface = SurfaceDescriptor {
             commands: self.commands.iter().map(|c| c.descriptor.clone()).collect(),
             mcp_tools: self.tools.iter().map(|t| t.descriptor.clone()).collect(),
@@ -208,9 +288,7 @@ impl Surfaces {
         serde_json::to_value(vec![surface]).expect("surface serialization cannot fail")
     }
 
-    /// The command whose export is `export`, run on `input`; `None` when no
-    /// command has that export.
-    pub(crate) fn call_command(&self, export: &str, input: &CommandInput) -> Option<CommandOutput> {
+    fn call_declared_command(&self, export: &str, input: &CommandInput) -> Option<CommandOutput> {
         let command = self
             .commands
             .iter()
@@ -221,16 +299,14 @@ impl Surfaces {
         })
     }
 
-    /// The wire answer of the surface export `export`; `None` when no
-    /// declared surface has it.
-    pub(crate) fn dispatch(&self, export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    fn dispatch_declared(&self, export: &str, input: &[u8]) -> ExportAnswer {
         if self.commands.iter().any(|c| c.descriptor.export == export) {
             let input: CommandInput = match serde_json::from_slice(input) {
                 Ok(input) => input,
                 Err(e) => return Some(Err(format!("invalid command input: {e}"))),
             };
             return self
-                .call_command(export, &input)
+                .call_declared_command(export, &input)
                 .map(|output| Ok(output.to_bytes()));
         }
         if let Some(tool) = self.tools.iter().find(|t| t.descriptor.export == export) {
@@ -295,7 +371,10 @@ impl CommandBuilder {
     /// other, and every flag, is `--<name with _ as ->`.
     ///
     /// Panics on an arg the host owns (`path`, `format`, `help`) or one
-    /// declared twice, which the host would refuse.
+    /// declared twice, which the host would refuse, and on a declaration
+    /// that contradicts itself: a required arg with a default, a required
+    /// flag or one with a default (a flag is `false` unless set), a
+    /// default its type refuses, an empty `one_of`.
     pub fn arg(&mut self, name: &str, f: impl FnOnce(&mut ArgBuilder)) -> &mut Self {
         let id = &self.descriptor.id;
         assert!(
@@ -317,7 +396,33 @@ impl CommandBuilder {
             count: false,
         });
         f(&mut b);
-        self.args.push(b.0);
+        let arg = b.0;
+        let d = &arg.descriptor;
+        if let CommandArgType::Enum { values } = &d.arg_type {
+            assert!(
+                !values.is_empty(),
+                "command '{id}' declares arg '{name}' one of no value"
+            );
+        }
+        if d.arg_type == CommandArgType::Bool {
+            assert!(
+                !d.required && d.default_value.is_none(),
+                "command '{id}' declares the flag '{name}' required or with a default: a flag is false unless set"
+            );
+        }
+        if let Some(default) = &d.default_value {
+            assert!(
+                !d.required,
+                "command '{id}' declares arg '{name}' both required and with a default"
+            );
+            if let Err(e) = normalize(&arg, &Value::String(default.clone())) {
+                panic!(
+                    "command '{id}' declares arg '{name}' with a default its type refuses: {}",
+                    e.message
+                );
+            }
+        }
+        self.args.push(arg);
         self
     }
 
@@ -377,7 +482,9 @@ impl ArgBuilder {
         self
     }
 
-    /// The value the host passes when the caller leaves the arg out.
+    /// The value the arg has when the caller leaves it out, on every
+    /// surface: the CLI shows and fills it, and the SDK applies it to a call
+    /// that lacks it (an MCP tool call). Not for a `required` arg or a flag.
     pub fn default_value(&mut self, value: &str) -> &mut Self {
         self.0.descriptor.default_value = Some(value.to_string());
         self
@@ -517,20 +624,23 @@ pub struct CommandCall<'a> {
 }
 
 impl<'a> CommandCall<'a> {
-    /// `input`'s args checked against `command`'s declaration: a required
-    /// arg missing, or a value of another type, is `INVALID_INPUT`. Args the
-    /// command does not declare are ignored.
+    /// `input`'s args checked against `command`'s declaration, an absent
+    /// arg taking its declared default: a required arg missing, or a value
+    /// of another type, is `INVALID_INPUT`. Args the command does not
+    /// declare are ignored.
     fn new(command: &'a Command, input: &'a CommandInput) -> Result<Self, CommandError> {
         let mut values = serde_json::Map::new();
         for arg in &command.args {
             let name = arg.descriptor.name.as_str();
-            let Some(value) = input.args.get(name) else {
-                if arg.descriptor.required {
+            let value = match (input.args.get(name), &arg.descriptor.default_value) {
+                (Some(value), _) => normalize(arg, value)?,
+                (None, Some(default)) => normalize(arg, &Value::String(default.clone()))?,
+                (None, None) if arg.descriptor.required => {
                     return Err(invalid(format!("missing required arg '{name}'")));
                 }
-                continue;
+                (None, None) => continue,
             };
-            values.insert(name.to_string(), normalize(arg, value)?);
+            values.insert(name.to_string(), value);
         }
         Ok(CommandCall {
             command,
@@ -569,7 +679,8 @@ impl<'a> CommandCall<'a> {
         &self.input.cwd
     }
 
-    /// Whether the caller set the declared arg `name`.
+    /// Whether the declared arg `name` has a value: the caller's, or its
+    /// declared default.
     pub fn is_set(&self, name: &str) -> bool {
         self.declared(name);
         self.values.contains_key(name)
@@ -589,14 +700,15 @@ impl<'a> CommandCall<'a> {
         self.values.get(name).and_then(Value::as_str)
     }
 
-    /// The count arg `name` ([`ArgBuilder::count`]), when set.
+    /// The count arg `name` ([`ArgBuilder::count`]), when set; a count
+    /// beyond `usize` (on a 32-bit guest) is `usize::MAX`.
     pub fn count(&self, name: &str) -> Option<usize> {
         let arg = self.declared(name);
         self.expect(arg, arg.count, "a count");
         self.values
             .get(name)
             .and_then(Value::as_u64)
-            .map(|n| n as usize)
+            .map(|n| usize::try_from(n).unwrap_or(usize::MAX))
     }
 
     /// The integer (or count) arg `name`, when set.
@@ -918,6 +1030,174 @@ mod tests {
         c.command("w", |cmd| {
             cmd.title("W");
         });
+    }
+
+    #[test]
+    fn an_absent_arg_takes_its_default_on_every_surface() {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+        c.command("w", |cmd| {
+            cmd.arg("limit", |a| {
+                a.count().default_value("7");
+            })
+            .arg("order", |a| {
+                a.one_of(&["asc", "desc"]).default_value("desc");
+            })
+            .handler(|call| {
+                CommandOutput::ok(format!(
+                    "{:?} {:?} {}",
+                    call.count("limit"),
+                    call.str("order"),
+                    call.is_set("order")
+                ))
+            });
+        });
+        let out = c.call_command("cmd__w", &CommandInput::default()).unwrap();
+        assert_eq!(out.stdout, "Some(7) Some(\"desc\") true");
+        let input = CommandInput {
+            args: json!({"limit": 2, "order": "asc"})
+                .as_object()
+                .unwrap()
+                .clone(),
+            ..Default::default()
+        };
+        let out = c.call_command("cmd__w", &input).unwrap();
+        assert_eq!(out.stdout, "Some(2) Some(\"asc\") true");
+    }
+
+    #[test]
+    fn a_declaration_that_contradicts_itself_is_refused() {
+        type Declare = fn(&mut crate::ArgBuilder);
+        let cases: [(Declare, &str); 5] = [
+            (
+                |a| {
+                    a.required().default_value("x");
+                },
+                "both required and with a default",
+            ),
+            (
+                |a| {
+                    a.flag().required();
+                },
+                "a flag is false unless set",
+            ),
+            (
+                |a| {
+                    a.flag().default_value("true");
+                },
+                "a flag is false unless set",
+            ),
+            (
+                |a| {
+                    a.count().default_value("-1");
+                },
+                "a default its type refuses: n must be a non-negative integer",
+            ),
+            (
+                |a| {
+                    a.one_of(&["a"]).default_value("b");
+                },
+                "a default its type refuses: n must be one of a, got 'b'",
+            ),
+        ];
+        for (declare, says) in cases {
+            let panic = std::panic::catch_unwind(|| {
+                let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+                c.command("w", |cmd| {
+                    cmd.arg("n", declare).handler(|_| CommandOutput::ok(""));
+                });
+            })
+            .expect_err(says);
+            let message = panic.downcast_ref::<String>().cloned().unwrap_or_default();
+            assert!(message.contains(says), "{message}");
+        }
+    }
+
+    #[test]
+    fn two_surfaces_cannot_share_an_export() {
+        type Declare = fn(&mut ContributionsBuilder);
+        let cases: [(Declare, &str); 3] = [
+            (
+                |c| {
+                    c.command("a_b", |cmd| {
+                        cmd.handler(|_| CommandOutput::ok(""));
+                    });
+                    c.command("a-b", |cmd| {
+                        cmd.handler(|_| CommandOutput::ok(""));
+                    });
+                },
+                "command 'a-b''s export cmd__a_b is already 'a_b''s",
+            ),
+            (
+                |c| {
+                    c.mcp_tool("acme.doc", |t| {
+                        t.handler(|_| Ok(json!({})));
+                    });
+                    c.mcp_resource("acme-doc", |r| {
+                        r.handler(|_| Ok(String::new()));
+                    });
+                },
+                "MCP resource 'acme-doc''s export mcp__acme_doc is already 'acme.doc''s",
+            ),
+            (
+                |c| {
+                    c.command_prefix("acme");
+                    c.command("x", |cmd| {
+                        cmd.handler(|_| CommandOutput::ok(""));
+                    });
+                    c.command("x", |cmd| {
+                        cmd.handler(|_| CommandOutput::ok(""));
+                    });
+                },
+                "command 'x' is declared twice",
+            ),
+        ];
+        for (declare, says) in cases {
+            let panic = std::panic::catch_unwind(|| {
+                let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+                declare(&mut c);
+            })
+            .expect_err(says);
+            let message = panic.downcast_ref::<String>().cloned().unwrap_or_default();
+            assert!(message.contains(says), "{message}");
+        }
+    }
+
+    #[test]
+    fn calling_every_command_sets_every_arg_with_its_type() {
+        let outputs = crate::testing::call_every_command(
+            &builder(),
+            &Default::default(),
+            "2026-10-04",
+            |command, arg| format!("{command}.{arg}"),
+        );
+        assert_eq!(outputs.len(), 1);
+        let (id, out) = &outputs[0];
+        assert_eq!((id.as_str(), out.exit_code), ("widgets", 0), "{out:?}");
+        let out: serde_json::Value = serde_json::from_str(&out.stdout).unwrap();
+        assert_eq!(
+            out,
+            json!({"widget": "widgets.widget", "limit": 1, "shift": 1, "all": true,
+                   "color": "red", "nodes": 0, "today": "2026-10-04"})
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "command 'w' reads arg 'typo', which it does not declare")]
+    fn calling_every_command_finds_an_undeclared_read() {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/x", "1.0.0"));
+        c.command("w", |cmd| {
+            cmd.arg("n", |a| {
+                a.flag();
+            })
+            .handler(|call| {
+                // Only reached with the flag set: a call without args misses it.
+                if call.flag("n") {
+                    let _ = call.str("typo");
+                }
+                CommandOutput::ok("")
+            });
+        });
+        crate::testing::call_every_command(&c, &Default::default(), "", |_, _| String::new());
     }
 
     #[test]
