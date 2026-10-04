@@ -8,13 +8,13 @@ repository.workspace = true
 [dependencies]
 specforge-wasm = { path = "../specforge-wasm" }
 specforge-common = { workspace = true }
-wasmtime = { version = "49", features = ["component-model", "cache"] }
-wasmtime-wasi = "49"
+wasmtime = { version = "49.0.2", features = ["component-model", "cache"] }
+wasmtime-wasi = "49.0.2"
 wit-bindgen = "0.30"
 
 [dev-dependencies]
 tempfile = { workspace = true }
-wat = "=1.258.0"
+wat = "=1.261.0"
 serde_json = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
