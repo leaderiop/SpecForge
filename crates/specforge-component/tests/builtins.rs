@@ -181,6 +181,11 @@ fn product_declares_its_commands_and_exports_them() {
             "feature_deliverables",
             "persona_channels",
             "deliverable_personas",
+            "deliverable_completion",
+            "release_completion",
+            "deliverable_priority",
+            "unscheduled_features",
+            "owner_workload",
             "bulk_status",
             "health",
         ]

@@ -162,6 +162,13 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
   `FeatureImpactPayload` alone: the `referenced_by_*` lists are `affected_*`, `depended_on_by`
   is the transitive `dependent_features`, and the features it depends on (`depends_on`, which
   deferring it does not touch) are no longer listed; the feature's own references answer that.
+- **Rollups count a missing status as its default, and say how they order.**
+  `deliverable_completion` counts the milestones whose status is `completed`
+  (one without a status is `planned`), `release_completion` the deliverables
+  `shipped` (absent is `draft`). The `milestone_details` it gives "when requested"
+  are requested by a `--details` flag. `owner_workload` lists owners with the
+  most entities first, ties by owner, and pages them; an empty owner string
+  is no owner.
 
 ## What would reopen this
 

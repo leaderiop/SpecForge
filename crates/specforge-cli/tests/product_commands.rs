@@ -167,6 +167,35 @@ fn test_product_milestone_completion() {
 }
 
 #[test]
+fn deliverable_completion_takes_details_as_a_flag() {
+    let dir = setup_product_project();
+    let mut cmd = cargo_bin_cmd!("specforge");
+    cmd.args([
+        "product",
+        "deliverable-completion",
+        "d1",
+        "--details",
+        "--path",
+        dir.path().to_str().unwrap(),
+        "--format",
+        "json",
+    ]);
+    let output = cmd.output().unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    // m1 is planned, so none of d1's one milestone is completed.
+    assert_eq!(
+        (
+            result["milestone_count"].clone(),
+            result["completed_count"].clone()
+        ),
+        (serde_json::json!(1), serde_json::json!(0))
+    );
+    assert_eq!(result["milestone_details"][0]["milestone_id"], "m1");
+    assert_eq!(result["milestone_details"][0]["done_count"], 1);
+}
+
+#[test]
 fn test_product_feature_impact() {
     let dir = setup_product_project();
     let mut cmd = cargo_bin_cmd!("specforge");

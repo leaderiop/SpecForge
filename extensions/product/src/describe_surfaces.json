@@ -589,6 +589,86 @@
           ]
         },
         {
+          "id": "deliverable_completion",
+          "title": "Show deliverable completion",
+          "description": "How many of the milestones a deliverable is tracked by are completed, as a count and a ratio in [0, 1]; --details adds each milestone's feature completion.",
+          "category": "query",
+          "export": "cmd__product_deliverable_completion",
+          "args": [
+            {
+              "name": "deliverable",
+              "arg_type": "string",
+              "required": true,
+              "description": "The deliverable id"
+            },
+            {
+              "name": "details",
+              "arg_type": "bool",
+              "required": false,
+              "description": "Include each milestone's feature completion"
+            }
+          ]
+        },
+        {
+          "id": "release_completion",
+          "title": "Show release completion",
+          "description": "How many of a release's deliverables are shipped, as a count and a ratio in [0, 1] (null without deliverables).",
+          "category": "query",
+          "export": "cmd__product_release_completion",
+          "args": [
+            {
+              "name": "release",
+              "arg_type": "string",
+              "required": true,
+              "description": "The release id"
+            }
+          ]
+        },
+        {
+          "id": "deliverable_priority",
+          "title": "Show a deliverable's derived priority",
+          "description": "The highest priority among the milestones and journeys a deliverable references that declare one (null when none does), and how many declare one.",
+          "category": "query",
+          "export": "cmd__product_deliverable_priority",
+          "args": [
+            {
+              "name": "deliverable",
+              "arg_type": "string",
+              "required": true,
+              "description": "The deliverable id"
+            }
+          ]
+        },
+        {
+          "id": "unscheduled_features",
+          "title": "Show features no milestone schedules",
+          "description": "The features no milestone lists, sorted by id, with how many features there are and how many are scheduled.",
+          "category": "query",
+          "export": "cmd__product_unscheduled_features",
+          "args": []
+        },
+        {
+          "id": "owner_workload",
+          "title": "Show ownership by owner",
+          "description": "Per owner, the features, milestones, deliverables and releases it owns (most first, ties by owner), paged, and how many of those entities have no owner.",
+          "category": "query",
+          "export": "cmd__product_owner_workload",
+          "args": [
+            {
+              "name": "limit",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Return at most this many (default 100, clamped to 1-1000)"
+            },
+            {
+              "name": "offset",
+              "arg_type": "integer",
+              "required": false,
+              "description": "Skip this many first (default 0)"
+            }
+          ]
+        },
+        {
           "id": "bulk_status",
           "title": "Show status breakdown across all entity kinds",
           "description": "For each product kind with a lifecycle, how many entities have each status.",

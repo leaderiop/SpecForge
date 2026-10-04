@@ -183,6 +183,132 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
                 }
             },
         ),
+        "cmd__product_deliverable_completion" => {
+            let details = input.arg_bool("details");
+            lookup(
+                input,
+                "deliverable",
+                |g, id| queries::deliverable_completion(g, id, details),
+                |r, out| {
+                    let _ = writeln!(out, "Deliverable: {}", r.deliverable_id);
+                    let _ = writeln!(
+                        out,
+                        "Completion: {:.0}% ({}/{} milestones completed)",
+                        r.completion_ratio * 100.0,
+                        r.completed_count,
+                        r.milestone_count
+                    );
+                    if let Some(details) = &r.milestone_details {
+                        let rows: Vec<Vec<String>> = details
+                            .iter()
+                            .map(|m| {
+                                vec![
+                                    m.milestone_id.clone(),
+                                    m.status.clone().unwrap_or_else(|| "-".to_string()),
+                                    format!("{}/{}", m.done_count, m.total_features),
+                                    format!("{:.0}%", m.completion_ratio * 100.0),
+                                ]
+                            })
+                            .collect();
+                        out.push_str(&table(
+                            &["milestone", "status", "features done", "completion"],
+                            &rows,
+                        ));
+                    }
+                },
+            )
+        }
+        "cmd__product_release_completion" => {
+            lookup(input, "release", queries::release_completion, |r, out| {
+                let _ = writeln!(out, "Release: {}", r.release_id);
+                match r.completion_ratio {
+                    Some(ratio) => {
+                        let _ = writeln!(
+                            out,
+                            "Completion: {:.0}% ({}/{} deliverables shipped)",
+                            ratio * 100.0,
+                            r.shipped,
+                            r.total
+                        );
+                    }
+                    None => {
+                        let _ = writeln!(out, "Completion: - (no deliverables)");
+                    }
+                }
+            })
+        }
+        "cmd__product_deliverable_priority" => lookup(
+            input,
+            "deliverable",
+            queries::deliverable_priority,
+            |r, out| {
+                let _ = writeln!(
+                    out,
+                    "Deliverable '{}' priority: {} (from {} prioritized milestones and journeys)",
+                    r.deliverable_id,
+                    r.priority.as_deref().unwrap_or("none"),
+                    r.source_count
+                );
+            },
+        ),
+        "cmd__product_unscheduled_features" => {
+            let result = queries::unscheduled_features(&input.graph);
+            render(input, &result, |out| {
+                let rows: Vec<Vec<String>> = result
+                    .features
+                    .iter()
+                    .zip(&result.statuses)
+                    .map(|(id, status)| {
+                        vec![
+                            id.clone(),
+                            status.clone().unwrap_or_else(|| "-".to_string()),
+                        ]
+                    })
+                    .collect();
+                out.push_str(&table(&["id", "status"], &rows));
+                let _ = writeln!(
+                    out,
+                    "{} of {} features unscheduled",
+                    result.count, result.total_features
+                );
+            })
+        }
+        "cmd__product_owner_workload" => {
+            let workload = queries::owner_workload(&input.graph);
+            let extra = serde_json::json!({
+                "unowned_count": workload.unowned_count,
+                "total_entities": workload.total_entities,
+            });
+            let (unowned, total) = (workload.unowned_count, workload.total_entities);
+            paged(input, "owners", workload.owners, extra, |page, out| {
+                let rows: Vec<Vec<String>> = page
+                    .items
+                    .iter()
+                    .map(|o| {
+                        vec![
+                            o.owner.clone(),
+                            o.entity_count.to_string(),
+                            o.by_kind.features.to_string(),
+                            o.by_kind.milestones.to_string(),
+                            o.by_kind.deliverables.to_string(),
+                            o.by_kind.releases.to_string(),
+                        ]
+                    })
+                    .collect();
+                out.push_str(&table(
+                    &[
+                        "owner",
+                        "entities",
+                        "features",
+                        "milestones",
+                        "deliverables",
+                        "releases",
+                    ],
+                    &rows,
+                ));
+                let _ = writeln!(out, "Unowned: {unowned} of {total} entities");
+            })
+        }
         "cmd__product_bulk_status" => {
             let result = queries::bulk_status(&input.graph);
             render(input, &result, |out| {
@@ -242,17 +368,8 @@ fn list_filter<'a>(
     input: &'a CommandInput,
     kind: &'a ListKind,
 ) -> Result<ListFilter<'a>, CommandError> {
-    for page in ["limit", "offset"] {
-        if input.args.contains_key(page) && input.arg_usize(page).is_none() {
-            return Err(queries::invalid_input(format!(
-                "{page} must be a non-negative integer, got {}",
-                input.args[page]
-            )));
-        }
-    }
     let mut filter = ListFilter::all(kind);
-    filter.limit = input.arg_usize("limit");
-    filter.offset = input.arg_usize("offset");
+    (filter.offset, filter.limit) = page_args(input)?;
     for arg in kind.filters {
         let Some(value) = input.arg_str(arg.arg) else {
             continue;
@@ -289,6 +406,53 @@ fn list_filter<'a>(
     Ok(filter)
 }
 
+/// The `--offset` and `--limit` `input` sets, each a count when set; a
+/// value that is not one is `INVALID_INPUT`.
+fn page_args(input: &CommandInput) -> Result<(Option<usize>, Option<usize>), CommandError> {
+    for page in ["limit", "offset"] {
+        if input.args.contains_key(page) && input.arg_usize(page).is_none() {
+            return Err(queries::invalid_input(format!(
+                "{page} must be a non-negative integer, got {}",
+                input.args[page]
+            )));
+        }
+    }
+    Ok((input.arg_usize("offset"), input.arg_usize("limit")))
+}
+
+/// A paged project-wide command: one page of `items` under
+/// `key` beside the fields `extra` adds, or `INVALID_INPUT` for a page arg
+/// that is not a count.
+fn paged<T: Serialize>(
+    input: &CommandInput,
+    key: &str,
+    items: Vec<T>,
+    extra: serde_json::Value,
+    human: impl FnOnce(&queries::Page<T>, &mut String),
+) -> CommandOutput {
+    let (offset, limit) = match page_args(input) {
+        Ok(page) => page,
+        Err(error) => return fail(input, &error, queries::INVALID_INPUT_EXIT),
+    };
+    let page = queries::paginate(items, offset, limit);
+    let mut payload = page.payload(key);
+    if let (Some(payload), serde_json::Value::Object(extra)) = (payload.as_object_mut(), extra) {
+        payload.extend(extra);
+    }
+    render(input, &payload, |out| {
+        human(&page, out);
+        if page.has_more {
+            let _ = writeln!(
+                out,
+                "{} of {} {key}; --offset {} for more",
+                page.items.len(),
+                page.total,
+                page.offset + page.items.len()
+            );
+        }
+    })
+}
+
 /// `INVALID_INPUT` for `value`, which is not one of `arg`'s `values`.
 fn one_of(arg: &str, values: &[&str], value: &str) -> CommandError {
     queries::invalid_input(format!(
@@ -302,7 +466,7 @@ fn one_of(arg: &str, values: &[&str], value: &str) -> CommandError {
 fn lookup<T: Serialize>(
     input: &CommandInput,
     kind: &str,
-    query: fn(&CommandGraph, &str) -> Option<T>,
+    query: impl FnOnce(&CommandGraph, &str) -> Option<T>,
     human: impl FnOnce(&T, &mut String),
 ) -> CommandOutput {
     let id = input.arg_str(kind).unwrap_or_default();
