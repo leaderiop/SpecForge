@@ -2287,11 +2287,16 @@ pub fn milestone_velocity(
         .filter(|&days| days > 0 && done > 0)
         .map(|days| done as f64 / days as f64);
     let left = total - done;
-    let days_remaining = days_elapsed.and_then(|_| {
+    // left / (done / days), rounded up, in integers: a float pace can land
+    // a whole quotient just above itself and round it up a day.
+    let days_remaining = days_elapsed.and_then(|days| {
         if left == 0 {
             Some(0)
         } else {
-            features_per_day.map(|pace| (left as f64 / pace).ceil() as i64)
+            features_per_day.map(|_| {
+                let days = u64::try_from(days).unwrap_or(0);
+                i64::try_from((left as u64 * days).div_ceil(done as u64)).unwrap_or(i64::MAX)
+            })
         }
     });
     Some(MilestoneVelocity {

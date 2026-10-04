@@ -1613,10 +1613,31 @@ fn random_milestones_weigh_and_pace_as_brute_force_does() {
         let expected = if left == 0 {
             Some(0)
         } else {
-            pace.map(|p| (left as f64 / p).ceil() as i64)
+            // The smallest whole number of days d with d * done >= left * elapsed.
+            pace.map(|_| {
+                (0..)
+                    .find(|d| d * done as i64 >= left as i64 * elapsed)
+                    .unwrap()
+            })
         };
         assert_eq!(v.days_remaining, expected, "round {round}");
     }
+}
+
+#[test]
+fn days_remaining_is_a_whole_quotient_when_the_pace_divides_evenly() {
+    // 1 done in 49 days leaves 1 feature 49 days away; a float pace,
+    // 1/49, puts 1 / (1/49) just above 49 and would round it to 50.
+    let g = G::default()
+        .node("ms", "milestone", &[("start_date", "2026-01-01")])
+        .node("a", "feature", &[("status", "done")])
+        .node("b", "feature", &[])
+        .edge("ms", "a", "features")
+        .edge("ms", "b", "features")
+        .build();
+    let as_of = parse_ymd("2026-01-01").unwrap() + 49;
+    let v = milestone_velocity(&g, "ms", as_of).unwrap();
+    assert_eq!((v.days_elapsed, v.days_remaining), (Some(49), Some(49)));
 }
 
 // ── commands ───────────────────────────────────────────────────────────────

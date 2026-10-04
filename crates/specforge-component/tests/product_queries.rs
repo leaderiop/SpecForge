@@ -5192,7 +5192,8 @@ fn velocity_is_done_over_elapsed_and_paces_what_is_left() {
         let pace = 3.0 / elapsed as f64;
         assert_eq!(v["days_elapsed"], elapsed, "{as_of}");
         assert_eq!(v["features_per_day"].as_f64().unwrap(), pace, "{as_of}");
-        assert_eq!(v["days_remaining"], (2.0 / pace).ceil() as i64, "{as_of}");
+        // 2 left at 3 per elapsed days: 2 * elapsed / 3 days, rounded up.
+        assert_eq!(v["days_remaining"], (2 * elapsed + 2) / 3, "{as_of}");
     }
     // Before the start no day has elapsed.
     let v = json_of(
