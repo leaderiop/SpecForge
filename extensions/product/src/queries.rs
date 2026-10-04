@@ -134,7 +134,7 @@ pub struct ListKind {
 
 impl ListKind {
     /// The filter on `field`, if the kind has one.
-    fn filter(&self, field: &str) -> Option<&FilterArg> {
+    pub(crate) fn filter(&self, field: &str) -> Option<&FilterArg> {
         self.filters.iter().find(|f| f.arg == field)
     }
 }

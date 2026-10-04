@@ -119,7 +119,8 @@ fn an_absent_persona_or_channel_status_is_active() {
 fn a_closed_enum_is_the_one_its_validation_rule_checks() {
     // Every `one_of` value constraint a product kind's field is checked
     // against (W077, W078, ...) is the enum its list filters and sorts by,
-    // value for value and in order; `family`'s (I062, an info) is open.
+    // and the `one_of` its list's filter arg declares, value for value and
+    // in order; `family`'s (I062, an info) is open.
     let rules: serde_json::Value =
         serde_json::from_slice(crate::DESCRIBE_VALIDATION_RULES).unwrap();
     let kinds = [
@@ -133,7 +134,15 @@ fn a_closed_enum_is_the_one_its_validation_rule_checks() {
         &CHANNELS,
         &RELEASES,
     ];
+    let surfaces: serde_json::Value = serde_json::from_str(
+        &crate::specforge_extension_build()
+            .describe_response_json("surfaces")
+            .unwrap(),
+    )
+    .unwrap();
+    let commands = surfaces["items"][0]["commands"].as_array().unwrap();
     let mut checked = 0;
+    let mut filtered = 0;
     for rule in rules["items"].as_array().unwrap() {
         if rule["check"] != "field_value_constraint" || rule["constraint"]["kind"] != "one_of" {
             continue;
@@ -159,9 +168,53 @@ fn a_closed_enum_is_the_one_its_validation_rule_checks() {
             "{code}: {} {field}",
             kind.kind
         );
+        // A list filtering by the field declares it `one_of` those values,
+        // so the SDK refuses any other (and the CLI and MCP list them).
+        if kind.filter(field).is_some() {
+            let arg = commands
+                .iter()
+                .find(|c| c["id"] == kind.plural)
+                .and_then(|c| c["args"].as_array())
+                .and_then(|args| args.iter().find(|a| a["name"] == field))
+                .unwrap_or_else(|| panic!("{} declares no --{field}", kind.plural));
+            assert_eq!(
+                arg["arg_type"]["enum"]["values"],
+                serde_json::json!(values),
+                "{code}: {} --{field}",
+                kind.plural
+            );
+            filtered += 1;
+        }
         checked += 1;
     }
     assert!(checked >= 10, "only {checked} rules checked");
+    assert!(filtered >= 9, "only {filtered} filters checked");
+    // Every closed filter, with a rule or not (a priority), and the sort
+    // order are `one_of` the values the list takes.
+    let mut closed = 0;
+    for kind in kinds {
+        let args = commands
+            .iter()
+            .find(|c| c["id"] == kind.plural)
+            .and_then(|c| c["args"].as_array())
+            .unwrap();
+        let arg = |name: &str| args.iter().find(|a| a["name"] == name).unwrap();
+        for filter in kind.filters {
+            let declared = &arg(filter.arg)["arg_type"];
+            match filter.values {
+                Some(values) => {
+                    assert_eq!(declared["enum"]["values"], serde_json::json!(values));
+                    closed += 1;
+                }
+                None => assert_eq!(declared, "string", "{} --{}", kind.plural, filter.arg),
+            }
+        }
+        assert_eq!(
+            arg("sort_order")["arg_type"]["enum"]["values"],
+            serde_json::json!(SORT_ORDER)
+        );
+    }
+    assert_eq!(closed, 12);
 }
 
 #[test]
@@ -1778,36 +1831,50 @@ fn every_declared_command_answers_its_export() {
     let commands = described["items"][0]["commands"].as_array().unwrap();
     assert_eq!(commands.len(), 40);
     for command in commands {
-        let export = command["export"].as_str().unwrap();
         assert_eq!(
-            export,
+            command["export"],
             format!("cmd__product_{}", command["id"].as_str().unwrap())
         );
-        // Every declared arg set, so every handler reads every arg it reads
-        // (an undeclared one would panic).
-        let args: serde_json::Map<String, serde_json::Value> = command["args"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|arg| {
-                let name = arg["name"].as_str().unwrap().to_string();
-                let value = match (name.as_str(), arg["arg_type"].as_str()) {
-                    (_, Some("integer")) => serde_json::json!(1),
-                    (_, Some("bool")) => serde_json::json!(true),
-                    ("as_of", _) => serde_json::json!("2026-10-04"),
-                    _ => serde_json::json!("x"),
-                };
-                (name, value)
-            })
-            .collect();
-        let out = run(
-            export,
-            &json_input(serde_json::Value::Object(args), sample()),
-        )
-        .unwrap_or_else(|| panic!("{export} is declared but not answered"));
-        assert!(out.exit_code <= 2, "{export}: {out:?}");
     }
     assert!(run("cmd__product_nope", &input(serde_json::json!({}), sample())).is_none());
+}
+
+/// Every command, called with every arg it declares set (an entity id of
+/// the kind it names, a date, a sort field the kind has), answers: none
+/// reads an arg it does not declare, or as another type (a panic here, a
+/// trap in the host), on the path a successful call takes.
+#[test]
+fn every_command_answers_with_every_arg_set() {
+    let kinds = [
+        "feature",
+        "journey",
+        "deliverable",
+        "milestone",
+        "module",
+        "term",
+        "persona",
+        "channel",
+        "release",
+    ];
+    let graph = kinds
+        .iter()
+        .fold(G::default(), |g, kind| g.n(&format!("{kind}1"), kind))
+        .build();
+    let outputs = specforge_extension_sdk::testing::call_every_command(
+        &crate::specforge_extension_build(),
+        &graph,
+        "2026-10-04",
+        |_, arg| match arg {
+            kind if kinds.contains(&kind) => format!("{kind}1"),
+            "as_of" => "2026-10-04".to_string(),
+            "sort_by" => "id".to_string(),
+            _ => "x".to_string(),
+        },
+    );
+    assert_eq!(outputs.len(), 40);
+    for (id, out) in outputs {
+        assert_eq!(out.exit_code, 0, "{id}: {out:?}");
+    }
 }
 
 #[test]
@@ -1897,9 +1964,17 @@ fn fnv1a(bytes: &[u8]) -> u64 {
 }
 
 /// The `surfaces` describe payload, byte for byte, as the host receives
-/// it: pinned when it was the hand-written `describe_surfaces.json`, so
-/// declaring the commands with the SDK's builder changed no byte of it.
-/// A deliberate surface change updates the pin.
+/// it. A deliberate surface change updates the pin, saying why:
+///
+/// - 35633 bytes, `0xcd3d_3de9_1ccf_a2b0`: the hand-written
+///   `describe_surfaces.json`, which declaring the commands with the SDK's
+///   builder reproduced byte for byte.
+/// - 39985 bytes, `0xd8a4_3928_7a28_0e5e`: the 12 closed list filters
+///   (`--status`, `--priority`, `--artifact-type`, `--technical-level`,
+///   `--interaction-model`) and the 9 `--sort-order` args are `one_of` their
+///   values rather than `string`; nothing else changed. The SDK refuses
+///   another value with the message the command gave (`INVALID_INPUT`,
+///   exit 2), the CLI first, and the MCP tools' schemas list the values.
 #[test]
 fn the_surfaces_payload_is_pinned() {
     let payload = crate::specforge_extension_build()
@@ -1907,7 +1982,7 @@ fn the_surfaces_payload_is_pinned() {
         .unwrap();
     assert_eq!(
         (payload.len(), fnv1a(payload.as_bytes())),
-        (35633, 0xcd3d_3de9_1ccf_a2b0),
+        (39985, 0xd8a4_3928_7a28_0e5e),
         "the surfaces payload changed"
     );
 }

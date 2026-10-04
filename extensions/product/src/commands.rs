@@ -1108,8 +1108,14 @@ fn list_command<T: ListEntry + 'static>(
         cmd.title(&format!("List {}", kind.plural))
             .description(description)
             .category("query");
+        // A closed filter is `one_of` its enum (the one its validation rule
+        // checks): the SDK refuses any other value, and the CLI help and the
+        // MCP tool's schema list them.
         for (filter, help) in kind.filters.iter().zip(filter_help) {
             cmd.arg(filter.arg, |a| {
+                if let Some(values) = filter.values {
+                    a.one_of(values);
+                }
                 a.description(help);
             });
         }
@@ -1126,7 +1132,8 @@ fn list_command<T: ListEntry + 'static>(
             ));
         })
         .arg("sort_order", |a| {
-            a.description("asc (the default) or desc");
+            a.one_of(queries::SORT_ORDER)
+                .description("asc (the default) or desc");
         });
         page_args(cmd);
         cmd.handler(list::<T>);
@@ -1134,10 +1141,9 @@ fn list_command<T: ListEntry + 'static>(
 }
 
 /// A list command over `T`'s kind: the page its filter args select, its
-/// entries under the kind's plural. An arg it cannot use is
-/// `INVALID_INPUT`: a value outside the enum a filter takes, a sort field
-/// the kind does not have, a sort order that is not `asc` or `desc` (the
-/// SDK refuses a page arg that is not a count).
+/// entries under the kind's plural. A sort field the kind does not have is
+/// `INVALID_INPUT` (the SDK refuses a value outside a closed filter's enum
+/// or `asc`/`desc`, and a page arg that is not a count).
 fn list<T: ListEntry>(call: &CommandCall<'_>) -> CommandOutput {
     let filter = match list_filter(call, T::KIND) {
         Ok(filter) => filter,
@@ -1168,15 +1174,9 @@ fn list_filter<'a>(
     let mut filter = ListFilter::all(kind);
     (filter.offset, filter.limit) = page(call);
     for arg in kind.filters {
-        let Some(value) = call.str(arg.arg) else {
-            continue;
-        };
-        if let Some(values) = arg.values {
-            if !values.contains(&value) {
-                return Err(one_of(arg.arg, values, value));
-            }
+        if let Some(value) = call.str(arg.arg) {
+            filter.equals.push((arg.arg, value));
         }
-        filter.equals.push((arg.arg, value));
     }
     if let Some(tags) = call.str("tags") {
         filter.tags = tags
@@ -1195,9 +1195,6 @@ fn list_filter<'a>(
         filter.sort_by = field;
     }
     if let Some(order) = call.str("sort_order") {
-        if !queries::SORT_ORDER.contains(&order) {
-            return Err(one_of("sort_order", queries::SORT_ORDER, order));
-        }
         filter.descending = order == "desc";
     }
     Ok(filter)
@@ -1326,14 +1323,6 @@ fn coverage<T: Serialize>(
             }
         }
     })
-}
-
-/// `INVALID_INPUT` for `value`, which is not one of `arg`'s `values`.
-fn one_of(arg: &str, values: &[&str], value: &str) -> CommandError {
-    queries::invalid_input(format!(
-        "{arg} must be one of {}, got '{value}'",
-        values.join(", ")
-    ))
 }
 
 /// A query about the entity the positional arg `kind` names
