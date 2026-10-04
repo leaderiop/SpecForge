@@ -120,6 +120,7 @@ crate-type = ["cdylib"]
 [dependencies]
 specforge-extension-sdk = "0.1"
 wit-bindgen = "0.30"
+serde_json = "1.0"
 "#
     );
     std::fs::write(dir.join("Cargo.toml"), cargo_toml)
@@ -165,17 +166,39 @@ impl Contributions for Extension {{
             r.severity(ValidationSeverity::Warning);
             r.message_template("thing '{{id}}' is missing a description");
         }});
+
+        // Contribute a command, declared with the function that answers it
+        // (delete if not needed). It runs as `specforge <short> things` and is
+        // the MCP tool `specforge.<short>.things`; its args are read through
+        // the declaration.
+        c.command("things", |cmd| {{
+            cmd.title("List things")
+                .description("Every thing, by id")
+                .arg("limit", |a| {{
+                    a.count().description("Return at most this many");
+                }})
+                .handler(|call| {{
+                    let ids: Vec<&str> = call
+                        .graph()
+                        .nodes_of_kind("thing")
+                        .take(call.count("limit").unwrap_or(100))
+                        .map(|n| n.id.as_str())
+                        .collect();
+                    call.render(&serde_json::json!({{ "things": ids }}), |out| {{
+                        for id in &ids {{
+                            out.push_str(id);
+                            out.push('\n');
+                        }}
+                    }})
+                }});
+        }});
     }}
 }}
 
-fn dispatch(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {{
-    None
-}}
-
-specforge_extension_sdk::component_guest!(
-    build = specforge_extension_build,
-    handler = dispatch
-);
+// Serves the protocol and the declared commands. Exports you answer by
+// hand go to `handler = dispatch`, a function returning `None` for names it
+// does not know.
+specforge_extension_sdk::component_guest!(build = specforge_extension_build);
 "#
     );
     std::fs::write(src.join("lib.rs"), lib_rs)
@@ -226,6 +249,8 @@ mod tests {
         assert!(lib.contains("#[specforge_extension_sdk::extension("));
         assert!(lib.contains("impl Contributions for Extension"));
         assert!(lib.contains("component_guest!"));
+        assert!(lib.contains("c.command(\"things\""));
+        assert!(cargo.contains("serde_json"));
     }
 
     /// Every field type and check kind the scaffold names is one the
