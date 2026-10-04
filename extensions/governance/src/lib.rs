@@ -13,7 +13,6 @@ static DESCRIBE_FIELDS: &[u8] = include_bytes!("describe_fields.json");
 static DESCRIBE_SHARED_FIELDS: &[u8] = include_bytes!("describe_shared_fields.json");
 static DESCRIBE_ENHANCEMENTS: &[u8] = include_bytes!("describe_enhancements.json");
 static DESCRIBE_VALIDATION_RULES: &[u8] = include_bytes!("describe_validation_rules.json");
-static DESCRIBE_SURFACES: &[u8] = include_bytes!("describe_surfaces.json");
 static DESCRIBE_PASSES: &[u8] = include_bytes!("describe_passes.json");
 static DESCRIBE_FEATURE_FLAGS: &[u8] = include_bytes!("describe_feature_flags.json");
 
@@ -44,7 +43,6 @@ impl Contributions for Governance {
             ("shared_fields", DESCRIBE_SHARED_FIELDS),
             ("enhancements", DESCRIBE_ENHANCEMENTS),
             ("validation_rules", DESCRIBE_VALIDATION_RULES),
-            ("surfaces", DESCRIBE_SURFACES),
             ("passes", DESCRIBE_PASSES),
             ("feature_flags", DESCRIBE_FEATURE_FLAGS),
         ] {
