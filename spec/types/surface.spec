@@ -3,6 +3,16 @@
 // Extensions declare surface contributions in their manifest to extend
 // the CLI and MCP server dynamically. Core dispatches to Wasm exports
 // using the naming convention cmd__{id} and mcp__{name}.
+//
+// An extension written with the SDK declares each command, MCP tool and MCP
+// resource together with the handler that answers it (ContributionsBuilder
+// command, mcp_tool, mcp_resource). The SDK derives both the describe
+// payload below and the routing of each export to its handler from that
+// one declaration, and checks a command's args against their declared
+// types before the handler reads them, through the declaration
+// (CommandCall): a missing required arg or a value of another type is
+// INVALID_INPUT, exit 2. On the wire an unset optional field is absent,
+// not null.
 
 use "types/core"
 use "types/graph"
@@ -25,7 +35,8 @@ type CommandContribution {
   title       string
   description string                 @optional
   category    string                 @optional
-  // Wasm export name: cmd__{id}
+  // Wasm export name: cmd__{id}, or cmd__{prefix}_{id} under the SDK's
+  // command_prefix (the builtins use their short name: cmd__product_features)
   export      string                 @readonly
   args        CommandArg[]           @optional
   sandbox     SurfaceSandboxOverride @optional
@@ -89,7 +100,7 @@ type McpToolContribution {
   name          string                 @readonly
   description   string
   category      McpToolCategory        @optional
-  // Wasm export name: mcp__{name}
+  // Wasm export name: mcp__{name}, with . and - as _
   export        string                 @readonly
   input_schema  JsonSchema
   output_schema JsonSchema             @optional
@@ -103,7 +114,7 @@ type McpResourceContribution {
   uri_template string                 @readonly
   name         string                 @readonly
   description  string                 @optional
-  // Wasm export name: mcp__{name}
+  // Wasm export name: mcp__{name}, with . and - as _
   export       string                 @readonly
   mime_type    string                 @optional
   sandbox      SurfaceSandboxOverride @optional

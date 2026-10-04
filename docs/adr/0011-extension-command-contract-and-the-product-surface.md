@@ -215,6 +215,22 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
   without a date or a pace). `weighted_milestone_completion` weighs an
   effort outside the scale as m, as a missing one; its breakdown counts
   features per effort level they have, smallest first.
+- **A command is declared with its handler.** The SDK's `ContributionsBuilder::command`
+  (and `mcp_tool`, `mcp_resource`) takes the declaration and the function that answers
+  it; the SDK derives the `surfaces` payload and routes the export (`cmd__<prefix>_<id>`
+  under `command_prefix`, else `cmd__<id>`) to the handler, so a declared command cannot
+  lack its code. A handler reads its args through `CommandCall`, which reads only declared
+  args, as their declared type, after the SDK has checked the caller's values: a required
+  arg missing or a value of another type (a page arg that is not a count) is
+  `INVALID_INPUT`, exit 2, the same error object. A missing entity id is therefore
+  `INVALID_INPUT` rather than `ENTITY_NOT_FOUND` for `''`. Product's 40 commands left
+  `describe_surfaces.json` with their payload unchanged byte for byte (a pinned
+  fingerprint), and the empty files of the other builtins went with it. Product's closed
+  filters (`--status`, `--priority`, `--sort-order`) stay `string` args the command
+  checks: declaring them `one_of` would have clap refuse them first and give their MCP
+  tools an enum schema, a payload change for when it is wanted. On the wire an unset
+  optional surface field is absent, not `null`. Raw JSON (`raw_category("surfaces", ..)`)
+  still overrides the builder, for an extension not written with it.
 
 ## What would reopen this
 

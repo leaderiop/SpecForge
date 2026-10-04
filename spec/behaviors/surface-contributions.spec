@@ -5,7 +5,10 @@
 // dispatch to the cmd__{id} and mcp__{name} exports. What the host cannot
 // check (export presence: a component guest routes every export through
 // one call) and what nothing configures (a per-contribution toggle) are
-// not specified (ADR 0011).
+// not specified (ADR 0011). On the guest side, an extension built with the
+// SDK declares each surface with its handler: the SDK derives the
+// `surfaces` payload and routes the exports from that one declaration, so
+// the guest routes every export it declares (ADR 0011, Adjustments).
 
 use "events/surface-contributions"
 use "events/wasm-extensions"

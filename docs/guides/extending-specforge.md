@@ -30,6 +30,7 @@ This is the extension **tutorial**. Companion reading:
   - [Structured conditions](#structured-conditions)
   - [Your first compiler pass](#your-first-compiler-pass)
   - [Ordering passes](#ordering-passes)
+  - [A command](#a-command)
 - [Act V — Build, install, test](#act-v--build-install-test)
   - [Build to Wasm](#build-to-wasm)
   - [Install into a project](#install-into-a-project)
@@ -67,6 +68,7 @@ about to use.
 | **Validation rules** | Structural checks the compiler runs on every build |
 | **Compiler passes** | Analysis that runs during `specforge analyze`, receiving the resolved graph and returning diagnostics |
 | **Feature flags** | User-configurable behavior, read from `specforge.json` |
+| **Commands** | Queries over the compiled graph: `specforge <ext> <command>` on the CLI, the tool `specforge.<ext>.<command>` over MCP |
 
 ---
 
@@ -129,20 +131,15 @@ impl Contributions for Greet {
 To make it a component, wire the bridge (in the same file):
 
 ```rust
-fn dispatch(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-    None
-}
-
-specforge_extension_sdk::component_guest!(
-    build = specforge_extension_build,
-    handler = dispatch
-);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build);
 ```
 
 The `#[extension]` attribute generates `specforge_extension_build()`;
-`component_guest!` serves the protocol and routes any export name your
-`dispatch` recognizes (analyzer scans, validators, passes). `specforge new
---extension` scaffolds all of this for you.
+`component_guest!` serves the protocol and the commands you declare
+([A command](#a-command)). Exports you answer by hand (analyzer scans,
+validators, passes) go to a `handler = dispatch` function that returns
+`None` for names it does not know. `specforge new --extension` scaffolds all
+of this for you.
 
 Three things happened:
 
@@ -293,6 +290,63 @@ order in the source file does not matter. Constraints naming unknown passes
 Constraint cycles fall back to declaration order with a warning; don't rely
 on that — cycles are bugs.
 
+## A command
+
+A command is a query over the compiled graph. Declare it with the function
+that answers it:
+
+```rust
+c.command("greetings", |cmd| {
+    cmd.title("List greetings")
+        .description("Every greeting of a style")
+        .arg("style", |a| {
+            a.one_of(&["warm", "formal"]).description("Only greetings of this style");
+        })
+        .arg("limit", |a| {
+            a.count().description("Return at most this many");
+        })
+        .handler(|call| {
+            let style = call.str("style");
+            let ids: Vec<&str> = call
+                .graph()
+                .nodes_of_kind("greeting")
+                .filter(|n| style.is_none() || n.text("style") == style)
+                .take(call.count("limit").unwrap_or(100))
+                .map(|n| n.id.as_str())
+                .collect();
+            call.render(&serde_json::json!({ "greetings": ids }), |out| {
+                for id in &ids {
+                    out.push_str(&format!("{id}\n"));
+                }
+            })
+        });
+});
+```
+
+From that one declaration the SDK gives the host the `surfaces` payload and
+routes the `cmd__greetings` export to the handler (call
+`c.command_prefix("greet")` first to name it `cmd__greet_greetings`). The
+command runs as `specforge greet greetings --style warm` and is served to
+agents as the MCP tool `specforge.greet.greetings`.
+
+- **Args are read through the declaration.** Before the handler runs, the
+  SDK checks what the caller set against each arg's type (`string`, `path`,
+  `flag`, `integer`, `count`, `one_of`) and whether it is `required`: a
+  value it cannot use is an `INVALID_INPUT` error, exit 2. `call.str`,
+  `call.count`, `call.integer` and `call.flag` read only args the command
+  declares, as the type it declares them; anything else panics, so a test
+  that runs the command catches the slip.
+- **The host owns `--path`, `--format` and `--help`.** Don't declare them;
+  `call.render` writes your payload as JSON under `--format json` (always,
+  over MCP) and your own layout otherwise. `call.fail` writes an error in
+  the same format.
+- **The graph is all a command reads.** The export gets no file system, no
+  environment and no network; `call.today()` is the host's date.
+
+`c.mcp_tool` and `c.mcp_resource` declare an explicit MCP tool or resource
+the same way, with a handler taking the tool's arguments or the resource's
+URI.
+
 ---
 
 # Act V — Build, install, test
@@ -347,8 +401,21 @@ mod tests {
 }
 ```
 
+A command runs the same way, as the host would call it:
+
+```rust
+let input = CommandInput {
+    args: serde_json::json!({"style": "warm"}).as_object().unwrap().clone(),
+    format: CommandFormat::Json,
+    ..Default::default()
+};
+let out = c.call_command("cmd__greetings", &input).unwrap();
+assert_eq!(out.exit_code, 0);
+```
+
 The shipped extensions test exactly this way — see the `raw_category_flag_tests`
-module in the SDK and the pass tests in `extensions/formal/src/lib.rs`.
+module in the SDK, the pass tests in `extensions/formal/src/lib.rs` and the
+command tests in `extensions/product/src/tests.rs`.
 
 ---
 

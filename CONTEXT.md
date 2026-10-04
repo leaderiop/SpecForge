@@ -36,8 +36,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_coverage::Verdict`).
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
   independent of surface. The CLI and MCP are adapters over it (`specforge-ops`).
-- **Extension command**: a CLI command an extension declares in its surfaces, answered by its
-  `cmd__` export over the graph the host passes (`CommandInput`: args, project root, graph, the
+- **Extension command**: a CLI command an extension declares in its surfaces (with the SDK, together
+  with its handler: `ContributionsBuilder::command`), answered by its `cmd__` export over the graph
+  the host passes (`CommandInput`: args, project root, graph, the
   command format and today's date, UTC). The CLI runs it as `specforge <ext_short> <command>`, MCP as
   the auto-promoted tool `specforge.<ext_short>.<id>`; neither knows any command
   (`specforge_ops::command`, ADR 0008).
