@@ -317,7 +317,8 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
                     return;
                 }
                 for (n, id) in result.sorted_features.iter().enumerate() {
-                    let flag = if result.cycle_members.contains(id) {
+                    // `cycle_members` is sorted by id.
+                    let flag = if result.cycle_members.binary_search(id).is_ok() {
                         "  (cycle)"
                     } else {
                         ""
