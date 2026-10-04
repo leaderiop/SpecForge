@@ -1,7 +1,7 @@
 // CLI surface contributions — list commands, query commands, and planning insights
 //
 // This file specifies the CLI commands the @specforge/product extension
-// contributes: 40 commands (34 built, 6 to build). Each is a cmd__product_<id>
+// contributes: 40 commands (37 built, 3 to build). Each is a cmd__product_<id>
 // export the CLI runs as `specforge product <id>` (underscores spelled as
 // dashes) and MCP auto-promotes to the tool `specforge.product.<id>`. The
 // extension declares no MCP resources. One-hop navigation (the milestones of a

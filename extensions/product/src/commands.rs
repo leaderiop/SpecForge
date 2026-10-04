@@ -459,6 +459,85 @@ pub fn run(export: &str, input: &CommandInput) -> Option<CommandOutput> {
                 },
             )
         }
+        "cmd__product_term_graph" => {
+            let max_hops = match count_arg(input, "max_hops") {
+                Ok(hops) => hops,
+                Err(error) => return Some(fail(input, &error, queries::INVALID_INPUT_EXIT)),
+            };
+            lookup(
+                input,
+                "term",
+                |g, id| queries::term_graph(g, id, max_hops),
+                |r, out| {
+                    ids(
+                        out,
+                        &format!(
+                            "Terms related to '{}' within {} see_also hop{}",
+                            r.term_id,
+                            r.max_hops,
+                            if r.max_hops == 1 { "" } else { "s" }
+                        ),
+                        &r.related_terms,
+                    );
+                },
+            )
+        }
+        "cmd__product_term_clusters" => {
+            let result = queries::term_clusters(&input.graph);
+            render(input, &result, |out| {
+                let rows: Vec<Vec<String>> = result
+                    .clusters
+                    .iter()
+                    .map(|c| {
+                        vec![
+                            c.cluster_id.to_string(),
+                            c.term_count.to_string(),
+                            c.term_ids.join(", "),
+                        ]
+                    })
+                    .collect();
+                out.push_str(&table(&["cluster", "terms", "ids"], &rows));
+                let _ = writeln!(
+                    out,
+                    "{} clusters, {} isolated of {} terms",
+                    result.cluster_count, result.isolated_count, result.total_terms
+                );
+            })
+        }
+        "cmd__product_term_density" => {
+            let result = queries::term_density(&input.graph);
+            render(input, &result, |out| {
+                let list = |ids: &[String]| {
+                    if ids.is_empty() {
+                        "-".to_string()
+                    } else {
+                        ids.join(", ")
+                    }
+                };
+                let _ = writeln!(out, "Terms:           {}", result.total_terms);
+                let _ = writeln!(out, "see_also edges:  {}", result.total_see_also);
+                let _ = writeln!(
+                    out,
+                    "Avg connections: {}",
+                    result
+                        .avg_connections
+                        .map_or("-".to_string(), |a| format!("{a:.2}"))
+                );
+                let _ = writeln!(out, "Max connections: {}", result.max_connections);
+                let _ = writeln!(
+                    out,
+                    "Hubs ({}):        {}",
+                    result.hub_terms.len(),
+                    list(&result.hub_terms)
+                );
+                let _ = writeln!(
+                    out,
+                    "Isolated ({}):    {}",
+                    result.isolated_terms.len(),
+                    list(&result.isolated_terms)
+                );
+            })
+        }
         "cmd__product_bulk_status" => {
             let result = queries::bulk_status(&input.graph);
             render(input, &result, |out| {
@@ -559,15 +638,20 @@ fn list_filter<'a>(
 /// The `--offset` and `--limit` `input` sets, each a count when set; a
 /// value that is not one is `INVALID_INPUT`.
 fn page_args(input: &CommandInput) -> Result<(Option<usize>, Option<usize>), CommandError> {
-    for page in ["limit", "offset"] {
-        if input.args.contains_key(page) && input.arg_usize(page).is_none() {
-            return Err(queries::invalid_input(format!(
-                "{page} must be a non-negative integer, got {}",
-                input.args[page]
-            )));
-        }
+    Ok((count_arg(input, "offset")?, count_arg(input, "limit")?))
+}
+
+/// The count arg `name` sets, if set; a value that is not one is
+/// `INVALID_INPUT`.
+fn count_arg(input: &CommandInput, name: &str) -> Result<Option<usize>, CommandError> {
+    match input.args.get(name) {
+        None => Ok(None),
+        Some(value) => input.arg_usize(name).map(Some).ok_or_else(|| {
+            queries::invalid_input(format!(
+                "{name} must be a non-negative integer, got {value}"
+            ))
+        }),
     }
-    Ok((input.arg_usize("offset"), input.arg_usize("limit")))
 }
 
 /// A paged project-wide command: one page of `items` under

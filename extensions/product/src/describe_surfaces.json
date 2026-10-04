@@ -799,6 +799,43 @@
           ]
         },
         {
+          "id": "term_graph",
+          "title": "Show the terms related to a term",
+          "description": "The terms reachable from a term over see_also within --max-hops (default 1, at most 5), sorted by id, the term itself left out.",
+          "category": "query",
+          "export": "cmd__product_term_graph",
+          "args": [
+            {
+              "name": "term",
+              "arg_type": "string",
+              "required": true,
+              "description": "The term id"
+            },
+            {
+              "name": "max_hops",
+              "arg_type": "integer",
+              "required": false,
+              "description": "How many see_also hops to follow (default 1; above 5 counts as 5)"
+            }
+          ]
+        },
+        {
+          "id": "term_clusters",
+          "title": "Show clusters of related terms",
+          "description": "The connected components of the see_also graph between terms (undirected), largest first, ties by first term id; terms with no see_also link are counted as isolated.",
+          "category": "query",
+          "export": "cmd__product_term_clusters",
+          "args": []
+        },
+        {
+          "id": "term_density",
+          "title": "Show how connected the glossary is",
+          "description": "Terms, see_also references between them, average and maximum connections, hub terms (more than twice the average and at least 3) and isolated terms.",
+          "category": "query",
+          "export": "cmd__product_term_density",
+          "args": []
+        },
+        {
           "id": "bulk_status",
           "title": "Show status breakdown across all entity kinds",
           "description": "For each product kind with a lifecycle, how many entities have each status.",

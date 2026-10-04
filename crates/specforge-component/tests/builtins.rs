@@ -194,6 +194,9 @@ fn product_declares_its_commands_and_exports_them() {
             "coverage_matrix",
             "channel_coverage_matrix",
             "feature_overlap",
+            "term_graph",
+            "term_clusters",
+            "term_density",
             "bulk_status",
             "health",
         ]

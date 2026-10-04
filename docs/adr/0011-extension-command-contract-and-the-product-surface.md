@@ -190,6 +190,18 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
   more deliverables reach (a deliverable reaching one through a journey
   and a module counts once), most shared first, ties by id; its `count`
   is `total`.
+- **`see_also` is followed from its source, and counted either way.**
+  `term_graph` follows a term's own `see_also` references breadth first
+  (a term listing another relates to it; the other need not list it
+  back), within `--max-hops` (default 1, above 5 counts as 5, 0 relates
+  nothing, a value that is not a count is `INVALID_INPUT`).
+  `term_clusters` and `term_density` read a reference either way, as
+  `pe_query_term_clusters` says: a term's connections are the terms it
+  links to or is linked from, each once. `total_see_also` counts each
+  source and target pair once, and `avg_connections` is that over the
+  terms, the formula `pe_query_term_density` gives (so a hub has more
+  than twice it). A reference to the term itself, or to a non-term, is
+  none. Clusters are numbered from 1 in their order.
 
 ## What would reopen this
 
