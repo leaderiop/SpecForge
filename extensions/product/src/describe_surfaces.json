@@ -836,6 +836,57 @@
           "args": []
         },
         {
+          "id": "milestone_timeline",
+          "title": "Show the milestone timeline",
+          "description": "Every milestone by target date, undated ones last, by id within a date; a milestone not completed whose target date is before --as-of (default today) is overdue.",
+          "category": "query",
+          "export": "cmd__product_milestone_timeline",
+          "args": [
+            {
+              "name": "as_of",
+              "arg_type": "string",
+              "required": false,
+              "description": "The date to compare against, YYYY-MM-DD (default: today, UTC)"
+            }
+          ]
+        },
+        {
+          "id": "milestone_velocity",
+          "title": "Show a milestone's velocity",
+          "description": "A milestone's done, in-progress and remaining features, its completion, the days elapsed since its start date (or target date) as of --as-of (default today), features done per day and the days that pace leaves.",
+          "category": "query",
+          "export": "cmd__product_milestone_velocity",
+          "args": [
+            {
+              "name": "milestone",
+              "arg_type": "string",
+              "required": true,
+              "description": "The milestone id"
+            },
+            {
+              "name": "as_of",
+              "arg_type": "string",
+              "required": false,
+              "description": "The date to compare against, YYYY-MM-DD (default: today, UTC)"
+            }
+          ]
+        },
+        {
+          "id": "weighted_milestone_completion",
+          "title": "Show a milestone's effort-weighted completion",
+          "description": "A milestone's completion weighted by effort (xs=1, s=2, m=3, l=5, xl=8; a feature without one weighs as m), with its features per effort level.",
+          "category": "query",
+          "export": "cmd__product_weighted_milestone_completion",
+          "args": [
+            {
+              "name": "milestone",
+              "arg_type": "string",
+              "required": true,
+              "description": "The milestone id"
+            }
+          ]
+        },
+        {
           "id": "bulk_status",
           "title": "Show status breakdown across all entity kinds",
           "description": "For each product kind with a lifecycle, how many entities have each status.",

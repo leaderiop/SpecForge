@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_product.wasm",
-  "artifact_sha256": "895ed057add81a212001f77f108bb4847778484eff781607984a7136e2d5c20c",
+  "artifact_sha256": "b25f9960c1c80f0bb9a658294624c992c7febfca2345a4d8fc416bd702165db8",
   "built_with": "rustc 1.99.0 (b940084d7 2026-09-28)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
@@ -14,7 +14,7 @@
     "crates/specforge-protocol-types/src/vocabulary.rs": "5ac29ff84aee649bd56a873d2fae8941e0c1beb6c6255aa98631a3a650c2247d",
     "extensions/product/Cargo.lock": "5ed487736b195d99319616277df2ff637e0f0f174756ad9d376ac91196793184",
     "extensions/product/Cargo.toml": "75e34d130b2413e918692c4948a976f1463726099f478fce1fd81ebdcb0b0710",
-    "extensions/product/src/commands.rs": "615995e91a0cdf9aa2522c234d642d731d0e65ad467e201860538ca381e8ec27",
+    "extensions/product/src/commands.rs": "49ac2a838d916a259b60ae336f8b89e3379c95e1f691dfda741aefce5b10d978",
     "extensions/product/src/describe_edges.json": "66f44eeb9bf9eb336707256da7f5829bc1f1deb2a47380e06b880b85b6c3df3e",
     "extensions/product/src/describe_enhancements.json": "cf3751fc455ccc2b0d43292e63dae7472f9c0a2fdc3b766179fe440133ae750b",
     "extensions/product/src/describe_entities.json": "abb91a269127604de2d737ab54ee3b658182d633a379977af59e9c62d820b2db",
@@ -22,10 +22,10 @@
     "extensions/product/src/describe_fields.json": "6efd1c0643a3d815f3029ef30f6bbd432ef723ba8176fac15d9a8edcac67a864",
     "extensions/product/src/describe_passes.json": "6865f5eb00a0e339ed6eec5049fea88c02743cda8cfa6bc909ddb357677245fd",
     "extensions/product/src/describe_shared_fields.json": "c39b0b96c2798a1a119e85ff76a5579ca8101dc00506488f33a1624e6b04887c",
-    "extensions/product/src/describe_surfaces.json": "62c96a747ee791369049c7886470c9a5d3a1840a06d22eb48bd8f13590b32a9c",
+    "extensions/product/src/describe_surfaces.json": "8ea79870d4f52d6c4cf43da694440fdb74c0adbeb6786355e0f9103fdb4f4cb3",
     "extensions/product/src/describe_validation_rules.json": "b959cd0ae6a76dbecdac3924313cfa4d5509d75ae119a9f8f07f509f34d58fd4",
     "extensions/product/src/lib.rs": "5e2a337ff35d6a4781e3c2592cb529f3c5f42bfdf08b958343fa8f20d9904d32",
-    "extensions/product/src/queries.rs": "9757243af6fc9c511fab5827abd73b41ba55346638671c53dc82fe6aed82e4b6",
+    "extensions/product/src/queries.rs": "65778b07680dd8cdf0e7422f27b00d781d053aed0377243d52f0942115fbf8c4",
     "extensions/product/src/starter.spec": "9b81ba74199d429976b0b659e3a1af7fd6c11177dc084fc28f3cd7b7a0a0650b"
   }
 }

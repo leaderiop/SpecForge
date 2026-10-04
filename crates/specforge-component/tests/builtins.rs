@@ -197,6 +197,9 @@ fn product_declares_its_commands_and_exports_them() {
             "term_graph",
             "term_clusters",
             "term_density",
+            "milestone_timeline",
+            "milestone_velocity",
+            "weighted_milestone_completion",
             "bulk_status",
             "health",
         ]
@@ -221,4 +224,40 @@ fn product_declares_its_commands_and_exports_them() {
             "{export}: {output}"
         );
     }
+}
+
+#[specforge_test(
+    behavior = "pe_declare_surface_contributions",
+    verify = "manifest surfaces declares the 40 commands surfaces-cli.spec specifies"
+)]
+fn product_declares_the_commands_its_cli_surface_specifies() {
+    let runtime = ComponentRuntime::new();
+    builtins::load_builtins(&runtime).unwrap();
+    let input = br#"{"category":"surfaces"}"#;
+    let WasmCallResult::Ok(bytes) = runtime.call_export("@specforge/product", "__describe", input)
+    else {
+        panic!("describe surfaces failed");
+    };
+    let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let mut declared: Vec<String> = value["items"][0]["commands"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["export"].as_str().unwrap().to_string())
+        .collect();
+    declared.sort();
+    // Each surface behavior in surfaces-cli.spec names its export once.
+    let spec = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../spec/extensions/product/surfaces-cli.spec"
+    ))
+    .unwrap();
+    let mut specified: Vec<String> = spec
+        .lines()
+        .filter_map(|l| l.trim().strip_prefix("Wasm export: "))
+        .map(|e| e.trim_end_matches('.').to_string())
+        .collect();
+    specified.sort();
+    assert_eq!(specified.len(), 40);
+    assert_eq!(declared, specified);
 }

@@ -202,6 +202,19 @@ link) as depending on it. Fixed here: only a `depends_on` reference is a depende
   terms, the formula `pe_query_term_density` gives (so a hub has more
   than twice it). A reference to the term itself, or to a non-term, is
   none. Clusters are numbered from 1 in their order.
+- **The date commands read one date and refuse a bad one.** `--as-of`
+  (else the host's `today`) must be a `YYYY-MM-DD` day the calendar has;
+  anything else, or no date at all (a host passing none), is
+  `INVALID_INPUT` (exit 2), so a command never guesses a clock. A
+  milestone's `target_date` or `start_date` that is not such a date is
+  read as absent: the milestone is undated on the timeline and never
+  overdue. Due on the as-of day is not overdue. `milestone_velocity`
+  counts the days from `start_date` (else `target_date`) to the as-of
+  date, 0 before it, and its `days_remaining` is the features not done
+  at the done-per-day pace, rounded up (0 when none is left, `null`
+  without a date or a pace). `weighted_milestone_completion` weighs an
+  effort outside the scale as m, as a missing one; its breakdown counts
+  features per effort level they have, smallest first.
 
 ## What would reopen this
 

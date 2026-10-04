@@ -792,3 +792,66 @@ fn over_mcp_an_error_is_an_is_error_result_with_the_object() {
     assert_eq!(parse_tool_content(response), expected);
     assert_eq!(result["structuredContent"], expected);
 }
+
+/// [`setup_product_project`] with `m1` due in 2000.
+fn setup_overdue_project() -> TempDir {
+    let dir = setup_product_project();
+    let spec = fs::read_to_string(dir.path().join("spec.spec")).unwrap();
+    let spec = spec.replace(
+        "    status planned\n    features [f1, f2]",
+        "    status planned\n    target_date \"2000-01-01\"\n    features [f1, f2]",
+    );
+    assert!(spec.contains("2000-01-01"));
+    fs::write(dir.path().join("spec.spec"), spec).unwrap();
+    dir
+}
+
+fn timeline(dir: &TempDir, extra: &[&str]) -> std::process::Output {
+    let mut cmd = cargo_bin_cmd!("specforge");
+    cmd.args(["product", "milestone-timeline", "--path"])
+        .arg(dir.path())
+        .args(["--format", "json"])
+        .args(extra);
+    cmd.output().unwrap()
+}
+
+#[specforge_test(
+    behavior = "surface_milestone_timeline",
+    verify = "as-of flag overrides current date for overdue calculation"
+)]
+fn the_timeline_compares_against_today_unless_as_of_says_otherwise() {
+    let dir = setup_overdue_project();
+    // The host passes today, long after 2000.
+    let output = timeline(&dir, &[]);
+    assert!(output.status.success(), "{output:?}");
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["milestones"][0]["milestone_id"], "m1");
+    assert_eq!(result["milestones"][0]["is_overdue"], true);
+    let output = timeline(&dir, &["--as-of", "1999-12-31"]);
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["overdue_count"], 0);
+    let output = timeline(&dir, &["--as-of", "31/12/1999"]);
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    let error: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
+    assert_eq!(error["code"], "INVALID_INPUT");
+}
+
+#[specforge_test(
+    behavior = "pe_query_milestone_timeline",
+    verify = "specforge check emits no I058 diagnostics (query-time only)"
+)]
+fn check_reports_no_overdue_milestone() {
+    let dir = setup_overdue_project();
+    let mut cmd = cargo_bin_cmd!("specforge");
+    cmd.current_dir(dir.path())
+        .args(["check", "--lint=pedantic"]);
+    let output = cmd.output().unwrap();
+    let all = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    // Pedantic shows the infos, so an I058 would be among them.
+    assert!(output.status.code().is_some_and(|c| c <= 1), "{all}");
+    assert!(!all.contains("I058"), "{all}");
+}
