@@ -168,7 +168,16 @@ impl Surfaces {
         self.prefix = Some(export_suffix(prefix));
     }
 
+    // Each `add_*` (and `CommandBuilder::arg`) is generic over its closure
+    // only to call it: the rest is one non-generic `start_*`/`finish_*`
+    // pair, so a guest declaring many surfaces holds one copy of it.
     pub(crate) fn add_command(&mut self, id: &str, f: impl FnOnce(&mut CommandBuilder)) {
+        let mut b = self.start_command(id);
+        f(&mut b);
+        self.finish_command(b);
+    }
+
+    fn start_command(&mut self, id: &str) -> CommandBuilder {
         self.machinery = Some(MACHINERY);
         assert!(
             !self.commands.iter().any(|c| c.descriptor.id == id),
@@ -178,7 +187,7 @@ impl Surfaces {
             Some(prefix) => format!("cmd__{prefix}_{}", export_suffix(id)),
             None => format!("cmd__{}", export_suffix(id)),
         };
-        let mut b = CommandBuilder {
+        CommandBuilder {
             descriptor: CommandDescriptor {
                 id: id.to_string(),
                 title: String::new(),
@@ -190,8 +199,11 @@ impl Surfaces {
             },
             args: Vec::new(),
             handler: None,
-        };
-        f(&mut b);
+        }
+    }
+
+    fn finish_command(&mut self, b: CommandBuilder) {
+        let id = &b.descriptor.id;
         let Some(handler) = b.handler else {
             panic!("command '{id}' declares no handler");
         };
@@ -206,8 +218,14 @@ impl Surfaces {
     }
 
     pub(crate) fn add_tool(&mut self, name: &str, f: impl FnOnce(&mut McpToolBuilder)) {
+        let mut b = self.start_tool(name);
+        f(&mut b);
+        self.finish_tool(b);
+    }
+
+    fn start_tool(&mut self, name: &str) -> McpToolBuilder {
         self.machinery = Some(MACHINERY);
-        let mut b = McpToolBuilder {
+        McpToolBuilder {
             descriptor: McpToolDescriptor {
                 name: name.to_string(),
                 description: String::new(),
@@ -218,8 +236,11 @@ impl Surfaces {
                 sandbox: None,
             },
             handler: None,
-        };
-        f(&mut b);
+        }
+    }
+
+    fn finish_tool(&mut self, b: McpToolBuilder) {
+        let name = &b.descriptor.name;
         let Some(handler) = b.handler else {
             panic!("MCP tool '{name}' declares no handler");
         };
@@ -231,8 +252,14 @@ impl Surfaces {
     }
 
     pub(crate) fn add_resource(&mut self, name: &str, f: impl FnOnce(&mut McpResourceBuilder)) {
+        let mut b = self.start_resource(name);
+        f(&mut b);
+        self.finish_resource(b);
+    }
+
+    fn start_resource(&mut self, name: &str) -> McpResourceBuilder {
         self.machinery = Some(MACHINERY);
-        let mut b = McpResourceBuilder {
+        McpResourceBuilder {
             descriptor: McpResourceDescriptor {
                 uri_template: String::new(),
                 name: name.to_string(),
@@ -242,8 +269,11 @@ impl Surfaces {
                 sandbox: None,
             },
             handler: None,
-        };
-        f(&mut b);
+        }
+    }
+
+    fn finish_resource(&mut self, b: McpResourceBuilder) {
+        let name = &b.descriptor.name;
         let Some(handler) = b.handler else {
             panic!("MCP resource '{name}' declares no handler");
         };
@@ -376,6 +406,12 @@ impl CommandBuilder {
     /// flag or one with a default (a flag is `false` unless set), a
     /// default its type refuses, an empty `one_of`.
     pub fn arg(&mut self, name: &str, f: impl FnOnce(&mut ArgBuilder)) -> &mut Self {
+        let mut b = self.start_arg(name);
+        f(&mut b);
+        self.finish_arg(b)
+    }
+
+    fn start_arg(&self, name: &str) -> ArgBuilder {
         let id = &self.descriptor.id;
         assert!(
             !HOST_ARGS.contains(&name),
@@ -385,7 +421,7 @@ impl CommandBuilder {
             !self.args.iter().any(|a| a.descriptor.name == name),
             "command '{id}' declares arg '{name}' twice"
         );
-        let mut b = ArgBuilder(Arg {
+        ArgBuilder(Arg {
             descriptor: CommandArgDescriptor {
                 name: name.to_string(),
                 arg_type: CommandArgType::String,
@@ -394,10 +430,14 @@ impl CommandBuilder {
                 description: None,
             },
             count: false,
-        });
-        f(&mut b);
+        })
+    }
+
+    fn finish_arg(&mut self, b: ArgBuilder) -> &mut Self {
+        let id = &self.descriptor.id;
         let arg = b.0;
         let d = &arg.descriptor;
+        let name = &d.name;
         if let CommandArgType::Enum { values } = &d.arg_type {
             assert!(
                 !values.is_empty(),
