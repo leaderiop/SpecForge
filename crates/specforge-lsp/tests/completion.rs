@@ -15,12 +15,11 @@ fn default_field_registry() -> FieldRegistry {
     .map(|s| s.to_string())
     .collect();
     let runtime = wasm_runtime_for(&ext_names);
-    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
     let mut manifests = Vec::new();
     for name in &ext_names {
-        if let Ok(ext) = specforge_wasm::protocol::load_protocol_extension(&host, name) {
-            manifests.push(specforge_wasm::protocol::protocol_extension_to_manifest(
-                &ext,
+        if let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) {
+            manifests.push(specforge_wasm::protocol::declaration_to_manifest(
+                &loaded.declaration,
             ));
         }
     }

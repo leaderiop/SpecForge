@@ -1,8 +1,6 @@
 use specforge_registry::{ManifestV2, validate_manifest, validate_manifest_consistency};
 use specforge_wasm::WasmRuntime;
-use specforge_wasm::protocol::{
-    ProtocolHost, load_protocol_extension, protocol_extension_to_manifest,
-};
+use specforge_wasm::protocol::{declaration_to_manifest, load_declaration};
 
 /// Build a Wasm runtime for a temp project listing `ext_names` — the only
 /// way extensions exist now (WASM-only migration, Phase 7: the native
@@ -19,13 +17,10 @@ fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime
 }
 
 /// Load an extension through the full protocol pipeline over its real Wasm
-/// blob: project_runtime → ProtocolHost → load_protocol_extension → bridge
-/// → ManifestV2.
+/// blob: project_runtime → load_declaration → bridge → ManifestV2.
 fn load_via_protocol(ext_name: &str) -> ManifestV2 {
     let runtime = wasm_runtime_for(&[ext_name]);
-    let host = ProtocolHost::new(&runtime);
-    let proto_ext = load_protocol_extension(&host, ext_name).unwrap();
-    protocol_extension_to_manifest(&proto_ext)
+    declaration_to_manifest(&load_declaration(&runtime, ext_name).unwrap().declaration)
 }
 
 #[test]

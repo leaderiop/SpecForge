@@ -156,13 +156,12 @@ fn registries_for(
 ) {
     let names: Vec<String> = extensions.iter().map(|s| s.to_string()).collect();
     let runtime = wasm_runtime_for(&names);
-    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
     let manifests: Vec<_> = names
         .iter()
         .map(|name| {
-            let ext = specforge_wasm::protocol::load_protocol_extension(&host, name)
+            let loaded = specforge_wasm::protocol::load_declaration(&runtime, name)
                 .unwrap_or_else(|e| panic!("{name} does not load: {e:?}"));
-            specforge_wasm::protocol::protocol_extension_to_manifest(&ext)
+            specforge_wasm::protocol::declaration_to_manifest(&loaded.declaration)
         })
         .collect();
     let build = specforge_registry::build_registries(manifests);
@@ -303,12 +302,11 @@ fn complete_field_names_contract() {
     .map(|s| s.to_string())
     .collect();
     let runtime = wasm_runtime_for(&ext_names);
-    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
     let mut manifests = Vec::new();
     for name in &ext_names {
-        if let Ok(ext) = specforge_wasm::protocol::load_protocol_extension(&host, name) {
-            manifests.push(specforge_wasm::protocol::protocol_extension_to_manifest(
-                &ext,
+        if let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) {
+            manifests.push(specforge_wasm::protocol::declaration_to_manifest(
+                &loaded.declaration,
             ));
         }
     }

@@ -369,38 +369,24 @@ fn a_loaded_extension_means_no_i002() {
     assert!(!codes(&diagnostics).contains(&"I002"), "{diagnostics:?}");
 }
 
-/// Provider extensions, in process: each handshakes with `providers: true`
-/// and contributes nothing else. No builtin contributes providers.
-struct ProviderExtensions(&'static [&'static str]);
-
-impl specforge_wasm::WasmRuntime for ProviderExtensions {
-    fn load_module(&self, _: &Path) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn call_export(
-        &self,
-        extension: &str,
-        export: &str,
-        _: &[u8],
-    ) -> specforge_wasm::WasmCallResult {
-        if export == "__handshake" && self.0.contains(&extension) {
-            let handshake = serde_json::json!({
-                "protocol_version": "1.0.0",
-                "name": extension,
-                "version": "1.0.0",
-                "contribution_flags": { "providers": true },
-                "peer_dependencies": [],
-                "sandbox_policy": null
-            });
-            return specforge_wasm::WasmCallResult::Ok(handshake.to_string().into_bytes());
-        }
-        specforge_wasm::WasmCallResult::Trap(specforge_wasm::WasmTrapInfo {
-            kind: "missing".to_string(),
-            message: format!("no {export} on {extension}"),
-            export_name: export.to_string(),
-        })
-    }
+/// Provider extensions, in process: each contributes providers (a raw
+/// `providers` category, which raises the handshake flag) and nothing
+/// else. No builtin contributes providers.
+fn provider_extensions(
+    names: &'static [&'static str],
+) -> specforge_wasm::testing::InProcessRuntime {
+    names.iter().fold(
+        specforge_wasm::testing::InProcessRuntime::new(),
+        |runtime, name| {
+            runtime.with(move || {
+                let mut b = specforge_extension_sdk::ContributionsBuilder::new(
+                    specforge_extension_sdk::ExtensionMeta::new(name, "1.0.0"),
+                );
+                b.raw_category("providers", serde_json::json!([]));
+                b
+            })
+        },
+    )
 }
 
 /// The compile's diagnostics, without the W012 every unreferenced ref
@@ -409,7 +395,7 @@ fn compile_with_providers(
     root: &Path,
     extensions: &'static [&'static str],
 ) -> Vec<specforge_common::Diagnostic> {
-    CompiledProject::compile(root, Some(&ProviderExtensions(extensions)))
+    CompiledProject::compile(root, Some(&provider_extensions(extensions)))
         .diagnostics()
         .into_iter()
         .filter(|d| d.code != "W012")
@@ -512,4 +498,96 @@ fn environment_diagnostics_come_in_load_order() {
         "{:#?}",
         env.diagnostics().collect::<Vec<_>>()
     );
+}
+
+mod declared_in_process {
+    //! Extensions declared with the SDK and served in process: what they
+    //! declare is what the environment loads.
+
+    use super::project;
+    use specforge_extension_sdk::prelude::*;
+    use specforge_project::Environment;
+    use specforge_registry::SurfaceType;
+    use specforge_wasm::testing::InProcessRuntime;
+
+    fn reports() -> ContributionsBuilder {
+        let mut meta = ExtensionMeta::new("@acme/reports", "0.1.0");
+        meta.short = Some("rep".to_string());
+        let mut b = ContributionsBuilder::new(meta);
+        b.kind("report", |k| {
+            k.description("A report");
+        });
+        b.command("list", |c| {
+            c.title("List")
+                .description("List reports")
+                .handler(|_| CommandOutput {
+                    exit_code: 0,
+                    stdout: String::new(),
+                    stderr: String::new(),
+                });
+        });
+        b
+    }
+
+    fn commands_only() -> ContributionsBuilder {
+        let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/cmds", "0.1.0"));
+        b.command("hello", |c| {
+            c.title("Hello")
+                .description("Say hello")
+                .handler(|_| CommandOutput {
+                    exit_code: 0,
+                    stdout: "hi".to_string(),
+                    stderr: String::new(),
+                });
+        });
+        b
+    }
+
+    fn load(extensions: &[&str], runtime: &InProcessRuntime) -> Environment {
+        let dir = project(
+            serde_json::json!({ "name": "p", "version": "0.1.0", "extensions": extensions }),
+            &[],
+        );
+        Environment::load(dir.path(), Some(runtime))
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "load_extension_declaration",
+        verify = "an extension that only declares commands registers its commands"
+    )]
+    fn a_commands_only_extension_registers_its_commands() {
+        let runtime = InProcessRuntime::new().with(commands_only);
+        let env = load(&["@acme/cmds"], &runtime);
+        let registered: Vec<(&SurfaceType, &str)> = env
+            .registries
+            .surfaces
+            .iter()
+            .map(|s| (&s.surface_type, s.contribution_name.as_str()))
+            .collect();
+        assert!(
+            registered.contains(&(&SurfaceType::Command, "hello")),
+            "{registered:?}"
+        );
+        let errors: Vec<_> = env
+            .diagnostics()
+            .filter(|d| d.severity == specforge_common::Severity::Error)
+            .collect();
+        assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "load_extension_declaration",
+        verify = "the declared short name reaches the registry build"
+    )]
+    fn the_declared_short_name_reaches_the_registry_build() {
+        let runtime = InProcessRuntime::new().with(reports);
+        let env = load(&["@acme/reports"], &runtime);
+        let manifest = env
+            .registries
+            .manifests
+            .iter()
+            .find(|m| m.name == "@acme/reports")
+            .expect("loaded");
+        assert_eq!(manifest.ext_short.as_deref(), Some("rep"));
+    }
 }

@@ -471,17 +471,39 @@ mod tests {
         }
     }
 
+    /// A guest's handshake: `ext`, declaring nothing but what it describes.
+    fn handshake(ext: &str) -> Value {
+        json!({
+            "protocol_version": "1.0.0", "name": ext, "version": "1.0.0",
+            "contribution_flags": {}, "peer_dependencies": [], "sandbox_policy": null
+        })
+    }
+
+    /// A guest's describe answer: `passes` for the passes category, none
+    /// for the others.
+    fn describe(input: &[u8], passes: Value) -> Value {
+        let category = serde_json::from_slice::<Value>(input).unwrap()["category"].clone();
+        let items = if category == "passes" {
+            passes
+        } else {
+            json!([])
+        };
+        json!({"category": category, "items": items})
+    }
+
     impl WasmRuntime for Fake {
         fn load_module(&self, _: &Path) -> Result<(), String> {
             Ok(())
         }
 
-        fn call_export(&self, _ext: &str, export: &str, input: &[u8]) -> WasmCallResult {
+        fn call_export(&self, ext: &str, export: &str, input: &[u8]) -> WasmCallResult {
             let ok = |v: Value| WasmCallResult::Ok(v.to_string().into_bytes());
             match export {
-                "__describe" => ok(json!({"category": "passes", "items": [
-                    {"name": "scan"}, {"name": "hidden", "phase": "check"}
-                ]})),
+                "__handshake" => ok(handshake(ext)),
+                "__describe" => ok(describe(
+                    input,
+                    json!([{"name": "scan"}, {"name": "hidden", "phase": "check"}]),
+                )),
                 "__pass_scan" => {
                     let input: Value = serde_json::from_slice(input).unwrap();
                     self.proved_seen
@@ -742,10 +764,11 @@ mod tests {
             Ok(())
         }
 
-        fn call_export(&self, _ext: &str, export: &str, _: &[u8]) -> WasmCallResult {
+        fn call_export(&self, ext: &str, export: &str, input: &[u8]) -> WasmCallResult {
             let ok = |v: Value| WasmCallResult::Ok(v.to_string().into_bytes());
             match export {
-                "__describe" => ok(json!({"category": "passes", "items": [{"name": "coverage"}]})),
+                "__handshake" => ok(handshake(ext)),
+                "__describe" => ok(describe(input, json!([{"name": "coverage"}]))),
                 "__pass_coverage" => ok(json!({"diagnostics": [], "summary": self.summary})),
                 _ => WasmCallResult::Trap(WasmTrapInfo {
                     kind: "export_not_found".into(),

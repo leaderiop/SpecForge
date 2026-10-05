@@ -12,6 +12,8 @@ mod query_extensions;
 pub mod runtime;
 pub mod sandbox;
 mod surface;
+#[cfg(feature = "testing")]
+pub mod testing;
 mod toposort;
 mod trap;
 mod uninstall;

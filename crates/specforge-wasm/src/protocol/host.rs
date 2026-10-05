@@ -5,20 +5,24 @@ use super::SUPPORTED_CATEGORIES;
 use super::error::ProtocolError;
 use super::types::*;
 
-/// Host-side protocol handler that loads extensions via `__handshake` and `__describe` Wasm exports.
-/// Wraps a `WasmRuntime` and provides typed protocol operations.
-pub struct ProtocolHost<'a> {
+/// The transport of the declaration load ([`super::load_declaration`]):
+/// the `__handshake` and `__describe` calls over a `WasmRuntime`, each
+/// answer parsed as its protocol type.
+pub(crate) struct ProtocolHost<'a> {
     runtime: &'a dyn WasmRuntime,
 }
 
 impl<'a> ProtocolHost<'a> {
-    pub fn new(runtime: &'a dyn WasmRuntime) -> Self {
+    pub(crate) fn new(runtime: &'a dyn WasmRuntime) -> Self {
         Self { runtime }
     }
 
     /// Perform the protocol handshake with an extension.
     /// Calls the `__handshake` export and parses the response.
-    pub fn handshake(&self, extension_name: &str) -> Result<HandshakeResponse, ProtocolError> {
+    pub(crate) fn handshake(
+        &self,
+        extension_name: &str,
+    ) -> Result<HandshakeResponse, ProtocolError> {
         let request = HandshakeRequest {
             host_version: PROTOCOL_VERSION.to_string(),
             supported_categories: SUPPORTED_CATEGORIES.iter().map(|s| s.to_string()).collect(),
@@ -53,7 +57,7 @@ impl<'a> ProtocolHost<'a> {
 
     /// Validate that the extension's protocol version is compatible with the host.
     /// Uses semver major-version compatibility: same major version = compatible.
-    pub fn validate_protocol_version(
+    pub(crate) fn validate_protocol_version(
         &self,
         response: &HandshakeResponse,
     ) -> Result<(), ProtocolError> {
@@ -81,7 +85,7 @@ impl<'a> ProtocolHost<'a> {
 
     /// Request a single describe category from an extension.
     /// Calls the `__describe` export with the category name.
-    pub fn describe(
+    pub(crate) fn describe(
         &self,
         extension_name: &str,
         category: &str,
@@ -103,10 +107,12 @@ impl<'a> ProtocolHost<'a> {
             .runtime
             .call_export(extension_name, "__describe", &request_json)
         {
+            // An answer that is not a describe response names its category.
             WasmCallResult::Ok(response_bytes) => {
-                let response: DescribeResponse =
-                    serde_json::from_slice(&response_bytes).map_err(ProtocolError::from)?;
-                Ok(response)
+                serde_json::from_slice(&response_bytes).map_err(|e| ProtocolError::DescribeFailed {
+                    category: category.to_string(),
+                    reason: e.to_string(),
+                })
             }
             WasmCallResult::Trap(trap) => Err(ProtocolError::DescribeFailed {
                 category: category.to_string(),
@@ -114,110 +120,4 @@ impl<'a> ProtocolHost<'a> {
             }),
         }
     }
-
-    /// Request all describe categories enabled by the extension's contribution flags.
-    /// Returns an `ExtensionDescriptions` with all typed descriptors.
-    pub fn describe_all(
-        &self,
-        extension_name: &str,
-        flags: &ContributionFlags,
-    ) -> Result<ExtensionDescriptions, ProtocolError> {
-        let mut descs = ExtensionDescriptions::default();
-
-        // Categories gated by contribution flags
-        if flags.entities {
-            descs.entity_kinds = self.describe_typed(extension_name, "entities")?;
-            descs.edge_types = self.describe_typed(extension_name, "edges")?;
-            descs.fields = self.describe_typed(extension_name, "fields")?;
-            descs.shared_fields = self.describe_typed(extension_name, "shared_fields")?;
-            descs.enhancements = self.describe_typed(extension_name, "enhancements")?;
-        }
-
-        if flags.validators {
-            descs.validation_rules = self.describe_typed(extension_name, "validation_rules")?;
-        }
-
-        // `grammars` and `body_parsers` are reserved flags: nothing reads
-        // those contributions, so they are not described (ADR 0004 D5-a).
-
-        if flags.collectors {
-            descs.collectors = self.describe_typed(extension_name, "collectors")?;
-        }
-
-        if flags.analyzers {
-            descs.analyzers = self.describe_typed(extension_name, "analyzers")?;
-        }
-
-        // Always request surfaces, passes, and feature_flags if extension declares any.
-        // A surfaces description that does not parse (an unknown arg type, a
-        // missing field) fails the load like any other category (ADR 0011).
-        if flags.entities || flags.validators || flags.collectors {
-            descs.surfaces = self
-                .describe_typed::<SurfaceDescriptor>(extension_name, "surfaces")?
-                .into_iter()
-                .next();
-            descs.passes = self.describe_typed(extension_name, "passes")?;
-            descs.feature_flags = self.describe_typed(extension_name, "feature_flags")?;
-        }
-
-        Ok(descs)
-    }
-
-    /// Helper: describe a category and parse items into typed Vec<T>.
-    fn describe_typed<T: serde::de::DeserializeOwned>(
-        &self,
-        extension_name: &str,
-        category: &str,
-    ) -> Result<Vec<T>, ProtocolError> {
-        let response = self.describe(extension_name, category)?;
-        // Name the category whose items do not parse.
-        response
-            .parse_items()
-            .map_err(|e| ProtocolError::DescribeFailed {
-                category: category.to_string(),
-                reason: e.to_string(),
-            })
-    }
-}
-
-/// Aggregated describe responses for one extension across all categories.
-#[derive(Debug, Clone, Default)]
-pub struct ExtensionDescriptions {
-    pub entity_kinds: Vec<EntityKindDescriptor>,
-    pub edge_types: Vec<EdgeTypeDescriptor>,
-    pub fields: Vec<FieldDescriptor>,
-    pub shared_fields: Vec<SharedFieldDescriptor>,
-    pub enhancements: Vec<EntityEnhancementDescriptor>,
-    pub validation_rules: Vec<ValidationRuleDescriptor>,
-    pub surfaces: Option<SurfaceDescriptor>,
-    pub collectors: Vec<CollectorDescriptor>,
-    pub passes: Vec<CompilerPassDescriptor>,
-    pub feature_flags: Vec<FeatureFlagDescriptor>,
-    pub analyzers: Vec<AnalyzerDescriptor>,
-}
-
-/// A fully loaded protocol extension: handshake metadata + all descriptions.
-#[derive(Debug, Clone)]
-pub struct ProtocolExtension {
-    pub name: String,
-    pub version: String,
-    pub handshake: HandshakeResponse,
-    pub descriptions: ExtensionDescriptions,
-}
-
-/// Load an extension via the protocol: handshake, validate version, describe all categories.
-pub fn load_protocol_extension(
-    host: &ProtocolHost,
-    extension_name: &str,
-) -> Result<ProtocolExtension, ProtocolError> {
-    let handshake = host.handshake(extension_name)?;
-    host.validate_protocol_version(&handshake)?;
-    let descriptions = host.describe_all(extension_name, &handshake.contribution_flags)?;
-
-    Ok(ProtocolExtension {
-        name: handshake.name.clone(),
-        version: handshake.version.clone(),
-        handshake,
-        descriptions,
-    })
 }

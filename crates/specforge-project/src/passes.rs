@@ -141,14 +141,8 @@ pub fn declared_passes(
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
     extension: &str,
 ) -> Vec<specforge_protocol_types::CompilerPassDescriptor> {
-    let host = specforge_wasm::protocol::ProtocolHost::new(runtime);
-    let Ok(response) = host.describe(extension, "passes") else {
-        return Vec::new();
-    };
-    match serde_json::from_value::<Vec<specforge_protocol_types::CompilerPassDescriptor>>(
-        response.items,
-    ) {
-        Ok(passes) => order_passes(&passes),
+    match specforge_wasm::protocol::load_declaration(runtime, extension) {
+        Ok(loaded) => order_passes(&loaded.declaration.passes),
         Err(_) => Vec::new(),
     }
 }

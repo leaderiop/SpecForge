@@ -1,98 +1,70 @@
-//! Bridge between protocol descriptor types and manifest registry types.
-//!
-//! Converts `ProtocolExtension` -> `ManifestV2` so that existing
-//! `populate_registries()` logic can be reused without duplication.
-//!
-//! Types whose JSON reads the same in both formats (`PeerDependency`,
-//! `CommandArgType`, the vocabulary names in `field_type` / `check`) are
-//! shared, not converted. What is converted here differs in shape: the
-//! manifest is camelCase JSON on disk, the protocol snake_case on the wire.
+//! Strangler bridge (plan 03 T4, deleted with the manifest types): a loaded
+//! [`ExtensionDeclaration`] as the `ManifestV2` the registry build still
+//! takes. Pure data, no I/O; it carries `ext_short` (the declared short
+//! name) through, where the bridge it replaces dropped it.
 
-use specforge_common::Diagnostic;
-use specforge_registry::{
-    EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, SurfaceContributions,
-    populate_registries,
-};
+use specforge_protocol_types::ExtensionDeclaration;
+use specforge_registry::{ManifestV2, SurfaceContributions};
 
-use super::host::ProtocolExtension;
 use super::types::*;
 
-/// Convert a `ProtocolExtension` into a `ManifestV2` for registry population.
-///
-/// This is a pure data transformation -- no I/O, no Wasm calls.
-/// Synthetic fields: `manifest_version` = 2, `wasm_path` = "" (unused by populate_registries).
-pub fn protocol_extension_to_manifest(ext: &ProtocolExtension) -> ManifestV2 {
-    // H7: Derive verify_kinds from all entity kinds' verify_kinds (deduplicated, order-preserving).
-    let verify_kinds = collect_verify_kinds(&ext.descriptions.entity_kinds);
+/// `declaration` as a `ManifestV2` for the registry build. Synthetic
+/// fields: `manifest_version` = 2, `wasm_path` = "builtin".
+pub fn declaration_to_manifest(declaration: &ExtensionDeclaration) -> ManifestV2 {
+    let handshake = &declaration.handshake;
+    // H7: every kind's verify_kinds (deduplicated, order-preserving).
+    let verify_kinds = collect_verify_kinds(&declaration.entities);
+    let surfaces = (declaration.surfaces != SurfaceDescriptor::default())
+        .then(|| convert_surface_descriptor(&declaration.surfaces));
 
     ManifestV2 {
-        name: ext.name.clone(),
-        version: ext.version.clone(),
+        name: handshake.name.clone(),
+        version: handshake.version.clone(),
         manifest_version: 2,
         wasm_path: "builtin".to_string(),
-        contributes: convert_contribution_flags(&ext.handshake.contribution_flags),
-        entity_kinds: ext
-            .descriptions
-            .entity_kinds
+        contributes: convert_contribution_flags(&declaration.contribution_flags()),
+        entity_kinds: declaration
+            .entities
             .iter()
             .map(convert_entity_kind)
             .collect(),
-        edge_types: ext
-            .descriptions
-            .edge_types
-            .iter()
-            .map(convert_edge_type)
-            .collect(),
-        validation_rules: ext
-            .descriptions
+        edge_types: declaration.edges.iter().map(convert_edge_type).collect(),
+        validation_rules: declaration
             .validation_rules
             .iter()
             .map(convert_validation_rule)
             .collect(),
         verify_kinds,
-        fields: ext
-            .descriptions
+        fields: declaration
             .shared_fields
             .iter()
             .map(convert_field)
             .collect(),
         incremental: None,
         reserved_keywords: vec![],
-        migration_hook: ext.handshake.migration_hook.clone(),
-        peer_dependencies: ext.handshake.peer_dependencies.clone(),
-        sandbox_policy: ext
-            .handshake
+        migration_hook: handshake.migration_hook.clone(),
+        peer_dependencies: handshake.peer_dependencies.clone(),
+        sandbox_policy: handshake
             .sandbox_policy
             .as_ref()
             .map(convert_sandbox_policy),
         host_api_version: None,
-        entity_enhancements: ext
-            .descriptions
+        entity_enhancements: declaration
             .enhancements
             .iter()
             .map(convert_enhancement)
             .collect(),
-        starter_template: ext.handshake.starter_template.clone(),
-        theme_color: ext.handshake.theme_color.clone(),
-        ext_short: None,
+        starter_template: handshake.starter_template.clone(),
+        theme_color: handshake.theme_color.clone(),
+        ext_short: handshake.ext_short.clone(),
         query_scope: None,
-        collector_contributions: ext
-            .descriptions
+        collector_contributions: declaration
             .collectors
             .iter()
             .map(convert_collector)
             .collect(),
-        analyzer_contributions: ext
-            .descriptions
-            .analyzers
-            .iter()
-            .map(convert_analyzer)
-            .collect(),
-        surfaces: ext
-            .descriptions
-            .surfaces
-            .as_ref()
-            .map(convert_surface_descriptor),
+        analyzer_contributions: declaration.analyzers.iter().map(convert_analyzer).collect(),
+        surfaces,
     }
 }
 
@@ -331,33 +303,4 @@ fn convert_surface_sandbox(
         fs_write: s.fs_write,
         network: s.network,
     }
-}
-
-/// Convert protocol surface descriptors to the format expected by `register_surface_contributions()`.
-pub fn protocol_surfaces_to_manifest(
-    extensions: &[ProtocolExtension],
-) -> Vec<(String, Option<SurfaceContributions>)> {
-    extensions
-        .iter()
-        .map(|ext| {
-            let surfaces = ext
-                .descriptions
-                .surfaces
-                .as_ref()
-                .map(convert_surface_descriptor);
-            (ext.name.clone(), surfaces)
-        })
-        .collect()
-}
-
-/// Populate registries from protocol-loaded extensions.
-/// Converts to `ManifestV2` internally and delegates to `populate_registries()`.
-pub fn populate_from_protocol(
-    extensions: &[ProtocolExtension],
-) -> (KindRegistry, FieldRegistry, EdgeRegistry, Vec<Diagnostic>) {
-    let manifests: Vec<ManifestV2> = extensions
-        .iter()
-        .map(protocol_extension_to_manifest)
-        .collect();
-    populate_registries(&manifests)
 }

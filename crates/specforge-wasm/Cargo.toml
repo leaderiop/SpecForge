@@ -18,8 +18,17 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 semver = { workspace = true }
+# The in-process runtime adapter (`testing`, plan 03/04).
+specforge-extension-sdk = { path = "../specforge-extension-sdk", optional = true }
+
+[features]
+# `specforge_wasm::testing::InProcessRuntime`: serve SDK-declared
+# extensions in process, for tests of the host.
+testing = ["dep:specforge-extension-sdk"]
 
 [dev-dependencies]
+# Its own tests use the in-process runtime.
+specforge-wasm = { path = ".", features = ["testing"] }
 tempfile = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

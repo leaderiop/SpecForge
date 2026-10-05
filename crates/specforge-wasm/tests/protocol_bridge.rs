@@ -1,15 +1,16 @@
 use specforge_registry::ManifestFieldType;
 use specforge_wasm::protocol::*;
 
-// ── Helper: build a minimal ProtocolExtension ──
+// The strangler bridge: a loaded declaration as the `ManifestV2` the
+// registry build reads until it takes declarations (plan 03 T5).
+
+// ── Helper: build a minimal declaration ──
 
 fn minimal_protocol_extension(
     name: &str,
     entity_kinds: Vec<EntityKindDescriptor>,
-) -> ProtocolExtension {
-    ProtocolExtension {
-        name: name.to_string(),
-        version: "1.0.0".to_string(),
+) -> ExtensionDeclaration {
+    ExtensionDeclaration {
         handshake: HandshakeResponse {
             protocol_version: "1.0".to_string(),
             name: name.to_string(),
@@ -25,11 +26,37 @@ fn minimal_protocol_extension(
             migration_hook: None,
             ..Default::default()
         },
-        descriptions: ExtensionDescriptions {
-            entity_kinds,
-            ..Default::default()
-        },
+        entities: entity_kinds,
+        ..Default::default()
     }
+}
+
+/// The registries of `declarations`, through the bridge.
+fn populate_from_protocol(
+    declarations: &[ExtensionDeclaration],
+) -> (
+    specforge_registry::KindRegistry,
+    specforge_registry::FieldRegistry,
+    specforge_registry::EdgeRegistry,
+    Vec<specforge_common::Diagnostic>,
+) {
+    let manifests: Vec<_> = declarations.iter().map(declaration_to_manifest).collect();
+    specforge_registry::populate_registries(&manifests)
+}
+
+/// Each declaration's surfaces, as the registry build registers them.
+fn protocol_surfaces_to_manifest(
+    declarations: &[ExtensionDeclaration],
+) -> Vec<(String, Option<specforge_registry::SurfaceContributions>)> {
+    declarations
+        .iter()
+        .map(|d| {
+            (
+                d.handshake.name.clone(),
+                declaration_to_manifest(d).surfaces,
+            )
+        })
+        .collect()
 }
 
 // ── Step 1: Tracer Bullet — minimal entity kind conversion ──
@@ -62,7 +89,7 @@ fn convert_minimal_entity_kind() {
         }],
     );
 
-    let manifest = protocol_extension_to_manifest(&ext);
+    let manifest = declaration_to_manifest(&ext);
 
     assert_eq!(manifest.name, "@specforge/software");
     assert_eq!(manifest.version, "1.0.0");
@@ -108,7 +135,7 @@ fn convert_entity_kind_with_keyword_override() {
         }],
     );
 
-    let manifest = protocol_extension_to_manifest(&ext);
+    let manifest = declaration_to_manifest(&ext);
     let kind = &manifest.entity_kinds[0];
     assert_eq!(kind.name, "Behavior");
     assert_eq!(kind.keyword, "behavior");
@@ -186,7 +213,7 @@ fn convert_entity_kind_fields_to_manifest_fields() {
         }],
     );
 
-    let manifest = protocol_extension_to_manifest(&ext);
+    let manifest = declaration_to_manifest(&ext);
     let kind = &manifest.entity_kinds[0];
     assert_eq!(kind.fields.len(), 2);
 
@@ -267,7 +294,7 @@ fn populate_from_protocol_registers_kind_and_fields() {
 #[test]
 fn convert_edge_types_to_manifest() {
     let mut ext = minimal_protocol_extension("@specforge/software", vec![]);
-    ext.descriptions.edge_types = vec![
+    ext.edges = vec![
         EdgeTypeDescriptor {
             label: "enforces".to_string(),
             description: Some("Behavior enforces an invariant".to_string()),
@@ -288,7 +315,7 @@ fn convert_edge_types_to_manifest() {
         },
     ];
 
-    let manifest = protocol_extension_to_manifest(&ext);
+    let manifest = declaration_to_manifest(&ext);
     assert_eq!(manifest.edge_types.len(), 2);
 
     let enforces = &manifest.edge_types[0];
@@ -335,7 +362,7 @@ fn populate_from_protocol_registers_edges() {
             inference_guide: None,
         }],
     );
-    ext.descriptions.edge_types = vec![EdgeTypeDescriptor {
+    ext.edges = vec![EdgeTypeDescriptor {
         label: "enforces".to_string(),
         description: None,
         source_kind: Some("behavior".to_string()),
@@ -358,7 +385,7 @@ fn populate_from_protocol_registers_edges() {
 #[test]
 fn convert_validation_rules_to_manifest() {
     let mut ext = minimal_protocol_extension("@test/ext", vec![]);
-    ext.descriptions.validation_rules = vec![
+    ext.validation_rules = vec![
         ValidationRuleDescriptor {
             code: "W001".to_string(),
             severity: ValidationSeverity::Warning,
@@ -398,7 +425,7 @@ fn convert_validation_rules_to_manifest() {
         },
     ];
 
-    let manifest = protocol_extension_to_manifest(&ext);
+    let manifest = declaration_to_manifest(&ext);
     assert_eq!(manifest.validation_rules.len(), 3);
 
     let w001 = &manifest.validation_rules[0];
@@ -426,7 +453,7 @@ fn convert_validation_rules_to_manifest() {
 #[test]
 fn convert_entity_enhancements_to_manifest() {
     let mut ext = minimal_protocol_extension("@specforge/formal", vec![]);
-    ext.descriptions.enhancements = vec![EntityEnhancementDescriptor {
+    ext.enhancements = vec![EntityEnhancementDescriptor {
         verify_kinds: None,
         target_kind: "behavior".to_string(),
         source_extension: "@specforge/formal".to_string(),
@@ -450,7 +477,7 @@ fn convert_entity_enhancements_to_manifest() {
         edge_types: vec![],
     }];
 
-    let manifest = protocol_extension_to_manifest(&ext);
+    let manifest = declaration_to_manifest(&ext);
     assert_eq!(manifest.entity_enhancements.len(), 1);
     let enh = &manifest.entity_enhancements[0];
     assert_eq!(enh.target_kind, "behavior");
@@ -507,7 +534,7 @@ fn populate_from_protocol_applies_enhancements_across_extensions() {
 
     // Extension 2: enhances "behavior" with "requires" field
     let mut formal = minimal_protocol_extension("@specforge/formal", vec![]);
-    formal.descriptions.enhancements = vec![EntityEnhancementDescriptor {
+    formal.enhancements = vec![EntityEnhancementDescriptor {
         verify_kinds: None,
         target_kind: "behavior".to_string(),
         source_extension: "@specforge/formal".to_string(),
@@ -551,7 +578,7 @@ fn populate_from_protocol_applies_enhancements_across_extensions() {
 #[test]
 fn convert_shared_fields_to_manifest() {
     let mut ext = minimal_protocol_extension("@test/ext", vec![]);
-    ext.descriptions.shared_fields = vec![FieldDescriptor {
+    ext.shared_fields = vec![FieldDescriptor {
         name: "status".to_string(),
         field_type: "string".to_string(),
         required: false,
@@ -569,7 +596,7 @@ fn convert_shared_fields_to_manifest() {
         proof_role: None,
     }];
 
-    let manifest = protocol_extension_to_manifest(&ext);
+    let manifest = declaration_to_manifest(&ext);
     assert_eq!(manifest.fields.len(), 1);
     let field = &manifest.fields[0];
     assert_eq!(field.name, "status");
@@ -579,9 +606,7 @@ fn convert_shared_fields_to_manifest() {
 
 #[test]
 fn convert_metadata_peer_deps_sandbox_flags() {
-    let ext = ProtocolExtension {
-        name: "@specforge/formal".to_string(),
-        version: "2.0.0".to_string(),
+    let ext = ExtensionDeclaration {
         handshake: HandshakeResponse {
             protocol_version: "1.0".to_string(),
             name: "@specforge/formal".to_string(),
@@ -624,14 +649,15 @@ fn convert_metadata_peer_deps_sandbox_flags() {
             migration_hook: None,
             ..Default::default()
         },
-        descriptions: ExtensionDescriptions::default(),
+        ..Default::default()
     };
 
-    let manifest = protocol_extension_to_manifest(&ext);
+    let manifest = declaration_to_manifest(&ext);
 
-    // Contribution flags
-    assert!(manifest.contributes.entities);
-    assert!(manifest.contributes.validators);
+    // Contribution flags: the declared categories' derive from the content
+    // (this declaration has none), the others are the handshake's.
+    assert!(!manifest.contributes.entities);
+    assert!(!manifest.contributes.validators);
     assert!(manifest.contributes.grammars);
     assert!(!manifest.contributes.collectors);
 
@@ -662,7 +688,7 @@ fn convert_metadata_peer_deps_sandbox_flags() {
 #[test]
 fn convert_collector() {
     let mut ext = minimal_protocol_extension("@test/ext", vec![]);
-    ext.descriptions.collectors = vec![CollectorDescriptor {
+    ext.collectors = vec![CollectorDescriptor {
         name: "rust".to_string(),
         input_formats: vec!["junit-xml".to_string()],
         export: "collect__rust".to_string(),
@@ -675,7 +701,7 @@ fn convert_collector() {
         capture: Some("stdout".to_string()),
     }];
 
-    let manifest = protocol_extension_to_manifest(&ext);
+    let manifest = declaration_to_manifest(&ext);
 
     // Collectors
     assert_eq!(manifest.collector_contributions.len(), 1);
@@ -694,7 +720,7 @@ fn convert_collector() {
 #[test]
 fn convert_collector_without_auto_detect() {
     let mut ext = minimal_protocol_extension("@test/ext", vec![]);
-    ext.descriptions.collectors = vec![CollectorDescriptor {
+    ext.collectors = vec![CollectorDescriptor {
         name: "jest".to_string(),
         input_formats: vec!["jest-json".to_string()],
         export: "collect__jest".to_string(),
@@ -704,7 +730,7 @@ fn convert_collector_without_auto_detect() {
         capture: None,
     }];
 
-    let manifest = protocol_extension_to_manifest(&ext);
+    let manifest = declaration_to_manifest(&ext);
     assert!(manifest.collector_contributions[0].auto_detect.is_none());
 }
 
@@ -713,7 +739,7 @@ fn convert_collector_without_auto_detect() {
 #[test]
 fn convert_surfaces_to_manifest() {
     let mut ext = minimal_protocol_extension("@test/ext", vec![]);
-    ext.descriptions.surfaces = Some(SurfaceDescriptor {
+    ext.surfaces = SurfaceDescriptor {
         commands: vec![CommandDescriptor {
             id: "check".to_string(),
             title: "Check".to_string(),
@@ -746,7 +772,7 @@ fn convert_surfaces_to_manifest() {
             mime_type: "application/json".to_string(),
             sandbox: None,
         }],
-    });
+    };
 
     let surfaces_input = protocol_surfaces_to_manifest(&[ext]);
     assert_eq!(surfaces_input.len(), 1);
@@ -879,9 +905,7 @@ fn parity_protocol_vs_manifest_registries() {
         specforge_registry::populate_registries(&[manifest]);
 
     // Path 2: ProtocolExtension → bridge → populate_registries
-    let protocol_ext = ProtocolExtension {
-        name: "@specforge/software".to_string(),
-        version: "1.0.0".to_string(),
+    let protocol_ext = ExtensionDeclaration {
         handshake: HandshakeResponse {
             protocol_version: "1.0".to_string(),
             name: "@specforge/software".to_string(),
@@ -898,75 +922,73 @@ fn parity_protocol_vs_manifest_registries() {
             migration_hook: None,
             ..Default::default()
         },
-        descriptions: ExtensionDescriptions {
-            entity_kinds: vec![EntityKindDescriptor {
-                name: "behavior".to_string(),
-                keyword: None,
-                description: Some("A testable behavior".to_string()),
-                fields: vec![
-                    FieldDescriptor {
-                        name: "contract".to_string(),
-                        field_type: "block".to_string(),
-                        required: false,
-                        description: None,
-                        edge: None,
-                        target_kind: None,
-                        file_reference: false,
-                        default_value: None,
-                        enum_values: vec![],
-                        inverse_of: None,
-                        normative: false,
-                        exempts_obligations: false,
-                        headline: false,
-                        derived_from: None,
-                        proof_role: None,
-                    },
-                    FieldDescriptor {
-                        name: "invariants".to_string(),
-                        field_type: "reference_list".to_string(),
-                        required: false,
-                        description: None,
-                        edge: Some("enforces".to_string()),
-                        target_kind: Some("invariant".to_string()),
-                        file_reference: false,
-                        default_value: None,
-                        enum_values: vec![],
-                        inverse_of: None,
-                        normative: false,
-                        exempts_obligations: false,
-                        headline: false,
-                        derived_from: None,
-                        proof_role: None,
-                    },
-                ],
-                testable: true,
-                singleton: false,
-                supports_verify: true,
-                incremental: None,
-                has_body_parser: false,
-                open_fields: false,
-                contract_target: false,
-                declares_types: false,
-                lifecycle_field: None,
-                semantic_token: Some("function".to_string()),
-                lsp_icon: Some("Method".to_string()),
-                dot_shape: Some("ellipse".to_string()),
-                dot_color: None,
-                dot_fillcolor: None,
-                verify_kinds: vec!["smoke".to_string()],
-                inference_guide: None,
-            }],
-            edge_types: vec![EdgeTypeDescriptor {
-                label: "enforces".to_string(),
-                description: None,
-                source_kind: Some("behavior".to_string()),
-                target_kind: Some("invariant".to_string()),
-                edge_style: Some("dashed".to_string()),
-                edge_color: None,
-                edge_arrowhead: None,
-            }],
-            ..Default::default()
-        },
+        entities: vec![EntityKindDescriptor {
+            name: "behavior".to_string(),
+            keyword: None,
+            description: Some("A testable behavior".to_string()),
+            fields: vec![
+                FieldDescriptor {
+                    name: "contract".to_string(),
+                    field_type: "block".to_string(),
+                    required: false,
+                    description: None,
+                    edge: None,
+                    target_kind: None,
+                    file_reference: false,
+                    default_value: None,
+                    enum_values: vec![],
+                    inverse_of: None,
+                    normative: false,
+                    exempts_obligations: false,
+                    headline: false,
+                    derived_from: None,
+                    proof_role: None,
+                },
+                FieldDescriptor {
+                    name: "invariants".to_string(),
+                    field_type: "reference_list".to_string(),
+                    required: false,
+                    description: None,
+                    edge: Some("enforces".to_string()),
+                    target_kind: Some("invariant".to_string()),
+                    file_reference: false,
+                    default_value: None,
+                    enum_values: vec![],
+                    inverse_of: None,
+                    normative: false,
+                    exempts_obligations: false,
+                    headline: false,
+                    derived_from: None,
+                    proof_role: None,
+                },
+            ],
+            testable: true,
+            singleton: false,
+            supports_verify: true,
+            incremental: None,
+            has_body_parser: false,
+            open_fields: false,
+            contract_target: false,
+            declares_types: false,
+            lifecycle_field: None,
+            semantic_token: Some("function".to_string()),
+            lsp_icon: Some("Method".to_string()),
+            dot_shape: Some("ellipse".to_string()),
+            dot_color: None,
+            dot_fillcolor: None,
+            verify_kinds: vec!["smoke".to_string()],
+            inference_guide: None,
+        }],
+        edges: vec![EdgeTypeDescriptor {
+            label: "enforces".to_string(),
+            description: None,
+            source_kind: Some("behavior".to_string()),
+            target_kind: Some("invariant".to_string()),
+            edge_style: Some("dashed".to_string()),
+            edge_color: None,
+            edge_arrowhead: None,
+        }],
+        ..Default::default()
     };
     let (p_kind_reg, p_field_reg, p_edge_reg, p_diags) = populate_from_protocol(&[protocol_ext]);
 

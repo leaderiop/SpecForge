@@ -1,8 +1,6 @@
 use specforge_emitter::outline::*;
 use specforge_registry::ManifestV2;
-use specforge_wasm::protocol::{
-    ProtocolHost, load_protocol_extension, protocol_extension_to_manifest,
-};
+use specforge_wasm::protocol::{declaration_to_manifest, load_declaration};
 
 fn load_manifest(name: &str) -> ManifestV2 {
     let ext_name = match name {
@@ -13,9 +11,7 @@ fn load_manifest(name: &str) -> ManifestV2 {
         _ => panic!("unknown extension: {}", name),
     };
     let runtime = wasm_runtime_for(&[ext_name]);
-    let host = ProtocolHost::new(&runtime);
-    let proto_ext = load_protocol_extension(&host, ext_name).unwrap();
-    protocol_extension_to_manifest(&proto_ext)
+    declaration_to_manifest(&load_declaration(&runtime, ext_name).unwrap().declaration)
 }
 
 /// Build a Wasm runtime for a temp project listing `ext_names`.

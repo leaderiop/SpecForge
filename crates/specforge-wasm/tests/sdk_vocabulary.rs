@@ -5,14 +5,12 @@
 
 use std::collections::HashMap;
 
-use serde::de::DeserializeOwned;
 use specforge_common::{SourceSpan, Sym};
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, prelude::*};
 use specforge_registry::build_registries;
 use specforge_registry::validation_engine::{ValidationEntity, execute_pattern};
 use specforge_wasm::protocol::{
-    DescribeResponse, ExtensionDescriptions, HandshakeResponse, ProtocolExtension,
-    protocol_extension_to_manifest,
+    DescribeResponse, ExtensionDeclaration, HandshakeResponse, declaration_to_manifest,
 };
 
 fn extension() -> ContributionsBuilder {
@@ -56,28 +54,20 @@ fn extension() -> ContributionsBuilder {
     c
 }
 
-fn describe<T: DeserializeOwned>(c: &ContributionsBuilder, category: &str) -> Vec<T> {
-    let body = c
-        .describe_response_json(category)
-        .expect("supported category");
-    serde_json::from_str::<DescribeResponse>(&body)
-        .unwrap()
-        .parse_items()
-        .unwrap()
-}
-
-fn loaded(c: &ContributionsBuilder) -> ProtocolExtension {
+/// `c`'s declaration as the host loads it: from its wire answers.
+fn loaded(c: &ContributionsBuilder) -> ExtensionDeclaration {
     let handshake: HandshakeResponse = serde_json::from_str(&c.handshake_json()).unwrap();
-    ProtocolExtension {
-        name: handshake.name.clone(),
-        version: handshake.version.clone(),
+    ExtensionDeclaration::from_wire(
         handshake,
-        descriptions: ExtensionDescriptions {
-            entity_kinds: describe(c, "entities"),
-            validation_rules: describe(c, "validation_rules"),
-            ..Default::default()
+        |category| {
+            let body = c
+                .describe_response_json(category)
+                .expect("supported category");
+            Ok(serde_json::from_str::<DescribeResponse>(&body).unwrap())
         },
-    }
+        |key| panic!("unexpected key {key:?}"),
+    )
+    .unwrap()
 }
 
 fn entity(id: &str, fields: &[(&str, &str)]) -> ValidationEntity {
@@ -107,7 +97,7 @@ fn entity(id: &str, fields: &[(&str, &str)]) -> ValidationEntity {
 
 #[test]
 fn sdk_vocabulary_round_trips_through_the_registry_build() {
-    let build = build_registries(vec![protocol_extension_to_manifest(&loaded(&extension()))]);
+    let build = build_registries(vec![declaration_to_manifest(&loaded(&extension()))]);
 
     let unread: Vec<_> = build
         .registry_diagnostics
@@ -152,16 +142,15 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
 fn older_sdk_check_names_still_load() {
     let mut ext = loaded(&extension());
     for (rule, old) in ext
-        .descriptions
         .validation_rules
         .iter_mut()
         .zip(["missing_field", "field_constraint"])
     {
         rule.check = old.to_string();
     }
-    ext.descriptions.entity_kinds[0].fields[0].field_type = "boolean".to_string();
+    ext.entities[0].fields[0].field_type = "boolean".to_string();
 
-    let build = build_registries(vec![protocol_extension_to_manifest(&ext)]);
+    let build = build_registries(vec![declaration_to_manifest(&ext)]);
     let unread: Vec<_> = build
         .registry_diagnostics
         .iter()
@@ -228,7 +217,7 @@ fn sdk_constraint_kinds_load_for_the_checks_that_read_them() {
         });
     }
 
-    let build = build_registries(vec![protocol_extension_to_manifest(&loaded(&c))]);
+    let build = build_registries(vec![declaration_to_manifest(&loaded(&c))]);
     let unread: Vec<_> = build
         .registry_diagnostics
         .iter()

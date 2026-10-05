@@ -316,7 +316,7 @@ pub(super) struct Declared {
 }
 
 impl Declared {
-    /// Load `wasm` and read its handshake: a binary that isn't a loadable
+    /// Load `wasm` and read its declaration: a binary that isn't a loadable
     /// extension, or that claims a builtin's name, is refused.
     fn of(wasm: &[u8]) -> Result<Self, OpError> {
         const CANDIDATE: &str = "__candidate";
@@ -328,9 +328,10 @@ impl Declared {
         runtime
             .load_module_bytes(CANDIDATE, wasm)
             .map_err(invalid)?;
-        let handshake = specforge_wasm::protocol::ProtocolHost::new(&runtime)
-            .handshake(CANDIDATE)
-            .map_err(|e| invalid(e.to_string()))?;
+        let handshake = specforge_wasm::protocol::load_declaration(&runtime, CANDIDATE)
+            .map_err(|e| invalid(e.to_string()))?
+            .declaration
+            .handshake;
         if super::builtin_name(&handshake.name).is_some() {
             return Err(OpError::new(
                 "extension_conflict",

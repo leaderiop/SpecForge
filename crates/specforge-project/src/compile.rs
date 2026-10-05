@@ -4,6 +4,7 @@
 
 use specforge_common::{Diagnostic, Severity, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph};
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
     EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, RegistryBuild, SurfaceContributions,
     SurfaceRegistryEntry,
@@ -216,27 +217,31 @@ fn normalize_extension_name(ext_spec: &str) -> String {
     format!("@specforge/{}", last)
 }
 
-/// Load extensions via the protocol path only (no manifest.json).
-/// Each extension name is resolved through the runtime's __handshake/__describe exports.
+/// Load the declarations of `extensions` (as `specforge.json` lists them)
+/// through `runtime`, in that order: one [`load_declaration`] each. An
+/// extension that does not load is E028 (or the runtime's own reason, when
+/// it knows one) and is left out; the W138s of the others follow their
+/// load. Then the declarations are checked as manifests: E030 shape,
+/// W021 consistency against the loaded peers, E027 peer dependencies.
+///
+/// [`load_declaration`]: specforge_wasm::protocol::load_declaration
 pub fn load_extensions(
     extensions: &[String],
     runtime: &dyn WasmRuntime,
     diagnostics: &mut Vec<Diagnostic>,
-) -> Vec<ManifestV2> {
-    use specforge_wasm::protocol::{
-        ProtocolHost, load_protocol_extension as proto_load, protocol_extension_to_manifest,
-    };
+) -> Vec<ExtensionDeclaration> {
+    use specforge_wasm::protocol::{declaration_to_manifest, load_declaration};
 
-    let host = ProtocolHost::new(runtime);
-    let mut manifests = Vec::new();
-
+    let mut declarations = Vec::new();
     for ext_spec in extensions {
         let ext_name = normalize_extension_name(ext_spec);
-        match proto_load(&host, &ext_name) {
-            Ok(proto_ext) => {
-                let manifest = protocol_extension_to_manifest(&proto_ext);
-                diagnostics.extend(validate_manifest(&manifest));
-                manifests.push(manifest);
+        match load_declaration(runtime, &ext_name) {
+            Ok(loaded) => {
+                diagnostics.extend(loaded.warnings);
+                diagnostics.extend(validate_manifest(&declaration_to_manifest(
+                    &loaded.declaration,
+                )));
+                declarations.push(loaded.declaration);
             }
             // Why the runtime could not load it (a missing or tampered
             // installed binary), when it knows.
@@ -256,6 +261,7 @@ pub fn load_extensions(
         }
     }
 
+    let manifests: Vec<ManifestV2> = declarations.iter().map(declaration_to_manifest).collect();
     // Once every extension is in, so a kind is checked against what its
     // peers declare and a non-peer's kind is caught.
     for manifest in &manifests {
@@ -268,7 +274,7 @@ pub fn load_extensions(
     // check without turning each of its entities into an E024.
     diagnostics.extend(validate_peer_dependencies(&manifests));
 
-    manifests
+    declarations
 }
 
 /// Convert all graph nodes into `ValidationEntity` structs for the validation engine.

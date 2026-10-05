@@ -3,9 +3,7 @@
 
 use specforge_ops::collect::{ReportFile, collectors, dispatch};
 use specforge_registry::ManifestV2;
-use specforge_wasm::protocol::{
-    ProtocolHost, load_protocol_extension, protocol_extension_to_manifest,
-};
+use specforge_wasm::protocol::{declaration_to_manifest, load_declaration};
 
 /// A Wasm runtime for a temp project enabling `ext_names`.
 fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime {
@@ -22,9 +20,7 @@ fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime
 /// An extension's manifest, loaded through the protocol.
 fn load_via_protocol(ext_name: &str) -> ManifestV2 {
     let runtime = wasm_runtime_for(&[ext_name]);
-    let host = ProtocolHost::new(&runtime);
-    let proto_ext = load_protocol_extension(&host, ext_name).unwrap();
-    protocol_extension_to_manifest(&proto_ext)
+    declaration_to_manifest(&load_declaration(&runtime, ext_name).unwrap().declaration)
 }
 
 #[specforge_test_macros::test(

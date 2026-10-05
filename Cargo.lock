@@ -3071,6 +3071,7 @@ dependencies = [
  "specforge-component",
  "specforge-coverage",
  "specforge-emitter",
+ "specforge-extension-sdk",
  "specforge-graph",
  "specforge-parser",
  "specforge-protocol-types",
@@ -3221,6 +3222,7 @@ dependencies = [
  "specforge-registry",
  "specforge-test",
  "specforge-test-macros",
+ "specforge-wasm",
  "tempfile",
 ]
 

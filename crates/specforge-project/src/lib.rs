@@ -94,11 +94,16 @@ impl Environment {
     pub fn load(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
         let config = load_project_config(root);
         let mut load_diagnostics = Vec::new();
-        let manifests = match runtime {
+        let declarations = match runtime {
             Some(runtime) => load_extensions(&config.extensions, runtime, &mut load_diagnostics),
             None => Vec::new(),
         };
-        let mut registries = build_registries(manifests);
+        let mut registries = build_registries(
+            declarations
+                .iter()
+                .map(specforge_wasm::protocol::declaration_to_manifest)
+                .collect(),
+        );
         // A custom rule's wasm_function is resolved against its extension
         // now, so a name it does not export is reported once (W112).
         if let Some(runtime) = runtime {

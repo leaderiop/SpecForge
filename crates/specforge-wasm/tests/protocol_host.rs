@@ -99,7 +99,18 @@ fn describe_response_json(category: &str, items_json: &str) -> Vec<u8> {
     serde_json::to_vec(&resp).unwrap()
 }
 
-// ── Step 1: ProtocolHost::handshake tracer bullet ──
+// The transport under `load_declaration`: the handshake, its protocol
+// version check and its execution budget, then every describe category.
+
+fn handshake_with(protocol_version: &str) -> Vec<u8> {
+    serde_json::to_vec(&HandshakeResponse {
+        protocol_version: protocol_version.to_string(),
+        name: "@test/ext".to_string(),
+        version: "1.0.0".to_string(),
+        ..Default::default()
+    })
+    .unwrap()
+}
 
 #[test]
 fn handshake_returns_parsed_response() {
@@ -107,8 +118,8 @@ fn handshake_returns_parsed_response() {
         "__handshake",
         handshake_response_json("@specforge/software", true, true),
     );
-    let host = ProtocolHost::new(&runtime);
-    let resp = host.handshake("@specforge/software").unwrap();
+    let loaded = load_declaration(&runtime, "@specforge/software").unwrap();
+    let resp = &loaded.declaration.handshake;
     assert_eq!(resp.name, "@specforge/software");
     assert_eq!(resp.version, "1.0.0");
     assert_eq!(resp.protocol_version, "1.0.0");
@@ -128,18 +139,12 @@ fn handshake_applies_declared_max_execution_ms() {
         protocol_version: PROTOCOL_VERSION.to_string(),
         name: "@specforge/software".to_string(),
         version: "1.0.0".to_string(),
-        contribution_flags: ContributionFlags::default(),
-        peer_dependencies: vec![],
         sandbox_policy: Some(policy),
-        starter_template: None,
-        theme_color: None,
-        migration_hook: None,
         ..Default::default()
     };
     let runtime =
         MockRuntime::new().with_call_ok("__handshake", serde_json::to_vec(&resp).unwrap());
-    let host = ProtocolHost::new(&runtime);
-    host.handshake("@specforge/software").unwrap();
+    load_declaration(&runtime, "@specforge/software").unwrap();
 
     assert_eq!(
         *runtime.deadlines.lock().unwrap_or_else(|p| p.into_inner()),
@@ -153,8 +158,7 @@ fn handshake_without_execution_budget_sets_no_deadline() {
         "__handshake",
         handshake_response_json("@specforge/formal", true, false),
     );
-    let host = ProtocolHost::new(&runtime);
-    host.handshake("@specforge/formal").unwrap();
+    load_declaration(&runtime, "@specforge/formal").unwrap();
     assert!(
         runtime
             .deadlines
@@ -164,7 +168,7 @@ fn handshake_without_execution_budget_sets_no_deadline() {
     );
 }
 
-// ── Step 2: Handshake error handling ──
+// ── Handshake error handling ──
 
 #[test]
 fn handshake_trap_returns_error() {
@@ -176,8 +180,7 @@ fn handshake_trap_returns_error() {
             export_name: "__handshake".to_string(),
         },
     );
-    let host = ProtocolHost::new(&runtime);
-    let err = host.handshake("@test/ext").unwrap_err();
+    let err = load_declaration(&runtime, "@test/ext").unwrap_err();
     match err {
         ProtocolError::HandshakeFailed(msg) => {
             assert!(msg.contains("unreachable"));
@@ -190,118 +193,47 @@ fn handshake_trap_returns_error() {
 #[test]
 fn handshake_invalid_json_returns_deserialization_error() {
     let runtime = MockRuntime::new().with_call_ok("__handshake", b"not valid json at all".to_vec());
-    let host = ProtocolHost::new(&runtime);
-    let err = host.handshake("@test/ext").unwrap_err();
+    let err = load_declaration(&runtime, "@test/ext").unwrap_err();
     match err {
         ProtocolError::DeserializationError(_) => {}
         other => panic!("expected DeserializationError, got {:?}", other),
     }
 }
 
-// ── Step 3: validate_protocol_version ──
+// ── The protocol version: same major is compatible (M11) ──
 
 #[test]
-fn validate_protocol_version_compatible() {
-    let runtime = MockRuntime::new();
-    let host = ProtocolHost::new(&runtime);
-    let resp = HandshakeResponse {
-        protocol_version: "1.0.0".to_string(),
-        name: "@test/ext".to_string(),
-        version: "1.0.0".to_string(),
-        contribution_flags: ContributionFlags::default(),
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        starter_template: None,
-        theme_color: None,
-        migration_hook: None,
-        ..Default::default()
-    };
-    assert!(host.validate_protocol_version(&resp).is_ok());
+fn compatible_protocol_versions_load() {
+    for version in ["1.0.0", "1.0.1", "1.1.0", "1.9.3"] {
+        let runtime = MockRuntime::new().with_call_ok("__handshake", handshake_with(version));
+        assert!(
+            load_declaration(&runtime, "@test/ext").is_ok(),
+            "{version} is compatible with the host's 1.0.0"
+        );
+    }
 }
 
 #[test]
-fn validate_protocol_version_incompatible() {
-    let runtime = MockRuntime::new();
-    let host = ProtocolHost::new(&runtime);
-    let resp = HandshakeResponse {
-        protocol_version: "2.0.0".to_string(),
-        name: "@test/ext".to_string(),
-        version: "1.0.0".to_string(),
-        contribution_flags: ContributionFlags::default(),
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        starter_template: None,
-        theme_color: None,
-        migration_hook: None,
-        ..Default::default()
-    };
-    let err = host.validate_protocol_version(&resp).unwrap_err();
-    match err {
-        ProtocolError::IncompatibleVersion {
-            host_version,
-            extension_version,
-        } => {
-            assert_eq!(host_version, "1.0.0");
-            assert_eq!(extension_version, "2.0.0");
+fn an_incompatible_protocol_version_fails_the_load() {
+    for version in ["2.0.0", "0.9.0", "99.0"] {
+        let runtime = MockRuntime::new().with_call_ok("__handshake", handshake_with(version));
+        match load_declaration(&runtime, "@test/ext").unwrap_err() {
+            ProtocolError::IncompatibleVersion {
+                host_version,
+                extension_version,
+            } => {
+                assert_eq!(host_version, "1.0.0");
+                assert_eq!(extension_version, version);
+            }
+            other => panic!("{version}: expected IncompatibleVersion, got {:?}", other),
         }
-        other => panic!("expected IncompatibleVersion, got {:?}", other),
     }
 }
 
-// ── Step 4: ProtocolHost::describe ──
+// ── Describe ──
 
 #[test]
-fn describe_returns_parsed_response() {
-    let runtime = MockRuntime::new().with_call_ok(
-        "__describe",
-        describe_response_json("entities", r#"[{"name": "behavior", "testable": true}]"#),
-    );
-    let host = ProtocolHost::new(&runtime);
-    let resp = host.describe("@test/ext", "entities").unwrap();
-    assert_eq!(resp.category, "entities");
-    let entities: Vec<EntityKindDescriptor> = resp.parse_items().unwrap();
-    assert_eq!(entities.len(), 1);
-    assert_eq!(entities[0].name, "behavior");
-}
-
-// ── Step 5: Describe error handling ──
-
-#[test]
-fn describe_trap_returns_error() {
-    let runtime = MockRuntime::new().with_call_trap(
-        "__describe",
-        WasmTrapInfo {
-            kind: "trap".to_string(),
-            message: "out of memory".to_string(),
-            export_name: "__describe".to_string(),
-        },
-    );
-    let host = ProtocolHost::new(&runtime);
-    let err = host.describe("@test/ext", "entities").unwrap_err();
-    match err {
-        ProtocolError::DescribeFailed { category, reason } => {
-            assert_eq!(category, "entities");
-            assert!(reason.contains("out of memory"));
-        }
-        other => panic!("expected DescribeFailed, got {:?}", other),
-    }
-}
-
-#[test]
-fn describe_unsupported_category_returns_error() {
-    let runtime = MockRuntime::new();
-    let host = ProtocolHost::new(&runtime);
-    let err = host.describe("@test/ext", "widgets").unwrap_err();
-    match err {
-        ProtocolError::UnsupportedCategory(cat) => assert_eq!(cat, "widgets"),
-        other => panic!("expected UnsupportedCategory, got {:?}", other),
-    }
-}
-
-// ── Step 6: describe_all ──
-
-#[test]
-fn describe_all_populates_enabled_categories() {
+fn describe_answers_become_the_declaration() {
     let runtime = MockRuntime::new()
         .with_call_ok(
             "__handshake",
@@ -319,206 +251,58 @@ fn describe_all_populates_enabled_categories() {
             "__describe::validation_rules",
             describe_response_json("validation_rules", r#"[{"code": "W001", "severity": "warning", "message_template": "test", "check": "no_incoming_edges"}]"#),
         );
-
-    let host = ProtocolHost::new(&runtime);
-    let flags = ContributionFlags {
-        entities: true,
-        validators: true,
-        ..Default::default()
-    };
-    let descs = host.describe_all("@test/ext", &flags).unwrap();
-    assert_eq!(descs.entity_kinds.len(), 1);
-    assert_eq!(descs.entity_kinds[0].name, "behavior");
-    assert_eq!(descs.edge_types.len(), 1);
-    assert_eq!(descs.edge_types[0].label, "Implements");
-    assert_eq!(descs.validation_rules.len(), 1);
-    assert_eq!(descs.validation_rules[0].code, "W001");
-    // Collectors, grammars etc. not enabled → empty
-    assert!(descs.collectors.is_empty());
+    let declaration = load_declaration(&runtime, "@test/ext").unwrap().declaration;
+    assert_eq!(declaration.entities.len(), 1);
+    assert_eq!(declaration.entities[0].name, "behavior");
+    assert!(declaration.entities[0].testable);
+    assert_eq!(declaration.edges[0].label, "Implements");
+    assert_eq!(declaration.validation_rules[0].code, "W001");
+    assert!(declaration.collectors.is_empty());
 }
 
 #[test]
-fn describe_all_skips_disabled_categories() {
-    // With all flags false, describe_all should make no __describe calls
-    let runtime = MockRuntime::new().with_call_trap(
-        "__describe",
-        WasmTrapInfo {
-            kind: "trap".to_string(),
-            message: "should not be called".to_string(),
-            export_name: "__describe".to_string(),
-        },
-    );
-    let host = ProtocolHost::new(&runtime);
-    let flags = ContributionFlags::default(); // all false
-    let descs = host.describe_all("@test/ext", &flags).unwrap();
-    assert!(descs.entity_kinds.is_empty());
-    assert!(descs.validation_rules.is_empty());
-    assert!(descs.surfaces.is_none());
-}
-
-// ── Step 8: load_protocol_extension ──
-
-#[test]
-fn load_protocol_extension_full_flow() {
+fn describe_trap_returns_error() {
     let runtime = MockRuntime::new()
         .with_call_ok(
             "__handshake",
-            handshake_response_json("@specforge/governance", true, true),
+            handshake_response_json("@test/ext", true, false),
         )
-        .with_call_ok("__describe", describe_response_json("entities", "[]"));
-
-    let host = ProtocolHost::new(&runtime);
-    let ext = load_protocol_extension(&host, "@specforge/governance").unwrap();
-    assert_eq!(ext.name, "@specforge/governance");
-    assert_eq!(ext.version, "1.0.0");
-    assert_eq!(ext.handshake.protocol_version, "1.0.0");
-}
-
-#[test]
-fn load_protocol_extension_handshake_failure_propagated() {
-    let runtime = MockRuntime::new().with_call_trap(
-        "__handshake",
-        WasmTrapInfo {
-            kind: "trap".to_string(),
-            message: "extension panicked".to_string(),
-            export_name: "__handshake".to_string(),
-        },
-    );
-    let host = ProtocolHost::new(&runtime);
-    let err = load_protocol_extension(&host, "@test/ext").unwrap_err();
+        .with_call_trap(
+            "__describe",
+            WasmTrapInfo {
+                kind: "trap".to_string(),
+                message: "out of memory".to_string(),
+                export_name: "__describe".to_string(),
+            },
+        );
+    let err = load_declaration(&runtime, "@test/ext").unwrap_err();
     match err {
-        ProtocolError::HandshakeFailed(_) => {}
-        other => panic!("expected HandshakeFailed, got {:?}", other),
-    }
-}
-
-// ── M11: semver-compatible protocol version matching ──
-
-#[test]
-fn validate_protocol_version_compatible_patch_bump() {
-    let runtime = MockRuntime::new();
-    let host = ProtocolHost::new(&runtime);
-    // Extension reports "1.0.1" — same major as host "1.0.0" => compatible
-    let resp = HandshakeResponse {
-        protocol_version: "1.0.1".to_string(),
-        name: "@test/ext".to_string(),
-        version: "1.0.0".to_string(),
-        contribution_flags: ContributionFlags::default(),
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        starter_template: None,
-        theme_color: None,
-        migration_hook: None,
-        ..Default::default()
-    };
-    assert!(
-        host.validate_protocol_version(&resp).is_ok(),
-        "patch version bump should be compatible"
-    );
-}
-
-#[test]
-fn validate_protocol_version_compatible_minor_bump() {
-    let runtime = MockRuntime::new();
-    let host = ProtocolHost::new(&runtime);
-    // Extension reports "1.1.0" — same major as host "1.0.0" => compatible
-    let resp = HandshakeResponse {
-        protocol_version: "1.1.0".to_string(),
-        name: "@test/ext".to_string(),
-        version: "1.0.0".to_string(),
-        contribution_flags: ContributionFlags::default(),
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        starter_template: None,
-        theme_color: None,
-        migration_hook: None,
-        ..Default::default()
-    };
-    assert!(
-        host.validate_protocol_version(&resp).is_ok(),
-        "minor version bump should be compatible"
-    );
-}
-
-#[test]
-fn validate_protocol_version_incompatible_major_bump() {
-    let runtime = MockRuntime::new();
-    let host = ProtocolHost::new(&runtime);
-    // Extension reports "2.0.0" — different major => incompatible
-    let resp = HandshakeResponse {
-        protocol_version: "2.0.0".to_string(),
-        name: "@test/ext".to_string(),
-        version: "1.0.0".to_string(),
-        contribution_flags: ContributionFlags::default(),
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        starter_template: None,
-        theme_color: None,
-        migration_hook: None,
-        ..Default::default()
-    };
-    let err = host.validate_protocol_version(&resp).unwrap_err();
-    match err {
-        ProtocolError::IncompatibleVersion {
-            host_version,
-            extension_version,
-        } => {
-            assert!(host_version.starts_with("1."));
-            assert_eq!(extension_version, "2.0.0");
+        ProtocolError::DescribeFailed { category, reason } => {
+            assert_eq!(category, "entities");
+            assert!(reason.contains("out of memory"));
         }
-        other => panic!("expected IncompatibleVersion, got {:?}", other),
+        other => panic!("expected DescribeFailed, got {:?}", other),
     }
 }
 
+/// An answer that is not a describe response fails naming its category.
 #[test]
-fn validate_protocol_version_exact_match_still_works() {
-    let runtime = MockRuntime::new();
-    let host = ProtocolHost::new(&runtime);
-    // Same version as PROTOCOL_VERSION => compatible
-    let resp = HandshakeResponse {
-        protocol_version: PROTOCOL_VERSION.to_string(),
-        name: "@test/ext".to_string(),
-        version: "1.0.0".to_string(),
-        contribution_flags: ContributionFlags::default(),
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        starter_template: None,
-        theme_color: None,
-        migration_hook: None,
-        ..Default::default()
-    };
-    assert!(host.validate_protocol_version(&resp).is_ok());
-}
-
-#[test]
-fn load_protocol_extension_version_mismatch_propagated() {
-    let mut resp = HandshakeResponse {
-        protocol_version: "99.0".to_string(),
-        name: "@test/ext".to_string(),
-        version: "1.0.0".to_string(),
-        contribution_flags: ContributionFlags::default(),
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        starter_template: None,
-        theme_color: None,
-        migration_hook: None,
-        ..Default::default()
-    };
-    // Patch protocol_version to something incompatible
-    resp.protocol_version = "99.0".to_string();
-    let runtime =
-        MockRuntime::new().with_call_ok("__handshake", serde_json::to_vec(&resp).unwrap());
-    let host = ProtocolHost::new(&runtime);
-    let err = load_protocol_extension(&host, "@test/ext").unwrap_err();
-    match err {
-        ProtocolError::IncompatibleVersion { .. } => {}
-        other => panic!("expected IncompatibleVersion, got {:?}", other),
+fn a_describe_answer_that_is_not_json_names_its_category() {
+    let runtime = MockRuntime::new()
+        .with_call_ok(
+            "__handshake",
+            handshake_response_json("@test/ext", true, false),
+        )
+        .with_call_ok("__describe::edges", b"not json".to_vec());
+    match load_declaration(&runtime, "@test/ext").unwrap_err() {
+        ProtocolError::DescribeFailed { category, .. } => assert_eq!(category, "edges"),
+        other => panic!("expected DescribeFailed, got {:?}", other),
     }
 }
 
 /// Load an extension whose surfaces declare an arg type outside
 /// CommandArgType ("list"), which cannot be represented.
-fn load_with_unknown_arg_type() -> Result<ProtocolExtension, ProtocolError> {
+fn load_with_unknown_arg_type() -> Result<Loaded, ProtocolError> {
     let surfaces = r#"[{"commands": [{"id": "c", "title": "C", "description": "d",
         "export": "cmd__c", "args": [{"name": "tags", "arg_type": "list"}]}]}]"#;
     let runtime = MockRuntime::new()
@@ -530,8 +314,7 @@ fn load_with_unknown_arg_type() -> Result<ProtocolExtension, ProtocolError> {
             "__describe::surfaces",
             describe_response_json("surfaces", surfaces),
         );
-    let host = ProtocolHost::new(&runtime);
-    load_protocol_extension(&host, "@test/ext")
+    load_declaration(&runtime, "@test/ext")
 }
 
 #[specforge_test_macros::test(

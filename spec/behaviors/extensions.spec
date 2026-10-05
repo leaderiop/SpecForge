@@ -102,6 +102,10 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify unit "the SDK's short name reaches the handshake as ext_short"
   verify unit "a short name that is not lowercase kebab case is refused when the extension is built"
   verify unit "a raw category that does not parse panics when the extension is built"
+  verify integration "the loader reads the handshake and every describe category once"
+  verify integration "an extension that only declares commands registers its commands"
+  verify integration "an extension that only declares passes has them in its declaration"
+  verify integration "the declared short name reaches the registry build"
 }
 
 behavior build_registries_from_declarations "Build Registries From Declarations" {
