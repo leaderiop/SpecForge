@@ -21,6 +21,14 @@ expression: "normalized(&Value::Array(calls), dir.path())"
             {
               "code": "W061",
               "column": null,
+              "data": {
+                "kind": "reference_cycle",
+                "path": [
+                  "core_mod",
+                  "edge_mod",
+                  "core_mod"
+                ]
+              },
               "file": null,
               "line": null,
               "message": "reference cycle detected: core_mod -> edge_mod -> core_mod",
@@ -124,6 +132,14 @@ expression: "normalized(&Value::Array(calls), dir.path())"
             {
               "code": "W061",
               "column": null,
+              "data": {
+                "kind": "reference_cycle",
+                "path": [
+                  "core_mod",
+                  "edge_mod",
+                  "core_mod"
+                ]
+              },
               "file": null,
               "line": null,
               "message": "reference cycle detected: core_mod -> edge_mod -> core_mod",
@@ -285,6 +301,14 @@ expression: "normalized(&Value::Array(calls), dir.path())"
             {
               "code": "W061",
               "column": null,
+              "data": {
+                "kind": "reference_cycle",
+                "path": [
+                  "core_mod",
+                  "edge_mod",
+                  "core_mod"
+                ]
+              },
               "file": null,
               "line": null,
               "message": "reference cycle detected: core_mod -> edge_mod -> core_mod",
@@ -379,6 +403,14 @@ expression: "normalized(&Value::Array(calls), dir.path())"
             {
               "code": "W061",
               "column": null,
+              "data": {
+                "kind": "reference_cycle",
+                "path": [
+                  "core_mod",
+                  "edge_mod",
+                  "core_mod"
+                ]
+              },
               "file": null,
               "line": null,
               "message": "reference cycle detected: core_mod -> edge_mod -> core_mod",
