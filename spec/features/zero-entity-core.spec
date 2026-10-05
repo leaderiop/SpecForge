@@ -153,7 +153,8 @@ feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
 // in features/output.spec — same 3 behaviors, consolidated to avoid duplication.
 
 feature extension_driven_code_actions "Extension-Driven Code Actions" {
-  // Owned: code_actions_for_missing_verify, code_action_create_entity_stub
+  // Owned: code_actions_for_missing_verify, code_action_create_entity_stub,
+  //   code_action_replace_unresolved
   // Bridge: listed in features/lsp.spec code_actions
   problem  """
     LSP code actions (quick fixes, refactorings) depend on extension

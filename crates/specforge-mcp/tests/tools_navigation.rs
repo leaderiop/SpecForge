@@ -670,73 +670,63 @@ fn outline_sorted_by_line() {
 
 // --- specforge.suggest_fixes ---
 
+/// `nav`: logout names `sesion_limit`, which no entity declares and is
+/// close to `session_limit`.
+const NAV_LOGIN: &str = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n\n\
+                         behavior logout \"Logout\" {\n  invariants [sesion_limit]\n}\n";
+
+/// The fixes `args` asks for, as `"title kind code | file L:C-L:C new_text…"`.
+fn fixes(server: &mut McpServer, args: Value) -> Vec<String> {
+    let parsed = result(server, "specforge.suggest_fixes", args);
+    parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| {
+            let edits: Vec<String> = f["edits"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|e| {
+                    let r = &e["range"];
+                    format!(
+                        "{} {}:{}-{}:{} {:?}",
+                        e["file_path"].as_str().unwrap(),
+                        r["start_line"],
+                        r["start_col"],
+                        r["end_line"],
+                        r["end_col"],
+                        e["new_text"].as_str().unwrap()
+                    )
+                })
+                .collect();
+            format!(
+                "{} {} {} | {}",
+                f["title"].as_str().unwrap(),
+                f["kind"].as_str().unwrap(),
+                f["diagnostic_code"].as_str().unwrap_or("-"),
+                edits.join(" | ")
+            )
+        })
+        .collect()
+}
+
+const REPLACE: &str =
+    "Replace with 'session_limit' quickfix E003 | login.spec 6:15-6:27 \"session_limit\"";
+const CREATE: &str = "Create invariant stub for sesion_limit refactor E003 | login.spec 8:1-8:1 \"\\ninvariant sesion_limit \\\"sesion_limit\\\" {\\n  // TODO: fill in fields\\n}\\n\"";
+
 // B:provide_mcp_suggest_fixes_tool — verify unit "returns suggestions from diagnostics"
 #[specforge_test(
     behavior = "provide_mcp_suggest_fixes_tool",
     verify = "specforge.suggest_fixes returns applicable fix suggestions"
 )]
 fn suggest_fixes_returns_suggestions() {
-    let mut server = test_server();
-    // Add a diagnostic with suggestion
-    server
-        .state_mut()
-        .surface_diagnostics
-        .push(specforge_common::Diagnostic {
-            code: "W001".into(),
-            severity: specforge_common::Severity::Warning,
-            message: "alpha has no tests field".into(),
-            span: Some(span()),
-            suggestion: Some("Add a tests field".into()),
-            data: None,
-        });
-
-    let resp = call_tool(
-        &mut server,
-        "specforge.suggest_fixes",
-        json!({"entity_id": "alpha"}),
+    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
+    // Each fix carries the edits that apply it.
+    assert_eq!(
+        fixes(&mut server, json!({"entity_id": "logout"})),
+        [CREATE, REPLACE]
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let suggestions = parsed.as_array().unwrap();
-    assert!(!suggestions.is_empty());
-    assert_eq!(suggestions[0]["kind"], "quickfix");
-}
-
-/// `test_server` with one fixable diagnostic inside alpha's span and one,
-/// spanless, whose data names beta.
-fn server_with_fixable_diagnostics() -> McpServer {
-    use specforge_common::{Diagnostic, Severity};
-    let mut server = test_server();
-    server.state_mut().surface_diagnostics.push(Diagnostic {
-        code: "V001".into(),
-        severity: Severity::Error,
-        message: "alpha is missing a field".into(),
-        span: Some(span()),
-        suggestion: Some("fix alpha".into()),
-        data: None,
-    });
-    server.state_mut().surface_diagnostics.push(Diagnostic {
-        code: "W001".into(),
-        severity: Severity::Warning,
-        message: "the feature has no owner".into(),
-        span: None,
-        suggestion: Some("fix beta".into()),
-        data: Some(Box::new(specforge_common::DiagnosticData::Subject {
-            entity: "beta".into(),
-        })),
-    });
-    server
-}
-
-fn fix_titles(server: &mut McpServer, args: Value) -> Vec<String> {
-    let resp = call_tool(server, "specforge.suggest_fixes", args);
-    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
-    parsed
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|s| s["title"].as_str().unwrap().to_string())
-        .collect()
 }
 
 #[specforge_test(
@@ -744,33 +734,17 @@ fn fix_titles(server: &mut McpServer, args: Value) -> Vec<String> {
     verify = "clean entity with no diagnostics returns empty list"
 )]
 fn suggest_fixes_for_a_clean_entity_is_empty() {
-    use specforge_common::{Diagnostic, Severity};
-    let mut server = test_server();
-    server.state_mut().surface_diagnostics.push(Diagnostic {
-        code: "V001".into(),
-        severity: Severity::Error,
-        message: "alpha is missing a field".into(),
-        span: Some(span()),
-        suggestion: Some("fix alpha".into()),
-        data: None,
-    });
-    // About another entity whose id merely contains beta's.
-    server.state_mut().surface_diagnostics.push(Diagnostic {
-        code: "W001".into(),
-        severity: Severity::Warning,
-        message: "feature 'beta' has no owner".into(),
-        span: None,
-        suggestion: Some("fix beta_two".into()),
-        data: Some(Box::new(specforge_common::DiagnosticData::Subject {
-            entity: "beta_two".into(),
-        })),
-    });
-
-    assert!(fix_titles(&mut server, json!({"entity_id": "beta"})).is_empty());
-    assert_eq!(
-        fix_titles(&mut server, json!({"entity_id": "alpha"})),
-        ["fix alpha"]
+    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
+    let inspected = result(
+        &mut server,
+        "specforge.inspect",
+        json!({"entity_id": "session_limit"}),
     );
+    assert_eq!(inspected["diagnostics"], json!([]), "{inspected}");
+    assert!(fixes(&mut server, json!({"entity_id": "session_limit"})).is_empty());
+    // A diagnostic whose data names no fix offers none: login's W006 and
+    // E006 have suggestion text, not edits.
+    assert!(fixes(&mut server, json!({"entity_id": "login"})).is_empty());
 }
 
 #[specforge_test(
@@ -778,42 +752,31 @@ fn suggest_fixes_for_a_clean_entity_is_empty() {
     verify = "diagnostic_code filter restricts to matching diagnostics"
 )]
 fn suggest_fixes_diagnostic_code_filter() {
-    let mut server = server_with_fixable_diagnostics();
-
+    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
     assert_eq!(
-        fix_titles(&mut server, json!({})),
-        ["fix alpha", "fix beta"]
+        fixes(&mut server, json!({"diagnostic_code": "E003"})),
+        [CREATE, REPLACE]
     );
-    assert_eq!(
-        fix_titles(&mut server, json!({"diagnostic_code": "W001"})),
-        ["fix beta"]
-    );
+    assert!(fixes(&mut server, json!({"diagnostic_code": "W006"})).is_empty());
 }
 
 #[test]
 fn suggest_fixes_entity_and_file_filters() {
-    let mut server = server_with_fixable_diagnostics();
-
+    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
     assert_eq!(
-        fix_titles(&mut server, json!({"entity_id": "beta"})),
-        ["fix beta"]
+        fixes(&mut server, json!({"file_path": "login.spec"})),
+        [CREATE, REPLACE]
     );
-    assert_eq!(
-        fix_titles(&mut server, json!({"file_path": "test.spec"})),
-        ["fix alpha"]
-    );
-    assert!(fix_titles(&mut server, json!({"file_path": "other.spec"})).is_empty());
-    let unknown = call_tool(
+    assert!(fixes(&mut server, json!({"file_path": "limit.spec"})).is_empty());
+    assert!(fixes(&mut server, json!({"entity_id": "login"})).is_empty());
+    let resp = call_tool(
         &mut server,
         "specforge.suggest_fixes",
-        json!({"entity_id": "no_such_entity"}),
+        json!({"entity_id": "nope"}),
     );
-    let error = crate::tool_errors::mcp_error(&unknown);
-    assert_eq!(error["code"], "entity_not_found", "{error}");
-    assert_eq!(error["entity_id"], "no_such_entity", "{error}");
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
 }
 
-// B:provide_mcp_find_references_tool — verify unit "entity with no references returns empty list"
 #[specforge_test(
     behavior = "provide_mcp_find_references_tool",
     verify = "entity with no references returns empty list"

@@ -420,7 +420,8 @@ behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
   contract   """
     The LSP SHOULD offer code actions on entities whose kind has
     testable=true in the KindRegistry but no verify declarations or
-    linked test files. The code action MUST add verify stub declarations
+    linked test files. The code actions offered for a request are those
+    whose diagnostic, or whose entity, overlaps the requested range. The code action MUST add verify stub declarations
     to the entity block in the .spec file, using verify kinds from the
     entity kind's allowed_verify_kinds in the KindRegistry (not hardcoded
     kinds). If no allowed_verify_kinds are specified, the stub MUST use
@@ -439,6 +440,7 @@ behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
   verify unit "stub format is verify <kind> entity_id TODO"
   verify unit "code action kind is QuickFix"
   verify unit "no test source files or application code generated"
+  verify unit "code actions are those whose diagnostic or entity overlaps the requested range"
   verify contract "Code Actions for Missing Verify: missing verify code actions holds — kind_registry_available, graph_available, quickfix_offered, verify_stubs_produced, no_code_generated"
 }
 
@@ -685,6 +687,30 @@ behavior goto_import_definition "Go-to-Definition on Imports" {
   verify unit "go-to-def on use path navigates to target file"
   verify unit "go-to-def on non-existent use path returns no result"
   verify contract "Go-to-Definition on Imports: import go-to-definition holds — imports_resolved, target_file_navigated"
+}
+
+behavior code_action_replace_unresolved "Code Action: Replace an Unresolved Reference" {
+  category   mutation
+  invariants [zero_domain_knowledge_core, lsp_response_latency, lsp_text_edit_non_overlapping]
+  types      [CodeAction, Diagnostic, TextEdit]
+  ports      [LspProtocol]
+  features   [extension_driven_code_actions, code_actions]
+  requires {
+    did_you_mean_known "the diagnostic's data names a close match"
+  }
+  ensures {
+    token_replaced "the unresolved token, and only it, is replaced by the close match"
+  }
+  contract   """
+    For an unresolved reference (E003) or import (E025) whose data names a
+    close match (did_you_mean), the LSP and MCP specforge.suggest_fixes MUST
+    offer one quick fix that replaces the unresolved token with the match.
+    Target, path and match MUST be read from the diagnostic's data, never
+    its message or suggestion text.
+  """
+  verify unit "an unresolved reference with a close match is replaced at its token"
+  verify unit "an unresolved import with a close match is replaced inside its quotes"
+  verify unit "the replacement is read from the diagnostic's data, whatever its message says"
 }
 
 behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {

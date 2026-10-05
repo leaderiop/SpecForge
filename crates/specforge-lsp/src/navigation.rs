@@ -5,10 +5,13 @@
 //! navigation is the LSP's own (MCP has no import tool).
 
 use specforge_common::{SourceSpan, Sym};
-use specforge_ops::navigate::Navigator;
+use specforge_ops::navigate::{Fix, FixKind, Navigator};
 use specforge_resolver::{ResolveConfig, resolve_import};
+use std::collections::HashMap;
 use std::path::Path;
-use tower_lsp::lsp_types::{Location, Position, Range, Url};
+use tower_lsp::lsp_types::{
+    CodeAction, CodeActionKind, Location, Position, Range, TextEdit, Url, WorkspaceEdit,
+};
 
 use crate::LspState;
 use crate::backend::file_path_to_uri;
@@ -72,6 +75,58 @@ pub(crate) fn byte_position(content: &str, position: Position) -> Option<(usize,
     }
     let col = utf16_col_to_byte_offset(line, position.character as usize);
     Some((position.line as usize + 1, col + 1))
+}
+
+/// An LSP range of `content` (the document `file`) as a span, its ends
+/// clamped to the text: what a code action request's range covers.
+pub(crate) fn span_of_range(content: &str, file: &str, range: Range) -> SourceSpan {
+    let clamp = |position: Position| {
+        let lines: Vec<&str> = content.split('\n').collect();
+        let line = (position.line as usize).min(lines.len().saturating_sub(1));
+        let text = lines.get(line).copied().unwrap_or("");
+        let width: usize = text.chars().map(char::len_utf16).sum();
+        let character = if (position.line as usize) < lines.len() {
+            (position.character as usize).min(width)
+        } else {
+            width
+        };
+        (line + 1, utf16_col_to_byte_offset(text, character) + 1)
+    };
+    let (start_line, start_col) = clamp(range.start);
+    let (end_line, end_col) = clamp(range.end);
+    SourceSpan {
+        file: Sym::new(file),
+        start_line,
+        start_col,
+        end_line,
+        end_col,
+    }
+}
+
+/// A fix as the code action that applies it.
+pub(crate) fn fix_to_code_action(state: &LspState, fix: Fix) -> CodeAction {
+    let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
+    for edit in &fix.edits {
+        changes
+            .entry(uri_of(state, edit.span.file.as_str()))
+            .or_default()
+            .push(TextEdit {
+                range: range(state, &edit.span),
+                new_text: edit.new_text.clone(),
+            });
+    }
+    CodeAction {
+        title: fix.title,
+        kind: Some(match fix.kind {
+            FixKind::QuickFix => CodeActionKind::QUICKFIX,
+            FixKind::Refactor => CodeActionKind::REFACTOR,
+        }),
+        edit: Some(WorkspaceEdit {
+            changes: Some(changes),
+            ..Default::default()
+        }),
+        ..Default::default()
+    }
 }
 
 /// The file a `use` import path in `importing_file` (relative to

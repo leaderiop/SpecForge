@@ -10,7 +10,8 @@ expression: "normalized(&result, root)"
     {
       "code": "W002",
       "message": "type 'Payload' is not referenced by any behavior, port, or type",
-      "severity": "Warning"
+      "severity": "Warning",
+      "suggestion": null
     }
   ],
   "entity_id": "Payload",

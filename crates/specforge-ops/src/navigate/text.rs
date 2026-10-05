@@ -70,6 +70,25 @@ impl SourceText {
         (start <= end).then_some(start..end)
     }
 
+    /// The bytes of 1-based lines `first..=last`, newlines excluded at
+    /// the end.
+    pub(crate) fn lines(&self, first: usize, last: usize) -> Option<std::ops::Range<usize>> {
+        let start = *self.line_starts.get(first.checked_sub(1)?)?;
+        let end = self.line_end(last)?;
+        (start <= end).then_some(start..end)
+    }
+
+    /// The text of bytes `start..end`.
+    pub(crate) fn slice(&self, start: usize, end: usize) -> Option<&str> {
+        self.text.get(start..end)
+    }
+
+    /// The end of the text, as an empty span: where an insertion at the
+    /// end of the file goes.
+    pub(crate) fn end(&self, file: Sym) -> SourceSpan {
+        self.span(file, self.text.len(), self.text.len())
+    }
+
     /// Whether the text at `span` is exactly `word`.
     pub(crate) fn spells(&self, span: &SourceSpan, word: &str) -> bool {
         self.range(span)

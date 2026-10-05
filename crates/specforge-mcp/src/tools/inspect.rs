@@ -101,7 +101,8 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
             serde_json::json!({
                 "code": d.code,
                 "severity": format!("{:?}", d.severity),
-                "message": d.message
+                "message": d.message,
+                "suggestion": d.suggestion
             })
         })
         .collect();

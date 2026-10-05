@@ -1,7 +1,8 @@
-use serde_json::Value;
+use serde_json::{Value, json};
+use specforge_ops::navigate::{Fix, FixQuery};
 
 use crate::target::Call;
-use crate::tool::{ErrorCode, McpError, ToolOutcome};
+use crate::tool::{Handled, ToolOutcome};
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Args {
@@ -13,48 +14,41 @@ pub struct Args {
     diagnostic_code: Option<String>,
 }
 
-pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let state = &*call.state;
-    let entity = match args.entity_id.as_deref() {
-        Some(entity_id) => match state.graph().node(entity_id) {
-            Some(node) => Some(node),
-            None => {
-                return McpError::new(
-                    ErrorCode::EntityNotFound,
-                    format!("Entity not found: {entity_id}"),
-                )
-                .with_entity(entity_id)
-                .into();
-            }
-        },
-        None => None,
+/// `specforge.suggest_fixes`: the fixes the LSP offers as code actions for
+/// the same diagnostics and entities, each with its edits (ADR 0016). A
+/// diagnostic whose data names no fix contributes none: its suggestion
+/// text stays on the diagnostic (validate, inspect).
+pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
+    if let Some(entity_id) = args.entity_id.as_deref()
+        && call.view().graph.node(entity_id).is_none()
+    {
+        return Err(super::entity_not_found(entity_id));
+    }
+    let diagnostics = super::reported(call);
+    let query = FixQuery {
+        entity: args.entity_id.as_deref(),
+        file: args.file_path.as_deref(),
+        code: args.diagnostic_code.as_deref(),
+        within: None,
     };
-    let file_path = args.file_path.as_deref();
-    let code = args.diagnostic_code.as_deref();
+    let fixes = super::navigator(call).fixes(&diagnostics, &query);
+    Ok(ToolOutcome::ok(Value::Array(
+        fixes.iter().map(suggestion).collect(),
+    )))
+}
 
-    let suggestions: Vec<Value> = state
-        .diagnostics()
-        .iter()
-        .filter(|d| {
-            entity.is_none_or(|node| {
-                specforge_ops::navigate::is_about(state.graph(), d, node.id.raw.as_str())
-            })
-        })
-        .filter(|d| {
-            file_path.is_none_or(|file| d.span.as_ref().is_some_and(|span| span.file == file))
-        })
-        .filter(|d| code.is_none_or(|code| d.code == code))
-        .filter_map(|d| {
-            d.suggestion.as_ref().map(|sug| {
-                serde_json::json!({
-                    "title": sug,
-                    "kind": "quickfix",
-                    "diagnostic_code": d.code,
-                    "edits": []
-                })
-            })
-        })
-        .collect();
-
-    ToolOutcome::ok(Value::Array(suggestions))
+/// A fix as an `McpFixSuggestion`: its edits are the spec's `TextEdit`
+/// (`file_path`, `range` a `SourceSpan`, `new_text`).
+fn suggestion(fix: &Fix) -> Value {
+    json!({
+        "title": fix.title,
+        "kind": fix.kind.as_str(),
+        "diagnostic_code": fix.diagnostic_code,
+        "entity_id": fix.subject,
+        "edits": fix.edits.iter().map(|edit| json!({
+            "file_path": edit.span.file,
+            "range": super::span_json(&edit.span),
+            "new_text": edit.new_text,
+        })).collect::<Vec<Value>>(),
+    })
 }

@@ -2096,38 +2096,61 @@ fn contract_validate() {
     verify = "Provide MCP Suggest Fixes Tool: MCP suggest fixes tool holds — graph_available, fixes_returned, empty_for_clean, tool_invoked_emitted"
 )]
 fn contract_suggest_fixes() {
-    let mut server = test_server();
-    server.state_mut().surface_diagnostics.push(diagnostic(
-        "W001",
-        "inside alpha",
-        Some(span_at("test.spec", 2, 4, 2)),
-    ));
+    // graph_available: a project compiled from disk, logout naming
+    // `sesion_limit`, which no entity declares.
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"c","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("a.spec"),
+        "invariant session_limit \"L\" {\n  guarantee \"g\"\n}\n\
+         behavior logout \"Logout\" {\n  invariants [sesion_limit]\n}\n",
+    )
+    .unwrap();
+    let mut server = McpServer::new();
+    let init = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"projectRoot": dir.path().to_str().unwrap()}});
+    server.handle_message(&init.to_string());
 
-    // fixes_returned: the diagnostic's fix, with title, edits, diagnostic.
-    let fixes = tool(&mut server, "specforge.suggest_fixes", json!({}));
+    // fixes_returned: each fix with its title, kind, diagnostic and edits.
+    let fixes = tool(
+        &mut server,
+        "specforge.suggest_fixes",
+        json!({"diagnostic_code": "E003"}),
+    );
+    let replace = fixes
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["title"] == "Replace with 'session_limit'")
+        .unwrap_or_else(|| panic!("no replacement in {fixes}"));
+    assert_eq!(replace["kind"], "quickfix");
+    assert_eq!(replace["diagnostic_code"], "E003");
     assert_eq!(
-        fixes,
+        replace["edits"],
         json!([{
-            "title": "fix W001",
-            "kind": "quickfix",
-            "diagnostic_code": "W001",
-            "edits": [],
+            "file_path": "a.spec",
+            "range": {"file": "a.spec", "start_line": 5, "start_col": 15, "end_line": 5, "end_col": 27},
+            "new_text": "session_limit",
         }])
     );
-    let for_alpha = tool(
+    let for_logout = tool(
         &mut server,
         "specforge.suggest_fixes",
-        json!({"entity_id": "alpha"}),
+        json!({"entity_id": "logout"}),
     );
-    assert_eq!(for_alpha, fixes);
+    assert_eq!(for_logout, fixes);
 
-    // empty_for_clean: beta has no diagnostics.
-    let for_beta = tool(
+    // empty_for_clean: session_limit has no diagnostics.
+    let for_limit = tool(
         &mut server,
         "specforge.suggest_fixes",
-        json!({"entity_id": "beta"}),
+        json!({"entity_id": "session_limit"}),
     );
-    assert_eq!(for_beta, json!([]));
+    assert_eq!(for_limit, json!([]));
 
     assert_tool_invoked(&server, "specforge.suggest_fixes");
 }

@@ -670,3 +670,530 @@ fn the_message_is_never_read() {
     assert!(is_about(graph, &e003, "logout"));
     assert!(!is_about(graph, &e003, "login"));
 }
+
+// ── Fixes: the edits a diagnostic's data or the graph names ─────────────
+
+use specforge_ops::navigate::{Fix, FixKind, FixQuery, FixSource, TextEdit};
+use specforge_project::coverage::RecordedCoverage;
+use specforge_registry::{
+    FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, ManifestFieldType,
+    RegistryBuild,
+};
+
+/// `text` with `edits` (spans of it) applied.
+fn apply(text: &str, edits: &[TextEdit]) -> String {
+    let offset = |line: usize, col: usize| -> usize {
+        let start: usize = text
+            .split_inclusive('\n')
+            .take(line - 1)
+            .map(str::len)
+            .sum();
+        start + col - 1
+    };
+    let mut edits: Vec<&TextEdit> = edits.iter().collect();
+    edits.sort_by_key(|e| std::cmp::Reverse((e.span.start_line, e.span.start_col)));
+    let mut out = text.to_string();
+    for edit in edits {
+        let start = offset(edit.span.start_line, edit.span.start_col);
+        let end = offset(edit.span.end_line, edit.span.end_col);
+        out.replace_range(start..end, &edit.new_text);
+    }
+    out
+}
+
+/// The fixes of `p`'s own diagnostics for `query`.
+fn fixes_of(p: &Compiled, query: &FixQuery) -> Vec<Fix> {
+    p.navigator().fixes(&p.project.diagnostics(), query)
+}
+
+fn titles(fixes: &[Fix]) -> Vec<String> {
+    fixes.iter().map(|f| f.title.clone()).collect()
+}
+
+const TESTING: &[&str] = &["@specforge/software", "@specforge/testing"];
+const UNTESTED: &str = "behavior first \"First\" {\n  contract \"c\"\n}\n\n\
+                        behavior second \"Second\" {\n  contract \"c\"\n  verify unit \"s\"\n}\n";
+
+#[specforge_test(
+    behavior = "code_actions_for_missing_verify",
+    verify = "code action offered on untested testable entity"
+)]
+fn a_verify_stub_is_offered_for_an_entity_without_obligations() {
+    let p = compile(TESTING, &[("flows.spec", UNTESTED)]);
+    let fixes = fixes_of(&p, &FixQuery::default());
+    let stubs: Vec<&Fix> = fixes
+        .iter()
+        .filter(|f| f.source == FixSource::AddVerifyStub)
+        .collect();
+    assert_eq!(
+        stubs.len(),
+        1,
+        "only first lacks verify: {:?}",
+        titles(&fixes)
+    );
+    assert_eq!(stubs[0].title, "Add verify stub for first");
+    assert_eq!(stubs[0].subject, Some(Sym::new("first")));
+}
+
+#[specforge_test(
+    behavior = "code_actions_for_missing_verify",
+    verify = "generated verify stubs added to entity block in .spec file"
+)]
+fn the_verify_stub_lands_inside_the_block() {
+    let p = compile(TESTING, &[("flows.spec", UNTESTED)]);
+    let fixes = fixes_of(&p, &FixQuery::default());
+    let stub = fixes
+        .iter()
+        .find(|f| f.title == "Add verify stub for first")
+        .unwrap();
+    let edited = apply(UNTESTED, &stub.edits);
+    assert_eq!(
+        edited,
+        UNTESTED.replace(
+            "  contract \"c\"\n}\n\nbehavior second",
+            "  contract \"c\"\n  verify unit \"first — TODO\"\n}\n\nbehavior second"
+        )
+    );
+    // A one-line block gets its stub on a line of its own, still inside.
+    let one_line = "behavior solo \"S\" { contract \"c\" }\n";
+    let p = compile(TESTING, &[("solo.spec", one_line)]);
+    let stub = fixes_of(&p, &FixQuery::default())
+        .into_iter()
+        .find(|f| f.source == FixSource::AddVerifyStub)
+        .unwrap();
+    let edited = apply(one_line, &stub.edits);
+    assert_eq!(
+        edited,
+        "behavior solo \"S\" { contract \"c\" \n  verify unit \"solo — TODO\"\n}\n"
+    );
+    let parsed = specforge_parser::parse(&edited, "solo.spec");
+    assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
+    assert!(parsed.entities[0].fields.get("verify").is_some());
+}
+
+/// A view of `p`'s graph with `registries` instead of its extensions'.
+fn with_registries<'a>(
+    p: &'a Compiled,
+    registries: &'a RegistryBuild,
+    recorded: &'a RecordedCoverage,
+) -> Navigator<'a, impl Fn(&str) -> Option<String> + 'a> {
+    let spec_root = &p.project.env.spec_root;
+    Navigator::new(
+        ProjectView::new(&p.project.graph, registries, None, recorded),
+        move |file| std::fs::read_to_string(spec_root.join(file)).ok(),
+    )
+}
+
+/// Kinds that take verify statements of `verify_kinds`.
+fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> KindRegistry {
+    let mut registry = KindRegistry::new();
+    for kind in kinds {
+        registry.register(KindRegistryEntry {
+            kind_name: kind.to_string(),
+            description: None,
+            source_extension: "@test/ext".into(),
+            testable: true,
+            singleton: false,
+            supports_verify: true,
+            allowed_verify_kinds: verify_kinds.iter().map(|k| k.to_string()).collect(),
+            has_body_parser: false,
+            semantic_token: None,
+            lsp_icon: None,
+            dot_shape: None,
+            dot_color: None,
+            dot_fillcolor: None,
+            open_fields: false,
+            contract_target: false,
+            declares_types: false,
+            lifecycle_field: None,
+        });
+    }
+    registry
+}
+
+#[specforge_test(
+    behavior = "code_actions_for_missing_verify",
+    verify = "verify stub uses allowed_verify_kinds from KindRegistry"
+)]
+fn the_verify_stub_uses_the_kinds_first_allowed_verify_kind() {
+    let p = compile(
+        SOFTWARE,
+        &[(
+            "a.spec",
+            "invariant unique_ids \"U\" {\n  guarantee \"g\"\n}\nfeature untestable \"F\" {\n}\n",
+        )],
+    );
+    let registries = RegistryBuild {
+        kinds: verifiable(&["invariant"], &["property", "unit"]),
+        ..RegistryBuild::default()
+    };
+    let recorded = RecordedCoverage::default();
+    let fixes = with_registries(&p, &registries, &recorded).fixes(&[], &FixQuery::default());
+    assert_eq!(
+        titles(&fixes),
+        ["Add verify stub for unique_ids"],
+        "a feature takes none"
+    );
+    assert_eq!(
+        fixes[0].edits[0].new_text,
+        "  verify property \"unique_ids — TODO\"\n"
+    );
+}
+
+#[specforge_test(
+    behavior = "code_actions_for_missing_verify",
+    verify = "stub format is verify <kind> entity_id TODO"
+)]
+fn the_verify_stub_names_the_entity_and_todo() {
+    let p = compile(TESTING, &[("flows.spec", UNTESTED)]);
+    let stub = fixes_of(&p, &FixQuery::default())
+        .into_iter()
+        .find(|f| f.source == FixSource::AddVerifyStub)
+        .unwrap();
+    assert_eq!(stub.edits[0].new_text, "  verify unit \"first — TODO\"\n");
+}
+
+#[specforge_test(
+    behavior = "code_actions_for_missing_verify",
+    verify = "code action kind is QuickFix"
+)]
+fn the_verify_stub_is_a_quick_fix() {
+    let p = compile(TESTING, &[("flows.spec", UNTESTED)]);
+    let stub = fixes_of(&p, &FixQuery::default())
+        .into_iter()
+        .find(|f| f.source == FixSource::AddVerifyStub)
+        .unwrap();
+    assert_eq!(stub.kind, FixKind::QuickFix);
+    assert_eq!(stub.kind.as_str(), "quickfix");
+    // Its code is the rule that reports an entity without verify
+    // statements, so a code filter finds it.
+    let code = stub
+        .diagnostic_code
+        .clone()
+        .expect("the testing rule's code");
+    let by_code = fixes_of(
+        &p,
+        &FixQuery {
+            code: Some(&code),
+            ..FixQuery::default()
+        },
+    );
+    assert_eq!(titles(&by_code), ["Add verify stub for first"]);
+}
+
+#[specforge_test(
+    behavior = "code_actions_for_missing_verify",
+    verify = "no test source files or application code generated"
+)]
+fn the_verify_stub_edits_only_the_spec_file() {
+    let p = compile(TESTING, &[("flows.spec", UNTESTED)]);
+    for fix in fixes_of(&p, &FixQuery::default()) {
+        for edit in &fix.edits {
+            assert_eq!(edit.span.file, "flows.spec", "{fix:?}");
+        }
+    }
+}
+
+#[specforge_test(
+    behavior = "code_actions_for_missing_verify",
+    verify = "code actions are those whose diagnostic or entity overlaps the requested range"
+)]
+fn fixes_are_those_overlapping_the_range() {
+    let text = "behavior login \"Login\" {\n  contract \"c\"\n  invariants [sesion_limit]\n}\n\n\
+                behavior logout \"Logout\" {\n  contract \"c\"\n}\n";
+    let p = compile(TESTING, &[("limit.spec", LIMIT), ("login.spec", text)]);
+    let at = |start: (usize, usize), end: (usize, usize)| {
+        let range = SourceSpan {
+            file: Sym::new("login.spec"),
+            start_line: start.0,
+            start_col: start.1,
+            end_line: end.0,
+            end_col: end.1,
+        };
+        let query = FixQuery {
+            file: Some("login.spec"),
+            within: Some(&range),
+            ..FixQuery::default()
+        };
+        titles(&fixes_of(&p, &query))
+    };
+    // The reference's line: its fixes and login's verify stub.
+    assert_eq!(
+        at((3, 1), (3, 30)),
+        [
+            "Add verify stub for login",
+            "Create invariant stub for sesion_limit",
+            "Replace with 'session_limit'"
+        ]
+    );
+    // Inside logout: only its verify stub.
+    assert_eq!(at((7, 1), (7, 2)), ["Add verify stub for logout"]);
+    // Between the blocks: nothing.
+    assert!(at((5, 1), (5, 1)).is_empty());
+}
+
+// code_action_create_entity_stub
+
+const DANGLING: &str =
+    "behavior login \"L\" {\n  invariants [session_limit]\n  verify unit \"y\"\n}\n";
+
+fn stub_of(p: &Compiled) -> Fix {
+    fixes_of(p, &FixQuery::default())
+        .into_iter()
+        .find(|f| f.source == FixSource::CreateStub)
+        .unwrap_or_else(|| panic!("no stub: {:?}", titles(&fixes_of(p, &FixQuery::default()))))
+}
+
+#[specforge_test(
+    behavior = "code_action_create_entity_stub",
+    verify = "stub uses correct entity kind from FieldRegistry target_kind"
+)]
+fn the_stub_kind_is_the_fields_target_kind() {
+    let p = compile(TESTING, &[("auth.spec", DANGLING)]);
+    let stub = stub_of(&p);
+    assert_eq!(stub.title, "Create invariant stub for session_limit");
+    assert!(
+        stub.edits[0]
+            .new_text
+            .starts_with("\ninvariant session_limit \"session_limit\" {"),
+        "{stub:?}"
+    );
+}
+
+/// `behavior.invariants` as a reference list targeting `target_kind`.
+fn invariants_field(target_kind: Option<&str>) -> FieldRegistry {
+    let mut fields = FieldRegistry::new();
+    fields.register(FieldRegistryEntry {
+        kind_name: "behavior".into(),
+        field_name: "invariants".into(),
+        description: None,
+        field_type: ManifestFieldType::ReferenceList,
+        source_extension: "@test/ext".into(),
+        edge: None,
+        target_kind: target_kind.map(str::to_string),
+        file_reference: false,
+        required: false,
+        inverse_of: None,
+        normative: false,
+        exempts_obligations: false,
+        headline: false,
+        derived_from: None,
+        proof_role: None,
+    });
+    fields
+}
+
+#[specforge_test(
+    behavior = "code_action_create_entity_stub",
+    verify = "no code action when enclosing field has no target_kind"
+)]
+fn no_stub_without_a_target_kind() {
+    let p = compile(TESTING, &[("auth.spec", DANGLING)]);
+    let diagnostics = p.project.diagnostics();
+    let recorded = RecordedCoverage::default();
+    let untargeted = RegistryBuild {
+        fields: invariants_field(None),
+        ..RegistryBuild::default()
+    };
+    let fixes =
+        with_registries(&p, &untargeted, &recorded).fixes(&diagnostics, &FixQuery::default());
+    assert!(
+        fixes.iter().all(|f| f.source != FixSource::CreateStub),
+        "{:?}",
+        titles(&fixes)
+    );
+    let targeted = RegistryBuild {
+        fields: invariants_field(Some("invariant")),
+        ..RegistryBuild::default()
+    };
+    let fixes = with_registries(&p, &targeted, &recorded).fixes(&diagnostics, &FixQuery::default());
+    assert!(fixes.iter().any(|f| f.source == FixSource::CreateStub));
+}
+
+#[specforge_test(
+    behavior = "code_action_create_entity_stub",
+    verify = "stub is inserted at end of current file"
+)]
+fn the_stub_is_appended_to_the_file() {
+    let p = compile(TESTING, &[("auth.spec", DANGLING)]);
+    let stub = stub_of(&p);
+    assert_eq!(stub.edits.len(), 1);
+    assert_eq!(
+        at(&stub.edits[0].span),
+        "auth.spec 5:1-5:1",
+        "the end of the file"
+    );
+    let edited = apply(DANGLING, &stub.edits);
+    assert!(edited.starts_with(DANGLING));
+    let parsed = specforge_parser::parse(&edited, "auth.spec");
+    assert!(parsed.errors.is_empty(), "{:?}", parsed.errors);
+    assert_eq!(parsed.entities.len(), 2);
+}
+
+#[specforge_test(
+    behavior = "code_action_create_entity_stub",
+    verify = "code action kind is Refactor"
+)]
+fn the_stub_is_a_refactoring() {
+    let p = compile(TESTING, &[("auth.spec", DANGLING)]);
+    assert_eq!(stub_of(&p).kind, FixKind::Refactor);
+}
+
+#[specforge_test(
+    behavior = "code_action_create_entity_stub",
+    verify = "generated stub contains no application code or test files"
+)]
+fn the_stub_is_a_bare_block() {
+    let p = compile(TESTING, &[("auth.spec", DANGLING)]);
+    let stub = stub_of(&p);
+    assert_eq!(
+        stub.edits[0].new_text,
+        "\ninvariant session_limit \"session_limit\" {\n  // TODO: fill in fields\n}\n"
+    );
+    assert!(stub.edits.iter().all(|e| e.span.file == "auth.spec"));
+}
+
+/// An E003 at `span` whose message says nothing a parser could use: only
+/// its data names the reference.
+fn reworded_e003(span: SourceSpan, data: Option<DiagnosticData>) -> Diagnostic {
+    let mut diagnostic =
+        Diagnostic::error("E003", "this wording is not a contract").with_span(span);
+    diagnostic.data = data.map(Box::new);
+    diagnostic
+}
+
+fn unresolved(target: &str, entity: &str, field: &str, close: Option<&str>) -> DiagnosticData {
+    DiagnosticData::UnresolvedReference {
+        target: target.into(),
+        entity: entity.into(),
+        field: field.into(),
+        did_you_mean: close.map(String::from),
+    }
+}
+
+#[specforge_test(
+    behavior = "code_action_create_entity_stub",
+    verify = "the stub is read from the diagnostic's data, whatever its message says"
+)]
+fn the_stub_reads_target_entity_and_field_from_the_data() {
+    let p = compile(TESTING, &[("auth.spec", DANGLING)]);
+    let token = span("auth.spec", (2, 15), (2, 28));
+    let data = unresolved("session_limit", "login", "invariants", None);
+    // Twice: one stub per target.
+    let reworded = [
+        reworded_e003(token.clone(), Some(data.clone())),
+        reworded_e003(token.clone(), Some(data)),
+    ];
+    let fixes = p.navigator().fixes(&reworded, &FixQuery::default());
+    let stubs: Vec<&Fix> = fixes
+        .iter()
+        .filter(|f| f.source == FixSource::CreateStub)
+        .collect();
+    assert_eq!(stubs.len(), 1);
+    assert_eq!(stubs[0].title, "Create invariant stub for session_limit");
+
+    // The diagnostic as text alone, in the compiler's wording: no stub.
+    let mut text_only = reworded_e003(token, None);
+    text_only.message = "unresolved reference 'session_limit' in entity 'login'".into();
+    let fixes = p.navigator().fixes(&[text_only], &FixQuery::default());
+    assert!(fixes.iter().all(|f| f.source != FixSource::CreateStub));
+}
+
+#[test]
+fn no_stub_for_a_target_that_exists() {
+    let p = compile(TESTING, &[("auth.spec", DANGLING), ("limit.spec", LIMIT)]);
+    let stale = reworded_e003(
+        span("auth.spec", (2, 15), (2, 28)),
+        Some(unresolved("session_limit", "login", "invariants", None)),
+    );
+    let fixes = p.navigator().fixes(&[stale], &FixQuery::default());
+    assert!(fixes.iter().all(|f| f.source != FixSource::CreateStub));
+}
+
+// code_action_replace_unresolved
+
+#[specforge_test(
+    behavior = "code_action_replace_unresolved",
+    verify = "an unresolved reference with a close match is replaced at its token"
+)]
+fn a_close_match_replaces_the_unresolved_token() {
+    let p = nav();
+    let query = FixQuery {
+        code: Some("E003"),
+        ..FixQuery::default()
+    };
+    let fix = fixes_of(&p, &query)
+        .into_iter()
+        .find(|f| f.source == FixSource::ReplaceUnresolved)
+        .unwrap();
+    assert_eq!(fix.title, "Replace with 'session_limit'");
+    assert_eq!(fix.kind, FixKind::QuickFix);
+    assert_eq!(fix.edits.len(), 1);
+    assert_eq!(at(&fix.edits[0].span), "login.spec 6:15-6:27");
+    assert_eq!(fix.edits[0].new_text, "session_limit");
+    assert_eq!(
+        apply(LOGIN, &fix.edits),
+        LOGIN.replace("[sesion_limit]", "[session_limit]")
+    );
+    // A token like it, x_sesion_limit, is never hit: the span is the token.
+}
+
+#[specforge_test(
+    behavior = "code_action_replace_unresolved",
+    verify = "an unresolved import with a close match is replaced inside its quotes"
+)]
+fn a_close_match_replaces_the_unresolved_import_inside_its_quotes() {
+    let p = compile(
+        SOFTWARE,
+        &[
+            ("auth.spec", "behavior auth \"A\" {\n  contract \"c\"\n}\n"),
+            ("main.spec", "use \"autth\"\n"),
+        ],
+    );
+    let fixes = fixes_of(
+        &p,
+        &FixQuery {
+            code: Some("E025"),
+            ..FixQuery::default()
+        },
+    );
+    assert_eq!(fixes.len(), 1, "{:?}", titles(&fixes));
+    let edit = &fixes[0].edits[0];
+    assert_eq!(at(&edit.span), "main.spec 1:6-1:11", "inside the quotes");
+    assert_eq!(apply("use \"autth\"\n", &fixes[0].edits), "use \"auth\"\n");
+}
+
+#[specforge_test(
+    behavior = "code_action_replace_unresolved",
+    verify = "the replacement is read from the diagnostic's data, whatever its message says"
+)]
+fn the_replacement_is_read_from_the_data() {
+    let p = nav();
+    let token = span("login.spec", (6, 15), (6, 27));
+    let reworded = reworded_e003(
+        token.clone(),
+        Some(unresolved(
+            "sesion_limit",
+            "logout",
+            "invariants",
+            Some("session_limit"),
+        )),
+    );
+    let fixes = p.navigator().fixes(&[reworded], &FixQuery::default());
+    let replace: Vec<&Fix> = fixes
+        .iter()
+        .filter(|f| f.source == FixSource::ReplaceUnresolved)
+        .collect();
+    assert_eq!(replace.len(), 1);
+    assert_eq!(replace[0].edits[0].new_text, "session_limit");
+
+    // Its message and suggestion alone offer nothing.
+    let mut text_only = reworded_e003(token, None);
+    text_only.message = "unresolved reference 'sesion_limit' in entity 'logout'".into();
+    text_only.suggestion = Some("did you mean 'session_limit'?".into());
+    assert!(
+        p.navigator()
+            .fixes(&[text_only], &FixQuery::default())
+            .is_empty()
+    );
+}

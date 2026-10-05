@@ -12,6 +12,7 @@
 
 mod attribution;
 mod find;
+mod fixes;
 mod occurrences;
 mod text;
 
@@ -29,6 +30,7 @@ pub use find::{
     EntityMatch, EntityQuery, FUZZY_THRESHOLD, MatchScope, MatchedOn, Tier, find_entities, snippet,
     within_fuzzy_threshold,
 };
+pub use fixes::{Fix, FixKind, FixQuery, FixSource, TextEdit};
 pub use occurrences::{Definition, Direction, Occurrence, Precision, ReferenceQuery, Role};
 
 use text::SourceText;

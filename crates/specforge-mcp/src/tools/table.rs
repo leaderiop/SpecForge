@@ -554,7 +554,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     },
     ToolSpec {
         name: "specforge.suggest_fixes",
-        description: "Get suggested fixes for diagnostics",
+        description: "The fixes the LSP offers as code actions for the project's diagnostics and entities, each with its edits",
         category: Category::Navigation,
         access: Access::ReadOnly,
         schema: || {

@@ -287,6 +287,7 @@ constraint lsp_responsiveness "LSP Responsiveness" {
     complete_keywords,
     goto_import_definition,
     code_action_create_entity_stub,
+    code_action_replace_unresolved,
     incremental_document_sync,
   ]
   protects    [incremental_correctness]

@@ -11,14 +11,18 @@ use tower_lsp::{Client, LanguageServer};
 use specforge_project::{CheckMode, ProjectSession, SourceChange, UpdateKind};
 use specforge_registry::KindRegistry;
 
-use crate::navigation::{byte_position, file_content, location, navigator, range, uri_of};
+use crate::navigation::{
+    byte_position, file_content, fix_to_code_action, location, navigator, range, span_of_range,
+    uri_of,
+};
 use crate::{
-    LspState, classify_tokens, code_actions_create_stubs, code_actions_from_diagnostics,
-    code_actions_missing_verify, complete_keywords, cursor_context, document_symbols,
+    LspState, classify_tokens, complete_keywords, cursor_context, document_symbols,
     goto_import_definition, hover_field_info, hover_info_with_registries, server_capabilities,
     server_info, source_span_to_lsp_range, source_span_to_lsp_range_with_text,
 };
-use specforge_ops::navigate::{Direction, EntityQuery, MatchScope, ReferenceQuery, find_entities};
+use specforge_ops::navigate::{
+    Direction, EntityQuery, FixQuery, MatchScope, ReferenceQuery, find_entities,
+};
 
 use crate::formatting::{EditorOptions, format_document, format_document_range};
 
@@ -1381,99 +1385,31 @@ impl LanguageServer for Backend {
         }))
     }
 
+    /// The fixes for what the request's range covers: the diagnostics
+    /// published for the document whose span overlaps it, and the
+    /// entities there missing verify statements (ADR 0016: the fixes MCP
+    /// suggest_fixes returns for the same diagnostics).
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
         let uri = params.text_document.uri;
         let state = self.state.read().await;
-        let file_path = key_of(&state, &uri);
-        let content = file_content(&state, &file_path);
-
-        let mut actions =
-            code_actions_missing_verify(state.graph(), &file_path, state.kind_registry());
-
-        // C4-09: E003/E025 diagnostics with a did-you-mean suggestion
-        // become one-tap rename quickfixes.
-        let file_diags = state.diagnostics(uri.as_str()).to_vec();
-        if let Some(text) = &content {
-            actions.extend(code_actions_from_diagnostics(&file_diags, text));
-        }
-
-        // An unresolved reference to an id that exists nowhere: a stub of
-        // the kind its field targets.
-        actions.extend(code_actions_create_stubs(
-            &file_diags,
-            state.graph(),
-            state.field_registry(),
-            &file_path,
-        ));
-
-        if actions.is_empty() {
+        let file = key_of(&state, &uri);
+        let within =
+            file_content(&state, &file).map(|content| span_of_range(&content, &file, params.range));
+        let query = FixQuery {
+            file: Some(&file),
+            within: within.as_ref(),
+            ..FixQuery::default()
+        };
+        let fixes = navigator(&state).fixes(state.diagnostics(uri.as_str()), &query);
+        if fixes.is_empty() {
             return Ok(None);
         }
-
-        let lsp_actions: Vec<CodeActionOrCommand> = actions
-            .into_iter()
-            .map(|a| {
-                let file_uri = uri_of(&state, &a.file);
-                // usize::MAX appends after the file's last line.
-                let appended = a.insert_line == usize::MAX;
-                let line_idx = if appended {
-                    content.as_deref().map_or(0, |c| c.lines().count())
-                } else {
-                    a.insert_line.saturating_sub(1)
-                };
-                let (start_char, end_char) = match a.replace_cols {
-                    Some((s, e)) => {
-                        let line_text = content
-                            .as_deref()
-                            .and_then(|c| c.lines().nth(line_idx))
-                            .unwrap_or("");
-                        (
-                            byte_col_to_utf16(line_text, s) as u32,
-                            byte_col_to_utf16(line_text, e) as u32,
-                        )
-                    }
-                    None => (0, 0),
-                };
-                let mut changes = std::collections::HashMap::new();
-                changes
-                    .entry(file_uri)
-                    .or_insert_with(Vec::new)
-                    .push(TextEdit {
-                        range: Range {
-                            start: Position {
-                                line: line_idx as u32,
-                                character: start_char,
-                            },
-                            end: Position {
-                                line: line_idx as u32,
-                                character: end_char,
-                            },
-                        },
-                        new_text: if a.replace_cols.is_some() {
-                            a.edit_text
-                        } else if appended {
-                            format!("\n{}\n", a.edit_text)
-                        } else {
-                            format!("{}\n", a.edit_text)
-                        },
-                    });
-                CodeActionOrCommand::CodeAction(tower_lsp::lsp_types::CodeAction {
-                    title: a.title,
-                    kind: Some(if a.action_kind == "refactor" {
-                        CodeActionKind::REFACTOR
-                    } else {
-                        CodeActionKind::QUICKFIX
-                    }),
-                    edit: Some(WorkspaceEdit {
-                        changes: Some(changes),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                })
-            })
-            .collect();
-
-        Ok(Some(lsp_actions))
+        Ok(Some(
+            fixes
+                .into_iter()
+                .map(|fix| CodeActionOrCommand::CodeAction(fix_to_code_action(&state, fix)))
+                .collect(),
+        ))
     }
 
     async fn document_symbol(

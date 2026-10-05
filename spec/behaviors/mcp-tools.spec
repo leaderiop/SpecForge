@@ -619,15 +619,20 @@ behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {
     diagnostic_code? (optional). When all three parameters are omitted, the
     system MUST return all fix suggestions for the current project. The tool
     MUST return applicable fix suggestions as McpFixSuggestion items, each
-    including a title, edit operations, and the diagnostic it resolves. LSP equivalence: this tool mirrors
-    textDocument/codeAction, returning the same quick-fix suggestions an IDE
-    offers but over the MCP transport. Fix suggestions derive from extension
-    validation rules — the core does not hardcode any fix patterns. A clean
-    entity with no diagnostics MUST return an empty list.
+    including a title, edit operations, and the diagnostic it resolves.
+    LSP equivalence: this tool mirrors textDocument/codeAction, returning
+    the same quick-fix suggestions an IDE offers but over the MCP
+    transport. Each suggestion is a fix the LSP offers as a code action for
+    the same diagnostic or entity, with the same title and the same edits
+    (file_path, range, new_text); a diagnostic whose data names no fix
+    contributes none (its suggestion text stays on the diagnostic). Fixes
+    read the diagnostic's data, never its message. A clean entity with no
+    diagnostics MUST return an empty list.
   """
   verify unit "specforge.suggest_fixes returns applicable fix suggestions"
   verify unit "clean entity with no diagnostics returns empty list"
   verify unit "diagnostic_code filter restricts to matching diagnostics"
+  verify integration "every suggestion carries the edits the LSP's code action applies"
   verify contract "Provide MCP Suggest Fixes Tool: MCP suggest fixes tool holds — graph_available, fixes_returned, empty_for_clean, tool_invoked_emitted"
 }
 

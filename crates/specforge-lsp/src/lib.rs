@@ -1,6 +1,5 @@
 pub mod backend;
 mod capabilities;
-mod code_actions;
 mod completion;
 mod document;
 pub mod formatting;
@@ -12,10 +11,6 @@ mod symbols;
 pub mod watchers;
 
 pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};
-pub use code_actions::{
-    CodeAction, code_action_create_stub, code_actions_create_stubs, code_actions_from_diagnostics,
-    code_actions_missing_verify,
-};
 pub use completion::{CursorContext, complete_field_names, complete_keywords, cursor_context};
 pub use completion::{enclosing_block, enclosing_entity_kind, field_snippet, keyword_snippet};
 pub use document::DocumentBuffer;

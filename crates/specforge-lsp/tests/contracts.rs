@@ -746,19 +746,71 @@ async fn client_without_refresh_support_never_gets_token_refresh() {
     verify = "Code Action: Create Entity Stub: create entity stub holds — graph_available, field_registry_available, stub_created, kind_inferred, no_code_generated"
 )]
 fn code_action_create_entity_stub_contract() {
-    // Requires: missing entity ID + target kind from FieldRegistry
-    // Ensures: stub with correct kind inserted in current file; None without target_kind
-    let action =
-        specforge_lsp::code_action_create_stub("missing_event", Some("event"), "current.spec");
-    let action = action.expect("entity stub must be created with target_kind");
+    // Requires: an E003 for an id no entity has + the enclosing field's
+    // target kind in the FieldRegistry
+    // Ensures: a refactoring that appends a bare stub of that kind to the
+    // current file; none without a target kind
+    let text = "behavior login \"L\" {\n  invariants [missing_inv]\n}\n";
+    let state = buffers(&[("/p/auth.spec", text)]);
+    let diagnostics = state.session().unwrap().diagnostics();
+    let recorded = specforge_project::coverage::RecordedCoverage::default();
+    let fixes_with = |target_kind: Option<&str>| {
+        let registries = specforge_registry::RegistryBuild {
+            fields: invariants_field(target_kind),
+            ..Default::default()
+        };
+        let view =
+            specforge_ops::view::ProjectView::new(state.graph(), &registries, None, &recorded);
+        let nav = specforge_ops::navigate::Navigator::new(view, |_: &str| Some(text.to_string()));
+        nav.fixes(&diagnostics, &specforge_ops::navigate::FixQuery::default())
+    };
+
+    let fixes = fixes_with(Some("invariant"));
+    let stub = fixes
+        .iter()
+        .find(|f| f.kind == specforge_ops::navigate::FixKind::Refactor)
+        .expect("entity stub must be created with target_kind");
+    assert_eq!(stub.title, "Create invariant stub for missing_inv");
+    let edit = &stub.edits[0];
     assert!(
-        action.edit_text.contains("event missing_event"),
+        edit.new_text.contains("invariant missing_inv"),
         "stub must use correct kind and ID"
     );
-    assert_eq!(action.file, "current.spec", "stub must target current file");
+    assert_eq!(
+        edit.span.file, "/p/auth.spec",
+        "stub must target current file"
+    );
+    assert!(!edit.new_text.contains("fn "), "no application code");
 
-    let no_kind = specforge_lsp::code_action_create_stub("unknown", None, "current.spec");
-    assert!(no_kind.is_none(), "must return None without target_kind");
+    assert!(
+        fixes_with(None)
+            .iter()
+            .all(|f| f.kind != specforge_ops::navigate::FixKind::Refactor),
+        "no stub without target_kind"
+    );
+}
+
+/// `behavior.invariants` as a reference list targeting `target_kind`.
+fn invariants_field(target_kind: Option<&str>) -> specforge_registry::FieldRegistry {
+    let mut fields = specforge_registry::FieldRegistry::new();
+    fields.register(specforge_registry::FieldRegistryEntry {
+        kind_name: "behavior".into(),
+        field_name: "invariants".into(),
+        description: None,
+        field_type: specforge_registry::ManifestFieldType::ReferenceList,
+        source_extension: "@test/ext".into(),
+        edge: None,
+        target_kind: target_kind.map(str::to_string),
+        file_reference: false,
+        required: false,
+        inverse_of: None,
+        normative: false,
+        exempts_obligations: false,
+        headline: false,
+        derived_from: None,
+        proof_role: None,
+    });
+    fields
 }
 
 // B:code_actions_for_missing_verify — verify contract "requires/ensures consistency for missing verify code actions"
@@ -796,29 +848,37 @@ fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::Kind
 fn code_actions_for_missing_verify_contract() {
     // Requires: testable entity without verify statements
     // Ensures: quickfix code action with verify stub targeting the .spec file
-    let mut g = Graph::new();
-    g.add_node(node_at("my_behavior", "behavior", "a.spec", 5, 0));
-
-    let actions =
-        specforge_lsp::code_actions_missing_verify(&g, "a.spec", &verifiable(&["behavior"], &[]));
+    let text = "\n\n\n\nbehavior my_behavior \"B\" {\n  contract \"c\"\n}\n";
+    let state = buffers(&[("/p/a.spec", text)]);
+    let registries = specforge_registry::RegistryBuild {
+        kinds: verifiable(&["behavior"], &[]),
+        ..Default::default()
+    };
+    let recorded = specforge_project::coverage::RecordedCoverage::default();
+    let view = specforge_ops::view::ProjectView::new(state.graph(), &registries, None, &recorded);
+    let nav = specforge_ops::navigate::Navigator::new(view, |_: &str| Some(text.to_string()));
+    let fixes = nav.fixes(&[], &specforge_ops::navigate::FixQuery::default());
 
     assert!(
-        !actions.is_empty(),
+        !fixes.is_empty(),
         "untested testable entity must produce code action"
     );
-    assert_eq!(actions[0].entity_id, "my_behavior");
+    assert_eq!(fixes[0].subject, Some("my_behavior".into()));
     assert_eq!(
-        actions[0].action_kind, "quickfix",
+        fixes[0].kind,
+        specforge_ops::navigate::FixKind::QuickFix,
         "must be quickfix action"
     );
+    let edit = &fixes[0].edits[0];
     assert!(
-        actions[0].edit_text.contains("verify unit"),
+        edit.new_text.contains("verify unit"),
         "stub must include verify statement"
     );
     assert!(
-        actions[0].file.ends_with(".spec"),
+        edit.span.file.as_str().ends_with(".spec"),
         "edit must target .spec file"
     );
+    assert_eq!(edit.span.start_line, 7, "before the block's closing brace");
 }
 
 // B:go_to_definition — verify contract "requires/ensures consistency for go-to-definition"

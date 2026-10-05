@@ -2619,7 +2619,12 @@ fn mcp_tool_suggest_fixes_returns_array() {
     let fixes = broken.as_array().expect("array");
     assert_eq!(fixes.len(), 1, "{broken}");
     assert_eq!(fixes[0]["diagnostic_code"], "E003", "{broken}");
-    assert_eq!(fixes[0]["title"], "did you mean 'alpha'?", "{broken}");
+    // The LSP's title, and the edit that applies it: the token.
+    assert_eq!(fixes[0]["title"], "Replace with 'alpha'", "{broken}");
+    let edits = fixes[0]["edits"].as_array().expect("edits");
+    assert_eq!(edits.len(), 1, "{broken}");
+    assert_eq!(edits[0]["new_text"], "alpha", "{broken}");
+    assert_eq!(edits[0]["file_path"], "main.spec", "{broken}");
 }
 
 #[test]

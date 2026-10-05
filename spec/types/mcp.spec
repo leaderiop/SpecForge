@@ -192,9 +192,14 @@ type McpOutlineEntry {
 }
 
 type McpFixSuggestion {
+  /// The LSP code action's title, e.g. "Replace with 'session_limit'".
   title           string
+  /// "quickfix" or "refactor".
   kind            string
   diagnostic_code string @optional
+  /// The entity the fix is about.
+  entity_id       string @optional
+  /// At least one: what applying the fix changes.
   edits           TextEdit[]
   verify unit "McpFixSuggestion schema is valid"
 }

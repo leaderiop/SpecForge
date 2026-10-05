@@ -642,12 +642,6 @@ const CASES: &[Case] = &[
 /// none may be added to excuse a regression.
 const EXPECTED_DIVERGENCES: &[Divergence] = &[
     Divergence {
-        id: "N11",
-        case: "fixes_for_the_unresolved_reference",
-        surface: Surface::Mcp,
-        today: &["did you mean 'session_limit'? quickfix -"],
-    },
-    Divergence {
         id: "N13",
         case: "outline_of_a_file",
         surface: Surface::Lsp,
@@ -1046,6 +1040,44 @@ fn search_ranks_as_workspace_symbols_and_completion() {
         json!({"query": "session_limit", "kinds": ["invariant"]}),
     );
     assert_eq!(search_ids(&mcp), labels);
+}
+
+/// MCP suggest_fixes returns the fixes the LSP offers as code actions for
+/// the same file, each with the same title, kind and edits.
+#[specforge_test(
+    behavior = "provide_mcp_suggest_fixes_tool",
+    verify = "every suggestion carries the edits the LSP's code action applies"
+)]
+fn suggest_fixes_carries_the_code_actions_edits() {
+    let nav = project("nav");
+    let testing = project_of(
+        &["@specforge/software", "@specforge/testing"],
+        &[
+            (
+                "limit.spec",
+                "invariant session_limit \"Limit\" {\n  guarantee \"x\"\n}\n",
+            ),
+            (
+                "flows.spec",
+                "behavior login \"Login\" {\n  contract \"c\"\n  invariants [sesion_limit]\n}\n\nbehavior audit \"Audit\" { contract \"c\" }\n",
+            ),
+        ],
+    );
+    for (p, file, lines) in [(&nav, "login.spec", 8), (&testing, "flows.spec", 7)] {
+        let lsp = lsp_request(
+            p,
+            "textDocument/codeAction",
+            json!({
+                "textDocument": {"uri": p.uri(file)},
+                "range": {"start": {"line": 0, "character": 0}, "end": {"line": lines, "character": 0}},
+                "context": {"diagnostics": []},
+            }),
+        );
+        let mcp = mcp_tool(p, "specforge.suggest_fixes", json!({"file_path": file}));
+        let actions = lsp_actions(p, &lsp);
+        assert!(!actions.is_empty(), "{file}: no fixes to compare");
+        assert_eq!(mcp_fixes(&mcp), actions, "{file}");
+    }
 }
 
 /// Every row names a case the harness runs, a surface the case answers
