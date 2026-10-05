@@ -1,9 +1,11 @@
 //! Which entities belong to a file: the file rule (`match_file`) prompts
-//! and tools share, and the outline of a spec file the LSP's document
+//! and tools share, the entities anchored to a source file
+//! (`anchors_of_file`), and the outline of a spec file the LSP's document
 //! symbols and MCP's `specforge.outline` both answer.
 
+use specforge_common::inference::anchors::{AnchorManifest, SourceAnchor};
 use specforge_common::{SourceSpan, Sym};
-use specforge_graph::{Graph, Node};
+use specforge_graph::Node;
 
 use super::Navigator;
 use super::text::TokenKind;
@@ -49,35 +51,38 @@ pub fn match_file(query: &str, file: &str) -> FileMatch {
     FileMatch::None
 }
 
-/// The entities a file query finds, and how they matched.
+/// The anchors a source-file query finds, and how they matched.
 #[derive(Debug, Clone)]
-pub struct FileEntities<'g> {
-    /// [`FileMatch::Exact`] when some entity's file is the query;
+pub struct FileAnchors<'m> {
+    /// [`FileMatch::Exact`] when some anchor's file is the query;
     /// otherwise [`FileMatch::Under`] when one is under it, else
     /// [`FileMatch::Suffix`]; [`FileMatch::None`] when none matches.
     pub mode: FileMatch,
-    /// Sorted by id.
-    pub entities: Vec<&'g Node>,
+    /// In manifest order.
+    pub anchors: Vec<&'m SourceAnchor>,
 }
 
-/// The entities of the files `query` names: the tightest non-empty mode
-/// wins, exact matches, else those under the query or ending with it.
-pub fn entities_of_file<'g>(graph: &'g Graph, query: &str) -> FileEntities<'g> {
+/// Which entities belong to the source files `query` names: the anchors
+/// manifest's anchors in them, under [`match_file`]. The tightest
+/// non-empty mode wins: exact matches, else those under the query or
+/// ending with it. The MCP `specforge.find_spec_for_source` tool and the
+/// infer prompt's file scope give this one answer.
+pub fn anchors_of_file<'m>(manifest: &'m AnchorManifest, query: &str) -> FileAnchors<'m> {
     let mut exact = Vec::new();
     let mut loose = Vec::new();
     let mut under = false;
-    for node in graph.nodes() {
-        match match_file(query, node.source_span.file.as_str()) {
-            FileMatch::Exact => exact.push(node),
+    for anchor in &manifest.anchors {
+        match match_file(query, &anchor.file) {
+            FileMatch::Exact => exact.push(anchor),
             FileMatch::Under => {
                 under = true;
-                loose.push(node);
+                loose.push(anchor);
             }
-            FileMatch::Suffix => loose.push(node),
+            FileMatch::Suffix => loose.push(anchor),
             FileMatch::None => {}
         }
     }
-    let (mode, entities) = if !exact.is_empty() {
+    let (mode, anchors) = if !exact.is_empty() {
         (FileMatch::Exact, exact)
     } else if loose.is_empty() {
         (FileMatch::None, loose)
@@ -86,7 +91,7 @@ pub fn entities_of_file<'g>(graph: &'g Graph, query: &str) -> FileEntities<'g> {
     } else {
         (FileMatch::Suffix, loose)
     };
-    FileEntities { mode, entities }
+    FileAnchors { mode, anchors }
 }
 
 /// One entity of a file's outline.

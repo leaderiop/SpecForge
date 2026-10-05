@@ -1047,7 +1047,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "properties": {
                     "file_path": {
                         "type": "string",
-                        "description": "Relative path to source file"
+                        "description": "Path of the source file, relative to the project root (a directory lists the files under it; a trailing part of a path matches it)"
                     }
                 },
                 "required": ["file_path"]
@@ -1055,7 +1055,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: Some(
-            || json!({ "type": "object", "properties": { "file_path": { "type": "string" }, "entities": { "type": "array" }, "count": { "type": "integer" } }, "required": ["file_path", "entities", "count"] }),
+            || json!({ "type": "object", "properties": { "file_path": { "type": "string" }, "match_mode": { "type": "string", "enum": ["exact", "directory", "suffix_path", "none"] }, "entities": { "type": "array" }, "count": { "type": "integer" } }, "required": ["file_path", "match_mode", "entities", "count"] }),
         ),
         target: TargetSpec::SERVED,
         fields: fields::<find_spec_for_source::Args>,

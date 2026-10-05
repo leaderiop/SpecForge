@@ -1202,7 +1202,7 @@ fn the_replacement_is_read_from_the_data() {
 
 // ── Files: the file rule and the outline ────────────────────────────────
 
-use specforge_ops::navigate::{FileMatch, entities_of_file, match_file, outline};
+use specforge_ops::navigate::{FileMatch, anchors_of_file, match_file, outline};
 
 #[test]
 fn match_file_is_component_wise() {
@@ -1231,38 +1231,61 @@ fn match_file_is_component_wise() {
     assert_eq!(match_file("login.rs", "src/xlogin.rs"), FileMatch::None);
 }
 
+/// An anchors manifest anchoring each `(entity, file)`.
+fn anchored(anchors: &[(&str, &str)]) -> specforge_common::AnchorManifest {
+    specforge_common::AnchorManifest {
+        version: 1,
+        anchors: anchors
+            .iter()
+            .map(|(entity, file)| specforge_common::SourceAnchor {
+                entity_id: entity.to_string(),
+                file: file.to_string(),
+                line: 1,
+                symbol_name: entity.to_string(),
+                item_kind: "fn".into(),
+                scanner: "manual".into(),
+                mapping_strategy: None,
+                confidence: None,
+            })
+            .collect(),
+    }
+}
+
 #[test]
 fn the_tightest_match_wins() {
-    let p = compile(
-        SOFTWARE,
-        &[
-            ("a.spec", "behavior top \"T\" {\n}\n"),
-            ("sub/a.spec", "behavior nested \"N\" {\n}\n"),
-            ("sub/b.spec", "behavior other \"O\" {\n}\n"),
-        ],
-    );
-    let graph = &p.project.graph;
-    let ids = |found: &specforge_ops::navigate::FileEntities| -> Vec<String> {
-        found
-            .entities
-            .iter()
-            .map(|n| n.id.raw.to_string())
-            .collect()
+    let manifest = anchored(&[
+        ("top", "a.rs"),
+        ("nested", "sub/a.rs"),
+        ("other", "sub/b.rs"),
+        ("cache", "src/cache.rs"),
+    ]);
+    let ids = |found: &specforge_ops::navigate::FileAnchors| -> Vec<String> {
+        found.anchors.iter().map(|a| a.entity_id.clone()).collect()
     };
-    let exact = entities_of_file(graph, "a.spec");
+    let exact = anchors_of_file(&manifest, "a.rs");
     assert_eq!(
         (exact.mode, ids(&exact)),
         (FileMatch::Exact, vec!["top".to_string()])
     );
-    let under = entities_of_file(graph, "./sub");
+    // Every spelling of a path is the path.
+    for spelling in ["./a.rs", "a.rs", ".\\a.rs"] {
+        assert_eq!(
+            ids(&anchors_of_file(&manifest, spelling)),
+            ["top"],
+            "{spelling}"
+        );
+    }
+    let under = anchors_of_file(&manifest, "./sub");
     assert_eq!(under.mode, FileMatch::Under);
     assert_eq!(ids(&under), ["nested", "other"]);
-    let suffix = entities_of_file(graph, "b.spec");
+    let suffix = anchors_of_file(&manifest, "b.rs");
     assert_eq!(
         (suffix.mode, ids(&suffix)),
         (FileMatch::Suffix, vec!["other".to_string()])
     );
-    assert_eq!(entities_of_file(graph, "c.spec").mode, FileMatch::None);
+    // A substring is no match (C9-09).
+    assert_eq!(anchors_of_file(&manifest, "e.rs").mode, FileMatch::None);
+    assert_eq!(anchors_of_file(&manifest, "c.rs").mode, FileMatch::None);
 }
 
 #[specforge_test(

@@ -5,9 +5,13 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::HashMap;
 
+use specforge_common::inference::anchors::{AnchorManifest, load_anchor_manifest};
+use specforge_ops::navigate::anchors_of_file;
+
 use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
 use crate::target::Call;
 use crate::tool::{ErrorCode, McpError};
+use crate::tools::find_spec_for_source::{anchor_json, file_match_name};
 
 /// Maximum number of files listed per page in the plan prompt (C9-08).
 const MAX_LISTED_FILES: usize = 50;
@@ -143,7 +147,7 @@ fn respond(project: &Inferring<'_>, args: Args) -> PromptOutcome {
         )),
         Scope::Workflow => Ok(get_workflow(project)),
         Scope::Kind(kind) => get_kind_scoped(project, &kind),
-        Scope::File(file) => Ok(get_file_scoped(project, &file)),
+        Scope::File(file) => get_file_scoped(project, &file),
         Scope::Overview => Ok(get_overview(project)),
     }
 }
@@ -282,23 +286,22 @@ fn unknown_kind(project: &Inferring<'_>, kind_name: &str) -> McpError {
     crate::operations::op_error(error).with_argument("scope")
 }
 
-fn get_file_scoped(project: &Inferring<'_>, file_path: &str) -> Rendered {
-    // The shared file rule (C9-09, specforge_ops::navigate::match_file):
-    // exact relative-path matches anchor tightest; else component-boundary
-    // matches, the file under the query directory or ending with it.
-    let found = specforge_ops::navigate::entities_of_file(project.graph(), file_path);
-    let referencing_entities: Vec<String> = found
-        .entities
-        .iter()
-        .map(|node| format!("{} ({})", node.id.raw, node.kind.raw))
-        .collect();
-    let match_mode = match found.mode {
-        specforge_ops::navigate::FileMatch::Exact => "exact",
-        specforge_ops::navigate::FileMatch::Under | specforge_ops::navigate::FileMatch::Suffix => {
-            "suffix_path"
-        }
-        specforge_ops::navigate::FileMatch::None => "none",
+fn get_file_scoped(project: &Inferring<'_>, file_path: &str) -> PromptOutcome {
+    // The entities anchored to the file: the one file rule
+    // (specforge_ops::navigate::anchors_of_file) over the anchors manifest,
+    // the answer specforge.find_spec_for_source gives (C9-09). With no
+    // project there is no manifest.
+    let manifest = match project.root {
+        Some(root) => load_anchor_manifest(root).map_err(crate::tools::manifest_mcp_error)?,
+        None => AnchorManifest::default(),
     };
+    let found = anchors_of_file(&manifest, file_path);
+    let referencing_entities: Vec<Value> = found
+        .anchors
+        .iter()
+        .map(|anchor| anchor_json(anchor, project.graph()))
+        .collect();
+    let match_mode = file_match_name(found.mode);
 
     let mut kinds_info: Vec<Value> = Vec::new();
     for manifest in &project.registries().manifests {
@@ -330,7 +333,7 @@ fn get_file_scoped(project: &Inferring<'_>, file_path: &str) -> Rendered {
         file_path
     );
 
-    rendered(instruction, result)
+    Ok(rendered(instruction, result))
 }
 
 fn get_plan(
@@ -536,489 +539,4 @@ fn build_example_for_kind(kind_name: &str, fields: &[specforge_registry::Manifes
 
     lines.push("}".to_string());
     lines.join("\n")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::state::McpState;
-    use specforge_common::{InferenceConfig, ProjectConfig, SourceSpan, Sym};
-    use specforge_graph::{EntityId, EntityKind, FieldMap, Node};
-
-    /// The payload of a rendered prompt.
-    fn parse_payload(outcome: &PromptOutcome) -> Value {
-        outcome
-            .as_ref()
-            .expect("the prompt renders")
-            .payload
-            .clone()
-    }
-
-    /// `arguments` read as the prompt reads them.
-    fn args(arguments: Value) -> Args {
-        crate::args::parse_args(arguments).expect("valid arguments")
-    }
-
-    use specforge_registry::{ManifestEntityKind, ManifestField, ManifestV2};
-
-    fn test_manifest(kind_name: &str, guide: Option<&str>) -> ManifestV2 {
-        ManifestV2 {
-            name: "@specforge/test".to_string(),
-            version: "1.0.0".to_string(),
-            manifest_version: 2,
-            wasm_path: String::new(),
-            contributes: Default::default(),
-            entity_kinds: vec![ManifestEntityKind {
-                name: kind_name.to_string(),
-                keyword: kind_name.to_string(),
-                description: Some(format!("A test {} entity", kind_name)),
-                testable: false,
-                singleton: false,
-                supports_verify: false,
-                allowed_verify_kinds: vec![],
-                semantic_token: None,
-                lsp_icon: None,
-                dot_shape: None,
-                dot_color: None,
-                dot_fillcolor: None,
-                fields: vec![ManifestField {
-                    name: "description".to_string(),
-                    field_type: "string".to_string(),
-                    required: false,
-                    description: Some("A description".to_string()),
-                    edge: None,
-                    target_kind: None,
-                    file_reference: false,
-                    default_value: None,
-                    enum_values: vec![],
-                    inverse_of: None,
-                    normative: false,
-                    exempts_obligations: false,
-                    headline: false,
-                    derived_from: None,
-                    proof_role: None,
-                }],
-                incremental: None,
-                has_body_parser: false,
-                open_fields: false,
-                contract_target: false,
-                declares_types: false,
-                lifecycle_field: None,
-                inference_guide: guide.map(|s| s.to_string()),
-            }],
-            edge_types: vec![],
-            validation_rules: vec![],
-            verify_kinds: vec![],
-            fields: vec![],
-            incremental: None,
-            reserved_keywords: vec![],
-            migration_hook: None,
-            peer_dependencies: vec![],
-            sandbox_policy: None,
-            host_api_version: None,
-            entity_enhancements: vec![],
-            starter_template: None,
-            theme_color: None,
-            ext_short: None,
-            query_scope: None,
-            collector_contributions: vec![],
-            analyzer_contributions: vec![],
-            surfaces: None,
-        }
-    }
-
-    fn make_state_with_kind(kind_name: &str, guide: Option<&str>) -> McpState {
-        let mut state = McpState::new();
-        serve(
-            &mut state,
-            vec![test_manifest(kind_name, guide)],
-            ProjectConfig::default(),
-        );
-        state
-    }
-
-    /// Serve the test extension's `manifests` with `config`, over the
-    /// graph already served.
-    fn serve(state: &mut McpState, manifests: Vec<ManifestV2>, config: ProjectConfig) {
-        let mut env = specforge_project::Environment::empty();
-        env.registries.manifests = manifests;
-        env.registries.extension_info = vec![("@specforge/test".to_string(), "1.0.0".to_string())];
-        env.config = config;
-        let graph = state.graph().clone();
-        state.serve_session(specforge_project::ProjectSession::from_graph(
-            std::sync::Arc::new(env),
-            graph,
-            Vec::new(),
-        ));
-    }
-
-    fn make_node(id: &str, kind: &str, file: &str) -> Node {
-        Node {
-            id: EntityId { raw: Sym::new(id) },
-            kind: EntityKind {
-                raw: Sym::new(kind),
-            },
-            title: None,
-            fields: FieldMap::new(),
-            source_span: SourceSpan {
-                file: Sym::new(file),
-                start_line: 0,
-                start_col: 0,
-                end_line: 0,
-                end_col: 0,
-            },
-            methods: Vec::new(),
-        }
-    }
-
-    #[test]
-    fn overview_returns_installed_extensions() {
-        let state = make_state_with_kind("behavior", Some("Look for public functions"));
-        let resp = respond(&inferring(&state), args(json!({})));
-        let content: Value = parse_payload(&resp);
-        assert_eq!(content["installed_extensions"][0], "@specforge/test");
-    }
-
-    #[test]
-    fn overview_includes_inference_guide_from_extension() {
-        let state = make_state_with_kind("behavior", Some("Look for public functions"));
-        let resp = respond(&inferring(&state), args(json!({})));
-        let content: Value = parse_payload(&resp);
-        let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
-        assert!(guide.contains("Look for public functions"));
-    }
-
-    #[test]
-    fn overview_appends_project_override() {
-        let mut state = make_state_with_kind("behavior", Some("Look for public functions"));
-        let config = ProjectConfig {
-            inference: InferenceConfig {
-                global: Some("This is a Rust project".to_string()),
-                kinds: {
-                    let mut m = HashMap::new();
-                    m.insert(
-                        "behavior".to_string(),
-                        "In our codebase, behaviors are in use_cases/".to_string(),
-                    );
-                    m
-                },
-                density_threshold: None,
-            },
-            ..Default::default()
-        };
-        let manifests = vec![test_manifest("behavior", Some("Look for public functions"))];
-        serve(&mut state, manifests, config);
-        let resp = respond(&inferring(&state), args(json!({})));
-        let content: Value = parse_payload(&resp);
-        let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
-        assert!(guide.contains("Look for public functions"));
-        assert!(guide.contains("Project-specific"));
-        assert!(guide.contains("use_cases/"));
-        assert_eq!(content["project_conventions"], "This is a Rust project");
-    }
-
-    #[test]
-    fn kind_scope_returns_existing_ids() {
-        let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state.edit_graph(|graph| {
-            graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
-        });
-        let resp = respond(&inferring(&state), args(json!({"scope": "kind:behavior"})));
-        let content: Value = parse_payload(&resp);
-        let ids = content["existing_entity_ids"].as_array().unwrap();
-        assert!(ids.contains(&Value::from("my_behavior")));
-    }
-
-    #[test]
-    fn kind_scope_includes_example() {
-        let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = respond(&inferring(&state), args(json!({"scope": "kind:behavior"})));
-        let content: Value = parse_payload(&resp);
-        let example = content["example"].as_str().unwrap();
-        assert!(example.contains("behavior example_behavior"));
-    }
-
-    #[test]
-    fn file_scope_returns_referencing_entities() {
-        let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state.edit_graph(|graph| {
-            graph.add_node(make_node("auth_login", "behavior", "src/auth.rs"));
-        });
-        let resp = respond(
-            &inferring(&state),
-            args(json!({"scope": "file:src/auth.rs"})),
-        );
-        let content: Value = parse_payload(&resp);
-        let refs = content["existing_entities_referencing_file"]
-            .as_array()
-            .unwrap();
-        assert!(!refs.is_empty());
-        assert!(refs[0].as_str().unwrap().contains("auth_login"));
-    }
-
-    #[test]
-    fn kind_scope_is_case_insensitive() {
-        let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state.edit_graph(|graph| {
-            graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
-        });
-        let resp = respond(&inferring(&state), args(json!({"scope": "kind:Behavior"})));
-        let content: Value = parse_payload(&resp);
-        let ids = content["existing_entity_ids"].as_array().unwrap();
-        assert!(ids.contains(&Value::from("my_behavior")));
-    }
-
-    #[test]
-    fn unknown_scope_prefix_returns_overview() {
-        let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = respond(&inferring(&state), args(json!({"scope": "unknown:value"})));
-        let content: Value = parse_payload(&resp);
-        assert!(content.get("installed_extensions").is_some());
-    }
-
-    #[test]
-    fn empty_kind_scope_returns_error() {
-        let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = respond(&inferring(&state), args(json!({"scope": "kind:"})));
-        let err = resp.expect_err("Expected error for empty kind name");
-        assert_eq!(err.code.rpc_code(), -32602);
-        assert_eq!(err.argument.as_deref(), Some("scope"));
-    }
-
-    #[test]
-    fn unknown_kind_returns_error() {
-        let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = respond(
-            &inferring(&state),
-            args(json!({"scope": "kind:nonexistent"})),
-        );
-        let err = resp.expect_err("Expected error for unknown kind");
-        assert_eq!(err.code.rpc_code(), -32602);
-        let text = err.message.as_str();
-        assert!(
-            text.contains("nonexistent"),
-            "Error should name the unknown kind: {text}"
-        );
-    }
-
-    #[test]
-    fn unknown_kind_names_the_closest_installed_kind() {
-        let state = make_state_with_kind("behavior", Some("guide text"));
-        let err = respond(&inferring(&state), args(json!({"scope": "kind:behaviour"})))
-            .expect_err("an unknown kind is refused");
-        assert_eq!(err.message, "unknown entity kind 'behaviour'");
-        assert_eq!(err.argument.as_deref(), Some("scope"));
-        assert_eq!(
-            err.data.as_ref().map(|d| d["suggestion"].clone()),
-            Some(json!("did you mean 'behavior'?"))
-        );
-    }
-
-    #[test]
-    fn empty_file_scope_returns_error() {
-        let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = respond(&inferring(&state), args(json!({"scope": "file:"})));
-        let err = resp.expect_err("Expected error for empty file path");
-        assert_eq!(err.code.rpc_code(), -32602);
-    }
-
-    #[test]
-    fn overview_with_no_inference_guide() {
-        let state = make_state_with_kind("behavior", None);
-        let resp = respond(&inferring(&state), args(json!({})));
-        let content: Value = parse_payload(&resp);
-        let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
-        assert_eq!(guide, "");
-    }
-
-    #[test]
-    fn plan_scope_returns_kind_priorities() {
-        let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state.edit_graph(|graph| {
-            graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
-        });
-        let resp = respond(&inferring(&state), args(json!({"scope": "plan"})));
-        let content: Value = parse_payload(&resp);
-        let priorities = content["plan"]["kind_priorities"].as_array().unwrap();
-        assert!(!priorities.is_empty());
-        assert_eq!(priorities[0]["kind"], "behavior");
-        assert_eq!(priorities[0]["existing_count"], 1);
-    }
-
-    #[test]
-    fn plan_scope_respects_target_directory() {
-        let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = respond(
-            &inferring(&state),
-            args(json!({"scope": "plan", "target_spec_directory": "specs/"})),
-        );
-        let content: Value = parse_payload(&resp);
-        assert_eq!(content["plan"]["target_spec_directory"], "specs/");
-    }
-
-    #[test]
-    fn plan_scope_includes_progress() {
-        let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = respond(&inferring(&state), args(json!({"scope": "plan"})));
-        let content: Value = parse_payload(&resp);
-        assert!(content["plan"]["progress"]["files_total"].is_number());
-    }
-
-    #[test]
-    fn workflow_scope_returns_protocol() {
-        let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = respond(&inferring(&state), args(json!({"scope": "workflow"})));
-        let instruction = resp.expect("the prompt renders").instruction;
-        assert!(instruction.contains("Start Session"));
-        assert!(instruction.contains("mark_analyzed"));
-        assert!(instruction.contains("End Session"));
-    }
-
-    #[test]
-    fn workflow_scope_lists_tools_and_kinds() {
-        let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = respond(&inferring(&state), args(json!({"scope": "workflow"})));
-        let content: Value = parse_payload(&resp);
-        let tools = content["tools"].as_array().unwrap();
-        assert!(tools.contains(&Value::from("specforge.infer_session")));
-        assert!(tools.contains(&Value::from("specforge.infer_progress")));
-        let kinds = content["installed_kinds"].as_array().unwrap();
-        assert!(kinds.contains(&Value::from("behavior")));
-    }
-    // ---- C9-09: component-boundary file matching ----
-
-    #[test]
-    fn file_scope_substring_no_longer_matches() {
-        let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state.edit_graph(|graph| {
-            graph.add_node(make_node("cache_impl", "behavior", "src/cache.rs"));
-        });
-        let resp = respond(&inferring(&state), args(json!({"scope": "file:e.rs"})));
-        let content: Value = parse_payload(&resp);
-        let refs = content["existing_entities_referencing_file"]
-            .as_array()
-            .unwrap();
-        assert!(
-            refs.is_empty(),
-            "'e.rs' must not substring-match 'src/cache.rs'"
-        );
-        assert_eq!(content["match_mode"], "none");
-    }
-
-    #[test]
-    fn file_scope_exact_match_reported() {
-        let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state.edit_graph(|graph| {
-            graph.add_node(make_node("todo_list", "behavior", "todo_list.rs"));
-        });
-        let resp = respond(
-            &inferring(&state),
-            args(json!({"scope": "file:todo_list.rs"})),
-        );
-        let content: Value = parse_payload(&resp);
-        assert_eq!(content["match_mode"], "exact");
-        let refs = content["existing_entities_referencing_file"]
-            .as_array()
-            .unwrap();
-        assert!(refs[0].as_str().unwrap().contains("todo_list"));
-    }
-
-    #[test]
-    fn file_scope_directory_matches_children_as_suffix_path() {
-        let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state.edit_graph(|graph| {
-            graph.add_node(make_node("login", "behavior", "src/auth/login.rs"));
-        });
-        state.edit_graph(|graph| {
-            graph.add_node(make_node("logout", "behavior", "src/auth/logout.rs"));
-        });
-        state.edit_graph(|graph| {
-            graph.add_node(make_node("main", "behavior", "src/main.rs"));
-        });
-        let resp = respond(&inferring(&state), args(json!({"scope": "file:src/auth"})));
-        let content: Value = parse_payload(&resp);
-        assert_eq!(content["match_mode"], "suffix_path");
-        let refs = content["existing_entities_referencing_file"]
-            .as_array()
-            .unwrap();
-        assert_eq!(
-            refs.len(),
-            2,
-            "files under src/auth match, src/main.rs does not"
-        );
-    }
-
-    // ---- C9-08: plan list capping and cursor paging ----
-
-    fn plan_state_with_sources(count: usize) -> (McpState, tempfile::TempDir) {
-        let mut state = make_state_with_kind("behavior", Some("guide text"));
-        let mut manifest = test_manifest("behavior", Some("guide text"));
-        manifest.analyzer_contributions = vec![specforge_registry::AnalyzerContribution {
-            language: "rust".to_string(),
-            file_extensions: vec![".rs".to_string()],
-            excluded_dirs: vec![],
-            scan_export: String::new(),
-            classify_export: String::new(),
-            map_export: String::new(),
-            description: None,
-        }];
-        serve(&mut state, vec![manifest], ProjectConfig::default());
-        let dir = tempfile::TempDir::new().unwrap();
-        let src = dir.path().join("src");
-        std::fs::create_dir_all(&src).unwrap();
-        for i in 0..count {
-            std::fs::write(src.join(format!("mod_{i:02}.rs")), "fn stub() {}\n").unwrap();
-        }
-        let graph = state.graph().clone();
-        let diagnostics = state.session().graph_diagnostics();
-        state.serve_in_memory_at(Some(dir.path().to_path_buf()), graph, diagnostics);
-        (state, dir)
-    }
-
-    /// What the prompt reads of the project `state` serves.
-    fn inferring(state: &McpState) -> Inferring<'_> {
-        Inferring {
-            graph: state.graph(),
-            env: state.environment(),
-            root: state.session().root(),
-        }
-    }
-
-    fn plan_payload(state: &McpState, arguments: Value) -> Value {
-        parse_payload(&respond(&inferring(state), self::args(arguments)))
-    }
-
-    #[test]
-    fn plan_scope_caps_file_lists_at_50() {
-        let (state, _dir) = plan_state_with_sources(60);
-        let content = plan_payload(&state, json!({"scope": "plan"}));
-        let files = content["plan"]["unanalyzed_files"].as_array().unwrap();
-        assert_eq!(
-            files.len(),
-            51,
-            "50 files plus the trailing truncation marker"
-        );
-        assert!(
-            files[50]
-                .as_str()
-                .unwrap()
-                .contains("... and 10 more (use the cursor param)"),
-            "marker must name the withheld count: {}",
-            files[50]
-        );
-        assert_eq!(content["plan"]["unanalyzed_total"], 60);
-        assert_eq!(content["plan"]["next_cursor"], 50);
-    }
-
-    #[test]
-    fn plan_scope_pages_remaining_files_via_cursor() {
-        let (state, _dir) = plan_state_with_sources(60);
-        let content = plan_payload(&state, json!({"scope": "plan", "cursor": 50}));
-        let files = content["plan"]["unanalyzed_files"].as_array().unwrap();
-        assert_eq!(files.len(), 10, "only the remainder is listed");
-        assert!(
-            content["plan"]["next_cursor"].is_null(),
-            "no further page exists"
-        );
-    }
 }

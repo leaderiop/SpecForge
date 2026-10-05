@@ -28,7 +28,7 @@ use crate::view::ProjectView;
 
 pub use attribution::{is_about, subjects};
 pub use files::{
-    FileEntities, FileMatch, OutlineEntry, OutlineMethod, entities_of_file, match_file, outline,
+    FileAnchors, FileMatch, OutlineEntry, OutlineMethod, anchors_of_file, match_file, outline,
 };
 pub use find::{
     EntityMatch, EntityQuery, FUZZY_THRESHOLD, MatchScope, MatchedOn, Tier, find_entities, snippet,

@@ -7,7 +7,17 @@ expression: "shape(&reply, dir.path())"
   "instruction": "You are inferring spec entities from the file 'src/login.rs'. The entities listed below already reference this file — do not duplicate them. Use the kind guides to identify new entities.",
   "layout": "turns",
   "payload": {
-    "existing_entities_referencing_file": [],
+    "existing_entities_referencing_file": [
+      {
+        "confidence": null,
+        "entity_id": "alpha",
+        "file": "src/login.rs",
+        "item_kind": "fn",
+        "kind": "behavior",
+        "line": 1,
+        "symbol_name": "login"
+      }
+    ],
     "file": "src/login.rs",
     "kinds": [
       {
@@ -67,7 +77,7 @@ expression: "shape(&reply, dir.path())"
         "kind": "port"
       }
     ],
-    "match_mode": "none",
+    "match_mode": "exact",
     "project_conventions": "",
     "validation": "After writing .spec files, call specforge_validate to check for errors (and specforge_analyze for coverage/contract findings). Fix any errors before proceeding."
   },

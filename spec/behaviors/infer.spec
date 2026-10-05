@@ -312,6 +312,24 @@ behavior provide_infer_workflow_scope "Provide Infer Prompt Workflow Scope" {
   verify unit "workflow documents retry pattern"
 }
 
+behavior provide_infer_file_scope "Provide Infer Prompt File Scope" {
+  features [infer_plan_mode]
+  category mcp
+  ensures {
+    existing_listed "entities that belong to the file are listed so the agent does not duplicate them"
+    one_answer      "the same entities specforge.find_spec_for_source finds for that file"
+  }
+  contract """
+    When specforge://prompts/infer is invoked with scope=file:<path>,
+    list the entities that belong to that source file under the one
+    file rule MCP navigation and the LSP share, with each one's kind,
+    line and symbol, and the kind guides. The list is the one
+    specforge.find_spec_for_source returns for the same path.
+  """
+  verify unit "file scope lists the entities find_spec_for_source finds for the same file"
+  verify unit "an unanchored file lists no existing entities"
+}
+
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
