@@ -166,6 +166,11 @@ impl LspClient {
     }
 
     pub async fn initialize(&mut self, root_uri: Option<&str>) -> Value {
+        self.initialize_with(root_uri, json!({})).await
+    }
+
+    /// Initialize as a client declaring `capabilities`.
+    pub async fn initialize_with(&mut self, root_uri: Option<&str>, capabilities: Value) -> Value {
         let root = root_uri.map(|r| {
             tower_lsp::lsp_types::Url::from_file_path(r)
                 .unwrap()
@@ -174,7 +179,7 @@ impl LspClient {
         let params = json!({
             "processId": null,
             "rootUri": root,
-            "capabilities": {},
+            "capabilities": capabilities,
         });
         self.send_request("initialize", params).await
     }
@@ -260,12 +265,24 @@ impl LspClient {
     }
 
     pub async fn references(&mut self, uri: &str, line: u32, character: u32) -> Value {
+        self.references_with(uri, line, character, true).await
+    }
+
+    /// `textDocument/references`, the declaration included only when
+    /// `include_declaration`.
+    pub async fn references_with(
+        &mut self,
+        uri: &str,
+        line: u32,
+        character: u32,
+        include_declaration: bool,
+    ) -> Value {
         self.send_request(
             "textDocument/references",
             json!({
                 "textDocument": { "uri": uri },
                 "position": { "line": line, "character": character },
-                "context": { "includeDeclaration": true },
+                "context": { "includeDeclaration": include_declaration },
             }),
         )
         .await
@@ -380,6 +397,15 @@ pub async fn start_server(root_uri: Option<&str>) -> LspClient {
 
 /// Start an LSP server and also return the `initialize` response.
 pub async fn start_server_initialized(root_uri: Option<&str>) -> (LspClient, Value) {
+    start_server_with_capabilities(root_uri, json!({})).await
+}
+
+/// Start an LSP server for a client declaring `capabilities`, and return
+/// the `initialize` response.
+pub async fn start_server_with_capabilities(
+    root_uri: Option<&str>,
+    capabilities: Value,
+) -> (LspClient, Value) {
     let (client_to_server, server_stdin) = tokio::io::duplex(1024 * 64);
     let (server_stdout, server_to_client) = tokio::io::duplex(1024 * 64);
 
@@ -398,7 +424,7 @@ pub async fn start_server_initialized(root_uri: Option<&str>) -> (LspClient, Val
         server_task,
     };
 
-    let init = client.initialize(root_uri).await;
+    let init = client.initialize_with(root_uri, capabilities).await;
     client.initialized().await;
 
     (client, init)
@@ -436,6 +462,17 @@ pub async fn start_server_with_extensions_initialized(
     file_name: &str,
     text: &str,
 ) -> (LspClient, String, tempfile::TempDir, Value) {
+    start_server_with_extensions_as(extensions, file_name, text, json!({})).await
+}
+
+/// [`start_server_with_extensions_initialized`] for a client declaring
+/// `capabilities`.
+pub async fn start_server_with_extensions_as(
+    extensions: &[&str],
+    file_name: &str,
+    text: &str,
+    capabilities: Value,
+) -> (LspClient, String, tempfile::TempDir, Value) {
     let dir = tempfile::TempDir::new().unwrap();
     let config = json!({
         "name": "test",
@@ -446,7 +483,7 @@ pub async fn start_server_with_extensions_initialized(
     std::fs::write(dir.path().join(file_name), text).unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let (mut client, init) = start_server_initialized(Some(root)).await;
+    let (mut client, init) = start_server_with_capabilities(Some(root), capabilities).await;
     // Drain the extension-loading log message
     client
         .wait_for_notification("window/logMessage", 5000)

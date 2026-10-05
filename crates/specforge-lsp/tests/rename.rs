@@ -79,32 +79,6 @@ fn rename_edits(g: &Graph, old: &str, new: &str) -> Option<Vec<specforge_lsp::Re
     specforge_lsp::identifier_edits(g, old, new, |f| texts.get(f).cloned())
 }
 
-// -- prepare_rename -----------------------------------------------------------
-
-#[spec(
-    behavior = "prepare_rename",
-    verify = "prepare rename on entity ID returns token range"
-)]
-fn prepare_rename_returns_range() {
-    let g = graph_with_refs();
-    let result = specforge_lsp::prepare_rename(&g, "auth_token");
-    let range = result.expect("should return range");
-    assert_eq!(range.file, "types.spec");
-    assert_eq!(range.start_line, 5);
-    assert_eq!(range.start_col, 5);
-    assert_eq!(range.end_col, 5 + "auth_token".len());
-}
-
-#[spec(
-    behavior = "prepare_rename",
-    verify = "prepare rename on non-renameable token returns not available"
-)]
-fn prepare_rename_returns_none_for_missing() {
-    let g = graph_with_refs();
-    let result = specforge_lsp::prepare_rename(&g, "nonexistent");
-    assert!(result.is_none());
-}
-
 // -- rename_entity_id ---------------------------------------------------------
 
 #[spec(

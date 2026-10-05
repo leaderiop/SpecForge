@@ -104,6 +104,8 @@ async fn init_zero_extensions() {
 
 /// Apply an editor buffer to the state's project session.
 fn edit(state: &mut specforge_lsp::LspState, path: &str, text: &str) {
+    // The buffer is the file's text: what navigation reads.
+    state.open_document(&format!("file://{path}"), text);
     state.session_mut().expect("no update is running").update(
         specforge_project::SourceChange::Buffer {
             path,
@@ -173,12 +175,19 @@ fn lsp_state_holds_graph() {
     let limit = "invariant session_limit \"Limit\" {\n}\n";
     edit(&mut state, "/p/login.spec", LOGIN);
     edit(&mut state, "/p/limit.spec", limit);
-    let def = specforge_lsp::go_to_definition(state.graph(), "session_limit")
+    let nav = specforge_lsp::navigator(&state);
+    let def = nav
+        .definition("session_limit")
         .expect("the session's entity is navigable");
-    assert_eq!(def.file, "/p/limit.spec");
-    let refs = specforge_lsp::find_all_references(state.graph(), "session_limit");
-    let ref_files: Vec<&str> = refs.iter().map(|r| r.file.as_str()).collect();
+    assert_eq!(def.block.file, "/p/limit.spec");
+    let with_declaration = specforge_ops::navigate::ReferenceQuery {
+        include_declaration: true,
+        ..Default::default()
+    };
+    let refs = nav.references("session_limit", with_declaration).unwrap();
+    let ref_files: Vec<&str> = refs.iter().map(|r| r.span.file.as_str()).collect();
     assert_eq!(ref_files, ["/p/limit.spec", "/p/login.spec"]);
+    drop(nav);
 
     // A session fed the same changes, as `specforge watch` feeds its own,
     // builds the same graph and reports the same diagnostics.
@@ -220,13 +229,16 @@ fn graph_update_serves_all_features() {
     );
 
     // The same graph serves go-to-definition
-    let def = specforge_lsp::go_to_definition(state.graph(), "token");
-    assert!(def.is_some(), "go-to-definition must use shared graph");
+    let nav = specforge_lsp::navigator(&state);
+    assert!(
+        nav.definition("token").is_ok(),
+        "go-to-definition must use shared graph"
+    );
 
     // The same graph serves find-all-references
-    let refs = specforge_lsp::find_all_references(state.graph(), "token");
+    let refs = nav.references("token", Default::default()).unwrap();
     assert!(
-        refs.iter().any(|r| r.file == "/p/auth.spec"),
+        refs.iter().any(|r| r.span.file == "/p/auth.spec"),
         "find-all-references must use shared graph: {refs:?}"
     );
 

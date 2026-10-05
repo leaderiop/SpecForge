@@ -386,44 +386,6 @@ fn hover_information_contract() {
     assert!(missing.is_none(), "missing entity must return None");
 }
 
-// B:find_all_references — verify contract "requires/ensures consistency for find all references"
-#[specforge_test(
-    behavior = "find_all_references",
-    verify = "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
-)]
-fn find_all_references_contract() {
-    // Requires: entity in graph with edges from other entities
-    // Ensures: declaration + all reference sites returned
-    let mut g = Graph::new();
-    g.add_node(node_at("auth_token", "type", "types.spec", 10, 5));
-    g.add_node(node_at("login", "behavior", "auth.spec", 5, 9));
-    g.add_node(node_at("refresh", "behavior", "session.spec", 3, 9));
-    g.add_edge(Edge {
-        source: "login".into(),
-        target: "auth_token".into(),
-        label: "types".into(),
-    });
-    g.add_edge(Edge {
-        source: "refresh".into(),
-        target: "auth_token".into(),
-        label: "types".into(),
-    });
-
-    let refs = specforge_lsp::find_all_references(&g, "auth_token");
-
-    assert_eq!(refs.len(), 3, "declaration + 2 reference sites");
-    let files: Vec<&str> = refs.iter().map(|l| l.file.as_str()).collect();
-    assert!(
-        files.contains(&"types.spec"),
-        "must include declaration site"
-    );
-    assert!(files.contains(&"auth.spec"), "must include reference site");
-    assert!(
-        files.contains(&"session.spec"),
-        "must include reference site"
-    );
-}
-
 // B:goto_import_definition — verify contract "requires/ensures consistency for import go-to-definition"
 #[specforge_test(
     behavior = "goto_import_definition",
@@ -809,24 +771,44 @@ fn code_actions_for_missing_verify_contract() {
 )]
 fn go_to_definition_contract() {
     // Requires: graph with resolved entity declarations
-    // Ensures: declaration site (file, line, col) returned for existing entity; None for missing
-    let mut g = Graph::new();
-    g.add_node(node_at("auth_token", "type", "types.spec", 10, 5));
-    g.add_node(node_at("login", "behavior", "auth.spec", 3, 0));
-    g.add_edge(Edge {
-        source: "login".into(),
-        target: "auth_token".into(),
-        label: "types".into(),
-    });
+    // Ensures: the declaration site (file, line, column of the block
+    // header) returned for an existing entity, its name selected; none for
+    // a missing one.
+    let mut state = specforge_lsp::LspState::new();
+    for (path, text) in [
+        ("/p/types.spec", "\n\ntype   auth_token \"Token\" {\n}\n"),
+        (
+            "/p/auth.spec",
+            "behavior login \"L\" {\n  types [auth_token]\n}\n",
+        ),
+    ] {
+        state.open_document(&format!("file://{path}"), text);
+        state
+            .session_mut()
+            .unwrap()
+            .update(specforge_project::SourceChange::Buffer {
+                path,
+                text: Some(text),
+            });
+    }
+    let nav = specforge_lsp::navigator(&state);
 
-    let loc = specforge_lsp::go_to_definition(&g, "auth_token");
-    let loc = loc.expect("existing entity must return declaration site");
-    assert_eq!(loc.file, "types.spec", "must return correct file");
-    assert_eq!(loc.start_line, 10, "must return correct line");
-    assert_eq!(loc.start_col, 5, "must return correct column");
+    let def = nav
+        .definition("auth_token")
+        .expect("existing entity must return declaration site");
+    assert_eq!(def.block.file, "/p/types.spec", "must return correct file");
+    assert_eq!(def.block.start_line, 3, "must return correct line");
+    assert_eq!(def.block.start_col, 1, "must return correct column");
+    assert_eq!(
+        (def.name.start_line, def.name.start_col, def.name.end_col),
+        (3, 8, 18),
+        "the name is selected"
+    );
 
-    let missing = specforge_lsp::go_to_definition(&g, "nonexistent");
-    assert!(missing.is_none(), "missing entity must return None");
+    assert!(
+        nav.definition("nonexistent").is_err(),
+        "missing entity must return nothing"
+    );
 }
 
 // B:incremental_document_sync — verify contract "requires/ensures consistency for incremental document sync"
@@ -931,8 +913,8 @@ fn shared_incremental_pipeline_contract() {
         });
 
     // Graph is shared: navigation works on the same graph instance
-    let def = specforge_lsp::go_to_definition(state.graph(), "a");
-    assert!(def.is_some(), "shared graph must serve navigation");
+    let def = specforge_lsp::navigator(&state).definition("a");
+    assert!(def.is_ok(), "shared graph must serve navigation");
 
     // Diagnostics pushed through the shared state
     state.set_diagnostics("file:///a.spec", vec![]);

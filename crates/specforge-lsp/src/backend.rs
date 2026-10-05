@@ -11,13 +11,15 @@ use tower_lsp::{Client, LanguageServer};
 use specforge_project::{CheckMode, ProjectSession, SourceChange, UpdateKind};
 use specforge_registry::KindRegistry;
 
+use crate::navigation::{byte_position, file_content, location, navigator, range, uri_of};
 use crate::{
     LspState, classify_tokens, code_actions_create_stubs, code_actions_from_diagnostics,
     code_actions_missing_verify, complete_entity_ids, complete_entity_ids_filtered,
-    complete_keywords, cursor_context, document_symbols, find_all_references, go_to_definition,
-    goto_import_definition, hover_field_info, hover_info_with_registries, server_capabilities,
-    server_info, source_span_to_lsp_range, source_span_to_lsp_range_with_text, workspace_symbols,
+    complete_keywords, cursor_context, document_symbols, goto_import_definition, hover_field_info,
+    hover_info_with_registries, server_capabilities, server_info, source_span_to_lsp_range,
+    source_span_to_lsp_range_with_text, workspace_symbols,
 };
+use specforge_ops::navigate::{Direction, ReferenceQuery};
 
 use crate::formatting::{EditorOptions, format_document, format_document_range};
 
@@ -47,6 +49,10 @@ pub struct Backend {
     /// Whether the client declared
     /// `workspace.didChangeWatchedFiles.relativePatternSupport`.
     relative_patterns: Arc<AtomicBool>,
+    /// Whether the client declared `textDocument.definition.linkSupport`:
+    /// then a definition is a `LocationLink` (the block, its name
+    /// selected), else a `Location` at the name.
+    definition_links: Arc<AtomicBool>,
 }
 
 /// A change the project session is asked to apply.
@@ -122,6 +128,7 @@ impl Backend {
             tokens_refresh_support,
             watched,
             relative_patterns: Arc::new(AtomicBool::new(false)),
+            definition_links: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -402,22 +409,9 @@ impl Backend {
     }
 }
 
-/// The URI of a session file key.
-fn uri_of(state: &LspState, key: &str) -> Url {
-    file_path_to_uri(&state.file_path(key).to_string_lossy())
-}
-
 /// The session file key of a document.
 fn key_of(state: &LspState, uri: &Url) -> String {
     state.source_key(&uri_to_file_path(uri))
-}
-
-/// The location of a span of a session file.
-fn location_of(state: &LspState, span: &specforge_common::SourceSpan) -> Location {
-    Location {
-        uri: uri_of(state, span.file.as_str()),
-        range: span_range_for(state, span),
-    }
 }
 
 pub fn source_span_to_location(span: &specforge_common::SourceSpan) -> Location {
@@ -438,37 +432,6 @@ pub fn source_span_to_range(span: &specforge_common::SourceSpan) -> Range {
             line: lsp.end_line,
             character: lsp.end_col,
         },
-    }
-}
-
-/// Resolve the text of a session file: open buffer first, then disk.
-fn file_content(state: &LspState, key: &str) -> Option<String> {
-    let path = state.file_path(key);
-    let uri = file_path_to_uri(&path.to_string_lossy());
-    if let Some(doc) = state.document(uri.as_str()) {
-        return Some(doc.content().to_string());
-    }
-    std::fs::read_to_string(path).ok()
-}
-
-/// C3-09: text-aware range — byte columns convert to UTF-16 using the
-/// file's own text, so non-ASCII prefixes cannot shift editor ranges.
-fn span_range_for(state: &LspState, span: &specforge_common::SourceSpan) -> Range {
-    match file_content(state, span.file.as_str()) {
-        Some(content) => {
-            let lsp = source_span_to_lsp_range_with_text(span, &content);
-            Range {
-                start: Position {
-                    line: lsp.start_line,
-                    character: lsp.start_col,
-                },
-                end: Position {
-                    line: lsp.end_line,
-                    character: lsp.end_col,
-                },
-            }
-        }
-        None => source_span_to_range(span),
     }
 }
 
@@ -595,6 +558,53 @@ pub fn word_at_position(content: &str, line: usize, col: usize) -> Option<String
     Some(target_line[start..end].to_string())
 }
 
+/// The entity a cursor names: the occurrence (declaration or reference)
+/// whose token is under it, else the word under it when an entity has
+/// that id. With the range of what names it in the document.
+fn entity_at(
+    state: &LspState,
+    uri: &Url,
+    content: &str,
+    position: Position,
+) -> Option<(String, Range)> {
+    let nav = navigator(state);
+    let (line, col) = byte_position(content, position)?;
+    if let Some(occurrence) = nav.occurrence_at(&key_of(state, uri), line, col) {
+        return Some((
+            occurrence.target.to_string(),
+            range(state, &occurrence.span),
+        ));
+    }
+    let (word, start, end) =
+        word_bounds(content, position.line as usize, position.character as usize)?;
+    state.graph().node(&word)?;
+    let at = |character| Position {
+        line: position.line,
+        character,
+    };
+    Some((
+        word,
+        Range {
+            start: at(start),
+            end: at(end),
+        },
+    ))
+}
+
+/// The word under a cursor (UTF-16 `col`) and its UTF-16 start and end.
+fn word_bounds(content: &str, line: usize, col: usize) -> Option<(String, u32, u32)> {
+    let word = word_at_position(content, line, col)?;
+    let text = content.lines().nth(line)?;
+    let byte = utf16_col_to_byte_offset(text, col);
+    let bytes = text.as_bytes();
+    let mut start = byte;
+    while start > 0 && (bytes[start - 1].is_ascii_alphanumeric() || bytes[start - 1] == b'_') {
+        start -= 1;
+    }
+    let utf16 = |b: usize| byte_col_to_utf16(text, b) as u32;
+    Some((word.clone(), utf16(start), utf16(start + word.len())))
+}
+
 /// If the line is a `use` import statement, returns the import path portion.
 /// Handles all three forms:
 ///   use "path"
@@ -667,6 +677,15 @@ impl LanguageServer for Backend {
             .unwrap_or(false);
         self.relative_patterns
             .store(relative_patterns, Ordering::Relaxed);
+        let definition_links = params
+            .capabilities
+            .text_document
+            .as_ref()
+            .and_then(|t| t.definition.as_ref())
+            .and_then(|d| d.link_support)
+            .unwrap_or(false);
+        self.definition_links
+            .store(definition_links, Ordering::Relaxed);
         let root = params
             .root_uri
             .as_ref()
@@ -1181,18 +1200,31 @@ impl LanguageServer for Backend {
                 state.spec_root(),
                 &state.environment().resolve_config(),
             );
-            return Ok(span.map(|s| GotoDefinitionResponse::Scalar(location_of(&state, &s))));
+            return Ok(span.map(|s| GotoDefinitionResponse::Scalar(location(&state, &s))));
         }
 
-        let word = match word_at_position(&content, pos.line as usize, pos.character as usize) {
-            Some(w) => w,
-            None => return Ok(None),
+        let Some((id, origin)) = entity_at(&state, &uri, &content, pos) else {
+            return Ok(None);
         };
-
-        let span = go_to_definition(state.graph(), &word);
-        Ok(span.map(|s| GotoDefinitionResponse::Scalar(location_of(&state, &s))))
+        let Ok(definition) = navigator(&state).definition(&id) else {
+            return Ok(None);
+        };
+        if self.definition_links.load(Ordering::Relaxed) {
+            return Ok(Some(GotoDefinitionResponse::Link(vec![LocationLink {
+                origin_selection_range: Some(origin),
+                target_uri: uri_of(&state, definition.block.file.as_str()),
+                target_range: range(&state, &definition.block),
+                target_selection_range: range(&state, &definition.name),
+            }])));
+        }
+        Ok(Some(GotoDefinitionResponse::Scalar(location(
+            &state,
+            &definition.name,
+        ))))
     }
 
+    /// The references to the entity under the cursor: incoming, its
+    /// declaration only when the request includes it (ADR 0016).
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
         let uri = params.text_document_position.text_document.uri;
         let pos = params.text_document_position.position;
@@ -1202,16 +1234,20 @@ impl LanguageServer for Backend {
             Some(doc) => doc.content().to_string(),
             None => return Ok(None),
         };
-        let word = match word_at_position(&content, pos.line as usize, pos.character as usize) {
-            Some(w) => w,
-            None => return Ok(None),
+        let Some((id, _)) = entity_at(&state, &uri, &content, pos) else {
+            return Ok(None);
         };
-
-        let refs = find_all_references(state.graph(), &word);
+        let query = ReferenceQuery {
+            direction: Direction::Incoming,
+            include_declaration: params.context.include_declaration,
+        };
+        let refs = navigator(&state).references(&id, query).unwrap_or_default();
         if refs.is_empty() {
             return Ok(None);
         }
-        Ok(Some(refs.iter().map(|s| location_of(&state, s)).collect()))
+        Ok(Some(
+            refs.iter().map(|o| location(&state, &o.span)).collect(),
+        ))
     }
 
     async fn prepare_rename(
@@ -1227,25 +1263,13 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
-        let word = match word_at_position(&content, pos.line as usize, pos.character as usize) {
-            Some(w) => w,
-            None => return Ok(None),
+        // The token as written under the cursor, declaration or
+        // reference; nothing else renames.
+        let Some((line, col)) = byte_position(&content, pos) else {
+            return Ok(None);
         };
-
-        let span = crate::prepare_rename(state.graph(), &word);
-        Ok(span.map(|s| {
-            let lsp = source_span_to_lsp_range_with_text(&s, &content);
-            PrepareRenameResponse::Range(Range {
-                start: Position {
-                    line: lsp.start_line,
-                    character: lsp.start_col,
-                },
-                end: Position {
-                    line: lsp.end_line,
-                    character: lsp.end_col,
-                },
-            })
-        }))
+        let occurrence = navigator(&state).occurrence_at(&key_of(&state, &uri), line, col);
+        Ok(occurrence.map(|o| PrepareRenameResponse::Range(range(&state, &o.span))))
     }
 
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
@@ -1422,7 +1446,7 @@ impl LanguageServer for Backend {
         let lsp_symbols: Vec<SymbolInformation> = symbols
             .into_iter()
             .map(|s| SymbolInformation {
-                location: location_of(&state, &s.span),
+                location: location(&state, &s.span),
                 name: s.id,
                 kind: symbol_kind_from_entity(&s.kind, kind_reg),
                 tags: None,
@@ -1452,7 +1476,7 @@ impl LanguageServer for Backend {
             .map(|s| SymbolInformation {
                 // Graph byte columns convert to UTF-16 against the file
                 // text when the file is readable; byte passthrough otherwise.
-                location: location_of(&state, &s.span),
+                location: location(&state, &s.span),
                 name: s.id,
                 kind: symbol_kind_from_entity(&s.kind, kind_reg),
                 tags: None,

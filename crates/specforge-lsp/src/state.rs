@@ -1,6 +1,8 @@
 use crate::DocumentBuffer;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
+use specforge_ops::view::ProjectView;
+use specforge_project::coverage::RecordedCoverage;
 use specforge_project::{Environment, ProjectSession};
 use specforge_registry::{
     EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild,
@@ -23,6 +25,9 @@ pub struct LspState {
     /// recompile can tell whether the client's semantic tokens went stale.
     last_token_signature: u64,
     shutdown: bool,
+    /// The recorded-coverage memo of the stand-in graph readers see while
+    /// the session is out for an update (it records nothing: no root).
+    stand_in_recorded: RecordedCoverage,
 }
 
 /// The session, or what readers see while it is out for an update.
@@ -53,6 +58,7 @@ impl LspState {
             anchor: None,
             last_token_signature: 0,
             shutdown: false,
+            stand_in_recorded: RecordedCoverage::default(),
         };
         state.last_token_signature = state.token_signature();
         state
@@ -170,6 +176,19 @@ impl LspState {
         match &self.project {
             Project::Held(session) => session.environment(),
             Project::Out { env, .. } => env,
+        }
+    }
+
+    /// The project view reads take (navigation among them): the
+    /// session's graph and registries, rooted at its project root; while
+    /// the session is out for an update, its last complete graph, with no
+    /// root.
+    pub fn view(&self) -> ProjectView<'_> {
+        match &self.project {
+            Project::Held(session) => ProjectView::of_session(session, session.root()),
+            Project::Out { graph, env } => {
+                ProjectView::new(graph, &env.registries, None, &self.stand_in_recorded)
+            }
         }
     }
 

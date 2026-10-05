@@ -641,24 +641,6 @@ const CASES: &[Case] = &[
 /// none may be added to excuse a regression.
 const EXPECTED_DIVERGENCES: &[Divergence] = &[
     Divergence {
-        id: "N1",
-        case: "references_login_without_declaration",
-        surface: Surface::Lsp,
-        today: &["limit.spec 1:1-3:2", "login.spec 1:1-3:2"],
-    },
-    Divergence {
-        id: "N2",
-        case: "references_session_limit_without_declaration",
-        surface: Surface::Lsp,
-        today: &["limit.spec 1:1-3:2", "login.spec 1:1-3:2"],
-    },
-    Divergence {
-        id: "N3",
-        case: "references_session_limit_with_declaration",
-        surface: Surface::Lsp,
-        today: &["limit.spec 1:1-3:2", "login.spec 1:1-3:2"],
-    },
-    Divergence {
         id: "N4",
         case: "references_session_limit_without_declaration",
         surface: Surface::Mcp,
@@ -675,12 +657,6 @@ const EXPECTED_DIVERGENCES: &[Divergence] = &[
         case: "search_references_with_other_filters",
         surface: Surface::Mcp,
         today: &["login"],
-    },
-    Divergence {
-        id: "N6",
-        case: "prepare_rename_session_limit",
-        surface: Surface::Lsp,
-        today: &["limit.spec 1:1-3:2"],
     },
     Divergence {
         id: "N7",
@@ -1105,7 +1081,8 @@ fn lsp_definition_crosses_files() {
         "textDocument/definition",
         position(&p, "login.spec", 1, 16),
     );
-    assert_eq!(location_key(&p, &lsp), "limit.spec 1:1-3:2", "{lsp}");
+    // The name, the client declaring no linkSupport.
+    assert_eq!(location_key(&p, &lsp), "limit.spec 1:11-1:24", "{lsp}");
 }
 
 #[test]
@@ -1204,11 +1181,10 @@ fn lsp_ranges_are_utf16_after_multibyte_text() {
         "textDocument/references",
         references_params(&p, "a.spec", 0, 11, true),
     );
-    // Today: the blocks of `cap` and of `b`, whose ends are UTF-16
-    // columns ("é→" is 5 bytes, 2 UTF-16 units).
+    // The tokens: `b`'s follows "é→" (5 bytes, 2 UTF-16 units).
     assert_eq!(
         lsp_locations(&p, &lsp),
-        ["a.spec 1:1-1:37", "a.spec 2:1-2:37"],
+        ["a.spec 1:11-1:14", "a.spec 2:31-2:34"],
         "{lsp}"
     );
 }
