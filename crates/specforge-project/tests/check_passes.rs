@@ -484,21 +484,6 @@ fn the_pass_input_carries_each_entitys_exemption() {
     thread_local! {
         static SEEN: RefCell<Vec<(String, bool, bool)>> = const { RefCell::new(Vec::new()) };
     }
-    fn guest(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-        (export == "__pass_exempt").then(|| {
-            let input: specforge_extension_sdk::PassInput =
-                serde_json::from_slice(input).map_err(|e| e.to_string())?;
-            SEEN.with(|seen| {
-                seen.borrow_mut().extend(
-                    input
-                        .entities
-                        .iter()
-                        .map(|e| (e.id.clone(), e.testable, e.exempt)),
-                )
-            });
-            Ok(b"[]".to_vec())
-        })
-    }
     fn extension() -> ContributionsBuilder {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/exempt", "1.0.0"));
         c.kind("gadget", |k| {
@@ -516,8 +501,19 @@ fn the_pass_input_carries_each_entitys_exemption() {
                 .target_kind("gadget")
                 .message_template("gadget '{id}' declares no obligations");
         });
+        // The pass reads the SDK's PassInput: what it sees is recorded.
         c.pass("exempt", |p| {
-            p.phase("check");
+            p.phase("check").run(|input: &PassInput| {
+                SEEN.with(|seen| {
+                    seen.borrow_mut().extend(
+                        input
+                            .entities
+                            .iter()
+                            .map(|e| (e.id.clone(), e.testable, e.exempt)),
+                    )
+                });
+                Vec::<PassDiagnostic>::new()
+            });
         });
         c
     }
@@ -531,7 +527,7 @@ fn the_pass_input_carries_each_entitys_exemption() {
          gadget free \"Free\" {\n  abstract true\n}\n\nwidget w \"W\" {\n}\n",
     )
     .unwrap();
-    let runtime = InProcessRuntime::new().with_handler(extension, guest);
+    let runtime = InProcessRuntime::new().with(extension);
 
     CompiledProject::compile(dir.path(), Some(&runtime));
 

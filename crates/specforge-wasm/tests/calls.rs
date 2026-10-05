@@ -156,7 +156,6 @@ fn guest(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
         "scan__x" => {
             receive::<ScanRequest>(export, input).and_then(|request| answer(&scan_answer(&request)))
         }
-        "migrate__x" => receive::<MigrationInput>(export, input).map(|_| Vec::new()),
         _ => return None,
     })
 }
@@ -166,7 +165,16 @@ fn extension() -> ContributionsBuilder {
     c.kind("widget", |k| {
         k.description("w");
     });
-    c.migration_hook("migrate__x");
+    // Declared with its handler, which records what it decoded.
+    c.migration_hook_handler("migrate__x", |input: &MigrationInput| {
+        RECEIVED.with(|r| {
+            r.borrow_mut().push((
+                "migrate__x".to_string(),
+                serde_json::to_value(input).unwrap(),
+            ))
+        });
+        Ok(())
+    });
     c
 }
 

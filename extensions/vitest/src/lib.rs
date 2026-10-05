@@ -51,7 +51,8 @@ impl Contributions for Vitest {
                     "--reporter=default",
                     "--reporter=json",
                     "--outputFile.json={report}",
-                ]);
+                ])
+                .collect(|input| Ok(collect(input)));
         });
     }
 }
@@ -156,20 +157,7 @@ fn collect(input: &CollectInput) -> CollectOutput {
     }
 }
 
-fn collect_export(input: &[u8]) -> Result<Vec<u8>, String> {
-    let input: CollectInput =
-        serde_json::from_slice(input).map_err(|e| format!("malformed collect input: {e}"))?;
-    serde_json::to_vec(&collect(&input)).map_err(|e| e.to_string())
-}
-
-fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-    match export {
-        "collect__vitest" => Some(collect_export(input)),
-        _ => None,
-    }
-}
-
-specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build);
 
 #[cfg(test)]
 mod tests {

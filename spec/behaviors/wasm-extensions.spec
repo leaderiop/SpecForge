@@ -424,6 +424,7 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "a pass answer may be bare diagnostics or diagnostics with a summary, and its diagnostics come back in canonical order with an entity's span attached"
   verify unit "an analyze pass that traps is reported as an E028 finding of that pass"
   verify unit "a scanner that traps or answers malformed output is reported, not dropped"
+  verify unit "a pass, collector, custom rule, scanner or migration hook is declared with its handler, and its export answers through it"
   verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree"
 }
 

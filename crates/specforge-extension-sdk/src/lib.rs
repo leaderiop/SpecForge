@@ -43,6 +43,10 @@ pub mod testing;
 /// their handlers.
 pub mod surface;
 
+/// Operational contributions (passes, collectors, custom rules, scanners,
+/// the migration hook) declared with their handlers.
+mod operations;
+
 pub use surface::{
     ArgBuilder, CommandBuilder, CommandCall, McpResourceBuilder, McpToolBuilder, SandboxBuilder,
 };
@@ -102,6 +106,7 @@ pub struct ContributionsBuilder {
     /// the declaration is built, the surfaces from `surfaces`).
     decl: ExtensionDeclaration,
     surfaces: surface::Surfaces,
+    operations: operations::Operations,
     raw: BTreeMap<String, serde_json::Value>,
 }
 
@@ -151,30 +156,100 @@ impl ContributionsBuilder {
         self
     }
 
-    /// Contribute a declarative validation rule.
+    /// Contribute a validation rule. A declarative rule names its check; a
+    /// `custom` one is decided by its handler ([`RuleBuilder::validate`]),
+    /// at the export its `wasm_function` names (`validate__<code>`, the
+    /// code lowercased, unless set).
+    ///
+    /// # Panics
+    ///
+    /// When a `custom` rule declares no handler, or a rule with a handler
+    /// is not `custom`.
     pub fn rule(&mut self, code: &str, f: impl FnOnce(&mut RuleBuilder)) -> &mut Self {
         let mut b = RuleBuilder::new(code);
         f(&mut b);
-        self.decl.validation_rules.push(b.0);
+        let custom = b.descriptor.check == CheckKind::Custom.as_str();
+        match (custom, b.validate) {
+            (true, Some(validate)) => {
+                let export = b
+                    .descriptor
+                    .wasm_function
+                    .get_or_insert_with(|| format!("validate__{}", code.to_lowercase()))
+                    .clone();
+                self.add_operation(export, format!("custom rule '{code}'"), validate);
+            }
+            (true, None) => {
+                panic!("custom rule '{code}' declares no handler: decide it with `r.validate(...)`")
+            }
+            (false, Some(_)) => {
+                panic!("rule '{code}' has a validate handler, but its check is not custom")
+            }
+            (false, None) => {}
+        }
+        self.decl.validation_rules.push(b.descriptor);
         self
     }
 
-    /// Contribute a compiler pass.
+    /// Contribute a compiler pass, run by its handler ([`PassBuilder::run`])
+    /// at the export `__pass_<name>`.
+    ///
+    /// # Panics
+    ///
+    /// When the pass declares no handler.
     pub fn pass(&mut self, name: &str, f: impl FnOnce(&mut PassBuilder)) -> &mut Self {
         let mut b = PassBuilder::new(name);
         f(&mut b);
-        self.decl.passes.push(b.0);
+        let Some(run) = b.run else {
+            panic!("pass '{name}' declares no handler: run it with `p.run(...)`");
+        };
+        self.add_operation(format!("__pass_{name}"), format!("pass '{name}'"), run);
+        self.decl.passes.push(b.descriptor);
         self
     }
 
-    /// Contribute a test-result collector. Its export is `collect__<name>`
-    /// with `-` mapped to `_`; dispatch it to a function taking a
-    /// [`CollectInput`] and returning a [`CollectOutput`].
+    /// Contribute a test-result collector, answered by its handler
+    /// ([`CollectorBuilder::collect`]: a [`CollectInput`] in, a
+    /// [`CollectOutput`] out) at the export `collect__<name>`, `-` mapped
+    /// to `_`.
+    ///
+    /// # Panics
+    ///
+    /// When the collector declares no handler.
     pub fn collector(&mut self, name: &str, f: impl FnOnce(&mut CollectorBuilder)) -> &mut Self {
         let mut b = CollectorBuilder::new(name);
         f(&mut b);
-        self.decl.collectors.push(b.0);
+        let Some(collect) = b.collect else {
+            panic!("collector '{name}' declares no handler: answer it with `k.collect(...)`");
+        };
+        self.add_operation(
+            b.descriptor.export.clone(),
+            format!("collector '{name}'"),
+            collect,
+        );
+        self.decl.collectors.push(b.descriptor);
         self
+    }
+
+    /// Route the operation export `export` (declared by `what`) to `wire`.
+    ///
+    /// # Panics
+    ///
+    /// When a declared surface or operation already answers `export`.
+    fn add_operation(&mut self, export: String, what: String, wire: operations::Wire) {
+        if let Some(owner) = self.surfaces.owner(&export) {
+            panic!("{what}'s export {export} is already '{owner}''s");
+        }
+        self.operations.add(export, what, wire);
+    }
+
+    /// Panics when a declared operation answers the export of a surface
+    /// just declared.
+    fn assert_surfaces_free(&self) {
+        for (export, name) in self.surfaces.exports() {
+            if let Some(owner) = self.operations.owner(export) {
+                panic!("'{name}''s export {export} is already {owner}'s");
+            }
+        }
     }
 
     /// Name the exports of the commands declared after it
@@ -192,6 +267,7 @@ impl ContributionsBuilder {
     /// declaration ([`CommandCall`]). Panics without a handler.
     pub fn command(&mut self, id: &str, f: impl FnOnce(&mut CommandBuilder)) -> &mut Self {
         self.surfaces.add_command(id, f);
+        self.assert_surfaces_free();
         self
     }
 
@@ -199,6 +275,7 @@ impl ContributionsBuilder {
     /// export `mcp__<name>` (`.` and `-` as `_`).
     pub fn mcp_tool(&mut self, name: &str, f: impl FnOnce(&mut McpToolBuilder)) -> &mut Self {
         self.surfaces.add_tool(name, f);
+        self.assert_surfaces_free();
         self
     }
 
@@ -210,6 +287,7 @@ impl ContributionsBuilder {
         f: impl FnOnce(&mut McpResourceBuilder),
     ) -> &mut Self {
         self.surfaces.add_resource(name, f);
+        self.assert_surfaces_free();
         self
     }
 
@@ -219,21 +297,39 @@ impl ContributionsBuilder {
         self.surfaces.call_command(export, input)
     }
 
-    /// The wire answer of a declared surface's export (a command, an MCP
-    /// tool or an MCP resource); `None` when no declared surface has it.
-    /// The generated guest routes every export but `__handshake` and
-    /// `__describe` here first.
+    /// The wire answer of a declared export: a surface's (a command, an
+    /// MCP tool or an MCP resource) or an operation's (a pass, a collector,
+    /// a custom rule, a scanner, the migration hook); `None` when no
+    /// declaration has it. The generated guest routes every export but
+    /// `__handshake` and `__describe` here first.
     pub fn dispatch_export(&self, export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-        self.surfaces.dispatch(export, input)
+        self.surfaces
+            .dispatch(export, input)
+            .or_else(|| self.operations.dispatch(export, input))
     }
 
     /// Contribute a language analyzer: `specforge infer` scans the files
-    /// with these extensions through its exports, `scan__<language>`,
-    /// `classify__<language>` and `map__<language>` unless set otherwise.
+    /// with these extensions through its scanner ([`AnalyzerBuilder::scan`])
+    /// at the export `scan__<language>` unless set otherwise. Its
+    /// `classify__<language>` and `map__<language>` exports are declared
+    /// too; the host does not call them, so they are the guest's `handler`'s
+    /// to answer, if anything.
+    ///
+    /// # Panics
+    ///
+    /// When the analyzer declares no scanner.
     pub fn analyzer(&mut self, language: &str, f: impl FnOnce(&mut AnalyzerBuilder)) -> &mut Self {
         let mut b = AnalyzerBuilder::new(language);
         f(&mut b);
-        self.decl.analyzers.push(b.0);
+        let Some(scan) = b.scan else {
+            panic!("analyzer '{language}' declares no scanner: scan with `a.scan(...)`");
+        };
+        self.add_operation(
+            b.descriptor.scan_export.clone(),
+            format!("analyzer '{language}'"),
+            scan,
+        );
+        self.decl.analyzers.push(b.descriptor);
         self
     }
 
@@ -267,9 +363,33 @@ impl ContributionsBuilder {
         self
     }
 
-    /// Name the export `specforge migrate` calls, after it migrates the
-    /// project's `.spec` files, so the extension can migrate its own data.
-    /// The extension must export a function by that name.
+    /// Contribute the hook `specforge migrate` calls after it migrates the
+    /// project's `.spec` files, so the extension can migrate its own data:
+    /// `handler` receives a [`MigrationInput`] at the export `export`. Its
+    /// answer is not read beyond success or failure.
+    ///
+    /// # Panics
+    ///
+    /// When a declared surface or operation already answers `export`.
+    pub fn migration_hook_handler(
+        &mut self,
+        export: &str,
+        handler: impl Fn(&MigrationInput) -> Result<(), String> + 'static,
+    ) -> &mut Self {
+        self.meta.migration_hook = Some(export.to_string());
+        self.add_operation(
+            export.to_string(),
+            "the migration hook".to_string(),
+            operations::wire("migration hook", handler),
+        );
+        self
+    }
+
+    /// Name the export `specforge migrate` calls without declaring its
+    /// handler: the guest's `handler` must answer it. For an extension not
+    /// written with the builders (as [`ContributionsBuilder::raw_category`]);
+    /// declare the hook with [`ContributionsBuilder::migration_hook_handler`].
+    #[deprecated(note = "declare the hook with its handler: `migration_hook_handler`")]
     pub fn migration_hook(&mut self, export: &str) -> &mut Self {
         self.meta.migration_hook = Some(export.to_string());
         self
@@ -667,54 +787,73 @@ impl EnhancementBuilder {
     }
 }
 
-/// Builder for [`ValidationRuleDescriptor`].
-pub struct RuleBuilder(ValidationRuleDescriptor);
+/// Builder for [`ValidationRuleDescriptor`], with a `custom` rule's
+/// handler.
+pub struct RuleBuilder {
+    descriptor: ValidationRuleDescriptor,
+    validate: Option<operations::Wire>,
+}
 impl RuleBuilder {
     fn new(code: &str) -> Self {
-        Self(ValidationRuleDescriptor {
-            code: code.to_string(),
-            severity: ValidationSeverity::Warning,
-            message_template: String::new(),
-            check: String::new(),
-            target_kind: None,
-            edge_type: None,
-            field: None,
-            constraint: None,
-            wasm_function: None,
-        })
+        Self {
+            descriptor: ValidationRuleDescriptor {
+                code: code.to_string(),
+                severity: ValidationSeverity::Warning,
+                message_template: String::new(),
+                check: String::new(),
+                target_kind: None,
+                edge_type: None,
+                field: None,
+                constraint: None,
+                wasm_function: None,
+            },
+            validate: None,
+        }
+    }
+    /// Decide a `custom` rule: `handler` receives one entity's
+    /// [`ValidatorContext`] and answers its [`ValidatorVerdict`].
+    pub fn validate(
+        &mut self,
+        handler: impl Fn(&ValidatorContext) -> ValidatorVerdict + 'static,
+    ) -> &mut Self {
+        self.validate = Some(operations::wire(
+            "validator",
+            move |context: &ValidatorContext| Ok::<_, String>(handler(context)),
+        ));
+        self
     }
     pub fn check(&mut self, kind: CheckKind) -> &mut Self {
-        self.0.check = kind.as_str().to_string();
+        self.descriptor.check = kind.as_str().to_string();
         self
     }
     pub fn target_kind(&mut self, k: &str) -> &mut Self {
-        self.0.target_kind = Some(k.to_string());
+        self.descriptor.target_kind = Some(k.to_string());
         self
     }
     pub fn edge_type(&mut self, e: &str) -> &mut Self {
-        self.0.edge_type = Some(e.to_string());
+        self.descriptor.edge_type = Some(e.to_string());
         self
     }
     pub fn field(&mut self, f: &str) -> &mut Self {
-        self.0.field = Some(f.to_string());
+        self.descriptor.field = Some(f.to_string());
         self
     }
     pub fn severity(&mut self, s: ValidationSeverity) -> &mut Self {
-        self.0.severity = s;
+        self.descriptor.severity = s;
         self
     }
     pub fn message_template(&mut self, m: &str) -> &mut Self {
-        self.0.message_template = m.to_string();
+        self.descriptor.message_template = m.to_string();
         self
     }
     pub fn wasm_function(&mut self, f: &str) -> &mut Self {
-        self.0.wasm_function = Some(f.to_string());
+        self.descriptor.wasm_function = Some(f.to_string());
         self
     }
     pub fn constraint(&mut self, f: impl FnOnce(&mut FieldConstraintBuilder)) -> &mut Self {
         let mut b = FieldConstraintBuilder::default();
         f(&mut b);
-        self.0.constraint = Some(b.0);
+        self.descriptor.constraint = Some(b.0);
         self
     }
 }
@@ -745,23 +884,41 @@ impl FieldConstraintBuilder {
     }
 }
 
-/// Builder for [`CompilerPassDescriptor`].
-pub struct PassBuilder(CompilerPassDescriptor);
+/// Builder for [`CompilerPassDescriptor`], with the pass's handler.
+pub struct PassBuilder {
+    descriptor: CompilerPassDescriptor,
+    run: Option<operations::Wire>,
+}
 impl PassBuilder {
     fn new(name: &str) -> Self {
-        Self(CompilerPassDescriptor {
-            name: name.to_string(),
-            after: None,
-            before: None,
-            phase: None,
-        })
+        Self {
+            descriptor: CompilerPassDescriptor {
+                name: name.to_string(),
+                after: None,
+                before: None,
+                phase: None,
+            },
+            run: None,
+        }
+    }
+    /// What the pass does: `handler` receives the [`PassInput`] snapshot
+    /// and answers its diagnostics, bare (`Vec<PassDiagnostic>`) or with a
+    /// summary ([`PassOutput`]).
+    pub fn run<R: Into<PassAnswer>>(
+        &mut self,
+        handler: impl Fn(&PassInput) -> R + 'static,
+    ) -> &mut Self {
+        self.run = Some(operations::wire("pass", move |input: &PassInput| {
+            Ok::<PassAnswer, String>(handler(input).into())
+        }));
+        self
     }
     pub fn after(&mut self, p: &str) -> &mut Self {
-        self.0.after = Some(p.to_string());
+        self.descriptor.after = Some(p.to_string());
         self
     }
     pub fn before(&mut self, p: &str) -> &mut Self {
-        self.0.before = Some(p.to_string());
+        self.descriptor.before = Some(p.to_string());
         self
     }
     /// The phase the pass runs in. `"check"` runs it with every compile
@@ -769,78 +926,111 @@ impl PassBuilder {
     /// its diagnostics joining the compile's; any other phase, or none,
     /// runs it only under `specforge analyze`.
     pub fn phase(&mut self, p: &str) -> &mut Self {
-        self.0.phase = Some(p.to_string());
+        self.descriptor.phase = Some(p.to_string());
         self
     }
 }
 
-/// Builder for [`AnalyzerDescriptor`].
-pub struct AnalyzerBuilder(AnalyzerDescriptor);
+/// Builder for [`AnalyzerDescriptor`], with its scanner.
+pub struct AnalyzerBuilder {
+    descriptor: AnalyzerDescriptor,
+    scan: Option<operations::Wire>,
+}
 impl AnalyzerBuilder {
     fn new(language: &str) -> Self {
-        Self(AnalyzerDescriptor {
-            language: language.to_string(),
-            file_extensions: Vec::new(),
-            excluded_dirs: Vec::new(),
-            scan_export: format!("scan__{language}"),
-            classify_export: format!("classify__{language}"),
-            map_export: format!("map__{language}"),
-            description: None,
-        })
+        Self {
+            descriptor: AnalyzerDescriptor {
+                language: language.to_string(),
+                file_extensions: Vec::new(),
+                excluded_dirs: Vec::new(),
+                scan_export: format!("scan__{language}"),
+                classify_export: format!("classify__{language}"),
+                map_export: format!("map__{language}"),
+                description: None,
+            },
+            scan: None,
+        }
+    }
+    /// The scanner: `handler` receives one source file ([`ScanRequest`])
+    /// and answers the public items it found ([`ScanResponse`]).
+    pub fn scan(&mut self, handler: impl Fn(&ScanRequest) -> ScanResponse + 'static) -> &mut Self {
+        self.scan = Some(operations::wire("scan", move |request: &ScanRequest| {
+            Ok::<_, String>(handler(request))
+        }));
+        self
     }
     /// The file extensions it scans, with their dot (`.rs`).
     pub fn file_extensions(&mut self, extensions: &[&str]) -> &mut Self {
-        self.0.file_extensions = extensions.iter().map(|e| e.to_string()).collect();
+        self.descriptor.file_extensions = extensions.iter().map(|e| e.to_string()).collect();
         self
     }
     /// Directories it never scans (`target`, `node_modules`).
     pub fn excluded_dirs(&mut self, dirs: &[&str]) -> &mut Self {
-        self.0.excluded_dirs = dirs.iter().map(|d| d.to_string()).collect();
+        self.descriptor.excluded_dirs = dirs.iter().map(|d| d.to_string()).collect();
         self
     }
     pub fn scan_export(&mut self, export: &str) -> &mut Self {
-        self.0.scan_export = export.to_string();
+        self.descriptor.scan_export = export.to_string();
         self
     }
     pub fn classify_export(&mut self, export: &str) -> &mut Self {
-        self.0.classify_export = export.to_string();
+        self.descriptor.classify_export = export.to_string();
         self
     }
     pub fn map_export(&mut self, export: &str) -> &mut Self {
-        self.0.map_export = export.to_string();
+        self.descriptor.map_export = export.to_string();
         self
     }
     pub fn description(&mut self, d: &str) -> &mut Self {
-        self.0.description = Some(d.to_string());
+        self.descriptor.description = Some(d.to_string());
         self
     }
 }
 
-/// Builder for [`CollectorDescriptor`].
-pub struct CollectorBuilder(CollectorDescriptor);
+/// Builder for [`CollectorDescriptor`], with the collector's handler.
+pub struct CollectorBuilder {
+    descriptor: CollectorDescriptor,
+    collect: Option<operations::Wire>,
+}
 impl CollectorBuilder {
     fn new(name: &str) -> Self {
-        Self(CollectorDescriptor {
-            name: name.to_string(),
-            input_formats: Vec::new(),
-            export: format!("collect__{}", name.replace('-', "_")),
-            auto_detect: None,
-            run: Vec::new(),
-            report: None,
-            capture: None,
-        })
+        Self {
+            descriptor: CollectorDescriptor {
+                name: name.to_string(),
+                input_formats: Vec::new(),
+                export: format!("collect__{}", name.replace('-', "_")),
+                auto_detect: None,
+                run: Vec::new(),
+                report: None,
+                capture: None,
+            },
+            collect: None,
+        }
+    }
+    /// What the collector does: `handler` receives the report files
+    /// ([`CollectInput`]) and answers the results ([`CollectOutput`]), or
+    /// why it could not read them.
+    pub fn collect(
+        &mut self,
+        handler: impl Fn(&CollectInput) -> Result<CollectOutput, String> + 'static,
+    ) -> &mut Self {
+        self.collect = Some(operations::wire("collect", handler));
+        self
     }
     /// A report format the collector reads (informational).
     pub fn input_format(&mut self, format: &str) -> &mut Self {
-        self.0.input_formats.push(format.to_string());
+        self.descriptor.input_formats.push(format.to_string());
         self
     }
     /// Project-root files whose presence selects this collector.
     pub fn detect_files(&mut self, patterns: &[&str]) -> &mut Self {
-        let detect = self.0.auto_detect.get_or_insert_with(|| AutoDetectConfig {
-            file_patterns: Vec::new(),
-            env_vars: Vec::new(),
-        });
+        let detect = self
+            .descriptor
+            .auto_detect
+            .get_or_insert_with(|| AutoDetectConfig {
+                file_patterns: Vec::new(),
+                env_vars: Vec::new(),
+            });
         detect
             .file_patterns
             .extend(patterns.iter().map(|p| p.to_string()));
@@ -849,19 +1039,19 @@ impl CollectorBuilder {
     /// The command the host runs, with consent. `{report}` in any argument
     /// expands to the absolute report path.
     pub fn run(&mut self, argv: &[&str]) -> &mut Self {
-        self.0.run = argv.iter().map(|a| a.to_string()).collect();
+        self.descriptor.run = argv.iter().map(|a| a.to_string()).collect();
         self
     }
     /// Report file or directory the runner writes, relative to the project
     /// root. A directory is read as every `*.json` file directly inside it.
     pub fn report(&mut self, path: &str) -> &mut Self {
-        self.0.report = Some(path.to_string());
+        self.descriptor.report = Some(path.to_string());
         self
     }
     /// Keep the command's standard output and pass it to the export as
     /// `CollectInput::stdout`, for runners whose results only appear there.
     pub fn capture_stdout(&mut self) -> &mut Self {
-        self.0.capture = Some("stdout".to_string());
+        self.descriptor.capture = Some("stdout".to_string());
         self
     }
 }
@@ -905,8 +1095,27 @@ pub fn guest_call(
     }
 }
 
+/// The answer of an export the guest's `handler` serves (one no builder
+/// declares with its handler: an analyzer's `classify__`/`map__`, or an
+/// export of a category given with [`ContributionsBuilder::raw_category`]):
+/// `input` decoded as `I`, `handler`'s answer encoded. An input that is not
+/// an `I` is the guest's error, naming the export.
+pub fn answer_export<I, O>(
+    export: &str,
+    input: &[u8],
+    handler: impl FnOnce(&I) -> O,
+) -> Result<Vec<u8>, String>
+where
+    I: serde::de::DeserializeOwned,
+    O: serde::Serialize,
+{
+    let input: I =
+        serde_json::from_slice(input).map_err(|e| format!("invalid {export} input: {e}"))?;
+    serde_json::to_vec(&handler(&input)).map_err(|e| format!("{export} answer did not encode: {e}"))
+}
+
 /// The `handler` of a [`component_guest!`] that names none: no export
-/// beyond the protocol's and the declared surfaces'.
+/// beyond the protocol's and the declared surfaces' and operations'.
 pub fn no_other_exports(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
     None
 }
@@ -923,9 +1132,10 @@ pub mod prelude {
     pub use crate::{
         AnalyzerBuilder, CheckKind, ConstraintKind, Contributions, ContributionsBuilder,
         EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder, FieldConstraintBuilder,
-        FieldType, KindBuilder, PassBuildCache, PassBuilder, PassCachedStatus, PassDiagnostic,
-        PassEdge, PassEntity, PassEntityResults, PassInput, PassOutput, PassSeverity, PassSpan,
-        PassTestResult, PassTestResults, RuleBuilder,
+        FieldType, KindBuilder, MigrationInput, PassAnswer, PassBuildCache, PassBuilder,
+        PassCachedStatus, PassDiagnostic, PassEdge, PassEntity, PassEntityResults, PassInput,
+        PassOutput, PassSeverity, PassSpan, PassTestResult, PassTestResults, RuleBuilder,
+        ScanRequest, ScanResponse, ScannedItem,
     };
     pub use crate::{
         ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandFormat, CommandGraph,
@@ -982,10 +1192,10 @@ mod raw_category_flag_tests {
     #[test]
     fn a_collector_can_capture_stdout() {
         let mut k = CollectorBuilder::new("cargo-test");
-        let plain = serde_json::to_value(&k.0).unwrap();
+        let plain = serde_json::to_value(&k.descriptor).unwrap();
         assert!(plain.get("capture").is_none());
         k.capture_stdout();
-        let captured = serde_json::to_value(&k.0).unwrap();
+        let captured = serde_json::to_value(&k.descriptor).unwrap();
         assert_eq!(captured["capture"], serde_json::json!("stdout"));
     }
 
@@ -1009,7 +1219,7 @@ mod raw_category_flag_tests {
         let without: serde_json::Value = serde_json::from_str(&b.handshake_json()).unwrap();
         assert!(without.get("migration_hook").is_none(), "{without}");
 
-        b.migration_hook("migrate_acme");
+        b.migration_hook_handler("migrate_acme", |_| Ok(()));
         let with: serde_json::Value = serde_json::from_str(&b.handshake_json()).unwrap();
         assert_eq!(with["migration_hook"], serde_json::json!("migrate_acme"));
     }

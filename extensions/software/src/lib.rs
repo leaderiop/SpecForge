@@ -45,12 +45,10 @@ impl Contributions for Software {
 }
 
 // ── Custom validators (`check: "custom"` rules) ────────────────────────────
-// Wire ABI v1: a `validate__<rule>` export receives a `ValidatorContext`
-// (`specforge-protocol-types`) and returns a `ValidatorVerdict`. The host
-// precomputes everything the native walks in `project/compile.rs` touched,
-// so each validator is a pure function of the context. The exports use the
-// same `#[plugin_fn]` wrapping the SDK's `#[compiler_pass]` generates for
-// `__pass_<name>` exports.
+// Each `validate__<rule>` export is declared with its rule (`declaration`):
+// it receives the protocol's `ValidatorContext` and answers a
+// `ValidatorVerdict` (ADR 0013). The host precomputes everything the
+// validator needs, so each is a pure function of the context.
 
 use specforge_extension_sdk::{ValidatorContext, ValidatorVerdict};
 
@@ -233,33 +231,7 @@ fn validate_port_methods(context: &ValidatorContext) -> ValidatorVerdict {
     ValidatorVerdict::Pass
 }
 
-fn parse_req<T: serde::de::DeserializeOwned>(input: &[u8]) -> Result<T, String> {
-    serde_json::from_slice(input).map_err(|e| format!("invalid request: {e}"))
-}
-
-fn to_json<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, String> {
-    serde_json::to_vec(value).map_err(|e| format!("serialization failed: {e}"))
-}
-
-fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-    match export {
-        "validate__event_triggers" => {
-            Some(parse_req(input).and_then(|c| to_json(&validate_event_triggers(&c))))
-        }
-        "validate__milestone_behavior_ranges" => {
-            Some(parse_req(input).and_then(|c| to_json(&validate_milestone_behavior_ranges(&c))))
-        }
-        "validate__type_field_annotations" => {
-            Some(parse_req(input).and_then(|c| to_json(&validate_type_field_annotations(&c))))
-        }
-        "validate__port_methods" => {
-            Some(parse_req(input).and_then(|c| to_json(&validate_port_methods(&c))))
-        }
-        _ => None,
-    }
-}
-
-specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build);
 
 #[cfg(test)]
 mod validator_tests {

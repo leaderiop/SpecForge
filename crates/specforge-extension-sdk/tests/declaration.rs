@@ -30,7 +30,8 @@ fn reports() -> ContributionsBuilder {
             });
     });
     b.pass("audit", |p| {
-        p.phase("check");
+        p.phase("check")
+            .run(|_: &PassInput| Vec::<PassDiagnostic>::new());
     });
     b
 }
@@ -118,7 +119,8 @@ fn dispatch(export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
 }
 
 /// `guest_call` routes as the component guest does: the protocol exports,
-/// then the declared surfaces, then the handler, else an unknown export.
+/// then the declared surfaces and operations, then the handler, else an
+/// unknown export.
 #[test]
 fn guest_call_routes_every_export() {
     let b = reports();
@@ -135,6 +137,8 @@ fn guest_call_routes_every_export() {
     let command = guest_call(&b, dispatch, "cmd__list", &input).unwrap();
     let output: serde_json::Value = serde_json::from_slice(&command).unwrap();
     assert_eq!(output["stdout"], "hi");
+    let pass = guest_call(&b, dispatch, "__pass_audit", br#"{"entities":[]}"#).unwrap();
+    assert_eq!(pass, b"[]");
     assert_eq!(
         guest_call(&b, dispatch, "scan__x", b""),
         Ok(b"scanned".to_vec())

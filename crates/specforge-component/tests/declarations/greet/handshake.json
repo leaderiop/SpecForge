@@ -7,7 +7,7 @@
     "validators": true,
     "renderers": false,
     "providers": false,
-    "collectors": false,
+    "collectors": true,
     "prompts": false,
     "parsers": false,
     "grammars": false,

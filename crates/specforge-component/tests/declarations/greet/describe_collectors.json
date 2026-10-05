@@ -1,4 +1,14 @@
 {
   "category": "collectors",
-  "items": []
+  "items": [
+    {
+      "auto_detect": null,
+      "export": "collect__greet_test",
+      "input_formats": [
+        "greet-lines"
+      ],
+      "name": "greet-test",
+      "report": "greet-report.txt"
+    }
+  ]
 }

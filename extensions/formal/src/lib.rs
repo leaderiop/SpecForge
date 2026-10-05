@@ -31,16 +31,16 @@ impl Contributions for Formal {
         // Declaration order is deliberately shuffled; the host must order
         // passes by the declared after-constraints, not by declaration.
         c.pass("event_graph_analyze", |p| {
-            p.after("layering_verify");
+            p.after("layering_verify").run(pass_event_graph_analyze);
         });
         c.pass("coverage_tracking", |p| {
-            p.after("event_graph_analyze");
+            p.after("event_graph_analyze").run(pass_coverage_tracking);
         });
         c.pass("condition_check", |p| {
-            p.after("resolve");
+            p.after("resolve").run(pass_condition_check);
         });
         c.pass("layering_verify", |p| {
-            p.after("condition_check");
+            p.after("condition_check").run(pass_layering_verify);
         });
 
         declaration::declare(c);
@@ -48,13 +48,11 @@ impl Contributions for Formal {
 }
 
 // ── Extension-owned compiler passes ────────────────────────────────────────
-// Wire ABI (v1): `__pass_<name>` receives { "entities": [...] } (the host's
-// ValidationEntity shape) and returns an array of host Diagnostic objects.
-// The SDK's #[compiler_pass] attribute generates the export.
+// Each pass is declared with its handler above: `__pass_<name>` receives the
+// protocol's PassInput snapshot and answers its diagnostics (ADR 0013).
 
 /// condition_check (Meyer's Design by Contract, RES-25 part I): a behavior
 /// that obligates its callers (requires) must provide a benefit (ensures).
-#[specforge_extension_sdk::compiler_pass(name = "condition_check", after = "resolve")]
 fn pass_condition_check(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut findings = Vec::new();
     for entity in &input.entities {
@@ -85,8 +83,9 @@ fn pass_condition_check(input: &PassInput) -> Vec<PassDiagnostic> {
 /// nothing are not items). "Proven" is @specforge/testing's rule
 /// (`specforge-coverage`, ADR 0004 D2-f) over the recorded test results and
 /// the entailed claims in the pass input, so W035 never disagrees with
-/// `specforge analyze coverage`. `exempt` is parallel to `input.entities`.
-fn pass_coverage_tracking(input: &PassInput, exempt: &[bool]) -> Vec<PassDiagnostic> {
+/// `specforge analyze coverage`. Whether an entity is exempt is the host's
+/// call, read from the snapshot (`PassEntity::exempt`).
+fn pass_coverage_tracking(input: &PassInput) -> Vec<PassDiagnostic> {
     let proved: std::collections::BTreeSet<&str> = input
         .proved_claims
         .iter()
@@ -96,13 +95,12 @@ fn pass_coverage_tracking(input: &PassInput, exempt: &[bool]) -> Vec<PassDiagnos
     let undischarged: Vec<&str> = input
         .entities
         .iter()
-        .enumerate()
-        .filter(|(i, e)| {
+        .filter(|e| {
             let entity = coverage::Entity {
                 id: e.id.clone(),
                 kind: e.kind.clone(),
                 testable: e.testable || e.kind == INVARIANT_KIND,
-                exempt: exempt.get(*i).copied().unwrap_or(false),
+                exempt: e.exempt,
                 verify_kinds: e.verify_kinds.clone(),
                 verify_texts: e.verify_texts.clone(),
                 ..Default::default()
@@ -128,7 +126,7 @@ fn pass_coverage_tracking(input: &PassInput, exempt: &[bool]) -> Vec<PassDiagnos
                 .unwrap_or_default();
             !coverage::Verdict::of(&entity, &tests, proved.contains(e.id.as_str())).is_proven()
         })
-        .map(|(_, e)| e.id.as_str())
+        .map(|e| e.id.as_str())
         .collect();
 
     if undischarged.is_empty() {
@@ -155,34 +153,6 @@ fn pass_coverage_tracking(input: &PassInput, exempt: &[bool]) -> Vec<PassDiagnos
 /// The kind whose entities are coverage items whatever their kind's
 /// testability.
 const INVARIANT_KIND: &str = "invariant";
-
-/// What the coverage_tracking pass reads beyond the SDK's `PassEntity`:
-/// whether the host found each entity exempt from owing obligations (ADR
-/// 0004, D2-b). Kept here, not in the SDK, so the other blobs don't depend
-/// on it.
-#[derive(serde::Deserialize)]
-struct Exemptions {
-    #[serde(default)]
-    entities: Vec<Exemption>,
-}
-
-#[derive(serde::Deserialize)]
-struct Exemption {
-    #[serde(default)]
-    exempt: bool,
-}
-
-/// The `__pass_coverage_tracking` export: the SDK's `PassInput`, plus the
-/// exemption flags read from the same snapshot.
-fn dispatch_coverage_tracking(input: &[u8]) -> Result<Vec<u8>, String> {
-    let request: PassInput =
-        serde_json::from_slice(input).map_err(|e| format!("invalid pass request: {e}"))?;
-    let exemptions: Exemptions =
-        serde_json::from_slice(input).map_err(|e| format!("invalid pass request: {e}"))?;
-    let exempt: Vec<bool> = exemptions.entities.iter().map(|e| e.exempt).collect();
-    serde_json::to_vec(&pass_coverage_tracking(&request, &exempt))
-        .map_err(|e| format!("pass serialization failed: {e}"))
-}
 
 fn non_empty(entity: &PassEntity, field: &str) -> bool {
     entity
@@ -271,7 +241,6 @@ fn layering_steps(input: &PassInput) -> Vec<LayeringStep<'_>> {
         .collect()
 }
 
-#[specforge_extension_sdk::compiler_pass(name = "layering_verify", after = "condition_check")]
 fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
     use std::collections::{HashMap, HashSet};
 
@@ -475,7 +444,6 @@ fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
 
 /// event_graph_analyze (RES-25 part I): every produced event should have a
 /// consumer (W029).
-#[specforge_extension_sdk::compiler_pass(name = "event_graph_analyze", after = "layering_verify")]
 fn pass_event_graph_analyze(input: &PassInput) -> Vec<PassDiagnostic> {
     use std::collections::HashMap;
 
@@ -998,17 +966,13 @@ mod coverage_tracking_tests {
     use super::*;
     use specforge_extension_sdk::PassSeverity;
 
-    fn input(json: serde_json::Value) -> (PassInput, Vec<bool>) {
-        let exemptions: Exemptions = serde_json::from_value(json.clone()).unwrap();
-        (
-            serde_json::from_value(json).unwrap(),
-            exemptions.entities.iter().map(|e| e.exempt).collect(),
-        )
+    fn input(json: serde_json::Value) -> PassInput {
+        serde_json::from_value(json).unwrap()
     }
 
     #[test]
     fn coverage_tracking_lists_what_the_coverage_rule_does_not_prove() {
-        let (input, exempt) = input(serde_json::json!({
+        let input = input(serde_json::json!({
             "entities": [
                 // An invariant (always an item) nothing proves.
                 {"id": "inv1", "kind": "invariant", "verify_kinds": ["unit"], "verify_texts": ["holds"]},
@@ -1026,7 +990,7 @@ mod coverage_tracking_tests {
                 "feat1": {"tests": [{"name": "u", "status": "pass"}]}
             }}
         }));
-        let findings = pass_coverage_tracking(&input, &exempt);
+        let findings = pass_coverage_tracking(&input);
         assert_eq!(findings.len(), 1, "one aggregated W035");
         assert!(matches!(findings[0].severity, PassSeverity::Warning));
         assert_eq!(
@@ -1045,27 +1009,17 @@ mod coverage_tracking_tests {
 
     #[test]
     fn coverage_tracking_silent_when_everything_is_proven() {
-        let (input, exempt) = input(serde_json::json!({
+        let input = input(serde_json::json!({
             "entities": [{"id": "inv1", "kind": "invariant",
                           "verify_kinds": ["property"], "verify_texts": ["holds"]}],
             "test_results": {"results": {}},
             "proved_claims": ["inv1"]
         }));
-        assert!(pass_coverage_tracking(&input, &exempt).is_empty());
+        assert!(pass_coverage_tracking(&input).is_empty());
     }
 }
 
-fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-    match export {
-        "__pass_condition_check" => Some(specforge_dispatch_pass_condition_check(input)),
-        "__pass_layering_verify" => Some(specforge_dispatch_pass_layering_verify(input)),
-        "__pass_event_graph_analyze" => Some(specforge_dispatch_pass_event_graph_analyze(input)),
-        "__pass_coverage_tracking" => Some(dispatch_coverage_tracking(input)),
-        _ => None,
-    }
-}
-
-specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build);
 
 // -- C10-00/C10-11: process semantics + detector soundness slivers --
 

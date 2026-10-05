@@ -35,7 +35,7 @@ fn commands_only() -> ContributionsBuilder {
 fn passes_only() -> ContributionsBuilder {
     let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/audit", "0.1.0"));
     b.pass("audit", |p| {
-        p.phase("check");
+        p.phase("check").run(no_findings);
     });
     b
 }
@@ -200,4 +200,9 @@ fn the_in_process_runtime_maps_guest_failures_to_traps() {
         "deadline_exceeded"
     );
     assert_eq!(raw.calls().len(), 1);
+}
+
+/// A pass's handler that finds nothing.
+fn no_findings(_: &PassInput) -> Vec<PassDiagnostic> {
+    Vec::new()
 }

@@ -1,14 +1,15 @@
 {
   "artifact": "specforge_ext_governance.wasm",
-  "artifact_sha256": "c7784a8faa0f86070409257cdf4f7724c599e9edf71c6ff4b6bad25626c74e7f",
+  "artifact_sha256": "e4ef1f58dee28c9ae89b1ac445d9bd6d26697fde4fdc3ce6bdd4e07db3eaac95",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
     "crates/specforge-extension-sdk-macros/Cargo.toml": "955bf40f337ee1672fe7c42e6c8ce1e061bab42bde1f0808fdf183fb6ff72e42",
-    "crates/specforge-extension-sdk-macros/src/lib.rs": "721bf7b201a0c2c409018813642f582bb5cece9c66b8900c906b256a2c01a83d",
+    "crates/specforge-extension-sdk-macros/src/lib.rs": "116730ba34a62a99a1c8529617a847fae602f36f20f203bb3000be46821f0b53",
     "crates/specforge-extension-sdk/Cargo.toml": "5c252f7c95e39a3e8abce8f804c1e1927d990010c569099e79229996e00f24f0",
-    "crates/specforge-extension-sdk/src/lib.rs": "ef5422a95f8f6b4383e979cb4f5ffb54e4200c79fc94cc25f0ddfd0b301b263b",
-    "crates/specforge-extension-sdk/src/surface.rs": "99ecdfdcc17dedd0d1eb08bc7620b449e7a112bbb11aaff8dd82eced2052e842",
+    "crates/specforge-extension-sdk/src/lib.rs": "c902bb0bcb19f143962b4d49191d0da4229af03320f389b2974ec54bb88ba3de",
+    "crates/specforge-extension-sdk/src/operations.rs": "43e4cbb15c54819419c05aee1f9e42d73e71a3ab949e00b616d2e96b64d9e8d8",
+    "crates/specforge-extension-sdk/src/surface.rs": "c79dc4e3e088b2731c5427582865790750f1fecd9502f95a537a2b1520e5ed6e",
     "crates/specforge-extension-sdk/src/testing.rs": "373f3f6c6cf83670abc4afeda155aefa0e88874cbe559a71c401974e2bf4c412",
     "crates/specforge-protocol-types/Cargo.toml": "627567aea56e0aea4ff700b0f38548d6a1079db3ee333f6a7f4dcdbed449ba76",
     "crates/specforge-protocol-types/src/calls.rs": "bbcfb7dec037810bef144d723ce1b6ad52525bf96f677ad53e224e2eb3abf6a8",
@@ -18,6 +19,6 @@
     "extensions/governance/Cargo.lock": "24e8f2a965d77ce5e22221ff2849143cd6641da9bc7780702b6535f7d037ae24",
     "extensions/governance/Cargo.toml": "2188aac6764037fe913d0f9a518b8c861abf9754c1bd76dcc70e16d9fd31939f",
     "extensions/governance/src/declaration.rs": "4fea39c49c0c9004ff6fe23d3b111274e5858d92e335694b4b14a8c304e8c891",
-    "extensions/governance/src/lib.rs": "40e30e747580556c4c3cf1e52775a666104d3d5be44bd0cfdaaf03182d387e15"
+    "extensions/governance/src/lib.rs": "df7d731f9d36ce03c72e93e8ea73213a78c4d8f813c5f1d5079e90d7bc64384a"
   }
 }

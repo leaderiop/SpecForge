@@ -1,14 +1,15 @@
 {
   "artifact": "specforge_ext_software.wasm",
-  "artifact_sha256": "5b15cde6e1a392c6654804f686423b4fa7286c250e942ab5bb489c28b69bb9d5",
+  "artifact_sha256": "cbfc418d865dadde4605a348ff8d45c6442fcaba4606c9dc92e58b4b34e92afd",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
     "crates/specforge-extension-sdk-macros/Cargo.toml": "955bf40f337ee1672fe7c42e6c8ce1e061bab42bde1f0808fdf183fb6ff72e42",
-    "crates/specforge-extension-sdk-macros/src/lib.rs": "721bf7b201a0c2c409018813642f582bb5cece9c66b8900c906b256a2c01a83d",
+    "crates/specforge-extension-sdk-macros/src/lib.rs": "116730ba34a62a99a1c8529617a847fae602f36f20f203bb3000be46821f0b53",
     "crates/specforge-extension-sdk/Cargo.toml": "5c252f7c95e39a3e8abce8f804c1e1927d990010c569099e79229996e00f24f0",
-    "crates/specforge-extension-sdk/src/lib.rs": "ef5422a95f8f6b4383e979cb4f5ffb54e4200c79fc94cc25f0ddfd0b301b263b",
-    "crates/specforge-extension-sdk/src/surface.rs": "99ecdfdcc17dedd0d1eb08bc7620b449e7a112bbb11aaff8dd82eced2052e842",
+    "crates/specforge-extension-sdk/src/lib.rs": "c902bb0bcb19f143962b4d49191d0da4229af03320f389b2974ec54bb88ba3de",
+    "crates/specforge-extension-sdk/src/operations.rs": "43e4cbb15c54819419c05aee1f9e42d73e71a3ab949e00b616d2e96b64d9e8d8",
+    "crates/specforge-extension-sdk/src/surface.rs": "c79dc4e3e088b2731c5427582865790750f1fecd9502f95a537a2b1520e5ed6e",
     "crates/specforge-extension-sdk/src/testing.rs": "373f3f6c6cf83670abc4afeda155aefa0e88874cbe559a71c401974e2bf4c412",
     "crates/specforge-protocol-types/Cargo.toml": "627567aea56e0aea4ff700b0f38548d6a1079db3ee333f6a7f4dcdbed449ba76",
     "crates/specforge-protocol-types/src/calls.rs": "bbcfb7dec037810bef144d723ce1b6ad52525bf96f677ad53e224e2eb3abf6a8",
@@ -17,8 +18,8 @@
     "crates/specforge-protocol-types/src/vocabulary.rs": "5ac29ff84aee649bd56a873d2fae8941e0c1beb6c6255aa98631a3a650c2247d",
     "extensions/software/Cargo.lock": "0dca28766540ea34a00da3c575571c59a4c9b8950a5ea1b08f5770b81961fa41",
     "extensions/software/Cargo.toml": "25b6f5b1dd9abd441077c5331128bb06ba12bc672ee30a7acf050fc623419d6f",
-    "extensions/software/src/declaration.rs": "5382090a64e2667767d25af67ea69afe5c1d145b03ad95cc02ecc7460edc975d",
-    "extensions/software/src/lib.rs": "91b68b3ac1e8bf61842e6ab7235e3f9667e9bfe94fbffa51426e24c22323f4fa",
+    "extensions/software/src/declaration.rs": "380107a04c87836c7e2b8c713f567aaa5d1db5c7d29e2d2aee26506f6bc29c50",
+    "extensions/software/src/lib.rs": "3b6437d604f073e862ba2c73c71a12e26c501a91b6b4d2979e5254252f2284ad",
     "extensions/software/src/starter.spec": "9daa0df316e7d40f785f1a676b89e8980ec34bd4666010337a5337d7f04bf812"
   }
 }

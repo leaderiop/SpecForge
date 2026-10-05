@@ -420,27 +420,31 @@ fn rules(c: &mut ContributionsBuilder) {
             .severity(ValidationSeverity::Warning)
             .message_template("type '{id}' field '{field}' has unknown annotation '{value}'")
             .target_kind("type")
-            .wasm_function("validate__type_field_annotations");
+            .wasm_function("validate__type_field_annotations")
+            .validate(crate::validate_type_field_annotations);
     });
     c.rule("E004", |r| {
         r.check(CheckKind::Custom)
             .severity(ValidationSeverity::Error)
             .message_template("port '{id}' method '{field}' references unknown type '{value}'")
             .target_kind("port")
-            .wasm_function("validate__port_methods");
+            .wasm_function("validate__port_methods")
+            .validate(crate::validate_port_methods);
     });
     c.rule("E051", |r| {
         r.check(CheckKind::Custom)
             .severity(ValidationSeverity::Error)
             .message_template("event '{id}' trigger must reference a behavior, found '{value}'")
             .target_kind("event")
-            .wasm_function("validate__event_triggers");
+            .wasm_function("validate__event_triggers")
+            .validate(crate::validate_event_triggers);
     });
     c.rule("E010", |r| {
         r.check(CheckKind::Custom)
             .severity(ValidationSeverity::Error)
             .message_template("milestone '{id}' behaviors range is invalid: {reason}")
             .target_kind("milestone")
-            .wasm_function("validate__milestone_behavior_ranges");
+            .wasm_function("validate__milestone_behavior_ranges")
+            .validate(crate::validate_milestone_behavior_ranges);
     });
 }

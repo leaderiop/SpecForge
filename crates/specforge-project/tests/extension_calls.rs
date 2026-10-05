@@ -56,7 +56,7 @@ fn golden(name: &str, actual: &Value) {
 /// `gadget`s (testable, verify `unit`, a `needs` reference, a `status`
 /// lifecycle field, an `abstract` flag exempting them), a W004-style rule
 /// obligating them, a custom rule `validate__shape`, a check pass `audit`
-/// and an analyze pass `report`.
+/// and an analyze pass `report`, each declared with its handler.
 fn extension() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0"));
     c.kind("gadget", |k| {
@@ -82,32 +82,31 @@ fn extension() -> ContributionsBuilder {
             .target_kind("gadget")
             .message_template("gadget '{id}' declares no obligations");
     });
+    // The validator passes everything and both passes report nothing; the
+    // tests answer otherwise through `answer_raw`.
     c.rule("E991", |r| {
         r.check(CheckKind::Custom)
             .target_kind("gadget")
             .wasm_function("validate__shape")
             .severity(ValidationSeverity::Error)
-            .message_template("gadget '{id}' has a bad {field}");
+            .message_template("gadget '{id}' has a bad {field}")
+            .validate(|_| ValidatorVerdict::Pass);
     });
     c.pass("audit", |p| {
-        p.phase("check");
+        p.phase("check").run(no_findings);
     });
-    c.pass("report", |_| {});
+    c.pass("report", |p| {
+        p.run(no_findings);
+    });
     c
 }
 
-/// The exports nothing declares a handler for: both passes report nothing,
-/// the validator passes everything.
-fn handler(export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-    match export {
-        "__pass_audit" | "__pass_report" => Some(Ok(b"[]".to_vec())),
-        "validate__shape" => Some(Ok(br#"{"verdict":"pass"}"#.to_vec())),
-        _ => None,
-    }
+fn no_findings(_: &PassInput) -> Vec<PassDiagnostic> {
+    Vec::new()
 }
 
 fn runtime() -> InProcessRuntime {
-    InProcessRuntime::new().with_handler(extension, handler)
+    InProcessRuntime::new().with(extension)
 }
 
 const SPEC: &str = "gadget a \"A\" {\n  needs b\n  status \"active\"\n  verify unit \"a works\"\n}\n\n\

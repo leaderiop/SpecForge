@@ -4,8 +4,4 @@
 
 mod contributions;
 
-fn dispatch(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-    None
-}
-
-specforge_extension_sdk::component_guest!(build = contributions::build, handler = dispatch);
+specforge_extension_sdk::component_guest!(build = contributions::build);

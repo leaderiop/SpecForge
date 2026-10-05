@@ -34,27 +34,22 @@ impl Contributions for RustAnalyzer {
                 .excluded_dirs(&["target"])
                 .description(
                     "Scans Rust source files for public items (functions, structs, enums, traits)",
-                );
+                )
+                .scan(scan_rust);
         });
     }
 }
 
 // ── Analyzer exports ───────────────────────────────────────────────────────
-// Same JSON wire format as the native builtin's `call_analyzer` dispatch.
-
-fn parse_req<T: serde::de::DeserializeOwned>(input: &[u8]) -> Result<T, String> {
-    serde_json::from_slice(input).map_err(|e| format!("invalid request: {e}"))
-}
-
-fn to_json<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, String> {
-    serde_json::to_vec(value).map_err(|e| format!("serialization failed: {e}"))
-}
+// The scanner is declared with its handler above (`scan__rust`). The
+// declared `classify__rust` and `map__rust` exports, which the host does
+// not call, are the guest handler's (ADR 0013, D12).
 
 fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    use specforge_extension_sdk::answer_export;
     match export {
-        "scan__rust" => Some(parse_req(input).and_then(|req| to_json(&scan_rust(&req)))),
-        "classify__rust" => Some(parse_req(input).and_then(|req| to_json(&classify_rust(&req)))),
-        "map__rust" => Some(parse_req(input).and_then(|req| to_json(&map_rust(&req)))),
+        "classify__rust" => Some(answer_export(export, input, classify_rust)),
+        "map__rust" => Some(answer_export(export, input, map_rust)),
         _ => None,
     }
 }

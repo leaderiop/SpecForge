@@ -166,9 +166,18 @@ impl Parse for CompilerPassArgs {
 
 /// Wrap a pass function for the component bridge.
 ///
+/// **Deprecated** (ADR 0013): declare the pass with its handler instead,
+/// `c.pass("condition_check", |p| { p.after("resolve").run(pass_condition_check); })`;
+/// the function this attribute wraps (`fn(&PassInput) -> Vec<PassDiagnostic>`)
+/// is already the handler `PassBuilder::run` takes. The attribute keeps
+/// generating `specforge_dispatch_pass_<name>`, which decodes the
+/// `PassInput` and encodes the diagnostics, for a guest that still routes
+/// `__pass_<name>` through `component_guest!`'s `handler` (a pass declared
+/// with `raw_category`).
+///
 /// ```ignore
 /// #[compiler_pass(name = "condition_check", after = "resolve")]
-/// fn pass_condition_check(entities: &[PassEntity]) -> Vec<PassDiagnostic> {
+/// fn pass_condition_check(input: &PassInput) -> Vec<PassDiagnostic> {
 ///     // ...
 /// }
 /// ```

@@ -34,31 +34,22 @@ impl Contributions for TypeScriptAnalyzer {
                 .excluded_dirs(&["node_modules", "dist", "build", ".next", ".nuxt"])
                 .description(
                     "Scans TypeScript/JavaScript source files for exported symbols (functions, classes, interfaces, types)",
-                );
+                )
+                .scan(scan_typescript);
         });
     }
 }
 
 // ── Analyzer exports ───────────────────────────────────────────────────────
-// Same JSON wire format as the native builtin's `call_analyzer` dispatch.
-
-fn parse_req<T: serde::de::DeserializeOwned>(input: &[u8]) -> Result<T, String> {
-    serde_json::from_slice(input).map_err(|e| format!("invalid request: {e}"))
-}
-
-fn to_json<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, String> {
-    serde_json::to_vec(value).map_err(|e| format!("serialization failed: {e}"))
-}
+// The scanner is declared with its handler above (`scan__typescript`). The
+// declared `classify__typescript` and `map__typescript` exports, which the host does
+// not call, are the guest handler's (ADR 0013, D12).
 
 fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    use specforge_extension_sdk::answer_export;
     match export {
-        "scan__typescript" => {
-            Some(parse_req(input).and_then(|req| to_json(&scan_typescript(&req))))
-        }
-        "classify__typescript" => {
-            Some(parse_req(input).and_then(|req| to_json(&classify_typescript(&req))))
-        }
-        "map__typescript" => Some(parse_req(input).and_then(|req| to_json(&map_typescript(&req)))),
+        "classify__typescript" => Some(answer_export(export, input, classify_typescript)),
+        "map__typescript" => Some(answer_export(export, input, map_typescript)),
         _ => None,
     }
 }

@@ -121,24 +121,30 @@ fn passes_are_ordered_in_the_registry_build() {
             // Declared out of order; `after` gives the run order. `resolve`
             // is a host phase, ignored.
             c.pass("event_graph_analyze", |p| {
-                p.after("layering_verify");
+                p.after("layering_verify").run(no_findings);
             });
             c.pass("coverage_tracking", |p| {
-                p.after("event_graph_analyze").phase("check");
+                p.after("event_graph_analyze")
+                    .phase("check")
+                    .run(no_findings);
             });
             c.pass("condition_check", |p| {
-                p.after("resolve");
+                p.after("resolve").run(no_findings);
             });
             c.pass("layering_verify", |p| {
-                p.after("condition_check");
+                p.after("condition_check").run(no_findings);
             });
         }),
         passes("@acme/other", |c| {
             c.pass("second", |p| {
-                p.before("first");
+                p.before("first").run(no_findings);
             });
-            c.pass("first", |_| {});
-            c.pass("solo", |_| {});
+            c.pass("first", |p| {
+                p.run(no_findings);
+            });
+            c.pass("solo", |p| {
+                p.run(no_findings);
+            });
         }),
     ]);
     assert_eq!(
@@ -168,12 +174,14 @@ fn passes_are_ordered_in_the_registry_build() {
 fn a_pass_cycle_is_w145_in_declaration_order() {
     let build = build_registries(vec![passes("@acme/loop", |c| {
         c.pass("a", |p| {
-            p.after("b");
+            p.after("b").run(no_findings);
         });
         c.pass("b", |p| {
-            p.after("a");
+            p.after("a").run(no_findings);
         });
-        c.pass("c", |_| {});
+        c.pass("c", |p| {
+            p.run(no_findings);
+        });
     })]);
     assert_eq!(
         order(&build),
@@ -191,10 +199,10 @@ fn a_pass_cycle_is_w145_in_declaration_order() {
 fn declaration_diagnostics_come_in_a_fixed_order() {
     let mut cyclic = passes("@acme/z", |c| {
         c.pass("a", |p| {
-            p.after("b");
+            p.after("b").run(no_findings);
         });
         c.pass("b", |p| {
-            p.after("a");
+            p.after("a").run(no_findings);
         });
     });
     cyclic.handshake.peer_dependencies.push(PeerDependency {
@@ -251,4 +259,9 @@ fn a_declared_default_value_reaches_the_field_registry() {
     let blocks = build.edges.get("blocks").expect("registered");
     assert_eq!(blocks.declared.edge_style.as_deref(), Some("dashed"));
     assert_eq!(blocks.source_extension, "@acme/tickets");
+}
+
+/// A pass's handler that finds nothing.
+fn no_findings(_: &PassInput) -> Vec<PassDiagnostic> {
+    Vec::new()
 }

@@ -1,4 +1,23 @@
 {
   "category": "surfaces",
-  "items": []
+  "items": [
+    {
+      "commands": [
+        {
+          "args": [
+            {
+              "arg_type": "string",
+              "description": "Who to greet",
+              "name": "name",
+              "required": true
+            }
+          ],
+          "description": "Greet someone, warmly",
+          "export": "cmd__hello",
+          "id": "hello",
+          "title": "Say hello"
+        }
+      ]
+    }
+  ]
 }

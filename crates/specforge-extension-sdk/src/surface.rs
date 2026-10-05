@@ -158,6 +158,30 @@ impl Surfaces {
         }
     }
 
+    /// Every declared surface's export, with the surface's name.
+    pub(crate) fn exports(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.commands
+            .iter()
+            .map(|c| (c.descriptor.export.as_str(), c.descriptor.id.as_str()))
+            .chain(
+                self.tools
+                    .iter()
+                    .map(|t| (t.descriptor.export.as_str(), t.descriptor.name.as_str())),
+            )
+            .chain(
+                self.resources
+                    .iter()
+                    .map(|r| (r.descriptor.export.as_str(), r.descriptor.name.as_str())),
+            )
+    }
+
+    /// The name of the declared surface whose export is `export`.
+    pub(crate) fn owner(&self, export: &str) -> Option<&str> {
+        self.exports()
+            .find(|(e, _)| *e == export)
+            .map(|(_, name)| name)
+    }
+
     /// Every declared command's descriptor, in declaration order.
     pub(crate) fn command_descriptors(&self) -> impl Iterator<Item = &CommandDescriptor> {
         self.commands.iter().map(|c| &c.descriptor)

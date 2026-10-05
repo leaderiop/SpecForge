@@ -58,7 +58,34 @@ expression: "digest(&load(&runtime, &[\"@sdk/greet\"]))"
     }
   },
   "load_diagnostics": [],
-  "manifest_surfaces": [],
+  "manifest_surfaces": [
+    {
+      "extension": "@sdk/greet",
+      "surfaces": {
+        "commands": [
+          {
+            "args": [
+              {
+                "arg_type": "string",
+                "default_value": null,
+                "description": "Who to greet",
+                "name": "name",
+                "required": true
+              }
+            ],
+            "category": null,
+            "description": "Greet someone, warmly",
+            "export": "cmd__hello",
+            "id": "hello",
+            "sandbox": null,
+            "title": "Say hello"
+          }
+        ],
+        "mcp_resources": [],
+        "mcp_tools": []
+      }
+    }
+  ],
   "registry_diagnostics": [],
   "rules": [
     {
@@ -94,5 +121,12 @@ expression: "digest(&load(&runtime, &[\"@sdk/greet\"]))"
   ],
   "single_reference_fields": [],
   "surface_diagnostics": [],
-  "surfaces": []
+  "surfaces": [
+    {
+      "export": "cmd__hello",
+      "extension": "@sdk/greet",
+      "name": "hello",
+      "surface_type": "Command"
+    }
+  ]
 }

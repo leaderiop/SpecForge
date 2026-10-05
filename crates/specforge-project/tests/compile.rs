@@ -654,13 +654,10 @@ mod passes_of_the_declaration {
     fn audit() -> ContributionsBuilder {
         let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/audit", "0.1.0"));
         b.pass("audit", |p| {
-            p.phase("check");
+            p.phase("check")
+                .run(|_: &PassInput| Vec::<PassDiagnostic>::new());
         });
         b
-    }
-
-    fn audit_pass(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
-        Some(Ok(b"[]".to_vec()))
     }
 
     /// The audit extension, whose `passes` answer is `items` instead of
@@ -716,7 +713,7 @@ mod passes_of_the_declaration {
     /// nothing again.
     #[test]
     fn an_environment_describes_each_category_once() {
-        let runtime = InProcessRuntime::new().with_handler(audit, audit_pass);
+        let runtime = InProcessRuntime::new().with(audit);
         let dir = project(
             serde_json::json!({ "name": "p", "version": "0.1.0", "extensions": ["@acme/audit"] }),
             &[("a.spec", "spec p \"P\" {\n}\n")],

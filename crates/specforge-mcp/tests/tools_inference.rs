@@ -24,7 +24,12 @@ fn init_server(project_dir: &std::path::Path) -> McpServer {
 fn rust_declaration() -> ExtensionDeclaration {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@specforge/rust", "1.0.0"));
     c.analyzer("rust", |a| {
-        a.file_extensions(&[".rs"]).excluded_dirs(&["target"]);
+        a.file_extensions(&[".rs"])
+            .excluded_dirs(&["target"])
+            .scan(|_| ScanResponse {
+                items: Vec::new(),
+                language: None,
+            });
     });
     c.declaration()
 }
@@ -34,7 +39,11 @@ fn typescript_declaration() -> ExtensionDeclaration {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@specforge/typescript", "1.0.0"));
     c.analyzer("typescript", |a| {
         a.file_extensions(&[".ts", ".tsx", ".js", ".jsx"])
-            .excluded_dirs(&["node_modules", "dist"]);
+            .excluded_dirs(&["node_modules", "dist"])
+            .scan(|_| ScanResponse {
+                items: Vec::new(),
+                language: None,
+            });
     });
     c.declaration()
 }
