@@ -212,7 +212,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                     "limit": { "type": "integer", "description": "Max results (default 20)", "default": 20 },
                     "field": { "type": "string", "description": "Only search a specific field" },
                     "value": { "type": "string", "description": "Exact field value filter (with field)" },
-                    "references": { "type": "string", "description": "Find entities with edges to this target" }
+                    "references": { "type": "string", "description": "Only entities that reference this entity ID (combined with the other filters)" }
                 },
                 "required": ["query"]
             })
@@ -458,7 +458,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: Some(
-            || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "kind": { "type": "string" }, "title": { "type": ["string", "null"] }, "testable": { "type": "boolean" }, "declared": { "type": "boolean" }, "reference_count": { "type": "integer" }, "source_span": { "type": "object" }, "contract": { "type": ["string", "null"] }, "fields": { "type": "object" }, "verify_declarations": { "type": ["array", "null"] }, "references": { "type": "array" }, "coverage_status": { "type": "string" }, "diagnostics": { "type": "array" } }, "required": ["entity_id", "kind", "testable", "declared", "source_span", "fields", "references", "coverage_status", "diagnostics"] }),
+            || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "kind": { "type": "string" }, "title": { "type": ["string", "null"] }, "testable": { "type": "boolean" }, "declared": { "type": "boolean" }, "reference_count": { "type": "integer" }, "source_span": { "type": "object" }, "contract": { "type": ["string", "null"] }, "fields": { "type": "object" }, "verify_declarations": { "type": ["array", "null"] }, "referenced_by": { "type": "array", "items": { "type": "string" } }, "refers_to": { "type": "array", "items": { "type": "string" } }, "references": { "type": "array" }, "coverage_status": { "type": "string" }, "diagnostics": { "type": "array" } }, "required": ["entity_id", "kind", "testable", "declared", "source_span", "fields", "referenced_by", "refers_to", "references", "coverage_status", "diagnostics"] }),
         ),
         target: TargetSpec::SERVED,
         fields: fields::<inspect::Args>,
@@ -480,7 +480,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: Some(
-            || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "file_path": { "type": "string" }, "line": { "type": "integer" }, "column": { "type": "integer" } }, "required": ["entity_id", "file_path", "line", "column"] }),
+            || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "file_path": { "type": "string" }, "line": { "type": "integer" }, "column": { "type": "integer" }, "source_span": { "type": "object" }, "name_span": { "type": "object" }, "precision": { "type": "string", "enum": ["token", "entity"] } }, "required": ["entity_id", "file_path", "line", "column", "source_span", "name_span", "precision"] }),
         ),
         target: TargetSpec::SERVED,
         fields: fields::<find_definition::Args>,
@@ -488,22 +488,46 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     },
     ToolSpec {
         name: "specforge.find_references",
-        description: "Find all references to an entity",
+        description: "Find the references to an entity: each place another entity's field names it, as the identifier token (what an IDE's find-references shows)",
         category: Category::Navigation,
         access: Access::ReadOnly,
         schema: || {
             json!({
                 "type": "object",
                 "properties": {
-                    "entity_id": { "type": "string", "description": "Entity ID" }
+                    "entity_id": { "type": "string", "description": "Entity ID" },
+                    "direction": { "type": "string", "enum": ["incoming", "outgoing", "both"], "default": "incoming", "description": "incoming: other entities' references to it; outgoing: its own references to others; both" },
+                    "include_declaration": { "type": "boolean", "default": false, "description": "Also return the entity's own declaration (its name)" }
                 },
                 "required": ["entity_id"]
             })
         },
         mutation: None,
-        output: Some(
-            || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "locations": { "type": "array" } }, "required": ["entity_id", "locations"] }),
-        ),
+        output: Some(|| {
+            json!({
+                "type": "object",
+                "properties": {
+                    "entity_id": { "type": "string" },
+                    "direction": { "type": "string" },
+                    "locations": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "referencing_entity_id": { "type": "string" },
+                                "referenced_entity_id": { "type": "string" },
+                                "field": { "type": ["string", "null"] },
+                                "role": { "type": "string", "enum": ["declaration", "reference"] },
+                                "precision": { "type": "string", "enum": ["token", "entity"] },
+                                "source_span": { "type": "object" }
+                            },
+                            "required": ["referencing_entity_id", "referenced_entity_id", "field", "role", "precision", "source_span"]
+                        }
+                    }
+                },
+                "required": ["entity_id", "direction", "locations"]
+            })
+        }),
         target: TargetSpec::SERVED,
         fields: fields::<find_references::Args>,
         call: typed!(find_references::call, find_references::Args),

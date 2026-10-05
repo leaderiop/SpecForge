@@ -32,6 +32,47 @@ use crate::target::{self, Call, CallTarget, Reach, TargetSpec};
 use crate::tool::{Category, Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
 pub use table::CORE_TOOLS;
 
+/// The navigator over what the call reads (`specforge_ops::navigate`):
+/// its project's view, else the served graph without a root, each file's
+/// text read from disk under the spec root (a graph built in memory with
+/// no project names its files as given). The navigation tools render its
+/// answers as JSON and nothing else (ADR 0016).
+pub(crate) fn navigator<'c>(
+    call: &'c Call<'_>,
+) -> specforge_ops::navigate::Navigator<'c, impl Fn(&str) -> Option<String> + 'c> {
+    let spec_root = call.spec_root().map(std::path::Path::to_path_buf);
+    specforge_ops::navigate::Navigator::new(call.view(), move |file| {
+        let path = match &spec_root {
+            Some(root) => root.join(file),
+            None => std::path::PathBuf::from(file),
+        };
+        std::fs::read_to_string(path).ok()
+    })
+}
+
+/// A span as the MCP tools render it: the `SourceSpan` the spec types name
+/// (1-based lines, 1-based byte columns, end exclusive).
+pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
+    json!({
+        "file": span.file,
+        "start_line": span.start_line,
+        "start_col": span.start_col,
+        "end_line": span.end_line,
+        "end_col": span.end_col,
+    })
+}
+
+/// The refusal of a question about `entity_id`, which no entity declares.
+pub(crate) fn entity_not_found(entity_id: &str) -> Box<McpError> {
+    Box::new(
+        McpError::new(
+            ErrorCode::EntityNotFound,
+            format!("Entity not found: {entity_id}"),
+        )
+        .with_entity(entity_id),
+    )
+}
+
 /// An I020 report for each kind in a `kinds` filter that no registered
 /// extension defines and no entity has, in the order given, with a
 /// `did you mean` suggestion when a known kind is close. The filter still

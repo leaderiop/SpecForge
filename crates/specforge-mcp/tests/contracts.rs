@@ -917,18 +917,30 @@ fn contract_find_definition() {
         "specforge.find_definition",
         json!({"entity_id": "alpha"}),
     );
+    // A graph built without text: the position is the block's start (the
+    // name cannot be read), and the answer says so.
+    let location = |v: &Value| {
+        json!([
+            v["entity_id"],
+            v["file_path"],
+            v["line"],
+            v["column"],
+            v["precision"]
+        ])
+    };
     assert_eq!(
-        alpha,
-        json!({"entity_id": "alpha", "file_path": "test.spec", "line": 1, "column": 0})
+        location(&alpha),
+        json!(["alpha", "test.spec", 1, 0, "entity"])
     );
+    assert_eq!(alpha["source_span"], alpha["name_span"]);
     let gamma = tool(
         &mut server,
         "specforge.find_definition",
         json!({"entity_id": "gamma"}),
     );
     assert_eq!(
-        gamma,
-        json!({"entity_id": "gamma", "file_path": "more/gamma.spec", "line": 7, "column": 2})
+        location(&gamma),
+        json!(["gamma", "more/gamma.spec", 7, 2, "entity"])
     );
 
     assert_tool_invoked(&server, "specforge.find_definition");

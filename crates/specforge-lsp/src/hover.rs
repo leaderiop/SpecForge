@@ -45,7 +45,7 @@ pub fn diagnostic_hover(
 /// Shows:
 /// - Entity kind, ID, and title
 /// - Extension source (from KindRegistry, if available)
-/// - **References** (outgoing edges): grouped by field label, listing target IDs
+/// - **Refers to** (outgoing edges): grouped by field label, listing target IDs
 /// - **Referenced by** (incoming edges): grouped by "source_kind via label", listing source IDs
 /// - **Fields**: actual field values from the entity
 pub fn hover_info(graph: &Graph, entity_id: &str) -> Option<String> {
@@ -101,7 +101,7 @@ pub fn hover_info_with_registries(
 
     let mut sections: Vec<String> = vec![header_section];
 
-    // Section 2: Outgoing edges (References)
+    // Section 2: Outgoing edges (Refers to)
     let outgoing = graph.edges_from(entity_id);
     if !outgoing.is_empty() {
         let mut by_label: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
@@ -112,7 +112,7 @@ pub fn hover_info_with_registries(
                 .push(edge.target.as_str());
         }
         let total_count = outgoing.len();
-        let mut section = format!("**References** *({})*", total_count);
+        let mut section = format!("**Refers to** *({})*", total_count);
         for (label, targets) in &by_label {
             let ids: Vec<&str> = targets.to_vec();
             section.push_str(&format!("\n- `{}` → {}", label, ids.join(", ")));

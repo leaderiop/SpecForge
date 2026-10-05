@@ -125,6 +125,7 @@ type McpInspectResult {
   testable            boolean
   /// The entity declares at least one verify obligation.
   declared            boolean
+  /// Deprecated: the number of edges in both directions.
   reference_count     integer
   summary             string       @optional
   source_span         SourceSpan   @readonly
@@ -132,6 +133,11 @@ type McpInspectResult {
   /// behavior's contract); absent when its kind declares none.
   contract            string       @optional
   fields              FieldMap     @optional
+  /// The entities that reference this one (incoming), distinct, sorted.
+  referenced_by       string[]
+  /// The entities this one references (outgoing), distinct, sorted.
+  refers_to           string[]
+  /// Deprecated: both directions, unlabeled. Use referenced_by and refers_to.
   references          string[]     @optional
   verify_declarations string[]     @optional
   coverage_status     string       @optional
@@ -140,21 +146,38 @@ type McpInspectResult {
 }
 
 type McpDefinitionResult {
-  entity_id string  @readonly
-  file_path string  @readonly
-  line      integer @readonly
-  column    integer @readonly
+  entity_id   string     @readonly
+  file_path   string     @readonly
+  /// The position of the entity's name.
+  line        integer    @readonly
+  column      integer    @readonly
+  /// The entity's block.
+  source_span SourceSpan @readonly
+  /// The entity's name as written; its block when the name could not be read.
+  name_span   SourceSpan @readonly
+  /// "token" when name_span is the name as written, else "entity".
+  precision   string     @readonly
   verify unit "McpDefinitionResult schema is valid"
 }
 
 type McpReferenceLocation {
   referencing_entity_id string     @readonly
+  referenced_entity_id  string     @readonly
+  /// The field naming the referenced entity; absent for its declaration.
+  field                 string     @optional
+  /// "declaration" or "reference".
+  role                  string
+  /// "token" when source_span is the identifier as written, else "entity"
+  /// (the text was unreadable or stale: the referencing entity's block).
+  precision             string
   source_span           SourceSpan @readonly
   verify unit "McpReferenceLocation schema is valid"
 }
 
 type McpReferenceResult {
   entity_id string @readonly
+  /// "incoming", "outgoing" or "both".
+  direction string @readonly
   locations McpReferenceLocation[]
   verify unit "McpReferenceResult schema is valid"
 }

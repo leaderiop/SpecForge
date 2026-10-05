@@ -25,6 +25,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde_json::{Value, json};
+use specforge_test::prelude::*;
 use tempfile::TempDir;
 use tower_lsp::lsp_types::Url;
 
@@ -641,24 +642,6 @@ const CASES: &[Case] = &[
 /// none may be added to excuse a regression.
 const EXPECTED_DIVERGENCES: &[Divergence] = &[
     Divergence {
-        id: "N4",
-        case: "references_session_limit_without_declaration",
-        surface: Surface::Mcp,
-        today: &["login.spec 1:1-3:2 -"],
-    },
-    Divergence {
-        id: "N4",
-        case: "references_session_limit_with_declaration",
-        surface: Surface::Mcp,
-        today: &["login.spec 1:1-3:2 -"],
-    },
-    Divergence {
-        id: "N5",
-        case: "search_references_with_other_filters",
-        surface: Surface::Mcp,
-        today: &["login"],
-    },
-    Divergence {
         id: "N7",
         case: "rename_session_limit",
         surface: Surface::Lsp,
@@ -1015,6 +998,53 @@ fn outline_of_a_file_with_methods() {
     );
 }
 
+/// MCP `find_references` answers the occurrences the LSP's references
+/// answer, for each entity of each fixture, with and without the
+/// declaration: the same locations, one per occurrence.
+#[specforge_test(
+    behavior = "provide_mcp_find_references_tool",
+    verify = "find_references and the LSP's references answer the same occurrences"
+)]
+fn find_references_answers_what_the_lsp_answers() {
+    // (fixture, file, 0-based line and character of an entity's name)
+    let names: &[(&str, &str, u32, u32, &str)] = &[
+        ("nav", "limit.spec", 0, 12, "session_limit"),
+        ("nav", "login.spec", 0, 10, "login"),
+        ("nav", "login.spec", 4, 10, "logout"),
+        ("rn", "a.spec", 0, 12, "session_limit"),
+        ("rn", "a.spec", 3, 10, "login"),
+        ("port", "store.spec", 0, 6, "Item"),
+        ("port", "store.spec", 4, 6, "store"),
+    ];
+    for &(fixture, file, line, character, id) in names {
+        let p = project(fixture);
+        for include_declaration in [false, true] {
+            let lsp = lsp_request(
+                &p,
+                "textDocument/references",
+                references_params(&p, file, line, character, include_declaration),
+            );
+            let mcp = mcp_tool(
+                &p,
+                "specforge.find_references",
+                json!({"entity_id": id, "include_declaration": include_declaration}),
+            );
+            let mut mcp_locations: Vec<String> = mcp["locations"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|l| mcp_span_key(&l["source_span"]))
+                .collect();
+            mcp_locations.sort();
+            assert_eq!(
+                lsp_locations(&p, &lsp),
+                mcp_locations,
+                "{fixture} {id}, declaration included: {include_declaration}"
+            );
+        }
+    }
+}
+
 /// Every row names a case the harness runs, a surface the case answers
 /// on, and differs from the case's target; every case names a fixture.
 #[test]
@@ -1197,9 +1227,15 @@ fn mcp_find_definition_answers_file_line_and_column() {
         "specforge.find_definition",
         json!({"entity_id": "session_limit"}),
     );
+    // The name's position; the block and the name as spans.
     assert_eq!(
         mcp,
-        json!({"entity_id": "session_limit", "file_path": "limit.spec", "line": 1, "column": 1})
+        json!({
+            "entity_id": "session_limit", "file_path": "limit.spec", "line": 1, "column": 11,
+            "source_span": {"file": "limit.spec", "start_line": 1, "start_col": 1, "end_line": 3, "end_col": 2},
+            "name_span": {"file": "limit.spec", "start_line": 1, "start_col": 11, "end_line": 1, "end_col": 24},
+            "precision": "token",
+        })
     );
 }
 

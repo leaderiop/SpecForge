@@ -68,7 +68,7 @@ fn hover_shows_outgoing_edges() {
 
     let text = specforge_lsp::hover_info(&g, "create_user").unwrap();
     assert!(
-        text.contains("**References** *(2)*"),
+        text.contains("**Refers to** *(2)*"),
         "should have References section:\n{text}"
     );
     assert!(
@@ -122,7 +122,7 @@ fn hover_shows_both_directions() {
 
     let text = specforge_lsp::hover_info(&g, "create_user").unwrap();
     assert!(
-        text.contains("**References** *(1)*"),
+        text.contains("**Refers to** *(1)*"),
         "should have outgoing:\n{text}"
     );
     assert!(

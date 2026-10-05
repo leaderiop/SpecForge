@@ -24,7 +24,9 @@ expression: "normalized(&result, root)"
   },
   "kind": "type",
   "reference_count": 0,
+  "referenced_by": [],
   "references": [],
+  "refers_to": [],
   "source_span": {
     "end_col": 2,
     "end_line": 21,

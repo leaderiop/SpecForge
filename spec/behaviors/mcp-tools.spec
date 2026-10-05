@@ -246,6 +246,7 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   verify unit "limit caps the number of returned results"
   verify unit "empty query returns all entities up to limit"
   verify unit "references filter returns entities referencing target"
+  verify unit "the references filter combines with the other filters"
   verify contract "Provide MCP Search Tool: MCP search tool holds — graph_available, filtered_results_returned, unknown_kinds_reported, tool_invoked_emitted"
   verify unit "missing query returns error"
 }
@@ -457,7 +458,9 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     field the entity declares, whatever its kind names them (an invariant's
     guarantee, a decision's rationale), not just contract. The coverage status
     MUST count the recorded test results in specforge-report.json exactly as
-    specforge.coverage does. The related diagnostics are those whose span
+    specforge.coverage does. References are split by direction:
+    referenced_by (incoming) and refers_to (outgoing); references and
+    reference_count remain as deprecated aliases. The related diagnostics are those whose span
     lies within the entity's source span, or, for a diagnostic without a
     span, whose message names the entity in quotes; an entity whose ID is a
     prefix of another's never collects the other's diagnostics. LSP equivalence: this tool
@@ -492,6 +495,7 @@ behavior provide_mcp_find_definition_tool "Provide MCP Find Definition Tool" {
   }
   ensures {
     source_location_returned "Source location returned including file path, line number, and column"
+    name_position            "the position is the entity's name"
     tool_invoked_emitted     "mcp_tool_invoked event emitted"
   }
   contract   """
@@ -530,16 +534,20 @@ behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.find_references
-    tool that accepts entity_id (required). The tool MUST return all locations
-    where the entity is referenced, including the referencing entity's id, file
-    path, line number, and column. LSP equivalence: this tool mirrors
-    textDocument/references (findReferences), returning the same location list
-    an IDE shows but over the MCP transport. An entity with no references MUST
-    return an empty list, not an error.
+    tool that accepts entity_id (required), direction? ("incoming", the
+    default; "outgoing"; "both") and include_declaration? (default false).
+    The tool MUST return each occurrence: the referencing entity's id, the
+    referenced entity's id, the field, its role (declaration or reference)
+    and the identifier token's source span. LSP equivalence: with the
+    defaults it returns the occurrences textDocument/references returns
+    with includeDeclaration false. An entity with no references MUST return
+    an empty list, not an error.
   """
   verify unit "specforge.find_references returns all reference locations"
   verify unit "entity with no references returns empty list"
   verify unit "non-existent entity returns error response"
+  verify unit "direction and include_declaration select which occurrences are returned"
+  verify integration "find_references and the LSP's references answer the same occurrences"
   verify contract "Provide MCP Find References Tool: MCP find references tool holds — graph_available, references_returned, empty_list_for_unreferenced, tool_invoked_emitted"
 }
 

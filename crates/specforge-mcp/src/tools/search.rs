@@ -51,26 +51,18 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let value_filter = args.value.as_deref();
     let references_target = args.references.as_deref();
 
-    // If references parameter is set, find entities with edges to that target
-    if let Some(target) = references_target {
-        let refs = state.graph().edges_to(target);
-        let results: Vec<Value> = refs
+    // `references`: only the entities that reference the target (the
+    // holders of what find_references returns), ANDed with every other
+    // filter. An unknown target is referenced by nothing.
+    let referencing: Option<std::collections::BTreeSet<String>> = references_target.map(|target| {
+        let incoming = specforge_ops::navigate::ReferenceQuery::default();
+        super::navigator(call)
+            .references(target, incoming)
+            .unwrap_or_default()
             .iter()
-            .filter_map(|e| state.graph().node(e.source.as_str()))
-            .map(|n| {
-                serde_json::json!({
-                    "entity_id": n.id.raw,
-                    "kind": n.kind.raw,
-                    "title": n.title,
-                    "file_path": n.source_span.file,
-                    "line": n.source_span.start_line,
-                    "score": 1.0
-                })
-            })
-            .collect();
-
-        return ToolOutcome::ok(Value::Array(results));
-    }
+            .map(|o| o.holder.to_string())
+            .collect()
+    });
 
     let query_lower = query.to_lowercase();
 
@@ -79,6 +71,11 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         .nodes()
         .into_iter()
         .filter(|n| kind_filter.is_empty() || kind_filter.contains(&n.kind.raw.as_str()))
+        .filter(|n| {
+            referencing
+                .as_ref()
+                .is_none_or(|ids| ids.contains(n.id.raw.as_str()))
+        })
         .filter(|n| {
             if let (Some(f), Some(v)) = (field_filter, value_filter) {
                 n.fields

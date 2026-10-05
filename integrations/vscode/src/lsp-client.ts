@@ -74,7 +74,7 @@ function enhanceHover(hover: vscode.Hover): vscode.Hover {
   }
 
   // Add codicons to section headers
-  md = md.replace(/\*\*References\*\*/g, "$(link) **References**");
+  md = md.replace(/\*\*Refers to\*\*/g, "$(link) **Refers to**");
   md = md.replace(/\*\*Referenced by\*\*/g, "$(references) **Referenced by**");
   md = md.replace(/\*\*Fields\*\*/g, "$(symbol-field) **Fields**");
 

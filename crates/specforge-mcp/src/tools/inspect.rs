@@ -1,5 +1,7 @@
 use serde_json::Value;
 
+use specforge_ops::navigate::Direction;
+
 use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
@@ -13,7 +15,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let state = &*call.state;
     let entity_id = args.entity_id.as_str();
 
-    let node = match state.graph().node(entity_id) {
+    let node = match view.graph.node(entity_id) {
         Some(n) => n,
         None => {
             return McpError::new(
@@ -25,12 +27,45 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         }
     };
 
+    // References split by direction (ADR 0016): the entities that
+    // reference this one, and those it refers to. `references` (both,
+    // unlabeled) and `reference_count` stay as deprecated aliases.
+    let nav = super::navigator(call);
+    let ids = |direction| -> Vec<String> {
+        let query = specforge_ops::navigate::ReferenceQuery {
+            direction,
+            include_declaration: false,
+        };
+        let occurrences = nav.references(entity_id, query).unwrap_or_default();
+        let ids: std::collections::BTreeSet<String> = occurrences
+            .iter()
+            .map(|o| match direction {
+                Direction::Outgoing => o.target.to_string(),
+                _ => o.holder.to_string(),
+            })
+            .collect();
+        ids.into_iter().collect()
+    };
+    let referenced_by = ids(Direction::Incoming);
+    let refers_to = ids(Direction::Outgoing);
     let reference_count =
-        state.graph().edges_to(entity_id).len() + state.graph().edges_from(entity_id).len();
+        view.graph.edges_to(entity_id).len() + view.graph.edges_from(entity_id).len();
+    let references: Vec<String> = view
+        .graph
+        .edges_to(entity_id)
+        .iter()
+        .map(|e| e.source.to_string())
+        .chain(
+            view.graph
+                .edges_from(entity_id)
+                .iter()
+                .map(|e| e.target.to_string()),
+        )
+        .collect();
 
     // The statement the extension declares (headline and normative): a
     // behavior's `contract`; `null` for a kind that declares none.
-    let contract = specforge_emitter::context::headline_statement(node, &state.registries().fields);
+    let contract = specforge_emitter::context::headline_statement(node, &view.registries.fields);
 
     // The entity's row of the coverage view: whether its kind counts toward
     // coverage, as hover, the schema and the outline say (ADR 0004, D2-d);
@@ -57,20 +92,6 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
             .map(|s| format!("{} {}", s.kind, s.description))
             .collect()
     });
-
-    let references: Vec<String> = state
-        .graph()
-        .edges_to(entity_id)
-        .iter()
-        .map(|e| e.source.to_string())
-        .chain(
-            state
-                .graph()
-                .edges_from(entity_id)
-                .iter()
-                .map(|e| e.target.to_string()),
-        )
-        .collect();
 
     let entity_diagnostics: Vec<Value> = state
         .diagnostics()
@@ -104,6 +125,8 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         // `guarantee`, a decision's `rationale`, a feature's `description`.
         "fields": specforge_emitter::field_map_to_json(&node.fields),
         "verify_declarations": verify_declarations,
+        "referenced_by": referenced_by,
+        "refers_to": refers_to,
         "references": references,
         "coverage_status": coverage_status,
         "diagnostics": entity_diagnostics

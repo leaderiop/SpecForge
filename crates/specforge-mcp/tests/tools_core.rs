@@ -1794,13 +1794,17 @@ fn search_references_filter() {
     let resp = call_tool(
         &mut server,
         "specforge.search",
-        json!({"query": "alpha", "references": "alpha"}),
+        json!({"query": "", "references": "alpha"}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     let results = parsed.as_array().unwrap();
     // beta_feature has an edge to alpha
     assert!(results.iter().any(|r| r["entity_id"] == "beta_feature"));
+    assert!(
+        results.iter().all(|r| r["entity_id"] != "alpha"),
+        "{parsed}"
+    );
 }
 
 // B:provide_mcp_stats_tool — verify unit "diagnostic_summary includes severity counts"
