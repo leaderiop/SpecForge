@@ -36,7 +36,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     // counts as an error for `severity_filter` and `isError` alike.
     let policy = DiagnosticPolicy {
         strict: args.strict.unwrap_or(false),
-        lint_profiles: args.lint,
+        lint_profiles: args.lint.iter().filter_map(|p| p.parse().ok()).collect(),
     };
     let promoted = policy.apply(project.root, project.diagnostics());
     let filtered: Vec<specforge_common::Diagnostic> = promoted

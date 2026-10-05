@@ -416,6 +416,35 @@ behavior check_mode_for_ci "Check Mode for CI" {
   verify contract "Check Mode for CI: CI check mode holds — validation_complete_fired, no_output_files_produced, diagnostics_to_stderr, appropriate_exit_code"
 }
 
+behavior check_diagnostic_policy "Apply the Diagnostic Policy Once" {
+  features   [ci_integration, diagnostic_reporting]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   validation
+  types      [Diagnostic]
+  ports      [CompilerApi]
+  requires {
+    project_compiled "the project compiled and its diagnostics are known"
+  }
+  ensures {
+    policy_once        "lint profiles add their diagnostics, then strict promotes warnings, the same way for specforge check and MCP validate"
+    closed_profiles    "the lint profiles are inferred and pedantic; any other name is refused"
+    verdict_unfiltered "the check passes when nothing reported is an error, whatever a severity filter shows"
+  }
+  contract   """
+    What a project reports is decided once, for specforge check and the
+    MCP specforge.validate tool alike: the compiled project's
+    diagnostics, then those of each requested lint profile (inferred:
+    I200 and I202 from specforge-infer.json; pedantic adds nothing, as
+    info diagnostics are always reported), then strict promotion of
+    warnings to errors. A lint profile SpecForge does not define MUST be
+    refused: by the CLI while arguments are parsed (exit 2), by MCP as
+    invalid input. The check passes when no reported diagnostic is an
+    error; a severity filter selects what is shown and MUST NOT change
+    whether the check passes or whether the build cache is written.
+  """
+  verify unit "an unknown lint profile is refused by name, and pedantic adds nothing"
+}
+
 behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
   features   [ci_integration, diagnostic_reporting]
   invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]

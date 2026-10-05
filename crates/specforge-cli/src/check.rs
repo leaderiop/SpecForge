@@ -32,7 +32,10 @@ fn run_in(
     // --lint profiles add their diagnostics, --strict promotes warnings.
     let policy = DiagnosticPolicy {
         strict,
-        lint_profiles: lint_profiles.to_vec(),
+        lint_profiles: lint_profiles
+            .iter()
+            .filter_map(|p| p.parse().ok())
+            .collect(),
     };
     let all_diagnostics = policy.apply(path, ctx.diagnostics);
 

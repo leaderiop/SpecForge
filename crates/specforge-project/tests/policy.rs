@@ -1,5 +1,5 @@
 use specforge_common::{Diagnostic, Severity};
-use specforge_project::DiagnosticPolicy;
+use specforge_project::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile};
 use specforge_test::prelude::*;
 
 fn warning() -> Diagnostic {
@@ -34,7 +34,48 @@ fn the_inferred_profile_needs_an_inference_manifest() {
     let root = tempfile::TempDir::new().unwrap();
     let policy = DiagnosticPolicy {
         strict: false,
-        lint_profiles: vec!["inferred".to_string()],
+        lint_profiles: vec![LintProfile::Inferred],
     };
     assert!(policy.apply(root.path(), Vec::new()).is_empty());
+}
+
+/// The lint profiles are a closed set: each name parses to its profile,
+/// any other is refused with the name it was given, and `pedantic`, the
+/// explicit name of the default, adds nothing.
+#[specforge_test(
+    behavior = "check_diagnostic_policy",
+    verify = "an unknown lint profile is refused by name, and pedantic adds nothing"
+)]
+fn lint_profiles_are_a_closed_set() {
+    for name in LINT_PROFILE_NAMES {
+        let profile: LintProfile = name.parse().unwrap();
+        assert_eq!(profile.name(), *name);
+    }
+    for unknown in ["nonsense", "Inferred", "pedantic,inferred", ""] {
+        let refused = unknown.parse::<LintProfile>().unwrap_err();
+        assert_eq!(
+            refused,
+            UnknownLintProfile {
+                requested: unknown.to_string()
+            }
+        );
+        assert_eq!(
+            refused.to_string(),
+            format!("Unknown lint profile '{unknown}' (available: inferred, pedantic)")
+        );
+    }
+
+    let root = tempfile::TempDir::new().unwrap();
+    let reported = vec![
+        warning(),
+        Diagnostic::info("I067", "module 'm' contains no features"),
+    ];
+    let pedantic = DiagnosticPolicy {
+        strict: false,
+        lint_profiles: vec![LintProfile::Pedantic],
+    };
+    assert_eq!(
+        pedantic.apply(root.path(), reported.clone()),
+        DiagnosticPolicy::default().apply(root.path(), reported)
+    );
 }

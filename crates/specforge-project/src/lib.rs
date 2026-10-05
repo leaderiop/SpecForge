@@ -53,7 +53,9 @@ pub use check_passes::CheckPass;
 pub use compile::CompilationContext;
 pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
 pub use inputs::{Changes, EnvironmentInputs, InputRole, Origin, UpdateKind, source_key};
-pub use policy::{DiagnosticPolicy, apply_policy};
+pub use policy::{
+    DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile, apply_policy,
+};
 pub use session::{CheckMode, ProjectSession, SharedRuntime, SourceChange, Update};
 
 /// Everything derived from `specforge.json` and the loaded extensions,
