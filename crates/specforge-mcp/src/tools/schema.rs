@@ -3,7 +3,7 @@ use serde_json::Value;
 use specforge_emitter::SchemaEdgeType;
 
 use crate::args::lenient;
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::{ErrorCode, ToolOutcome};
 
 #[derive(Debug, Deserialize)]
@@ -20,7 +20,8 @@ pub struct Args {
 /// `kind` keeps that kind and the edge types that can start or end at it;
 /// `include_edges: false` drops `edge_types`; `include_validation_rules`
 /// adds the rules the loaded extensions declare.
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     let kind_filter = args.kind.as_deref();
     let mut schema = crate::operations::project_schema(state);
 

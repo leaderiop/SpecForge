@@ -1,12 +1,13 @@
 use serde_json::json;
 
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 /// `specforge.infer_progress`: the shared progress document
 /// (`specforge_ops::infer::progress`), as `specforge infer-status --format
 /// json` prints it.
-pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
+    let state = &*call.state;
     let Some(root) = state.project_root() else {
         return ToolOutcome::ok(json!({
             "summary": { "files_total": 0, "files_analyzed": 0, "entities_produced": 0 },

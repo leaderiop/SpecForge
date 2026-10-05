@@ -7,13 +7,14 @@ use serde_json::{Value, json};
 use super::*;
 use crate::args::{NoArgs, fields};
 use crate::operations;
+use crate::target::{Freshness, Reach, TargetSpec};
 use crate::tool::{Access, Category, Effect, MutationSpec, ToolSpec, writes_unless_dry_run};
 
 /// A handler reading its typed arguments: refused when they don't parse.
 macro_rules! typed {
     ($handler:path, $args:ty) => {
-        |state, arguments| match crate::args::parse::<$args>(arguments) {
-            Ok(args) => $handler(state, args),
+        |call, arguments| match crate::args::parse::<$args>(arguments) {
+            Ok(args) => $handler(call, args),
             Err(refused) => refused,
         }
     };
@@ -61,6 +62,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "nodes": { "type": "array" }, "edges": { "type": "array" }, "schema_version": { "type": "string" }, "format_version": { "type": "string" } }, "required": ["nodes", "edges"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<query::Args>,
         call: typed!(query::call, query::Args),
     },
@@ -83,6 +85,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: None,
+        target: TargetSpec::new(Reach::AnyProject, Freshness::FreshUnlessCached),
         fields: fields::<validate::Args>,
         call: typed!(validate::call, validate::Args),
     },
@@ -107,6 +110,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "ok": { "type": "boolean" }, "passes": { "type": "array" }, "orphans": { "type": "array" } }, "required": ["ok", "passes"] }),
         ),
+        target: TargetSpec::new(Reach::AnyProject, Freshness::FreshUnlessCached),
         fields: fields::<analyze::Args>,
         call: typed!(analyze::call, analyze::Args),
     },
@@ -129,6 +133,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: None,
+        target: TargetSpec::SERVED,
         fields: fields::<export::Args>,
         call: typed!(export::call, export::Args),
     },
@@ -150,6 +155,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "entity_kind": { "type": "string" }, "upstream": { "type": "array" }, "downstream": { "type": "array" }, "missing": { "type": "array" }, "gaps": { "type": "array" }, "schema_version": { "type": "string" }, "affected_entities": { "type": "array" } }, "required": ["gaps"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<trace::Args>,
         call: typed!(trace::call, trace::Args),
     },
@@ -174,6 +180,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: None,
+        target: TargetSpec::SERVED,
         fields: fields::<search::Args>,
         call: typed!(search::call, search::Args),
     },
@@ -220,6 +227,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "required": ["code", "retired"]
             })
         }),
+        target: TargetSpec::UNSCOPED,
         fields: fields::<explain::Args>,
         call: typed!(explain::call, explain::Args),
     },
@@ -242,6 +250,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "schema_version": { "type": "object" }, "extensions": { "type": "array" }, "entity_kinds": { "type": "array" }, "edge_types": { "type": "array" }, "validation_rules": { "type": "array" } }, "required": ["schema_version", "extensions", "entity_kinds"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<schema::Args>,
         call: typed!(schema::call, schema::Args),
     },
@@ -291,6 +300,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: None,
+        target: TargetSpec::SERVED,
         fields: fields::<model::Args>,
         call: typed!(model::call, model::Args),
     },
@@ -323,6 +333,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: None,
+        target: TargetSpec::SERVED,
         fields: fields::<outline_extensions::Args>,
         call: typed!(outline_extensions::call, outline_extensions::Args),
     },
@@ -343,6 +354,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: None,
+        target: TargetSpec::SERVED,
         fields: fields::<coverage::Args>,
         call: typed!(coverage::call, coverage::Args),
     },
@@ -361,6 +373,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "entity_counts": { "type": "array" }, "declared_pct": { "type": "number" }, "proof_pct": { "type": ["number", "null"] }, "coverage_pct": { "type": "number" }, "edge_count": { "type": "integer" }, "orphan_count": { "type": "integer" }, "diagnostic_summary": { "type": "object" } }, "required": ["entity_counts", "declared_pct", "proof_pct", "edge_count", "orphan_count", "diagnostic_summary"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<NoArgs>,
         call: typed!(stats::call, NoArgs),
     },
@@ -386,6 +399,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: None,
+        target: TargetSpec::SERVED,
         fields: fields::<list::Args>,
         call: typed!(list::call, list::Args),
     },
@@ -407,6 +421,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "kind": { "type": "string" }, "title": { "type": ["string", "null"] }, "testable": { "type": "boolean" }, "declared": { "type": "boolean" }, "reference_count": { "type": "integer" }, "source_span": { "type": "object" }, "contract": { "type": ["string", "null"] }, "fields": { "type": "object" }, "verify_declarations": { "type": ["array", "null"] }, "references": { "type": "array" }, "coverage_status": { "type": "string" }, "diagnostics": { "type": "array" } }, "required": ["entity_id", "kind", "testable", "declared", "source_span", "fields", "references", "coverage_status", "diagnostics"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<inspect::Args>,
         call: typed!(inspect::call, inspect::Args),
     },
@@ -428,6 +443,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "file_path": { "type": "string" }, "line": { "type": "integer" }, "column": { "type": "integer" } }, "required": ["entity_id", "file_path", "line", "column"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<find_definition::Args>,
         call: typed!(find_definition::call, find_definition::Args),
     },
@@ -449,6 +465,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "locations": { "type": "array" } }, "required": ["entity_id", "locations"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<find_references::Args>,
         call: typed!(find_references::call, find_references::Args),
     },
@@ -468,6 +485,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: None,
+        target: TargetSpec::SERVED,
         fields: fields::<outline::Args>,
         call: typed!(outline::call, outline::Args),
     },
@@ -488,6 +506,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         },
         mutation: None,
         output: None,
+        target: TargetSpec::SERVED,
         fields: fields::<suggest_fixes::Args>,
         call: typed!(suggest_fixes::call, suggest_fixes::Args),
     },
@@ -515,11 +534,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         mutation: Some(MutationSpec {
             writes: format_writes,
             effect: |o| effect(count(o, "changed_files"), 0),
-            recompiles: true,
         }),
         output: Some(
             || json!({ "type": "object", "properties": { "changed_files": { "type": "array" }, "total_checked": { "type": "integer" }, "all_clean": { "type": "boolean" }, "check_only": { "type": "boolean" }, "diagnostics": { "type": "array" }, "diffs": { "type": "array" } }, "required": ["changed_files", "total_checked", "all_clean", "check_only", "diagnostics"] }),
         ),
+        target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),
         fields: fields::<operations::FormatArgs>,
         call: typed!(operations::format_op, operations::FormatArgs),
     },
@@ -547,11 +566,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         mutation: Some(MutationSpec {
             writes: writes_unless_dry_run,
             effect: |o| effect(count(o, "affected_files"), 1),
-            recompiles: true,
         }),
         output: Some(
             || json!({ "type": "object", "properties": { "old_name": { "type": "string" }, "new_name": { "type": "string" }, "affected_files": { "type": "array" }, "edits": { "type": "array" }, "dry_run": { "type": "boolean" }, "diagnostics": { "type": "array" } }, "required": ["old_name", "new_name", "affected_files", "edits"] }),
         ),
+        target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),
         fields: fields::<operations::RenameArgs>,
         call: typed!(operations::rename_op, operations::RenameArgs),
     },
@@ -579,11 +598,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         mutation: Some(MutationSpec {
             writes: writes_unless_dry_run,
             effect: |_| effect(3, 0),
-            recompiles: true,
         }),
         output: Some(
             || json!({ "type": "object", "properties": { "project_path": { "type": "string" }, "config_file": { "type": "string" }, "starter_file": { "type": "string" }, "extensions_installed": { "type": "array" }, "name": { "type": "string" }, "version": { "type": "string" } }, "required": ["project_path", "config_file", "starter_file", "extensions_installed", "name", "version"] }),
         ),
+        target: TargetSpec::new(Reach::NewProject, Freshness::Fresh),
         fields: fields::<operations::InitArgs>,
         call: typed!(operations::init_op, operations::InitArgs),
     },
@@ -617,11 +636,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                     Effect::default()
                 }
             },
-            recompiles: true,
         }),
         output: Some(
             || json!({ "type": "object", "properties": { "extension": { "type": "string" }, "installed": { "type": "boolean" }, "source": { "type": "string" }, "version": { "type": ["string", "null"] }, "changed": { "type": "boolean" }, "peers_enabled": { "type": "array" }, "note": { "type": "string" }, "sha256": { "type": "string" }, "key_id": { "type": ["string", "null"] }, "dry_run": { "type": "boolean" }, "already_present": { "type": "boolean" }, "message": { "type": "string" } }, "required": ["extension", "installed"] }),
         ),
+        target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),
         fields: fields::<operations::AddArgs>,
         call: typed!(operations::add_extension, operations::AddArgs),
     },
@@ -655,11 +674,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                     Effect::default()
                 }
             },
-            recompiles: true,
         }),
         output: Some(
             || json!({ "type": "object", "properties": { "removed_extension": { "type": "string" }, "success": { "type": "boolean" }, "version": { "type": ["string", "null"] }, "orphan_warnings": { "type": "array" }, "dry_run": { "type": "boolean" } }, "required": ["removed_extension", "success", "orphan_warnings"] }),
         ),
+        target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),
         fields: fields::<operations::RemoveArgs>,
         call: typed!(operations::remove_extension_op, operations::RemoveArgs),
     },
@@ -692,11 +711,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                     Effect::default()
                 }
             },
-            recompiles: true,
         }),
         output: Some(
             || json!({ "type": "object", "properties": { "from_version": { "type": "string" }, "to_version": { "type": "string" }, "migrated": { "type": "boolean" }, "dry_run": { "type": "boolean" }, "message": { "type": "string" }, "changes": { "type": "array" }, "files_migrated": { "type": "integer" }, "files_skipped": { "type": "integer" }, "files_failed": { "type": "integer" }, "results": { "type": "array" }, "diffs": { "type": "array" }, "rolled_back": { "type": "boolean" }, "post_migration_validated": { "type": "boolean" }, "post_migration_errors": { "type": "array" } }, "required": ["from_version", "to_version", "migrated", "dry_run"] }),
         ),
+        target: TargetSpec::new(Reach::WritesAnyProject, Freshness::Fresh),
         fields: fields::<operations::MigrateArgs>,
         call: typed!(operations::migrate_op, operations::MigrateArgs),
     },
@@ -710,6 +729,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "extensions": { "type": "array" }, "lock_file_entries": { "type": "array" }, "entity_kinds_in_graph": { "type": "array" } }, "required": ["extensions", "lock_file_entries", "entity_kinds_in_graph"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<NoArgs>,
         call: typed!(operations::extensions_op, NoArgs),
     },
@@ -723,6 +743,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "providers": { "type": "array" }, "count": { "type": "integer" }, "diagnostics": { "type": "array" } }, "required": ["providers", "count", "diagnostics"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<NoArgs>,
         call: typed!(operations::providers_op, NoArgs),
     },
@@ -743,6 +764,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "extensions_ok": { "type": "boolean" }, "conflicts": { "type": "array" }, "cache_status": { "type": "string" }, "findings": { "type": "array" }, "installed_count": { "type": "integer" }, "extensions": { "type": "array" }, "enhancements": { "type": "object" }, "shadowed": { "type": "array" }, "load_failures": { "type": "array" }, "issues": { "type": "array" }, "z3_available": { "type": "boolean" } }, "required": ["extensions_ok", "conflicts", "installed_count", "issues", "load_failures"] }),
         ),
+        target: TargetSpec::new(Reach::Served, Freshness::FreshUnlessCached),
         fields: fields::<operations::DoctorArgs>,
         call: typed!(operations::doctor_op, operations::DoctorArgs),
     },
@@ -796,6 +818,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "required": ["status", "runners", "diagnostics", "report"]
             })
         }),
+        target: TargetSpec::new(Reach::AnyProject, Freshness::Fresh),
         fields: fields::<operations::CollectArgs>,
         call: typed!(operations::collect_op, operations::CollectArgs),
     },
@@ -823,6 +846,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "format": { "type": "string" }, "output": { "type": "string" }, "output_files": { "type": "array" } }, "required": ["format", "output_files"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<operations::RenderArgs>,
         call: typed!(operations::render_op, operations::RenderArgs),
     },
@@ -841,6 +865,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "summary": { "type": "object" }, "unanalyzed": { "type": "array" }, "stale": { "type": "array" }, "deleted": { "type": "array" }, "message": { "type": "string" } }, "required": ["summary", "unanalyzed", "stale", "deleted"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<NoArgs>,
         call: typed!(infer_progress::call, NoArgs),
     },
@@ -859,6 +884,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "total_pub_items": { "type": "integer" }, "covered_items": { "type": "integer" }, "gap_count": { "type": "integer" }, "approximate": { "type": "boolean" }, "scanners_used": { "type": "array" }, "by_directory": { "type": "array" }, "gaps": { "type": "array" }, "message": { "type": "string" } }, "required": ["total_pub_items", "covered_items", "approximate"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<NoArgs>,
         call: typed!(infer_gaps::call, NoArgs),
     },
@@ -914,11 +940,11 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         mutation: Some(MutationSpec {
             writes: writes_unless_dry_run,
             effect: |o| effect(1, count(o, "entities_produced")),
-            recompiles: false,
         }),
         output: Some(
             || json!({ "type": "object", "properties": { "session_id": { "type": "string" }, "status": { "type": "string" }, "source_file": { "type": "string" }, "entities_produced": { "type": "array" } }, "required": ["status"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<infer_session::Args>,
         call: typed!(infer_session::call, infer_session::Args),
     },
@@ -943,6 +969,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "implementations": { "type": "array" }, "count": { "type": "integer" } }, "required": ["entity_id", "implementations", "count"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<find_implementation::Args>,
         call: typed!(find_implementation::call, find_implementation::Args),
     },
@@ -967,7 +994,54 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         output: Some(
             || json!({ "type": "object", "properties": { "file_path": { "type": "string" }, "entities": { "type": "array" }, "count": { "type": "integer" } }, "required": ["file_path", "entities", "count"] }),
         ),
+        target: TargetSpec::SERVED,
         fields: fields::<find_spec_for_source::Args>,
         call: typed!(find_spec_for_source::call, find_spec_for_source::Args),
     },
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::CORE_TOOLS;
+    use crate::target::{Freshness, Reach};
+
+    /// The arguments a tool's schema declares.
+    fn declares(tool: &crate::tool::ToolSpec, argument: &str) -> bool {
+        (tool.schema)()["properties"].get(argument).is_some()
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "list_mcp_tools",
+        verify = "every tool that reads path or use_cached declares it in its target"
+    )]
+    fn every_tool_declares_how_it_reaches_its_project() {
+        for tool in CORE_TOOLS {
+            let reaches_by_path = matches!(
+                tool.target.reach,
+                Reach::AnyProject | Reach::WritesAnyProject | Reach::NewProject
+            );
+            assert_eq!(
+                declares(tool, "path"),
+                reaches_by_path,
+                "{}: path in its schema, yet reach {:?}",
+                tool.name,
+                tool.target.reach
+            );
+            assert_eq!(
+                declares(tool, "use_cached"),
+                tool.target.freshness == Freshness::FreshUnlessCached,
+                "{}: use_cached in its schema, yet freshness {:?}",
+                tool.name,
+                tool.target.freshness
+            );
+            // A tool that writes the files of the project its path names
+            // is a mutation; one that reads no project reads no path.
+            if tool.target.reach == Reach::WritesAnyProject {
+                assert!(tool.mutation.is_some(), "{}", tool.name);
+            }
+            if tool.target.reach == Reach::Unscoped {
+                assert!(!declares(tool, "path"), "{}", tool.name);
+            }
+        }
+    }
+}

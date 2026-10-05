@@ -3,7 +3,7 @@ use serde_json::Value;
 use specforge_emitter::{EmitFormat, EmitOptions, emit};
 
 use crate::args::{lenient, strings};
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 #[derive(Debug, Deserialize)]
@@ -19,7 +19,8 @@ pub struct Args {
     include_coverage: Option<bool>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     let entity_id = args.entity_id.as_str();
     let depth = args.depth.unwrap_or(1) as usize;
     let format = args.format.as_deref().unwrap_or("graph");

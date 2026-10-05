@@ -1,9 +1,10 @@
 use serde_json::Value;
 
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
+    let state = &*call.state;
     // Coverage is the coverage rule's, over the kinds the extensions
     // declare testable, less the entities W004 exempts.
     // The proof percentage reads the project's recorded tests; a report

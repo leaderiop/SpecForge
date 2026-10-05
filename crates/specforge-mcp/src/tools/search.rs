@@ -4,7 +4,7 @@ use specforge_graph::FieldValue;
 use strsim::jaro_winkler;
 
 use crate::args::{lenient, strings};
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 /// Score an entity whose string fields (its contract, guarantee, ...) contain
@@ -39,7 +39,8 @@ pub struct Args {
     references: Option<String>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     let query = args.query.as_str();
 
     let kind_filter: Vec<&str> = args.kinds.iter().map(String::as_str).collect();

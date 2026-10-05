@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
 #[derive(Debug, serde::Deserialize)]
@@ -8,7 +8,8 @@ pub struct Args {
     file: String,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     let file = args.file.as_str();
 
     let nodes = state.graph().nodes_in_file(file);

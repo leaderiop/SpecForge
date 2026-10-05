@@ -2,7 +2,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 
 use crate::args::{lenient, strings};
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 use specforge_project::DiagnosticPolicy;
 
@@ -20,7 +20,8 @@ pub struct Args {
     use_cached: Option<bool>,
 }
 
-pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &mut *call.state;
     let path = args
         .path
         .map(PathBuf::from)

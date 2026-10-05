@@ -2,7 +2,7 @@ use serde_json::{Value, json};
 
 use specforge_common::inference::anchors;
 
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 #[derive(Debug, serde::Deserialize)]
@@ -10,7 +10,8 @@ pub struct Args {
     file_path: String,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     let file_path = args.file_path.as_str();
 
     let project_root = match state.project_root() {

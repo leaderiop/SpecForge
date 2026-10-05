@@ -2,8 +2,10 @@ use serde_json::Value;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::target::Call;
 
-pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
+    let state: &McpState = call.state;
     let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
         Some(e) => e,
         None => {

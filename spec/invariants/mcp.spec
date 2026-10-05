@@ -17,6 +17,7 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
   verify unit "success responses never have error field"
   verify unit "a failed tool call is an isError result whose content is an McpError with a code"
   verify unit "a diagnostic code behind a failed tool call is in its McpError diagnostic"
+  verify unit "a path that does not exist is a file_not_found error on path"
 }
 
 invariant mcp_subscription_cleanup "MCP Subscription Cleanup" {
@@ -54,13 +55,16 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
     tools and resources for a changed specforge.json, specforge.lock or
     extension module. Subscribed clients learn what changed. A tool call
     whose path names another project compiles that project for the call
-    only: the server keeps serving its own.
+    only: the server keeps serving its own without reloading it. A call
+    whose path names a project while none is served serves that project.
   """
   risk      high
   verify unit "an environment change on disk updates the extension tools listed"
   verify unit "a tool call serves files written since the last call, without watch"
   verify unit "a resource read serves files written since the last call, without watch"
   verify unit "a prompt reads the project as it is on disk"
+  verify unit "a mutation on another project does not reload the served one"
+  verify unit "a path while no project is served serves that project, for every tool that takes a path"
   verify unit "analyze notifies subscribers when the diagnostics it compiled changed"
   verify unit "validate with a path to another project leaves the served project in place"
   verify unit "a mutation tool that wrote files leaves the server serving what is on disk"

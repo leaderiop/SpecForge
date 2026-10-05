@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::target::Call;
 
 /// Maximum number of files listed per page in the plan prompt (C9-08).
 const MAX_LISTED_FILES: usize = 50;
@@ -74,7 +75,12 @@ fn match_mode(query: &str, span_file: &str) -> &'static str {
     }
 }
 
-pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
+    respond(call.state, args, id)
+}
+
+/// The prompt over the served project in `state`.
+fn respond(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let scope = args.get("scope").and_then(|v| v.as_str());
 
     match scope {
@@ -613,7 +619,7 @@ mod tests {
     #[test]
     fn overview_returns_installed_extensions() {
         let state = make_state_with_kind("behavior", Some("Look for public functions"));
-        let resp = get(&state, serde_json::json!({}), Some(Value::from(1)));
+        let resp = respond(&state, serde_json::json!({}), Some(Value::from(1)));
         let content: Value = parse_payload(&resp);
         assert_eq!(content["installed_extensions"][0], "@specforge/test");
     }
@@ -621,7 +627,7 @@ mod tests {
     #[test]
     fn overview_includes_inference_guide_from_extension() {
         let state = make_state_with_kind("behavior", Some("Look for public functions"));
-        let resp = get(&state, serde_json::json!({}), Some(Value::from(1)));
+        let resp = respond(&state, serde_json::json!({}), Some(Value::from(1)));
         let content: Value = parse_payload(&resp);
         let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
         assert!(guide.contains("Look for public functions"));
@@ -647,7 +653,7 @@ mod tests {
         };
         let manifests = vec![test_manifest("behavior", Some("Look for public functions"))];
         serve(&mut state, manifests, config);
-        let resp = get(&state, serde_json::json!({}), Some(Value::from(1)));
+        let resp = respond(&state, serde_json::json!({}), Some(Value::from(1)));
         let content: Value = parse_payload(&resp);
         let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
         assert!(guide.contains("Look for public functions"));
@@ -662,7 +668,7 @@ mod tests {
         state.edit_graph(|graph| {
             graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
         });
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "kind:behavior"}),
             Some(Value::from(1)),
@@ -675,7 +681,7 @@ mod tests {
     #[test]
     fn kind_scope_includes_example() {
         let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "kind:behavior"}),
             Some(Value::from(1)),
@@ -691,7 +697,7 @@ mod tests {
         state.edit_graph(|graph| {
             graph.add_node(make_node("auth_login", "behavior", "src/auth.rs"));
         });
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "file:src/auth.rs"}),
             Some(Value::from(1)),
@@ -710,7 +716,7 @@ mod tests {
         state.edit_graph(|graph| {
             graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
         });
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "kind:Behavior"}),
             Some(Value::from(1)),
@@ -723,7 +729,7 @@ mod tests {
     #[test]
     fn unknown_scope_prefix_returns_overview() {
         let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "unknown:value"}),
             Some(Value::from(1)),
@@ -735,7 +741,7 @@ mod tests {
     #[test]
     fn empty_kind_scope_returns_error() {
         let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "kind:"}),
             Some(Value::from(1)),
@@ -748,7 +754,7 @@ mod tests {
     #[test]
     fn unknown_kind_returns_error() {
         let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "kind:nonexistent"}),
             Some(Value::from(1)),
@@ -765,7 +771,7 @@ mod tests {
     #[test]
     fn empty_file_scope_returns_error() {
         let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "file:"}),
             Some(Value::from(1)),
@@ -777,7 +783,7 @@ mod tests {
     #[test]
     fn overview_with_no_inference_guide() {
         let state = make_state_with_kind("behavior", None);
-        let resp = get(&state, serde_json::json!({}), Some(Value::from(1)));
+        let resp = respond(&state, serde_json::json!({}), Some(Value::from(1)));
         let content: Value = parse_payload(&resp);
         let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
         assert_eq!(guide, "");
@@ -789,7 +795,7 @@ mod tests {
         state.edit_graph(|graph| {
             graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
         });
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "plan"}),
             Some(Value::from(1)),
@@ -804,7 +810,7 @@ mod tests {
     #[test]
     fn plan_scope_respects_target_directory() {
         let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "plan", "target_spec_directory": "specs/"}),
             Some(Value::from(1)),
@@ -816,7 +822,7 @@ mod tests {
     #[test]
     fn plan_scope_includes_progress() {
         let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "plan"}),
             Some(Value::from(1)),
@@ -828,7 +834,7 @@ mod tests {
     #[test]
     fn workflow_scope_returns_protocol() {
         let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "workflow"}),
             Some(Value::from(1)),
@@ -844,7 +850,7 @@ mod tests {
     #[test]
     fn workflow_scope_lists_tools_and_kinds() {
         let state = make_state_with_kind("behavior", Some("guide text"));
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "workflow"}),
             Some(Value::from(1)),
@@ -876,7 +882,7 @@ mod tests {
         state.edit_graph(|graph| {
             graph.add_node(make_node("cache_impl", "behavior", "src/cache.rs"));
         });
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "file:e.rs"}),
             Some(Value::from(1)),
@@ -898,7 +904,7 @@ mod tests {
         state.edit_graph(|graph| {
             graph.add_node(make_node("todo_list", "behavior", "todo_list.rs"));
         });
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "file:todo_list.rs"}),
             Some(Value::from(1)),
@@ -923,7 +929,7 @@ mod tests {
         state.edit_graph(|graph| {
             graph.add_node(make_node("main", "behavior", "src/main.rs"));
         });
-        let resp = get(
+        let resp = respond(
             &state,
             serde_json::json!({"scope": "file:src/auth"}),
             Some(Value::from(1)),
@@ -968,7 +974,7 @@ mod tests {
     }
 
     fn plan_payload(state: &McpState, args: Value) -> Value {
-        parse_payload(&get(state, args, Some(Value::from(1))))
+        parse_payload(&respond(state, args, Some(Value::from(1))))
     }
 
     #[test]
@@ -1020,7 +1026,7 @@ mod tests {
             serde_json::json!({"scope": "plan"}),
             serde_json::json!({"scope": "workflow"}),
         ] {
-            let resp = get(&state, args, Some(Value::from(1)));
+            let resp = respond(&state, args, Some(Value::from(1)));
             let result = resp.result.unwrap();
             let messages = result["messages"].as_array().unwrap();
             assert!(

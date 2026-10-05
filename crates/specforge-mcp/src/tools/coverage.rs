@@ -3,6 +3,7 @@ use specforge_project::coverage::TestReport;
 use specforge_project::coverage::{CoverageRegistries, ProjectCoverage, ReportError, Status};
 
 use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
 /// The project's `specforge-report.json` (written by `specforge collect`),
@@ -80,7 +81,8 @@ pub struct Args {
     status_filter: Option<String>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     let coverage = match project_coverage(state, "specforge.coverage") {
         Ok(coverage) => coverage,
         Err(outcome) => return outcome,

@@ -2,7 +2,7 @@ use serde::Deserialize;
 use specforge_ops::export::{self, Format, Schema};
 
 use crate::args::lenient;
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 #[derive(Debug, Deserialize)]
@@ -22,7 +22,8 @@ pub struct Args {
 /// `specforge.export`: the export `specforge export` writes, through the
 /// same function and schema policy (ADR 0004 D3-a). `with_schema` and
 /// `no_schema` are the CLI's `--with-schema` and `--no-schema`.
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     let format = args.format.as_deref().unwrap_or("graph");
     // The tool serves the agent formats; dot is `specforge.render`'s.
     let format = match format.parse::<Format>() {

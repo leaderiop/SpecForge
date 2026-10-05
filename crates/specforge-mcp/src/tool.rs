@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 
 use crate::protocol::JsonRpcResponse;
-use crate::state::McpState;
+use crate::target::{Call, TargetSpec};
 use crate::types::McpToolDescriptor;
 
 /// A tool's role: the spec's `McpToolCategory`. Where a tool comes from is
@@ -101,9 +101,6 @@ pub struct MutationSpec {
     pub writes: fn(&Value) -> bool,
     /// What a successful call changed, read from its structured payload.
     pub effect: fn(&Value) -> Effect,
-    /// Whether the server recompiles after the call writes: false for a
-    /// tool that writes no spec source.
-    pub recompiles: bool,
 }
 
 /// Every write call unless it is a `dry_run`.
@@ -132,8 +129,11 @@ pub struct ToolSpec {
     /// How a mutation reports what it changed: present exactly for the
     /// `mutation` category.
     pub mutation: Option<MutationSpec>,
+    /// Which project it acts on, and whether that project is brought up
+    /// to date first: resolved into the call's target before the handler.
+    pub target: TargetSpec,
     /// The handler, reading its `Args` from the call's `arguments`.
-    pub call: fn(&mut McpState, Value) -> ToolOutcome,
+    pub call: fn(&mut Call<'_>, Value) -> ToolOutcome,
 }
 
 impl ToolSpec {

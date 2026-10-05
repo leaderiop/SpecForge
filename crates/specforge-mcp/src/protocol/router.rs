@@ -31,31 +31,19 @@ pub fn route(
             crate::registry::handle_list_prompts(state, id)
         }
 
-        // Resources
-        "resources/read" => {
-            fresh(state);
-            crate::resources::handle_resource_read(state, params, id)
-        }
+        // Resources: the read's target brings the project up to date.
+        "resources/read" => crate::resources::handle_resource_read(state, params, id),
 
         "resources/subscribe" => crate::resources::handle_resource_subscribe(state, params, id),
         "resources/unsubscribe" => crate::resources::handle_resource_unsubscribe(state, params, id),
 
         // Tools
-        "tools/call" => {
-            // A call that asks for the last compile (`use_cached`) is
-            // served as it is.
-            let cached = params["arguments"]["use_cached"].as_bool() == Some(true);
-            if !cached {
-                fresh(state);
-            }
-            crate::tools::handle_tool_call(state, params, id)
-        }
+        // Tools: each call's target (its entry's reach and freshness)
+        // brings the project it acts on up to date.
+        "tools/call" => crate::tools::handle_tool_call(state, params, id),
 
-        // Prompts
-        "prompts/get" => {
-            fresh(state);
-            crate::prompts::handle_prompt_get(state, params, id)
-        }
+        // Prompts: as tools.
+        "prompts/get" => crate::prompts::handle_prompt_get(state, params, id),
 
         // Notifications (no response for notifications — id is None)
         "notifications/initialized" => {

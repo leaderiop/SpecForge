@@ -3,6 +3,7 @@ use std::collections::{HashMap, VecDeque};
 
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
+use crate::target::Call;
 
 /// Breadth-first search from `start` over edges in both directions: one
 /// `McpRelationshipPath` per entity reached, in BFS order, carrying the
@@ -60,7 +61,8 @@ fn bfs_paths(state: &McpState, start: &str, kind: Option<&str>) -> Vec<Value> {
         .collect()
 }
 
-pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
+    let state: &McpState = call.state;
     let entity_filter = args.get("entity_id").and_then(|v| v.as_str());
     let kind_filter = args.get("kind").and_then(|v| v.as_str());
 

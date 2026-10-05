@@ -12,11 +12,13 @@ use specforge_wasm::read_lock_file;
 
 use crate::args::{lenient, strings};
 use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, ToolOutcome, is_diagnostic_code};
 
 /// `specforge.add_extension`: the install, plus `extension_added` when it
 /// installed something.
-pub(crate) fn add_extension(state: &mut McpState, args: AddArgs) -> ToolOutcome {
+pub(crate) fn add_extension(call: &mut Call<'_>, args: AddArgs) -> ToolOutcome {
+    let state = &mut *call.state;
     let outcome = add_extension_op(state, args);
     let added = outcome
         .success_payload()
@@ -135,7 +137,8 @@ pub struct FormatArgs {
     write: Option<bool>,
 }
 
-pub(crate) fn format_op(state: &mut McpState, args: FormatArgs) -> ToolOutcome {
+pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> ToolOutcome {
+    let state = &mut *call.state;
     use specforge_ops::format::{self, Mode, Request};
 
     let check = args.check.unwrap_or(false);
@@ -230,7 +233,8 @@ pub struct RenameArgs {
     path: Option<String>,
 }
 
-pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
+pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> ToolOutcome {
+    let state = &mut *call.state;
     use specforge_ops::rename;
     let entity_id = args.entity_id.as_str();
     let new_name = args.new_name.as_str();
@@ -317,7 +321,8 @@ pub struct InitArgs {
     extensions: Vec<String>,
 }
 
-pub(crate) fn init_op(state: &mut McpState, args: InitArgs) -> ToolOutcome {
+pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> ToolOutcome {
+    let state = &mut *call.state;
     use specforge_ops::init;
 
     let path = PathBuf::from(&args.path);
@@ -462,7 +467,8 @@ pub struct RemoveArgs {
     path: Option<String>,
 }
 
-pub(crate) fn remove_extension_op(state: &McpState, args: RemoveArgs) -> ToolOutcome {
+pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> ToolOutcome {
+    let state = &*call.state;
     let name = args.name.clone();
     let force = args.force.unwrap_or(false);
     let dry_run = args.dry_run.unwrap_or(false);
@@ -517,7 +523,8 @@ pub struct MigrateArgs {
     path: Option<String>,
 }
 
-pub(crate) fn migrate_op(state: &McpState, args: MigrateArgs) -> ToolOutcome {
+pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> ToolOutcome {
+    let state = &*call.state;
     let Some(path) = project_root_of(state, args.path.as_deref()) else {
         return ToolOutcome::no_project("migrate needs a project root (pass {\"path\": ...})");
     };
@@ -598,7 +605,8 @@ pub(crate) fn migrate_op(state: &McpState, args: MigrateArgs) -> ToolOutcome {
 
 // ── extensions ──────────────────────────────────────────────────────────────
 
-pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
+pub(crate) fn extensions_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
+    let state = &*call.state;
     use specforge_ops::extension::{self, Origin};
 
     let Some(root) = state.project_root() else {
@@ -653,7 +661,8 @@ pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> Too
 
 // ── providers ───────────────────────────────────────────────────────────────
 
-pub(crate) fn providers_op(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
+pub(crate) fn providers_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
+    let state = &*call.state;
     let Some(root) = state.project_root() else {
         return ToolOutcome::no_project("no project root available");
     };
@@ -688,7 +697,8 @@ pub struct DoctorArgs {
     use_cached: Option<bool>,
 }
 
-pub(crate) fn doctor_op(state: &mut McpState, args: DoctorArgs) -> ToolOutcome {
+pub(crate) fn doctor_op(call: &mut Call<'_>, args: DoctorArgs) -> ToolOutcome {
+    let state = &mut *call.state;
     let Some(root) = state.project_root().map(std::path::Path::to_path_buf) else {
         return ToolOutcome::no_project("doctor needs a project root");
     };
@@ -731,7 +741,8 @@ pub struct CollectArgs {
     path: Option<String>,
 }
 
-pub(crate) fn collect_op(state: &mut McpState, args: CollectArgs) -> ToolOutcome {
+pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> ToolOutcome {
+    let state = &mut *call.state;
     use specforge_ops::collect::{self, Consent, Mode, Request, RunnerOutput};
 
     let Some(root) = project_root_of(state, args.path.as_deref()) else {
@@ -803,7 +814,8 @@ pub struct RenderArgs {
     scope: Option<String>,
 }
 
-pub(crate) fn render_op(state: &McpState, args: RenderArgs) -> ToolOutcome {
+pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
+    let state = &*call.state;
     let format = args.format.as_deref().unwrap_or("json");
 
     // Each renderer and the file it writes into out_dir.

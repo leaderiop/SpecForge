@@ -5,7 +5,7 @@ use specforge_emitter::outline::{
 };
 
 use crate::args::lenient;
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 #[derive(Debug, Deserialize)]
@@ -18,7 +18,8 @@ pub struct Args {
     deps: Option<String>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     let format = args.format.as_deref().unwrap_or("json");
     let fields = args.fields.as_deref().unwrap_or("keys");
     let deps = args.deps.as_deref().unwrap_or("direct");

@@ -6,7 +6,7 @@ use specforge_emitter::model::{
 };
 
 use crate::args::{lenient, some_strings};
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 #[derive(Debug, Deserialize)]
@@ -27,7 +27,8 @@ pub struct Args {
     depth: Option<u64>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     let format = args.format.as_deref().unwrap_or("markdown");
     let group_by = args.group_by.as_deref().unwrap_or("extension");
     let fields = args.fields.as_deref().unwrap_or("keys");

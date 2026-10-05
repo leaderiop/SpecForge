@@ -423,3 +423,184 @@ fn an_unchanged_project_is_not_rebuilt_by_a_call() {
         "nothing changed on disk: nothing was rebuilt"
     );
 }
+
+/// What each tool that takes a `path` is called with to act on a project
+/// with `behavior alpha` (its path added by the caller).
+fn path_tool_calls() -> Vec<(&'static str, Value)> {
+    vec![
+        ("specforge.validate", json!({})),
+        ("specforge.analyze", json!({"pass": "contracts"})),
+        ("specforge.collect", json!({})),
+        ("specforge.format", json!({"check": true})),
+        (
+            "specforge.rename",
+            json!({"entity_id": "alpha", "new_name": "gamma"}),
+        ),
+        (
+            "specforge.add_extension",
+            json!({"specifier": "@specforge/software", "dry_run": true}),
+        ),
+        (
+            "specforge.remove_extension",
+            json!({"name": "@specforge/software", "dry_run": true}),
+        ),
+        ("specforge.migrate", json!({"dry_run": true})),
+    ]
+}
+
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "a path while no project is served serves that project, for every tool that takes a path"
+)]
+fn a_path_while_nothing_is_served_serves_it_for_every_tool() {
+    // Every core tool whose schema takes a project path is covered (init
+    // creates its project: its adoption is tested with init).
+    let mut covered: Vec<&str> = path_tool_calls().iter().map(|(name, _)| *name).collect();
+    covered.sort_unstable();
+    let mut with_path: Vec<&str> = specforge_mcp::tools::CORE_TOOLS
+        .iter()
+        .filter(|tool| (tool.schema)()["properties"].get("path").is_some())
+        .map(|tool| tool.name)
+        .filter(|name| *name != "specforge.init")
+        .collect();
+    with_path.sort_unstable();
+    assert_eq!(covered, with_path);
+
+    for (tool, mut arguments) in path_tool_calls() {
+        let other = project(&["@specforge/software"], "behavior alpha \"Alpha\" {\n}\n");
+        arguments["path"] = Value::from(other.path().to_str().unwrap());
+        let mut server = serving_nothing();
+
+        call_tool(&mut server, tool, arguments);
+
+        assert_eq!(
+            served_root(&server),
+            Some(canonical(other.path())),
+            "{tool} did not serve the project its path names"
+        );
+        if tool == "specforge.rename" {
+            // R1b: the rename acted on the project the path names.
+            assert!(server.state().graph().node("gamma").is_some(), "{tool}");
+            let text = fs::read_to_string(other.path().join("main.spec")).unwrap();
+            assert!(text.contains("behavior gamma"), "{text}");
+        } else {
+            assert!(server.state().graph().node("alpha").is_some(), "{tool}");
+        }
+    }
+}
+
+#[specforge_test(
+    invariant = "mcp_structured_error_responses",
+    verify = "a path that does not exist is a file_not_found error on path"
+)]
+fn a_path_that_does_not_exist_is_file_not_found() {
+    let served = project(&[], "behavior login \"Login\" {\n}\n");
+    let missing = served.path().join("no/such/dir");
+    for (tool, mut arguments) in path_tool_calls() {
+        let mut server = McpServer::new();
+        initialize(&mut server, served.path());
+        arguments["path"] = Value::from(missing.to_str().unwrap());
+
+        let resp = call_tool(&mut server, tool, arguments);
+
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "file_not_found", "{tool}: {error}");
+        assert_eq!(error["argument"], "path", "{tool}: {error}");
+        assert_eq!(error["tool"], tool, "{error}");
+    }
+}
+
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "a mutation on another project does not reload the served one"
+)]
+fn a_mutation_on_another_project_does_not_reload_the_served_one() {
+    let served = project(&[], "behavior login \"Login\" {\n}\n");
+    let calls: Vec<(&str, Value)> = vec![
+        ("specforge.format", json!({})),
+        (
+            "specforge.add_extension",
+            json!({"specifier": "@specforge/software"}),
+        ),
+        (
+            "specforge.remove_extension",
+            json!({"name": "@specforge/software"}),
+        ),
+        ("specforge.migrate", json!({})),
+    ];
+    for (tool, mut arguments) in calls {
+        let other = project(
+            &["@specforge/software"],
+            "behavior alpha \"Alpha\" {\n\n\n}\n",
+        );
+        let mut server = McpServer::new();
+        initialize(&mut server, served.path());
+        // An edit the served project has not seen: reloading it would
+        // serve it.
+        fs::write(
+            served.path().join("added.spec"),
+            "behavior unseen \"U\" {\n}\n",
+        )
+        .unwrap();
+        let generation = server.state().session_generation();
+        arguments["path"] = Value::from(other.path().to_str().unwrap());
+
+        let resp = call_tool(&mut server, tool, arguments);
+        assert!(resp["error"].is_null(), "{tool}: {resp}");
+
+        assert_eq!(
+            server.state().session_generation(),
+            generation,
+            "{tool} reloaded the served project"
+        );
+        assert!(server.state().graph().node("unseen").is_none(), "{tool}");
+        assert_eq!(served_root(&server), Some(canonical(served.path())));
+        fs::remove_file(served.path().join("added.spec")).unwrap();
+    }
+
+    // R6: init of a new project elsewhere.
+    let mut server = McpServer::new();
+    initialize(&mut server, served.path());
+    fs::write(
+        served.path().join("added.spec"),
+        "behavior unseen \"U\" {\n}\n",
+    )
+    .unwrap();
+    let generation = server.state().session_generation();
+    let elsewhere = TempDir::new().unwrap();
+    let dir = elsewhere.path().join("fresh");
+    let resp = call_tool(
+        &mut server,
+        "specforge.init",
+        json!({"path": dir.to_str().unwrap(), "name": "fresh"}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    assert_eq!(server.state().session_generation(), generation);
+    assert!(server.state().graph().node("unseen").is_none());
+}
+
+/// A tool of the served project only takes no path to another project.
+#[test]
+fn a_tool_of_the_served_project_refuses_another_projects_path() {
+    let served = project(&[], "behavior login \"Login\" {\n}\n");
+    let other = project(&[], "behavior other \"Other\" {\n}\n");
+    let mut server = McpServer::new();
+    initialize(&mut server, served.path());
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.doctor",
+        json!({"path": other.path().to_str().unwrap()}),
+    );
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "path", "{error}");
+
+    // Its own project's path is the served project.
+    let resp = call_tool(
+        &mut server,
+        "specforge.doctor",
+        json!({"path": served.path().to_str().unwrap()}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+}

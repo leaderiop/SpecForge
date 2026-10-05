@@ -168,6 +168,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
   verify unit "an extension tool is listed once across recompiles"
   verify unit "an extension tool's declared output_schema is listed as its outputSchema"
+  verify unit "every tool that reads path or use_cached declares it in its target"
 }
 
 behavior list_mcp_prompts "List MCP Prompts" {

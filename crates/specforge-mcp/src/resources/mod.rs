@@ -10,6 +10,7 @@ use serde_json::Value;
 
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::target::{self, Call, TargetSpec};
 use crate::types::McpResourceDescriptor;
 
 /// The one text content a resource read returns.
@@ -71,7 +72,22 @@ pub fn handle_resource_read(
         }
     };
 
-    match read(state, &uri) {
+    // The project the read serves, brought up to date with disk first.
+    let spec = CORE_RESOURCES
+        .iter()
+        .find(|r| r.matches(&uri))
+        .map_or(TargetSpec::SERVED, |r| r.target);
+    let target = match target::resolve(state, spec, &Value::Null) {
+        Ok(target) => target,
+        Err(refused) => {
+            let refused = crate::tool::McpError::from(refused);
+            return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, refused.message);
+        }
+    };
+    let call = Call::new(state, target);
+    let read = read(&call, &uri);
+    drop(call);
+    match read {
         Ok(mut content) => {
             if let Some(dispatched) = content.dispatched.take() {
                 state.push_event("surface_mcp_resource_dispatched", dispatched);
@@ -94,8 +110,10 @@ pub struct ResourceSpec {
     pub name: &'static str,
     pub description: &'static str,
     pub mime_type: &'static str,
+    /// Which project it reads: the served one, brought up to date first.
+    pub target: TargetSpec,
     /// Read the resource at a URI it [matches](Self::matches).
-    pub(crate) read: fn(&McpState, &str) -> ReadOutcome,
+    pub(crate) read: fn(&Call<'_>, &str) -> ReadOutcome,
 }
 
 impl ResourceSpec {
@@ -139,65 +157,73 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         name: "graph",
         description: "Full spec graph in JSON format",
         mime_type: "application/json",
-        read: graph::read,
+        target: TargetSpec::SERVED,
+        read: |call, uri| graph::read(call.state, uri),
     },
     ResourceSpec {
         uri: "specforge://schema",
         name: "schema",
         description: "Graph schema definition",
         mime_type: "application/json",
-        read: |state, _| schema::read(state),
+        target: TargetSpec::SERVED,
+        read: |call, _| schema::read(call.state),
     },
     ResourceSpec {
         uri: "specforge://context",
         name: "context",
         description: "Context-optimized graph (contract, status, verify fields)",
         mime_type: "application/json",
-        read: context::read,
+        target: TargetSpec::SERVED,
+        read: |call, uri| context::read(call.state, uri),
     },
     ResourceSpec {
         uri: "specforge://context/{entity_id}",
         name: "context_entity",
         description: "Context-optimized subgraph rooted at an entity",
         mime_type: "application/json",
-        read: context::read,
+        target: TargetSpec::SERVED,
+        read: |call, uri| context::read(call.state, uri),
     },
     ResourceSpec {
         uri: "specforge://brief",
         name: "brief",
         description: "Brief graph (id, kind, title, edges only)",
         mime_type: "application/json",
-        read: brief::read,
+        target: TargetSpec::SERVED,
+        read: |call, uri| brief::read(call.state, uri),
     },
     ResourceSpec {
         uri: "specforge://diagnostics",
         name: "diagnostics",
         description: "Current compilation diagnostics",
         mime_type: "application/json",
-        read: |state, _| diagnostics::read(state),
+        target: TargetSpec::SERVED,
+        read: |call, _| diagnostics::read(call.state),
     },
     ResourceSpec {
         uri: "specforge://graph/{entity_id}",
         name: "entity",
         description: "Subgraph rooted at a specific entity",
         mime_type: "application/json",
-        read: |state, uri| entity::read(state, after(uri, "specforge://graph/")),
+        target: TargetSpec::SERVED,
+        read: |call, uri| entity::read(call.state, after(uri, "specforge://graph/")),
     },
     ResourceSpec {
         uri: "specforge://entities/{kind}",
         name: "entities_by_kind",
         description: "All entities of a specific kind (e.g. feature, behavior)",
         mime_type: "application/json",
-        read: |state, uri| entities_by_kind::read(state, after(uri, "specforge://entities/")),
+        target: TargetSpec::SERVED,
+        read: |call, uri| entities_by_kind::read(call.state, after(uri, "specforge://entities/")),
     },
 ];
 
-fn read(state: &McpState, uri: &str) -> ReadOutcome {
+fn read(call: &Call<'_>, uri: &str) -> ReadOutcome {
     if let Some(resource) = CORE_RESOURCES.iter().find(|r| r.matches(uri)) {
-        return (resource.read)(state, uri);
+        return (resource.read)(call, uri);
     }
     if uri.starts_with("specforge://ext/") {
-        return extension_resource(state, uri);
+        return extension_resource(call, uri);
     }
     Err(invalid_params(format!("Unknown resource URI: {uri}")))
 }
@@ -238,7 +264,8 @@ fn uri_template<'a>(
 
 /// An extension-contributed resource, read through the Wasm runtime
 /// (WASM-only migration, Phase 4).
-fn extension_resource(state: &McpState, uri: &str) -> ReadOutcome {
+fn extension_resource(call: &Call<'_>, uri: &str) -> ReadOutcome {
+    let state: &McpState = call.state;
     let Some(entry) = extension_resource_entry(state, uri) else {
         return Err(invalid_params(format!("Unknown resource URI: {uri}")));
     };
@@ -295,7 +322,7 @@ fn notification_channel(uri: &str) -> &'static str {
 }
 
 /// MCP `resources/subscribe`: track the client's interest in a resource so
-/// recompiles deliver delta notifications (C9-01).
+/// updates of the served project deliver delta notifications (C9-01).
 pub fn handle_resource_subscribe(
     state: &mut McpState,
     params: Value,

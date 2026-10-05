@@ -2,8 +2,10 @@ use serde_json::Value;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::target::Call;
 
-pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
+    let state: &McpState = call.state;
     // A plan's entries, or the one entity, seed the trace.
     let (seeds, coverage_gaps, subject) = if let Some(plan) = args.get("plan") {
         match crate::tools::trace::analyze_plan(state, plan) {

@@ -3,6 +3,7 @@ use serde_json::{Value, json};
 use specforge_common::inference::{self, InferenceManifest, SourceFileEntry};
 
 use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -33,7 +34,8 @@ pub struct Args {
     status: Option<String>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     let project_root = match state.project_root() {
         Some(p) => p.to_path_buf(),
         None => {

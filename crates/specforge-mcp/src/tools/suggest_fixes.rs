@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
 #[derive(Debug, serde::Deserialize)]
@@ -13,7 +13,8 @@ pub struct Args {
     diagnostic_code: Option<String>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     let entity = match args.entity_id.as_deref() {
         Some(entity_id) => match state.graph().node(entity_id) {
             Some(node) => Some(node),

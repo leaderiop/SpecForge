@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use crate::args::lenient;
 use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 use specforge_ops::analyze::{AnalyzeError, AnalyzeOptions, ProjectView, ReportSource, analyze};
 use specforge_project::CompiledProject;
@@ -43,7 +44,8 @@ pub struct Args {
 /// extension-owned compiler passes over the project and return structured
 /// findings. Extension passes execute through the same Wasm runtime the CLI
 /// uses (WASM-only migration, Phase 4).
-pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &mut *call.state;
     let path = args
         .path
         .map(PathBuf::from)

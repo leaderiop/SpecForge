@@ -8,6 +8,7 @@ use serde_json::Value;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::target::{self, Call, TargetSpec};
 use crate::types::{McpPromptArgument, McpPromptDescriptor};
 
 /// One argument a prompt takes.
@@ -22,7 +23,9 @@ pub struct PromptSpec {
     pub name: &'static str,
     pub description: &'static str,
     pub arguments: &'static [PromptArg],
-    pub(crate) get: fn(&McpState, Value, Option<Value>) -> JsonRpcResponse,
+    /// Which project it reads: the served one, brought up to date first.
+    pub target: TargetSpec,
+    pub(crate) get: fn(&Call<'_>, Value, Option<Value>) -> JsonRpcResponse,
 }
 
 impl PromptSpec {
@@ -62,6 +65,7 @@ pub static CORE_PROMPTS: &[PromptSpec] = &[
                 required: false,
             },
         ],
+        target: TargetSpec::SERVED,
         get: context::get,
     },
     PromptSpec {
@@ -79,6 +83,7 @@ pub static CORE_PROMPTS: &[PromptSpec] = &[
                 required: false,
             },
         ],
+        target: TargetSpec::SERVED,
         get: review::get,
     },
     PromptSpec {
@@ -96,6 +101,7 @@ pub static CORE_PROMPTS: &[PromptSpec] = &[
                 required: false,
             },
         ],
+        target: TargetSpec::SERVED,
         get: trace::get,
     },
     PromptSpec {
@@ -113,6 +119,7 @@ pub static CORE_PROMPTS: &[PromptSpec] = &[
                 required: false,
             },
         ],
+        target: TargetSpec::SERVED,
         get: explore::get,
     },
     PromptSpec {
@@ -135,6 +142,7 @@ pub static CORE_PROMPTS: &[PromptSpec] = &[
                 required: false,
             },
         ],
+        target: TargetSpec::SERVED,
         get: infer::get,
     },
 ];
@@ -172,12 +180,20 @@ pub fn handle_prompt_get(
     }
     state.push_event("mcp_prompt_invoked", event);
 
-    match CORE_PROMPTS.iter().find(|p| p.name == name) {
-        Some(prompt) => (prompt.get)(state, arguments, id),
-        None => JsonRpcResponse::error(
+    let Some(prompt) = CORE_PROMPTS.iter().find(|p| p.name == name) else {
+        return JsonRpcResponse::error(
             id,
             error_codes::INVALID_PARAMS,
             format!("Unknown prompt: {}", name),
-        ),
-    }
+        );
+    };
+    // The project the prompt reads, brought up to date with disk first.
+    let target = match target::resolve(state, prompt.target, &arguments) {
+        Ok(target) => target,
+        Err(refused) => {
+            let refused = crate::tool::McpError::from(refused);
+            return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, refused.message);
+        }
+    };
+    (prompt.get)(&Call::new(state, target), arguments, id)
 }

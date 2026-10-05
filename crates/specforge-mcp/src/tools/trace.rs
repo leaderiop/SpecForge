@@ -3,6 +3,7 @@ use serde_json::Value;
 
 use crate::args::lenient;
 use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 #[derive(Debug, Deserialize)]
@@ -13,7 +14,8 @@ pub struct Args {
     plan: Option<Value>,
 }
 
-pub fn call(state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let state = &*call.state;
     if let Some(plan) = &args.plan {
         return plan_gaps(state, plan);
     }

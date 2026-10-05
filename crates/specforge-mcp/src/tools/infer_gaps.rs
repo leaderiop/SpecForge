@@ -1,12 +1,13 @@
 use serde_json::json;
 
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 /// `specforge.infer_gaps`: the shared gap report
 /// (`specforge_ops::infer::gaps`), as `specforge infer-status --gaps-detail
 /// --format json` prints it under `gap_analysis`.
-pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
+pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
+    let state = &*call.state;
     let Some(root) = state.project_root().map(std::path::Path::to_path_buf) else {
         return ToolOutcome::ok(json!({
             "total_pub_items": 0,

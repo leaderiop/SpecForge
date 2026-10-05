@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
 use specforge_diagnostics::{CodeEntry, docs_href, lookup, retired};
 
-use crate::state::McpState;
+use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 #[derive(Debug, serde::Deserialize)]
@@ -12,7 +12,7 @@ pub struct Args {
 /// `specforge.explain`: what `specforge explain <code>` prints, as data.
 /// A retired code names the entry that replaced it, if any; a code the
 /// catalogue doesn't have is invalid input.
-pub fn call(_state: &McpState, args: Args) -> ToolOutcome {
+pub fn call(_call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let code = args.code.trim();
     if let Some(replacement) = retired(code) {
         return ToolOutcome::ok(json!({

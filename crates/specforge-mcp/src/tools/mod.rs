@@ -28,6 +28,7 @@ use specforge_registry::{SurfaceRegistryEntry, SurfaceType};
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::target::{self, Call, CallTarget, Reach, TargetSpec};
 use crate::tool::{Category, Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
 pub use table::CORE_TOOLS;
 
@@ -253,18 +254,44 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
     let mutation = spec
         .and_then(|spec| spec.mutation)
         .filter(|mutation| (mutation.writes)(&arguments));
-    let served_since = state.session_generation();
 
-    let mut outcome = match (spec, extension) {
-        (Some(spec), _) => (spec.call)(state, arguments),
-        (None, Some(entry)) => {
-            let (outcome, dispatched) = extension_tool(state, &entry, arguments);
-            if let Some((event, params)) = dispatched {
-                state.push_event(event, params);
+    // The project the call acts on, resolved (and brought up to date)
+    // before the handler runs: handlers never pick a root or reload.
+    let target_spec = spec.map_or(TargetSpec::SERVED, |spec| spec.target);
+    let mut outcome = match target::resolve(state, target_spec, &arguments) {
+        Err(refused) => ToolOutcome::from(McpError::from(refused)),
+        Ok(target) => {
+            let mut call = Call::new(state, target);
+            let outcome = match (spec, &extension) {
+                (Some(spec), _) => (spec.call)(&mut call, arguments),
+                (None, Some(entry)) => {
+                    let (outcome, dispatched) = extension_tool(&mut call, entry, arguments);
+                    if let Some((event, params)) = dispatched {
+                        call.state.push_event(event, params);
+                    }
+                    outcome
+                }
+                (None, None) => unreachable!("an unknown tool was refused above"),
+            };
+            // A mutation that wrote the served project's files leaves the
+            // server serving what is on disk: brought up to date (exactly
+            // what changed), or, for a project built in memory, the project
+            // on disk at its root, when the tool writes project files.
+            // Another project was the call's alone; the served one is
+            // untouched.
+            if mutation.is_some()
+                && outcome.succeeded()
+                && !call.has_written()
+                && matches!(call.target(), CallTarget::Served)
+            {
+                if target_spec.reach == Reach::WritesAnyProject {
+                    call.wrote();
+                } else {
+                    call.state.ensure_fresh();
+                }
             }
             outcome
         }
-        (None, None) => unreachable!("an unknown tool was refused above"),
     }
     .from_tool(name);
     for (event, params) in outcome.take_events() {
@@ -272,16 +299,6 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
     }
 
     if let Some(mutation) = mutation {
-        // A mutation that wrote files leaves the server serving what is
-        // on disk: the tool updated the served project already (rename),
-        // or it is reloaded now.
-        if mutation.recompiles
-            && outcome.succeeded()
-            && state.session_generation() == served_since
-            && let Some(root) = state.project_root().map(std::path::Path::to_path_buf)
-        {
-            state.serve(&root);
-        }
         // Every call that meant to write reports what its structured
         // result says it changed: nothing, when it failed.
         let effect = outcome
@@ -318,10 +335,11 @@ type Dispatched = Option<(&'static str, Value)>;
 /// record when its export returned (whatever the result: a schema mismatch
 /// is a dispatched tool that failed).
 fn extension_tool(
-    state: &McpState,
+    call: &mut Call<'_>,
     entry: &SurfaceRegistryEntry,
     arguments: Value,
 ) -> (ToolOutcome, Dispatched) {
+    let state = &*call.state;
     let Some(root) = state.project_root().map(std::path::Path::to_path_buf) else {
         let refused = ToolOutcome::no_project(format!(
             "Extension tool '{}' needs a project root; pass {{\"path\": ...}} to specforge.analyze first",
