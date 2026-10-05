@@ -420,6 +420,70 @@ fn rename_rewrites_the_declaration_and_every_reference() {
     assert_eq!(references(&server, "login"), ["token_distinct"]);
 }
 
+/// The rename edits exactly what find_references returns with the
+/// declaration: the declaration's name and each reference's token, and no
+/// title, guarantee, comment or verify text that mentions the ID.
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "rename edits exactly the declaration and the references find_references returns"
+)]
+fn rename_edits_exactly_the_occurrences() {
+    let (mut server, root) = server_with_token_project();
+    std::fs::write(
+        root.join("spec/audit.spec"),
+        "behavior audit \"token_unique audit\" {\n  // checks token_unique\n  invariants [token_unique]\n  verify unit \"audit respects token_unique\"\n}\n",
+    )
+    .unwrap();
+    let resp = call_tool(
+        &mut server,
+        "specforge.find_references",
+        json!({"entity_id": "token_unique", "include_declaration": true}),
+    );
+    let found: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let mut occurrences: Vec<(String, u64, u64)> = found["locations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| {
+            let s = &l["source_span"];
+            (
+                s["file"].as_str().unwrap().to_string(),
+                s["start_line"].as_u64().unwrap(),
+                s["start_col"].as_u64().unwrap() - 1,
+            )
+        })
+        .collect();
+    occurrences.sort();
+
+    let plan = rename(
+        &mut server,
+        json!({"entity_id": "token_unique", "new_name": "token_distinct", "dry_run": true}),
+    );
+    let mut edits: Vec<(String, u64, u64)> = plan["edits"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            (
+                e["file"].as_str().unwrap().to_string(),
+                e["line"].as_u64().unwrap(),
+                e["start_col"].as_u64().unwrap(),
+            )
+        })
+        .collect();
+    edits.sort();
+
+    assert_eq!(edits, occurrences);
+    assert_eq!(
+        edits,
+        [
+            ("spec/audit.spec".to_string(), 3, 14),
+            ("spec/login.spec".to_string(), 4, 14),
+            ("spec/tokens.spec".to_string(), 1, 10),
+        ]
+    );
+}
+
 /// A rename recompiles the project from disk: a file edited since the
 /// server last loaded it, and not touched by the rename, is served too,
 /// and the diagnostics returned are what a fresh compile reports.

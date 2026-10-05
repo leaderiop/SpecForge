@@ -102,7 +102,10 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     when omitted; another project is planned, edited and recompiled on its
     own, the served one untouched). The rename is planned on the project as
     it is on disk. The tool MUST rename the entity and update all
-    references across all spec files. The response MUST include the list of
+    references across all spec files. The edits are exactly the entity's
+    declaration name and its references, as find-references returns them;
+    text in strings, comments and verify statements that mentions the ID
+    is not a reference and is not edited. The response MUST include the list of
     McpRenameEdit operations applied. When dry_run is true, the tool MUST return
     the rename plan (affected files and McpRenameEdit operations) without applying
     any changes. If the entity does not exist, the tool MUST return an error.
@@ -117,6 +120,7 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   verify unit "dry_run returns rename plan without applying changes"
   verify contract "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
   verify unit "rename plans on the project as it is on disk, references added since the last call included"
+  verify unit "rename edits exactly the declaration and the references find_references returns"
 }
 
 // MCP init creates a project at a specified path, not the current project.

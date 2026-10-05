@@ -1283,18 +1283,15 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
-        let word = match word_at_position(&content, pos.line as usize, pos.character as usize) {
-            Some(w) => w,
-            None => return Ok(None),
+        let Some((id, _)) = entity_at(&state, &uri, &content, pos) else {
+            return Ok(None);
         };
 
-        // Each whole-word occurrence inside the declaration and the
-        // entities that reference it, read from the open buffer, else disk,
-        // planned by the shared rename (the MCP tool's rules). A rename is
-        // all or nothing: one that cannot be done whole is refused with why.
-        let edits = match specforge_ops::rename::plan(state.graph(), &word, &new_name, |file| {
-            file_content(&state, file)
-        }) {
+        // The declaration's name and every reference's token, read from
+        // the open buffer, else disk, planned by the shared rename (the MCP
+        // tool's rules). A rename is all or nothing: one that cannot be
+        // done whole is refused with why.
+        let edits = match specforge_ops::rename::plan(&navigator(&state), &id, &new_name) {
             Ok(plan) => plan.edits,
             Err(e) if e.code == specforge_ops::rename::NOT_FOUND => return Ok(None),
             Err(e) => return Err(tower_lsp::jsonrpc::Error::invalid_params(e.message)),

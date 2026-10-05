@@ -288,7 +288,7 @@ impl LspClient {
         .await
     }
 
-    pub async fn prepare_rename(&mut self, uri: &str, line: u32, character: u32) -> Value {
+    pub async fn rename_range_at(&mut self, uri: &str, line: u32, character: u32) -> Value {
         self.send_request(
             "textDocument/prepareRename",
             json!({

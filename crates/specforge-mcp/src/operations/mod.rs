@@ -201,10 +201,9 @@ pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> Handled {
     // Planned on the call's project as it is on disk (the target brought
     // the served project up to date, or compiled the project `path`
     // names), whose spans are relative to its spec root.
-    let project = call.project()?;
-    let spec_root = project.spec_root.to_path_buf();
-    let read = |file: &str| std::fs::read_to_string(spec_root.join(file)).ok();
-    let plan = match rename::plan(project.graph, entity_id, new_name, read) {
+    let spec_root = call.project()?.spec_root.to_path_buf();
+    let planned = rename::plan(&crate::tools::navigator(call), entity_id, new_name);
+    let plan = match planned {
         Ok(plan) => plan,
         Err(e) if e.code == rename::INVALID_ID => {
             return Ok(ToolOutcome::invalid_input("new_name", e.message));

@@ -236,13 +236,13 @@ async fn e2e_reference_ranges_are_utf16() {
 async fn e2e_prepare_rename_answers_the_token() {
     let (mut client, uri, _dir) =
         start_server_with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
-    let declaration = client.prepare_rename(&uri, 0, 15).await;
+    let declaration = client.rename_range_at(&uri, 0, 15).await;
     assert_eq!(
         lsp_range(&declaration["result"]),
         "0:10-0:23",
         "{declaration}"
     );
-    let reference = client.prepare_rename(&uri, 4, 20).await;
+    let reference = client.rename_range_at(&uri, 4, 20).await;
     assert_eq!(lsp_range(&reference["result"]), "4:14-4:27", "{reference}");
 }
 
@@ -256,7 +256,7 @@ async fn e2e_prepare_rename_outside_an_id_is_not_available() {
         start_server_with_extensions(&["@specforge/software"], "a.spec", LIMIT_AND_LOGIN).await;
     // The title, the kind keyword, a field name.
     for (line, character) in [(0, 27), (0, 3), (1, 4)] {
-        let resp = client.prepare_rename(&uri, line, character).await;
+        let resp = client.rename_range_at(&uri, line, character).await;
         assert!(resp["result"].is_null(), "{line}:{character} {resp}");
     }
 }

@@ -1,12 +1,14 @@
 //! Renaming an entity ID: the MCP `specforge.rename` tool and the LSP's
 //! `textDocument/rename` plan the same edits under the same rules. MCP
 //! applies them ([`apply`]) and recompiles; the LSP hands them to the
-//! editor.
+//! editor. The edits are exactly the occurrences navigation finds (the
+//! declaration's name and each reference's token): text in strings,
+//! comments and verify statements that mentions the ID is not a reference,
+//! and is left alone (ADR 0016).
 
 use crate::OpError;
-use specforge_graph::Graph;
-use specforge_graph::rename::{RenameEdit, apply_edits, identifier_edits};
-use std::cell::RefCell;
+use crate::navigate::{Direction, Navigator, Precision, ReferenceQuery};
+use specforge_graph::rename::{RenameEdit, apply_edits};
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -59,17 +61,19 @@ impl RenamePlan {
     }
 }
 
-/// Plan renaming `old_id` to `new_id` in `graph`, reading each file the
-/// rename touches through `text_of` (a path relative to the spec root).
-/// A rename is all or nothing: one it cannot read every file of is
-/// refused, rather than leaving a reference behind.
-pub fn plan(
-    graph: &Graph,
+/// Plan renaming `old_id` to `new_id`: one edit per occurrence `nav`
+/// finds, the declaration's name and each incoming reference's token,
+/// each file read through the navigator. A rename is all or nothing: one
+/// that cannot see every token (a file it cannot read, or whose text no
+/// longer spells the ID where the graph says) is refused, rather than
+/// guessing or leaving a reference behind.
+pub fn plan<F: Fn(&str) -> Option<String>>(
+    nav: &Navigator<'_, F>,
     old_id: &str,
     new_id: &str,
-    text_of: impl Fn(&str) -> Option<String>,
 ) -> Result<RenamePlan, OpError> {
     validate_id(new_id)?;
+    let graph = nav.view().graph;
     if graph.node(old_id).is_none() {
         return Err(OpError::new(
             NOT_FOUND,
@@ -82,23 +86,34 @@ pub fn plan(
             format!("cannot rename '{old_id}': '{new_id}' exists"),
         ));
     }
-    let unreadable = RefCell::new(BTreeSet::new());
-    let edits = identifier_edits(graph, old_id, new_id, |file| {
-        let text = text_of(file);
-        if text.is_none() {
-            unreadable.borrow_mut().insert(file.to_string());
-        }
-        text
-    })
-    .unwrap_or_default();
-    let unreadable = unreadable.into_inner();
+    let query = ReferenceQuery {
+        direction: Direction::Incoming,
+        include_declaration: true,
+    };
+    let occurrences = nav.references(old_id, query)?;
+    let unreadable: BTreeSet<&str> = occurrences
+        .iter()
+        .filter(|o| o.precision == Precision::Entity)
+        .map(|o| o.span.file.as_str())
+        .collect();
     if !unreadable.is_empty() {
-        let files: Vec<String> = unreadable.into_iter().collect();
+        let files: Vec<&str> = unreadable.into_iter().collect();
         return Err(OpError::new(
             UNREADABLE,
             format!("cannot rename '{old_id}': cannot read {}", files.join(", ")),
         ));
     }
+    // A token is one line; RenameEdit columns are 0-based bytes.
+    let edits = occurrences
+        .iter()
+        .map(|o| RenameEdit {
+            file: o.span.file.to_string(),
+            line: o.span.start_line,
+            start_col: o.span.start_col - 1,
+            end_col: o.span.end_col - 1,
+            new_text: new_id.to_string(),
+        })
+        .collect();
     Ok(RenamePlan {
         old_id: old_id.to_string(),
         new_id: new_id.to_string(),
@@ -140,6 +155,7 @@ pub fn apply(plan: &RenamePlan, spec_root: &Path) -> Result<(), OpError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_test_macros::test as specforge_test;
 
     #[test]
     fn an_entity_id_follows_the_grammar_and_e014() {
@@ -159,7 +175,7 @@ mod tests {
         }
     }
 
-    fn project(files: &[(&str, &str)]) -> (tempfile::TempDir, Graph) {
+    fn project(files: &[(&str, &str)]) -> (tempfile::TempDir, specforge_project::CompiledProject) {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(
             dir.path().join("specforge.json"),
@@ -169,10 +185,17 @@ mod tests {
         for (name, text) in files {
             std::fs::write(dir.path().join(name), text).unwrap();
         }
-        let graph = specforge_project::CompiledProject::compile(dir.path(), None)
-            .into_context()
-            .graph;
-        (dir, graph)
+        let runtime = specforge_component::project_runtime(dir.path());
+        let project = specforge_project::CompiledProject::compile(dir.path(), Some(&runtime));
+        (dir, project)
+    }
+
+    /// A navigator over `project`, reading its files through `read`.
+    fn nav<'p, F: Fn(&str) -> Option<String>>(
+        project: &'p specforge_project::CompiledProject,
+        read: F,
+    ) -> Navigator<'p, F> {
+        Navigator::new(crate::view::ProjectView::of(project), read)
     }
 
     const LIMIT: &str = "invariant session_limit \"Limit\" {\n  guarantee \"x\"\n}\n";
@@ -180,10 +203,10 @@ mod tests {
 
     #[test]
     fn a_plan_renames_the_declaration_and_every_reference() {
-        let (dir, graph) = project(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
+        let (dir, project) = project(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
         let read = |f: &str| std::fs::read_to_string(dir.path().join(f)).ok();
 
-        let plan = plan(&graph, "session_limit", "session_cap", read).unwrap();
+        let plan = plan(&nav(&project, read), "session_limit", "session_cap").unwrap();
         assert_eq!(
             plan.affected_files().into_iter().collect::<Vec<_>>(),
             ["limit.spec", "login.spec"]
@@ -195,13 +218,34 @@ mod tests {
         assert!(limit.starts_with("invariant session_cap "), "{limit}");
     }
 
+    #[specforge_test(
+        behavior = "rename_entity_id",
+        verify = "rename leaves strings, comments and verify texts alone"
+    )]
+    fn a_plan_leaves_prose_alone() {
+        let text = "invariant session_limit \"session_limit cap\" {\n  guarantee \"session_limit is never exceeded\"\n}\n\
+                    behavior login \"Login\" {\n  invariants [session_limit]\n  // keeps session_limit\n  verify unit \"login respects session_limit\"\n}\n";
+        let (dir, project) = project(&[("a.spec", text)]);
+        let read = |f: &str| std::fs::read_to_string(dir.path().join(f)).ok();
+
+        let plan = plan(&nav(&project, read), "session_limit", "session_cap").unwrap();
+        let at: Vec<(usize, usize)> = plan.edits.iter().map(|e| (e.line, e.start_col)).collect();
+        assert_eq!(at, [(1, 10), (5, 14)], "the declaration and the reference");
+        apply(&plan, dir.path()).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("a.spec")).unwrap(),
+            text.replace("invariant session_limit", "invariant session_cap")
+                .replace("[session_limit]", "[session_cap]")
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn a_failed_write_puts_every_file_back() {
         use std::os::unix::fs::PermissionsExt;
-        let (dir, graph) = project(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
+        let (dir, project) = project(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
         let read = |f: &str| std::fs::read_to_string(dir.path().join(f)).ok();
-        let plan = plan(&graph, "session_limit", "session_cap", read).unwrap();
+        let plan = plan(&nav(&project, read), "session_limit", "session_cap").unwrap();
         // limit.spec is written first; login.spec cannot be.
         let login = dir.path().join("login.spec");
         std::fs::set_permissions(&login, std::fs::Permissions::from_mode(0o444)).unwrap();
@@ -221,19 +265,45 @@ mod tests {
 
     #[test]
     fn a_plan_refuses_what_it_cannot_do_whole() {
-        let (dir, graph) = project(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
+        let (dir, project) = project(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
         let read = |f: &str| std::fs::read_to_string(dir.path().join(f)).ok();
         let code = |r: Result<RenamePlan, OpError>| r.unwrap_err().code;
+        let navigator = nav(&project, read);
 
-        assert_eq!(code(plan(&graph, "session_limit", "x", read)), INVALID_ID);
-        assert_eq!(code(plan(&graph, "nope", "fine_name", read)), NOT_FOUND);
-        assert_eq!(code(plan(&graph, "session_limit", "login", read)), TAKEN);
+        assert_eq!(code(plan(&navigator, "session_limit", "x")), INVALID_ID);
+        assert_eq!(code(plan(&navigator, "nope", "fine_name")), NOT_FOUND);
+        assert_eq!(code(plan(&navigator, "session_limit", "login")), TAKEN);
         let without_limit = |f: &str| {
             (f != "limit.spec").then(|| std::fs::read_to_string(dir.path().join(f)).unwrap())
         };
-        assert_eq!(
-            code(plan(&graph, "session_limit", "session_cap", without_limit)),
-            UNREADABLE
+        let refused = plan(
+            &nav(&project, without_limit),
+            "session_limit",
+            "session_cap",
+        )
+        .unwrap_err();
+        assert_eq!(refused.code, UNREADABLE);
+        assert!(
+            refused.message.contains("limit.spec"),
+            "{}",
+            refused.message
+        );
+        // A file whose text no longer spells the ID where the graph says
+        // (it changed since the compile) is refused the same way.
+        let stale = |f: &str| {
+            let text = std::fs::read_to_string(dir.path().join(f)).unwrap();
+            Some(if f == "login.spec" {
+                format!("\n{text}")
+            } else {
+                text
+            })
+        };
+        let refused = plan(&nav(&project, stale), "session_limit", "session_cap").unwrap_err();
+        assert_eq!(refused.code, UNREADABLE);
+        assert!(
+            refused.message.contains("login.spec"),
+            "{}",
+            refused.message
         );
     }
 }

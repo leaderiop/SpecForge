@@ -642,32 +642,6 @@ const CASES: &[Case] = &[
 /// none may be added to excuse a regression.
 const EXPECTED_DIVERGENCES: &[Divergence] = &[
     Divergence {
-        id: "N7",
-        case: "rename_session_limit",
-        surface: Surface::Lsp,
-        today: &[
-            "a.spec 1:11-1:24 session_cap",
-            "a.spec 1:26-1:39 session_cap",
-            "a.spec 2:14-2:27 session_cap",
-            "a.spec 5:15-5:28 session_cap",
-            "a.spec 6:12-6:25 session_cap",
-            "a.spec 7:31-7:44 session_cap",
-        ],
-    },
-    Divergence {
-        id: "N7",
-        case: "rename_session_limit",
-        surface: Surface::Mcp,
-        today: &[
-            "a.spec 1:11-1:24 session_cap",
-            "a.spec 1:26-1:39 session_cap",
-            "a.spec 2:14-2:27 session_cap",
-            "a.spec 5:15-5:28 session_cap",
-            "a.spec 6:12-6:25 session_cap",
-            "a.spec 7:31-7:44 session_cap",
-        ],
-    },
-    Divergence {
         id: "N8",
         case: "lookup_sesion",
         surface: Surface::Lsp,
@@ -856,7 +830,7 @@ fn search_references_combines_with_the_other_filters() {
 }
 
 #[test]
-fn prepare_rename_answers_the_token() {
+fn the_renameable_range_is_the_token() {
     let p = project("nav");
     let lsp = lsp_request(
         &p,

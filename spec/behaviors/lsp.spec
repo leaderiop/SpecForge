@@ -342,9 +342,13 @@ behavior rename_entity_id "Rename Entity ID" {
     all .spec files. The rename MUST be atomic — all files are updated
     or none are. The new ID follows the same rule as the MCP rename tool's:
     a name that is not a legal entity ID, or that is taken, MUST be refused
-    with an error saying why.
+    with an error saying why. The edits are exactly the entity's
+    declaration name and its references, as find-references returns them;
+    text in strings, comments and verify statements that mentions the ID
+    is not a reference and is not edited.
   """
   verify unit "rename updates declaration and all references"
+  verify unit "rename leaves strings, comments and verify texts alone"
   verify unit "rename is atomic — all or nothing"
   verify unit "rename across multiple files"
   verify unit "rename rejects new name that duplicates existing entity ID"

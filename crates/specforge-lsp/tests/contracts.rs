@@ -1,5 +1,5 @@
 use specforge_common::{SourceSpan, Sym};
-use specforge_graph::{Edge, Graph, Node};
+use specforge_graph::{Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test_macros::test as specforge_test;
 
@@ -424,20 +424,61 @@ fn goto_import_definition_contract() {
     behavior = "prepare_rename",
     verify = "Prepare Rename: prepare rename holds — graph_available, token_range_returned, non_renameable_rejected"
 )]
-fn prepare_rename_contract() {
-    // Requires: entity ID in graph
-    // Ensures: returns token range for existing entity; None for missing
-    let mut g = Graph::new();
-    g.add_node(node_at("auth_token", "type", "types.spec", 5, 5));
+fn contract_prepare_rename() {
+    // Requires: the graph, built from the files' text
+    // Ensures: the token under the cursor (declaration or reference) is
+    // renameable, with its range; anything else is not.
+    let state = buffers(&[
+        (
+            "/p/types.spec",
+            "\n\n\n\ntype auth_token \"auth_token\" {\n}\n",
+        ),
+        (
+            "/p/auth.spec",
+            "behavior login \"L\" {\n  types [auth_token]\n}\n",
+        ),
+    ]);
+    let nav = specforge_lsp::navigator(&state);
 
-    let result = specforge_lsp::prepare_rename(&g, "auth_token");
-    let range = result.expect("existing entity must return range");
-    assert_eq!(range.file, "types.spec");
-    assert_eq!(range.start_line, 5);
-    assert_eq!(range.start_col, 5);
+    let declaration = nav
+        .occurrence_at("/p/types.spec", 5, 8)
+        .expect("the declaration's name is renameable");
+    let span = &declaration.span;
+    assert_eq!(
+        (
+            span.file.as_str(),
+            span.start_line,
+            span.start_col,
+            span.end_col
+        ),
+        ("/p/types.spec", 5, 6, 16)
+    );
+    let reference = nav
+        .occurrence_at("/p/auth.spec", 2, 12)
+        .expect("a reference's token is renameable");
+    assert_eq!(reference.target, "auth_token");
 
-    let missing = specforge_lsp::prepare_rename(&g, "nonexistent");
-    assert!(missing.is_none(), "missing entity must return None");
+    // The title naming it, a keyword, nothing: not renameable.
+    assert!(nav.occurrence_at("/p/types.spec", 5, 20).is_none());
+    assert!(nav.occurrence_at("/p/types.spec", 5, 2).is_none());
+    assert!(nav.occurrence_at("/p/types.spec", 1, 1).is_none());
+}
+
+/// An LSP state whose session holds `files` (absolute paths) as open
+/// buffers.
+fn buffers(files: &[(&str, &str)]) -> specforge_lsp::LspState {
+    let mut state = specforge_lsp::LspState::new();
+    for (path, text) in files {
+        state.open_document(&format!("file://{path}"), text);
+        state
+            .session_mut()
+            .unwrap()
+            .update(specforge_project::SourceChange::Buffer {
+                path,
+                text: Some(text),
+            });
+    }
+    state
 }
 
 // B:rename_entity_id — verify contract "requires/ensures consistency for entity rename"
@@ -447,42 +488,35 @@ fn prepare_rename_contract() {
 )]
 fn rename_entity_id_contract() {
     // Requires: entity in graph with references from other entities + new name
-    // Ensures: edits for declaration + all reference sites; rejects duplicate name
-    let mut g = Graph::new();
-    g.add_node(node_at("auth_token", "type", "types.spec", 5, 5));
-    g.add_node(node_at("user_login", "behavior", "auth.spec", 10, 9));
-    g.add_edge(Edge {
-        source: "user_login".into(),
-        target: "auth_token".into(),
-        label: "types".into(),
-    });
-
-    // Each node's id on its first line; user_login's line also names what
-    // it references.
-    let texts: std::collections::HashMap<&str, String> = [
-        ("types.spec", format!("{}     auth_token\n", "\n".repeat(4))),
+    // Ensures: edits for the declaration and every reference, nothing
+    // else; a taken name, or a file the rename cannot read, is refused.
+    let state = buffers(&[
+        ("/p/types.spec", "type auth_token \"auth_token\" {\n}\n"),
         (
-            "auth.spec",
-            format!("{}         user_login [auth_token]\n", "\n".repeat(9)),
+            "/p/auth.spec",
+            "behavior user_login \"L\" {\n  types [auth_token]\n  // auth_token\n}\n",
         ),
-    ]
-    .into();
-    let text_of = |f: &str| texts.get(f).cloned();
-    let edits = specforge_lsp::identifier_edits(&g, "auth_token", "session_token", text_of);
-    let edits = edits.expect("valid rename must produce edits");
-    assert!(edits.len() >= 2, "must edit declaration + reference sites");
-    assert!(
-        edits.iter().any(|e| e.file == "types.spec"),
-        "must edit declaration file"
-    );
-    assert!(
-        edits.iter().any(|e| e.file == "auth.spec"),
-        "must edit reference file"
-    );
+    ]);
+    let nav = specforge_lsp::navigator(&state);
+    let plan = specforge_ops::rename::plan(&nav, "auth_token", "session_token")
+        .expect("valid rename must produce edits");
+    let edits: Vec<(&str, usize, usize)> = plan
+        .edits
+        .iter()
+        .map(|e| (e.file.as_str(), e.line, e.start_col))
+        .collect();
+    assert_eq!(edits, [("/p/auth.spec", 2, 9), ("/p/types.spec", 1, 5)]);
 
     // Reject rename to existing ID
-    let dup = specforge_lsp::identifier_edits(&g, "auth_token", "user_login", text_of);
-    assert!(dup.is_none(), "rename to existing ID must be rejected");
+    let dup = specforge_ops::rename::plan(&nav, "auth_token", "user_login");
+    assert_eq!(dup.unwrap_err().code, specforge_ops::rename::TAKEN);
+
+    // All or nothing: a file the rename cannot read refuses the whole.
+    let blind = specforge_ops::navigate::Navigator::new(state.view(), |file: &str| {
+        (file != "/p/auth.spec").then(|| "type auth_token \"auth_token\" {\n}\n".to_string())
+    });
+    let refused = specforge_ops::rename::plan(&blind, "auth_token", "session_token");
+    assert_eq!(refused.unwrap_err().code, specforge_ops::rename::UNREADABLE);
 }
 
 // B:outline_view — verify contract "requires/ensures consistency for outline view"
