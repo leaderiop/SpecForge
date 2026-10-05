@@ -339,14 +339,19 @@ fn extension_tool(
     entry: &SurfaceRegistryEntry,
     arguments: Value,
 ) -> (ToolOutcome, Dispatched) {
-    let state = &*call.state;
-    let Some(root) = state.project_root().map(std::path::Path::to_path_buf) else {
-        let refused = ToolOutcome::no_project(format!(
-            "Extension tool '{}' needs a project root; pass {{\"path\": ...}} to specforge.analyze first",
-            entry.contribution_name
-        ));
+    // The project the tool runs over, in the runtime it was compiled in.
+    let project = match call.project() {
+        Ok(project) => project,
+        Err(refused) => return (refused.into(), None),
+    };
+    let Some(runtime) = project.runtime else {
+        let refused = ToolOutcome::error(
+            ErrorCode::InternalError,
+            "the project has no extension runtime",
+        );
         return (refused, None);
     };
+    let state = &*call.state;
     let declared = state
         .tool_registry
         .iter()
@@ -367,7 +372,6 @@ fn extension_tool(
             return (refused, None);
         }
     }
-    let runtime = state.wasm_runtime(&root);
     if entry.surface_type == SurfaceType::AutoPromotedTool {
         // An auto-promoted CLI command runs its cmd__ export over the served
         // graph, as `specforge <ext> <command>` does over the compiled one.
@@ -383,9 +387,9 @@ fn extension_tool(
             runtime.as_ref(),
             &entry.extension_name,
             &entry.export_name,
-            state.graph(),
+            project.graph,
             &args,
-            &root,
+            project.root,
             &context,
         );
         // A command whose export returned is a dispatched command; a trap

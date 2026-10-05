@@ -27,6 +27,8 @@ pub struct FakeExtension {
     passes: Value,
     /// Commands declared beside `report` and `check`.
     commands: Vec<Value>,
+    /// How many times an environment loaded the extension (`__handshake`).
+    handshakes: std::sync::atomic::AtomicUsize,
 }
 
 impl FakeExtension {
@@ -37,6 +39,7 @@ impl FakeExtension {
             calls: Mutex::new(Vec::new()),
             passes: json!([]),
             commands: Vec::new(),
+            handshakes: std::sync::atomic::AtomicUsize::new(0),
         }
     }
 
@@ -64,6 +67,11 @@ impl FakeExtension {
     pub fn with_panic(mut self, export: &str) -> Self {
         self.panics.push(export.into());
         self
+    }
+
+    /// How many times an environment loaded the extension so far.
+    pub fn handshakes(&self) -> usize {
+        self.handshakes.load(std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Every non-protocol export call so far, oldest first.
@@ -126,14 +134,18 @@ impl WasmRuntime for FakeExtension {
             return trap("extension_not_found", export_name);
         }
         match export_name {
-            "__handshake" => ok(json!({
+            "__handshake" => {
+                self.handshakes
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                ok(json!({
                 "protocol_version": "1.0.0",
                 "name": EXT,
                 "version": "0.1.0",
                 "contribution_flags": {"entities": true},
                 "peer_dependencies": [],
                 "sandbox_policy": null,
-            })),
+                }))
+            }
             "__describe" => {
                 let request: Value = serde_json::from_slice(input).unwrap();
                 let category = request["category"].as_str().unwrap().to_string();

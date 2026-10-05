@@ -2,7 +2,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
-use crate::state::McpState;
 use crate::target::Call;
 
 /// Maximum number of files listed per page in the plan prompt (C9-08).
@@ -76,16 +75,43 @@ fn match_mode(query: &str, span_file: &str) -> &'static str {
 }
 
 pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
-    respond(call.state, args, id)
+    let project = Inferring {
+        graph: call.state.graph(),
+        env: call.state.environment(),
+        root: call.root(),
+    };
+    respond(&project, args, id)
 }
 
-/// The prompt over the served project in `state`.
-fn respond(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+/// What the prompt reads of the call's project: its graph, environment and
+/// root (none while no project is served: the empty session).
+struct Inferring<'a> {
+    graph: &'a specforge_graph::Graph,
+    env: &'a specforge_project::Environment,
+    root: Option<&'a std::path::Path>,
+}
+
+impl Inferring<'_> {
+    fn graph(&self) -> &specforge_graph::Graph {
+        self.graph
+    }
+
+    fn registries(&self) -> &specforge_registry::RegistryBuild {
+        &self.env.registries
+    }
+
+    fn config(&self) -> &specforge_common::ProjectConfig {
+        &self.env.config
+    }
+}
+
+/// The prompt over `project`.
+fn respond(project: &Inferring<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let scope = args.get("scope").and_then(|v| v.as_str());
 
     match scope {
-        Some("plan") => get_plan(state, &args, id),
-        Some("workflow") => get_workflow(state, id),
+        Some("plan") => get_plan(project, &args, id),
+        Some("workflow") => get_workflow(project, id),
         Some(s) if s.starts_with("kind:") => {
             let kind_name = s[5..].to_lowercase();
             if kind_name.is_empty() {
@@ -95,7 +121,7 @@ fn respond(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
                     "Empty kind name in scope 'kind:'",
                 );
             }
-            get_kind_scoped(state, &kind_name, id)
+            get_kind_scoped(project, &kind_name, id)
         }
         Some(s) if s.starts_with("file:") => {
             let file_path = &s[5..];
@@ -106,23 +132,23 @@ fn respond(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
                     "Empty file path in scope 'file:'",
                 );
             }
-            get_file_scoped(state, file_path, id)
+            get_file_scoped(project, file_path, id)
         }
-        _ => get_overview(state, id),
+        _ => get_overview(project, id),
     }
 }
 
-fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
+fn get_overview(project: &Inferring<'_>, id: Option<Value>) -> JsonRpcResponse {
     let mut kind_counts: HashMap<String, usize> = HashMap::new();
-    for node in state.graph().nodes() {
+    for node in project.graph().nodes() {
         *kind_counts.entry(node.kind.raw.to_string()).or_default() += 1;
     }
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for manifest in &state.registries().manifests {
+    for manifest in &project.registries().manifests {
         for kind in &manifest.entity_kinds {
             let keyword = kind.keyword.to_lowercase();
-            let guide = build_guide_for_kind(&keyword, manifest, &state.config().inference);
+            let guide = build_guide_for_kind(&keyword, manifest, &project.config().inference);
             let fields: Vec<String> = kind
                 .fields
                 .iter()
@@ -145,10 +171,10 @@ fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
         }
     }
 
-    let global_conventions = state.config().inference.global.as_deref().unwrap_or("");
+    let global_conventions = project.config().inference.global.as_deref().unwrap_or("");
 
     let result = serde_json::json!({
-        "installed_extensions": state.registries().extension_info.iter().map(|(name, _)| name.clone()).collect::<Vec<_>>(),
+        "installed_extensions": project.registries().extension_info.iter().map(|(name, _)| name.clone()).collect::<Vec<_>>(),
         "existing_entities": kind_counts,
         "kinds": kinds_info,
         "project_conventions": global_conventions,
@@ -165,8 +191,8 @@ fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
     JsonRpcResponse::success(id, user_prompt(instruction, &result))
 }
 
-fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> JsonRpcResponse {
-    let matched_kind = state
+fn get_kind_scoped(project: &Inferring<'_>, kind_name: &str, id: Option<Value>) -> JsonRpcResponse {
+    let matched_kind = project
         .registries()
         .manifests
         .iter()
@@ -187,7 +213,7 @@ fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> Json
         }
     };
 
-    let existing_ids: Vec<String> = state
+    let existing_ids: Vec<String> = project
         .graph()
         .nodes()
         .into_iter()
@@ -195,7 +221,7 @@ fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> Json
         .map(|n| n.id.raw.to_string())
         .collect();
 
-    let guide = build_guide_for_kind(kind_name, manifest, &state.config().inference);
+    let guide = build_guide_for_kind(kind_name, manifest, &project.config().inference);
     let fields: Vec<Value> = kind_def
         .fields
         .iter()
@@ -228,10 +254,10 @@ fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> Json
     JsonRpcResponse::success(id, user_prompt(&instruction, &result))
 }
 
-fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> JsonRpcResponse {
+fn get_file_scoped(project: &Inferring<'_>, file_path: &str, id: Option<Value>) -> JsonRpcResponse {
     let mut exact_matches: Vec<String> = Vec::new();
     let mut suffix_matches: Vec<String> = Vec::new();
-    for node in state.graph().nodes() {
+    for node in project.graph().nodes() {
         let entity = format!("{} ({})", node.id.raw, node.kind.raw);
         match match_mode(file_path, node.source_span.file.as_str()) {
             "exact" => exact_matches.push(entity),
@@ -250,10 +276,10 @@ fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> Json
     };
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for manifest in &state.registries().manifests {
+    for manifest in &project.registries().manifests {
         for kind in &manifest.entity_kinds {
             let keyword = kind.keyword.to_lowercase();
-            let guide = build_guide_for_kind(&keyword, manifest, &state.config().inference);
+            let guide = build_guide_for_kind(&keyword, manifest, &project.config().inference);
             kinds_info.push(serde_json::json!({
                 "kind": keyword,
                 "inference_guide": guide,
@@ -261,7 +287,7 @@ fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> Json
         }
     }
 
-    let global_conventions = state.config().inference.global.as_deref().unwrap_or("");
+    let global_conventions = project.config().inference.global.as_deref().unwrap_or("");
 
     let result = serde_json::json!({
         "file": file_path,
@@ -282,19 +308,19 @@ fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> Json
     JsonRpcResponse::success(id, user_prompt(&instruction, &result))
 }
 
-fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcResponse {
+fn get_plan(project: &Inferring<'_>, args: &Value, id: Option<Value>) -> JsonRpcResponse {
     let target_spec_directory = args
         .get("target_spec_directory")
         .and_then(|v| v.as_str())
         .unwrap_or("spec/");
     let cursor = args.get("cursor").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
 
-    let project_root = state.project_root();
+    let project_root = project.root;
 
     let (summary, unanalyzed, stale) = match project_root {
         Some(root) => {
             let progress =
-                specforge_ops::infer::progress_or_fresh(root, &state.registries().manifests);
+                specforge_ops::infer::progress_or_fresh(root, &project.registries().manifests);
             (progress.summary, progress.unanalyzed, progress.stale)
         }
         None => {
@@ -307,14 +333,14 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
         }
     };
 
-    let kind_priorities: Vec<Value> = state
+    let kind_priorities: Vec<Value> = project
         .registries()
         .manifests
         .iter()
         .flat_map(|m| m.entity_kinds.iter().map(move |k| (m, k)))
         .map(|(m, k)| {
             let keyword = k.keyword.to_lowercase();
-            let existing_count = state
+            let existing_count = project
                 .graph()
                 .nodes()
                 .into_iter()
@@ -371,7 +397,7 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
     JsonRpcResponse::success(id, user_prompt(&instruction, &result))
 }
 
-fn get_workflow(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
+fn get_workflow(project: &Inferring<'_>, id: Option<Value>) -> JsonRpcResponse {
     let tool_names: Vec<&str> = vec![
         "specforge.infer_session",
         "specforge.infer_progress",
@@ -381,7 +407,7 @@ fn get_workflow(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
         "specforge.schema",
     ];
 
-    let installed_kinds: Vec<String> = state
+    let installed_kinds: Vec<String> = project
         .registries()
         .manifests
         .iter()
@@ -402,7 +428,7 @@ Call `specforge.infer_session` with `action: \"start\"` and `agent: \"<your-id>\
 Optionally set `source_roots` to limit scanning scope.
 
 ### Step 2: Check Progress
-Call `specforge.infer_progress` to see unanalyzed files and current state.
+Call `specforge.infer_progress` to see unanalyzed files and current project.
 
 ### Step 3: For Each Source File
 1. Read the source file
@@ -619,7 +645,11 @@ mod tests {
     #[test]
     fn overview_returns_installed_extensions() {
         let state = make_state_with_kind("behavior", Some("Look for public functions"));
-        let resp = respond(&state, serde_json::json!({}), Some(Value::from(1)));
+        let resp = respond(
+            &inferring(&state),
+            serde_json::json!({}),
+            Some(Value::from(1)),
+        );
         let content: Value = parse_payload(&resp);
         assert_eq!(content["installed_extensions"][0], "@specforge/test");
     }
@@ -627,7 +657,11 @@ mod tests {
     #[test]
     fn overview_includes_inference_guide_from_extension() {
         let state = make_state_with_kind("behavior", Some("Look for public functions"));
-        let resp = respond(&state, serde_json::json!({}), Some(Value::from(1)));
+        let resp = respond(
+            &inferring(&state),
+            serde_json::json!({}),
+            Some(Value::from(1)),
+        );
         let content: Value = parse_payload(&resp);
         let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
         assert!(guide.contains("Look for public functions"));
@@ -653,7 +687,11 @@ mod tests {
         };
         let manifests = vec![test_manifest("behavior", Some("Look for public functions"))];
         serve(&mut state, manifests, config);
-        let resp = respond(&state, serde_json::json!({}), Some(Value::from(1)));
+        let resp = respond(
+            &inferring(&state),
+            serde_json::json!({}),
+            Some(Value::from(1)),
+        );
         let content: Value = parse_payload(&resp);
         let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
         assert!(guide.contains("Look for public functions"));
@@ -669,7 +707,7 @@ mod tests {
             graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
         });
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "kind:behavior"}),
             Some(Value::from(1)),
         );
@@ -682,7 +720,7 @@ mod tests {
     fn kind_scope_includes_example() {
         let state = make_state_with_kind("behavior", Some("guide text"));
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "kind:behavior"}),
             Some(Value::from(1)),
         );
@@ -698,7 +736,7 @@ mod tests {
             graph.add_node(make_node("auth_login", "behavior", "src/auth.rs"));
         });
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "file:src/auth.rs"}),
             Some(Value::from(1)),
         );
@@ -717,7 +755,7 @@ mod tests {
             graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
         });
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "kind:Behavior"}),
             Some(Value::from(1)),
         );
@@ -730,7 +768,7 @@ mod tests {
     fn unknown_scope_prefix_returns_overview() {
         let state = make_state_with_kind("behavior", Some("guide text"));
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "unknown:value"}),
             Some(Value::from(1)),
         );
@@ -742,7 +780,7 @@ mod tests {
     fn empty_kind_scope_returns_error() {
         let state = make_state_with_kind("behavior", Some("guide text"));
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "kind:"}),
             Some(Value::from(1)),
         );
@@ -755,7 +793,7 @@ mod tests {
     fn unknown_kind_returns_error() {
         let state = make_state_with_kind("behavior", Some("guide text"));
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "kind:nonexistent"}),
             Some(Value::from(1)),
         );
@@ -772,7 +810,7 @@ mod tests {
     fn empty_file_scope_returns_error() {
         let state = make_state_with_kind("behavior", Some("guide text"));
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "file:"}),
             Some(Value::from(1)),
         );
@@ -783,7 +821,11 @@ mod tests {
     #[test]
     fn overview_with_no_inference_guide() {
         let state = make_state_with_kind("behavior", None);
-        let resp = respond(&state, serde_json::json!({}), Some(Value::from(1)));
+        let resp = respond(
+            &inferring(&state),
+            serde_json::json!({}),
+            Some(Value::from(1)),
+        );
         let content: Value = parse_payload(&resp);
         let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
         assert_eq!(guide, "");
@@ -796,7 +838,7 @@ mod tests {
             graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
         });
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "plan"}),
             Some(Value::from(1)),
         );
@@ -811,7 +853,7 @@ mod tests {
     fn plan_scope_respects_target_directory() {
         let state = make_state_with_kind("behavior", Some("guide text"));
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "plan", "target_spec_directory": "specs/"}),
             Some(Value::from(1)),
         );
@@ -823,7 +865,7 @@ mod tests {
     fn plan_scope_includes_progress() {
         let state = make_state_with_kind("behavior", Some("guide text"));
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "plan"}),
             Some(Value::from(1)),
         );
@@ -835,7 +877,7 @@ mod tests {
     fn workflow_scope_returns_protocol() {
         let state = make_state_with_kind("behavior", Some("guide text"));
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "workflow"}),
             Some(Value::from(1)),
         );
@@ -851,7 +893,7 @@ mod tests {
     fn workflow_scope_lists_tools_and_kinds() {
         let state = make_state_with_kind("behavior", Some("guide text"));
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "workflow"}),
             Some(Value::from(1)),
         );
@@ -883,7 +925,7 @@ mod tests {
             graph.add_node(make_node("cache_impl", "behavior", "src/cache.rs"));
         });
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "file:e.rs"}),
             Some(Value::from(1)),
         );
@@ -905,7 +947,7 @@ mod tests {
             graph.add_node(make_node("todo_list", "behavior", "todo_list.rs"));
         });
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "file:todo_list.rs"}),
             Some(Value::from(1)),
         );
@@ -930,7 +972,7 @@ mod tests {
             graph.add_node(make_node("main", "behavior", "src/main.rs"));
         });
         let resp = respond(
-            &state,
+            &inferring(&state),
             serde_json::json!({"scope": "file:src/auth"}),
             Some(Value::from(1)),
         );
@@ -973,8 +1015,17 @@ mod tests {
         (state, dir)
     }
 
+    /// What the prompt reads of the project `state` serves.
+    fn inferring(state: &McpState) -> Inferring<'_> {
+        Inferring {
+            graph: state.graph(),
+            env: state.environment(),
+            root: state.session().root(),
+        }
+    }
+
     fn plan_payload(state: &McpState, args: Value) -> Value {
-        parse_payload(&respond(state, args, Some(Value::from(1))))
+        parse_payload(&respond(&inferring(state), args, Some(Value::from(1))))
     }
 
     #[test]
@@ -1026,7 +1077,7 @@ mod tests {
             serde_json::json!({"scope": "plan"}),
             serde_json::json!({"scope": "workflow"}),
         ] {
-            let resp = respond(&state, args, Some(Value::from(1)));
+            let resp = respond(&inferring(&state), args, Some(Value::from(1)));
             let result = resp.result.unwrap();
             let messages = result["messages"].as_array().unwrap();
             assert!(

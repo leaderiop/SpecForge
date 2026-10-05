@@ -4,12 +4,18 @@ use crate::target::Call;
 use crate::tool::ToolOutcome;
 
 pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
+    let root = call.root();
     let state = &*call.state;
     // Coverage is the coverage rule's, over the kinds the extensions
     // declare testable, less the entities W004 exempts.
     // The proof percentage reads the project's recorded tests; a report
     // that is there but unusable is an error result (ADR 0004, D2-e).
-    let coverage = match super::coverage::project_coverage(state, "specforge.stats") {
+    let coverage = match super::coverage::project_coverage(
+        state.graph(),
+        state.registries(),
+        root,
+        "specforge.stats",
+    ) {
         Ok(coverage) => coverage,
         Err(outcome) => return outcome,
     };

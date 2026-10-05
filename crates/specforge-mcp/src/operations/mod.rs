@@ -13,7 +13,7 @@ use specforge_wasm::read_lock_file;
 use crate::args::{lenient, strings};
 use crate::state::McpState;
 use crate::target::Call;
-use crate::tool::{ErrorCode, McpError, ToolOutcome, is_diagnostic_code};
+use crate::tool::{ErrorCode, Handled, McpError, ToolOutcome, is_diagnostic_code};
 
 /// `specforge.add_extension`: the install, plus `extension_added` when it
 /// installed something.
@@ -92,14 +92,16 @@ fn err_op(error: specforge_ops::OpError) -> ToolOutcome {
 /// cache, as `specforge schema` does, so the next CLI export still sees
 /// what changed.
 pub(crate) fn export_graph(
-    state: &McpState,
+    graph: &specforge_graph::Graph,
+    registries: &specforge_registry::RegistryBuild,
+    root: Option<&Path>,
     request: &specforge_ops::export::Request,
 ) -> Result<String, specforge_ops::OpError> {
-    let schema = project_schema(state);
+    let schema = project_schema(registries, root);
     let project = specforge_ops::export::Project {
-        graph: state.graph(),
-        kinds: &state.registries().kinds,
-        fields: &state.registries().fields,
+        graph,
+        kinds: &registries.kinds,
+        fields: &registries.fields,
         schema: &schema,
     };
     specforge_ops::export::export(&project, request)
@@ -108,14 +110,17 @@ pub(crate) fn export_graph(
 /// The GraphProtocolSchema the session's extensions produce, versioned as
 /// `specforge export` would version it: the schema a full export embeds,
 /// and the one `specforge.schema` and `specforge://schema` serve.
-pub(crate) fn project_schema(state: &McpState) -> specforge_emitter::GraphProtocolSchema {
+pub(crate) fn project_schema(
+    registries: &specforge_registry::RegistryBuild,
+    root: Option<&Path>,
+) -> specforge_emitter::GraphProtocolSchema {
     let mut schema = specforge_emitter::generate_schema(
-        &state.registries().kinds,
-        &state.registries().edges,
-        &state.registries().fields,
-        &state.registries().extension_info,
+        &registries.kinds,
+        &registries.edges,
+        &registries.fields,
+        &registries.extension_info,
     );
-    if let Some(root) = state.project_root() {
+    if let Some(root) = root {
         specforge_ops::schema_cache::attach_schema_version(&mut schema, &root.join(".specforge"));
     }
     schema
@@ -605,19 +610,17 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> ToolOutcome 
 
 // ── extensions ──────────────────────────────────────────────────────────────
 
-pub(crate) fn extensions_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
-    let state = &*call.state;
+pub(crate) fn extensions_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> Handled {
     use specforge_ops::extension::{self, Origin};
 
-    let Some(root) = state.project_root() else {
-        return ToolOutcome::no_project("no project root available");
-    };
-    // The shared listing, over what the session compiled.
+    let project = call.project()?;
+    let root = project.root;
+    // The shared listing, over what the project compiled.
     let entries = extension::list(
         root,
-        &state.registries().manifests,
-        &state.registries().kinds,
-        state.graph(),
+        &project.env.registries.manifests,
+        &project.env.registries.kinds,
+        project.graph,
     );
     let listed: Vec<Value> = entries
         .iter()
@@ -645,31 +648,28 @@ pub(crate) fn extensions_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> 
                 .collect()
         })
         .unwrap_or_default();
-    let kinds: std::collections::BTreeSet<String> = state
-        .graph()
+    let kinds: std::collections::BTreeSet<String> = project
+        .graph
         .nodes()
         .iter()
         .map(|n| n.kind.raw.to_string())
         .collect();
 
-    ok(json!({
+    Ok(ok(json!({
         "extensions": listed,
         "lock_file_entries": lock_entries,
         "entity_kinds_in_graph": kinds,
-    }))
+    })))
 }
 
 // ── providers ───────────────────────────────────────────────────────────────
 
-pub(crate) fn providers_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
-    let state = &*call.state;
-    let Some(root) = state.project_root() else {
-        return ToolOutcome::no_project("no project root available");
-    };
+pub(crate) fn providers_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> Handled {
+    let project = call.project()?;
     // The providers specforge.json configures, as the scheme registry built
     // from the loaded extensions sees them: the listing the CLI prints.
     let (providers, diagnostics) =
-        specforge_ops::extension::providers(root, &state.registries().manifests);
+        specforge_ops::extension::providers(project.root, &project.env.registries.manifests);
     let listed: Vec<Value> = providers
         .iter()
         .map(|p| {
@@ -682,39 +682,36 @@ pub(crate) fn providers_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> T
         })
         .collect();
     let count = listed.len();
-    ok(json!({
+    Ok(ok(json!({
         "providers": listed,
         "count": count,
         "diagnostics": specforge_common::diagnostics_json(&diagnostics),
-    }))
+    })))
 }
 
 // ── doctor ──────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 pub struct DoctorArgs {
+    /// Read by the call's target (`Freshness::FreshUnlessCached`), not here.
     #[serde(default, deserialize_with = "lenient")]
+    #[allow(dead_code, reason = "the call target applies use_cached")]
     use_cached: Option<bool>,
 }
 
-pub(crate) fn doctor_op(call: &mut Call<'_>, args: DoctorArgs) -> ToolOutcome {
-    let state = &mut *call.state;
-    let Some(root) = state.project_root().map(std::path::Path::to_path_buf) else {
-        return ToolOutcome::no_project("doctor needs a project root");
-    };
-    // Like specforge.validate, a fresh compile unless the caller opts into
-    // the last one (ADR 0004 D3-d): the agent may have edited the project
-    // since, and the session would not know.
-    let use_cached = args.use_cached.unwrap_or(false);
-    if !use_cached {
-        state.serve(&root);
-    }
+pub(crate) fn doctor_op(call: &mut Call<'_>, _args: DoctorArgs) -> Handled {
+    // The target brought the project up to date with disk unless the
+    // caller opted into the last compile (`use_cached`, ADR 0004 D3-d).
+    let project = call.project()?;
     // The same report `specforge doctor` prints, as the spec's
     // McpDoctorReport plus its sections. Credential health is the user's,
     // not the project's: only the CLI reports it.
-    let report =
-        specforge_ops::doctor::diagnose(&root, &state.registries().manifests, &state.diagnostics());
-    ok(json!({
+    let report = specforge_ops::doctor::diagnose(
+        project.root,
+        &project.env.registries.manifests,
+        &project.diagnostics(),
+    );
+    Ok(ok(json!({
         "extensions_ok": report.extensions_ok(),
         "conflicts": report.conflict_messages(),
         "cache_status": report.cache_status,
@@ -726,7 +723,7 @@ pub(crate) fn doctor_op(call: &mut Call<'_>, args: DoctorArgs) -> ToolOutcome {
         "load_failures": report.load_failures,
         "issues": report.issues,
         "z3_available": report.z3_available,
-    }))
+    })))
 }
 
 // ── collect ─────────────────────────────────────────────────────────────────
@@ -737,39 +734,32 @@ pub struct CollectArgs {
     runner: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     run: Option<bool>,
+    /// Read by the call's target (`target::resolve`), not here.
     #[serde(default, deserialize_with = "lenient")]
+    #[allow(dead_code, reason = "the call target resolves path")]
     path: Option<String>,
 }
 
-pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> ToolOutcome {
-    let state = &mut *call.state;
+pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
     use specforge_ops::collect::{self, Consent, Mode, Request, RunnerOutput};
 
-    let Some(root) = project_root_of(state, args.path.as_deref()) else {
-        return ToolOutcome::no_project("collect needs a project root (pass {\"path\": ...})");
-    };
     let runner = args.runner.as_deref().filter(|r| *r != "auto");
     let run = args.run.unwrap_or(false);
 
-    // Tests map to the entities on disk now. The served project is
-    // reloaded and collected with its own runtime; another project is
-    // compiled for the call only.
-    let other = state.serves_other_than(&root);
-    if !other {
-        state.serve(&root);
-    }
-    let state: &McpState = state;
-    let runtime = state.wasm_runtime(&root);
-    let compiled =
-        other.then(|| specforge_project::CompiledProject::compile(&root, Some(runtime.as_ref())));
-    let (graph, manifests) = match &compiled {
-        Some(project) => (&project.graph, &project.env.registries.manifests),
-        None => (state.graph(), &state.registries().manifests),
+    // Tests map to the entities on disk now: the target brought the served
+    // project up to date, or compiled the project `path` names for this
+    // call, in the runtime it collects with.
+    let project = call.project()?;
+    let Some(runtime) = project.runtime else {
+        return Err(Box::new(McpError::new(
+            ErrorCode::InternalError,
+            "the project has no extension runtime",
+        )));
     };
-    let known = collect::KnownEntities::from_graph(graph);
+    let known = collect::KnownEntities::from_graph(project.graph);
 
     let request = Request {
-        root: &root,
+        root: project.root,
         runner,
         mode: if run {
             // The server owns stdio: the runner's output is discarded.
@@ -778,28 +768,32 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> ToolOutcome 
             Mode::NoRun
         },
     };
-    match collect::collect(
-        &request,
-        manifests,
-        runtime.as_ref(),
-        &known,
-        // The server never prompts: a command runs only if the user already
-        // approved it for this project with `specforge collect` in a terminal.
-        Consent::Approved,
-        &mut |_, _| {},
-    ) {
-        Ok(outcome) => ok(outcome.to_json()),
-        Err(e) if e.code == "E059" => McpError::from_diagnostic(&Diagnostic::error(
-            e.code,
-            format!(
-                "the test command isn't approved for this project; run `specforge collect` \
+    Ok(
+        match collect::collect(
+            &request,
+            &project.env.registries.manifests,
+            runtime.as_ref(),
+            &known,
+            // The server never prompts: a command runs only if the user already
+            // approved it for this project with `specforge collect` in a terminal.
+            Consent::Approved,
+            &mut |_, _| {},
+        ) {
+            Ok(outcome) => ok(outcome.to_json()),
+            Err(e) if e.code == "E059" => McpError::from_diagnostic(&Diagnostic::error(
+                e.code,
+                format!(
+                    "the test command isn't approved for this project; run `specforge collect` \
                  in a terminal once to approve it ({})",
-                e.message
-            ),
-        ))
-        .into(),
-        Err(e) => McpError::from_diagnostic(&Diagnostic::error(e.code.as_ref(), e.message)).into(),
-    }
+                    e.message
+                ),
+            ))
+            .into(),
+            Err(e) => {
+                McpError::from_diagnostic(&Diagnostic::error(e.code.as_ref(), e.message)).into()
+            }
+        },
+    )
 }
 
 // ── render ──────────────────────────────────────────────────────────────────
@@ -815,6 +809,7 @@ pub struct RenderArgs {
 }
 
 pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
+    let root = call.root();
     let state = &*call.state;
     let format = args.format.as_deref().unwrap_or("json");
 
@@ -846,7 +841,7 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
         scope: args.scope.as_deref(),
         ..specforge_ops::export::Request::default()
     };
-    let output = match export_graph(state, &request) {
+    let output = match export_graph(state.graph(), state.registries(), root, &request) {
         Ok(text) => text,
         Err(e) => return err_op(e),
     };

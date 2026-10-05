@@ -2457,23 +2457,23 @@ fn unsubscribe(server: &mut McpServer, uri: &str) {
     assert_eq!(resp["result"], json!({}), "{resp}");
 }
 
-/// A server over the on-disk project [`attach_project`] writes (alpha and
-/// beta in test.spec), not yet compiled; and that spec file's path.
+/// A server serving the on-disk project [`attach_project`] writes (alpha
+/// and beta in test.spec); and that spec file's path.
 fn project_server() -> (McpServer, PathBuf) {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
     attach_project(server.state_mut());
-    let spec = server
+    let root = server
         .state()
         .project_root()
         .map(std::path::Path::to_path_buf)
-        .unwrap()
-        .join("test.spec");
-    (server, spec)
+        .unwrap();
+    server.state_mut().serve(&root);
+    (server, root.join("test.spec"))
 }
 
-/// Rebuild the project the way a client does: `specforge.validate`
-/// recompiles it, and the delta notifications follow the compile.
+/// Rebuild the project the way a client does: `specforge.validate` brings
+/// it up to date with disk, and the delta notifications follow.
 fn rebuild(server: &mut McpServer) {
     let resp = call_tool(server, "specforge.validate", json!({}));
     assert!(resp["error"].is_null(), "{resp}");

@@ -887,40 +887,35 @@ fn one_runtime_serves_extension_calls_until_the_next_compile() {
         "initialize",
         json!({"projectRoot": dir.path().to_str().unwrap()}),
     );
-    let root = server
-        .state()
-        .project_root()
-        .map(std::path::Path::to_path_buf)
-        .unwrap();
-    let compiled = std::sync::Arc::clone(
-        server
-            .state()
-            .session()
-            .runtime()
-            .expect("the served session runs its extensions"),
-    );
-    assert!(
-        std::sync::Arc::ptr_eq(&compiled, &server.state().wasm_runtime(&root)),
-        "extension calls run in the runtime the compile loaded"
-    );
+    let runtime = |server: &McpServer| {
+        std::sync::Arc::clone(
+            server
+                .state()
+                .session()
+                .runtime()
+                .expect("the served session runs its extensions"),
+        )
+    };
+    let compiled = runtime(&server);
 
-    // analyze runs the extensions' passes in it, call after call.
+    // analyze runs the extensions' passes in it, call after call, and a
+    // validate of the unchanged project keeps it.
     let analyze = json!({"use_cached": true});
     call_tool(&mut server, "specforge.analyze", analyze.clone());
     call_tool(&mut server, "specforge.analyze", analyze);
+    call_tool(&mut server, "specforge.validate", json!({}));
     assert!(
-        std::sync::Arc::ptr_eq(&compiled, &server.state().wasm_runtime(&root)),
-        "later calls reuse it"
+        std::sync::Arc::ptr_eq(&compiled, &runtime(&server)),
+        "later calls reuse it while the project's environment is unchanged"
     );
 
-    // A reload may load other modules: later calls run in its runtime.
+    // The environment changes on disk: the reload may load other modules,
+    // so later calls run in its runtime.
+    let config = json!({"name": "rt", "version": "0.1.0",
+        "extensions": ["@specforge/software"]});
+    fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
     call_tool(&mut server, "specforge.validate", json!({}));
-    let reloaded = server.state().wasm_runtime(&root);
-    assert!(!std::sync::Arc::ptr_eq(&compiled, &reloaded));
-    assert!(std::sync::Arc::ptr_eq(
-        &reloaded,
-        server.state().session().runtime().unwrap()
-    ));
+    assert!(!std::sync::Arc::ptr_eq(&compiled, &runtime(&server)));
 }
 
 #[specforge_test(

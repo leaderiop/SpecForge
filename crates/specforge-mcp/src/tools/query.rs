@@ -20,6 +20,7 @@ pub struct Args {
 }
 
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let root = call.root();
     let state = &*call.state;
     let entity_id = args.entity_id.as_str();
     let depth = args.depth.unwrap_or(1) as usize;
@@ -54,7 +55,12 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
                 && let Some(nodes) = result.get_mut("nodes").and_then(|n| n.as_array_mut())
             {
                 // The same classification `specforge.coverage` reports.
-                let coverage = match super::coverage::project_coverage(state, "specforge.query") {
+                let coverage = match super::coverage::project_coverage(
+                    state.graph(),
+                    state.registries(),
+                    root,
+                    "specforge.query",
+                ) {
                     Ok(coverage) => coverage,
                     Err(outcome) => return outcome,
                 };

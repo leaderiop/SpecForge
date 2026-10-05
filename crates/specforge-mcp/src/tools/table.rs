@@ -11,10 +11,11 @@ use crate::target::{Freshness, Reach, TargetSpec};
 use crate::tool::{Access, Category, Effect, MutationSpec, ToolSpec, writes_unless_dry_run};
 
 /// A handler reading its typed arguments: refused when they don't parse.
+/// It returns an outcome, or `Handled` to use `?`.
 macro_rules! typed {
     ($handler:path, $args:ty) => {
         |call, arguments| match crate::args::parse::<$args>(arguments) {
-            Ok(args) => $handler(call, args),
+            Ok(args) => crate::tool::IntoOutcome::into_outcome($handler(call, args)),
             Err(refused) => refused,
         }
     };

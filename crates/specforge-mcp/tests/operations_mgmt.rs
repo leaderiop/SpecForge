@@ -326,7 +326,11 @@ fn collect_result_is_an_mcp_collect_result() {
     );
     assert_eq!(
         result["report"],
-        root.join("specforge-report.json").display().to_string()
+        std::fs::canonicalize(&root)
+            .unwrap()
+            .join("specforge-report.json")
+            .display()
+            .to_string()
     );
     assert_eq!(result["diagnostics"][0]["code"], "W115", "{result}");
 }

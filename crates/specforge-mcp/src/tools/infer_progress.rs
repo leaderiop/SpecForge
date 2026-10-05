@@ -7,8 +7,7 @@ use crate::tool::ToolOutcome;
 /// (`specforge_ops::infer::progress`), as `specforge infer-status --format
 /// json` prints it.
 pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
-    let state = &*call.state;
-    let Some(root) = state.project_root() else {
+    let Ok(project) = call.project() else {
         return ToolOutcome::ok(json!({
             "summary": { "files_total": 0, "files_analyzed": 0, "entities_produced": 0 },
             "unanalyzed": [],
@@ -17,7 +16,7 @@ pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
             "message": "No project root available"
         }));
     };
-    match specforge_ops::infer::progress(root, &state.registries().manifests) {
+    match specforge_ops::infer::progress(project.root, &project.env.registries.manifests) {
         Ok(progress) => ToolOutcome::ok(progress.to_json()),
         Err(error) => crate::operations::op_error(error).into(),
     }

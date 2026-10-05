@@ -450,6 +450,28 @@ impl From<McpError> for ToolOutcome {
     }
 }
 
+/// What a handler returns: an outcome, or a refusal it raised with `?`
+/// (`call.project()?`): a [`Handled`].
+pub trait IntoOutcome {
+    fn into_outcome(self) -> ToolOutcome;
+}
+
+impl IntoOutcome for ToolOutcome {
+    fn into_outcome(self) -> ToolOutcome {
+        self
+    }
+}
+
+impl IntoOutcome for Handled {
+    fn into_outcome(self) -> ToolOutcome {
+        self.unwrap_or_else(ToolOutcome::Refused)
+    }
+}
+
+/// A handler's result when it refuses with `?`: the `McpError` boxed, as
+/// [`ToolOutcome::Refused`] holds it (`call.project()?` converts).
+pub type Handled = Result<ToolOutcome, Box<McpError>>;
+
 /// The `tools/call` reply for `outcome`: the only place that builds
 /// `content`, `structuredContent`, `isError` and `_meta`. A failure is an
 /// `isError` result whose text is its `McpError`. With `structured` (a

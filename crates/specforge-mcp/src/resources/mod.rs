@@ -158,7 +158,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         description: "Full spec graph in JSON format",
         mime_type: "application/json",
         target: TargetSpec::SERVED,
-        read: |call, uri| graph::read(call.state, uri),
+        read: |call, uri| graph::read(call.state, call.root(), uri),
     },
     ResourceSpec {
         uri: "specforge://schema",
@@ -166,7 +166,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         description: "Graph schema definition",
         mime_type: "application/json",
         target: TargetSpec::SERVED,
-        read: |call, _| schema::read(call.state),
+        read: |call, _| schema::read(call.state, call.root()),
     },
     ResourceSpec {
         uri: "specforge://context",
@@ -269,12 +269,13 @@ fn extension_resource(call: &Call<'_>, uri: &str) -> ReadOutcome {
     let Some(entry) = extension_resource_entry(state, uri) else {
         return Err(invalid_params(format!("Unknown resource URI: {uri}")));
     };
-    let Some(root) = state.project_root().map(std::path::Path::to_path_buf) else {
-        return Err(invalid_params(
-            "Extension resources need a project root; pass {\"path\": ...} to specforge.analyze first",
-        ));
+    // The project the resource reads, in the runtime it was compiled in.
+    let project = call
+        .project()
+        .map_err(|refused| invalid_params(refused.message))?;
+    let Some(runtime) = project.runtime else {
+        return Err(invalid_params("the project has no extension runtime"));
     };
-    let runtime = state.wasm_runtime(&root);
     let started = std::time::Instant::now();
     match specforge_wasm::dispatch_surface_mcp_resource(
         &entry.extension_name,

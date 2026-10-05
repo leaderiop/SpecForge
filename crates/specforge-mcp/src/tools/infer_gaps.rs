@@ -7,8 +7,7 @@ use crate::tool::ToolOutcome;
 /// (`specforge_ops::infer::gaps`), as `specforge infer-status --gaps-detail
 /// --format json` prints it under `gap_analysis`.
 pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
-    let state = &*call.state;
-    let Some(root) = state.project_root().map(std::path::Path::to_path_buf) else {
+    let Ok(project) = call.project() else {
         return ToolOutcome::ok(json!({
             "total_pub_items": 0,
             "covered_items": 0,
@@ -17,11 +16,16 @@ pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
             "message": "No project root available"
         }));
     };
-    let runtime = state.wasm_runtime(&root);
+    let Some(runtime) = project.runtime else {
+        return ToolOutcome::error(
+            crate::tool::ErrorCode::InternalError,
+            "the project has no extension runtime",
+        );
+    };
     match specforge_ops::infer::gaps(
-        &root,
-        &state.registries().manifests,
-        state.graph(),
+        project.root,
+        &project.env.registries.manifests,
+        project.graph,
         runtime.as_ref(),
     ) {
         Ok(gaps) => ToolOutcome::ok(gaps.to_json()),

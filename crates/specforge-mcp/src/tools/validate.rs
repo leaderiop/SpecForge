@@ -1,14 +1,15 @@
 use serde::Deserialize;
-use std::path::PathBuf;
 
 use crate::args::{lenient, strings};
 use crate::target::Call;
-use crate::tool::ToolOutcome;
+use crate::tool::{Handled, ToolOutcome};
 use specforge_project::DiagnosticPolicy;
 
 #[derive(Debug, Deserialize)]
 pub struct Args {
+    /// Read by the call's target (`target::resolve`), not here.
     #[serde(default, deserialize_with = "lenient")]
+    #[allow(dead_code, reason = "the call target resolves path")]
     path: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     severity_filter: Option<String>,
@@ -16,37 +17,19 @@ pub struct Args {
     strict: Option<bool>,
     #[serde(default, deserialize_with = "strings")]
     lint: Vec<String>,
+    /// Read by the call's target (`Freshness::FreshUnlessCached`), not here.
     #[serde(default, deserialize_with = "lenient")]
+    #[allow(dead_code, reason = "the call target applies use_cached")]
     use_cached: Option<bool>,
 }
 
-pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let state = &mut *call.state;
-    let path = args
-        .path
-        .map(PathBuf::from)
-        .or_else(|| state.project_root().map(std::path::Path::to_path_buf));
-
-    let root = match path {
-        Some(p) => p,
-        None => {
-            return ToolOutcome::no_project("No project root available; pass {\"path\": ...}");
-        }
-    };
-
+/// `specforge.validate`: what `specforge check` reports for the call's
+/// project. The target brought the served project up to date with disk
+/// (unless `use_cached`), or compiled the project `path` names for this
+/// call.
+pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
+    let project = call.project()?;
     let severity_filter = args.severity_filter.as_deref();
-    let use_cached = args.use_cached.unwrap_or(false);
-
-    // A path naming another project is validated for this call only: the
-    // server keeps serving its own.
-    let reported: Vec<specforge_common::Diagnostic> = if state.serves_other_than(&root) {
-        state.compile_project(&root).diagnostics()
-    } else {
-        if !use_cached || state.diagnostics().is_empty() {
-            state.serve(&root);
-        }
-        state.diagnostics()
-    };
 
     // The policy `specforge check` applies: lint profiles add theirs, and
     // strict promotes warnings before filtering, so a promoted warning
@@ -55,9 +38,9 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         strict: args.strict.unwrap_or(false),
         lint_profiles: args.lint,
     };
-    let promoted = policy.apply(&root, reported);
-    let diagnostics: Vec<&specforge_common::Diagnostic> = promoted
-        .iter()
+    let promoted = policy.apply(project.root, project.diagnostics());
+    let filtered: Vec<specforge_common::Diagnostic> = promoted
+        .into_iter()
         .filter(|d| match severity_filter {
             Some("error") => d.severity == specforge_common::Severity::Error,
             Some("warning") => d.severity == specforge_common::Severity::Warning,
@@ -65,9 +48,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
             _ => true,
         })
         .collect();
-
-    let filtered: Vec<specforge_common::Diagnostic> = diagnostics.into_iter().cloned().collect();
     let diag_json = specforge_common::serialize_diagnostics(&filtered);
 
-    ToolOutcome::text(diag_json)
+    Ok(ToolOutcome::text(diag_json))
 }

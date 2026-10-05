@@ -9,6 +9,7 @@ pub struct Args {
 }
 
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let root = call.root();
     let state = &*call.state;
     let entity_id = args.entity_id.as_str();
 
@@ -73,7 +74,12 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         .collect();
 
     // The same classification `specforge.coverage` reports.
-    let coverage_status = match super::coverage::project_coverage(state, "specforge.inspect") {
+    let coverage_status = match super::coverage::project_coverage(
+        state.graph(),
+        state.registries(),
+        root,
+        "specforge.inspect",
+    ) {
         Ok(coverage) => super::coverage::status_name(coverage.status(entity_id)),
         Err(outcome) => return outcome,
     };

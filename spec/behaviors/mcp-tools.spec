@@ -88,24 +88,23 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.validate tool
-    that triggers a full compilation and returns validation results as Graph
-    Protocol diagnostics. The tool accepts severity_filter? (optional: error,
-    warning, info), strict? (optional boolean, treat warnings as errors),
-    lint? (optional list of lint profiles, as specforge check --lint takes),
-    and use_cached? (optional boolean, default false). When use_cached is
-    true and the MCP server has a warm compilation, the tool MUST return
-    existing diagnostics without recompilation.
+    that brings the served project up to date with disk (its diagnostics
+    are what specforge check reports) and returns validation results as
+    Graph Protocol diagnostics. The tool accepts path? (optional: the
+    project; another project is compiled for the call only),
+    severity_filter? (optional: error, warning, info), strict? (optional
+    boolean, treat warnings as errors), lint? (optional list of lint
+    profiles, as specforge check --lint takes), and use_cached? (optional
+    boolean, default false).
     The response MUST include all diagnostics matching the filter with their
     severity, message, file path, and line number, and each diagnostic whose
     code is catalogued MUST carry the catalogue's title for it (null for any
     other code). When strict is true,
     warnings MUST be promoted to errors in the response.
 
-    Cache semantics: use_cached=true returns stale results if no compilation
-    has occurred since the last invocation. On cold start (no prior compilation),
-    use_cached=true MUST trigger a fresh compilation — it MUST NOT return an
-    empty result. Cache is invalidated on any file change detected by the
-    file watcher.
+    Cache semantics: use_cached=true reports the served project as last
+    brought up to date, even when files changed since; with no project
+    served there is nothing cached, so the call compiles.
   """
   verify unit "each catalogued diagnostic carries its title"
   verify unit "specforge.validate tool triggers compilation"
@@ -558,6 +557,7 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   verify unit "non-existent file returns error response"
   verify contract "Provide MCP Outline Tool: MCP outline tool holds — graph_available, outline_returned, tool_invoked_emitted"
   verify unit "outline entries sorted by line number"
+  verify unit "a file under the spec root with no entities has an empty outline"
   verify unit "sorted by line number"
 }
 
@@ -620,8 +620,12 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     `contracts` pass and every extension-owned pass (such as
     @specforge/testing's coverage), or only the one named by `pass`. It
     accepts `strict` (warnings become errors), `test_results` (a
-    specforge-report.json path) and `use_cached` (analyze the last compiled
-    graph instead of recompiling). Without `test_results` it MUST read the
+    specforge-report.json path), `use_cached` (analyze the served project
+    as last brought up to date instead of bringing it up to date with disk)
+    and `path` (another project, compiled for the call only, its extension
+    passes run in the one runtime it was compiled in). With no project
+    served and no `path` there is nothing to analyze: the call MUST be an
+    isError result with a no-project McpError. Without `test_results` it MUST read the
     project's own specforge-report.json when one exists, as the CLI does,
     so proof coverage never silently drops. A test report that cannot be read
     or parsed, the project's own or the one `test_results` names, MUST be an
@@ -645,6 +649,7 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
   verify unit "an unknown or undeclared pass is an invalid-input error listing the available passes"
   verify unit "strict promotes warnings and clears ok"
   verify unit "analyzing another project leaves the served project untouched"
+  verify unit "analyze with no project served and no path is a no-project error"
   verify unit "orphaned test records come back as an optional orphans field"
   verify contract "Provide MCP Analyze Tool: MCP analyze tool holds — graph_available, passes_run, results_structured, tool_invoked_emitted"
 }

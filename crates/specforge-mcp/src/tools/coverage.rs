@@ -2,16 +2,18 @@ use serde_json::Value;
 use specforge_project::coverage::TestReport;
 use specforge_project::coverage::{CoverageRegistries, ProjectCoverage, ReportError, Status};
 
-use crate::state::McpState;
 use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
+use specforge_graph::Graph;
+use specforge_registry::RegistryBuild;
+use std::path::Path;
 
 /// The project's `specforge-report.json` (written by `specforge collect`),
 /// if there is one. Tests link themselves to entities by annotation
 /// (ADR 0002), so recorded results are the linkage. A report that is there
 /// but unreadable is an error, as in the CLI (ADR 0004, D2-e).
-pub(crate) fn recorded_report(state: &McpState) -> Result<Option<TestReport>, ReportError> {
-    match state.project_root() {
+pub(crate) fn recorded_report(root: Option<&Path>) -> Result<Option<TestReport>, ReportError> {
+    match root {
         Some(root) => specforge_project::coverage::read_report(root),
         None => Ok(None),
     }
@@ -42,23 +44,25 @@ pub(crate) fn report_error_result(error: &ReportError, tool: &str) -> ToolOutcom
 /// covered exactly when that rule holds it proven, and never while analyze
 /// reports A015 or A014 for it.
 pub(crate) fn project_coverage(
-    state: &McpState,
+    graph: &Graph,
+    registries: &RegistryBuild,
+    root: Option<&Path>,
     tool: &str,
 ) -> Result<ProjectCoverage, ToolOutcome> {
-    let report = recorded_report(state).map_err(|e| report_error_result(&e, tool))?;
+    let report = recorded_report(root).map_err(|e| report_error_result(&e, tool))?;
     Ok(ProjectCoverage::compute(
-        state.graph(),
-        coverage_registries(state),
+        graph,
+        coverage_registries(registries),
         report.as_ref(),
     ))
 }
 
-/// The served project's registries, as the coverage rule reads them.
-pub(crate) fn coverage_registries(state: &McpState) -> CoverageRegistries<'_> {
+/// A project's registries, as the coverage rule reads them.
+pub(crate) fn coverage_registries(registries: &RegistryBuild) -> CoverageRegistries<'_> {
     CoverageRegistries {
-        kinds: &state.registries().kinds,
-        fields: &state.registries().fields,
-        rules: &state.registries().rules,
+        kinds: &registries.kinds,
+        fields: &registries.fields,
+        rules: &registries.rules,
     }
 }
 
@@ -82,8 +86,11 @@ pub struct Args {
 }
 
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let state = &*call.state;
-    let coverage = match project_coverage(state, "specforge.coverage") {
+    // The served project's graph, its recorded tests read at its root (a
+    // graph built in memory with no project has none).
+    let graph = call.state.graph();
+    let registries = call.state.registries();
+    let coverage = match project_coverage(graph, registries, call.root(), "specforge.coverage") {
         Ok(coverage) => coverage,
         Err(outcome) => return outcome,
     };
@@ -92,9 +99,8 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let status_filter = args.status_filter.as_deref();
 
     // Testability is the extensions' call (their kinds' manifests).
-    let testable = specforge_project::coverage::testable_kinds(&state.registries().kinds);
-    let results: Vec<Value> = state
-        .graph()
+    let testable = specforge_project::coverage::testable_kinds(&registries.kinds);
+    let results: Vec<Value> = graph
         .nodes()
         .into_iter()
         .filter(|n| {

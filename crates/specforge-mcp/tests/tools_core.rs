@@ -1237,11 +1237,16 @@ fn unknown_tool_returns_error() {
 fn validate_returns_all_diagnostics() {
     let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    crate::support::serve_in_memory_at(server.state_mut(), project.path());
     assert!(server.state().graph().node("alpha").is_some());
     assert!(server.state().diagnostics().is_empty());
 
-    let resp = call_tool(&mut server, "specforge.validate", json!({}));
+    // The project the path names, while no project on disk is served: the
+    // call compiles and serves it.
+    let resp = call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
+    );
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
 
     // The project was compiled: its entities replaced the injected graph,
@@ -1335,8 +1340,12 @@ fn validate_strict_promotes_warnings_to_errors() {
 fn validate_use_cached_false() {
     let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    crate::support::serve_in_memory_at(server.state_mut(), project.path());
-    let first = codes_of(&call_tool(&mut server, "specforge.validate", json!({})));
+    // The first call serves the project its path names.
+    let first = codes_of(&call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
+    ));
     assert!(first.contains(&"E003".to_string()), "{first:?}");
 
     // Fix the unresolved reference on disk.
@@ -1802,8 +1811,12 @@ fn trace_gaps_array() {
 fn validate_use_cached_true() {
     let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    crate::support::serve_in_memory_at(server.state_mut(), project.path());
-    let first = codes_of(&call_tool(&mut server, "specforge.validate", json!({})));
+    // The first call serves the project its path names.
+    let first = codes_of(&call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"path": project.path().to_str().unwrap()}),
+    ));
     assert!(first.contains(&"E003".to_string()), "{first:?}");
 
     // The spec changes on disk, but a cached validate does not recompile:

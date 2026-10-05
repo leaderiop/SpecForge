@@ -284,6 +284,31 @@ impl<'s> Call<'s> {
         &self.target
     }
 
+    /// The root of the project the call reads, when it has one: the served
+    /// project's, or the one its path names. `None` with no project served
+    /// (a tool that answers without a project reads the empty session).
+    pub fn root(&self) -> Option<&Path> {
+        match &self.target {
+            CallTarget::Served => self.state.session().root(),
+            CallTarget::Other(other) => Some(&other.root),
+            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject => None,
+        }
+    }
+
+    /// Where the `.spec` files of the project the call reads are keyed
+    /// from, when it has a root ([`Self::root`]).
+    pub fn spec_root(&self) -> Option<&Path> {
+        match &self.target {
+            CallTarget::Served => self
+                .state
+                .session()
+                .root()
+                .map(|_| self.state.environment().spec_root.as_path()),
+            CallTarget::Other(other) => Some(&other.project.env.spec_root),
+            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject => None,
+        }
+    }
+
     /// The directory `init` creates its project in.
     pub fn new_project_dir(&self) -> Option<&Path> {
         match &self.target {

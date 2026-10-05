@@ -65,6 +65,7 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
   verify unit "a prompt reads the project as it is on disk"
   verify unit "a mutation on another project does not reload the served one"
   verify unit "a path while no project is served serves that project, for every tool that takes a path"
+  verify unit "a path inside the served project names the served project"
   verify unit "analyze notifies subscribers when the diagnostics it compiled changed"
   verify unit "validate with a path to another project leaves the served project in place"
   verify unit "a mutation tool that wrote files leaves the server serving what is on disk"

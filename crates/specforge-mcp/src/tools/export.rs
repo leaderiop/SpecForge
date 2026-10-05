@@ -23,6 +23,7 @@ pub struct Args {
 /// same function and schema policy (ADR 0004 D3-a). `with_schema` and
 /// `no_schema` are the CLI's `--with-schema` and `--no-schema`.
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
+    let root = call.root();
     let state = &*call.state;
     let format = args.format.as_deref().unwrap_or("graph");
     // The tool serves the agent formats; dot is `specforge.render`'s.
@@ -45,7 +46,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         ..export::Request::default()
     };
 
-    match crate::operations::export_graph(state, &request) {
+    match crate::operations::export_graph(state.graph(), state.registries(), root, &request) {
         Ok(json_str) => ToolOutcome::text(json_str),
         Err(err) => crate::operations::op_error(err).into(),
     }

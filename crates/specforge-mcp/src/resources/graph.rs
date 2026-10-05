@@ -10,7 +10,7 @@ use crate::state::McpState;
 /// payload. It is `specforge export --format graph` through the same
 /// function (ADR 0004 D3-a): the full graph embeds the schema, a scoped one
 /// references it (`schema_ref`), and a budgeted one leaves it out.
-pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
+pub fn read(state: &McpState, root: Option<&std::path::Path>, uri: &str) -> ReadOutcome {
     let (base, query) = crate::resources::split_query(uri);
     let parsed = crate::resources::parse_query(query);
 
@@ -22,7 +22,7 @@ pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
         max_tokens: parsed.max_tokens,
         ..Request::default()
     };
-    match crate::operations::export_graph(state, &request) {
+    match crate::operations::export_graph(state.graph(), state.registries(), root, &request) {
         Ok(payload) => {
             let contents: Value =
                 serde_json::from_str(&payload).expect("graph emit always produces JSON");

@@ -42,7 +42,7 @@ pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let mut coverage: Vec<Value> = Vec::new();
     // A prompt has no isError result: an unusable report is a JSON-RPC
     // error carrying the same McpError the coverage tool returns.
-    let report = match crate::tools::coverage::recorded_report(state) {
+    let report = match crate::tools::coverage::recorded_report(call.root()) {
         Ok(report) => report,
         Err(e) => {
             return JsonRpcResponse::error_with_data(
@@ -58,7 +58,7 @@ pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
     // The same classification `specforge.coverage` reports.
     let project = specforge_project::coverage::ProjectCoverage::compute(
         state.graph(),
-        crate::tools::coverage::coverage_registries(state),
+        crate::tools::coverage::coverage_registries(state.registries()),
         report.as_ref(),
     );
     for node in &nodes {

@@ -35,13 +35,10 @@ pub struct Args {
 }
 
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let state = &*call.state;
-    let project_root = match state.project_root() {
-        Some(p) => p.to_path_buf(),
-        None => {
-            return ToolOutcome::no_project("No project root available");
-        }
+    let Some(project_root) = call.root().map(std::path::Path::to_path_buf) else {
+        return crate::target::no_project().into();
     };
+    let state = &*call.state;
 
     let action = match args.action.as_deref() {
         Some(a) => a,

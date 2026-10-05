@@ -604,3 +604,152 @@ fn a_tool_of_the_served_project_refuses_another_projects_path() {
     );
     assert_eq!(resp["result"]["isError"], false, "{resp}");
 }
+
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "a path inside the served project names the served project"
+)]
+fn a_path_inside_the_served_project_names_the_served_project() {
+    let dir = TempDir::new().unwrap();
+    let config = json!({"name": "a", "version": "0.1.0", "spec_root": "spec",
+        "extensions": ["@specforge/software"]});
+    fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    fs::create_dir_all(dir.path().join("spec")).unwrap();
+    fs::write(
+        dir.path().join("spec/main.spec"),
+        "behavior login \"Login\" {\n  category command\n  invariants [missing]\n}\n",
+    )
+    .unwrap();
+    let mut server = McpServer::new();
+    initialize(&mut server, dir.path());
+    let generation = server.state().session_generation();
+
+    let inside = validate_codes(
+        &mut server,
+        json!({"path": dir.path().join("spec").to_str().unwrap()}),
+    );
+    let served = validate_codes(&mut server, json!({}));
+    assert_eq!(inside, served);
+    // Compiled as a project of its own, spec/ would load no extension.
+    assert!(!inside.contains(&"I002".to_string()), "{inside:?}");
+    assert!(inside.contains(&"E003".to_string()), "{inside:?}");
+    assert_eq!(server.state().session_generation(), generation);
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "validate with use_cached=true returns existing diagnostics without recompilation"
+)]
+fn use_cached_is_honoured_when_the_project_has_no_diagnostics() {
+    let dir = project(&["@specforge/software"], "");
+    let mut server = McpServer::new();
+    initialize(&mut server, dir.path());
+    assert!(validate_codes(&mut server, json!({"use_cached": true})).is_empty());
+
+    // R5: a project with no diagnostics was recompiled whatever use_cached
+    // said.
+    fs::write(
+        dir.path().join("added.spec"),
+        "behavior added \"Added\" {\n  category command\n  invariants [nope]\n}\n",
+    )
+    .unwrap();
+    let cached = validate_codes(&mut server, json!({"use_cached": true}));
+    assert!(cached.is_empty(), "{cached:?}");
+    assert!(server.state().graph().node("added").is_none());
+
+    let fresh = validate_codes(&mut server, json!({}));
+    assert!(fresh.contains(&"E003".to_string()), "{fresh:?}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "analyzing another project leaves the served project untouched"
+)]
+fn analyze_of_another_project_runs_its_extensions_in_one_runtime() {
+    use crate::fake_extension::{self, EXT, FakeExtension};
+
+    let ext = FakeExtension::new().with_passes(&["audit"]).with_output(
+        "__pass_audit",
+        json!({"diagnostics": [{"code": "W900", "severity": "Warning", "message": "careful"}]}),
+    );
+    let (mut server, ext, _served) = fake_extension::initialized(ext);
+    let generation = server.state().session_generation();
+    let other = project(&[EXT], "");
+    let loads = ext.handshakes();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.analyze",
+        json!({"path": other.path().to_str().unwrap(), "pass": "@test/cmds:audit"}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(
+        parsed["passes"][0]["findings"][0]["code"], "W900",
+        "{parsed}"
+    );
+
+    // The other project's environment loaded once, and its pass ran in the
+    // runtime it loaded in; the served project was not touched.
+    assert_eq!(ext.handshakes() - loads, 1);
+    assert!(
+        ext.calls()
+            .iter()
+            .any(|(_, export, _)| export == "__pass_audit"),
+        "{:?}",
+        ext.calls()
+    );
+    assert_eq!(server.state().session_generation(), generation);
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_outline_tool",
+    verify = "a file under the spec root with no entities has an empty outline"
+)]
+fn outline_finds_an_empty_file_under_the_spec_root() {
+    let dir = TempDir::new().unwrap();
+    let config = json!({"name": "o", "version": "0.1.0", "spec_root": "spec"});
+    fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    fs::create_dir_all(dir.path().join("spec")).unwrap();
+    fs::write(
+        dir.path().join("spec/main.spec"),
+        "term alpha \"Alpha\" {\n}\n",
+    )
+    .unwrap();
+    fs::write(dir.path().join("spec/empty.spec"), "// nothing yet\n").unwrap();
+    let mut server = McpServer::new();
+    initialize(&mut server, dir.path());
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.outline",
+        json!({"file": "main.spec"}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    let resp = call_tool(
+        &mut server,
+        "specforge.outline",
+        json!({"file": "empty.spec"}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    assert_eq!(tool_text(&resp), "[]");
+    // A file that is not there is still not found.
+    let resp = call_tool(
+        &mut server,
+        "specforge.outline",
+        json!({"file": "gone.spec"}),
+    );
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "file_not_found", "{error}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "analyze with no project served and no path is a no-project error"
+)]
+fn analyze_without_a_project_is_refused() {
+    let mut server = serving_nothing();
+    let resp = call_tool(&mut server, "specforge.analyze", json!({}));
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "precondition_failed", "{error}");
+    assert_eq!(error["tool"], "specforge.analyze", "{error}");
+}

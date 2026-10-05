@@ -23,7 +23,7 @@ pub struct Args {
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let state = &*call.state;
     let kind_filter = args.kind.as_deref();
-    let mut schema = crate::operations::project_schema(state);
+    let mut schema = crate::operations::project_schema(state.registries(), call.root());
 
     if let Some(kind) = kind_filter {
         schema.entity_kinds.retain(|entry| entry.name == kind);
