@@ -1203,3 +1203,90 @@ fn random_updates_leave_what_a_fresh_compile_builds() {
         }
     }
 }
+
+/// Bring `session` up to date with what is on disk.
+///
+/// Pinned with the environment reload every surface uses today (a full
+/// rebuild); plan 01 T2 replaces it with the session's own
+/// `ensure_fresh`, which must give the same result.
+fn bring_up_to_date(session: &mut ProjectSession) {
+    session.reload_environment();
+}
+
+/// Sources edited, created and deleted, the config rewritten and the lock
+/// written: after each, a session brought up to date with disk is what a
+/// fresh compile of the files on disk builds.
+#[test]
+fn every_update_kind_leaves_what_a_fresh_compile_builds() {
+    let dir = project(
+        CONFIG,
+        &[
+            (
+                "a.spec",
+                "behavior alpha \"A\" {\n  category command\n  contract \"The system MUST a\"\n  verify unit \"a\"\n}\n",
+            ),
+            (
+                "b.spec",
+                "behavior beta \"B\" {\n  category command\n  contract \"The system MUST b\"\n}\n",
+            ),
+        ],
+    );
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    session.set_verify_incremental(true);
+    assert_matches_a_fresh_compile(&session, root);
+
+    // An edit that leaves a reference dangling.
+    write(
+        root,
+        "a.spec",
+        "behavior alpha \"A\" {\n  category command\n  contract \"The system MUST a\"\n  invariants [missing]\n}\n",
+    );
+    bring_up_to_date(&mut session);
+    assert_matches_a_fresh_compile(&session, root);
+
+    // A file created, another deleted, in one go.
+    write(
+        root,
+        "nested/c.spec",
+        "behavior gamma \"C\" {\n  category command\n  contract \"The system MUST c\"\n}\n",
+    );
+    fs::remove_file(root.join("b.spec")).unwrap();
+    bring_up_to_date(&mut session);
+    assert_matches_a_fresh_compile(&session, root);
+    assert!(session.graph().node("gamma").is_some());
+    assert!(session.graph().node("beta").is_none());
+
+    // The config enables an extension that is not installed: E028, no
+    // lock entry.
+    let config = r#"{"name":"s","version":"0.1.0","extensions":["@specforge/software","@specforge/testing","@acme/missing"]}"#;
+    fs::write(root.join("specforge.json"), config).unwrap();
+    bring_up_to_date(&mut session);
+    assert_matches_a_fresh_compile(&session, root);
+    let e028 = |session: &ProjectSession| -> Vec<String> {
+        session
+            .diagnostics()
+            .iter()
+            .filter(|d| d.code == "E028")
+            .map(|d| d.message.clone())
+            .collect()
+    };
+    let unlocked = e028(&session);
+    assert_eq!(unlocked.len(), 1, "{unlocked:?}");
+
+    // The lock now names it: the environment reads the lock, so the E028
+    // becomes "binary not found".
+    let lock = serde_json::json!({
+        "lockfile_version": 1,
+        "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "sha256:00"}]
+    });
+    fs::write(root.join("specforge.lock"), lock.to_string()).unwrap();
+    bring_up_to_date(&mut session);
+    assert_matches_a_fresh_compile(&session, root);
+    let locked = e028(&session);
+    assert_eq!(locked.len(), 1, "{locked:?}");
+    assert_ne!(
+        locked, unlocked,
+        "the lock changed what the environment loads"
+    );
+}

@@ -1,3 +1,4 @@
+mod call_target;
 mod conformance;
 mod contracts;
 mod events;
