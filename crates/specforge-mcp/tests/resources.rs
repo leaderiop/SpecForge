@@ -168,7 +168,7 @@ fn graph_resource_has_mime_type() {
 
 /// A project on disk using `extensions`, compiled into `server` through
 /// `specforge.validate`.
-fn compile_project(server: &mut McpServer, dir: &std::path::Path, extensions: &[&str]) {
+fn validate_project(server: &mut McpServer, dir: &std::path::Path, extensions: &[&str]) {
     std::fs::write(
         dir.join("specforge.json"),
         json!({"name": "t", "version": "0.1.0", "extensions": extensions}).to_string(),
@@ -203,7 +203,7 @@ fn kind_names(schema: &Value) -> Vec<&str> {
 fn schema_resource_returns_the_graph_protocol_schema() {
     let dir = tempfile::tempdir().unwrap();
     let mut server = test_server();
-    compile_project(&mut server, dir.path(), &["@specforge/software"]);
+    validate_project(&mut server, dir.path(), &["@specforge/software"]);
 
     let schema: Value = serde_json::from_str(&resource_text(&read_resource(
         &mut server,
@@ -474,7 +474,7 @@ fn graph_refreshes_after_recompilation() {
 fn schema_updates_when_extensions_change() {
     let dir = tempfile::tempdir().unwrap();
     let mut server = test_server();
-    compile_project(&mut server, dir.path(), &["@specforge/software"]);
+    validate_project(&mut server, dir.path(), &["@specforge/software"]);
     let read = |server: &mut McpServer| -> Value {
         serde_json::from_str(&resource_text(&read_resource(server, "specforge://schema"))).unwrap()
     };
@@ -482,7 +482,7 @@ fn schema_updates_when_extensions_change() {
     assert!(!kind_names(&before).contains(&"feature"), "{before}");
 
     // Adding @specforge/product brings its kinds and its extension entry.
-    compile_project(
+    validate_project(
         &mut server,
         dir.path(),
         &["@specforge/software", "@specforge/product"],

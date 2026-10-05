@@ -53,9 +53,9 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
     (bring_session_up_to_date), unless the tool's use_cached says otherwise:
     an update for changed sources, an environment reload with its extension
     tools and resources for a changed specforge.json, specforge.lock or
-    extension module. Subscribed clients learn what changed. A tool call
-    whose path names another project compiles that project for the call
-    only: the server keeps serving its own without reloading it. A call
+    extension module. Subscribed clients learn what changed. A call whose
+    path names another project acts on that project only, compiled for the
+    call, and the server keeps serving its own without reloading it. A call
     whose path names a project while none is served serves that project.
   """
   risk      high
@@ -66,6 +66,8 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
   verify unit "a mutation on another project does not reload the served one"
   verify unit "a path while no project is served serves that project, for every tool that takes a path"
   verify unit "a path inside the served project names the served project"
+  verify unit "rename with a path to another project edits that project only and keeps serving this one"
+  verify unit "remove_extension with a path to another project checks that project's dependents and entities"
   verify unit "analyze notifies subscribers when the diagnostics it compiled changed"
   verify unit "validate with a path to another project leaves the served project in place"
   verify unit "a mutation tool that wrote files leaves the server serving what is on disk"

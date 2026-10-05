@@ -405,6 +405,14 @@ fn next_event(rx: &mpsc::Receiver<String>, timeout: Duration) -> Option<serde_js
     None
 }
 
+/// Let the watcher settle after `ready`: macOS can deliver events for the
+/// project's initial writes late (a late config event even reloads), so
+/// they are drained before a test makes the change it watches for.
+fn settle(rx: &mpsc::Receiver<String>) {
+    std::thread::sleep(Duration::from_millis(1000));
+    while rx.recv_timeout(Duration::from_millis(300)).is_ok() {}
+}
+
 /// The E028 messages an event reports.
 fn e028(event: &serde_json::Value) -> Vec<String> {
     event["diagnostics"]
@@ -441,7 +449,7 @@ fn watch_reloads_on_a_lock_change() {
         "{unlocked:?}"
     );
 
-    std::thread::sleep(Duration::from_millis(300));
+    settle(&rx);
     let lock = serde_json::json!({
         "lockfile_version": 1,
         "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "sha256:00"}]
@@ -476,7 +484,7 @@ fn watch_ignores_a_wasm_no_extension_loads() {
     let (rx, child) = spawn_watch(&project);
     wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
         .expect("watch never reported ready");
-    std::thread::sleep(Duration::from_millis(300));
+    settle(&rx);
 
     // Build output no extension loads, then a real edit: the first event
     // is the edit's rebuild, not a reload for the .wasm.
@@ -521,7 +529,7 @@ fn watch_follows_a_moved_spec_root() {
     let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
         .expect("watch never reported ready");
     assert!(ready.contains("\"nodes\":1"), "{ready}");
-    std::thread::sleep(Duration::from_millis(300));
+    settle(&rx);
 
     fs::write(
         root.join("specforge.json"),

@@ -1,9 +1,6 @@
 use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_graph::Graph;
-use specforge_ops::analyze::ProjectView;
-use specforge_project::{
-    CompiledProject, Environment, Origin, ProjectSession, SharedRuntime, Update, UpdateKind,
-};
+use specforge_project::{Environment, Origin, ProjectSession, SharedRuntime, Update, UpdateKind};
 use specforge_registry::{RegistryBuild, SurfaceRegistryEntry};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -174,33 +171,6 @@ impl McpState {
             .chain(&self.promoted_surfaces)
     }
 
-    /// What an analysis of the served project reads.
-    pub fn project_view(&self) -> ProjectView<'_> {
-        ProjectView::in_environment(self.environment(), self.graph(), self.project_root())
-    }
-
-    /// The runtime extensions of the project at `root` run in: the served
-    /// project's session's, which its compile loaded and which serves
-    /// every call until the project loads again; the host's; or, for
-    /// another project, the project's own, built for the call.
-    pub fn wasm_runtime(&self, root: &Path) -> SharedRuntime {
-        if !self.serves_other_than(root)
-            && let Some(runtime) = self.session.runtime()
-        {
-            return Arc::clone(runtime);
-        }
-        self.fresh_runtime(root)
-    }
-
-    /// A runtime for `root` built now: the host's, or a new one of the
-    /// project's own.
-    fn fresh_runtime(&self, root: &Path) -> SharedRuntime {
-        match &self.extension_runtime {
-            Some(runtime) => Arc::clone(runtime),
-            None => Arc::new(specforge_component::project_runtime(root)),
-        }
-    }
-
     /// Whether requests are served: after `initialize`, or for a stateless
     /// request, which needs no handshake.
     pub fn is_initialized(&self) -> bool {
@@ -240,22 +210,6 @@ impl McpState {
         self.events.push(McpEvent { name, params });
     }
 
-    /// Compile another project at `root` for one call, without serving
-    /// it: its extensions run in a runtime built for it, so its modules
-    /// are what is on disk now.
-    pub fn compile_project(&self, root: &Path) -> CompiledProject {
-        let runtime = self.fresh_runtime(root);
-        CompiledProject::compile(root, Some(runtime.as_ref()))
-    }
-
-    /// Whether `root` names a project other than the one this server
-    /// serves. With no project served yet, no path is another's.
-    pub fn serves_other_than(&self, root: &Path) -> bool {
-        let canonical = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
-        self.project_root()
-            .is_some_and(|served| canonical(served) != canonical(root))
-    }
-
     /// Serve the project at `root` as it is on disk now, its config and
     /// extensions included: the served session reloads its environment
     /// and rebuilds from the sources (a fresh compile), or a session is
@@ -269,7 +223,14 @@ impl McpState {
     /// wrote an in-memory project's files).
     pub fn serve(&mut self, root: &Path) {
         let previous_diagnostics = self.diagnostics();
-        let update = if self.serves_session_at(root) {
+        // The served session reloads when it is the project on disk at
+        // `root`; any other root is opened.
+        let canonical = |p: &Path| std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf());
+        let reloads = self.session.origin() == Origin::Disk
+            && self
+                .project_root()
+                .is_some_and(|served| canonical(served) == canonical(root));
+        let update = if reloads {
             self.session.reload_environment()
         } else {
             let mut next = match &self.extension_runtime {
@@ -378,11 +339,6 @@ impl McpState {
         drop(session);
         edit(Arc::get_mut(&mut env).expect("the served environment is shared elsewhere"));
         self.serve_session(ProjectSession::from_graph(env, graph, diagnostics));
-    }
-
-    /// Whether the session serves the project on disk at `root`.
-    fn serves_session_at(&self, root: &Path) -> bool {
-        self.session.origin() == Origin::Disk && !self.serves_other_than(root)
     }
 
     pub fn shutdown(&mut self) {

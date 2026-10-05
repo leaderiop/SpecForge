@@ -453,15 +453,15 @@ fn path_tool_calls() -> Vec<(&'static str, Value)> {
     verify = "a path while no project is served serves that project, for every tool that takes a path"
 )]
 fn a_path_while_nothing_is_served_serves_it_for_every_tool() {
-    // Every core tool whose schema takes a project path is covered (init
-    // creates its project: its adoption is tested with init).
+    // Every core tool whose schema takes a project path is covered, init
+    // (which creates its project) below.
     let mut covered: Vec<&str> = path_tool_calls().iter().map(|(name, _)| *name).collect();
+    covered.push("specforge.init");
     covered.sort_unstable();
     let mut with_path: Vec<&str> = specforge_mcp::tools::CORE_TOOLS
         .iter()
         .filter(|tool| (tool.schema)()["properties"].get("path").is_some())
         .map(|tool| tool.name)
-        .filter(|name| *name != "specforge.init")
         .collect();
     with_path.sort_unstable();
     assert_eq!(covered, with_path);
@@ -487,6 +487,18 @@ fn a_path_while_nothing_is_served_serves_it_for_every_tool() {
             assert!(server.state().graph().node("alpha").is_some(), "{tool}");
         }
     }
+
+    // init with nothing served serves the project it created.
+    let parent = TempDir::new().unwrap();
+    let created = parent.path().join("created");
+    let mut server = serving_nothing();
+    let resp = call_tool(
+        &mut server,
+        "specforge.init",
+        json!({"path": created.to_str().unwrap(), "name": "created"}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    assert_eq!(served_root(&server), Some(canonical(&created)));
 }
 
 #[specforge_test(
@@ -517,6 +529,10 @@ fn a_path_that_does_not_exist_is_file_not_found() {
 fn a_mutation_on_another_project_does_not_reload_the_served_one() {
     let served = project(&[], "behavior login \"Login\" {\n}\n");
     let calls: Vec<(&str, Value)> = vec![
+        (
+            "specforge.rename",
+            json!({"entity_id": "alpha", "new_name": "omega"}),
+        ),
         ("specforge.format", json!({})),
         (
             "specforge.add_extension",
@@ -752,4 +768,49 @@ fn analyze_without_a_project_is_refused() {
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["code"], "precondition_failed", "{error}");
     assert_eq!(error["tool"], "specforge.analyze", "{error}");
+}
+
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "rename with a path to another project edits that project only and keeps serving this one"
+)]
+fn rename_on_another_project_edits_that_project_only() {
+    let served = project(&[], "behavior alpha \"A\" {\n}\n");
+    let other = project(
+        &[],
+        "behavior alpha \"B\" {\n}\nbehavior beta \"Beta\" {\n}\n",
+    );
+    let mut server = McpServer::new();
+    initialize(&mut server, served.path());
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.rename",
+        json!({"path": other.path().to_str().unwrap(), "entity_id": "alpha", "new_name": "gamma"}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    // The returned diagnostics are the other project's, compiled after the
+    // edit: no dangling reference.
+    let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert!(
+        payload["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|d| d["code"] != "E003")
+    );
+
+    assert!(
+        fs::read_to_string(other.path().join("main.spec"))
+            .unwrap()
+            .contains("behavior gamma")
+    );
+    assert!(
+        fs::read_to_string(served.path().join("main.spec"))
+            .unwrap()
+            .contains("behavior alpha")
+    );
+    assert_eq!(served_root(&server), Some(canonical(served.path())));
+    assert!(server.state().graph().node("beta").is_none());
+    assert!(server.state().graph().node("alpha").is_some());
 }

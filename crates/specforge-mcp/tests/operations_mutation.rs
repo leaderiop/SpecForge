@@ -450,9 +450,8 @@ fn rename_recompiles_files_it_did_not_edit() {
         codes.sort();
         codes
     };
-    let fresh: Vec<Value> = server
-        .state()
-        .compile_project(&root)
+    let runtime = specforge_component::project_runtime(&root);
+    let fresh: Vec<Value> = specforge_project::CompiledProject::compile(&root, Some(&runtime))
         .diagnostics()
         .iter()
         .map(|d| serde_json::to_value(d).unwrap())
@@ -1792,5 +1791,136 @@ fn rename_refuses_an_illegal_entity_id() {
     assert_eq!(
         std::fs::read_to_string(root.join("spec/tokens.spec")).unwrap(),
         TOKENS_SPEC
+    );
+}
+
+/// A project on disk with `specforge.json` enabling `extensions`, and
+/// `files`, served by a fresh server.
+fn served_project(extensions: &[&str], files: &[(&str, &str)]) -> (McpServer, tempfile::TempDir) {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = json!({"name": "m", "version": "0.1.0", "extensions": extensions});
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    for (path, text) in files {
+        std::fs::write(dir.path().join(path), text).unwrap();
+    }
+    let mut server = McpServer::new();
+    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"projectRoot": dir.path().to_str().unwrap()}});
+    server.handle_message(&req.to_string());
+    (server, dir)
+}
+
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "remove_extension with a path to another project checks that project's dependents and entities"
+)]
+fn remove_on_another_project_checks_that_projects_dependents() {
+    // The served project enables formal, which requires software; the
+    // other enables software alone.
+    let (mut server, _served) = served_project(
+        &["@specforge/software", "@specforge/formal"],
+        &[("main.spec", "")],
+    );
+    let other = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        other.path().join("specforge.json"),
+        json!({"name": "o", "version": "0.1.0", "extensions": ["@specforge/software"]}).to_string(),
+    )
+    .unwrap();
+    std::fs::write(other.path().join("main.spec"), "").unwrap();
+
+    // Nothing in the other project requires software: it can go.
+    let resp = call_tool(
+        &mut server,
+        "specforge.remove_extension",
+        json!({"path": other.path().to_str().unwrap(), "name": "@specforge/software", "dry_run": true}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(payload["success"], true, "{payload}");
+
+    // In the served project formal still requires it.
+    let resp = call_tool(
+        &mut server,
+        "specforge.remove_extension",
+        json!({"name": "@specforge/software", "dry_run": true}),
+    );
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["diagnostic"]["code"], "E027", "{error}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "rename plans on the project as it is on disk, references added since the last call included"
+)]
+fn rename_plans_on_the_project_as_it_is_on_disk() {
+    let (mut server, dir) = served_project(
+        &[],
+        &[(
+            "main.spec",
+            "invariant tok \"Tok\" {\n}\nbehavior login \"Login\" {\n  invariants [tok]\n}\n",
+        )],
+    );
+    // A reference written after the server last read the project.
+    std::fs::write(
+        dir.path().join("logout.spec"),
+        "behavior logout \"Logout\" {\n  invariants [tok]\n}\n",
+    )
+    .unwrap();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.rename",
+        json!({"entity_id": "tok", "new_name": "tok2"}),
+    );
+    let payload: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let affected = payload["affected_files"].as_array().unwrap();
+    assert!(affected.iter().any(|f| f == "logout.spec"), "{payload}");
+    assert!(
+        std::fs::read_to_string(dir.path().join("logout.spec"))
+            .unwrap()
+            .contains("invariants [tok2]")
+    );
+    let diagnostics = payload["diagnostics"].as_array().unwrap();
+    assert!(diagnostics.iter().all(|d| d["code"] != "E003"), "{payload}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_add_extension_tool",
+    verify = "after add_extension the server serves the extension it installed"
+)]
+fn add_then_tools_list_shows_the_extension_tools() {
+    let (mut server, _dir) = served_project(&[], &[("main.spec", "")]);
+    let product_tools = |server: &mut McpServer| -> usize {
+        let req = json!({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}});
+        let resp: Value =
+            serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+        resp["result"]["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|t| t["source"] == "@specforge/product")
+            .count()
+    };
+    assert_eq!(product_tools(&mut server), 0);
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": "@specforge/product"}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+
+    assert!(
+        product_tools(&mut server) > 0,
+        "the installed extension's tools are listed"
+    );
+    assert!(
+        server
+            .state()
+            .registries()
+            .manifests
+            .iter()
+            .any(|m| m.name == "@specforge/product")
     );
 }

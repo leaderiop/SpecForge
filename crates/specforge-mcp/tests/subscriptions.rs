@@ -120,8 +120,8 @@ fn init_with_project(root: &TempDir) -> McpServer {
     server
 }
 
-/// Simulate watch having picked up new content: write an extra entity and a
-/// newer `.specforge/graph.json` snapshot marker (C9-07 staleness signal).
+/// New content on disk: an extra entity, written while the server runs
+/// (the next request that reads the project sees it).
 fn evolve_project(root: &TempDir, entity: &str) {
     fs::write(
         root.path().join("spec").join(format!("{}.spec", entity)),
@@ -131,10 +131,6 @@ fn evolve_project(root: &TempDir, entity: &str) {
         ),
     )
     .unwrap();
-    let marker_dir = root.path().join(".specforge");
-    fs::create_dir_all(&marker_dir).unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(50));
-    fs::write(marker_dir.join("graph.json"), "{}").unwrap();
 }
 
 /// C9-01 acceptance: subscribe → recompile with changed content →
@@ -153,7 +149,7 @@ fn subscribe_recompile_delivers_graph_notification() {
     assert!(resp["result"].is_object(), "subscribe must succeed: {resp}");
 
     evolve_project(&dir, "fresh_added");
-    // Any routed resources/read refreshes a stale graph.
+    // Any routed resources/read brings the project up to date.
     call(
         &mut server,
         "resources/read",
