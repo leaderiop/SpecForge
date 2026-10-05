@@ -122,7 +122,10 @@ fn collect_project() -> TempDir {
     dir
 }
 
-#[test]
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "a path while no project is served serves that project, for every tool that takes a path"
+)]
 fn validate_with_a_path_while_nothing_is_served_serves_it() {
     let other = project(&[], "behavior adopted \"Adopted\" {\n}\n");
     let mut server = serving_nothing();
@@ -159,7 +162,10 @@ fn collect_with_another_path_keeps_serving_this_one() {
     assert!(server.state().graph().node("alpha").is_none());
 }
 
-#[test]
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "a mutation on another project does not reload the served one"
+)]
 fn format_with_another_path_leaves_the_served_spans() {
     // Blank lines inside each block: formatting removes them.
     let unformatted = "behavior login \"Login\" {\n\n\n\n}\n";
@@ -197,7 +203,10 @@ fn format_with_another_path_leaves_the_served_spans() {
     assert!(server.state().graph().node("other").is_none());
 }
 
-#[test]
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "validate with use_cached=true returns existing diagnostics without recompilation"
+)]
 fn use_cached_serves_the_last_compile_when_diagnostics_exist() {
     // No extension: the compile reports I002, so the served project has
     // diagnostics to serve.
@@ -219,7 +228,10 @@ fn use_cached_serves_the_last_compile_when_diagnostics_exist() {
     assert!(fresh.contains(&"E003".to_string()), "{fresh:?}");
 }
 
-#[test]
+#[specforge_test(
+    behavior = "provide_mcp_doctor_tool",
+    verify = "specforge.doctor compiles the project afresh unless use_cached is set"
+)]
 fn doctor_use_cached_reports_the_last_compile() {
     let dir = project(&[], "behavior login \"Login\" {\n}\n");
     let mut server = McpServer::new();
