@@ -363,6 +363,59 @@ behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
   verify contract "Dispatch Contribution Exports: contribution export dispatch holds — contribution_exports_validated_fired, wasm_runtime_available, contribution_exports_dispatched_emitted, missing_export_diagnosed, renderers_refreshed_on_ingestion"
 }
 
+behavior call_extension_exports "Call Extension Exports" {
+  features   [contribution_based_extensions]
+  invariants [extension_isolation]
+  category   command
+  types      [
+    CommandInput,
+    CommandOutput,
+    McpResourceRequest,
+    McpResourceContent,
+    PassInput,
+    PassOutput,
+    PassDiagnostic,
+    CollectInput,
+    CollectOutput,
+    ValidatorContext,
+    ValidatorVerdict,
+    ScanRequest,
+    ScanResponse,
+    MigrationInput,
+    WasmTrapInfo,
+  ]
+  ports      [WasmRuntime]
+  requires {
+    extension_loaded "the extension is one the project's runtime loaded"
+  }
+  ensures {
+    one_protocol_type "each operation's input and answer is one specforge_protocol_types type the host and the SDK share"
+    strict_answers    "an answer that does not decode as its protocol type is E028; unknown fields are ignored and absent optional fields take their defaults"
+    one_failure       "a trap, an unrouted export, an extension not loaded or a malformed answer is E028 naming the operation, the export and the extension"
+    no_silent_failure "no operation drops a failure: a pass's is a finding, a scanner's is reported, a command's is the command's error"
+    runtimes_agree    "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
+  }
+  contract   """
+    The host performs ten operations on a loaded extension, each one call
+    of one export over the WasmRuntime port: handshake and describe (the
+    declaration, ADR 0012), a command (cmd__), an MCP tool or resource
+    (mcp__), a compiler pass (__pass_<name>), a collector (collect__), a
+    custom validator (the rule's wasm_function), a scanner (the analyzer's
+    scan export) and a migration hook. Each sends one protocol type as
+    JSON and reads one protocol type back (specforge_protocol_types); an
+    optional field the host leaves unset is absent, never null. A trap, an
+    export the guest does not route, an extension the runtime did not load,
+    or an answer that does not decode is E028 naming the operation, the
+    export and the extension, with the suggestion to report it to the
+    extension's author. What a failure means is the operation's: a check
+    pass's is a compile diagnostic, an analyze pass's a finding of that
+    pass, a command's its E028 error, a scanner's a reported failure that
+    makes the gap report approximate, a collector's the collect error. A
+    migration hook's answer is not read.
+  """
+  verify unit "every operational payload is one protocol type the host and the SDK share"
+}
+
 // -- Check-Phase Passes and the Build Cache -----
 
 behavior run_check_phase_passes "Run Check-Phase Passes" {
@@ -391,7 +444,9 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
     once, when the extensions load; a compile with none costs nothing.
 
     The pass export `__pass_<name>` receives the same input an analyze
-    pass does (`entities`, `edges`), with no `test_results` or
+    pass does (`entities`, `edges`; each entity carries `testable` and
+    `exempt`: it owes no obligations of its own, decided from the
+    registries), with no `test_results` or
     `proved_claims` (a compile has neither) and with `previous`, the
     statuses of the build cache (read_build_cache). It answers the same
     output: diagnostics, bare or as `{diagnostics, summary}`; the summary
@@ -411,6 +466,7 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
   verify unit "check passes run in their declared after/before order"
   verify unit "a trapping check pass is a diagnostic, not a crash"
   verify unit "a pass diagnostic naming an entity gets that entity's span"
+  verify unit "a pass entity carries whether the host found it exempt"
 }
 
 behavior write_build_cache "Write the Build Cache" {
@@ -740,7 +796,7 @@ behavior dispatch_collector "Dispatch Collector" {
   features   [test_result_collection]
   invariants [wasm_sandbox_integrity, extension_isolation]
   category   query
-  types      [CollectorDescriptor, CollectorDispatchInput, CollectorReport, WasmTrapInfo]
+  types      [CollectorDescriptor, CollectInput, CollectOutput, WasmTrapInfo]
   ports      [WasmRuntime, FileSystem]
   requires {
     report_available "the collector's report exists: a file, or a directory of *.json files"
@@ -772,7 +828,7 @@ behavior ingest_collector_report "Ingest Collector Report" {
   features   [test_result_collection]
   invariants [collector_output_conformance]
   category   query
-  types      [CollectorReport, Graph]
+  types      [CollectOutput, Graph]
   ports      [FileSystem]
   consumes   [collector_dispatched]
   requires {

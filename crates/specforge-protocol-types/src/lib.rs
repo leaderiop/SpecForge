@@ -4,13 +4,27 @@
 //! plugin-side SDK (specforge-extension-sdk) both consume these types, so the
 //! wire format cannot drift between them. Compiles clean on host and
 //! wasm32-unknown-unknown (serde-only).
+//!
+//! Two families:
+//! - the declaration: the `__handshake` and `__describe` payloads and the
+//!   descriptors an extension declares ([`ExtensionDeclaration`], ADR 0012);
+//! - the operations ([`calls`], ADR 0013): what the host sends each export
+//!   it calls and what the export answers — a command ([`CommandInput`],
+//!   [`CommandOutput`]), an MCP resource ([`McpResourceRequest`],
+//!   [`McpResourceContent`]), a compiler pass ([`PassInput`],
+//!   [`PassAnswer`]), a collector ([`CollectInput`], [`CollectOutput`]), a
+//!   custom validator ([`ValidatorContext`], [`ValidatorVerdict`]), a
+//!   scanner ([`ScanRequest`], [`ScanResponse`]) and the migration hook
+//!   ([`MigrationInput`]).
 
 use std::fmt;
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
+pub mod calls;
 mod declaration;
 mod vocabulary;
+pub use calls::*;
 pub use declaration::{
     DECLARED_CATEGORIES, ExtensionDeclaration, UnknownKey, default_short, is_valid_short,
 };

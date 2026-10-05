@@ -239,7 +239,10 @@ fn pass_coverage(input: &PassInput, exempt: &[bool]) -> PassOutput {
         .collect();
     PassOutput {
         diagnostics,
-        summary: serde_json::to_value(&assessment.summary).unwrap_or_default(),
+        summary: match serde_json::to_value(&assessment.summary) {
+            Ok(serde_json::Value::Object(summary)) => summary,
+            _ => serde_json::Map::new(),
+        },
     }
 }
 
@@ -303,7 +306,11 @@ mod tests {
             let exemptions: Exemptions = serde_json::from_value(case["input"].clone()).unwrap();
             let exempt: Vec<bool> = exemptions.entities.iter().map(|e| e.exempt).collect();
             let out = pass_coverage(&input, &exempt);
-            assert_eq!(out.summary, expect["summary"], "summary of {name:?}");
+            assert_eq!(
+                Value::Object(out.summary),
+                expect["summary"],
+                "summary of {name:?}"
+            );
             let findings: Vec<Value> = out
                 .diagnostics
                 .iter()

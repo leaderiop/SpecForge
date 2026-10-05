@@ -30,7 +30,7 @@ behavior vt_declare_vitest_collector "Declare the vitest Collector" {
 behavior vt_map_vitest_report "Map vitest Reports to Entities" {
   features [vt_vitest_collection]
   category query
-  types    [CollectorDispatchInput, CollectorReport]
+  types    [CollectInput, CollectOutput]
   contract """
     A test links itself to an entity through vitest's test metadata, which
     the JSON reporter carries into the report: `meta.specforge` is an

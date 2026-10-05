@@ -16,7 +16,8 @@ use std::net::ToSocketAddrs;
 #[specforge_extension_sdk::extension(
     name = "@test/probe",
     version = "0.1.0",
-    short = "Sandbox probe"
+    short = "probe",
+    description = "Sandbox probe"
 )]
 struct Probe;
 

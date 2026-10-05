@@ -42,7 +42,10 @@
 //! with every arg set, so a test catches a handler reading an arg its
 //! command does not declare.
 
-use crate::{CommandError, CommandFormat, CommandGraph, CommandInput, CommandOutput};
+use crate::{
+    CommandError, CommandFormat, CommandGraph, CommandInput, CommandOutput, McpResourceContent,
+    McpResourceRequest,
+};
 use serde_json::Value;
 use specforge_protocol_types::{
     CommandArgDescriptor, CommandArgType, CommandDescriptor, McpResourceDescriptor,
@@ -349,16 +352,16 @@ impl Surfaces {
             .resources
             .iter()
             .find(|r| r.descriptor.export == export)?;
-        let uri = serde_json::from_slice::<Value>(input)
-            .ok()
-            .and_then(|v| v.get("uri").and_then(Value::as_str).map(str::to_string));
-        let Some(uri) = uri else {
-            return Some(Err("invalid resource input: no uri".to_string()));
+        let request: McpResourceRequest = match serde_json::from_slice(input) {
+            Ok(request) => request,
+            Err(e) => return Some(Err(format!("invalid resource input: {e}"))),
         };
-        Some((resource.handler)(&uri).map(|content| {
-            serde_json::json!({"content": content, "mime_type": resource.descriptor.mime_type})
-                .to_string()
-                .into_bytes()
+        Some((resource.handler)(&request.uri).map(|content| {
+            let answer = McpResourceContent {
+                content,
+                mime_type: resource.descriptor.mime_type.clone(),
+            };
+            serde_json::to_vec(&answer).expect("resource content serialization cannot fail")
         }))
     }
 }

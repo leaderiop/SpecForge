@@ -1015,178 +1015,22 @@ mod raw_category_flag_tests {
     }
 }
 
-// ── Compiler pass ABI (v1) ─────────────────────────────────────────────────
-// A compiler pass is a `__pass_<name>` wasm export that receives a snapshot
-// of the compiled project's entities and returns host Diagnostics. The
-// `#[compiler_pass]` attribute (specforge-extension-sdk-macros) wraps a
-// plain function with that export; these types are its parameter and return
-// vocabulary.
-
-/// One entity in the snapshot handed to a compiler pass. Mirrors the host's
-/// `ValidationEntity` (id, kind, stringified fields, edge counts).
-#[derive(Debug, Clone, Default, serde::Deserialize)]
-pub struct PassEntity {
-    pub id: String,
-    pub kind: String,
-    #[serde(default)]
-    pub fields: std::collections::BTreeMap<String, String>,
-    #[serde(default)]
-    pub incoming_edge_count: usize,
-    #[serde(default)]
-    pub outgoing_edge_count: usize,
-    #[serde(default)]
-    pub span: Option<PassSpan>,
-    /// Whether the entity's kind is testable (its kind registry entry's
-    /// `testable` flag), so coverage counts it.
-    #[serde(default)]
-    pub testable: bool,
-    /// One entry per `verify` statement, in order: its kind, or `""` for a
-    /// bare `verify "..."`. Empty when the entity declares no obligations.
-    #[serde(default)]
-    pub verify_kinds: Vec<String>,
-    /// The obligations' texts, parallel to `verify_kinds`.
-    #[serde(default)]
-    pub verify_texts: Vec<String>,
-}
-
-/// One resolved reference in the snapshot (label = edge label, e.g.
-/// "produces", "consumes", "BehaviorRequiresInvariant").
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct PassEdge {
-    pub source: String,
-    pub target: String,
-    pub label: String,
-}
-
-/// The `__pass_<name>` export input.
-#[derive(Debug, Clone, Default, serde::Deserialize)]
-pub struct PassInput {
-    pub entities: Vec<PassEntity>,
-    /// Resolved references between snapshot entities. Serde default keeps
-    /// passes written against the entities-only ABI compatible.
-    #[serde(default)]
-    pub edges: Vec<PassEdge>,
-    /// Recorded test results (the normalized `specforge-report.json`), when
-    /// the host has them.
-    #[serde(default)]
-    pub test_results: Option<PassTestResults>,
-    /// Entity ids whose formal claims the prove pass entailed; `None` when
-    /// the prove pass did not run.
-    #[serde(default)]
-    pub proved_claims: Option<Vec<String>>,
-    /// The build cache (`specforge-cache.json`, written by `specforge check
-    /// --cache`): the statuses of the build that wrote it. Check-phase
-    /// passes only; `None` without the file (a first build), when it is
-    /// invalid (the host warns W144), and for analyze passes.
-    #[serde(default)]
-    pub previous: Option<PassBuildCache>,
-}
-
-/// The previous build's statuses, handed to check-phase passes.
-#[derive(Debug, Clone, Default, serde::Deserialize)]
-pub struct PassBuildCache {
-    /// Per entity id: its kind and status in that build. Entities without
-    /// a `status` field are absent.
-    #[serde(default)]
-    pub statuses: std::collections::BTreeMap<String, PassCachedStatus>,
-}
-
-/// One entity's kind and status in the previous build.
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct PassCachedStatus {
-    pub kind: String,
-    pub status: String,
-}
-
-/// Normalized test results handed to a pass: per entity id, the recorded tests.
-#[derive(Debug, Clone, Default, serde::Deserialize)]
-pub struct PassTestResults {
-    #[serde(default)]
-    pub runner: Option<String>,
-    #[serde(default)]
-    pub results: std::collections::BTreeMap<String, PassEntityResults>,
-}
-
-/// The tests recorded for one entity.
-#[derive(Debug, Clone, Default, serde::Deserialize)]
-pub struct PassEntityResults {
-    #[serde(default)]
-    pub tests: Vec<PassTestResult>,
-}
-
-/// One recorded test. `status` is `"pass"` for a passing test.
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct PassTestResult {
-    #[serde(default)]
-    pub name: Option<String>,
-    pub status: String,
-    /// The obligation the test proves, when it names one.
-    #[serde(default)]
-    pub verify: Option<String>,
-}
-
-/// What the host passes to a `collect__<name>` export: the runner's report
-/// files, read from the declared report location, and the command's
-/// standard output when the collector captures it.
-#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
-pub struct CollectInput {
-    #[serde(default)]
-    pub reports: Vec<CollectReportFile>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub stdout: Option<String>,
-}
-
-/// One report file: its path relative to the project root, and its text.
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct CollectReportFile {
-    pub path: String,
-    pub content: String,
-}
-
-/// What a `collect__<name>` export returns: test results grouped by the
-/// entity each test proves, and the tests the report doesn't link to any
-/// entity, which the host links by naming convention when it can.
-#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
-pub struct CollectOutput {
-    pub entity_results: Vec<CollectEntityResult>,
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub unlinked: Vec<CollectUnlinkedTest>,
-}
-
-/// A test the report doesn't link to an entity: its name, the name split
-/// into its path segments (`["tests", "add_item", "rejects_a_duplicate"]`,
-/// the test's own name last), and `passed`, `failed` or `skipped`.
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct CollectUnlinkedTest {
-    pub name: String,
-    pub path: Vec<String>,
-    pub status: String,
-}
-
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct CollectEntityResult {
-    pub entity_id: String,
-    pub test_results: Vec<CollectTestResult>,
-}
-
-/// One test. `status` is `passed`, `failed` or `skipped`; `verify` names
-/// the obligation the test proves, when the test says so.
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-pub struct CollectTestResult {
-    pub name: String,
-    pub status: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub verify: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub duration_ms: Option<f64>,
-}
-
-// ── Surface command ABI (v1) ───────────────────────────────────────────────
+// ── Operational payloads ───────────────────────────────────────────────────
+// What the host sends each export it calls and what the export answers are
+// the protocol's types (`specforge_protocol_types::calls`, ADR 0013), the
+// same definitions the host decodes and encodes, re-exported here under the
+// names extension authors use.
+//
+// A compiler pass is a `__pass_<name>` export that receives a snapshot of
+// the compiled project's entities ([`PassInput`]) and answers diagnostics,
+// bare or with a summary ([`PassAnswer`]). A collector is a
+// `collect__<name>` export ([`CollectInput`] in, [`CollectOutput`] out).
+//
 // A CLI command an extension contributes ([`ContributionsBuilder::command`],
-// declared with its handler; see [`surface`]) is a `cmd__<name>` export. The host
-// parses the command line against the command's declared args, compiles the
-// project and calls the export with a [`CommandInput`]: the args, the
-// project root, the compiled graph in the graph export's shape
+// declared with its handler; see [`surface`]) is a `cmd__<name>` export. The
+// host parses the command line against the command's declared args,
+// compiles the project and calls the export with a [`CommandInput`]: the
+// args, the project root, the compiled graph in the graph export's shape
 // (`specforge export --format graph` without the schema), the format the
 // caller asked for and the host's date. The export answers with a
 // [`CommandOutput`]. The same export serves the MCP tool the command is
@@ -1200,45 +1044,18 @@ pub struct CollectTestResult {
 // one [`CommandError`] to stderr and nothing to stdout
 // ([`CommandOutput::error`]).
 
-/// The output a command is asked for: `human` (the CLI default) or `json`
-/// (always, over MCP).
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum CommandFormat {
-    #[default]
-    Human,
-    Json,
-}
+pub use specforge_protocol_types::{
+    CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,
+    CollectUnlinkedTest, CommandError, CommandFormat, CommandOutput, GraphEdge, GraphNode,
+    GraphWire, McpResourceContent, McpResourceRequest, MigrationInput, PassAnswer, PassBuildCache,
+    PassCachedStatus, PassDiagnostic, PassEdge, PassEntity, PassEntityResults, PassInput,
+    PassOutput, PassSeverity, PassSpan, PassTestResult, PassTestResults, ScanRequest, ScanResponse,
+    ScannedItem,
+};
 
-/// What a `cmd__<name>` export receives.
-#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
-pub struct CommandInput {
-    /// The declared args the caller set, by name: strings (string, path and
-    /// enum args), integers and booleans. An arg the caller left out is
-    /// absent unless the host applied its declared default.
-    #[serde(default)]
-    pub args: serde_json::Map<String, serde_json::Value>,
-    /// The project root.
-    #[serde(default)]
-    pub cwd: String,
-    /// The compiled project's graph.
-    #[serde(default)]
-    pub graph: CommandGraph,
-    /// The format the caller asked for (the host's `--format`).
-    #[serde(default)]
-    pub format: CommandFormat,
-    /// The host's date when the command was called, UTC, `YYYY-MM-DD`;
-    /// empty when the host passed none.
-    #[serde(default)]
-    pub today: String,
-}
-
-impl CommandInput {
-    /// Whether the caller asked for `json`.
-    pub fn is_json(&self) -> bool {
-        self.format == CommandFormat::Json
-    }
-}
+/// What a `cmd__<name>` export receives, its graph indexed for lookups
+/// ([`CommandGraph`]).
+pub type CommandInput = specforge_protocol_types::CommandInput<CommandGraph>;
 
 /// The compiled graph a command reads: its entities sorted by id, its
 /// resolved references sorted by (source, target, label).
@@ -1250,14 +1067,6 @@ pub struct CommandGraph {
     by_id: std::collections::HashMap<String, usize>,
     from: std::collections::HashMap<String, Vec<usize>>,
     to: std::collections::HashMap<String, Vec<usize>>,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-struct GraphWire {
-    #[serde(default)]
-    nodes: Vec<GraphNode>,
-    #[serde(default)]
-    edges: Vec<GraphEdge>,
 }
 
 impl From<GraphWire> for CommandGraph {
@@ -1335,139 +1144,8 @@ impl CommandGraph {
     }
 }
 
-/// One entity of a [`CommandGraph`]: fields as the graph export writes them
-/// (text as strings, lists as arrays).
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
-pub struct GraphNode {
-    pub id: String,
-    pub kind: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub title: Option<String>,
-    #[serde(default)]
-    pub fields: std::collections::BTreeMap<String, serde_json::Value>,
-}
-
-impl GraphNode {
-    /// A text field's value (a string or an identifier); `None` when the
-    /// field is absent or holds a list, a number or a block.
-    pub fn text(&self, field: &str) -> Option<&str> {
-        self.fields.get(field).and_then(|v| v.as_str())
-    }
-
-    /// Whether the entity sets `field`, whatever its value.
-    pub fn has_field(&self, field: &str) -> bool {
-        self.fields.contains_key(field)
-    }
-
-    /// A list field's string items, in declaration order; empty when the
-    /// field is absent or not a list.
-    pub fn list(&self, field: &str) -> Vec<&str> {
-        self.fields
-            .get(field)
-            .and_then(|v| v.as_array())
-            .map(|items| items.iter().filter_map(|i| i.as_str()).collect())
-            .unwrap_or_default()
-    }
-}
-
-/// One resolved reference of a [`CommandGraph`]; `label` is the field it
-/// was declared in.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct GraphEdge {
-    pub source: String,
-    pub target: String,
-    pub label: String,
-}
-
-/// What a `cmd__<name>` export returns: the exit code the CLI exits with
-/// (nonzero fails the MCP call), and the text for stdout and stderr.
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct CommandOutput {
-    pub exit_code: i32,
-    #[serde(default)]
-    pub stdout: String,
-    #[serde(default)]
-    pub stderr: String,
-}
-
-impl CommandOutput {
-    /// Success, printing `stdout`.
-    pub fn ok(stdout: impl Into<String>) -> Self {
-        CommandOutput {
-            exit_code: 0,
-            stdout: stdout.into(),
-            stderr: String::new(),
-        }
-    }
-
-    /// Failure with exit code 1, printing `stderr`.
-    pub fn fail(stderr: impl Into<String>) -> Self {
-        CommandOutput {
-            exit_code: 1,
-            stdout: String::new(),
-            stderr: stderr.into(),
-        }
-    }
-
-    /// A command that cannot answer: `error` on stderr, nothing on stdout,
-    /// exit code `exit_code`. Under `json` the error object
-    /// (`{code, message, entity_id?, suggestion?}`); under `human` the line
-    /// `error: <message>`, then `did you mean '<id>'?` when there is a
-    /// suggestion.
-    pub fn error(format: CommandFormat, error: &CommandError, exit_code: i32) -> Self {
-        let stderr = match format {
-            CommandFormat::Json => {
-                let mut out =
-                    serde_json::to_string(error).expect("command error serialization cannot fail");
-                out.push('\n');
-                out
-            }
-            CommandFormat::Human => {
-                let mut out = format!("error: {}\n", error.message);
-                if let Some(suggestion) = &error.suggestion {
-                    out.push_str(&format!("did you mean '{suggestion}'?\n"));
-                }
-                out
-            }
-        };
-        CommandOutput {
-            exit_code,
-            stdout: String::new(),
-            stderr,
-        }
-    }
-
-    /// The wire bytes the export returns.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        serde_json::to_vec(self).expect("command output serialization cannot fail")
-    }
-}
-
-/// Why a command could not answer, as it writes it under `json`: a code
-/// (`ENTITY_NOT_FOUND`, `INVALID_INPUT`, ...), a message, and the entity it
-/// was asked about and the nearest id of the same kind, when there are.
-#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub struct CommandError {
-    pub code: String,
-    pub message: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub entity_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub suggestion: Option<String>,
-}
-
-impl CommandError {
-    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
-        CommandError {
-            code: code.into(),
-            message: message.into(),
-            ..Default::default()
-        }
-    }
-}
-
 #[cfg(test)]
-mod command_abi_tests {
+mod command_graph_tests {
     use super::*;
 
     #[test]
@@ -1499,142 +1177,18 @@ mod command_abi_tests {
     }
 
     #[test]
-    fn a_command_input_carries_the_format_and_the_date() {
-        let bare: CommandInput = serde_json::from_value(serde_json::json!({})).unwrap();
-        assert_eq!(bare.format, CommandFormat::Human);
-        assert!(!bare.is_json());
-        assert_eq!(bare.today, "");
-        let input: CommandInput =
-            serde_json::from_value(serde_json::json!({"format": "json", "today": "2026-10-03"}))
-                .unwrap();
-        assert!(input.is_json());
-        assert_eq!(input.today, "2026-10-03");
-    }
-
-    #[test]
-    fn a_command_error_is_an_object_under_json_and_a_line_under_human() {
-        let error = CommandError {
-            entity_id: Some("m2".into()),
-            suggestion: Some("m1".into()),
-            ..CommandError::new("ENTITY_NOT_FOUND", "milestone 'm2' not found")
+    fn a_command_input_is_built_by_its_fields() {
+        // The alias of the protocol's generic input builds and defaults as
+        // the SDK's own struct did.
+        let input = CommandInput {
+            args: serde_json::Map::new(),
+            cwd: "/p".to_string(),
+            graph: CommandGraph::default(),
+            format: CommandFormat::Json,
+            today: String::new(),
         };
-        let json = CommandOutput::error(CommandFormat::Json, &error, 1);
-        assert_eq!((json.exit_code, json.stdout.as_str()), (1, ""));
-        assert_eq!(
-            serde_json::from_str::<serde_json::Value>(&json.stderr).unwrap(),
-            serde_json::json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found",
-                "entity_id": "m2", "suggestion": "m1"})
-        );
-        let human = CommandOutput::error(CommandFormat::Human, &error, 1);
-        assert_eq!(
-            human.stderr,
-            "error: milestone 'm2' not found\ndid you mean 'm1'?\n"
-        );
-        let plain = CommandOutput::error(
-            CommandFormat::Human,
-            &CommandError::new("INVALID_INPUT", "bad"),
-            2,
-        );
-        assert_eq!(
-            (plain.exit_code, plain.stderr.as_str()),
-            (2, "error: bad\n")
-        );
-    }
-
-    #[test]
-    fn a_command_output_is_the_wire_shape_the_host_reads() {
-        let out: serde_json::Value =
-            serde_json::from_slice(&CommandOutput::fail("nope\n").to_bytes()).unwrap();
-        assert_eq!(
-            out,
-            serde_json::json!({"exit_code": 1, "stdout": "", "stderr": "nope\n"})
-        );
-    }
-}
-
-/// A pass result carrying a summary beside its diagnostics. A pass may return
-/// either this or a bare `Vec<PassDiagnostic>`; the host merges `summary`
-/// into the pass report.
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct PassOutput {
-    pub diagnostics: Vec<PassDiagnostic>,
-    pub summary: serde_json::Value,
-}
-
-/// Severity mirror of the host diagnostic enum. Serializes to the same wire
-/// strings ("Error" / "Warning" / "Info").
-#[derive(Debug, Clone, Copy, serde::Serialize)]
-pub enum PassSeverity {
-    Error,
-    Warning,
-    Info,
-}
-
-/// Source location attached to a pass diagnostic. Field names mirror the
-/// host's `SourceSpan`.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct PassSpan {
-    pub file: String,
-    pub start_line: usize,
-    pub start_col: usize,
-    pub end_line: usize,
-    pub end_col: usize,
-}
-
-/// A diagnostic returned by a compiler pass. Serializes into the host's
-/// `Diagnostic` wire shape.
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct PassDiagnostic {
-    pub code: String,
-    pub severity: PassSeverity,
-    pub message: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub span: Option<PassSpan>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub suggestion: Option<String>,
-    /// The id of the entity the diagnostic is about. With no span of its
-    /// own, the host attaches that entity's.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub entity: Option<String>,
-}
-
-impl PassDiagnostic {
-    /// A diagnostic with a code, severity, and message; attach a span or
-    /// suggestion with [`Self::with_span`] / [`Self::with_suggestion`].
-    pub fn new(
-        code: impl Into<String>,
-        severity: PassSeverity,
-        message: impl Into<String>,
-    ) -> Self {
-        Self {
-            code: code.into(),
-            severity,
-            message: message.into(),
-            span: None,
-            suggestion: None,
-            entity: None,
-        }
-    }
-
-    /// Convenience constructor for warnings (the common pass finding).
-    pub fn warning(code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self::new(code, PassSeverity::Warning, message)
-    }
-
-    pub fn with_span(mut self, span: PassSpan) -> Self {
-        self.span = Some(span);
-        self
-    }
-
-    pub fn with_suggestion(mut self, suggestion: impl Into<String>) -> Self {
-        self.suggestion = Some(suggestion.into());
-        self
-    }
-
-    /// Name the entity the diagnostic is about (see [`Self::entity`]).
-    pub fn with_entity(mut self, id: impl Into<String>) -> Self {
-        self.entity = Some(id.into());
-        self
+        assert!(input.is_json());
+        assert!(!CommandInput::default().is_json());
     }
 }
 
