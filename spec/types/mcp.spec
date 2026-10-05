@@ -183,11 +183,14 @@ type McpReferenceResult {
 }
 
 type McpOutlineEntry {
-  entity_id string            @readonly
-  kind      string            @readonly
-  title     string
-  range     SourceSpan        @readonly
-  children  McpOutlineEntry[] @optional
+  entity_id  string            @readonly
+  kind       string            @readonly
+  title      string
+  /// The entity's (or method's) block.
+  range      SourceSpan        @readonly
+  /// Its name as written: what an editor selects.
+  name_range SourceSpan        @readonly
+  children   McpOutlineEntry[] @optional
   verify unit "McpOutlineEntry schema is valid"
 }
 

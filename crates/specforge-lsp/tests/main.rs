@@ -11,4 +11,3 @@ mod navigation;
 mod rename;
 mod semantic_tokens;
 mod state;
-mod symbols;

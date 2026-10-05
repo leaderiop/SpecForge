@@ -11,6 +11,7 @@
 //! fields and their targets come from the registries (ADR 0016).
 
 mod attribution;
+mod files;
 mod find;
 mod fixes;
 mod occurrences;
@@ -26,6 +27,9 @@ use crate::OpError;
 use crate::view::ProjectView;
 
 pub use attribution::{is_about, subjects};
+pub use files::{
+    FileEntities, FileMatch, OutlineEntry, OutlineMethod, entities_of_file, match_file, outline,
+};
 pub use find::{
     EntityMatch, EntityQuery, FUZZY_THRESHOLD, MatchScope, MatchedOn, Tier, find_entities, snippet,
     within_fuzzy_threshold,

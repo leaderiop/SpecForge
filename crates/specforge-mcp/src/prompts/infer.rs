@@ -42,38 +42,6 @@ fn page_files(files: &[String], cursor: usize) -> Vec<Value> {
     page
 }
 
-/// Component-wise file match (C9-09): separators canonicalize to '/', then
-/// the query matches a span file exactly, or anchored at component
-/// boundaries — as a directory prefix ("src/auth" matches files under it)
-/// or as a trailing suffix path ("auth/login.rs" matches
-/// "src/auth/login.rs"). Substrings never match ("e.rs" does not match
-/// "src/cache.rs").
-fn match_mode(query: &str, span_file: &str) -> &'static str {
-    fn components(path: &str) -> Vec<String> {
-        path.replace('\\', "/")
-            .split('/')
-            .filter(|c| !c.is_empty())
-            .map(|c| c.to_string())
-            .collect()
-    }
-    let query_components = components(query);
-    let span_components = components(span_file);
-    if query_components == span_components {
-        return "exact";
-    }
-    let under = span_components.len() > query_components.len()
-        && span_components[..query_components.len()] == query_components[..];
-    let suffix = !query_components.is_empty()
-        && span_components.len() >= query_components.len()
-        && span_components[span_components.len() - query_components.len()..]
-            == query_components[..];
-    if under || suffix {
-        "suffix_path"
-    } else {
-        "none"
-    }
-}
-
 pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let project = Inferring {
         graph: call.state.graph(),
@@ -255,24 +223,21 @@ fn get_kind_scoped(project: &Inferring<'_>, kind_name: &str, id: Option<Value>) 
 }
 
 fn get_file_scoped(project: &Inferring<'_>, file_path: &str, id: Option<Value>) -> JsonRpcResponse {
-    let mut exact_matches: Vec<String> = Vec::new();
-    let mut suffix_matches: Vec<String> = Vec::new();
-    for node in project.graph().nodes() {
-        let entity = format!("{} ({})", node.id.raw, node.kind.raw);
-        match match_mode(file_path, node.source_span.file.as_str()) {
-            "exact" => exact_matches.push(entity),
-            "suffix_path" => suffix_matches.push(entity),
-            _ => {}
+    // The shared file rule (C9-09, specforge_ops::navigate::match_file):
+    // exact relative-path matches anchor tightest; else component-boundary
+    // matches, the file under the query directory or ending with it.
+    let found = specforge_ops::navigate::entities_of_file(project.graph(), file_path);
+    let referencing_entities: Vec<String> = found
+        .entities
+        .iter()
+        .map(|node| format!("{} ({})", node.id.raw, node.kind.raw))
+        .collect();
+    let match_mode = match found.mode {
+        specforge_ops::navigate::FileMatch::Exact => "exact",
+        specforge_ops::navigate::FileMatch::Under | specforge_ops::navigate::FileMatch::Suffix => {
+            "suffix_path"
         }
-    }
-    // Exact relative-path matches anchor tightest; fall back to
-    // component-boundary suffix matches (C9-09).
-    let (referencing_entities, match_mode) = if !exact_matches.is_empty() {
-        (exact_matches, "exact")
-    } else if !suffix_matches.is_empty() {
-        (suffix_matches, "suffix_path")
-    } else {
-        (Vec::new(), "none")
+        specforge_ops::navigate::FileMatch::None => "none",
     };
 
     let mut kinds_info: Vec<Value> = Vec::new();
@@ -800,9 +765,10 @@ mod tests {
         assert!(resp.error.is_some(), "Expected error for unknown kind");
         let err = resp.error.unwrap();
         assert_eq!(err.code, -32602);
+        let text = err.message.as_str();
         assert!(
-            err.message.contains("nonexistent"),
-            "Error should name the unknown kind"
+            text.contains("nonexistent"),
+            "Error should name the unknown kind: {text}"
         );
     }
 
@@ -905,18 +871,6 @@ mod tests {
         assert!(kinds.contains(&Value::from("behavior")));
     }
     // ---- C9-09: component-boundary file matching ----
-
-    #[test]
-    fn match_mode_rejects_partial_components() {
-        assert_eq!(match_mode("e.rs", "src/cache.rs"), "none");
-        assert_eq!(match_mode("todo_list.rs", "todo_list.rs"), "exact");
-        assert_eq!(
-            match_mode("todo_list.rs", "src/todo_list.rs"),
-            "suffix_path"
-        );
-        assert_eq!(match_mode("src/auth", "src/auth/login.rs"), "suffix_path");
-        assert_eq!(match_mode("src\\auth.rs", "src/auth.rs"), "exact");
-    }
 
     #[test]
     fn file_scope_substring_no_longer_matches() {

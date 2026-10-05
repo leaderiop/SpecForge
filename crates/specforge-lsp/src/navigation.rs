@@ -5,12 +5,14 @@
 //! navigation is the LSP's own (MCP has no import tool).
 
 use specforge_common::{SourceSpan, Sym};
-use specforge_ops::navigate::{Fix, FixKind, Navigator};
+use specforge_ops::navigate::{Fix, FixKind, Navigator, OutlineEntry};
+use specforge_registry::KindRegistry;
 use specforge_resolver::{ResolveConfig, resolve_import};
 use std::collections::HashMap;
 use std::path::Path;
 use tower_lsp::lsp_types::{
-    CodeAction, CodeActionKind, Location, Position, Range, TextEdit, Url, WorkspaceEdit,
+    CodeAction, CodeActionKind, DocumentSymbol, DocumentSymbolResponse, Location, Position, Range,
+    SymbolInformation, SymbolKind, TextEdit, Url, WorkspaceEdit,
 };
 
 use crate::LspState;
@@ -129,6 +131,78 @@ pub(crate) fn fix_to_code_action(state: &LspState, fix: Fix) -> CodeAction {
     }
 }
 
+/// An outline as the LSP's document symbols: nested (methods as children,
+/// each selecting its name) when `hierarchical`, else flat (a method's
+/// container is its entity).
+pub(crate) fn outline_to_document_symbols(
+    state: &LspState,
+    entries: Vec<OutlineEntry>,
+    hierarchical: bool,
+) -> DocumentSymbolResponse {
+    let kinds = state.kind_registry();
+    if hierarchical {
+        #[allow(deprecated)]
+        let symbols = entries
+            .into_iter()
+            .map(|entry| {
+                let kind = entry.kind.as_str();
+                let children: Vec<DocumentSymbol> = entry
+                    .children
+                    .iter()
+                    .map(|method| DocumentSymbol {
+                        name: method.name.clone(),
+                        detail: Some(format!("method {}", method.signature)),
+                        kind: SymbolKind::METHOD,
+                        tags: None,
+                        deprecated: None,
+                        range: range(state, &method.block),
+                        selection_range: range(state, &method.name_span),
+                        children: None,
+                    })
+                    .collect();
+                DocumentSymbol {
+                    name: entry.id.to_string(),
+                    detail: Some(match &entry.title {
+                        Some(title) => format!("{kind} — {title}"),
+                        None => kind.to_string(),
+                    }),
+                    kind: symbol_kind_from_entity(kind, kinds),
+                    tags: None,
+                    deprecated: None,
+                    range: range(state, &entry.block),
+                    selection_range: range(state, &entry.name),
+                    children: (!children.is_empty()).then_some(children),
+                }
+            })
+            .collect();
+        return DocumentSymbolResponse::Nested(symbols);
+    }
+    let mut symbols = Vec::new();
+    for entry in entries {
+        #[allow(deprecated)]
+        symbols.push(SymbolInformation {
+            location: location(state, &entry.block),
+            name: entry.id.to_string(),
+            kind: symbol_kind_from_entity(entry.kind.as_str(), kinds),
+            tags: None,
+            deprecated: None,
+            container_name: Some(entry.kind.to_string()),
+        });
+        for method in &entry.children {
+            #[allow(deprecated)]
+            symbols.push(SymbolInformation {
+                location: location(state, &method.block),
+                name: method.name.clone(),
+                kind: SymbolKind::METHOD,
+                tags: None,
+                deprecated: None,
+                container_name: Some(entry.id.to_string()),
+            });
+        }
+    }
+    DocumentSymbolResponse::Flat(symbols)
+}
+
 /// The file a `use` import path in `importing_file` (relative to
 /// `spec_root`) names, resolved as the compile resolves it (relative,
 /// `@alias`, bare, `index.spec`, never above the spec root): its first
@@ -147,4 +221,36 @@ pub fn goto_import_definition(
         end_line: 0,
         end_col: 0,
     })
+}
+
+/// The symbol kind of an entity kind: its extension-declared LSP icon
+/// (`spec` is a namespace).
+pub(crate) fn symbol_kind_from_entity(kind: &str, kind_registry: &KindRegistry) -> SymbolKind {
+    if kind == "spec" {
+        return SymbolKind::NAMESPACE;
+    }
+    if let Some(entry) = kind_registry.get(kind)
+        && let Some(ref icon) = entry.lsp_icon
+    {
+        return lsp_icon_to_symbol_kind(icon);
+    }
+    SymbolKind::VARIABLE
+}
+
+fn lsp_icon_to_symbol_kind(icon: &str) -> SymbolKind {
+    match icon {
+        "Method" => SymbolKind::METHOD,
+        "Struct" => SymbolKind::STRUCT,
+        "Class" => SymbolKind::CLASS,
+        "Module" => SymbolKind::MODULE,
+        "Constant" => SymbolKind::CONSTANT,
+        "Event" => SymbolKind::EVENT,
+        "Interface" => SymbolKind::INTERFACE,
+        "Property" => SymbolKind::PROPERTY,
+        "Variable" => SymbolKind::VARIABLE,
+        "Text" => SymbolKind::STRING,
+        "Package" => SymbolKind::PACKAGE,
+        "Folder" => SymbolKind::NAMESPACE,
+        _ => SymbolKind::VARIABLE,
+    }
 }

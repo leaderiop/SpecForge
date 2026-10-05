@@ -466,9 +466,13 @@ behavior outline_view "Outline View" {
     the lsp_icon field from the KindRegistry — the outline MUST NOT
     hardcode any SymbolKind mappings for specific entity types. Test
     coverage indicators SHOULD be shown when coverage data is available.
+    The tree is the one specforge.outline returns: entities in line order,
+    each entity's method members as its children, each entry selecting its
+    name.
   """
   verify unit "outline lists all entities in file"
   verify unit "outline shows entity kind, ID, and title"
+  verify integration "the outline nests an entity's methods as the MCP outline does"
   verify unit "outline uses extension-defined SymbolKind from KindRegistry lsp_icon"
   verify contract "Outline View: outline view holds — graph_available, kind_registry_available, all_entities_listed, symbol_kind_delegated"
 }

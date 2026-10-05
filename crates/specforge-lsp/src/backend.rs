@@ -9,19 +9,18 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
 use specforge_project::{CheckMode, ProjectSession, SourceChange, UpdateKind};
-use specforge_registry::KindRegistry;
 
 use crate::navigation::{
-    byte_position, file_content, fix_to_code_action, location, navigator, range, span_of_range,
-    uri_of,
+    byte_position, file_content, fix_to_code_action, location, navigator,
+    outline_to_document_symbols, range, span_of_range, symbol_kind_from_entity, uri_of,
 };
 use crate::{
-    LspState, classify_tokens, complete_keywords, cursor_context, document_symbols,
-    goto_import_definition, hover_field_info, hover_info_with_registries, server_capabilities,
-    server_info, source_span_to_lsp_range, source_span_to_lsp_range_with_text,
+    LspState, classify_tokens, complete_keywords, cursor_context, goto_import_definition,
+    hover_field_info, hover_info_with_registries, server_capabilities, server_info,
+    source_span_to_lsp_range, source_span_to_lsp_range_with_text,
 };
 use specforge_ops::navigate::{
-    Direction, EntityQuery, FixQuery, MatchScope, ReferenceQuery, find_entities,
+    Direction, EntityQuery, FixQuery, MatchScope, ReferenceQuery, find_entities, outline,
 };
 
 use crate::formatting::{EditorOptions, format_document, format_document_range};
@@ -56,6 +55,10 @@ pub struct Backend {
     /// then a definition is a `LocationLink` (the block, its name
     /// selected), else a `Location` at the name.
     definition_links: Arc<AtomicBool>,
+    /// Whether the client declared
+    /// `textDocument.documentSymbol.hierarchicalDocumentSymbolSupport`:
+    /// then the outline is nested `DocumentSymbol`s, else flat.
+    hierarchical_symbols: Arc<AtomicBool>,
 }
 
 /// A change the project session is asked to apply.
@@ -132,6 +135,7 @@ impl Backend {
             watched,
             relative_patterns: Arc::new(AtomicBool::new(false)),
             definition_links: Arc::new(AtomicBool::new(false)),
+            hierarchical_symbols: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -555,36 +559,6 @@ fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic, content: Option<&str>)
     }
 }
 
-fn symbol_kind_from_entity(kind: &str, kind_registry: &KindRegistry) -> SymbolKind {
-    if kind == "spec" {
-        return SymbolKind::NAMESPACE;
-    }
-    if let Some(entry) = kind_registry.get(kind)
-        && let Some(ref icon) = entry.lsp_icon
-    {
-        return lsp_icon_to_symbol_kind(icon);
-    }
-    SymbolKind::VARIABLE
-}
-
-fn lsp_icon_to_symbol_kind(icon: &str) -> SymbolKind {
-    match icon {
-        "Method" => SymbolKind::METHOD,
-        "Struct" => SymbolKind::STRUCT,
-        "Class" => SymbolKind::CLASS,
-        "Module" => SymbolKind::MODULE,
-        "Constant" => SymbolKind::CONSTANT,
-        "Event" => SymbolKind::EVENT,
-        "Interface" => SymbolKind::INTERFACE,
-        "Property" => SymbolKind::PROPERTY,
-        "Variable" => SymbolKind::VARIABLE,
-        "Text" => SymbolKind::STRING,
-        "Package" => SymbolKind::PACKAGE,
-        "Folder" => SymbolKind::NAMESPACE,
-        _ => SymbolKind::VARIABLE,
-    }
-}
-
 /// Extract the word at a given cursor position from document content.
 pub fn word_at_position(content: &str, line: usize, col: usize) -> Option<String> {
     let target_line = content.lines().nth(line)?;
@@ -738,6 +712,15 @@ impl LanguageServer for Backend {
             .unwrap_or(false);
         self.definition_links
             .store(definition_links, Ordering::Relaxed);
+        let hierarchical_symbols = params
+            .capabilities
+            .text_document
+            .as_ref()
+            .and_then(|t| t.document_symbol.as_ref())
+            .and_then(|d| d.hierarchical_document_symbol_support)
+            .unwrap_or(false);
+        self.hierarchical_symbols
+            .store(hierarchical_symbols, Ordering::Relaxed);
         let root = params
             .root_uri
             .as_ref()
@@ -1412,6 +1395,10 @@ impl LanguageServer for Backend {
         ))
     }
 
+    /// The document's outline (`specforge_ops::navigate::outline`, what MCP
+    /// outline returns): nested symbols, methods as children, each
+    /// selecting its name, for a client that declared
+    /// hierarchicalDocumentSymbolSupport; flat otherwise.
     async fn document_symbol(
         &self,
         params: DocumentSymbolParams,
@@ -1419,29 +1406,16 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
 
         let state = self.state.read().await;
-        let symbols = document_symbols(state.graph(), &key_of(&state, &uri));
-
-        if symbols.is_empty() {
+        let entries = outline(&navigator(&state), &key_of(&state, &uri));
+        if entries.is_empty() {
             return Ok(None);
         }
-
-        // C3-09: ranges convert span byte columns to UTF-16 against the
-        // file's own text, so they survive non-ASCII prefixes.
-        let kind_reg = state.kind_registry();
-        #[allow(deprecated)]
-        let lsp_symbols: Vec<SymbolInformation> = symbols
-            .into_iter()
-            .map(|s| SymbolInformation {
-                location: location(&state, &s.span),
-                name: s.id,
-                kind: symbol_kind_from_entity(&s.kind, kind_reg),
-                tags: None,
-                deprecated: None,
-                container_name: Some(s.kind),
-            })
-            .collect();
-
-        Ok(Some(DocumentSymbolResponse::Flat(lsp_symbols)))
+        let hierarchical = self.hierarchical_symbols.load(Ordering::Relaxed);
+        Ok(Some(outline_to_document_symbols(
+            &state,
+            entries,
+            hierarchical,
+        )))
     }
 
     async fn symbol(

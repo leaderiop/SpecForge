@@ -23,7 +23,9 @@ pub fn compile(extensions: &[&str], files: &[(&str, &str)]) -> Compiled {
     )
     .unwrap();
     for (name, text) in files {
-        std::fs::write(dir.path().join(name), text).unwrap();
+        let path = dir.path().join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
     }
     let runtime = specforge_component::project_runtime(dir.path());
     let project = CompiledProject::compile(dir.path(), Some(&runtime));
@@ -1196,4 +1198,117 @@ fn the_replacement_is_read_from_the_data() {
             .fixes(&[text_only], &FixQuery::default())
             .is_empty()
     );
+}
+
+// ── Files: the file rule and the outline ────────────────────────────────
+
+use specforge_ops::navigate::{FileMatch, entities_of_file, match_file, outline};
+
+#[test]
+fn match_file_is_component_wise() {
+    // Moved from prompts/infer.rs (C9-09).
+    assert_eq!(match_file("e.rs", "src/cache.rs"), FileMatch::None);
+    assert_eq!(match_file("todo_list.rs", "todo_list.rs"), FileMatch::Exact);
+    assert_eq!(
+        match_file("todo_list.rs", "src/todo_list.rs"),
+        FileMatch::Suffix
+    );
+    assert_eq!(
+        match_file("src/auth", "src/auth/login.rs"),
+        FileMatch::Under
+    );
+    assert_eq!(match_file("src\\auth.rs", "src/auth.rs"), FileMatch::Exact);
+    // `.` components are dropped: ./src/login.rs is src/login.rs.
+    assert_eq!(
+        match_file("./src/login.rs", "src/login.rs"),
+        FileMatch::Exact
+    );
+    assert_eq!(
+        match_file("src/./login.rs", "src/login.rs"),
+        FileMatch::Exact
+    );
+    assert_eq!(match_file("", "src/login.rs"), FileMatch::None);
+    assert_eq!(match_file("login.rs", "src/xlogin.rs"), FileMatch::None);
+}
+
+#[test]
+fn the_tightest_match_wins() {
+    let p = compile(
+        SOFTWARE,
+        &[
+            ("a.spec", "behavior top \"T\" {\n}\n"),
+            ("sub/a.spec", "behavior nested \"N\" {\n}\n"),
+            ("sub/b.spec", "behavior other \"O\" {\n}\n"),
+        ],
+    );
+    let graph = &p.project.graph;
+    let ids = |found: &specforge_ops::navigate::FileEntities| -> Vec<String> {
+        found
+            .entities
+            .iter()
+            .map(|n| n.id.raw.to_string())
+            .collect()
+    };
+    let exact = entities_of_file(graph, "a.spec");
+    assert_eq!(
+        (exact.mode, ids(&exact)),
+        (FileMatch::Exact, vec!["top".to_string()])
+    );
+    let under = entities_of_file(graph, "./sub");
+    assert_eq!(under.mode, FileMatch::Under);
+    assert_eq!(ids(&under), ["nested", "other"]);
+    let suffix = entities_of_file(graph, "b.spec");
+    assert_eq!(
+        (suffix.mode, ids(&suffix)),
+        (FileMatch::Suffix, vec!["other".to_string()])
+    );
+    assert_eq!(entities_of_file(graph, "c.spec").mode, FileMatch::None);
+}
+
+#[specforge_test(
+    behavior = "outline_view",
+    verify = "outline lists all entities in file"
+)]
+fn the_outline_lists_the_files_entities() {
+    let p = compile(
+        SOFTWARE,
+        &[
+            ("test.spec", "type b \"B\" {\n}\n\nbehavior a \"A\" {\n}\n"),
+            ("other.spec", "event c \"C\" {\n}\n"),
+        ],
+    );
+    let entries = outline(&p.navigator(), "test.spec");
+    let ids: Vec<&str> = entries.iter().map(|e| e.id.as_str()).collect();
+    assert_eq!(ids, ["b", "a"], "in line order, other files left out");
+    assert_eq!(outline(&p.navigator(), "./test.spec").len(), 2);
+    assert!(
+        outline(&p.navigator(), "est.spec").is_empty(),
+        "a file is a file"
+    );
+}
+
+#[specforge_test(
+    behavior = "outline_view",
+    verify = "outline shows entity kind, ID, and title"
+)]
+fn the_outline_shows_kind_id_title_and_name() {
+    let p = compile(
+        SOFTWARE,
+        &[(
+            "store.spec",
+            "type Item \"Item\" {\n  name string\n}\n\nport store \"Store\" {\n  direction outbound\n  method save(item: Item, note?: string) -> Item\n}\n",
+        )],
+    );
+    let entries = outline(&p.navigator(), "store.spec");
+    assert_eq!(entries.len(), 2);
+    let store = &entries[1];
+    assert_eq!((store.id.as_str(), store.kind.as_str()), ("store", "port"));
+    assert_eq!(store.title.as_deref(), Some("Store"));
+    assert_eq!(at(&store.block), "store.spec 5:1-8:2");
+    assert_eq!(at(&store.name), "store.spec 5:6-5:11");
+    assert_eq!(store.children.len(), 1);
+    let save = &store.children[0];
+    assert_eq!(save.name, "save");
+    assert_eq!(save.signature, "save(item: Item, note?: string) -> Item");
+    assert_eq!(at(&save.name_span), "store.spec 7:10-7:14");
 }

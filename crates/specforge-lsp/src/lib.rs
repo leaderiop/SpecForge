@@ -7,7 +7,6 @@ mod hover;
 mod navigation;
 mod semantic_tokens;
 mod state;
-mod symbols;
 pub mod watchers;
 
 pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};
@@ -22,7 +21,6 @@ pub use semantic_tokens::{
 };
 pub use specforge_graph::rename::RenameEdit;
 pub use state::LspState;
-pub use symbols::{SymbolEntry, document_symbols};
 
 /// An LSP-compatible position range (0-based line and column).
 #[derive(Debug, Clone, PartialEq, Eq)]

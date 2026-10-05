@@ -545,18 +545,34 @@ fn rename_entity_id_contract() {
 )]
 fn outline_view_contract() {
     // Requires: graph with entities across files
-    // Ensures: document_symbols returns entities in the specified file with kind, id, title
-    let mut g = Graph::new();
-    g.add_node(node_at("a", "behavior", "test.spec", 0, 0));
-    g.add_node(node_at("b", "type", "test.spec", 5, 0));
-    g.add_node(node_at("c", "event", "other.spec", 10, 0));
+    // Ensures: the outline of a file is its entities, in line order, each
+    // with its kind, id and title, selecting its name
+    let state = buffers(&[
+        (
+            "/p/test.spec",
+            "type b \"B\" {\n}\n\nbehavior a \"A\" {\n}\n",
+        ),
+        ("/p/other.spec", "event c \"C\" {\n}\n"),
+    ]);
+    let entries =
+        specforge_ops::navigate::outline(&specforge_lsp::navigator(&state), "/p/test.spec");
 
-    let symbols = specforge_lsp::document_symbols(&g, "test.spec");
-
-    assert_eq!(symbols.len(), 2, "only entities from target file");
-    for sym in &symbols {
-        assert!(!sym.kind.is_empty(), "each symbol must have kind");
-        assert!(!sym.id.is_empty(), "each symbol must have id");
+    let ids: Vec<&str> = entries.iter().map(|e| e.id.as_str()).collect();
+    assert_eq!(
+        ids,
+        ["b", "a"],
+        "only entities from target file, in line order"
+    );
+    for entry in &entries {
+        assert!(
+            !entry.kind.as_str().is_empty(),
+            "each symbol must have kind"
+        );
+        assert!(entry.title.is_some(), "each symbol must have title");
+        assert_eq!(
+            entry.name.start_line, entry.block.start_line,
+            "the name is selected"
+        );
     }
 }
 

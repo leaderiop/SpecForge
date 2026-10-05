@@ -640,36 +640,7 @@ const CASES: &[Case] = &[
 
 /// What each surface answers otherwise today. Later tickets delete rows;
 /// none may be added to excuse a regression.
-const EXPECTED_DIVERGENCES: &[Divergence] = &[
-    Divergence {
-        id: "N13",
-        case: "outline_of_a_file",
-        surface: Surface::Lsp,
-        today: &["login behavior 1:1-3:2", "logout behavior 5:1-7:2"],
-    },
-    Divergence {
-        id: "N13",
-        case: "outline_of_a_file",
-        surface: Surface::Mcp,
-        today: &["login behavior 1:1-3:2", "logout behavior 5:1-7:2"],
-    },
-    Divergence {
-        id: "N13",
-        case: "outline_of_a_file_with_methods",
-        surface: Surface::Lsp,
-        today: &["Item type 1:1-3:2", "store port 5:1-8:2"],
-    },
-    Divergence {
-        id: "N13",
-        case: "outline_of_a_file_with_methods",
-        surface: Surface::Mcp,
-        today: &[
-            "Item type 1:1-3:2",
-            "store port 5:1-8:2",
-            "  save method 7:3-7:34",
-        ],
-    },
-];
+const EXPECTED_DIVERGENCES: &[Divergence] = &[];
 
 /// What `surface` should answer to `case` now: its row's `today`, else the
 /// case's target.
@@ -1077,6 +1048,38 @@ fn suggest_fixes_carries_the_code_actions_edits() {
         let actions = lsp_actions(p, &lsp);
         assert!(!actions.is_empty(), "{file}: no fixes to compare");
         assert_eq!(mcp_fixes(&mcp), actions, "{file}");
+    }
+}
+
+/// The LSP's document symbols are the tree MCP outline returns: entities
+/// in line order, methods nested as children, each selecting its name.
+#[specforge_test(
+    behavior = "outline_view",
+    verify = "the outline nests an entity's methods as the MCP outline does"
+)]
+fn document_symbols_nest_as_the_mcp_outline() {
+    for (fixture, file) in [
+        ("port", "store.spec"),
+        ("nav", "login.spec"),
+        ("nav", "limit.spec"),
+    ] {
+        let p = project(fixture);
+        let lsp = lsp_requests(
+            &p,
+            hierarchical(),
+            vec![(
+                "textDocument/documentSymbol",
+                json!({"textDocument": {"uri": p.uri(file)}}),
+            )],
+        )
+        .pop()
+        .unwrap();
+        let mcp = mcp_tool(&p, "specforge.outline", json!({"file": file}));
+        assert_eq!(
+            lsp_outline(&p, file, &lsp),
+            mcp_outline(&mcp),
+            "{fixture} {file}"
+        );
     }
 }
 
