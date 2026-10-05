@@ -445,6 +445,7 @@ behavior write_build_cache "Write the Build Cache" {
     cache. The file is replaced atomically (written beside, then
     renamed). A check that exits non-zero (errors, or warnings under
     `--strict`) does not write it: a broken build is not a baseline.
+    A --severity filter does not change whether the file is written.
     CI may commit the file to check transitions across builds.
   """
   produces []
