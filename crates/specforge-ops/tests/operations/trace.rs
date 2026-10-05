@@ -276,10 +276,6 @@ fn trace_dangling_edge_is_not_a_missing_link() {
         !trace.downstream.iter().any(|l| l.entity_id == "phantom"),
         "an undeclared entity is not part of the chain"
     );
-    assert_eq!(
-        specforge_ops::trace::detect_trace_gaps(&graph),
-        vec!["dangling edge target 'phantom' in edge b -> phantom (invariants)".to_string()]
-    );
 }
 
 // B:compute_traceability_chain — the expected edges come from the

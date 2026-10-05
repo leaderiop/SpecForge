@@ -79,7 +79,7 @@ impl<'a> ProjectView<'a> {
     /// `<root>/specforge-report.json`, what `specforge collect` last wrote:
     /// `Ok(None)` without a root or a file; an error (E045) when it is there
     /// but unusable.
-    pub fn recorded_report(&self) -> Result<Option<Arc<TestReport>>, ReportError> {
+    pub fn test_report(&self) -> Result<Option<Arc<TestReport>>, ReportError> {
         self.recorded.report(self.root)
     }
 
@@ -144,17 +144,17 @@ mod tests {
 
         let recorded = RecordedCoverage::default();
         let at_sub = ProjectView::new(&graph, &registries, Some(&sub), &recorded);
-        assert!(at_sub.recorded_report().unwrap().is_none());
+        assert!(at_sub.test_report().unwrap().is_none());
         assert!(at_sub.coverage().unwrap().summary.test_results.is_none());
 
         let recorded = RecordedCoverage::default();
         let at_root = ProjectView::new(&graph, &registries, Some(project), &recorded);
-        let error = at_root.recorded_report().unwrap_err();
+        let error = at_root.test_report().unwrap_err();
         assert_eq!(error.diagnostic().code, "E045");
         assert!(at_root.coverage().is_err());
 
         let recorded = RecordedCoverage::default();
         let rootless = ProjectView::new(&graph, &registries, None, &recorded);
-        assert!(rootless.recorded_report().unwrap().is_none());
+        assert!(rootless.test_report().unwrap().is_none());
     }
 }

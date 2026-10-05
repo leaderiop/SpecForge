@@ -399,7 +399,7 @@ fn read_report(
     let read = match source {
         ReportSource::None => Ok(None),
         ReportSource::File(path) => coverage::read_report_file(path).map(|r| Some(Arc::new(r))),
-        ReportSource::Recorded => view.recorded_report(),
+        ReportSource::Recorded => view.test_report(),
     };
     read.map_err(|e: ReportError| AnalyzeError::UnusableReport(e.diagnostic().into()))
 }

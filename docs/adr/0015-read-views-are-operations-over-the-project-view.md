@@ -28,7 +28,7 @@ compiled from, and its owner's coverage memo. Three constructors: `ProjectView::
 (the CLI), `ProjectView::of_session(&ProjectSession, root)` (the LSP), `ProjectView::new` (tests and
 graphs built in memory); MCP builds every view through `ProjectRef::view()` of its call target (ADR
 0014), or `Call::view()` for a call that may have no project. The view owns the recorded test
-report (`recorded_report`), the coverage computed from it (`coverage`) and the versioned schema
+report (`test_report`), the coverage computed from it (`coverage`) and the versioned schema
 (`versioned_schema`, `schema_cache`).
 
 The operations, each one function over the view returning a typed outcome:

@@ -425,32 +425,6 @@ fn missing_links(
         .collect()
 }
 
-/// Edges whose source or target is not a node of the graph. These are
-/// broken references (E003 in check), not gaps of a chain: the trace
-/// prompt's until plan 07 T6 replaces it with the chains' missing links,
-/// then it goes (plan 02 T8).
-pub fn detect_trace_gaps(graph: &Graph) -> Vec<String> {
-    let node_ids: HashSet<&str> = graph.nodes().iter().map(|n| n.id.raw.as_str()).collect();
-    let mut gaps = Vec::new();
-    for edge in graph.edges() {
-        if !node_ids.contains(edge.source.as_str()) {
-            gaps.push(format!(
-                "dangling edge source '{}' in edge {} -> {} ({})",
-                edge.source, edge.source, edge.target, edge.label
-            ));
-        }
-        if !node_ids.contains(edge.target.as_str()) {
-            gaps.push(format!(
-                "dangling edge target '{}' in edge {} -> {} ({})",
-                edge.target, edge.source, edge.target, edge.label
-            ));
-        }
-    }
-    gaps.sort();
-    gaps.dedup();
-    gaps
-}
-
 /// A chain as terminal text: the entity, then its upstream, downstream and
 /// missing links, one per line. Missing links are marked `MISSING`.
 fn render_human(chain: &TraceChain) -> String {
