@@ -3,7 +3,7 @@ use serde::Deserialize;
 use crate::args::{lenient, strings};
 use crate::target::Call;
 use crate::tool::{Handled, ToolOutcome};
-use specforge_project::DiagnosticPolicy;
+use specforge_ops::check::{CheckError, CheckOptions, check, parse_lint_profiles, parse_severity};
 
 #[derive(Debug, Deserialize)]
 pub struct Args {
@@ -23,32 +23,51 @@ pub struct Args {
     use_cached: Option<bool>,
 }
 
-/// `specforge.validate`: what `specforge check` reports for the call's
-/// project. The target brought the served project up to date with disk
-/// (unless `use_cached`), or compiled the project `path` names for this
-/// call.
+/// The `_meta` key of validate's verdict: `{ok, errors, warnings, infos,
+/// shown}` over everything reported, whatever `severity_filter` shows.
+pub const VERDICT_META: &str = "specforge/check";
+
+/// `specforge.validate`: the check operation over what `specforge check`
+/// reports for the call's project (the target brought the served project
+/// up to date with disk unless `use_cached`, or compiled the project
+/// `path` names for this call). Finding errors is a successful call (ADR
+/// 0004 D4-a); whether the check passed is the `_meta` verdict. The tool
+/// never records the build cache.
 pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
-    let project = call.project()?;
-    let severity_filter = args.severity_filter.as_deref();
-
-    // The policy `specforge check` applies: lint profiles add theirs, and
-    // strict promotes warnings before filtering, so a promoted warning
-    // counts as an error for `severity_filter` and `isError` alike.
-    let policy = DiagnosticPolicy {
-        strict: args.strict.unwrap_or(false),
-        lint_profiles: args.lint.iter().filter_map(|p| p.parse().ok()).collect(),
+    let severity = match args.severity_filter.as_deref().map(parse_severity) {
+        None => None,
+        Some(Ok(severity)) => Some(severity),
+        Some(Err(error)) => return Ok(refused(error, "severity_filter")),
     };
-    let promoted = policy.apply(project.root, project.diagnostics());
-    let filtered: Vec<specforge_common::Diagnostic> = promoted
-        .into_iter()
-        .filter(|d| match severity_filter {
-            Some("error") => d.severity == specforge_common::Severity::Error,
-            Some("warning") => d.severity == specforge_common::Severity::Warning,
-            Some("info") => d.severity == specforge_common::Severity::Info,
-            _ => true,
-        })
-        .collect();
-    let diag_json = specforge_common::serialize_diagnostics(&filtered);
+    let lint_profiles = match parse_lint_profiles(&args.lint) {
+        Ok(profiles) => profiles,
+        Err(error) => return Ok(refused(error, "lint")),
+    };
+    let project = call.project()?;
+    let options = CheckOptions {
+        strict: args.strict.unwrap_or(false),
+        lint_profiles,
+        severity,
+        record_cache: false,
+    };
+    let outcome = match check(&project.view(), project.diagnostics(), &options) {
+        Ok(outcome) => outcome,
+        Err(error) => return Ok(refused(error, "path")),
+    };
+    let shown: Vec<specforge_common::Diagnostic> = outcome.shown().into_iter().cloned().collect();
+    Ok(
+        ToolOutcome::text(specforge_common::serialize_diagnostics(&shown))
+            .with_meta(VERDICT_META, outcome.verdict_json()),
+    )
+}
 
-    Ok(ToolOutcome::text(diag_json))
+/// Why validate could not run: an argument it cannot use (`invalid_input`
+/// naming it, with the closest valid name), or no project root.
+fn refused(error: CheckError, argument: &str) -> ToolOutcome {
+    match error {
+        CheckError::NoProjectRoot => ToolOutcome::no_project(error.to_string()),
+        error => crate::operations::op_error(error.into())
+            .with_argument(argument)
+            .into(),
+    }
 }

@@ -77,9 +77,9 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "type": "object",
                 "properties": {
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" },
-                    "severity_filter": { "type": "string", "description": "Only report diagnostics of this severity (error, warning, info)" },
+                    "severity_filter": { "type": "string", "enum": ["error", "warning", "info"], "description": "Only report diagnostics of this severity, after strict promotion (case-insensitive). The verdict in _meta[\"specforge/check\"] still counts everything reported" },
                     "strict": { "type": "boolean", "description": "Promote warnings to errors, before severity_filter applies", "default": false },
-                    "lint": { "type": "array", "items": { "type": "string" }, "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json)" },
+                    "lint": { "type": "array", "items": { "type": "string", "enum": ["inferred", "pedantic"] }, "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)" },
                     "use_cached": { "type": "boolean", "description": "Report cached diagnostics from the last compile instead of recompiling", "default": false }
                 }
             })

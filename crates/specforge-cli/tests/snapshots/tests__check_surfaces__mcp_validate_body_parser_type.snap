@@ -6,7 +6,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
   {
     "arguments": {},
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 0,
+          "infos": 0,
+          "ok": true,
+          "shown": 3,
+          "warnings": 3
+        }
+      },
       "content": [
         {
           "text": [
@@ -73,7 +81,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "strict": true
     },
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 3,
+          "infos": 0,
+          "ok": false,
+          "shown": 3,
+          "warnings": 0
+        }
+      },
       "content": [
         {
           "text": [
@@ -140,7 +156,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "severity_filter": "error"
     },
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 0,
+          "infos": 0,
+          "ok": true,
+          "shown": 0,
+          "warnings": 3
+        }
+      },
       "content": [
         {
           "text": [],
@@ -155,7 +179,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "severity_filter": "warning"
     },
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 0,
+          "infos": 0,
+          "ok": true,
+          "shown": 3,
+          "warnings": 3
+        }
+      },
       "content": [
         {
           "text": [
@@ -222,7 +254,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "severity_filter": "info"
     },
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 0,
+          "infos": 0,
+          "ok": true,
+          "shown": 0,
+          "warnings": 3
+        }
+      },
       "content": [
         {
           "text": [],
@@ -238,7 +278,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "strict": true
     },
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 3,
+          "infos": 0,
+          "ok": false,
+          "shown": 3,
+          "warnings": 0
+        }
+      },
       "content": [
         {
           "text": [
@@ -305,62 +353,18 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "severity_filter": "Error"
     },
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 0,
+          "infos": 0,
+          "ok": true,
+          "shown": 0,
+          "warnings": 3
+        }
+      },
       "content": [
         {
-          "text": [
-            {
-              "code": "W002",
-              "column": 1,
-              "file": "main.spec",
-              "line": 4,
-              "message": "type 'Money' is not referenced by any behavior, port, or type",
-              "severity": "Warning",
-              "span": {
-                "end_col": 2,
-                "end_line": 8,
-                "file": "main.spec",
-                "start_col": 1,
-                "start_line": 4
-              },
-              "suggestion": null,
-              "title": "Unreferenced type"
-            },
-            {
-              "code": "W004",
-              "column": 1,
-              "file": "main.spec",
-              "line": 4,
-              "message": "type 'Money' is testable but declares no verify obligations",
-              "severity": "Warning",
-              "span": {
-                "end_col": 2,
-                "end_line": 8,
-                "file": "main.spec",
-                "start_col": 1,
-                "start_line": 4
-              },
-              "suggestion": null,
-              "title": "Untested testable entity"
-            },
-            {
-              "code": "W010",
-              "column": 1,
-              "file": "main.spec",
-              "line": 4,
-              "message": "type 'Money' field 'amount' has unknown annotation '@min'",
-              "severity": "Warning",
-              "span": {
-                "end_col": 2,
-                "end_line": 8,
-                "file": "main.spec",
-                "start_col": 1,
-                "start_line": 4
-              },
-              "suggestion": null,
-              "title": "Unknown field annotation"
-            }
-          ],
+          "text": [],
           "type": "text"
         }
       ],
@@ -375,63 +379,28 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "_meta": "<absent>",
       "content": [
         {
-          "text": [
-            {
-              "code": "W002",
-              "column": 1,
-              "file": "main.spec",
-              "line": 4,
-              "message": "type 'Money' is not referenced by any behavior, port, or type",
-              "severity": "Warning",
-              "span": {
-                "end_col": 2,
-                "end_line": 8,
-                "file": "main.spec",
-                "start_col": 1,
-                "start_line": 4
-              },
-              "suggestion": null,
-              "title": "Unreferenced type"
+          "text": {
+            "argument": "severity_filter",
+            "code": "invalid_input",
+            "data": {
+              "suggestion": "did you mean 'error'?"
             },
-            {
-              "code": "W004",
-              "column": 1,
-              "file": "main.spec",
-              "line": 4,
-              "message": "type 'Money' is testable but declares no verify obligations",
-              "severity": "Warning",
-              "span": {
-                "end_col": 2,
-                "end_line": 8,
-                "file": "main.spec",
-                "start_col": 1,
-                "start_line": 4
-              },
-              "suggestion": null,
-              "title": "Untested testable entity"
-            },
-            {
-              "code": "W010",
-              "column": 1,
-              "file": "main.spec",
-              "line": 4,
-              "message": "type 'Money' field 'amount' has unknown annotation '@min'",
-              "severity": "Warning",
-              "span": {
-                "end_col": 2,
-                "end_line": 8,
-                "file": "main.spec",
-                "start_col": 1,
-                "start_line": 4
-              },
-              "suggestion": null,
-              "title": "Unknown field annotation"
-            }
-          ],
+            "message": "Unknown severity 'errors' (available: error, warning, info)",
+            "tool": "specforge.validate"
+          },
           "type": "text"
         }
       ],
-      "isError": false
+      "isError": true,
+      "structuredContent": {
+        "argument": "severity_filter",
+        "code": "invalid_input",
+        "data": {
+          "suggestion": "did you mean 'error'?"
+        },
+        "message": "Unknown severity 'errors' (available: error, warning, info)",
+        "tool": "specforge.validate"
+      }
     }
   },
   {
@@ -444,63 +413,22 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "_meta": "<absent>",
       "content": [
         {
-          "text": [
-            {
-              "code": "W002",
-              "column": 1,
-              "file": "main.spec",
-              "line": 4,
-              "message": "type 'Money' is not referenced by any behavior, port, or type",
-              "severity": "Warning",
-              "span": {
-                "end_col": 2,
-                "end_line": 8,
-                "file": "main.spec",
-                "start_col": 1,
-                "start_line": 4
-              },
-              "suggestion": null,
-              "title": "Unreferenced type"
-            },
-            {
-              "code": "W004",
-              "column": 1,
-              "file": "main.spec",
-              "line": 4,
-              "message": "type 'Money' is testable but declares no verify obligations",
-              "severity": "Warning",
-              "span": {
-                "end_col": 2,
-                "end_line": 8,
-                "file": "main.spec",
-                "start_col": 1,
-                "start_line": 4
-              },
-              "suggestion": null,
-              "title": "Untested testable entity"
-            },
-            {
-              "code": "W010",
-              "column": 1,
-              "file": "main.spec",
-              "line": 4,
-              "message": "type 'Money' field 'amount' has unknown annotation '@min'",
-              "severity": "Warning",
-              "span": {
-                "end_col": 2,
-                "end_line": 8,
-                "file": "main.spec",
-                "start_col": 1,
-                "start_line": 4
-              },
-              "suggestion": null,
-              "title": "Unknown field annotation"
-            }
-          ],
+          "text": {
+            "argument": "lint",
+            "code": "invalid_input",
+            "message": "Unknown lint profile 'nonsense' (available: inferred, pedantic)",
+            "tool": "specforge.validate"
+          },
           "type": "text"
         }
       ],
-      "isError": false
+      "isError": true,
+      "structuredContent": {
+        "argument": "lint",
+        "code": "invalid_input",
+        "message": "Unknown lint profile 'nonsense' (available: inferred, pedantic)",
+        "tool": "specforge.validate"
+      }
     }
   }
 ]

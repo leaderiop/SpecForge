@@ -6,7 +6,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
   {
     "arguments": {},
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 1,
+          "infos": 0,
+          "ok": false,
+          "shown": 1,
+          "warnings": 0
+        }
+      },
       "content": [
         {
           "text": [
@@ -43,7 +51,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "strict": true
     },
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 1,
+          "infos": 0,
+          "ok": false,
+          "shown": 1,
+          "warnings": 0
+        }
+      },
       "content": [
         {
           "text": [
@@ -80,7 +96,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "severity_filter": "error"
     },
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 1,
+          "infos": 0,
+          "ok": false,
+          "shown": 1,
+          "warnings": 0
+        }
+      },
       "content": [
         {
           "text": [
@@ -117,7 +141,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "severity_filter": "warning"
     },
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 1,
+          "infos": 0,
+          "ok": false,
+          "shown": 0,
+          "warnings": 0
+        }
+      },
       "content": [
         {
           "text": [],
@@ -132,7 +164,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "severity_filter": "info"
     },
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 1,
+          "infos": 0,
+          "ok": false,
+          "shown": 0,
+          "warnings": 0
+        }
+      },
       "content": [
         {
           "text": [],
@@ -148,7 +188,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "strict": true
     },
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 1,
+          "infos": 0,
+          "ok": false,
+          "shown": 1,
+          "warnings": 0
+        }
+      },
       "content": [
         {
           "text": [
@@ -185,7 +233,15 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "severity_filter": "Error"
     },
     "result": {
-      "_meta": "<absent>",
+      "_meta": {
+        "specforge/check": {
+          "errors": 1,
+          "infos": 0,
+          "ok": false,
+          "shown": 1,
+          "warnings": 0
+        }
+      },
       "content": [
         {
           "text": [
@@ -225,33 +281,28 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "_meta": "<absent>",
       "content": [
         {
-          "text": [
-            {
-              "code": "E025",
-              "column": 1,
-              "data": {
-                "kind": "unresolved_import",
-                "path": "missing"
-              },
-              "file": "main.spec",
-              "line": 1,
-              "message": "import target not found: missing",
-              "severity": "Error",
-              "span": {
-                "end_col": 14,
-                "end_line": 1,
-                "file": "main.spec",
-                "start_col": 1,
-                "start_line": 1
-              },
-              "suggestion": null,
-              "title": "Import resolution failed"
-            }
-          ],
+          "text": {
+            "argument": "severity_filter",
+            "code": "invalid_input",
+            "data": {
+              "suggestion": "did you mean 'error'?"
+            },
+            "message": "Unknown severity 'errors' (available: error, warning, info)",
+            "tool": "specforge.validate"
+          },
           "type": "text"
         }
       ],
-      "isError": false
+      "isError": true,
+      "structuredContent": {
+        "argument": "severity_filter",
+        "code": "invalid_input",
+        "data": {
+          "suggestion": "did you mean 'error'?"
+        },
+        "message": "Unknown severity 'errors' (available: error, warning, info)",
+        "tool": "specforge.validate"
+      }
     }
   },
   {
@@ -264,33 +315,22 @@ expression: "normalized(&Value::Array(calls), dir.path())"
       "_meta": "<absent>",
       "content": [
         {
-          "text": [
-            {
-              "code": "E025",
-              "column": 1,
-              "data": {
-                "kind": "unresolved_import",
-                "path": "missing"
-              },
-              "file": "main.spec",
-              "line": 1,
-              "message": "import target not found: missing",
-              "severity": "Error",
-              "span": {
-                "end_col": 14,
-                "end_line": 1,
-                "file": "main.spec",
-                "start_col": 1,
-                "start_line": 1
-              },
-              "suggestion": null,
-              "title": "Import resolution failed"
-            }
-          ],
+          "text": {
+            "argument": "lint",
+            "code": "invalid_input",
+            "message": "Unknown lint profile 'nonsense' (available: inferred, pedantic)",
+            "tool": "specforge.validate"
+          },
           "type": "text"
         }
       ],
-      "isError": false
+      "isError": true,
+      "structuredContent": {
+        "argument": "lint",
+        "code": "invalid_input",
+        "message": "Unknown lint profile 'nonsense' (available: inferred, pedantic)",
+        "tool": "specforge.validate"
+      }
     }
   }
 ]

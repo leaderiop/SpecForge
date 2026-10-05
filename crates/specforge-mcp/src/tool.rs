@@ -324,12 +324,13 @@ pub enum Payload {
 #[derive(Debug, Clone)]
 pub enum ToolOutcome {
     /// The tool ran. `is_error` marks a failed run (an `isError` result);
-    /// `diagnostics` ride in `_meta.diagnostics`; `events` are pushed before
-    /// the reply goes out.
+    /// `diagnostics` ride in `_meta.diagnostics` and `meta`'s entries beside
+    /// them in `_meta`; `events` are pushed before the reply goes out.
     Done {
         payload: Payload,
         is_error: bool,
         diagnostics: Vec<Diagnostic>,
+        meta: serde_json::Map<String, Value>,
         events: Vec<(String, Value)>,
     },
     /// The tool failed: an `isError` result carrying the `McpError` (ADR
@@ -343,6 +344,7 @@ impl ToolOutcome {
             payload,
             is_error,
             diagnostics: Vec::new(),
+            meta: serde_json::Map::new(),
             events: Vec::new(),
         }
     }
@@ -390,6 +392,17 @@ impl ToolOutcome {
         match &mut self {
             ToolOutcome::Done { diagnostics, .. } => diagnostics.extend(extra),
             ToolOutcome::Refused(error) => error.reported.extend(extra),
+        }
+        self
+    }
+
+    /// The same outcome with `value` under `key` in its `_meta` (a
+    /// `specforge/`-prefixed key: MCP reserves `mcp` and
+    /// `modelcontextprotocol`). A failure has no `_meta` but its
+    /// diagnostics, so it is left as it is.
+    pub fn with_meta(mut self, key: impl Into<String>, value: Value) -> Self {
+        if let ToolOutcome::Done { meta, .. } = &mut self {
+            meta.insert(key.into(), value);
         }
         self
     }
@@ -485,17 +498,23 @@ pub fn envelope(
     structured: bool,
     typed: bool,
 ) -> JsonRpcResponse {
-    let (payload, is_error, diagnostics) = match outcome {
+    let (payload, is_error, diagnostics, mut meta) = match outcome {
         ToolOutcome::Refused(error) => {
             let json = error.to_json();
-            (Payload::Json(json), true, error.reported)
+            (
+                Payload::Json(json),
+                true,
+                error.reported,
+                serde_json::Map::new(),
+            )
         }
         ToolOutcome::Done {
             payload,
             is_error,
             diagnostics,
+            meta,
             ..
-        } => (payload, is_error, diagnostics),
+        } => (payload, is_error, diagnostics, meta),
     };
     let content: Vec<Value> = match &payload {
         Payload::Json(value) => vec![json!({ "type": "text", "text": value.to_string() })],
@@ -512,10 +531,14 @@ pub fn envelope(
         result["structuredContent"] = object;
     }
     if !diagnostics.is_empty() {
-        result["_meta"] = json!({
-            "diagnostics": serde_json::to_value(specforge_common::diagnostics_json(&diagnostics))
+        meta.insert(
+            "diagnostics".to_string(),
+            serde_json::to_value(specforge_common::diagnostics_json(&diagnostics))
                 .unwrap_or_default(),
-        });
+        );
+    }
+    if !meta.is_empty() {
+        result["_meta"] = Value::Object(meta);
     }
     JsonRpcResponse::success(id, result)
 }
