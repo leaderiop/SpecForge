@@ -73,7 +73,7 @@ fn add_local_file_json_output() {
 }
 
 #[test]
-fn publish_without_manifest_fails() {
+fn publish_without_a_built_extension_fails() {
     let dir = TempDir::new().unwrap();
     specforge_cmd()
         .arg("publish")
@@ -84,7 +84,7 @@ fn publish_without_manifest_fails() {
 }
 
 #[test]
-fn publish_without_manifest_json_output() {
+fn publish_without_a_built_extension_json_output() {
     let dir = TempDir::new().unwrap();
     let output = specforge_cmd()
         .arg("publish")
@@ -287,14 +287,11 @@ fn update_without_registry_makes_no_network_call() {
 fn publish_without_registry_makes_no_network_call() {
     let spy = NetSpy::start();
     let dir = project_without_registry();
-    std::fs::write(
-        dir.path().join("manifest.json"),
-        r#"{"name":"@acme/widget","version":"1.0.0","manifestVersion":2,"wasmPath":"widget.wasm"}"#,
-    )
-    .unwrap();
-    std::fs::write(dir.path().join("widget.wasm"), b"\x00asm\x01\x00\x00\x00").unwrap();
+    std::fs::write(dir.path().join("greet.wasm"), greet_wasm()).unwrap();
     let output = spy
-        .command(&["publish", "--format", "json", "--path"])
+        .command(&["publish", "--format", "json"])
+        .arg(dir.path().join("greet.wasm"))
+        .arg("--path")
         .arg(dir.path())
         .output()
         .unwrap();

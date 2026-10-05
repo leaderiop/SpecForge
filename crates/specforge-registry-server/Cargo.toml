@@ -11,7 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 semver = { workspace = true }
-specforge-registry = { path = "../specforge-registry" }
+specforge-protocol-types = { path = "../specforge-protocol-types" }
 axum = { version = "0.8.4", features = ["multipart"] }
 tokio = { workspace = true }
 serde = { workspace = true }
@@ -28,6 +28,8 @@ hex = "0.4.3"
 parking_lot = "0.12"
 
 [dev-dependencies]
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
 tower = { version = "0.5", features = ["util"] }
 reqwest = { workspace = true }
 tempfile = { workspace = true }

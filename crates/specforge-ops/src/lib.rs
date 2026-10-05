@@ -22,6 +22,7 @@ pub mod init;
 pub mod migrate;
 pub mod plan;
 pub mod prove;
+pub mod publish;
 pub mod registry;
 pub mod rename;
 pub mod scan;

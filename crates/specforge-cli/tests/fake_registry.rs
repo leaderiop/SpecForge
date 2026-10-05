@@ -65,21 +65,44 @@ impl Package {
         self
     }
 
+    /// The package's manifest: its declaration (ADR 0012). A loadable
+    /// binary is published with what it declares, plus any peer
+    /// `with_peer` adds; other bytes with a declaration of just its name,
+    /// version and peers.
     fn manifest(&self) -> String {
         let peers: Vec<serde_json::Value> = self
             .peers
             .iter()
             .map(|(name, range)| serde_json::json!({"name": name, "version": range}))
             .collect();
-        serde_json::json!({
-            "name": self.name,
-            "version": self.version,
-            "manifestVersion": 2,
-            "wasmPath": "extension.wasm",
-            "peerDependencies": peers,
-        })
-        .to_string()
+        let mut declaration = match declared(&self.wasm) {
+            Some(declaration) => serde_json::to_value(declaration).unwrap(),
+            None => serde_json::json!({
+                "handshake": {
+                    "protocol_version": "1.0.0",
+                    "name": self.name,
+                    "version": self.version,
+                    "contribution_flags": {},
+                    "peer_dependencies": [],
+                    "sandbox_policy": null,
+                }
+            }),
+        };
+        declaration["handshake"]["peer_dependencies"]
+            .as_array_mut()
+            .unwrap()
+            .extend(peers);
+        declaration.to_string()
     }
+}
+
+/// What `wasm` declares, when it is a loadable extension.
+fn declared(wasm: &[u8]) -> Option<specforge_wasm::protocol::ExtensionDeclaration> {
+    let runtime = specforge_component::ComponentRuntime::new();
+    runtime.load_module_bytes("__served", wasm).ok()?;
+    specforge_wasm::protocol::load_declaration(&runtime, "__served")
+        .ok()
+        .map(|loaded| loaded.declaration)
 }
 
 pub struct FakeRegistry {

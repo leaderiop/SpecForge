@@ -40,6 +40,7 @@ mod parity;
 mod pipeline;
 mod product_commands;
 mod product_rules;
+mod publish;
 mod query;
 mod registry;
 mod schema_cache;

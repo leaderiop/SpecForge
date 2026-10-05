@@ -1,7 +1,7 @@
 use specforge_common::{Diagnostic, Severity};
 
 use super::registry_config::{RegistryConfig, RegistryCredential};
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 
 /// Response from fetching an extension package from a registry.
 #[derive(Debug, Clone)]
@@ -139,7 +139,7 @@ pub trait RegistryClient: Send + Sync {
     fn publish(
         &self,
         package: &[u8],
-        manifest: &ManifestV2,
+        declaration: &ExtensionDeclaration,
         manifest_json: &str,
         signature: Option<&str>,
         registry: &RegistryConfig,

@@ -19,8 +19,8 @@ use tempfile::TempDir;
 const NAME: &str = "@acme/tool";
 const VERSION: &str = "1.0.0";
 const WASM: &[u8] = b"\0asm-acme-tool";
-const MANIFEST: &str =
-    r#"{"name":"@acme/tool","version":"1.0.0","manifestVersion":2,"wasmPath":"tool.wasm"}"#;
+/// The package's declaration, as `specforge publish` uploads it.
+const MANIFEST: &str = r#"{"handshake":{"protocol_version":"1.0.0","name":"@acme/tool","version":"1.0.0","contribution_flags":{},"peer_dependencies":[],"sandbox_policy":null}}"#;
 
 fn sha256(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
@@ -238,9 +238,10 @@ fn a_signature_over_other_bytes_is_refused_even_with_allow_unsigned() {
 fn a_swapped_manifest_breaks_the_signature() {
     let key = SigningKey::generate();
     let served = Served {
-        manifest:
-            r#"{"name":"@acme/tool","version":"1.0.0","manifestVersion":3,"wasmPath":"tool.wasm"}"#
-                .to_string(),
+        manifest: MANIFEST.replace(
+            "\"sandbox_policy\":null",
+            "\"sandbox_policy\":null,\"theme_color\":\"#000000\"",
+        ),
         ..Served::signed(&key)
     };
     let project = Project::on(served);
@@ -414,13 +415,14 @@ fn a_registry_answering_with_another_package_is_refused() {
 )]
 fn a_correctly_signed_package_carries_the_peers_its_manifest_declares() {
     let key = SigningKey::generate();
-    let manifest = r#"{"name":"@acme/tool","version":"1.0.0","manifestVersion":2,"wasmPath":"tool.wasm","peerDependencies":[{"name":"@acme/base","version":"^1.0"}]}"#;
+    let manifest = r#"{"handshake":{"protocol_version":"1.0.0","name":"@acme/tool","version":"1.0.0","contribution_flags":{},"peer_dependencies":[{"name":"@acme/base","version":"^1.0"}],"sandbox_policy":null}}"#;
     let project = Project::on(Served::signed_over(&key, NAME, WASM, manifest));
 
     let package = project.fetch(false, Trust::Refuse).unwrap();
-    assert_eq!(package.peers.len(), 1, "{:?}", package.peers);
-    assert_eq!(package.peers[0].name, "@acme/base");
-    assert_eq!(package.peers[0].version, "^1.0");
+    let peers = package.declaration.peers();
+    assert_eq!(peers.len(), 1, "{peers:?}");
+    assert_eq!(peers[0].name, "@acme/base");
+    assert_eq!(peers[0].version, "^1.0");
 }
 
 #[specforge_test(
@@ -431,7 +433,7 @@ fn a_manifest_that_cannot_be_read_is_refused_and_pins_nothing() {
     // Signed over the unreadable manifest, so only the manifest itself is
     // wrong. Read as "no peers", it would slip past the diamond gate.
     let key = SigningKey::generate();
-    let manifest = r#"{"name":"@acme/tool","peerDependencies":"not a list"}"#;
+    let manifest = r#"{"handshake":{"name":"@acme/tool","peer_dependencies":"not a list"}}"#;
     let project = Project::on(Served::signed_over(&key, NAME, WASM, manifest));
 
     let error = project.fetch(true, Trust::AssumeYes).unwrap_err();
@@ -461,12 +463,34 @@ fn a_package_served_without_a_manifest_is_refused() {
 )]
 fn a_manifest_describing_another_package_is_refused() {
     let key = SigningKey::generate();
-    let manifest =
-        r#"{"name":"@evil/tool","version":"1.0.0","manifestVersion":2,"wasmPath":"tool.wasm"}"#;
+    let manifest = r#"{"handshake":{"protocol_version":"1.0.0","name":"@evil/tool","version":"1.0.0","contribution_flags":{},"peer_dependencies":[],"sandbox_policy":null}}"#;
     let project = Project::on(Served::signed_over(&key, NAME, WASM, manifest));
 
     let error = project.fetch(true, Trust::AssumeYes).unwrap_err();
     assert_eq!(error.code, "R-TRUST-004", "{error:?}");
     assert!(error.message.contains("@evil/tool"), "{error:?}");
     assert_eq!(project.pinned(), None);
+}
+
+#[specforge_test(
+    behavior = "check_registry_reply",
+    verify = "a package published with a legacy manifest is refused with a re-publish suggestion"
+)]
+fn a_package_published_with_a_legacy_manifest_is_refused() {
+    // Published before ADR 0012: its manifest is the camelCase
+    // manifest file, not a declaration.
+    let key = SigningKey::generate();
+    let legacy =
+        r#"{"name":"@acme/tool","version":"1.0.0","manifestVersion":2,"wasmPath":"tool.wasm"}"#;
+    let project = Project::on(Served::signed_over(&key, NAME, WASM, legacy));
+
+    let error = project.fetch(true, Trust::AssumeYes).unwrap_err();
+    assert_eq!(error.code, "R-OPS-004", "{error:?}");
+    assert!(error.message.contains("manifest.json"), "{error:?}");
+    let suggestion = error.suggestion.as_deref().unwrap_or_default();
+    assert!(
+        suggestion.contains("re-publish @acme/tool@1.0.0"),
+        "{suggestion}"
+    );
+    assert_eq!(project.pinned(), None, "nothing is pinned for it");
 }

@@ -2771,6 +2771,7 @@ name = "specforge-cli"
 version = "0.1.0"
 dependencies = [
  "assert_cmd",
+ "axum",
  "chrono",
  "clap",
  "clap_complete",
@@ -2797,6 +2798,7 @@ dependencies = [
  "specforge-protocol-types",
  "specforge-registry",
  "specforge-registry-client",
+ "specforge-registry-server",
  "specforge-resolver",
  "specforge-test",
  "specforge-test-macros",
@@ -3041,7 +3043,7 @@ dependencies = [
  "sha2",
  "specforge-common",
  "specforge-ops",
- "specforge-registry",
+ "specforge-protocol-types",
  "specforge-registry-client",
  "specforge-test",
  "specforge-test-macros",
@@ -3136,7 +3138,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "specforge-common",
- "specforge-registry",
+ "specforge-protocol-types",
  "tempfile",
 ]
 
@@ -3156,8 +3158,10 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "specforge-registry",
+ "specforge-protocol-types",
  "specforge-registry-client",
+ "specforge-test",
+ "specforge-test-macros",
  "tempfile",
  "tokio",
  "tower 0.5.3",

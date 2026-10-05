@@ -569,7 +569,11 @@ behavior publish_to_registry "Publish to Registry" {
     specforge.json registries key.
   """
   verify unit "with no registry configured, publish makes no network call and reports how to configure one"
-  verify unit "manifest validated before publish"
+  verify unit "the declaration is validated before publish"
+  verify integration "publish derives the stored declaration from the binary"
+  verify unit "publish refuses a binary whose declaration has errors before any network call"
+  verify integration "the registry refuses a manifest that is not an extension declaration"
+  verify integration "the registry takes a package's description and keywords from its declaration"
   verify unit "SHA256 computed and included in upload"
   verify unit "duplicate version rejected without --force"
   verify unit "successful publish returns registry URL"
@@ -654,6 +658,9 @@ behavior check_registry_reply "Check Registry Reply" {
   verify integration "a key id the signature does not carry is refused"
   verify integration "a manifest that cannot be read is refused and pins nothing"
   verify integration "the peers the served manifest declares reach the package"
+  verify unit "add refuses a package whose binary declares other than its published declaration"
+  verify unit "the diamond gate decides on the published declaration's peers"
+  verify integration "a package published with a legacy manifest is refused with a re-publish suggestion"
 }
 
 behavior verify_publisher_signature "Verify Publisher Signature" {
