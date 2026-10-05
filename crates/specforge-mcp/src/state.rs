@@ -171,7 +171,7 @@ impl McpState {
     /// Where the served project's `.spec` files live: spans are relative
     /// to it. None while no project on disk is served.
     pub fn spec_root(&self) -> Option<&Path> {
-        (!self.session.is_detached()).then(|| self.environment().spec_root.as_path())
+        self.session.spec_root()
     }
 
     /// Everything the server reports for the served project: what
@@ -354,7 +354,9 @@ impl McpState {
 
     /// Whether the session serves the project on disk at `root`.
     fn serves_session_at(&self, root: &Path) -> bool {
-        !self.session.is_detached() && self.project_root.is_some() && !self.serves_other_than(root)
+        self.session.origin() == specforge_project::Origin::Disk
+            && self.project_root.is_some()
+            && !self.serves_other_than(root)
     }
 
     pub fn shutdown(&mut self) {

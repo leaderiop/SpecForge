@@ -184,20 +184,18 @@ impl Backend {
                 Change::Open(root) => session = ProjectSession::open(root),
                 Change::Reload => touched.extend(session.reload_environment().rebuilt_files),
                 Change::Disk(paths) => {
-                    let spec_root = session.environment().spec_root.clone();
                     let keys: Vec<String> = paths
                         .iter()
-                        .map(|p| crate::state::file_key(&spec_root, p))
+                        .map(|p| session.source_key(std::path::Path::new(p)))
                         .collect();
                     touched.extend(session.update(SourceChange::Disk(&keys)).rebuilt_files);
                     touched.extend(keys);
                 }
                 Change::Buffer(_) => {}
             }
-            let spec_root = session.environment().spec_root.clone();
             let typing = matches!(change, Change::Buffer(_));
             for (path, text) in &buffers {
-                let key = crate::state::file_key(&spec_root, path);
+                let key = session.source_key(std::path::Path::new(path));
                 let mode = if typing {
                     // The syntax-only fast path (C4-07): no checks while
                     // the edited file does not parse.
@@ -328,7 +326,7 @@ fn uri_of(state: &LspState, key: &str) -> Url {
 
 /// The session file key of a document.
 fn key_of(state: &LspState, uri: &Url) -> String {
-    state.file_key(&uri_to_file_path(uri))
+    state.source_key(&uri_to_file_path(uri))
 }
 
 /// The location of a span of a session file.

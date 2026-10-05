@@ -245,9 +245,11 @@ impl LspState {
         &self.environment().spec_root
     }
 
-    /// The session's file key for an absolute path (see [`file_key`]).
-    pub fn file_key(&self, path: &str) -> String {
-        file_key(self.spec_root(), path)
+    /// The session's key for a file's absolute path
+    /// ([`Environment::source_key`]): relative to the spec root when the
+    /// file is under it, else the path itself.
+    pub fn source_key(&self, path: &str) -> String {
+        self.environment().source_key(Path::new(path))
     }
 
     /// The absolute path of a session file key.
@@ -276,27 +278,4 @@ impl LspState {
     pub fn set_anchor(&mut self, uri: Option<String>) {
         self.anchor = uri;
     }
-}
-
-/// The session's file key for an absolute path: relative to the spec root
-/// when the file is under it (as `specforge check` names it), else the
-/// absolute path itself.
-pub fn file_key(spec_root: &Path, path: &str) -> String {
-    if spec_root.as_os_str().is_empty() {
-        return path.to_string();
-    }
-    let path = Path::new(path);
-    if let Ok(relative) = path.strip_prefix(spec_root) {
-        return relative.to_string_lossy().into_owned();
-    }
-    // The editor and the workspace root may spell the same directory
-    // differently (a symlinked temp dir): compare canonical forms.
-    if let (Ok(canonical), Ok(canonical_root)) = (
-        std::fs::canonicalize(path),
-        std::fs::canonicalize(spec_root),
-    ) && let Ok(relative) = canonical.strip_prefix(&canonical_root)
-    {
-        return relative.to_string_lossy().into_owned();
-    }
-    path.to_string_lossy().into_owned()
 }

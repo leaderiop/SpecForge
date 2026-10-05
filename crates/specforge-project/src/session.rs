@@ -1,6 +1,6 @@
 //! A long-lived compiled project: what watch, the LSP and MCP hold.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use specforge_common::Diagnostic;
@@ -11,6 +11,7 @@ use specforge_wasm::WasmRuntime;
 
 use crate::delta::{GraphDelta, compute_graph_delta};
 use crate::incremental::IncrementalBuild;
+use crate::inputs::{Changes, InputRole, Origin, UpdateKind, canonical};
 use crate::{Environment, sources_in_path_order};
 
 /// The runtime a session runs its project's extensions in (every
@@ -44,6 +45,8 @@ pub enum CheckMode<'a> {
 /// What one update of a session did.
 #[derive(Debug)]
 pub struct Update {
+    /// What was applied: sources, the checks alone, or the environment.
+    pub kind: UpdateKind,
     pub delta: GraphDelta,
     /// The files re-parsed or dropped: exactly the changed ones (sorted).
     pub rebuilt_files: Vec<String>,
@@ -77,10 +80,11 @@ pub struct ProjectSession {
     import_diagnostics: Vec<Diagnostic>,
     check_diagnostics: Vec<Diagnostic>,
     verify_incremental: bool,
-    /// No project is open (an editor with no workspace folder): files are
-    /// buffers keyed by absolute path, with no spec root to resolve their
-    /// imports against and no environment to reload.
-    detached: bool,
+    /// Where the project comes from. With [`Origin::None`] (an editor with
+    /// no workspace folder) files are buffers keyed by absolute path, with
+    /// no spec root to resolve their imports against and no environment to
+    /// reload; with [`Origin::InMemory`] the graph was built by the host.
+    origin: Origin,
 }
 
 impl ProjectSession {
@@ -95,7 +99,7 @@ impl ProjectSession {
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
             verify_incremental: false,
-            detached: true,
+            origin: Origin::None,
         }
     }
 
@@ -103,8 +107,8 @@ impl ProjectSession {
     /// sources, in `env`: a host that assembles its graph itself (and a
     /// test) serves one. It has no file and runs no extension; it reports
     /// the environment's diagnostics and `graph_diagnostics` as its graph
-    /// build's. Like a [`Self::detached`] session, it has nothing on disk
-    /// to reload.
+    /// build's. It has nothing on disk to reload ([`Origin::InMemory`]); its
+    /// root is the environment's.
     pub fn from_graph(
         env: Arc<Environment>,
         graph: Graph,
@@ -124,7 +128,7 @@ impl ProjectSession {
             import_diagnostics: Vec::new(),
             check_diagnostics: Vec::new(),
             verify_incremental: false,
-            detached: true,
+            origin: Origin::InMemory,
         }
     }
 
@@ -158,7 +162,7 @@ impl ProjectSession {
             import_diagnostics: resolved.diagnostics,
             check_diagnostics: Vec::new(),
             verify_incremental: false,
-            detached: false,
+            origin: Origin::Disk,
         };
         session.check_diagnostics = session.check();
         session
@@ -209,6 +213,7 @@ impl ProjectSession {
             _ => self.check(),
         };
         Update {
+            kind: UpdateKind::Sources,
             delta: result.delta,
             rebuilt_files: result.rebuilt_files,
             changed_diagnostic_files: result.changed_diagnostic_files,
@@ -220,9 +225,10 @@ impl ProjectSession {
     /// `specforge.json` or an extension changed: load the environment again
     /// and rebuild from the sources on disk.
     pub fn reload_environment(&mut self) -> Update {
-        if self.detached {
+        if self.origin != Origin::Disk {
             // Nothing on disk to load again.
             return Update {
+                kind: UpdateKind::Environment,
                 delta: GraphDelta::default(),
                 rebuilt_files: Vec::new(),
                 changed_diagnostic_files: Vec::new(),
@@ -247,6 +253,7 @@ impl ProjectSession {
     /// every file rebuilt, the delta between the two graphs.
     pub fn replaced(&self, previous: &ProjectSession) -> Update {
         Update {
+            kind: UpdateKind::Environment,
             delta: compute_graph_delta(previous.graph(), self.graph()),
             rebuilt_files: self
                 .build
@@ -278,11 +285,101 @@ impl ProjectSession {
         self.build.graph()
     }
 
-    /// Whether the session has no project on disk ([`Self::detached`],
-    /// [`Self::from_graph`]): no spec root to read changed files from and
-    /// nothing to reload.
-    pub fn is_detached(&self) -> bool {
-        self.detached
+    /// Where the project comes from: disk, memory, or nowhere.
+    pub fn origin(&self) -> Origin {
+        self.origin
+    }
+
+    /// The project root: `None` with no project ([`Origin::None`], or a
+    /// session built in memory with no root).
+    pub fn root(&self) -> Option<&Path> {
+        let root = self.env.root.as_path();
+        (self.origin != Origin::None && !root.as_os_str().is_empty()).then_some(root)
+    }
+
+    /// Where `.spec` files are keyed from: `None` unless the project was
+    /// opened from disk.
+    pub fn spec_root(&self) -> Option<&Path> {
+        (self.origin == Origin::Disk).then_some(self.env.spec_root.as_path())
+    }
+
+    /// A `.spec` path's key in this session: relative to the spec root
+    /// when the file is under it, else the path itself.
+    pub fn source_key(&self, path: &Path) -> String {
+        self.env.source_key(path)
+    }
+
+    /// What `path` (absolute, or relative to the working directory) is to
+    /// this session (behavior `classify_project_changes`). A session built
+    /// in memory is never changed by disk; with no project, a `.spec` file
+    /// is a buffer source keyed by its path.
+    pub fn classify(&self, path: &Path) -> InputRole {
+        match self.origin {
+            Origin::InMemory => InputRole::Unrelated,
+            Origin::None => {
+                if path.extension().is_some_and(|ext| ext == "spec") {
+                    InputRole::Source(self.source_key(path))
+                } else {
+                    InputRole::Unrelated
+                }
+            }
+            Origin::Disk => self.classify_on_disk(path),
+        }
+    }
+
+    /// What a batch of changed paths means to this session.
+    pub fn changes<'p>(&self, paths: impl IntoIterator<Item = &'p Path>) -> Changes {
+        Changes::from_roles(paths.into_iter().map(|path| self.classify(path)))
+    }
+
+    /// Apply `changes`: the environment first (a reload rebuilds
+    /// everything), else the sources (an update re-runs every check), else
+    /// the checks alone. `None` when there is nothing to apply: `changes` is
+    /// empty, or the session was built in memory.
+    pub fn apply(&mut self, changes: &Changes) -> Option<Update> {
+        match self.origin {
+            Origin::InMemory => None,
+            _ if changes.environment && self.origin == Origin::Disk => {
+                Some(self.reload_environment())
+            }
+            _ if !changes.sources.is_empty() => {
+                Some(self.update(SourceChange::Disk(&changes.sources)))
+            }
+            _ if changes.check_inputs && self.origin == Origin::Disk => Some(self.recheck()),
+            _ => None,
+        }
+    }
+
+    /// The directories a file watcher must watch to see every change this
+    /// session is built from: the root, the spec root when it is outside
+    /// the root, and the directory of every input outside both (canonical,
+    /// existing, none inside another). Empty unless opened from disk.
+    pub fn watch_roots(&self) -> Vec<PathBuf> {
+        if self.origin != Origin::Disk {
+            return Vec::new();
+        }
+        let inputs = self.env.inputs();
+        let references = self.env.referenced_files(self.graph());
+        let candidates = [canonical(&self.env.root), canonical(&self.env.spec_root)]
+            .into_iter()
+            .chain(
+                inputs
+                    .modules
+                    .iter()
+                    .chain(&inputs.check_inputs)
+                    .chain(&references)
+                    .filter_map(|path| path.parent().map(canonical)),
+            )
+            .filter(|dir| dir.is_dir());
+        let mut roots: Vec<PathBuf> = Vec::new();
+        for dir in candidates {
+            if roots.iter().any(|root| dir.starts_with(root)) {
+                continue;
+            }
+            roots.retain(|root| !root.starts_with(&dir));
+            roots.push(dir);
+        }
+        roots
     }
 
     pub fn environment(&self) -> &Environment {
@@ -321,14 +418,65 @@ impl ProjectSession {
         self.build.parsed_files().len()
     }
 
-    /// Whether a changed file is outside the project. A detached session
-    /// takes every buffer: it has no spec root to discover files under.
+    /// Whether a changed file is outside the project. A session with no
+    /// project takes every buffer: it has no spec root to discover files
+    /// under.
     fn excludes(&self, path: &str) -> bool {
-        !self.detached && self.env.excludes(path)
+        self.origin == Origin::Disk && self.env.excludes(path)
+    }
+
+    /// [`Self::classify`] for a project on disk.
+    fn classify_on_disk(&self, path: &Path) -> InputRole {
+        let path = canonical(path);
+        let inputs = self.env.inputs();
+        if inputs
+            .environment_paths()
+            .any(|input| canonical(input) == path)
+        {
+            return InputRole::Environment;
+        }
+        let references = self.env.referenced_files(self.graph());
+        let checked = inputs
+            .check_inputs
+            .iter()
+            .chain(&references)
+            .map(|input| canonical(input))
+            .any(|input| input == path);
+        // A missing referenced file's suggestion names a similar file in
+        // its directory: a file created or deleted there changes it.
+        let suggested = || {
+            references
+                .iter()
+                .filter(|r| !r.exists())
+                .any(|missing| missing.parent().map(canonical).as_deref() == path.parent())
+        };
+        if let Ok(relative) = path.strip_prefix(canonical(&self.env.spec_root)) {
+            let key = relative.to_string_lossy().into_owned();
+            if !self.env.excludes(&key) {
+                return InputRole::Source(key);
+            }
+        }
+        if checked || suggested() {
+            return InputRole::CheckInput;
+        }
+        InputRole::Unrelated
+    }
+
+    /// Run every check again on the current graph: a check input changed.
+    fn recheck(&mut self) -> Update {
+        self.check_diagnostics = self.check();
+        Update {
+            kind: UpdateKind::Checks,
+            delta: GraphDelta::default(),
+            rebuilt_files: Vec::new(),
+            changed_diagnostic_files: Vec::new(),
+            diagnostics: self.diagnostics(),
+            verification: None,
+        }
     }
 
     fn resolve_imports(&self) -> Vec<Diagnostic> {
-        if self.detached {
+        if self.origin != Origin::Disk {
             return Vec::new();
         }
         resolve_parsed(

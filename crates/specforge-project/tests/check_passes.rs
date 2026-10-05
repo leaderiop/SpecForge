@@ -26,12 +26,12 @@ const EXT: &str = "@test/passes";
 /// - `report` (no phase) reports A999 for every gadget.
 ///
 /// Every pass call is recorded with its input, oldest first.
-struct PassesExtension {
+pub(crate) struct PassesExtension {
     calls: Mutex<Vec<(String, Value)>>,
 }
 
 impl PassesExtension {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             calls: Mutex::new(Vec::new()),
         }
@@ -114,7 +114,13 @@ impl WasmRuntime for PassesExtension {
                 let request: Value = serde_json::from_slice(input).unwrap();
                 let category = request["category"].as_str().unwrap();
                 let items = match category {
-                    "entities" => json!([{ "name": "gadget", "keyword": "gadget" }]),
+                    // `docs` names files (a file reference field): the
+                    // checks report a missing one (E016).
+                    "entities" => json!([{
+                        "name": "gadget",
+                        "keyword": "gadget",
+                        "fields": [{ "name": "docs", "field_type": "string_list", "file_reference": true }]
+                    }]),
                     "passes" => Self::passes(),
                     _ => json!([]),
                 };
@@ -165,7 +171,7 @@ impl WasmRuntime for PassesExtension {
     }
 }
 
-fn project(spec: &str) -> TempDir {
+pub(crate) fn project(spec: &str) -> TempDir {
     let dir = TempDir::new().unwrap();
     let config = json!({ "name": "p", "version": "0.1.0", "extensions": [EXT] });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
@@ -173,7 +179,7 @@ fn project(spec: &str) -> TempDir {
     dir
 }
 
-const SPEC: &str =
+pub(crate) const SPEC: &str =
     "gadget good \"Good\" {\n  status active\n}\n\ngadget bad_one \"Bad\" {\n  status retired\n}\n";
 
 fn with_code<'a>(diagnostics: &'a [Diagnostic], code: &str) -> Vec<&'a Diagnostic> {
@@ -356,7 +362,7 @@ fn a_pass_diagnostic_naming_an_entity_gets_its_span() {
 
 // ── the build cache, read ──────────────────────────────────────────────────
 
-fn write_cache(dir: &TempDir, text: &str) {
+pub(crate) fn write_cache(dir: &TempDir, text: &str) {
     fs::write(dir.path().join(specforge_project::BUILD_CACHE_FILE), text).unwrap();
 }
 

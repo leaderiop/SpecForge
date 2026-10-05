@@ -9,11 +9,11 @@
 //! - a [`CompiledProject`] is an environment plus the resolved sources and
 //!   the built graph. Its [`CompiledProject::diagnostics`] are, by
 //!   definition, what `specforge check` reports;
-//! - a [`ProjectSession`] is a long-lived compiled project that accepts
-//!   source changes and environment reloads (watch, the LSP and MCP each
-//!   hold one). After any
-//!   sequence of updates its diagnostics are the set a fresh compile
-//!   reports.
+//! - a [`ProjectSession`] is a long-lived compiled project that knows what
+//!   it is built from: it classifies any changed path ([`InputRole`]) and
+//!   applies changes as an update, an environment reload or a re-check
+//!   (watch, the LSP and MCP each hold one). After any sequence of updates
+//!   its diagnostics are the set a fresh compile reports.
 //!
 //! [`CompilationContext`] is the flat view older callers read; it is built
 //! from a compiled project with [`CompiledProject::into_context`].
@@ -25,6 +25,7 @@ pub mod coverage;
 mod delta;
 pub mod field_types;
 mod incremental;
+mod inputs;
 pub mod passes;
 mod policy;
 mod session;
@@ -50,6 +51,7 @@ pub use build_cache::{
 pub use check_passes::CheckPass;
 pub use compile::CompilationContext;
 pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
+pub use inputs::{Changes, EnvironmentInputs, InputRole, Origin, UpdateKind, source_key};
 pub use policy::{DiagnosticPolicy, apply_policy};
 pub use session::{CheckMode, ProjectSession, SharedRuntime, SourceChange, Update};
 

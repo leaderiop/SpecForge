@@ -516,7 +516,7 @@ fn a_session_from_a_graph_serves_it_as_given() {
         vec![warning.clone()],
     );
 
-    assert!(session.is_detached());
+    assert_eq!(session.origin(), specforge_project::Origin::InMemory);
     assert_eq!(
         graph_contents(session.graph()),
         graph_contents(&compiled.graph)

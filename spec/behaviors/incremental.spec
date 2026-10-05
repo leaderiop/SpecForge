@@ -39,6 +39,30 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify unit "specforge.json and .wasm changes classify as config/plugin"
 }
 
+behavior classify_project_changes "Classify Project Changes" {
+  features   [incremental_compilation]
+  invariants [incremental_correctness]
+  category   command
+  ports      [FileSystem]
+  contract   """
+    A project session MUST classify a changed path by what the project is
+    built from: a .spec file that discovery finds under the spec root is a
+    source change, keyed relative to the spec root; specforge.json,
+    specforge.lock and every extension module the environment loaded (an
+    installed extension's extension.wasm, a local .wasm entry) are
+    environment changes; specforge-cache.json, which check-phase passes
+    read, and every file a file_reference field names, which the checks
+    look for, are check-input changes; any other path changes nothing.
+    Watch, the LSP and MCP MUST classify through the session.
+  """
+  verify unit "a discovered .spec file is a source change keyed relative to the spec root"
+  verify unit "specforge.json, specforge.lock and a loaded extension module are environment changes"
+  verify unit "a .wasm file no extension loads changes nothing"
+  verify unit "specforge-cache.json re-runs the checks without re-parsing"
+  verify unit "a file a file_reference field names re-runs the checks"
+  verify unit "an excluded or undiscovered .spec file changes nothing"
+}
+
 behavior invalidate_changed_files "Invalidate Changed Files" {
   features   [incremental_compilation]
   invariants [incremental_correctness, graph_traversal_integrity]
