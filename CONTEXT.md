@@ -7,7 +7,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `.spec` file is read: config, spec root, registries, rules, surfaces, and load diagnostics
   (`specforge_project::Environment`).
 - **Compiled project**: an environment plus the resolved sources and the built graph. Its
-  diagnostics are, by definition, what `specforge check` reports (`specforge_project::CompiledProject`).
+  diagnostics are, by definition, what `specforge check` reports under the default policy
+  (`specforge_project::CompiledProject`).
 - **Project session**: a long-lived compiled project that knows what it is built from (its
   sources, its **environment inputs** — `specforge.json`, `specforge.lock`, the extension modules it
   loaded — and its check inputs, `specforge-cache.json` and the files `file_reference` fields name).
@@ -59,6 +60,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_coverage::Verdict`).
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
   independent of surface. The CLI and MCP are adapters over it (`specforge-ops`).
+- **Check**: the operation that turns what a compile reported into what a surface reports: the
+  diagnostic policy (lint profiles, then strict), the verdict (no error among everything reported),
+  the severity filter (what is shown, never the verdict) and the opt-in build-cache record
+  (`specforge_ops::check`). `specforge check` and MCP `specforge.validate` are its adapters; watch and
+  the LSP report a compile's diagnostics without a policy (ADR 0018).
+- **Diagnostic policy**: lint profiles (a closed set: `inferred`, `pedantic`) and strict promotion
+  (`specforge_project::DiagnosticPolicy`).
 - **Extension command**: a CLI command an extension declares in its surfaces (with the SDK, together
   with its handler: `ContributionsBuilder::command`), answered by its `cmd__` export over the graph
   the host passes (`CommandInput`: args, project root, graph, the

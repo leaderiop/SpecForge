@@ -101,8 +101,9 @@ prose.
 
 ### 10. Treat the compiler as a pair programmer
 
-**Do:** run `specforge check` constantly; fix warnings, don't suppress them; use
-`--lint=pedantic` periodically to surface advice; use `--strict` in CI.
+**Do:** run `specforge check` constantly; fix warnings, don't suppress them; read the
+info-level advice it always reports (`--severity info` shows only it) periodically; use
+`--strict` in CI.
 
 **Why:** every diagnostic fixed at author time is a round-trip saved with an agent later.
 

@@ -28,10 +28,6 @@ export function isFormatOnSave(): boolean {
   return getConfig().get<boolean>("format.onSave", false);
 }
 
-export function getLintProfile(): string {
-  return getConfig().get<string>("lint.profile", "default");
-}
-
 export function isMcpAutoStart(): boolean {
   return getConfig().get<boolean>("mcp.autoStart", true);
 }

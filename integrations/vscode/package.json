@@ -234,15 +234,6 @@
           "default": false,
           "description": "Auto-format .spec files on save."
         },
-        "specforge.lint.profile": {
-          "type": "string",
-          "enum": [
-            "default",
-            "pedantic"
-          ],
-          "default": "default",
-          "description": "Diagnostic profile (pedantic enables info-level diagnostics)."
-        },
         "specforge.mcp.autoStart": {
           "type": "boolean",
           "default": true,
