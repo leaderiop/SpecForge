@@ -5,7 +5,7 @@ use "types/wasm"
 behavior vt_declare_vitest_collector "Declare the vitest Collector" {
   features [vt_vitest_collection, ts_test_collection]
   category query
-  types    [CollectorContribution]
+  types    [CollectorDescriptor]
   contract """
     @specforge/vitest MUST declare one collector, `vitest`, selected by a
     `vitest.config.*` or `vitest.workspace.*` file at the project root

@@ -14,11 +14,9 @@ use "types/errors"
 use "types/wasm"
 use "types/zero-entity-core"
 
-// load_extension_manifests is the top-level orchestrator for extension discovery.
-// It delegates to load_extension_manifest (behaviors/wasm-lifecycle.spec) for per-extension
-// loading and to validate_extension_manifest (behaviors/wasm-lifecycle.spec) for schema
-// validation. After all manifests are loaded, it triggers registry population
-// via the behaviors in behaviors/zero-entity-core.spec.
+// load_extension_manifests is the top-level orchestrator for extension loading.
+// It reads each extension's declaration through load_extension_declaration and
+// hands them all to build_registries_from_declarations.
 behavior load_extension_manifests "Load Extension Manifests" {
   features   [extension_management]
   invariants [
@@ -30,7 +28,7 @@ behavior load_extension_manifests "Load Extension Manifests" {
   ]
   category   command
   ports      [FileSystem]
-  types      [ManifestV2, CompilerConfig, ExtensionError, ExtensionManifest]
+  types      [ExtensionDeclaration, CompilerConfig, ExtensionError]
   consumes   [all_files_parsed]
   produces   [extension_manifests_loaded]
   requires {
@@ -48,9 +46,9 @@ behavior load_extension_manifests "Load Extension Manifests" {
   }
   contract   """
     At startup, the compiler MUST read the extensions list from specforge.json
-    and locate each extension's Wasm manifest. The manifest MUST declare
-    entity types, edge types, validation rules, wasmPath to the .wasm
-    binary, and optional peer dependencies. Missing extensions or unloadable
+    and read each extension's declaration (load_extension_declaration): its
+    entity types, edge types, validation rules and optional peer
+    dependencies, from the binary itself. Missing extensions or unloadable
     .wasm binaries MUST produce a diagnostic, not a crash. A builtin loads
     from the binary. Any other entry names an installed extension by its
     bare name (a legacy name@version entry names the same extension): it
@@ -58,11 +56,10 @@ behavior load_extension_manifests "Load Extension Manifests" {
     name, on every surface, only when the binary's hash is the one its
     specforge.lock entry records; a mismatch MUST be refused with E033, and
     an extension enabled but not installed MUST produce E028 naming the
-    command that installs it. This behavior orchestrates: for each extension, it calls load_extension_manifest to
-    locate and parse the manifest, then validate_extension_manifest for
-    schema validation. Once all manifests are loaded and the
-    extension_manifests_loaded event is produced,
-    register_extension_entity_types consumes it to populate the
+    command that installs it. This behavior orchestrates: for each extension, it loads its
+    binary and reads its declaration once. Once all declarations are loaded
+    and the extension_manifests_loaded event is produced, the registry build
+    (build_registries_from_declarations) validates them and populates the
     KindRegistry, FieldRegistry, and EdgeRegistry. The grammars and
     body_parsers contribution flags are reserved: nothing reads those
     contributions.
@@ -71,8 +68,7 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify integration "an extension installed from a registry loads through check"
   verify integration "an enabled extension with no installed binary produces E028 naming the command that installs it"
   verify unit "missing extension produces diagnostic"
-  verify unit "manifest declares entity types and validations"
-  verify unit "manifest includes wasmPath to .wasm binary"
+  verify unit "a declaration declares entity types and validations"
   verify integration "two extensions loaded and registries populated without collision"
   verify unit "unloadable extension binary produces diagnostic instead of crash"
   verify contract "Load Extension Manifests: extension manifest loading holds — all_files_parsed, extensions_config_available, all_extensions_attempted, loaded_manifests_available, failed_extensions_diagnosed, loaded_event_fired, extension_isolation"
@@ -83,6 +79,7 @@ behavior load_extension_declaration "Load Extension Declaration" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   command
   ports      [WasmRuntime]
+  types      [ExtensionDeclaration, HandshakeResponse]
   contract   """
     The host MUST read an extension's declaration through one loader: its
     handshake, then every declared describe category (entities, edges,
@@ -112,6 +109,7 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   features   [extension_management]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
+  types      [ExtensionDeclaration, RegistryBuild]
   contract   """
     The registry build MUST take the loaded declarations, in load order,
     and own everything derived from them: identity and shape (E030: an empty
@@ -138,7 +136,7 @@ behavior register_extension_entity_types "Register Extension Entity Types" {
   features   [extension_management]
   invariants [reference_resolution_completeness, zero_domain_knowledge_core]
   category   command
-  types      [ManifestV2, KindRegistryEntry]
+  types      [ExtensionDeclaration, KindRegistryEntry]
   consumes   [extension_manifests_loaded]
   produces   [extension_entity_types_registered]
   requires {
@@ -214,7 +212,7 @@ behavior register_provider_schemes "Register Provider Schemes" {
   features   [provider_based_ref_validation]
   invariants [reference_resolution_completeness, diagnostic_determinism, zero_domain_knowledge_core]
   category   query
-  types      [ProviderConfig, ManifestV2, SchemeRegistryEntry, Diagnostic]
+  types      [ProviderConfig, ExtensionDeclaration, SchemeRegistryEntry, Diagnostic]
   ports      [WasmRuntime]
   consumes   [provider_configured]
   produces   [provider_schemes_registered]
@@ -340,7 +338,7 @@ behavior list_installed_extensions "List Installed Extensions" {
   features   [extension_management]
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
-  types      [ManifestV2, KindRegistryEntry]
+  types      [ExtensionDeclaration, KindRegistryEntry]
   requires {
     kind_registry_ready "KindRegistry is populated with entity kinds from loaded extensions"
   }
@@ -543,12 +541,12 @@ behavior publish_to_registry "Publish to Registry" {
   features   [extension_registry]
   invariants [registry_integrity, multi_error_collection, credential_secrecy]
   category   command
-  types      [ManifestV2, RegistryConfig, ExtensionError]
+  types      [ExtensionDeclaration, RegistryConfig, ExtensionError]
   ports      [RegistryClient, FileSystem]
   produces   [extension_published_to_registry]
   requires {
-    manifest_valid            "Extension ManifestV2 passes schema validation"
-    wasm_binary_available     "The .wasm binary referenced by wasmPath exists on the filesystem"
+    declaration_valid         "The binary loads, and the registry build of its declaration alone reports no error"
+    wasm_binary_available     "The .wasm component named, or the one its crate directory builds, exists on the filesystem"
     registry_client_available "RegistryClient port is available for upload"
     credentials_available     "Authentication credentials are available for the target registry"
   }
@@ -559,10 +557,13 @@ behavior publish_to_registry "Publish to Registry" {
     published_event_emitted    "extension_published_to_registry event fires on successful publish"
   }
   contract   """
-    When specforge publish is invoked with a registry target,
-    the system MUST validate the extension's ManifestV2 (via validate_manifest_v2_schema), compute the SHA256 hash of the
-    .wasm binary, upload both to the registry, and authenticate the
-    request. Duplicate version numbers MUST be rejected unless --force is
+    When specforge publish is invoked with a registry target, the system
+    MUST load the binary's declaration, refuse it when its registry build
+    reports an error, and upload the declaration as the package's manifest,
+    with the .wasm binary and its SHA256 hash, before any network call
+    deciding whether to refuse; the request MUST be authenticated. The
+    registry MUST refuse a manifest that is not an extension declaration,
+    and takes the description and keywords it shows from the declaration. Duplicate version numbers MUST be rejected unless --force is
     provided. Successful publish MUST return the registry URL for the
     published version. With no registry configured, publish MUST make no
     network call and MUST fail with E063, whose suggestion names the
@@ -578,7 +579,7 @@ behavior publish_to_registry "Publish to Registry" {
   verify unit "duplicate version rejected without --force"
   verify unit "successful publish returns registry URL"
   verify unit "unauthenticated publish produces ExtensionError"
-  verify contract "Publish to Registry: registry publishing holds — manifest_valid, wasm_binary_available, registry_client_available, credentials_available, sha256_computed, duplicate_version_rejected, registry_url_returned, published_event_emitted"
+  verify contract "Publish to Registry: registry publishing holds — declaration_valid, wasm_binary_available, registry_client_available, credentials_available, sha256_computed, duplicate_version_rejected, registry_url_returned, published_event_emitted"
 }
 
 behavior verify_registry_integrity "Verify Registry Integrity" {
@@ -638,7 +639,8 @@ behavior check_registry_reply "Check Registry Reply" {
     key_id_consistent      "A reply whose key id differs from the key id inside its signature is refused with R-TRUST-004"
     manifest_names_request "A served manifest naming another package or version is refused with R-TRUST-004"
     manifest_fails_closed  "A missing or unreadable served manifest is refused with R-OPS-004, never read as declaring no peers"
-    peers_from_manifest    "The peers the served manifest declares are the ones the ADR-0001 diamond gate checks"
+    peers_from_manifest    "The peers the served declaration declares are the ones the ADR-0001 diamond gate checks"
+    declaration_matches    "A binary whose declaration differs from the served one is refused with R-TRUST-004 naming the first differing category"
   }
   contract   """
     Before a registry package's signature is checked or its key pinned,
@@ -648,11 +650,15 @@ behavior check_registry_reply "Check Registry Reply" {
     is keyed by name, so an answer for another package would otherwise be
     verified, pinned and installed in its place (R-TRUST-004). A reply
     whose key id differs from the one inside its signature MUST be
-    refused (R-TRUST-004). The served manifest declares the package's
-    peers, which decide the diamond gate: a missing manifest, or one that
-    isn't a readable extension manifest, MUST be refused (R-OPS-004)
-    rather than read as declaring no peers. A refused reply pins no key
-    and installs nothing.
+    refused (R-TRUST-004). The served manifest is the package's
+    declaration, whose peers decide the diamond gate before anything is
+    loaded: a missing manifest, or one that isn't a readable extension
+    declaration (one published before declarations, carrying
+    manifestVersion, is refused with a suggestion to re-publish it), MUST
+    be refused (R-OPS-004) rather than read as declaring no peers. Once
+    loaded, the binary's declaration MUST equal the served one, else the
+    package is refused (R-TRUST-004) naming the first differing category.
+    A refused reply pins no key and installs nothing.
   """
   verify integration "a reply for another package is refused and pins nothing"
   verify integration "a key id the signature does not carry is refused"

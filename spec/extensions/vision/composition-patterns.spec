@@ -415,7 +415,7 @@ behavior cp_validation_rules_skip_absent_kinds "Validation Rules Skip Absent Tar
 
 behavior cp_milestone_behavior_edge_absent "Product MilestoneIncludesBehavior Edge When Software Absent" {
   features [pe_cross_extension_cooperation, entity_enhancement]
-  types    [ManifestEdgeType, PeerDependency]
+  types    [EdgeTypeDescriptor, PeerDependency]
   category command
   contract """
     The MilestoneIncludesBehavior edge is declared in @specforge/software's

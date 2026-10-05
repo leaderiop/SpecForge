@@ -27,7 +27,7 @@ term graph_protocol "Graph Protocol" {
 
 term surface_contribution "Surface Contribution" {
   definition "A CLI command, MCP tool, or MCP resource declared by an extension in its manifest surfaces field. CLI commands are auto-promoted to MCP tools. Surface contributions are the primary way extensions expose functionality to users and agents."
-  context    "Declared in ManifestV2 surfaces field. Each CLI command maps to a cmd__{id} Wasm export; each MCP tool/resource maps to an mcp__{name} Wasm export."
+  context    "Declared in ExtensionDeclaration surfaces field. Each CLI command maps to a cmd__{id} Wasm export; each MCP tool/resource maps to an mcp__{name} Wasm export."
   aliases    ["surface", "cli_command", "mcp_tool"]
   see_also   [declarative_validation]
   tags       ["core", "extension"]

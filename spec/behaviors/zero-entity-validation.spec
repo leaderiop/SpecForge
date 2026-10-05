@@ -123,7 +123,7 @@ behavior register_extension_validation_rules "Register Extension Validation Rule
     registry_population_before_validation,
   ]
   category   command
-  types      [ValidationRulePattern, ManifestV2]
+  types      [ValidationRulePattern, ExtensionDeclaration]
   consumes   [extension_manifests_loaded]
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
@@ -159,7 +159,7 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   features   [declarative_validation_rules]
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
   category   command
-  types      [ValidationRulePattern, CustomValidationPattern, ManifestV2]
+  types      [ValidationRulePattern, CustomValidationPattern, ExtensionDeclaration]
   refs       [provide_host_function_query_graph]
   ports      [WasmRuntime]
   consumes   [extension_manifests_loaded]
@@ -297,7 +297,7 @@ behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
   features   [entity_kind_conflict_prevention]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
-  types      [ManifestV2, ManifestEntityKind, KindRegistryEntry, Diagnostic]
+  types      [ExtensionDeclaration, EntityKindDescriptor, KindRegistryEntry, Diagnostic]
   requires {
     manifests_loading "Extension manifests are being loaded and entity kinds are being registered into KindRegistry"
   }
@@ -324,7 +324,7 @@ behavior validate_peer_dependencies "Validate Peer Dependencies" {
   features   [wasm_extension_runtime]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
-  types      [ManifestV2, PeerDependency, ExtensionError]
+  types      [ExtensionDeclaration, PeerDependency, ExtensionError]
   produces   [extension_loading_failed]
   requires {
     manifests_available "All declared extension manifests have been loaded and their peer_dependencies fields are accessible"

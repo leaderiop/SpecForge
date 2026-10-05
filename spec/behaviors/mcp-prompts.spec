@@ -3,7 +3,7 @@
 // P7 Justification: Core prompts are domain-agnostic graph operations (implement,
 // review, trace, explore). They contain zero domain knowledge — they traverse
 // generic graph nodes and edges. Extensions MAY contribute additional domain-specific
-// prompts via contributes.prompts in their manifest (see ExtensionContributions).
+// prompts via contributes.prompts in their manifest (see ContributionFlags).
 //
 // 4 behaviors: context, review, trace, explore
 

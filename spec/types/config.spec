@@ -167,7 +167,3 @@ type BundledExtensionEntry {
   priority    u32      @optional
   verify unit "BundledExtensionEntry schema is valid"
 }
-
-// ExtensionManifest is an alias for ManifestV2 (defined in types/zero-entity-core).
-// Used in the CompilerApi.add() return type to represent a resolved extension.
-type ExtensionManifest = ManifestV2

@@ -6,7 +6,7 @@
 // no entity kinds, field semantics, or domain vocabulary are inspected. This
 // parallels the formatting precedent (features/formatting.spec): core owns
 // generic CST-level operations; extensions contribute domain-specific migration
-// via Wasm hooks (ManifestV2.migration_hook). The P7 test — "does this require
+// via Wasm hooks (ExtensionDeclaration.migration_hook). The P7 test — "does this require
 // a compiler change when a new domain appears?" — is satisfied: adding a new
 // extension requires zero changes to the migration engine.
 // See also: migration_as_core_infrastructure ADR in governance/decisions.spec.
@@ -33,7 +33,7 @@ feature spec_file_migration "Spec File Migration" {
     Individual file failures do not block the migration of other files; files
     already at the target version are skipped (idempotency). Extension schema
     migration (when extension manifests evolve) is delegated to extension
-    authors via Wasm migration hooks declared in ManifestV2.migration_hook.
+    authors via Wasm migration hooks declared in ExtensionDeclaration.migration_hook.
     Post-migration validation runs once after both core and extension hooks
     complete. Core migration covers only .spec file format syntax evolution.
     See also: graph_protocol_versioning in features/output.spec for the Graph

@@ -275,7 +275,7 @@ failure_mode manifest_schema_mismatch "Manifest Schema Mismatch" {
   rpn                30
   cause              "Extension built against an outdated manifest schema — field names and semantics differ between versions"
   effect             "Manifest fields misinterpreted — entity registrations wrong, peer dependencies ignored, sandbox policy defaults applied instead of declared values"
-  mitigation         "manifestVersion is validated at load time; unsupported versions produce a hard error with upgrade instructions; unknown fields produce warnings"
+  mitigation         "the handshake's protocol version is checked at load time: another major version fails the extension's load (E028); describe keys the protocol does not define produce W138"
   post_mitigation {
     severity   medium
     occurrence rare

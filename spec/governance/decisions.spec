@@ -335,8 +335,8 @@ decision contribution_based_extension_model "Contribution-Based Extension Model"
     objects for richer extension metadata.
   """
   decision     """
-    Structured manifest with typed objects: entity_kinds ManifestEntityKind[],
-    validation_rules ValidationRulePattern[], edge_types ManifestEdgeType[].
+    Structured manifest with typed objects: entity_kinds EntityKindDescriptor[],
+    validation_rules ValidationRulePattern[], edge_types EdgeTypeDescriptor[].
     Each extension declares a contributes key listing what it provides:
     entities, validators, renderers, providers, parsers. The compiler routes to
     namespaced Wasm exports based on contributions. Per-call-site host
@@ -594,7 +594,7 @@ decision gherkin_as_extension_field "Gherkin as Extension-Declared Field" {
     "Core grammar loses one domain-specific keyword — closer to zero domain knowledge",
     "Extensions have full control over BDD-style file references",
     "Any extension can declare file-reference fields — not just gherkin",
-    "supportsGherkin flag removed from ManifestEntityKind and KindRegistryEntry",
+    "supportsGherkin flag removed from EntityKindDescriptor and KindRegistryEntry",
     "GherkinList removed from core AST types — one fewer FieldValue variant",
     "verify remains as the sole core traceability construct",
     "W018 (missing gherkin) becomes a pure extension validation pattern",
@@ -792,7 +792,7 @@ decision migration_as_core_infrastructure "Migration as Core Infrastructure" {
     before extensions are loaded. Migration transforms are purely syntactic —
     they do not inspect entity kinds, field semantics, or domain vocabulary.
     Extension-specific migration is delegated to extension authors via Wasm
-    migration hooks (ManifestV2.migration_hook).
+    migration hooks (ExtensionDeclaration.migration_hook).
 
     This parallels the formatting precedent: core owns generic CST-level
     operations; extensions contribute domain-specific behavior via hooks.

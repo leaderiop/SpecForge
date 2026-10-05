@@ -15,7 +15,7 @@ behavior load_wasm_module "Load Wasm Module" {
   features   [wasm_extension_runtime]
   invariants [wasm_sandbox_integrity]
   category   command
-  types      [ManifestV2, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionError]
   ports      [WasmRuntime]
   consumes   [
     manifest_validated,
@@ -36,7 +36,7 @@ behavior load_wasm_module "Load Wasm Module" {
   }
   contract   """
     When the compiler loads an extension, it MUST locate the .wasm binary
-    from the manifest's wasmPath, verify its content hash against the
+    from its installed path, verify its content hash against the
     specforge.lock pin (refusing a mismatch with E033; legacy entries
     without a hash warn and load), and load it into the Wasm runtime.
     Component compilation caching is the engine's concern (see
@@ -55,7 +55,7 @@ behavior initialize_wasm_extension "Initialize Wasm Extension" {
   features   [wasm_extension_runtime]
   invariants [peer_dependency_satisfaction]
   category   command
-  types      [ManifestV2, ExtensionLifecycleState]
+  types      [ExtensionDeclaration, ExtensionLifecycleState]
   ports      [WasmRuntime]
   consumes   [extension_loaded]
   requires {
@@ -99,7 +99,7 @@ behavior call_extension_validators "Call Extension Validators" {
   features   [wasm_extension_runtime]
   invariants [extension_load_order_determinism]
   category   command
-  types      [ManifestV2, ExtensionLifecycleState]
+  types      [ExtensionDeclaration, ExtensionLifecycleState]
   ports      [WasmRuntime]
   consumes   [extension_initialized, extensions_sorted]
   requires {
@@ -131,7 +131,7 @@ behavior validate_extension_peer_dependencies "Validate Extension Peer Dependenc
   features   [wasm_extension_runtime]
   invariants [peer_dependency_satisfaction]
   category   validation
-  types      [PeerDependency, ManifestV2, ExtensionError]
+  types      [PeerDependency, ExtensionDeclaration, ExtensionError]
   requires {
     manifests_loaded "all extension manifests have been loaded and parsed"
   }
@@ -157,7 +157,7 @@ behavior topological_sort_extensions "Topological Sort Extensions" {
   features   [wasm_extension_runtime]
   invariants [extension_load_order_determinism]
   category   command
-  types      [PeerDependency, ManifestV2]
+  types      [PeerDependency, ExtensionDeclaration]
   consumes   [peer_dependencies_validated]
   requires {
     peer_dependencies_validated_fired "peer_dependencies_validated event has fired, confirming all peer dependencies are satisfied"
@@ -190,7 +190,7 @@ behavior install_wasm_extension "Install Wasm Extension" {
     offline_first_extension_resolution,
   ]
   category   command
-  types      [ManifestV2, ExtensionInstallResult, ExtensionSource, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionInstallResult, ExtensionSource, ExtensionError]
   ports      [WasmRuntime, FileSystem]
   requires {
     extension_source_available "extension source (registry, local path, or git) is reachable"
@@ -228,7 +228,7 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
   features   [wasm_extension_installation]
   invariants [peer_dependency_satisfaction, extension_operation_atomicity]
   category   mutation
-  types      [ManifestV2, PeerDependency, ExtensionInstallResult, ExtensionError]
+  types      [ExtensionDeclaration, PeerDependency, ExtensionInstallResult, ExtensionError]
   ports      [WasmRuntime, FileSystem]
   requires {
     extension_installed "target extension is currently installed with a valid manifest"
@@ -270,7 +270,7 @@ behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
     extension_operation_atomicity,
   ]
   category   command
-  types      [ManifestV2, ExtensionInstallResult, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionInstallResult, ExtensionError]
   ports      [WasmRuntime, FileSystem]
   requires {
     extension_installed_ready "target extension is currently installed and its manifest is loaded"
@@ -307,7 +307,7 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   features   [contribution_based_extensions]
   invariants [host_function_type_safety]
   category   validation
-  types      [ManifestV2, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionError]
   ports      [FileSystem]
   consumes   [manifest_loaded]
   requires {
@@ -316,7 +316,7 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   ensures {
     manifest_validated_emitted "manifest_validated event is emitted on successful validation"
     invalid_manifest_diagnosed "declarations with missing required fields, or a handshake of another protocol major, produce a hard error"
-    schema_validated           "manifest schema is validated via validate_manifest_v2_schema"
+    schema_validated           "the declaration is validated via validate_manifest_v2_schema"
   }
   contract   """
     This is the single entry point for validating what an extension
@@ -331,7 +331,7 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   produces   [manifest_validated]
   verify unit "valid manifest passes validation"
   verify unit "missing required fields produce hard error"
-  verify unit "unknown fields produce warning"
+  verify unit "an unknown describe key produces W138"
   verify unit "a handshake whose protocol major differs from the host's produces E028"
   verify contract "Validate Extension Manifest: extension declaration validation holds — declaration_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
 }
@@ -340,7 +340,7 @@ behavior verify_wasm_integrity "Verify Wasm Integrity" {
   features   [wasm_lock_management]
   invariants [wasm_compile_cache_integrity, registry_integrity]
   category   validation
-  types      [ManifestV2, LockFileEntry, ExtensionError]
+  types      [ExtensionDeclaration, LockFileEntry, ExtensionError]
   ports      [FileSystem]
   consumes   [lock_file_read]
   requires {

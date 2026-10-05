@@ -22,11 +22,11 @@ use "types/wasm"
 
 // ── Surface Contribution Container ──────────────────────────
 
-type SurfaceContributions {
+type SurfaceDescriptor {
   commands      CommandContribution[]     @optional
   mcp_tools     McpToolContribution[]     @optional
   mcp_resources McpResourceContribution[] @optional
-  verify unit "SurfaceContributions schema is valid"
+  verify unit "SurfaceDescriptor schema is valid"
 }
 
 // ── CLI Command Contributions ───────────────────────────────

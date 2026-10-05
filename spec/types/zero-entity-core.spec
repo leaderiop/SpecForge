@@ -1,100 +1,134 @@
-// Zero-entity core architecture types — manifest v2, registries, declarative validation
-//
-// Field names use snake_case per .spec DSL convention. The JSON manifest
-// format uses camelCase (wasmPath, entityKinds, validationRules). The
-// compiler handles serde rename during deserialization.
+// Zero-entity core architecture types — extension declarations, registries,
+// declarative validation
 
 use "types/core"
 use "types/surface"
 use "types/wasm"
 
-type ManifestV2 {
-  name                    string                  @readonly
-  version                 string                  @readonly
-  manifest_version        integer                 @readonly
-  wasm_path               string
-  contributes             ExtensionContributions  @optional
-  entity_kinds            ManifestEntityKind[]    @optional
-  edge_types              ManifestEdgeType[]      @optional
-  validation_rules        ValidationRulePattern[] @optional
-  // Extension-wide verify kinds this extension supports (e.g., ["smoke", "contract", "acceptance"])
-  verify_kinds            string[]                @optional
-  // Shared fields applied to ALL entity kinds in this extension (overridden by entity-kind-level fields of same name)
-  fields                  ManifestField[]         @optional
-  // Extension-level default for incremental validation. Per-kind ManifestEntityKind.incremental overrides this value. See dispatch_incremental_validators behavior.
-  incremental             boolean                 @optional
-  // Keywords this extension reserves from being used as entity kind names
-  // (e.g., @specforge/software reserves "scenario", "given", "when", "then")
-  reserved_keywords       string[]                @optional
-  // Wasm function name to invoke during `specforge migrate` for this extension
-  migration_hook          string                  @optional
-  peer_dependencies       PeerDependency[]        @optional
-  sandbox_policy          SandboxPolicy           @optional
-  query_extensions        QueryExtension[]        @optional
-  host_api_version        string                  @optional
-  // Controls graph visibility via query_graph host function.
-  // "all" (default): full graph. "own": extension + peer kinds only.
-  // string[]: explicit kind list. See compute_extension_query_scope behavior.
-  query_scope             string | string[]       @optional
-  // Enhancement field declarations this extension adds to other extensions' entity kinds
-  entity_enhancements     FieldEnhancement[]      @optional
-  // Text of the starter .spec file scaffold_starter_spec_file writes; {project} stands for the project id
-  starter_template        string                  @optional
-  // Collector contribution declarations for test result ingestion (see register_collector_contributions)
-  collector_contributions CollectorContribution[] @optional
-  // Surface contributions: CLI commands, MCP tools, MCP resources (Phase 1)
-  surfaces                SurfaceContributions    @optional
-  // The colour diagrams (model, outline) draw the extension in; grey when absent
-  theme_color             string                  @optional
-  verify unit "ManifestV2 schema is valid"
+// Everything one extension declares: its handshake and every describe
+// category the host reads (specforge_protocol_types::ExtensionDeclaration,
+// ADR 0012). The SDK builds it, the guest serves it, the host loads it once
+// per environment load, the registry build reads it and a package registry
+// stores it as the package's manifest.
+type ExtensionDeclaration {
+  handshake        HandshakeResponse             @readonly
+  entities         EntityKindDescriptor[]        @optional
+  edges            EdgeTypeDescriptor[]          @optional
+  // Fields every entity kind of the extension gets (a kind's own field of the same name wins)
+  shared_fields    FieldDescriptor[]             @optional
+  // Fields, edge types and verify kinds added to other extensions' entity kinds
+  enhancements     EntityEnhancementDescriptor[] @optional
+  validation_rules ValidationRulePattern[]       @optional
+  // CLI commands, MCP tools and MCP resources
+  surfaces         SurfaceDescriptor             @optional
+  // Test result collectors (see register_collector_contributions)
+  collectors       CollectorDescriptor[]         @optional
+  // Language analyzers (specforge infer)
+  analyzers        AnalyzerDescriptor[]          @optional
+  passes           CompilerPassDeclaration[]     @optional
+  feature_flags    FeatureFlagDeclaration[]      @optional
+  verify unit "ExtensionDeclaration schema is valid"
 }
 
-// Contribution flags declaring what an extension provides.
-// The compiler routes to namespaced Wasm exports based on these flags.
-type ExtensionContributions {
+// The extension's answer to __handshake: who it is, what it needs, and how
+// the host shows it.
+type HandshakeResponse {
+  protocol_version   string           @readonly
+  name               string           @readonly
+  version            string           @readonly
+  contribution_flags ContributionFlags
+  peer_dependencies  PeerDependency[] @optional
+  // Absent: the host applies its own deny-by-default policy
+  sandbox_policy     SandboxPolicy    @optional
+  // Text of the starter .spec file scaffold_starter_spec_file writes; {project} stands for the project id
+  starter_template   string           @optional
+  // Wasm function name to invoke during `specforge migrate` for this extension
+  migration_hook     string           @optional
+  // The colour diagrams (model, outline) draw the extension in; grey when absent
+  theme_color        string           @optional
+  // The name its commands are routed by (specforge <ext_short> <command>,
+  // specforge.<ext_short>.<id>); lowercase kebab case; absent, the name's last segment
+  ext_short          string           @optional
+  // What a package registry shows for the extension
+  description        string           @optional
+  keywords           string[]         @optional
+  verify unit "HandshakeResponse schema is valid"
+}
+
+// What an extension contributes, on its handshake. Derived from what it
+// declares and informational: the host reads every declared category
+// whatever they say; only providers, which has no describe category, is
+// read from them.
+type ContributionFlags {
   entities     boolean @optional
   validators   boolean @optional
   renderers    boolean @optional
   providers    boolean @optional
   collectors   boolean @optional
   // Phase 2: extensions MAY contribute domain-specific prompts via Wasm exports (P7).
-  // Dispatch mechanism deferred — boolean reserved to avoid manifest-version bump later.
   prompts      boolean @optional
   parsers      boolean @optional
   grammars     boolean @optional
   body_parsers boolean @optional
-  verify unit "ExtensionContributions schema is valid"
+  analyzers    boolean @optional
+  verify unit "ContributionFlags schema is valid"
 }
 
-type ManifestEntityKind {
-  name                 string          @readonly
-  keyword              string          @readonly
-  testable             boolean         @optional
-  singleton            boolean         @optional
-  supports_verify      boolean         @optional
-  // Subset of extension verify_kinds allowed on this entity kind; empty = all allowed
-  allowed_verify_kinds string[]        @optional
-  semantic_token       string          @optional
-  lsp_icon             string          @optional
-  dot_shape            string          @optional
-  dot_color            string          @optional
-  dot_fillcolor        string          @optional
-  // Fields specific to this entity kind (overrides extension-level fields of same name)
-  fields               ManifestField[] @optional
+// What the registry build derives from the loaded declarations, before any
+// .spec file is read (specforge_registry::build_registries). It is pure.
+type RegistryBuild {
+  // The declarations it was built from, in load order
+  declarations            ExtensionDeclaration[] @readonly
+  kinds                   KindRegistryEntry[]
+  fields                  FieldRegistryEntry[]
+  edges                   EdgeRegistryEntry[]
+  // The extensions' rules plus the host-generated E006 rules
+  rules                   ValidationRulePattern[]
+  surfaces                SurfaceRegistryEntry[]
+  // Every declared pass, extension by extension in load order, each
+  // extension's in its after/before order
+  passes                  CompilerPassDeclaration[]
+  // E030, W021, E027, then W145, extension by extension within each
+  declaration_diagnostics Diagnostic[]
+  registry_diagnostics    Diagnostic[]
+  surface_diagnostics     Diagnostic[]
+  verify unit "RegistryBuild schema is valid"
+}
+
+type EntityKindDescriptor {
+  name            string            @readonly
+  // The keyword entities of the kind are written with; absent, its name
+  keyword         string            @optional
+  description     string            @optional
+  fields          FieldDescriptor[] @optional
+  testable        boolean           @optional
+  singleton       boolean           @optional
+  supports_verify boolean           @optional
+  // The verify kinds allowed on this entity kind; empty = all allowed
+  verify_kinds    string[]          @optional
   // Whether this entity kind receives GraphDelta (true) or full Graph (false) during incremental validation
-  incremental          boolean         @optional
-  has_body_parser      boolean         @optional
+  incremental     boolean           @optional
+  has_body_parser boolean           @optional
+  // Its entities may carry fields the kind does not declare
+  open_fields     boolean           @optional
+  semantic_token  string            @optional
+  lsp_icon        string            @optional
+  dot_shape       string            @optional
+  dot_color       string            @optional
+  dot_fillcolor   string            @optional
+  // How specforge infer recognises the kind in code
+  inference_guide string            @optional
   // Reference fields that target this kind are contract obligations (A010)
-  contract_target      boolean         @optional
+  contract_target boolean           @optional
   // Its entity ids name types: custom validators receive them as declared_types
-  declares_types       boolean         @optional
+  declares_types  boolean           @optional
   /// The one field (of those the kind declares) holding its entities'
   /// lifecycle state; the build cache records its value (ADR 0009).
-  lifecycle_field      string          @optional
-  verify unit "ManifestEntityKind schema is valid"
+  lifecycle_field string            @optional
+  verify unit "EntityKindDescriptor schema is valid"
 }
 
-type ManifestEdgeType {
+type EdgeTypeDescriptor {
   label          string @readonly
   description    string @optional
   source_kind    string @optional
@@ -105,7 +139,33 @@ type ManifestEdgeType {
   edge_color     string @optional
   // Edge arrowhead for graph rendering: "normal" | "dot" | "diamond" | "none" (default: "normal")
   edge_arrowhead string @optional
-  verify unit "ManifestEdgeType schema is valid"
+  verify unit "EdgeTypeDescriptor schema is valid"
+}
+
+// Fields, edge types and verify kinds one extension adds to an entity kind
+// another extension declares.
+type EntityEnhancementDescriptor {
+  target_kind      string               @readonly
+  // The extension that owns the target kind: an enhancement of a kind whose
+  // owner is not loaded is skipped silently
+  source_extension string               @readonly
+  fields           FieldDescriptor[]    @optional
+  edge_types       EdgeTypeDescriptor[] @optional
+  // Makes the target kind testable with exactly these verify kinds (ADR 0002)
+  verify_kinds     string[]             @optional
+  verify unit "EntityEnhancementDescriptor schema is valid"
+}
+
+// A language analyzer specforge infer runs over source files.
+type AnalyzerDescriptor {
+  language        string   @readonly
+  file_extensions string[]
+  excluded_dirs   string[] @optional
+  scan_export     string
+  classify_export string
+  map_export      string
+  description     string   @optional
+  verify unit "AnalyzerDescriptor schema is valid"
 }
 
 type EntityKindConflict {
@@ -118,13 +178,19 @@ type EntityKindConflict {
   verify unit "EntityKindConflict schema is valid"
 }
 
-type ManifestField {
+type FieldDescriptor {
   name                string                 @readonly
   field_type          ManifestFieldType      @readonly
+  required            boolean                @optional
+  description         string                 @optional
   edge                string                 @optional
   target_kind         string                 @optional
   file_reference      boolean                @optional
-  required            boolean                @optional
+  default_value       string                 @optional
+  // The values an enum field accepts
+  enum_values         string[]               @optional
+  // The field on the target kind that holds the inverse reference
+  inverse_of          string                 @optional
   /// The field states what the entity promises (a behavior's contract, an
   /// invariant's guarantee), as opposed to prose; token-optimized exports keep it.
   normative           boolean                @optional
@@ -140,7 +206,7 @@ type ManifestField {
   /// What the prove pass reads the field as: a bound it assumes or a claim
   /// that must follow from the bounds (ADR 0009). No role: not read.
   proof_role          ProofRole              @optional
-  verify unit "ManifestField schema is valid"
+  verify unit "FieldDescriptor schema is valid"
 }
 
 // A field's role in the prove pass: a bound is assumed (bounds must be
@@ -158,7 +224,7 @@ type DerivedReferenceSource = type_expressions | method_signatures
 //
 // verify is NOT a field type — it is a grammar-level construct parsed by a
 // dedicated rule (parse_verify_statements). Whether an entity kind supports
-// verify is declared via the supports_verify flag on ManifestEntityKind, not
+// verify is declared via the supports_verify flag on EntityKindDescriptor, not
 // via field type registration.
 //
 // On the wire the names drop the _type suffix (string, bool, block, ...;

@@ -19,7 +19,7 @@ behavior provide_extension_query_extensions "Provide Extension Query Extensions"
   features   [extension_query_contributions]
   invariants [host_function_type_safety]
   category   query
-  types      [ManifestV2, QueryExtension, QueryFileKind, ExtensionError]
+  types      [ExtensionDeclaration, QueryExtension, QueryFileKind, ExtensionError]
   ports      [WasmRuntime]
   consumes   [extension_manifests_loaded]
   requires {
@@ -86,7 +86,7 @@ behavior reject_reserved_entity_kind "Reject Reserved Entity Kind" {
   features   [entity_kind_conflict_prevention]
   invariants [entity_kind_uniqueness]
   category   command
-  types      [KindRegistryEntry, ManifestV2]
+  types      [KindRegistryEntry, ExtensionDeclaration]
   consumes   [extension_manifests_loaded]
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming entity kind registrations are pending"
@@ -130,7 +130,7 @@ behavior detect_entity_kind_collision "Detect Entity Kind Collision" {
   features   [entity_kind_conflict_prevention]
   invariants [entity_kind_uniqueness]
   category   validation
-  types      [ManifestV2, ExtensionError, EntityKindConflict]
+  types      [ExtensionDeclaration, ExtensionError, EntityKindConflict]
   consumes   [extension_manifests_loaded]
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all entity kind declarations are available for collision checking"
@@ -162,46 +162,42 @@ behavior load_extension_manifest "Load Extension Manifest" {
   features   [extension_manifest]
   invariants [extension_load_order_determinism]
   category   command
-  types      [ManifestV2, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionError]
   ports      [FileSystem]
   produces   [manifest_loaded]
   requires {
-    extension_discovered "installed extension has been discovered with a known path to its sidecar manifest.json"
-    filesystem_available "FileSystem port is available for reading manifest files"
+    extension_discovered "installed extension has been discovered with a known path to its .wasm binary"
+    filesystem_available "FileSystem port is available for reading the binary"
   }
   ensures {
-    manifest_loaded_emitted          "manifest_loaded event is emitted after successful parse of sidecar manifest.json"
-    malformed_manifest_diagnosed     "malformed manifests produce ExtensionError diagnostic"
-    initialization_sequence_followed "per-extension initialization follows the documented 7-step sequence"
+    manifest_loaded_emitted          "manifest_loaded event is emitted once the extension's declaration has been read"
+    malformed_manifest_diagnosed     "a declaration that cannot be read fails the extension's load with a diagnostic"
+    initialization_sequence_followed "per-extension initialization follows the documented 4-step sequence"
   }
   contract   """
-    When the compiler discovers an installed extension, it MUST locate
-    and parse the extension's sidecar manifest.json file alongside the
-    .wasm binary. Malformed manifests MUST produce a ExtensionError
-    diagnostic. There are no hardcoded manifest factory methods —
-    all extensions, including all installed extensions, are loaded from
-    their sidecar manifests.
-    Bundled extensions are loaded from the compiler's bundled resources
-    directory.
+    When the compiler loads an extension, it MUST read the extension's
+    declaration from the .wasm binary itself (load_extension_declaration);
+    no sidecar file is read. A declaration that cannot be read MUST fail
+    the extension's load with a diagnostic (E028). There are no hardcoded
+    manifest factory methods — all extensions, including all installed
+    extensions, declare themselves. Bundled extensions are loaded from the
+    compiler's bundled resources.
 
-    INITIALIZATION SEQUENCE: The guaranteed per-extension initialization
-    order is:
-      1. load_extension_manifest — parse sidecar manifest.json
-      2. validate_extension_manifest — validate schema and required fields
-      3. register_entity_kinds_from_manifest — populate KindRegistry
-      4. register_edge_types_from_manifest — populate edge type registry
-      5. register_validation_rules_from_manifest — populate validation rules
-      6. register_entity_enhancements — populate FieldRegistry enhancements
-      6.5. register_surface_contributions — populate SurfaceRegistry (CLI commands, MCP tools, MCP resources)
-      7. initialize_wasm_extension — call initialize() export
-    Steps 1-6 are declarative (manifest-driven). Step 7 is the first
-    point at which extension code executes. This sequence is repeated
-    per extension in topological order (see topological_sort_extensions).
+    INITIALIZATION SEQUENCE: The guaranteed initialization order is:
+      1. handshake — the extension's identity, protocol version and policy
+      2. describe — every declared category, once
+      3. build_registries_from_declarations — validate the declarations
+         and populate the kind, field and edge registries and the rules
+      4. register_surface_contributions — populate SurfaceRegistry (CLI
+         commands, MCP tools, MCP resources)
+    Steps 1-2 run per extension in topological order (see
+    topological_sort_extensions); steps 3-4 run once over every loaded
+    declaration, in that order.
   """
-  verify unit "sidecar JSON parsed into ManifestV2"
-  verify unit "malformed sidecar produces ExtensionError"
+  verify unit "the declaration is read from the binary"
+  verify unit "a declaration that cannot be read produces a diagnostic"
   verify unit "bundled extensions loaded from bundled resources directory"
-  verify unit "initialization follows documented 7-step sequence"
+  verify unit "initialization follows the documented 4-step sequence"
   verify contract "Load Extension Manifest: extension manifest loading holds — extension_discovered, filesystem_available, manifest_loaded_emitted, malformed_manifest_diagnosed, initialization_sequence_followed"
 }
 
@@ -209,7 +205,7 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
   features   [entity_enhancement]
   invariants [enhancement_field_uniqueness, enhancement_builtin_precedence]
   category   command
-  types      [ManifestV2, FieldEnhancement, DynamicEdgeType]
+  types      [ExtensionDeclaration, EntityEnhancementDescriptor, DynamicEdgeType]
   requires {
     manifests_validated "all extension manifests have been validated and entity kinds registered"
   }
@@ -249,7 +245,7 @@ behavior detect_enhancement_conflicts "Detect Enhancement Conflicts" {
   category   validation
   types      [
     EnhancementConflict,
-    FieldEnhancement,
+    EntityEnhancementDescriptor,
     EnhancedFieldType,
     EnumFieldType,
     ReferenceFieldType,
@@ -313,7 +309,7 @@ behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
   features   [contribution_based_extensions]
   invariants [extension_load_order_determinism, renderer_output_restriction]
   category   query
-  types      [ManifestV2, ExtensionContributions, ExtensionError]
+  types      [ExtensionDeclaration, ContributionFlags, ExtensionError]
   ports      [WasmRuntime]
   consumes   [contribution_exports_validated, contribution_toggled, collector_report_ingested]
   requires {
@@ -373,7 +369,7 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
   features   [contribution_based_extensions]
   invariants [extension_load_order_determinism]
   category   validation
-  types      [ManifestV2, Diagnostic, WasmTrapInfo]
+  types      [ExtensionDeclaration, Diagnostic, WasmTrapInfo]
   ports      [WasmRuntime]
   requires {
     graph_checked "the graph is built and its checks (core validation, the registry checks and the extensions' validation rules) have run"
@@ -490,7 +486,7 @@ behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
   features   [contribution_based_extensions]
   invariants [wasm_sandbox_integrity]
   category   command
-  types      [ManifestV2, SandboxPolicy]
+  types      [ExtensionDeclaration, SandboxPolicy]
   ports      [WasmRuntime]
   requires {
     sandbox_policy_ready    "sandbox policy has been computed for the extension"
@@ -535,7 +531,7 @@ behavior validate_contribution_exports "Validate Contribution Exports" {
   features   [contribution_based_extensions]
   invariants [host_function_type_safety]
   category   validation
-  types      [ManifestV2, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionError]
   ports      [WasmRuntime]
   requires {
     extension_loaded_ready          "extension .wasm binary has been loaded into the runtime"
@@ -565,7 +561,7 @@ behavior toggle_extension_contributions "Toggle Extension Contributions" {
   features   [contribution_based_extensions]
   invariants [extension_load_order_determinism]
   category   command
-  types      [ManifestV2, ExtensionContributions]
+  types      [ExtensionDeclaration, ContributionFlags]
   ports      [CompilerApi]
   requires {
     extension_loaded_ready "extension is loaded and initialized before contributions can be toggled"
@@ -603,7 +599,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
   features   [test_result_collection]
   invariants [extension_load_order_determinism]
   category   query
-  types      [ManifestV2, CollectorContribution, CollectorAutoDetect]
+  types      [ExtensionDeclaration, CollectorDescriptor, CollectorAutoDetect]
   ports      [WasmRuntime]
   requires {
     manifest_declares_collectors "an enabled extension's handshake raises the collectors flag and its describe payload lists collectors"
@@ -632,7 +628,7 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   features   [test_result_collection]
   invariants [extension_load_order_determinism]
   category   validation
-  types      [CollectorContribution, CollectorAutoDetect]
+  types      [CollectorDescriptor, CollectorAutoDetect]
   ports      [FileSystem]
   consumes   [collector_registered]
   requires {
@@ -667,7 +663,7 @@ behavior approve_collector_command "Approve Collector Command" {
   features   [test_result_collection]
   invariants [extension_isolation]
   category   validation
-  types      [CollectorContribution]
+  types      [CollectorDescriptor]
   ports      [FileSystem]
   requires {
     command_declared "the selected collector declares a command"
@@ -701,7 +697,7 @@ behavior run_collector_command "Run Collector Command" {
   features   [test_result_collection]
   invariants [extension_isolation]
   category   command
-  types      [CollectorContribution]
+  types      [CollectorDescriptor]
   ports      [FileSystem]
   requires {
     command_approved "approve_collector_command allowed the command"
@@ -744,7 +740,7 @@ behavior dispatch_collector "Dispatch Collector" {
   features   [test_result_collection]
   invariants [wasm_sandbox_integrity, extension_isolation]
   category   query
-  types      [CollectorContribution, CollectorDispatchInput, CollectorReport, WasmTrapInfo]
+  types      [CollectorDescriptor, CollectorDispatchInput, CollectorReport, WasmTrapInfo]
   ports      [WasmRuntime, FileSystem]
   requires {
     report_available "the collector's report exists: a file, or a directory of *.json files"
@@ -875,7 +871,7 @@ behavior discover_extensions "Discover Extensions" {
     offline_first_extension_resolution,
   ]
   category   command
-  types      [ExtensionSource, ManifestV2, ExtensionError]
+  types      [ExtensionSource, ExtensionDeclaration, ExtensionError]
   ports      [WasmRuntime]
   requires {
     registries_configured "at least one registry source (npm, OCI, GitHub Releases) is configured"
@@ -911,7 +907,7 @@ behavior run_doctor_check "Run Doctor Check" {
   // Enforcement is done by the behaviors listed in each invariant's enforced_by.
   category   validation
   invariants [diagnostic_determinism]
-  types      [ManifestV2, EnhancementConflict, FieldEnhancement]
+  types      [ExtensionDeclaration, EnhancementConflict, EntityEnhancementDescriptor]
   ports      [FileSystem]
   consumes   [enhancement_registered, wasm_trap_caught]
   requires {
@@ -982,7 +978,7 @@ behavior resolve_extension_source "Resolve Extension Source" {
   features   [wasm_extension_installation]
   invariants [registry_integrity]
   category   query
-  types      [ManifestV2, ExtensionSpecifier, ExtensionSource, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionSpecifier, ExtensionSource, ExtensionError]
   ports      [FileSystem, RegistryClient]
   consumes   [extension_specifier_parsed]
   requires {
@@ -1014,7 +1010,7 @@ behavior write_lock_file "Write Lock File" {
   features   [wasm_lock_management]
   invariants [extension_load_order_determinism, registry_integrity]
   category   command
-  types      [ManifestV2, LockFile, LockFileEntry]
+  types      [ExtensionDeclaration, LockFile, LockFileEntry]
   ports      [FileSystem]
   requires {
     extensions_resolved  "all extensions have been resolved with exact versions and wasm hashes"
@@ -1044,7 +1040,7 @@ behavior read_lock_file "Read Lock File" {
   features   [wasm_lock_management]
   invariants [extension_load_order_determinism]
   category   command
-  types      [ManifestV2, LockFile, LockFileEntry, ExtensionError]
+  types      [ExtensionDeclaration, LockFile, LockFileEntry, ExtensionError]
   ports      [FileSystem]
   consumes   [all_files_parsed]
   requires {
@@ -1080,7 +1076,7 @@ behavior update_all_extensions "Update All Extensions" {
     extension_operation_atomicity,
   ]
   category   command
-  types      [ManifestV2, LockFileEntry, ExtensionError]
+  types      [ExtensionDeclaration, LockFileEntry, ExtensionError]
   ports      [WasmRuntime]
   requires {
     extensions_installed "at least one extension is installed with a valid manifest"
@@ -1124,7 +1120,7 @@ behavior refresh_lock_file "Refresh Lock File" {
   features   [wasm_lock_management]
   invariants [wasm_compile_cache_integrity, registry_integrity]
   category   command
-  types      [LockFileEntry, ManifestV2]
+  types      [LockFileEntry, ExtensionDeclaration]
   ports      [WasmRuntime, FileSystem]
   requires {
     lock_file_exists     "specforge.lock file exists with entries to refresh"

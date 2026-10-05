@@ -71,7 +71,7 @@ event manifest_validated "Manifest Validated" {
   channel "wasm.manifest_validated"
   payload {
     extensionName    string
-    manifestVersion  integer
+    protocolVersion  string
     entityKindCount  integer
     validationPassed boolean
   }

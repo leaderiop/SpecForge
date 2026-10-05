@@ -192,8 +192,8 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
   """
   solution """
     Structured manifest format with typed objects (entity_kinds
-    ManifestEntityKind[], validation_rules ValidationRulePattern[],
-    edge_types ManifestEdgeType[]). Each extension declares a contributes
+    EntityKindDescriptor[], validation_rules ValidationRulePattern[],
+    edge_types EdgeTypeDescriptor[]). Each extension declares a contributes
     key listing what it provides. The nine contribution types are:
     entities (domain vocabulary), validators (graph validation rules),
     renderers (non-code diagnostic artifacts as enforced by the emit_file

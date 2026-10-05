@@ -5,7 +5,7 @@ use "types/wasm"
 behavior ct_declare_cargo_collector "Declare the cargo test Collector" {
   features [ct_cargo_test_collection]
   category query
-  types    [CollectorContribution]
+  types    [CollectorDescriptor]
   contract """
     @specforge/cargo-test MUST declare one collector, `cargo-test`, selected
     by a `Cargo.toml` at the project root. Its command is

@@ -385,7 +385,7 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
     extension_load_order_determinism,
     migration_cross_extension_stability,
   ]
-  types      [MigrationResult, ExtensionLifecycleState, WasmTrapInfo, ManifestV2]
+  types      [MigrationResult, ExtensionLifecycleState, WasmTrapInfo, ExtensionDeclaration]
   ports      [CompilerApi, WasmRuntime]
   consumes   [migration_complete]
   produces   [extension_migration_hooks_complete]
@@ -403,7 +403,7 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
     When migrating spec files, the compiler MUST invoke each installed
     extension's migration hook — a Wasm export whose name the extension's
     `__handshake` response declares in its optional `migration_hook`
-    field, which the host carries onto the extension's ManifestV2. The
+    field, which the host carries onto the extension's ExtensionDeclaration. The
     host calls the export through the protocol's JSON call convention.
     The `migration_hook` field is a string naming the Wasm export; if the
     field is absent or empty, no hook is invoked for that extension.
@@ -421,7 +421,7 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
     validation sees the fully-migrated state, not an intermediate state.
 
     If an extension does not declare a `migration_hook` field in its
-    ManifestV2, or the field value is empty, the compiler MUST skip that
+    ExtensionDeclaration, or the field value is empty, the compiler MUST skip that
     extension silently with no diagnostic. The absence of a hook is normal
     and expected for extensions that have no version-sensitive data.
 

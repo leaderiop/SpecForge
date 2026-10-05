@@ -29,7 +29,7 @@ behavior register_surface_contributions "Register Surface Contributions" {
   features   [surface_contributions]
   invariants [surface_contribution_uniqueness]
   category   command
-  types      [ManifestV2, SurfaceContributions, SurfaceRegistryEntry, SurfaceType, SurfaceError]
+  types      [ExtensionDeclaration, SurfaceDescriptor, SurfaceRegistryEntry, SurfaceType, SurfaceError]
   consumes   [manifest_loaded]
   requires {
     manifest_loaded_fired "manifest_loaded event has fired, confirming extension manifests are parsed and available"

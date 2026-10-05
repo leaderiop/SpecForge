@@ -18,7 +18,7 @@ behavior compute_extension_query_scope "Compute Extension Query Scope" {
   features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity, host_function_type_safety]
   category   query
-  types      [HostFunctionBinding, ManifestV2, SandboxPolicy]
+  types      [HostFunctionBinding, ExtensionDeclaration, SandboxPolicy]
   ports      [WasmRuntime]
   requires {
     manifest_available      "extension manifest is loaded with query_scope and peer dependency declarations"
@@ -115,7 +115,7 @@ behavior provide_host_function_add_graph_node "Provide Host Function: add_graph_
   features   [wasm_host_function_api]
   invariants [host_function_type_safety, zero_domain_knowledge_core]
   category   query
-  types      [HostFunctionBinding, ManifestV2]
+  types      [HostFunctionBinding, ExtensionDeclaration]
   ports      [WasmRuntime]
   requires {
     entity_kind_declared "entity kind for the node is declared in a loaded extension manifest"

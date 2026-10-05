@@ -1,14 +1,17 @@
 // Wasm component extension runtime types
 //
-// Extension manifests use ManifestV2 from types/zero-entity-core.spec.
+// Extension declarations use ExtensionDeclaration from types/zero-entity-core.spec.
 // This file contains supporting types for the Wasm runtime: dependencies,
 // host function bindings, sandbox policies, caching, enhancements, and queries.
 
 use "types/core"
 
 type PeerDependency {
-  extension string
-  version   string
+  name     string
+  // A semver range the installed version must satisfy
+  version  string
+  // An optional peer that is not installed is fine
+  optional boolean @optional
   verify unit "PeerDependency schema is valid"
 }
 
@@ -51,15 +54,6 @@ type ExtensionLifecycleState = discovered
   | failed
 
 // ── Entity Enhancement Types ─────────────────────────────────
-
-type FieldEnhancement {
-  target_entity string  @readonly
-  field_name    string  @readonly
-  field_type    EnhancedFieldType
-  required      boolean @optional
-  description   string  @optional
-  verify unit "FieldEnhancement schema is valid"
-}
 
 type EnhancedFieldType = string_type
   | integer_type
@@ -158,14 +152,15 @@ type LockFile {
 
 // ── Collector Contribution Types ────────────────────────────
 
-type CollectorContribution {
+type CollectorDescriptor {
   name          string              @readonly
   input_formats string[]
   auto_detect   CollectorAutoDetect @optional
   export        string
   run           string[]            @optional
   report        string              @optional
-  verify unit "CollectorContribution schema is valid"
+  capture       string              @optional
+  verify unit "CollectorDescriptor schema is valid"
 }
 
 type CollectorAutoDetect {

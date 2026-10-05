@@ -18,15 +18,21 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Graph delta**: what an update or a reload changed in the graph: added, removed and modified
   nodes (source positions ignored) and edges. Watch prints it and MCP notifies it
   (`specforge_project::GraphDelta`).
-- **Registry build**: the pure result of turning extension manifests into kind, field and edge
-  registries, rules and derived graph inputs (`specforge_registry::build_registries`).
+- **Extension declaration**: everything one extension declares — its handshake and every describe
+  category — as the protocol types (`specforge_protocol_types::ExtensionDeclaration`). The SDK
+  builds it, the guest serves it, the host loads it once, the Registry build reads it, a package
+  registry stores it (ADR 0012).
+- **Registry build**: the pure result of turning extension declarations into kind, field and edge
+  registries, rules, pass order and derived graph inputs, and the diagnostics of those
+  declarations (`specforge_registry::build_registries`).
 - **Package registry client**: what talks to a package registry: search, resolve and publish over
   HTTP, credentials in the OS keyring, publisher trust and package signing
   (`specforge-registry-client`). Not the Registry build, which is pure and needs none of it.
   Operations reach it only through the `Registry` port; its adapter (`specforge-ops-registry`)
-  is linked by the CLI and MCP, never the LSP (ADR 0010).
+  is linked by the CLI and MCP, never the LSP (ADR 0010). Publish derives the stored declaration
+  from the binary; `add` checks the binary declares what was published (ADR 0012).
 - **Project view**: the read-only slice of a compiled project an operation analyses: the graph, the
-  kind and field registries, the rules, the manifests and the project root, borrowed
+  kind and field registries, the rules, the declared passes and the project root, borrowed
   (`specforge_ops::analyze`'s input). The CLI builds one from its compiled project; MCP builds one from
   its project session (`McpState::project_view`), or from another project compiled for one call.
 - **Obligation**: one `verify` statement on an entity. **Proven** when a passing test names its
@@ -39,9 +45,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Extension command**: a CLI command an extension declares in its surfaces (with the SDK, together
   with its handler: `ContributionsBuilder::command`), answered by its `cmd__` export over the graph
   the host passes (`CommandInput`: args, project root, graph, the
-  command format and today's date, UTC). The CLI runs it as `specforge <ext_short> <command>`, MCP as
-  the auto-promoted tool `specforge.<ext_short>.<id>`; neither knows any command
-  (`specforge_ops::command`, ADR 0008).
+  command format and today's date, UTC). The CLI runs it as `specforge <short> <command>`, MCP as
+  the auto-promoted tool `specforge.<short>.<id>`, `short` being the declaration's (`ext_short`,
+  else its name's last segment); neither knows any command (`specforge_ops::command`, ADR 0008).
 - **Command format**: the output an extension command is asked for, `human` (the CLI default) or
   `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
   only it knows its payloads (ADR 0011).

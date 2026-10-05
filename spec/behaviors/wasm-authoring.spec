@@ -11,7 +11,7 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   features   [wasm_extension_authoring]
   invariants [extension_operation_atomicity]
   category   command
-  types      [ManifestV2]
+  types      [ExtensionDeclaration]
   ports      [FileSystem]
   requires {
     filesystem_available "FileSystem port is available for writing project scaffold files"
@@ -48,7 +48,7 @@ behavior build_wasm_extension "Build Wasm Extension" {
   features   [wasm_extension_authoring]
   invariants [extension_operation_atomicity]
   category   command
-  types      [ManifestV2, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionError]
   ports      [FileSystem]
   requires {
     source_available    "Extension source code exists in the project directory"
@@ -78,7 +78,7 @@ behavior validate_wasm_extension_locally "Validate Wasm Extension Locally" {
   features   [wasm_extension_authoring]
   invariants [wasm_sandbox_integrity]
   category   validation
-  types      [ManifestV2, SandboxPolicy, ExtensionError]
+  types      [ExtensionDeclaration, SandboxPolicy, ExtensionError]
   ports      [WasmRuntime, FileSystem]
   requires {
     wasm_binary_available  "A locally built component exists (a .wasm file, or the crate's target/wasm32-wasip2/release component)"
@@ -125,11 +125,11 @@ behavior publish_wasm_extension "Publish Wasm Extension" {
   features   [wasm_extension_authoring]
   invariants [registry_integrity, registry_api_openness]
   category   command
-  types      [ManifestV2, ExtensionError]
+  types      [ExtensionDeclaration, ExtensionError]
   ports      [FileSystem, RegistryClient]
   requires {
     wasm_binary_available "A built component exists"
-    manifest_valid        "The declaration read from the component has been validated"
+    declaration_valid     "The declaration read from the component has been validated"
     registry_available    "RegistryClient port is available for publishing to the configured registry"
   }
   ensures {
@@ -145,8 +145,8 @@ behavior publish_wasm_extension "Publish Wasm Extension" {
     be reported as ExtensionError diagnostics.
   """
   produces   [extension_published]
-  verify unit "publish bundles .wasm and manifest"
-  verify unit "manifest validated before publish"
+  verify unit "publish uploads the .wasm binary and the declaration derived from it"
+  verify unit "the declaration read from the component is validated before publish"
   verify unit "publish failure reported as ExtensionError"
-  verify contract "Publish Wasm Extension: Wasm extension publishing holds — wasm_binary_available, manifest_valid, registry_available, bundle_published, publish_failures_diagnosed, extension_published_emitted"
+  verify contract "Publish Wasm Extension: Wasm extension publishing holds — wasm_binary_available, declaration_valid, registry_available, bundle_published, publish_failures_diagnosed, extension_published_emitted"
 }

@@ -96,12 +96,7 @@ use specforge_extension_sdk::prelude::*;
     name = "@specforge/software",
     version = "1.0.0",
     short = "software",
-    host_api = "1.0.0",
-    incremental = true,
-    query_scope = "all",
-    starter = "templates/behavior.spec",
-    migration = "migrate_v1_to_v2",
-    reserved_keywords = ["spec", "ref"],
+    description = "Software design: behaviors, invariants, events, types and ports",
 )]
 #[sandbox(max_memory_mb = 256, max_execution_ms = 5000, network = false, filesystem = false)]
 #[peer_dependency("@specforge/product", version = "^1.0")]
@@ -307,14 +302,11 @@ The `#[extension]` macro is the root declaration. It generates the `__handshake`
 | Attribute | Required | Description |
 |-----------|----------|-------------|
 | `name` | yes | Scoped package name (e.g., `@specforge/software`) |
-| `version` | yes | Semantic version (e.g., `1.0.0`) |
-| `short` | yes | Short name used in CLI subcommands (e.g., `software`) |
-| `host_api` | yes | Required host API version (e.g., `1.0.0`) |
-| `incremental` | no | Default incremental mode for entity kinds (default: `false`) |
-| `query_scope` | no | Graph query scope (`all` or `own`, default: `own`) |
-| `starter` | no | Path to starter template file |
-| `migration` | no | Wasm export name for migration hook |
-| `reserved_keywords` | no | Keywords reserved from entity kind names |
+| `version` | no | Semantic version (default: the crate's `CARGO_PKG_VERSION`) |
+| `short` | no | The name the extension's commands are routed by: `specforge <short> <command>` on the CLI, `specforge.<short>.<id>` over MCP. Lowercase kebab case (`[a-z][a-z0-9-]*`), checked at compile time; absent, the name's last segment (`@specforge/software` is `software`). On the wire, the handshake's `ext_short`. |
+| `description` | no | One line a package registry shows for the extension (the handshake's `description`) |
+
+Everything else the handshake carries is set on the builder: `ContributionsBuilder::starter_template`, `migration_hook` and `theme_color`, and `ExtensionMeta`'s `peer_dependencies`, `sandbox_policy` and `keywords`. The declaration the builder builds (`ContributionsBuilder::declaration`) is exactly what the host loads and what `specforge publish` uploads (ADR 0012).
 
 The `#[sandbox]` macro sets the extension-level sandbox policy:
 

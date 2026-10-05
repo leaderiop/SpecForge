@@ -295,7 +295,7 @@ behavior dispatch_incremental_validators "Dispatch Incremental Validators" {
   features   [incremental_graph_deltas]
   invariants [incremental_correctness, diagnostic_determinism, zero_domain_knowledge_core]
   category   command
-  types      [GraphDelta, Graph, ManifestEntityKind]
+  types      [GraphDelta, Graph, EntityKindDescriptor]
   ports      [WasmRuntime]
   consumes   [graph_delta_computed]
   produces   [incremental_validators_dispatched]

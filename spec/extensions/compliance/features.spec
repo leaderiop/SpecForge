@@ -13,7 +13,7 @@ feature ce_core_entity_kinds "Compliance Entity Kind Registration" {
     kinds, the Governs, ImplementedBy, ProvidedBy and Audits edge types,
     typed field definitions with edge mappings, and declarative validation
     rules. Registration follows the zero-entity core protocol defined in
-    ManifestV2.
+    ExtensionDeclaration.
   """
 }
 

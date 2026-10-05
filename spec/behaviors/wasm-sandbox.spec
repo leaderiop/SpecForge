@@ -49,7 +49,7 @@ behavior compile_wasm_component_with_cache "Compile Wasm Component With Cache" {
   features   [wasm_performance_optimization]
   invariants [wasm_compile_cache_integrity]
   category   command
-  types      [ManifestV2]
+  types      [ExtensionDeclaration]
   ports      [WasmRuntime, FileSystem]
   requires {
     component_binary_available "component .wasm binary exists and is readable"
@@ -159,7 +159,7 @@ behavior configure_sandbox_policy "Configure Sandbox Policy" {
   features   [wasm_host_function_api]
   invariants [wasm_sandbox_integrity]
   category   command
-  types      [SandboxPolicy, ManifestV2]
+  types      [SandboxPolicy, ExtensionDeclaration]
   ports      [FileSystem]
   requires {
     manifest_available "extension manifest with optional sandbox policy is loaded"
