@@ -204,10 +204,14 @@ fn compute_transitive_deps(
     kind_to_extension: &HashMap<String, String>,
     manifests: &[ManifestV2],
 ) -> Vec<OutlineDependency> {
-    use std::collections::HashSet;
+    use std::collections::{BTreeMap, BTreeSet, HashSet};
+
+    // Everything below iterates in name order, so which chain decides a
+    // transitive dependency's optionality and version, and the order the
+    // dependencies come out in, are the same on every run.
 
     // Build adjacency: extension → [(target, optional, version)]
-    let mut adj: HashMap<String, Vec<(String, bool, String)>> = HashMap::new();
+    let mut adj: BTreeMap<String, Vec<(String, bool, String)>> = BTreeMap::new();
     for dep in direct_deps {
         adj.entry(dep.from.clone()).or_default().push((
             dep.to.clone(),
@@ -217,13 +221,13 @@ fn compute_transitive_deps(
     }
 
     // Existing direct pairs (to avoid duplicates)
-    let direct_pairs: HashSet<(String, String)> = direct_deps
+    let direct_pairs: BTreeSet<(String, String)> = direct_deps
         .iter()
         .map(|d| (d.from.clone(), d.to.clone()))
         .collect();
 
     // BFS/fixed-point transitive closure
-    let mut all_deps: HashMap<(String, String), (bool, String)> = HashMap::new();
+    let mut all_deps: BTreeMap<(String, String), (bool, String)> = BTreeMap::new();
     for dep in direct_deps {
         all_deps.insert(
             (dep.from.clone(), dep.to.clone()),
@@ -246,7 +250,7 @@ fn compute_transitive_deps(
                     }
                     let key = (a.clone(), c.clone());
                     let transitive_optional = *a_b_optional || *b_c_optional;
-                    if let std::collections::hash_map::Entry::Vacant(e) = all_deps.entry(key) {
+                    if let std::collections::btree_map::Entry::Vacant(e) = all_deps.entry(key) {
                         e.insert((transitive_optional, version.clone()));
                         changed = true;
                     }

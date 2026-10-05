@@ -946,3 +946,26 @@ fn mermaid_renders_enhancement_edges() {
         "mermaid should render enhancement edges"
     );
 }
+
+// The transitive closure is computed over maps: it must not depend on
+// their iteration order (which chain decides optionality and version, and
+// the order dependencies come out in).
+#[specforge_test_macros::test(
+    behavior = "deterministic_output",
+    verify = "same input produces identical output across runs"
+)]
+fn transitive_dependencies_are_the_same_on_every_run() {
+    let manifests = load_all_manifests();
+    let options = OutlineOptions {
+        format: OutlineFormat::Json,
+        detail: OutlineDetail::Keys,
+        deps: DependencyDepth::Full,
+    };
+    let first = render(&OutlineIntermediate_from_manifests(&manifests), &options);
+    for _ in 0..20 {
+        assert_eq!(
+            render(&OutlineIntermediate_from_manifests(&manifests), &options),
+            first
+        );
+    }
+}
