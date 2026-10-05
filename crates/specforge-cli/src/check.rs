@@ -1,4 +1,6 @@
-use specforge_project::{CompiledProject, DiagnosticPolicy};
+use specforge_ops::check::{CacheRecord, CheckOptions, check};
+use specforge_ops::view::ProjectView;
+use specforge_project::CompiledProject;
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 use specforge_wasm::WasmRuntime;
 use std::path::Path;
@@ -16,9 +18,11 @@ pub fn run(
     run_in(path, &runtime, strict, format, lint_profiles, cache)
 }
 
-/// `specforge check` with the project's extensions running in `runtime`.
-/// With `cache`, a check that passes records the build's lifecycle states
-/// (the fields kinds declare as `lifecycle_field`) in `specforge-cache.json`.
+/// `specforge check` with the project's extensions running in `runtime`:
+/// the check operation over what the compile reported, rendered, and its
+/// verdict as the exit code. With `cache`, a check that passes records the
+/// build's lifecycle states (the fields kinds declare as `lifecycle_field`)
+/// in `specforge-cache.json`.
 fn run_in(
     path: &Path,
     runtime: &dyn WasmRuntime,
@@ -27,60 +31,62 @@ fn run_in(
     lint_profiles: &[String],
     cache: bool,
 ) -> i32 {
-    let ctx = CompiledProject::compile(path, Some(runtime)).into_context();
-
-    // --lint profiles add their diagnostics, --strict promotes warnings.
-    let policy = DiagnosticPolicy {
+    let compiled = CompiledProject::compile(path, Some(runtime));
+    let options = CheckOptions {
         strict,
         lint_profiles: lint_profiles
             .iter()
             .filter_map(|p| p.parse().ok())
             .collect(),
+        severity: None,
+        record_cache: cache,
     };
-    let all_diagnostics = policy.apply(path, ctx.diagnostics);
+    let outcome = match check(
+        &ProjectView::of(&compiled),
+        compiled.diagnostics(),
+        &options,
+    ) {
+        Ok(outcome) => outcome,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return 1;
+        }
+    };
 
-    // Output
     match format {
         OutputFormat::Json => {
-            let entries = specforge_common::diagnostics_json(&all_diagnostics);
+            let entries = specforge_common::diagnostics_json(&outcome.reported);
             let json = serde_json::to_string_pretty(&entries).unwrap_or_default();
             println!("{}", json);
         }
         OutputFormat::Human => {
             let color = crate::color::stderr();
-            if !all_diagnostics.is_empty() {
-                let sources = ctx.resolved.source_texts();
-                let rendered = render_diagnostics_colored(&all_diagnostics, &sources, color);
+            if !outcome.reported.is_empty() {
+                let sources = compiled.resolved.source_texts();
+                let rendered = render_diagnostics_colored(&outcome.reported, &sources, color);
                 eprint!("{}", rendered);
             }
-            eprintln!("{}", diagnostic_summary_detailed(&all_diagnostics, color));
+            eprintln!("{}", diagnostic_summary_detailed(&outcome.reported, color));
         }
     }
 
-    if cache {
-        match specforge_project::record_build_cache(
-            path,
-            &ctx.graph,
-            &ctx.kind_registry,
-            &all_diagnostics,
-        ) {
-            Ok(true) => {}
-            Ok(false) => eprintln!(
-                "note: {} not written: the check failed",
+    match &outcome.cache {
+        CacheRecord::NotRequested | CacheRecord::Written => {}
+        CacheRecord::NotWritten => eprintln!(
+            "note: {} not written: the check failed",
+            specforge_project::BUILD_CACHE_FILE
+        ),
+        CacheRecord::WriteFailed(e) => {
+            eprintln!(
+                "error: cannot write {}: {e}",
                 specforge_project::BUILD_CACHE_FILE
-            ),
-            Err(e) => {
-                eprintln!(
-                    "error: cannot write {}: {e}",
-                    specforge_project::BUILD_CACHE_FILE
-                );
-                return 1;
-            }
+            );
+            return 1;
         }
     }
 
     // Strict already promoted warnings: errors alone decide.
-    specforge_common::compute_exit_code(&all_diagnostics)
+    if outcome.ok() { 0 } else { 1 }
 }
 
 #[cfg(test)]

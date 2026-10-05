@@ -453,6 +453,8 @@ behavior write_build_cache "Write the Build Cache" {
   verify unit "the cache file is deterministic"
   verify integration "check without --cache never writes the cache"
   verify unit "check --cache with errors leaves the cache untouched"
+  verify unit "check --strict --cache with warnings leaves the cache untouched"
+  verify unit "a check that passes records the cache and says so"
 }
 
 behavior read_build_cache "Read the Build Cache" {
