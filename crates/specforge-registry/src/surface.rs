@@ -1,89 +1,13 @@
-use serde::{Deserialize, Serialize};
+//! The surfaces registry: which extension owns each declared command, MCP
+//! tool and MCP resource (first registration wins).
+
 use specforge_common::{Diagnostic, Severity};
 use specforge_protocol_types::SurfaceDescriptor;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct SurfaceContributions {
-    #[serde(default)]
-    pub commands: Vec<CommandContribution>,
-    #[serde(default)]
-    pub mcp_tools: Vec<McpToolContribution>,
-    #[serde(default)]
-    pub mcp_resources: Vec<McpResourceContribution>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct CommandContribution {
-    pub id: String,
-    pub title: String,
-    pub description: String,
-    #[serde(default)]
-    pub category: Option<String>,
-    pub export: String,
-    #[serde(default)]
-    pub args: Vec<CommandArg>,
-    #[serde(default)]
-    pub sandbox: Option<SurfaceSandboxOverride>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct CommandArg {
-    pub name: String,
-    pub arg_type: CommandArgType,
-    #[serde(default)]
-    pub required: bool,
-    #[serde(default)]
-    pub default_value: Option<String>,
-    #[serde(default)]
-    pub description: Option<String>,
-}
-
 /// The protocol's own type: one wire shape (`"string"`, `{"enum":
-/// {"values": [..]}}`, ...) for manifests and describe payloads alike.
+/// {"values": [..]}}`, ...) for every declared command argument.
 pub use specforge_protocol_types::CommandArgType;
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct McpToolContribution {
-    pub name: String,
-    pub description: String,
-    #[serde(default)]
-    pub category: Option<String>,
-    pub export: String,
-    pub input_schema: serde_json::Value,
-    #[serde(default)]
-    pub output_schema: Option<serde_json::Value>,
-    #[serde(default)]
-    pub sandbox: Option<SurfaceSandboxOverride>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct McpResourceContribution {
-    pub uri_template: String,
-    pub name: String,
-    #[serde(default)]
-    pub description: Option<String>,
-    pub export: String,
-    pub mime_type: String,
-    #[serde(default)]
-    pub sandbox: Option<SurfaceSandboxOverride>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct SurfaceSandboxOverride {
-    #[serde(default)]
-    pub fs_read: Option<bool>,
-    #[serde(default)]
-    pub fs_write: Option<bool>,
-    #[serde(default)]
-    pub network: Option<bool>,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SurfaceType {

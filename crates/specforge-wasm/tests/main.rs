@@ -1,11 +1,8 @@
-mod contributions_integration;
 mod discovery_and_lockfile;
 mod handshake_conformance;
 mod integrity;
 mod load_declaration;
-mod protocol_bridge;
 mod protocol_host;
 mod protocol_types;
-mod sandbox_integration;
 mod sdk_vocabulary;
 mod wasm_lifecycle;

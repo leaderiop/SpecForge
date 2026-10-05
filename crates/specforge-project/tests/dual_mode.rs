@@ -22,9 +22,6 @@ fn setup_project(extensions: &[&str], spec_content: &str) -> TempDir {
     dir
 }
 
-// (Removed: manifest loading tests — manifest.json is no longer supported.
-// Extensions are loaded via the Wasm protocol pipeline.)
-
 // ── MockRuntime ──
 // Category-aware mock: keys on "__handshake" for handshake, "__describe::{category}" for describe.
 

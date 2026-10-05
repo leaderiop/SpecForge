@@ -78,7 +78,27 @@ pub fn topological_sort_extensions(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_helpers::make_declaration as make_manifest;
+    use specforge_protocol_types::{HandshakeResponse, PeerDependency};
+
+    /// A declaration of `name` (version 1.0.0) whose only content is `peers`.
+    fn make_manifest(name: &str, peers: &[(&str, &str)]) -> ExtensionDeclaration {
+        ExtensionDeclaration {
+            handshake: HandshakeResponse {
+                name: name.to_string(),
+                version: "1.0.0".to_string(),
+                peer_dependencies: peers
+                    .iter()
+                    .map(|(n, v)| PeerDependency {
+                        name: n.to_string(),
+                        version: v.to_string(),
+                        optional: false,
+                    })
+                    .collect(),
+                ..HandshakeResponse::default()
+            },
+            ..ExtensionDeclaration::default()
+        }
+    }
 
     // B:topological_sort_extensions — verify unit "extensions sorted in dependency order"
     #[test]

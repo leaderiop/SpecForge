@@ -65,7 +65,7 @@ fn declared_with(surfaces: Option<serde_json::Value>) -> ExtensionDeclaration {
     c.declaration()
 }
 
-// B:surface_contributions_types — verify unit "SurfaceContributions round-trip JSON serialization"
+// B:surface_contributions_types — verify unit "SurfaceDescriptor round-trip JSON serialization"
 #[test]
 fn test_surface_contributions_round_trip_json() {
     let surfaces = make_surfaces(
@@ -79,9 +79,9 @@ fn test_surface_contributions_round_trip_json() {
     assert_eq!(surfaces, parsed);
 }
 
-// B:surface_contributions_types — verify unit "ManifestV2 with surfaces field parses"
+// B:surface_contributions_types — verify unit "a declaration with surfaces parses"
 #[test]
-fn test_manifest_with_surfaces_parses() {
+fn test_declaration_with_surfaces_parses() {
     let declaration = declared_with(Some(serde_json::json!({
         "commands": [{
             "id": "analyze",
@@ -104,9 +104,9 @@ fn test_manifest_with_surfaces_parses() {
     assert_eq!(surfaces.mcp_tools[0].name, "search");
 }
 
-// B:surface_contributions_types — verify unit "ManifestV2 without surfaces defaults to None"
+// B:surface_contributions_types — verify unit "a declaration without surfaces declares none"
 #[test]
-fn test_manifest_without_surfaces_defaults_none() {
+fn test_declaration_without_surfaces_declares_none() {
     let declaration = declared_with(None);
     assert_eq!(declaration.surfaces, SurfaceDescriptor::default());
 }

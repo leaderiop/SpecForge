@@ -8,6 +8,20 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
+/// Every file under `dir`, recursively.
+fn walk(dir: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    for entry in fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_dir() {
+            files.extend(walk(&path));
+        } else {
+            files.push(path);
+        }
+    }
+    files
+}
+
 fn specforge_cmd() -> Command {
     assert_cmd::cargo_bin_cmd!("specforge")
 }
@@ -69,8 +83,18 @@ fn extension_init_creates_an_sdk_crate() {
     let cargo = fs::read_to_string(ext.join("Cargo.toml")).unwrap();
     assert!(cargo.contains("specforge-extension-sdk"), "{cargo}");
     assert!(cargo.contains(r#"crate-type = ["cdylib"]"#), "{cargo}");
-    // The binary declares the extension: there is no manifest to write.
-    assert!(!ext.join("manifest.json").exists());
+    // The binary declares the extension: the crate is all there is.
+    let mut written: Vec<String> = walk(&ext)
+        .into_iter()
+        .map(|p| {
+            p.strip_prefix(&ext)
+                .unwrap()
+                .to_string_lossy()
+                .replace('\\', "/")
+        })
+        .collect();
+    written.sort();
+    assert_eq!(written, [".cargo/config.toml", "Cargo.toml", "src/lib.rs"]);
 }
 
 #[specforge_test(
@@ -214,7 +238,6 @@ fn extension_build_reports_a_failed_build() {
     let output = specforge_cmd()
         .args(["extension", "build", "--format", "json", "--path"])
         .arg(dir.path())
-        .env("CARGO_TARGET_DIR", dir.path().join("target"))
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(1));
@@ -249,10 +272,14 @@ fn a_scaffolded_extension_builds_and_validates() {
     ));
     fs::write(ext.join("Cargo.toml"), cargo).unwrap();
 
+    // A target directory configured elsewhere doesn't move the component
+    // out of the crate, where `validate` and `publish` look.
+    let elsewhere = TempDir::new().unwrap();
     let output = specforge_cmd()
         .args(["extension", "build", "--format", "json", "--path"])
         .arg(&ext)
         .env("CARGO_NET_OFFLINE", "true")
+        .env("CARGO_TARGET_DIR", elsewhere.path())
         .output()
         .unwrap();
     let json = json_of(&output);

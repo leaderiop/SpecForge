@@ -13,37 +13,32 @@ use "types/zero-entity-core"
 
 // -- Extension Manifest V2 ---------------------------------------------------
 
-behavior validate_manifest_v2_schema "Validate Manifest V2 Schema" {
+behavior validate_manifest_v2_schema "Validate Extension Declaration" {
   features   [extension_manifest]
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
   types      [ManifestV2, ExtensionError]
   requires {
-    manifest_json_available "Manifest JSON has been parsed from disk and is available as a structured object"
+    declaration_loaded "The extension's declaration has been loaded from its handshake and describe answers"
   }
   ensures {
-    schema_validated    "Manifest passes all v2 schema checks — required fields present, manifest_version is 2, contributions structurally correct"
-    malformed_diagnosed "Malformed JSON or missing required fields produce hard error diagnostics"
+    shape_validated     "The declaration has a name and a version, a declared ext_short is lowercase kebab case, and every analyzer has a language, file extensions and exports"
+    malformed_diagnosed "A declaration the host cannot use produces a hard error diagnostic"
   }
   contract   """
-    The compiler MUST validate a manifest against the v2 schema. This
-    behavior is a pure schema check — it does NOT handle v1 detection or
-    migration. Required fields (name, version, manifest_version, wasm_path)
-    MUST be present. The manifest_version MUST be 2. Unknown top-level
-    fields MUST produce a warning. Grammar and body parser contribution
-    arrays, when present, MUST be validated for structural correctness:
-    entity_kinds MUST be non-empty arrays, grammar_wasm_path and
-    export_name MUST be non-empty strings. Malformed JSON MUST produce a
-    hard error. This behavior is called by validate_extension_manifest
-    (behaviors/wasm-lifecycle.spec) after initial manifest parsing. Schema
-    validation MUST complete for all manifests before registry population
-    begins.
+    The registry build MUST validate each declaration: name and version
+    present, a declared ext_short is lowercase kebab case, analyzer
+    contributions have a language, file extensions and exports (E030). The
+    load MUST refuse a handshake whose protocol major version differs from
+    the host's (E028). Unknown describe keys produce W138 at load.
+    Declaration validation MUST complete for all declarations before
+    registry population begins.
   """
-  verify unit "valid v2 manifest passes schema validation"
+  verify unit "a valid declaration passes validation"
   verify unit "missing required field produces hard error"
-  verify unit "manifestVersion != 2 produces hard error"
-  verify unit "unknown top-level field produces warning"
-  verify contract "Validate Manifest V2 Schema: manifest v2 schema validation holds — manifest_json_available, schema_validated, malformed_diagnosed"
+  verify integration "an unsupported protocol major version fails the load"
+  verify integration "an unknown describe key produces a warning"
+  verify contract "Validate Extension Declaration: declaration validation holds — declaration_loaded, shape_validated, malformed_diagnosed"
 }
 
 behavior register_entity_kinds_from_manifest "Register Entity Kinds From Manifest" {

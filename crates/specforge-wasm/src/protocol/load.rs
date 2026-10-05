@@ -13,8 +13,8 @@ use super::host::ProtocolHost;
 #[cfg(doc)]
 use specforge_protocol_types::DECLARED_CATEGORIES;
 
-use super::error::ProtocolError;
 use crate::runtime::WasmRuntime;
+use specforge_protocol_types::ProtocolError;
 
 /// A loaded declaration, with what its load found worth a warning.
 #[derive(Debug, Clone)]

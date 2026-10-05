@@ -82,7 +82,7 @@ fn publish_stores_the_declaration_the_binary_declares() {
     std::fs::write(project.path().join("greet.wasm"), greet_wasm()).unwrap();
     let home = TempDir::new().unwrap();
 
-    // No manifest.json anywhere: the binary is all publish reads.
+    // Only the binary: it is all publish reads.
     let output = std::process::Command::new(assert_cmd::cargo_bin!("specforge"))
         .arg("publish")
         .arg(project.path().join("greet.wasm"))

@@ -9,7 +9,7 @@
 //   - populate_edge_registry_from_extensions (4 verifies)
 //   - register_entity_kinds_from_manifest (9 verifies)
 //   - register_edge_types_from_manifest (6 verifies)
-//   - validate_manifest_v2_schema (5 verifies)
+//   - validate_manifest_v2_schema (3 verifies; the load's two are in specforge-project)
 //   - detect_unknown_entity_kinds (5 verifies)
 //   - suggest_missing_extensions (4 verifies)
 //   - validate_registered_entity_fields (0; proven in specforge-project)
@@ -36,24 +36,18 @@ use specforge_registry::compilation::{
     validate_registered_entity_fields,
 };
 use specforge_registry::{
-    EdgeRegistry, FieldRegistry, FieldRegistryEntry, KindRegistry, ManifestFieldType, ManifestV2,
-    detect_unknown_entity_fields, validate_manifest,
+    EdgeRegistry, FieldRegistry, FieldRegistryEntry, KindRegistry, ManifestFieldType,
+    detect_unknown_entity_fields,
 };
 
-use super::support::{declare, extension, peer, product, software};
+use super::support::{declare, extension, kind_collisions, peer, product, software};
 use crate::compilation::declaration::{consistency, shape};
 use crate::compilation::populate::populate;
-use crate::compilation::validate::{duplicate_entity_kinds, peer_dependencies};
+use crate::compilation::validate::peer_dependencies;
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/// A manifest, for the checks only a manifest has (its `manifestVersion`,
-/// its `wasmPath`, its unknown camelCase keys).
-fn manifest(json: &str) -> ManifestV2 {
-    serde_json::from_str(json).unwrap()
-}
 
 /// The declaration of `name` at `version`, with `peers` and nothing else.
 fn versioned(name: &str, version: &str, peers: Vec<PeerDependency>) -> ExtensionDeclaration {
@@ -952,9 +946,9 @@ fn register_edge_contract() {
 
 #[spec(
     behavior = "validate_manifest_v2_schema",
-    verify = "valid v2 manifest passes schema validation"
+    verify = "a valid declaration passes validation"
 )]
-fn manifest_v2_valid_passes() {
+fn a_valid_declaration_passes_validation() {
     let diags = shape(&declare("@specforge/software", |_| {}));
     assert!(diags.is_empty());
 }
@@ -963,78 +957,33 @@ fn manifest_v2_valid_passes() {
     behavior = "validate_manifest_v2_schema",
     verify = "missing required field produces hard error"
 )]
-fn manifest_v2_missing_required_field() {
-    // The wasm path is the manifest's alone: this stays on the manifest.
-    let manifest =
-        manifest(r#"{"name": "", "version": "1.0.0", "manifestVersion": 2, "wasmPath": "x.wasm"}"#);
-    let diags = validate_manifest(&manifest);
+fn a_declaration_without_name_or_version_is_e030() {
+    let nameless = shape(&ContributionsBuilder::new(ExtensionMeta::new("", "1.0.0")).declaration());
+    assert_eq!(nameless.len(), 1, "{nameless:?}");
+    assert_eq!(nameless[0].code, "E030");
+    assert_eq!(nameless[0].severity, Severity::Error);
     assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "E030" && d.message.contains("'name'"))
+        nameless[0].message.contains("name is empty"),
+        "{nameless:?}"
     );
 
-    let manifest2 = self::manifest(
-        r#"{"name": "@test/ext", "version": "1.0.0", "manifestVersion": 2, "wasmPath": ""}"#,
-    );
-    let diags2 = validate_manifest(&manifest2);
+    let unversioned =
+        shape(&ContributionsBuilder::new(ExtensionMeta::new("@test/ext", "")).declaration());
+    assert_eq!(unversioned.len(), 1, "{unversioned:?}");
+    assert_eq!(unversioned[0].code, "E030");
     assert!(
-        diags2
-            .iter()
-            .any(|d| d.code == "E030" && d.message.contains("wasmPath"))
+        unversioned[0]
+            .message
+            .contains("'@test/ext': its version is empty"),
+        "{unversioned:?}"
     );
 }
 
 #[spec(
     behavior = "validate_manifest_v2_schema",
-    verify = "manifestVersion != 2 produces hard error"
+    verify = "Validate Extension Declaration: declaration validation holds — declaration_loaded, shape_validated, malformed_diagnosed"
 )]
-fn manifest_v2_wrong_version() {
-    // A manifest version is the manifest's alone: this stays on the manifest.
-    let manifest = manifest(
-        r#"{"name": "@test/ext", "version": "1.0.0", "manifestVersion": 1, "wasmPath": "x.wasm"}"#,
-    );
-    let diags = validate_manifest(&manifest);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "E030" && d.message.contains("manifestVersion must be 2"))
-    );
-}
-
-#[spec(
-    behavior = "validate_manifest_v2_schema",
-    verify = "unknown top-level field produces warning"
-)]
-fn manifest_v2_unknown_field() {
-    // Unknown camelCase keys are the manifest's alone: this stays on the
-    // manifest.
-    let raw: serde_json::Value = serde_json::from_str(
-        r#"{"name": "@test/ext", "version": "1.0.0", "manifestVersion": 2, "wasmPath": "x.wasm",
-            "entityKnds": [], "entityKinds": [], "surfaces": null}"#,
-    )
-    .unwrap();
-
-    let diags = specforge_registry::unknown_manifest_fields(&raw);
-
-    assert_eq!(diags.len(), 1, "{diags:?}");
-    assert_eq!(diags[0].code, "W138");
-    assert_eq!(diags[0].severity, Severity::Warning);
-    assert!(
-        diags[0].message.contains("'entityKnds'"),
-        "{}",
-        diags[0].message
-    );
-    // A known field set to null or empty is not unknown, and the manifest
-    // still parses.
-    assert!(serde_json::from_value::<ManifestV2>(raw).is_ok());
-}
-
-#[spec(
-    behavior = "validate_manifest_v2_schema",
-    verify = "Validate Manifest V2 Schema: manifest v2 schema validation holds — manifest_json_available, schema_validated, malformed_diagnosed"
-)]
-fn manifest_v2_schema_contract() {
+fn declaration_validation_contract() {
     let good_diags = shape(&declare("@specforge/software", |_| {}));
     assert!(good_diags.is_empty());
 
@@ -1382,7 +1331,7 @@ fn a_field_edge_label_is_registered_as_an_implicit_edge() {
 fn detect_dup_kinds_e026() {
     let m1 = software();
     let m2 = other_behavior();
-    let diags = duplicate_entity_kinds(&[m1, m2]);
+    let diags = kind_collisions(&[m1, m2]);
     assert!(
         diags
             .iter()
@@ -1407,7 +1356,7 @@ fn detect_dup_kinds_first_wins() {
     verify = "single extension registering a kind produces no diagnostic"
 )]
 fn detect_dup_kinds_single_ext_no_diag() {
-    let diags = duplicate_entity_kinds(&[software()]);
+    let diags = kind_collisions(&[software()]);
     assert!(diags.is_empty());
 }
 
@@ -1416,10 +1365,10 @@ fn detect_dup_kinds_single_ext_no_diag() {
     verify = "Detect Duplicate Entity Kinds: duplicate entity kind detection holds — manifests_loading, collisions_detected, first_wins_enforced"
 )]
 fn detect_dup_kinds_contract() {
-    let diags = duplicate_entity_kinds(&[software()]);
+    let diags = kind_collisions(&[software()]);
     assert!(diags.is_empty());
     let m2 = other_behavior();
-    let dup_diags = duplicate_entity_kinds(&[software(), m2]);
+    let dup_diags = kind_collisions(&[software(), m2]);
     assert!(dup_diags.iter().any(|d| d.code == "E026"));
 }
 

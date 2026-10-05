@@ -115,7 +115,7 @@ fn order(build: &specforge_registry::RegistryBuild) -> Vec<String> {
     behavior = "build_registries_from_declarations",
     verify = "declared passes are ordered in the registry build"
 )]
-fn declared_passes_are_ordered() {
+fn passes_are_ordered_in_the_registry_build() {
     let build = build_registries(vec![
         passes("@acme/formal", |c| {
             // Declared out of order; `after` gives the run order. `resolve`

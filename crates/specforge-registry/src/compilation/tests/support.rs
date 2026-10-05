@@ -84,3 +84,15 @@ pub(crate) fn product() -> ExtensionDeclaration {
     });
     c.declaration()
 }
+
+/// The kind collisions (E026) populating the registries from
+/// `declarations`, in load order, reports.
+pub(crate) fn kind_collisions(
+    declarations: &[ExtensionDeclaration],
+) -> Vec<specforge_common::Diagnostic> {
+    crate::compilation::populate::populate(declarations)
+        .3
+        .into_iter()
+        .filter(|d| d.code == "E026")
+        .collect()
+}

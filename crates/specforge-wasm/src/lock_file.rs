@@ -1,4 +1,3 @@
-use crate::discovery::ResolvedExtension;
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, Severity};
 use std::path::Path;
@@ -26,7 +25,7 @@ pub struct LockFileEntry {
     /// (C8-05: doctor verifies these across the other lock entries). Defaults
     /// on deserialize for lock files written before this existed.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub peer_dependencies: Vec<specforge_registry::PeerDependency>,
+    pub peer_dependencies: Vec<specforge_protocol_types::PeerDependency>,
 }
 
 impl Default for LockFile {
@@ -210,67 +209,9 @@ pub fn collect_peer_requirers(
     requirers
 }
 
-/// Refresh lock file entries from a list of resolved extensions.
-/// Updates existing entries and adds new ones. Returns diagnostics for any issues.
-pub fn refresh_lock_file(
-    lock: &mut LockFile,
-    resolved: &[ResolvedExtension],
-    compute_hash: impl Fn(&Path) -> Option<String>,
-) -> Vec<Diagnostic> {
-    let diagnostics = Vec::new();
-
-    for ext in resolved {
-        let wasm_path = ext
-            .manifest_path
-            .parent()
-            .map(|p| p.join(&ext.manifest.wasm_path))
-            .unwrap_or_else(|| Path::new(&ext.manifest.wasm_path).to_path_buf());
-
-        let hash = compute_hash(&wasm_path).unwrap_or_default();
-
-        let source = match &ext.source {
-            crate::discovery::ExtensionSpecifier::Registry { .. } => "registry".to_string(),
-            crate::discovery::ExtensionSpecifier::Local { path } => {
-                format!("local:{}", path.display())
-            }
-            crate::discovery::ExtensionSpecifier::Git { url, .. } => format!("git:{}", url),
-        };
-
-        if let Some(existing) = lock
-            .entries
-            .iter_mut()
-            .find(|e| e.name == ext.manifest.name)
-        {
-            existing.version = ext.manifest.version.clone();
-            existing.source = source;
-            existing.wasm_hash = hash;
-            existing.peer_dependencies = ext.manifest.peer_dependencies.clone();
-        } else {
-            lock.entries.push(LockFileEntry {
-                name: ext.manifest.name.clone(),
-                version: ext.manifest.version.clone(),
-                source,
-                wasm_hash: hash,
-                key_id: None,
-                peer_dependencies: ext.manifest.peer_dependencies.clone(),
-            });
-        }
-    }
-
-    // Remove entries that are no longer in the resolved set
-    let resolved_names: std::collections::HashSet<&str> =
-        resolved.iter().map(|r| r.manifest.name.as_str()).collect();
-    lock.entries
-        .retain(|e| resolved_names.contains(e.name.as_str()));
-
-    diagnostics
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::discovery::{ExtensionSpecifier, ResolvedExtension};
-    use crate::test_helpers::default_manifest;
     use std::collections::HashMap;
     use tempfile::TempDir;
 
@@ -464,71 +405,6 @@ mod tests {
         );
         assert!(results.is_empty(), "expected no issues, got: {:?}", results);
     }
-
-    // -- refresh_lock_file --
-
-    // B:refresh_lock_file — verify unit "lock file reflects installed extensions"
-    #[test]
-    fn test_refresh_lock_file_reflects_installed() {
-        let mut lock = LockFile::new();
-        let mut manifest = default_manifest();
-        manifest.name = "@specforge/software".to_string();
-        manifest.version = "1.0.0".to_string();
-        manifest.wasm_path = "extension.wasm".to_string();
-
-        let resolved = vec![ResolvedExtension {
-            manifest: manifest.clone(),
-            source: ExtensionSpecifier::Registry {
-                name: "@specforge/software".to_string(),
-                version: "1.0.0".to_string(),
-            },
-            manifest_path: std::path::PathBuf::from("/ext/manifest.json"),
-        }];
-
-        let diags = refresh_lock_file(&mut lock, &resolved, |_| Some("hash123".to_string()));
-        assert!(diags.is_empty());
-        assert_eq!(lock.entries.len(), 1);
-        assert_eq!(lock.entries[0].name, "@specforge/software");
-        assert_eq!(lock.entries[0].version, "1.0.0");
-        assert_eq!(lock.entries[0].source, "registry");
-        assert_eq!(lock.entries[0].wasm_hash, "hash123");
-    }
-
-    // B:refresh_lock_file — verify unit "hash entries updated"
-    #[test]
-    fn test_refresh_lock_file_updates_hash() {
-        let mut lock = LockFile {
-            lockfile_version: 1,
-            entries: vec![LockFileEntry {
-                name: "@specforge/software".to_string(),
-                version: "1.0.0".to_string(),
-                source: "registry".to_string(),
-                wasm_hash: "old_hash".to_string(),
-                key_id: None,
-                peer_dependencies: Vec::new(),
-            }],
-        };
-
-        let mut manifest = default_manifest();
-        manifest.name = "@specforge/software".to_string();
-        manifest.version = "2.0.0".to_string();
-        manifest.wasm_path = "extension.wasm".to_string();
-
-        let resolved = vec![ResolvedExtension {
-            manifest: manifest.clone(),
-            source: ExtensionSpecifier::Registry {
-                name: "@specforge/software".to_string(),
-                version: "2.0.0".to_string(),
-            },
-            manifest_path: std::path::PathBuf::from("/ext/manifest.json"),
-        }];
-
-        let diags = refresh_lock_file(&mut lock, &resolved, |_| Some("new_hash".to_string()));
-        assert!(diags.is_empty());
-        assert_eq!(lock.entries.len(), 1);
-        assert_eq!(lock.entries[0].version, "2.0.0");
-        assert_eq!(lock.entries[0].wasm_hash, "new_hash");
-    }
 }
 
 // C8-05 acceptance: doctor verifies recorded peers across OTHER entries.
@@ -536,7 +412,7 @@ mod tests {
 mod peer_check_tests {
     use super::*;
 
-    fn entry(name: &str, peers: Vec<specforge_registry::PeerDependency>) -> LockFileEntry {
+    fn entry(name: &str, peers: Vec<specforge_protocol_types::PeerDependency>) -> LockFileEntry {
         LockFileEntry {
             name: name.to_string(),
             version: "1.0.0".to_string(),
@@ -547,8 +423,8 @@ mod peer_check_tests {
         }
     }
 
-    fn peer(name: &str, req: &str) -> specforge_registry::PeerDependency {
-        specforge_registry::PeerDependency {
+    fn peer(name: &str, req: &str) -> specforge_protocol_types::PeerDependency {
+        specforge_protocol_types::PeerDependency {
             name: name.to_string(),
             version: req.to_string(),
             optional: false,

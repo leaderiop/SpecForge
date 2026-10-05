@@ -1,12 +1,11 @@
-use crate::ManifestV2;
-use crate::manifest::legacy::to_declaration;
 #[cfg(test)]
 use crate::{EdgeRegistry, FieldRegistry, KindRegistry};
-use specforge_common::{Diagnostic, DiagnosticData, Severity};
+use specforge_common::{Diagnostic, Severity};
 use specforge_protocol_types::{ExtensionDeclaration, ValidationRuleDescriptor};
 
 /// Cross-validate registered entity fields: check target_kind and edge label references
-/// resolve to registered entries. Test-only: `validate_manifest` reports W021 on load.
+/// resolve to registered entries. Test-only: the registry build reports W021 on load
+/// (`declaration::consistency`).
 #[cfg(test)]
 pub fn validate_registered_entity_fields(
     field_reg: &FieldRegistry,
@@ -54,67 +53,6 @@ pub fn validate_registered_entity_fields(
     // Sort for deterministic output
     diagnostics.sort_by(|a, b| a.message.cmp(&b.message));
     diagnostics
-}
-
-/// Detect duplicate entity kinds across extension manifests (E026), through
-/// the declarations they describe.
-pub fn detect_duplicate_entity_kinds(manifests: &[ManifestV2]) -> Vec<Diagnostic> {
-    let declarations: Vec<ExtensionDeclaration> = manifests.iter().map(to_declaration).collect();
-    duplicate_entity_kinds(&declarations)
-}
-
-/// E026 for each kind a later declaration declares again (the first wins).
-/// The registry build reports them as it populates; this is the same check
-/// on its own.
-pub(crate) fn duplicate_entity_kinds(declarations: &[ExtensionDeclaration]) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-    let mut seen: std::collections::HashMap<&str, &str> = std::collections::HashMap::new();
-
-    for declaration in declarations {
-        for kind in &declaration.entities {
-            let keyword = super::populate::keyword(kind);
-            if let Some(first_ext) = seen.get(keyword) {
-                diagnostics.push(Diagnostic {
-                    code: "E026".to_string(),
-                    severity: Severity::Error,
-                    message: format!(
-                        "entity kind '{}' registered by '{}' conflicts with '{}' (first registration wins)",
-                        keyword,
-                        declaration.name(),
-                        first_ext
-                    ),
-                    span: None,
-                    suggestion: None,
-                    data: Some(Box::new(DiagnosticData::ShadowedKeyword {
-                        keyword: keyword.to_string(),
-                    })),
-                });
-            } else {
-                seen.insert(keyword, declaration.name());
-            }
-        }
-    }
-
-    diagnostics
-}
-
-/// Validate peer dependencies against installed extensions: a required
-/// peer must be installed (E027), and every installed peer, optional or
-/// not, must satisfy its range (E027; W062 for malformed semver). An
-/// optional peer that is not installed is fine.
-pub fn validate_peer_dependencies(manifests: &[ManifestV2]) -> Vec<Diagnostic> {
-    let declarations: Vec<ExtensionDeclaration> = manifests.iter().map(to_declaration).collect();
-    peer_dependencies(&declarations)
-}
-
-/// [`validate_peer_dependencies`] for the peers `manifest` declares, against
-/// the `installed` extensions (`manifest` itself may be among them).
-pub fn validate_peer_dependencies_of(
-    manifest: &ManifestV2,
-    installed: &[ManifestV2],
-) -> Vec<Diagnostic> {
-    let installed: Vec<ExtensionDeclaration> = installed.iter().map(to_declaration).collect();
-    peer_dependencies_of(&to_declaration(manifest), &installed)
 }
 
 /// E027/W062 for every declaration's peers, against the loaded ones.
@@ -292,7 +230,7 @@ pub(crate) fn register_validation_rules(
 mod tests {
     use super::*;
     use crate::compilation::populate::populate;
-    use crate::compilation::tests::support::{declare, peer};
+    use crate::compilation::tests::support::{declare, kind_collisions, peer};
     use specforge_extension_sdk::prelude::*;
 
     fn software_manifest() -> ExtensionDeclaration {
@@ -470,7 +408,7 @@ mod tests {
     fn test_duplicate_kind_from_two_extensions_produces_e026() {
         let m1 = software_manifest();
         let m2 = declaring_kind("@other/ext", "Behavior", "behavior");
-        let diags = duplicate_entity_kinds(&[m1, m2]);
+        let diags = kind_collisions(&[m1, m2]);
         assert!(
             diags
                 .iter()
@@ -493,7 +431,7 @@ mod tests {
     // B:detect_duplicate_entity_kinds — verify unit "single extension registering a kind produces no diagnostic"
     #[test]
     fn test_single_extension_registering_a_kind_produces_no_diagnostic() {
-        let diags = duplicate_entity_kinds(&[software_manifest()]);
+        let diags = kind_collisions(&[software_manifest()]);
         assert!(diags.is_empty());
     }
 
@@ -697,11 +635,11 @@ mod tests {
     fn test_detect_duplicate_entity_kinds_contract() {
         // requires: manifests parsed
         // ensures: no duplicates → no diagnostics
-        let diags = duplicate_entity_kinds(&[software_manifest()]);
+        let diags = kind_collisions(&[software_manifest()]);
         assert!(diags.is_empty());
         // ensures: duplicate → E026 with both extension names
         let m2 = declaring_kind("@other/ext", "Behavior", "behavior");
-        let dup_diags = duplicate_entity_kinds(&[software_manifest(), m2]);
+        let dup_diags = kind_collisions(&[software_manifest(), m2]);
         assert!(dup_diags.iter().any(|d| d.code == "E026"));
     }
 

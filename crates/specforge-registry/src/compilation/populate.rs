@@ -1,6 +1,6 @@
 use crate::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, ManifestFieldType, ManifestV2, ProofRole,
+    KindRegistryEntry, ManifestFieldType, ProofRole,
 };
 use specforge_common::{Diagnostic, DiagnosticData, Severity};
 use specforge_protocol_types::{
@@ -11,19 +11,6 @@ use specforge_protocol_types::{
 /// else its name.
 pub(crate) fn keyword(kind: &EntityKindDescriptor) -> &str {
     kind.keyword.as_deref().unwrap_or(&kind.name)
-}
-
-/// Populate all three registries from extension manifests, through the
-/// declarations they describe ([`populate`]). Manifests should be provided
-/// in load order (dependencies first).
-pub fn populate_registries(
-    manifests: &[ManifestV2],
-) -> (KindRegistry, FieldRegistry, EdgeRegistry, Vec<Diagnostic>) {
-    let declarations: Vec<ExtensionDeclaration> = manifests
-        .iter()
-        .map(crate::manifest::legacy::to_declaration)
-        .collect();
-    populate(&declarations)
 }
 
 /// Populate all three registries from the declarations, in load order

@@ -91,7 +91,7 @@ pub fn remove(req: &RemoveRequest) -> Result<RemoveOutcome, OpError> {
 
     if let (Origin::Installed { .. }, Some(mut lock)) = (&outcome.origin, lock) {
         // Dependents are checked above, over the loaded declarations and the lock.
-        uninstall_extension(req.name, &[], &extensions_dir(req.root), &mut lock, true)
+        uninstall_extension(req.name, &extensions_dir(req.root), &mut lock)
             .map_err(OpError::from)?;
         write_lock_file(&lock, &lock_path(req.root)).map_err(OpError::from)?;
     }

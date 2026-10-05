@@ -585,9 +585,61 @@ mod declared_in_process {
         let declaration = env.registries.declaration("@acme/reports").expect("loaded");
         assert_eq!(declaration.short(), "rep");
     }
+
+    #[specforge_test_macros::test(
+        behavior = "validate_manifest_v2_schema",
+        verify = "an unsupported protocol major version fails the load"
+    )]
+    fn an_unsupported_protocol_major_fails_the_load() {
+        let handshake = serde_json::to_vec(&specforge_protocol_types::HandshakeResponse {
+            protocol_version: "2.0.0".to_string(),
+            name: "@acme/reports".to_string(),
+            version: "0.1.0".to_string(),
+            ..Default::default()
+        })
+        .unwrap();
+        let runtime = InProcessRuntime::new().with(reports).answer_raw(
+            "@acme/reports",
+            "__handshake",
+            specforge_wasm::WasmCallResult::Ok(handshake),
+        );
+        let env = load(&["@acme/reports"], &runtime);
+        assert!(env.registries.declaration("@acme/reports").is_none());
+        assert!(!env.registries.kinds.contains("report"));
+        let e028: Vec<_> = env.diagnostics().filter(|d| d.code == "E028").collect();
+        assert_eq!(e028.len(), 1, "{e028:?}");
+        assert!(e028[0].message.contains("@acme/reports"), "{e028:?}");
+        assert!(e028[0].message.contains("2.0.0"), "{e028:?}");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "validate_manifest_v2_schema",
+        verify = "an unknown describe key produces a warning"
+    )]
+    fn an_unknown_describe_key_produces_a_warning() {
+        let typo = || {
+            let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/typo", "0.1.0"));
+            b.raw_category(
+                "entities",
+                serde_json::json!([{ "name": "memo", "testabel": true }]),
+            );
+            b
+        };
+        let runtime = InProcessRuntime::new().with(typo);
+        let env = load(&["@acme/typo"], &runtime);
+        // The extension still loads, without the key it misspelled.
+        assert!(env.registries.kinds.contains("memo"));
+        let warnings: Vec<_> = env
+            .diagnostics()
+            .filter(|d| d.severity == specforge_common::Severity::Warning)
+            .collect();
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert_eq!(warnings[0].code, "W138");
+        assert!(warnings[0].message.contains("'testabel'"), "{warnings:?}");
+    }
 }
 
-mod declared_passes {
+mod passes_of_the_declaration {
     //! The passes an environment runs are the ones its one declaration load
     //! read: nothing describes `passes` again, and a passes answer that does
     //! not parse fails the extension's load.

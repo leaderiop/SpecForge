@@ -73,7 +73,6 @@ fn remove_delegates_to_uninstall() {
         .join("@specforge/software");
     fs::create_dir_all(&ext_dir).unwrap();
     fs::write(ext_dir.join("extension.wasm"), b"fake wasm").unwrap();
-    fs::write(ext_dir.join("manifest.json"), b"{}").unwrap();
     // Another extension's files must survive.
     let other_dir = dir
         .path()

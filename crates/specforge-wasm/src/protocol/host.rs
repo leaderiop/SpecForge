@@ -2,8 +2,8 @@ use crate::runtime::{WasmCallResult, WasmRuntime};
 
 use super::PROTOCOL_VERSION;
 use super::SUPPORTED_CATEGORIES;
-use super::error::ProtocolError;
-use super::types::*;
+use specforge_protocol_types::ProtocolError;
+use specforge_protocol_types::*;
 
 /// The transport of the declaration load ([`super::load_declaration`]):
 /// the `__handshake` and `__describe` calls over a `WasmRuntime`, each

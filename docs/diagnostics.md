@@ -250,33 +250,6 @@ Owner: core
 Level: error
 ```
 
-## E017
-
-```
-E017: Entity enhancement conflict
-
-Two installed extensions both declare an entity-enhancement field with the same
-name on the same target entity kind, and no explicit override resolves it.
-Rename one extension's field, or add an override for that kind/field in
-`specforge.json`.
-
-Owner: core
-Level: error
-```
-
-## E018
-
-```
-E018: Grammar contribution conflict
-
-Two extensions both contribute a tree-sitter grammar for the same entity kind.
-Only one extension may own an entity kind's grammar — uninstall one of the
-conflicting extensions or set a grammar conflict policy in the compiler config.
-
-Owner: core
-Level: error
-```
-
 ## E019
 
 ```
@@ -291,20 +264,6 @@ Owner: core
 Level: error
 ```
 
-## E020
-
-```
-E020: Missing Wasm export
-
-An extension's manifest declares a contribution (validator, renderer, parser,
-collector, grammar, or surface command/tool) whose required Wasm export function
-isn't present in the compiled module. Add the matching `#[export_name = "..."]`
-export to the extension's Wasm binary.
-
-Owner: core
-Level: error
-```
-
 ## E022
 
 ```
@@ -313,19 +272,6 @@ E022: Reference targets wrong kind
 A reference field is declared to only accept entities of a specific kind, but
 the target ID resolves to an entity of a different kind. Point the field at an
 entity of the expected kind.
-
-Owner: core
-Level: error
-```
-
-## E023
-
-```
-E023: Entity kind conflicts with keyword
-
-An extension declares an entity kind keyword that collides with a structural DSL
-keyword (`spec`, `ref`, `use`, `define`). Choose a different keyword for the
-entity kind.
 
 Owner: core
 Level: error
@@ -458,19 +404,6 @@ it records for an installed extension no longer matches the binary on disk;
 `specforge update` reports it when there is no lock file to update. Delete the
 lock file and reinstall extensions, reinstall the specific extension whose
 binary changed, or run `specforge add` first.
-
-Owner: core
-Level: error
-```
-
-## E035
-
-```
-E035: Reserved or invalid entity kind name
-
-An extension-declared entity kind name is a reserved structural keyword, doesn't
-match the identifier pattern `[a-z][a-z0-9_]{1,59}`, or is already reserved by
-another installed extension. Choose a different, valid entity kind name.
 
 Owner: core
 Level: error
@@ -1952,19 +1885,6 @@ Owner: core
 Level: warning
 ```
 
-## W028
-
-```
-W028: Extension memory ceiling exceeded
-
-The combined `max_memory_mb` declared across all installed extensions' sandbox
-policies exceeds the configured total memory ceiling. Reduce `max_memory_mb` in
-one or more extension sandbox policies.
-
-Owner: core
-Level: warning
-```
-
 ## W029
 
 ```
@@ -2466,34 +2386,6 @@ Owner: core
 Level: warning
 ```
 
-## W116
-
-```
-W116: Extension discovery failure
-
-While scanning an extensions directory, a `manifest.json` could not be read or
-read directory itself failed, or a manifest failed to parse as valid JSON
-matching the manifest schema. Fix the directory permissions or correct the
-malformed `manifest.json`; discovery skips the broken entry and continues with
-the rest.
-
-Owner: core
-Level: warning
-```
-
-## W117
-
-```
-W117: Invalid query extension pattern
-
-An extension's tree-sitter query extension pattern (for `highlights`, `locals`,
-or `injections`) is empty or contains null bytes. Provide a non-empty query
-pattern with no null bytes; the invalid pattern is skipped rather than loaded.
-
-Owner: core
-Level: warning
-```
-
 ## W118
 
 ```
@@ -2749,7 +2641,12 @@ These codes are no longer emitted, and are never reused for another meaning.
 
 | Code | Replaced by |
 |------|-------------|
+| E017 | (nothing) |
+| E018 | (nothing) |
+| E020 | (nothing) |
+| E023 | (nothing) |
 | E029 | (nothing) |
+| E035 | (nothing) |
 | E037 | (nothing) |
 | E038 | (nothing) |
 | E047 | [W139](#w139) |
@@ -2758,8 +2655,11 @@ These codes are no longer emitted, and are never reused for another meaning.
 | W024 | (nothing) |
 | W025 | (nothing) |
 | W026 | (nothing) |
+| W028 | (nothing) |
 | W063 | (nothing) |
 | W099 | (nothing) |
 | W111 | (nothing) |
+| W116 | (nothing) |
+| W117 | (nothing) |
 | W120 | (nothing) |
 | W122 | (nothing) |

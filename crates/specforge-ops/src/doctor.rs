@@ -21,13 +21,12 @@ use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
 /// Diagnostic codes that mean two contributions collide.
-pub const CONFLICT_CODES: [&str; 6] = ["E017", "E018", "E023", "E026", "E057", "W018"];
+pub const CONFLICT_CODES: [&str; 3] = ["E026", "E057", "W018"];
 
 /// Codes that mean a name shadows a grammar-level construct: E013 (a project
-/// entity ID is a structural keyword or an extension's kind keyword), E023
-/// (an extension's entity kind collides with a structural keyword) and E026
-/// (a kind keyword is registered twice). E023 and E026 are also conflicts.
-pub const SHADOWING_CODES: [&str; 3] = ["E013", "E023", "E026"];
+/// entity ID is a structural keyword or an extension's kind keyword) and E026
+/// (a kind keyword is registered twice, which is also a conflict).
+pub const SHADOWING_CODES: [&str; 2] = ["E013", "E026"];
 
 /// Codes that mean an enabled extension did not load: E028 (not installed,
 /// or its protocol load failed) and E033 (its installed binary no longer
@@ -504,26 +503,26 @@ mod tests {
     }
 
     #[test]
-    fn a_structural_keyword_collision_is_a_shadowed_construct() {
+    fn a_kind_registered_twice_is_a_shadowed_construct() {
         let dir = tempfile::TempDir::new().unwrap();
-        // What manifest_bridge reports for an extension kind named `spec`,
-        // worded so that no quoted word of it is the keyword: only the
-        // data names it.
-        let mut e023 = diag(
-            "E023",
-            "extension 'acme': its entity kind shadows a structural keyword",
+        // What the registry build reports for a kind two extensions declare,
+        // worded so that no quoted word of it is the keyword: only the data
+        // names it.
+        let mut e026 = diag(
+            "E026",
+            "extension 'acme': its entity kind is registered by another extension",
             Some("choose a different keyword for this entity kind"),
         );
-        e023.data = Some(Box::new(DiagnosticData::ShadowedKeyword {
-            keyword: "spec".into(),
+        e026.data = Some(Box::new(DiagnosticData::ShadowedKeyword {
+            keyword: "memo".into(),
         }));
-        let diagnostics = [e023];
+        let diagnostics = [e026];
 
         let report = diagnose_with(dir.path(), &[], &diagnostics, true);
 
         assert_eq!(report.shadowed.len(), 1);
-        assert_eq!(report.shadowed[0].keyword, "spec");
-        assert_eq!(report.shadowed[0].code, "E023");
+        assert_eq!(report.shadowed[0].keyword, "memo");
+        assert_eq!(report.shadowed[0].code, "E026");
         assert_eq!(
             report.conflicts[0].suggestion,
             "choose a different keyword for this entity kind"

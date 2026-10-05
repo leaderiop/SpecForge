@@ -72,17 +72,71 @@ fn touches(edge: &SchemaEdgeType, kind: &str) -> bool {
     on(&edge.source_kinds) || on(&edge.target_kinds)
 }
 
-/// A declared validation rule as the schema lists it (camelCase keys).
+/// A declared validation rule as the schema lists it: its descriptor, keys
+/// in camelCase (`message_template` is `messageTemplate`).
 fn rule_json(rule: &specforge_protocol_types::ValidationRuleDescriptor) -> Value {
-    serde_json::json!({
-        "code": rule.code,
-        "severity": rule.severity,
-        "messageTemplate": rule.message_template,
-        "check": rule.check,
-        "targetKind": rule.target_kind,
-        "edgeType": rule.edge_type,
-        "field": rule.field,
-        "constraint": rule.constraint,
-        "wasmFunction": rule.wasm_function,
-    })
+    let Ok(Value::Object(fields)) = serde_json::to_value(rule) else {
+        unreachable!("a validation rule descriptor serializes to an object")
+    };
+    fields
+        .into_iter()
+        .map(|(key, value)| (camel_case(&key), value))
+        .collect()
+}
+
+/// `snake_case` as `camelCase`.
+fn camel_case(key: &str) -> String {
+    let mut words = key.split('_');
+    let mut out = words.next().unwrap_or_default().to_string();
+    for word in words {
+        let mut chars = word.chars();
+        if let Some(first) = chars.next() {
+            out.extend(first.to_uppercase());
+            out.push_str(chars.as_str());
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use specforge_protocol_types::ValidationRuleDescriptor;
+
+    #[test]
+    fn a_rule_is_listed_with_camel_case_keys() {
+        let rule = ValidationRuleDescriptor {
+            code: "W901".to_string(),
+            message_template: "{id} has no owner".to_string(),
+            check: "field_required".to_string(),
+            target_kind: Some("memo".to_string()),
+            ..Default::default()
+        };
+        let json = rule_json(&rule);
+        let mut keys: Vec<&str> = json
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(
+            keys,
+            [
+                "check",
+                "code",
+                "constraint",
+                "edgeType",
+                "field",
+                "messageTemplate",
+                "severity",
+                "targetKind",
+                "wasmFunction"
+            ]
+        );
+        assert_eq!(json["targetKind"], "memo");
+        assert_eq!(json["messageTemplate"], "{id} has no owner");
+        assert_eq!(camel_case("wasm_function"), "wasmFunction");
+        assert_eq!(camel_case("code"), "code");
+    }
 }

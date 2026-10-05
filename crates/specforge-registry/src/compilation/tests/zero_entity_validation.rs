@@ -18,10 +18,10 @@ use specforge_protocol_types::{
 };
 use specforge_registry::compilation::EntityView;
 use specforge_registry::compilation::populate::populate;
-use specforge_registry::compilation::tests::support::{declare, extension, peer, software};
-use specforge_registry::compilation::validate::{
-    duplicate_entity_kinds, peer_dependencies, register_validation_rules,
+use specforge_registry::compilation::tests::support::{
+    declare, extension, kind_collisions, peer, software,
 };
+use specforge_registry::compilation::validate::{peer_dependencies, register_validation_rules};
 use specforge_registry::compilation::validate_extension_testability;
 use specforge_registry::validation_engine::{
     ValidationEntity, ValidationPatternKind, ValidationRulePattern, WasmValidationRuntime,
@@ -1030,7 +1030,7 @@ fn detect_unknown_entity_fields_contract() {
 fn duplicate_kind_from_two_extensions_produces_e026() {
     let m1 = software();
     let m2 = other_behavior();
-    let diags = duplicate_entity_kinds(&[m1, m2]);
+    let diags = kind_collisions(&[m1, m2]);
     assert!(
         diags
             .iter()
@@ -1057,7 +1057,7 @@ fn first_extension_in_topological_order_owns_the_kind() {
     verify = "single extension registering a kind produces no diagnostic"
 )]
 fn single_extension_registering_a_kind_produces_no_diagnostic() {
-    let diags = duplicate_entity_kinds(&[software()]);
+    let diags = kind_collisions(&[software()]);
     assert!(diags.is_empty());
 }
 
@@ -1068,11 +1068,11 @@ fn single_extension_registering_a_kind_produces_no_diagnostic() {
 fn detect_duplicate_entity_kinds_contract() {
     // requires: manifests parsed
     // ensures: no duplicates → no diagnostics
-    let diags = duplicate_entity_kinds(&[software()]);
+    let diags = kind_collisions(&[software()]);
     assert!(diags.is_empty());
     // ensures: duplicate → E026 with both extension names
     let m2 = other_behavior();
-    let dup_diags = duplicate_entity_kinds(&[software(), m2]);
+    let dup_diags = kind_collisions(&[software(), m2]);
     assert!(dup_diags.iter().any(|d| d.code == "E026"));
 }
 

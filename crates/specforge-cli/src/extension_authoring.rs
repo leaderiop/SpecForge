@@ -75,10 +75,19 @@ pub fn run_build(path: &Path, format: OutputFormat) -> i32 {
         return 1;
     }
 
-    // The component the host loads: release, wasm32-wasip2.
+    // The component the host loads: release, wasm32-wasip2, built into the
+    // crate's own `target/` (whatever CARGO_TARGET_DIR says), where
+    // `validate` and `publish` look for it.
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let output = match std::process::Command::new(cargo)
-        .args(["build", "--release", "--target", "wasm32-wasip2"])
+        .args([
+            "build",
+            "--release",
+            "--target",
+            "wasm32-wasip2",
+            "--target-dir",
+        ])
+        .arg(path.join("target"))
         .current_dir(path)
         .output()
     {

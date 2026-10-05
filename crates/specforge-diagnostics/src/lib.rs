@@ -269,20 +269,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A file-reference field on an entity points at a path that doesn't exist under the spec root. Fix the path, or create the missing file; a similarly-named file is suggested when one is found.",
     },
     CodeEntry {
-        code: "E017",
-        title: "Entity enhancement conflict",
-        owner: "core",
-        level: Level::Error,
-        explanation: "Two installed extensions both declare an entity-enhancement field with the same name on the same target entity kind, and no explicit override resolves it. Rename one extension's field, or add an override for that kind/field in `specforge.json`.",
-    },
-    CodeEntry {
-        code: "E018",
-        title: "Grammar contribution conflict",
-        owner: "core",
-        level: Level::Error,
-        explanation: "Two extensions both contribute a tree-sitter grammar for the same entity kind. Only one extension may own an entity kind's grammar — uninstall one of the conflicting extensions or set a grammar conflict policy in the compiler config.",
-    },
-    CodeEntry {
         code: "E019",
         title: "Unsupported format version",
         owner: "core",
@@ -290,25 +276,11 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A `.spec` file's `// specforge-format: MAJOR.MINOR` header declares a version newer than this build supports, or the header itself doesn't parse; `specforge migrate --target-version` reports the same for a target it can't parse or doesn't support. Lower the declared version or upgrade SpecForge.",
     },
     CodeEntry {
-        code: "E020",
-        title: "Missing Wasm export",
-        owner: "core",
-        level: Level::Error,
-        explanation: "An extension's manifest declares a contribution (validator, renderer, parser, collector, grammar, or surface command/tool) whose required Wasm export function isn't present in the compiled module. Add the matching `#[export_name = \"...\"]` export to the extension's Wasm binary.",
-    },
-    CodeEntry {
         code: "E022",
         title: "Reference targets wrong kind",
         owner: "core",
         level: Level::Error,
         explanation: "A reference field is declared to only accept entities of a specific kind, but the target ID resolves to an entity of a different kind. Point the field at an entity of the expected kind.",
-    },
-    CodeEntry {
-        code: "E023",
-        title: "Entity kind conflicts with keyword",
-        owner: "core",
-        level: Level::Error,
-        explanation: "An extension declares an entity kind keyword that collides with a structural DSL keyword (`spec`, `ref`, `use`, `define`). Choose a different keyword for the entity kind.",
     },
     CodeEntry {
         code: "E024",
@@ -372,13 +344,6 @@ pub const CATALOG: &[CodeEntry] = &[
         owner: "core",
         level: Level::Error,
         explanation: "`specforge.lock` couldn't be serialized, written, read, or parsed, or the hash it records for an installed extension no longer matches the binary on disk; `specforge update` reports it when there is no lock file to update. Delete the lock file and reinstall extensions, reinstall the specific extension whose binary changed, or run `specforge add` first.",
-    },
-    CodeEntry {
-        code: "E035",
-        title: "Reserved or invalid entity kind name",
-        owner: "core",
-        level: Level::Error,
-        explanation: "An extension-declared entity kind name is a reserved structural keyword, doesn't match the identifier pattern `[a-z][a-z0-9_]{1,59}`, or is already reserved by another installed extension. Choose a different, valid entity kind name.",
     },
     CodeEntry {
         code: "E039",
@@ -1158,13 +1123,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A selective `pub use { A, B } from \"target\"` re-export names a binding that isn't actually exported by the target module. Correct the binding name or remove it from the re-export list.",
     },
     CodeEntry {
-        code: "W028",
-        title: "Extension memory ceiling exceeded",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "The combined `max_memory_mb` declared across all installed extensions' sandbox policies exceeds the configured total memory ceiling. Reduce `max_memory_mb` in one or more extension sandbox policies.",
-    },
-    CodeEntry {
         code: "W029",
         title: "Event never consumed",
         owner: "@specforge/formal",
@@ -1431,20 +1389,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A collector reported tests for an entity ID that no spec declares (usually a renamed entity or a typo in the test's annotation), or its `total`/`passed`/`failed`/`skipped` stats are inconsistent. `specforge collect` drops those results; fix the test annotation so it names a declared entity.",
     },
     CodeEntry {
-        code: "W116",
-        title: "Extension discovery failure",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "While scanning an extensions directory, a `manifest.json` could not be read or read directory itself failed, or a manifest failed to parse as valid JSON matching the manifest schema. Fix the directory permissions or correct the malformed `manifest.json`; discovery skips the broken entry and continues with the rest.",
-    },
-    CodeEntry {
-        code: "W117",
-        title: "Invalid query extension pattern",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "An extension's tree-sitter query extension pattern (for `highlights`, `locals`, or `injections`) is empty or contains null bytes. Provide a non-empty query pattern with no null bytes; the invalid pattern is skipped rather than loaded.",
-    },
-    CodeEntry {
         code: "W118",
         title: "Invalid provider configuration",
         owner: "core",
@@ -1575,7 +1519,12 @@ pub const CATALOG: &[CodeEntry] = &[
 /// Codes that are no longer emitted, with the code that replaced them (if
 /// any). A retired code is never reused for another meaning.
 pub const RETIRED: &[(&str, Option<&str>)] = &[
+    ("E017", None),
+    ("E018", None),
+    ("E020", None),
+    ("E023", None),
     ("E029", None),
+    ("E035", None),
     ("E037", None),
     ("E038", None),
     ("E047", Some("W139")),
@@ -1584,9 +1533,12 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("W024", None),
     ("W025", None),
     ("W026", None),
+    ("W028", None),
     ("W063", None),
     ("W099", None),
     ("W111", None),
+    ("W116", None),
+    ("W117", None),
     ("W120", None),
     ("W122", None),
 ];
