@@ -5014,7 +5014,6 @@ dependencies = [
  "serde_json",
  "specforge-component",
  "specforge-emitter",
- "specforge-protocol-types",
  "specforge-wasm",
 ]
 

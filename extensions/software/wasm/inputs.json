@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_software.wasm",
-  "artifact_sha256": "43bd89e107850b34d1fed9d078725f6142dd6a43e93bf3e6fd7c61735aecf3f9",
+  "artifact_sha256": "96c97546194838cfb72a75c160ec16046f3870c916312911951181611752c269",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
@@ -16,7 +16,7 @@
     "crates/specforge-protocol-types/src/vocabulary.rs": "5ac29ff84aee649bd56a873d2fae8941e0c1beb6c6255aa98631a3a650c2247d",
     "extensions/software/Cargo.lock": "0dca28766540ea34a00da3c575571c59a4c9b8950a5ea1b08f5770b81961fa41",
     "extensions/software/Cargo.toml": "25b6f5b1dd9abd441077c5331128bb06ba12bc672ee30a7acf050fc623419d6f",
-    "extensions/software/src/declaration.rs": "e79f7b3f29f3a15baa46ab2ea5903ec81dde4cda13abe162d3b37260d80abc98",
+    "extensions/software/src/declaration.rs": "5382090a64e2667767d25af67ea69afe5c1d145b03ad95cc02ecc7460edc975d",
     "extensions/software/src/lib.rs": "e17053a9ff25788ae40f1891de742b96c6fe7ee8199c1bc17f188c366692cb5f",
     "extensions/software/src/starter.spec": "9daa0df316e7d40f785f1a676b89e8980ec34bd4666010337a5337d7f04bf812"
   }

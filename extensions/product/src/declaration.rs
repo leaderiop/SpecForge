@@ -87,66 +87,6 @@ fn kinds(c: &mut ContributionsBuilder) {
             f.field_type(FieldType::StringList)
                 .description("Executable test files that verify this feature, relative to the project root (RES-15 linkage)");
         });
-        k.field("description", |f| {
-            f.field_type(FieldType::String)
-                .description("Human-readable summary of the feature");
-        });
-        k.field("problem", |f| {
-            f.field_type(FieldType::String)
-                .required()
-                .description("The user problem this feature addresses")
-                .normative();
-        });
-        k.field("solution", |f| {
-            f.field_type(FieldType::String)
-                .description("How this feature solves the stated problem")
-                .normative();
-        });
-        k.field("priority", |f| {
-            f.field_type(FieldType::String)
-                .description("Importance level: critical, high, medium, or low");
-        });
-        k.field("status", |f| {
-            f.field_type(FieldType::String)
-                .description("Lifecycle state: proposed, accepted, in_progress, done, deferred, or deprecated")
-                .headline();
-        });
-        k.field("acceptance", |f| {
-            f.field_type(FieldType::StringList)
-                .description("Criteria that must be met for the feature to be considered complete");
-        });
-        k.field("depends_on", |f| {
-            f.field_type(FieldType::ReferenceList)
-                .description("Other features that must be completed before this one")
-                .edge("FeatureDependsOn")
-                .target_kind("feature");
-        });
-        k.field("features", |f| {
-            f.field_type(FieldType::ReferenceList)
-                .description("Related features referenced by this feature")
-                .edge("FeatureRelatesTo")
-                .target_kind("feature");
-        });
-        k.field("refs", |f| {
-            f.field_type(FieldType::StringList)
-                .description("External references such as issues, URLs, or documents");
-        });
-        k.field("reason", |f| {
-            f.field_type(FieldType::String)
-                .description("Justification for the current status or a status change");
-        });
-        k.field("owner", |f| {
-            f.field_type(FieldType::String)
-                .description("Person or team responsible for this feature");
-        });
-        k.field("contributors", |f| {
-            f.field_type(FieldType::StringList)
-                .description("Additional people or teams contributing to this feature");
-        });
-        k.field("effort", |f| {
-            f.field_type(FieldType::String)
-                .description("T-shirt size estimate: xs, s, m, l, or xl");
-        });
     });
     c.kind("Journey", |k| {
         k.keyword("journey")
