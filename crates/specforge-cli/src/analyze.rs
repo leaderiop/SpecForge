@@ -14,7 +14,6 @@ use specforge_ops::view::ProjectView;
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 
 use crate::AnalysisPass;
-use crate::check::build_source_map;
 use crate::pipeline;
 
 pub fn run(
@@ -68,7 +67,6 @@ pub fn run(
         }
     }
     let reports = &outcome.passes;
-    let sources = build_source_map(&project.env.spec_root, &project.resolved.files);
 
     if json {
         let doc = outcome.to_json();
@@ -77,6 +75,8 @@ pub fn run(
         // Human output is capped at the codebase-wide diagnostic limit so a
         // noisy first run stays readable; JSON output is never truncated.
         let color = crate::color::stdout();
+        // The text each file was compiled from, to quote in snippets.
+        let sources = project.resolved.source_texts();
         for report in reports {
             println!("analyze/{} — {}", report.name, report.description);
             if report.findings.is_empty() {

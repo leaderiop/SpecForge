@@ -1,7 +1,6 @@
 use specforge_project::{CompiledProject, DiagnosticPolicy};
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 use specforge_wasm::WasmRuntime;
-use std::collections::HashMap;
 use std::path::Path;
 
 use crate::OutputFormat;
@@ -47,7 +46,7 @@ fn run_in(
         OutputFormat::Human => {
             let color = crate::color::stderr();
             if !all_diagnostics.is_empty() {
-                let sources = build_source_map(&ctx.spec_root, &ctx.resolved.files);
+                let sources = ctx.resolved.source_texts();
                 let rendered = render_diagnostics_colored(&all_diagnostics, &sources, color);
                 eprint!("{}", rendered);
             }
@@ -79,20 +78,6 @@ fn run_in(
 
     // Strict already promoted warnings: errors alone decide.
     specforge_common::compute_exit_code(&all_diagnostics)
-}
-
-pub(crate) fn build_source_map(
-    spec_root: &Path,
-    files: &[specforge_resolver::ResolvedFile],
-) -> HashMap<String, String> {
-    let mut sources = HashMap::new();
-    for file in files {
-        let full_path = spec_root.join(&file.path);
-        if let Ok(content) = std::fs::read_to_string(&full_path) {
-            sources.insert(file.path.clone(), content);
-        }
-    }
-    sources
 }
 
 #[cfg(test)]
