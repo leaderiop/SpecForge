@@ -2832,6 +2832,8 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "specforge-common",
+ "specforge-extension-sdk",
+ "specforge-protocol-types",
  "specforge-test",
  "specforge-test-macros",
  "specforge-wasm",

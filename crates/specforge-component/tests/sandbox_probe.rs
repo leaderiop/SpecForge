@@ -229,3 +229,14 @@ fn no_override_expands_the_ceiling() {
     );
     bait.untouched();
 }
+
+/// The component runtime keeps the contract every adapter of the
+/// `WasmRuntime` port keeps (`specforge_wasm::testing::assert_runtime_contract`,
+/// also run over the in-process runtime): the probe's `trap` command panics.
+#[specforge_test(
+    behavior = "call_extension_exports",
+    verify = "both runtimes report an unknown extension, an unrouted export, a guest error and a guest panic as traps"
+)]
+fn the_component_runtime_keeps_the_runtime_contract() {
+    specforge_wasm::testing::assert_runtime_contract(&probe_runtime(), PROBE, "cmd__trap");
+}

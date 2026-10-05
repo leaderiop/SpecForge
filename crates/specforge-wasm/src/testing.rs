@@ -129,3 +129,73 @@ impl WasmRuntime for InProcessRuntime {
         }
     }
 }
+
+/// The contract every adapter of the [`WasmRuntime`] port keeps, asserted
+/// over `runtime`, which must serve `extension` (an SDK-built guest) with
+/// `panicking` an export whose handler panics:
+///
+/// - a call to an extension the runtime did not load is the trap
+///   `extension_not_found`;
+/// - an export the guest does not route is the trap `guest_error`
+///   `unknown export '<name>'`, as the guest's own routing answers it;
+/// - a handler's error is the trap `guest_error` carrying its message (the
+///   guest's `__describe` of a category the protocol does not have);
+/// - a guest that panics is a trap (`call_failed`), never a host crash;
+/// - the runtime still answers the extension afterwards (its handshake).
+///
+/// The component runtime and [`InProcessRuntime`] run it in their tests,
+/// so the two adapters cannot disagree on what a failure looks like.
+pub fn assert_runtime_contract(runtime: &dyn WasmRuntime, extension: &str, panicking: &str) {
+    let trap = |result: WasmCallResult, what: &str| match result {
+        WasmCallResult::Trap(trap) => trap,
+        WasmCallResult::Ok(bytes) => panic!(
+            "{what}: answered {} instead of trapping",
+            String::from_utf8_lossy(&bytes)
+        ),
+    };
+
+    let missing = trap(
+        runtime.call_export("@contract/not-loaded", "__handshake", b"{}"),
+        "an extension that is not loaded",
+    );
+    assert_eq!(missing.kind, "extension_not_found", "{missing:?}");
+    assert_eq!(missing.export_name, "__handshake");
+
+    let unrouted = trap(
+        runtime.call_export(extension, "contract__no_such_export", b"{}"),
+        "an export the guest does not route",
+    );
+    assert_eq!(unrouted.kind, "guest_error", "{unrouted:?}");
+    assert_eq!(
+        unrouted.message,
+        "unknown export 'contract__no_such_export'"
+    );
+    assert_eq!(unrouted.export_name, "contract__no_such_export");
+
+    let refused = trap(
+        runtime.call_export(
+            extension,
+            "__describe",
+            br#"{"category":"no_such_category"}"#,
+        ),
+        "a handler's error",
+    );
+    assert_eq!(refused.kind, "guest_error", "{refused:?}");
+    assert_eq!(refused.message, "unsupported category: no_such_category");
+
+    let panicked = trap(
+        runtime.call_export(extension, panicking, b"{}"),
+        "a guest that panics",
+    );
+    assert_eq!(panicked.kind, "call_failed", "{panicked:?}");
+    assert_eq!(panicked.export_name, panicking);
+
+    match runtime.call_export(extension, "__handshake", b"{}") {
+        WasmCallResult::Ok(bytes) => {
+            let handshake: serde_json::Value =
+                serde_json::from_slice(&bytes).expect("a handshake is JSON");
+            assert_eq!(handshake["name"], extension);
+        }
+        WasmCallResult::Trap(trap) => panic!("the extension stopped answering: {trap:?}"),
+    }
+}

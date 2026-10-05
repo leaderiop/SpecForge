@@ -13,6 +13,10 @@ wasmtime-wasi = "49.0.2"
 wit-bindgen = "0.30"
 
 [dev-dependencies]
+# The runtime contract and the SDK-declared greet served in process.
+specforge-extension-sdk = { path = "../specforge-extension-sdk" }
+specforge-protocol-types = { path = "../specforge-protocol-types" }
+specforge-wasm = { workspace = true, features = ["testing"] }
 tempfile = { workspace = true }
 wat = "=1.261.0"
 serde_json = { workspace = true }

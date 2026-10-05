@@ -414,6 +414,8 @@ behavior call_extension_exports "Call Extension Exports" {
     migration hook's answer is not read.
   """
   verify unit "every operational payload is one protocol type the host and the SDK share"
+  verify unit "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
+  verify unit "both runtimes report an unknown extension, an unrouted export, a guest error and a guest panic as traps"
 }
 
 // -- Check-Phase Passes and the Build Cache -----

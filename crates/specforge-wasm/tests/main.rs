@@ -4,6 +4,7 @@ mod integrity;
 mod load_declaration;
 mod protocol_host;
 mod protocol_types;
+mod runtime_contract;
 mod sdk_vocabulary;
 mod wasm_lifecycle;
 mod wire_pins;
