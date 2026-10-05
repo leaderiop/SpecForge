@@ -123,21 +123,6 @@ pub enum Status {
     Uncovered,
 }
 
-impl Status {
-    /// Every status, in the order a listing names them.
-    pub const ALL: [Status; 3] = [Status::Covered, Status::Partial, Status::Uncovered];
-
-    /// The status as the results spell it (`covered`, `partial`,
-    /// `uncovered`), as it serializes.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Status::Covered => "covered",
-            Status::Partial => "partial",
-            Status::Uncovered => "uncovered",
-        }
-    }
-}
-
 /// How an entity's recorded tests (and formal proofs) cover its obligations.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Verdict {

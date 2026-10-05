@@ -64,7 +64,7 @@ pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
         coverage.push(serde_json::json!({
             "entity_id": node.id.raw,
             "kind": node.kind.raw,
-            "status": verdict.status().as_str(),
+            "status": specforge_ops::coverage::status_name(verdict.status()),
             "declared": has_verify,
             "linked": verdict.tests > 0,
             "evidence_collected": verdict.tests > 0,

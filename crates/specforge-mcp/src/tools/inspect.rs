@@ -45,12 +45,12 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         .as_ref()
         .map_or(!obligations.is_empty(), |row| row.declared());
     let testable = row.as_ref().is_some_and(|row| row.testable);
-    let coverage_status = row
-        .as_ref()
-        .map_or(specforge_project::coverage::Status::Uncovered, |row| {
-            row.status()
-        })
-        .as_str();
+    let coverage_status = specforge_ops::coverage::status_name(
+        row.as_ref()
+            .map_or(specforge_project::coverage::Status::Uncovered, |row| {
+                row.status()
+            }),
+    );
     let verify_declarations: Option<Vec<String>> = declared.then(|| {
         obligations
             .iter()

@@ -32,7 +32,7 @@ pub(crate) fn row_json(row: &CoverageRow) -> Value {
     json!({
         "entity_id": row.entity_id,
         "kind": row.kind,
-        "status": row.status().as_str(),
+        "status": specforge_ops::coverage::status_name(row.status()),
         "declared": row.declared(),
         "linked": row.linked(),
         "evidence_collected": row.linked(),
