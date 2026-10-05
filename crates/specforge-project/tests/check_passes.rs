@@ -322,7 +322,10 @@ fn a_trapping_check_pass_is_a_diagnostic() {
 
     let failures: Vec<&Diagnostic> = with_code(&diagnostics, "E028")
         .into_iter()
-        .filter(|d| d.message.contains("'@test/passes:boom'"))
+        .filter(|d| {
+            d.message
+                .starts_with("compiler pass __pass_boom() of '@test/passes' trapped: ")
+        })
         .collect();
     assert_eq!(failures.len(), 1, "{diagnostics:?}");
     assert_eq!(failures[0].severity, Severity::Error);
@@ -464,5 +467,82 @@ fn an_invalid_cache_is_w144() {
     assert!(
         with_code(&diagnostics, "W144").is_empty(),
         "{diagnostics:?}"
+    );
+}
+
+/// What the coverage rule needs to read from each entity, read the way a
+/// guest built with the SDK reads it: through the SDK's own `PassEntity`.
+#[specforge_test(
+    behavior = "run_check_phase_passes",
+    verify = "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
+)]
+fn the_pass_input_carries_each_entitys_exemption() {
+    use specforge_extension_sdk::prelude::*;
+    use specforge_wasm::testing::InProcessRuntime;
+    use std::cell::RefCell;
+
+    thread_local! {
+        static SEEN: RefCell<Vec<(String, bool, bool)>> = const { RefCell::new(Vec::new()) };
+    }
+    fn guest(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+        (export == "__pass_exempt").then(|| {
+            let input: specforge_extension_sdk::PassInput =
+                serde_json::from_slice(input).map_err(|e| e.to_string())?;
+            SEEN.with(|seen| {
+                seen.borrow_mut().extend(
+                    input
+                        .entities
+                        .iter()
+                        .map(|e| (e.id.clone(), e.testable, e.exempt)),
+                )
+            });
+            Ok(b"[]".to_vec())
+        })
+    }
+    fn extension() -> ContributionsBuilder {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/exempt", "1.0.0"));
+        c.kind("gadget", |k| {
+            k.keyword("gadget").testable(true).supports_verify(true);
+            k.field("abstract", |f| {
+                f.field_type(FieldType::Bool).exempts_obligations();
+            });
+        });
+        // Only gadgets owe obligations: a widget is exempt by its kind.
+        c.kind("widget", |k| {
+            k.keyword("widget").testable(true);
+        });
+        c.rule("W990", |r| {
+            r.check(CheckKind::NoVerifyStatements)
+                .target_kind("gadget")
+                .message_template("gadget '{id}' declares no obligations");
+        });
+        c.pass("exempt", |p| {
+            p.phase("check");
+        });
+        c
+    }
+
+    let dir = TempDir::new().unwrap();
+    let config = json!({ "name": "p", "version": "0.1.0", "extensions": ["@test/exempt"] });
+    fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    fs::write(
+        dir.path().join("a.spec"),
+        "gadget owes \"Owes\" {\n  verify unit \"it works\"\n}\n\n\
+         gadget free \"Free\" {\n  abstract true\n}\n\nwidget w \"W\" {\n}\n",
+    )
+    .unwrap();
+    let runtime = InProcessRuntime::new().with_handler(extension, guest);
+
+    CompiledProject::compile(dir.path(), Some(&runtime));
+
+    let mut seen = SEEN.with(|seen| seen.borrow().clone());
+    seen.sort();
+    assert_eq!(
+        seen,
+        [
+            ("free".to_string(), true, true),
+            ("owes".to_string(), true, false),
+            ("w".to_string(), true, true),
+        ]
     );
 }

@@ -590,6 +590,43 @@ mod tests {
         );
     }
 
+    #[specforge_test(
+        behavior = "call_extension_exports",
+        verify = "an analyze pass that traps is reported as an E028 finding of that pass"
+    )]
+    fn an_analyze_pass_that_traps_is_an_e028_finding_and_the_analysis_fails() {
+        use specforge_wasm::testing::InProcessRuntime;
+        let project = Project::new();
+        for answer in [
+            WasmCallResult::Trap(WasmTrapInfo {
+                kind: "call_failed".into(),
+                message: "unreachable: the pass panicked".into(),
+                export_name: "__pass_scan".into(),
+            }),
+            WasmCallResult::Ok(b"not diagnostics".to_vec()),
+        ] {
+            let runtime = InProcessRuntime::new().answer_raw(EXT, "__pass_scan", answer);
+            let outcome = analyze(&project.view(), &runtime, &AnalyzeOptions::default()).unwrap();
+            assert!(!outcome.ok, "a failed pass fails the analysis");
+            let scan = outcome
+                .passes
+                .iter()
+                .find(|p| p.name == "@t/x:scan")
+                .expect("the failed pass has its report");
+            assert_eq!(scan.findings.len(), 1, "{:?}", scan.findings);
+            assert_eq!(scan.findings[0].code, "E028");
+            assert_eq!(scan.findings[0].severity, Severity::Error);
+            assert!(
+                scan.findings[0]
+                    .message
+                    .starts_with("compiler pass __pass_scan() of '@t/x' "),
+                "{}",
+                scan.findings[0].message
+            );
+            assert_eq!(scan.summary["failed"], true);
+        }
+    }
+
     #[test]
     fn a_declared_extension_pass_runs_alone_by_its_full_name() {
         let outcome = Project::new().run(&pass("@t/x:scan")).unwrap();

@@ -422,6 +422,7 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "a call whose answer does not decode as its protocol type is E028, never a default"
   verify unit "an unknown field in an answer is ignored and an absent optional field takes its default"
   verify unit "a pass answer may be bare diagnostics or diagnostics with a summary, and its diagnostics come back in canonical order with an entity's span attached"
+  verify unit "an analyze pass that traps is reported as an E028 finding of that pass"
   verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree"
 }
 
@@ -462,7 +463,8 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
     is ignored. Each diagnostic keeps the code and severity the pass gave
     it. One with no span that carries `entity: "<id>"` gets the span of
     that entity. A trap or an answer that does not parse is E028 naming
-    the pass; the other passes still run.
+    the pass's export and its extension (call_extension_exports); the
+    other passes still run.
 
     A pass with any other phase, or none, runs only under `specforge
     analyze`, which skips check passes: their findings are the compile's.
@@ -476,6 +478,7 @@ behavior run_check_phase_passes "Run Check-Phase Passes" {
   verify unit "a trapping check pass is a diagnostic, not a crash"
   verify unit "a pass diagnostic naming an entity gets that entity's span"
   verify unit "a pass entity carries whether the host found it exempt"
+  verify unit "the pass input carries each entity's exemption, which the SDK's PassEntity reads"
 }
 
 behavior write_build_cache "Write the Build Cache" {

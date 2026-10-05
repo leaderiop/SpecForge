@@ -56,6 +56,33 @@ pub struct ReportedTest {
 
 pub use specforge_coverage::{Status, Summary, Verdict};
 
+/// The report as a pass receives it (`PassInput::test_results`): per entity
+/// id, each test's name, status and the obligation it proves.
+impl From<&TestReport> for specforge_protocol_types::PassTestResults {
+    fn from(report: &TestReport) -> Self {
+        use specforge_protocol_types::{PassEntityResults, PassTestResult};
+        specforge_protocol_types::PassTestResults {
+            runner: report.runner.clone(),
+            results: report
+                .results
+                .iter()
+                .map(|(id, entity)| {
+                    let tests = entity
+                        .tests
+                        .iter()
+                        .map(|test| PassTestResult {
+                            name: test.name.clone(),
+                            status: test.status.clone(),
+                            verify: test.verify.clone(),
+                        })
+                        .collect();
+                    (id.clone(), PassEntityResults { tests })
+                })
+                .collect(),
+        }
+    }
+}
+
 /// The kinds that count toward coverage: those an extension's manifest
 /// declares `testable`. Nothing is testable by default, and accepting
 /// `verify` statements (`supports_verify`) does not make a kind testable.

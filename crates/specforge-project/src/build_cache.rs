@@ -40,6 +40,27 @@ pub struct CachedStatus {
     pub status: String,
 }
 
+/// The cache as a check-phase pass receives it (`PassInput::previous`).
+impl From<&BuildCache> for specforge_protocol_types::PassBuildCache {
+    fn from(cache: &BuildCache) -> Self {
+        specforge_protocol_types::PassBuildCache {
+            statuses: cache
+                .statuses
+                .iter()
+                .map(|(id, cached)| {
+                    (
+                        id.clone(),
+                        specforge_protocol_types::PassCachedStatus {
+                            kind: cached.kind.clone(),
+                            status: cached.status.clone(),
+                        },
+                    )
+                })
+                .collect(),
+        }
+    }
+}
+
 impl BuildCache {
     /// The lifecycle states of `graph`: every entity whose kind declares a
     /// lifecycle field in `kinds` and that gives it a text value.

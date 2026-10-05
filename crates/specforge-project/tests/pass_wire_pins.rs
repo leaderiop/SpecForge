@@ -41,14 +41,6 @@ fn sorted(value: &Value) -> Value {
     }
 }
 
-fn golden_value(name: &str) -> Value {
-    let path = wire_dir().join(name);
-    serde_json::from_str(
-        &fs::read_to_string(&path).unwrap_or_else(|e| panic!("golden {}: {e}", path.display())),
-    )
-    .unwrap()
-}
-
 fn golden(name: &str, actual: &Value) {
     let path = wire_dir().join(name);
     if std::env::var_os("SPECFORGE_BLESS").is_some() {
@@ -144,7 +136,10 @@ fn last_input(runtime: &InProcessRuntime, export: &str) -> Value {
 
 // ── C4 · compiler pass ──
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "call_extension_exports",
+    verify = "every extension call encodes its input as the protocol type the SDK decodes"
+)]
 fn c4_the_pass_input_of_an_analysis() {
     let dir = project();
     let runtime = runtime();
@@ -168,18 +163,16 @@ fn c4_the_pass_input_of_an_analysis() {
         test_results: Some(&report),
         proved_claims: Some(&proved),
     });
-    // pinned: the host forwards the report's own keys, which the protocol's
-    // PassTestResults does not define (flips in T6)
-    let mut expected = golden_value("pass.input.json");
-    let a = &mut expected["test_results"]["results"]["a"];
-    a["file"] = json!("a.rs");
-    a["tests"][0]["duration_ms"] = json!(1.5);
-    a["tests"][0]["runner"] = json!("cargo-test");
-    assert_eq!(input, expected);
+    // flipped in T6: the report's own keys (a result's `file`, a test's
+    // `duration_ms` and `runner`) are not the protocol's, and not sent
+    golden("pass.input.json", &serde_json::to_value(&input).unwrap());
 }
 
-#[test]
-fn c4_the_pass_input_of_a_compile_carries_nulls_and_previous() {
+#[specforge_test_macros::test(
+    behavior = "call_extension_exports",
+    verify = "every extension call encodes its input as the protocol type the SDK decodes"
+)]
+fn c4_the_pass_input_of_a_compile_carries_previous() {
     let dir = project();
     fs::write(
         dir.path().join("specforge-cache.json"),
@@ -188,11 +181,11 @@ fn c4_the_pass_input_of_a_compile_carries_nulls_and_previous() {
     .unwrap();
     let runtime = runtime();
     CompiledProject::compile(dir.path(), Some(&runtime));
-    // pinned: `test_results` and `proved_claims` are null, flips in T6 (absent)
-    let mut expected = golden_value("pass.check.input.json");
-    expected["test_results"] = Value::Null;
-    expected["proved_claims"] = Value::Null;
-    assert_eq!(last_input(&runtime, "__pass_audit"), expected);
+    // flipped in T6: `test_results` and `proved_claims` are absent, not null
+    golden(
+        "pass.check.input.json",
+        &last_input(&runtime, "__pass_audit"),
+    );
 }
 
 fn span(file: &str, line: usize) -> Value {
@@ -213,7 +206,10 @@ fn pass_findings(diagnostics: &[Diagnostic]) -> Vec<&Diagnostic> {
         .collect()
 }
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "call_extension_exports",
+    verify = "a pass answer may be bare diagnostics or diagnostics with a summary, and its diagnostics come back in canonical order with an entity's span attached"
+)]
 fn c4_a_pass_answer_is_bare_or_with_a_summary_and_comes_back_sorted() {
     let diagnostics = json!([
         {"code": "X2", "severity": "Warning", "message": "b", "span": span("z.spec", 3)},
@@ -250,12 +246,15 @@ fn c4_a_pass_answer_is_bare_or_with_a_summary_and_comes_back_sorted() {
             ],
             "{all:?}"
         );
-        // pinned: a guest's `data` passes through, flips in T6 (D9: not carried)
-        assert!(found[2].data.is_some(), "{:?}", found[2]);
+        // flipped in T6: a guest cannot set the host's diagnostic data (D9)
+        assert!(found[2].data.is_none(), "{:?}", found[2]);
     }
 }
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "run_check_phase_passes",
+    verify = "a trapping check pass is a diagnostic, not a crash"
+)]
 fn c4_a_failing_check_pass_is_e028() {
     let trapped = compile_answering(WasmCallResult::Trap(WasmTrapInfo {
         kind: "k".into(),
@@ -267,7 +266,7 @@ fn c4_a_failing_check_pass_is_e028() {
     assert_eq!(e028[0].severity, Severity::Error);
     assert_eq!(
         e028[0].message,
-        format!("extension pass '{EXT}:audit' did not execute: k: m")
+        format!("compiler pass __pass_audit() of '{EXT}' trapped: k: m")
     );
     assert_eq!(
         e028[0].suggestion.as_deref(),
@@ -281,16 +280,19 @@ fn c4_a_failing_check_pass_is_e028() {
     assert_eq!(e028.len(), 1, "{malformed:?}");
     assert!(
         e028[0].message.starts_with(&format!(
-            "extension pass '{EXT}:audit' returned malformed diagnostics: "
+            "compiler pass __pass_audit() of '{EXT}' answered output that is not a PassAnswer: "
         )),
         "{}",
         e028[0].message
     );
 }
 
-#[test]
-fn c4_a_failing_analyze_pass_has_no_report() {
-    // pinned: flips in T6 (an E028 finding of that pass)
+#[specforge_test_macros::test(
+    behavior = "call_extension_exports",
+    verify = "an analyze pass that traps is reported as an E028 finding of that pass"
+)]
+fn c4_a_failing_analyze_pass_is_an_e028_finding_of_its_report() {
+    // flipped in T6: was no report at all, a stderr line
     let dir = project();
     let runtime = runtime().answer_raw(
         EXT,
@@ -317,7 +319,20 @@ fn c4_a_failing_analyze_pass_has_no_report() {
         &runtime,
         "all",
     );
-    assert!(reports.is_empty(), "{:?}", reports.len());
+    assert_eq!(reports.len(), 1);
+    let report = &reports[0];
+    assert_eq!(report.name, format!("{EXT}:report"));
+    assert_eq!(report.findings.len(), 1, "{:?}", report.findings);
+    assert_eq!(report.findings[0].code, "E028");
+    assert_eq!(report.findings[0].severity, Severity::Error);
+    assert_eq!(
+        report.findings[0].message,
+        format!("compiler pass __pass_report() of '{EXT}' trapped: k: m")
+    );
+    assert_eq!(
+        report.summary,
+        json!({"extension": EXT, "pass": "report", "entities_analyzed": 3, "failed": true})
+    );
 }
 
 // ── C6 · custom validator ──

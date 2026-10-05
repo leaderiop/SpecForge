@@ -6,10 +6,13 @@
 //! `specforge analyze` (`specforge_ops::analyze`). Findings are standard host
 //! diagnostics.
 
-use serde::Deserialize;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
+use specforge_protocol_types::{
+    PassEdge, PassEntity, PassInput, PassOutput, PassSpan, PassTestResults,
+};
 use specforge_registry::{FieldRegistry, KindRegistry};
+use specforge_wasm::{CallError, ExtensionCalls, Operation};
 use std::path::Path;
 
 use crate::coverage::TestReport;
@@ -50,108 +53,79 @@ pub struct ExtensionPassReport {
     pub summary: serde_json::Value,
 }
 
-/// The input every `__pass_<name>` export receives (the SDK's
+/// The input every `__pass_<name>` export receives (the protocol's
 /// `PassInput`): the entity snapshot, the resolved edges, and the test
-/// results and proved claims when the caller has them.
-pub fn pass_input(input: &AnalysisContext) -> serde_json::Value {
-    let ctx_graph = input.graph;
-    // How the coverage rule sees each entity: `testable` is its kind's flag
-    // (a kind that merely accepts `verify` statements, a formal `property`,
-    // does not count), and `exempt` says it owes no obligations of its own
-    // (ADR 0004, D2-b), decided here from the registries.
+/// results and proved claims when the caller has them. Each entity carries
+/// how the coverage rule sees it: `testable` is its kind's flag (a kind
+/// that merely accepts `verify` statements, a formal `property`, does not
+/// count), and `exempt` says it owes no obligations of its own (ADR 0004,
+/// D2-b), decided here from the registries.
+pub fn pass_input(input: &AnalysisContext) -> PassInput {
     let registries = crate::coverage::CoverageRegistries {
         kinds: input.kind_registry,
         fields: input.field_registry,
         rules: input.rules,
     };
-    let entities: Vec<serde_json::Value> = registries
-        .entities(ctx_graph)
-        .iter()
-        .map(|(e, rule)| {
-            serde_json::json!({
-                "id": e.id,
-                "kind": e.kind,
-                "fields": e.fields,
-                "incoming_edge_count": e.incoming_edge_count,
-                "outgoing_edge_count": e.outgoing_edge_count,
-                "span": e.span,
-                "testable": rule.testable,
-                "exempt": rule.exempt,
-                "verify_kinds": e.verify_kinds,
-                "verify_texts": e.verify_texts,
-            })
+    let entities = registries
+        .entities(input.graph)
+        .into_iter()
+        .map(|(e, rule)| PassEntity {
+            id: e.id,
+            kind: e.kind,
+            fields: e.fields.into_iter().collect(),
+            incoming_edge_count: e.incoming_edge_count,
+            outgoing_edge_count: e.outgoing_edge_count,
+            span: Some(PassSpan {
+                file: e.span.file.as_str().to_string(),
+                start_line: e.span.start_line,
+                start_col: e.span.start_col,
+                end_line: e.span.end_line,
+                end_col: e.span.end_col,
+            }),
+            testable: rule.testable,
+            exempt: rule.exempt,
+            verify_kinds: e.verify_kinds,
+            verify_texts: e.verify_texts,
         })
         .collect();
-    let edges: Vec<serde_json::Value> = ctx_graph
+    let edges = input
+        .graph
         .edges()
         .iter()
-        .map(|e| {
-            serde_json::json!({
-                "source": e.source.as_str(),
-                "target": e.target.as_str(),
-                "label": e.label.as_str(),
-            })
+        .map(|e| PassEdge {
+            source: e.source.as_str().to_string(),
+            target: e.target.as_str().to_string(),
+            label: e.label.as_str().to_string(),
         })
         .collect();
-    let proved_claims: Option<Vec<&String>> = input.proved_claims.map(|claims| {
-        let mut ids: Vec<&String> = claims.iter().collect();
+    let proved_claims = input.proved_claims.map(|claims| {
+        let mut ids: Vec<String> = claims.iter().cloned().collect();
         ids.sort();
         ids
     });
-    serde_json::json!({
-        "entities": entities,
-        "edges": edges,
-        "test_results": input.test_results,
-        "proved_claims": proved_claims,
-    })
+    PassInput {
+        entities,
+        edges,
+        test_results: input.test_results.map(PassTestResults::from),
+        proved_claims,
+        previous: None,
+    }
 }
 
-/// Call `extension`'s `__pass_<pass>` export with `input` (a serialized
-/// [`pass_input`]) and read its diagnostics, in canonical order. A
-/// diagnostic with no span that names an `entity` of `graph` gets that
-/// entity's span. Err: the export trapped, or its answer does not parse.
-pub fn call_pass(
-    runtime: &dyn specforge_wasm::runtime::WasmRuntime,
-    extension: &str,
-    pass: &str,
-    input: &[u8],
-    graph: &Graph,
-) -> Result<(Vec<Diagnostic>, Option<PassSummary>), String> {
-    use specforge_wasm::runtime::WasmCallResult;
-
-    let export = format!("__pass_{pass}");
-    match runtime.call_export(extension, &export, input) {
-        WasmCallResult::Ok(bytes) => {
-            let (mut findings, summary) = parse_pass_output(&bytes, graph)
-                .map_err(|e| format!("returned malformed diagnostics: {e}"))?;
-            // Canonical order for ALL extension passes (hardening-plan D4 /
-            // R-6): guests that iterate HashMaps would otherwise leak
-            // per-run order.
-            findings.sort_by(|a, b| {
-                a.code
-                    .cmp(&b.code)
-                    .then_with(|| {
-                        a.span
-                            .as_ref()
-                            .map(|s| (s.file.as_str(), s.start_line))
-                            .cmp(&b.span.as_ref().map(|s| (s.file.as_str(), s.start_line)))
-                    })
-                    .then_with(|| a.message.cmp(&b.message))
-            });
-            Ok((findings, summary))
-        }
-        WasmCallResult::Trap(trap) => {
-            Err(format!("did not execute: {}: {}", trap.kind, trap.message))
-        }
-    }
+/// The host diagnostics of a pass's answer: in canonical order, a
+/// span-less one naming an entity of `graph` given that entity's span.
+pub fn pass_findings(output: PassOutput, graph: &Graph) -> Vec<Diagnostic> {
+    specforge_wasm::pass_diagnostics(output, |id| {
+        graph.node(id).map(|node| node.source_span.clone())
+    })
 }
 
 /// Run the extensions' analyze passes (`passes` as the registry build
 /// ordered them; check-phase passes run with every compile instead)
 /// through the wasm runtime: each `__pass_<name>` export receives the
-/// entity snapshot and returns host Diagnostics. Traps (e.g. an extension
-/// that declares a pass but never implemented the export) are surfaced as
-/// warnings rather than run failures.
+/// entity snapshot and returns host diagnostics. A pass that fails (it
+/// traps, or answers what does not parse) has a report of its own with one
+/// E028 finding, so the analysis fails.
 pub fn run_extension_passes(
     passes: &[specforge_registry::DeclaredPass],
     input: &AnalysisContext,
@@ -166,14 +140,9 @@ pub fn run_extension_passes(
     let wants = |name: &str| requested == "all" || requested == name;
 
     let payload = pass_input(input);
-    let entities_analyzed = payload["entities"].as_array().map_or(0, Vec::len);
-    let payload_bytes = match serde_json::to_vec(&payload) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("warning: cannot serialize entities for extension passes: {e}");
-            return Vec::new();
-        }
-    };
+    let entities_analyzed = payload.entities.len();
+    let encoded = ExtensionCalls::encode(&payload);
+    let calls = ExtensionCalls::new(runtime);
 
     let mut reports = Vec::new();
     for declared in passes.iter().filter(|p| !p.is_check_phase()) {
@@ -182,74 +151,38 @@ pub fn run_extension_passes(
             continue;
         }
         let pass = &declared.pass;
-        match call_pass(
-            runtime,
-            &declared.extension,
-            &pass.name,
-            &payload_bytes,
-            input.graph,
-        ) {
-            Ok((findings, pass_summary)) => {
-                let mut summary = serde_json::json!({
-                    "extension": declared.extension,
-                    "pass": pass.name,
-                    "entities_analyzed": entities_analyzed,
-                });
-                if let (Some(base), Some(extra)) = (summary.as_object_mut(), pass_summary) {
-                    base.extend(extra);
-                }
-                reports.push(ExtensionPassReport {
-                    name: report_name,
-                    findings,
-                    summary,
-                })
+        let mut summary = serde_json::Map::new();
+        summary.insert("extension".into(), declared.extension.clone().into());
+        summary.insert("pass".into(), pass.name.clone().into());
+        summary.insert("entities_analyzed".into(), entities_analyzed.into());
+        let answer = match &encoded {
+            Ok(encoded) => calls.run_pass(&declared.extension, &pass.name, encoded),
+            Err(failure) => Err(CallError::new(
+                Operation::Pass,
+                &declared.extension,
+                &format!("__pass_{}", pass.name),
+                failure.clone(),
+            )),
+        };
+        let findings = match answer {
+            Ok(output) => {
+                let extra = output.summary.clone();
+                summary.extend(extra);
+                pass_findings(output, input.graph)
             }
-            Err(e) => eprintln!("warning: extension pass '{report_name}' {e}"),
-        }
+            Err(error) => {
+                summary.insert("failed".into(), true.into());
+                vec![error.diagnostic()]
+            }
+        };
+        reports.push(ExtensionPassReport {
+            name: report_name,
+            findings,
+            summary: serde_json::Value::Object(summary),
+        });
     }
     reports
 }
 
 /// Keys an extension pass adds to its report summary.
 pub type PassSummary = serde_json::Map<String, serde_json::Value>;
-
-/// A pass returns either bare diagnostics or `{ diagnostics, summary }`
-/// (the SDK's `PassOutput`); the summary's keys join the host's report
-/// summary. A diagnostic may name the entity it is about (`entity`): with
-/// no span of its own, it gets that entity's.
-fn parse_pass_output(
-    bytes: &[u8],
-    graph: &Graph,
-) -> Result<(Vec<Diagnostic>, Option<PassSummary>), serde_json::Error> {
-    #[derive(Deserialize)]
-    struct PassDiagnostic {
-        #[serde(flatten)]
-        diagnostic: Diagnostic,
-        #[serde(default)]
-        entity: Option<String>,
-    }
-    #[derive(Deserialize)]
-    struct WithSummary {
-        diagnostics: Vec<PassDiagnostic>,
-        #[serde(default)]
-        summary: PassSummary,
-    }
-    let (diagnostics, summary) = match serde_json::from_slice::<Vec<PassDiagnostic>>(bytes) {
-        Ok(diagnostics) => (diagnostics, None),
-        Err(_) => serde_json::from_slice::<WithSummary>(bytes)
-            .map(|out| (out.diagnostics, Some(out.summary)))?,
-    };
-    let diagnostics = diagnostics
-        .into_iter()
-        .map(|PassDiagnostic { diagnostic, entity }| {
-            let span = diagnostic.span.clone().or_else(|| {
-                entity
-                    .as_deref()
-                    .and_then(|id| graph.node(id))
-                    .map(|node| node.source_span.clone())
-            });
-            Diagnostic { span, ..diagnostic }
-        })
-        .collect();
-    Ok((diagnostics, summary))
-}
