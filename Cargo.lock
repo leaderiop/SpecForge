@@ -3060,6 +3060,7 @@ dependencies = [
 name = "specforge-project"
 version = "0.1.0"
 dependencies = [
+ "insta",
  "serde",
  "serde_json",
  "specforge-common",

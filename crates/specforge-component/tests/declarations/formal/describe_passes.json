@@ -1,0 +1,29 @@
+{
+  "category": "passes",
+  "items": [
+    {
+      "after": "layering_verify",
+      "before": null,
+      "name": "event_graph_analyze",
+      "phase": null
+    },
+    {
+      "after": "event_graph_analyze",
+      "before": null,
+      "name": "coverage_tracking",
+      "phase": null
+    },
+    {
+      "after": "resolve",
+      "before": null,
+      "name": "condition_check",
+      "phase": null
+    },
+    {
+      "after": "condition_check",
+      "before": null,
+      "name": "layering_verify",
+      "phase": null
+    }
+  ]
+}

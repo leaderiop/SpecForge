@@ -1,0 +1,25 @@
+{
+  "protocol_version": "1.0.0",
+  "name": "@specforge/vitest",
+  "version": "1.0.0",
+  "contribution_flags": {
+    "entities": false,
+    "validators": false,
+    "renderers": false,
+    "providers": false,
+    "collectors": true,
+    "prompts": false,
+    "parsers": false,
+    "grammars": false,
+    "body_parsers": false,
+    "analyzers": false
+  },
+  "peer_dependencies": [
+    {
+      "name": "@specforge/testing",
+      "version": "^1.0",
+      "optional": false
+    }
+  ],
+  "sandbox_policy": null
+}

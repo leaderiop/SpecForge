@@ -9,6 +9,7 @@ mod e2e_pipeline;
 mod field_types;
 mod policy;
 mod registered_fields;
+mod registry_build_snapshot;
 mod registry_fields;
 mod registry_order;
 mod session;

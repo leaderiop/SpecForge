@@ -1,0 +1,19 @@
+{
+  "protocol_version": "1.0.0",
+  "name": "@sdk/greet",
+  "version": "0.1.0",
+  "contribution_flags": {
+    "entities": true,
+    "validators": true,
+    "renderers": false,
+    "providers": false,
+    "collectors": false,
+    "prompts": false,
+    "parsers": false,
+    "grammars": false,
+    "body_parsers": false,
+    "analyzers": false
+  },
+  "peer_dependencies": [],
+  "sandbox_policy": null
+}

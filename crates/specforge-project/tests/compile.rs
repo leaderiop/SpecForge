@@ -487,3 +487,29 @@ fn no_provider_means_no_scheme_check() {
 
     assert!(diagnostics.is_empty(), "{diagnostics:?}");
 }
+
+/// Characterization (plan 03 T0): the order `Environment::diagnostics()`
+/// reports a missing extension's load failure, the loaded extensions'
+/// declaration diagnostics and the registry build's. The registry build
+/// owning declaration validation changes it (ADR 0012).
+#[test]
+fn environment_diagnostics_come_in_load_order() {
+    let dir = project(
+        serde_json::json!({
+            "name": "p", "version": "0.1.0",
+            "extensions": ["@specforge/formal", "@acme/missing", "@specforge/product"]
+        }),
+        &[],
+    );
+    let runtime = specforge_component::project_runtime(dir.path());
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+    let codes: Vec<&str> = env.diagnostics().map(|d| d.code.as_str()).collect();
+    // The missing extension's load failure, formal's missing peer, then the
+    // registry build's: formal's enhancements of software's kinds.
+    assert_eq!(
+        codes,
+        ["E028", "E027", "I004", "I004", "I004"],
+        "{:#?}",
+        env.diagnostics().collect::<Vec<_>>()
+    );
+}

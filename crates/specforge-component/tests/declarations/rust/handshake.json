@@ -1,0 +1,27 @@
+{
+  "protocol_version": "1.0.0",
+  "name": "@specforge/rust",
+  "version": "1.0.0",
+  "contribution_flags": {
+    "entities": false,
+    "validators": false,
+    "renderers": false,
+    "providers": false,
+    "collectors": false,
+    "prompts": false,
+    "parsers": false,
+    "grammars": false,
+    "body_parsers": false,
+    "analyzers": true
+  },
+  "peer_dependencies": [],
+  "sandbox_policy": {
+    "max_memory_mb": 512,
+    "max_execution_ms": 30000,
+    "allowed_domains": [],
+    "allowed_paths": [],
+    "allowed_output_extensions": [],
+    "network_access": false,
+    "file_system_access": true
+  }
+}

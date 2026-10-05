@@ -78,6 +78,39 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify contract "Load Extension Manifests: extension manifest loading holds — all_files_parsed, extensions_config_available, all_extensions_attempted, loaded_manifests_available, failed_extensions_diagnosed, loaded_event_fired, extension_isolation"
 }
 
+behavior load_extension_declaration "Load Extension Declaration" {
+  features   [extension_management]
+  invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   command
+  ports      [WasmRuntime]
+  contract   """
+    The host MUST read an extension's declaration through one loader: its
+    handshake, then every declared describe category (entities, edges,
+    shared_fields, enhancements, validation_rules, surfaces, collectors,
+    analyzers, passes, feature_flags), whatever its contribution flags say.
+    A category that does not parse MUST fail the extension's load (E028)
+    naming the category. A describe item key the protocol does not define
+    MUST produce W138. The declaration is read once per environment load;
+    nothing describes a category again outside it.
+  """
+  verify integration "every builtin's handshake and describe answers match their pinned snapshot byte for byte"
+}
+
+behavior build_registries_from_declarations "Build Registries From Declarations" {
+  features   [extension_management]
+  invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
+  contract   """
+    The registry build MUST take the loaded declarations, in load order,
+    and own everything derived from them: identity and shape (E030: an empty
+    name or version, a malformed ext_short), self-consistency (W021), peer
+    dependencies (E027), the order of declared passes (W145 when their
+    constraints form a cycle, declaration order kept), the kind, field and
+    edge registries, the rules and the surfaces. It MUST be pure.
+  """
+  verify integration "the registry build of the builtins matches its pinned snapshot"
+}
+
 // register_extension_entity_types is a thin delegation wrapper that calls
 // register_entity_kinds_from_manifest (behaviors/zero-entity-core.spec)
 // for each loaded extension. The detailed registration semantics — including

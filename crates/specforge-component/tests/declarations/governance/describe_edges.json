@@ -1,0 +1,104 @@
+{
+  "category": "edges",
+  "items": [
+    {
+      "description": "Decision protects an invariant",
+      "edge_arrowhead": null,
+      "edge_color": "#6A1B9A",
+      "edge_style": "dashed",
+      "label": "DecisionProtectsInvariant",
+      "source_kind": "decision",
+      "target_kind": "invariant"
+    },
+    {
+      "description": "Constraint is enforced by a behavior",
+      "edge_arrowhead": null,
+      "edge_color": "#BF360C",
+      "edge_style": "solid",
+      "label": "ConstraintEnforcedByBehavior",
+      "source_kind": "constraint",
+      "target_kind": "behavior"
+    },
+    {
+      "description": "Decision supersedes a previous decision",
+      "edge_arrowhead": null,
+      "edge_color": "#6A1B9A",
+      "edge_style": "dotted",
+      "label": "DecisionSupersedesDecision",
+      "source_kind": "decision",
+      "target_kind": "decision"
+    },
+    {
+      "description": "Constraint constrains a behavior",
+      "edge_arrowhead": null,
+      "edge_color": "#BF360C",
+      "edge_style": "dashed",
+      "label": "ConstraintConstrainsBehavior",
+      "source_kind": "constraint",
+      "target_kind": "behavior"
+    },
+    {
+      "description": "Constraint protects an invariant",
+      "edge_arrowhead": null,
+      "edge_color": "#BF360C",
+      "edge_style": "dashed",
+      "label": "ConstraintProtectsInvariant",
+      "source_kind": "constraint",
+      "target_kind": "invariant"
+    },
+    {
+      "description": "Failure mode targets an invariant",
+      "edge_arrowhead": null,
+      "edge_color": "#D32F2F",
+      "edge_style": "dashed",
+      "label": "FailureModeTargetsInvariant",
+      "source_kind": "failure_mode",
+      "target_kind": "invariant"
+    },
+    {
+      "description": "Constraint governs a product feature",
+      "edge_arrowhead": null,
+      "edge_color": "#CC6600",
+      "edge_style": "dashed",
+      "label": "ConstraintGovernsFeature",
+      "source_kind": "constraint",
+      "target_kind": "feature"
+    },
+    {
+      "description": "Decision affects a product feature",
+      "edge_arrowhead": null,
+      "edge_color": "#CC6600",
+      "edge_style": "dashed",
+      "label": "DecisionAffectsFeature",
+      "source_kind": "decision",
+      "target_kind": "feature"
+    },
+    {
+      "description": "Failure mode threatens a product feature",
+      "edge_arrowhead": null,
+      "edge_color": "#CC0000",
+      "edge_style": "dashed",
+      "label": "FailureModeThreatensFeature",
+      "source_kind": "failure_mode",
+      "target_kind": "feature"
+    },
+    {
+      "description": "Decision imposes a constraint on the system",
+      "edge_arrowhead": null,
+      "edge_color": "#6A1B9A",
+      "edge_style": "solid",
+      "label": "DecisionImposesConstraint",
+      "source_kind": "decision",
+      "target_kind": "constraint"
+    },
+    {
+      "description": "Failure mode identifies a behavior as a failure vector",
+      "edge_arrowhead": null,
+      "edge_color": "#D32F2F",
+      "edge_style": "dashed",
+      "label": "FailureModeAffectsBehavior",
+      "source_kind": "failure_mode",
+      "target_kind": "behavior"
+    }
+  ]
+}

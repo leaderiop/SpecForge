@@ -1,0 +1,31 @@
+{
+  "protocol_version": "1.0.0",
+  "name": "@specforge/governance",
+  "version": "1.0.0",
+  "contribution_flags": {
+    "entities": true,
+    "validators": true,
+    "renderers": false,
+    "providers": false,
+    "collectors": false,
+    "prompts": false,
+    "parsers": false,
+    "grammars": false,
+    "body_parsers": false,
+    "analyzers": false
+  },
+  "peer_dependencies": [
+    {
+      "name": "@specforge/software",
+      "version": "^1.0",
+      "optional": true
+    },
+    {
+      "name": "@specforge/product",
+      "version": "^1.0",
+      "optional": true
+    }
+  ],
+  "sandbox_policy": null,
+  "theme_color": "#e74c3c"
+}
