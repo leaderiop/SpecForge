@@ -305,12 +305,12 @@ pub(crate) fn resolve_edge_rules(
                 .edge_type
                 .as_deref()
                 .and_then(|label| edges.get(label))
-                .and_then(|edge| edge.target_kind.clone()),
+                .and_then(|edge| edge.declared.target_kind.clone()),
             ValidationPatternKind::NoIncomingEdges => pattern
                 .edge_type
                 .as_deref()
                 .and_then(|label| edges.get(label))
-                .and_then(|edge| edge.source_kind.clone()),
+                .and_then(|edge| edge.declared.source_kind.clone()),
             _ => None,
         };
         let Some(peer) = peer else {

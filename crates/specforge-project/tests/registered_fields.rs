@@ -127,7 +127,7 @@ fn a_target_kind_another_extension_registers_resolves() {
 
     assert!(env.registries.kinds.contains("person"));
     let owner = env.registries.fields.get("task", "owner").unwrap();
-    assert_eq!(owner.target_kind.as_deref(), Some("person"));
+    assert_eq!(owner.declared.target_kind.as_deref(), Some("person"));
     assert!(w021(&env).is_empty(), "{:?}", w021(&env));
 }
 
@@ -141,7 +141,7 @@ fn an_edge_label_the_extension_declares_resolves() {
     let env = load(&tasks_and_people(), &["@test/people", "@test/tasks"]);
 
     let owned_by = env.registries.edges.get("owned_by").unwrap();
-    assert_eq!(owned_by.target_kind.as_deref(), Some("person"));
+    assert_eq!(owned_by.declared.target_kind.as_deref(), Some("person"));
     assert!(w021(&env).is_empty(), "{:?}", w021(&env));
 }
 

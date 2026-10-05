@@ -173,41 +173,21 @@ fn dot_cluster_by_extension_groups_nodes() {
     let mut registry = specforge_registry::KindRegistry::new();
     registry.register(specforge_registry::KindRegistryEntry {
         kind_name: "behavior".to_string(),
-        description: None,
         source_extension: "@specforge/software".to_string(),
         testable: false,
-        singleton: false,
         supports_verify: false,
         allowed_verify_kinds: Vec::new(),
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     });
     registry.register(specforge_registry::KindRegistryEntry {
         kind_name: "term".to_string(),
-        description: None,
         source_extension: "@specforge/product".to_string(),
         testable: false,
-        singleton: false,
         supports_verify: false,
         allowed_verify_kinds: Vec::new(),
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     });
     let mut graph = Graph::new();
     graph.add_node(node("beh_b", "behavior", None));

@@ -138,22 +138,12 @@ fn register_entity_kinds(
         let keyword = keyword(kind);
         let entry = KindRegistryEntry {
             kind_name: keyword.to_string(),
-            description: kind.description.clone(),
             source_extension: declaration.name().to_string(),
             testable: kind.testable,
-            singleton: kind.singleton,
             supports_verify: kind.supports_verify,
             allowed_verify_kinds: kind.verify_kinds.clone(),
-            has_body_parser: kind.has_body_parser,
-            semantic_token: kind.semantic_token.clone(),
-            lsp_icon: kind.lsp_icon.clone(),
-            dot_shape: kind.dot_shape.clone(),
-            dot_color: kind.dot_color.clone(),
-            dot_fillcolor: kind.dot_fillcolor.clone(),
-            open_fields: kind.open_fields,
-            contract_target: kind.contract_target,
-            declares_types: kind.declares_types,
             lifecycle_field: lifecycle_field(kind, declaration, diagnostics),
+            declared: kind.clone(),
         };
         if let Some(existing) = registry.register(entry) {
             // Duplicate — first extension wins (already registered), emit E026
@@ -238,20 +228,10 @@ fn register_single_field(
 
     registry.register(FieldRegistryEntry {
         kind_name: kind_name.to_string(),
-        field_name: field.name.clone(),
-        description: field.description.clone(),
-        field_type,
         source_extension: source_extension.to_string(),
-        edge: field.edge.clone(),
-        target_kind: field.target_kind.clone(),
-        file_reference: field.file_reference,
-        required: field.required,
-        inverse_of: field.inverse_of.clone(),
-        normative: field.normative,
-        exempts_obligations: field.exempts_obligations,
-        headline: field.headline,
-        derived_from: field.derived_from.clone(),
+        field_type,
         proof_role: proof_role(kind_name, field, source_extension, diagnostics),
+        declared: field.clone(),
     });
 }
 
@@ -326,14 +306,8 @@ fn register_edge_types(
 ) {
     for edge in &declaration.edges {
         let entry = EdgeRegistryEntry {
-            label: edge.label.clone(),
-            description: edge.description.clone(),
-            source_kind: edge.source_kind.clone(),
-            target_kind: edge.target_kind.clone(),
             source_extension: declaration.name().to_string(),
-            edge_style: edge.edge_style.clone(),
-            edge_color: edge.edge_color.clone(),
-            edge_arrowhead: edge.edge_arrowhead.clone(),
+            declared: edge.clone(),
         };
         if let Some(existing) = registry.register(entry) {
             diagnostics.push(Diagnostic {
@@ -343,7 +317,7 @@ fn register_edge_types(
                     "edge type '{}' from '{}' duplicates '{}' from '{}' (first wins)",
                     edge.label,
                     declaration.name(),
-                    existing.label,
+                    existing.declared.label,
                     existing.source_extension
                 ),
                 span: None,
@@ -365,14 +339,13 @@ fn register_implicit_edges(registry: &mut EdgeRegistry, declaration: &ExtensionD
                 && !registry.contains(edge_label)
             {
                 registry.register(EdgeRegistryEntry {
-                    label: edge_label.clone(),
-                    description: None,
-                    source_kind: Some(keyword(kind).to_string()),
-                    target_kind: field.target_kind.clone(),
                     source_extension: declaration.name().to_string(),
-                    edge_style: None,
-                    edge_color: None,
-                    edge_arrowhead: None,
+                    declared: specforge_protocol_types::EdgeTypeDescriptor {
+                        label: edge_label.clone(),
+                        source_kind: Some(keyword(kind).to_string()),
+                        target_kind: field.target_kind.clone(),
+                        ..Default::default()
+                    },
                 });
             }
         }
@@ -430,7 +403,7 @@ mod tests {
     fn test_entity_kind_registered_with_singleton_flag() {
         let (kind_reg, _, _, _) = populate(&[software_manifest()]);
         let behavior = kind_reg.get("behavior").unwrap();
-        assert!(!behavior.singleton);
+        assert!(!behavior.declared.singleton);
     }
 
     // B:register_entity_kinds_from_manifest — verify unit "entity kind registered with LSP metadata"
@@ -438,8 +411,11 @@ mod tests {
     fn test_entity_kind_registered_with_lsp_metadata() {
         let (kind_reg, _, _, _) = populate(&[software_manifest()]);
         let behavior = kind_reg.get("behavior").unwrap();
-        assert_eq!(behavior.semantic_token.as_deref(), Some("function"));
-        assert_eq!(behavior.lsp_icon.as_deref(), Some("Method"));
+        assert_eq!(
+            behavior.declared.semantic_token.as_deref(),
+            Some("function")
+        );
+        assert_eq!(behavior.declared.lsp_icon.as_deref(), Some("Method"));
     }
 
     // B:register_entity_kinds_from_manifest — verify unit "source extension recorded in registry entry"
@@ -548,9 +524,9 @@ mod tests {
     fn test_edge_type_registered_with_label() {
         let (_, _, edge_reg, _) = populate(&[software_manifest()]);
         let enforces = edge_reg.get("enforces").unwrap();
-        assert_eq!(enforces.label, "enforces");
-        assert_eq!(enforces.source_kind.as_deref(), Some("behavior"));
-        assert_eq!(enforces.target_kind.as_deref(), Some("invariant"));
+        assert_eq!(enforces.declared.label, "enforces");
+        assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
+        assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
     }
 
     // B:register_edge_types_from_manifest — verify unit "source/target kind constraints recorded"
@@ -558,9 +534,9 @@ mod tests {
     fn test_source_target_kind_constraints_recorded() {
         let (_, _, edge_reg, _) = populate(&[software_manifest()]);
         let enforces = edge_reg.get("enforces").unwrap();
-        assert_eq!(enforces.source_kind.as_deref(), Some("behavior"));
-        assert_eq!(enforces.target_kind.as_deref(), Some("invariant"));
-        assert_eq!(enforces.edge_style.as_deref(), Some("dashed"));
+        assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
+        assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
+        assert_eq!(enforces.declared.edge_style.as_deref(), Some("dashed"));
     }
 
     // B:register_edge_types_from_manifest — verify unit "duplicate edge label across extensions produces W-level warning"
@@ -601,7 +577,7 @@ mod tests {
         let enforces = edge_reg.get("enforces").unwrap();
         // First extension's version should win
         assert_eq!(enforces.source_extension, "@specforge/software");
-        assert_eq!(enforces.edge_style.as_deref(), Some("dashed"));
+        assert_eq!(enforces.declared.edge_style.as_deref(), Some("dashed"));
     }
 
     // B:register_edge_types_from_manifest — verify unit "field-to-edge mapping creates edge type"
@@ -686,8 +662,8 @@ mod tests {
         let (_, _, edge_reg, _) = populate(&[manifest]);
         assert!(edge_reg.contains("assigned_to"));
         let edge = edge_reg.get("assigned_to").unwrap();
-        assert_eq!(edge.source_kind.as_deref(), Some("task"));
-        assert_eq!(edge.target_kind.as_deref(), Some("person"));
+        assert_eq!(edge.declared.source_kind.as_deref(), Some("task"));
+        assert_eq!(edge.declared.target_kind.as_deref(), Some("person"));
     }
 
     // B:populate_edge_registry_from_extensions — verify unit "duplicate edge labels produce warning"
@@ -725,7 +701,7 @@ mod tests {
         let (kind_reg, _, _, _) = populate(&[manifest]);
         let entry = kind_reg.get("behavior").unwrap();
         assert_eq!(
-            entry.description.as_deref(),
+            entry.declared.description.as_deref(),
             Some("A testable unit of system functionality")
         );
     }
@@ -734,7 +710,7 @@ mod tests {
     fn test_entity_kind_without_description_has_none() {
         let (kind_reg, _, _, _) = populate(&[software_manifest()]);
         let entry = kind_reg.get("behavior").unwrap();
-        assert!(entry.description.is_none());
+        assert!(entry.declared.description.is_none());
     }
 
     #[test]
@@ -751,7 +727,7 @@ mod tests {
         let (_, field_reg, _, _) = populate(&[manifest]);
         let entry = field_reg.get("behavior", "contract").unwrap();
         assert_eq!(
-            entry.description.as_deref(),
+            entry.declared.description.as_deref(),
             Some("The behavioral contract this entity fulfills")
         );
     }
@@ -760,7 +736,7 @@ mod tests {
     fn test_field_without_description_has_none() {
         let (_, field_reg, _, _) = populate(&[software_manifest()]);
         let entry = field_reg.get("behavior", "contract").unwrap();
-        assert!(entry.description.is_none());
+        assert!(entry.declared.description.is_none());
     }
 
     // B:register_entity_kinds_from_manifest — verify contract "requires/ensures consistency for entity kind registration"
@@ -793,8 +769,8 @@ mod tests {
         assert!(edge_reg.contains("enforces"));
         // ensures: source/target constraints recorded
         let enforces = edge_reg.get("enforces").unwrap();
-        assert_eq!(enforces.source_kind.as_deref(), Some("behavior"));
-        assert_eq!(enforces.target_kind.as_deref(), Some("invariant"));
+        assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
+        assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
         // ensures: no errors on clean manifest
         assert!(!diags.iter().any(|d| d.severity == Severity::Error));
     }

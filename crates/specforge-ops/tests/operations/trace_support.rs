@@ -7,22 +7,12 @@ use specforge_registry::{
 fn kind(name: &str, extension: &str) -> KindRegistryEntry {
     KindRegistryEntry {
         kind_name: name.to_string(),
-        description: None,
         source_extension: extension.to_string(),
         testable: false,
-        singleton: false,
         supports_verify: false,
         allowed_verify_kinds: Vec::new(),
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     }
 }
 
@@ -36,20 +26,16 @@ pub fn reference(
 ) -> FieldRegistryEntry {
     FieldRegistryEntry {
         kind_name: kind.to_string(),
-        field_name: name.to_string(),
-        description: None,
         field_type: ManifestFieldType::ReferenceList,
         source_extension: extension.to_string(),
-        edge: Some(format!("{kind}_{name}")),
-        target_kind: Some(target.to_string()),
-        file_reference: false,
-        required: false,
-        inverse_of: inverse_of.map(str::to_string),
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: name.to_string(),
+            edge: Some(format!("{kind}_{name}")),
+            target_kind: Some(target.to_string()),
+            inverse_of: inverse_of.map(str::to_string),
+            ..Default::default()
+        },
     }
 }
 

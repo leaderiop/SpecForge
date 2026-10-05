@@ -17,7 +17,7 @@ pub fn validate_registered_entity_fields(
 
     for (kind_name, field_name, entry) in field_reg.iter() {
         // Validate target_kind references
-        if let Some(target) = &entry.target_kind
+        if let Some(target) = &entry.declared.target_kind
             && !kind_reg.contains(target)
         {
             diagnostics.push(Diagnostic {
@@ -34,7 +34,7 @@ pub fn validate_registered_entity_fields(
         }
 
         // Validate edge label references
-        if let Some(edge) = &entry.edge
+        if let Some(edge) = &entry.declared.edge
             && !edge_reg.contains(edge)
         {
             diagnostics.push(Diagnostic {

@@ -28,22 +28,12 @@ fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::Kind
     for kind in kinds {
         registry.register(specforge_registry::KindRegistryEntry {
             kind_name: kind.to_string(),
-            description: None,
             source_extension: "@test/ext".into(),
             testable: true,
-            singleton: false,
             supports_verify: true,
             allowed_verify_kinds: verify_kinds.iter().map(|k| k.to_string()).collect(),
-            has_body_parser: false,
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
             lifecycle_field: None,
+            ..Default::default()
         });
     }
     registry
@@ -344,20 +334,14 @@ fn invariants_target_invariant() -> specforge_registry::FieldRegistry {
     let mut reg = FieldRegistry::new();
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
-        field_name: "invariants".into(),
-        description: None,
         field_type: ManifestFieldType::ReferenceList,
         source_extension: "@specforge/software".into(),
-        edge: None,
-        target_kind: Some("invariant".into()),
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "invariants".into(),
+            target_kind: Some("invariant".into()),
+            ..Default::default()
+        },
     });
     reg
 }

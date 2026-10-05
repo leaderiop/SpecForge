@@ -50,8 +50,8 @@ pub fn derived_references(field_reg: &FieldRegistry) -> Vec<DerivedReference> {
             Some(DerivedReference {
                 source_kind: kind.to_string(),
                 field: field.to_string(),
-                target_kind: entry.target_kind.clone()?,
-                from: DerivedFrom::parse(entry.derived_from.as_deref()?)?,
+                target_kind: entry.declared.target_kind.clone()?,
+                from: DerivedFrom::parse(entry.declared.derived_from.as_deref()?)?,
             })
         })
         .collect();

@@ -228,7 +228,7 @@ pub fn detect_unknown_entity_fields(
         };
 
         // Skip entities with open_fields — any field name is valid (e.g., type struct fields, port methods)
-        if entry.open_fields {
+        if entry.declared.open_fields {
             continue;
         }
 
@@ -295,7 +295,7 @@ pub fn detect_mistyped_references(
         for &(field_name, ref target_ids) in &entity.references {
             // Look up the field's target_kind constraint
             let expected_kind = match field_reg.get(entity_kind, field_name) {
-                Some(entry) => match &entry.target_kind {
+                Some(entry) => match &entry.declared.target_kind {
                     Some(tk) => tk.as_str(),
                     None => continue, // No constraint — any kind is valid
                 },
@@ -332,7 +332,7 @@ pub fn detect_mistyped_references(
 pub fn generate_required_field_rules(field_registry: &FieldRegistry) -> Vec<ValidationRulePattern> {
     let mut rules: Vec<ValidationRulePattern> = field_registry
         .iter()
-        .filter(|(_, _, entry)| entry.required)
+        .filter(|(_, _, entry)| entry.declared.required)
         .map(|(kind, field, _)| ValidationRulePattern {
             code: "E006".to_string(),
             severity: Severity::Error,
@@ -1214,54 +1214,35 @@ mod tests {
         let mut reg = FieldRegistry::new();
         reg.register(FieldRegistryEntry {
             kind_name: "behavior".into(),
-            field_name: "contract".into(),
-            description: None,
             field_type: ManifestFieldType::String,
             source_extension: "@specforge/software".into(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: true,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "contract".into(),
+                required: true,
+                ..Default::default()
+            },
         });
         reg.register(FieldRegistryEntry {
             kind_name: "behavior".into(),
-            field_name: "category".into(),
-            description: None,
             field_type: ManifestFieldType::String,
             source_extension: "@specforge/software".into(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "category".into(),
+                ..Default::default()
+            },
         });
         reg.register(FieldRegistryEntry {
             kind_name: "invariant".into(),
-            field_name: "guarantee".into(),
-            description: None,
             field_type: ManifestFieldType::String,
             source_extension: "@specforge/software".into(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: true,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "guarantee".into(),
+                required: true,
+                ..Default::default()
+            },
         });
 
         let rules = generate_required_field_rules(&reg);

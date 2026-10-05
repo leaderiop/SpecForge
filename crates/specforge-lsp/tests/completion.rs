@@ -171,37 +171,25 @@ fn complete_field_names_from_registry() {
     let mut reg = FieldRegistry::new();
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
-        field_name: "contract".into(),
-        description: None,
         field_type: ManifestFieldType::Block,
         source_extension: "@specforge/software".into(),
-        edge: None,
-        target_kind: None,
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "contract".into(),
+            ..Default::default()
+        },
     });
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
-        field_name: "invariants".into(),
-        description: None,
         field_type: ManifestFieldType::ReferenceList,
         source_extension: "@specforge/software".into(),
-        edge: Some("enforces".into()),
-        target_kind: Some("invariant".into()),
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_registry::FieldDescriptor {
+            name: "invariants".into(),
+            edge: Some("enforces".into()),
+            target_kind: Some("invariant".into()),
+            ..Default::default()
+        },
     });
     let fields = specforge_lsp::complete_field_names("behavior", Some(&reg));
     assert!(fields.contains(&"contract".to_string()));

@@ -215,3 +215,40 @@ fn declaration_diagnostics_come_in_a_fixed_order() {
         ["E030", "W021", "E027", "W145"]
     );
 }
+
+/// What a field or kind declares reaches its registry entry whole: the
+/// entries embed the descriptor, so nothing declared is dropped on the way.
+#[specforge_test_macros::test(
+    behavior = "populate_field_registry_from_extensions",
+    verify = "a field's declared default value reaches the field registry"
+)]
+fn a_declared_default_value_reaches_the_field_registry() {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/tickets", "1.0.0"));
+    c.kind("ticket", |k| {
+        k.incremental(true)
+            .inference_guide("Look for issue trackers")
+            .field("status", |f| {
+                f.field_type(FieldType::Enum)
+                    .enum_values(&["open", "closed"])
+                    .default_value("open");
+            });
+    });
+    c.edge("blocks", |e| {
+        e.description("A ticket blocks another")
+            .edge_style("dashed");
+    });
+    let build = build_registries(vec![c.declaration()]);
+
+    let status = build.fields.get("ticket", "status").expect("registered");
+    assert_eq!(status.declared.default_value.as_deref(), Some("open"));
+    assert_eq!(status.declared.enum_values, ["open", "closed"]);
+    let ticket = build.kinds.get("ticket").expect("registered");
+    assert_eq!(ticket.declared.incremental, Some(true));
+    assert_eq!(
+        ticket.declared.inference_guide.as_deref(),
+        Some("Look for issue trackers")
+    );
+    let blocks = build.edges.get("blocks").expect("registered");
+    assert_eq!(blocks.declared.edge_style.as_deref(), Some("dashed"));
+    assert_eq!(blocks.source_extension, "@acme/tickets");
+}

@@ -818,22 +818,17 @@ fn dot_emits_registry_declared_styles() {
     let mut registry = KindRegistry::new();
     registry.register(KindRegistryEntry {
         kind_name: "feature".to_string(),
-        description: None,
         source_extension: "@test/x".to_string(),
         testable: false,
-        singleton: false,
         supports_verify: false,
         allowed_verify_kinds: Vec::new(),
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: Some("hexagon".to_string()),
-        dot_color: Some("firebrick".to_string()),
-        dot_fillcolor: Some("#ffeeee".to_string()),
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        declared: specforge_registry::EntityKindDescriptor {
+            dot_shape: Some("hexagon".to_string()),
+            dot_color: Some("firebrick".to_string()),
+            dot_fillcolor: Some("#ffeeee".to_string()),
+            ..Default::default()
+        },
     });
 
     let dot = specforge_emitter::dot::emit_dot(

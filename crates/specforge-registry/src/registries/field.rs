@@ -1,7 +1,10 @@
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+use specforge_protocol_types::FieldDescriptor;
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum ManifestFieldType {
+    #[default]
     String,
     Integer,
     Bool,
@@ -30,29 +33,24 @@ impl From<specforge_protocol_types::FieldType> for ManifestFieldType {
     }
 }
 
-#[derive(Debug, Clone)]
+/// One registered field of one kind: what its extension declared, and
+/// what the registry build resolved of it. Everything else is read from
+/// `declared` (`entry.declared.name`, `entry.declared.edge`,
+/// `entry.declared.default_value`, ...).
+#[derive(Debug, Clone, Default)]
 pub struct FieldRegistryEntry {
     pub kind_name: String,
-    pub field_name: String,
-    pub description: Option<String>,
-    pub field_type: ManifestFieldType,
+    /// The extension the field is the kind's through: its own, or the
+    /// owner an enhancement names.
     pub source_extension: String,
-    pub edge: Option<String>,
-    pub target_kind: Option<String>,
-    pub file_reference: bool,
-    pub required: bool,
-    pub inverse_of: Option<String>,
-    /// The field states what the entity promises rather than prose.
-    pub normative: bool,
-    /// Set on an entity, the entity owes no obligations of its own.
-    pub exempts_obligations: bool,
-    /// The context export carries the field at the node's top level.
-    pub headline: bool,
-    /// Where the host derives the field's edges from, when it does
-    /// (`type_expressions` or `method_signatures`).
-    pub derived_from: Option<String>,
-    /// What the prove pass reads the field as, when anything (ADR 0009, A).
+    /// The declared type, parsed (W019 when unknown, and not registered);
+    /// an enum's values are the declared `enum_values`.
+    pub field_type: ManifestFieldType,
+    /// What the prove pass reads the field as, when anything (ADR 0009, A):
+    /// the declared role, parsed (W021 when unknown).
     pub proof_role: Option<ProofRole>,
+    /// The field as its extension declared it.
+    pub declared: FieldDescriptor,
 }
 
 /// A field's role in the prove pass, declared by its extension.
@@ -118,10 +116,10 @@ impl FieldRegistry {
 
     pub fn register(&mut self, entry: FieldRegistryEntry) {
         let kind_map = self.entries.entry(entry.kind_name.clone()).or_default();
-        if !kind_map.contains_key(&entry.field_name) {
+        if !kind_map.contains_key(&entry.declared.name) {
             self.count += 1;
         }
-        kind_map.insert(entry.field_name.clone(), entry);
+        kind_map.insert(entry.declared.name.clone(), entry);
     }
 
     pub fn fields_for_kind(&self, kind_name: &str) -> Vec<&FieldRegistryEntry> {
@@ -148,7 +146,7 @@ impl FieldRegistry {
     ) -> HashMap<(String, String), String> {
         self.iter()
             .filter_map(|(kind, field, entry)| {
-                let target = entry.target_kind.as_ref()?;
+                let target = entry.declared.target_kind.as_ref()?;
                 (!kinds.contains(target))
                     .then(|| ((kind.to_string(), field.to_string()), target.clone()))
             })
@@ -159,7 +157,7 @@ impl FieldRegistry {
         let mut pairs = Vec::new();
         let mut seen = std::collections::HashSet::new();
         for (_kind, field_name, entry) in self.iter() {
-            if let Some(ref inverse) = entry.inverse_of {
+            if let Some(ref inverse) = entry.declared.inverse_of {
                 let a = field_name.to_string();
                 let b = inverse.clone();
                 let key = if a < b {
@@ -206,20 +204,13 @@ mod tests {
         let mut registry = FieldRegistry::new();
         registry.register(FieldRegistryEntry {
             kind_name: "behavior".to_string(),
-            field_name: "contract".to_string(),
-            description: None,
             field_type: ManifestFieldType::Block,
             source_extension: "@specforge/software".to_string(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "contract".to_string(),
+                ..Default::default()
+            },
         });
         assert!(registry.get("behavior", "title").is_none());
     }
@@ -246,20 +237,13 @@ mod tests {
         let mut registry = FieldRegistry::new();
         registry.register(FieldRegistryEntry {
             kind_name: "behavior".to_string(),
-            field_name: "contract".to_string(),
-            description: None,
             field_type: ManifestFieldType::String,
             source_extension: "@specforge/software".to_string(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "contract".to_string(),
+                ..Default::default()
+            },
         });
 
         // These calls should not allocate — they take &str and use HashMap<String,_>::get(&str)
@@ -277,20 +261,13 @@ mod tests {
         let mut registry = FieldRegistry::new();
         let entry = FieldRegistryEntry {
             kind_name: "behavior".to_string(),
-            field_name: "contract".to_string(),
-            description: None,
             field_type: ManifestFieldType::String,
             source_extension: "@specforge/software".to_string(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "contract".to_string(),
+                ..Default::default()
+            },
         };
         registry.register(entry.clone());
         assert_eq!(registry.len(), 1);
@@ -298,20 +275,14 @@ mod tests {
         // Re-registering the same (kind, field) should not increase count
         let entry2 = FieldRegistryEntry {
             kind_name: "behavior".to_string(),
-            field_name: "contract".to_string(),
-            description: Some("updated".to_string()),
             field_type: ManifestFieldType::Block,
             source_extension: "@specforge/software".to_string(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "contract".to_string(),
+                description: Some("updated".to_string()),
+                ..Default::default()
+            },
         };
         registry.register(entry2);
         assert_eq!(registry.len(), 1);
@@ -319,20 +290,13 @@ mod tests {
         // Different field, same kind
         registry.register(FieldRegistryEntry {
             kind_name: "behavior".to_string(),
-            field_name: "status".to_string(),
-            description: None,
             field_type: ManifestFieldType::String,
             source_extension: "@specforge/software".to_string(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "status".to_string(),
+                ..Default::default()
+            },
         });
         assert_eq!(registry.len(), 2);
     }
@@ -343,37 +307,23 @@ mod tests {
         let mut registry = FieldRegistry::new();
         registry.register(FieldRegistryEntry {
             kind_name: "behavior".to_string(),
-            field_name: "contract".to_string(),
-            description: None,
             field_type: ManifestFieldType::String,
             source_extension: "@specforge/software".to_string(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "contract".to_string(),
+                ..Default::default()
+            },
         });
         registry.register(FieldRegistryEntry {
             kind_name: "event".to_string(),
-            field_name: "payload".to_string(),
-            description: None,
             field_type: ManifestFieldType::Block,
             source_extension: "@specforge/software".to_string(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: false,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "payload".to_string(),
+                ..Default::default()
+            },
         });
 
         let items: Vec<_> = registry.iter().collect();

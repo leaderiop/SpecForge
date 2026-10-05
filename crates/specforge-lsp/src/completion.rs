@@ -197,7 +197,7 @@ pub fn enclosing_block(content: &str, line: usize, col: usize) -> Option<(String
 /// scaffolds its brackets, a string its quotes.
 pub fn field_snippet(field: &specforge_registry::FieldRegistryEntry, n: usize) -> String {
     use specforge_registry::ManifestFieldType;
-    let name = &field.field_name;
+    let name = &field.declared.name;
     match field.field_type {
         ManifestFieldType::ReferenceList | ManifestFieldType::StringList => {
             format!("{name} [${n}]")
@@ -213,9 +213,9 @@ pub fn keyword_snippet(kind: &str, field_registry: &FieldRegistry) -> String {
     let mut required: Vec<_> = field_registry
         .fields_for_kind(kind)
         .into_iter()
-        .filter(|f| f.required)
+        .filter(|f| f.declared.required)
         .collect();
-    required.sort_by(|a, b| a.field_name.cmp(&b.field_name));
+    required.sort_by(|a, b| a.declared.name.cmp(&b.declared.name));
     let mut snippet = format!("{kind} ${{1:id}} \"${{2:Title}}\" {{\n");
     for (i, field) in required.iter().enumerate() {
         snippet.push_str(&format!("  {}\n", field_snippet(field, i + 3)));
@@ -275,7 +275,7 @@ pub fn complete_field_names(kind: &str, field_registry: Option<&FieldRegistry>) 
     if let Some(reg) = field_registry {
         let fields = reg.fields_for_kind(kind);
         if !fields.is_empty() {
-            let mut names: Vec<String> = fields.iter().map(|f| f.field_name.clone()).collect();
+            let mut names: Vec<String> = fields.iter().map(|f| f.declared.name.clone()).collect();
             names.sort();
             return names;
         }

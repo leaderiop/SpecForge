@@ -745,22 +745,12 @@ fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::Kind
     for kind in kinds {
         registry.register(specforge_registry::KindRegistryEntry {
             kind_name: kind.to_string(),
-            description: None,
             source_extension: "@test/ext".into(),
             testable: true,
-            singleton: false,
             supports_verify: true,
             allowed_verify_kinds: verify_kinds.iter().map(|k| k.to_string()).collect(),
-            has_body_parser: false,
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
             lifecycle_field: None,
+            ..Default::default()
         });
     }
     registry

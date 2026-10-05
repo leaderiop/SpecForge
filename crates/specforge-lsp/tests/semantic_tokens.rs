@@ -8,22 +8,15 @@ fn kinds(entries: &[(&str, Option<&str>)]) -> KindRegistry {
     for (kind, token) in entries {
         registry.register(KindRegistryEntry {
             kind_name: kind.to_string(),
-            description: None,
             source_extension: "@test/ext".into(),
             testable: true,
-            singleton: false,
             supports_verify: true,
             allowed_verify_kinds: vec![],
-            has_body_parser: false,
-            semantic_token: token.map(str::to_string),
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
             lifecycle_field: None,
+            declared: specforge_registry::EntityKindDescriptor {
+                semantic_token: token.map(str::to_string),
+                ..Default::default()
+            },
         });
     }
     registry

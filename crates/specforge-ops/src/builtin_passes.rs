@@ -45,10 +45,11 @@ pub fn pass_contracts(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value
         // `contract_target`, e.g. invariants and formal properties) is a
         // contract obligation.
         if entry
+            .declared
             .target_kind
             .as_deref()
             .and_then(|t| ctx.kind_registry.get(t))
-            .is_some_and(|kind| kind.contract_target)
+            .is_some_and(|kind| kind.declared.contract_target)
         {
             contract_fields.entry(kind).or_default().push(field);
         }

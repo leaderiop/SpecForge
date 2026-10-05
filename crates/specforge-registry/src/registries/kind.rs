@@ -1,30 +1,28 @@
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
+use specforge_protocol_types::EntityKindDescriptor;
+
+/// One registered entity kind: what its extension declared, and what the
+/// registry build resolved of it. Everything else is read from `declared`
+/// (`entry.declared.description`, `entry.declared.has_body_parser`, ...).
+#[derive(Debug, Clone, Default)]
 pub struct KindRegistryEntry {
+    /// The keyword its entities are written with: the declared keyword,
+    /// else its name.
     pub kind_name: String,
-    pub description: Option<String>,
     pub source_extension: String,
+    /// Declared, or made so by an enhancement carrying `verify_kinds`.
     pub testable: bool,
-    pub singleton: bool,
+    /// Declared, or made so by an enhancement carrying `verify_kinds`.
     pub supports_verify: bool,
+    /// The `verify` kinds it accepts: declared, or an enhancement's.
     pub allowed_verify_kinds: Vec<String>,
-    /// The kind's body carries extension-owned syntax the core grammar does
-    /// not parse; host surfaces suppress E001s inside such entities.
-    pub has_body_parser: bool,
-    pub semantic_token: Option<String>,
-    pub lsp_icon: Option<String>,
-    pub dot_shape: Option<String>,
-    pub dot_color: Option<String>,
-    pub dot_fillcolor: Option<String>,
-    pub open_fields: bool,
-    /// Reference fields that target this kind are contract obligations.
-    pub contract_target: bool,
-    /// Its entity ids name types (custom validators' `declared_types`).
-    pub declares_types: bool,
     /// The field holding its entities' lifecycle state, which the build
-    /// cache records (ADR 0009, C).
+    /// cache records (ADR 0009, C): the declared one, when it is one of the
+    /// kind's fields (W021 otherwise).
     pub lifecycle_field: Option<String>,
+    /// The kind as its extension declared it.
+    pub declared: EntityKindDescriptor,
 }
 
 #[derive(Debug, Default)]

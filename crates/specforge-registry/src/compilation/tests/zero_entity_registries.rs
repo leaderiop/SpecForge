@@ -235,20 +235,13 @@ fn boot_field_registry_title_not_a_field() {
     let mut registry = FieldRegistry::new();
     registry.register(FieldRegistryEntry {
         kind_name: "behavior".to_string(),
-        field_name: "contract".to_string(),
-        description: None,
         field_type: ManifestFieldType::Block,
         source_extension: "@specforge/software".to_string(),
-        edge: None,
-        target_kind: None,
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: false,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: None,
+        declared: specforge_protocol_types::FieldDescriptor {
+            name: "contract".to_string(),
+            ..Default::default()
+        },
     });
     // title is NOT a field — it's a grammar-level construct
     assert!(registry.get("behavior", "title").is_none());
@@ -531,8 +524,20 @@ fn populate_field_keeps_normative_flag() {
         });
     });
     let (_, field_reg, _, _) = populate(&[manifest]);
-    assert!(field_reg.get("rule", "guarantee").unwrap().normative);
-    assert!(!field_reg.get("rule", "description").unwrap().normative);
+    assert!(
+        field_reg
+            .get("rule", "guarantee")
+            .unwrap()
+            .declared
+            .normative
+    );
+    assert!(
+        !field_reg
+            .get("rule", "description")
+            .unwrap()
+            .declared
+            .normative
+    );
 }
 
 /// An extension whose `rule` kind declares `limit` (kind field) and whose
@@ -642,8 +647,8 @@ fn populate_edge_implicit_from_fields() {
     let (_, _, edge_reg, _) = populate(&[manifest]);
     assert!(edge_reg.contains("assigned_to"));
     let edge = edge_reg.get("assigned_to").unwrap();
-    assert_eq!(edge.source_kind.as_deref(), Some("task"));
-    assert_eq!(edge.target_kind.as_deref(), Some("person"));
+    assert_eq!(edge.declared.source_kind.as_deref(), Some("task"));
+    assert_eq!(edge.declared.target_kind.as_deref(), Some("person"));
 }
 
 #[spec(
@@ -711,9 +716,9 @@ fn register_kind_singleton_flag() {
         });
     });
     let (kind_reg, _, _, _) = populate(&[manifest]);
-    assert!(kind_reg.get("project").unwrap().singleton);
+    assert!(kind_reg.get("project").unwrap().declared.singleton);
     assert!(
-        !kind_reg.get("task").unwrap().singleton,
+        !kind_reg.get("task").unwrap().declared.singleton,
         "defaults to false"
     );
 }
@@ -725,8 +730,11 @@ fn register_kind_singleton_flag() {
 fn register_kind_lsp_metadata() {
     let (kind_reg, _, _, _) = populate(&[software()]);
     let behavior = kind_reg.get("behavior").unwrap();
-    assert_eq!(behavior.semantic_token.as_deref(), Some("function"));
-    assert_eq!(behavior.lsp_icon.as_deref(), Some("Method"));
+    assert_eq!(
+        behavior.declared.semantic_token.as_deref(),
+        Some("function")
+    );
+    assert_eq!(behavior.declared.lsp_icon.as_deref(), Some("Method"));
 }
 
 #[spec(
@@ -855,14 +863,14 @@ fn register_edge_label_and_description() {
     });
     let (_, _, edge_reg, _) = populate(&[manifest]);
     let guards = edge_reg.get("guards").unwrap();
-    assert_eq!(guards.label, "guards");
+    assert_eq!(guards.declared.label, "guards");
     assert_eq!(
-        guards.description.as_deref(),
+        guards.declared.description.as_deref(),
         Some("A guards the B it names")
     );
     let touches = edge_reg.get("touches").unwrap();
-    assert_eq!(touches.label, "touches");
-    assert_eq!(touches.description, None);
+    assert_eq!(touches.declared.label, "touches");
+    assert_eq!(touches.declared.description, None);
 }
 
 #[spec(
@@ -872,9 +880,9 @@ fn register_edge_label_and_description() {
 fn register_edge_source_target_constraints() {
     let (_, _, edge_reg, _) = populate(&[software()]);
     let enforces = edge_reg.get("enforces").unwrap();
-    assert_eq!(enforces.source_kind.as_deref(), Some("behavior"));
-    assert_eq!(enforces.target_kind.as_deref(), Some("invariant"));
-    assert_eq!(enforces.edge_style.as_deref(), Some("dashed"));
+    assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
+    assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
+    assert_eq!(enforces.declared.edge_style.as_deref(), Some("dashed"));
 }
 
 #[spec(
@@ -915,7 +923,7 @@ fn register_edge_first_wins() {
     let (_, _, edge_reg, _) = populate(&[m1, m2]);
     let enforces = edge_reg.get("enforces").unwrap();
     assert_eq!(enforces.source_extension, "@specforge/software");
-    assert_eq!(enforces.edge_style.as_deref(), Some("dashed"));
+    assert_eq!(enforces.declared.edge_style.as_deref(), Some("dashed"));
 }
 
 #[test]
@@ -933,8 +941,8 @@ fn register_edge_contract() {
     let (_, _, edge_reg, diags) = populate(&[manifest]);
     assert!(edge_reg.contains("enforces"));
     let enforces = edge_reg.get("enforces").unwrap();
-    assert_eq!(enforces.source_kind.as_deref(), Some("behavior"));
-    assert_eq!(enforces.target_kind.as_deref(), Some("invariant"));
+    assert_eq!(enforces.declared.source_kind.as_deref(), Some("behavior"));
+    assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
     assert!(!diags.iter().any(|d| d.severity == Severity::Error));
 }
 

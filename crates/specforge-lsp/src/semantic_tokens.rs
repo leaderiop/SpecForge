@@ -42,7 +42,7 @@ pub const TOKEN_TYPES: &[&str] = &[
 fn declaration_token_type(kinds: &KindRegistry, kind: &str) -> String {
     kinds
         .get(kind)
-        .and_then(|entry| entry.semantic_token.as_deref())
+        .and_then(|entry| entry.declared.semantic_token.as_deref())
         .filter(|token| TOKEN_TYPES.contains(token))
         .unwrap_or("function")
         .to_string()

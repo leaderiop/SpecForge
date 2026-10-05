@@ -360,6 +360,7 @@ behavior populate_field_registry_from_extensions "Populate Field Registry From E
   verify unit "fields registered per entity kind"
   verify unit "a field's normative flag reaches its registry entry"
   verify unit "a field's proof_role reaches the field registry"
+  verify unit "a field's declared default value reaches the field registry"
   verify unit "a proof_role other than bound or claim is refused"
   verify unit "field types validated against known types"
   verify unit "invalid field type produces warning"

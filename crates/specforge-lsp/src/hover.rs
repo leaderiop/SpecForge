@@ -73,7 +73,7 @@ pub fn hover_info_with_registries(
     // did not prepend one.
     let icon = kind_registry
         .and_then(|reg| reg.get(node.kind.raw.as_str()))
-        .and_then(|entry| entry.lsp_icon.clone())
+        .and_then(|entry| entry.declared.lsp_icon.clone())
         .map(|i| format!("{i} "))
         .unwrap_or_default();
 
@@ -82,7 +82,7 @@ pub fn hover_info_with_registries(
     if let Some(kind_reg) = kind_registry
         && let Some(entry) = kind_reg.get(node.kind.raw.as_str())
     {
-        if let Some(ref desc) = entry.description {
+        if let Some(ref desc) = entry.declared.description {
             header_section.push_str(&format!("\n\n{}", desc));
         }
 
@@ -93,7 +93,7 @@ pub fn hover_info_with_registries(
         if entry.supports_verify {
             ext_line.push_str(" · `verify`");
         }
-        if entry.singleton {
+        if entry.declared.singleton {
             ext_line.push_str(" · `singleton`");
         }
         header_section.push_str(&format!("\n{}", ext_line));
@@ -179,7 +179,7 @@ pub fn hover_field_info(
     let type_str = format_field_type(&entry.field_type);
 
     // First line: field name + type, with optional target kind on same line
-    let first_line = if let Some(ref target) = entry.target_kind {
+    let first_line = if let Some(ref target) = entry.declared.target_kind {
         format!("**`{}`** : {} → **{}**", field_name, type_str, target)
     } else {
         format!("**`{}`** : {}", field_name, type_str)
@@ -187,12 +187,12 @@ pub fn hover_field_info(
 
     let mut parts = vec![first_line];
 
-    if let Some(ref desc) = entry.description {
+    if let Some(ref desc) = entry.declared.description {
         parts.push(desc.clone());
     }
 
     // Edge and required on same line
-    match (&entry.edge, entry.required) {
+    match (&entry.declared.edge, entry.declared.required) {
         (Some(edge_name), true) => {
             parts.push(format!("Edge `{}` · *required*", edge_name));
         }

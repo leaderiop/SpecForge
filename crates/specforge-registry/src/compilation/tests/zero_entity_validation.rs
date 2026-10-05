@@ -294,22 +294,12 @@ fn no_incoming_edges_detects_orphan_entities() {
 fn kind(name: &str) -> KindRegistryEntry {
     KindRegistryEntry {
         kind_name: name.to_string(),
-        description: None,
         source_extension: "@test".to_string(),
         testable: false,
-        singleton: false,
         supports_verify: false,
         allowed_verify_kinds: Vec::new(),
-        has_body_parser: false,
-        semantic_token: None,
-        lsp_icon: None,
-        dot_shape: None,
-        dot_color: None,
-        dot_fillcolor: None,
-        open_fields: false,
-        contract_target: false,
-        declares_types: false,
         lifecycle_field: None,
+        ..Default::default()
     }
 }
 
@@ -320,14 +310,13 @@ fn kind(name: &str) -> KindRegistryEntry {
 fn an_edge_rule_counts_only_its_edge_type() {
     let mut edges = EdgeRegistry::new();
     edges.register(EdgeRegistryEntry {
-        label: "BehaviorImplementsFeature".to_string(),
-        description: None,
-        source_kind: Some("behavior".to_string()),
-        target_kind: Some("feature".to_string()),
         source_extension: "@test".to_string(),
-        edge_style: None,
-        edge_color: None,
-        edge_arrowhead: None,
+        declared: specforge_protocol_types::EdgeTypeDescriptor {
+            label: "BehaviorImplementsFeature".to_string(),
+            source_kind: Some("behavior".to_string()),
+            target_kind: Some("feature".to_string()),
+            ..Default::default()
+        },
     });
     let mut rule = make_rule("W001", "no_outgoing_edges");
     rule.edge_type = Some("BehaviorImplementsFeature".to_string());
@@ -917,20 +906,14 @@ fn expression_is_checked_like_any_other_field() {
     let mut field_reg = field_reg;
     field_reg.register(FieldRegistryEntry {
         kind_name: "invariant".to_string(),
-        field_name: "expression".to_string(),
-        description: None,
         field_type: ManifestFieldType::String,
         source_extension: "@specforge/formal".to_string(),
-        edge: None,
-        target_kind: None,
-        file_reference: false,
-        required: false,
-        inverse_of: None,
-        normative: true,
-        exempts_obligations: false,
-        headline: false,
-        derived_from: None,
         proof_role: Some(specforge_registry::ProofRole::Claim),
+        declared: specforge_protocol_types::FieldDescriptor {
+            name: "expression".to_string(),
+            normative: true,
+            ..Default::default()
+        },
     });
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,

@@ -18,6 +18,8 @@ pub use registries::{
 
 // --- Extension vocabulary (shared with the SDK through the protocol types) ---
 pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType};
+// --- What a registry entry embeds: the descriptor its extension declared ---
+pub use specforge_protocol_types::{EdgeTypeDescriptor, EntityKindDescriptor, FieldDescriptor};
 
 // --- Manifest types ---
 pub use manifest::surface::{

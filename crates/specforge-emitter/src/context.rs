@@ -63,7 +63,7 @@ pub fn headline_statement<'n>(node: &'n Node, registry: &FieldRegistry) -> Optio
     node.fields.entries().iter().find_map(|entry| {
         let declared = registry
             .get(node.kind.raw.as_str(), entry.key.as_str())
-            .is_some_and(|f| f.headline && f.normative);
+            .is_some_and(|f| f.declared.headline && f.declared.normative);
         match &entry.value {
             FieldValue::String(s) if declared => Some(s.as_str()),
             _ => None,
@@ -74,7 +74,7 @@ pub fn headline_statement<'n>(node: &'n Node, registry: &FieldRegistry) -> Optio
 fn is_headline(node: &Node, field: &str, registry: &FieldRegistry) -> bool {
     registry
         .get(node.kind.raw.as_str(), field)
-        .is_some_and(|f| f.headline)
+        .is_some_and(|f| f.declared.headline)
 }
 
 /// The fields of `node` its extension declares normative (the text that
@@ -96,7 +96,7 @@ pub(crate) fn normative_fields(
         .filter(|entry| {
             registry
                 .get(node.kind.raw.as_str(), entry.key.as_str())
-                .is_some_and(|field| field.normative)
+                .is_some_and(|field| field.declared.normative)
         })
         .map(|entry| {
             (

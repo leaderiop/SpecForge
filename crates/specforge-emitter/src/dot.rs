@@ -53,13 +53,13 @@ pub fn emit_dot(graph: &Graph, options: &DotOptions<'_>) -> String {
     let write_node = |out: &mut String, node: &Node, indent: &str| {
         let mut style = String::new();
         if let Some(entry) = kind_entry(node.kind.raw.as_str()) {
-            if let Some(shape) = &entry.dot_shape {
+            if let Some(shape) = &entry.declared.dot_shape {
                 style.push_str(&format!(" shape=\"{}\"", escape_dot(shape)));
             }
-            if let Some(color) = &entry.dot_color {
+            if let Some(color) = &entry.declared.dot_color {
                 style.push_str(&format!(" color=\"{}\"", escape_dot(color)));
             }
-            if let Some(fill) = &entry.dot_fillcolor {
+            if let Some(fill) = &entry.declared.dot_fillcolor {
                 style.push_str(&format!(" fillcolor=\"{}\"", escape_dot(fill)));
             }
         }

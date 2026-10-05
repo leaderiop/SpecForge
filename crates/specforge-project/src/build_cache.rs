@@ -156,22 +156,12 @@ mod tests {
     fn kind(name: &str, lifecycle_field: Option<&str>) -> KindRegistryEntry {
         KindRegistryEntry {
             kind_name: name.to_string(),
-            description: None,
             source_extension: "@test/ext".to_string(),
             testable: false,
-            singleton: false,
             supports_verify: false,
             allowed_verify_kinds: vec![],
-            has_body_parser: false,
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
             lifecycle_field: lifecycle_field.map(str::to_string),
+            ..Default::default()
         }
     }
 

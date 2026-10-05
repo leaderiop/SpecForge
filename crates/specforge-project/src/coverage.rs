@@ -160,7 +160,7 @@ pub fn obligation_exempt(node: &Node, fields: &FieldRegistry) -> bool {
                 is_set(value)
                     && fields
                         .get(kind, entry.key.as_str())
-                        .is_some_and(|f| f.exempts_obligations)
+                        .is_some_and(|f| f.declared.exempts_obligations)
             }
         })
 }
@@ -346,22 +346,12 @@ mod tests {
     fn kind(name: &str, testable: bool, supports_verify: bool) -> KindRegistryEntry {
         KindRegistryEntry {
             kind_name: name.into(),
-            description: None,
             source_extension: "@test/ext".into(),
             testable,
-            singleton: false,
             supports_verify,
             allowed_verify_kinds: Vec::new(),
-            has_body_parser: false,
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
             lifecycle_field: None,
+            ..Default::default()
         }
     }
 
@@ -377,20 +367,14 @@ mod tests {
         let mut fields = FieldRegistry::new();
         fields.register(specforge_registry::FieldRegistryEntry {
             kind_name: "behavior".into(),
-            field_name: "abstract".into(),
-            description: None,
             field_type: specforge_registry::ManifestFieldType::Bool,
             source_extension: "@test/formal".into(),
-            edge: None,
-            target_kind: None,
-            file_reference: false,
-            required: false,
-            inverse_of: None,
-            normative: false,
-            exempts_obligations: true,
-            headline: false,
-            derived_from: None,
             proof_role: None,
+            declared: specforge_protocol_types::FieldDescriptor {
+                name: "abstract".into(),
+                exempts_obligations: true,
+                ..Default::default()
+            },
         });
         fields
     }

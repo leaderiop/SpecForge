@@ -150,7 +150,7 @@ pub fn code_actions_create_stubs(
             let node = graph.node(entity)?;
             let target_kind = fields
                 .get(node.kind.raw.as_str(), field)
-                .and_then(|entry| entry.target_kind.as_deref());
+                .and_then(|entry| entry.declared.target_kind.as_deref());
             code_action_create_stub(target, target_kind, current_file)
         })
         .collect()

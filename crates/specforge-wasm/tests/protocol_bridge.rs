@@ -375,9 +375,9 @@ fn populate_from_protocol_registers_edges() {
     let (_, _, edge_reg, _) = populate_from_protocol(&[ext]);
     assert!(edge_reg.contains("enforces"));
     let edge = edge_reg.get("enforces").unwrap();
-    assert_eq!(edge.source_kind.as_deref(), Some("behavior"));
-    assert_eq!(edge.target_kind.as_deref(), Some("invariant"));
-    assert_eq!(edge.edge_style.as_deref(), Some("dashed"));
+    assert_eq!(edge.declared.source_kind.as_deref(), Some("behavior"));
+    assert_eq!(edge.declared.target_kind.as_deref(), Some("invariant"));
+    assert_eq!(edge.declared.edge_style.as_deref(), Some("dashed"));
 }
 
 // ── Step 4: Validation rules ──
@@ -1009,8 +1009,8 @@ fn parity_protocol_vs_manifest_registries() {
     assert_eq!(m_beh.testable, p_beh.testable);
     assert_eq!(m_beh.source_extension, p_beh.source_extension);
     assert_eq!(m_beh.supports_verify, p_beh.supports_verify);
-    assert_eq!(m_beh.semantic_token, p_beh.semantic_token);
-    assert_eq!(m_beh.dot_shape, p_beh.dot_shape);
+    assert_eq!(m_beh.declared.semantic_token, p_beh.declared.semantic_token);
+    assert_eq!(m_beh.declared.dot_shape, p_beh.declared.dot_shape);
 
     // Same field registry
     assert!(p_field_reg.contains("behavior", "contract"));
@@ -1022,15 +1022,15 @@ fn parity_protocol_vs_manifest_registries() {
     let m_inv = m_field_reg.get("behavior", "invariants").unwrap();
     let p_inv = p_field_reg.get("behavior", "invariants").unwrap();
     assert_eq!(m_inv.field_type, p_inv.field_type);
-    assert_eq!(m_inv.edge, p_inv.edge);
-    assert_eq!(m_inv.target_kind, p_inv.target_kind);
+    assert_eq!(m_inv.declared.edge, p_inv.declared.edge);
+    assert_eq!(m_inv.declared.target_kind, p_inv.declared.target_kind);
 
     // Same edge registry
     assert!(p_edge_reg.contains("enforces"));
     let m_edge = m_edge_reg.get("enforces").unwrap();
     let p_edge = p_edge_reg.get("enforces").unwrap();
-    assert_eq!(m_edge.source_kind, p_edge.source_kind);
-    assert_eq!(m_edge.target_kind, p_edge.target_kind);
-    assert_eq!(m_edge.edge_style, p_edge.edge_style);
+    assert_eq!(m_edge.declared.source_kind, p_edge.declared.source_kind);
+    assert_eq!(m_edge.declared.target_kind, p_edge.declared.target_kind);
+    assert_eq!(m_edge.declared.edge_style, p_edge.declared.edge_style);
     assert_eq!(m_edge.source_extension, p_edge.source_extension);
 }

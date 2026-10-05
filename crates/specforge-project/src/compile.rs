@@ -90,7 +90,7 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
     // hardening-plan D2).
     let file_ref_fields: Vec<String> = field_reg
         .iter()
-        .filter(|(_, _, entry)| entry.file_reference)
+        .filter(|(_, _, entry)| entry.declared.file_reference)
         .map(|(_, field_name, _)| field_name.to_string())
         .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
@@ -126,7 +126,13 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
     // Edge label mapping (manifest label -> field name used in graph).
     let edge_label_to_field: HashMap<String, String> = field_reg
         .iter()
-        .filter_map(|(_, field, entry)| entry.edge.clone().map(|edge| (edge, field.to_string())))
+        .filter_map(|(_, field, entry)| {
+            entry
+                .declared
+                .edge
+                .clone()
+                .map(|edge| (edge, field.to_string()))
+        })
         .collect();
 
     // Extension validation rules (declarative + custom via wasm).
@@ -665,7 +671,7 @@ pub fn declared_type_ids(graph: &Graph, kinds: &KindRegistry) -> Vec<String> {
         .filter(|n| {
             kinds
                 .get(n.kind.raw.as_str())
-                .is_some_and(|kind| kind.declares_types)
+                .is_some_and(|kind| kind.declared.declares_types)
         })
         .map(|n| n.id.raw.to_string())
         .collect()
