@@ -79,8 +79,18 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   diagnostics JSON titles, doctor and the LSP hover all read it; `docs/diagnostics.md` is generated
   from it.
 - **Diagnostic data**: a diagnostic's optional typed payload, the values its message names
-  (`specforge_common::DiagnosticData`, e.g. an E003's unresolved target). Consumers that act on a
-  diagnostic, such as the LSP's quick fixes, read it; none parses the message, which is presentation.
+  (`specforge_common::DiagnosticData`, e.g. an E003's unresolved target, a W061's cycle, the entity
+  an extension pass named). Consumers that act on a diagnostic (the LSP's quick fixes, MCP's
+  suggest_fixes, and navigation's attribution of a diagnostic to the entities it is about) read it;
+  none parses the message, which is presentation.
+- **Reference**: an occurrence of an entity's ID in another entity's field that resolves to it (one
+  edge, written where its token is). The references *to* an entity are incoming; what an entity
+  *refers to* are its outgoing references. "Find references" means incoming, with the declaration
+  only on request (`specforge_ops::navigate`).
+- **Navigation**: where an entity is declared, its references, entity lookup and ranking, which
+  entities a diagnostic is about, and the fixes a diagnostic's data names. The LSP and MCP answer
+  from one module (`specforge_ops::navigate`) in source spans. The LSP converts them to UTF-16
+  ranges, MCP renders them as JSON (ADR 0016).
 - **Proof role**: what a field's value is to the prove pass, declared by its extension
   (`proof_role`): a **bound** the solver assumes (bounds must be consistent, E046) or a **claim**
   that must follow from the bounds (W139 when not; an entailed claim is a proved claim). A field
