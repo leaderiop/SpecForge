@@ -21,6 +21,8 @@ invariant lsp_extension_reload_consistency "LSP Extension Reload Consistency" {
   verify unit "adding an extension while LSP is running updates KindRegistry atomically"
   verify unit "removing an extension while LSP is running removes kinds from KindRegistry atomically"
   verify unit "semantic token legend reflects current extensions after reload"
+  verify integration "a specforge.lock change while the LSP is running reloads the environment"
+  verify integration "the LSP watches every file its environment is loaded from"
 }
 
 invariant rename_atomicity "Rename Atomicity" {

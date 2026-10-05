@@ -128,7 +128,11 @@ impl LspClient {
     async fn read_response_with_id(&mut self, id: i64) -> Value {
         loop {
             let msg = self.read_message().await;
-            self.auto_respond_if_server_request(&msg).await;
+            // A server→client request carries an id of its own, which may
+            // equal ours: it is answered, never taken for our response.
+            if self.auto_respond_if_server_request(&msg).await {
+                continue;
+            }
             if msg.get("id").and_then(|v| v.as_i64()) == Some(id) {
                 return msg;
             }

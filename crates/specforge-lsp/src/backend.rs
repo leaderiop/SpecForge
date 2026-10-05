@@ -8,7 +8,7 @@ use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
-use specforge_project::{CheckMode, ProjectSession, SourceChange};
+use specforge_project::{CheckMode, ProjectSession, SourceChange, UpdateKind};
 use specforge_registry::KindRegistry;
 
 use crate::{
@@ -41,6 +41,12 @@ pub struct Backend {
     /// Whether the client declared `workspace.semanticTokens.refreshSupport`
     /// at initialize: only then is it sent `workspace/semanticTokens/refresh`.
     tokens_refresh_support: Arc<AtomicBool>,
+    /// The file watchers the client was asked to register
+    /// ([`crate::watchers`]), so a reload that changes them re-registers.
+    watched: Arc<Mutex<Vec<FileSystemWatcher>>>,
+    /// Whether the client declared
+    /// `workspace.didChangeWatchedFiles.relativePatternSupport`.
+    relative_patterns: Arc<AtomicBool>,
 }
 
 /// A change the project session is asked to apply.
@@ -49,11 +55,18 @@ enum Change {
     Open(PathBuf),
     /// An open document's buffer changed: it is the truth for its file.
     Buffer(Url),
-    /// Files changed, were created or deleted on disk (absolute paths).
-    Disk(Vec<String>),
-    /// `specforge.json` or an extension changed: load the environment
-    /// again, rebuild from disk, then apply every open buffer.
-    Reload,
+    /// Files changed, were created or deleted on disk (absolute paths). The
+    /// session says what they are, once it is held for the update
+    /// (`ProjectSession::changes`), and applies what they amount to: an
+    /// environment reload (then every open buffer again), an update of the
+    /// changed sources, or a re-check.
+    Apply(Vec<PathBuf>),
+}
+
+/// What [`Backend::recompile`] did to the session.
+struct Recompiled {
+    /// The environment was loaded again (or the project opened).
+    environment: bool,
 }
 
 impl Backend {
@@ -62,6 +75,7 @@ impl Backend {
         let (update_tx, mut update_rx) = mpsc::unbounded_channel::<Url>();
         let updates = Arc::new(Mutex::new(()));
         let tokens_refresh_support = Arc::new(AtomicBool::new(false));
+        let watched = Arc::new(Mutex::new(Vec::new()));
 
         // Serialized latest-wins reparse worker (C4-03). Exits when the
         // Backend (and its sender) is dropped.
@@ -106,6 +120,8 @@ impl Backend {
             update_tx,
             updates,
             tokens_refresh_support,
+            watched,
+            relative_patterns: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -132,7 +148,8 @@ impl Backend {
     /// Apply `change` to the project session, the one `specforge watch`
     /// holds, and publish everything the project reports now: the
     /// diagnostics `specforge check` reports for the same sources and
-    /// buffers. Returns false when the change could not be applied.
+    /// buffers. Returns `None` when there was nothing to apply, or it could
+    /// not be applied.
     ///
     /// Changes apply one at a time (`updates`). The session does
     /// synchronous file reads and whole-graph checks, so it runs on the
@@ -144,13 +161,25 @@ impl Backend {
         client: &Client,
         updates: &Mutex<()>,
         change: Change,
-    ) -> bool {
+    ) -> Option<Recompiled> {
         let _one_at_a_time = updates.lock().await;
-        let (session, buffers, edited) = {
+        let (session, buffers, edited, changes) = {
             let mut st = state.write().await;
-            let Some(session) = st.take_session() else {
-                return false;
+            let session = st.take_session()?;
+            // What changed files are, to the session as it is now (a
+            // reload queued before this one may have changed the answer).
+            let changes = match &change {
+                Change::Apply(paths) => Some(session.changes(paths.iter().map(PathBuf::as_path))),
+                _ => None,
             };
+            if changes
+                .as_ref()
+                .is_some_and(specforge_project::Changes::is_empty)
+            {
+                st.set_session(session);
+                return None;
+            }
+            let reload = changes.as_ref().is_some_and(|c| c.environment);
             // Every open buffer, as (absolute path, text), for a change
             // that rebuilds from disk; the edited one for a buffer change.
             let buffer = |uri: &str| {
@@ -163,35 +192,37 @@ impl Backend {
                     buffer(uri.as_str()).into_iter().collect(),
                     Some(uri.clone()),
                 ),
-                Change::Disk(_) => (Vec::new(), None),
-                Change::Open(_) | Change::Reload => (
+                Change::Apply(_) if !reload => (Vec::new(), None),
+                Change::Open(_) | Change::Apply(_) => (
                     st.open_uris().into_iter().filter_map(buffer).collect(),
                     None,
                 ),
             };
-            (session, buffers, edited)
+            (session, buffers, edited, changes)
         };
         if matches!(change, Change::Buffer(_)) && buffers.is_empty() {
             // Closed before the worker got to it.
             state.write().await.set_session(session);
-            return false;
+            return None;
         }
 
         let joined = tokio::task::spawn_blocking(move || {
             let mut session = session;
             let mut touched: Vec<String> = Vec::new();
-            match &change {
-                Change::Open(root) => session = ProjectSession::open(root),
-                Change::Reload => touched.extend(session.reload_environment().rebuilt_files),
-                Change::Disk(paths) => {
-                    let keys: Vec<String> = paths
-                        .iter()
-                        .map(|p| session.source_key(std::path::Path::new(p)))
-                        .collect();
-                    touched.extend(session.update(SourceChange::Disk(&keys)).rebuilt_files);
-                    touched.extend(keys);
+            let mut environment = false;
+            match (&change, changes) {
+                (Change::Open(root), _) => {
+                    session = ProjectSession::open(root);
+                    environment = true;
                 }
-                Change::Buffer(_) => {}
+                (Change::Apply(_), Some(changes)) => {
+                    if let Some(update) = session.apply(&changes) {
+                        environment = update.kind == UpdateKind::Environment;
+                        touched.extend(update.rebuilt_files);
+                    }
+                    touched.extend(changes.sources);
+                }
+                _ => {}
             }
             let typing = matches!(change, Change::Buffer(_));
             for (path, text) in &buffers {
@@ -210,12 +241,12 @@ impl Backend {
                 touched.extend(session.update_with(buffer, mode).rebuilt_files);
                 touched.push(key);
             }
-            (session, touched)
+            (session, touched, environment)
         })
         .await;
 
         match joined {
-            Ok((session, touched)) => {
+            Ok((session, touched, environment)) => {
                 let touched: Vec<Url> = {
                     let mut st = state.write().await;
                     st.set_session(session);
@@ -225,7 +256,7 @@ impl Backend {
                         .collect()
                 };
                 Self::publish(state, client, edited, touched).await;
-                true
+                Some(Recompiled { environment })
             }
             Err(e) => {
                 // The update panicked: the session is lost, so the state
@@ -237,9 +268,61 @@ impl Backend {
                         format!("specforge-lsp: recompile failed: {e}"),
                     )
                     .await;
-                false
+                None
             }
         }
+    }
+
+    /// Ask the client to watch every file the project is built from
+    /// ([`crate::watchers::file_watchers`]), replacing the watchers it was
+    /// asked for before when they differ: after the project opens, and
+    /// after a reload that changed its inputs. A client that refuses the
+    /// project's watchers keeps the static ones.
+    async fn sync_watchers(
+        state: &RwLock<LspState>,
+        client: &Client,
+        watched: &Mutex<Vec<FileSystemWatcher>>,
+        relative_patterns: bool,
+    ) {
+        let wanted = {
+            let st = state.read().await;
+            match st.session() {
+                Some(session) => crate::watchers::file_watchers(session, relative_patterns),
+                None => return,
+            }
+        };
+        let mut watched = watched.lock().await;
+        if *watched == wanted {
+            return;
+        }
+        let _ = client
+            .unregister_capability(vec![Unregistration {
+                id: crate::watchers::REGISTRATION_ID.into(),
+                method: "workspace/didChangeWatchedFiles".into(),
+            }])
+            .await;
+        *watched = match Self::register_watchers(client, wanted.clone()).await {
+            Ok(()) => wanted,
+            Err(_) => {
+                let defaults = crate::watchers::default_watchers();
+                let _ = Self::register_watchers(client, defaults.clone()).await;
+                defaults
+            }
+        };
+    }
+
+    /// Register `watchers` for `workspace/didChangeWatchedFiles`.
+    async fn register_watchers(client: &Client, watchers: Vec<FileSystemWatcher>) -> Result<()> {
+        client
+            .register_capability(vec![Registration {
+                id: crate::watchers::REGISTRATION_ID.into(),
+                method: "workspace/didChangeWatchedFiles".into(),
+                register_options: Some(
+                    serde_json::to_value(DidChangeWatchedFilesRegistrationOptions { watchers })
+                        .expect("watcher options serialize"),
+                ),
+            }])
+            .await
     }
 
     /// Publish what the project reports now, each diagnostic on the file
@@ -575,6 +658,15 @@ impl LanguageServer for Backend {
             .unwrap_or(false);
         self.tokens_refresh_support
             .store(refresh_support, Ordering::Relaxed);
+        let relative_patterns = params
+            .capabilities
+            .workspace
+            .as_ref()
+            .and_then(|w| w.did_change_watched_files.as_ref())
+            .and_then(|w| w.relative_pattern_support)
+            .unwrap_or(false);
+        self.relative_patterns
+            .store(relative_patterns, Ordering::Relaxed);
         let root = params
             .root_uri
             .as_ref()
@@ -655,33 +747,16 @@ impl LanguageServer for Backend {
     }
 
     async fn initialized(&self, _: InitializedParams) {
-        // Register file watchers for *.spec files so external changes are detected
-        let _ = self
-            .client
-            .register_capability(vec![Registration {
-                id: "specforge-file-watcher".into(),
-                method: "workspace/didChangeWatchedFiles".into(),
-                register_options: Some(
-                    serde_json::to_value(DidChangeWatchedFilesRegistrationOptions {
-                        watchers: vec![
-                            FileSystemWatcher {
-                                glob_pattern: GlobPattern::String("**/*.spec".into()),
-                                kind: Some(WatchKind::all()),
-                            },
-                            FileSystemWatcher {
-                                glob_pattern: GlobPattern::String("**/specforge.json".into()),
-                                kind: Some(WatchKind::all()),
-                            },
-                            FileSystemWatcher {
-                                glob_pattern: GlobPattern::String("**/*.wasm".into()),
-                                kind: Some(WatchKind::all()),
-                            },
-                        ],
-                    })
-                    .unwrap(),
-                ),
-            }])
-            .await;
+        // Until the project is open, watch every .spec, config and lock
+        // file; once it is, the watchers cover exactly what it is built
+        // from (`sync_watchers`).
+        let defaults = crate::watchers::default_watchers();
+        if Self::register_watchers(&self.client, defaults.clone())
+            .await
+            .is_ok()
+        {
+            *self.watched.lock().await = defaults;
+        }
 
         // Opening the project (extensions, then every .spec file under the
         // spec root) runs in a background task with workDone progress
@@ -692,6 +767,8 @@ impl LanguageServer for Backend {
         let state = Arc::clone(&self.state);
         let updates = Arc::clone(&self.updates);
         let refresh_support = Arc::clone(&self.tokens_refresh_support);
+        let watched = Arc::clone(&self.watched);
+        let relative_patterns = self.relative_patterns.load(Ordering::Relaxed);
         tokio::spawn(async move {
             let token = NumberOrString::String("specforge-index".into());
             let _ = client
@@ -737,7 +814,8 @@ impl LanguageServer for Backend {
                 &updates,
                 Change::Open(PathBuf::from(&root)),
             )
-            .await;
+            .await
+            .is_some();
             let (ext_count, kind_count, file_count, spec_root) = {
                 let st = state.read().await;
                 (
@@ -773,6 +851,8 @@ impl LanguageServer for Backend {
                     format!("{file_count} files"),
                 )))
                 .await;
+            // The client now watches what the project is built from.
+            Self::sync_watchers(&state, &client, &watched, relative_patterns).await;
         });
     }
 
@@ -849,15 +929,36 @@ impl LanguageServer for Backend {
     }
 
     async fn did_change_watched_files(&self, params: DidChangeWatchedFilesParams) {
-        // Extension configuration or plugin artifact changed: the
-        // environment is loaded again, the spec root re-indexed, and
-        // everything republished (hardening-plan H4 / R-5).
-        let reload = params.changes.iter().any(|change| {
-            let path = uri_to_file_path(&change.uri);
-            path.ends_with("specforge.json") || path.ends_with(".wasm")
-        });
-        if reload {
-            Self::recompile(&self.state, &self.client, &self.updates, Change::Reload).await;
+        // An open document's buffer is the truth for its file, so of its
+        // changes on disk only its deletion counts. What the others are (a
+        // source, an environment or check input, nothing) is the session's
+        // to say (classify_project_changes).
+        let paths: Vec<PathBuf> = {
+            let state = self.state.read().await;
+            params
+                .changes
+                .iter()
+                .filter(|change| {
+                    change.typ == FileChangeType::DELETED || !state.is_open(change.uri.as_str())
+                })
+                .map(|change| PathBuf::from(uri_to_file_path(&change.uri)))
+                .collect()
+        };
+        let recompiled = if paths.is_empty() {
+            None
+        } else {
+            Self::recompile(
+                &self.state,
+                &self.client,
+                &self.updates,
+                Change::Apply(paths),
+            )
+            .await
+        };
+        if recompiled.is_some_and(|r| r.environment) {
+            // The environment loaded again (hardening-plan H4 / R-5): the
+            // spec root re-indexed, everything republished, and the
+            // watchers follow what the project is now built from.
             let ext_count = self.state.read().await.registries().manifests.len();
             self.client
                 .log_message(
@@ -867,30 +968,13 @@ impl LanguageServer for Backend {
                     ),
                 )
                 .await;
-        } else {
-            // .spec files changed on disk. An open document's buffer is
-            // the truth for its file, so only its deletion counts.
-            let paths: Vec<String> = {
-                let state = self.state.read().await;
-                params
-                    .changes
-                    .iter()
-                    .filter(|change| uri_to_file_path(&change.uri).ends_with(".spec"))
-                    .filter(|change| {
-                        change.typ == FileChangeType::DELETED || !state.is_open(change.uri.as_str())
-                    })
-                    .map(|change| uri_to_file_path(&change.uri))
-                    .collect()
-            };
-            if !paths.is_empty() {
-                Self::recompile(
-                    &self.state,
-                    &self.client,
-                    &self.updates,
-                    Change::Disk(paths),
-                )
-                .await;
-            }
+            Self::sync_watchers(
+                &self.state,
+                &self.client,
+                &self.watched,
+                self.relative_patterns.load(Ordering::Relaxed),
+            )
+            .await;
         }
         // One check for the whole batch: an extension reload (new kind
         // classifications), a deletion or an on-disk edit may all have

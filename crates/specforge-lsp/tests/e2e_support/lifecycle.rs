@@ -545,3 +545,119 @@ async fn e2e_removing_every_extension_clears_the_kinds() {
         "software's kinds outlive its removal: {after:?}"
     );
 }
+
+/// Wait for a `window/logMessage` whose message contains `needle`.
+async fn wait_for_log(client: &mut LspClient, needle: &str, timeout_ms: u64) -> Option<String> {
+    let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_millis(timeout_ms);
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        let log = client
+            .wait_for_notification("window/logMessage", remaining.as_millis() as u64)
+            .await?;
+        let message = log["params"]["message"].as_str().unwrap_or("").to_string();
+        if message.contains(needle) {
+            return Some(message);
+        }
+    }
+}
+
+#[spec(
+    invariant = "lsp_extension_reload_consistency",
+    verify = "a specforge.lock change while the LSP is running reloads the environment"
+)]
+#[tokio::test]
+async fn e2e_a_lock_change_reloads_the_environment() {
+    let dir = TempDir::new().unwrap();
+    let config = json!({
+        "name": "test",
+        "version": "0.1.0",
+        "extensions": ["@specforge/software", "@acme/missing"],
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    std::fs::write(
+        dir.path().join("main.spec"),
+        "behavior alpha \"Alpha\" {}\n",
+    )
+    .unwrap();
+    let mut client = start_server(Some(dir.path().to_str().unwrap())).await;
+    wait_for_log(&mut client, "indexed", 10_000)
+        .await
+        .expect("the project is indexed");
+
+    // The lock now names the extension: the environment reads the lock, so
+    // it must load again.
+    let lock = json!({
+        "lockfile_version": 1,
+        "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "sha256:00"}]
+    });
+    std::fs::write(dir.path().join("specforge.lock"), lock.to_string()).unwrap();
+    let lock_uri = tower_lsp::lsp_types::Url::from_file_path(dir.path().join("specforge.lock"))
+        .unwrap()
+        .to_string();
+    client
+        .send_notification(
+            "workspace/didChangeWatchedFiles",
+            json!({"changes": [{"uri": lock_uri, "type": 1}]}),
+        )
+        .await;
+
+    let reloaded = wait_for_log(&mut client, "extension environment changed", 10_000).await;
+    assert!(
+        reloaded.is_some_and(|m| m.contains("reloaded 1 extension(s)")),
+        "a specforge.lock change must reload the environment"
+    );
+}
+
+/// The `didChangeWatchedFiles` watchers of the last registration.
+fn registered_globs(registration: &Value) -> Vec<String> {
+    registration["params"]["registrations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|r| r["method"] == "workspace/didChangeWatchedFiles")
+        .flat_map(|r| r["registerOptions"]["watchers"].as_array().unwrap().clone())
+        .map(|w| w["globPattern"].as_str().unwrap_or_default().to_string())
+        .collect()
+}
+
+#[spec(
+    invariant = "lsp_extension_reload_consistency",
+    verify = "the LSP watches every file its environment is loaded from"
+)]
+#[tokio::test]
+async fn e2e_registered_watchers_cover_the_environment_inputs() {
+    let dir = TempDir::new().unwrap();
+    let config = json!({
+        "name": "test",
+        "version": "0.1.0",
+        "spec_root": "spec",
+        "extensions": ["@specforge/software", "@acme/local=ext/local.wasm", "@acme/installed"],
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    std::fs::create_dir_all(dir.path().join("spec")).unwrap();
+    std::fs::write(dir.path().join("spec/main.spec"), "").unwrap();
+    let root = dir.path().to_str().unwrap();
+    let mut client = start_server(Some(root)).await;
+
+    // The static watchers first, then, once the project is open, the ones
+    // it is built from.
+    let mut globs = Vec::new();
+    for _ in 0..2 {
+        let registration = client
+            .wait_for_notification("client/registerCapability", 10_000)
+            .await
+            .expect("a watcher registration");
+        globs = registered_globs(&registration);
+    }
+    for expected in [
+        format!("{root}/spec/**/*.spec"),
+        format!("{root}/specforge.json"),
+        format!("{root}/specforge.lock"),
+        format!("{root}/ext/local.wasm"),
+        format!("{root}/.specforge/extensions/@acme/installed/extension.wasm"),
+    ] {
+        assert!(globs.contains(&expected), "{expected} not in {globs:?}");
+    }
+    // A .wasm no extension loads is not watched.
+    assert!(!globs.iter().any(|g| g == "**/*.wasm"), "{globs:?}");
+}

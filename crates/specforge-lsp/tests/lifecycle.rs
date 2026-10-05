@@ -277,3 +277,65 @@ fn shutdown_frees_the_wasm_runtime() {
         "the engine is freed, not just forgotten"
     );
 }
+
+/// The watchers derive from the session: relative to each input's
+/// directory for a client with relative pattern support, absolute globs
+/// otherwise, and the static set with no project.
+#[test]
+fn file_watchers_follow_what_the_session_is_built_from() {
+    use tower_lsp::lsp_types::{GlobPattern, OneOf};
+
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"w","version":"0.1.0","extensions":["@acme/local=ext/local.wasm"]}"#,
+    )
+    .unwrap();
+    let session = specforge_project::ProjectSession::open_with_runtime(dir.path(), None);
+    let root = dir.path().to_string_lossy().into_owned();
+
+    let absolute: Vec<String> = specforge_lsp::watchers::file_watchers(&session, false)
+        .into_iter()
+        .map(|w| match w.glob_pattern {
+            GlobPattern::String(glob) => glob,
+            other => panic!("expected an absolute glob, got {other:?}"),
+        })
+        .collect();
+    assert_eq!(
+        absolute,
+        vec![
+            format!("{root}/**/*.spec"),
+            format!("{root}/specforge.json"),
+            format!("{root}/specforge.lock"),
+            format!("{root}/ext/local.wasm"),
+        ]
+    );
+
+    let relative: Vec<(std::path::PathBuf, String)> =
+        specforge_lsp::watchers::file_watchers(&session, true)
+            .into_iter()
+            .map(|w| match w.glob_pattern {
+                GlobPattern::Relative(pattern) => {
+                    let OneOf::Right(base) = pattern.base_uri else {
+                        panic!("a base URI")
+                    };
+                    (base.to_file_path().unwrap(), pattern.pattern)
+                }
+                other => panic!("expected a relative pattern, got {other:?}"),
+            })
+            .collect();
+    assert!(
+        relative.contains(&(dir.path().join("ext"), "local.wasm".to_string())),
+        "{relative:?}"
+    );
+    assert!(
+        relative.contains(&(dir.path().to_path_buf(), "**/*.spec".to_string())),
+        "{relative:?}"
+    );
+
+    let detached = specforge_project::ProjectSession::detached();
+    assert_eq!(
+        specforge_lsp::watchers::file_watchers(&detached, true),
+        specforge_lsp::watchers::default_watchers()
+    );
+}

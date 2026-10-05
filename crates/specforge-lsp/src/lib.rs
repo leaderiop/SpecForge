@@ -9,6 +9,7 @@ mod navigation;
 mod semantic_tokens;
 mod state;
 mod symbols;
+pub mod watchers;
 
 pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};
 pub use code_actions::{
