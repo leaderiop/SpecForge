@@ -71,17 +71,6 @@ pub(crate) fn reported(call: &Call<'_>) -> Vec<specforge_common::Diagnostic> {
     }
 }
 
-/// The refusal of a question about `entity_id`, which no entity declares.
-pub(crate) fn entity_not_found(entity_id: &str) -> Box<McpError> {
-    Box::new(
-        McpError::new(
-            ErrorCode::EntityNotFound,
-            format!("Entity not found: {entity_id}"),
-        )
-        .with_entity(entity_id),
-    )
-}
-
 /// An I020 report for each kind in a `kinds` filter that no registered
 /// extension defines and no entity has, in the order given, with a
 /// `did you mean` suggestion when a known kind is close. The filter still
@@ -124,14 +113,12 @@ pub(crate) fn unknown_kind_diagnostics(
 }
 
 /// An emitter failure about `entity_id` as a failed tool result. A
-/// missing entity is `entity_not_found`, its `E003` in `diagnostic`, never
-/// only in the message text.
+/// missing entity is [`entity_not_found`](crate::tool::entity_not_found),
+/// its `E003` in `diagnostic`, never only in the message text.
 fn emitter_error(error: specforge_emitter::EmitterError, entity_id: &str) -> ToolOutcome {
     use specforge_emitter::EmitterError;
     let mcp_error = match &error {
-        EmitterError::EntityNotFound(message) => {
-            McpError::from_coded_message(ErrorCode::EntityNotFound, message).with_entity(entity_id)
-        }
+        EmitterError::EntityNotFound(_) => crate::tool::entity_not_found(entity_id),
         EmitterError::SerializationError(message) => {
             McpError::new(ErrorCode::InternalError, message.as_str())
         }

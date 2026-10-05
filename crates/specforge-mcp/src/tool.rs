@@ -8,7 +8,7 @@
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 
-use crate::protocol::JsonRpcResponse;
+use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::target::{Call, TargetSpec};
 use crate::types::McpToolDescriptor;
 
@@ -186,6 +186,27 @@ impl ErrorCode {
         }
     }
 
+    /// The JSON-RPC error code a refusal is sent with where there is no
+    /// `isError` result (`prompts/get`): invalid params for input the
+    /// client can fix, invalid request before `initialize`, internal error
+    /// for a failure on the server's side.
+    pub fn rpc_code(self) -> i64 {
+        match self {
+            ErrorCode::InvalidInput
+            | ErrorCode::EntityNotFound
+            | ErrorCode::ExtensionNotFound
+            | ErrorCode::Conflict => error_codes::INVALID_PARAMS,
+            ErrorCode::NotInitialized => error_codes::INVALID_REQUEST,
+            ErrorCode::CompilationFailed
+            | ErrorCode::FileNotFound
+            | ErrorCode::PermissionDenied
+            | ErrorCode::Timeout
+            | ErrorCode::SchemaMismatch
+            | ErrorCode::InternalError
+            | ErrorCode::PreconditionFailed => error_codes::INTERNAL_ERROR,
+        }
+    }
+
     /// The code a failure reported with diagnostic `code` carries.
     pub fn for_diagnostic(code: &str) -> Self {
         match code {
@@ -209,6 +230,8 @@ pub struct McpError {
     pub code: ErrorCode,
     pub message: String,
     pub tool: Option<String>,
+    /// The prompt that refused: a `prompts/get` answered with an error.
+    pub prompt: Option<String>,
     pub entity_id: Option<String>,
     pub argument: Option<String>,
     pub diagnostic: Option<Value>,
@@ -224,6 +247,7 @@ impl McpError {
             code,
             message: message.into(),
             tool: None,
+            prompt: None,
             entity_id: None,
             argument: None,
             diagnostic: None,
@@ -280,6 +304,7 @@ impl McpError {
         let mut error = json!({ "code": self.code.as_str(), "message": self.message });
         for (key, value) in [
             ("tool", self.tool.clone().map(Value::from)),
+            ("prompt", self.prompt.clone().map(Value::from)),
             ("entity_id", self.entity_id.clone().map(Value::from)),
             ("argument", self.argument.clone().map(Value::from)),
             ("diagnostic", self.diagnostic.clone()),
@@ -291,6 +316,17 @@ impl McpError {
         }
         error
     }
+}
+
+/// A question about `entity_id`, which no entity of the graph declares:
+/// `entity_not_found` naming it, its E003 in `diagnostic` (the one refusal
+/// tools and prompts share).
+pub fn entity_not_found(entity_id: &str) -> McpError {
+    McpError::from_coded_message(
+        ErrorCode::EntityNotFound,
+        &format!("E003: unresolved entity '{entity_id}' — not found in graph"),
+    )
+    .with_entity(entity_id)
 }
 
 /// `("E003", "unresolved …")` for `"E003: unresolved …"`: a leading
@@ -541,4 +577,60 @@ pub fn envelope(
         result["_meta"] = Value::Object(meta);
     }
     JsonRpcResponse::success(id, result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ALL: [ErrorCode; 12] = [
+        ErrorCode::InvalidInput,
+        ErrorCode::CompilationFailed,
+        ErrorCode::EntityNotFound,
+        ErrorCode::FileNotFound,
+        ErrorCode::ExtensionNotFound,
+        ErrorCode::PermissionDenied,
+        ErrorCode::Timeout,
+        ErrorCode::NotInitialized,
+        ErrorCode::SchemaMismatch,
+        ErrorCode::InternalError,
+        ErrorCode::Conflict,
+        ErrorCode::PreconditionFailed,
+    ];
+
+    #[test]
+    fn every_error_code_has_a_json_rpc_code() {
+        for code in ALL {
+            let rpc = code.rpc_code();
+            let expected = match code.as_str() {
+                "invalid_input" | "entity_not_found" | "extension_not_found" | "conflict" => {
+                    error_codes::INVALID_PARAMS
+                }
+                "not_initialized" => error_codes::INVALID_REQUEST,
+                _ => error_codes::INTERNAL_ERROR,
+            };
+            assert_eq!(rpc, expected, "{}", code.as_str());
+        }
+    }
+
+    #[test]
+    fn a_prompts_refusal_names_the_prompt() {
+        let mut error = McpError::new(ErrorCode::InvalidInput, "no");
+        assert!(error.to_json().get("prompt").is_none());
+        error.prompt = Some("specforge://prompts/context".into());
+        assert_eq!(error.to_json()["prompt"], "specforge://prompts/context");
+        assert!(error.to_json().get("tool").is_none());
+    }
+
+    #[test]
+    fn an_unknown_entity_carries_its_e003() {
+        let json = entity_not_found("ghost").to_json();
+        assert_eq!(json["code"], "entity_not_found");
+        assert_eq!(json["entity_id"], "ghost");
+        assert_eq!(json["diagnostic"]["code"], "E003");
+        assert_eq!(
+            json["message"],
+            "unresolved entity 'ghost' — not found in graph"
+        );
+    }
 }

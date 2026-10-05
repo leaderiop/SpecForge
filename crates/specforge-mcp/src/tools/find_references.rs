@@ -39,7 +39,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     };
     let occurrences = super::navigator(call)
         .references(entity_id, query)
-        .map_err(|_| super::entity_not_found(entity_id))?;
+        .map_err(|_| crate::tool::entity_not_found(entity_id))?;
     Ok(ToolOutcome::ok(json!({
         "entity_id": entity_id,
         "direction": direction.as_str(),

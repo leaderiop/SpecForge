@@ -35,6 +35,8 @@ type McpError "MCP Structured Error Response" {
   message    string
   entity_id  string     @optional
   tool       string     @optional
+  /// The prompt that refused, for a prompts/get answered with an error.
+  prompt     string     @optional
   /// The argument the tool could not use, for invalid_input.
   argument   string     @optional
   /// The diagnostic behind the failure: its code (E003, E059, ...) is

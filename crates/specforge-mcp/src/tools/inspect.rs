@@ -3,7 +3,7 @@ use serde_json::Value;
 use specforge_ops::navigate::Direction;
 
 use crate::target::Call;
-use crate::tool::{ErrorCode, McpError, ToolOutcome};
+use crate::tool::ToolOutcome;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct Args {
@@ -17,12 +17,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let node = match view.graph.node(entity_id) {
         Some(n) => n,
         None => {
-            return McpError::new(
-                ErrorCode::EntityNotFound,
-                format!("Entity not found: {entity_id}"),
-            )
-            .with_entity(entity_id)
-            .into();
+            return crate::tool::entity_not_found(entity_id).into();
         }
     };
 

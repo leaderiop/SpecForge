@@ -16,7 +16,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let entity_id = args.entity_id.as_str();
     let definition = super::navigator(call)
         .definition(entity_id)
-        .map_err(|_| super::entity_not_found(entity_id))?;
+        .map_err(|_| crate::tool::entity_not_found(entity_id))?;
     Ok(ToolOutcome::ok(json!({
         "entity_id": definition.id,
         "file_path": definition.name.file,

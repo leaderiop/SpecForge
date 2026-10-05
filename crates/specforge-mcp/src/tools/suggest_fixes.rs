@@ -22,7 +22,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     if let Some(entity_id) = args.entity_id.as_deref()
         && call.view().graph.node(entity_id).is_none()
     {
-        return Err(super::entity_not_found(entity_id));
+        return Err(crate::tool::entity_not_found(entity_id).into());
     }
     let diagnostics = super::reported(call);
     let query = FixQuery {
