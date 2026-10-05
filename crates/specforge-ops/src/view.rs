@@ -95,17 +95,23 @@ impl<'a> ProjectView<'a> {
             .map(|recorded| recorded.coverage)
     }
 
-    /// The Graph Protocol schema the loaded extensions produce, versioned
-    /// against the schema cache at the root (`specforge export`'s rule);
-    /// without a root, unversioned. Only reads the cache.
-    pub fn versioned_schema(&self) -> GraphProtocolSchema {
+    /// The Graph Protocol schema the loaded extensions produce, unversioned
+    /// (what the model diagram renders).
+    pub fn schema(&self) -> GraphProtocolSchema {
         let registries = self.registries;
-        let mut schema = generate_schema(
+        generate_schema(
             &registries.kinds,
             &registries.edges,
             &registries.fields,
             &registries.extension_info,
-        );
+        )
+    }
+
+    /// [`Self::schema`], versioned against the schema cache at the root
+    /// (`specforge export`'s rule); without a root, unversioned. Only reads
+    /// the cache.
+    pub fn versioned_schema(&self) -> GraphProtocolSchema {
+        let mut schema = self.schema();
         if let Some(cache) = self.schema_cache() {
             cache.version(&mut schema);
         }

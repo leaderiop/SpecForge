@@ -300,11 +300,15 @@ behavior expose_model_mcp_tool "Expose Model as MCP Tool" {
     kinds, root, depth. The tool MUST compile the project, build the
     ModelIntermediate from the schema, apply filters, and render in the
     requested format. The result MUST be the rendered string.
+    Model warnings (W146, a field type the model does not know, rendered
+    as a string) MUST be the tool result's diagnostics, as the CLI prints
+    them on stderr.
   """
   verify unit "specforge.model appears in MCP tool list"
   verify unit "default format is markdown"
   verify unit "all five formats produce valid output"
   verify unit "filter parameters are passed through to model options"
+  verify unit "model warnings are W146 diagnostics on both surfaces"
   verify integration "MCP tool produces same output as CLI command"
   verify contract "Expose Model as MCP Tool: MCP model tool holds — validation_complete_fired, tool_registered, all_formats_available, all_filters_available, result_is_string"
 }

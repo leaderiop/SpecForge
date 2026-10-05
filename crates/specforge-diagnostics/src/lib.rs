@@ -1563,6 +1563,13 @@ pub const CATALOG: &[CodeEntry] = &[
         level: Level::Warning,
         explanation: "The project root has a `specforge-cache.json` that can't be read, isn't valid JSON, or declares a `format` other than 1. The build cache records each entity's status from the build `specforge check --cache` last wrote, and check-phase passes compare against it (status transitions); with the file invalid they get no previous statuses, so history rules stay silent. Rewrite it with `specforge check --cache`, or delete it.",
     },
+    CodeEntry {
+        code: "W146",
+        title: "Unknown field type in the model",
+        owner: "core",
+        level: Level::Warning,
+        explanation: "`specforge model` (and MCP `specforge.model`) met a field type in the Graph Protocol schema that the model does not know, and rendered the field as a string. A schema built from the loaded extensions only carries known types, so this comes from a schema built some other way. Fix the schema's `field_type`, or add the type to the model.",
+    },
 ];
 
 /// Codes that are no longer emitted, with the code that replaced them (if

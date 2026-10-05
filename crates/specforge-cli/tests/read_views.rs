@@ -390,6 +390,91 @@ fn model_and_outline_today() {
     assert_eq!(&outline.stdout, &mcp[5]);
 }
 
+#[specforge_test_macros::test(
+    behavior = "expose_model_mcp_tool",
+    verify = "MCP tool produces same output as CLI command"
+)]
+fn cli_and_mcp_model_render_the_same_text() {
+    let tmp = project("fx1");
+    let root = tmp.path();
+    // (CLI flags, MCP arguments): every format, then each filter.
+    let mut cases: Vec<(Vec<&str>, Value)> = MODEL_FORMATS
+        .iter()
+        .map(|format| (vec!["--format", *format], json!({"format": format})))
+        .collect();
+    cases.extend([
+        (
+            vec!["--extension", "@specforge/software"],
+            json!({"extension": "@specforge/software"}),
+        ),
+        (
+            vec!["--kinds", "behavior,type"],
+            json!({"kinds": ["behavior", "type"]}),
+        ),
+        (
+            vec!["--format", "mermaid", "--root", "behavior", "--depth", "1"],
+            json!({"format": "mermaid", "root": "behavior", "depth": 1}),
+        ),
+        (vec!["--group-by", "none"], json!({"group_by": "none"})),
+        (
+            vec!["--fields", "all", "--format", "dbml"],
+            json!({"fields": "all", "format": "dbml"}),
+        ),
+    ]);
+    let calls: Vec<Value> = cases
+        .iter()
+        .map(|(_, arguments)| json!({"name": "specforge.model", "arguments": arguments}))
+        .collect();
+    for ((flags, arguments), text) in cases.iter().zip(mcp_texts(root, &calls)) {
+        let mut args = vec!["model", s(root)];
+        args.extend(flags);
+        let run = cli(&args);
+        assert_eq!(run.code, Some(0), "{args:?}: {}", run.stderr);
+        assert!(!run.stdout.is_empty(), "{args:?}");
+        assert_eq!(run.stdout, text, "{args:?} vs {arguments}");
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_views_over_the_project_view",
+    verify = "specforge outline and specforge.outline_extensions render the same text"
+)]
+fn cli_and_mcp_outline_render_the_same_text() {
+    // fx1 loads four extensions: direct and transitive dependencies.
+    let tmp = project("fx1");
+    let root = tmp.path();
+    let mut cases = Vec::new();
+    for format in ["markdown", "mermaid", "dot", "json"] {
+        for fields in ["none", "keys", "all"] {
+            for deps in ["direct", "effective", "full"] {
+                cases.push((format, fields, deps));
+            }
+        }
+    }
+    let calls: Vec<Value> = cases
+        .iter()
+        .map(|(format, fields, deps)| {
+            json!({"name": "specforge.outline_extensions",
+                   "arguments": {"format": format, "fields": fields, "deps": deps}})
+        })
+        .collect();
+    for ((format, fields, deps), text) in cases.iter().zip(mcp_texts(root, &calls)) {
+        let args = [
+            "outline",
+            s(root),
+            "--format",
+            format,
+            "--fields",
+            fields,
+            "--deps",
+            deps,
+        ];
+        let run = cli(&args);
+        assert_eq!(run.code, Some(0), "{args:?}: {}", run.stderr);
+        assert_eq!(run.stdout, text, "{args:?}");
+    }
+}
+
 /// `rv1` with a `specforge-report.json` that does not parse.
 fn rv1_with_a_malformed_report() -> TempDir {
     let tmp = rv1();
