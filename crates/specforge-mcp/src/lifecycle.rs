@@ -69,7 +69,7 @@ pub fn handle_initialize(
         server_info: server_info(),
         tools: state.tool_registry.clone(),
         resources: state.resource_registry.clone(),
-        prompts: state.prompt_registry.clone(),
+        prompts: crate::prompts::descriptors(),
     };
 
     // Extension surfaces are what registration added past the defaults.
@@ -84,7 +84,7 @@ pub fn handle_initialize(
         serde_json::json!({
             "tools_registered": state.tool_registry.len(),
             "resources_registered": state.resource_registry.len(),
-            "prompts_registered": state.prompt_registry.len(),
+            "prompts_registered": crate::prompts::CORE_PROMPTS.len(),
             "extensions_loaded": state.registries().extension_info.len(),
             "surface_tools_registered": state.tool_registry.len().saturating_sub(default_tools),
             "surface_resources_registered": state

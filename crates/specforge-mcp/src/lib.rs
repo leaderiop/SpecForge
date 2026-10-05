@@ -4,6 +4,7 @@ pub mod lifecycle;
 pub mod modern;
 pub mod notifications;
 pub mod operations;
+pub mod prompt;
 pub mod prompts;
 pub mod protocol;
 pub mod registry;

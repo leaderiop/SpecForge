@@ -1,63 +1,76 @@
-use serde_json::Value;
+//! `specforge://prompts/trace`: the dependency chain of a plan or of one
+//! entity, and what in it is unverified.
+
+use serde::Deserialize;
+use serde_json::{Value, json};
 
 use specforge_ops::plan::PlanError;
 use specforge_ops::trace::Target;
 
-use crate::protocol::{JsonRpcResponse, error_codes};
-use crate::state::McpState;
+use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
 use crate::target::Call;
+use crate::tool::{ErrorCode, McpError, entity_not_found};
 
-pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
-    let state: &McpState = call.state;
+#[derive(Debug, Deserialize)]
+pub struct Args {
+    /// An `AgentPlan` object, or JSON text of one.
+    #[serde(default)]
+    plan: Option<Value>,
+    #[serde(default)]
+    entity_id: Option<String>,
+}
+
+impl PromptArgs for Args {
+    const DESCRIPTIONS: &'static [(&'static str, &'static str)] = &[
+        (
+            "plan",
+            "AgentPlan JSON ({\"entries\": [{\"entity_id\", \"action\"}]}) to check against the graph",
+        ),
+        ("entity_id", "Entity ID to trace when no plan is given"),
+    ];
+}
+
+pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
     let view = call.view();
+    let graph = view.graph;
     // A plan's entries, or the one entity, seed the trace.
-    let (seeds, coverage_gaps, subject) = if let Some(plan) = args.get("plan") {
-        match crate::tools::trace::analyze_plan(&view, plan) {
-            Ok(analysis) => (
+    let (seeds, coverage_gaps, subject) = match (&args.plan, args.entity_id.as_deref()) {
+        (Some(plan), _) => {
+            let analysis =
+                crate::tools::trace::analyze_plan(&view, plan).map_err(|error| match error {
+                    PlanError::NotAPlan(why) => {
+                        McpError::new(ErrorCode::InvalidInput, why).with_argument("plan")
+                    }
+                    PlanError::Report(e) => crate::tools::coverage::report_mcp_error(&e),
+                })?;
+            (
                 analysis.entries,
                 Value::from(analysis.gaps),
                 "the plan".to_string(),
-            ),
-            Err(PlanError::NotAPlan(message)) => {
-                return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, message);
-            }
-            // A prompt has no isError result: an unusable report is a
-            // JSON-RPC error carrying the McpError the tools return.
-            Err(PlanError::Report(e)) => {
-                return JsonRpcResponse::error_with_data(
-                    id,
-                    error_codes::INTERNAL_ERROR,
-                    e.to_string(),
-                    crate::tools::coverage::report_mcp_error(&e, "specforge://prompts/trace")
-                        .to_json(),
-                );
-            }
+            )
         }
-    } else {
-        let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
-            Some(e) => e,
-            None => {
-                return JsonRpcResponse::error(
-                    id,
-                    error_codes::INVALID_PARAMS,
-                    "Missing required argument: plan or entity_id",
-                );
+        (None, Some(entity_id)) => {
+            if graph.node(entity_id).is_none() {
+                return Err(entity_not_found(entity_id).into());
             }
-        };
-        if state.graph().node(entity_id).is_none() {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!("Entity not found: {}", entity_id),
-            );
+            let gaps = serde_json::to_value(specforge_ops::trace::detect_trace_gaps(graph))
+                .unwrap_or_default();
+            (
+                vec![entity_id.to_string()],
+                gaps,
+                format!("entity '{entity_id}'"),
+            )
         }
-        let gaps = serde_json::to_value(specforge_ops::trace::detect_trace_gaps(state.graph()))
-            .unwrap_or_default();
-        (
-            vec![entity_id.to_string()],
-            gaps,
-            format!("entity '{entity_id}'"),
-        )
+        (None, None) => {
+            // As the trace tool refuses it.
+            return Err(Box::new(
+                McpError::new(
+                    ErrorCode::InvalidInput,
+                    "Missing required parameter: entity_id or plan",
+                )
+                .with_argument("entity_id"),
+            ));
+        }
     };
 
     // Everything the seeds' trace chains reach, the seeds included.
@@ -74,8 +87,7 @@ pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let unverified: Vec<String> = affected
         .iter()
         .filter(|eid| {
-            state
-                .graph()
+            graph
                 .node(eid)
                 .map(|n| specforge_graph::obligations(n).is_empty())
                 .unwrap_or(true)
@@ -83,7 +95,7 @@ pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
         .cloned()
         .collect();
 
-    let result = serde_json::json!({
+    let payload = json!({
         "coverage_gaps": coverage_gaps,
         "unverified_entities": unverified,
         "affected_entities": affected
@@ -96,19 +108,8 @@ pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
         subject
     );
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": { "type": "text", "text": instruction }
-                },
-                {
-                    "role": "assistant",
-                    "content": { "type": "text", "text": result.to_string() }
-                }
-            ]
-        }),
-    )
+    Ok(Rendered {
+        instruction,
+        payload,
+    })
 }

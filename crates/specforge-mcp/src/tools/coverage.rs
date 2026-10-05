@@ -8,21 +8,20 @@ use crate::tool::{ErrorCode, McpError, ToolOutcome};
 /// A test report the tool cannot use, as an `McpError` (ADR 0004, D4-a):
 /// `schema_mismatch` when it doesn't parse, `file_not_found` when a named
 /// one doesn't exist, `internal_error` when it can't be read; the E045
-/// diagnostic rides in `diagnostic`.
-pub(crate) fn report_mcp_error(error: &ReportError, tool: &str) -> McpError {
+/// diagnostic rides in `diagnostic`. The dispatcher names the tool or the
+/// prompt that refused.
+pub(crate) fn report_mcp_error(error: &ReportError) -> McpError {
     let code = match error {
         ReportError::Malformed { .. } => ErrorCode::SchemaMismatch,
         ReportError::Unreadable { missing: true, .. } => ErrorCode::FileNotFound,
         ReportError::Unreadable { .. } => ErrorCode::InternalError,
     };
-    let mut mcp_error = McpError::new(code, error.to_string()).with_diagnostic(&error.diagnostic());
-    mcp_error.tool = Some(tool.to_string());
-    mcp_error
+    McpError::new(code, error.to_string()).with_diagnostic(&error.diagnostic())
 }
 
 /// [`report_mcp_error`] as the tool's `isError` result.
-pub(crate) fn report_error_result(error: &ReportError, tool: &str) -> ToolOutcome {
-    report_mcp_error(error, tool).into()
+pub(crate) fn report_error_result(error: &ReportError) -> ToolOutcome {
+    report_mcp_error(error).into()
 }
 
 /// One row of the coverage view as MCP spells it (`McpCoverageResult`):
@@ -73,6 +72,6 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     };
     match specforge_ops::coverage::coverage(&call.view(), &query) {
         Ok(outcome) => ToolOutcome::ok(Value::Array(outcome.rows.iter().map(row_json).collect())),
-        Err(error) => report_error_result(&error, "specforge.coverage"),
+        Err(error) => report_error_result(&error),
     }
 }

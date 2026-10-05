@@ -611,6 +611,10 @@ fn unknown_prompt_returns_error() {
             "{method} {params}: error.message must be a non-empty string, got {error}"
         );
         assert!(resp.get("result").is_none(), "{method}: {resp}");
+        // A prompt that cannot render carries its McpError as data.
+        if method == "prompts/get" && params["arguments"]["entity_id"] == "nope" {
+            assert_eq!(error["data"]["code"], "entity_not_found", "{resp}");
+        }
     }
 }
 
@@ -808,4 +812,273 @@ fn review_coverage_matches_the_coverage_tool() {
     let alpha = &parsed["coverage_summary"][0];
     assert_eq!(alpha["status"], "covered", "{parsed}");
     assert_eq!(alpha["linked"], true);
+}
+
+// --- The Prompt spec pipeline (serve_mcp_prompt) ---
+
+/// A full, valid argument set for each core prompt over `test_server`'s
+/// graph: every argument the prompt lists.
+fn full_arguments(prompt: &str) -> Value {
+    match prompt {
+        "specforge://prompts/context" => {
+            json!({"entity_id": "alpha", "structural_constraints": "gamma_orphan"})
+        }
+        "specforge://prompts/review" => json!({"entity_id": "alpha", "depth": "1"}),
+        "specforge://prompts/trace" => json!({
+            "plan": {"entries": [{"entity_id": "alpha", "action": "modify"}]},
+            "entity_id": "alpha",
+        }),
+        "specforge://prompts/explore" => json!({"entity_id": "alpha", "kind": "behavior"}),
+        "specforge://prompts/infer" => {
+            json!({"scope": "plan", "target_spec_directory": "spec/", "cursor": "0"})
+        }
+        other => panic!("no full argument set for {other}"),
+    }
+}
+
+/// Each listed prompt and its listed arguments, `(name, required)`.
+fn listed_prompts(server: &mut McpServer) -> Vec<(String, Vec<(String, bool)>)> {
+    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "prompts/list", "params": {}});
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    resp["result"]["prompts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|p| {
+            let arguments = p["arguments"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|a| {
+                    (
+                        a["name"].as_str().unwrap().to_string(),
+                        a["required"].as_bool().unwrap(),
+                    )
+                })
+                .collect();
+            (p["name"].as_str().unwrap().to_string(), arguments)
+        })
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a listed required argument is exactly one the prompt cannot render without"
+)]
+fn listed_required_arguments_are_exactly_the_unrenderable_omissions() {
+    let mut server = test_server();
+    for (prompt, arguments) in listed_prompts(&mut server) {
+        let full = full_arguments(&prompt);
+        let listed: Vec<&str> = arguments.iter().map(|(name, _)| name.as_str()).collect();
+        let given: Vec<&str> = full
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        let (mut listed_sorted, mut given_sorted) = (listed.clone(), given.clone());
+        listed_sorted.sort_unstable();
+        given_sorted.sort_unstable();
+        assert_eq!(
+            listed_sorted, given_sorted,
+            "{prompt}: the full set is every listed argument"
+        );
+
+        let rendered = call_prompt(&mut server, &prompt, full.clone());
+        assert!(
+            rendered["error"].is_null(),
+            "{prompt} renders with every argument: {rendered}"
+        );
+
+        for (argument, required) in &arguments {
+            let mut without = full.clone();
+            without.as_object_mut().unwrap().remove(argument);
+            let resp = call_prompt(&mut server, &prompt, without);
+            let missing = resp["error"]["message"]
+                .as_str()
+                .is_some_and(|m| m.starts_with("Missing required parameter"));
+            if *required {
+                assert_eq!(
+                    resp["error"]["code"], -32602,
+                    "{prompt} without {argument}: {resp}"
+                );
+                assert_eq!(
+                    resp["error"]["data"]["argument"],
+                    argument.as_str(),
+                    "{resp}"
+                );
+                assert!(missing, "{prompt} without {argument}: {resp}");
+            } else {
+                assert!(!missing, "{prompt} without optional {argument}: {resp}");
+            }
+        }
+    }
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a prompt refusal is a JSON-RPC error whose data is an McpError naming the prompt"
+)]
+#[specforge_test(
+    behavior = "mcp_structured_error_responses",
+    verify = "a failed prompts/get carries its McpError as the error's data"
+)]
+fn every_prompt_refusal_carries_an_mcp_error() {
+    let mut server = test_server();
+    for (name, args) in [
+        ("context", json!({})),
+        ("context", json!({"entity_id": "ghost"})),
+        ("context", json!({"entity_id": 42})),
+        ("review", json!({"entity_id": "ghost"})),
+        ("review", json!({"entity_id": "alpha", "depth": "two"})),
+        ("trace", json!({})),
+        ("trace", json!({"plan": "{not json"})),
+        ("trace", json!({"entity_id": "ghost"})),
+        ("infer", json!({"scope": "kind:"})),
+        ("infer", json!({"scope": "kind:nope"})),
+        ("infer", json!({"scope": "plan", "cursor": "-1"})),
+    ] {
+        let prompt = format!("specforge://prompts/{name}");
+        let resp = call_prompt(&mut server, &prompt, args.clone());
+        let error = &resp["error"];
+        let data = &error["data"];
+        assert!(data["code"].is_string(), "{name} {args}: {resp}");
+        assert_eq!(data["prompt"], prompt.as_str(), "{resp}");
+        assert!(data.get("tool").is_none(), "{resp}");
+        assert_eq!(error["message"], data["message"], "{resp}");
+        let expected = if data["code"] == "invalid_input" || data["code"] == "entity_not_found" {
+            -32602
+        } else {
+            -32603
+        };
+        assert_eq!(error["code"], expected, "{resp}");
+    }
+    // An unknown entity is the tools' entity_not_found, its E003 in diagnostic.
+    let resp = call_prompt(
+        &mut server,
+        "specforge://prompts/context",
+        json!({"entity_id": "ghost"}),
+    );
+    let data = &resp["error"]["data"];
+    assert_eq!(data["code"], "entity_not_found", "{resp}");
+    assert_eq!(data["entity_id"], "ghost");
+    assert_eq!(data["diagnostic"]["code"], "E003");
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a missing required prompt argument is -32602 naming the argument"
+)]
+fn missing_required_prompt_argument_names_it() {
+    let mut server = test_server();
+    let resp = call_prompt(&mut server, "specforge://prompts/context", json!({}));
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    assert_eq!(
+        resp["error"]["message"],
+        "Missing required parameter: entity_id"
+    );
+    let data = &resp["error"]["data"];
+    assert_eq!(data["code"], "invalid_input");
+    assert_eq!(data["argument"], "entity_id");
+    assert_eq!(data["prompt"], "specforge://prompts/context");
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "prompt arguments that are not an object produce -32602 Invalid params"
+)]
+fn prompt_arguments_must_be_an_object() {
+    let mut server = test_server();
+    for arguments in [json!("x"), json!(["entity_id"]), json!(3)] {
+        let resp = call_prompt(
+            &mut server,
+            "specforge://prompts/context",
+            arguments.clone(),
+        );
+        assert_eq!(resp["error"]["code"], -32602, "{arguments}: {resp}");
+        assert_eq!(
+            resp["error"]["message"], "Invalid params: arguments must be an object",
+            "{resp}"
+        );
+    }
+    // Absent or null arguments are none.
+    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "prompts/get",
+        "params": {"name": "specforge://prompts/explore", "arguments": null}});
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    assert!(resp["error"].is_null(), "{resp}");
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a numeric prompt argument is read from a string, as MCP sends it"
+)]
+fn review_reads_depth_from_a_string() {
+    let mut server = test_server();
+    // alpha <- beta -> delta: delta, testable, is two hops from alpha.
+    let mut delta = server.state().graph().node("alpha").unwrap().clone();
+    delta.id = EntityId {
+        raw: "delta".into(),
+    };
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(delta);
+        graph.add_edge(Edge {
+            source: "beta".into(),
+            target: "delta".into(),
+            label: "behaviors".into(),
+        });
+    });
+    let as_number = review(&mut server, json!({"entity_id": "alpha", "depth": 2}));
+    let as_string = review(&mut server, json!({"entity_id": "alpha", "depth": "2"}));
+    assert_eq!(as_string, as_number);
+    assert_eq!(reviewed_ids(&as_string), ["alpha", "delta"]);
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a numeric prompt argument is read from a string, as MCP sends it"
+)]
+fn infer_plan_reads_cursor_from_a_string() {
+    let mut server = test_server();
+    let plan = |server: &mut McpServer, cursor: Value| {
+        let resp = call_prompt(
+            server,
+            "specforge://prompts/infer",
+            json!({"scope": "plan", "cursor": cursor}),
+        );
+        let text = resp["result"]["messages"][0]["content"]["text"]
+            .as_str()
+            .unwrap()
+            .split("## Reference Data\n")
+            .nth(1)
+            .map(str::to_string)
+            .unwrap_or_default();
+        serde_json::from_str::<Value>(&text).unwrap()["plan"]["cursor"].clone()
+    };
+    assert_eq!(plan(&mut server, json!("50")), 50);
+    assert_eq!(plan(&mut server, json!(50)), 50);
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "an unknown prompt records no mcp_prompt_invoked event"
+)]
+fn unknown_prompt_records_no_invocation() {
+    let mut server = test_server();
+    let invoked = |server: &McpServer| {
+        server
+            .state()
+            .events
+            .iter()
+            .filter(|e| e.name == "mcp_prompt_invoked")
+            .count()
+    };
+    let resp = call_prompt(&mut server, "specforge://prompts/nope", json!({}));
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    assert_eq!(invoked(&server), 0);
+    // A known prompt refused for its arguments is still an invocation, as a
+    // tool's is.
+    call_prompt(&mut server, "specforge://prompts/context", json!({}));
+    assert_eq!(invoked(&server), 1);
 }

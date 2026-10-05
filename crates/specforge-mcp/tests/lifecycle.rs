@@ -61,7 +61,6 @@ fn state_snapshot(server: &McpServer) -> Value {
     json!({
         "tools": state.tool_registry,
         "resources": state.resource_registry,
-        "prompts": state.prompt_registry,
         "nodes": nodes,
         "edges": state.graph().edge_count(),
         "diagnostics": state.diagnostics().iter().map(|d| d.code.clone()).collect::<Vec<_>>(),
@@ -455,7 +454,7 @@ fn reinit_rejected_no_resource_leak() {
     let mut server = init_server();
     let tools_before = server.state().tool_registry.len();
     let resources_before = server.state().resource_registry.len();
-    let prompts_before = server.state().prompt_registry.len();
+    let prompts_before = call(&mut server, "prompts/list", json!({}))["result"]["prompts"].clone();
 
     // Attempt duplicate init — should be rejected
     let resp = call(&mut server, "initialize", json!({}));
@@ -464,7 +463,10 @@ fn reinit_rejected_no_resource_leak() {
     // Counts must remain the same
     assert_eq!(server.state().tool_registry.len(), tools_before);
     assert_eq!(server.state().resource_registry.len(), resources_before);
-    assert_eq!(server.state().prompt_registry.len(), prompts_before);
+    assert_eq!(
+        call(&mut server, "prompts/list", json!({}))["result"]["prompts"],
+        prompts_before
+    );
 }
 
 // B:list_mcp_tools — verify unit "returns core-provided descriptors when no extensions"

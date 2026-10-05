@@ -384,3 +384,25 @@ fn cancelling_the_listen_request_ends_the_stream() {
     change_graph(&mut server, &dir);
     assert!(server.take_notifications().is_empty());
 }
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a stateless prompts/get renders without initialize"
+)]
+fn stateless_prompt_get_renders() {
+    let dir = project();
+    let mut server = server(&dir);
+    let reply = stateless(
+        &mut server,
+        "prompts/get",
+        json!({"name": "specforge://prompts/context", "arguments": {"entity_id": "alpha"}}),
+    );
+    let result = &reply["result"];
+    assert_eq!(result["resultType"], "complete", "{reply}");
+    let messages = result["messages"].as_array().expect("messages");
+    assert_eq!(messages.len(), 2, "{reply}");
+    let payload: Value =
+        serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(payload["entity_id"], "alpha");
+    assert_eq!(payload["contract_text"], "MUST work");
+}

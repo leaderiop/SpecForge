@@ -67,7 +67,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     // `specforge.coverage` reports for it.
     let row = match specforge_ops::coverage::row(&view, entity_id) {
         Ok(row) => row,
-        Err(error) => return super::coverage::report_error_result(&error, "specforge.inspect"),
+        Err(error) => return super::coverage::report_error_result(&error),
     };
     let obligations = specforge_graph::obligations(node);
     let declared = row

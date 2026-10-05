@@ -19,6 +19,19 @@ expression: "shape(&reply, dir.path())"
         "unproven": [
           "alpha works"
         ]
+      },
+      {
+        "declared": true,
+        "entity_id": "beta",
+        "evidence_collected": false,
+        "kind": "behavior",
+        "linked": false,
+        "obligations": 1,
+        "proven": 0,
+        "status": "uncovered",
+        "unproven": [
+          "beta works"
+        ]
       }
     ],
     "entity_id": "alpha",

@@ -5,6 +5,6 @@ expression: "shape(&not_an_object, dir.path())"
 {
   "error": {
     "code": -32602,
-    "message": "Missing required argument: entity_id"
+    "message": "Invalid params: arguments must be an object"
   }
 }

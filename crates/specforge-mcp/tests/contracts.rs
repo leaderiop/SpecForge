@@ -1861,18 +1861,15 @@ fn contract_list_resources() {
     behavior = "list_mcp_prompts",
     verify = "List MCP Prompts: listing MCP prompts holds — server_initialized, complete_list_returned, discovery_emitted"
 )]
+#[specforge_test(
+    behavior = "list_mcp_prompts",
+    verify = "lists every core prompt, each one prompts/get serves"
+)]
 fn contract_list_prompts() {
     let mut server = test_server();
-    // An extension-contributed prompt, registered beside the core ones.
-    server
-        .state_mut()
-        .prompt_registry
-        .push(specforge_mcp::types::McpPromptDescriptor {
-            name: "specforge://prompts/ext_review".into(),
-            description: "Extension review".into(),
-            arguments: None,
-        });
 
+    // The listing is the Prompt spec table: every prompt listed is one
+    // prompts/get serves.
     let resp = call(&mut server, "prompts/list", json!({}));
     let mut names: Vec<&str> = resp["result"]["prompts"]
         .as_array()
@@ -1886,7 +1883,6 @@ fn contract_list_prompts() {
         [
             "specforge://prompts/context",
             "specforge://prompts/explore",
-            "specforge://prompts/ext_review",
             "specforge://prompts/infer",
             "specforge://prompts/review",
             "specforge://prompts/trace",
@@ -1898,6 +1894,11 @@ fn contract_list_prompts() {
         events(&server, "mcp_discovery_invoked"),
         [json!({"discoveryType": "prompts", "resultCount": names.len()})]
     );
+    for name in names {
+        let get = call(&mut server, "prompts/get", json!({"name": name}));
+        let message = get["error"]["message"].as_str().unwrap_or_default();
+        assert!(!message.starts_with("Unknown prompt"), "{name}: {get}");
+    }
 
     let mut fresh = McpServer::new();
     let resp = call(&mut fresh, "prompts/list", json!({}));

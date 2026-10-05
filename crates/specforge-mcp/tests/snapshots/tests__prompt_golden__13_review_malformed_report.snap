@@ -19,7 +19,7 @@ expression: "shape(&reply, dir.path())"
         "title": "Invalid test report"
       },
       "message": "invalid test results [root]/specforge-report.json: key must be a string at line 1 column 2 (expected the RES-15 specforge-report.json shape)",
-      "tool": "specforge://prompts/review"
+      "prompt": "specforge://prompts/review"
     },
     "message": "invalid test results [root]/specforge-report.json: key must be a string at line 1 column 2 (expected the RES-15 specforge-report.json shape)"
   }

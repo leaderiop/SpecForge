@@ -307,6 +307,16 @@ impl<'s> Call<'s> {
         }
     }
 
+    /// The environment of what the call reads: its project's, else (no
+    /// project) the served session's (the empty environment, or one built
+    /// in memory). For a read that answers without a project.
+    pub fn environment(&self) -> &Environment {
+        match self.project() {
+            Ok(project) => project.env,
+            Err(_) => self.state.environment(),
+        }
+    }
+
     /// The root of the project the call reads, when it has one: the served
     /// project's, or the one its path names. `None` with no project served
     /// (a tool that answers without a project reads the empty session).

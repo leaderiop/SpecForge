@@ -5,6 +5,12 @@ expression: "shape(&reply, dir.path())"
 {
   "error": {
     "code": -32602,
-    "message": "Missing required argument: plan or entity_id"
+    "data": {
+      "argument": "entity_id",
+      "code": "invalid_input",
+      "message": "Missing required parameter: entity_id or plan",
+      "prompt": "specforge://prompts/trace"
+    },
+    "message": "Missing required parameter: entity_id or plan"
   }
 }

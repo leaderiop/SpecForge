@@ -7,12 +7,11 @@ use specforge_registry::{
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
 use crate::tool::Category;
-use crate::types::{McpPromptDescriptor, McpResourceDescriptor, McpToolDescriptor};
+use crate::types::{McpResourceDescriptor, McpToolDescriptor};
 
 pub fn register_defaults(state: &mut McpState) {
     state.resource_registry = default_resources();
     state.tool_registry = default_tools();
-    state.prompt_registry = default_prompts();
 }
 
 /// Convert manifest surface contributions into MCP tool and resource descriptors,
@@ -247,8 +246,9 @@ pub fn handle_list_prompts(state: &mut McpState, id: Option<Value>) -> JsonRpcRe
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
-    let prompts: Vec<Value> = state
-        .prompt_registry
+    // The core prompts, derived from their table: no extension declares a
+    // prompt.
+    let prompts: Vec<Value> = crate::prompts::descriptors()
         .iter()
         .map(|p| serde_json::to_value(p).unwrap())
         .collect();
@@ -285,12 +285,5 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
     crate::tools::CORE_TOOLS
         .iter()
         .map(crate::tool::ToolSpec::descriptor)
-        .collect()
-}
-
-fn default_prompts() -> Vec<McpPromptDescriptor> {
-    crate::prompts::CORE_PROMPTS
-        .iter()
-        .map(crate::prompts::PromptSpec::descriptor)
         .collect()
 }

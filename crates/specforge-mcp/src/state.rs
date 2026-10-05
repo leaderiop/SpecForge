@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::types::{McpEvent, McpPromptDescriptor, McpResourceDescriptor, McpToolDescriptor};
+use crate::types::{McpEvent, McpResourceDescriptor, McpToolDescriptor};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServerPhase {
@@ -52,7 +52,6 @@ pub struct McpState {
     pub previous_diagnostics: Vec<Diagnostic>,
     pub tool_registry: Vec<McpToolDescriptor>,
     pub resource_registry: Vec<McpResourceDescriptor>,
-    pub prompt_registry: Vec<McpPromptDescriptor>,
     pub events: Vec<McpEvent>,
     /// Server→client notifications queued for subscribed channels (C9-01),
     /// drained by the host loop via `pending_notifications`.
@@ -102,7 +101,6 @@ impl McpState {
             previous_diagnostics: Vec::new(),
             tool_registry: Vec::new(),
             resource_registry: Vec::new(),
-            prompt_registry: Vec::new(),
             events: Vec::new(),
             notification_outbox: Vec::new(),
             extension_runtime: None,

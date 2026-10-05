@@ -19,7 +19,7 @@ pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
     };
     let stats = match specforge_ops::stats::stats(&call.view(), &request) {
         Ok(stats) => stats,
-        Err(error) => return super::coverage::report_error_result(&error, "specforge.stats"),
+        Err(error) => return super::coverage::report_error_result(&error),
     };
 
     let entity_counts: Vec<Value> = stats

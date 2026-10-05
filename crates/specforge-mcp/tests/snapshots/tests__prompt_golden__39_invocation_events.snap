@@ -9,8 +9,5 @@ expression: invoked
   },
   {
     "promptName": "specforge://prompts/explore"
-  },
-  {
-    "promptName": "specforge://prompts/nope"
   }
 ]

@@ -58,7 +58,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
                 let coverage = match view.coverage() {
                     Ok(coverage) => coverage,
                     Err(error) => {
-                        return super::coverage::report_error_result(&error, "specforge.query");
+                        return super::coverage::report_error_result(&error);
                     }
                 };
                 for node in nodes.iter_mut() {
