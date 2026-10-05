@@ -76,48 +76,6 @@ fn err_op(error: specforge_ops::OpError) -> ToolOutcome {
     op_error(error).into()
 }
 
-/// The session's graph exported through the shared operation, with the
-/// schema its extensions produce: the one export behind `specforge.export`,
-/// `specforge.render` and `specforge://graph` (ADR 0004 D3-a). The schema
-/// carries the version `specforge export` would give it, computed against
-/// the project's `.specforge/schema-cache.json`; the server only reads the
-/// cache, as `specforge schema` does, so the next CLI export still sees
-/// what changed.
-pub(crate) fn export_graph(
-    graph: &specforge_graph::Graph,
-    registries: &specforge_registry::RegistryBuild,
-    root: Option<&Path>,
-    request: &specforge_ops::export::Request,
-) -> Result<String, specforge_ops::OpError> {
-    let schema = project_schema(registries, root);
-    let project = specforge_ops::export::Project {
-        graph,
-        kinds: &registries.kinds,
-        fields: &registries.fields,
-        schema: &schema,
-    };
-    specforge_ops::export::export(&project, request)
-}
-
-/// The GraphProtocolSchema the session's extensions produce, versioned as
-/// `specforge export` would version it: the schema a full export embeds,
-/// and the one `specforge.schema` and `specforge://schema` serve.
-pub(crate) fn project_schema(
-    registries: &specforge_registry::RegistryBuild,
-    root: Option<&Path>,
-) -> specforge_emitter::GraphProtocolSchema {
-    let mut schema = specforge_emitter::generate_schema(
-        &registries.kinds,
-        &registries.edges,
-        &registries.fields,
-        &registries.extension_info,
-    );
-    if let Some(root) = root {
-        specforge_ops::schema_cache::attach_schema_version(&mut schema, &root.join(".specforge"));
-    }
-    schema
-}
-
 // ── format ──────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
@@ -820,8 +778,6 @@ pub struct RenderArgs {
 }
 
 pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
-    let root = call.root();
-    let state = &*call.state;
     let format = args.format.as_deref().unwrap_or("json");
 
     // Each renderer and the file it writes into out_dir.
@@ -852,7 +808,7 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
         scope: args.scope.as_deref(),
         ..specforge_ops::export::Request::default()
     };
-    let output = match export_graph(state.graph(), state.registries(), root, &request) {
+    let output = match specforge_ops::export::export(&call.view(), &request) {
         Ok(text) => text,
         Err(e) => return err_op(e),
     };

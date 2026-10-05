@@ -11,12 +11,15 @@
 use std::path::Path;
 use std::sync::Arc;
 
+use specforge_emitter::{GraphProtocolSchema, generate_schema};
 use specforge_graph::Graph;
 use specforge_project::coverage::{
     CoverageRegistries, ProjectCoverage, RecordedCoverage, ReportError, TestReport,
 };
 use specforge_project::{CompiledProject, ProjectSession};
 use specforge_registry::RegistryBuild;
+
+use crate::schema_cache::SchemaCache;
 
 /// The read-only slice of a compiled project every operation reads,
 /// borrowed. `root` is the root the project was compiled from: its recorded
@@ -90,6 +93,28 @@ impl<'a> ProjectView<'a> {
                 CoverageRegistries::of(self.registries),
             )
             .map(|recorded| recorded.coverage)
+    }
+
+    /// The Graph Protocol schema the loaded extensions produce, versioned
+    /// against the schema cache at the root (`specforge export`'s rule);
+    /// without a root, unversioned. Only reads the cache.
+    pub fn versioned_schema(&self) -> GraphProtocolSchema {
+        let registries = self.registries;
+        let mut schema = generate_schema(
+            &registries.kinds,
+            &registries.edges,
+            &registries.fields,
+            &registries.extension_info,
+        );
+        if let Some(cache) = self.schema_cache() {
+            cache.version(&mut schema);
+        }
+        schema
+    }
+
+    /// The schema cache at `<root>/.specforge/`; `None` without a root.
+    pub fn schema_cache(&self) -> Option<SchemaCache> {
+        self.root.map(SchemaCache::of_root)
     }
 }
 

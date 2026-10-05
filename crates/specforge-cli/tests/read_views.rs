@@ -434,19 +434,69 @@ fn cached_kinds(dir: &Path) -> usize {
     cache["schema"]["entity_kinds"].as_array().unwrap().len()
 }
 
-#[test]
-fn schema_cache_root_today() {
+#[specforge_test_macros::test(
+    behavior = "read_views_over_the_project_view",
+    verify = "the schema cache is the view root's, never an ancestor's"
+)]
+fn export_of_a_sub_path_leaves_the_project_cache_alone() {
     let tmp = rv1();
     let root = tmp.path();
     let first = cli(&["export", s(root), "--format", "graph"]);
     assert_eq!(first.code, Some(0), "{}", first.stderr);
     assert_eq!(cached_kinds(root), 5);
 
-    // Exporting the sub-path compiles it without the project's config (no
-    // extension), yet versions against and records in the project's cache.
-    let sub = cli(&["export", s(&root.join("spec")), "--format", "graph"]);
-    assert_eq!(sub.code, Some(0), "{}", sub.stderr);
-    assert_eq!(sub.stderr.matches("W053").count(), 20, "{}", sub.stderr);
-    assert_eq!(cached_kinds(root), 0);
-    assert!(!root.join("spec/.specforge").exists());
+    // The sub-path compiles without the project's config (no extension):
+    // it versions against, and records in, its own cache.
+    let sub = root.join("spec");
+    let run = cli(&["export", s(&sub), "--format", "graph"]);
+    assert_eq!(run.code, Some(0), "{}", run.stderr);
+    assert!(!run.stderr.contains("W053"), "{}", run.stderr);
+    assert_eq!(cached_kinds(root), 5, "the project's cache is untouched");
+    assert_eq!(cached_kinds(&sub), 0);
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_views_over_the_project_view",
+    verify = "specforge schema and specforge.schema carry the same version"
+)]
+fn cli_and_mcp_schema_carry_the_same_version() {
+    let tmp = rv1();
+    let root = tmp.path();
+    // A CLI export caches its schema. Make the cache an older 1.2.3 that
+    // also had a kind the project no longer has: a breaking change since.
+    let export = cli(&["export", s(root), "--format", "graph"]);
+    assert_eq!(export.code, Some(0), "{}", export.stderr);
+    let cache_path = root.join(".specforge/schema-cache.json");
+    let mut cache: Value =
+        serde_json::from_str(&std::fs::read_to_string(&cache_path).unwrap()).unwrap();
+    cache["schema"]["schema_version"] = json!({"major": 1, "minor": 2, "patch": 3});
+    cache["schema"]["entity_kinds"]
+        .as_array_mut()
+        .unwrap()
+        .push(json!({"name": "legacy", "source_extension": "x", "testable": false, "fields": []}));
+    std::fs::write(&cache_path, cache.to_string()).unwrap();
+
+    let expected = json!({"major": 2, "minor": 0, "patch": 0});
+    let cli_schema = cli_json(&["schema", s(root)]);
+    assert_eq!(cli_schema["schema_version"], expected);
+    let mcp = &mcp_calls(
+        root,
+        &[json!({"name": "specforge.schema", "arguments": {}})],
+    )[0];
+    assert_eq!(mcp["schema_version"], expected, "{mcp}");
+    let resource = &mcp_responses(
+        root,
+        &[json!({"method": "resources/read", "params": {"uri": "specforge://schema"}})],
+    )[0];
+    let text = resource["result"]["contents"][0]["text"].as_str().unwrap();
+    let served: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(served["schema_version"], expected);
+    // The three are one document.
+    assert_eq!(cli_schema, *mcp);
+    assert_eq!(cli_schema, served);
+    // Neither surface wrote the cache.
+    assert_eq!(
+        std::fs::read_to_string(&cache_path).unwrap(),
+        cache.to_string()
+    );
 }

@@ -2,9 +2,7 @@ use specforge_emitter::{
     GraphProtocolSchema, SchemaCacheEntry, SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo,
     SchemaField, SchemaMigrationChange, SchemaVersion, compute_schema_version, diff_schemas,
 };
-use specforge_ops::schema_cache::{
-    detect_breaking_with_diagnostics, load_schema_cache, persist_schema_cache,
-};
+use specforge_ops::schema_cache::SchemaCache;
 use specforge_test::prelude::*;
 
 fn sample_schema() -> GraphProtocolSchema {
@@ -62,8 +60,8 @@ fn cache_write_read_round_trip() {
     let dir = tempfile::tempdir().unwrap();
     let schema = sample_schema();
 
-    persist_schema_cache(&schema, dir.path()).unwrap();
-    let loaded = load_schema_cache(dir.path()).unwrap();
+    SchemaCache::in_dir(dir.path()).record(&schema).unwrap();
+    let loaded = SchemaCache::in_dir(dir.path()).load().unwrap();
 
     assert!(loaded.is_some());
     let entry = loaded.unwrap();
@@ -78,7 +76,7 @@ fn cache_write_read_round_trip() {
 )]
 fn cache_missing_returns_none() {
     let dir = tempfile::tempdir().unwrap();
-    let loaded = load_schema_cache(dir.path()).unwrap();
+    let loaded = SchemaCache::in_dir(dir.path()).load().unwrap();
     assert!(loaded.is_none());
 }
 
@@ -92,7 +90,7 @@ fn cache_atomic_overwrite() {
     let schema1 = GraphProtocolSchema::empty();
     let schema2 = sample_schema();
 
-    persist_schema_cache(&schema1, dir.path()).unwrap();
+    SchemaCache::in_dir(dir.path()).record(&schema1).unwrap();
     let cache = dir.path().join("schema-cache.json");
     let first = std::fs::read_to_string(&cache).unwrap();
 
@@ -102,14 +100,14 @@ fn cache_atomic_overwrite() {
     let link = dir.path().join("previous-cache.json");
     std::fs::hard_link(&cache, &link).unwrap();
 
-    persist_schema_cache(&schema2, dir.path()).unwrap();
+    SchemaCache::in_dir(dir.path()).record(&schema2).unwrap();
 
     assert_eq!(
         std::fs::read_to_string(&link).unwrap(),
         first,
         "the old cache file must be replaced, not rewritten in place"
     );
-    let loaded = load_schema_cache(dir.path()).unwrap().unwrap();
+    let loaded = SchemaCache::in_dir(dir.path()).load().unwrap().unwrap();
     assert_eq!(loaded.schema, schema2);
 
     // The temp file was renamed away: only the cache and the link remain.
@@ -126,12 +124,20 @@ fn cache_atomic_overwrite() {
 fn cache_content_hash_changes() {
     let dir = tempfile::tempdir().unwrap();
     let schema1 = GraphProtocolSchema::empty();
-    persist_schema_cache(&schema1, dir.path()).unwrap();
-    let hash1 = load_schema_cache(dir.path()).unwrap().unwrap().content_hash;
+    SchemaCache::in_dir(dir.path()).record(&schema1).unwrap();
+    let hash1 = SchemaCache::in_dir(dir.path())
+        .load()
+        .unwrap()
+        .unwrap()
+        .content_hash;
 
     let schema2 = sample_schema();
-    persist_schema_cache(&schema2, dir.path()).unwrap();
-    let hash2 = load_schema_cache(dir.path()).unwrap().unwrap().content_hash;
+    SchemaCache::in_dir(dir.path()).record(&schema2).unwrap();
+    let hash2 = SchemaCache::in_dir(dir.path())
+        .load()
+        .unwrap()
+        .unwrap()
+        .content_hash;
 
     assert_ne!(hash1, hash2);
 }
@@ -143,7 +149,7 @@ fn cache_content_hash_changes() {
 fn cache_independent_of_export() {
     let dir = tempfile::tempdir().unwrap();
     let schema = sample_schema();
-    persist_schema_cache(&schema, dir.path()).unwrap();
+    SchemaCache::in_dir(dir.path()).record(&schema).unwrap();
 
     // Cache file exists independently — no graph export needed
     let cache_file = dir.path().join("schema-cache.json");
@@ -163,10 +169,10 @@ fn cache_load_diff_version_pipeline() {
 
     // Save initial schema
     let schema1 = GraphProtocolSchema::empty();
-    persist_schema_cache(&schema1, dir.path()).unwrap();
+    SchemaCache::in_dir(dir.path()).record(&schema1).unwrap();
 
     // Load and diff with new schema
-    let cached = load_schema_cache(dir.path()).unwrap().unwrap();
+    let cached = SchemaCache::in_dir(dir.path()).load().unwrap().unwrap();
     let schema2 = sample_schema();
     let migration = diff_schemas(&cached.schema, &schema2);
 
@@ -191,11 +197,7 @@ fn detect_breaking_missing_cache_emits_i016() {
     let dir = tempfile::tempdir().unwrap();
     let current = sample_schema();
 
-    let (migration, diagnostics) = detect_breaking_with_diagnostics(
-        dir.path(),
-        &current,
-        true, // prior exports exist
-    );
+    let (migration, diagnostics) = SchemaCache::in_dir(dir.path()).detect_breaking(&current, true);
 
     assert!(!migration.has_breaking_changes());
     assert!(migration.has_additions());
@@ -215,7 +217,8 @@ fn detect_breaking_missing_cache_no_exports_no_diagnostic() {
     let dir = tempfile::tempdir().unwrap();
     let current = sample_schema();
 
-    let (_migration, diagnostics) = detect_breaking_with_diagnostics(dir.path(), &current, false);
+    let (_migration, diagnostics) =
+        SchemaCache::in_dir(dir.path()).detect_breaking(&current, false);
 
     assert!(diagnostics.is_empty());
 }
@@ -237,10 +240,10 @@ fn detect_breaking_with_cached_schema() {
         dot_color: None,
         fields: vec![],
     });
-    persist_schema_cache(&old_schema, dir.path()).unwrap();
+    SchemaCache::in_dir(dir.path()).record(&old_schema).unwrap();
 
     let current = sample_schema();
-    let (migration, diagnostics) = detect_breaking_with_diagnostics(dir.path(), &current, true);
+    let (migration, diagnostics) = SchemaCache::in_dir(dir.path()).detect_breaking(&current, true);
 
     assert_eq!(
         migration.changes,
@@ -258,7 +261,7 @@ fn detect_breaking_with_cached_schema() {
 
     // The same comparison without the cache file sees no removal.
     let empty = tempfile::tempdir().unwrap();
-    let (no_cache, _) = detect_breaking_with_diagnostics(empty.path(), &current, false);
+    let (no_cache, _) = SchemaCache::in_dir(empty.path()).detect_breaking(&current, false);
     assert!(!no_cache.has_breaking_changes());
 }
 
@@ -272,11 +275,57 @@ fn persist_cache_contract() {
     let dir = tempfile::tempdir().unwrap();
     let schema = sample_schema();
 
-    persist_schema_cache(&schema, dir.path()).unwrap();
+    SchemaCache::in_dir(dir.path()).record(&schema).unwrap();
     // ensures: cache_written_atomically
     assert!(!dir.path().join(".schema-cache.tmp").exists());
     assert!(dir.path().join("schema-cache.json").exists());
 
-    let loaded = load_schema_cache(dir.path()).unwrap().unwrap();
+    let loaded = SchemaCache::in_dir(dir.path()).load().unwrap().unwrap();
     assert_eq!(loaded.schema, schema);
+}
+
+// The view's cache is the one at the root it was compiled from: a view of
+// a sub-path never versions against (or records into) its ancestor's.
+#[specforge_test(
+    behavior = "read_views_over_the_project_view",
+    verify = "the schema cache is the view root's, never an ancestor's"
+)]
+fn the_view_versions_against_its_root_cache() {
+    use specforge_ops::view::ProjectView;
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path();
+    let sub = root.join("sub");
+    std::fs::create_dir(&sub).unwrap();
+    let graph = specforge_graph::Graph::new();
+    let registries = specforge_registry::RegistryBuild::default();
+    let recorded = specforge_project::coverage::RecordedCoverage::default();
+    let view_at = |root| ProjectView::new(&graph, &registries, Some(root), &recorded);
+
+    // The project's cache holds an older schema at 1.2.3 with a kind the
+    // project no longer has: a breaking change since.
+    let mut cached = sample_schema();
+    cached.schema_version = SchemaVersion::new(1, 2, 3);
+    SchemaCache::of_root(root).record(&cached).unwrap();
+    assert_eq!(
+        view_at(root).schema_cache().unwrap().dir(),
+        root.join(".specforge")
+    );
+    assert_eq!(
+        view_at(root).versioned_schema().schema_version,
+        SchemaVersion::new(2, 0, 0)
+    );
+
+    // Rooted at the sub-path: no cache there, a first version.
+    assert_eq!(
+        view_at(&sub).versioned_schema().schema_version,
+        SchemaVersion::new(1, 0, 0)
+    );
+    assert_eq!(
+        view_at(&sub).schema_cache().unwrap().dir(),
+        sub.join(".specforge")
+    );
+
+    // Without a root there is no cache.
+    let rootless = ProjectView::new(&graph, &registries, None, &recorded);
+    assert!(rootless.schema_cache().is_none());
 }

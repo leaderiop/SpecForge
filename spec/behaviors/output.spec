@@ -212,10 +212,12 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
     coverage and is not proven.
   """
   verify unit "the recorded test report is read at the view's root, never an ancestor's"
+  verify unit "the schema cache is the view root's, never an ancestor's"
   verify unit "coverage is computed once per compile and report content, and again after the report changes"
   verify unit "an entity is unverified when it counts toward coverage and is not proven"
   verify integration "specforge stats and specforge.stats report the same numbers"
   verify integration "specforge trace and specforge.trace return the same chain for an entity"
+  verify integration "specforge schema and specforge.schema carry the same version"
 }
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {

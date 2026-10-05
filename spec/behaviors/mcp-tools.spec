@@ -305,8 +305,14 @@ behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
     to a single entity kind. When include_edges is false, edge type definitions
     MUST be omitted. When include_validation_rules is true, the response MUST
     include declared validation rules from loaded extensions.
+    The schema MUST carry the version `specforge export` would give it,
+    computed against the project root's schema cache, which the tool only
+    reads. A kind no loaded extension declares MUST be an invalid-input
+    error on kind naming the closest known kind, as `specforge schema
+    --kind` refuses it.
   """
   verify unit "specforge.schema returns full GraphProtocolSchema"
+  verify unit "an unknown kind is an invalid-input error naming the closest kind"
   verify unit "kind filter restricts schema to single entity kind"
   verify unit "include_edges false omits edge type definitions"
   verify unit "include_validation_rules true includes validation rules"

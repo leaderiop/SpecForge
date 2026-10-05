@@ -26,6 +26,7 @@ pub mod prove;
 pub mod registry;
 pub mod rename;
 pub mod scan;
+pub mod schema;
 pub mod schema_cache;
 pub mod stats;
 pub mod trace;

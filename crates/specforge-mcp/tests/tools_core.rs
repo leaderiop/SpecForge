@@ -1594,6 +1594,34 @@ fn coverage_status_filter_restricts_status() {
 }
 
 #[specforge_test(
+    behavior = "provide_mcp_schema_tool",
+    verify = "an unknown kind is an invalid-input error naming the closest kind"
+)]
+fn schema_unknown_kind_is_invalid_input() {
+    let mut server = test_server();
+    for (kind, suggestion) in [
+        ("behaviour", json!("did you mean 'behavior'?")),
+        ("nosuch", Value::Null),
+    ] {
+        let resp = call_tool(&mut server, "specforge.schema", json!({"kind": kind}));
+        assert_eq!(resp["result"]["isError"], true, "{resp}");
+        let error: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        assert_eq!(error["code"], "invalid_input", "{error}");
+        assert_eq!(error["argument"], "kind", "{error}");
+        assert_eq!(
+            error["message"],
+            format!("unknown entity kind: '{kind}'"),
+            "{error}"
+        );
+        assert_eq!(error["data"]["suggestion"], suggestion, "{error}");
+    }
+    // A known kind still answers its part of the schema.
+    let resp = call_tool(&mut server, "specforge.schema", json!({"kind": "behavior"}));
+    let schema: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(schema["entity_kinds"][0]["name"], "behavior", "{schema}");
+}
+
+#[specforge_test(
     behavior = "provide_mcp_coverage_tool",
     verify = "an unknown status_filter is an invalid-input error naming the closest status"
 )]

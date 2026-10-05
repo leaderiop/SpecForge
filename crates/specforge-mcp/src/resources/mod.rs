@@ -158,7 +158,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         description: "Full spec graph in JSON format",
         mime_type: "application/json",
         target: TargetSpec::SERVED,
-        read: |call, uri| graph::read(call.state, call.root(), uri),
+        read: |call, uri| graph::read(&call.view(), uri),
     },
     ResourceSpec {
         uri: "specforge://schema",
@@ -166,7 +166,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         description: "Graph schema definition",
         mime_type: "application/json",
         target: TargetSpec::SERVED,
-        read: |call, _| schema::read(call.state, call.root()),
+        read: |call, _| schema::read(&call.view()),
     },
     ResourceSpec {
         uri: "specforge://context",
