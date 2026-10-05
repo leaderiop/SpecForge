@@ -1278,8 +1278,8 @@ mod tests {
     // B:execute_validation_pattern — verify unit "custom pattern dispatches to registered Wasm function"
     #[test]
     fn test_custom_pattern_dispatches_to_wasm() {
-        struct MockRuntime;
-        impl WasmValidationRuntime for MockRuntime {
+        struct NamingValidator;
+        impl WasmValidationRuntime for NamingValidator {
             fn custom_verdict(
                 &self,
                 func: &str,
@@ -1311,7 +1311,7 @@ mod tests {
             make_entity("bad_name", "behavior", 1, 0),
             make_entity("good_name", "behavior", 1, 0),
         ];
-        let diags = execute_pattern(&pattern, &entities, Some(&MockRuntime));
+        let diags = execute_pattern(&pattern, &entities, Some(&NamingValidator));
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("bad_name"));
     }

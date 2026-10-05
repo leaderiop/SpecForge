@@ -95,9 +95,16 @@ pub fn load_wasm_module(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::MockRuntime;
+    use crate::testing::InProcessRuntime;
+    use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
     use std::io::Write;
     use tempfile::TempDir;
+
+    /// A runtime that serves `test-ext`, so loading its binary succeeds.
+    fn runtime() -> InProcessRuntime {
+        InProcessRuntime::new()
+            .with(|| ContributionsBuilder::new(ExtensionMeta::new("test-ext", "1.0.0")))
+    }
 
     fn create_fake_wasm(dir: &TempDir, name: &str) -> std::path::PathBuf {
         let path = dir.path().join(name);
@@ -113,7 +120,7 @@ mod tests {
     fn test_loads_wasm_binary_from_manifest_path() {
         let dir = TempDir::new().unwrap();
         let wasm_path = create_fake_wasm(&dir, "ext.wasm");
-        let runtime = MockRuntime::new();
+        let runtime = runtime();
 
         let module = load_wasm_module("test-ext", &wasm_path, &runtime, None).unwrap();
         assert_eq!(module.extension_name, "test-ext");
@@ -124,7 +131,7 @@ mod tests {
     // B:load_wasm_module — verify unit "missing .wasm produces ExtensionError"
     #[test]
     fn test_missing_wasm_produces_extension_error() {
-        let runtime = MockRuntime::new();
+        let runtime = runtime();
         let missing = Path::new("/nonexistent/ext.wasm");
 
         let err = load_wasm_module("test-ext", missing, &runtime, None).unwrap_err();
@@ -137,7 +144,7 @@ mod tests {
     fn test_load_wasm_module_contract() {
         let dir = TempDir::new().unwrap();
         let wasm_path = create_fake_wasm(&dir, "ext.wasm");
-        let runtime = MockRuntime::new();
+        let runtime = runtime();
 
         // ensures: extension_loaded on success
         let module = load_wasm_module("test-ext", &wasm_path, &runtime, None).unwrap();

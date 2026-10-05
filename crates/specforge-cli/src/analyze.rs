@@ -39,7 +39,7 @@ pub fn run(
         min,
         prove: prove.then(ProveOptions::default),
     };
-    let outcome = match analyze(&ProjectView::of(&ctx, path), &runtime, &options) {
+    let outcome = match analyze(&ProjectView::of(&ctx, path), Some(&runtime), &options) {
         Ok(outcome) => outcome,
         Err(e) => {
             eprintln!("error: {e}");

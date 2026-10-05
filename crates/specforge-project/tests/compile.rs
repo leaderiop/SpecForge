@@ -647,9 +647,8 @@ mod passes_of_the_declaration {
     use super::project;
     use specforge_extension_sdk::prelude::*;
     use specforge_project::{CompiledProject, Environment};
+    use specforge_wasm::WasmCallResult;
     use specforge_wasm::testing::InProcessRuntime;
-    use specforge_wasm::{WasmCallResult, WasmRuntime};
-    use std::path::Path;
 
     fn audit() -> ContributionsBuilder {
         let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/audit", "0.1.0"));
@@ -661,22 +660,16 @@ mod passes_of_the_declaration {
     }
 
     /// The audit extension, whose `passes` answer is `items` instead of
-    /// what it declares.
-    struct MalformedPasses(InProcessRuntime, serde_json::Value);
-
-    impl WasmRuntime for MalformedPasses {
-        fn load_module(&self, path: &Path) -> Result<(), String> {
-            self.0.load_module(path)
-        }
-
-        fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
-            let request: serde_json::Value = serde_json::from_slice(input).unwrap_or_default();
-            if export == "__describe" && request["category"] == "passes" {
-                let answer = serde_json::json!({ "category": "passes", "items": self.1 });
-                return WasmCallResult::Ok(answer.to_string().into_bytes());
-            }
-            self.0.call_export(extension, export, input)
-        }
+    /// what it declares (no SDK guest can answer a description that does
+    /// not parse, so it is given raw).
+    fn malformed_passes(items: serde_json::Value) -> InProcessRuntime {
+        let answer = serde_json::json!({ "category": "passes", "items": items });
+        InProcessRuntime::new().with(audit).answer_raw_to(
+            "@acme/audit",
+            "__describe",
+            serde_json::json!({ "category": "passes" }),
+            WasmCallResult::Ok(answer.to_string().into_bytes()),
+        )
     }
 
     #[specforge_test_macros::test(
@@ -684,10 +677,7 @@ mod passes_of_the_declaration {
         verify = "a passes description that does not parse fails the extension's load"
     )]
     fn a_passes_description_that_does_not_parse_fails_the_load() {
-        let runtime = MalformedPasses(
-            InProcessRuntime::new().with(audit),
-            serde_json::json!([{ "nam": "x" }]),
-        );
+        let runtime = malformed_passes(serde_json::json!([{ "nam": "x" }]));
         let dir = project(
             serde_json::json!({ "name": "p", "version": "0.1.0", "extensions": ["@acme/audit"] }),
             &[],

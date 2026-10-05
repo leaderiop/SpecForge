@@ -9,10 +9,11 @@
 //! sandbox, no fuel and no deadline. Sandbox obligations stay proven only
 //! through the component runtime.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 
+use specforge_common::Diagnostic;
 use specforge_extension_sdk::{ContributionsBuilder, ExportHandler, guest_call, no_other_exports};
 
 use crate::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
@@ -29,12 +30,19 @@ pub struct RecordedCall {
     pub input: serde_json::Value,
 }
 
+/// An answer given instead of routing a call: to one export, or to one
+/// export called with one input.
+type Overrides = Vec<(String, String, Option<serde_json::Value>, WasmCallResult)>;
+
 /// Serves SDK-declared extensions in process; see the module docs.
 #[derive(Default)]
 pub struct InProcessRuntime {
     extensions: BTreeMap<String, (Build, ExportHandler)>,
-    overrides: Mutex<HashMap<(String, String), WasmCallResult>>,
+    overrides: Mutex<Overrides>,
+    load_failures: BTreeMap<String, Diagnostic>,
+    faults: Vec<(String, String)>,
     calls: Mutex<Vec<RecordedCall>>,
+    deadlines: Mutex<Vec<(String, u64)>>,
 }
 
 impl InProcessRuntime {
@@ -51,12 +59,26 @@ impl InProcessRuntime {
     /// Serve the extension `build` declares, with `handler` answering the
     /// exports no declaration answers (`component_guest!`'s `handler`).
     pub fn with_handler(
-        mut self,
+        self,
         build: impl Fn() -> ContributionsBuilder + Send + Sync + 'static,
         handler: ExportHandler,
     ) -> Self {
         let name = build().meta.name.clone();
-        self.extensions.insert(name, (Arc::new(build), handler));
+        self.serving(&name, build, handler)
+    }
+
+    /// Serve the extension `build` declares under `name`, the name the
+    /// host loads it by, which need not be the one it declares (a binary
+    /// installed from a path), with `handler` as in
+    /// [`InProcessRuntime::with_handler`].
+    pub fn serving(
+        mut self,
+        name: &str,
+        build: impl Fn() -> ContributionsBuilder + Send + Sync + 'static,
+        handler: ExportHandler,
+    ) -> Self {
+        self.extensions
+            .insert(name.to_string(), (Arc::new(build), handler));
         self
     }
 
@@ -64,16 +86,68 @@ impl InProcessRuntime {
     /// instead of routing it: for failure-mapping tests. The extension
     /// need not be served otherwise.
     pub fn answer_raw(self, extension: &str, export: &str, result: WasmCallResult) -> Self {
-        self.overrides
-            .lock()
-            .expect("overrides lock")
-            .insert((extension.to_string(), export.to_string()), result);
+        self.overriding(extension, export, None, result)
+    }
+
+    /// Answer `export` of `extension` with `result` when it is called with
+    /// `input` (compared as JSON), and route its other calls: one describe
+    /// category answering what its declaration could not hold.
+    pub fn answer_raw_to(
+        self,
+        extension: &str,
+        export: &str,
+        input: serde_json::Value,
+        result: WasmCallResult,
+    ) -> Self {
+        self.overriding(extension, export, Some(input), result)
+    }
+
+    fn overriding(
+        self,
+        extension: &str,
+        export: &str,
+        input: Option<serde_json::Value>,
+        result: WasmCallResult,
+    ) -> Self {
+        self.overrides.lock().expect("overrides lock").push((
+            extension.to_string(),
+            export.to_string(),
+            input,
+            result,
+        ));
+        self
+    }
+
+    /// Make calling `export` of `extension` panic in the host, outside the
+    /// guest: a fault of the runtime itself (a broken host function), not a
+    /// guest trap, for tests of what the host does when its runtime fails.
+    pub fn fault(mut self, extension: &str, export: &str) -> Self {
+        self.faults
+            .push((extension.to_string(), export.to_string()));
+        self
+    }
+
+    /// Report `diagnostic` as why `extension` failed to load (a missing
+    /// or tampered binary, as the component runtime knows it).
+    pub fn with_load_failure(mut self, extension: &str, diagnostic: Diagnostic) -> Self {
+        self.load_failures.insert(extension.to_string(), diagnostic);
         self
     }
 
     /// Every call answered so far, in order.
     pub fn calls(&self) -> Vec<RecordedCall> {
         self.calls.lock().expect("calls lock").clone()
+    }
+
+    /// Forget the calls answered so far.
+    pub fn clear_calls(&self) {
+        self.calls.lock().expect("calls lock").clear();
+    }
+
+    /// Every wall-clock budget the host applied (`(extension, ms)`), in
+    /// order. The in-process runtime records them; it enforces none.
+    pub fn deadlines(&self) -> Vec<(String, u64)> {
+        self.deadlines.lock().expect("deadlines lock").clone()
     }
 }
 
@@ -93,16 +167,53 @@ impl WasmRuntime for InProcessRuntime {
         ))
     }
 
+    /// Loading a binary under a name the runtime serves is a no-op: the
+    /// extension is already there. Any other name cannot be loaded.
+    fn load_module_named(&self, extension: &str, wasm_path: &Path) -> Result<(), String> {
+        if self.extensions.contains_key(extension) {
+            Ok(())
+        } else {
+            self.load_module(wasm_path)
+        }
+    }
+
+    fn set_execution_deadline_ms(&self, extension: &str, max_execution_ms: u64) {
+        self.deadlines
+            .lock()
+            .expect("deadlines lock")
+            .push((extension.to_string(), max_execution_ms));
+    }
+
+    fn load_failure(&self, extension: &str) -> Option<Diagnostic> {
+        self.load_failures.get(extension).cloned()
+    }
+
     fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
+        let input_json: serde_json::Value = serde_json::from_slice(input)
+            .unwrap_or_else(|_| String::from_utf8_lossy(input).into_owned().into());
         self.calls.lock().expect("calls lock").push(RecordedCall {
             extension: extension.to_string(),
             export: export.to_string(),
-            input: serde_json::from_slice(input)
-                .unwrap_or_else(|_| String::from_utf8_lossy(input).into_owned().into()),
+            input: input_json.clone(),
         });
-        let key = (extension.to_string(), export.to_string());
-        if let Some(result) = self.overrides.lock().expect("overrides lock").get(&key) {
-            return result.clone();
+        if self
+            .faults
+            .iter()
+            .any(|(e, x)| e == extension && x == export)
+        {
+            panic!("the runtime failed calling {export} of {extension}");
+        }
+        let overridden = self
+            .overrides
+            .lock()
+            .expect("overrides lock")
+            .iter()
+            .find(|(e, x, when, _)| {
+                e == extension && x == export && when.as_ref().is_none_or(|w| *w == input_json)
+            })
+            .map(|(_, _, _, result)| result.clone());
+        if let Some(result) = overridden {
+            return result;
         }
         let Some((build, handler)) = self.extensions.get(extension) else {
             return trap(

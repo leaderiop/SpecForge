@@ -6,24 +6,6 @@ use crate::state::McpState;
 use crate::tool::ToolOutcome;
 use specforge_ops::analyze::{AnalyzeError, AnalyzeOptions, ProjectView, ReportSource, analyze};
 use specforge_project::CompiledProject;
-use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
-
-/// The runtime of a rootless analysis, which runs no extension pass.
-struct NoRuntime;
-
-impl WasmRuntime for NoRuntime {
-    fn load_module(&self, _: &std::path::Path) -> Result<(), String> {
-        Err("no project root".to_string())
-    }
-
-    fn call_export(&self, extension: &str, export: &str, _: &[u8]) -> WasmCallResult {
-        WasmCallResult::Trap(specforge_wasm::runtime::WasmTrapInfo {
-            kind: "export_not_found".to_string(),
-            message: format!("{extension}: no project root"),
-            export_name: export.to_string(),
-        })
-    }
-}
 
 #[derive(Debug, Deserialize)]
 pub struct Args {
@@ -87,11 +69,9 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
         min: None,
         prove: None,
     };
-    let runtime = match view.root {
-        Some(root) => state.wasm_runtime(root),
-        None => std::sync::Arc::new(NoRuntime),
-    };
-    match analyze(&view, runtime.as_ref(), &options) {
+    // A rootless analysis has no runtime, and runs no extension pass.
+    let runtime = view.root.map(|root| state.wasm_runtime(root));
+    match analyze(&view, runtime.as_deref(), &options) {
         Ok(outcome) => ToolOutcome::ok(outcome.to_json()),
         Err(e @ AnalyzeError::UnknownPass { .. }) => {
             ToolOutcome::invalid_input("pass", e.to_string())

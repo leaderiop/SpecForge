@@ -3,32 +3,24 @@
 // - B:topological_sort_extensions
 
 use specforge_common::Severity;
+use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_protocol_types::PeerDependency;
+use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{
-    ExtensionLifecycleState, LockFile, WasmCallResult, WasmRuntime, load_wasm_module,
-    topological_sort_extensions,
+    ExtensionLifecycleState, LockFile, load_wasm_module, topological_sort_extensions,
 };
 use std::path::Path;
 use tempfile::TempDir;
 
-// -- Test MockRuntime for integration tests --
-
-struct MockRuntime;
-
-impl MockRuntime {
-    fn new() -> Self {
-        Self
-    }
-}
-
-impl WasmRuntime for MockRuntime {
-    fn load_module(&self, _wasm_path: &Path) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn call_export(&self, _ext: &str, _export_name: &str, _input: &[u8]) -> WasmCallResult {
-        WasmCallResult::Ok(vec![])
-    }
+/// A runtime serving the extensions these tests load, so loading their
+/// binaries under those names succeeds.
+fn runtime() -> InProcessRuntime {
+    let serve =
+        |name: &'static str| move || ContributionsBuilder::new(ExtensionMeta::new(name, "1.0.0"));
+    InProcessRuntime::new()
+        .with(serve("@test/ext"))
+        .with(serve("@test/legacy"))
+        .with(serve("@test/local"))
 }
 
 fn make_declaration(
@@ -69,7 +61,7 @@ fn create_fake_wasm(dir: &TempDir, name: &str) -> std::path::PathBuf {
 fn test_load_valid_module_returns_loaded_module() {
     let dir = TempDir::new().unwrap();
     let wasm_path = create_fake_wasm(&dir, "ext.wasm");
-    let runtime = MockRuntime::new();
+    let runtime = runtime();
 
     let module = load_wasm_module("@test/ext", &wasm_path, &runtime, None).unwrap();
     assert_eq!(module.extension_name, "@test/ext");
@@ -81,7 +73,7 @@ fn test_load_valid_module_returns_loaded_module() {
 // B:load_wasm_module — verify integration "load corrupted bytes → Err with E028"
 #[test]
 fn test_load_missing_wasm_returns_e028() {
-    let runtime = MockRuntime::new();
+    let runtime = runtime();
     let missing = Path::new("/nonexistent/path/ext.wasm");
 
     let err = load_wasm_module("@test/missing", missing, &runtime, None).unwrap_err();
@@ -94,7 +86,7 @@ fn test_load_missing_wasm_returns_e028() {
 fn test_load_wasm_module_contract() {
     let dir = TempDir::new().unwrap();
     let wasm_path = create_fake_wasm(&dir, "ext.wasm");
-    let runtime = MockRuntime::new();
+    let runtime = runtime();
 
     // ensures: success path returns LoadedModule
     let module = load_wasm_module("@test/ext", &wasm_path, &runtime, None).unwrap();
@@ -217,7 +209,7 @@ fn load_refuses_binary_that_differs_from_lockfile_hash() {
     let wasm_path = extensions_dir.join("@test/ext").join("extension.wasm");
 
     // Load with the recorded hash: succeeds.
-    let runtime = MockRuntime::new();
+    let runtime = runtime();
     let module = load_wasm_module(
         "@test/ext",
         &wasm_path,
@@ -247,7 +239,7 @@ fn load_with_empty_or_absent_hash_does_not_fail() {
     let dir = TempDir::new().unwrap();
     let wasm_path = dir.path().join("extension.wasm");
     std::fs::write(&wasm_path, b"\0asm-legacy").unwrap();
-    let runtime = MockRuntime::new();
+    let runtime = runtime();
 
     // Legacy lockfile entry: empty hash string — warn-and-load, not fail.
     let module = load_wasm_module("@test/legacy", &wasm_path, &runtime, Some("")).unwrap();

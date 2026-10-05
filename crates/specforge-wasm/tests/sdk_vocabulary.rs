@@ -9,7 +9,8 @@ use specforge_common::{SourceSpan, Sym};
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, prelude::*};
 use specforge_registry::build_registries;
 use specforge_registry::validation_engine::{ValidationEntity, execute_pattern};
-use specforge_wasm::protocol::{DescribeResponse, ExtensionDeclaration, HandshakeResponse};
+use specforge_wasm::protocol::{ExtensionDeclaration, load_declaration};
+use specforge_wasm::testing::InProcessRuntime;
 
 fn extension() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@you/vocab", "0.1.0"));
@@ -52,20 +53,16 @@ fn extension() -> ContributionsBuilder {
     c
 }
 
-/// `c`'s declaration as the host loads it: from its wire answers.
-fn loaded(c: &ContributionsBuilder) -> ExtensionDeclaration {
-    let handshake: HandshakeResponse = serde_json::from_str(&c.handshake_json()).unwrap();
-    ExtensionDeclaration::from_wire(
-        handshake,
-        |category| {
-            let body = c
-                .describe_response_json(category)
-                .expect("supported category");
-            Ok(serde_json::from_str::<DescribeResponse>(&body).unwrap())
-        },
-        |key| panic!("unexpected key {key:?}"),
-    )
-    .unwrap()
+/// The declaration `build` declares, as the host loads it: through the
+/// one loader, from the extension served in process.
+fn loaded(
+    build: impl Fn() -> ContributionsBuilder + Send + Sync + 'static,
+) -> ExtensionDeclaration {
+    let name = build().meta.name.clone();
+    let runtime = InProcessRuntime::new().with(build);
+    let loaded = load_declaration(&runtime, &name).unwrap();
+    assert!(loaded.warnings.is_empty(), "{:?}", loaded.warnings);
+    loaded.declaration
 }
 
 fn entity(id: &str, fields: &[(&str, &str)]) -> ValidationEntity {
@@ -95,7 +92,7 @@ fn entity(id: &str, fields: &[(&str, &str)]) -> ValidationEntity {
 
 #[test]
 fn sdk_vocabulary_round_trips_through_the_registry_build() {
-    let build = build_registries(vec![loaded(&extension())]);
+    let build = build_registries(vec![loaded(extension)]);
 
     let unread: Vec<_> = build
         .registry_diagnostics
@@ -138,7 +135,7 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
 /// load: the host reads their check names as aliases.
 #[test]
 fn older_sdk_check_names_still_load() {
-    let mut ext = loaded(&extension());
+    let mut ext = loaded(extension);
     for (rule, old) in ext
         .validation_rules
         .iter_mut()
@@ -165,15 +162,6 @@ fn older_sdk_check_names_still_load() {
 /// `verify_kind_allowlist`.
 #[test]
 fn sdk_constraint_kinds_load_for_the_checks_that_read_them() {
-    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@you/constraints", "0.1.0"));
-    c.kind("thing", |k| {
-        k.field("status", |f| {
-            f.field_type(FieldType::String);
-        });
-        k.field("reason", |f| {
-            f.field_type(FieldType::String);
-        });
-    });
     let uses = [
         (ConstraintKind::NonEmpty, CheckKind::FieldValueConstraint),
         (ConstraintKind::OneOf, CheckKind::FieldValueConstraint),
@@ -190,32 +178,44 @@ fn sdk_constraint_kinds_load_for_the_checks_that_read_them() {
             "constraint kind {kind} has no check that reads it"
         );
     }
-    for (i, (kind, check)) in uses.iter().enumerate() {
-        c.rule(&format!("X{i:03}"), |r| {
-            r.check(*check);
-            r.target_kind("thing");
-            if *check != CheckKind::VerifyKindAllowlist {
-                r.field("reason");
-            }
-            r.constraint(|fc| {
-                fc.kind(*kind);
-                match kind {
-                    ConstraintKind::Matches => {
-                        fc.pattern("^[a-z]+$");
-                    }
-                    ConstraintKind::WhenFieldEquals => {
-                        fc.pattern("status").values(&["deferred"]);
-                    }
-                    _ => {
-                        fc.values(&["unit", "a"]);
-                    }
-                }
+    let build = move || {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@you/constraints", "0.1.0"));
+        c.kind("thing", |k| {
+            k.field("status", |f| {
+                f.field_type(FieldType::String);
             });
-            r.message_template("thing '{id}'");
+            k.field("reason", |f| {
+                f.field_type(FieldType::String);
+            });
         });
-    }
+        for (i, (kind, check)) in uses.iter().enumerate() {
+            c.rule(&format!("X{i:03}"), |r| {
+                r.check(*check);
+                r.target_kind("thing");
+                if *check != CheckKind::VerifyKindAllowlist {
+                    r.field("reason");
+                }
+                r.constraint(|fc| {
+                    fc.kind(*kind);
+                    match kind {
+                        ConstraintKind::Matches => {
+                            fc.pattern("^[a-z]+$");
+                        }
+                        ConstraintKind::WhenFieldEquals => {
+                            fc.pattern("status").values(&["deferred"]);
+                        }
+                        _ => {
+                            fc.values(&["unit", "a"]);
+                        }
+                    }
+                });
+                r.message_template("thing '{id}'");
+            });
+        }
+        c
+    };
 
-    let build = build_registries(vec![loaded(&c)]);
+    let build = build_registries(vec![loaded(build)]);
     let unread: Vec<_> = build
         .registry_diagnostics
         .iter()

@@ -468,8 +468,8 @@ fn file_exists_reports_missing_file_reference_field_targets() {
     verify = "custom pattern dispatches to registered Wasm function"
 )]
 fn custom_pattern_dispatches_to_registered_wasm_function() {
-    struct MockRuntime;
-    impl WasmValidationRuntime for MockRuntime {
+    struct NamingValidator;
+    impl WasmValidationRuntime for NamingValidator {
         fn custom_verdict(
             &self,
             func: &str,
@@ -501,7 +501,7 @@ fn custom_pattern_dispatches_to_registered_wasm_function() {
         make_entity("bad_name", "behavior", 1, 0),
         make_entity("good_name", "behavior", 1, 0),
     ];
-    let diags = execute_pattern(&pattern, &entities, Some(&MockRuntime));
+    let diags = execute_pattern(&pattern, &entities, Some(&NamingValidator));
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("bad_name"));
 }
