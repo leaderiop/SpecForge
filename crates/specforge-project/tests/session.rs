@@ -1524,3 +1524,54 @@ fn measure_ensure_fresh_on_a_thousand_files() {
         started.elapsed() / rounds
     );
 }
+
+#[specforge_test(
+    behavior = "read_views_over_the_project_view",
+    verify = "coverage is computed once per compile and report content, and again after the report changes"
+)]
+fn an_update_starts_a_fresh_coverage_memo() {
+    use specforge_project::coverage::CoverageRegistries;
+    let dir = project(
+        CONFIG,
+        &[(
+            "a.spec",
+            "behavior a \"A\" {\n  contract \"The system MUST a\"\n  verify unit \"a works\"\n}\n",
+        )],
+    );
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    let coverage = |session: &ProjectSession| {
+        session
+            .recorded()
+            .at(
+                Some(root),
+                session.graph(),
+                CoverageRegistries::of(&session.environment().registries),
+            )
+            .unwrap()
+            .coverage
+    };
+    let first = coverage(&session);
+    assert!(std::sync::Arc::ptr_eq(&first, &coverage(&session)));
+    assert!(first.standing("a").unwrap().counts);
+
+    // A source update: the memo scores the new graph.
+    write(
+        root,
+        "b.spec",
+        "behavior b \"B\" {\n  contract \"The system MUST b\"\n}\n",
+    );
+    session.update(SourceChange::Disk(&changed(&["b.spec"])));
+    let updated = coverage(&session);
+    assert!(!std::sync::Arc::ptr_eq(&first, &updated));
+    assert!(updated.is_unverified("b"));
+
+    // Brought up to date with disk, without a watcher, likewise.
+    write(
+        root,
+        "c.spec",
+        "behavior c \"C\" {\n  contract \"The system MUST c\"\n}\n",
+    );
+    assert!(session.ensure_fresh().is_some());
+    assert!(coverage(&session).standing("c").is_some());
+}

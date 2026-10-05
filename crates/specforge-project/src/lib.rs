@@ -35,7 +35,7 @@ use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use compile::{GraphChecks, check_graph, load_extensions, probe_custom_rules};
-use coverage::{CoverageRegistries, ProjectCoverage, TestReport};
+use coverage::RecordedCoverage;
 use specforge_common::{Diagnostic, ProjectConfig, is_discovered, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
@@ -290,6 +290,9 @@ pub struct CompiledProject {
     /// What the checks on the built graph reported: core validation, the
     /// registry checks, the extensions' rules, then the check-phase passes.
     pub check_diagnostics: Vec<Diagnostic>,
+    /// The recorded test report at the root and the coverage of the graph
+    /// against it, memoized for the life of this compile.
+    recorded: RecordedCoverage,
 }
 
 impl CompiledProject {
@@ -307,6 +310,7 @@ impl CompiledProject {
             graph,
             graph_diagnostics,
             check_diagnostics,
+            recorded: RecordedCoverage::default(),
         }
     }
 
@@ -324,20 +328,10 @@ impl CompiledProject {
             .collect()
     }
 
-    /// The project's coverage against its recorded tests (`None` without a
-    /// report): the rule the `@specforge/testing:coverage` pass applies,
-    /// per entity and in summary.
-    pub fn coverage(&self, report: Option<&TestReport>) -> ProjectCoverage {
-        let registries = &self.env.registries;
-        ProjectCoverage::compute(
-            &self.graph,
-            CoverageRegistries {
-                kinds: &registries.kinds,
-                fields: &registries.fields,
-                rules: &registries.rules,
-            },
-            report,
-        )
+    /// The recorded test report at the project root and the coverage of the
+    /// graph against it, memoized for this compile.
+    pub fn recorded(&self) -> &RecordedCoverage {
+        &self.recorded
     }
 
     /// The flat view older callers read.

@@ -178,6 +178,41 @@ behavior compute_project_statistics "Compute Project Statistics" {
   verify contract "Compute Project Statistics: project statistics computation holds — validation_complete_fired, entity_counts_produced, coverage_computed, zero_testable_safe"
 }
 
+// The read views are operations over the project view: one per view,
+// shared by the CLI and MCP.
+behavior read_views_over_the_project_view "Read Views over the Project View" {
+  features   [mcp_core_tools, extension_driven_coverage, traceability_serialization]
+  invariants [diagnostic_determinism, testable_entity_classification, zero_domain_knowledge_core]
+  category   query
+  types      [Graph, KindRegistryEntry, GraphProtocolSchema, TraceChain]
+  ports      [CompilerApi, McpProtocol]
+  requires {
+    project_compiled "A compiled project or a project session supplies the project view"
+  }
+  ensures {
+    one_report_rule        "The recorded test report and the schema cache are the view root's, never an ancestor's"
+    one_coverage_per_state "Coverage is computed once per compile and per recorded report content"
+    surfaces_agree         "The CLI and MCP report the same numbers, chains, schema version and diagrams for one project"
+  }
+  contract   """
+    Stats, trace (one entity or every entity), the coverage view, the
+    model and outline diagrams and the versioned Graph Protocol schema
+    MUST each be one operation over the project view, shared by the CLI
+    and MCP; a surface maps its arguments and renders the outcome. The
+    view's root is the root the project was compiled from: its recorded
+    test report is <root>/specforge-report.json and its schema cache
+    <root>/.specforge/schema-cache.json, and no view looks in an ancestor
+    directory. A report that exists but cannot be read is an error on
+    every view (E045). Coverage is computed once per compiled project or
+    session state and per content of the recorded report; a rewritten
+    report is read again. An entity is unverified when it counts toward
+    coverage and is not proven.
+  """
+  verify unit "the recorded test report is read at the view's root, never an ancestor's"
+  verify unit "coverage is computed once per compile and report content, and again after the report changes"
+  verify unit "an entity is unverified when it counts toward coverage and is not proven"
+}
+
 behavior print_diagnostics_structured "Print Diagnostics Structured" {
   features   [diagnostic_reporting]
   invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]

@@ -9,75 +9,29 @@
 //! Surfaces keep rendering, exit-code or error-channel mapping, and the
 //! choice of which project to analyse.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use crate::builtin_passes::{COVERAGE_PASS, PASS_NAMES};
 use specforge_common::{Diagnostic, Severity};
 use specforge_graph::Graph;
-use specforge_project::CompilationContext;
 use specforge_project::coverage::TestReport;
 use specforge_project::coverage::{self, ReportError};
 use specforge_project::passes::{self, AnalysisContext};
-use specforge_registry::validation_engine::ValidationRulePattern;
-use specforge_registry::{FieldRegistry, KindRegistry, ManifestV2};
 use specforge_wasm::runtime::WasmRuntime;
 
 use crate::OpError;
 
-/// The read-only slice of a compiled project an analysis reads, borrowed.
-/// `root` is the project path as the caller gave it; without one, extension
-/// passes are skipped and the recorded report is not looked for.
-#[derive(Clone, Copy)]
-pub struct ProjectView<'a> {
-    pub graph: &'a Graph,
-    pub kind_registry: &'a KindRegistry,
-    pub field_registry: &'a FieldRegistry,
-    pub rules: &'a [(ValidationRulePattern, String)],
-    pub manifests: &'a [ManifestV2],
-    pub root: Option<&'a Path>,
-}
-
-impl<'a> ProjectView<'a> {
-    /// The view of a compiled project rooted at `root`.
-    pub fn of(ctx: &'a CompilationContext, root: &'a Path) -> Self {
-        Self {
-            graph: &ctx.graph,
-            kind_registry: &ctx.kind_registry,
-            field_registry: &ctx.field_registry,
-            rules: &ctx.extension_rules,
-            manifests: &ctx.manifests,
-            root: Some(root),
-        }
-    }
-
-    /// The view of `graph`, built in `env`, rooted at `root`: a project
-    /// session's, or a compiled project's.
-    pub fn in_environment(
-        env: &'a specforge_project::Environment,
-        graph: &'a Graph,
-        root: Option<&'a Path>,
-    ) -> Self {
-        let registries = &env.registries;
-        Self {
-            graph,
-            kind_registry: &registries.kinds,
-            field_registry: &registries.fields,
-            rules: &registries.rules,
-            manifests: &registries.manifests,
-            root,
-        }
-    }
-}
+pub use crate::view::ProjectView;
 
 /// Where the test report comes from.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum ReportSource {
-    /// What `specforge collect` last recorded in the project, if anything.
+    /// The view's recorded report: what `specforge collect` last wrote at
+    /// the root the project was compiled from, if anything (never an
+    /// ancestor's: a sub-path does not inherit its parent's report).
     #[default]
     Recorded,
-    /// What `collect` recorded in the root as given, without looking at
-    /// ancestors (a sub-path does not inherit its parent's report).
-    RecordedInRoot,
     /// A named report file, which must exist.
     File(PathBuf),
     /// No report.
@@ -275,15 +229,16 @@ fn analyze_via(
         return Err(AnalyzeError::MinNeedsTestResults);
     }
 
-    let orphans = find_orphans(view.graph, report.as_ref());
+    let orphans = find_orphans(view.graph, report.as_deref());
 
+    let registries = view.registries;
     let base = AnalysisContext {
         graph: view.graph,
-        kind_registry: view.kind_registry,
-        field_registry: view.field_registry,
-        rules: view.rules,
+        kind_registry: &registries.kinds,
+        field_registry: &registries.fields,
+        rules: &registries.rules,
         project_root: view.root,
-        test_results: report.as_ref(),
+        test_results: report.as_deref(),
         proved_claims: None,
     };
 
@@ -318,14 +273,19 @@ fn analyze_via(
         // Declared `after` constraints order a single extension's passes;
         // across extensions they are advisory.
         passes_run.extend(
-            passes::run_extension_passes(view.manifests, &input, runtime, &selection.extension)
-                .into_iter()
-                .map(|r| PassOutcome {
-                    name: r.name,
-                    description: "extension compiler pass".to_string(),
-                    findings: r.findings,
-                    summary: r.summary,
-                }),
+            passes::run_extension_passes(
+                &registries.manifests,
+                &input,
+                runtime,
+                &selection.extension,
+            )
+            .into_iter()
+            .map(|r| PassOutcome {
+                name: r.name,
+                description: "extension compiler pass".to_string(),
+                findings: r.findings,
+                summary: r.summary,
+            }),
         );
     }
     if let Some(r) = proved {
@@ -419,7 +379,8 @@ fn declared_pass_names(view: &ProjectView, runtime: &dyn WasmRuntime) -> Vec<Str
     if view.root.is_none() {
         return Vec::new();
     }
-    view.manifests
+    view.registries
+        .manifests
         .iter()
         .flat_map(|m| {
             passes::declared_passes(runtime, &m.name)
@@ -434,15 +395,11 @@ fn declared_pass_names(view: &ProjectView, runtime: &dyn WasmRuntime) -> Vec<Str
 fn read_report(
     view: &ProjectView,
     source: &ReportSource,
-) -> Result<Option<TestReport>, AnalyzeError> {
+) -> Result<Option<Arc<TestReport>>, AnalyzeError> {
     let read = match source {
         ReportSource::None => Ok(None),
-        ReportSource::File(path) => coverage::read_report_file(path).map(Some),
-        ReportSource::RecordedInRoot => view.root.map_or(Ok(None), coverage::read_report),
-        ReportSource::Recorded => view
-            .root
-            .and_then(specforge_common::find_project_root)
-            .map_or(Ok(None), |root| coverage::read_report(&root)),
+        ReportSource::File(path) => coverage::read_report_file(path).map(|r| Some(Arc::new(r))),
+        ReportSource::Recorded => view.recorded_report(),
     };
     read.map_err(|e: ReportError| AnalyzeError::UnusableReport(e.diagnostic().into()))
 }
@@ -453,6 +410,7 @@ mod tests {
     use serde_json::{Value, json};
     use specforge_test_macros::test as specforge_test;
     use specforge_wasm::runtime::{WasmCallResult, WasmTrapInfo};
+    use std::path::Path;
     use std::sync::Mutex;
 
     const EXT: &str = "@t/x";
@@ -501,9 +459,8 @@ mod tests {
 
     struct Project {
         graph: Graph,
-        kinds: KindRegistry,
-        fields: FieldRegistry,
-        manifests: Vec<ManifestV2>,
+        registries: specforge_registry::RegistryBuild,
+        recorded: coverage::RecordedCoverage,
         dir: tempfile::TempDir,
     }
 
@@ -517,22 +474,22 @@ mod tests {
             .unwrap();
             Self {
                 graph: Graph::new(),
-                kinds: KindRegistry::default(),
-                fields: FieldRegistry::default(),
-                manifests: vec![manifest],
+                registries: specforge_registry::RegistryBuild {
+                    manifests: vec![manifest],
+                    ..Default::default()
+                },
+                recorded: coverage::RecordedCoverage::default(),
                 dir,
             }
         }
 
         fn view(&self) -> ProjectView<'_> {
-            ProjectView {
-                graph: &self.graph,
-                kind_registry: &self.kinds,
-                field_registry: &self.fields,
-                rules: &[],
-                manifests: &self.manifests,
-                root: Some(self.dir.path()),
-            }
+            ProjectView::new(
+                &self.graph,
+                &self.registries,
+                Some(self.dir.path()),
+                &self.recorded,
+            )
         }
 
         fn run(&self, options: &AnalyzeOptions) -> Result<AnalyzeOutcome, AnalyzeError> {
@@ -621,10 +578,8 @@ mod tests {
     #[test]
     fn extension_passes_are_skipped_without_a_root() {
         let project = Project::new();
-        let view = ProjectView {
-            root: None,
-            ..project.view()
-        };
+        let mut view = project.view();
+        view.root = None;
         let outcome = analyze(&view, &Fake::new(), &AnalyzeOptions::default()).unwrap();
         assert_eq!(names(&outcome), vec!["contracts"]);
     }
@@ -668,26 +623,27 @@ mod tests {
         assert!(project.run(&options).is_ok());
     }
 
-    #[test]
-    fn a_sub_path_reads_the_ancestors_report_only_when_asked_to_look_up() {
+    #[specforge_test(
+        behavior = "read_views_over_the_project_view",
+        verify = "the recorded test report is read at the view's root, never an ancestor's"
+    )]
+    fn a_sub_path_does_not_read_the_ancestors_report() {
         let project = Project::new();
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let sub = project.dir.path().join("sub");
         std::fs::create_dir(&sub).unwrap();
         let mut view = project.view();
         view.root = Some(&sub);
-        let min = |report| AnalyzeOptions {
+        let min = AnalyzeOptions {
             min: Some(50.0),
-            report,
             ..Default::default()
         };
-        // The CLI looks up to the project root.
-        assert!(analyze(&view, &Fake::new(), &min(ReportSource::Recorded)).is_ok());
-        // MCP reads the root it was given and nothing above it.
+        // The view rooted at the sub-path reads its root and nothing above.
         assert_eq!(
-            analyze(&view, &Fake::new(), &min(ReportSource::RecordedInRoot)).unwrap_err(),
+            analyze(&view, &Fake::new(), &min).unwrap_err(),
             AnalyzeError::MinNeedsTestResults
         );
+        assert!(analyze(&project.view(), &Fake::new(), &min).is_ok());
     }
 
     #[test]
@@ -760,7 +716,7 @@ mod tests {
     /// testing extension reports `proven` of `total`.
     fn gate_of(pass_name: &str, min: Option<f64>, summary: Value) -> Gate {
         let mut project = Project::new();
-        project.manifests = vec![
+        project.registries.manifests = vec![
             serde_json::from_value(json!({
                 "name": "@specforge/testing", "version": "1.0.0",
                 "manifestVersion": 2, "wasmPath": ""
@@ -834,7 +790,7 @@ mod tests {
     )]
     fn a_failed_gate_leaves_ok_and_the_reports_alone() {
         let mut project = Project::new();
-        project.manifests.clear();
+        project.registries.manifests.clear();
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let outcome = project
             .run(&AnalyzeOptions {

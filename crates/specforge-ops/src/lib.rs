@@ -28,6 +28,7 @@ pub mod scan;
 pub mod schema_cache;
 pub mod stats;
 pub mod trace;
+pub mod view;
 
 use std::borrow::Cow;
 

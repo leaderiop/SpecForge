@@ -675,9 +675,11 @@ term t_verify_statement "verify statement" {
 term t_specforge_report_json "specforge-report.json" {
   definition """
     The project's recorded test results, written by `specforge collect`
-    and read by `specforge analyze`. Contains per-entity test results
-    (name, pass/fail, the verify obligation, duration, and the runner that
-    recorded it) for any testable entity kind.
+    and read, at the root the project was compiled from and never an
+    ancestor's, by `specforge analyze`, `specforge stats` and the MCP
+    coverage views. Contains per-entity test results (name, pass/fail, the
+    verify obligation, duration, and the runner that recorded it) for any
+    testable entity kind.
   """
   aliases    ["coverage report", "test report"]
 }

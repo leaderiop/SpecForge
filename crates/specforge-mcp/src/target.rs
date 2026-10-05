@@ -15,7 +15,8 @@ use std::sync::Arc;
 use serde_json::Value;
 use specforge_common::{Diagnostic, find_project_root};
 use specforge_graph::Graph;
-use specforge_ops::analyze::ProjectView;
+use specforge_ops::view::ProjectView;
+use specforge_project::coverage::RecordedCoverage;
 use specforge_project::{CompiledProject, Environment, Origin, ProjectSession, SharedRuntime};
 
 use crate::state::McpState;
@@ -144,14 +145,22 @@ pub struct ProjectRef<'a> {
     pub graph: &'a Graph,
     /// The runtime its extensions run in.
     pub runtime: Option<&'a SharedRuntime>,
+    /// Its recorded test report and coverage, memoized by its owner: the
+    /// served session, or the project compiled for this call.
+    recorded: &'a RecordedCoverage,
     reported: Reported<'a>,
 }
 
 impl<'a> ProjectRef<'a> {
-    /// What an analysis of this project reads: the one way MCP builds a
-    /// project view.
+    /// What every read operation over this project reads, rooted at the
+    /// project root: the one way MCP builds a project view.
     pub fn view(&self) -> ProjectView<'a> {
-        ProjectView::in_environment(self.env, self.graph, Some(self.root))
+        ProjectView::new(
+            self.graph,
+            &self.env.registries,
+            Some(self.root),
+            self.recorded,
+        )
     }
 
     /// Everything the server reports for this project: what `specforge
@@ -265,6 +274,7 @@ impl<'s> Call<'s> {
                     env: session.environment(),
                     graph: session.graph(),
                     runtime,
+                    recorded: session.recorded(),
                     reported: Reported::Session(session, &self.state.surface_diagnostics),
                 })
             }
@@ -274,6 +284,7 @@ impl<'s> Call<'s> {
                 env: &other.project.env,
                 graph: &other.project.graph,
                 runtime: Some(&other.runtime),
+                recorded: other.project.recorded(),
                 reported: Reported::Compiled(&other.project),
             }),
             CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject => Err(no_project()),
@@ -282,6 +293,18 @@ impl<'s> Call<'s> {
 
     pub fn target(&self) -> &CallTarget {
         &self.target
+    }
+
+    /// The project view of what the call reads: its project's
+    /// ([`ProjectRef::view`]), else, with no project, the served session's
+    /// graph without a root (a graph built in memory with no project, or
+    /// none): no recorded report, no schema cache. For a read view that
+    /// answers without a project.
+    pub fn view(&self) -> ProjectView<'_> {
+        match self.project() {
+            Ok(project) => project.view(),
+            Err(_) => ProjectView::of_session(self.state.session(), None),
+        }
     }
 
     /// The root of the project the call reads, when it has one: the served

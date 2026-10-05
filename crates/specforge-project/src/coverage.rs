@@ -14,9 +14,11 @@ use specforge_parser::UNION_VARIANTS_FIELD;
 use specforge_registry::validation_engine::{
     ValidationEntity, ValidationPatternKind, ValidationRulePattern,
 };
-use specforge_registry::{FieldRegistry, KindRegistry};
+use specforge_registry::{FieldRegistry, KindRegistry, RegistryBuild};
 use std::collections::{BTreeMap, BTreeSet};
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
 
 /// The recorded test report, at the project root: `collect` writes it,
 /// `analyze` and the coverage views read it.
@@ -126,12 +128,26 @@ pub fn read_report(root: &Path) -> Result<Option<TestReport>, ReportError> {
 
 /// A test report at an explicit path (`--test-results`), which must exist.
 pub fn read_report_file(path: &Path) -> Result<TestReport, ReportError> {
-    let raw = std::fs::read_to_string(path).map_err(|e| ReportError::Unreadable {
+    let bytes = std::fs::read(path).map_err(|e| unreadable(path, &e))?;
+    parse_report(path, &bytes)
+}
+
+fn unreadable(path: &Path, error: &std::io::Error) -> ReportError {
+    ReportError::Unreadable {
         path: path.to_path_buf(),
-        detail: e.to_string(),
-        missing: e.kind() == std::io::ErrorKind::NotFound,
+        detail: error.to_string(),
+        missing: error.kind() == std::io::ErrorKind::NotFound,
+    }
+}
+
+/// The report `path` holds, from its bytes.
+fn parse_report(path: &Path, bytes: &[u8]) -> Result<TestReport, ReportError> {
+    let raw = std::str::from_utf8(bytes).map_err(|_| ReportError::Unreadable {
+        path: path.to_path_buf(),
+        detail: "stream did not contain valid UTF-8".to_string(),
+        missing: false,
     })?;
-    serde_json::from_str(&raw).map_err(|e| ReportError::Malformed {
+    serde_json::from_str(raw).map_err(|e| ReportError::Malformed {
         path: path.to_path_buf(),
         detail: e.to_string(),
     })
@@ -198,7 +214,16 @@ pub struct CoverageRegistries<'a> {
     pub rules: &'a [(ValidationRulePattern, String)],
 }
 
-impl CoverageRegistries<'_> {
+impl<'a> CoverageRegistries<'a> {
+    /// The registries of a registry build.
+    pub fn of(build: &'a RegistryBuild) -> Self {
+        CoverageRegistries {
+            kinds: &build.kinds,
+            fields: &build.fields,
+            rules: &build.rules,
+        }
+    }
+
     /// The rule's view of every entity in `graph`, alongside the snapshot
     /// it was taken from (what the extension passes receive).
     pub fn entities(&self, graph: &Graph) -> Vec<(ValidationEntity, specforge_coverage::Entity)> {
@@ -278,6 +303,8 @@ pub fn recorded_tests(report: &TestReport) -> specforge_coverage::TestResults {
 pub struct ProjectCoverage {
     /// Per entity id, for every entity in the graph.
     pub verdicts: BTreeMap<String, Verdict>,
+    /// How the rule counts each entity of the graph, per entity id.
+    pub standings: BTreeMap<String, Standing>,
     /// The summary the `coverage` pass reports for the same inputs, less
     /// what its risk grading adds (the risk tallies and enforcement counts).
     pub summary: Summary,
@@ -320,8 +347,20 @@ impl ProjectCoverage {
     fn assess(entities: &[specforge_coverage::Entity], report: Option<&TestReport>) -> Self {
         let results = report.map(recorded_tests);
         let assessment = specforge_coverage::assess(entities, results.as_ref(), None, None);
+        let standings = entities
+            .iter()
+            .map(|entity| {
+                let standing = Standing {
+                    kind: entity.kind.clone(),
+                    testable: entity.testable,
+                    counts: entity.counts_toward_coverage(),
+                };
+                (entity.id.clone(), standing)
+            })
+            .collect();
         ProjectCoverage {
             verdicts: assessment.verdicts,
+            standings,
             summary: assessment.summary,
         }
     }
@@ -334,6 +373,138 @@ impl ProjectCoverage {
     /// The entity's status; an entity the graph doesn't have is uncovered.
     pub fn status(&self, id: &str) -> Status {
         self.verdict(id).map_or(Status::Uncovered, Verdict::status)
+    }
+
+    /// How the rule counts the entity, if the graph has it.
+    pub fn standing(&self, id: &str) -> Option<&Standing> {
+        self.standings.get(id)
+    }
+
+    /// Whether the entity counts toward coverage (ADR 0004 D2-b) and is not
+    /// proven (D2-a): the one definition of "unverified". An entity the
+    /// graph doesn't have is not.
+    pub fn is_unverified(&self, id: &str) -> bool {
+        self.standing(id).is_some_and(|standing| standing.counts)
+            && !self.verdict(id).is_some_and(Verdict::is_proven)
+    }
+}
+
+/// How the coverage rule counts one entity.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Standing {
+    pub kind: String,
+    /// Its kind is testable (an extension's manifest says so).
+    pub testable: bool,
+    /// It counts toward coverage: testable, and not an entity W004 exempts
+    /// that declares no obligations.
+    pub counts: bool,
+}
+
+impl Standing {
+    /// A testable-kind entity that owes no obligations and declares none.
+    pub fn exempt(&self) -> bool {
+        self.testable && !self.counts
+    }
+}
+
+/// The recorded test report at a root and the coverage computed from it,
+/// memoized. Owned by whoever owns the graph it scores (a
+/// [`crate::CompiledProject`], a [`crate::ProjectSession`], which starts a
+/// fresh one on every update and reload), so "once per compile" holds by
+/// construction; within one, the memo is keyed on the report's path and
+/// content, so a rewritten report is read again.
+#[derive(Debug, Default)]
+pub struct RecordedCoverage {
+    memo: Mutex<Option<Arc<Memo>>>,
+}
+
+#[derive(Debug)]
+struct Memo {
+    path: Option<PathBuf>,
+    /// A hash of the report's bytes; `None` without a report.
+    content: Option<u64>,
+    report: Option<Arc<TestReport>>,
+    /// Computed on first use: a report read for its own sake needs none.
+    coverage: OnceLock<Arc<ProjectCoverage>>,
+}
+
+/// The recorded report at a root, and the coverage computed from it.
+#[derive(Debug, Clone)]
+pub struct Recorded {
+    pub report: Option<Arc<TestReport>>,
+    pub coverage: Arc<ProjectCoverage>,
+}
+
+impl RecordedCoverage {
+    /// `<root>/specforge-report.json` ([`REPORT_FILE`]): `Ok(None)` without
+    /// a root or a file, an error when it is there but unusable. Read again
+    /// only when its bytes changed since the last call; an error is never
+    /// memoized.
+    pub fn report(&self, root: Option<&Path>) -> Result<Option<Arc<TestReport>>, ReportError> {
+        Ok(self.memo(root)?.report.clone())
+    }
+
+    /// The recorded report at `root` and the coverage of `graph` against
+    /// it, computed once per report content. `graph` and `registries` are
+    /// those of the memo's owner.
+    pub fn at(
+        &self,
+        root: Option<&Path>,
+        graph: &Graph,
+        registries: CoverageRegistries<'_>,
+    ) -> Result<Recorded, ReportError> {
+        let memo = self.memo(root)?;
+        let coverage = memo
+            .coverage
+            .get_or_init(|| {
+                Arc::new(ProjectCoverage::compute(
+                    graph,
+                    registries,
+                    memo.report.as_deref(),
+                ))
+            })
+            .clone();
+        Ok(Recorded {
+            report: memo.report.clone(),
+            coverage,
+        })
+    }
+
+    /// The memo for the report at `root` as it is on disk now.
+    fn memo(&self, root: Option<&Path>) -> Result<Arc<Memo>, ReportError> {
+        let path = root.map(|root| root.join(REPORT_FILE));
+        let bytes = match &path {
+            None => None,
+            Some(path) => match std::fs::read(path) {
+                Ok(bytes) => Some(bytes),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+                Err(e) => return Err(unreadable(path, &e)),
+            },
+        };
+        let content = bytes.as_deref().map(|bytes| {
+            let mut hasher = DefaultHasher::new();
+            bytes.hash(&mut hasher);
+            hasher.finish()
+        });
+        let mut slot = self.memo.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(memo) = slot.as_ref()
+            && memo.path == path
+            && memo.content == content
+        {
+            return Ok(Arc::clone(memo));
+        }
+        let report = match (&path, &bytes) {
+            (Some(path), Some(bytes)) => Some(Arc::new(parse_report(path, bytes)?)),
+            _ => None,
+        };
+        let memo = Arc::new(Memo {
+            path,
+            content,
+            report,
+            coverage: OnceLock::new(),
+        });
+        *slot = Some(Arc::clone(&memo));
+        Ok(memo)
     }
 }
 
@@ -487,5 +658,110 @@ mod tests {
             testable_kinds(&reg).into_iter().collect::<Vec<_>>(),
             ["behavior", "type"]
         );
+    }
+
+    /// A project whose `behavior` kind is testable and must declare
+    /// obligations, with `login` (one obligation) and `logout` (none).
+    struct Scored {
+        graph: Graph,
+        kinds: KindRegistry,
+        fields: FieldRegistry,
+        rules: Vec<(ValidationRulePattern, String)>,
+    }
+
+    impl Scored {
+        fn new() -> Self {
+            let mut kinds = KindRegistry::new();
+            kinds.register(kind("behavior", true, true));
+            Scored {
+                graph: graph_of(
+                    "behavior login \"Login\" {\n  verify unit \"logs in\"\n}\n\n\
+                     behavior logout \"Logout\" {\n}\n",
+                ),
+                kinds,
+                fields: FieldRegistry::new(),
+                rules: vec![(w004("behavior"), String::new())],
+            }
+        }
+
+        fn registries(&self) -> CoverageRegistries<'_> {
+            CoverageRegistries {
+                kinds: &self.kinds,
+                fields: &self.fields,
+                rules: &self.rules,
+            }
+        }
+    }
+
+    fn report(status: &str) -> String {
+        format!(
+            r#"{{"runner": "r", "results": {{"login": {{"tests": [
+                {{"name": "t", "status": "{status}", "verify": "logs in"}}]}}}}}}"#
+        )
+    }
+
+    #[specforge_test(
+        behavior = "read_views_over_the_project_view",
+        verify = "coverage is computed once per compile and report content, and again after the report changes"
+    )]
+    fn recorded_coverage_is_memoized_per_report_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = Scored::new();
+        let recorded = RecordedCoverage::default();
+        let at = || recorded.at(Some(dir.path()), &project.graph, project.registries());
+
+        // No report: nothing recorded, nothing proven.
+        let none = at().unwrap();
+        assert!(none.report.is_none());
+        assert!(!none.coverage.verdict("login").unwrap().is_proven());
+
+        std::fs::write(dir.path().join(REPORT_FILE), report("pass")).unwrap();
+        let first = at().unwrap();
+        let second = at().unwrap();
+        assert!(Arc::ptr_eq(&first.coverage, &second.coverage));
+        assert!(Arc::ptr_eq(
+            first.report.as_ref().unwrap(),
+            second.report.as_ref().unwrap()
+        ));
+        assert!(first.coverage.verdict("login").unwrap().is_proven());
+        assert!(Arc::ptr_eq(
+            &recorded.report(Some(dir.path())).unwrap().unwrap(),
+            first.report.as_ref().unwrap()
+        ));
+
+        // Other bytes, read again at once (no mtime to wait for).
+        std::fs::write(dir.path().join(REPORT_FILE), report("fail")).unwrap();
+        let rewritten = at().unwrap();
+        assert!(!Arc::ptr_eq(&first.coverage, &rewritten.coverage));
+        assert_eq!(rewritten.coverage.verdict("login").unwrap().failing, 1);
+
+        // A malformed report is an error every time: never memoized.
+        std::fs::write(dir.path().join(REPORT_FILE), "{not json").unwrap();
+        assert!(matches!(at(), Err(ReportError::Malformed { .. })));
+        assert!(matches!(at(), Err(ReportError::Malformed { .. })));
+
+        // Without a root there is no report to read.
+        let rootless = recorded
+            .at(None, &project.graph, project.registries())
+            .unwrap();
+        assert!(rootless.report.is_none());
+    }
+
+    #[specforge_test(
+        behavior = "read_views_over_the_project_view",
+        verify = "an entity is unverified when it counts toward coverage and is not proven"
+    )]
+    fn every_entity_has_a_standing_and_unverified_reads_it() {
+        let project = Scored::new();
+        let tests: TestReport = serde_json::from_str(&report("pass")).unwrap();
+        let coverage = ProjectCoverage::compute(&project.graph, project.registries(), Some(&tests));
+        let login = coverage.standing("login").unwrap();
+        assert!(login.testable && login.counts && !login.exempt());
+        assert!(!coverage.is_unverified("login"), "proven");
+        assert!(
+            coverage.is_unverified("logout"),
+            "counts and owes an obligation"
+        );
+        assert!(!coverage.is_unverified("nobody"));
     }
 }

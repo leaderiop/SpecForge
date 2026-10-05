@@ -9,6 +9,7 @@ use specforge_parser::SpecFile;
 use specforge_resolver::resolve_parsed;
 use specforge_wasm::WasmRuntime;
 
+use crate::coverage::RecordedCoverage;
 use crate::delta::{GraphDelta, compute_graph_delta};
 use crate::freshness::DiskSnapshot;
 use crate::incremental::IncrementalBuild;
@@ -89,6 +90,9 @@ pub struct ProjectSession {
     /// What the session last built from, as it was when read: what
     /// [`Self::stale`] compares with disk.
     snapshot: DiskSnapshot,
+    /// The recorded test report and the coverage of the current graph
+    /// against it: a fresh memo after every update and reload.
+    recorded: RecordedCoverage,
 }
 
 impl ProjectSession {
@@ -105,6 +109,7 @@ impl ProjectSession {
             verify_incremental: false,
             origin: Origin::None,
             snapshot: DiskSnapshot::default(),
+            recorded: RecordedCoverage::default(),
         }
     }
 
@@ -135,6 +140,7 @@ impl ProjectSession {
             verify_incremental: false,
             origin: Origin::InMemory,
             snapshot: DiskSnapshot::default(),
+            recorded: RecordedCoverage::default(),
         }
     }
 
@@ -179,6 +185,7 @@ impl ProjectSession {
             verify_incremental: false,
             origin: Origin::Disk,
             snapshot,
+            recorded: RecordedCoverage::default(),
         };
         session.check_diagnostics = session.checked();
         session
@@ -224,6 +231,7 @@ impl ProjectSession {
             }
         };
         let result = self.build.rebuild(changes);
+        self.recorded = RecordedCoverage::default();
         self.import_diagnostics = self.resolve_imports();
         self.check_diagnostics = match mode {
             CheckMode::SyntaxOnlyIfParseErrorsIn(path)
@@ -447,6 +455,12 @@ impl ProjectSession {
         &self.env
     }
 
+    /// The recorded test report and the coverage of the current graph
+    /// against it, memoized until the next update or reload.
+    pub fn recorded(&self) -> &RecordedCoverage {
+        &self.recorded
+    }
+
     /// The environment, shared: it stays valid after the session reloads.
     pub fn shared_environment(&self) -> Arc<Environment> {
         Arc::clone(&self.env)
@@ -534,6 +548,7 @@ impl ProjectSession {
 
     /// Run every check again on the current graph: a check input changed.
     fn recheck(&mut self) -> Update {
+        self.recorded = RecordedCoverage::default();
         self.check_diagnostics = self.checked();
         Update {
             kind: UpdateKind::Checks,

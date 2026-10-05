@@ -322,28 +322,34 @@ fn rv1_with_a_malformed_report() -> TempDir {
     tmp
 }
 
-#[test]
-fn report_root_today() {
+#[specforge_test_macros::test(
+    behavior = "read_views_over_the_project_view",
+    verify = "the recorded test report is read at the view's root, never an ancestor's"
+)]
+fn analyze_and_stats_read_the_report_at_the_compiled_root() {
     let tmp = rv1_with_a_malformed_report();
     let sub: PathBuf = tmp.path().join("spec");
 
-    // stats reads `<path>/specforge-report.json`: the sub-path has none.
+    // A sub-path compiles without the project's config, and reads the
+    // report at the root it compiled: there is none.
     let stats = cli(&["stats", s(&sub), "--format", "json"]);
     assert_eq!(stats.code, Some(0), "{}", stats.stderr);
-    // analyze walks up to the project root and reads its report.
     let analyze = cli(&["analyze", "--path", s(&sub), "--json"]);
-    assert_eq!(analyze.code, Some(2), "{}", analyze.stdout);
-    assert!(
-        analyze.stderr.contains("invalid test results"),
-        "{}",
-        analyze.stderr
-    );
+    assert_eq!(analyze.code, Some(0), "{}", analyze.stderr);
 
     // At the root both refuse the report.
-    let stats = cli(&["stats", s(tmp.path()), "--format", "json"]);
-    assert_eq!(stats.code, Some(2), "{}", stats.stdout);
-    let analyze = cli(&["analyze", "--path", s(tmp.path()), "--json"]);
-    assert_eq!(analyze.code, Some(2), "{}", analyze.stdout);
+    for args in [
+        vec!["stats", s(tmp.path()), "--format", "json"],
+        vec!["analyze", "--path", s(tmp.path()), "--json"],
+    ] {
+        let run = cli(&args);
+        assert_eq!(run.code, Some(2), "{args:?}: {}", run.stdout);
+        assert!(
+            run.stderr.contains("invalid test results"),
+            "{}",
+            run.stderr
+        );
+    }
 }
 
 /// The kinds `<dir>/.specforge/schema-cache.json` holds.

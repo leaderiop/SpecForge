@@ -34,14 +34,14 @@ pub struct Args {
 pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let project = call.project()?;
     let view = project.view();
-    // Without `test_results`, use what `specforge collect` last recorded, as
-    // the CLI does.
+    // Without `test_results`, use what `specforge collect` last recorded at
+    // the project root, as the CLI does.
     let options = AnalyzeOptions {
         pass: args.pass.unwrap_or_else(|| "all".to_string()),
         strict: args.strict.unwrap_or(false),
         report: match args.test_results {
             Some(named) => ReportSource::File(PathBuf::from(named)),
-            None => ReportSource::RecordedInRoot,
+            None => ReportSource::Recorded,
         },
         min: None,
         prove: None,

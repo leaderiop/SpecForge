@@ -7,9 +7,8 @@
 use std::path::Path;
 
 use specforge_common::truncate_diagnostics;
-use specforge_ops::analyze::{
-    AnalyzeOptions, Gate, ProjectView, ProveOptions, ReportSource, analyze,
-};
+use specforge_ops::analyze::{AnalyzeOptions, Gate, ProveOptions, ReportSource, analyze};
+use specforge_ops::view::ProjectView;
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 
 use crate::AnalysisPass;
@@ -25,9 +24,9 @@ pub fn run(
     min: Option<f64>,
     prove: bool,
 ) -> i32 {
-    let (ctx, runtime) = pipeline::compile_with_runtime(path);
+    let (project, runtime) = pipeline::compile_project(path);
     // Without --test-results, the operation uses what `specforge collect`
-    // last recorded.
+    // last recorded at the root it compiled.
     let report = match test_results {
         Some(report_path) => ReportSource::File(report_path.to_path_buf()),
         None => ReportSource::Recorded,
@@ -39,7 +38,7 @@ pub fn run(
         min,
         prove: prove.then(ProveOptions::default),
     };
-    let outcome = match analyze(&ProjectView::of(&ctx, path), &runtime, &options) {
+    let outcome = match analyze(&ProjectView::of(&project), &runtime, &options) {
         Ok(outcome) => outcome,
         Err(e) => {
             eprintln!("error: {e}");
@@ -62,7 +61,7 @@ pub fn run(
         }
     }
     let reports = &outcome.passes;
-    let sources = build_source_map(&ctx.spec_root, &ctx.resolved.files);
+    let sources = build_source_map(&project.env.spec_root, &project.resolved.files);
 
     if json {
         let doc = outcome.to_json();
