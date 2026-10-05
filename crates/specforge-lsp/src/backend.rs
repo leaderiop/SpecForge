@@ -14,12 +14,11 @@ use specforge_registry::KindRegistry;
 use crate::navigation::{byte_position, file_content, location, navigator, range, uri_of};
 use crate::{
     LspState, classify_tokens, code_actions_create_stubs, code_actions_from_diagnostics,
-    code_actions_missing_verify, complete_entity_ids, complete_entity_ids_filtered,
-    complete_keywords, cursor_context, document_symbols, goto_import_definition, hover_field_info,
-    hover_info_with_registries, server_capabilities, server_info, source_span_to_lsp_range,
-    source_span_to_lsp_range_with_text, workspace_symbols,
+    code_actions_missing_verify, complete_keywords, cursor_context, document_symbols,
+    goto_import_definition, hover_field_info, hover_info_with_registries, server_capabilities,
+    server_info, source_span_to_lsp_range, source_span_to_lsp_range_with_text,
 };
-use specforge_ops::navigate::{Direction, ReferenceQuery};
+use specforge_ops::navigate::{Direction, EntityQuery, MatchScope, ReferenceQuery, find_entities};
 
 use crate::formatting::{EditorOptions, format_document, format_document_range};
 
@@ -1120,22 +1119,27 @@ impl LanguageServer for Backend {
         }
 
         if block.is_some() || ctx.is_some() {
-            let entity_items = if let Some(ref tk) = target_kind {
-                complete_entity_ids_filtered(state.graph(), &prefix, Some(tk))
-            } else {
-                complete_entity_ids(state.graph(), &prefix)
+            // The shared ranking (completion, workspace symbols and MCP
+            // search rank alike), over ids and titles, of the kind the
+            // enclosing field targets when it targets one.
+            let kinds: Vec<&str> = target_kind.as_deref().into_iter().collect();
+            let query = EntityQuery {
+                kinds: &kinds,
+                ..EntityQuery::new(&prefix, MatchScope::Names)
             };
-            for (rank, item) in entity_items.into_iter().enumerate() {
-                let detail = item
+            for (rank, found) in find_entities(state.graph(), &query).into_iter().enumerate() {
+                let node = found.node;
+                let kind = node.kind.raw.as_str();
+                let detail = node
                     .title
                     .as_ref()
-                    .map(|t| format!("{} — {}", item.kind, t))
-                    .unwrap_or_else(|| item.kind.clone());
+                    .map(|t| format!("{kind} — {t}"))
+                    .unwrap_or_else(|| kind.to_string());
                 items.push(CompletionItem {
-                    label: item.id.clone(),
+                    label: node.id.raw.to_string(),
                     kind: Some(CompletionItemKind::REFERENCE),
                     detail: Some(detail),
-                    // C4-06: preserve the server's fuzzy ranking in the editor.
+                    // C4-06: preserve the server's ranking in the editor.
                     sort_text: Some(format!("{rank:04}")),
                     ..Default::default()
                 });
@@ -1460,25 +1464,27 @@ impl LanguageServer for Backend {
         params: WorkspaceSymbolParams,
     ) -> Result<Option<Vec<SymbolInformation>>> {
         let state = self.state.read().await;
-        let symbols = workspace_symbols(state.graph(), &params.query);
-
-        if symbols.is_empty() {
+        // The shared ranking over ids and titles: what MCP search and
+        // completion rank alike.
+        let query = EntityQuery::new(&params.query, MatchScope::Names);
+        let found = find_entities(state.graph(), &query);
+        if found.is_empty() {
             return Ok(None);
         }
 
         let kind_reg = state.kind_registry();
         #[allow(deprecated)]
-        let lsp_symbols: Vec<SymbolInformation> = symbols
+        let lsp_symbols: Vec<SymbolInformation> = found
             .into_iter()
-            .map(|s| SymbolInformation {
+            .map(|m| SymbolInformation {
                 // Graph byte columns convert to UTF-16 against the file
                 // text when the file is readable; byte passthrough otherwise.
-                location: location(&state, &s.span),
-                name: s.id,
-                kind: symbol_kind_from_entity(&s.kind, kind_reg),
+                location: location(&state, &m.node.source_span),
+                name: m.node.id.raw.to_string(),
+                kind: symbol_kind_from_entity(m.node.kind.raw.as_str(), kind_reg),
                 tags: None,
                 deprecated: None,
-                container_name: Some(s.kind),
+                container_name: Some(m.node.kind.raw.to_string()),
             })
             .collect();
 

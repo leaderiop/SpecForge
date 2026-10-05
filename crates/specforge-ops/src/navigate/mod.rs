@@ -10,6 +10,7 @@
 //! to* are its outgoing references. Navigation names no kind: kinds,
 //! fields and their targets come from the registries (ADR 0016).
 
+mod find;
 mod occurrences;
 mod text;
 
@@ -22,6 +23,10 @@ use specforge_common::{SourceSpan, Sym};
 use crate::OpError;
 use crate::view::ProjectView;
 
+pub use find::{
+    EntityMatch, EntityQuery, FUZZY_THRESHOLD, MatchScope, MatchedOn, Tier, find_entities, snippet,
+    within_fuzzy_threshold,
+};
 pub use occurrences::{Definition, Direction, Occurrence, Precision, ReferenceQuery, Role};
 
 use text::SourceText;

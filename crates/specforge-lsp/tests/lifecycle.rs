@@ -246,12 +246,12 @@ fn graph_update_serves_all_features() {
     let hover = specforge_lsp::hover_info(state.graph(), "login");
     assert!(hover.is_some(), "hover must use shared graph");
 
-    // The same graph serves workspace symbols
-    let syms = specforge_lsp::workspace_symbols(state.graph(), "login");
+    // The same graph serves workspace symbols and completions (one
+    // ranking, over ids and titles)
+    use specforge_ops::navigate::{EntityQuery, MatchScope, find_entities};
+    let syms = find_entities(state.graph(), &EntityQuery::new("login", MatchScope::Names));
     assert!(!syms.is_empty(), "workspace symbols must use shared graph");
-
-    // The same graph serves completions
-    let completions = specforge_lsp::complete_entity_ids(state.graph(), "log");
+    let completions = find_entities(state.graph(), &EntityQuery::new("log", MatchScope::Names));
     assert!(!completions.is_empty(), "completions must use shared graph");
 }
 

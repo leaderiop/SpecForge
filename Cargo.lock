@@ -2954,7 +2954,6 @@ dependencies = [
  "specforge-test-macros",
  "specforge-wasm",
  "specforge-watch",
- "strsim",
  "tempfile",
  "tokio",
  "tower-lsp",
@@ -2985,7 +2984,6 @@ dependencies = [
  "specforge-test",
  "specforge-test-macros",
  "specforge-wasm",
- "strsim",
  "tempfile",
 ]
 
@@ -3022,6 +3020,7 @@ dependencies = [
  "specforge-test",
  "specforge-test-macros",
  "specforge-wasm",
+ "strsim",
  "tempfile",
 ]
 

@@ -16,10 +16,7 @@ pub use code_actions::{
     CodeAction, code_action_create_stub, code_actions_create_stubs, code_actions_from_diagnostics,
     code_actions_missing_verify,
 };
-pub use completion::{
-    CompletionItem, CursorContext, complete_entity_ids, complete_entity_ids_filtered,
-    complete_field_names, complete_keywords, cursor_context,
-};
+pub use completion::{CursorContext, complete_field_names, complete_keywords, cursor_context};
 pub use completion::{enclosing_block, enclosing_entity_kind, field_snippet, keyword_snippet};
 pub use document::DocumentBuffer;
 pub use hover::{diagnostic_hover, hover_field_info, hover_info, hover_info_with_registries};
@@ -30,7 +27,7 @@ pub use semantic_tokens::{
 };
 pub use specforge_graph::rename::RenameEdit;
 pub use state::LspState;
-pub use symbols::{SymbolEntry, document_symbols, workspace_symbols};
+pub use symbols::{SymbolEntry, document_symbols};
 
 /// An LSP-compatible position range (0-based line and column).
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -200,7 +200,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
     },
     ToolSpec {
         name: "specforge.search",
-        description: "Fuzzy search over graph nodes",
+        description: "Find entities by id, title or string field text, ranked as the LSP ranks them (exact, prefix, substring, field text, then fuzzy)",
         category: Category::Core,
         access: Access::ReadOnly,
         schema: || {

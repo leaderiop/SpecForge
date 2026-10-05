@@ -396,3 +396,185 @@ fn the_occurrence_at_a_position_is_the_token_there() {
     assert_eq!(nav.occurrence_at("limit.spec", 1, 3), None);
     assert_eq!(nav.occurrence_at("login.spec", 6, 16), None);
 }
+
+// ── One ranking: completion, workspace symbols and search ───────────────
+
+use specforge_ops::navigate::{EntityQuery, MatchScope, MatchedOn, Tier, find_entities};
+
+const USERS: &str = "behavior user_login \"User Login\" {\n  contract \"x\"\n}\n\
+                     behavior user_logout \"User Logout\" {\n  contract \"y\"\n}\n\
+                     type auth_token \"Auth Token\" {\n}\n";
+
+/// The ids `query` finds, best first.
+fn found(p: &Compiled, query: &EntityQuery) -> Vec<String> {
+    find_entities(&p.project.graph, query)
+        .iter()
+        .map(|m| m.node.id.raw.to_string())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "workspace_symbol_search",
+    verify = "search by ID prefix returns matches"
+)]
+fn an_id_prefix_finds_its_entities() {
+    let p = compile(SOFTWARE, &[("users.spec", USERS)]);
+    let names = |text| found(&p, &EntityQuery::new(text, MatchScope::Names));
+    assert_eq!(names("user"), ["user_login", "user_logout"]);
+    assert_eq!(names("auth_"), ["auth_token"]);
+}
+
+#[specforge_test(
+    behavior = "workspace_symbol_search",
+    verify = "search by title fragment returns matches"
+)]
+fn a_title_fragment_finds_its_entity() {
+    let p = compile(SOFTWARE, &[("users.spec", USERS)]);
+    // "user log" is in the titles ("User Login", "User Logout"), not the ids.
+    let matches = find_entities(
+        &p.project.graph,
+        &EntityQuery::new("ser Log", MatchScope::Names),
+    );
+    let ids: Vec<&str> = matches.iter().map(|m| m.node.id.raw.as_str()).collect();
+    assert_eq!(ids, ["user_login", "user_logout"]);
+    assert!(
+        matches
+            .iter()
+            .all(|m| m.on == MatchedOn::Title && m.tier == Tier::Substring)
+    );
+}
+
+#[specforge_test(
+    behavior = "workspace_symbol_search",
+    verify = "a misspelled query within the fuzzy threshold finds the entity"
+)]
+fn a_misspelled_id_is_found_within_the_threshold() {
+    let p = nav();
+    let matches = find_entities(
+        &p.project.graph,
+        &EntityQuery::new("sesion", MatchScope::Names),
+    );
+    let ids: Vec<&str> = matches.iter().map(|m| m.node.id.raw.as_str()).collect();
+    assert_eq!(
+        ids,
+        ["session_limit"],
+        "only the close match, not every weak one"
+    );
+    assert_eq!(matches[0].tier, Tier::Fuzzy);
+    assert!((matches[0].similarity - 0.874).abs() < 0.001);
+    assert!((matches[0].score - 0.6 * matches[0].similarity).abs() < 1e-9);
+    let p = compile(SOFTWARE, &[("users.spec", USERS)]);
+    assert_eq!(
+        found(&p, &EntityQuery::new("user_lgon", MatchScope::Names))[0],
+        "user_login"
+    );
+}
+
+#[specforge_test(
+    behavior = "autocomplete_entity_ids",
+    verify = "autocomplete suggests matching IDs"
+)]
+fn completion_suggests_the_matching_ids() {
+    let p = compile(SOFTWARE, &[("users.spec", USERS)]);
+    assert_eq!(
+        found(&p, &EntityQuery::new("user", MatchScope::Names)),
+        ["user_login", "user_logout"]
+    );
+}
+
+#[specforge_test(
+    behavior = "autocomplete_entity_ids",
+    verify = "suggestions filtered by target_kind when FieldRegistry has constraint"
+)]
+fn completion_keeps_the_fields_target_kind() {
+    let p = compile(SOFTWARE, &[("limit.spec", LIMIT), ("users.spec", USERS)]);
+    // What the LSP reads for a cursor inside `invariants [`.
+    let target = p
+        .project
+        .env
+        .registries
+        .fields
+        .get("behavior", "invariants")
+        .and_then(|f| f.target_kind.clone())
+        .expect("@specforge/software's invariants field targets a kind");
+    let kinds = [target.as_str()];
+    let query = EntityQuery {
+        kinds: &kinds,
+        ..EntityQuery::new("", MatchScope::Names)
+    };
+    assert_eq!(found(&p, &query), ["session_limit"]);
+}
+
+#[specforge_test(
+    behavior = "autocomplete_entity_ids",
+    verify = "all IDs suggested when no target_kind constraint exists"
+)]
+fn completion_without_a_target_kind_suggests_every_id() {
+    let p = compile(SOFTWARE, &[("limit.spec", LIMIT), ("users.spec", USERS)]);
+    assert_eq!(
+        found(&p, &EntityQuery::new("", MatchScope::Names)),
+        ["auth_token", "session_limit", "user_login", "user_logout"]
+    );
+}
+
+#[test]
+fn tiers_rank_exact_prefix_substring_field_text_then_fuzzy() {
+    let p = compile(
+        SOFTWARE,
+        &[(
+            "a.spec",
+            "behavior login \"Sign in\" {\n  contract \"x\"\n}\n\
+             behavior login_flow \"Flow\" {\n  contract \"x\"\n}\n\
+             behavior user_login \"U\" {\n  contract \"x\"\n}\n\
+             behavior audit \"Audit\" {\n  contract \"records each login\"\n}\n\
+             behavior logn \"Typo\" {\n  contract \"x\"\n}\n",
+        )],
+    );
+    let all = find_entities(
+        &p.project.graph,
+        &EntityQuery::new("LOGIN", MatchScope::NamesAndText),
+    );
+    let ranked: Vec<(&str, Tier, f64)> = all
+        .iter()
+        .map(|m| (m.node.id.raw.as_str(), m.tier, m.score))
+        .collect();
+    assert_eq!(ranked[0], ("login", Tier::Exact, 1.0));
+    assert_eq!(ranked[1], ("login_flow", Tier::Prefix, 0.9));
+    assert_eq!(ranked[2], ("user_login", Tier::Substring, 0.8));
+    assert_eq!(ranked[3], ("audit", Tier::FieldText, 0.7));
+    assert_eq!((ranked[4].0, ranked[4].1), ("logn", Tier::Fuzzy));
+    assert!(ranked[4].2 < 0.6, "a fuzzy score is 0.6 × similarity");
+    assert_eq!(all.len(), 5);
+    assert_eq!(all[3].on, MatchedOn::Field("contract".into()));
+
+    // Names only: the contract text matches nothing.
+    let names = found(&p, &EntityQuery::new("login", MatchScope::Names));
+    assert!(!names.contains(&"audit".to_string()), "{names:?}");
+
+    // Filters apply before ranking, the limit after.
+    let limited = EntityQuery {
+        limit: Some(2),
+        ..EntityQuery::new("login", MatchScope::NamesAndText)
+    };
+    assert_eq!(found(&p, &limited), ["login", "login_flow"]);
+    let contract = EntityQuery {
+        field_contains: Some(("contract", "RECORDS")),
+        ..EntityQuery::new("", MatchScope::NamesAndText)
+    };
+    assert_eq!(found(&p, &contract), ["audit"]);
+}
+
+#[test]
+fn the_referencing_filter_keeps_the_entities_that_reference_the_target() {
+    let p = nav();
+    let query = EntityQuery {
+        referencing: Some("session_limit"),
+        ..EntityQuery::new("", MatchScope::NamesAndText)
+    };
+    assert_eq!(found(&p, &query), ["login"]);
+    let both = EntityQuery {
+        kinds: &["invariant"],
+        ..query
+    };
+    assert!(found(&p, &both).is_empty());
+}

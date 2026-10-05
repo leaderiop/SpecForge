@@ -21,6 +21,10 @@ async fn e2e_completion_entity_ids() {
     );
 }
 
+#[spec(
+    behavior = "autocomplete_entity_ids",
+    verify = "suggestions include entity titles and kinds"
+)]
 #[tokio::test]
 async fn e2e_completion_entity_with_title() {
     let text = "type token \"Auth Token\" {}\nbehavior b \"B\" {\n  types [tok]\n}\n";
@@ -33,6 +37,10 @@ async fn e2e_completion_entity_with_title() {
     assert!(
         detail.contains("Auth Token"),
         "Expected title in detail, got: {detail}"
+    );
+    assert!(
+        detail.starts_with("type"),
+        "Expected kind in detail, got: {detail}"
     );
 }
 

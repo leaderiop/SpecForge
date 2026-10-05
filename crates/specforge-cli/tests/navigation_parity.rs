@@ -578,7 +578,7 @@ const CASES: &[Case] = &[
         fixture: "nav",
         target: &[
             (Surface::Lsp, &["session_limit"]),
-            (Surface::Mcp, &["session_limit id 0.524"]),
+            (Surface::Mcp, &["session_limit id 0.525"]),
         ],
     },
     Case {
@@ -641,18 +641,6 @@ const CASES: &[Case] = &[
 /// What each surface answers otherwise today. Later tickets delete rows;
 /// none may be added to excuse a regression.
 const EXPECTED_DIVERGENCES: &[Divergence] = &[
-    Divergence {
-        id: "N8",
-        case: "lookup_sesion",
-        surface: Surface::Lsp,
-        today: &[],
-    },
-    Divergence {
-        id: "N9",
-        case: "lookup_sesion",
-        surface: Surface::Mcp,
-        today: &["session_limit - 0.874"],
-    },
     Divergence {
         id: "N10",
         case: "inspect_alpha_in_a_cycle",
@@ -1017,6 +1005,53 @@ fn find_references_answers_what_the_lsp_answers() {
             );
         }
     }
+}
+
+/// MCP search ranks as the LSP's workspace symbols and completion rank:
+/// for each query, search's ids (over names; the fixture's string fields
+/// hold none of these texts) are the workspace symbols in the same order,
+/// and in a reference list completion offers what search finds of the
+/// field's target kind.
+#[specforge_test(
+    behavior = "provide_mcp_search_tool",
+    verify = "search ranks exactly as LSP workspaceSymbol and completion rank"
+)]
+fn search_ranks_as_workspace_symbols_and_completion() {
+    let p = project("nav");
+    let queries = [
+        "", "session", "log", "sesion", "Login", "LIMIT", "lgout", "zzz",
+    ];
+    let mut requests: Vec<Request> = queries
+        .iter()
+        .map(|q| ("workspace/symbol", json!({"query": q})))
+        .collect();
+    requests.push(("textDocument/completion", position(&p, "login.spec", 1, 14)));
+    let mut answers = lsp_requests(&p, json!({}), requests);
+    let completion = answers.pop().unwrap();
+    for (query, symbols) in queries.iter().zip(answers) {
+        let lsp: Vec<String> = symbols
+            .as_array()
+            .map(|s| {
+                s.iter()
+                    .map(|s| s["name"].as_str().unwrap().to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+        let mcp = mcp_tool(&p, "specforge.search", json!({"query": query}));
+        assert_eq!(search_ids(&mcp), lsp, "query {query:?}");
+    }
+    let labels: Vec<String> = completion
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|i| i["label"].as_str().unwrap().to_string())
+        .collect();
+    let mcp = mcp_tool(
+        &p,
+        "specforge.search",
+        json!({"query": "session_limit", "kinds": ["invariant"]}),
+    );
+    assert_eq!(search_ids(&mcp), labels);
 }
 
 /// Every row names a case the harness runs, a surface the case answers

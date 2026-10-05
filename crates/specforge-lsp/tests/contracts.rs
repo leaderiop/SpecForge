@@ -1,5 +1,6 @@
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Graph, Node};
+use specforge_ops::navigate::{EntityQuery, MatchScope, find_entities};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test_macros::test as specforge_test;
 
@@ -276,13 +277,31 @@ fn autocomplete_entity_ids_contract() {
     g.add_node(node("user_logout", "behavior", Some("User Logout")));
     g.add_node(node("auth_token", "type", Some("Auth Token")));
 
-    let items = specforge_lsp::complete_entity_ids(&g, "user");
+    // What completion asks of the shared ranking: ids and titles.
+    let query = EntityQuery::new("user", MatchScope::Names);
+    let items = find_entities(&g, &query);
 
     assert_eq!(items.len(), 2, "only matching IDs returned");
     for item in &items {
-        assert!(item.id.starts_with("user"), "each item must match prefix");
-        assert!(!item.kind.is_empty(), "kind must be populated");
+        assert!(
+            item.node.id.raw.as_str().starts_with("user"),
+            "each item must match prefix"
+        );
+        assert!(
+            !item.node.kind.raw.as_str().is_empty(),
+            "kind must be populated"
+        );
     }
+    // With the enclosing field's target kind, only that kind.
+    let types = EntityQuery {
+        kinds: &["type"],
+        ..EntityQuery::new("", MatchScope::Names)
+    };
+    let ids: Vec<&str> = find_entities(&g, &types)
+        .iter()
+        .map(|m| m.node.id.raw.as_str())
+        .collect();
+    assert_eq!(ids, ["auth_token"]);
 }
 
 // B:complete_field_names — verify contract "requires/ensures consistency for field name completion"
@@ -554,12 +573,16 @@ fn workspace_symbol_search_contract() {
     g.add_node(node_at("user_logout", "behavior", "a.spec", 5, 0));
     g.add_node(node_at("auth_token", "type", "b.spec", 0, 0));
 
-    let by_prefix = specforge_lsp::workspace_symbols(&g, "user");
+    // What workspace symbols ask of the shared ranking: ids and titles.
+    let by_prefix = find_entities(&g, &EntityQuery::new("user", MatchScope::Names));
     assert_eq!(by_prefix.len(), 2, "ID prefix search must match");
 
-    let by_title = specforge_lsp::workspace_symbols(&g, "Auth");
+    let by_title = find_entities(&g, &EntityQuery::new("Auth", MatchScope::Names));
     assert_eq!(by_title.len(), 1, "title fragment search must match");
-    assert_eq!(by_title[0].kind, "type", "result must include kind");
+    assert_eq!(
+        by_title[0].node.kind.raw, "type",
+        "result must include kind"
+    );
 }
 
 // B:provide_semantic_tokens — verify contract "requires/ensures consistency for semantic tokens"

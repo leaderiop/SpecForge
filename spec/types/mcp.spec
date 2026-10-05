@@ -291,7 +291,13 @@ type McpSearchResult {
   title         string
   file_path     string  @readonly
   line          integer @readonly
+  /// The rank band: 1.0 exact, 0.9 prefix, 0.8 substring, 0.7 field text,
+  /// 0.6 × similarity for a fuzzy match.
+  score         float
+  /// What matched: "id", "title" or a string field's name; absent for an
+  /// empty query.
   match_field   string  @optional
+  /// For a field-text match, the field's text around the match.
   match_snippet string  @optional
   verify unit "McpSearchResult schema is valid"
 }

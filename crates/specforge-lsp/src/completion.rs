@@ -1,13 +1,4 @@
-use specforge_graph::Graph;
 use specforge_registry::FieldRegistry;
-
-/// A completion item returned to the editor.
-#[derive(Debug, Clone)]
-pub struct CompletionItem {
-    pub id: String,
-    pub kind: String,
-    pub title: Option<String>,
-}
 
 /// Context about the cursor position within a .spec file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -222,52 +213,6 @@ pub fn keyword_snippet(kind: &str, field_registry: &FieldRegistry) -> String {
     }
     snippet.push_str("  $0\n}");
     snippet
-}
-
-/// Suggest entity IDs matching a prefix.
-pub fn complete_entity_ids(graph: &Graph, prefix: &str) -> Vec<CompletionItem> {
-    complete_entity_ids_filtered(graph, prefix, None)
-}
-
-/// Suggest entity IDs for a typed prefix, ranked (C4-06):
-///
-/// 1. case-insensitive prefix matches (alphabetical within the tier),
-/// 2. case-insensitive substring matches,
-/// 3. fuzzy matches — Jaro-Winkler >= 0.7, best score first.
-///
-/// An empty prefix yields every candidate in tier 1 order (id-sorted).
-pub fn complete_entity_ids_filtered(
-    graph: &Graph,
-    prefix: &str,
-    target_kind: Option<&str>,
-) -> Vec<CompletionItem> {
-    let lower = prefix.to_lowercase();
-    let mut scored: Vec<(u8, u32, CompletionItem)> = graph
-        .nodes()
-        .into_iter()
-        .filter(|n| target_kind.is_none_or(|k| n.kind.raw == k))
-        .filter_map(|n| {
-            let item = CompletionItem {
-                id: n.id.raw.to_string(),
-                kind: n.kind.raw.to_string(),
-                title: n.title.clone(),
-            };
-            let id_lower = item.id.to_lowercase();
-            if prefix.is_empty() {
-                return Some((1u8, 0u32, item));
-            }
-            if id_lower.starts_with(&lower) {
-                Some((0u8, 0u32, item))
-            } else if id_lower.contains(&lower) {
-                Some((1u8, 0u32, item))
-            } else {
-                let score = strsim::jaro_winkler(&id_lower, &lower);
-                (score >= 0.7).then_some((2u8, ((1.0 - score) * 10_000.0) as u32, item))
-            }
-        })
-        .collect();
-    scored.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.id.cmp(&b.2.id)));
-    scored.into_iter().map(|(_, _, item)| item).collect()
 }
 
 /// Return field names valid for a given entity kind from the FieldRegistry.

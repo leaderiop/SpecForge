@@ -281,6 +281,9 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
     MUST be suggested. Entity IDs are globally unique regardless of
     kind — the filtering is a UX optimization based on
     extension-declared field metadata, not a compiler requirement.
+    Suggestions are ranked by the shared ranking over IDs and titles
+    (exact, prefix, substring, then within the fuzzy threshold), as
+    workspace symbols and MCP specforge.search rank.
   """
   verify unit "autocomplete suggests matching IDs"
   verify unit "suggestions include entity titles and kinds"
@@ -479,13 +482,16 @@ behavior workspace_symbol_search "Workspace Symbol Search" {
     symbol_kind_delegated      "SymbolKind for each result is determined by provide_extension_defined_lsp_icons"
   }
   contract   """
-    The LSP MUST support workspace symbol search. Typing an entity ID
-    prefix or title fragment MUST return matching entities across all
-    .spec files in the workspace. The SymbolKind for each result MUST
-    be determined by provide_extension_defined_lsp_icons.
+    The LSP MUST support workspace symbol search. Typing an entity ID or
+    title fragment, exactly or within the fuzzy threshold, MUST return
+    matching entities across all .spec files in the workspace, ranked by
+    the shared ranking (specforge_ops::navigate, the one MCP
+    specforge.search and completion use). The SymbolKind for each result
+    MUST be determined by provide_extension_defined_lsp_icons.
   """
   verify unit "search by ID prefix returns matches"
   verify unit "search by title fragment returns matches"
+  verify unit "a misspelled query within the fuzzy threshold finds the entity"
   verify unit "search results use extension-defined SymbolKind"
   verify contract "Workspace Symbol Search: workspace symbol search holds — graph_available, kind_registry_available, matching_entities_returned, symbol_kind_delegated"
 }

@@ -230,15 +230,16 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.search tool that
-    accepts kind?[] (entity kind filter), field? (field name), value? (field
-    value), references? (entity_id to find referencing entities), text? (fuzzy
-    text search across names and string fields), and limit? (max results, default
-    50). The tool MUST combine these filters with AND semantics. Unknown
-    kind values in the kind[] array MUST be silently filtered out and an
-    I-level diagnostic MUST be included in the response metadata listing
-    the unrecognized kinds. Fuzzy text search MUST use the same algorithm
-    as LSP workspaceSymbol. An empty query with no filters MUST return
-    all entities up to the limit.
+    accepts query (required; empty matches every entity), kinds?[], field?
+    and value?, references? (an entity id: only entities that reference
+    it), and limit? (default 20). The tool MUST combine these filters with
+    AND semantics. Unknown kind values in the kinds[] array MUST be
+    silently filtered out and an I-level diagnostic MUST be included in the
+    response metadata listing the unrecognized kinds. Fuzzy text search
+    MUST use the same algorithm as LSP workspaceSymbol and completion:
+    exact, prefix, substring, field text (search only), then Jaro-Winkler
+    similarity of at least 0.8 over ID and title. An empty query with no
+    filters MUST return all entities up to the limit.
   """
   verify unit "text search finds entities matching by name or contract"
   verify unit "kind filter restricts results to matching entity kinds"
@@ -247,6 +248,7 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   verify unit "empty query returns all entities up to limit"
   verify unit "references filter returns entities referencing target"
   verify unit "the references filter combines with the other filters"
+  verify integration "search ranks exactly as LSP workspaceSymbol and completion rank"
   verify contract "Provide MCP Search Tool: MCP search tool holds — graph_available, filtered_results_returned, unknown_kinds_reported, tool_invoked_emitted"
   verify unit "missing query returns error"
 }

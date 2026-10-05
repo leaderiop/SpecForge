@@ -1460,10 +1460,13 @@ fn mcp_tool_search_with_kinds() {
     };
     let pair = |id: &str, kind: &str| (id.to_string(), kind.to_string());
 
+    // "a" is in every id: alpha (prefix), beta, gamma (substring) and
+    // inv's title "Invariant".
     assert_eq!(
         kinds_of(1),
         [
             pair("alpha", "behavior"),
+            pair("beta", "behavior"),
             pair("gamma", "feature"),
             pair("inv", "invariant")
         ],
@@ -1471,8 +1474,8 @@ fn mcp_tool_search_with_kinds() {
     );
     assert_eq!(
         kinds_of(2),
-        [pair("alpha", "behavior")],
-        "kinds=[behavior] keeps only the behavior"
+        [pair("alpha", "behavior"), pair("beta", "behavior")],
+        "kinds=[behavior] keeps only the behaviors"
     );
 }
 
@@ -2783,7 +2786,8 @@ fn mcp_tool_search_with_limit() {
             .collect()
     };
     let unlimited = ids(1);
-    assert_eq!(unlimited.len(), 3, "the query matches three: {unlimited:?}");
+    assert_eq!(unlimited.len(), 4, "the query matches four: {unlimited:?}");
+    assert_eq!(unlimited[0], "alpha", "the prefix match ranks first");
     assert_eq!(
         ids(2),
         [unlimited[0].clone()],
