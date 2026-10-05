@@ -41,6 +41,7 @@ mod pipeline;
 mod product_commands;
 mod product_rules;
 mod query;
+mod read_views;
 mod registry;
 mod schema_cache;
 mod stats;

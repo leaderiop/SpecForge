@@ -1,0 +1,22 @@
+---
+source: crates/specforge-cli/tests/read_views.rs
+expression: "normalized(&result, root)"
+---
+{
+  "messages": [
+    {
+      "content": {
+        "text": "Trace the dependency chain for entity 'login'. The data below shows all affected entities, unverified entities in the chain, and coverage gaps. Prioritize addressing unverified entities that are on critical paths.",
+        "type": "text"
+      },
+      "role": "user"
+    },
+    {
+      "content": {
+        "text": "{\"affected_entities\":[\"login\",\"signin\"],\"coverage_gaps\":[],\"unverified_entities\":[\"signin\"]}",
+        "type": "text"
+      },
+      "role": "assistant"
+    }
+  ]
+}

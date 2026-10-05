@@ -1,0 +1,24 @@
+---
+source: crates/specforge-cli/tests/read_views.rs
+expression: "normalized(&json, root)"
+---
+{
+  "coverage_pct": 75.0,
+  "declared_count": 3,
+  "declared_pct": 75.0,
+  "entities_by_kind": {
+    "behavior": 3,
+    "feature": 1,
+    "property": 1,
+    "type": 2
+  },
+  "error_count": 0,
+  "info_count": 3,
+  "orphan_count": 5,
+  "proof_pct": 50.0,
+  "testable_count": 4,
+  "total_edges": 1,
+  "total_entities": 7,
+  "verified_count": 4,
+  "warning_count": 9
+}

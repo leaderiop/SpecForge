@@ -1,0 +1,34 @@
+---
+source: crates/specforge-cli/tests/read_views.rs
+expression: "normalized(mcp, root)"
+---
+{
+  "coverage_pct": 75.0,
+  "declared_pct": 75.0,
+  "diagnostic_summary": {
+    "errors": 0,
+    "infos": 3,
+    "warnings": 9
+  },
+  "edge_count": 1,
+  "entity_counts": [
+    {
+      "count": 3,
+      "kind": "behavior"
+    },
+    {
+      "count": 1,
+      "kind": "feature"
+    },
+    {
+      "count": 1,
+      "kind": "property"
+    },
+    {
+      "count": 2,
+      "kind": "type"
+    }
+  ],
+  "orphan_count": 5,
+  "proof_pct": 50.0
+}

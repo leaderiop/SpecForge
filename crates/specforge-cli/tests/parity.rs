@@ -461,7 +461,7 @@ fn without_hashes(text: &str) -> String {
 }
 
 /// `value` as pretty JSON with the machine-specific parts replaced.
-fn normalized(value: &Value, root: &Path) -> String {
+pub(crate) fn normalized(value: &Value, root: &Path) -> String {
     let mut text = without_hashes(&serde_json::to_string_pretty(&redacted(value)).unwrap());
     let blob = s(&greet_blob());
     text = text.replace(&blob, "[BLOB]");

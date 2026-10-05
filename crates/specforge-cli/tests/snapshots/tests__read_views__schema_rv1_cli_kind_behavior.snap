@@ -1,0 +1,23 @@
+---
+source: crates/specforge-cli/tests/read_views.rs
+expression: "normalized(&schema_digest(value), root)"
+---
+{
+  "fields": [
+    "category",
+    "consumes",
+    "contract",
+    "description",
+    "diagnostic",
+    "features",
+    "invariants",
+    "ports",
+    "produces",
+    "refs",
+    "severity",
+    "status",
+    "types"
+  ],
+  "name": "behavior",
+  "testable": true
+}

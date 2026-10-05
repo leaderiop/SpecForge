@@ -241,3 +241,122 @@ fn stats_leaves_union_types_out_of_the_testable_count() {
     assert_eq!(stats.testable_count, 2, "Named and Payload");
     assert!((stats.coverage_pct - 50.0).abs() < 0.01);
 }
+
+/// The registries of a project whose `testable` kinds are testable and
+/// must declare obligations (a W004 `no_verify_statements` rule targets
+/// each), as `@specforge/software` declares `behavior`.
+fn registries(testable: &[&str]) -> specforge_registry::RegistryBuild {
+    use specforge_registry::KindRegistryEntry;
+    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
+    let mut build = specforge_registry::RegistryBuild::default();
+    for kind in testable {
+        build.kinds.register(KindRegistryEntry {
+            kind_name: kind.to_string(),
+            description: None,
+            source_extension: "@t/soft".into(),
+            testable: true,
+            singleton: false,
+            supports_verify: true,
+            allowed_verify_kinds: Vec::new(),
+            has_body_parser: false,
+            semantic_token: None,
+            lsp_icon: None,
+            dot_shape: None,
+            dot_color: None,
+            dot_fillcolor: None,
+            open_fields: false,
+            contract_target: false,
+            declares_types: false,
+            lifecycle_field: None,
+        });
+        build.rules.push((
+            ValidationRulePattern {
+                code: "W004".into(),
+                severity: specforge_common::Severity::Warning,
+                message_template: "{kind} '{id}' is testable but declares no verify obligations"
+                    .into(),
+                check: ValidationPatternKind::NoVerifyStatements,
+                target_kind: Some(kind.to_string()),
+                edge_type: None,
+                edge_peer_kind: None,
+                field: Some("verify".into()),
+                constraint: None,
+                wasm_function: None,
+            },
+            "@t/soft".into(),
+        ));
+    }
+    build
+}
+
+/// The contracts graph (a feature listing b, b depending on c, both
+/// verified), plus an unverified behavior and a verified feature.
+fn registries_graph() -> Graph {
+    let mut graph = Graph::new();
+    graph.add_node(node("a", "feature"));
+    graph.add_node(node_with_verify("b", "behavior"));
+    graph.add_node(node_with_verify("c", "behavior"));
+    graph.add_node(node("d", "behavior"));
+    graph.add_node(node_with_verify("e", "feature"));
+    graph.add_edge(Edge {
+        source: Sym::new("a"),
+        target: Sym::new("b"),
+        label: Sym::new("behaviors"),
+    });
+    graph.add_edge(Edge {
+        source: Sym::new("b"),
+        target: Sym::new("c"),
+        label: Sym::new("depends_on"),
+    });
+    graph
+}
+
+/// `{:#?}` of the stats, less the type's name.
+const STATS_TODAY: &str = r#"{
+    total_entities: 5,
+    total_edges: 2,
+    orphan_count: 2,
+    verified_count: 3,
+    testable_count: 3,
+    declared_count: 2,
+    declared_pct: 66.66666666666666,
+    coverage_pct: 66.66666666666666,
+    proof_pct: None,
+    error_count: 1,
+    warning_count: 1,
+    info_count: 0,
+    entities_by_kind: {
+        "behavior": 3,
+        "feature": 2,
+    },
+}"#;
+
+/// `stats` as `{:#?}` prints it, from its opening brace.
+fn debug_body(stats: &impl std::fmt::Debug) -> String {
+    let text = format!("{stats:#?}");
+    text[text.find('{').unwrap()..].to_string()
+}
+
+// Pins what the surfaces' stats path computes today (plan 02 T0): no
+// spec obligation, it must stay byte-identical when the path moves.
+#[test]
+fn stats_today_through_the_registries() {
+    let graph = registries_graph();
+    let build = registries(&["behavior"]);
+    let diagnostics = vec![
+        specforge_common::Diagnostic::error("E001", "err"),
+        specforge_common::Diagnostic::warning("W002", "warn"),
+    ];
+    let coverage = specforge_project::coverage::ProjectCoverage::compute(
+        &graph,
+        specforge_project::coverage::CoverageRegistries {
+            kinds: &build.kinds,
+            fields: &build.fields,
+            rules: &build.rules,
+        },
+        None,
+    );
+    let stats =
+        specforge_ops::stats::compute_project_stats(&graph, &coverage.summary, &diagnostics);
+    assert_eq!(debug_body(&stats), STATS_TODAY);
+}
