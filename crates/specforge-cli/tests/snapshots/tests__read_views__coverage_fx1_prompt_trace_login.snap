@@ -3,6 +3,7 @@ source: crates/specforge-cli/tests/read_views.rs
 expression: "normalized(&result, root)"
 ---
 {
+  "description": "Identify traceability gaps for a plan",
   "messages": [
     {
       "content": {
@@ -16,7 +17,7 @@ expression: "normalized(&result, root)"
         "text": "{\"affected_entities\":[\"login\",\"signin\"],\"coverage_gaps\":[],\"unverified_entities\":[\"signin\"]}",
         "type": "text"
       },
-      "role": "assistant"
+      "role": "user"
     }
   ]
 }
