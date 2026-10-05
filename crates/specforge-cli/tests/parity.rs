@@ -50,6 +50,20 @@ const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
         Aspect::Files,
         "only the CLI writes the schema cache",
     ),
+    // check: both surfaces run `specforge_ops::check` (plan 08, ADR 0018).
+    // Finding errors fails `specforge check` (exit 1) but is a successful
+    // MCP call, whose verdict is `_meta["specforge/check"].ok`.
+    (
+        "check_failing",
+        Aspect::Outcome,
+        "MCP validate finding errors is a successful call (ADR 0004 D4-a); the CLI exits 1",
+    ),
+    // The build cache is opt-in and the CLI's: validate never writes it.
+    (
+        "check_cache",
+        Aspect::Files,
+        "only `check --cache` writes the build cache (write_build_cache opt_in)",
+    ),
 ];
 
 // ── fixtures ────────────────────────────────────────────────────────────────
@@ -106,6 +120,17 @@ fn project_with_greet_installed(root: &Path) {
         .output()
         .unwrap();
     assert!(out.status.success(), "setup install failed: {out:?}");
+}
+
+/// The project with a reference to an invariant nobody declares: `check`
+/// reports E003.
+fn project_with_unresolved_reference(root: &Path) {
+    project(root);
+    std::fs::write(
+        root.join("spec/main.spec"),
+        "behavior alpha \"Alpha\" {\n  category \"core\"\n  contract \"The system MUST work\"\n  invariants [missing]\n}\n",
+    )
+    .unwrap();
 }
 
 fn project_unformatted(root: &Path) {
@@ -266,6 +291,27 @@ const SCENARIOS: &[Scenario] = &[
         setup: project,
         cli: |root| args(&["export", &s(root), "--format", "graph"]),
         mcp: |_| ("specforge.export", json!({"format": "graph"})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "check",
+        setup: project,
+        cli: |root| args(&["check", &s(root), "--format", "json"]),
+        mcp: |_| ("specforge.validate", json!({})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "check_failing",
+        setup: project_with_unresolved_reference,
+        cli: |root| args(&["check", &s(root), "--format", "json"]),
+        mcp: |_| ("specforge.validate", json!({})),
+        mcp_rooted: true,
+    },
+    Scenario {
+        name: "check_cache",
+        setup: project,
+        cli: |root| args(&["check", &s(root), "--format", "json", "--cache"]),
+        mcp: |_| ("specforge.validate", json!({})),
         mcp_rooted: true,
     },
     Scenario {
@@ -613,6 +659,21 @@ fn parity_export() {
 #[test]
 fn parity_analyze() {
     parity("analyze");
+}
+
+#[test]
+fn parity_check() {
+    parity("check");
+}
+
+#[test]
+fn parity_check_failing() {
+    parity("check_failing");
+}
+
+#[test]
+fn parity_check_cache() {
+    parity("check_cache");
 }
 
 // ── export: one function, one schema policy (O2, ADR 0004 D3-a) ─────────────

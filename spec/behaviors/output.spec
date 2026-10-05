@@ -474,6 +474,7 @@ behavior filter_reported_diagnostics "Filter Reported Diagnostics by Severity" {
     code, the build cache decision, or MCP's verdict.
   """
   verify unit "check --severity prints only that severity and never changes the exit code"
+  verify integration "check --severity and MCP validate severity_filter report the same diagnostics"
 }
 
 behavior export_diagnostics_as_json "Export Diagnostics as JSON" {

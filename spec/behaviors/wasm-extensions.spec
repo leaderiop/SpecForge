@@ -456,6 +456,7 @@ behavior write_build_cache "Write the Build Cache" {
   verify unit "check --cache with errors leaves the cache untouched"
   verify unit "check --strict --cache with warnings leaves the cache untouched"
   verify unit "a check that passes records the cache and says so"
+  verify integration "MCP validate never writes the build cache"
 }
 
 behavior read_build_cache "Read the Build Cache" {

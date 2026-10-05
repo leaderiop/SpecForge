@@ -200,14 +200,3 @@ fn mcp_validate_golden() {
         );
     }
 }
-
-#[test]
-fn mcp_validate_never_writes_the_cache_today() {
-    let dir = fixture("body_parser_type");
-    let mut server = server(dir.path());
-    for arguments in [json!({}), json!({"strict": false})] {
-        let result = validate(&mut server, &arguments);
-        assert_eq!(result["isError"], false, "{result}");
-        assert!(!dir.path().join(CACHE).exists(), "{arguments}");
-    }
-}
