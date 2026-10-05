@@ -36,6 +36,7 @@ mod installed_extensions;
 mod mcp_add;
 #[allow(deprecated)]
 mod migrate;
+mod navigation_parity;
 mod parity;
 mod pipeline;
 mod product_commands;

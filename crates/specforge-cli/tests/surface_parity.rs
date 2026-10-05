@@ -308,7 +308,7 @@ fn mcp_validate_json(project: &Project, arguments: Value) -> Value {
 
 // ── LSP ─────────────────────────────────────────────────────────────────
 
-mod lsp {
+pub(crate) mod lsp {
     use serde_json::{Value, json};
     use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
     use tokio::time::{Duration, Instant, timeout};
@@ -382,7 +382,7 @@ mod lsp {
             msg
         }
 
-        async fn request(&mut self, method: &str, params: Value) -> Value {
+        pub(crate) async fn request(&mut self, method: &str, params: Value) -> Value {
             let id = self.next_id;
             self.next_id += 1;
             self.write(&json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params}))
@@ -395,17 +395,27 @@ mod lsp {
             }
         }
 
-        async fn notify(&mut self, method: &str, params: Value) {
+        pub(crate) async fn notify(&mut self, method: &str, params: Value) {
             self.write(&json!({"jsonrpc": "2.0", "method": method, "params": params}))
                 .await;
         }
 
         /// Initialize on `root` and wait until background indexing ends.
         pub async fn open_workspace(&mut self, root: &std::path::Path) {
+            self.open_workspace_with(root, json!({})).await;
+        }
+
+        /// Initialize on `root` as a client declaring `capabilities`, and
+        /// wait until background indexing ends.
+        pub(crate) async fn open_workspace_with(
+            &mut self,
+            root: &std::path::Path,
+            capabilities: Value,
+        ) {
             let uri = Url::from_file_path(root).unwrap().to_string();
             self.request(
                 "initialize",
-                json!({"processId": null, "rootUri": uri, "capabilities": {}}),
+                json!({"processId": null, "rootUri": uri, "capabilities": capabilities}),
             )
             .await;
             self.notify("initialized", json!({})).await;
