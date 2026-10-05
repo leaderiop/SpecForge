@@ -947,6 +947,47 @@ fn mcp_validate_applies_the_lint_profiles_check_applies() {
     }
 }
 
+/// `check --severity` and MCP validate's `severity_filter` show the same
+/// diagnostics on every fixture, for each severity, with and without
+/// strict promotion (one filter, the check operation's), and the filter's
+/// name matches ignoring case on both.
+#[specforge_test(
+    behavior = "filter_reported_diagnostics",
+    verify = "check --severity and MCP validate severity_filter report the same diagnostics"
+)]
+fn check_severity_and_mcp_severity_filter_agree_on_every_fixture() {
+    let mut failures = Vec::new();
+    for &(fixture, entry, _) in FIXTURES {
+        let project = project(fixture, entry);
+        let everything = multiset(check(&project));
+        let mut shown_total = 0;
+        for severity in ["error", "warning", "Info"] {
+            for strict in [false, true] {
+                let mut flags = vec!["--severity", severity];
+                let mut arguments = json!({"severity_filter": severity});
+                if strict {
+                    flags.push("--strict");
+                    arguments["strict"] = json!(true);
+                }
+                let out = check_output_with(&project, &flags);
+                let checked = multiset(keys_of(&serde_json::from_str(&out).unwrap()));
+                let validated = mcp_validate(&project, arguments);
+                if checked != validated {
+                    failures.push(format!(
+                        "{fixture} --severity {severity} strict={strict}: check {checked:?}, validate {validated:?}"
+                    ));
+                }
+                if !strict {
+                    shown_total += checked.values().sum::<usize>();
+                }
+            }
+        }
+        // The three filters partition what check reports.
+        assert_eq!(shown_total, everything.values().sum::<usize>(), "{fixture}");
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
 /// `check --format json` and MCP validate print the same entries, key for
 /// key: one presenter (the nested span and the flat location together).
 #[specforge_test(

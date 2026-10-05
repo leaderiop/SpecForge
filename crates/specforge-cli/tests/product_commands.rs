@@ -918,15 +918,14 @@ fn the_timeline_compares_against_today_unless_as_of_says_otherwise() {
 fn check_reports_no_overdue_milestone() {
     let dir = setup_overdue_project();
     let mut cmd = cargo_bin_cmd!("specforge");
-    cmd.current_dir(dir.path())
-        .args(["check", "--lint=pedantic"]);
+    cmd.current_dir(dir.path()).arg("check");
     let output = cmd.output().unwrap();
     let all = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    // Pedantic shows the infos, so an I058 would be among them.
+    // Infos are always reported, so an I058 would be among them.
     assert!(output.status.code().is_some_and(|c| c <= 1), "{all}");
     assert!(!all.contains("I058"), "{all}");
 }

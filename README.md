@@ -128,7 +128,7 @@ The goal: lift AI agent first-attempt accuracy from ~30% (prose) toward 70–85%
 specforge init                       # scaffold a new project
 specforge check                      # validate .spec files
 specforge check --strict             # promote warnings to errors
-specforge check --lint=pedantic      # include info-level diagnostics
+specforge check --severity error     # show only errors (the exit code still counts everything)
 specforge check --cache              # record statuses in specforge-cache.json (history rules)
 
 # Graph access (for agents and humans)

@@ -10,6 +10,7 @@
 
 pub mod analyze;
 pub mod builtin_passes;
+pub mod check;
 pub mod collect;
 pub mod command;
 pub mod config;

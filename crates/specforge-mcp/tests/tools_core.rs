@@ -1332,6 +1332,121 @@ fn validate_strict_promotes_warnings_to_errors() {
     assert!(strict.iter().any(|(c, _)| c == "W003"));
 }
 
+/// `specforge.validate` on the project at `path` with `args` added: the
+/// whole response.
+fn validate_response(path: &str, mut args: Value) -> Value {
+    args["path"] = json!(path);
+    let mut server = test_server();
+    call_tool(&mut server, "specforge.validate", args)
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "an unknown severity_filter or lint profile is invalid input"
+)]
+fn validate_refuses_an_unknown_severity_filter_or_lint_profile() {
+    let project = project_with_errors_and_warnings();
+    let path = project.path().to_str().unwrap();
+    for (args, argument, suggestion) in [
+        (
+            json!({"severity_filter": "errors"}),
+            "severity_filter",
+            Some("did you mean 'error'?"),
+        ),
+        (json!({"severity_filter": "fatal"}), "severity_filter", None),
+        (json!({"lint": ["nonsense"]}), "lint", None),
+        (
+            json!({"lint": ["inferred", "pedantik"]}),
+            "lint",
+            Some("did you mean 'pedantic'?"),
+        ),
+    ] {
+        let resp = validate_response(path, args.clone());
+        assert_eq!(resp["result"]["isError"], true, "{args}: {resp}");
+        let error: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        assert_eq!(error["code"], "invalid_input", "{args}: {error}");
+        assert_eq!(error["argument"], argument, "{args}: {error}");
+        assert_eq!(
+            error["data"]["suggestion"].as_str(),
+            suggestion,
+            "{args}: {error}"
+        );
+        let message = error["message"].as_str().unwrap();
+        assert!(message.starts_with("Unknown "), "{message}");
+    }
+
+    // The payload's own spelling of a severity filters like the lowercase
+    // name, and the documented profiles are accepted.
+    let path = project.path().to_str().unwrap();
+    for spelling in ["Error", "ERROR"] {
+        assert_eq!(
+            validate(json!({"path": path, "severity_filter": spelling})),
+            validate(json!({"path": path, "severity_filter": "error"})),
+            "{spelling}"
+        );
+    }
+    assert_eq!(
+        validate(json!({"path": path, "lint": ["pedantic"]})),
+        validate(json!({"path": path}))
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "the verdict on every reported diagnostic rides in _meta, whatever severity_filter shows"
+)]
+fn validate_verdict_in_meta_counts_everything_reported() {
+    let project = project_with_errors_and_warnings();
+    let path = project.path().to_str().unwrap();
+    let all = validate(json!({"path": path}));
+    let count = |severity: &str| all.iter().filter(|(_, s)| s == severity).count();
+    let (errors, warnings, infos) = (count("Error"), count("Warning"), count("Info"));
+    assert!(errors > 0 && warnings > 0, "{all:?}");
+
+    let resp = validate_response(path, json!({"severity_filter": "warning"}));
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    let shown: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(shown.as_array().unwrap().len(), warnings);
+    assert_eq!(
+        resp["result"]["_meta"]["specforge/check"],
+        json!({
+            "ok": false,
+            "errors": errors,
+            "warnings": warnings,
+            "infos": infos,
+            "shown": warnings,
+        }),
+        "{resp}"
+    );
+
+    // Strict promotes first: the verdict counts the promoted warnings as
+    // errors, and a warning filter then shows nothing.
+    let strict = validate_response(path, json!({"strict": true, "severity_filter": "warning"}));
+    assert_eq!(
+        strict["result"]["_meta"]["specforge/check"],
+        json!({
+            "ok": false,
+            "errors": errors + warnings,
+            "warnings": 0,
+            "infos": infos,
+            "shown": 0,
+        }),
+        "{strict}"
+    );
+
+    // A clean project passes.
+    let clean = tempfile::tempdir().unwrap();
+    std::fs::write(
+        clean.path().join("specforge.json"),
+        r#"{"name":"c","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
+    let resp = validate_response(clean.path().to_str().unwrap(), json!({}));
+    let verdict = &resp["result"]["_meta"]["specforge/check"];
+    assert_eq!(verdict["ok"], true, "{resp}");
+    assert_eq!(verdict["errors"], 0, "{resp}");
+}
+
 // B:provide_mcp_validate_tool — verify unit "use_cached=false triggers fresh compilation"
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",

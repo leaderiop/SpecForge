@@ -263,7 +263,7 @@ Read it like a pair programmer: **code** (`E003`), **message** (unresolved refer
 |-------|--------|---------|
 | Error | `E003` | Blocks compilation. Must fix. |
 | Warning | `W001` | A likely problem (orphan, missing coverage). Doesn't block. |
-| Info | `I010` | Advice (pedantic profile). Surfaced with `--lint=pedantic`. |
+| Info | `I010` | Advice. Always reported; `--severity info` shows only it. |
 
 Use `specforge check --strict` in CI to treat warnings as errors.
 
@@ -773,7 +773,8 @@ And the commands you'll lean on as you author:
 
 ```bash
 specforge check --strict          # CI gate: warnings become errors
-specforge check --lint=pedantic   # surface info-level advice
+specforge check --severity error  # only the errors (the exit code still counts everything)
+specforge check --severity info   # only the info-level advice
 specforge explain W004            # what does a code mean?
 specforge trace <id>              # traceability chain for an entity
 specforge query <id> --depth 2    # neighborhood at a zoom level

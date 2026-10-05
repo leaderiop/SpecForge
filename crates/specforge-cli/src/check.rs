@@ -1,7 +1,9 @@
-use specforge_project::{CompiledProject, DiagnosticPolicy};
+use specforge_common::{Diagnostic, Severity};
+use specforge_ops::check::{CacheRecord, CheckOptions, check};
+use specforge_ops::view::ProjectView;
+use specforge_project::{CompiledProject, LintProfile};
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 use specforge_wasm::WasmRuntime;
-use std::collections::HashMap;
 use std::path::Path;
 
 use crate::OutputFormat;
@@ -10,89 +12,99 @@ pub fn run(
     path: &Path,
     strict: bool,
     format: OutputFormat,
-    lint_profiles: &[String],
+    lint_profiles: &[LintProfile],
+    severity: Option<Severity>,
     cache: bool,
 ) -> i32 {
     let runtime = specforge_component::project_runtime(path);
-    run_in(path, &runtime, strict, format, lint_profiles, cache)
+    let options = CheckOptions {
+        strict,
+        lint_profiles: lint_profiles.to_vec(),
+        severity,
+        record_cache: cache,
+    };
+    run_in(path, &runtime, format, &options)
 }
 
-/// `specforge check` with the project's extensions running in `runtime`.
-/// With `cache`, a check that passes records the build's lifecycle states
-/// (the fields kinds declare as `lifecycle_field`) in `specforge-cache.json`.
+/// `specforge check` with the project's extensions running in `runtime`:
+/// the check operation over what the compile reported, the diagnostics the
+/// severity filter shows rendered, and the verdict over everything as the
+/// exit code. With `record_cache`, a check that passes records the build's
+/// lifecycle states (the fields kinds declare as `lifecycle_field`) in
+/// `specforge-cache.json`.
 fn run_in(
     path: &Path,
     runtime: &dyn WasmRuntime,
-    strict: bool,
     format: OutputFormat,
-    lint_profiles: &[String],
-    cache: bool,
+    options: &CheckOptions,
 ) -> i32 {
-    let ctx = CompiledProject::compile(path, Some(runtime)).into_context();
-
-    // --lint profiles add their diagnostics, --strict promotes warnings.
-    let policy = DiagnosticPolicy {
-        strict,
-        lint_profiles: lint_profiles.to_vec(),
+    if options.lint_profiles.contains(&LintProfile::Pedantic) {
+        eprintln!("note: --lint pedantic is the default: info diagnostics are always reported");
+    }
+    let compiled = CompiledProject::compile(path, Some(runtime));
+    let outcome = match check(&ProjectView::of(&compiled), compiled.diagnostics(), options) {
+        Ok(outcome) => outcome,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return 1;
+        }
     };
-    let all_diagnostics = policy.apply(path, ctx.diagnostics);
+    let shown: Vec<Diagnostic> = outcome.shown().into_iter().cloned().collect();
 
-    // Output
     match format {
         OutputFormat::Json => {
-            let entries = specforge_common::diagnostics_json(&all_diagnostics);
+            let entries = specforge_common::diagnostics_json(&shown);
             let json = serde_json::to_string_pretty(&entries).unwrap_or_default();
             println!("{}", json);
         }
         OutputFormat::Human => {
             let color = crate::color::stderr();
-            if !all_diagnostics.is_empty() {
-                let sources = build_source_map(&ctx.spec_root, &ctx.resolved.files);
-                let rendered = render_diagnostics_colored(&all_diagnostics, &sources, color);
+            if !shown.is_empty() {
+                let sources = compiled.resolved.source_texts();
+                let rendered = render_diagnostics_colored(&shown, &sources, color);
                 eprint!("{}", rendered);
             }
-            eprintln!("{}", diagnostic_summary_detailed(&all_diagnostics, color));
+            // The summary counts everything reported, as the verdict does.
+            let summary = diagnostic_summary_detailed(&outcome.reported, color);
+            eprintln!("{}", with_filter_note(&summary, outcome.severity));
         }
     }
 
-    if cache {
-        match specforge_project::record_build_cache(
-            path,
-            &ctx.graph,
-            &ctx.kind_registry,
-            &all_diagnostics,
-        ) {
-            Ok(true) => {}
-            Ok(false) => eprintln!(
-                "note: {} not written: the check failed",
+    match &outcome.cache {
+        CacheRecord::NotRequested | CacheRecord::Written => {}
+        CacheRecord::NotWritten => eprintln!(
+            "note: {} not written: the check failed",
+            specforge_project::BUILD_CACHE_FILE
+        ),
+        CacheRecord::WriteFailed(e) => {
+            eprintln!(
+                "error: cannot write {}: {e}",
                 specforge_project::BUILD_CACHE_FILE
-            ),
-            Err(e) => {
-                eprintln!(
-                    "error: cannot write {}: {e}",
-                    specforge_project::BUILD_CACHE_FILE
-                );
-                return 1;
-            }
+            );
+            return 1;
         }
     }
 
     // Strict already promoted warnings: errors alone decide.
-    specforge_common::compute_exit_code(&all_diagnostics)
+    if outcome.ok() { 0 } else { 1 }
 }
 
-pub(crate) fn build_source_map(
-    spec_root: &Path,
-    files: &[specforge_resolver::ResolvedFile],
-) -> HashMap<String, String> {
-    let mut sources = HashMap::new();
-    for file in files {
-        let full_path = spec_root.join(&file.path);
-        if let Ok(content) = std::fs::read_to_string(&full_path) {
-            sources.insert(file.path.clone(), content);
-        }
+/// `summary` with `(showing <severity> only)` after its first line when a
+/// severity filter hides the rest.
+fn with_filter_note(summary: &str, severity: Option<Severity>) -> String {
+    let Some(severity) = severity else {
+        return summary.to_string();
+    };
+    let (first, rest) = match summary.split_once('\n') {
+        Some((first, rest)) => (first, Some(rest)),
+        None => (summary, None),
+    };
+    let mut out = format!("{first} (showing {severity} only)");
+    if let Some(rest) = rest {
+        out.push('\n');
+        out.push_str(rest);
     }
-    sources
+    out
 }
 
 #[cfg(test)]
@@ -184,10 +196,8 @@ mod tests {
             run_in(
                 dir.path(),
                 &AuditExtension,
-                false,
                 OutputFormat::Human,
-                &[],
-                false,
+                &CheckOptions::default(),
             )
         };
         assert_eq!(human(&clean), 0);

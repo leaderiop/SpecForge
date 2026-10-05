@@ -85,6 +85,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
     diagnostics_returned      "All diagnostics matching filter returned with severity, message, file path, and line number"
     strict_promotion_enforced "When strict is true, warnings promoted to errors in response"
     tool_invoked_emitted      "mcp_tool_invoked event emitted"
+    verdict_in_meta           "_meta[\"specforge/check\"] carries ok and the error, warning and info counts of everything reported, and how many diagnostics are shown"
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.validate tool
@@ -92,9 +93,10 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
     are what specforge check reports) and returns validation results as
     Graph Protocol diagnostics. The tool accepts path? (optional: the
     project; another project is compiled for the call only),
-    severity_filter? (optional: error, warning, info), strict? (optional
-    boolean, treat warnings as errors), lint? (optional list of lint
-    profiles, as specforge check --lint takes), and use_cached? (optional
+    severity_filter? (optional: error, warning or info, matched ignoring
+    case; any other value is invalid input), strict? (optional boolean,
+    treat warnings as errors), lint? (optional list of inferred and
+    pedantic; any other name is invalid input), and use_cached? (optional
     boolean, default false).
     The response MUST include all diagnostics matching the filter with their
     severity, message, file path, and line number, and each diagnostic whose
@@ -105,6 +107,11 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
     Cache semantics: use_cached=true reports the served project as last
     brought up to date, even when files changed since; with no project
     served there is nothing cached, so the call compiles.
+
+    A run that finds errors is a successful call (isError false, ADR 0004
+    D4-a); whether the check passed is in _meta["specforge/check"].ok,
+    over every reported diagnostic whatever severity_filter shows. The
+    tool never writes the build cache.
   """
   verify unit "each catalogued diagnostic carries its title"
   verify unit "specforge.validate tool triggers compilation"
@@ -114,7 +121,9 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
   verify integration "validate with lint profiles reports what specforge check reports with the same profiles"
   verify unit "validate with use_cached=false triggers fresh compilation"
   verify unit "validate with use_cached=true returns existing diagnostics without recompilation"
-  verify contract "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted"
+  verify unit "an unknown severity_filter or lint profile is invalid input"
+  verify unit "the verdict on every reported diagnostic rides in _meta, whatever severity_filter shows"
+  verify contract "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted, verdict_in_meta"
 }
 
 behavior provide_mcp_export_tool "Provide MCP Export Tool" {

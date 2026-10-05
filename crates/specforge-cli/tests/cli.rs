@@ -888,6 +888,139 @@ feature gamma "G" { behaviors [alpha_parsr] }
 
 // === typed format flags (C14-10) ===
 
+/// A project whose check reports two errors (E007, a module cycle), one
+/// warning (W061, the reference cycle) and two infos (I067, modules
+/// without features).
+fn project_with_every_severity() -> TempDir {
+    setup_project(&[
+        (
+            "specforge.json",
+            r#"{"name":"p","version":"0.1.0","extensions":["@specforge/software","@specforge/product"]}"#,
+        ),
+        (
+            "main.spec",
+            "module core_mod \"Core\" {\n  description \"The core\"\n  depends_on  [edge_mod]\n}\n\nmodule edge_mod \"Edge\" {\n  description \"The edge\"\n  depends_on  [core_mod]\n}\n",
+        ),
+    ])
+}
+
+/// `specforge check --format json <dir> <args>`: exit code, the codes
+/// printed, and stderr.
+fn check_json(dir: &TempDir, args: &[&str]) -> (Option<i32>, Vec<String>, String) {
+    let output = specforge_cmd()
+        .args(["check", "--format", "json"])
+        .args(args)
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let codes = serde_json::from_str::<serde_json::Value>(&stdout)
+        .ok()
+        .and_then(|v| v.as_array().cloned())
+        .unwrap_or_default()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap_or("?").to_string())
+        .collect();
+    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+    (output.status.code(), codes, stderr)
+}
+
+#[specforge_test(
+    behavior = "exit_code_reflects_diagnostic_severity",
+    verify = "an unknown --lint profile fails with a clap error (exit 2), before anything is compiled"
+)]
+fn unknown_lint_profile_is_rejected_by_clap() {
+    let dir = project_with_every_severity();
+    let (code, codes, stderr) = check_json(&dir, &["--lint", "nonsense", "--cache"]);
+    assert_eq!(code, Some(2), "{stderr}");
+    assert!(
+        stderr.contains("invalid value 'nonsense'") && stderr.contains("inferred, pedantic"),
+        "expected a clap parse error naming the profiles, got: {stderr}"
+    );
+    // Nothing ran: no diagnostics printed, no cache note, no cache file.
+    assert!(codes.is_empty(), "{codes:?}");
+    assert!(!stderr.contains("specforge-cache.json"), "{stderr}");
+    assert!(!dir.path().join("specforge-cache.json").exists());
+
+    // An unknown --severity is refused the same way.
+    let (code, _, stderr) = check_json(&dir, &["--severity", "errors"]);
+    assert_eq!(code, Some(2), "{stderr}");
+    assert!(stderr.contains("invalid value 'errors'"), "{stderr}");
+}
+
+#[specforge_test(
+    behavior = "filter_reported_diagnostics",
+    verify = "check --severity prints only that severity and never changes the exit code"
+)]
+fn check_severity_shows_one_severity_and_keeps_the_exit_code() {
+    let dir = project_with_every_severity();
+    let (code, all, _) = check_json(&dir, &[]);
+    assert_eq!(code, Some(1));
+    assert_eq!(all, ["W061", "E007", "E007", "I067", "I067"]);
+
+    for (severity, expected) in [
+        ("info", vec!["I067", "I067"]),
+        ("Info", vec!["I067", "I067"]),
+        ("error", vec!["E007", "E007"]),
+        ("WARNING", vec!["W061"]),
+    ] {
+        let (code, codes, stderr) = check_json(&dir, &["--severity", severity]);
+        assert_eq!(codes, expected, "--severity {severity}");
+        assert_eq!(code, Some(1), "the errors still fail the check: {stderr}");
+    }
+
+    // Strict promotes first: the warning is shown as an error.
+    let (code, codes, _) = check_json(&dir, &["--strict", "--severity", "error"]);
+    assert_eq!(codes, ["W061", "E007", "E007"]);
+    assert_eq!(code, Some(1));
+    let (_, codes, _) = check_json(&dir, &["--strict", "--severity", "warning"]);
+    assert!(codes.is_empty(), "{codes:?}");
+
+    // Human output: only the infos are rendered, the summary counts
+    // everything and says what it shows.
+    let output = specforge_cmd()
+        .args(["check", "--severity", "info"])
+        .arg(dir.path())
+        .env("NO_COLOR", "1")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("[I067]"), "{stderr}");
+    assert!(!stderr.contains("[E007]"), "{stderr}");
+    assert!(!stderr.contains("[W061]"), "{stderr}");
+    assert!(
+        stderr.contains("2 errors, 1 warning, 2 infos (showing info only)"),
+        "{stderr}"
+    );
+
+    // The filter does not decide the cache either: the check failed.
+    let (_, _, stderr) = check_json(&dir, &["--severity", "info", "--cache"]);
+    assert!(stderr.contains("not written: the check failed"), "{stderr}");
+    assert!(!dir.path().join("specforge-cache.json").exists());
+}
+
+#[specforge_test(
+    behavior = "check_diagnostic_policy",
+    verify = "--lint pedantic is accepted and changes nothing"
+)]
+fn lint_pedantic_is_accepted_and_changes_nothing() {
+    let dir = project_with_every_severity();
+    let plain = check_json(&dir, &[]);
+    let (code, codes, stderr) = check_json(&dir, &["--lint", "pedantic"]);
+    assert_eq!((code, &codes), (plain.0, &plain.1));
+    assert_eq!(
+        stderr
+            .matches("note: --lint pedantic is the default: info diagnostics are always reported")
+            .count(),
+        1,
+        "{stderr}"
+    );
+    // With another profile in the same flag, pedantic is still a no-op.
+    let (code, codes, _) = check_json(&dir, &["--lint=pedantic,inferred"]);
+    assert_eq!((code, &codes), (plain.0, &plain.1));
+}
+
 #[specforge_test(
     behavior = "exit_code_reflects_diagnostic_severity",
     verify = "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"

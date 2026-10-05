@@ -2006,7 +2006,7 @@ fn contract_protocol_error() {
 
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
-    verify = "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted"
+    verify = "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted, verdict_in_meta"
 )]
 fn contract_validate() {
     let dir = tempfile::TempDir::new().unwrap();
@@ -2075,6 +2075,12 @@ fn contract_validate() {
     );
     // Finding errors is what a validation run is for: a successful call.
     assert_eq!(resp["result"]["isError"], false, "{resp}");
+    // verdict_in_meta: whether the check passed, over everything reported.
+    assert_eq!(
+        resp["result"]["_meta"]["specforge/check"],
+        json!({"ok": false, "errors": 1, "warnings": 1, "infos": 0, "shown": 2}),
+        "{resp}"
+    );
 
     // strict_promotion_enforced: the warning comes back as an error.
     let strict = tool(&mut server, "specforge.validate", json!({"strict": true}));
@@ -2087,6 +2093,16 @@ fn contract_validate() {
     assert_eq!(severities.len(), 2, "{strict}");
     assert!(severities.contains(&("W004", "Error")), "{strict}");
     assert!(severities.contains(&("E006", "Error")), "{strict}");
+    let strict = call_tool(
+        &mut server,
+        "specforge.validate",
+        json!({"strict": true, "severity_filter": "warning"}),
+    );
+    assert_eq!(
+        strict["result"]["_meta"]["specforge/check"],
+        json!({"ok": false, "errors": 2, "warnings": 0, "infos": 0, "shown": 0}),
+        "{strict}"
+    );
 
     assert_tool_invoked(&server, "specforge.validate");
 }

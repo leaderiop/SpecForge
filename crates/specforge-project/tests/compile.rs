@@ -487,3 +487,21 @@ fn no_provider_means_no_scheme_check() {
 
     assert!(diagnostics.is_empty(), "{diagnostics:?}");
 }
+
+/// A compile keeps the text it parsed: a file rewritten on disk after the
+/// compile is still quoted as it was compiled.
+#[test]
+fn source_texts_are_what_was_compiled() {
+    let compiled_text = "behavior alpha \"Alpha\" {\n  contract \"MUST work\"\n}\n";
+    let dir = project(
+        serde_json::json!({"name": "p", "version": "0.1.0", "extensions": []}),
+        &[("a.spec", compiled_text), ("sub/b.spec", "// b\n")],
+    );
+    let compiled = CompiledProject::compile(dir.path(), None);
+    fs::write(dir.path().join("a.spec"), "// rewritten\n").unwrap();
+
+    let texts = compiled.resolved.source_texts();
+    assert_eq!(texts["a.spec"], compiled_text);
+    assert_eq!(texts["sub/b.spec"], "// b\n");
+    assert_eq!(texts.len(), 2, "{texts:?}");
+}

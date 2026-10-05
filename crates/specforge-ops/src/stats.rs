@@ -3,11 +3,12 @@
 //! surface presents them in its own result type (`ProjectStatistics`,
 //! `McpStatsResult`).
 
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 use specforge_project::coverage::{ReportError, Summary};
 use std::collections::{BTreeMap, HashSet};
 
+use crate::check::Counts;
 use crate::view::ProjectView;
 
 /// What a surface asks stats for.
@@ -86,16 +87,7 @@ fn tally(graph: &Graph, coverage: &Summary, diagnostics: &[Diagnostic]) -> Stats
     };
     let proof_pct = coverage.test_results.as_ref().map(|_| coverage.proof_pct());
 
-    let mut error_count = 0;
-    let mut warning_count = 0;
-    let mut info_count = 0;
-    for diag in diagnostics {
-        match diag.severity {
-            Severity::Error => error_count += 1,
-            Severity::Warning => warning_count += 1,
-            Severity::Info => info_count += 1,
-        }
-    }
+    let counts = Counts::of(diagnostics);
 
     Stats {
         total_entities: graph.node_count(),
@@ -107,9 +99,9 @@ fn tally(graph: &Graph, coverage: &Summary, diagnostics: &[Diagnostic]) -> Stats
         declared_pct,
         coverage_pct: declared_pct,
         proof_pct,
-        error_count,
-        warning_count,
-        info_count,
+        error_count: counts.errors,
+        warning_count: counts.warnings,
+        info_count: counts.infos,
         entities_by_kind,
     }
 }

@@ -9,7 +9,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::mpsc;
 
-use specforge_common::{Diagnostic, Severity};
+use specforge_ops::check::Counts;
 use specforge_project::{Changes, InputRole, ProjectSession, Update, UpdateKind};
 use specforge_watch::SpecWatcher;
 
@@ -36,7 +36,9 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
     };
 
     let diagnostics = session.diagnostics();
-    let (errors, warnings) = counts(&diagnostics);
+    let Counts {
+        errors, warnings, ..
+    } = Counts::of(&diagnostics);
     if json {
         println!(
             "{}",
@@ -154,7 +156,9 @@ fn changed_labels(session: &ProjectSession, batch: &[PathBuf], roles: &[InputRol
 /// inputs (with the same fields), `extensions_reloaded` for the
 /// environment.
 fn report(session: &ProjectSession, update: &Update, changed: &[String], json: bool) {
-    let (errors, warnings) = counts(&update.diagnostics);
+    let Counts {
+        errors, warnings, ..
+    } = Counts::of(&update.diagnostics);
     if update.kind == UpdateKind::Environment {
         let extensions: Vec<&str> = session
             .environment()
@@ -236,15 +240,4 @@ fn report(session: &ProjectSession, update: &Update, changed: &[String], json: b
             eprintln!("verification FAILED: {msg}");
         }
     }
-}
-
-/// (errors, warnings) among `diagnostics`.
-fn counts(diagnostics: &[Diagnostic]) -> (usize, usize) {
-    let count = |severity: Severity| {
-        diagnostics
-            .iter()
-            .filter(|d| d.severity == severity)
-            .count()
-    };
-    (count(Severity::Error), count(Severity::Warning))
 }

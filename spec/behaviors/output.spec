@@ -272,13 +272,15 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
     exit with code 1 if any error-level diagnostic exists. With --strict,
     warnings MUST also cause exit code 1.
     A command-line value outside a flag's allowed set, such as an
-    unknown --format, MUST be rejected while arguments are parsed, with
-    exit code 2, before anything is compiled.
+    unknown --format, an unknown --lint profile or an unknown --severity,
+    MUST be rejected while arguments are parsed, with exit code 2, before
+    anything is compiled.
   """
   verify unit "exit 0 with no errors"
   verify unit "exit 1 with errors"
   verify unit "exit 1 with warnings in strict mode"
   verify unit "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"
+  verify unit "an unknown --lint profile fails with a clap error (exit 2), before anything is compiled"
   verify contract "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
 }
 
@@ -414,6 +416,65 @@ behavior check_mode_for_ci "Check Mode for CI" {
   verify unit "check mode prints diagnostics to stderr"
   verify integration "check mode works in CI environment"
   verify contract "Check Mode for CI: CI check mode holds — validation_complete_fired, no_output_files_produced, diagnostics_to_stderr, appropriate_exit_code"
+}
+
+behavior check_diagnostic_policy "Apply the Diagnostic Policy Once" {
+  features   [ci_integration, diagnostic_reporting]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   validation
+  types      [Diagnostic]
+  ports      [CompilerApi]
+  requires {
+    project_compiled "the project compiled and its diagnostics are known"
+  }
+  ensures {
+    policy_once        "lint profiles add their diagnostics, then strict promotes warnings, the same way for specforge check and MCP validate"
+    closed_profiles    "the lint profiles are inferred and pedantic; any other name is refused"
+    verdict_unfiltered "the check passes when nothing reported is an error, whatever a severity filter shows"
+  }
+  contract   """
+    What a project reports is decided once, for specforge check and the
+    MCP specforge.validate tool alike: the compiled project's
+    diagnostics, then those of each requested lint profile (inferred:
+    I200 and I202 from specforge-infer.json; pedantic adds nothing, as
+    info diagnostics are always reported), then strict promotion of
+    warnings to errors. A lint profile SpecForge does not define MUST be
+    refused: by the CLI while arguments are parsed (exit 2), by MCP as
+    invalid input. The check passes when no reported diagnostic is an
+    error; a severity filter selects what is shown and MUST NOT change
+    whether the check passes or whether the build cache is written.
+  """
+  verify unit "an unknown lint profile is refused by name, and pedantic adds nothing"
+  verify unit "the verdict and the cache decision are taken over every reported diagnostic, never the filtered ones"
+  verify unit "strict promotes warnings before the verdict, so a strict check with warnings is not clean"
+  verify unit "--lint pedantic is accepted and changes nothing"
+}
+
+behavior filter_reported_diagnostics "Filter Reported Diagnostics by Severity" {
+  features   [ci_integration, diagnostic_reporting]
+  invariants [diagnostic_determinism]
+  category   query
+  types      [Diagnostic]
+  ports      [CompilerApi]
+  requires {
+    policy_applied "the diagnostic policy has been applied"
+  }
+  ensures {
+    shows_one_severity "only diagnostics of the named severity (error, warning or info, any case) are shown, after strict promotion"
+    same_both_surfaces "specforge check --severity and MCP validate severity_filter show the same diagnostics"
+    exit_unaffected    "the exit code and the build cache decision are those of the unfiltered check"
+  }
+  contract   """
+    specforge check --severity <error|warning|info> and the
+    severity_filter argument of specforge.validate show only the
+    reported diagnostics of that severity, after strict promotion, in
+    check's order. The name matches ignoring case; any other value MUST
+    be refused (CLI: exit 2 while arguments are parsed; MCP: invalid
+    input naming severity_filter). The filter MUST NOT change the exit
+    code, the build cache decision, or MCP's verdict.
+  """
+  verify unit "check --severity prints only that severity and never changes the exit code"
+  verify integration "check --severity and MCP validate severity_filter report the same diagnostics"
 }
 
 behavior export_diagnostics_as_json "Export Diagnostics as JSON" {

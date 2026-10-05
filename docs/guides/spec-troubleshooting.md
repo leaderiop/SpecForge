@@ -69,9 +69,10 @@ These don't block compilation, but most indicate a missing edge or coverage gap.
 
 ---
 
-## Info / advice (pedantic profile)
+## Info / advice
 
-Surfaced with `specforge check --lint=pedantic`. These are suggestions, not problems.
+Info-level advice is always reported; `specforge check --severity info` shows only it. These
+are suggestions, not problems.
 
 | Code | Meaning |
 |------|---------|
@@ -89,9 +90,10 @@ Surfaced with `specforge check --lint=pedantic`. These are suggestions, not prob
 ## The validation workflow
 
 ```bash
-specforge check                  # errors + warnings (default)
+specforge check                  # errors, warnings and info-level advice
 specforge check --strict         # promote warnings to errors (CI gate)
-specforge check --lint=pedantic  # also surface info-level advice
+specforge check --severity error # show only errors (the exit code still counts everything)
+specforge check --severity info  # show only the info-level advice
 specforge check --format=json    # machine-readable diagnostics
 specforge check --cache          # on success, record statuses in specforge-cache.json
 

@@ -18,9 +18,23 @@ pub struct ResolvedProject {
     pub file_scopes: HashMap<String, FileScope>,
 }
 
+impl ResolvedProject {
+    /// Each file's text, by its path relative to the spec root: exactly
+    /// what was parsed, for quoting in rendered diagnostics without
+    /// reading the disk again.
+    pub fn source_texts(&self) -> HashMap<String, String> {
+        self.files
+            .iter()
+            .map(|file| (file.path.clone(), file.source.clone()))
+            .collect()
+    }
+}
+
 #[derive(Debug)]
 pub struct ResolvedFile {
     pub path: String,
+    /// The text this file was parsed from.
+    pub source: String,
     pub spec_file: SpecFile,
     pub import_targets: Vec<String>,
     pub reexports: Vec<ReexportDeclaration>,
