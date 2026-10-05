@@ -541,19 +541,7 @@ impl<'a> WasmCustomRules<'a> {
 }
 
 impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for WasmCustomRules<'a> {
-    fn call_custom_validator(
-        &self,
-        wasm_function: &str,
-        entity_id: &str,
-        _entity_kind: &str,
-    ) -> Result<bool, String> {
-        // Detailed verdicts carry the information; the bool form is unused.
-        let _ = wasm_function;
-        let _ = entity_id;
-        Err("use call_custom_validator_detailed".to_string())
-    }
-
-    fn call_custom_validator_detailed(
+    fn custom_verdict(
         &self,
         wasm_function: &str,
         entity_id: &str,
@@ -568,40 +556,27 @@ impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for WasmCu
 
         let context = self.build_context(entity_id)?;
         call_validator(self.runtime, self.extension, wasm_function, &context)
+            .map_err(|error| error.to_string())
     }
 }
 
-/// Call `extension`'s `wasm_function` export with `context` and read its
-/// verdict.
+/// Call `extension`'s `wasm_function` on `context` and read its verdict
+/// (the protocol's `ValidatorVerdict`). Err: the call failed (E028).
 fn call_validator(
     runtime: &dyn WasmRuntime,
     extension: &str,
     wasm_function: &str,
     context: &specforge_protocol_types::ValidatorContext,
-) -> Result<specforge_registry::validation_engine::CustomVerdict, String> {
+) -> Result<specforge_registry::validation_engine::CustomVerdict, specforge_wasm::CallError> {
+    use specforge_protocol_types::ValidatorVerdict;
     use specforge_registry::validation_engine::CustomVerdict;
-    use specforge_wasm::runtime::WasmCallResult;
 
-    let input = serde_json::to_vec(context)
-        .map_err(|e| format!("cannot serialize validator context: {e}"))?;
-    match runtime.call_export(extension, wasm_function, &input) {
-        WasmCallResult::Ok(output) => {
-            let verdict: specforge_protocol_types::ValidatorVerdict =
-                serde_json::from_slice(&output).map_err(|e| {
-                    format!("custom validator '{wasm_function}' returned malformed verdict: {e}")
-                })?;
-            Ok(match verdict {
-                specforge_protocol_types::ValidatorVerdict::Pass => CustomVerdict::Pass,
-                specforge_protocol_types::ValidatorVerdict::Fail { field, value } => {
-                    CustomVerdict::Fail { field, value }
-                }
-            })
-        }
-        WasmCallResult::Trap(trap) => Err(format!(
-            "custom validator '{}' did not execute: {} — {}",
-            wasm_function, trap.kind, trap.message
-        )),
-    }
+    let verdict =
+        specforge_wasm::ExtensionCalls::new(runtime).validate(extension, wasm_function, context)?;
+    Ok(match verdict {
+        ValidatorVerdict::Pass => CustomVerdict::Pass,
+        ValidatorVerdict::Fail { field, value } => CustomVerdict::Fail { field, value },
+    })
 }
 
 /// Resolve each `check: "custom"` rule's `wasm_function` against the
@@ -636,12 +611,12 @@ pub fn probe_custom_rules(
             declared_types: Vec::new(),
             primitives: PRIMITIVE_TYPES.iter().map(|s| s.to_string()).collect(),
         };
-        if let Err(reason) = call_validator(runtime, extension, wasm_function, &context) {
+        if let Err(error) = call_validator(runtime, extension, wasm_function, &context) {
             diagnostics.push(Diagnostic {
                 code: "W112".to_string(),
                 severity: Severity::Warning,
                 message: format!(
-                    "extension '{extension}': rule '{}': wasm_function '{wasm_function}' could not be resolved ({reason}) — the rule will not fire",
+                    "extension '{extension}': rule '{}': wasm_function '{wasm_function}' could not be resolved ({error}) — the rule will not fire",
                     pattern.code
                 ),
                 span: None,

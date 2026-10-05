@@ -24,9 +24,9 @@ use specforge_registry::compilation::tests::support::{
 use specforge_registry::compilation::validate::{peer_dependencies, register_validation_rules};
 use specforge_registry::compilation::validate_extension_testability;
 use specforge_registry::validation_engine::{
-    ValidationEntity, ValidationPatternKind, ValidationRulePattern, WasmValidationRuntime,
-    execute_pattern, interpolate_template, parse_all_rule_patterns, parse_rule_pattern,
-    resolve_edge_rules,
+    CustomVerdict, ValidationEntity, ValidationPatternKind, ValidationRulePattern,
+    WasmValidationRuntime, execute_pattern, interpolate_template, parse_all_rule_patterns,
+    parse_rule_pattern, resolve_edge_rules,
 };
 use specforge_registry::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistryEntry, KindRegistry, KindRegistryEntry,
@@ -470,11 +470,16 @@ fn file_exists_reports_missing_file_reference_field_targets() {
 fn custom_pattern_dispatches_to_registered_wasm_function() {
     struct MockRuntime;
     impl WasmValidationRuntime for MockRuntime {
-        fn call_custom_validator(&self, func: &str, id: &str, _kind: &str) -> Result<bool, String> {
+        fn custom_verdict(
+            &self,
+            func: &str,
+            id: &str,
+            _kind: &str,
+        ) -> Result<CustomVerdict, String> {
             if func == "validate_naming" && id == "bad_name" {
-                Ok(false) // fails
+                Ok(failed()) // fails
             } else {
-                Ok(true) // passes
+                Ok(CustomVerdict::Pass) // passes
             }
         }
     }
@@ -759,13 +764,17 @@ fn register_extension_validation_rules_contract() {
 fn custom_pattern_dispatched_to_wasm_runtime_during_validation() {
     struct FailRuntime;
     impl WasmValidationRuntime for FailRuntime {
-        fn call_custom_validator(
+        fn custom_verdict(
             &self,
             _func: &str,
             id: &str,
             _kind: &str,
-        ) -> Result<bool, String> {
-            Ok(id != "bad") // "bad" fails
+        ) -> Result<CustomVerdict, String> {
+            Ok(if id == "bad" {
+                failed()
+            } else {
+                CustomVerdict::Pass
+            }) // "bad" fails
         }
     }
     let pattern = ValidationRulePattern {
@@ -796,13 +805,13 @@ fn custom_pattern_dispatched_to_wasm_runtime_during_validation() {
 fn custom_pattern_failure_emits_configured_diagnostic() {
     struct AlwaysFail;
     impl WasmValidationRuntime for AlwaysFail {
-        fn call_custom_validator(
+        fn custom_verdict(
             &self,
             _func: &str,
             _id: &str,
             _kind: &str,
-        ) -> Result<bool, String> {
-            Ok(false)
+        ) -> Result<CustomVerdict, String> {
+            Ok(failed())
         }
     }
     let pattern = ValidationRulePattern {
@@ -1281,4 +1290,12 @@ fn validation_rule_registration_contract() {
     let (patterns, _) = parse_all_rule_patterns(&[("@t/e".to_string(), rules)]);
     let project = vec![make_entity("b1", "behavior", 0, 0)];
     assert!(execute_pattern(&patterns[0].0, &project, None).is_empty());
+}
+
+/// A custom rule's failing verdict, with no field or value to name.
+fn failed() -> CustomVerdict {
+    CustomVerdict::Fail {
+        field: None,
+        value: None,
+    }
 }

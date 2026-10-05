@@ -15,17 +15,18 @@
 //! proves none of its obligations.
 //! Tests no rule links are left out silently: plain tests are the norm.
 
-use super::{CollectedTest, EntityResults, KnownEntities, UnlinkedTest};
+use super::KnownEntities;
 use specforge_common::{Diagnostic, Severity, slug};
+use specforge_protocol_types::{CollectEntityResult, CollectTestResult, CollectUnlinkedTest};
 use std::collections::BTreeMap;
 
 /// Link `unlinked` tests to entities by naming convention. A name that
 /// splits into more than one known entity is ambiguous (W137) and left out.
 pub fn resolve(
-    unlinked: &[UnlinkedTest],
+    unlinked: &[CollectUnlinkedTest],
     known: &KnownEntities,
-) -> (Vec<EntityResults>, Vec<Diagnostic>) {
-    let mut by_entity: BTreeMap<&str, Vec<CollectedTest>> = BTreeMap::new();
+) -> (Vec<CollectEntityResult>, Vec<Diagnostic>) {
+    let mut by_entity: BTreeMap<&str, Vec<CollectTestResult>> = BTreeMap::new();
     let mut diagnostics = Vec::new();
     for test in unlinked {
         let Some((name, modules)) = test.path.split_last() else {
@@ -61,16 +62,19 @@ pub fn resolve(
                 continue;
             }
         };
-        by_entity.entry(entity).or_default().push(CollectedTest {
-            name: test.name.clone(),
-            status: test.status.clone(),
-            verify: obligation(known.obligations(entity), rest),
-            duration_ms: None,
-        });
+        by_entity
+            .entry(entity)
+            .or_default()
+            .push(CollectTestResult {
+                name: test.name.clone(),
+                status: test.status.clone(),
+                verify: obligation(known.obligations(entity), rest),
+                duration_ms: None,
+            });
     }
     let results = by_entity
         .into_iter()
-        .map(|(entity_id, test_results)| EntityResults {
+        .map(|(entity_id, test_results)| CollectEntityResult {
             entity_id: entity_id.to_string(),
             test_results,
         })
@@ -109,8 +113,8 @@ mod tests {
         ])
     }
 
-    fn test(name: &str, status: &str) -> UnlinkedTest {
-        UnlinkedTest {
+    fn test(name: &str, status: &str) -> CollectUnlinkedTest {
+        CollectUnlinkedTest {
             name: name.to_string(),
             path: name.split("::").map(str::to_string).collect(),
             status: status.to_string(),
@@ -119,7 +123,7 @@ mod tests {
 
     /// `(entity, test name, verify)` for every linked test.
     fn linked(names: &[&str], known: &KnownEntities) -> Vec<(String, String, Option<String>)> {
-        let unlinked: Vec<UnlinkedTest> = names.iter().map(|n| test(n, "passed")).collect();
+        let unlinked: Vec<CollectUnlinkedTest> = names.iter().map(|n| test(n, "passed")).collect();
         let (results, diagnostics) = resolve(&unlinked, known);
         assert!(diagnostics.is_empty(), "{diagnostics:?}");
         results

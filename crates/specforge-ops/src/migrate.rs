@@ -103,14 +103,10 @@ impl Outcome {
 /// The migration hooks that ran (`extension:hook`), and why any failed.
 pub type HookRun = (Vec<String>, Vec<String>);
 
-/// What a migration hook is called with: the format versions the project
-/// moves between and the files the core migration rewrote.
-#[derive(Debug, Clone)]
-pub struct HookInput {
-    pub from: String,
-    pub to: String,
-    pub files: Vec<String>,
-}
+/// What a migration hook is called with (the protocol's
+/// `MigrationInput`): the format versions the project moves between and
+/// the files the core migration rewrote.
+pub use specforge_protocol_types::MigrationInput;
 
 /// Migrate the project, running its extensions (and their migration hooks)
 /// in `runtime`.
@@ -126,7 +122,7 @@ pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
 pub fn run_with_hooks(
     request: &Request,
     runtime: Option<&dyn WasmRuntime>,
-    hooks: &mut dyn FnMut(&[ExtensionDeclaration], &HookInput) -> HookRun,
+    hooks: &mut dyn FnMut(&[ExtensionDeclaration], &MigrationInput) -> HookRun,
 ) -> Outcome {
     let root = request.root;
     let target = &request.target;
@@ -167,7 +163,7 @@ pub fn run_with_hooks(
     }
 
     // Extension hooks run on the migrated files, before validation.
-    let input = HookInput {
+    let input = MigrationInput {
         from: outcome.from.to_string(),
         to: outcome.to.to_string(),
         files: outcome
@@ -217,21 +213,15 @@ fn schema_of(project: &CompiledProject) -> specforge_emitter::GraphProtocolSchem
 }
 
 /// Run each extension's declared migration hook, in dependency order. A
-/// hook that traps is recorded and the rest still run. Returns the hooks
+/// hook that fails (E028: it trapped, or the extension does not route it)
+/// is recorded and the rest still run. Returns the hooks
 /// run (`extension:hook`) and the failures.
 pub fn invoke_hooks(
     declarations: &[ExtensionDeclaration],
     runtime: &dyn WasmRuntime,
-    input: &HookInput,
+    input: &MigrationInput,
 ) -> HookRun {
-    let payload = serde_json::json!({
-        "from": input.from,
-        "to": input.to,
-        "files": input.files,
-    })
-    .to_string()
-    .into_bytes();
-    use specforge_wasm::runtime::WasmCallResult;
+    let calls = specforge_wasm::ExtensionCalls::new(runtime);
 
     let order = match specforge_wasm::topological_sort_extensions(declarations) {
         Ok(order) => order,
@@ -257,12 +247,10 @@ pub fn invoke_hooks(
         else {
             continue;
         };
-        match runtime.call_export(name, hook, &payload) {
-            WasmCallResult::Ok(_) => invoked.push(format!("{name}:{hook}")),
-            WasmCallResult::Trap(trap) => failures.push(format!(
-                "migration hook '{hook}' of {name} did not execute: {}: {}",
-                trap.kind, trap.message
-            )),
+        // The hook's answer is not read: the protocol defines none.
+        match calls.migrate(name, hook, input) {
+            Ok(()) => invoked.push(format!("{name}:{hook}")),
+            Err(error) => failures.push(error.to_string()),
         }
     }
     (invoked, failures)
@@ -557,7 +545,7 @@ mod tests {
         let runtime = Inputs {
             seen: Mutex::new(Vec::new()),
         };
-        let input = HookInput {
+        let input = MigrationInput {
             from: "0.9".into(),
             to: "1.0".into(),
             files: vec!["old.spec".into()],
@@ -584,7 +572,7 @@ mod tests {
             manifest("@acme/b", "migrate_b"),
         ];
 
-        let input = HookInput {
+        let input = MigrationInput {
             from: "0.9".into(),
             to: "1.0".into(),
             files: Vec::new(),

@@ -1,8 +1,8 @@
-//! Characterization of today's command-input, collector, scanner and
-//! migration-hook wire (plan 04, T1): what the host sends, how it reads the
-//! answer, and what a failure becomes. Pins, not proofs: a pin that encodes
-//! a bug says which ticket flips it. Goldens are shared with the other wire
-//! pins in `crates/specforge-wasm/tests/wire/`.
+//! What the host sends the command, collector, scanner and migration-hook
+//! exports, compared with the wire goldens in
+//! `crates/specforge-wasm/tests/wire/`, and what a collector's failure
+//! becomes. These were plan 04's T1 characterization pins; T5 and T7
+//! flipped the ones that pinned a bug.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -10,14 +10,17 @@ use std::path::{Path, PathBuf};
 use serde_json::{Map, Value, json};
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Graph, Node};
-use specforge_ops::collect::{Collector, ReportFile, dispatch};
+use specforge_ops::collect::{Collector, dispatch};
 use specforge_ops::command::{CommandContext, CommandFormat, command_input};
-use specforge_ops::migrate::{HookInput, invoke_hooks};
+use specforge_ops::migrate::{MigrationInput, invoke_hooks};
 use specforge_ops::scan::scan_source_files;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
-use specforge_protocol_types::{AnalyzerDescriptor, ExtensionDeclaration, HandshakeResponse};
+use specforge_protocol_types::{
+    AnalyzerDescriptor, CollectReportFile, ExtensionDeclaration, HandshakeResponse,
+};
+use specforge_test_macros::test as specforge_test;
 use specforge_wasm::testing::InProcessRuntime;
-use specforge_wasm::{WasmCallResult, WasmTrapInfo};
+use specforge_wasm::{CallFailure, WasmCallResult, WasmTrapInfo};
 
 const EXT: &str = "@pin/ext";
 
@@ -92,8 +95,11 @@ fn graph() -> Graph {
     graph
 }
 
-#[test]
-fn c1_the_command_input() {
+#[specforge_test(
+    behavior = "call_extension_exports",
+    verify = "every extension call encodes its input as the protocol type the SDK decodes"
+)]
+fn the_command_input() {
     let args: Map<String, Value> = json!({"status": "done", "limit": 2, "all": true})
         .as_object()
         .unwrap()
@@ -124,94 +130,76 @@ fn collector() -> Collector {
     }
 }
 
-fn reports() -> Vec<ReportFile> {
-    vec![ReportFile {
+fn reports() -> Vec<CollectReportFile> {
+    vec![CollectReportFile {
         path: "target/report.json".to_string(),
         content: "{}".to_string(),
     }]
 }
 
-#[test]
-fn c5_the_collect_input() {
-    let runtime = answering(
-        "collect__x",
-        WasmCallResult::Ok(br#"{"entity_results":[]}"#.to_vec()),
-    );
-    dispatch(&runtime, &collector(), &reports(), None).unwrap();
-    // pinned: `stdout` is null, flips in T7 (absent)
-    let mut expected: Value =
-        serde_json::from_str(&fs::read_to_string(wire_dir().join("collect.input.json")).unwrap())
-            .unwrap();
-    expected["stdout"] = Value::Null;
-    assert_eq!(runtime.calls()[0].input, expected);
-    dispatch(&runtime, &collector(), &reports(), Some("out")).unwrap();
-    assert_eq!(runtime.calls()[1].input["stdout"], "out");
-}
-
-#[test]
-fn c5_a_collector_answer_is_read_with_or_without_unlinked_tests() {
+#[specforge_test(
+    behavior = "dispatch_collector",
+    verify = "the collector receives a CollectInput and answers a CollectOutput, and an answer that is not one is an error naming the collector"
+)]
+fn a_collector_receives_a_collect_input_and_answers_a_collect_output() {
     let answer = json!({"entity_results": [{"entity_id": "a", "test_results": [
         {"name": "t", "status": "passed", "verify": "v", "duration_ms": 2.0}
-    ]}]});
+    ]}], "unlinked": [{"name": "m::t", "path": ["m", "t"], "status": "failed"}]});
     let runtime = answering(
         "collect__x",
         WasmCallResult::Ok(answer.to_string().into_bytes()),
     );
     let read = dispatch(&runtime, &collector(), &reports(), None).unwrap();
+    // flipped in T7: `stdout` is absent when nothing was captured, not null
+    golden("collect.input.json", &runtime.calls()[0].input);
     assert_eq!(read.entity_results[0].entity_id, "a");
+    let test = &read.entity_results[0].test_results[0];
     assert_eq!(
-        read.entity_results[0].test_results[0].verify.as_deref(),
-        Some("v")
+        (test.name.as_str(), test.verify.as_deref(), test.duration_ms),
+        ("t", Some("v"), Some(2.0))
     );
-    assert!(read.unlinked.is_empty());
-
-    let answer = json!({"entity_results": [], "unlinked": [
-        {"name": "m::t", "path": ["m", "t"], "status": "failed"}
-    ]});
-    let runtime = answering(
-        "collect__x",
-        WasmCallResult::Ok(answer.to_string().into_bytes()),
-    );
-    let read = dispatch(&runtime, &collector(), &reports(), None).unwrap();
     assert_eq!(read.unlinked[0].path, ["m", "t"]);
-}
+    dispatch(&runtime, &collector(), &reports(), Some("out")).unwrap();
+    assert_eq!(runtime.calls()[1].input["stdout"], "out");
 
-#[test]
-fn c5_an_empty_array_or_object_reads_as_no_results() {
-    // pinned: flips in T7 (an answer that is not a CollectOutput is an error)
-    for answer in [&b"[]"[..], b"{}"] {
-        let runtime = answering("collect__x", WasmCallResult::Ok(answer.to_vec()));
-        let read = dispatch(&runtime, &collector(), &reports(), None).unwrap();
-        assert!(read.entity_results.is_empty() && read.unlinked.is_empty());
-    }
-}
-
-#[test]
-fn c5_a_collected_test_without_a_name_is_named_empty() {
-    // pinned: flips in T7 (an answer that is not a CollectOutput is an error)
-    let answer = json!({"entity_results": [{"entity_id": "a", "test_results": [
+    // flipped in T7: an answer that is not a CollectOutput (an empty array
+    // or object, a test without a name, not JSON) is an error naming the
+    // collector, never empty results; a trap is too.
+    let missing_name = json!({"entity_results": [{"entity_id": "a", "test_results": [
         {"status": "passed"}
     ]}]});
-    let runtime = answering(
-        "collect__x",
-        WasmCallResult::Ok(answer.to_string().into_bytes()),
-    );
-    let read = dispatch(&runtime, &collector(), &reports(), None).unwrap();
-    assert_eq!(read.entity_results[0].test_results[0].name, "");
-}
-
-#[test]
-fn c5_a_failing_collector_is_an_error_naming_it() {
+    for raw in [
+        b"[]".to_vec(),
+        b"{}".to_vec(),
+        missing_name.to_string().into_bytes(),
+        b"not json".to_vec(),
+    ] {
+        let runtime = answering("collect__x", WasmCallResult::Ok(raw.clone()));
+        let err = dispatch(&runtime, &collector(), &reports(), None).unwrap_err();
+        let shown = String::from_utf8_lossy(&raw);
+        assert!(
+            matches!(
+                err.failure,
+                CallFailure::Malformed {
+                    expected: "CollectOutput",
+                    ..
+                }
+            ),
+            "{shown}: {err}"
+        );
+        assert!(
+            err.to_string().starts_with(&format!(
+                "collector collect__x() of '{EXT}' answered output that is not a CollectOutput: "
+            )),
+            "{err}"
+        );
+    }
     let runtime = answering("collect__x", trap("collect__x"));
     assert_eq!(
-        dispatch(&runtime, &collector(), &reports(), None).unwrap_err(),
-        format!("{EXT}: collect__x() trapped: k: m")
-    );
-    let runtime = answering("collect__x", WasmCallResult::Ok(b"not json".to_vec()));
-    let err = dispatch(&runtime, &collector(), &reports(), None).unwrap_err();
-    assert!(
-        err.starts_with(&format!("{EXT}: collect__x() returned malformed results: ")),
-        "{err}"
+        dispatch(&runtime, &collector(), &reports(), None)
+            .unwrap_err()
+            .to_string(),
+        format!("collector collect__x() of '{EXT}' trapped: k: m")
     );
 }
 
@@ -243,8 +231,11 @@ fn sources() -> tempfile::TempDir {
     dir
 }
 
-#[test]
-fn c7_the_scan_request_and_its_answer() {
+#[specforge_test(
+    behavior = "call_extension_exports",
+    verify = "every extension call encodes its input as the protocol type the SDK decodes"
+)]
+fn the_scan_request_and_its_answer() {
     let dir = sources();
     let answer = json!({"items": [{"name": "a", "item_kind": "function", "line": 1}],
                         "language": "rust"});
@@ -252,22 +243,15 @@ fn c7_the_scan_request_and_its_answer() {
         "scan__rust",
         WasmCallResult::Ok(answer.to_string().into_bytes()),
     );
-    let (items, used) = scan_source_files(&runtime, &scanner(), dir.path(), &["a.rs".into()]);
+    let scanned = scan_source_files(&runtime, &scanner(), dir.path(), &["a.rs".into()]);
     golden("scan.input.json", &runtime.calls()[0].input);
-    assert_eq!(items.len(), 1);
-    assert_eq!((items[0].name.as_str(), items[0].line), ("a", 1));
-    assert_eq!(used, [EXT]);
-}
-
-#[test]
-fn c7_a_failing_scanner_is_dropped() {
-    // pinned: flips in T7 (a failure per file, reported)
-    let dir = sources();
-    for answer in [trap("scan__rust"), WasmCallResult::Ok(b"garbage".to_vec())] {
-        let runtime = answering("scan__rust", answer);
-        let (items, used) = scan_source_files(&runtime, &scanner(), dir.path(), &["a.rs".into()]);
-        assert!(items.is_empty() && used.is_empty());
-    }
+    assert_eq!(scanned.items.len(), 1);
+    assert_eq!(
+        (scanned.items[0].name.as_str(), scanned.items[0].line),
+        ("a", 1)
+    );
+    assert_eq!(scanned.scanners_used, [EXT]);
+    assert!(scanned.failures.is_empty());
 }
 
 // ── C8 · migration hook ──
@@ -284,16 +268,19 @@ fn hooked() -> Vec<ExtensionDeclaration> {
     }]
 }
 
-fn hook_input() -> HookInput {
-    HookInput {
+fn hook_input() -> MigrationInput {
+    MigrationInput {
         from: "0.9".into(),
         to: "1.0".into(),
         files: vec!["old.spec".into()],
     }
 }
 
-#[test]
-fn c8_the_migration_hook_input_and_any_answer() {
+#[specforge_test(
+    behavior = "call_extension_exports",
+    verify = "every extension call encodes its input as the protocol type the SDK decodes"
+)]
+fn the_migration_hook_input_and_any_answer() {
     for answer in [&b"garbage"[..], b"", b"{}"] {
         let runtime = answering("migrate__x", WasmCallResult::Ok(answer.to_vec()));
         let (invoked, failures) = invoke_hooks(&hooked(), &runtime, &hook_input());
@@ -301,17 +288,13 @@ fn c8_the_migration_hook_input_and_any_answer() {
         assert!(failures.is_empty());
         golden("migrate.input.json", &runtime.calls()[0].input);
     }
-}
-
-#[test]
-fn c8_a_trapping_hook_is_a_failure_line() {
     let runtime = answering("migrate__x", trap("migrate__x"));
     let (invoked, failures) = invoke_hooks(&hooked(), &runtime, &hook_input());
     assert!(invoked.is_empty());
     assert_eq!(
         failures,
         [format!(
-            "migration hook 'migrate__x' of {EXT} did not execute: k: m"
+            "migration hook migrate__x() of '{EXT}' trapped: k: m"
         )]
     );
 }

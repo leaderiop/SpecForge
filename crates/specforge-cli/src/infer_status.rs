@@ -134,6 +134,22 @@ fn render_human(progress: &Progress, gaps: bool, stale: bool, detail: Option<&Ga
         line!("  Public items: {}", report.total_pub_items);
         line!("  Covered:      {}", report.covered_items);
         line!("  Gaps:         {}", report.gap_count());
+        if !report.scan_failures.is_empty() {
+            line!();
+            line!(
+                "  Approximate: a scanner failed on {} file(s):",
+                report.scan_failures.len()
+            );
+            for failure in &report.scan_failures {
+                let diagnostic = failure.error.diagnostic();
+                line!(
+                    "    {}: error[{}]: {}",
+                    failure.file,
+                    diagnostic.code,
+                    diagnostic.message
+                );
+            }
+        }
         if report.gap_count() > 0 {
             line!();
             for (dir, items) in &report.by_directory {

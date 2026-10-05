@@ -19,6 +19,8 @@ use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, Severity};
 use specforge_project::coverage::{ReportedEntity, ReportedTest, TestReport};
 use specforge_protocol_types::ExtensionDeclaration;
+use specforge_protocol_types::{CollectInput, CollectOutput, CollectReportFile};
+use specforge_wasm::{CallError, ExtensionCalls};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
@@ -380,13 +382,6 @@ fn json_files(dir: &Path) -> Vec<PathBuf> {
 
 // ── reading and dispatch ────────────────────────────────────────────────────
 
-/// One report file handed to the collector export.
-#[derive(Debug, Clone, Serialize)]
-pub struct ReportFile {
-    pub path: String,
-    pub content: String,
-}
-
 /// Read the report at `report`: the file itself, or every `*.json` file
 /// directly inside a directory, only those modified at or after `since`
 /// when given. Paths are reported relative to `root`.
@@ -394,7 +389,7 @@ pub fn read_report(
     report: &Path,
     root: &Path,
     since: Option<SystemTime>,
-) -> Result<Vec<ReportFile>, String> {
+) -> Result<Vec<CollectReportFile>, String> {
     let fresh = |path: &PathBuf| {
         since.is_none_or(|since| {
             std::fs::metadata(path)
@@ -415,7 +410,7 @@ pub fn read_report(
             let content = std::fs::read_to_string(path)
                 .map_err(|e| format!("failed to read report {}: {e}", path.display()))?;
             let shown = path.strip_prefix(root).unwrap_or(path);
-            Ok(ReportFile {
+            Ok(CollectReportFile {
                 path: shown.display().to_string(),
                 content,
             })
@@ -423,68 +418,21 @@ pub fn read_report(
         .collect()
 }
 
-/// A collector export's answer.
-#[derive(Debug, Clone, Default, Deserialize, Serialize)]
-pub struct CollectedResults {
-    #[serde(default)]
-    pub entity_results: Vec<EntityResults>,
-    /// Tests the report doesn't link to an entity, for the host to link
-    /// by naming convention.
-    #[serde(default)]
-    pub unlinked: Vec<UnlinkedTest>,
-}
-
-/// A test the collector couldn't link: its name, its path segments (the
-/// test's own name last) and its status.
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct UnlinkedTest {
-    pub name: String,
-    #[serde(default)]
-    pub path: Vec<String>,
-    pub status: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct EntityResults {
-    pub entity_id: String,
-    #[serde(default)]
-    pub test_results: Vec<CollectedTest>,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CollectedTest {
-    #[serde(default)]
-    pub name: String,
-    pub status: String,
-    #[serde(default)]
-    pub verify: Option<String>,
-    #[serde(default)]
-    pub duration_ms: Option<f64>,
-}
-
 /// Hand the report files, and the captured standard output if any, to the
-/// collector's pure export.
+/// collector's pure export: the protocol's `CollectInput` in, its
+/// `CollectOutput` out. Err: the export trapped, or answered something
+/// that is not a `CollectOutput` (E028 naming the collector).
 pub fn dispatch(
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
     collector: &Collector,
-    reports: &[ReportFile],
+    reports: &[CollectReportFile],
     stdout: Option<&str>,
-) -> Result<CollectedResults, String> {
-    use specforge_wasm::runtime::WasmCallResult;
-    let input = serde_json::to_vec(&serde_json::json!({ "reports": reports, "stdout": stdout }))
-        .map_err(|e| format!("cannot serialize reports: {e}"))?;
-    match runtime.call_export(&collector.extension, &collector.export, &input) {
-        WasmCallResult::Ok(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
-            format!(
-                "{}: {}() returned malformed results: {e}",
-                collector.extension, collector.export
-            )
-        }),
-        WasmCallResult::Trap(trap) => Err(format!(
-            "{}: {}() trapped: {}: {}",
-            collector.extension, collector.export, trap.kind, trap.message
-        )),
-    }
+) -> Result<CollectOutput, CallError> {
+    let input = CollectInput {
+        reports: reports.to_vec(),
+        stdout: stdout.map(str::to_string),
+    };
+    ExtensionCalls::new(runtime).collect(&collector.extension, &collector.export, &input)
 }
 
 // ── merging ─────────────────────────────────────────────────────────────────
@@ -542,7 +490,7 @@ pub struct MergeStats {
 pub fn merge(
     report: &mut TestReport,
     runner: &str,
-    collected: &CollectedResults,
+    collected: &CollectOutput,
     known: &KnownEntities,
 ) -> (MergeStats, Vec<Diagnostic>) {
     for entity in report.results.values_mut() {
@@ -813,8 +761,8 @@ pub fn collect(
             return Err(fail("E045", message));
         }
 
-        let mut collected =
-            dispatch(runtime, collector, &files, stdout.as_deref()).map_err(|m| fail("E028", m))?;
+        let mut collected = dispatch(runtime, collector, &files, stdout.as_deref())
+            .map_err(|error| OpError::from(error.diagnostic()))?;
         let (by_convention, diags) = convention::resolve(&collected.unlinked, known);
         diagnostics.extend(diags);
         let by_convention_count = by_convention.iter().map(|e| e.test_results.len()).sum();
@@ -919,6 +867,7 @@ pub fn save_report(root: &Path, report: &TestReport) -> Result<PathBuf, String> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_protocol_types::{CollectEntityResult, CollectTestResult};
     use specforge_test_macros::test as specforge_test;
 
     fn collector(report: &str) -> Collector {
@@ -1138,20 +1087,20 @@ mod tests {
         );
     }
 
-    fn collected(entries: &[(&str, &str, &str)]) -> CollectedResults {
-        let mut by_entity: BTreeMap<&str, Vec<CollectedTest>> = BTreeMap::new();
+    fn collected(entries: &[(&str, &str, &str)]) -> CollectOutput {
+        let mut by_entity: BTreeMap<&str, Vec<CollectTestResult>> = BTreeMap::new();
         for (id, name, status) in entries {
-            by_entity.entry(id).or_default().push(CollectedTest {
+            by_entity.entry(id).or_default().push(CollectTestResult {
                 name: name.to_string(),
                 status: status.to_string(),
                 verify: None,
                 duration_ms: None,
             });
         }
-        CollectedResults {
+        CollectOutput {
             entity_results: by_entity
                 .into_iter()
-                .map(|(id, tests)| EntityResults {
+                .map(|(id, tests)| CollectEntityResult {
                     entity_id: id.to_string(),
                     test_results: tests,
                 })

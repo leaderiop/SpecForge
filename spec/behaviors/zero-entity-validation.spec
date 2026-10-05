@@ -177,7 +177,12 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
     the extension's module. The custom pattern MUST be registered alongside
     declarative patterns. During validation, custom patterns MUST be
     dispatched to the Wasm runtime via the extension's exported function.
-    The Wasm function receives the entity ID and returns a boolean (pass/fail).
+    The Wasm function receives the protocol's ValidatorContext (the entity,
+    the resolution of its references, the declared types and the host's
+    primitives) and answers the protocol's ValidatorVerdict (`pass`, or
+    `fail` with the offending field and value), read strictly: an answer
+    that is not a verdict is a failed call (call_extension_exports), never
+    a pass or a fail.
     The function body MAY call the `specforge.query_graph` host function
     (see provide_host_function_query_graph) to access the compiled graph
     for cross-entity semantic checks and custom graph traversals.
@@ -196,6 +201,7 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   verify unit "custom rule without a wasm_function produces warning and is not registered"
   verify unit "custom pattern dispatched to Wasm runtime during validation"
   verify unit "custom pattern failure emits configured diagnostic"
+  verify unit "a custom validator's verdict is read as the protocol's ValidatorVerdict, and a failure is reported once as W112"
   verify contract "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"
 }
 

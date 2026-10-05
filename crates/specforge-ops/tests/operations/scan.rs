@@ -52,8 +52,11 @@ fn scan_only_matching_extensions() {
     let manifests = vec![rust_manifest()];
     let source_files = vec!["lib.rs".into(), "readme.md".into(), "app.txt".into()];
 
-    let (items, scanners) =
-        scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    let scan::ScanOutcome {
+        items,
+        scanners_used: scanners,
+        ..
+    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].name, "hello");
@@ -69,7 +72,11 @@ fn scan_empty_source_list() {
     let runtime = rust_only_runtime();
     let manifests = vec![rust_manifest()];
 
-    let (items, scanners) = scan::scan_source_files(&runtime, &manifests, dir.path(), &[]);
+    let scan::ScanOutcome {
+        items,
+        scanners_used: scanners,
+        ..
+    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &[]);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -83,7 +90,11 @@ fn scan_no_manifests_skips_all_files() {
     let runtime = rust_only_runtime();
     let source_files = vec!["lib.rs".into()];
 
-    let (items, scanners) = scan::scan_source_files(&runtime, &[], dir.path(), &source_files);
+    let scan::ScanOutcome {
+        items,
+        scanners_used: scanners,
+        ..
+    } = scan::scan_source_files(&runtime, &[], dir.path(), &source_files);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -97,8 +108,11 @@ fn scan_missing_file_skipped_gracefully() {
     let manifests = vec![rust_manifest()];
     let source_files = vec!["nonexistent.rs".into()];
 
-    let (items, scanners) =
-        scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    let scan::ScanOutcome {
+        items,
+        scanners_used: scanners,
+        ..
+    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -117,8 +131,11 @@ fn default_runtime_scans_rust_files() {
     let manifests = vec![rust_manifest()];
     let source_files = vec!["main.rs".into()];
 
-    let (items, scanners) =
-        scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    let scan::ScanOutcome {
+        items,
+        scanners_used: scanners,
+        ..
+    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 2);
     assert_eq!(items[0].name, "process_order");
@@ -173,8 +190,11 @@ fn multi_scanner_mixed_project() {
         "readme.md".into(),
     ];
 
-    let (items, scanners) =
-        scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
+    let scan::ScanOutcome {
+        items,
+        scanners_used: scanners,
+        ..
+    } = scan::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 5);
 
@@ -198,4 +218,55 @@ fn multi_scanner_mixed_project() {
     assert_eq!(scanners.len(), 2);
     assert!(scanners.contains(&"@specforge/rust".to_string()));
     assert!(scanners.contains(&"@specforge/typescript".to_string()));
+}
+
+/// A scanner that traps, or answers what is not a scan response, on a
+/// file: the file is reported as a failure (E028 naming the scanner), never
+/// silently counted as having no public items, and the gap report it feeds
+/// is approximate.
+#[specforge_test_macros::test(
+    behavior = "call_extension_exports",
+    verify = "a scanner that traps or answers malformed output is reported, not dropped"
+)]
+fn a_scanner_that_fails_is_reported_not_dropped() {
+    use specforge_wasm::testing::InProcessRuntime;
+    use specforge_wasm::{CallFailure, WasmCallResult, WasmTrapInfo};
+
+    let dir = TempDir::new().unwrap();
+    std::fs::write(dir.path().join("a.rs"), "pub fn a() {}\n").unwrap();
+    std::fs::write(dir.path().join("b.rs"), "pub fn b() {}\n").unwrap();
+    let trapped = WasmCallResult::Trap(WasmTrapInfo {
+        kind: "call_failed".into(),
+        message: "unreachable: the scanner panicked".into(),
+        export_name: "scan__rust".into(),
+    });
+    for answer in [trapped, WasmCallResult::Ok(b"garbage".to_vec())] {
+        let runtime = InProcessRuntime::new().answer_raw("@specforge/rust", "scan__rust", answer);
+        let outcome = scan::scan_source_files(
+            &runtime,
+            &[rust_manifest()],
+            dir.path(),
+            &["a.rs".into(), "b.rs".into()],
+        );
+        assert!(outcome.items.is_empty() && outcome.scanners_used.is_empty());
+        let failed: Vec<&str> = outcome.failures.iter().map(|f| f.file.as_str()).collect();
+        assert_eq!(failed, ["a.rs", "b.rs"], "one failure per file");
+        for failure in &outcome.failures {
+            assert_eq!(failure.error.export, "scan__rust");
+            assert_eq!(failure.error.extension, "@specforge/rust");
+            let diagnostic = failure.error.diagnostic();
+            assert_eq!(diagnostic.code, "E028");
+            assert!(
+                diagnostic
+                    .message
+                    .starts_with("scanner scan__rust() of '@specforge/rust' "),
+                "{}",
+                diagnostic.message
+            );
+        }
+        assert!(!matches!(
+            outcome.failures[0].error.failure,
+            CallFailure::NotLoaded
+        ));
+    }
 }

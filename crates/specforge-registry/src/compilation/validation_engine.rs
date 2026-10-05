@@ -53,50 +53,19 @@ pub enum CustomVerdict {
     },
 }
 
-/// A stub trait for Wasm validation dispatch. Real implementation in specforge-wasm.
+/// The verdict of a custom rule's `wasm_function` on one entity: the
+/// project's compile implements it over the extension that declared the
+/// rule (`ExtensionCalls::validate`, ADR 0013).
 pub trait WasmValidationRuntime {
-    fn call_custom_validator(
+    /// The function's verdict on the entity. Err: it could not give one
+    /// (the call failed); the entity is skipped, as the rule's probe
+    /// already reported the function (W112).
+    fn custom_verdict(
         &self,
         wasm_function: &str,
         entity_id: &str,
         entity_kind: &str,
-    ) -> Result<bool, String>;
-
-    /// Rich verdict variant: implementations that can localize the
-    /// violation override this; the default delegates to the bool form.
-    fn call_custom_validator_detailed(
-        &self,
-        wasm_function: &str,
-        entity_id: &str,
-        entity_kind: &str,
-    ) -> Result<CustomVerdict, String> {
-        Ok(
-            match self.call_custom_validator(wasm_function, entity_id, entity_kind)? {
-                true => CustomVerdict::Pass,
-                false => CustomVerdict::Fail {
-                    field: None,
-                    value: None,
-                },
-            },
-        )
-    }
-}
-
-/// No-op Wasm runtime stub for when Wasm is not available.
-pub struct StubWasmRuntime;
-
-impl WasmValidationRuntime for StubWasmRuntime {
-    fn call_custom_validator(
-        &self,
-        wasm_function: &str,
-        _entity_id: &str,
-        _entity_kind: &str,
-    ) -> Result<bool, String> {
-        Err(format!(
-            "Wasm runtime not available — cannot call '{}'",
-            wasm_function
-        ))
-    }
+    ) -> Result<CustomVerdict, String>;
 }
 
 /// C6-12: diagnostic for a structurally impossible rule — one whose check
@@ -578,7 +547,7 @@ pub fn execute_pattern(
             }
             ValidationPatternKind::Custom => {
                 if let (Some(func), Some(rt)) = (&pattern.wasm_function, wasm) {
-                    match rt.call_custom_validator_detailed(func, &entity.id, &entity.kind) {
+                    match rt.custom_verdict(func, &entity.id, &entity.kind) {
                         Ok(CustomVerdict::Pass) => false,
                         Ok(CustomVerdict::Fail { field, value }) => {
                             violation_field = field;
@@ -649,6 +618,14 @@ mod tests {
     use super::*;
     use specforge_common::Sym;
     use specforge_protocol_types::FieldConstraintDescriptor;
+
+    /// A custom rule's failing verdict, with no field or value to name.
+    fn failed() -> CustomVerdict {
+        CustomVerdict::Fail {
+            field: None,
+            value: None,
+        }
+    }
 
     fn span() -> specforge_common::SourceSpan {
         specforge_common::SourceSpan {
@@ -1303,16 +1280,16 @@ mod tests {
     fn test_custom_pattern_dispatches_to_wasm() {
         struct MockRuntime;
         impl WasmValidationRuntime for MockRuntime {
-            fn call_custom_validator(
+            fn custom_verdict(
                 &self,
                 func: &str,
                 id: &str,
                 _kind: &str,
-            ) -> Result<bool, String> {
+            ) -> Result<CustomVerdict, String> {
                 if func == "validate_naming" && id == "bad_name" {
-                    Ok(false) // fails
+                    Ok(failed()) // fails
                 } else {
-                    Ok(true) // passes
+                    Ok(CustomVerdict::Pass) // passes
                 }
             }
         }
@@ -1595,13 +1572,17 @@ mod tests {
     fn test_custom_pattern_dispatched_during_validation() {
         struct FailRuntime;
         impl WasmValidationRuntime for FailRuntime {
-            fn call_custom_validator(
+            fn custom_verdict(
                 &self,
                 _func: &str,
                 id: &str,
                 _kind: &str,
-            ) -> Result<bool, String> {
-                Ok(id != "bad") // "bad" fails
+            ) -> Result<CustomVerdict, String> {
+                Ok(if id == "bad" {
+                    failed()
+                } else {
+                    CustomVerdict::Pass
+                }) // "bad" fails
             }
         }
         let pattern = ValidationRulePattern {
@@ -1630,13 +1611,13 @@ mod tests {
     fn test_custom_pattern_failure_emits_diagnostic() {
         struct AlwaysFail;
         impl WasmValidationRuntime for AlwaysFail {
-            fn call_custom_validator(
+            fn custom_verdict(
                 &self,
                 _func: &str,
                 _id: &str,
                 _kind: &str,
-            ) -> Result<bool, String> {
-                Ok(false)
+            ) -> Result<CustomVerdict, String> {
+                Ok(failed())
             }
         }
         let pattern = ValidationRulePattern {

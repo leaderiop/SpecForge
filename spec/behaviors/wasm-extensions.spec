@@ -423,6 +423,7 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "an unknown field in an answer is ignored and an absent optional field takes its default"
   verify unit "a pass answer may be bare diagnostics or diagnostics with a summary, and its diagnostics come back in canonical order with an entity's span attached"
   verify unit "an analyze pass that traps is reported as an E028 finding of that pass"
+  verify unit "a scanner that traps or answers malformed output is reported, not dropped"
   verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree"
 }
 
@@ -821,18 +822,23 @@ behavior dispatch_collector "Dispatch Collector" {
   contract   """
     The host reads the report (the file itself, or every `*.json` file
     directly inside a report directory, in path order) and passes the files
-    to the collector's pure export as `{"reports": [{"path", "content"}],
-    "stdout"?}`, `stdout` being the captured standard output when the
-    collector declares one.
+    to the collector's pure export as the protocol's CollectInput
+    (`{"reports": [{"path", "content"}], "stdout"?}`, `stdout` being the
+    captured standard output when the collector declares one, absent
+    otherwise), and reads its answer as the protocol's CollectOutput
+    (specforge_protocol_types, through call_extension_exports).
     The export answers with test results grouped by entity:
     `{"entity_results": [{"entity_id", "test_results": [{"name", "status",
     "verify"?, "duration_ms"?}]}], "unlinked"?: [{"name", "path",
     "status"}]}`, where status is passed, failed or skipped and `unlinked`
-    lists tests the report doesn't link to an entity. A trap or an answer that doesn't parse is E028. `--no-run`
+    lists tests the report doesn't link to an entity. A trap or an answer
+    that is not a CollectOutput (a test without a name, an empty object) is
+    E028 naming the collector, never empty results. `--no-run`
     and `--report` skip running and dispatch an existing report.
   """
   produces   [collector_dispatched]
   verify unit "reads a file or every json file in a directory"
+  verify unit "the collector receives a CollectInput and answers a CollectOutput, and an answer that is not one is an error naming the collector"
   verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported"
 }
 

@@ -1,22 +1,50 @@
+//! Scanning the project's source files for public items, through the
+//! enabled extensions' analyzers (each `scan__<language>` export, an
+//! `ExtensionCalls::scan`).
+
 use std::collections::HashMap;
 use std::path::Path;
 
 use specforge_common::SourceItem;
-use specforge_protocol_types::ExtensionDeclaration;
-use specforge_wasm::protocol::{ScanRequest, ScanResponse};
+use specforge_protocol_types::{ExtensionDeclaration, ScanRequest};
 use specforge_wasm::runtime::WasmRuntime;
+use specforge_wasm::{CallError, ExtensionCalls};
 
 struct ScannerEntry {
     extension_name: String,
     scan_export: String,
 }
 
+/// What a scan found, and which scans failed.
+#[derive(Debug, Clone, Default)]
+pub struct ScanOutcome {
+    /// The public items every scanner that answered found.
+    pub items: Vec<SourceItem>,
+    /// The extensions whose scanner answered, in first-use order.
+    pub scanners_used: Vec<String>,
+    /// The files whose scanner did not answer (it trapped, or answered
+    /// something that is not a scan response): their items are unknown.
+    pub failures: Vec<ScanFailure>,
+}
+
+/// A file a scanner failed on.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScanFailure {
+    /// The file, relative to the project root.
+    pub file: String,
+    pub error: CallError,
+}
+
+/// Scan `source_files` (relative to `project_root`) with the analyzer that
+/// claims each one's extension. A file no analyzer claims, or that cannot
+/// be read, is skipped; a scanner that fails on a file is reported, never
+/// dropped.
 pub fn scan_source_files(
     runtime: &dyn WasmRuntime,
     declarations: &[ExtensionDeclaration],
     project_root: &Path,
     source_files: &[String],
-) -> (Vec<SourceItem>, Vec<String>) {
+) -> ScanOutcome {
     let mut ext_lookup: HashMap<String, ScannerEntry> = HashMap::new();
     for declaration in declarations {
         for ac in &declaration.analyzers {
@@ -36,9 +64,8 @@ pub fn scan_source_files(
         }
     }
 
-    let mut all_items = Vec::new();
-    let mut scanners_used = Vec::new();
-
+    let calls = ExtensionCalls::new(runtime);
+    let mut outcome = ScanOutcome::default();
     for file_path in source_files {
         let file_ext = match file_path.rfind('.') {
             Some(i) => &file_path[i..],
@@ -56,33 +83,30 @@ pub fn scan_source_files(
             Err(_) => continue,
         };
 
-        let req = ScanRequest {
+        let request = ScanRequest {
             file_path: file_path.clone(),
             content,
         };
-        let input = match serde_json::to_vec(&req) {
-            Ok(v) => v,
-            Err(_) => continue,
-        };
-
-        let result = runtime.call_export(&entry.extension_name, &entry.scan_export, &input);
-        if let specforge_wasm::runtime::WasmCallResult::Ok(output) = result
-            && let Ok(resp) = serde_json::from_slice::<ScanResponse>(&output)
-        {
-            for item in resp.items {
-                all_items.push(SourceItem {
-                    name: item.name,
-                    item_kind: item.item_kind,
-                    file: file_path.clone(),
-                    line: item.line,
-                    scanner: Some(entry.extension_name.clone()),
-                });
+        match calls.scan(&entry.extension_name, &entry.scan_export, &request) {
+            Ok(response) => {
+                for item in response.items {
+                    outcome.items.push(SourceItem {
+                        name: item.name,
+                        item_kind: item.item_kind,
+                        file: file_path.clone(),
+                        line: item.line,
+                        scanner: Some(entry.extension_name.clone()),
+                    });
+                }
+                if !outcome.scanners_used.contains(&entry.extension_name) {
+                    outcome.scanners_used.push(entry.extension_name.clone());
+                }
             }
-            if !scanners_used.contains(&entry.extension_name) {
-                scanners_used.push(entry.extension_name.clone());
-            }
+            Err(error) => outcome.failures.push(ScanFailure {
+                file: file_path.clone(),
+                error,
+            }),
         }
     }
-
-    (all_items, scanners_used)
+    outcome
 }

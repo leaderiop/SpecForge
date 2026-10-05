@@ -43,9 +43,12 @@ pub struct Gaps {
     pub covered_items: usize,
     /// Directory (`.` for the root) to its uncovered items, sorted.
     pub by_directory: BTreeMap<String, Vec<SourceItem>>,
-    /// Whether a regex fallback found the items (no scanner extension).
+    /// Whether the counts are approximate: a regex fallback found the
+    /// items (no scanner extension), or a scanner failed on a file.
     pub approximate: bool,
     pub scanners_used: Vec<String>,
+    /// The files a scanner failed on (E028 each): their items are unknown.
+    pub scan_failures: Vec<crate::scan::ScanFailure>,
 }
 
 /// The inference manifest at `root`: an empty one when there is none.
@@ -122,14 +125,13 @@ pub fn gaps(
     runtime: &dyn WasmRuntime,
 ) -> Result<Gaps, OpError> {
     let files = source_files(root, declarations, &manifest(root)?);
-    let (items, scanners_used) =
-        crate::scan::scan_source_files(runtime, declarations, root, &files);
+    let scanned = crate::scan::scan_source_files(runtime, declarations, root, &files);
     let entity_ids: Vec<&str> = graph
         .nodes()
         .into_iter()
         .map(|n| n.id.raw.as_str())
         .collect();
-    let report = inference::compute_gap_report(items, &entity_ids, scanners_used);
+    let report = inference::compute_gap_report(scanned.items, &entity_ids, scanned.scanners_used);
     let mut by_directory: BTreeMap<String, Vec<SourceItem>> = BTreeMap::new();
     for gap in report.gaps {
         by_directory
@@ -141,8 +143,9 @@ pub fn gaps(
         total_pub_items: report.total_pub_items,
         covered_items: report.covered_items,
         by_directory,
-        approximate: report.approximate,
+        approximate: report.approximate || !scanned.failures.is_empty(),
         scanners_used: report.scanners_used,
+        scan_failures: scanned.failures,
     })
 }
 
@@ -208,6 +211,14 @@ impl Gaps {
             "gap_count": self.gap_count(),
             "approximate": self.approximate,
             "scanners_used": self.scanners_used,
+            "scan_failures": self.scan_failures.iter().map(|failure| {
+                let diagnostic = failure.error.diagnostic();
+                json!({
+                    "file": failure.file,
+                    "code": diagnostic.code,
+                    "message": diagnostic.message,
+                })
+            }).collect::<Vec<_>>(),
             "by_directory": by_directory,
         })
     }
@@ -334,6 +345,7 @@ mod tests {
             ]),
             approximate: true,
             scanners_used: Vec::new(),
+            scan_failures: Vec::new(),
         };
         let doc = gaps.to_json();
         assert_eq!(doc["gap_count"], 2);

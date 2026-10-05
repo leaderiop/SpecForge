@@ -1,7 +1,8 @@
 //! The runner extensions' collectors, read through the protocol from
 //! their real Wasm blobs and dispatched by the host's collect flow.
 
-use specforge_ops::collect::{ReportFile, collectors, dispatch};
+use specforge_ops::collect::{collectors, dispatch};
+use specforge_protocol_types::CollectReportFile;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::protocol::load_declaration;
 
@@ -84,7 +85,7 @@ fn cargo_test_reports_plain_tests_as_unlinked() {
     let manifest = load_via_protocol("@specforge/cargo-test");
     let collector = &collectors(std::slice::from_ref(&manifest))[0];
     let stdout = include_str!("../../../extensions/cargo-test/tests/fixtures/libtest-stdout.txt");
-    let report = ReportFile {
+    let report = CollectReportFile {
         path: "target/specforge/shop_lib.json".into(),
         content: r#"{"entries":[{"entity_id":"cart","test_name":"panics",
             "module_path":"shop_lib::tests","file":"src/lib.rs","status":"pass"}]}"#

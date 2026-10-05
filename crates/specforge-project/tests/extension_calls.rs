@@ -1,9 +1,7 @@
-//! Characterization of today's compiler-pass and custom-validator wire
-//! (plan 04, T1): the input every `__pass_<name>` export and every custom
-//! rule's `wasm_function` receives, how the host reads their answers, and
-//! what a failure becomes. Pins, not proofs: a pin that encodes a bug says
-//! which ticket flips it. Goldens are shared with the other wire pins in
-//! `crates/specforge-wasm/tests/wire/`.
+//! What the host sends compiler passes and custom validators, compared
+//! with the wire goldens in `crates/specforge-wasm/tests/wire/`, how it
+//! reads their answers, and what a failure becomes. These were plan 04's
+//! T1 characterization pins; T6 and T7 flipped the ones that pinned a bug.
 
 use std::collections::HashSet;
 use std::fs;
@@ -337,7 +335,10 @@ fn c4_a_failing_analyze_pass_is_an_e028_finding_of_its_report() {
 
 // ── C6 · custom validator ──
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "call_extension_exports",
+    verify = "every extension call encodes its input as the protocol type the SDK decodes"
+)]
 fn c6_the_validator_context() {
     let dir = project();
     let runtime = runtime();
@@ -352,7 +353,10 @@ fn c6_the_validator_context() {
     golden("validate.input.json", &Value::Array(contexts));
 }
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "register_custom_validation_patterns",
+    verify = "a custom validator's verdict is read as the protocol's ValidatorVerdict, and a failure is reported once as W112"
+)]
 fn c6_a_verdict_is_read_and_a_failure_is_w112_on_load() {
     let dir = project();
     let runtime = runtime().answer_raw(
@@ -373,10 +377,29 @@ fn c6_a_verdict_is_read_and_a_failure_is_w112_on_load() {
         w112[0].message,
         format!(
             "extension '{EXT}': rule 'E991': wasm_function 'validate__shape' could not be resolved \
-             (custom validator 'validate__shape' did not execute: k — m) — the rule will not fire"
+             (custom validator validate__shape() of '{EXT}' trapped: k: m) — the rule will not fire"
         )
     );
     assert!(trapped.iter().all(|d| d.code != "E991"), "{trapped:?}");
+
+    // An answer that is not a ValidatorVerdict is a failure too: W112 once,
+    // and the rule never fires on a default verdict.
+    let answering_garbage = self::runtime().answer_raw(
+        EXT,
+        "validate__shape",
+        WasmCallResult::Ok(br#"{"field":"needs"}"#.to_vec()),
+    );
+    let malformed = CompiledProject::compile(dir.path(), Some(&answering_garbage)).diagnostics();
+    let w112: Vec<&Diagnostic> = malformed.iter().filter(|d| d.code == "W112").collect();
+    assert_eq!(w112.len(), 1, "{malformed:?}");
+    assert!(
+        w112[0].message.contains(&format!(
+            "(custom validator validate__shape() of '{EXT}' answered output that is not a ValidatorVerdict: "
+        )),
+        "{}",
+        w112[0].message
+    );
+    assert!(malformed.iter().all(|d| d.code != "E991"), "{malformed:?}");
 }
 
 fn runtime_with_trap() -> InProcessRuntime {
