@@ -585,3 +585,96 @@ fn cli_and_mcp_schema_carry_the_same_version() {
         cache.to_string()
     );
 }
+
+/// rv1's report: alpha's one obligation proven, or not.
+fn record_alpha(root: &Path, status: &str) {
+    std::fs::write(
+        root.join("specforge-report.json"),
+        json!({"runner": "fixture", "results": {"alpha": {"tests": [
+            {"name": "alpha_test", "status": status, "verify": "alpha works"}
+        ]}}})
+        .to_string(),
+    )
+    .unwrap();
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_views_over_the_project_view",
+    verify = "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
+)]
+fn contract_read_views() {
+    let tmp = rv1();
+    let root = tmp.path();
+
+    // project_compiled: the CLI's compiled project and MCP's session each
+    // supply a view, and answer.
+    let stats = cli_json(&["stats", "--format", "json", s(root)]);
+    assert_eq!(stats["total_entities"], 6, "{stats}");
+
+    // surfaces_agree: the same numbers, chains, schema version and rows.
+    assert_stats_agree(root);
+    assert_traces_agree(root);
+    let mcp = mcp_calls(
+        root,
+        &[
+            json!({"name": "specforge.schema", "arguments": {}}),
+            json!({"name": "specforge.coverage", "arguments": {}}),
+        ],
+    );
+    assert_eq!(cli_json(&["schema", s(root)]), mcp[0]);
+    assert_eq!(
+        json!(mcp[1].as_array().unwrap().len()),
+        stats["testable_count"],
+        "{}",
+        mcp[1]
+    );
+
+    // one_coverage_per_state: within one MCP session the coverage follows
+    // the report's content, read again as soon as it changes.
+    let mut server = specforge_mcp::McpServer::with_project_root(root.to_path_buf());
+    server.handle_message(
+        &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}).to_string(),
+    );
+    let mut alpha_status = || {
+        let request = json!({"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {
+            "name": "specforge.coverage", "arguments": {"entity_id": "alpha"}}});
+        let response: Value =
+            serde_json::from_str(&server.handle_message(&request.to_string()).unwrap()).unwrap();
+        let text = response["result"]["content"][0]["text"].as_str().unwrap();
+        let rows: Value = serde_json::from_str(text).unwrap();
+        rows[0]["status"].as_str().unwrap().to_string()
+    };
+    assert_eq!(alpha_status(), "uncovered");
+    record_alpha(root, "fail");
+    assert_eq!(alpha_status(), "partial");
+    assert_eq!(alpha_status(), "partial");
+    record_alpha(root, "pass");
+    assert_eq!(alpha_status(), "covered");
+    assert_eq!(
+        cli_json(&["stats", "--format", "json", s(root)])["proof_pct"],
+        20.0
+    );
+
+    // one_report_rule: a report at the root that cannot be read is an
+    // error on every view of the root, and no view of a sub-path reads it.
+    std::fs::write(root.join("specforge-report.json"), "{not json").unwrap();
+    assert_eq!(cli(&["stats", s(root)]).code, Some(2));
+    let refused = mcp_calls(
+        root,
+        &[
+            json!({"name": "specforge.stats", "arguments": {}}),
+            json!({"name": "specforge.coverage", "arguments": {}}),
+        ],
+    );
+    for result in &refused {
+        assert_eq!(result["isError"]["diagnostic"]["code"], "E045", "{result}");
+    }
+    let sub = root.join("spec");
+    assert_eq!(cli(&["stats", s(&sub)]).code, Some(0));
+    assert_eq!(cli(&["analyze", "--path", s(&sub), "--json"]).code, Some(0));
+    // ...and the schema cache likewise: the sub-path's export leaves the
+    // root's cache as the root's export wrote it.
+    assert_eq!(cli(&["export", s(root)]).code, Some(0));
+    assert_eq!(cli(&["export", s(&sub)]).code, Some(0));
+    assert_eq!(cached_kinds(root), 5);
+}

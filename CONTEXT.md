@@ -32,12 +32,28 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge-registry-client`). Not the Registry build, which is pure and needs none of it.
   Operations reach it only through the `Registry` port; its adapter (`specforge-ops-registry`)
   is linked by the CLI and MCP, never the LSP (ADR 0010).
-- **Project view**: the read-only slice of a compiled project an operation analyses: the graph, the
-  kind and field registries, the rules, the manifests and the project root, borrowed
-  (`specforge_ops::analyze`'s input). The CLI builds one from its compiled project; MCP builds one from
-  its call target (`ProjectRef::view` of its call target).
+- **Project view**: the read-only slice of a compiled project every operation reads: the graph, the
+  registry build (kinds, fields, edges, rules, manifests) and the root the project was compiled from,
+  borrowed (`specforge_ops::view::ProjectView`). It owns the project's recorded test report and its
+  versioned schema, both read at that root and never an ancestor's. The CLI builds one from its
+  compiled project (`ProjectView::of`); MCP from its call target (`ProjectRef::view`: the project
+  session, or another project compiled for one call); the LSP from its session
+  (`ProjectView::of_session`) (ADR 0015).
+- **Read view**: an operation that only reads the project view: stats, trace, the coverage view, the
+  model and outline diagrams, the versioned schema. Each returns a typed outcome; the CLI and MCP
+  only render it.
+- **Recorded test report**: `<root>/specforge-report.json`, what `specforge collect` last wrote. The
+  project view reads it once per compile and per content
+  (`specforge_project::coverage::RecordedCoverage`).
 - **Obligation**: one `verify` statement on an entity. **Proven** when a passing test names its
   exact text, or a formal claim discharges it.
+- **Unverified**: an entity that counts toward coverage and is not proven
+  (`ProjectCoverage::is_unverified`).
+- **Missing link**: an expected edge, from the registries, that a traced entity lacks
+  (`MissingLink`). The only gap a trace reports.
+- **Plan gap**: how an agent plan falls short of the graph: an unresolved entry, a missing entry for
+  a testable entity with obligations, or an entry ordered before what it depends on (`PlanGap`). An
+  edge to an entity that does not exist is neither: it is E003.
 - **Verdict**: an entity's obligations, the proven ones, and the tests that bear on them. It gives
   both "proven" (the gate) and the covered/partial/uncovered status (the MCP view)
   (`specforge_coverage::Verdict`).
