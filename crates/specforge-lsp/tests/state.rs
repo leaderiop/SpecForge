@@ -76,6 +76,7 @@ fn e003() -> specforge_common::Diagnostic {
         message: "unresolved reference 'session_limit' in entity 'login'".into(),
         severity: specforge_common::Severity::Error,
         span: None,
+        data: None,
     }
 }
 

@@ -2,7 +2,8 @@
 //! their handshake/describe wire output in plain unit tests without building
 //! wasm or loading a host.
 
-use crate::ContributionsBuilder;
+use crate::{CommandFormat, CommandGraph, CommandInput, CommandOutput, ContributionsBuilder};
+use specforge_protocol_types::CommandArgType;
 
 /// Wraps a [`ContributionsBuilder`] and asserts on its wire output.
 pub struct MockHost(pub ContributionsBuilder);
@@ -38,4 +39,52 @@ impl MockHost {
         let e: serde_json::Value = serde_json::from_str(expected).expect("expected is valid JSON");
         assert_eq!(a, e, "handshake wire output mismatch");
     }
+}
+
+/// Run every command `b` declares once over `graph`, as the host would
+/// under `--format json`, with every arg it declares set to a value of its
+/// declared type: an enum's first value, `1` for an integer or a count,
+/// `true` for a flag, and `text(command_id, arg_name)` for a string or a
+/// path. A handler that reads an arg its command does not declare, or reads
+/// one as another type, panics here, in a test, rather than trapping in the
+/// host (E028). Each command's id comes back with its output, to assert on:
+/// a handler only reads what the path its args take it down reads, so args
+/// naming entities of `graph`, and outputs that exit 0, cover the most.
+pub fn call_every_command(
+    b: &ContributionsBuilder,
+    graph: &CommandGraph,
+    today: &str,
+    text: impl Fn(&str, &str) -> String,
+) -> Vec<(String, CommandOutput)> {
+    b.surfaces
+        .command_descriptors()
+        .map(|command| {
+            let args = command
+                .args
+                .iter()
+                .map(|arg| {
+                    let value = match &arg.arg_type {
+                        CommandArgType::Enum { values } => serde_json::json!(values[0]),
+                        CommandArgType::Integer => serde_json::json!(1),
+                        CommandArgType::Bool => serde_json::json!(true),
+                        CommandArgType::String | CommandArgType::Path => {
+                            serde_json::json!(text(&command.id, &arg.name))
+                        }
+                    };
+                    (arg.name.clone(), value)
+                })
+                .collect();
+            let input = CommandInput {
+                args,
+                cwd: String::new(),
+                graph: graph.clone(),
+                format: CommandFormat::Json,
+                today: today.to_string(),
+            };
+            let output = b
+                .call_command(&command.export, &input)
+                .expect("a declared command answers its export");
+            (command.id.clone(), output)
+        })
+        .collect()
 }

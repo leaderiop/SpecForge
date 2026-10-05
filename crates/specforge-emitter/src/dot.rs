@@ -2,23 +2,7 @@ use specforge_graph::{Graph, Node};
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
-/// Escape a string for safe inclusion inside a DOT quoted string.
-/// Titles and descriptions are user-controlled: unescaped quotes
-/// terminate the label early, backslashes form invalid escapes, and
-/// raw newlines split the statement (C13-04).
-fn escape_dot(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for ch in text.chars() {
-        match ch {
-            '\\' => out.push_str("\\\\"),
-            '"' => out.push_str("\\\""),
-            '\n' => out.push_str("\\n"),
-            '\r' => {}
-            _ => out.push(ch),
-        }
-    }
-    out
-}
+use crate::diagram::{escape_dot, extension_id};
 
 /// Options controlling whole-graph DOT emission (C13-01): per-kind registry
 /// styles (C13-00), a label toggle, kind filtering, and per-extension
@@ -117,7 +101,7 @@ pub fn emit_dot(graph: &Graph, options: &DotOptions<'_>) -> String {
             write_node(&mut out, node, "  ");
         }
         for (ext, nodes) in clusters {
-            let cluster_id = ext.replace('@', "").replace(['/', '-'], "_");
+            let cluster_id = extension_id(ext);
             writeln!(out).unwrap();
             writeln!(out, "  subgraph cluster_{cluster_id} {{").unwrap();
             writeln!(out, "    label=\"{ext}\";").unwrap();
@@ -138,8 +122,8 @@ pub fn emit_dot(graph: &Graph, options: &DotOptions<'_>) -> String {
     edges.sort_by(|a, b| (&a.source, &a.target, &a.label).cmp(&(&b.source, &b.target, &b.label)));
 
     for edge in &edges {
-        let keep = graph.node(edge.source.as_str()).is_none_or(&included)
-            && graph.node(edge.target.as_str()).is_none_or(&included);
+        let keep = graph.node(edge.source.as_str()).is_none_or(included)
+            && graph.node(edge.target.as_str()).is_none_or(included);
         if !keep {
             continue;
         }
@@ -162,14 +146,6 @@ mod dot_escape_tests {
     use super::*;
     use specforge_common::{SourceSpan, Sym};
     use specforge_graph::{EntityId, EntityKind, FieldMap, Node};
-
-    #[test]
-    fn escapes_quotes_backslashes_and_newlines() {
-        assert_eq!(
-            escape_dot("say \"hi\"\\done\nnext"),
-            "say \\\"hi\\\"\\\\done\\nnext"
-        );
-    }
 
     #[test]
     fn hostile_title_cannot_break_the_dot_statement() {

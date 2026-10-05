@@ -180,6 +180,7 @@ fn build_extensions(schema: &GraphProtocolSchema, entities: &[ModelEntity]) -> V
             version: ext.version.clone(),
             entity_count: entity_counts.get(ext.name.as_str()).copied().unwrap_or(0),
             edge_count: edge_counts.get(ext.name.as_str()).copied().unwrap_or(0),
+            color: None,
         })
         .collect()
 }

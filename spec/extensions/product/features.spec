@@ -125,23 +125,29 @@ feature pe_surface_contributions "Product Surface Contributions" {
     the surface contract at compile time.
   """
   solution """
-    The manifest declares no surfaces. The specforge product subcommands
-    are CLI built-ins: listing for all 9 kinds (features, journeys,
+    The manifest declares the 40 specforge product commands as surface
+    contributions, run by the extension's own cmd__product_* exports over
+    the graph the host passes (MCP tools specforge.product.<id> by
+    auto-promotion): listing for all 9 kinds (features, journeys,
     deliverables, milestones, modules, terms, personas, channels,
-    releases) and the queries milestone-completion, journey-coverage,
-    feature-impact, feature-dependents, persona-features and
-    channel-features, plus bulk-status and health.
+    releases), the multi-hop and computed queries (completion, coverage,
+    impact, dependents, traceability, ordering, critical path, timeline,
+    velocity, coverage matrices, term and module analytics, owner
+    workload), plus bulk-status and health. One-hop neighbours are core's
+    `specforge query <id> --depth 1 --kind <kind>`; the extension declares
+    no MCP resources (ADR 0011).
 
     Every surface has a typed schema:
-    - CLI list commands accept ProductListFilter (--status, --priority, --tags,
-      --limit, --offset, --sort-by, --sort-order) and return per-kind list
-      result types (FeatureListResult, JourneyListResult, etc.) with pagination.
-    - CLI query commands accept typed input (positional entity ID or flags)
-      and return the corresponding query payload type.
-    - MCP resources return a ProductSurfaceResponse envelope wrapping the
-      query payload, with consistent error handling via ProductSurfaceError.
-    - All surfaces support --format=json|table|brief for CLI, JSON-only for MCP.
-    - Consistent error codes: ENTITY_NOT_FOUND, GRAPH_NOT_READY, INVALID_INPUT.
+    - CLI list commands accept ProductListFilter (--status, --priority, --tags
+      as a comma-separated string, --limit, --offset, --sort-by, --sort-order)
+      and return per-kind list result types (FeatureListResult,
+      JourneyListResult, etc.) with total, offset, limit and has_more.
+    - CLI query commands accept the entity id as a positional arg named
+      after its kind and return the corresponding query payload type.
+    - Every command has the host's --format human|json (human by default on
+      the CLI; MCP always asks for json).
+    - Consistent errors on stderr: ENTITY_NOT_FOUND (exit 1, with a
+      same-kind suggestion) and INVALID_INPUT (exit 2).
   """
 }
 
@@ -280,9 +286,9 @@ feature pe_planning_insights "Advanced Planning Insights" {
     edges, (2) queryFeatureOverlap returns features reachable from 2+
     deliverables, (3) queryPersonaCoverageMatrix computes per-persona
     reachability with coverage ratios, (4) queryCriticalPath computes
-    the longest incomplete milestone chain with slack analysis. These are
-    ProductQueryPort queries; none of the four is a specforge product
-    subcommand.
+    the longest incomplete milestone chain with slack analysis. Each is
+    a specforge product command (unscheduled-features, feature-overlap,
+    coverage-matrix, critical-path), auto-promoted to an MCP tool.
   """
 }
 
@@ -330,10 +336,9 @@ feature pe_effort_estimation "Effort Estimation" {
     completion ratios misleading for capacity planning.
   """
   solution """
-    Add effort field (t-shirt size: xs, s, m, l, xl) to features with
-    configurable weights. Default weights follow a Fibonacci-inspired
-    scale (1, 2, 3, 5, 8) but teams MAY override via effort_weights in
-    specforge.json. Provide a weighted milestone completion query. Features
+    Add effort field (t-shirt size: xs, s, m, l, xl) to features. The
+    sizes weigh 1, 2, 3, 5 and 8 (a Fibonacci-inspired scale): the weights
+    define the scale and are not configurable (ADR 0011). Provide a weighted milestone completion query. Features
     without effort default to m weight.
   """
   tags     ["estimation", "planning", "v1-1"]

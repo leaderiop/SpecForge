@@ -1,5 +1,6 @@
 ---
 source: crates/specforge-emitter/tests/model.rs
+assertion_line: 897
 expression: output
 ---
 digraph model {
@@ -15,9 +16,9 @@ digraph model {
     behavior [label=<
       <table border="1" cellborder="0" cellspacing="0">
         <tr><td bgcolor="#4a90d9" colspan="5"><font color="white"><b>behavior</b></font></td></tr>
-        <tr><td align="left"><b>id</b></td><td>string</td><td>PK</td><td><i></i></td><td><font color="gray"></font></td></tr>
-        <tr><td align="left"><b>contract</b></td><td>string</td><td></td><td><i></i></td><td><font color="gray"></font></td></tr>
-        <tr><td align="left">features</td><td>reference_list</td><td>-> feature</td><td><i>BehaviorImplementsFeature -> feature</i></td><td><font color="gray"></font></td></tr>
+        <tr><td align="left"><b>id</b></td><td>string</td><td>PK</td><td></td><td></td></tr>
+        <tr><td align="left"><b>contract</b></td><td>string</td><td></td><td></td><td></td></tr>
+        <tr><td align="left">features</td><td>reference_list</td><td>-&gt; feature</td><td><i>BehaviorImplementsFeature -&gt; feature</i></td><td></td></tr>
       </table>
     >];
 

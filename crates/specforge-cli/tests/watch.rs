@@ -10,6 +10,8 @@ use assert_cmd::cargo::CommandCargoExt;
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
+use crate::child_guard::{ChildGuard, guarded_command};
+
 #[allow(deprecated)]
 fn specforge_cmd() -> Command {
     Command::cargo_bin("specforge").unwrap()
@@ -17,28 +19,28 @@ fn specforge_cmd() -> Command {
 
 /// Spawn `specforge watch --json` on a fresh project and return the line
 /// receiver plus the child handle.
-fn spawn_watch(project: &TempDir) -> (mpsc::Receiver<String>, std::process::Child) {
+fn spawn_watch(project: &TempDir) -> (mpsc::Receiver<String>, ChildGuard) {
     spawn_watch_with(project, &[])
 }
 
-fn spawn_watch_with(
-    project: &TempDir,
-    extra: &[&str],
-) -> (mpsc::Receiver<String>, std::process::Child) {
-    let mut child = specforge_cmd()
+fn spawn_watch_with(project: &TempDir, extra: &[&str]) -> (mpsc::Receiver<String>, ChildGuard) {
+    let mut watch = specforge_cmd();
+    watch
         .args([
             "watch",
             "--path",
             project.path().to_str().unwrap(),
             "--json",
         ])
-        .args(extra)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .expect("failed to spawn specforge watch");
+        .args(extra);
+    let mut child = ChildGuard::spawn(
+        guarded_command(&watch)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped()),
+    )
+    .expect("failed to spawn specforge watch");
 
-    let stdout = child.stdout.take().expect("stdout piped");
+    let stdout = child.take_stdout().expect("stdout piped");
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         for line in BufReader::new(stdout).lines().map_while(Result::ok) {
@@ -77,7 +79,7 @@ fn watch_rebuilds_on_file_change() {
     )
     .unwrap();
 
-    let (rx, mut child) = spawn_watch(&project);
+    let (rx, child) = spawn_watch(&project);
 
     let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60));
     assert!(ready.is_some(), "watch never reported ready");
@@ -101,8 +103,7 @@ fn watch_rebuilds_on_file_change() {
                 Some(first)
             }
         });
-    let _ = child.kill();
-    let _ = child.wait();
+    drop(child);
 
     let line = rebuilt.expect("no rebuild event after file change");
     assert!(
@@ -125,7 +126,7 @@ fn watch_reports_diagnostics_on_broken_edit() {
     )
     .unwrap();
 
-    let (rx, mut child) = spawn_watch(&project);
+    let (rx, child) = spawn_watch(&project);
     let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60));
     assert!(ready.is_some(), "watch never reported ready");
 
@@ -148,8 +149,7 @@ fn watch_reports_diagnostics_on_broken_edit() {
                 Some(first)
             }
         });
-    let _ = child.kill();
-    let _ = child.wait();
+    drop(child);
 
     let line = rebuilt.expect("no rebuild event after file change");
     assert!(
@@ -172,7 +172,7 @@ fn watch_verify_incremental_checks_each_rebuild_against_a_cold_one() {
     )
     .unwrap();
 
-    let (rx, mut child) = spawn_watch_with(&project, &["--verify-incremental"]);
+    let (rx, child) = spawn_watch_with(&project, &["--verify-incremental"]);
     assert!(
         wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60)).is_some(),
         "watch never reported ready"
@@ -185,8 +185,7 @@ fn watch_verify_incremental_checks_each_rebuild_against_a_cold_one() {
     .unwrap();
 
     let rebuilt = wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60));
-    let _ = child.kill();
-    let _ = child.wait();
+    drop(child);
 
     let line = rebuilt.expect("no rebuild event after file change");
     let event: serde_json::Value = serde_json::from_str(&line).unwrap();
@@ -210,7 +209,7 @@ fn watch_debug_build_verifies_without_the_flag() {
     )
     .unwrap();
 
-    let (rx, mut child) = spawn_watch(&project);
+    let (rx, child) = spawn_watch(&project);
     assert!(
         wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60)).is_some(),
         "watch never reported ready"
@@ -223,8 +222,7 @@ fn watch_debug_build_verifies_without_the_flag() {
     .unwrap();
 
     let rebuilt = wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60));
-    let _ = child.kill();
-    let _ = child.wait();
+    drop(child);
 
     let line = rebuilt.expect("no rebuild event after file change");
     let event: serde_json::Value = serde_json::from_str(&line).unwrap();
@@ -245,7 +243,7 @@ fn watch_rebuild_reports_what_check_reports() {
     )
     .unwrap();
 
-    let (rx, mut child) = spawn_watch(&project);
+    let (rx, child) = spawn_watch(&project);
     assert!(
         wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60)).is_some(),
         "watch never reported ready"
@@ -256,8 +254,7 @@ fn watch_rebuild_reports_what_check_reports() {
     fs::write(project.path().join("main.spec"), broken).unwrap();
 
     let rebuilt = wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60));
-    let _ = child.kill();
-    let _ = child.wait();
+    drop(child);
 
     let check = specforge_cmd()
         .args(["check", "--format", "json"])
@@ -312,7 +309,7 @@ fn watch_and_check(fixture: &str) -> (serde_json::Value, serde_json::Value, serd
         fs::copy(entry.path(), project.path().join(entry.file_name())).unwrap();
     }
 
-    let (rx, mut child) = spawn_watch(&project);
+    let (rx, child) = spawn_watch(&project);
     let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
         .expect("watch never reported ready");
     std::thread::sleep(Duration::from_millis(300));
@@ -321,8 +318,7 @@ fn watch_and_check(fixture: &str) -> (serde_json::Value, serde_json::Value, serd
     fs::write(&main, format!("{text}\n")).unwrap();
     let rebuilt = wait_for_line(&rx, "\"event\":\"rebuilt\"", Duration::from_secs(60))
         .expect("no rebuild event");
-    let _ = child.kill();
-    let _ = child.wait();
+    drop(child);
 
     let check = specforge_cmd()
         .args(["check", "--format", "json"])
@@ -398,10 +394,9 @@ fn watch_writes_the_freshness_marker_at_startup() {
     )
     .unwrap();
 
-    let (rx, mut child) = spawn_watch(&project);
+    let (rx, child) = spawn_watch(&project);
     let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60));
-    let _ = child.kill();
-    let _ = child.wait();
+    drop(child);
 
     assert!(ready.is_some(), "watch never reported ready");
     let marker = project.path().join(".specforge/graph.json");

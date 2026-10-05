@@ -2,8 +2,6 @@ use crate::emit::EmitFormat;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt;
-use std::io;
-use std::path::Path;
 use std::str::FromStr;
 
 use serde::{Deserialize, Serialize};
@@ -332,7 +330,7 @@ impl SchemaRefBlock {
                 "https://specforge.dev/schema/graph-protocol-v{}.json",
                 schema.schema_version
             ),
-            content_hash: compute_content_hash(schema),
+            content_hash: content_hash(schema),
         }
     }
 }
@@ -565,10 +563,9 @@ struct ContextNodeV2 {
     kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    contract: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    status: Option<String>,
+    /// The fields an extension declares `headline`, by name.
+    #[serde(flatten)]
+    headline: std::collections::BTreeMap<String, Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     verify: Option<Value>,
     #[serde(skip_serializing_if = "std::collections::BTreeMap::is_empty")]
@@ -592,23 +589,13 @@ pub(crate) fn emit_context_attached(
         .nodes()
         .iter()
         .map(|n| {
-            let contract = n.fields.get("contract").and_then(|v| match v {
-                specforge_graph::FieldValue::String(s) => Some(s.clone()),
-                _ => None,
-            });
-            let status = n.fields.get("status").and_then(|v| match v {
-                specforge_graph::FieldValue::Identifier(s) => Some(s.clone()),
-                specforge_graph::FieldValue::String(s) => Some(s.clone()),
-                _ => None,
-            });
-            let verify = crate::coverage::obligations_json(n);
+            let verify = crate::json::obligations_json(n);
 
             ContextNodeV2 {
                 id: n.id.raw.to_string(),
                 kind: n.kind.raw.to_string(),
                 title: n.title.clone(),
-                contract,
-                status,
+                headline: crate::context::headline_fields(n, registry),
                 verify,
                 fields: crate::context::normative_fields(n, registry),
             }
@@ -895,116 +882,13 @@ pub fn negotiate_version(
 // Slice 7: Schema Cache Persistence
 // ---------------------------------------------------------------------------
 
-const CACHE_FILE: &str = "schema-cache.json";
-
-fn compute_content_hash(schema: &GraphProtocolSchema) -> String {
+/// The content hash a schema cache entry and a scoped export's
+/// `schema_ref` carry: SHA-256 of the schema's JSON.
+pub fn content_hash(schema: &GraphProtocolSchema) -> String {
     let json = serde_json::to_string(schema).expect("schema serialization cannot fail");
     let mut hasher = Sha256::new();
     hasher.update(json.as_bytes());
     format!("{:x}", hasher.finalize())
-}
-
-pub fn persist_schema_cache(schema: &GraphProtocolSchema, cache_dir: &Path) -> io::Result<()> {
-    std::fs::create_dir_all(cache_dir)?;
-
-    let entry = SchemaCacheEntry {
-        content_hash: compute_content_hash(schema),
-        schema: schema.clone(),
-    };
-
-    let json = serde_json::to_string_pretty(&entry).map_err(io::Error::other)?;
-
-    // Atomic write: temp file then rename
-    let target = cache_dir.join(CACHE_FILE);
-    let tmp = cache_dir.join(".schema-cache.tmp");
-    std::fs::write(&tmp, &json)?;
-    std::fs::rename(&tmp, &target)?;
-
-    Ok(())
-}
-
-pub fn load_schema_cache(cache_dir: &Path) -> io::Result<Option<SchemaCacheEntry>> {
-    let path = cache_dir.join(CACHE_FILE);
-    if !path.exists() {
-        return Ok(None);
-    }
-
-    let contents = std::fs::read_to_string(&path)?;
-    let entry: SchemaCacheEntry = serde_json::from_str(&contents)
-        .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?;
-
-    Ok(Some(entry))
-}
-
-// ---------------------------------------------------------------------------
-// Slice 7b: Detect Breaking Changes with Diagnostics
-// ---------------------------------------------------------------------------
-
-use specforge_common::{Diagnostic, Severity};
-
-/// Compare `current` against the schema cached in `cache_dir` by the
-/// previous export. Returns the migration and its diagnostics: a W053
-/// warning per breaking change, or I016 when there is no cache although
-/// `output_dir_has_exports` says the project was exported before. With no
-/// previous schema every change is an addition and nothing is breaking.
-pub fn detect_breaking_with_diagnostics(
-    cache_dir: &Path,
-    current: &GraphProtocolSchema,
-    output_dir_has_exports: bool,
-) -> (SchemaMigration, Vec<Diagnostic>) {
-    let mut diagnostics = Vec::new();
-
-    let cached = match load_schema_cache(cache_dir) {
-        Ok(Some(entry)) => Some(entry.schema),
-        Ok(None) => {
-            if output_dir_has_exports {
-                diagnostics.push(Diagnostic {
-                    code: "I016".to_string(),
-                    severity: Severity::Info,
-                    message: "Schema cache not found; breaking change detection skipped. \
-                              Prior exports exist but .specforge/schema-cache.json is missing."
-                        .to_string(),
-                    span: None,
-                    suggestion: Some(
-                        "Run a full compilation to regenerate the schema cache.".to_string(),
-                    ),
-                });
-            }
-            None
-        }
-        Err(_) => None,
-    };
-
-    let migration = diff_schemas_optional(cached.as_ref(), current);
-    for change in migration.changes.iter().filter(|c| c.is_breaking()) {
-        diagnostics.push(Diagnostic {
-            code: "W053".to_string(),
-            severity: Severity::Warning,
-            message: format!("breaking schema change since the last export: {change}"),
-            span: None,
-            suggestion: Some(
-                "Agents and tools that read the previous export may not accept this one: \
-                 update them, or keep the extension versions that produced the old schema."
-                    .to_string(),
-            ),
-        });
-    }
-    (migration, diagnostics)
-}
-
-/// Give `schema` its version: the version of the schema the previous export
-/// cached in `cache_dir`, bumped by what changed since (major for a breaking
-/// change, minor for an addition, patch for anything else; unchanged when
-/// nothing changed). With no cache, or one that can't be read, it is 1.0.0.
-/// Only reads the cache.
-pub fn attach_schema_version(schema: &mut GraphProtocolSchema, cache_dir: &Path) {
-    let previous = load_schema_cache(cache_dir)
-        .ok()
-        .flatten()
-        .map(|e| e.schema);
-    let migration = diff_schemas_optional(previous.as_ref(), schema);
-    schema.schema_version =
-        compute_schema_version(&migration, previous.as_ref().map(|p| &p.schema_version));
 }
 
 // ---------------------------------------------------------------------------
@@ -1162,17 +1046,20 @@ pub fn publish_json_schema_format(
     }
 
     let node_schema: serde_json::Value = match format {
+        // Every other key of a context node is a field its extension
+        // declares `headline`, written as text and never under one of the
+        // node's own keys (`context::headline_fields`), so the schema types
+        // them without naming them (ADR 0009, D).
         EmitFormat::Context => serde_json::json!({
             "type": "object",
-            "additionalProperties": false,
+            "additionalProperties": { "type": "string" },
             "required": ["id", "kind"],
             "properties": {
                 "id": { "type": "string" },
                 "kind": node_kind_schema,
                 "title": { "type": "string" },
-                "contract": { "type": ["string", "null"] },
-                "status": { "type": ["string", "null"] },
-                "verify": { "type": ["object", "array", "null"] }
+                "verify": { "type": ["object", "array", "null"] },
+                "fields": { "type": "object" }
             }
         }),
         EmitFormat::Brief => serde_json::json!({

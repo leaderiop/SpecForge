@@ -165,7 +165,6 @@ type SchemaCompatibility {
 // versions without requiring a Graph Protocol major version bump.
 // Arrays MUST be sorted by EntityId.raw (lexicographic) for deterministic output
 type GraphDelta {
-  timestamp      timestamp @readonly
   added_nodes    NodeChange[]
   removed_nodes  NodeChange[]
   modified_nodes ModifiedNodeChange[]
@@ -184,15 +183,11 @@ type NodeChange {
 }
 
 type ModifiedNodeChange {
-  id             string    @readonly
+  id             string  @readonly
+  // What changed (sorted): field names, or kind, title, methods, edges
   changed_fields string[]
-  // old_value and new_value are populated when delta_include_values is true
-  // in CompilerConfig (default false for token efficiency per P3), or always
-  // in debug mode (debug build configuration / --verify-incremental).
-  old_value      JsonValue @optional
-  new_value      JsonValue @optional
-  file           string    @optional
-  line           integer   @optional
+  file           string  @optional
+  line           integer @optional
   verify unit "ModifiedNodeChange schema is valid"
 }
 

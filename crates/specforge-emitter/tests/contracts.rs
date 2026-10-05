@@ -141,7 +141,7 @@ fn json_graph_contract_finalized_graph_produces_valid_output() {
     // Requires: graph is finalized (built with nodes + edges)
     // Ensures: valid JSON with schema_version, all nodes, all edges, source locations
     let graph = build_graph();
-    let json = specforge_emitter::emit_json(&graph);
+    let json = specforge_emitter::json::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     assert!(
@@ -177,7 +177,7 @@ fn dot_contract_finalized_graph_produces_valid_dot() {
     // Ensures: valid DOT; every node labeled with its ID and title; every
     // edge labeled with its type.
     let graph = build_graph();
-    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
 
     assert_eq!(
         dot,
@@ -210,182 +210,6 @@ fn dot_contract_finalized_graph_produces_valid_dot() {
     );
 }
 
-// === compute_traceability_chain contract ===
-
-/// Expected edges from the test registries: behaviors expect `invariants`
-/// and `features` (the latter also declared by a feature's `behaviors`),
-/// features expect `behaviors`.
-fn trace_expectations() -> specforge_emitter::TraceExpectations {
-    let (fields, kinds) = crate::trace_support::registries();
-    specforge_emitter::TraceExpectations::from_registries(&fields, &kinds)
-}
-
-// No event bus exists in the codebase: like the other emitter contracts,
-// the *_emitted clause is not observable here.
-#[specforge_test(
-    behavior = "compute_traceability_chain",
-    verify = "Compute Traceability Chain: traceability chain computation holds — validation_complete_fired, full_chain_traversed, missing_links_flagged, trace_chain_computed_emitted"
-)]
-fn trace_contract_entity_in_graph_produces_chain() {
-    // Requires (validation_complete_fired): a finalized graph.
-    // Ensures (full_chain_traversed): the full chain, both directions,
-    // every hop.
-    let graph = build_graph();
-    let expectations = trace_expectations();
-    let links = |links: &[specforge_emitter::TraceLink]| -> Vec<(String, String, usize)> {
-        links
-            .iter()
-            .map(|l| {
-                assert_eq!(l.status, specforge_emitter::TraceLinkStatus::Resolved);
-                (l.entity_id.clone(), l.edge_label.clone(), l.depth)
-            })
-            .collect()
-    };
-    let missing = |chain: &specforge_emitter::TraceChain| -> Vec<(String, String, String)> {
-        chain
-            .missing
-            .iter()
-            .map(|m| {
-                assert_eq!(m.status, specforge_emitter::TraceLinkStatus::Missing);
-                (
-                    m.from.clone(),
-                    m.edge_label.clone(),
-                    m.expected_kind.clone(),
-                )
-            })
-            .collect()
-    };
-
-    let trace = specforge_emitter::trace_with_expectations(&graph, "b", &expectations).unwrap();
-    assert_eq!(trace.entity_id, "b");
-    assert_eq!(trace.entity_kind, "behavior");
-    assert_eq!(
-        links(&trace.upstream),
-        vec![("a".to_string(), "behaviors".to_string(), 1)]
-    );
-    assert_eq!(
-        links(&trace.downstream),
-        vec![("c".to_string(), "depends_on".to_string(), 1)]
-    );
-
-    // Ensures (missing_links_flagged): b's feature link is declared from
-    // a's side; b declares no invariant.
-    assert_eq!(
-        missing(&trace),
-        vec![(
-            "b".to_string(),
-            "invariants".to_string(),
-            "invariant".to_string()
-        )]
-    );
-
-    // From the root the chain reaches the leaf two hops away, and the root
-    // has the one edge its kind expects.
-    let root = specforge_emitter::trace_with_expectations(&graph, "a", &expectations).unwrap();
-    assert!(root.upstream.is_empty());
-    assert_eq!(
-        links(&root.downstream),
-        vec![
-            ("b".to_string(), "behaviors".to_string(), 1),
-            ("c".to_string(), "depends_on".to_string(), 2),
-        ]
-    );
-    assert!(root.missing.is_empty(), "{:?}", root.missing);
-
-    // c: no feature lists it and it declares nothing its kind expects.
-    let leaf = specforge_emitter::trace_with_expectations(&graph, "c", &expectations).unwrap();
-    assert_eq!(
-        missing(&leaf),
-        vec![
-            (
-                "c".to_string(),
-                "features".to_string(),
-                "feature".to_string()
-            ),
-            (
-                "c".to_string(),
-                "invariants".to_string(),
-                "invariant".to_string()
-            ),
-        ]
-    );
-
-    // The JSON carries the Graph Protocol schema_version and the gaps.
-    let json: serde_json::Value =
-        serde_json::from_str(&specforge_emitter::serialize_trace(&leaf).unwrap()).unwrap();
-    assert_eq!(json["schema_version"], specforge_emitter::SCHEMA_VERSION);
-    assert_eq!(json["missing"][0]["status"], "missing");
-    assert_eq!(json["upstream"][0]["status"], "resolved");
-}
-
-// === compute_project_statistics contract ===
-
-// B:compute_project_statistics — verify contract "requires/ensures consistency for project statistics computation"
-#[specforge_test(
-    behavior = "compute_project_statistics",
-    verify = "Compute Project Statistics: project statistics computation holds — validation_complete_fired, entity_counts_produced, coverage_computed, zero_testable_safe"
-)]
-fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
-    // Requires: graph + diagnostics collected
-    // Ensures: all stat fields populated correctly
-    let graph = build_graph();
-    let diagnostics = vec![
-        Diagnostic {
-            code: "E001".into(),
-            severity: Severity::Error,
-            message: "err".into(),
-            span: None,
-            suggestion: None,
-        },
-        Diagnostic {
-            code: "W002".into(),
-            severity: Severity::Warning,
-            message: "warn".into(),
-            span: None,
-            suggestion: None,
-        },
-    ];
-
-    // One testable behavior without a verify, and a verified feature: the
-    // feature is not testable, so it must not count toward coverage.
-    let mut graph = graph;
-    graph.add_node(node_with_fields("d", "behavior", "unverified", "planned"));
-    let mut verified_feature = testable_node("e");
-    verified_feature.kind = EntityKind {
-        raw: Sym::new("feature"),
-    };
-    graph.add_node(verified_feature);
-
-    let stats =
-        specforge_emitter::compute_stats_with_diagnostics(&graph, &["behavior"], &diagnostics);
-    assert_eq!(stats.total_entities, 5);
-    assert_eq!(stats.total_edges, 2);
-    // entity_counts_produced: counts grouped by kind.
-    assert_eq!(
-        stats.entities_by_kind,
-        [("behavior".to_string(), 3), ("feature".to_string(), 2)]
-            .into_iter()
-            .collect()
-    );
-    // coverage_computed: b and c of the three behaviors are verified.
-    assert_eq!(stats.testable_count, 3);
-    assert!(
-        (stats.coverage_pct - 200.0 / 3.0).abs() < 1e-9,
-        "2 of 3 testable verified: {}",
-        stats.coverage_pct
-    );
-    assert_eq!(stats.error_count, 1);
-    assert_eq!(stats.warning_count, 1);
-
-    // zero_testable_safe: no testable kinds, or a testable kind with no
-    // entities, reports 0%, not NaN.
-    for testable in [&[][..], &["event"][..]] {
-        let none = specforge_emitter::compute_stats_with_diagnostics(&graph, testable, &[]);
-        assert_eq!(none.testable_count, 0);
-        assert_eq!(none.coverage_pct, 0.0, "testable kinds {testable:?}");
-    }
-}
-
 // === export_agent_context_format contract ===
 
 // B:export_agent_context_format — verify contract "requires/ensures consistency for agent context export"
@@ -397,7 +221,10 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     // Requires: finalized graph
     let mut graph = build_graph();
     graph.add_node(described_node("d")); // disconnected from a -> b -> c
-    let json = specforge_emitter::emit_context(&graph);
+    let json = specforge_emitter::context::emit_context_with_fields(
+        &graph,
+        Some(&crate::support::headline_registry(&["behavior", "feature"])),
+    );
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     // schema_version_present
@@ -424,7 +251,7 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
     }
 
     // scope_enforced: scoped at a, only the connected a, b, c.
-    let scoped = specforge_emitter::emit_context_scoped(&graph, "a").unwrap();
+    let scoped = specforge_emitter::scope::emit_context_scoped(&graph, "a").unwrap();
     let scoped: serde_json::Value = serde_json::from_str(&scoped).unwrap();
     assert_eq!(node_ids(&scoped), vec!["a", "b", "c"]);
     assert_eq!(scoped["edges"].as_array().unwrap().len(), 2);
@@ -458,7 +285,7 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
     // Requires: finalized graph
     let mut graph = build_graph();
     graph.add_node(described_node("d")); // disconnected from a -> b -> c
-    let json = specforge_emitter::emit_graph(&graph);
+    let json = specforge_emitter::json::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     // schema_version_present
@@ -490,7 +317,7 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
     );
 
     // scope_enforced: scoped at c, only the connected a, b, c.
-    let scoped = specforge_emitter::emit_json_scoped(&graph, "c").unwrap();
+    let scoped = specforge_emitter::scope::emit_json_scoped(&graph, "c").unwrap();
     let scoped: serde_json::Value = serde_json::from_str(&scoped).unwrap();
     assert_eq!(node_ids(&scoped), vec!["a", "b", "c"]);
     assert_eq!(scoped["edges"].as_array().unwrap().len(), 2);
@@ -568,8 +395,10 @@ fn budget_contract_within_budget_no_truncation() {
     // Requires: graph + budget
     let graph = build_graph(); // a -> b -> c: b is the most central
     let emit = |budget: usize| -> serde_json::Value {
-        serde_json::from_str(&specforge_emitter::emit_json_with_budget(&graph, budget).unwrap())
-            .unwrap()
+        serde_json::from_str(
+            &specforge_emitter::budget::emit_json_with_budget(&graph, budget).unwrap(),
+        )
+        .unwrap()
     };
 
     // Within budget: everything, and no truncation metadata.
@@ -606,39 +435,6 @@ fn budget_contract_within_budget_no_truncation() {
     );
 }
 
-// === validate_agent_plan contract ===
-
-// B:validate_agent_plan — verify contract "requires/ensures consistency for agent plan validation"
-#[specforge_test(
-    behavior = "validate_agent_plan",
-    verify = "Validate Agent Implementation Plan: agent plan validation holds — validation_complete_fired, unresolvable_ids_diagnosed, missing_entries_warned, ordering_validated, structured_report_produced, plan_validated_emitted"
-)]
-fn plan_contract_validates_ids_coverage_ordering() {
-    // Requires: finalized graph + plan JSON
-    // Ensures: unresolvable IDs → errors, missing testable → warnings, wrong order → violations
-    let graph = build_graph();
-    let plan = serde_json::json!({
-        "entries": [
-            { "entity_id": "nonexistent", "action": "implement" },
-            { "entity_id": "b", "action": "implement" },
-        ]
-    });
-
-    let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
-    assert!(
-        !result.errors.is_empty(),
-        "unresolvable IDs must produce errors"
-    );
-    assert!(
-        !result.warnings.is_empty(),
-        "missing testable must produce warnings"
-    );
-
-    let json = specforge_emitter::serialize_plan_result(&result);
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed.is_object(), "structured JSON report required");
-}
-
 // === deterministic_output contract ===
 
 // B:deterministic_output — verify contract "requires/ensures consistency for deterministic output"
@@ -651,183 +447,21 @@ fn deterministic_contract_same_input_identical_output() {
     // Ensures: identical output across all formats
     let graph = build_graph();
 
-    let json1 = specforge_emitter::emit_json(&graph);
-    let json2 = specforge_emitter::emit_json(&graph);
+    let json1 = specforge_emitter::json::emit_json(&graph);
+    let json2 = specforge_emitter::json::emit_json(&graph);
     assert_eq!(json1, json2, "JSON must be deterministic");
 
-    let dot1 = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
-    let dot2 = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot1 = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot2 = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert_eq!(dot1, dot2, "DOT must be deterministic");
 
-    let brief1 = specforge_emitter::emit_brief(&graph);
-    let brief2 = specforge_emitter::emit_brief(&graph);
+    let brief1 = specforge_emitter::brief::emit_brief(&graph);
+    let brief2 = specforge_emitter::brief::emit_brief(&graph);
     assert_eq!(brief1, brief2, "brief must be deterministic");
 
-    let ctx1 = specforge_emitter::emit_context(&graph);
-    let ctx2 = specforge_emitter::emit_context(&graph);
+    let ctx1 = specforge_emitter::context::emit_context(&graph);
+    let ctx2 = specforge_emitter::context::emit_context(&graph);
     assert_eq!(ctx1, ctx2, "context must be deterministic");
-}
-
-// === serialize_traceability_data contract ===
-
-// No event bus exists in the codebase: like the other emitter contracts,
-// the *_emitted clause is not observable here.
-#[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "Serialize Traceability Data: traceability data serialization holds — validation_complete_fired, full_trace_serialized, gaps_included, graph_protocol_conformance, render_complete_emitted"
-)]
-fn trace_data_contract_all_entities_traced() {
-    // Requires (validation_complete_fired): a finalized graph.
-    let graph = build_graph();
-    let traces = specforge_emitter::trace_all_with_expectations(&graph, &trace_expectations());
-    let json = specforge_emitter::serialize_trace_all(&traces).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-
-    // graph_protocol_conformance: the protocol's schema_version, and a
-    // traces array.
-    assert_eq!(parsed["schema_version"], specforge_emitter::SCHEMA_VERSION);
-    let traces = parsed["traces"].as_array().unwrap();
-
-    // full_trace_serialized: one chain per entity, in ID order, each with
-    // its links from root to leaf.
-    let ids: Vec<&str> = traces
-        .iter()
-        .map(|t| t["entity_id"].as_str().unwrap())
-        .collect();
-    assert_eq!(ids, vec!["a", "b", "c"]);
-    let hops = |trace: &serde_json::Value, direction: &str| -> Vec<(String, u64, String)> {
-        trace[direction]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|l| {
-                (
-                    l["entity_id"].as_str().unwrap().to_string(),
-                    l["depth"].as_u64().unwrap(),
-                    l["status"].as_str().unwrap().to_string(),
-                )
-            })
-            .collect()
-    };
-    assert_eq!(
-        hops(&traces[0], "downstream"),
-        vec![
-            ("b".to_string(), 1, "resolved".to_string()),
-            ("c".to_string(), 2, "resolved".to_string()),
-        ]
-    );
-    assert_eq!(
-        hops(&traces[2], "upstream"),
-        vec![
-            ("b".to_string(), 1, "resolved".to_string()),
-            ("a".to_string(), 2, "resolved".to_string()),
-        ]
-    );
-
-    // gaps_included: every missing link, with a missing status, from the
-    // entity that lacks it to the kind it should reach.
-    let gaps: Vec<(String, String, String, String)> = traces
-        .iter()
-        .flat_map(|t| t["missing"].as_array().unwrap().iter())
-        .map(|m| {
-            (
-                m["from"].as_str().unwrap().to_string(),
-                m["edge_label"].as_str().unwrap().to_string(),
-                m["expected_kind"].as_str().unwrap().to_string(),
-                m["status"].as_str().unwrap().to_string(),
-            )
-        })
-        .collect();
-    let gap = |from: &str, label: &str, kind: &str| {
-        (
-            from.to_string(),
-            label.to_string(),
-            kind.to_string(),
-            "missing".to_string(),
-        )
-    };
-    assert_eq!(
-        gaps,
-        vec![
-            gap("b", "invariants", "invariant"),
-            gap("c", "features", "feature"),
-            gap("c", "invariants", "invariant"),
-        ]
-    );
-}
-
-#[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "full trace covers all root entities across registered edge types"
-)]
-fn trace_data_full_trace_covers_all_roots() {
-    let graph = build_graph();
-    let traces = specforge_emitter::trace_all(&graph);
-    let ids: Vec<&str> = traces.iter().map(|t| t.entity_id.as_str()).collect();
-    assert!(ids.contains(&"a"), "root entity a must be traced");
-    assert!(ids.contains(&"b"), "mid entity b must be traced");
-    assert!(ids.contains(&"c"), "leaf entity c must be traced");
-}
-
-#[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "gaps in chain are highlighted"
-)]
-fn trace_data_gaps_highlighted() {
-    // A behavior linked to nothing: both edges its kind expects are gaps
-    // in the full trace, with the registered edge type each would be.
-    let mut graph = Graph::new();
-    graph.add_node(testable_node("isolated"));
-    let traces = specforge_emitter::trace_all_with_expectations(&graph, &trace_expectations());
-    let json = specforge_emitter::serialize_trace_all(&traces).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(
-        parsed["traces"][0]["missing"],
-        serde_json::json!([
-            {
-                "from": "isolated",
-                "from_kind": "behavior",
-                "edge_label": "features",
-                "edge_type": "behavior_features",
-                "expected_kind": "feature",
-                "depth": 1,
-                "required": false,
-                "status": "missing"
-            },
-            {
-                "from": "isolated",
-                "from_kind": "behavior",
-                "edge_label": "invariants",
-                "edge_type": "behavior_invariants",
-                "expected_kind": "invariant",
-                "depth": 1,
-                "required": false,
-                "status": "missing"
-            }
-        ])
-    );
-
-    // Without expectations nothing is missing.
-    let bare = specforge_emitter::trace_all(&graph);
-    assert!(bare[0].missing.is_empty());
-}
-
-#[specforge_test(
-    behavior = "serialize_traceability_data",
-    verify = "output conforms to Graph Protocol schema"
-)]
-fn trace_data_output_conforms_to_schema() {
-    let graph = build_graph();
-    let traces = specforge_emitter::trace_all(&graph);
-    let json = specforge_emitter::serialize_trace_all(&traces).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed["schema_version"].is_string());
-    assert!(parsed["traces"].is_array());
-    for trace in parsed["traces"].as_array().unwrap() {
-        assert!(trace["entity_id"].is_string());
-        assert!(trace["upstream"].is_array());
-        assert!(trace["downstream"].is_array());
-    }
 }
 
 // === present_diagnostics_as_json contract ===
@@ -850,9 +484,10 @@ fn diagnostic_json_contract_complete_fields() {
             end_col: 20,
         }),
         suggestion: Some("did you mean 'foo'?".into()),
+        data: None,
     }];
 
-    let json = specforge_emitter::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed.is_array());
 
@@ -877,6 +512,7 @@ fn diagnostic_json_array() {
             message: "err".into(),
             span: None,
             suggestion: None,
+            data: None,
         },
         Diagnostic {
             code: "W001".into(),
@@ -884,9 +520,10 @@ fn diagnostic_json_array() {
             message: "warn".into(),
             span: None,
             suggestion: None,
+            data: None,
         },
     ];
-    let json = specforge_emitter::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed.is_array());
     assert_eq!(parsed.as_array().unwrap().len(), 2);
@@ -909,8 +546,9 @@ fn diagnostic_json_all_fields() {
             end_col: 15,
         }),
         suggestion: None,
+        data: None,
     }];
-    let json = specforge_emitter::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     let e = &parsed[0];
     assert_eq!(e["code"], "E042");
@@ -932,8 +570,9 @@ fn diagnostic_json_valid_parseable() {
         message: "msg with \"quotes\"".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
-    let json = specforge_emitter::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags);
     let result: Result<serde_json::Value, _> = serde_json::from_str(&json);
     assert!(result.is_ok(), "output must be valid JSON");
 }
@@ -946,12 +585,13 @@ fn diagnostic_exit_code_unaffected_by_format() {
         message: "err".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
     // Exit code should be based on severity regardless of format
-    let exit = specforge_emitter::compute_exit_code(&diags);
+    let exit = specforge_common::compute_exit_code(&diags);
     assert_eq!(exit, 1, "errors should produce exit 1 regardless of format");
     // Also verify JSON is still produced
-    let json = specforge_emitter::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags);
     assert!(!json.is_empty());
 }
 
@@ -966,8 +606,9 @@ fn diagnostic_suggestion_included() {
         message: "unresolved".into(),
         span: None,
         suggestion: Some("did you mean 'bar'?".into()),
+        data: None,
     }];
-    let json = specforge_emitter::serialize_diagnostics(&diags);
+    let json = specforge_common::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed[0]["suggestion"], "did you mean 'bar'?");
 }
@@ -982,7 +623,7 @@ fn diagnostic_suggestion_included() {
 )]
 fn json_graph_all_nodes() {
     let graph = build_graph();
-    let json = specforge_emitter::emit_json(&graph);
+    let json = specforge_emitter::json::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["nodes"].as_array().unwrap().len(), 3);
 }
@@ -993,7 +634,7 @@ fn json_graph_all_nodes() {
 )]
 fn json_graph_all_edges() {
     let graph = build_graph();
-    let json = specforge_emitter::emit_json(&graph);
+    let json = specforge_emitter::json::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["edges"].as_array().unwrap().len(), 2);
 }
@@ -1001,7 +642,7 @@ fn json_graph_all_edges() {
 #[specforge_test(behavior = "serialize_json_graph", verify = "output is valid JSON")]
 fn json_graph_valid_json() {
     let graph = build_graph();
-    let json = specforge_emitter::emit_json(&graph);
+    let json = specforge_emitter::json::emit_json(&graph);
     let result: Result<serde_json::Value, _> = serde_json::from_str(&json);
     assert!(result.is_ok(), "output must be valid JSON");
 }
@@ -1012,7 +653,7 @@ fn json_graph_valid_json() {
 )]
 fn json_graph_schema_version() {
     let graph = build_graph();
-    let json = specforge_emitter::emit_json(&graph);
+    let json = specforge_emitter::json::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed["schema_version"].is_string());
 }
@@ -1023,7 +664,7 @@ fn json_graph_schema_version() {
 )]
 fn json_graph_empty() {
     let graph = Graph::new();
-    let json = specforge_emitter::emit_json(&graph);
+    let json = specforge_emitter::json::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["nodes"].as_array().unwrap().len(), 0);
     assert_eq!(parsed["edges"].as_array().unwrap().len(), 0);
@@ -1035,7 +676,7 @@ fn json_graph_empty() {
 )]
 fn json_graph_empty_has_schema() {
     let graph = Graph::new();
-    let json = specforge_emitter::emit_json(&graph);
+    let json = specforge_emitter::json::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(
         parsed["schema_version"].is_string(),
@@ -1050,7 +691,7 @@ fn json_graph_empty_has_schema() {
 fn json_graph_structural_only() {
     let mut graph = Graph::new();
     graph.add_node(node_with_fields("x", "custom_kind", "c", "active"));
-    let json = specforge_emitter::emit_json(&graph);
+    let json = specforge_emitter::json::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     let node = &parsed["nodes"].as_array().unwrap()[0];
     assert_eq!(
@@ -1079,7 +720,7 @@ fn dot_valid_syntax() {
         target: "say \"hi\"".into(),
         label: "behaviors".into(),
     });
-    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
 
     assert_eq!(
         dot_statement_shapes(&dot),
@@ -1120,7 +761,7 @@ fn dot_nodes_labeled() {
     let mut bare = testable_node("d");
     bare.title = None;
     graph.add_node(bare);
-    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
 
     // Each node has its own statement, labeled with its ID (and title).
     let statements: Vec<&str> = dot
@@ -1145,7 +786,7 @@ fn dot_nodes_labeled() {
 )]
 fn dot_edges_labeled() {
     let graph = build_graph();
-    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(
         dot.contains("behaviors"),
         "edge label 'behaviors' must be present"
@@ -1159,7 +800,7 @@ fn dot_edges_labeled() {
 #[test]
 fn dot_node_shapes() {
     let graph = build_graph();
-    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(dot.contains("shape="), "nodes must have shape attribute");
 }
 
@@ -1190,9 +831,12 @@ fn dot_emits_registry_declared_styles() {
         dot_color: Some("firebrick".to_string()),
         dot_fillcolor: Some("#ffeeee".to_string()),
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
+        lifecycle_field: None,
     });
 
-    let dot = specforge_emitter::emit_dot(
+    let dot = specforge_emitter::dot::emit_dot(
         &graph,
         &specforge_emitter::DotOptions {
             kind_registry: Some(&registry),
@@ -1213,7 +857,7 @@ fn dot_emits_registry_declared_styles() {
     );
 
     // No registry: default emission (no per-node shape overrides).
-    let plain = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let plain = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(
         !plain.contains("shape=\"hexagon\""),
         "default emission must not invent registry styles"

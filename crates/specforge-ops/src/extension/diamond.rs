@@ -3,6 +3,8 @@
 //! instead of leaving `doctor` to find the conflict afterwards.
 
 use crate::OpError;
+use semver::{Version, VersionReq};
+use specforge_common::{Diagnostic, Severity};
 use specforge_registry::PeerDependency;
 use specforge_wasm::{LockFile, collect_peer_requirers};
 
@@ -36,7 +38,7 @@ pub fn check_diamonds(
 
         let requirers = collect_peer_requirers(lock, &peer.name, Some((package, &peer.version)));
         let published = versions(&peer.name)?;
-        return match specforge_registry::resolver::unify_diamond(&peer.name, &published, &requirers)
+        return match unify_diamond(&peer.name, &published, &requirers)
         {
             Ok(unified) => Err(OpError::new(
                 "R-RES-006",
@@ -53,6 +55,66 @@ pub fn check_diamonds(
         };
     }
     Ok(())
+}
+
+/// Unify a version diamond: several requirers each declare a semver range
+/// for the same package. Pick the highest of its published `versions` that
+/// satisfies every requirer's range (intersection, not backtracking: when
+/// none does, R-RES-005 names each requirer; a malformed range is R-RES-003).
+fn unify_diamond(
+    name: &str,
+    versions: &[String],
+    requirers: &[(String, String)],
+) -> Result<String, Diagnostic> {
+    let mut reqs = Vec::with_capacity(requirers.len());
+    for (requirer, range) in requirers {
+        let req = VersionReq::parse(range).map_err(|e| Diagnostic {
+            code: "R-RES-003".to_string(),
+            severity: Severity::Error,
+            message: format!(
+                "'{}' declares an invalid version range '{}' for peer '{}': {}",
+                requirer, range, name, e
+            ),
+            span: None,
+            suggestion: Some("use semver syntax: ^1.0, ~2.3, >=1.0.0 <2.0.0".to_string()),
+            data: None,
+        })?;
+        reqs.push((requirer.as_str(), range.as_str(), req));
+    }
+
+    let mut candidates: Vec<Version> = versions
+        .iter()
+        .filter_map(|v| Version::parse(v).ok())
+        .collect();
+    candidates.sort();
+
+    let unified = candidates
+        .into_iter()
+        .rev()
+        .find(|v| reqs.iter().all(|(_, _, req)| req.matches(v)));
+
+    unified.map(|v| v.to_string()).ok_or_else(|| {
+        let wanted = reqs
+            .iter()
+            .map(|(requirer, range, _)| format!("{} wants {} {}", requirer, name, range))
+            .collect::<Vec<_>>()
+            .join("; ");
+        Diagnostic {
+            code: "R-RES-005".to_string(),
+            severity: Severity::Error,
+            message: format!(
+                "version diamond for '{}': no single version satisfies every requirer ({}). Available: {}",
+                name,
+                wanted,
+                versions.join(", ")
+            ),
+            span: None,
+            suggestion: Some(
+                "no version unifies these ranges; upgrade the requirer with the narrowest range or pin a compatible peer version manually".to_string(),
+            ),
+            data: None,
+        }
+    })
 }
 
 #[cfg(test)]
@@ -163,5 +225,60 @@ mod tests {
         )
         .unwrap_err();
         assert_eq!(err.code, "E063");
+    }
+
+    fn versions(vs: &[&str]) -> Vec<String> {
+        vs.iter().map(|v| v.to_string()).collect()
+    }
+
+    fn req(requirer: &str, range: &str) -> (String, String) {
+        (requirer.to_string(), range.to_string())
+    }
+
+    // -- unify_diamond --
+
+    #[test]
+    fn unify_diamond_picks_highest_version_satisfying_every_requirer() {
+        let vs = versions(&["1.0.0", "1.5.0", "2.0.0", "2.5.0", "3.0.0"]);
+        let requirers = vec![req("@a/ext", "^2.0.0"), req("@b/ext", ">=2.0.0, <3.0.0")];
+        let result = unify_diamond("@shared/lib", &vs, &requirers).unwrap();
+        assert_eq!(result, "2.5.0");
+    }
+
+    #[test]
+    fn unify_diamond_single_requirer_behaves_like_resolve_version() {
+        let vs = versions(&["1.0.0", "1.2.0", "2.0.0"]);
+        let requirers = vec![req("@a/ext", "^1.0.0")];
+        let result = unify_diamond("@shared/lib", &vs, &requirers).unwrap();
+        assert_eq!(result, "1.2.0");
+    }
+
+    #[test]
+    fn unify_diamond_incompatible_ranges_reports_diamond_conflict() {
+        let vs = versions(&["1.0.0", "1.5.0", "2.0.0", "2.5.0"]);
+        // @a wants a 1.x line, @b wants a 2.x line — no version satisfies both.
+        let requirers = vec![req("@a/ext", "^1.0.0"), req("@b/ext", "^2.0.0")];
+        let err = unify_diamond("@shared/lib", &vs, &requirers).unwrap_err();
+        assert_eq!(err.code, "R-RES-005");
+        assert!(err.message.contains("@a/ext"));
+        assert!(err.message.contains("@b/ext"));
+        assert!(err.message.contains("^1.0.0"));
+        assert!(err.message.contains("^2.0.0"));
+    }
+
+    #[test]
+    fn unify_diamond_malformed_range_names_the_requirer() {
+        let vs = versions(&["1.0.0"]);
+        let requirers = vec![req("@a/ext", "not-a-range")];
+        let err = unify_diamond("@shared/lib", &vs, &requirers).unwrap_err();
+        assert_eq!(err.code, "R-RES-003");
+        assert!(err.message.contains("@a/ext"));
+    }
+
+    #[test]
+    fn unify_diamond_no_requirers_picks_highest_available() {
+        let vs = versions(&["1.0.0", "2.0.0"]);
+        let result = unify_diamond("@shared/lib", &vs, &[]).unwrap();
+        assert_eq!(result, "2.0.0");
     }
 }

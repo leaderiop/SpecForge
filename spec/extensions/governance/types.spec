@@ -17,6 +17,7 @@ type GovernanceDecision {
 type GovernanceConstraint {
   category   string     @optional
   priority   string
+  // proof_role bound: the prove pass assumes its comparisons (ADR 0009)
   metric     string
   constrains EntityId[] @optional
   protects   EntityId[] @optional

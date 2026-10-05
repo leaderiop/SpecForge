@@ -210,13 +210,12 @@ decision pe_surface_contributions_v1 "Surface Contributions in v1" {
     plus milestone-completion, journey-coverage, feature-ordering,
     milestone-timeline, milestone-deliverables, and module-features queries.
     Remaining query-port methods are accessible via the programmatic
-    ProductQueryPort API and as MCP resources.
+    ProductQueryPort API.
   """
   consequences [
     "Users can invoke product queries from CLI",
     "Agents can invoke product queries via MCP tools",
     "27 commands in v1.1 — 9 list, 6 query, 5 planning insights, 6 v1.1 additions",
-    "16 MCP resources expose read-only query endpoints via specforge:// URIs",
   ]
 }
 
@@ -274,7 +273,7 @@ decision pe_tags_on_all_kinds "Tags Field on All Entity Kinds" {
 }
 
 decision pe_reverse_query_symmetry "Reverse Query Symmetry" {
-  status       accepted
+  status       superseded
   date         2026-03-10
   context      """
     Forward queries exist (milestone->features, journey->features) but reverse
@@ -282,6 +281,11 @@ decision pe_reverse_query_symmetry "Reverse Query Symmetry" {
     both directions for complete graph navigation.
   """
   decision     """
+    Superseded by ADR 0011: one-hop lookups are core's
+    `specforge query <id> --depth 1 --kind <kind>` (and MCP
+    specforge.query / specforge.find_references), not product commands.
+    term_graph (N-hop over see_also) stays a product command.
+
     Add 5 reverse query behaviors: feature milestones, persona journeys,
     channel journeys, module deliverables, and term graph (N-hop). Each
     reverse query traverses the corresponding edge type in reverse direction.
@@ -332,9 +336,9 @@ decision pe_i058_query_time_only "I058 Overdue Detection as Query-Time Only" {
 
     This preserves deterministic compilation: specforge check produces
     identical diagnostics regardless of when it runs. Overdue detection
-    is available via the product:milestone-timeline CLI command and
-    the specforge://product/milestone-timeline MCP resource, both of
-    which accept an explicit --as-of / as_of_date parameter.
+    is available via the specforge product milestone-timeline command
+    (and its MCP tool), whose --as-of defaults to the date the host
+    passes (CommandInput.today, ADR 0011).
   """
   consequences [
     "specforge check is fully deterministic — no time-dependent diagnostics",
@@ -619,20 +623,21 @@ decision pe_typed_surface_schemas "Typed Surface Schemas" {
     List commands use ProductListFilter input and per-kind list result types
     (FeatureListResult, JourneyListResult, etc.) with pagination. Query commands
     use per-command input types and return existing query payload types.
-    MCP resources return a ProductSurfaceResponse envelope wrapping query payloads.
-    All surfaces share consistent error handling via ProductSurfaceError with
-    three error codes: ENTITY_NOT_FOUND, GRAPH_NOT_READY, INVALID_INPUT.
+    All commands share consistent error handling via ProductSurfaceError with
+    two error codes: ENTITY_NOT_FOUND (exit 1) and INVALID_INPUT (exit 2).
+    GRAPH_NOT_READY and the MCP resource envelope (ProductSurfaceResponse)
+    were dropped by ADR 0011: a command only runs over a built graph, and
+    product declares no MCP resources.
   """
   consequences [
     "Every surface has a traceable input/output contract in the spec graph",
     "Agents can discover surface schemas via the graph protocol",
     "Per-kind list types add ~8 types but enable kind-specific key fields in listings",
-    "ProductSurfaceResponse envelope standardizes MCP resource responses",
-    "Three error codes keep the error space small and predictable",
+    "Two error codes keep the error space small and predictable",
     "surfaces.spec file contains 30 surface behaviors with full contracts",
     "Schema changes require updating both types.spec and surfaces.spec",
   ]
-  invariants   [pe_surface_response_envelope, pe_surface_error_consistency]
+  invariants   [pe_surface_error_consistency]
 }
 
 decision pe_list_pagination "List Command Pagination" {
@@ -650,7 +655,8 @@ decision pe_list_pagination "List Command Pagination" {
     Use offset/limit pagination (Option C). Default limit is 100, max is 1000.
     total reflects the filtered (pre-pagination) count. has_more indicates
     whether more results exist beyond the current page. Pagination is stateless
-    — clients can request any page without server-side cursors.
+    — clients can request any page without server-side cursors. The matrix
+    queries page the same way (ADR 0011).
   """
   consequences [
     "Stateless pagination — no server-side cursor management",
@@ -664,7 +670,7 @@ decision pe_list_pagination "List Command Pagination" {
 }
 
 decision pe_three_output_formats "Three Output Formats" {
-  status       accepted
+  status       superseded
   date         2026-03-11
   context      """
     CLI commands need human-readable and machine-readable output. Agents
@@ -672,6 +678,10 @@ decision pe_three_output_formats "Three Output Formats" {
     all use cases without requiring custom format strings.
   """
   decision     """
+    Superseded by ADR 0011: the host owns --format human|json on
+    every extension command (human by default on the CLI; MCP always asks
+    for json). table and brief are not formats.
+
     All CLI commands support --format with three values:
     - json (default): full JSON output for programmatic consumption
     - table: aligned columns for human terminal reading
@@ -768,7 +778,7 @@ decision pe_cross_extension_enhancement_receiving "Cross-Extension Enhancement R
     "Enhancement field validation is the enhancing extension's responsibility",
     "No product diagnostic codes fire on enhancement field values",
     "Entity graph contains enhancement fields in export output",
-    "Product list commands include enhancement fields in JSON output but not in table/brief",
+    "Product list commands include enhancement fields in json output but not in human output",
   ]
 }
 
@@ -911,7 +921,7 @@ decision pe_persona_channel_reason "Reason Field on Persona and Channel" {
 }
 
 decision pe_surface_observability "Surface Operation Observability Events" {
-  status       accepted
+  status       superseded
   date         2026-03-11
   context      """
     Query observability events exist for all 20 ProductQueryPort methods,
@@ -921,6 +931,10 @@ decision pe_surface_observability "Surface Operation Observability Events" {
     to subscribe to.
   """
   decision     """
+    Superseded by ADR 0011: commands emit no events (they have no
+    event channel); MCP records each auto-promoted command as
+    surface_command_dispatched with its duration.
+
     Add two surface operation events: pe_cli_command_executed and
     pe_mcp_resource_accessed. Both emit a ProductSurfaceOperationPayload
     with the surface_id, surface_type (cli|mcp), optional entity_id,
@@ -939,7 +953,7 @@ decision pe_surface_observability "Surface Operation Observability Events" {
 }
 
 decision pe_mcp_payload_size_limits "MCP Payload Size Limits" {
-  status       accepted
+  status       superseded
   date         2026-03-11
   context      """
     MCP resources return JSON payloads that AI agents consume within
@@ -949,6 +963,10 @@ decision pe_mcp_payload_size_limits "MCP Payload Size Limits" {
     traversals, or feature ordering queries on large graphs.
   """
   decision     """
+    Superseded by ADR 0011: product declares no MCP resources;
+    payload size is bounded by the list limit and the matrix queries'
+    offset/limit pagination.
+
     MCP resource responses SHOULD NOT exceed 64KB of serialized JSON.
     Queries that may produce large payloads bound their result arrays
     to a configurable maximum (default 500 items) and return a truncated
@@ -1232,7 +1250,7 @@ decision pe_deliverable_persona_composite "Deliverable-Persona Composite Query" 
     "No denormalization — journey remains the authority for persona binding",
     "via_journey_ids provides traceability for the composition path",
     "Consistent with pe_no_persona_channel_edge design pattern",
-    "One new query method on ProductQueryPort, one new event, one new MCP resource",
+    "One new query method on ProductQueryPort, one new command",
   ]
 }
 
@@ -1272,8 +1290,9 @@ decision pe_observability_fire_and_forget "Observability Events Are Fire-and-For
   status       accepted
   date         2026-03-11
   context      """
-    The product extension emits observability events (pe_milestone_completion_queried,
-    pe_deliverable_traceability_queried, etc.) with consumers=[]. These
+    The product extension emits observability events (pe_validation_summary,
+    pe_module_cycle_detected, etc.) with consumers=[]. Query commands emit
+    none (ADR 0011: a command has no event channel). These
     events have no declared consumers within the product extension itself. The question is
     whether this is a gap or an intentional design choice.
   """
@@ -1315,9 +1334,9 @@ decision pe_persona_channel_intentional_depth "Persona and Channel Entities Are 
     throughput to channels would conflate specification (what the system does) with
     infrastructure (how it performs) — violating the domain-neutral principle.
     Depth is added through journeys: a persona's importance is measured by the
-    number and priority of journeys referencing it (pe_query_persona_journeys).
-    A channel's utilization is measured by journey count and coverage
-    (pe_query_channel_journeys). If a project needs richer persona modeling
+    number and priority of journeys referencing it (core's
+    `specforge query <persona> --depth 1 --kind journey`). A channel's
+    utilization is measured by journey count and coverage. If a project needs richer persona modeling
     (e.g., weighted scoring, persona segments), an extension can use
     entity_enhancements to add fields to the persona kind without modifying
     the product manifest.
@@ -1441,13 +1460,13 @@ decision pe_planning_queries "Advanced Planning Queries" {
     3. queryPersonaCoverageMatrix — per-persona feature reachability matrix
     4. queryCriticalPath — longest incomplete milestone chain with slack
 
-    All queries are exposed as CLI commands and MCP resources, following
-    existing surface patterns. Total query count goes from 22 to 26.
+    All four are specforge product commands (unscheduled-features,
+    feature-overlap, coverage-matrix, critical-path), auto-promoted to MCP
+    tools; product declares no MCP resources (ADR 0011).
   """
   consequences [
-    "Four new query methods on ProductQueryPort (26 total)",
-    "Four new MCP resources",
-    "Four new CLI commands",
+    "Four new query methods on ProductQueryPort",
+    "Four new CLI commands, each an MCP tool",
     "Coverage matrix enables persona-centric planning",
     "Critical path enables dependency-aware scheduling",
     "Feature overlap enables cross-deliverable coordination",
@@ -1679,11 +1698,10 @@ decision pe_release_v1_1_migration "Release Entity v1.1 Migration Path" {
     4. Validation rules targeting releases (W092, W093) fire only
        when release entities are present in the graph. Zero releases = zero
        release diagnostics.
-    5. CLI commands (product:releases, product:release-deliverables, etc.)
+    5. CLI commands (specforge product releases, release-completion, etc.)
        return empty lists when no releases exist — consistent with other
        entity listing behavior.
-    6. MCP resources return status=ok with empty data arrays.
-    7. pe_query_release_completion returns null when no releases exist.
+    6. pe_query_release_completion returns null when no releases exist.
     No migration_hook is needed. No spec file changes are required. The
     pe_migration_additive_only decision governs: v1.1 is a minor version
     bump with additive-only changes.
@@ -1694,7 +1712,7 @@ decision pe_release_v1_1_migration "Release Entity v1.1 Migration Path" {
     "No migration_hook needed (additive-only per pe_migration_additive_only)",
     "Validation rules are release-presence-gated — no false diagnostics",
     "Release validation rules only fire when release entities exist",
-    "CLI and MCP surfaces return empty results, not errors",
+    "CLI commands and their MCP tools return empty results, not errors",
   ]
   alternatives [
     "Conditional kind registration — rejected: adds branching to registration chain",
@@ -1843,7 +1861,11 @@ decision pe_status_transition_via_cache "Status Transitions via Explicit Build C
   decision     """
     Status transition validation uses an explicit, opt-in build cache file
     (specforge-cache.json) as a declared compiler input. The cache records
-    entity statuses from the previous successful build. When present,
+    entity statuses from the previous successful build: product declares
+    `status` the lifecycle field of feature, milestone, deliverable,
+    persona, channel and release, and the host records the lifecycle field
+    of each kind that declares one, naming no field itself (ADR 0009).
+    When present,
     W087-W091/W094 compare current status against cached status. When
     absent, transition rules are suppressed and only enum validity
     (W077-W085) is checked.
@@ -1882,7 +1904,7 @@ decision pe_analytics_not_graph_protocol "Analytics Namespace Separate from Grap
     Computed analytics are NEVER included in the Graph Protocol standard
     output. The graph export contains raw entities and edges only. Analytics
     are available exclusively through extension query endpoints (CLI commands,
-    MCP tools/resources, ProductQueryPort). This keeps the Graph Protocol
+    auto-promoted MCP tools, ProductQueryPort). This keeps the Graph Protocol
     clean and portable while making analytics available to consumers who
     want them.
   """
@@ -1896,7 +1918,7 @@ decision pe_analytics_not_graph_protocol "Analytics Namespace Separate from Grap
 }
 
 decision pe_effort_weights_configurable "Configurable Effort Weights" {
-  status       accepted
+  status       superseded
   date         2026-03-13
   context      """
     The Effort enum (xs, s, m, l, xl) uses Fibonacci-inspired weights
@@ -1907,6 +1929,10 @@ decision pe_effort_weights_configurable "Configurable Effort Weights" {
     @specforge/product serves any domain, not just Agile software teams.
   """
   decision     """
+    Superseded by ADR 0011: the weights define the effort scale
+    (xs=1, s=2, m=3, l=5, xl=8, missing = m) and are not configurable; no
+    project configuration reaches a command.
+
     Effort weights are configurable via the effort_weights map in the
     @specforge/product extension configuration within specforge.json.
     Default weights remain Fibonacci-inspired (xs=1, s=2, m=3, l=5, xl=8)
@@ -1975,10 +2001,9 @@ decision pe_deterministic_time_queries "Deterministic Time-Dependent Queries" {
     the manifesto's commitment to "deterministic infrastructure."
   """
   decision     """
-    All time-dependent operations accept an explicit as_of_date parameter
-    that defaults to the build timestamp (captured once at build start).
-    The build timestamp is recorded in the compilation output, making
-    builds reproducible: the same spec files + the same as_of_date always
+    All time-dependent commands accept an explicit --as-of date that
+    defaults to the date the host passes in CommandInput (today, UTC,
+    YYYY-MM-DD; ADR 0011). The same spec files + the same --as-of always
     produce the same results.
 
     Overdue detection (I058) is moved from compile-time validation to
@@ -1995,14 +2020,14 @@ decision pe_deterministic_time_queries "Deterministic Time-Dependent Queries" {
     "specforge check is fully deterministic — no time dependency",
     "I058 fires in query results only, not during validation",
     "as_of_date parameter enables reproducible queries",
-    "Build timestamp captured once, recorded in output for audit",
+    "--as-of overrides the host date for reproducible queries in tests and CI",
     "CI pipelines get identical results regardless of execution time",
     "Same spec files = same validation diagnostics, always",
   ]
 }
 
 decision pe_cursor_pagination_decision "Cursor-Based Pagination for Matrix Queries" {
-  status       accepted
+  status       superseded
   date         "2026-03-13"
   deciders     ["specforge-core"]
   context      """
@@ -2026,6 +2051,11 @@ decision pe_cursor_pagination_decision "Cursor-Based Pagination for Matrix Queri
     even if entities change between pages.
   """
   decision     """
+    Superseded by ADR 0011: matrix queries page with the list
+    commands' offset/limit (default 100, clamped to [1, 1000]) and report
+    total and has_more. With no graph revision a cursor detects nothing an
+    offset does not.
+
     Matrix queries MUST support cursor-based pagination via PaginatedQueryInput:
     - cursor: opaque string encoding the current position (null for first page)
     - page_size: maximum entries per page (default 50, max 500)

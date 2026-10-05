@@ -1,7 +1,9 @@
 use crate::OutputFormat;
 use serde_json::json;
 use specforge_ops::doctor::{BinaryIssue, DoctorReport, FindingStatus, diagnose};
-use specforge_registry::client::credentials::{credentials_path, read_credentials};
+use specforge_registry_client::credential_health::{
+    CredentialHealth, CredentialLevel, user_credential_health,
+};
 use std::path::Path;
 
 /// `specforge doctor`: the shared project health report (extensions and
@@ -10,34 +12,24 @@ use std::path::Path;
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let ctx = crate::pipeline::compile(path);
     let report = diagnose(path, &ctx.manifests, &ctx.diagnostics);
-    let (credential_lines, credential_failures) = credential_health();
+    let credentials = user_credential_health();
     let healthy = !report.has_errors();
 
     match format {
         OutputFormat::Json => {
             let mut output = serde_json::to_value(&report).expect("serialize doctor report");
             output["status"] = json!(if healthy { "healthy" } else { "issues_found" });
-            output["credentials_failures"] = json!(credential_failures);
-            output["credentials"] = credential_lines
-                .iter()
-                .map(|(level, text)| json!({ "level": level, "text": text }))
-                .collect();
+            output["credentials_failures"] = json!(credentials.failures);
+            output["credentials"] = json!(credentials.lines);
             println!(
                 "{}",
                 serde_json::to_string_pretty(&output).expect("serialize JSON output")
             );
         }
-        OutputFormat::Human => print!(
-            "{}",
-            render_human(
-                &report,
-                &credential_lines,
-                specforge_registry::signing::signing_key_path().exists(),
-            )
-        ),
+        OutputFormat::Human => print!("{}", render_human(&report, &credentials)),
     }
 
-    if healthy && credential_failures == 0 {
+    if healthy && credentials.failures == 0 {
         0
     } else {
         1
@@ -45,11 +37,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
 }
 
 /// The human report: one section per report part, then credentials.
-fn render_human(
-    report: &DoctorReport,
-    credential_lines: &[(String, String)],
-    signing_key_present: bool,
-) -> String {
+fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String {
     let mut out = String::new();
     macro_rules! line {
         () => { out.push('\n') };
@@ -178,111 +166,24 @@ fn render_human(
         line!("{errors} issue(s) found.");
     }
 
-    if !credential_lines.is_empty() || signing_key_present {
+    if !credentials.lines.is_empty() || credentials.signing_key_present {
         line!();
         line!("Registry credentials:");
-        for (level, text) in credential_lines {
-            let tag = match level.as_str() {
-                "error" => "ERROR",
-                "warning" => "WARN",
-                _ => "ok",
+        for credential in &credentials.lines {
+            let tag = match credential.level {
+                CredentialLevel::Error => "ERROR",
+                CredentialLevel::Warning => "WARN",
+                CredentialLevel::Ok => "ok",
             };
-            line!("  [{tag}] {text}");
+            line!("  [{tag}] {}", credential.text);
         }
-        if signing_key_present {
+        if credentials.signing_key_present {
             line!("  [ok] signing key present");
         } else {
             line!("  [ok] signing key: not created yet (generated on first publish)");
         }
     }
     out
-}
-
-/// Registry credential health: expired tokens and unreadable keyring
-/// entries break add/publish flows — surface them before they bite.
-/// Returns `(level, text)` lines and the number of failures.
-fn credential_health() -> (Vec<(String, String)>, usize) {
-    use chrono::Utc as Now;
-    let mut credential_lines: Vec<(String, String)> = Vec::new();
-    let mut credential_failures = 0usize;
-    let store = read_credentials(&credentials_path()).unwrap_or_default();
-    for alias in {
-        let mut aliases: Vec<String> = store.registries.keys().cloned().collect();
-        aliases.sort();
-        aliases
-    } {
-        match store.get_credential_detail(&alias) {
-            Err(diag) => {
-                credential_failures += 1;
-                credential_lines.push((
-                    "error".to_string(),
-                    format!("{} — {}", diag.message, diag.suggestion.unwrap_or_default()),
-                ));
-            }
-            Ok(Some(_)) => {
-                // Healthy; note an approaching expiry so re-login is not a surprise.
-                if let Some(specforge_registry::client::credentials::CredentialEntry::Token {
-                    expires_at: Some(expires_at),
-                    ..
-                }) = store.registries.get(&alias)
-                {
-                    match assess_expiry(&Some(expires_at.clone()), Now::now()) {
-                        Some(TokenExpiry::Expired) => {
-                            unreachable!("expired tokens already failed get_credential_detail")
-                        }
-                        Some(TokenExpiry::ExpiringSoon(days)) => {
-                            credential_lines.push((
-                                "warning".to_string(),
-                                format!(
-                                    "registry '{alias}': token expires in {days} day(s) — re-login soon"
-                                ),
-                            ));
-                        }
-                        other => {
-                            let detail = match other {
-                                Some(TokenExpiry::Valid) => String::new(),
-                                _ => format!(" (expires {expires_at})"),
-                            };
-                            credential_lines.push((
-                                "ok".to_string(),
-                                format!("registry '{alias}': token ok{detail}"),
-                            ));
-                        }
-                    }
-                }
-            }
-            Ok(None) => {}
-        }
-    }
-    (credential_lines, credential_failures)
-}
-
-/// Expiry assessment for a stored token timestamp (RFC 3339).
-#[derive(Debug, PartialEq)]
-enum TokenExpiry {
-    Valid,
-    ExpiringSoon(i64),
-    Expired,
-}
-
-/// Within 7 days of expiry (or past it) a token is worth flagging.
-const EXPIRY_WARNING_DAYS: i64 = 7;
-
-fn assess_expiry(
-    expires_at: &Option<String>,
-    now: chrono::DateTime<chrono::Utc>,
-) -> Option<TokenExpiry> {
-    let deadline = chrono::DateTime::parse_from_rfc3339(expires_at.as_deref()?)
-        .ok()?
-        .with_timezone(&chrono::Utc);
-    let days = (deadline - now).num_days();
-    if days < 0 {
-        Some(TokenExpiry::Expired)
-    } else if days <= EXPIRY_WARNING_DAYS {
-        Some(TokenExpiry::ExpiringSoon(days))
-    } else {
-        Some(TokenExpiry::Valid)
-    }
 }
 
 #[cfg(test)]
@@ -303,6 +204,7 @@ mod tests {
             message: message.into(),
             span: None,
             suggestion: suggestion.map(String::from),
+            data: None,
         }
     }
 
@@ -331,7 +233,7 @@ mod tests {
             conflict("W001", Severity::Warning, "an unrelated warning", None),
         ];
 
-        let report = specforge_emitter::doctor::diagnose_with(dir.path(), &[], &diagnostics, true);
+        let report = specforge_ops::doctor::diagnose_with(dir.path(), &[], &diagnostics, true);
 
         let codes: Vec<&str> = report.conflicts.iter().map(|c| c.code.as_str()).collect();
         assert_eq!(codes, ["E026", "W018"]);
@@ -350,7 +252,12 @@ mod tests {
         );
         assert!(report.has_errors(), "an error-level conflict fails doctor");
 
-        let human = render_human(&report, &[], false);
+        let none = CredentialHealth {
+            lines: Vec::new(),
+            failures: 0,
+            signing_key_present: false,
+        };
+        let human = render_human(&report, &none);
         let section = &human[human.find("Conflicts:").expect("conflicts section")..];
         assert!(section.contains("[E026] entity kind 'feature'"), "{human}");
         assert!(
@@ -363,44 +270,5 @@ mod tests {
             "{human}"
         );
         assert!(human.contains("1 issue(s) found."), "{human}");
-    }
-
-    fn at(days_from_now: i64) -> chrono::DateTime<chrono::Utc> {
-        chrono::Utc::now() + chrono::Duration::days(days_from_now)
-    }
-
-    fn stamp(t: chrono::DateTime<chrono::Utc>) -> Option<String> {
-        Some(t.to_rfc3339())
-    }
-
-    #[test]
-    fn expiry_buckets() {
-        assert_eq!(
-            assess_expiry(&stamp(at(-1)), chrono::Utc::now()),
-            Some(TokenExpiry::Expired)
-        );
-        // "expires now" is nanosecond-ambiguous — accept either side of the boundary.
-        assert!(matches!(
-            assess_expiry(&stamp(at(0)), chrono::Utc::now()),
-            Some(TokenExpiry::Expired) | Some(TokenExpiry::ExpiringSoon(0))
-        ));
-        // num_days truncates elapsed sub-second precision, so allow ±1 day.
-        assert!(matches!(
-            assess_expiry(&stamp(at(3)), chrono::Utc::now()),
-            Some(TokenExpiry::ExpiringSoon(2)) | Some(TokenExpiry::ExpiringSoon(3))
-        ));
-        assert_eq!(
-            assess_expiry(&stamp(at(30)), chrono::Utc::now()),
-            Some(TokenExpiry::Valid)
-        );
-    }
-
-    #[test]
-    fn expiry_handles_missing_or_invalid_timestamps() {
-        assert_eq!(assess_expiry(&None, chrono::Utc::now()), None);
-        assert_eq!(
-            assess_expiry(&Some("not-a-date".to_string()), chrono::Utc::now()),
-            None
-        );
     }
 }

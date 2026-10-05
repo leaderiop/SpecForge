@@ -1,6 +1,6 @@
 use crate::validation_engine::{ValidationPatternKind, ValidationRulePattern};
 use crate::{FieldRegistry, KindRegistry};
-use specforge_common::{Diagnostic, Severity, SourceSpan};
+use specforge_common::{Diagnostic, DiagnosticData, Severity, SourceSpan};
 use std::collections::HashMap;
 
 /// A keyword-to-extension index for suggesting missing extensions.
@@ -36,6 +36,15 @@ impl KeywordExtensionIndex {
     pub fn bundled() -> &'static KeywordExtensionIndex {
         static BUNDLED: std::sync::OnceLock<KeywordExtensionIndex> = std::sync::OnceLock::new();
         BUNDLED.get_or_init(|| Self::from_json(include_str!("../../data/keyword-index.json")))
+    }
+
+    /// The fields builtin extensions add to other extensions' kinds
+    /// (`data/field-index.json`, keyed `<kind>.<field>`), so W020 can name
+    /// the extension that declares a field the project lacks, as E024
+    /// does for a kind. Parsed on first use.
+    pub fn bundled_fields() -> &'static KeywordExtensionIndex {
+        static BUNDLED: std::sync::OnceLock<KeywordExtensionIndex> = std::sync::OnceLock::new();
+        BUNDLED.get_or_init(|| Self::from_json(include_str!("../../data/field-index.json")))
     }
 }
 
@@ -116,6 +125,7 @@ pub fn detect_unknown_entity_kinds(
             ),
             span: Some(span.clone()),
             suggestion,
+            data: None,
         });
     }
 
@@ -161,6 +171,9 @@ pub fn detect_reserved_entity_ids(
             suggestion: Some(format!(
                 "rename the entity (e.g. `{id}_rule`, `{id}_spec`) — reserved words cannot be identifiers"
             )),
+            data: Some(Box::new(DiagnosticData::ShadowedKeyword {
+                keyword: id.to_string(),
+            })),
         });
     }
     diagnostics
@@ -187,15 +200,16 @@ pub fn detect_identifier_length_violations(entities: &[EntityView]) -> Vec<Diagn
             suggestion: Some(
                 "pick a descriptive identifier between 2 and 60 characters".to_string(),
             ),
+            data: None,
         });
     }
     diagnostics
 }
 
 /// Detect unknown entity fields by checking each field name against the FieldRegistry.
-/// `title` is structural and always valid. So is `expression`: the core
-/// prove pass reads it on any entity as a formal claim
-/// (docs/guides/formal-verification.md). `verify` is reserved syntax whose
+/// `title` is structural and always valid; every other name, `expression`
+/// included, is valid where an extension declares it (the prove pass reads
+/// the fields extensions give a proof role, ADR 0009). `verify` is reserved syntax whose
 /// meaning comes from extensions (ADR 0002): it is valid only on kinds an
 /// extension made testable (`supports_verify`), e.g. via @specforge/testing.
 /// Entities with unregistered kinds are skipped to avoid cascading diagnostics.
@@ -220,18 +234,26 @@ pub fn detect_unknown_entity_fields(
 
         for &field_name in &entity.fields {
             let accepted = match field_name {
-                "title" | "expression" => true,
+                "title" => true,
                 "verify" => entry.supports_verify,
                 _ => field_reg.contains(kind, field_name),
             };
             if accepted {
                 continue;
             }
-            let suggestion = (field_name == "verify").then(|| {
-                format!(
+            let suggestion = if field_name == "verify" {
+                Some(format!(
                     "'{kind}' accepts no verify obligations: enable an extension that makes it testable (for software kinds, `specforge add @specforge/testing`)"
-                )
-            });
+                ))
+            } else {
+                KeywordExtensionIndex::bundled_fields()
+                    .lookup(&format!("{kind}.{field_name}"))
+                    .map(|ext| {
+                        format!(
+                            "{ext} declares '{field_name}' on '{kind}': install it with: specforge add {ext}"
+                        )
+                    })
+            };
             diagnostics.push(Diagnostic {
                 code: "W020".to_string(),
                 severity: Severity::Warning,
@@ -241,6 +263,7 @@ pub fn detect_unknown_entity_fields(
                 ),
                 span: Some(span.clone()),
                 suggestion,
+                data: None,
             });
         }
     }
@@ -293,6 +316,7 @@ pub fn detect_mistyped_references(
                         ),
                         span: Some(span.clone()),
                         suggestion: None,
+                        data: None,
                     });
                 }
             }
@@ -887,6 +911,12 @@ mod tests {
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "E013");
         assert!(diags[0].message.contains("behavior"));
+        assert_eq!(
+            diags[0].data,
+            Some(Box::new(DiagnosticData::ShadowedKeyword {
+                keyword: "behavior".into()
+            }))
+        );
         assert!(diags[0].suggestion.as_ref().unwrap().contains("rename"));
     }
 
@@ -971,7 +1001,7 @@ mod tests {
         let source = "thing my_thing \"A Thing\" {\n  data \"hello\"\n}\n";
         let parsed = specforge_parser::parse(source, "test.spec");
         let (graph, _) = specforge_graph::build_graph(&[parsed]);
-        let json = specforge_emitter::emit_json(&graph);
+        let json = specforge_emitter::json::emit_json(&graph);
         // Should be valid JSON
         let parsed_json: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert!(parsed_json.is_object());
@@ -983,7 +1013,7 @@ mod tests {
         let source = "thing my_thing \"A Thing\" {\n  data \"hello\"\n}\n";
         let parsed = specforge_parser::parse(source, "test.spec");
         let (graph, _) = specforge_graph::build_graph(&[parsed]);
-        let json = specforge_emitter::emit_json(&graph);
+        let json = specforge_emitter::json::emit_json(&graph);
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         let nodes = v["nodes"].as_array().unwrap();
         assert!(nodes.iter().any(|n| n["id"] == "my_thing"));
@@ -995,7 +1025,7 @@ mod tests {
         let source = "thing a \"A\" {\n  refs [b]\n}\nthing b \"B\" {\n  data \"ok\"\n}\n";
         let parsed = specforge_parser::parse(source, "test.spec");
         let (graph, _) = specforge_graph::build_graph(&[parsed]);
-        let json = specforge_emitter::emit_json(&graph);
+        let json = specforge_emitter::json::emit_json(&graph);
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         let edges = v["edges"].as_array().unwrap();
         assert!(
@@ -1220,7 +1250,10 @@ mod tests {
             required: true,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
+            proof_role: None,
         });
         reg.register(FieldRegistryEntry {
             kind_name: "behavior".into(),
@@ -1234,7 +1267,10 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
+            proof_role: None,
         });
         reg.register(FieldRegistryEntry {
             kind_name: "invariant".into(),
@@ -1248,7 +1284,10 @@ mod tests {
             required: true,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
+            proof_role: None,
         });
 
         let rules = generate_required_field_rules(&reg);

@@ -1,4 +1,13 @@
+//! The `specforge product <command>` commands: `@specforge/product`'s
+//! `cmd__product_*` exports, which the CLI routes to from the commands the
+//! extension declares (ADR 0008). Output, flags and names are the ones the
+//! built-in `product` subcommands had.
+
+use crate::e2e_fixtures::{
+    find_response, mcp_raw_session_in, mcp_request, mcp_session_in, parse_tool_content,
+};
 use assert_cmd::cargo_bin_cmd;
+use specforge_test_macros::test as specforge_test;
 use std::fs;
 use tempfile::TempDir;
 
@@ -113,7 +122,7 @@ fn test_product_features_filter_status() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(result["total"], 1);
-    assert_eq!(result["entities"][0]["id"], "f1");
+    assert_eq!(result["features"][0]["id"], "f1");
 }
 
 #[test]
@@ -152,7 +161,38 @@ fn test_product_milestone_completion() {
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(result["milestone_id"], "m1");
     assert_eq!(result["total_features"], 2);
-    assert_eq!(result["done_features"], 1); // f2 is done
+    assert_eq!(result["done_count"], 1); // f2 is done
+    assert_eq!(result["done_features"], serde_json::json!(["f2"]));
+    assert_eq!(result["completion_ratio"], 0.5);
+}
+
+#[test]
+fn deliverable_completion_takes_details_as_a_flag() {
+    let dir = setup_product_project();
+    let mut cmd = cargo_bin_cmd!("specforge");
+    cmd.args([
+        "product",
+        "deliverable-completion",
+        "d1",
+        "--details",
+        "--path",
+        dir.path().to_str().unwrap(),
+        "--format",
+        "json",
+    ]);
+    let output = cmd.output().unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    // m1 is planned, so none of d1's one milestone is completed.
+    assert_eq!(
+        (
+            result["milestone_count"].clone(),
+            result["completed_count"].clone()
+        ),
+        (serde_json::json!(1), serde_json::json!(0))
+    );
+    assert_eq!(result["milestone_details"][0]["milestone_id"], "m1");
+    assert_eq!(result["milestone_details"][0]["done_count"], 1);
 }
 
 #[test]
@@ -172,23 +212,41 @@ fn test_product_feature_impact() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(result["feature_id"], "f1");
-    assert!(
-        !result["referenced_by_journeys"]
-            .as_array()
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        !result["referenced_by_milestones"]
-            .as_array()
-            .unwrap()
-            .is_empty()
-    );
-    assert!(
-        !result["referenced_by_modules"]
-            .as_array()
-            .unwrap()
-            .is_empty()
+    assert!(!result["affected_journeys"].as_array().unwrap().is_empty());
+    assert!(!result["affected_milestones"].as_array().unwrap().is_empty());
+    assert!(!result["affected_modules"].as_array().unwrap().is_empty());
+}
+
+#[specforge_test(
+    behavior = "pe_query_feature_impact",
+    verify = "a feature that only relates to the feature is not a dependent"
+)]
+fn a_related_feature_is_not_a_dependent_in_the_impact() {
+    let dir = setup_product_project();
+    // f3 relates to f1 (`features`); f2 depends on it (`depends_on`).
+    fs::write(
+        dir.path().join("related.spec"),
+        "feature f3 \"Related Feature\" {\n    status proposed\n    features [f1]\n}\n",
+    )
+    .unwrap();
+    let output = cargo_bin_cmd!("specforge")
+        .args([
+            "product",
+            "feature-impact",
+            "f1",
+            "--format",
+            "json",
+            "--path",
+        ])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        result["dependent_features"],
+        serde_json::json!(["f2"]),
+        "{result}"
     );
 }
 
@@ -208,11 +266,10 @@ fn test_product_feature_dependents() {
     let output = cmd.output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let deps = result.as_array().unwrap();
-    assert!(
-        deps.iter().any(|v| v == "f2"),
-        "f2 depends on f1: {:?}",
-        deps
+    // f2 depends on f1.
+    assert_eq!(
+        result,
+        serde_json::json!({"feature_id": "f1", "dependents": ["f2"], "count": 1})
     );
 }
 
@@ -343,7 +400,8 @@ fn test_product_journey_coverage() {
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(result["journey_id"], "j1");
     assert_eq!(result["total_features"], 2);
-    assert_eq!(result["covered_by_modules"], 1); // f1 is in mod1
+    assert_eq!(result["covered_count"], 1); // f2 is done
+    assert_eq!(result["uncovered_features"], serde_json::json!(["f1"]));
 }
 
 #[test]
@@ -362,8 +420,10 @@ fn test_product_persona_features() {
     let output = cmd.output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let features = result.as_array().unwrap();
-    assert_eq!(features.len(), 2); // f1 and f2 via journey j1
+    // f1 and f2 via journey j1
+    assert_eq!(result["features"], serde_json::json!(["f1", "f2"]));
+    assert_eq!(result["via_journey_ids"], serde_json::json!(["j1"]));
+    assert_eq!(result["count"], 2);
 }
 
 #[test]
@@ -382,8 +442,10 @@ fn test_product_channel_features() {
     let output = cmd.output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let features = result.as_array().unwrap();
-    assert_eq!(features.len(), 2); // f1 and f2 via journey j1
+    // f1 and f2 via journey j1
+    assert_eq!(result["channel_id"], "cli");
+    assert_eq!(result["features"], serde_json::json!(["f1", "f2"]));
+    assert_eq!(result["count"], 2);
 }
 
 #[test]
@@ -401,12 +463,22 @@ fn test_product_bulk_status() {
     let output = cmd.output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let result: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let arr = result.as_array().unwrap();
-    // Should have entries for feature, milestone, deliverable, persona, channel, release
-    assert!(
-        arr.len() >= 4,
-        "Expected at least 4 status-bearing kinds, got {}",
-        arr.len()
+    let kinds: Vec<&str> = result["kinds"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|k| k["kind"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        kinds,
+        [
+            "feature",
+            "milestone",
+            "deliverable",
+            "persona",
+            "channel",
+            "release"
+        ]
     );
 }
 
@@ -422,4 +494,439 @@ fn test_product_nonexistent_milestone_exits_one() {
         dir.path().to_str().unwrap(),
     ]);
     cmd.assert().failure();
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "exit code, stdout, stderr returned to CLI"
+)]
+fn an_extension_command_prints_what_its_export_returns() {
+    let dir = setup_product_project();
+    let path = dir.path().to_str().unwrap();
+    let output = cargo_bin_cmd!("specforge")
+        .args(["product", "milestone-completion", "m1", "--path", path])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "Milestone: m1 (planned)\nCompletion: 50% (1/2 features done)\n  f1 [proposed]\n  f2 [done]\n"
+    );
+    assert!(output.stderr.is_empty(), "{output:?}");
+
+    let output = cargo_bin_cmd!("specforge")
+        .args(["product", "milestone-completion", "nope", "--path", path])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1));
+    assert!(output.stdout.is_empty(), "{output:?}");
+    assert_eq!(
+        String::from_utf8_lossy(&output.stderr),
+        "error: milestone 'nope' not found\n"
+    );
+}
+
+#[test]
+fn an_extension_command_has_the_declared_command_line() {
+    let dir = setup_product_project();
+    let path = dir.path().to_str().unwrap();
+    // `ext:command` names the same command as `ext command`.
+    let output = cargo_bin_cmd!("specforge")
+        .args(["product:features", "--path", path, "--limit", "1"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        "id  title         status    priority\nf1  Core Feature  proposed  high\n1 of 2 features; --offset 1 for more\n"
+    );
+    // The declared enum refuses other values; an undeclared flag is refused.
+    for args in [
+        ["product", "features", "--format", "xml"],
+        ["product", "journeys", "--status", "done"],
+    ] {
+        let output = cargo_bin_cmd!("specforge")
+            .args(args)
+            .args(["--path", path])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2), "{args:?}: {output:?}");
+    }
+    // A name no built-in command or extension has is refused.
+    let output = cargo_bin_cmd!("specforge")
+        .args(["nonesuch", "features", "--path", path])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("unrecognized subcommand 'nonesuch'"),
+        "{output:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "surface_list_features",
+    verify = "status filter reduces result set"
+)]
+fn the_features_command_is_an_mcp_tool_with_its_filters() {
+    let dir = setup_product_project();
+    let call = |id: u64, args: serde_json::Value| {
+        mcp_request(
+            id,
+            "tools/call",
+            serde_json::json!({"name": "specforge.product.features", "arguments": args}),
+        )
+    };
+    let responses = mcp_session_in(
+        &dir,
+        &[
+            call(1, serde_json::json!({})),
+            call(2, serde_json::json!({"status": "done"})),
+        ],
+    );
+    let all = parse_tool_content(find_response(&responses, 1).unwrap());
+    assert_eq!(all["total"], 2, "{all}");
+    let done = parse_tool_content(find_response(&responses, 2).unwrap());
+    assert_eq!(done["total"], 1, "{done}");
+    assert_eq!(done["features"][0]["id"], "f2");
+}
+
+#[specforge_test(
+    behavior = "surface_list_features",
+    verify = "pagination offset and limit are respected"
+)]
+fn the_features_command_pages_after_counting() {
+    let dir = setup_product_project();
+    let output = cargo_bin_cmd!("specforge")
+        .args(["product", "features", "--offset", "1", "--limit", "1"])
+        .args(["--format", "json", "--path", dir.path().to_str().unwrap()])
+        .output()
+        .unwrap();
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["total"], 2);
+    let ids: Vec<&str> = result["features"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["f2"]);
+}
+
+#[test]
+fn completions_include_the_commands_of_the_project_here() {
+    let dir = setup_product_project();
+    let output = cargo_bin_cmd!("specforge")
+        .current_dir(dir.path())
+        .args(["completions", "bash"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let script = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        script.contains("specforge__subcmd__product__subcmd__milestone__subcmd__completion"),
+        "the product commands are completed"
+    );
+
+    // Outside a project, the built-ins only.
+    let empty = TempDir::new().unwrap();
+    let output = cargo_bin_cmd!("specforge")
+        .current_dir(empty.path())
+        .args(["completions", "bash"])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{output:?}");
+    let script = String::from_utf8_lossy(&output.stdout);
+    assert!(script.contains("specforge__subcmd__check"));
+    assert!(!script.contains("specforge__subcmd__product"));
+}
+
+/// `requests` after an `initialize` negotiating MCP 2025-06-18, the first
+/// revision with structured content.
+fn structured_session(dir: &TempDir, requests: &[String]) -> Vec<serde_json::Value> {
+    let initialize = mcp_request(
+        0,
+        "initialize",
+        serde_json::json!({
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "e2e", "version": "0"}
+        }),
+    );
+    let mut all = vec![initialize];
+    all.extend_from_slice(requests);
+    mcp_raw_session_in(dir, &all)
+}
+
+fn tool_call(id: u64, name: &str, args: serde_json::Value) -> String {
+    mcp_request(
+        id,
+        "tools/call",
+        serde_json::json!({"name": name, "arguments": args}),
+    )
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "over MCP a command is asked for json and its JSON output is the tool's structured content"
+)]
+fn over_mcp_a_command_answers_json_as_structured_content() {
+    let dir = setup_product_project();
+    let responses = structured_session(
+        &dir,
+        &[
+            mcp_request(1, "tools/list", serde_json::json!({})),
+            tool_call(
+                2,
+                "specforge.product.milestone_completion",
+                serde_json::json!({"milestone": "m1"}),
+            ),
+        ],
+    );
+    // The tool has no format argument: the host always asks for json.
+    let tools = &find_response(&responses, 1).unwrap()["result"]["tools"];
+    let tool = tools
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == "specforge.product.milestone_completion")
+        .unwrap();
+    assert!(
+        tool["inputSchema"]["properties"].get("format").is_none(),
+        "{tool}"
+    );
+
+    let response = find_response(&responses, 2).unwrap();
+    let result = &response["result"];
+    assert_eq!(result["isError"], false, "{response}");
+    let structured = &result["structuredContent"];
+    assert_eq!(structured["milestone_id"], "m1", "{response}");
+    assert_eq!(parse_tool_content(response), *structured);
+}
+
+#[specforge_test(
+    behavior = "surface_format_conventions",
+    verify = "an MCP tool call returns the json payload"
+)]
+fn an_mcp_tool_call_returns_the_json_payload() {
+    let dir = setup_product_project();
+    let output = cargo_bin_cmd!("specforge")
+        .args(["product", "health", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let cli: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    // Asked for nothing, the tool answers what --format json prints.
+    let responses = mcp_session_in(
+        &dir,
+        &[tool_call(
+            1,
+            "specforge.product.health",
+            serde_json::json!({}),
+        )],
+    );
+    assert_eq!(
+        parse_tool_content(find_response(&responses, 1).unwrap()),
+        cli
+    );
+}
+
+#[specforge_test(
+    behavior = "surface_error_handling",
+    verify = "CLI errors go to stderr"
+)]
+fn a_command_that_cannot_answer_writes_its_error_to_stderr() {
+    let dir = setup_product_project();
+    let path = dir.path().to_str().unwrap();
+    let run = |args: &[&str]| {
+        cargo_bin_cmd!("specforge")
+            .args(["product"])
+            .args(args)
+            .args(["--path", path])
+            .output()
+            .unwrap()
+    };
+    // A typo of m1: the nearest milestone is suggested.
+    let human = run(&["milestone-completion", "m2"]);
+    assert_eq!(human.status.code(), Some(1));
+    assert!(human.stdout.is_empty(), "{human:?}");
+    assert_eq!(
+        String::from_utf8_lossy(&human.stderr),
+        "error: milestone 'm2' not found\ndid you mean 'm1'?\n"
+    );
+    let json = run(&["milestone-completion", "m2", "--format", "json"]);
+    assert_eq!(json.status.code(), Some(1));
+    assert!(json.stdout.is_empty(), "{json:?}");
+    let error: serde_json::Value = serde_json::from_slice(&json.stderr).unwrap();
+    assert_eq!(
+        error,
+        serde_json::json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found",
+            "entity_id": "m2", "suggestion": "m1"})
+    );
+    // An input the command refuses exits 2, as clap's usage errors do.
+    let invalid = run(&["features", "--limit=-1", "--format", "json"]);
+    assert_eq!(invalid.status.code(), Some(2), "{invalid:?}");
+    assert!(invalid.stdout.is_empty(), "{invalid:?}");
+    let error: serde_json::Value = serde_json::from_slice(&invalid.stderr).unwrap();
+    assert_eq!(error["code"], "INVALID_INPUT", "{error}");
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "under --format json a usage error the command line catches is one INVALID_INPUT error object on stderr, exit 2"
+)]
+fn under_json_a_usage_error_is_an_invalid_input_object() {
+    let dir = setup_product_project();
+    let path = dir.path().to_str().unwrap();
+    let run = |args: &[&str]| {
+        cargo_bin_cmd!("specforge")
+            .arg("product")
+            .args(args)
+            .args(["--path", path])
+            .output()
+            .unwrap()
+    };
+    let cases: [(&[&str], serde_json::Value); 4] = [
+        (
+            &["features", "--status", "bogus"],
+            serde_json::json!({"code": "INVALID_INPUT",
+                "message": "status must be one of proposed, accepted, in_progress, done, deferred, deprecated, got 'bogus'"}),
+        ),
+        (
+            &["milestone-completion"],
+            serde_json::json!({"code": "INVALID_INPUT",
+                "message": "missing required arg 'milestone'"}),
+        ),
+        (
+            &["features", "--statsu", "done"],
+            serde_json::json!({"code": "INVALID_INPUT",
+                "message": "unknown argument '--statsu'", "suggestion": "--status"}),
+        ),
+        (
+            &["features", "--limit", "abc"],
+            serde_json::json!({"code": "INVALID_INPUT",
+                "message": "limit must be an integer, got 'abc'"}),
+        ),
+    ];
+    for (args, expected) in &cases {
+        // `--format json` before or after the bad arg, in either spelling.
+        for (before, after) in [
+            (vec!["--format", "json"], vec![]),
+            (vec![], vec!["--format", "json"]),
+            (vec![], vec!["--format=json"]),
+        ] {
+            let (command, rest) = args.split_first().unwrap();
+            let mut argv = vec![*command];
+            argv.extend(&before);
+            argv.extend(rest);
+            argv.extend(&after);
+            let output = run(&argv);
+            assert_eq!(output.status.code(), Some(2), "{argv:?}: {output:?}");
+            assert!(output.stdout.is_empty(), "{argv:?}: {output:?}");
+            let error: serde_json::Value = serde_json::from_slice(&output.stderr)
+                .unwrap_or_else(|e| panic!("{argv:?}: {e}: {output:?}"));
+            assert_eq!(&error, expected, "{argv:?}");
+        }
+        // Under human the error is clap's usage text.
+        let output = run(args);
+        assert_eq!(output.status.code(), Some(2), "{args:?}: {output:?}");
+        assert!(output.stdout.is_empty(), "{args:?}: {output:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.starts_with("error: ") && stderr.contains("For more information, try '--help'."),
+            "{args:?}: {stderr}"
+        );
+    }
+    // Help is clap's whatever the format, exit 0.
+    let help = run(&["features", "--help", "--format", "json"]);
+    assert_eq!(help.status.code(), Some(0), "{help:?}");
+    assert!(
+        String::from_utf8_lossy(&help.stdout).contains("Usage: specforge product features"),
+        "{help:?}"
+    );
+}
+
+#[specforge_test(
+    behavior = "surface_error_handling",
+    verify = "MCP tool errors are isError results carrying the error object"
+)]
+fn over_mcp_an_error_is_an_is_error_result_with_the_object() {
+    let dir = setup_product_project();
+    let responses = structured_session(
+        &dir,
+        &[tool_call(
+            1,
+            "specforge.product.journey_coverage",
+            serde_json::json!({"journey": "j2"}),
+        )],
+    );
+    let response = find_response(&responses, 1).unwrap();
+    let result = &response["result"];
+    assert_eq!(result["isError"], true, "{response}");
+    let expected = serde_json::json!({"code": "ENTITY_NOT_FOUND",
+        "message": "journey 'j2' not found", "entity_id": "j2", "suggestion": "j1"});
+    assert_eq!(parse_tool_content(response), expected);
+    assert_eq!(result["structuredContent"], expected);
+}
+
+/// [`setup_product_project`] with `m1` due in 2000.
+fn setup_overdue_project() -> TempDir {
+    let dir = setup_product_project();
+    let spec = fs::read_to_string(dir.path().join("spec.spec")).unwrap();
+    let spec = spec.replace(
+        "    status planned\n    features [f1, f2]",
+        "    status planned\n    target_date \"2000-01-01\"\n    features [f1, f2]",
+    );
+    assert!(spec.contains("2000-01-01"));
+    fs::write(dir.path().join("spec.spec"), spec).unwrap();
+    dir
+}
+
+fn timeline(dir: &TempDir, extra: &[&str]) -> std::process::Output {
+    let mut cmd = cargo_bin_cmd!("specforge");
+    cmd.args(["product", "milestone-timeline", "--path"])
+        .arg(dir.path())
+        .args(["--format", "json"])
+        .args(extra);
+    cmd.output().unwrap()
+}
+
+#[specforge_test(
+    behavior = "surface_milestone_timeline",
+    verify = "as-of flag overrides current date for overdue calculation"
+)]
+fn the_timeline_compares_against_today_unless_as_of_says_otherwise() {
+    let dir = setup_overdue_project();
+    // The host passes today, long after 2000.
+    let output = timeline(&dir, &[]);
+    assert!(output.status.success(), "{output:?}");
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["milestones"][0]["milestone_id"], "m1");
+    assert_eq!(result["milestones"][0]["is_overdue"], true);
+    let output = timeline(&dir, &["--as-of", "1999-12-31"]);
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["overdue_count"], 0);
+    let output = timeline(&dir, &["--as-of", "31/12/1999"]);
+    assert_eq!(output.status.code(), Some(2), "{output:?}");
+    let error: serde_json::Value = serde_json::from_slice(&output.stderr).unwrap();
+    assert_eq!(error["code"], "INVALID_INPUT");
+}
+
+#[specforge_test(
+    behavior = "pe_query_milestone_timeline",
+    verify = "specforge check emits no I058 diagnostics (query-time only)"
+)]
+fn check_reports_no_overdue_milestone() {
+    let dir = setup_overdue_project();
+    let mut cmd = cargo_bin_cmd!("specforge");
+    cmd.current_dir(dir.path())
+        .args(["check", "--lint=pedantic"]);
+    let output = cmd.output().unwrap();
+    let all = format!(
+        "{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    // Pedantic shows the infos, so an I058 would be among them.
+    assert!(output.status.code().is_some_and(|c| c <= 1), "{all}");
+    assert!(!all.contains("I058"), "{all}");
 }

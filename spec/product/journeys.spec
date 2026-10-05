@@ -522,10 +522,10 @@ journey review_term_glossary "Review Term Glossary" {
   tags     ["product_manager", "cli"]
   features [json_and_dot_render]
   flow     """
-    1. Product manager runs specforge product:terms to list all defined terms
+    1. Product manager runs specforge product terms to list all defined terms
     2. System returns paginated term list with definitions and alias counts
     3. Product manager identifies terms with zero see_also links (I010)
-    4. Product manager runs specforge product:terms --format=table for readable output
+    4. Product manager reads the default human table, or --format json for tooling
     5. Product manager uses term graph query to explore related terms
     6. Product manager verifies shared vocabulary consistency across the team
     7. Success: glossary is reviewed and terminology drift is caught early

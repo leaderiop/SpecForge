@@ -137,7 +137,7 @@ milestone project_init "Phase 5: Project Initialization" {
 }
 
 milestone ms_incremental_compilation "Phase 6: Incremental Compilation" {
-  description   "File watching with debounced incremental rebuild, graph deltas, and import DAG tracking for minimal invalidation."
+  description   "File watching with debounced incremental rebuild, graph deltas, and minimal invalidation (only changed files re-parsed)."
   status        completed
   start_date    "2025-10-15"
   target_date   "2025-11-15"
@@ -152,7 +152,7 @@ milestone ms_incremental_compilation "Phase 6: Incremental Compilation" {
     "Incremental rebuild matches cold rebuild (validated by property tests)",
     "Graph delta contains only added/removed/modified nodes and edges",
     "File change debouncing prevents redundant rebuilds",
-    "Import DAG tracked incrementally for minimal invalidation",
+    "Only changed files are re-parsed; imports are resolved again on every rebuild",
   ]
 }
 

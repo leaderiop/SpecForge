@@ -1,10 +1,13 @@
-use crate::OutputFormat;
-use std::path::Path;
+//! `specforge infer-status`: the shared inference progress and gaps
+//! (`specforge_ops::infer`), presented. The JSON document is the MCP
+//! `specforge.infer_progress` answer; `--gaps` adds the unanalyzed files
+//! by directory and `--gaps-detail` the `specforge.infer_gaps` report.
 
-use specforge_common::AnalyzerConfig;
-use specforge_common::inference;
-use specforge_common::inference::discovery::SourceDiscoveryConfig;
-use specforge_emitter::scanner_dispatch;
+use crate::OutputFormat;
+use serde_json::json;
+use specforge_common::inference::MANIFEST_FILENAME;
+use specforge_ops::infer::{self, Gaps, Progress};
+use std::path::Path;
 
 pub fn run(
     path: &Path,
@@ -13,162 +16,133 @@ pub fn run(
     show_stale: bool,
     show_gaps_detail: bool,
 ) -> i32 {
-    let manifest = match inference::load_inference_manifest(path) {
-        Ok(m) => m,
-        Err(e) => {
-            eprintln!("error: {}", e);
+    let (ctx, runtime) = crate::pipeline::compile_with_runtime(path);
+    let progress = match infer::progress(path, &ctx.manifests) {
+        Ok(progress) => progress,
+        Err(error) => {
+            format.print_op_error(&error);
             return 1;
         }
     };
-
-    let (ctx, runtime) = crate::pipeline::compile_with_runtime(path);
-    let analyzer_configs: Vec<AnalyzerConfig> = ctx
-        .manifests
-        .iter()
-        .flat_map(|m| m.analyzer_contributions.iter())
-        .map(|ac| AnalyzerConfig {
-            language: ac.language.clone(),
-            file_extensions: ac.file_extensions.clone(),
-            excluded_dirs: ac.excluded_dirs.clone(),
-        })
-        .collect();
-    let discovery_config = SourceDiscoveryConfig::from_analyzer_configs(&analyzer_configs);
-    let source_files =
-        inference::discover_source_files(path, &manifest.source_roots, &discovery_config);
-    let index_map = manifest.source_index_map();
-
-    let unanalyzed: Vec<&str> = source_files
-        .iter()
-        .filter(|f| !index_map.contains_key(f.as_str()))
-        .map(|f| f.as_str())
-        .collect();
-
-    let (stale, deleted) = inference::detect_stale_entries(path, &manifest);
-    let summary = manifest.compute_summary(source_files.len());
+    let gaps = if show_gaps_detail {
+        match infer::gaps(path, &ctx.manifests, &ctx.graph, &runtime) {
+            Ok(gaps) => Some(gaps),
+            Err(error) => {
+                format.print_op_error(&error);
+                return 1;
+            }
+        }
+    } else {
+        None
+    };
 
     match format {
         OutputFormat::Json => {
-            let json = serde_json::json!({
-                "summary": {
-                    "files_total": summary.files_total,
-                    "files_analyzed": summary.files_analyzed,
-                    "entities_produced": summary.entities_produced,
-                },
-                "unanalyzed": unanalyzed,
-                "stale": stale,
-                "deleted": deleted,
-            });
+            let mut doc = progress.to_json();
+            if show_gaps {
+                doc["unanalyzed_by_directory"] = progress
+                    .unanalyzed_by_directory()
+                    .iter()
+                    .map(|(dir, files)| {
+                        json!({"directory": dir, "count": files.len(), "files": files})
+                    })
+                    .collect();
+            }
+            if let Some(gaps) = &gaps {
+                doc["gap_analysis"] = gaps.to_json();
+            }
             println!(
                 "{}",
-                serde_json::to_string_pretty(&json).expect("serialize JSON output")
+                serde_json::to_string_pretty(&doc).expect("serialize JSON output")
             );
         }
         OutputFormat::Human => {
-            let pct = if summary.files_total > 0 {
-                (summary.files_analyzed as f64 / summary.files_total as f64) * 100.0
-            } else {
-                0.0
-            };
-
-            println!("Inference Progress");
-            println!(
-                "  Files:    {}/{} ({:.0}%)",
-                summary.files_analyzed, summary.files_total, pct
+            print!(
+                "{}",
+                render_human(&progress, show_gaps, show_stale, gaps.as_ref())
             );
-            println!("  Entities: {}", summary.entities_produced);
-
-            if !stale.is_empty() || !deleted.is_empty() {
-                println!("  Stale:    {}", stale.len());
-                println!("  Deleted:  {}", deleted.len());
-            }
-
-            if show_gaps && !unanalyzed.is_empty() {
+            if !path.join(MANIFEST_FILENAME).exists() {
                 println!();
-                println!("Unanalyzed files:");
-                let mut by_dir: std::collections::BTreeMap<&str, Vec<&str>> =
-                    std::collections::BTreeMap::new();
-                for f in &unanalyzed {
-                    let dir = match f.rfind('/') {
-                        Some(i) => &f[..i],
-                        None => ".",
-                    };
-                    by_dir.entry(dir).or_default().push(f);
-                }
-                for (dir, files) in &by_dir {
-                    println!("  {} ({} files)", dir, files.len());
-                    for f in files {
-                        println!("    {}", f);
-                    }
-                }
-            }
-
-            if show_stale && !stale.is_empty() {
-                println!();
-                println!("Stale files (content changed since analysis):");
-                for f in &stale {
-                    println!("  {}", f);
-                }
-            }
-
-            if show_stale && !deleted.is_empty() {
-                println!();
-                println!("Deleted files (in manifest but missing from disk):");
-                for f in &deleted {
-                    println!("  {}", f);
-                }
-            }
-
-            if show_gaps_detail {
-                let entity_ids: Vec<&str> = ctx
-                    .graph
-                    .nodes()
-                    .into_iter()
-                    .map(|n| n.id.raw.as_str())
-                    .collect();
-
-                let (all_items, scanners_used) = scanner_dispatch::scan_source_files(
-                    &runtime,
-                    &ctx.manifests,
-                    path,
-                    &source_files,
+                println!(
+                    "No {MANIFEST_FILENAME} yet: start an inference with the MCP infer prompt \
+                     (specforge://prompts/infer), which records progress here."
                 );
+            }
+        }
+    }
+    0
+}
 
-                let report = inference::compute_gap_report(all_items, &entity_ids, scanners_used);
+fn render_human(progress: &Progress, gaps: bool, stale: bool, detail: Option<&Gaps>) -> String {
+    let mut out = String::new();
+    macro_rules! line {
+        () => { out.push('\n') };
+        ($($arg:tt)*) => {{ out.push_str(&format!($($arg)*)); out.push('\n'); }};
+    }
+    let summary = &progress.summary;
+    let pct = if summary.files_total > 0 {
+        (summary.files_analyzed as f64 / summary.files_total as f64) * 100.0
+    } else {
+        0.0
+    };
+    line!("Inference Progress");
+    line!(
+        "  Files:    {}/{} ({:.0}%)",
+        summary.files_analyzed,
+        summary.files_total,
+        pct
+    );
+    line!("  Entities: {}", summary.entities_produced);
+    if !progress.stale.is_empty() || !progress.deleted.is_empty() {
+        line!("  Stale:    {}", progress.stale.len());
+        line!("  Deleted:  {}", progress.deleted.len());
+    }
 
-                let scanner_label = if report.scanners_used.is_empty() {
-                    "no scanners".to_string()
-                } else {
-                    report.scanners_used.join(", ")
-                };
-                println!();
-                println!("Gap Analysis (via {})", scanner_label);
-                println!("  Public items: {}", report.total_pub_items);
-                println!("  Covered:      {}", report.covered_items);
-                println!("  Gaps:         {}", report.gaps.len());
+    if gaps && !progress.unanalyzed.is_empty() {
+        line!();
+        line!("Unanalyzed files:");
+        for (dir, files) in progress.unanalyzed_by_directory() {
+            line!("  {} ({} files)", dir, files.len());
+            for f in files {
+                line!("    {f}");
+            }
+        }
+    }
+    if stale && !progress.stale.is_empty() {
+        line!();
+        line!("Stale files (content changed since analysis):");
+        for f in &progress.stale {
+            line!("  {f}");
+        }
+    }
+    if stale && !progress.deleted.is_empty() {
+        line!();
+        line!("Deleted files (in manifest but missing from disk):");
+        for f in &progress.deleted {
+            line!("  {f}");
+        }
+    }
 
-                if !report.gaps.is_empty() {
-                    println!();
-                    let mut by_dir: std::collections::BTreeMap<
-                        String,
-                        Vec<&inference::SourceItem>,
-                    > = std::collections::BTreeMap::new();
-                    for gap in &report.gaps {
-                        let dir = match gap.file.rfind('/') {
-                            Some(i) => gap.file[..i].to_string(),
-                            None => ".".to_string(),
-                        };
-                        by_dir.entry(dir).or_default().push(gap);
-                    }
-                    for (dir, gaps) in &by_dir {
-                        println!("  {} ({} uncovered)", dir, gaps.len());
-                        for g in gaps {
-                            println!("    {}:{} {} ({})", g.file, g.line, g.name, g.item_kind);
-                        }
-                    }
+    if let Some(report) = detail {
+        let scanners = if report.scanners_used.is_empty() {
+            "no scanners".to_string()
+        } else {
+            report.scanners_used.join(", ")
+        };
+        line!();
+        line!("Gap Analysis (via {scanners})");
+        line!("  Public items: {}", report.total_pub_items);
+        line!("  Covered:      {}", report.covered_items);
+        line!("  Gaps:         {}", report.gap_count());
+        if report.gap_count() > 0 {
+            line!();
+            for (dir, items) in &report.by_directory {
+                line!("  {} ({} uncovered)", dir, items.len());
+                for g in items {
+                    line!("    {}:{} {} ({})", g.file, g.line, g.name, g.item_kind);
                 }
             }
         }
     }
-
-    0
+    out
 }

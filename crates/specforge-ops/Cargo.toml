@@ -11,7 +11,9 @@ repository.workspace = true
 print_stdout = "deny"
 
 [dependencies]
+serde = { workspace = true }
 serde_json = { workspace = true }
+specforge-diagnostics = { path = "../specforge-diagnostics" }
 specforge-common = { workspace = true }
 specforge-component = { workspace = true }
 specforge-emitter = { path = "../specforge-emitter" }

@@ -142,6 +142,7 @@ fn recompute_extensions(
             version: ext.version.clone(),
             entity_count: entity_counts.get(ext.name.as_str()).copied().unwrap_or(0),
             edge_count: edge_counts.get(ext.name.as_str()).copied().unwrap_or(0),
+            color: ext.color.clone(),
         })
         .collect()
 }

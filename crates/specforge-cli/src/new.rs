@@ -11,8 +11,7 @@ use std::path::{Path, PathBuf};
 
 pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i32 {
     if !extension {
-        print_error(
-            format,
+        format.print_error(
             "only `--extension` scaffolding is supported right now",
             "E065",
         );
@@ -20,14 +19,13 @@ pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i3
     }
 
     if let Err(message) = validate_name(name) {
-        print_error(format, &message, "E065");
+        format.print_error(&message, "E065");
         return 1;
     }
 
     let dir = target_dir(path, name);
     if dir.exists() {
-        print_error(
-            format,
+        format.print_error(
             &format!("destination '{}' already exists", dir.display()),
             "E065",
         );
@@ -35,7 +33,7 @@ pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i3
     }
 
     if let Err(message) = scaffold(&dir, name) {
-        print_error(format, &message, "E066");
+        format.print_error(&message, "E066");
         return 1;
     }
 
@@ -122,6 +120,7 @@ crate-type = ["cdylib"]
 [dependencies]
 specforge-extension-sdk = "0.1"
 wit-bindgen = "0.30"
+serde_json = "1.0"
 "#
     );
     std::fs::write(dir.join("Cargo.toml"), cargo_toml)
@@ -161,38 +160,50 @@ impl Contributions for Extension {{
 
         // Contribute a validation rule (delete if not needed):
         c.rule("W900", |r| {{
-            r.check(CheckKind::MissingField);
+            r.check(CheckKind::MissingRequiredField);
             r.target_kind("thing");
             r.field("description");
             r.severity(ValidationSeverity::Warning);
             r.message_template("thing '{{id}}' is missing a description");
         }});
+
+        // Contribute a command, declared with the function that answers it
+        // (delete if not needed). It runs as `specforge <short> things` and is
+        // the MCP tool `specforge.<short>.things`; its args are read through
+        // the declaration.
+        c.command("things", |cmd| {{
+            cmd.title("List things")
+                .description("Every thing, by id")
+                .arg("limit", |a| {{
+                    a.count().description("Return at most this many");
+                }})
+                .handler(|call| {{
+                    let ids: Vec<&str> = call
+                        .graph()
+                        .nodes_of_kind("thing")
+                        .take(call.count("limit").unwrap_or(100))
+                        .map(|n| n.id.as_str())
+                        .collect();
+                    call.render(&serde_json::json!({{ "things": ids }}), |out| {{
+                        for id in &ids {{
+                            out.push_str(id);
+                            out.push('\n');
+                        }}
+                    }})
+                }});
+        }});
     }}
 }}
 
-fn dispatch(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {{
-    None
-}}
-
-specforge_extension_sdk::component_guest!(
-    build = specforge_extension_build,
-    handler = dispatch
-);
+// Serves the protocol and the declared commands. Exports you answer by
+// hand go to `handler = dispatch`, a function returning `None` for names it
+// does not know.
+specforge_extension_sdk::component_guest!(build = specforge_extension_build);
 "#
     );
     std::fs::write(src.join("lib.rs"), lib_rs)
         .map_err(|e| format!("failed to write src/lib.rs: {}", e))?;
     Ok(())
-}
-
-fn print_error(format: OutputFormat, message: &str, code: &str) {
-    match format {
-        OutputFormat::Json => {
-            let output = json!({"error": message, "code": code});
-            println!("{}", serde_json::to_string_pretty(&output).unwrap());
-        }
-        OutputFormat::Human => eprintln!("error[{}]: {}", code, message),
-    }
 }
 
 #[cfg(test)]
@@ -238,5 +249,46 @@ mod tests {
         assert!(lib.contains("#[specforge_extension_sdk::extension("));
         assert!(lib.contains("impl Contributions for Extension"));
         assert!(lib.contains("component_guest!"));
+        assert!(lib.contains("c.command(\"things\""));
+        assert!(cargo.contains("serde_json"));
+    }
+
+    /// Every field type and check kind the scaffold names is one the
+    /// host's registry build reads, so a freshly scaffolded extension loads
+    /// without W019/W112 (the scaffold once used a check name it rejected).
+    #[test]
+    fn scaffold_uses_only_vocabulary_the_host_reads() {
+        use specforge_protocol_types::{CheckKind, FieldType};
+
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("my-ext");
+        scaffold(&project, "@you/my-ext").unwrap();
+        let lib = std::fs::read_to_string(project.join("src/lib.rs")).unwrap();
+
+        let named = |prefix: &str| -> Vec<String> {
+            lib.match_indices(prefix)
+                .map(|(at, _)| {
+                    lib[at + prefix.len()..]
+                        .chars()
+                        .take_while(|c| c.is_ascii_alphanumeric())
+                        .collect()
+                })
+                .collect()
+        };
+        let checks = named("CheckKind::");
+        let types = named("FieldType::");
+        assert!(!checks.is_empty() && !types.is_empty(), "{lib}");
+        for name in checks {
+            assert!(
+                CheckKind::ALL.iter().any(|c| format!("{c:?}") == name),
+                "scaffold names unknown CheckKind::{name}"
+            );
+        }
+        for name in types {
+            assert!(
+                FieldType::ALL.iter().any(|t| format!("{t:?}") == name),
+                "scaffold names unknown FieldType::{name}"
+            );
+        }
     }
 }

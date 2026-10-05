@@ -80,6 +80,9 @@ fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEnt
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
+        lifecycle_field: None,
     }
 }
 
@@ -127,9 +130,13 @@ fn test_server() -> McpServer {
         methods: Vec::new(),
     });
     graph.add_edge(edge("beta", "alpha", "behaviors"));
-    state.graph = graph;
-    state.kind_registry.register(kind_entry("behavior", true));
-    state.kind_registry.register(kind_entry("feature", false));
+    state.serve_graph(graph, Vec::new());
+    state.edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("behavior", true));
+    });
+    state.edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("feature", false));
+    });
     attach_project(state);
 
     server
@@ -263,6 +270,7 @@ fn diagnostic(code: &str, message: &str, span: Option<SourceSpan>) -> Diagnostic
         message: message.into(),
         span,
         suggestion: Some(format!("fix {code}")),
+        data: None,
     }
 }
 
@@ -362,7 +370,7 @@ fn contract_initialize() {
         "initialize must adopt the projectRoot it was given"
     );
     assert_eq!(
-        server.state().extension_info,
+        server.state().registries().extension_info,
         [(EXT.to_string(), "0.1.0".to_string())]
     );
 
@@ -405,11 +413,9 @@ fn contract_shutdown() {
         json!({"uri": "specforge://diagnostics"}),
     );
     // A compile left a graph notification pending for the subscriber.
-    specforge_mcp::notifications::enqueue_compile_notifications(
-        server.state_mut(),
-        &Graph::new(),
-        &[],
-    );
+    let delta =
+        specforge_mcp::notifications::compute_graph_delta(&Graph::new(), server.state().graph());
+    specforge_mcp::notifications::enqueue_compile_notifications(server.state_mut(), &delta, &[]);
     assert_eq!(server.state().notification_outbox.len(), 1);
 
     let resp = call(&mut server, "shutdown", json!({}));
@@ -442,9 +448,9 @@ fn contract_shutdown() {
 
     // wasm_engines_released: nothing compiled survives shutdown.
     let state = server.state();
-    assert_eq!(state.graph.node_count(), 0);
-    assert!(state.manifests.is_empty());
-    assert!(state.surface_entries.is_empty());
+    assert_eq!(state.graph().node_count(), 0);
+    assert!(state.registries().manifests.is_empty());
+    assert!(state.surface_entries().next().is_none());
     assert!(state.project_root.is_none());
 
     // shutdown_emitted, with what it released.
@@ -481,7 +487,7 @@ fn unknown_kind(kind: &str, suggestion: Option<&str>) -> Value {
 fn contract_query() {
     let mut server = test_server();
     // graph_available: the tool reads the server's compiled graph.
-    assert_eq!(server.state().graph.node_count(), 2);
+    assert_eq!(server.state().graph().node_count(), 2);
     let resp = call_tool(
         &mut server,
         "specforge.query",
@@ -543,6 +549,7 @@ fn contract_query() {
 )]
 fn contract_export() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
 
     // format_produced: each format carries the graph in its own shape.
     let graph = tool(&mut server, "specforge.export", json!({"format": "graph"}));
@@ -583,12 +590,14 @@ fn contract_export() {
     // token_budget_enforced: an orphan with a long contract is the first
     // thing a tight budget drops; the connected pair stays.
     let long = "MUST ".repeat(200);
-    server.state_mut().graph.add_node(node(
-        "gamma",
-        "behavior",
-        span_at("test.spec", 10, 0, 12),
-        text_field("contract", &long),
-    ));
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "behavior",
+            span_at("test.spec", 10, 0, 12),
+            text_field("contract", &long),
+        ));
+    });
     let budgeted = tool(
         &mut server,
         "specforge.export",
@@ -797,14 +806,16 @@ fn contract_stats() {
 
     // latest_state_reflected: a new orphan and a warning show up at once.
     let state = server.state_mut();
-    state.graph.add_node(node(
-        "gamma",
-        "behavior",
-        span_at("test.spec", 10, 0, 12),
-        FieldMap::new(),
-    ));
+    state.edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "behavior",
+            span_at("test.spec", 10, 0, 12),
+            FieldMap::new(),
+        ));
+    });
     state
-        .diagnostics
+        .surface_diagnostics
         .push(diagnostic("W001", "a warning", None));
     let stats = tool(&mut server, "specforge.stats", json!({}));
     assert_eq!(
@@ -823,7 +834,8 @@ fn contract_stats() {
 )]
 fn contract_inspect() {
     let mut server = test_server();
-    let diagnostics = &mut server.state_mut().diagnostics;
+    crate::support::declare_headline_fields(&mut server, "behavior");
+    let diagnostics = &mut server.state_mut().surface_diagnostics;
     // One diagnostic inside alpha's span, one in beta's file.
     diagnostics.push(diagnostic(
         "W001",
@@ -868,12 +880,14 @@ fn contract_inspect() {
 )]
 fn contract_find_definition() {
     let mut server = test_server();
-    server.state_mut().graph.add_node(node(
-        "gamma",
-        "behavior",
-        span_at("more/gamma.spec", 7, 2, 9),
-        FieldMap::new(),
-    ));
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "behavior",
+            span_at("more/gamma.spec", 7, 2, 9),
+            FieldMap::new(),
+        ));
+    });
 
     let alpha = tool(
         &mut server,
@@ -955,7 +969,9 @@ fn contract_outline() {
         returns: Some("Bool".into()),
         span: span_at("test.spec", 8, 4, 8),
     });
-    server.state_mut().graph.add_node(gamma);
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(gamma);
+    });
 
     let outline = tool(
         &mut server,
@@ -1029,10 +1045,9 @@ fn contract_coverage() {
     assert_eq!(alpha["unproven"], json!([]));
 
     // testability_respected: the registry, not the kind name, decides.
-    server
-        .state_mut()
-        .kind_registry
-        .register(kind_entry("feature", true));
+    server.state_mut().edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("feature", true));
+    });
     let coverage = tool(&mut server, "specforge.coverage", json!({}));
     let beta = find(&coverage, "entity_id", "beta");
     assert_eq!(beta["obligations"], 0);
@@ -1083,13 +1098,16 @@ fn contract_schema() {
 )]
 fn contract_context_prompt() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
     // An invariant nothing connects to alpha.
-    server.state_mut().graph.add_node(node(
-        "gamma",
-        "invariant",
-        span_at("inv.spec", 1, 0, 3),
-        text_field("guarantee", "never negative"),
-    ));
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "invariant",
+            span_at("inv.spec", 1, 0, 3),
+            text_field("guarantee", "never negative"),
+        ));
+    });
 
     let context = prompt(
         &mut server,
@@ -1130,20 +1148,28 @@ fn contract_review_prompt() {
     // gamma: a testable behavior of beta with no verify declarations;
     // delta: two hops from beta, outside depth 1.
     let state = server.state_mut();
-    state.graph.add_node(node(
-        "gamma",
-        "behavior",
-        span_at("test.spec", 7, 0, 9),
-        FieldMap::new(),
-    ));
-    state.graph.add_node(node(
-        "delta",
-        "behavior",
-        span_at("test.spec", 11, 0, 13),
-        FieldMap::new(),
-    ));
-    state.graph.add_edge(edge("beta", "gamma", "behaviors"));
-    state.graph.add_edge(edge("gamma", "delta", "depends_on"));
+    state.edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "behavior",
+            span_at("test.spec", 7, 0, 9),
+            FieldMap::new(),
+        ));
+    });
+    state.edit_graph(|graph| {
+        graph.add_node(node(
+            "delta",
+            "behavior",
+            span_at("test.spec", 11, 0, 13),
+            FieldMap::new(),
+        ));
+    });
+    state.edit_graph(|graph| {
+        graph.add_edge(edge("beta", "gamma", "behaviors"));
+    });
+    state.edit_graph(|graph| {
+        graph.add_edge(edge("gamma", "delta", "depends_on"));
+    });
 
     let review = prompt(
         &mut server,
@@ -1229,19 +1255,25 @@ fn contract_explore_prompt() {
     let mut server = test_server();
     // alpha <-behaviors- beta -invariants-> gamma; delta is an orphan.
     let state = server.state_mut();
-    state.graph.add_node(node(
-        "gamma",
-        "invariant",
-        span_at("inv.spec", 1, 0, 3),
-        FieldMap::new(),
-    ));
-    state.graph.add_node(node(
-        "delta",
-        "behavior",
-        span_at("test.spec", 11, 0, 13),
-        FieldMap::new(),
-    ));
-    state.graph.add_edge(edge("beta", "gamma", "invariants"));
+    state.edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "invariant",
+            span_at("inv.spec", 1, 0, 3),
+            FieldMap::new(),
+        ));
+    });
+    state.edit_graph(|graph| {
+        graph.add_node(node(
+            "delta",
+            "behavior",
+            span_at("test.spec", 11, 0, 13),
+            FieldMap::new(),
+        ));
+    });
+    state.edit_graph(|graph| {
+        graph.add_edge(edge("beta", "gamma", "invariants"));
+    });
 
     // exploration_returned: starting points, hubs and orphans.
     let explore = prompt(&mut server, "specforge://prompts/explore", json!({}));
@@ -1281,7 +1313,7 @@ fn contract_explore_prompt() {
 }
 
 /// Register an extension tool and resource, each with its surface entry.
-fn add_extension_surface(server: &mut McpServer, name: &str, enabled: bool) {
+fn add_extension_surface(server: &mut McpServer, name: &str) {
     use specforge_mcp::types::{McpResourceDescriptor, McpToolDescriptor};
     use specforge_registry::{SurfaceRegistryEntry, SurfaceType};
     let state = server.state_mut();
@@ -1303,27 +1335,26 @@ fn add_extension_surface(server: &mut McpServer, name: &str, enabled: bool) {
         (SurfaceType::McpTool, format!("ext.{name}")),
         (SurfaceType::McpResource, format!("ext-{name}")),
     ] {
-        state.surface_entries.push(SurfaceRegistryEntry {
+        let entry = SurfaceRegistryEntry {
             surface_type,
             contribution_name: contribution,
             extension_name: "@test/ext".into(),
             export_name: format!("export_{name}"),
-            enabled,
-        });
+        };
+        state.edit_environment(|env| env.registries.surfaces.push(entry));
     }
 }
 
 #[specforge_test(
     behavior = "list_mcp_tools",
-    verify = "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
+    verify = "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted"
 )]
 fn contract_list_tools() {
     use crate::fake_extension::{self, FakeExtension};
     // server_initialized: over a project whose extension contributes an
     // MCP tool and two CLI commands.
     let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
-    add_extension_surface(&mut server, "on", true);
-    add_extension_surface(&mut server, "off", false);
+    add_extension_surface(&mut server, "on");
 
     let resp = call(&mut server, "tools/list", json!({}));
     let names: Vec<&str> = resp["result"]["tools"]
@@ -1363,8 +1394,7 @@ fn contract_list_tools() {
         assert!(names.contains(&core), "{core} missing: {names:?}");
     }
     // complete_list_returned: every core tool, then the extension's
-    // explicit tool, its auto-promoted command, and the injected tool;
-    // disabled_excluded: ext.off is not listed.
+    // auto-promoted commands, and the injected tool.
     let core: Vec<String> = specforge_mcp::registry::default_tools()
         .into_iter()
         .map(|t| t.name)
@@ -1375,34 +1405,16 @@ fn contract_list_tools() {
         ["specforge.cmds.check", "specforge.cmds.report", "ext.on"]
     );
 
-    // A disabled auto-promoted command is excluded too.
-    for entry in &mut server.state_mut().surface_entries {
-        if entry.contribution_name == "specforge.cmds.report" {
-            entry.enabled = false;
-        }
-    }
-    let resp = call(&mut server, "tools/list", json!({}));
-    let after: Vec<&str> = resp["result"]["tools"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|t| t["name"].as_str().unwrap())
-        .collect();
-    assert_eq!(after[core.len()..], ["specforge.cmds.check", "ext.on"]);
-
     // discovery_emitted: the count is what the client got.
     assert_eq!(
         events(&server, "mcp_discovery_invoked"),
-        [
-            json!({"discoveryType": "tools", "resultCount": core.len() + 3}),
-            json!({"discoveryType": "tools", "resultCount": core.len() + 2}),
-        ]
+        [json!({"discoveryType": "tools", "resultCount": core.len() + 3})]
     );
 }
 
 #[specforge_test(
     behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surface_contributions_registered_fired, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted"
+    verify = "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted"
 )]
 fn contract_auto_promote_commands() {
     use crate::fake_extension::{self, EXT, FakeExtension};
@@ -1411,13 +1423,12 @@ fn contract_auto_promote_commands() {
     let (mut server, ext, _dir) =
         fake_extension::initialized(FakeExtension::new().with_output("cmd__report", output));
 
-    // surface_contributions_registered_fired: the compile registered the
+    // surfaces_registered: the compile registered the
     // extension's contributions, commands included.
     let entries = |ty: SurfaceType| -> Vec<(String, String)> {
         server
             .state()
-            .surface_entries
-            .iter()
+            .surface_entries()
             .filter(|e| e.surface_type == ty)
             .map(|e| (e.contribution_name.clone(), e.export_name.clone()))
             .collect()
@@ -1441,16 +1452,16 @@ fn contract_auto_promote_commands() {
     let resp = call_tool(
         &mut server,
         "specforge.cmds.report",
-        json!({"format": "json"}),
+        json!({"style": "json"}),
     );
     assert_eq!(resp["result"]["content"][0]["text"], "report written");
+    let calls = ext.calls();
     assert_eq!(
-        ext.calls(),
-        [(
-            EXT.to_string(),
-            "cmd__report".to_string(),
-            json!({"format": "json"})
-        )]
+        calls
+            .iter()
+            .map(|(ext, export, input)| (ext.as_str(), export.as_str(), &input["args"]))
+            .collect::<Vec<_>>(),
+        [(EXT, "cmd__report", &json!({"style": "json"}))]
     );
 
     // explicit_tool_wins: `check` stays the explicit tool, with I017.
@@ -1461,9 +1472,8 @@ fn contract_auto_promote_commands() {
     )
     .clone();
     assert_eq!(check["description"], "Explicit check tool");
-    let i017: Vec<&str> = server
-        .state()
-        .diagnostics
+    let diagnostics = server.state().diagnostics();
+    let i017: Vec<&str> = diagnostics
         .iter()
         .filter(|d| d.code == "I017")
         .map(|d| d.message.as_str())
@@ -1483,13 +1493,248 @@ fn contract_auto_promote_commands() {
 }
 
 #[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted"
+)]
+fn contract_dispatch_surface_command() {
+    // The sandbox probe (fixtures/sandbox-probe), in the component runtime
+    // every extension runs in. Its `probe` command reports its input and
+    // what it got when it tried every capability; its `trap` command panics.
+    let probe =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/sandbox-probe/probe.wasm");
+    let runtime = specforge_component::ComponentRuntime::new();
+    runtime
+        .load_module_bytes("@test/probe", &std::fs::read(probe).unwrap())
+        .unwrap();
+    let dir = project_dir(
+        json!({"name": "probed", "version": "0.1.0", "extensions": ["@test/probe"]}),
+        "probe_target t1 \"Target\" {\n}\n",
+    );
+    std::fs::write(dir.path().join("secret.txt"), "secret").unwrap();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let mut server = McpServer::new();
+    server.state_mut().extension_runtime = Some(std::sync::Arc::new(runtime));
+    let init = call(
+        &mut server,
+        "initialize",
+        json!({"projectRoot": dir.path().to_str().unwrap()}),
+    );
+    assert!(init["error"].is_null(), "{init}");
+    let root = server.state().project_root.clone().unwrap();
+
+    // command_declared: the commands the probe declares are its tools.
+    let tools = call(&mut server, "tools/list", json!({}));
+    for name in ["specforge.probe.probe", "specforge.probe.trap"] {
+        find(&tools["result"]["tools"], "name", name);
+    }
+
+    let resp = call_tool(&mut server, "specforge.probe.probe", json!({"port": port}));
+    // output_returned: its stdout, then its stderr; exit code 3 fails the
+    // call.
+    let result = &resp["result"];
+    assert_eq!(result["isError"], true, "{resp}");
+    assert_eq!(result["content"][1]["text"], "probed\n", "{resp}");
+    let out = tool_json(&resp);
+
+    // args_serialized: the args, the project root and the served graph.
+    assert_eq!(out["args"], json!({"port": port}));
+    assert_eq!(out["cwd"], root.display().to_string());
+    assert_eq!(out["nodes"], json!(["t1"]));
+
+    // sandbox_restricted: though its declaration asks for every capability,
+    // the export could not read or write the project root, see the
+    // environment, its arguments or stdin, connect, or resolve a name.
+    let sandbox = &out["sandbox"];
+    for attempt in [
+        "read_root",
+        "read_dir",
+        "read_file",
+        "write_file",
+        "connect",
+        "resolve",
+    ] {
+        assert_eq!(sandbox[attempt]["granted"], false, "{attempt}: {sandbox}");
+    }
+    for empty in ["env_vars", "args", "stdin_bytes"] {
+        assert_eq!(sandbox[empty], 0, "{empty}: {sandbox}");
+    }
+    assert!(!dir.path().join("probe.txt").exists());
+    assert_eq!(
+        listener.accept().map(|_| ()).unwrap_err().kind(),
+        std::io::ErrorKind::WouldBlock
+    );
+
+    // surface_command_dispatched_emitted: once the export returned.
+    let mut dispatched = events(&server, "surface_command_dispatched");
+    assert_eq!(dispatched.len(), 1, "{dispatched:?}");
+    let duration = dispatched[0]
+        .as_object_mut()
+        .unwrap()
+        .remove("durationMs")
+        .unwrap();
+    assert!(duration.is_u64(), "{duration}");
+    assert_eq!(
+        dispatched,
+        [json!({"extensionName": "@test/probe", "commandId": "probe", "exitCode": 3})]
+    );
+
+    // traps_caught: a panicking command is the tool's E028 error, and no
+    // dispatch is recorded.
+    let resp = call_tool(&mut server, "specforge.probe.trap", json!({}));
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("surface command cmd__trap() trapped"),
+        "{error}"
+    );
+    assert_eq!(events(&server, "surface_command_dispatched").len(), 1);
+}
+
+#[specforge_test(
+    behavior = "surface_command_dispatched",
+    verify = "emits surface_command_dispatched with correct commandId and exitCode"
+)]
+fn event_surface_command_dispatched() {
+    use crate::fake_extension::{self, FakeExtension};
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new().with_output(
+        "cmd__report",
+        json!({"exit_code": 0, "stdout": "ok", "stderr": ""}),
+    ));
+    call_tool(&mut server, "specforge.cmds.report", json!({"style": "md"}));
+    let dispatched: Vec<(Value, Value, Value)> = events(&server, "surface_command_dispatched")
+        .into_iter()
+        .map(|e| {
+            (
+                e["extensionName"].clone(),
+                e["commandId"].clone(),
+                e["exitCode"].clone(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        dispatched,
+        [(json!(fake_extension::EXT), json!("report"), json!(0))]
+    );
+}
+
+/// The recorded `name` events, each without its `durationMs`, which must
+/// be a count of milliseconds.
+fn timed_events(server: &McpServer, name: &str) -> Vec<Value> {
+    events(server, name)
+        .into_iter()
+        .map(|mut e| {
+            let duration = e.as_object_mut().unwrap().remove("durationMs");
+            assert!(duration.as_ref().is_some_and(Value::is_u64), "{e}");
+            e
+        })
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "a returned tool call is recorded as a surface_mcp_tool_dispatched event"
+)]
+fn a_returned_tool_call_is_a_dispatched_tool() {
+    use crate::fake_extension::{self, EXT, FakeExtension};
+    let dispatched = |success: bool| json!({"extensionName": EXT, "toolName": "specforge.cmds.check", "success": success});
+    // Its export returned what the tool's output schema describes.
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
+    );
+    call_tool(&mut server, "specforge.cmds.check", json!({}));
+    assert_eq!(
+        timed_events(&server, "surface_mcp_tool_dispatched"),
+        [dispatched(true)]
+    );
+    // It returned an output the schema refuses: dispatched, and failed.
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": "yes"})),
+    );
+    call_tool(&mut server, "specforge.cmds.check", json!({}));
+    assert_eq!(
+        timed_events(&server, "surface_mcp_tool_dispatched"),
+        [dispatched(false)]
+    );
+    // It trapped, or the input was refused before it ran: not dispatched.
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    call_tool(&mut server, "specforge.cmds.check", json!({}));
+    call_tool(&mut server, "specforge.cmds.check", json!({"strict": "no"}));
+    assert!(events(&server, "surface_mcp_tool_dispatched").is_empty());
+}
+
+#[specforge_test(
+    behavior = "surface_mcp_tool_dispatched",
+    verify = "emits surface_mcp_tool_dispatched with correct toolName and success"
+)]
+fn event_surface_mcp_tool_dispatched() {
+    use crate::fake_extension::{self, FakeExtension};
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
+    );
+    call_tool(&mut server, "specforge.cmds.check", json!({"strict": true}));
+    let dispatched: Vec<(Value, Value)> = events(&server, "surface_mcp_tool_dispatched")
+        .into_iter()
+        .map(|e| (e["toolName"].clone(), e["success"].clone()))
+        .collect();
+    assert_eq!(dispatched, [(json!("specforge.cmds.check"), json!(true))]);
+    // An auto-promoted command is a dispatched command, not a tool.
+    assert!(events(&server, "surface_command_dispatched").is_empty());
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "a returned resource read is recorded as a surface_mcp_resource_dispatched event"
+)]
+fn a_returned_resource_read_is_a_dispatched_resource() {
+    use crate::fake_extension::{self, EXT, FakeExtension};
+    let summary = "specforge://ext/cmds/summary";
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new().with_output(
+        "mcp__summary",
+        json!({"content": "{}", "mime_type": "application/json"}),
+    ));
+    resource(&mut server, summary);
+    assert_eq!(
+        timed_events(&server, "surface_mcp_resource_dispatched"),
+        [json!({"extensionName": EXT, "uriTemplate": summary, "mimeType": "application/json"})]
+    );
+    // A core resource is not an extension's; a trapping read is not one
+    // that returned.
+    resource(&mut server, "specforge://graph");
+    assert_eq!(events(&server, "surface_mcp_resource_dispatched").len(), 1);
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    call(&mut server, "resources/read", json!({"uri": summary}));
+    assert!(events(&server, "surface_mcp_resource_dispatched").is_empty());
+}
+
+#[specforge_test(
+    behavior = "surface_mcp_resource_dispatched",
+    verify = "emits surface_mcp_resource_dispatched with correct uriTemplate"
+)]
+fn event_surface_mcp_resource_dispatched() {
+    use crate::fake_extension::{self, FakeExtension};
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new().with_output(
+        "mcp__summary",
+        json!({"content": "{}", "mime_type": "application/json"}),
+    ));
+    resource(&mut server, "specforge://ext/cmds/summary");
+    let templates: Vec<Value> = events(&server, "surface_mcp_resource_dispatched")
+        .into_iter()
+        .map(|e| e["uriTemplate"].clone())
+        .collect();
+    assert_eq!(templates, [json!("specforge://ext/cmds/summary")]);
+}
+
+#[specforge_test(
     behavior = "list_mcp_resources",
-    verify = "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
+    verify = "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, discovery_emitted"
 )]
 fn contract_list_resources() {
     let mut server = test_server();
-    add_extension_surface(&mut server, "on", true);
-    add_extension_surface(&mut server, "off", false);
+    add_extension_surface(&mut server, "on");
 
     let resp = call(&mut server, "resources/list", json!({}));
     let mut uris: Vec<&str> = resp["result"]["resources"]
@@ -1499,9 +1744,8 @@ fn contract_list_resources() {
         .map(|r| r["uri"].as_str().unwrap())
         .collect();
     uris.sort();
-    // complete_list_returned: every core resource plus the enabled
-    // extension's, templated ones under resources/templates/list;
-    // disabled_excluded: not the disabled one.
+    // complete_list_returned: every core resource plus the extension's,
+    // templated ones under resources/templates/list.
     assert_eq!(
         uris,
         [
@@ -1530,7 +1774,7 @@ fn contract_list_resources() {
         ]
     );
 
-    // The count is what the client got: disabled surfaces excluded.
+    // The count is what the client got.
     assert_eq!(
         events(&server, "mcp_discovery_invoked"),
         [
@@ -1581,7 +1825,7 @@ fn contract_list_prompts() {
         ]
     );
 
-    // The count is what the client got: disabled surfaces excluded.
+    // The count is what the client got.
     assert_eq!(
         events(&server, "mcp_discovery_invoked"),
         [json!({"discoveryType": "prompts", "resultCount": names.len()})]
@@ -1614,7 +1858,7 @@ fn contract_guard_reinit() {
     let state = server.state();
     assert_eq!(state.project_root, root);
     assert_eq!(state.tool_registry.len(), tools);
-    assert_eq!(state.graph.node_count(), 2);
+    assert_eq!(state.graph().node_count(), 2);
     let stats = tool(&mut server, "specforge.stats", json!({}));
     assert_eq!(stats["edge_count"], 1);
 
@@ -1679,7 +1923,7 @@ fn contract_protocol_error() {
     // server_operational: requests after the errors still succeed.
     let listed = call(&mut server, "tools/list", json!({}));
     assert!(!listed["result"]["tools"].as_array().unwrap().is_empty());
-    assert_eq!(server.state().graph.node_count(), 2);
+    assert_eq!(server.state().graph().node_count(), 2);
 
     // error_handled_emitted, once per error with its code.
     let codes: Vec<i64> = events(&server, "mcp_protocol_error_handled")
@@ -1782,7 +2026,7 @@ fn contract_validate() {
 )]
 fn contract_suggest_fixes() {
     let mut server = test_server();
-    server.state_mut().diagnostics.push(diagnostic(
+    server.state_mut().surface_diagnostics.push(diagnostic(
         "W001",
         "inside alpha",
         Some(span_at("test.spec", 2, 4, 2)),
@@ -2052,6 +2296,7 @@ fn contract_schema_resource() {
 )]
 fn contract_context_resource() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
     let (content, context) = resource(&mut server, "specforge://context");
     assert_eq!(content["uri"], "specforge://context");
     let alpha = find(&context["nodes"], "id", "alpha");
@@ -2104,13 +2349,14 @@ fn contract_brief_resource() {
 )]
 fn contract_diagnostics_resource() {
     let mut server = test_server();
-    let diagnostics = &mut server.state_mut().diagnostics;
+    let diagnostics = &mut server.state_mut().surface_diagnostics;
     diagnostics.push(Diagnostic {
         code: "E003".into(),
         severity: Severity::Error,
         message: "unresolved reference 'ghost'".into(),
         span: Some(span_at("feat.spec", 2, 14, 2)),
         suggestion: None,
+        data: None,
     });
     diagnostics.push(diagnostic("W001", "a warning", None));
 
@@ -2131,7 +2377,7 @@ fn contract_diagnostics_resource() {
     );
 
     // Updates with the compilation's diagnostics.
-    server.state_mut().diagnostics.clear();
+    server.state_mut().surface_diagnostics.clear();
     let (_, bag) = resource(&mut server, "specforge://diagnostics");
     assert_eq!(bag, json!([]));
 
@@ -2146,13 +2392,17 @@ fn contract_entity_resource() {
     let mut server = test_server();
     // gamma hangs off beta: two hops from alpha.
     let state = server.state_mut();
-    state.graph.add_node(node(
-        "gamma",
-        "invariant",
-        span_at("inv.spec", 1, 0, 3),
-        FieldMap::new(),
-    ));
-    state.graph.add_edge(edge("beta", "gamma", "invariants"));
+    state.edit_graph(|graph| {
+        graph.add_node(node(
+            "gamma",
+            "invariant",
+            span_at("inv.spec", 1, 0, 3),
+            FieldMap::new(),
+        ));
+    });
+    state.edit_graph(|graph| {
+        graph.add_edge(edge("beta", "gamma", "invariants"));
+    });
 
     // subgraph_returned: alpha, its direct neighbor, the edge between them.
     let (content, entity) = resource(&mut server, "specforge://graph/alpha");
@@ -2412,7 +2662,7 @@ fn moving_an_entity_is_not_a_modification() {
 fn contract_diagnostics_notification() {
     let (mut server, spec) = project_server();
     rebuild(&mut server);
-    let clean = server.state().diagnostics.clone();
+    let clean = server.state().diagnostics().clone();
     subscribe(&mut server, "specforge://diagnostics");
 
     // validation_complete_fired + subscribers_notified: a rebuild whose
@@ -2447,7 +2697,7 @@ fn contract_diagnostics_notification() {
     // subscribers_notified: fixing it sends the removal.
     std::fs::write(&spec, "behavior alpha \"Alpha\" {\n}\n").unwrap();
     rebuild(&mut server);
-    assert_eq!(server.state().diagnostics, clean);
+    assert_eq!(server.state().diagnostics(), clean);
     assert_eq!(
         server.take_notifications(),
         [changed(json!([]), json!([duplicate]))]
@@ -2573,7 +2823,9 @@ fn contract_providers() {
         "contributes": {"providers": true},
     }))
     .unwrap();
-    server.state_mut().manifests.push(github);
+    server
+        .state_mut()
+        .edit_environment(|env| env.registries.manifests.push(github));
 
     // providers_listed: scheme, alias, backing extension and status.
     let listed = tool(&mut server, "specforge.providers", json!({}));

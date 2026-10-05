@@ -1,8 +1,8 @@
 use crate::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
-    KindRegistryEntry, ManifestFieldType, ManifestV2,
+    KindRegistryEntry, ManifestFieldType, ManifestV2, ProofRole,
 };
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, DiagnosticData, Severity};
 
 /// Populate all three registries from a list of extension manifests.
 /// Manifests should be provided in topological order (dependencies first).
@@ -75,6 +75,7 @@ pub fn apply_entity_enhancements(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             continue;
         }
@@ -128,6 +129,9 @@ fn register_entity_kinds(
             dot_color: kind.dot_color.clone(),
             dot_fillcolor: kind.dot_fillcolor.clone(),
             open_fields: kind.open_fields,
+            contract_target: kind.contract_target,
+            declares_types: kind.declares_types,
+            lifecycle_field: lifecycle_field(kind, manifest, diagnostics),
         };
         if let Some(existing) = registry.register(entry) {
             // Duplicate — first extension wins (already registered), emit E026
@@ -140,6 +144,9 @@ fn register_entity_kinds(
                 ),
                 span: None,
                 suggestion: None,
+                data: Some(Box::new(DiagnosticData::ShadowedKeyword {
+                    keyword: kind.keyword.clone(),
+                })),
             });
             // Restore the first registration (it wins)
             registry.register(existing);
@@ -186,6 +193,7 @@ fn register_single_field(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             return;
         }
@@ -203,22 +211,72 @@ fn register_single_field(
         required: field.required,
         inverse_of: field.inverse_of.clone(),
         normative: field.normative,
+        exempts_obligations: field.exempts_obligations,
+        headline: field.headline,
         derived_from: field.derived_from.clone(),
+        proof_role: proof_role(kind_name, field, source_extension, diagnostics),
     });
 }
 
-fn parse_field_type(s: &str) -> Option<ManifestFieldType> {
-    match s {
-        "string" | "string_type" => Some(ManifestFieldType::String),
-        "integer" | "integer_type" => Some(ManifestFieldType::Integer),
-        "bool" | "bool_type" => Some(ManifestFieldType::Bool),
-        "enum" | "enum_type" => Some(ManifestFieldType::Enum(vec![])),
-        "string_list" | "string_list_type" => Some(ManifestFieldType::StringList),
-        "reference" | "reference_type" => Some(ManifestFieldType::Reference),
-        "reference_list" | "reference_list_type" => Some(ManifestFieldType::ReferenceList),
-        "block" | "block_type" => Some(ManifestFieldType::Block),
-        _ => None,
+/// The field `kind` declares as its lifecycle field, when it declares one
+/// among its own or the extension's shared fields; a name it does not
+/// declare is refused (W021).
+fn lifecycle_field(
+    kind: &crate::ManifestEntityKind,
+    manifest: &ManifestV2,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<String> {
+    let name = kind.lifecycle_field.as_ref()?;
+    let declared = kind
+        .fields
+        .iter()
+        .chain(&manifest.fields)
+        .any(|f| &f.name == name);
+    if declared {
+        return Some(name.clone());
     }
+    diagnostics.push(Diagnostic {
+        code: "W021".to_string(),
+        severity: Severity::Warning,
+        message: format!(
+            "extension '{}': kind '{}' declares lifecycle_field '{}', which is not one of its fields",
+            manifest.name, kind.keyword, name
+        ),
+        span: None,
+        suggestion: None,
+        data: None,
+    });
+    None
+}
+
+/// The prove-pass role `field` declares, when it names one; any value but
+/// `bound` or `claim` is refused (W021).
+fn proof_role(
+    kind_name: &str,
+    field: &crate::ManifestField,
+    source_extension: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<ProofRole> {
+    let name = field.proof_role.as_deref()?;
+    let role = ProofRole::parse(name);
+    if role.is_none() {
+        diagnostics.push(Diagnostic {
+            code: "W021".to_string(),
+            severity: Severity::Warning,
+            message: format!(
+                "extension '{}': field '{}' on kind '{}' declares proof_role '{}': expected 'bound' or 'claim'",
+                source_extension, field.name, kind_name, name
+            ),
+            span: None,
+            suggestion: None,
+            data: None,
+        });
+    }
+    role
+}
+
+fn parse_field_type(s: &str) -> Option<ManifestFieldType> {
+    specforge_protocol_types::FieldType::parse(s).map(ManifestFieldType::from)
 }
 
 /// Register explicit edge types from a manifest.
@@ -248,6 +306,7 @@ fn register_edge_types(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             // Restore first registration
             registry.register(existing);
@@ -1005,7 +1064,10 @@ mod tests {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    exempts_obligations: false,
+                    headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
                 edge_types: vec![],
             },
@@ -1041,7 +1103,10 @@ mod tests {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    exempts_obligations: false,
+                    headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
                 edge_types: vec![],
             },
@@ -1127,7 +1192,10 @@ mod tests {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    exempts_obligations: false,
+                    headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
                 edge_types: vec![],
             },
@@ -1163,7 +1231,10 @@ mod tests {
                         enum_values: vec![],
                         inverse_of: None,
                         normative: false,
+                        exempts_obligations: false,
+                        headline: false,
                         derived_from: None,
+                        proof_role: None,
                     }],
                     edge_types: vec![],
                 },
@@ -1186,7 +1257,10 @@ mod tests {
                         enum_values: vec![],
                         inverse_of: None,
                         normative: false,
+                        exempts_obligations: false,
+                        headline: false,
                         derived_from: None,
+                        proof_role: None,
                     }],
                     edge_types: vec![],
                 },

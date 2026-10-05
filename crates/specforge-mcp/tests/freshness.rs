@@ -92,4 +92,12 @@ fn newer_snapshot_recompiles_the_graph() {
         finds(&mut server, "freshness"),
         "a newer marker must refresh the graph"
     );
+
+    // A file deleted since: the next newer marker drops its entities.
+    fs::remove_file(spec_dir.join("added.spec")).unwrap();
+    write_marker(dir.path(), Duration::from_secs(10));
+    assert!(
+        !finds(&mut server, "freshness"),
+        "a refresh must drop the entities of a deleted file"
+    );
 }

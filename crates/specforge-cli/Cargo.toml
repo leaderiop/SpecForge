@@ -24,7 +24,7 @@ name = "specforge"
 path = "src/main.rs"
 
 [dependencies]
-clap = { workspace = true }
+clap = { workspace = true, features = ["string"] }
 clap_complete = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -46,8 +46,10 @@ specforge-wasm = { workspace = true }
 specforge-component = { workspace = true }
 specforge-mcp = { workspace = true }
 specforge-ops = { workspace = true }
+specforge-ops-registry = { path = "../specforge-ops-registry" }
 specforge-project = { workspace = true }
 specforge-registry = { workspace = true }
+specforge-registry-client = { path = "../specforge-registry-client" }
 semver = { workspace = true }
 
 [dev-dependencies]

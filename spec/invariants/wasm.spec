@@ -156,6 +156,32 @@ invariant registry_integrity "Registry Integrity" {
   verify unit "trust level recorded in lock file"
 }
 
+invariant publisher_trust "Publisher Trust" {
+  guarantee """
+    A registry package is installed only when its publisher signature
+    verifies over the downloaded bytes and the served manifest, or when it
+    is unsigned and the user passed --allow-unsigned; a broken signature is
+    never installed. The first verified key for a package is pinned, and a
+    package signed by another key is refused unless the user consents.
+  """
+  risk      high
+  verify integration "specforge add refuses an unsigned package without --allow-unsigned"
+  verify integration "specforge add pins the publisher key and records it in specforge.lock"
+  verify integration "specforge add refuses a package signed by another key than the pinned one"
+}
+
+invariant registry_reply_binding "Registry Reply Binding" {
+  guarantee """
+    What a registry install verifies, pins and installs is the package and
+    version that was requested, described by a manifest that can be read:
+    a reply or manifest for another package or version, or a missing or
+    unreadable manifest, is refused before any key is pinned.
+  """
+  risk      high
+  verify integration "a manifest describing another package is refused"
+  verify integration "a package served without a manifest is refused"
+}
+
 invariant extension_operation_atomicity "Extension Operation Atomicity" {
   guarantee """
     Extension install, uninstall, and update operations MUST be atomic.
@@ -197,14 +223,15 @@ invariant renderer_output_restriction "Renderer Output Restriction" {
 
 invariant surface_schema_validity "Surface Schema Validity" {
   guarantee """
-    Extension-contributed MCP tool input schemas and CLI command argument
-    types MUST conform to JSON Schema draft 2020-12 and declared type
-    constraints. Invalid schemas MUST produce E055. Unknown argument types
-    MUST produce E055.
+    Every registered extension MCP tool MUST have an input_schema that is
+    a JSON object, and an output_schema, when declared, that is a JSON
+    object: a tool with another value produces E055 and is not
+    registered. Every command arg MUST have a CommandArgType: the type is
+    closed, so a surfaces description with another one does not parse and
+    fails its extension's load (E028).
   """
   risk      medium
-  verify unit "valid MCP tool schema passes validation"
-  verify unit "invalid MCP tool schema produces E055"
-  verify unit "known command arg type passes validation"
-  verify unit "unknown command arg type produces E055"
+  verify unit "a tool whose schemas are JSON objects is registered"
+  verify unit "a tool whose input_schema is not a JSON object is E055 and not registered"
+  verify unit "a surfaces description with an unknown arg type fails the extension's load"
 }

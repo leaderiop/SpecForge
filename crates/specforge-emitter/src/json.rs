@@ -1,6 +1,6 @@
 use serde::Serialize;
 use serde_json::Value;
-use specforge_graph::{FieldMap, FieldValue, Graph};
+use specforge_graph::{FieldMap, FieldValue, Graph, Node};
 use std::collections::BTreeMap;
 
 /// V1 export envelope version. V1 is a frozen legacy shape; new consumers
@@ -126,4 +126,18 @@ pub fn emit_json(graph: &Graph) -> String {
     };
 
     serde_json::to_string(&output).expect("graph serialization cannot fail")
+}
+
+/// The obligations as the exports write them (`[{kind, description}]`), or
+/// `None` when the entity declares none.
+pub(crate) fn obligations_json(node: &Node) -> Option<Value> {
+    let stmts = specforge_graph::obligations(node);
+    (!stmts.is_empty()).then(|| {
+        Value::Array(
+            stmts
+                .iter()
+                .map(|s| serde_json::json!({"kind": s.kind, "description": s.description}))
+                .collect(),
+        )
+    })
 }

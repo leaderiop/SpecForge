@@ -6,10 +6,10 @@
 //! is served in metadata, and verifies offline — the registry is not needed
 //! as a trust anchor.
 
-use specforge_registry::client::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
-use specforge_registry::{
-    HttpRegistryClient, ManifestV2, PackageSignature, SigningKey, publish_to_registry,
-    verify_signature,
+use specforge_registry::ManifestV2;
+use specforge_registry_client::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
+use specforge_registry_client::{
+    HttpRegistryClient, PackageSignature, SigningKey, publish_to_registry, verify_signature,
 };
 use specforge_registry_server::{auth, db::Database, handlers, state::AppState};
 use std::sync::Arc;

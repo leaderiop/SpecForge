@@ -10,8 +10,8 @@
 //!   the built graph. Its [`CompiledProject::diagnostics`] are, by
 //!   definition, what `specforge check` reports;
 //! - a [`ProjectSession`] is a long-lived compiled project that accepts
-//!   source changes and environment reloads (watch and the LSP each hold
-//!   one). After any
+//!   source changes and environment reloads (watch, the LSP and MCP each
+//!   hold one). After any
 //!   sequence of updates its diagnostics are the set a fresh compile
 //!   reports.
 //!
@@ -20,16 +20,21 @@
 
 mod build_cache;
 mod check_passes;
+pub mod compile;
+pub mod coverage;
+mod delta;
+pub mod field_types;
+mod incremental;
+pub mod passes;
 mod policy;
 mod session;
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use specforge_common::{Diagnostic, ProjectConfig, is_excluded, load_project_config};
-use specforge_emitter::analyze::TestReport;
-use specforge_emitter::compile::{GraphChecks, check_graph, load_extensions, probe_custom_rules};
-use specforge_emitter::coverage::{CoverageRegistries, ProjectCoverage};
+use compile::{GraphChecks, check_graph, load_extensions, probe_custom_rules};
+use coverage::{CoverageRegistries, ProjectCoverage, TestReport};
+use specforge_common::{Diagnostic, ProjectConfig, is_discovered, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_registry::{
@@ -43,9 +48,10 @@ pub use build_cache::{
     BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus, record_build_cache,
 };
 pub use check_passes::CheckPass;
+pub use compile::CompilationContext;
+pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
 pub use policy::{DiagnosticPolicy, apply_policy};
 pub use session::{CheckMode, ProjectSession, SharedRuntime, SourceChange, Update};
-pub use specforge_emitter::compile::CompilationContext;
 
 /// Everything derived from `specforge.json` and the loaded extensions,
 /// before any `.spec` file is read.
@@ -70,6 +76,19 @@ pub struct Environment {
 }
 
 impl Environment {
+    /// No project: the default config, no spec root, no extension.
+    pub fn empty() -> Self {
+        Environment {
+            root: PathBuf::new(),
+            config: ProjectConfig::default(),
+            spec_root: PathBuf::new(),
+            registries: RegistryBuild::default(),
+            provider_schemes: HashSet::new(),
+            load_diagnostics: Vec::new(),
+            check_passes: Vec::new(),
+        }
+    }
+
     /// Read the project's config and load its extensions through `runtime`
     /// (none without one), then build the registries from them.
     pub fn load(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
@@ -113,7 +132,7 @@ impl Environment {
     pub fn graph_config(&self) -> GraphConfig {
         GraphConfig {
             known_provider_schemes: self.provider_schemes.clone(),
-            ..specforge_emitter::compile::graph_config(&self.registries)
+            ..compile::graph_config(&self.registries)
         }
     }
 
@@ -161,15 +180,24 @@ impl Environment {
         }
     }
 
-    /// Whether a `.spec` file (its path relative to the spec root) is left
-    /// out of the project by an `exclude` entry.
+    /// Whether a file (its path relative to the spec root) is left out of
+    /// the project, as discovery leaves it out: not a `.spec` file, under a
+    /// skipped directory (`target`, `node_modules`, ...) or matched by an
+    /// `exclude` entry.
     pub fn excludes(&self, relative: &str) -> bool {
-        is_excluded(relative, &self.config.exclude)
+        !is_discovered(relative, &self.config.exclude)
     }
 
     /// Discover, parse and resolve the project's `.spec` files.
     pub fn resolve(&self) -> ResolvedProject {
         resolve_project_with_config(&self.spec_root, &self.resolve_config())
+    }
+
+    /// The graph of the project's sources, as a compile builds it, without
+    /// the checks a compile then runs on it: what a query over the project
+    /// reads (an extension command, ADR 0008).
+    pub fn build_graph(&self) -> Graph {
+        build_graph_with_config(&source_files(&self.resolve()), &self.graph_config()).0
     }
 }
 
@@ -223,7 +251,16 @@ fn structural_only_notice(configured: &[String]) -> Diagnostic {
         message,
         span: None,
         suggestion: Some(suggestion),
+        data: None,
     }
+}
+
+/// The resolved files a graph is built from, in path order.
+fn source_files(resolved: &ResolvedProject) -> Vec<SpecFile> {
+    sources_in_path_order(resolved)
+        .into_iter()
+        .map(|(_, spec_file)| spec_file)
+        .collect()
 }
 
 /// The resolved files as the graph is built from them: in path order, the
@@ -258,11 +295,8 @@ impl CompiledProject {
     pub fn compile(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
         let env = Environment::load(root, runtime);
         let resolved = env.resolve();
-        let spec_files: Vec<SpecFile> = sources_in_path_order(&resolved)
-            .into_iter()
-            .map(|(_, spec_file)| spec_file)
-            .collect();
-        let (graph, graph_diagnostics) = build_graph_with_config(&spec_files, &env.graph_config());
+        let (graph, graph_diagnostics) =
+            build_graph_with_config(&source_files(&resolved), &env.graph_config());
         let check_diagnostics = env.run_checks(&graph, runtime);
         CompiledProject {
             env,

@@ -108,15 +108,15 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
 
 fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
     let mut kind_counts: HashMap<String, usize> = HashMap::new();
-    for node in state.graph.nodes() {
+    for node in state.graph().nodes() {
         *kind_counts.entry(node.kind.raw.to_string()).or_default() += 1;
     }
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for manifest in &state.manifests {
+    for manifest in &state.registries().manifests {
         for kind in &manifest.entity_kinds {
             let keyword = kind.keyword.to_lowercase();
-            let guide = build_guide_for_kind(&keyword, manifest, &state.project_config.inference);
+            let guide = build_guide_for_kind(&keyword, manifest, &state.config().inference);
             let fields: Vec<String> = kind
                 .fields
                 .iter()
@@ -139,15 +139,10 @@ fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
         }
     }
 
-    let global_conventions = state
-        .project_config
-        .inference
-        .global
-        .as_deref()
-        .unwrap_or("");
+    let global_conventions = state.config().inference.global.as_deref().unwrap_or("");
 
     let result = serde_json::json!({
-        "installed_extensions": state.extension_info.iter().map(|(name, _)| name.clone()).collect::<Vec<_>>(),
+        "installed_extensions": state.registries().extension_info.iter().map(|(name, _)| name.clone()).collect::<Vec<_>>(),
         "existing_entities": kind_counts,
         "kinds": kinds_info,
         "project_conventions": global_conventions,
@@ -166,6 +161,7 @@ fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
 
 fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> JsonRpcResponse {
     let matched_kind = state
+        .registries()
         .manifests
         .iter()
         .flat_map(|m| m.entity_kinds.iter().map(move |k| (m, k)))
@@ -186,14 +182,14 @@ fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> Json
     };
 
     let existing_ids: Vec<String> = state
-        .graph
+        .graph()
         .nodes()
         .into_iter()
         .filter(|n| n.kind.raw == kind_name)
         .map(|n| n.id.raw.to_string())
         .collect();
 
-    let guide = build_guide_for_kind(kind_name, manifest, &state.project_config.inference);
+    let guide = build_guide_for_kind(kind_name, manifest, &state.config().inference);
     let fields: Vec<Value> = kind_def
         .fields
         .iter()
@@ -229,7 +225,7 @@ fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> Json
 fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> JsonRpcResponse {
     let mut exact_matches: Vec<String> = Vec::new();
     let mut suffix_matches: Vec<String> = Vec::new();
-    for node in state.graph.nodes() {
+    for node in state.graph().nodes() {
         let entity = format!("{} ({})", node.id.raw, node.kind.raw);
         match match_mode(file_path, node.source_span.file.as_str()) {
             "exact" => exact_matches.push(entity),
@@ -248,10 +244,10 @@ fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> Json
     };
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for manifest in &state.manifests {
+    for manifest in &state.registries().manifests {
         for kind in &manifest.entity_kinds {
             let keyword = kind.keyword.to_lowercase();
-            let guide = build_guide_for_kind(&keyword, manifest, &state.project_config.inference);
+            let guide = build_guide_for_kind(&keyword, manifest, &state.config().inference);
             kinds_info.push(serde_json::json!({
                 "kind": keyword,
                 "inference_guide": guide,
@@ -259,12 +255,7 @@ fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> Json
         }
     }
 
-    let global_conventions = state
-        .project_config
-        .inference
-        .global
-        .as_deref()
-        .unwrap_or("");
+    let global_conventions = state.config().inference.global.as_deref().unwrap_or("");
 
     let result = serde_json::json!({
         "file": file_path,
@@ -296,36 +287,9 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
 
     let (summary, unanalyzed, stale) = match project_root {
         Some(root) => {
-            let manifest =
-                specforge_common::inference::load_inference_manifest(root).unwrap_or_default();
-            let analyzer_configs: Vec<specforge_common::AnalyzerConfig> = state
-                .manifests
-                .iter()
-                .flat_map(|m| m.analyzer_contributions.iter())
-                .map(|ac| specforge_common::AnalyzerConfig {
-                    language: ac.language.clone(),
-                    file_extensions: ac.file_extensions.clone(),
-                    excluded_dirs: ac.excluded_dirs.clone(),
-                })
-                .collect();
-            let discovery_config = specforge_common::inference::discovery::SourceDiscoveryConfig::from_analyzer_configs(&analyzer_configs);
-            let source_files = specforge_common::inference::discover_source_files(
-                root,
-                &manifest.source_roots,
-                &discovery_config,
-            );
-            let index_map = manifest.source_index_map();
-
-            let unanalyzed: Vec<String> = source_files
-                .iter()
-                .filter(|f| !index_map.contains_key(f.as_str()))
-                .cloned()
-                .collect();
-
-            let (stale_entries, _deleted) =
-                specforge_common::inference::detect_stale_entries(root, &manifest);
-            let summary = manifest.compute_summary(source_files.len());
-            (summary, unanalyzed, stale_entries)
+            let progress =
+                specforge_ops::infer::progress_or_fresh(root, &state.registries().manifests);
+            (progress.summary, progress.unanalyzed, progress.stale)
         }
         None => {
             let summary = specforge_common::InferenceSummary {
@@ -338,13 +302,14 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
     };
 
     let kind_priorities: Vec<Value> = state
+        .registries()
         .manifests
         .iter()
         .flat_map(|m| m.entity_kinds.iter().map(move |k| (m, k)))
         .map(|(m, k)| {
             let keyword = k.keyword.to_lowercase();
             let existing_count = state
-                .graph
+                .graph()
                 .nodes()
                 .into_iter()
                 .filter(|n| n.kind.raw == keyword.as_str())
@@ -411,6 +376,7 @@ fn get_workflow(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
     ];
 
     let installed_kinds: Vec<String> = state
+        .registries()
         .manifests
         .iter()
         .flat_map(|m| m.entity_kinds.iter())
@@ -497,10 +463,16 @@ fn build_example_for_kind(kind_name: &str, fields: &[specforge_registry::Manifes
         lines.push(format!("  {} \"...\"", f.name));
     }
     for f in &optional_fields {
-        match f.field_type.as_str() {
-            "reference_list" => lines.push(format!("  {} [ref_1, ref_2]", f.name)),
-            "string_list" => lines.push(format!("  {} [\"item1\", \"item2\"]", f.name)),
-            "reference" => lines.push(format!("  {} ref_id", f.name)),
+        match specforge_registry::FieldType::parse(&f.field_type) {
+            Some(specforge_registry::FieldType::ReferenceList) => {
+                lines.push(format!("  {} [ref_1, ref_2]", f.name))
+            }
+            Some(specforge_registry::FieldType::StringList) => {
+                lines.push(format!("  {} [\"item1\", \"item2\"]", f.name))
+            }
+            Some(specforge_registry::FieldType::Reference) => {
+                lines.push(format!("  {} ref_id", f.name))
+            }
             _ => lines.push(format!("  {} \"...\"", f.name)),
         }
     }
@@ -560,11 +532,17 @@ mod tests {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    exempts_obligations: false,
+                    headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
                 incremental: None,
                 has_body_parser: false,
                 open_fields: false,
+                contract_target: false,
+                declares_types: false,
+                lifecycle_field: None,
                 inference_guide: guide.map(|s| s.to_string()),
             }],
             edge_types: vec![],
@@ -579,6 +557,7 @@ mod tests {
             host_api_version: None,
             entity_enhancements: vec![],
             starter_template: None,
+            theme_color: None,
             ext_short: None,
             query_scope: None,
             collector_contributions: vec![],
@@ -589,9 +568,27 @@ mod tests {
 
     fn make_state_with_kind(kind_name: &str, guide: Option<&str>) -> McpState {
         let mut state = McpState::new();
-        state.manifests = vec![test_manifest(kind_name, guide)];
-        state.extension_info = vec![("@specforge/test".to_string(), "1.0.0".to_string())];
+        serve(
+            &mut state,
+            vec![test_manifest(kind_name, guide)],
+            ProjectConfig::default(),
+        );
         state
+    }
+
+    /// Serve the test extension's `manifests` with `config`, over the
+    /// graph already served.
+    fn serve(state: &mut McpState, manifests: Vec<ManifestV2>, config: ProjectConfig) {
+        let mut env = specforge_project::Environment::empty();
+        env.registries.manifests = manifests;
+        env.registries.extension_info = vec![("@specforge/test".to_string(), "1.0.0".to_string())];
+        env.config = config;
+        let graph = state.graph().clone();
+        state.serve_session(specforge_project::ProjectSession::from_graph(
+            std::sync::Arc::new(env),
+            graph,
+            Vec::new(),
+        ));
     }
 
     fn make_node(id: &str, kind: &str, file: &str) -> Node {
@@ -633,7 +630,7 @@ mod tests {
     #[test]
     fn overview_appends_project_override() {
         let mut state = make_state_with_kind("behavior", Some("Look for public functions"));
-        state.project_config = ProjectConfig {
+        let config = ProjectConfig {
             inference: InferenceConfig {
                 global: Some("This is a Rust project".to_string()),
                 kinds: {
@@ -648,6 +645,8 @@ mod tests {
             },
             ..Default::default()
         };
+        let manifests = vec![test_manifest("behavior", Some("Look for public functions"))];
+        serve(&mut state, manifests, config);
         let resp = get(&state, serde_json::json!({}), Some(Value::from(1)));
         let content: Value = parse_payload(&resp);
         let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
@@ -660,9 +659,9 @@ mod tests {
     #[test]
     fn kind_scope_returns_existing_ids() {
         let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state
-            .graph
-            .add_node(make_node("my_behavior", "behavior", "test.spec"));
+        state.edit_graph(|graph| {
+            graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
+        });
         let resp = get(
             &state,
             serde_json::json!({"scope": "kind:behavior"}),
@@ -689,9 +688,9 @@ mod tests {
     #[test]
     fn file_scope_returns_referencing_entities() {
         let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state
-            .graph
-            .add_node(make_node("auth_login", "behavior", "src/auth.rs"));
+        state.edit_graph(|graph| {
+            graph.add_node(make_node("auth_login", "behavior", "src/auth.rs"));
+        });
         let resp = get(
             &state,
             serde_json::json!({"scope": "file:src/auth.rs"}),
@@ -708,9 +707,9 @@ mod tests {
     #[test]
     fn kind_scope_is_case_insensitive() {
         let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state
-            .graph
-            .add_node(make_node("my_behavior", "behavior", "test.spec"));
+        state.edit_graph(|graph| {
+            graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
+        });
         let resp = get(
             &state,
             serde_json::json!({"scope": "kind:Behavior"}),
@@ -787,9 +786,9 @@ mod tests {
     #[test]
     fn plan_scope_returns_kind_priorities() {
         let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state
-            .graph
-            .add_node(make_node("my_behavior", "behavior", "test.spec"));
+        state.edit_graph(|graph| {
+            graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
+        });
         let resp = get(
             &state,
             serde_json::json!({"scope": "plan"}),
@@ -874,9 +873,9 @@ mod tests {
     #[test]
     fn file_scope_substring_no_longer_matches() {
         let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state
-            .graph
-            .add_node(make_node("cache_impl", "behavior", "src/cache.rs"));
+        state.edit_graph(|graph| {
+            graph.add_node(make_node("cache_impl", "behavior", "src/cache.rs"));
+        });
         let resp = get(
             &state,
             serde_json::json!({"scope": "file:e.rs"}),
@@ -896,9 +895,9 @@ mod tests {
     #[test]
     fn file_scope_exact_match_reported() {
         let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state
-            .graph
-            .add_node(make_node("todo_list", "behavior", "todo_list.rs"));
+        state.edit_graph(|graph| {
+            graph.add_node(make_node("todo_list", "behavior", "todo_list.rs"));
+        });
         let resp = get(
             &state,
             serde_json::json!({"scope": "file:todo_list.rs"}),
@@ -915,15 +914,15 @@ mod tests {
     #[test]
     fn file_scope_directory_matches_children_as_suffix_path() {
         let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state
-            .graph
-            .add_node(make_node("login", "behavior", "src/auth/login.rs"));
-        state
-            .graph
-            .add_node(make_node("logout", "behavior", "src/auth/logout.rs"));
-        state
-            .graph
-            .add_node(make_node("main", "behavior", "src/main.rs"));
+        state.edit_graph(|graph| {
+            graph.add_node(make_node("login", "behavior", "src/auth/login.rs"));
+        });
+        state.edit_graph(|graph| {
+            graph.add_node(make_node("logout", "behavior", "src/auth/logout.rs"));
+        });
+        state.edit_graph(|graph| {
+            graph.add_node(make_node("main", "behavior", "src/main.rs"));
+        });
         let resp = get(
             &state,
             serde_json::json!({"scope": "file:src/auth"}),
@@ -955,7 +954,7 @@ mod tests {
             map_export: String::new(),
             description: None,
         }];
-        state.manifests = vec![manifest];
+        serve(&mut state, vec![manifest], ProjectConfig::default());
         let dir = tempfile::TempDir::new().unwrap();
         let src = dir.path().join("src");
         std::fs::create_dir_all(&src).unwrap();
@@ -1009,9 +1008,9 @@ mod tests {
     #[test]
     fn prompts_carry_payloads_only_in_user_messages() {
         let mut state = make_state_with_kind("behavior", Some("guide text"));
-        state
-            .graph
-            .add_node(make_node("my_behavior", "behavior", "src/auth.rs"));
+        state.edit_graph(|graph| {
+            graph.add_node(make_node("my_behavior", "behavior", "src/auth.rs"));
+        });
         for args in [
             serde_json::json!({}),
             serde_json::json!({"scope": "kind:behavior"}),

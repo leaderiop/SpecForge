@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::OutputFormat;
-use crate::pipeline;
 
 pub fn run(
     path: &Path,
@@ -14,13 +13,13 @@ pub fn run(
     lint_profiles: &[String],
     cache: bool,
 ) -> i32 {
-    let runtime = pipeline::project_runtime(path);
+    let runtime = specforge_component::project_runtime(path);
     run_in(path, &runtime, strict, format, lint_profiles, cache)
 }
 
 /// `specforge check` with the project's extensions running in `runtime`.
-/// With `cache`, a check that passes records the build's statuses in
-/// `specforge-cache.json`.
+/// With `cache`, a check that passes records the build's lifecycle states
+/// (the fields kinds declare as `lifecycle_field`) in `specforge-cache.json`.
 fn run_in(
     path: &Path,
     runtime: &dyn WasmRuntime,
@@ -41,7 +40,7 @@ fn run_in(
     // Output
     match format {
         OutputFormat::Json => {
-            let entries = specforge_emitter::diagnostics_json(&all_diagnostics);
+            let entries = specforge_common::diagnostics_json(&all_diagnostics);
             let json = serde_json::to_string_pretty(&entries).unwrap_or_default();
             println!("{}", json);
         }
@@ -57,7 +56,12 @@ fn run_in(
     }
 
     if cache {
-        match specforge_project::record_build_cache(path, &ctx.graph, &all_diagnostics) {
+        match specforge_project::record_build_cache(
+            path,
+            &ctx.graph,
+            &ctx.kind_registry,
+            &all_diagnostics,
+        ) {
             Ok(true) => {}
             Ok(false) => eprintln!(
                 "note: {} not written: the check failed",
@@ -74,7 +78,7 @@ fn run_in(
     }
 
     // Strict already promoted warnings: errors alone decide.
-    specforge_emitter::compute_exit_code(&all_diagnostics)
+    specforge_common::compute_exit_code(&all_diagnostics)
 }
 
 pub(crate) fn build_source_map(

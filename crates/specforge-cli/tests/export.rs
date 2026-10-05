@@ -80,7 +80,13 @@ fn export_brief_produces_minimal_output() {
 
 #[test]
 fn export_context_includes_contracts() {
-    let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
+    let dir = setup_project(&[
+        (
+            "specforge.json",
+            r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
+        ),
+        ("main.spec", SPEC_CONTENT),
+    ]);
 
     let output = specforge_cmd()
         .args(["export", "--format=context"])

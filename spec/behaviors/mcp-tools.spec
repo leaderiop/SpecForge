@@ -661,6 +661,8 @@ behavior provide_mcp_entities_by_kind "List Entities by Kind over MCP" {
   }
   ensures {
     tool_lists_by_kind     "specforge.list returns the entities of a kind, or all entities without one"
+    tool_filters_fields    "specforge.list keeps only the entities whose fields hold every value its where object names"
+    tool_pages             "specforge.list returns the entities sorted by id, paged by offset and limit"
     resource_lists_by_kind "specforge://entities/{kind} returns the entities of that kind"
     unknown_kind_empty     "an unknown kind yields an empty list, not an error"
   }
@@ -670,9 +672,15 @@ behavior provide_mcp_entities_by_kind "List Entities by Kind over MCP" {
     MUST register a specforge.list tool (optional `kind`) and a
     specforge://entities/{kind} resource template. Both MUST return each
     matching entity's id, kind and title. An unknown kind MUST yield an
-    empty list.
+    empty list. The tool MUST also accept a `where` object (field name to
+    the value the field holds, any kind's fields, no field known to core)
+    and `offset`/`limit`, applied to the entities sorted by id.
+    Extensions that list their own kinds their way contribute commands,
+    auto-promoted to tools (`specforge.product.features`).
   """
   verify unit "specforge.list returns entities filtered by kind"
+  verify unit "specforge.list keeps the entities whose fields hold the where values"
+  verify unit "specforge.list pages the entities sorted by id with offset and limit"
   verify unit "specforge.list returns empty for unknown kind"
   verify unit "entity-by-kind resource returns entities"
   verify unit "specforge.list tool appears in tool list"

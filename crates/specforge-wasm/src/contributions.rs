@@ -1,40 +1,6 @@
-use crate::host_functions::CallSite;
-use crate::runtime::{WasmCallResult, WasmRuntime};
 use specforge_common::{Diagnostic, Severity};
 use specforge_registry::{FieldEnhancement, ManifestV2};
 use std::collections::HashSet;
-
-/// Dispatch contribution exports for an extension based on its manifest.
-/// Routes to the correct namespaced Wasm export function.
-pub fn dispatch_contribution_exports(
-    extension_name: &str,
-    call_site: CallSite,
-    runtime: &dyn WasmRuntime,
-    input: &[u8],
-) -> Result<Vec<u8>, Diagnostic> {
-    let export_name = match call_site {
-        CallSite::Validator => format!("{}_validate", extension_name.replace('/', "__")),
-        CallSite::Renderer => format!("{}_render", extension_name.replace('/', "__")),
-        CallSite::Provider => format!("{}_provide", extension_name.replace('/', "__")),
-        CallSite::Parser => format!("{}_parse", extension_name.replace('/', "__")),
-        CallSite::Collector => format!("{}_collect", extension_name.replace('/', "__")),
-        CallSite::Analyzer => format!("{}_analyze", extension_name.replace('/', "__")),
-    };
-
-    match runtime.call_export(extension_name, &export_name, input) {
-        WasmCallResult::Ok(output) => Ok(output),
-        WasmCallResult::Trap(trap) => Err(Diagnostic {
-            code: "E028".to_string(),
-            severity: Severity::Error,
-            message: format!(
-                "extension '{}': {}() trapped: {} — {}",
-                extension_name, export_name, trap.kind, trap.message
-            ),
-            span: None,
-            suggestion: None,
-        }),
-    }
-}
 
 /// Register entity enhancements from an extension into a collected set.
 /// Detects conflicts when two extensions enhance the same kind with the same field name.
@@ -63,6 +29,7 @@ pub fn register_entity_enhancements(
                     ),
                     span: None,
                     suggestion: Some("rename the field or coordinate with the conflicting extension".to_string()),
+                    data: None,
                 });
             }
         }
@@ -106,6 +73,7 @@ pub fn reject_reserved_entity_kind(
             ),
             span: None,
             suggestion: Some("choose a different entity kind name".to_string()),
+            data: None,
         });
     }
 
@@ -120,6 +88,7 @@ pub fn reject_reserved_entity_kind(
             ),
             span: None,
             suggestion: Some("use lowercase letters, digits, and underscores only".to_string()),
+            data: None,
         });
     }
 
@@ -135,6 +104,7 @@ pub fn reject_reserved_entity_kind(
                 ),
                 span: None,
                 suggestion: Some("choose a different entity kind name".to_string()),
+                data: None,
             });
         }
     }
@@ -188,6 +158,7 @@ pub fn validate_contribution_exports(
                     "add #[export_name = \"{}\"] to the Wasm module",
                     export
                 )),
+                data: None,
             });
         }
     }
@@ -259,6 +230,7 @@ pub fn resolve_enhancement_conflicts(
                 ),
                 span: None,
                 suggestion: Some("only one extension may provide grammar for a given entity kind".to_string()),
+                data: None,
             });
             continue;
         }
@@ -279,6 +251,7 @@ pub fn resolve_enhancement_conflicts(
                 ),
                 span: None,
                 suggestion: Some("add an explicit override in specforge.json to resolve".to_string()),
+                data: None,
             });
         }
     }
@@ -289,62 +262,8 @@ pub fn resolve_enhancement_conflicts(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::runtime::{MockRuntime, WasmTrapInfo};
     use crate::test_helpers::default_manifest;
     use specforge_registry::{ExtensionContributions, ManifestField};
-
-    // -- dispatch_contribution_exports --
-
-    // B:dispatch_contribution_exports — verify unit "routes to namespaced Wasm export"
-    #[test]
-    fn test_routes_to_namespaced_export() {
-        let runtime =
-            MockRuntime::new().with_call_ok("@specforge__software_validate", b"ok".to_vec());
-
-        let result = dispatch_contribution_exports(
-            "@specforge/software",
-            CallSite::Validator,
-            &runtime,
-            &[],
-        );
-        assert!(result.is_ok());
-    }
-
-    // B:dispatch_contribution_exports — verify unit "returns error diagnostic on trap"
-    #[test]
-    fn test_dispatch_returns_error_on_trap() {
-        let runtime = MockRuntime::new().with_call_trap(
-            "@specforge__software_validate",
-            WasmTrapInfo {
-                kind: "unreachable".to_string(),
-                message: "panic".to_string(),
-                export_name: "@specforge__software_validate".to_string(),
-            },
-        );
-
-        let result = dispatch_contribution_exports(
-            "@specforge/software",
-            CallSite::Validator,
-            &runtime,
-            &[],
-        );
-        assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code, "E028");
-    }
-
-    // B:dispatch_contribution_exports — verify unit "different call sites route to different exports"
-    #[test]
-    fn test_different_call_sites_route_differently() {
-        let runtime = MockRuntime::new()
-            .with_call_ok("ext_render", b"html".to_vec())
-            .with_call_ok("ext_collect", b"json".to_vec());
-
-        let render = dispatch_contribution_exports("ext", CallSite::Renderer, &runtime, &[]);
-        assert!(render.is_ok());
-
-        let collect = dispatch_contribution_exports("ext", CallSite::Collector, &runtime, &[]);
-        assert!(collect.is_ok());
-    }
 
     // -- register_entity_enhancements --
 
@@ -370,7 +289,10 @@ mod tests {
                 enum_values: vec![],
                 inverse_of: None,
                 normative: false,
+                exempts_obligations: false,
+                headline: false,
                 derived_from: None,
+                proof_role: None,
             }],
         }];
 
@@ -402,7 +324,10 @@ mod tests {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    exempts_obligations: false,
+                    headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
             },
         )];
@@ -426,7 +351,10 @@ mod tests {
                 enum_values: vec![],
                 inverse_of: None,
                 normative: false,
+                exempts_obligations: false,
+                headline: false,
                 derived_from: None,
+                proof_role: None,
             }],
         }];
 
@@ -458,7 +386,10 @@ mod tests {
                     enum_values: vec![],
                     inverse_of: None,
                     normative: false,
+                    exempts_obligations: false,
+                    headline: false,
                     derived_from: None,
+                    proof_role: None,
                 }],
             },
         )];
@@ -482,7 +413,10 @@ mod tests {
                 enum_values: vec![],
                 inverse_of: None,
                 normative: false,
+                exempts_obligations: false,
+                headline: false,
                 derived_from: None,
+                proof_role: None,
             }],
         }];
 

@@ -44,6 +44,8 @@ type ManifestV2 {
   collector_contributions CollectorContribution[] @optional
   // Surface contributions: CLI commands, MCP tools, MCP resources (Phase 1)
   surfaces                SurfaceContributions    @optional
+  // The colour diagrams (model, outline) draw the extension in; grey when absent
+  theme_color             string                  @optional
   verify unit "ManifestV2 schema is valid"
 }
 
@@ -82,6 +84,13 @@ type ManifestEntityKind {
   // Whether this entity kind receives GraphDelta (true) or full Graph (false) during incremental validation
   incremental          boolean         @optional
   has_body_parser      boolean         @optional
+  // Reference fields that target this kind are contract obligations (A010)
+  contract_target      boolean         @optional
+  // Its entity ids name types: custom validators receive them as declared_types
+  declares_types       boolean         @optional
+  /// The one field (of those the kind declares) holding its entities'
+  /// lifecycle state; the build cache records its value (ADR 0009).
+  lifecycle_field      string          @optional
   verify unit "ManifestEntityKind schema is valid"
 }
 
@@ -110,20 +119,33 @@ type EntityKindConflict {
 }
 
 type ManifestField {
-  name           string                 @readonly
-  field_type     ManifestFieldType      @readonly
-  edge           string                 @optional
-  target_kind    string                 @optional
-  file_reference boolean                @optional
-  required       boolean                @optional
+  name                string                 @readonly
+  field_type          ManifestFieldType      @readonly
+  edge                string                 @optional
+  target_kind         string                 @optional
+  file_reference      boolean                @optional
+  required            boolean                @optional
   /// The field states what the entity promises (a behavior's contract, an
   /// invariant's guarantee), as opposed to prose; token-optimized exports keep it.
-  normative      boolean                @optional
+  normative           boolean                @optional
+  /// Set on an entity (true, or a non-empty value), the entity owes no
+  /// obligations of its own: W004, coverage and stats leave it out.
+  exempts_obligations boolean                @optional
+  /// The context export carries the field at the node's top level (a
+  /// behavior's contract, a feature's status).
+  headline            boolean                @optional
   /// The host fills the field's edges from type names the entity writes
   /// elsewhere (behavior link_derived_references).
-  derived_from   DerivedReferenceSource @optional
+  derived_from        DerivedReferenceSource @optional
+  /// What the prove pass reads the field as: a bound it assumes or a claim
+  /// that must follow from the bounds (ADR 0009). No role: not read.
+  proof_role          ProofRole              @optional
   verify unit "ManifestField schema is valid"
 }
+
+// A field's role in the prove pass: a bound is assumed (bounds must be
+// consistent, E046); a claim must follow from the bounds (W139 when not).
+type ProofRole = bound | claim
 
 // Where a derived reference field takes its targets from: the type names in
 // the entity's type-syntax field values, or in its method signatures.
@@ -138,6 +160,10 @@ type DerivedReferenceSource = type_expressions | method_signatures
 // dedicated rule (parse_verify_statements). Whether an entity kind supports
 // verify is declared via the supports_verify flag on ManifestEntityKind, not
 // via field type registration.
+//
+// On the wire the names drop the _type suffix (string, bool, block, ...;
+// FieldType in specforge-protocol-types); the suffixed spellings and
+// "boolean" are read as aliases.
 type ManifestFieldType = string_type
   | integer_type
   | bool_type
@@ -160,18 +186,33 @@ type ValidationRulePattern {
 }
 
 type FieldConstraint {
-  kind    string   @readonly
-  pattern string   @optional
-  values  string[] @optional
+  kind    ConstraintKind @readonly
+  pattern string         @optional
+  values  string[]       @optional
   verify unit "FieldConstraint schema is valid"
 }
 
+// How a constraint reads its pattern and values (ConstraintKind in
+// specforge-protocol-types): non_empty, one_of and matches for
+// field_value_constraint, when_field_equals for conditional_field_required,
+// one_of for verify_kind_allowlist.
+type ConstraintKind = non_empty | one_of | matches | when_field_equals
+
+// The check kinds of the extension vocabulary (CheckKind in
+// specforge-protocol-types — the SDK writes these names, the registry build
+// reads them; it also reads the older SDK spellings missing_field,
+// field_constraint, cycle and conditional_required).
 type ValidationPatternKind = no_incoming_edges
   | no_outgoing_edges
+  | no_edges
   | missing_field_when_flag_set
+  | missing_required_field
+  | conditional_field_required
   | field_value_constraint
   | cycle_detection
   | file_exists
+  | verify_kind_allowlist
+  | no_verify_statements
   | custom
 
 type CustomValidationPattern {
@@ -182,16 +223,20 @@ type CustomValidationPattern {
 }
 
 type FieldRegistryEntry {
-  kind_name        string                 @readonly
-  field_name       string                 @readonly
-  field_type       ManifestFieldType      @readonly
-  source_extension string                 @readonly
-  edge             string                 @optional
-  target_kind      string                 @optional
-  file_reference   boolean                @optional
-  required         boolean                @optional
-  normative        boolean                @optional
-  derived_from     DerivedReferenceSource @optional
+  kind_name           string                 @readonly
+  field_name          string                 @readonly
+  field_type          ManifestFieldType      @readonly
+  source_extension    string                 @readonly
+  edge                string                 @optional
+  target_kind         string                 @optional
+  file_reference      boolean                @optional
+  required            boolean                @optional
+  normative           boolean                @optional
+  exempts_obligations boolean                @optional
+  headline            boolean                @optional
+  derived_from        DerivedReferenceSource @optional
+  /// The prove-pass role its manifest declares; any other value is refused.
+  proof_role          ProofRole              @optional
   verify unit "FieldRegistryEntry schema is valid"
 }
 
@@ -209,6 +254,10 @@ type KindRegistryEntry {
   dot_shape            string   @optional
   dot_color            string   @optional
   dot_fillcolor        string   @optional
+  contract_target      boolean  @optional
+  declares_types       boolean  @optional
+  /// The kind's lifecycle field; a name the kind does not declare is refused.
+  lifecycle_field      string   @optional
   verify unit "KindRegistryEntry schema is valid"
 }
 

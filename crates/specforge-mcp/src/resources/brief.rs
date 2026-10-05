@@ -13,7 +13,7 @@ pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
     let parsed = crate::resources::parse_query(query);
 
     let json_str = emit(
-        &state.graph,
+        state.graph(),
         &EmitOptions {
             format: EmitFormat::Brief,
             scope: parsed.root,

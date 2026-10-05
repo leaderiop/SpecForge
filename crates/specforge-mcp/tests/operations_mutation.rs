@@ -68,7 +68,7 @@ fn test_server() -> McpServer {
         target: "alpha".into(),
         label: "behaviors".into(),
     });
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
     attach_project(state);
 
     server
@@ -90,6 +90,9 @@ fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEnt
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
+        lifecycle_field: None,
     }
 }
 
@@ -366,7 +369,7 @@ fn server_with_token_project() -> (McpServer, std::path::PathBuf) {
     let init = json!({"jsonrpc":"2.0","id":1,"method":"initialize",
         "params":{"projectRoot": root.to_str().unwrap()}});
     server.handle_message(&init.to_string());
-    assert!(server.state().graph.node("token_unique").is_some());
+    assert!(server.state().graph().node("token_unique").is_some());
     (server, root)
 }
 
@@ -378,7 +381,7 @@ fn rename(server: &mut McpServer, args: Value) -> Value {
 fn references(server: &McpServer, from: &str) -> Vec<String> {
     server
         .state()
-        .graph
+        .graph()
         .edges_from(from)
         .iter()
         .map(|e| e.target.to_string())
@@ -408,9 +411,66 @@ fn rename_rewrites_the_declaration_and_every_reference() {
         std::fs::read_to_string(root.join("spec/login.spec")).unwrap(),
         LOGIN_SPEC.replace("invariants [token_unique]", "invariants [token_distinct]")
     );
-    assert!(server.state().graph.node("token_unique").is_none());
-    assert!(server.state().graph.node("token_distinct").is_some());
+    assert!(server.state().graph().node("token_unique").is_none());
+    assert!(server.state().graph().node("token_distinct").is_some());
     assert_eq!(references(&server, "login"), ["token_distinct"]);
+}
+
+/// A rename recompiles the project from disk: a file edited since the
+/// server last loaded it, and not touched by the rename, is served too,
+/// and the diagnostics returned are what a fresh compile reports.
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
+)]
+fn rename_recompiles_files_it_did_not_edit() {
+    let (mut server, root) = server_with_token_project();
+    // Edited without watch: the server does not know yet.
+    std::fs::write(
+        root.join("spec/logout.spec"),
+        "behavior logout \"Log out\" {\n  invariants [missing_invariant]\n}\n",
+    )
+    .unwrap();
+
+    let parsed = rename(
+        &mut server,
+        json!({"entity_id": "token_unique", "new_name": "token_distinct"}),
+    );
+
+    assert!(server.state().graph().node("logout").is_some());
+    let codes = |diagnostics: &[Value]| {
+        let mut codes: Vec<String> = diagnostics
+            .iter()
+            .map(|d| d["code"].as_str().unwrap_or_default().to_string())
+            .collect();
+        codes.sort();
+        codes
+    };
+    let fresh: Vec<Value> = server
+        .state()
+        .compile_project(&root)
+        .diagnostics()
+        .iter()
+        .map(|d| serde_json::to_value(d).unwrap())
+        .collect();
+    let returned = parsed["diagnostics"].as_array().unwrap();
+    assert_eq!(codes(returned), codes(&fresh), "{parsed}");
+    let e003 = returned
+        .iter()
+        .find(|d| d["code"] == "E003")
+        .unwrap_or_else(|| {
+            panic!("the unresolved reference in the unrenamed file is reported: {parsed}")
+        });
+    // The shape every mutation tool returns: catalogue title and the flat
+    // file/line/column beside the span.
+    assert!(e003["title"].is_string(), "{e003}");
+    assert!(
+        e003["file"]
+            .as_str()
+            .is_some_and(|f| f.ends_with("logout.spec")),
+        "{e003}"
+    );
+    assert!(e003["line"].is_u64() && e003["column"].is_u64(), "{e003}");
 }
 
 /// Each `(field, type)` of a spec type holds in `value`: `string`,
@@ -480,8 +540,8 @@ fn rename_edits_the_files_under_a_configured_spec_root() {
         r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"],"spec_root":"spec"}"#,
     )
     .unwrap();
-    server.state_mut().recompile(&root);
-    assert!(server.state().graph.node("token_unique").is_some());
+    server.state_mut().reload(&root);
+    assert!(server.state().graph().node("token_unique").is_some());
 
     let parsed = rename(
         &mut server,
@@ -497,7 +557,7 @@ fn rename_edits_the_files_under_a_configured_spec_root() {
         std::fs::read_to_string(root.join("spec/login.spec")).unwrap(),
         LOGIN_SPEC.replace("invariants [token_unique]", "invariants [token_distinct]")
     );
-    assert!(server.state().graph.node("token_distinct").is_some());
+    assert!(server.state().graph().node("token_distinct").is_some());
 }
 
 #[specforge_test(
@@ -532,7 +592,7 @@ fn rename_dry_run_returns_the_plan_and_changes_nothing() {
         std::fs::read_to_string(root.join("spec/login.spec")).unwrap(),
         LOGIN_SPEC
     );
-    assert!(server.state().graph.node("token_unique").is_some());
+    assert!(server.state().graph().node("token_unique").is_some());
 }
 
 #[test]
@@ -564,7 +624,7 @@ fn rename_contract() {
     );
     assert_eq!(plan["edits"].as_array().unwrap().len(), 2, "{plan}");
     assert_eq!(files_under(&root), before);
-    assert!(server.state().graph.node("token_unique").is_some());
+    assert!(server.state().graph().node("token_unique").is_some());
 
     let parsed = rename(
         &mut server,
@@ -580,8 +640,8 @@ fn rename_contract() {
         std::fs::read_to_string(root.join("spec/login.spec")).unwrap(),
         LOGIN_SPEC.replace("invariants [token_unique]", "invariants [token_distinct]")
     );
-    assert!(server.state().graph.node("token_unique").is_none());
-    assert!(server.state().graph.node("token_distinct").is_some());
+    assert!(server.state().graph().node("token_unique").is_none());
+    assert!(server.state().graph().node("token_distinct").is_some());
     // Two files rewritten, one entity renamed.
     assert_eq!(
         events_named(&server, "mcp_mutation_completed"),
@@ -1044,11 +1104,12 @@ fn remove_extension_warns_about_orphaned_entities() {
     // extension defines; `alpha` is a behavior from elsewhere.
     let mut feature = kind_entry("feature", false);
     feature.source_extension = GREET.into();
-    server.state_mut().kind_registry.register(feature);
-    server
-        .state_mut()
-        .kind_registry
-        .register(kind_entry("behavior", true));
+    server.state_mut().edit_environment(|env| {
+        env.registries.kinds.register(feature);
+    });
+    server.state_mut().edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("behavior", true));
+    });
 
     let resp = call_tool(
         &mut server,
@@ -1675,4 +1736,29 @@ fn add_extension_from_a_registry_reports_a_duplicate_registry_alias() {
         json!({"specifier": "@specforge/software", "path": path, "dry_run": true}),
     );
     assert!(builtin["result"]["_meta"].is_null(), "{builtin}");
+}
+
+/// The new name follows the entity-ID rule (the grammar's identifier,
+/// 2-60 characters): an illegal one is refused and nothing is written.
+#[test]
+fn rename_refuses_an_illegal_entity_id() {
+    let (mut server, root) = server_with_token_project();
+    for bad in [
+        "a".repeat(61),
+        "token-distinct".to_string(),
+        "9token".to_string(),
+    ] {
+        let resp = call_tool(
+            &mut server,
+            "specforge.rename",
+            json!({"entity_id": "token_unique", "new_name": bad}),
+        );
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "invalid_input", "{bad}: {error}");
+        assert_eq!(error["argument"], "new_name", "{error}");
+    }
+    assert_eq!(
+        std::fs::read_to_string(root.join("spec/tokens.spec")).unwrap(),
+        TOKENS_SPEC
+    );
 }

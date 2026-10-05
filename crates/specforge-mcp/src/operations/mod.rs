@@ -4,7 +4,7 @@
 //! real work or refuses with an explicit error; it never lies).
 
 use serde_json::{Value, json};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use specforge_common::{Diagnostic, find_project_root};
@@ -54,6 +54,7 @@ pub(crate) fn op_error(error: specforge_ops::OpError) -> McpError {
         "extension_not_found" => ErrorCode::ExtensionNotFound,
         "config_not_found" => ErrorCode::FileNotFound,
         "config_invalid" | "invalid_schema_version" => ErrorCode::SchemaMismatch,
+        specforge_ops::infer::MANIFEST_INVALID => ErrorCode::SchemaMismatch,
         "unknown_format" => ErrorCode::InvalidInput,
         "extension_conflict" | "project_exists" => ErrorCode::Conflict,
         "invalid_name" => ErrorCode::InvalidInput,
@@ -94,9 +95,9 @@ pub(crate) fn export_graph(
 ) -> Result<String, specforge_ops::OpError> {
     let schema = project_schema(state);
     let project = specforge_ops::export::Project {
-        graph: &state.graph,
-        kinds: &state.kind_registry,
-        fields: &state.field_registry,
+        graph: state.graph(),
+        kinds: &state.registries().kinds,
+        fields: &state.registries().fields,
         schema: &schema,
     };
     specforge_ops::export::export(&project, request)
@@ -107,13 +108,13 @@ pub(crate) fn export_graph(
 /// and the one `specforge.schema` and `specforge://schema` serve.
 pub(crate) fn project_schema(state: &McpState) -> specforge_emitter::GraphProtocolSchema {
     let mut schema = specforge_emitter::generate_schema(
-        &state.kind_registry,
-        &state.edge_registry,
-        &state.field_registry,
-        &state.extension_info,
+        &state.registries().kinds,
+        &state.registries().edges,
+        &state.registries().fields,
+        &state.registries().extension_info,
     );
     if let Some(root) = &state.project_root {
-        specforge_emitter::attach_schema_version(&mut schema, &root.join(".specforge"));
+        specforge_ops::schema_cache::attach_schema_version(&mut schema, &root.join(".specforge"));
     }
     schema
 }
@@ -170,7 +171,7 @@ pub(crate) fn format_op(state: &mut McpState, args: FormatArgs) -> ToolOutcome {
         "total_checked": outcome.checked,
         "all_clean": outcome.changes.is_empty(),
         "check_only": !write,
-        "diagnostics": specforge_emitter::diagnostics_json(&outcome.config_diagnostics),
+        "diagnostics": specforge_common::diagnostics_json(&outcome.config_diagnostics),
     });
     if diff {
         let diffs: Vec<Value> = outcome
@@ -209,7 +210,7 @@ pub(crate) fn format_op(state: &mut McpState, args: FormatArgs) -> ToolOutcome {
     result["failed_files"] = Value::from(failed_files);
     // What was written is on disk: serve it, as a successful run would be.
     if outcome.changes.iter().any(|c| c.written(mode)) && !state.serves_other_than(&project_root) {
-        state.recompile(&project_root);
+        state.reload(&project_root);
     }
     let message = result["message"].as_str().unwrap_or_default().to_string();
     McpError::new(ErrorCode::InternalError, message)
@@ -230,49 +231,45 @@ pub struct RenameArgs {
 }
 
 pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
+    use specforge_ops::rename;
     let entity_id = args.entity_id.as_str();
     let new_name = args.new_name.as_str();
     let dry_run = args.dry_run.unwrap_or(false);
 
-    if new_name.is_empty()
-        || new_name.len() < 2
-        || !new_name.chars().all(|c| c.is_alphanumeric() || c == '_')
-    {
-        return ToolOutcome::invalid_input(
-            "new_name",
-            "Invalid entity ID: must be 2-60 alphanumeric/underscore characters",
-        );
-    }
-
-    if state.graph.node(entity_id).is_none() {
-        return McpError::new(
-            ErrorCode::EntityNotFound,
-            format!("Entity not found: {entity_id}"),
-        )
-        .with_entity(entity_id)
-        .into();
-    }
-    let Some(root) = project_root_of(state, args.path.as_deref()) else {
+    // Spans are relative to the spec root the graph was compiled from.
+    let root = project_root_of(state, args.path.as_deref());
+    let spec_root = state
+        .spec_root()
+        .map(Path::to_path_buf)
+        .or_else(|| root.clone());
+    let read = |file: &str| {
+        spec_root
+            .as_ref()
+            .and_then(|dir| std::fs::read_to_string(dir.join(file)).ok())
+    };
+    let plan = match rename::plan(state.graph(), entity_id, new_name, read) {
+        Ok(plan) => plan,
+        Err(e) if e.code == rename::INVALID_ID => {
+            return ToolOutcome::invalid_input("new_name", e.message);
+        }
+        Err(e) if e.code == rename::NOT_FOUND => {
+            return McpError::new(ErrorCode::EntityNotFound, e.message)
+                .with_entity(entity_id)
+                .into();
+        }
+        Err(e) if e.code == rename::TAKEN => {
+            return McpError::new(ErrorCode::Conflict, e.message)
+                .with_entity(entity_id)
+                .into();
+        }
+        Err(e) => return fail(ErrorCode::InternalError, e.message),
+    };
+    let (Some(root), Some(spec_root)) = (root, spec_root) else {
         return ToolOutcome::no_project("rename needs a project root (pass {\"path\": ...})");
     };
 
-    // Spans are relative to the spec root the graph was compiled from.
-    let spec_root = state.spec_root.clone().unwrap_or_else(|| root.clone());
-    let Some(edits) =
-        specforge_graph::rename::identifier_edits(&state.graph, entity_id, new_name, |file| {
-            std::fs::read_to_string(spec_root.join(file)).ok()
-        })
-    else {
-        return McpError::new(
-            ErrorCode::Conflict,
-            format!("cannot rename '{entity_id}': '{new_name}' exists"),
-        )
-        .with_entity(entity_id)
-        .into();
-    };
-    let affected_files: std::collections::BTreeSet<&str> =
-        edits.iter().map(|e| e.file.as_str()).collect();
-    let edit_json: Vec<serde_json::Value> = edits
+    let edit_json: Vec<serde_json::Value> = plan
+        .edits
         .iter()
         .map(|e| {
             json!({
@@ -287,33 +284,23 @@ pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
     let mut result = json!({
         "old_name": entity_id,
         "new_name": new_name,
-        "affected_files": affected_files,
+        "affected_files": plan.affected_files(),
         "edits": edit_json,
     });
     if dry_run {
         result["dry_run"] = Value::from(true);
         return ok(result);
     }
-
-    for file in &affected_files {
-        let path = spec_root.join(file);
-        let Ok(text) = std::fs::read_to_string(&path) else {
-            return fail(
-                ErrorCode::InternalError,
-                format!("failed to read {}", path.display()),
-            );
-        };
-        let renamed =
-            specforge_graph::rename::apply_edits(&text, edits.iter().filter(|e| e.file == *file));
-        if let Err(e) = std::fs::write(&path, renamed) {
-            return fail(
-                ErrorCode::InternalError,
-                format!("failed to write {}: {e}", path.display()),
-            );
-        }
+    if let Err(e) = rename::apply(&plan, &spec_root) {
+        return fail(ErrorCode::InternalError, e.message);
     }
-    state.recompile(&root);
-    result["diagnostics"] = serde_json::to_value(&state.diagnostics).unwrap_or_default();
+    // Recompile from disk, not just the renamed files: the diagnostics
+    // returned are what `specforge check` reports now, edits made since
+    // the last load included.
+    state.reload(&root);
+    result["diagnostics"] =
+        serde_json::to_value(specforge_common::diagnostics_json(&state.diagnostics()))
+            .unwrap_or_default();
     ok(result)
 }
 
@@ -392,7 +379,7 @@ fn add_extension_op(state: &McpState, args: AddArgs) -> ToolOutcome {
         Err(error) => return err_op(error),
     };
 
-    let registry = specforge_ops::registry::HttpRegistry::for_project(&root, "add_extension");
+    let registry = specforge_ops_registry::HttpRegistry::for_project(&root, "add_extension");
     // What reading the registry configuration reported (E067, W140,
     // I003), as `specforge add` shows it: only a registry package reads it.
     let reported = match &source {
@@ -490,9 +477,9 @@ pub(crate) fn remove_extension_op(state: &McpState, args: RemoveArgs) -> ToolOut
         name: &name,
         force,
         dry_run,
-        loaded: &state.manifests,
-        kinds: &state.kind_registry,
-        graph: &state.graph,
+        loaded: &state.registries().manifests,
+        kinds: &state.registries().kinds,
+        graph: state.graph(),
     };
     match specforge_ops::extension::remove(&request) {
         Ok(outcome) => {
@@ -587,8 +574,8 @@ pub(crate) fn migrate_op(state: &McpState, args: MigrateArgs) -> ToolOutcome {
         "diagnostics": summary.diagnostics,
         "hooks_invoked": outcome.hooks_invoked,
         "hook_failures": outcome.hook_failures,
-        "schema_warnings": specforge_emitter::diagnostics_json(&outcome.schema_warnings),
-        "structural_differences": specforge_emitter::diagnostics_json(&outcome.structural_differences),
+        "schema_warnings": specforge_common::diagnostics_json(&outcome.schema_warnings),
+        "structural_differences": specforge_common::diagnostics_json(&outcome.structural_differences),
         "rolled_back": outcome.rollback.is_some(),
         "rollback": outcome.rollback,
         "post_migration_validated": outcome.validated,
@@ -618,7 +605,12 @@ pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> Too
         return ToolOutcome::no_project("no project root available");
     };
     // The shared listing, over what the session compiled.
-    let entries = extension::list(root, &state.manifests, &state.kind_registry, &state.graph);
+    let entries = extension::list(
+        root,
+        &state.registries().manifests,
+        &state.registries().kinds,
+        state.graph(),
+    );
     let listed: Vec<Value> = entries
         .iter()
         .map(|e| {
@@ -646,7 +638,7 @@ pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> Too
         })
         .unwrap_or_default();
     let kinds: std::collections::BTreeSet<String> = state
-        .graph
+        .graph()
         .nodes()
         .iter()
         .map(|n| n.kind.raw.to_string())
@@ -667,7 +659,8 @@ pub(crate) fn providers_op(state: &McpState, _args: crate::args::NoArgs) -> Tool
     };
     // The providers specforge.json configures, as the scheme registry built
     // from the loaded extensions sees them: the listing the CLI prints.
-    let (providers, diagnostics) = specforge_ops::extension::providers(root, &state.manifests);
+    let (providers, diagnostics) =
+        specforge_ops::extension::providers(root, &state.registries().manifests);
     let listed: Vec<Value> = providers
         .iter()
         .map(|p| {
@@ -683,7 +676,7 @@ pub(crate) fn providers_op(state: &McpState, _args: crate::args::NoArgs) -> Tool
     ok(json!({
         "providers": listed,
         "count": count,
-        "diagnostics": specforge_emitter::diagnostics_json(&diagnostics),
+        "diagnostics": specforge_common::diagnostics_json(&diagnostics),
     }))
 }
 
@@ -704,18 +697,16 @@ pub(crate) fn doctor_op(state: &mut McpState, args: DoctorArgs) -> ToolOutcome {
     // since, and the session would not know.
     let use_cached = args.use_cached.unwrap_or(false);
     if !use_cached || state.loaded_at.is_none() {
-        state.recompile(&root);
+        state.reload(&root);
     }
-    // The same report `specforge doctor` prints.
-    let report = specforge_ops::doctor::diagnose(&root, &state.manifests, &state.diagnostics);
-    let conflicts: Vec<&str> = report
-        .conflicts
-        .iter()
-        .map(|c| c.message.as_str())
-        .collect();
+    // The same report `specforge doctor` prints, as the spec's
+    // McpDoctorReport plus its sections. Credential health is the user's,
+    // not the project's: only the CLI reports it.
+    let report =
+        specforge_ops::doctor::diagnose(&root, &state.registries().manifests, &state.diagnostics());
     ok(json!({
-        "extensions_ok": report.issues.is_empty() && report.load_failures.is_empty(),
-        "conflicts": conflicts,
+        "extensions_ok": report.extensions_ok(),
+        "conflicts": report.conflict_messages(),
         "cache_status": report.cache_status,
         "findings": report.findings,
         "installed_count": report.extensions_checked,
@@ -740,8 +731,8 @@ pub struct CollectArgs {
     path: Option<String>,
 }
 
-pub(crate) fn collect_op(state: &McpState, args: CollectArgs) -> ToolOutcome {
-    use specforge_emitter::collect::{self, Mode, Request, RunnerOutput};
+pub(crate) fn collect_op(state: &mut McpState, args: CollectArgs) -> ToolOutcome {
+    use specforge_ops::collect::{self, Consent, Mode, Request, RunnerOutput};
 
     let Some(root) = project_root_of(state, args.path.as_deref()) else {
         return ToolOutcome::no_project("collect needs a project root (pass {\"path\": ...})");
@@ -749,14 +740,23 @@ pub(crate) fn collect_op(state: &McpState, args: CollectArgs) -> ToolOutcome {
     let runner = args.runner.as_deref().filter(|r| *r != "auto");
     let run = args.run.unwrap_or(false);
 
-    let runtime = specforge_component::project_runtime(&root);
-    let ctx = specforge_project::CompiledProject::compile(&root, Some(&runtime)).into_context();
-    let known = collect::KnownEntities::from_graph(&ctx.graph);
+    // Tests map to the entities on disk now. The served project is
+    // reloaded and collected with its own runtime; another project is
+    // compiled for the call only.
+    let other = state.serves_other_than(&root);
+    if !other {
+        state.reload(&root);
+    }
+    let state: &McpState = state;
+    let runtime = state.wasm_runtime(&root);
+    let compiled =
+        other.then(|| specforge_project::CompiledProject::compile(&root, Some(runtime.as_ref())));
+    let (graph, manifests) = match &compiled {
+        Some(project) => (&project.graph, &project.env.registries.manifests),
+        None => (state.graph(), &state.registries().manifests),
+    };
+    let known = collect::KnownEntities::from_graph(graph);
 
-    // The server never prompts: a command runs only if the user already
-    // approved it for this project with `specforge collect` in a terminal.
-    let store = collect::consent_path();
-    let mut approve = |c: &collect::Collector, _: &[String]| collect::is_approved(&store, c, &root);
     let request = Request {
         root: &root,
         runner,
@@ -769,18 +769,15 @@ pub(crate) fn collect_op(state: &McpState, args: CollectArgs) -> ToolOutcome {
     };
     match collect::collect(
         &request,
-        &ctx.manifests,
-        &runtime,
+        manifests,
+        runtime.as_ref(),
         &known,
-        &mut approve,
+        // The server never prompts: a command runs only if the user already
+        // approved it for this project with `specforge collect` in a terminal.
+        Consent::Approved,
         &mut |_, _| {},
     ) {
-        Ok(outcome) => ok(json!({
-            "status": "collected",
-            "runners": outcome.runners,
-            "diagnostics": outcome.diagnostics,
-            "report": outcome.report.display().to_string(),
-        })),
+        Ok(outcome) => ok(outcome.to_json()),
         Err(e) if e.code == "E059" => McpError::from_diagnostic(&Diagnostic::error(
             e.code,
             format!(
@@ -790,7 +787,7 @@ pub(crate) fn collect_op(state: &McpState, args: CollectArgs) -> ToolOutcome {
             ),
         ))
         .into(),
-        Err(e) => McpError::from_diagnostic(&Diagnostic::error(e.code, e.message)).into(),
+        Err(e) => McpError::from_diagnostic(&Diagnostic::error(e.code.as_ref(), e.message)).into(),
     }
 }
 

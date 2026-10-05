@@ -36,6 +36,7 @@ pub fn install_extension(
             ),
             span: None,
             suggestion: Some("re-download the extension or verify the source".to_string()),
+            data: None,
         });
     }
 
@@ -52,6 +53,7 @@ pub fn install_extension(
         message: format!("failed to create temp directory for '{}': {}", name, e),
         span: None,
         suggestion: None,
+        data: None,
     })?;
 
     let temp_wasm_path = temp_dir.join("extension.wasm");
@@ -63,6 +65,7 @@ pub fn install_extension(
             message: format!("failed to write .wasm binary for '{}': {}", name, e),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -83,6 +86,7 @@ pub fn install_extension(
             message: format!("failed to finalize installation of '{}': {}", name, e),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -128,6 +132,7 @@ pub fn install_from_local(
         ),
         span: None,
         suggestion: None,
+        data: None,
     })?;
 
     let hash = hex_sha256(&wasm_bytes);
@@ -167,6 +172,7 @@ fn rollback_install(ext_dir: &Path) -> Vec<Diagnostic> {
             ),
             span: None,
             suggestion: Some(format!("manually remove '{}'", ext_dir.display())),
+            data: None,
         });
     }
     diagnostics

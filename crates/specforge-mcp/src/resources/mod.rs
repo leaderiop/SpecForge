@@ -17,6 +17,9 @@ pub(crate) struct ResourceText {
     pub uri: String,
     pub mime_type: String,
     pub text: String,
+    /// The event the read records beside `mcp_resource_read`: an extension
+    /// resource's `surface_mcp_resource_dispatched`.
+    pub dispatched: Option<Value>,
 }
 
 impl ResourceText {
@@ -25,6 +28,7 @@ impl ResourceText {
             uri: uri.into(),
             mime_type: "application/json".into(),
             text: text.into(),
+            dispatched: None,
         }
     }
 
@@ -68,7 +72,10 @@ pub fn handle_resource_read(
     };
 
     match read(state, &uri) {
-        Ok(content) => {
+        Ok(mut content) => {
+            if let Some(dispatched) = content.dispatched.take() {
+                state.push_event("surface_mcp_resource_dispatched", dispatched);
+            }
             // A read that returned content: its format is its MIME type.
             state.push_event(
                 "mcp_resource_read",
@@ -196,25 +203,43 @@ fn read(state: &McpState, uri: &str) -> ReadOutcome {
 }
 
 /// Whether `uri` names a resource the server serves: a core one, or one an
-/// enabled extension contributes.
+/// extension contributes.
 pub(crate) fn is_served(state: &McpState, uri: &str) -> bool {
     CORE_RESOURCES.iter().any(|r| r.matches(uri))
-        || (uri.starts_with("specforge://ext/")
-            && state.surface_entries.iter().any(|e| {
-                e.surface_type == specforge_registry::SurfaceType::McpResource
-                    && e.enabled
-                    && matches_uri_template(&e.contribution_name, uri)
-            }))
+        || (uri.starts_with("specforge://ext/") && extension_resource_entry(state, uri).is_some())
+}
+
+/// The extension resource whose URI template `uri` matches.
+fn extension_resource_entry<'a>(
+    state: &'a McpState,
+    uri: &str,
+) -> Option<&'a specforge_registry::SurfaceRegistryEntry> {
+    state.surface_entries().find(|e| {
+        e.surface_type == specforge_registry::SurfaceType::McpResource
+            && uri_template(state, e).is_some_and(|template| matches_uri_template(template, uri))
+    })
+}
+
+/// The URI template the extension resource `entry` registers (entries name
+/// a resource by its `name`).
+fn uri_template<'a>(
+    state: &'a McpState,
+    entry: &specforge_registry::SurfaceRegistryEntry,
+) -> Option<&'a str> {
+    state
+        .registries()
+        .manifest_surfaces
+        .iter()
+        .filter(|(extension, _)| *extension == entry.extension_name)
+        .flat_map(|(_, surfaces)| &surfaces.mcp_resources)
+        .find(|resource| resource.name == entry.contribution_name)
+        .map(|resource| resource.uri_template.as_str())
 }
 
 /// An extension-contributed resource, read through the Wasm runtime
 /// (WASM-only migration, Phase 4).
 fn extension_resource(state: &McpState, uri: &str) -> ReadOutcome {
-    let Some(entry) = state.surface_entries.iter().find(|e| {
-        e.surface_type == specforge_registry::SurfaceType::McpResource
-            && e.enabled
-            && matches_uri_template(&e.contribution_name, uri)
-    }) else {
+    let Some(entry) = extension_resource_entry(state, uri) else {
         return Err(invalid_params(format!("Unknown resource URI: {uri}")));
     };
     let Some(root) = state.project_root.clone() else {
@@ -223,13 +248,22 @@ fn extension_resource(state: &McpState, uri: &str) -> ReadOutcome {
         ));
     };
     let runtime = state.wasm_runtime(&root);
+    let started = std::time::Instant::now();
     match specforge_wasm::dispatch_surface_mcp_resource(
         &entry.extension_name,
         &entry.export_name,
         uri,
         runtime.as_ref(),
     ) {
+        // A read whose export returned is a dispatched resource; a trap is
+        // the read's error, and no dispatch is recorded.
         Ok((content, mime)) => Ok(ResourceText {
+            dispatched: Some(serde_json::json!({
+                "extensionName": entry.extension_name,
+                "uriTemplate": uri_template(state, entry).unwrap_or_default(),
+                "mimeType": mime,
+                "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+            })),
             text: String::from_utf8_lossy(&content).into_owned(),
             uri: uri.to_string(),
             mime_type: mime,
@@ -238,11 +272,14 @@ fn extension_resource(state: &McpState, uri: &str) -> ReadOutcome {
     }
 }
 
-/// Match a resource URI against an extension's contribution name, which
-/// registration stores as the URI template (e.g. `specforge://ext/widgets/{id}`).
+/// Whether `uri` is one `template` names: the template itself when it has
+/// no `{placeholder}`, else its text before the first placeholder followed
+/// by more (`specforge://ext/widgets/{id}` names `specforge://ext/widgets/w1`).
 fn matches_uri_template(template: &str, uri: &str) -> bool {
-    let (tpl_head, _) = template.split_once('{').unwrap_or((template, ""));
-    uri.starts_with(tpl_head)
+    match template.split_once('{') {
+        Some((head, _)) => uri.len() > head.len() && uri.starts_with(head),
+        None => uri == template,
+    }
 }
 
 use crate::DEFAULT_CLIENT_ID as DEFAULT_SUBSCRIBER;

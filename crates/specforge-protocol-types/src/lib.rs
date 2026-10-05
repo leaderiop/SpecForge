@@ -9,6 +9,9 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
+mod vocabulary;
+pub use vocabulary::{CheckKind, ConstraintKind, FieldType};
+
 /// Protocol version for the extension wire format (semver).
 /// Extensions with the same major version are considered compatible.
 pub const PROTOCOL_VERSION: &str = "1.0.0";
@@ -122,6 +125,11 @@ pub struct HandshakeResponse {
     pub starter_template: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub migration_hook: Option<String>,
+    /// The colour diagrams draw the extension in (`#rrggbb`): its cluster
+    /// in `specforge model --format dot`, its node in `specforge outline`.
+    /// Omitted from the wire when absent; diagrams then use a neutral grey.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme_color: Option<String>,
 }
 
 /// Declares which contribution categories an extension provides.
@@ -239,6 +247,20 @@ pub struct EntityKindDescriptor {
     pub verify_kinds: Vec<String>,
     #[serde(default)]
     pub inference_guide: Option<String>,
+    /// Its entities are contract clauses: a reference field that targets
+    /// this kind is a contract obligation of the entity that declares it
+    /// (the `contracts` analysis, A010).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub contract_target: bool,
+    /// Its entity ids name types: custom validators receive them as
+    /// `ValidatorContext::declared_types`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub declares_types: bool,
+    /// The one field (of those this kind declares) holding its entities'
+    /// lifecycle state: the build cache records its value for check-phase
+    /// passes that compare against the previous build (ADR 0009, C).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lifecycle_field: Option<String>,
 }
 
 // ── Field Descriptor ──
@@ -247,6 +269,8 @@ pub struct EntityKindDescriptor {
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FieldDescriptor {
     pub name: String,
+    /// A [`FieldType`] name (kept a string so an unknown name costs this
+    /// field a diagnostic, not the whole describe payload).
     pub field_type: String,
     #[serde(default)]
     pub required: bool,
@@ -268,11 +292,27 @@ pub struct FieldDescriptor {
     /// rather than prose; token-optimized exports keep it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub normative: bool,
+    /// Set on an entity (`true`, or a non-empty value), the entity owes no
+    /// obligations of its own: W004, the coverage rule and stats leave it
+    /// out (ADR 0004, D2-b). E.g. a specification-only `abstract` flag.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub exempts_obligations: bool,
+    /// The context export carries this field at the node's top level, as
+    /// the line an agent reads first (a contract, a status), instead of
+    /// among the normative `fields`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub headline: bool,
     /// The host fills this reference field's edges from type names the
     /// entity writes elsewhere: `type_expressions` (its field types) or
     /// `method_signatures` (its method parameter and return types).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub derived_from: Option<String>,
+    /// What the prove pass reads this field as: `bound` (a fact the solver
+    /// assumes) or `claim` (a statement that must follow from the bounds).
+    /// Kept a string, as `derived_from`, so an unknown value costs this
+    /// field a diagnostic (ADR 0009, A).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_role: Option<String>,
 }
 
 // ── Edge Type Descriptor ──
@@ -330,6 +370,7 @@ pub enum ValidationSeverity {
 /// Constraint on a field value.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FieldConstraintDescriptor {
+    /// A [`ConstraintKind`] name.
     pub kind: String,
     #[serde(default)]
     pub pattern: Option<String>,
@@ -343,6 +384,8 @@ pub struct ValidationRuleDescriptor {
     pub code: String,
     pub severity: ValidationSeverity,
     pub message_template: String,
+    /// A [`CheckKind`] name (kept a string so an unknown name costs this
+    /// rule a diagnostic, not the whole describe payload).
     pub check: String,
     #[serde(default)]
     pub target_kind: Option<String>,
@@ -363,9 +406,9 @@ pub struct ValidationRuleDescriptor {
 pub struct SurfaceDescriptor {
     #[serde(default)]
     pub commands: Vec<CommandDescriptor>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mcp_tools: Vec<McpToolDescriptor>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub mcp_resources: Vec<McpResourceDescriptor>,
 }
 
@@ -375,12 +418,12 @@ pub struct CommandDescriptor {
     pub id: String,
     pub title: String,
     pub description: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
     pub export: String,
     #[serde(default)]
     pub args: Vec<CommandArgDescriptor>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sandbox: Option<SurfaceSandboxOverride>,
 }
 
@@ -391,9 +434,9 @@ pub struct CommandArgDescriptor {
     pub arg_type: CommandArgType,
     #[serde(default)]
     pub required: bool,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub default_value: Option<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 }
 
@@ -416,13 +459,13 @@ pub enum CommandArgType {
 pub struct McpToolDescriptor {
     pub name: String,
     pub description: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub category: Option<String>,
     pub export: String,
     pub input_schema: serde_json::Value,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub output_schema: Option<serde_json::Value>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sandbox: Option<SurfaceSandboxOverride>,
 }
 
@@ -431,22 +474,22 @@ pub struct McpToolDescriptor {
 pub struct McpResourceDescriptor {
     pub uri_template: String,
     pub name: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub export: String,
     pub mime_type: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sandbox: Option<SurfaceSandboxOverride>,
 }
 
 /// Per-surface sandbox override.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SurfaceSandboxOverride {
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fs_read: Option<bool>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fs_write: Option<bool>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub network: Option<bool>,
 }
 

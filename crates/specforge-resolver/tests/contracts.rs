@@ -1,4 +1,4 @@
-use specforge_common::Severity;
+use specforge_common::{DiagnosticData, Severity};
 use specforge_resolver::resolve_project;
 use specforge_test_macros::test as specforge_test;
 use std::fs;
@@ -70,6 +70,15 @@ fn resolve_use_imports_contract() {
     let span = errors[0].span.as_ref().expect("E025 points at the use");
     assert_eq!(span.file.as_str(), "main.spec");
     assert_eq!(span.start_line, 3);
+    // The path it names is data too, so no consumer parses the message.
+    assert!(
+        matches!(
+            errors[0].data.as_deref(),
+            Some(DiagnosticData::UnresolvedImport { path, .. }) if path == "missing"
+        ),
+        "{:?}",
+        errors[0].data
+    );
 }
 
 // B:detect_import_cycles — verify contract "requires/ensures consistency for import cycle detection"

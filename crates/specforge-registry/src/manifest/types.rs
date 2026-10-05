@@ -48,6 +48,9 @@ pub struct ManifestV2 {
     pub analyzer_contributions: Vec<AnalyzerContribution>,
     #[serde(default)]
     pub surfaces: Option<SurfaceContributions>,
+    /// The colour diagrams draw the extension in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub theme_color: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -110,6 +113,16 @@ pub struct ManifestEntityKind {
     pub open_fields: bool,
     #[serde(default)]
     pub inference_guide: Option<String>,
+    /// Reference fields that target this kind are contract obligations.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub contract_target: bool,
+    /// Its entity ids name types (custom validators' `declared_types`).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub declares_types: bool,
+    /// The field holding its entities' lifecycle state, recorded by the
+    /// build cache. Must name a field the kind declares.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lifecycle_field: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -154,10 +167,19 @@ pub struct ManifestField {
     /// The field states what the entity promises rather than prose.
     #[serde(default)]
     pub normative: bool,
+    /// Set on an entity, the entity owes no obligations of its own.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub exempts_obligations: bool,
+    /// The context export carries the field at the node's top level.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub headline: bool,
     /// Where the host derives this reference field's edges from
     /// (`type_expressions` or `method_signatures`), when it does.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub derived_from: Option<String>,
+    /// What the prove pass reads the field as: `bound` or `claim`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub proof_role: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -189,14 +211,9 @@ pub struct FieldConstraint {
     pub values: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct PeerDependency {
-    pub name: String,
-    pub version: String,
-    #[serde(default)]
-    pub optional: bool,
-}
+/// The protocol's own type: its fields read the same in the manifest's
+/// camelCase JSON and the protocol's snake_case JSON.
+pub use specforge_protocol_types::PeerDependency;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -302,6 +319,7 @@ pub fn unknown_manifest_fields(raw: &serde_json::Value) -> Vec<Diagnostic> {
             message: format!("unknown manifest field '{key}' is ignored"),
             span: None,
             suggestion: Some("check the spelling against the manifest v2 schema".to_string()),
+            data: None,
         })
         .collect()
 }
@@ -319,6 +337,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
             ),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -329,6 +348,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
             message: "extension manifest: 'name' field is required".to_string(),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -339,6 +359,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
             message: format!("extension '{}': 'version' field is required", manifest.name),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -352,6 +373,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
             ),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -366,6 +388,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
         }
         if ac.file_extensions.is_empty() {
@@ -378,6 +401,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
         }
         for export in [&ac.scan_export, &ac.classify_export, &ac.map_export] {
@@ -391,6 +415,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             }
         }
@@ -406,8 +431,11 @@ fn derived_from_problem(field: &ManifestField, source: &str) -> Option<&'static 
         return Some("expected 'type_expressions' or 'method_signatures'");
     }
     let reference = matches!(
-        field.field_type.as_str(),
-        "reference" | "reference_type" | "reference_list" | "reference_list_type"
+        specforge_protocol_types::FieldType::parse(&field.field_type),
+        Some(
+            specforge_protocol_types::FieldType::Reference
+                | specforge_protocol_types::FieldType::ReferenceList
+        )
     );
     if !reference || field.target_kind.is_none() {
         return Some("only a reference field with a target_kind derives edges");
@@ -489,6 +517,7 @@ pub fn validate_manifest_consistency_with_peers(
         message,
         span: None,
         suggestion: None,
+        data: None,
     };
 
     // Validate target_kind and edge references in entity kind fields

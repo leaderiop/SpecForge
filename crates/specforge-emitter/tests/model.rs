@@ -876,9 +876,23 @@ fn render_mermaid_empty() {
 
 // --- DOT ---
 
+/// The model with the `theme_color`s the builtin manifests declare.
+fn themed(mut model: ModelIntermediate) -> ModelIntermediate {
+    for ext in &mut model.extensions {
+        ext.color = match ext.name.as_str() {
+            "@specforge/software" => Some("#4a90d9".to_string()),
+            "@specforge/product" => Some("#2ecc71".to_string()),
+            "@specforge/governance" => Some("#e74c3c".to_string()),
+            "@specforge/formal" => Some("#9b59b6".to_string()),
+            _ => None,
+        };
+    }
+    model
+}
+
 #[test]
 fn render_dot_keys_grouped() {
-    let model = build_model_keys();
+    let model = themed(build_model_keys());
     let output = render(&model, &default_options(ModelFormat::Dot));
     assert_snapshot!(output);
 }
@@ -887,7 +901,7 @@ fn render_dot_keys_grouped() {
 fn render_dot_none_fields() {
     let schema = multi_extension_schema();
     let model = ModelIntermediate_from_schema(&schema);
-    let model = filter_fields(&model, FieldLevel::None);
+    let model = themed(filter_fields(&model, FieldLevel::None));
     let output = render(&model, &default_options(ModelFormat::Dot));
     assert_snapshot!(output);
 }
@@ -1033,7 +1047,7 @@ fn declared_dot_color_reaches_model_dot() {
         version: "1.0.0".to_string(),
     }];
 
-    let model = ModelIntermediate_from_schema(&schema);
+    let model = themed(ModelIntermediate_from_schema(&schema));
     let output = render(&model, &default_options(ModelFormat::Dot));
 
     assert!(
@@ -1043,7 +1057,7 @@ fn declared_dot_color_reaches_model_dot() {
     let software_palette = "#4a90d9";
     assert!(
         output.contains(software_palette),
-        "undeclared kinds keep the extension palette: {output}"
+        "undeclared kinds keep the extension's theme colour: {output}"
     );
 }
 
@@ -1149,4 +1163,12 @@ fn dbml_maps_real_types_and_cardinality_operators() {
         output.contains("Ref BehaviorImplementsFeature: behavior.features <> feature.id"),
         "cardinality operator and PK column: {output}"
     );
+}
+
+#[test]
+fn an_extension_without_a_theme_color_is_drawn_grey() {
+    let model = ModelIntermediate_from_schema(&multi_extension_schema());
+    let output = render(&model, &default_options(ModelFormat::Dot));
+    assert!(output.contains("color=\"#95a5a6\";"), "{output}");
+    assert!(!output.contains("#4a90d9"), "no palette by name: {output}");
 }

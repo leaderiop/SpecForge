@@ -149,6 +149,7 @@ pub fn detect_format_version(content: &str) -> (FormatVersion, Vec<Diagnostic>) 
                         suggestion: Some(format!(
                             "Use a format version between {MIN_SUPPORTED_VERSION} and {MAX_SUPPORTED_VERSION}."
                         )),
+                        data: None,
                     });
                 } else if v < MIN_SUPPORTED_VERSION {
                     diagnostics.push(Diagnostic {
@@ -159,6 +160,7 @@ pub fn detect_format_version(content: &str) -> (FormatVersion, Vec<Diagnostic>) 
                         ),
                         span: None,
                         suggestion: Some("Run `specforge migrate` to upgrade.".to_string()),
+                        data: None,
                     });
                 }
                 return (v, diagnostics);
@@ -174,6 +176,7 @@ pub fn detect_format_version(content: &str) -> (FormatVersion, Vec<Diagnostic>) 
                     suggestion: Some(format!(
                         "Expected `// specforge-format: MAJOR.MINOR` (e.g., `// specforge-format: {CURRENT_FORMAT_VERSION}`)."
                     )),
+                    data: None,
                 });
                 return (MIN_SUPPORTED_VERSION, diagnostics);
             }
@@ -255,6 +258,7 @@ pub fn check_schema_compatibility(
                 suggestion: Some(
                     "Review the migration to ensure backward compatibility.".to_string(),
                 ),
+                data: None,
             });
         }
     }
@@ -286,6 +290,7 @@ pub fn compare_graphs(
             message: format!("entity '{id}' present before migration but missing after"),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -296,6 +301,7 @@ pub fn compare_graphs(
             message: format!("entity '{id}' appeared after migration but was not present before"),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -321,6 +327,7 @@ pub fn compare_graphs(
             ),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -334,6 +341,7 @@ pub fn compare_graphs(
             ),
             span: None,
             suggestion: None,
+            data: None,
         });
     }
 
@@ -359,6 +367,7 @@ pub fn compare_graphs(
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             }
         }

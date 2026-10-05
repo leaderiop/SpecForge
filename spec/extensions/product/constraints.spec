@@ -9,7 +9,6 @@ use "extensions/product/behaviors-registration"
 use "extensions/product/behaviors-v1-1"
 use "extensions/product/invariants"
 use "extensions/product/surfaces-cli"
-use "extensions/product/surfaces-mcp"
 use "extensions/product/surfaces-shared"
 
 constraint product_validation_latency "Product Validation Latency" {
@@ -160,15 +159,14 @@ constraint product_query_correctness "Product Query Correctness" {
   metric      """
     All product graph queries (milestone completion, deliverable traceability,
     journey coverage, feature ordering, milestone timeline, feature
-    deliverables, feature milestones, persona journeys, channel journeys,
-    module deliverables, milestone deliverables, module features, term graph,
-    deliverable completion, persona channels, journey deliverables, feature
-    dependents, deliverable dependents, deliverable priority)
+    deliverables, term graph, deliverable completion, persona channels,
+    feature dependents, deliverable dependents, deliverable priority, and
+    the analytics queries)
     MUST return correct results for all graph topologies. Milestone completion
     ratio MUST be mathematically correct (done_count / total). Deliverable
     traceability MUST include all transitive features via both journey and
-    module paths. Reverse queries MUST return the exact inverse of
-    corresponding forward queries.
+    module paths. Dependents queries MUST return the exact inverse of the
+    corresponding depends_on references.
   """
   constrains  [
     pe_query_milestone_completion,
@@ -177,16 +175,9 @@ constraint product_query_correctness "Product Query Correctness" {
     pe_query_feature_ordering,
     pe_query_milestone_timeline,
     pe_query_feature_deliverables,
-    pe_query_feature_milestones,
-    pe_query_persona_journeys,
-    pe_query_channel_journeys,
-    pe_query_module_deliverables,
-    pe_query_milestone_deliverables,
-    pe_query_module_features,
     pe_query_term_graph,
     pe_query_deliverable_completion,
     pe_query_persona_channels,
-    pe_query_journey_deliverables,
     pe_query_feature_dependents,
     pe_query_deliverable_dependents,
     pe_query_deliverable_priority,
@@ -328,16 +319,9 @@ constraint product_large_scale_query "Product Large-Scale Query Latency" {
     pe_query_feature_ordering,
     pe_query_milestone_timeline,
     pe_query_feature_deliverables,
-    pe_query_feature_milestones,
-    pe_query_persona_journeys,
-    pe_query_channel_journeys,
-    pe_query_module_deliverables,
-    pe_query_milestone_deliverables,
-    pe_query_module_features,
     pe_query_term_graph,
     pe_query_deliverable_completion,
     pe_query_persona_channels,
-    pe_query_journey_deliverables,
     pe_query_feature_dependents,
     pe_query_deliverable_dependents,
     pe_query_deliverable_priority,
@@ -374,16 +358,17 @@ constraint product_deliverable_lifecycle_correctness "Product Deliverable Lifecy
 }
 
 constraint product_surface_schema_completeness "Product Surface Schema Completeness" {
-  description "Every CLI command and MCP resource must have typed input and output schemas with no untyped JSON allowed."
+  description "Every product CLI command must have a typed input and a typed json payload, with no untyped JSON allowed."
   category    reliability
   priority    critical
   metric      """
-    Every CLI command MUST have a typed input schema (ProductListFilter for
-    list commands, per-command input type for query commands) and a typed
-    output schema (per-kind list result type or query payload type). Every
-    MCP resource MUST have a documented URI template with parameter types
-    and a response schema matching ProductSurfaceResponse wrapping the
-    corresponding query payload. No surface may return untyped JSON.
+    Every one of the 40 product CLI commands MUST have typed args
+    (ProductListFilter for list commands, the entity id positional for
+    entity-scoped queries) and a typed json payload: the per-kind list
+    result type for list commands, the query payload type types.spec
+    names for each query, including bulk_status and health. MCP serves
+    the same payload as the auto-promoted tool's result; product declares
+    no MCP resources (ADR 0011). No command may return untyped JSON.
   """
   constrains  [
     surface_list_features,
@@ -398,70 +383,69 @@ constraint product_surface_schema_completeness "Product Surface Schema Completen
     surface_journey_coverage,
     surface_feature_ordering,
     surface_milestone_timeline,
-    surface_milestone_deliverables,
-    surface_module_features,
-    resource_deliverable_traceability,
-    resource_feature_deliverables,
-    resource_feature_milestones,
-    resource_persona_journeys,
-    resource_channel_journeys,
-    resource_module_deliverables,
-    resource_milestone_deliverables,
-    resource_module_features,
-    resource_term_graph,
-    resource_deliverable_completion,
-    resource_persona_channels,
-    resource_journey_deliverables,
-    resource_feature_dependents,
-    resource_deliverable_dependents,
-    resource_deliverable_priority,
-    resource_persona_features,
-    resource_feature_impact,
-    resource_milestone_velocity,
+    surface_list_releases,
+    surface_deliverable_traceability,
+    surface_feature_deliverables,
+    surface_term_graph,
+    surface_deliverable_completion,
+    surface_persona_channels,
+    surface_feature_dependents,
+    surface_deliverable_dependents,
+    surface_deliverable_priority,
+    surface_persona_features,
+    surface_feature_impact,
+    surface_milestone_velocity,
+    surface_deliverable_personas,
+    surface_feature_overlap,
+    surface_channel_features,
     surface_unscheduled_features,
     surface_coverage_matrix,
     surface_critical_path,
-    resource_unscheduled_features,
-    resource_feature_overlap,
-    resource_persona_coverage_matrix,
-    resource_critical_path,
+    surface_release_completion,
+    surface_owner_workload,
+    surface_weighted_milestone_completion,
+    surface_term_clusters,
+    surface_term_density,
+    surface_module_dependency_depth,
+    surface_module_coupling,
+    surface_channel_coverage_matrix,
   ]
-  protects    [pe_surface_response_envelope, pe_surface_error_consistency]
-  verify unit "every CLI command has a typed input and output schema"
-  verify unit "every MCP resource has a documented URI template and response schema"
+  protects    [pe_surface_error_consistency]
+  verify unit "every CLI command has typed args and a typed json payload"
   verify unit "no surface returns untyped JSON"
 }
 
 constraint product_surface_error_correctness "Product Surface Error Correctness" {
-  description "All surfaces must use exactly three error codes and must never panic on any input including null, empty, or malformed JSON."
+  description "All commands must use exactly two error codes and must never panic on any input including null, empty, or malformed JSON."
   category    reliability
   priority    critical
   metric      """
-    All product surfaces MUST use exactly three error codes:
-    ENTITY_NOT_FOUND, GRAPH_NOT_READY, INVALID_INPUT. CLI surfaces MUST
-    write errors to stderr and exit with code 1. MCP tool surfaces MUST
-    return JSON-RPC error responses. MCP resource surfaces MUST return
-    ProductSurfaceResponse with status=error. No surface may panic on
-    any input including null, empty string, or malformed JSON.
+    All product commands MUST use exactly two error codes:
+    ENTITY_NOT_FOUND (exit 1) and INVALID_INPUT (exit 2). The error is
+    written to stderr (the ProductSurfaceError object under --format json)
+    with nothing on stdout. Over MCP a non-zero exit is an isError tool
+    result carrying the same object. No command may panic on any input
+    including null, empty string, or malformed JSON.
   """
   constrains  [surface_error_handling]
   protects    [pe_surface_error_consistency]
-  verify unit "CLI errors written to stderr with exit code 1"
-  verify unit "MCP tool errors are JSON-RPC compliant"
-  verify unit "MCP resource errors use ProductSurfaceResponse envelope"
+  verify unit "CLI errors written to stderr: ENTITY_NOT_FOUND exits 1, INVALID_INPUT exits 2"
+  verify unit "MCP tool errors are isError results carrying the error object"
   verify unit "no surface panics on malformed input"
 }
 
 constraint product_list_pagination_correctness "Product List Pagination Correctness" {
-  description "All 8 list commands must return correct pagination with proper total counts, has_more flags, and input validation."
+  description "All 9 list commands and the 5 matrix queries must return correct pagination with proper total counts, has_more flags, and input validation."
   category    reliability
   priority    critical
   metric      """
-    All 8 list commands MUST return correct pagination: total is pre-pagination
-    count (after filtering), has_more is total > offset + returned count,
-    limit defaults to 100, offset defaults to 0. Negative offset or limit
-    values MUST produce INVALID_INPUT error. Limit > 1000 MUST be clamped
-    to 1000.
+    All 9 list commands and the 5 matrix queries (coverage_matrix,
+    channel_coverage_matrix, feature_overlap, owner_workload,
+    module_coupling) MUST return correct pagination: total is the count
+    after filtering and before paging, has_more is total > offset +
+    returned count, limit defaults to 100, offset defaults to 0. A negative
+    offset MUST produce INVALID_INPUT (exit 2). Limit is clamped to
+    [1, 1000]. There are no cursors (ADR 0011).
   """
   constrains  [
     surface_list_features,
@@ -472,25 +456,31 @@ constraint product_list_pagination_correctness "Product List Pagination Correctn
     surface_list_terms,
     surface_list_personas,
     surface_list_channels,
+    surface_list_releases,
+    surface_coverage_matrix,
+    surface_channel_coverage_matrix,
+    surface_feature_overlap,
+    surface_owner_workload,
+    surface_module_coupling,
   ]
   protects    [pe_list_pagination_correctness]
   verify unit "default limit is 100, default offset is 0"
   verify unit "negative offset produces INVALID_INPUT error"
-  verify unit "negative limit produces INVALID_INPUT error"
+  verify unit "limit below 1 is clamped to 1"
   verify unit "limit > 1000 is clamped to 1000"
   verify unit "total reflects filtered count before pagination"
   verify unit "has_more is correct for all edge cases"
 }
 
 constraint product_surface_latency "Product Surface Latency" {
-  description "CLI commands must complete under 200ms and MCP resources under 100ms for 500 entities, with surface overhead under 50ms."
+  description "CLI commands must complete under 200ms for 500 entities, with surface overhead under 50ms."
   category    performance
   priority    high
   metric      """
-    All 14 CLI commands SHOULD complete in under 200ms for a project with
+    All 40 CLI commands SHOULD complete in under 200ms for a project with
     up to 500 product entities (includes graph query + JSON serialization
-    + stdout write). All 16 MCP resources SHOULD respond in under 100ms
-    (no stdout overhead). Surface overhead (serialization + dispatch) MUST
+    + stdout write); their auto-promoted MCP tools run the same export.
+    Surface overhead (serialization + dispatch) MUST
     NOT exceed 50ms beyond the underlying query latency.
   """
   constrains  [
@@ -499,23 +489,20 @@ constraint product_surface_latency "Product Surface Latency" {
     surface_journey_coverage,
     surface_feature_ordering,
     surface_milestone_timeline,
-    resource_deliverable_traceability,
   ]
   verify load "benchmark CLI commands with 500 entities, assert < 200ms each"
-  verify load "benchmark MCP resources with 500 entities, assert < 100ms each"
   verify load "benchmark surface overhead, assert < 50ms beyond query latency"
 }
 
 constraint product_query_latency "Product Query Latency" {
-  description "All 19 product graph queries must complete under 100ms for projects with up to 500 entities."
+  description "All 12 core product graph queries must complete under 100ms for projects with up to 500 entities."
   category    performance
   priority    high
   metric      """
-    All 19 product graph queries (milestone-completion, deliverable-traceability,
-    journey-coverage, feature-ordering, milestone-timeline, feature-deliverables,
-    feature-milestones, persona-journeys, channel-journeys, module-deliverables,
-    milestone-deliverables, module-features, term-graph, deliverable-completion,
-    persona-channels, journey-deliverables, feature-dependents,
+    All 12 core product graph queries (milestone-completion,
+    deliverable-traceability, journey-coverage, feature-ordering,
+    milestone-timeline, feature-deliverables, term-graph,
+    deliverable-completion, persona-channels, feature-dependents,
     deliverable-dependents, deliverable-priority) SHOULD complete in under 100ms
     for a project with up to 500 product entities across all 9 kinds.
   """
@@ -526,47 +513,14 @@ constraint product_query_latency "Product Query Latency" {
     pe_query_feature_ordering,
     pe_query_milestone_timeline,
     pe_query_feature_deliverables,
-    pe_query_feature_milestones,
-    pe_query_persona_journeys,
-    pe_query_channel_journeys,
-    pe_query_module_deliverables,
-    pe_query_milestone_deliverables,
-    pe_query_module_features,
     pe_query_term_graph,
     pe_query_deliverable_completion,
     pe_query_persona_channels,
-    pe_query_journey_deliverables,
     pe_query_feature_dependents,
     pe_query_deliverable_dependents,
     pe_query_deliverable_priority,
   ]
-  verify load "benchmark all 19 product queries with 500 entities, assert < 100ms each"
-}
-
-constraint product_mcp_payload_size "Product MCP Payload Size" {
-  description "MCP resource responses must not exceed 64KB, with large payloads bounded by configurable limits or truncation flags."
-  category    performance
-  priority    high
-  metric      """
-    All MCP resource responses SHOULD NOT exceed 64KB of serialized JSON
-    for a single response. For queries that may produce large payloads
-    (term-graph with high maxHops, deliverable-traceability with many
-    transitive features, feature-ordering on large feature graphs), the
-    response SHOULD be bounded by either: (a) limiting result arrays to a
-    configurable maximum (default 500 items), or (b) returning a truncated
-    flag with partial results. This ensures token-budget-aware AI agents
-    can consume responses without exceeding their context windows.
-  """
-  constrains  [
-    resource_deliverable_traceability,
-    resource_term_graph,
-    resource_feature_dependents,
-    resource_deliverable_dependents,
-    resource_deliverable_priority,
-  ]
-  verify unit "MCP response for 500-entity project stays under 64KB"
-  verify unit "large term graph traversal returns truncated flag when exceeding limit"
-  verify unit "feature ordering result array is bounded by configurable maximum"
+  verify load "benchmark all 12 core product queries with 500 entities, assert < 100ms each"
 }
 
 constraint product_persona_channel_lifecycle_correctness "Product Persona/Channel Lifecycle Correctness" {
@@ -838,19 +792,16 @@ constraint product_weighted_completion_latency "Weighted Completion Query Latenc
 }
 
 constraint product_release_query_latency "Release Query Latency" {
-  description "Release queries for deliverables, milestones, and completion must each complete under 100ms for 500 entities."
+  description "The release completion query must complete under 100ms for 500 entities."
   category    performance
   priority    high
   metric      """
-    Release queries (deliverables, milestones, completion) MUST complete
-    in under 100ms per query for 500 entities.
+    The release completion query MUST complete in under 100ms for 500
+    entities. A release's deliverables and milestones are core's
+    `specforge query <release> --depth 1` (ADR 0011).
   """
-  constrains  [
-    pe_query_release_deliverables,
-    pe_query_release_milestones,
-    pe_query_release_completion,
-  ]
-  verify load "release-deliverables query under 100ms with 500 entities"
+  constrains  [pe_query_release_completion]
+  verify load "release-completion query under 100ms with 500 entities"
 }
 
 constraint product_release_cycle_detection_correctness "Release Cycle Detection Correctness" {
@@ -883,19 +834,18 @@ constraint product_ownership_field_consistency "Ownership Field Consistency" {
 }
 
 constraint product_effort_weight_correctness "Effort Weight Correctness" {
-  description "Weighted milestone completion must use configured Fibonacci effort weights with features defaulting to medium when unspecified."
+  description "Weighted milestone completion must use the fixed Fibonacci effort weights with features defaulting to medium when unspecified."
   category    reliability
   priority    critical
   metric      """
-    Weighted milestone completion MUST use configured effort weights.
-    Default weights: xs=1, s=2, m=3, l=5, xl=8 (Fibonacci-inspired).
-    Teams MAY override via effort_weights in specforge.json. Features
-    without effort MUST default to the weight of m (3 by default).
+    Weighted milestone completion MUST use the effort scale's weights:
+    xs=1, s=2, m=3, l=5, xl=8 (Fibonacci-inspired). The weights define
+    the scale and are not configurable (ADR 0011). Features without
+    effort MUST default to the weight of m (3).
   """
   constrains  [pe_query_weighted_milestone_completion]
   protects    [pe_effort_weighted_completion]
-  verify property "each effort level maps to configured weight (default: Fibonacci)"
-  verify property "custom effort_weights override defaults"
+  verify property "each effort level maps to its Fibonacci weight"
   verify property "missing effort defaults to m weight"
 }
 
@@ -959,25 +909,16 @@ constraint product_scalability_tiers "Product Scalability Tiers" {
 }
 
 constraint product_query_pagination_required "Query Pagination for Large Result Sets" {
-  description "Matrix and analytics queries must support optional cursor-based pagination to enable incremental consumption by AI agents."
+  description "Matrix and analytics queries must page with the list commands' offset and limit to enable incremental consumption by AI agents."
   category    usability
   priority    high
   metric      """
-    Matrix and analytics queries (queryPersonaCoverageMatrix,
-    queryModuleCoupling, queryOwnerWorkload, queryFeatureOverlap,
-    queryChannelCoverageMatrix) SHOULD accept an optional
-    PaginatedQueryInput parameter with cursor-based pagination.
-
-    When pagination is provided:
-    - page_size defaults to 100, max 1000 (clamped like list commands)
-    - Result includes PaginationMetadata with next_cursor, total, has_more
-    - Cursor is opaque (base64-encoded position, not offset)
-    - Cursor is valid only for the current graph state — rebuild invalidates all cursors
-    - Invalid/expired cursor returns INVALID_INPUT error with message "cursor expired"
-
-    When pagination is omitted (backward-compatible):
-    - Full result set is returned (existing behavior preserved)
-    - For result sets >1000 items, a truncated flag SHOULD be set in the response
+    Matrix and analytics queries (coverage_matrix, module_coupling,
+    owner_workload, feature_overlap, channel_coverage_matrix) MUST page
+    like the list commands: --limit (default 100, clamped to [1, 1000])
+    and --offset (default 0), with total, offset, limit and has_more in
+    the payload. There are no cursors: with no graph revision a cursor
+    detects nothing an offset does not (ADR 0011).
 
     This enables AI agents to consume large result sets incrementally
     without exceeding token budgets.
@@ -989,9 +930,7 @@ constraint product_query_pagination_required "Query Pagination for Large Result 
     pe_query_feature_overlap,
     pe_query_channel_coverage_matrix,
   ]
-  verify unit "matrix query with page_size=10 returns at most 10 entries"
-  verify unit "next_cursor from page 1 retrieves page 2 correctly"
-  verify unit "cursor after graph rebuild returns INVALID_INPUT"
-  verify unit "omitted pagination returns full result set (backward-compatible)"
-  verify unit "page_size>1000 is clamped to 1000"
+  verify unit "matrix query with limit=10 returns at most 10 entries"
+  verify unit "offset=limit retrieves the second page"
+  verify unit "limit>1000 is clamped to 1000"
 }

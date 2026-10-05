@@ -287,7 +287,14 @@ become typed graph edges), `required` (E006 enforcement), and
 `normative=true` when the field states what the entity promises rather than
 prose (a behavior's `contract`, an invariant's `guarantee`, a decision's
 `decision`): `specforge export --format context` keeps normative fields and
-drops the rest, without core knowing any field by name.
+drops the rest, without core knowing any field by name. `headline=true`
+lifts the field to the context node's top level (a behavior's `contract`, a
+feature's `status`), and `exempts_obligations=true` makes an entity that sets
+it owe no `verify` obligations (formal's `abstract true`; W004, coverage and
+stats leave it out). An entity kind may declare `contract_target` (references
+to it are contract obligations, A010) and `declares_types` (its ids are the
+type names custom validators resolve), and an extension a `theme_color` its
+`model` and `outline` diagrams use (ADR 0007).
 The per-kind vocabulary is the field registry's — `specforge model`
 renders it from the same source.
 

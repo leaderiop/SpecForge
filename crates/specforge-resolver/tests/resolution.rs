@@ -1,5 +1,7 @@
 use specforge_common::Severity;
-use specforge_resolver::{PathAlias, ResolveConfig, resolve_project, resolve_project_with_config};
+use specforge_resolver::{
+    PathAlias, ResolveConfig, resolve_import, resolve_project, resolve_project_with_config,
+};
 use specforge_test_macros::test as specforge_test;
 use std::fs;
 use tempfile::TempDir;
@@ -889,4 +891,74 @@ fn excluded_files_are_not_compiled() {
     assert_eq!(paths(&[]), ["drafts/draft.spec", "main.spec"]);
     assert_eq!(paths(&["drafts/"]), ["main.spec"]);
     assert_eq!(paths(&["drafts/**"]), ["drafts/draft.spec", "main.spec"]);
+}
+
+/// One import, resolved on its own (the LSP's go-to-definition on a `use`
+/// path), the way the compile resolves it: bare, relative, alias and
+/// directory-index targets, relative to the spec root.
+#[specforge_test(
+    behavior = "resolve_use_imports",
+    verify = "resolve use path to file on disk"
+)]
+fn resolve_one_import_by_the_compile_cascade() {
+    let dir = setup_project(&[
+        ("types.spec", "term t \"T\" {\n}\n"),
+        ("models/index.spec", "term m \"M\" {\n}\n"),
+        ("lib/shared/utils.spec", "term u \"U\" {\n}\n"),
+        ("sub/main.spec", "term main \"Main\" {\n}\n"),
+    ]);
+    let root = dir.path();
+    let config = ResolveConfig {
+        path_aliases: vec![PathAlias {
+            alias: "shared".to_string(),
+            target: "lib/shared".to_string(),
+        }],
+        ..ResolveConfig::default()
+    };
+    let resolve = |import: &str| resolve_import(root, "sub/main.spec", import, &config);
+
+    assert_eq!(resolve("types").as_deref(), Some("types.spec"));
+    assert_eq!(resolve("types.spec").as_deref(), Some("types.spec"));
+    assert_eq!(resolve("../types").as_deref(), Some("types.spec"));
+    assert_eq!(resolve("models").as_deref(), Some("models/index.spec"));
+    assert_eq!(
+        resolve("@shared/utils").as_deref(),
+        Some("lib/shared/utils.spec")
+    );
+    assert_eq!(resolve("@specforge/software"), None, "an extension");
+    assert_eq!(resolve("missing"), None);
+}
+
+/// Whichever cascade step names it, a target outside the spec root does
+/// not resolve: E025, as for a relative import.
+#[specforge_test(
+    behavior = "resolve_use_imports",
+    verify = "an import reaching above spec_root by any cascade step produces E025"
+)]
+fn no_import_reaches_above_the_spec_root() {
+    let outer = TempDir::new().unwrap();
+    fs::write(outer.path().join("outside.spec"), "term o \"O\" {\n}\n").unwrap();
+    let root = outer.path().join("spec");
+    fs::create_dir_all(&root).unwrap();
+    for import in ["../outside", "sub/../../outside", "@up/../outside"] {
+        fs::write(
+            root.join("main.spec"),
+            format!("use \"{import}\"\nterm main \"Main\" {{\n}}\n"),
+        )
+        .unwrap();
+        let config = ResolveConfig {
+            path_aliases: vec![PathAlias {
+                alias: "up".to_string(),
+                target: "..".to_string(),
+            }],
+            ..ResolveConfig::default()
+        };
+        assert_eq!(resolve_import(&root, "main.spec", import, &config), None);
+        let result = resolve_project_with_config(&root, &config);
+        assert!(
+            result.diagnostics.iter().any(|d| d.code == "E025"),
+            "{import}: {:?}",
+            result.diagnostics
+        );
+    }
 }

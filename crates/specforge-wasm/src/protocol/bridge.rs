@@ -2,6 +2,11 @@
 //!
 //! Converts `ProtocolExtension` -> `ManifestV2` so that existing
 //! `populate_registries()` logic can be reused without duplication.
+//!
+//! Types whose JSON reads the same in both formats (`PeerDependency`,
+//! `CommandArgType`, the vocabulary names in `field_type` / `check`) are
+//! shared, not converted. What is converted here differs in shape: the
+//! manifest is camelCase JSON on disk, the protocol snake_case on the wire.
 
 use specforge_common::Diagnostic;
 use specforge_registry::{
@@ -54,12 +59,7 @@ pub fn protocol_extension_to_manifest(ext: &ProtocolExtension) -> ManifestV2 {
         incremental: None,
         reserved_keywords: vec![],
         migration_hook: ext.handshake.migration_hook.clone(),
-        peer_dependencies: ext
-            .handshake
-            .peer_dependencies
-            .iter()
-            .map(convert_peer_dependency)
-            .collect(),
+        peer_dependencies: ext.handshake.peer_dependencies.clone(),
         sandbox_policy: ext
             .handshake
             .sandbox_policy
@@ -73,6 +73,7 @@ pub fn protocol_extension_to_manifest(ext: &ProtocolExtension) -> ManifestV2 {
             .map(convert_enhancement)
             .collect(),
         starter_template: ext.handshake.starter_template.clone(),
+        theme_color: ext.handshake.theme_color.clone(),
         ext_short: None,
         query_scope: None,
         collector_contributions: ext
@@ -126,14 +127,6 @@ fn convert_contribution_flags(
     }
 }
 
-fn convert_peer_dependency(dep: &PeerDependency) -> specforge_registry::PeerDependency {
-    specforge_registry::PeerDependency {
-        name: dep.name.clone(),
-        version: dep.version.clone(),
-        optional: dep.optional,
-    }
-}
-
 fn convert_sandbox_policy(policy: &SandboxPolicy) -> specforge_registry::SandboxPolicy {
     specforge_registry::SandboxPolicy {
         max_memory_mb: policy.max_memory_mb,
@@ -165,6 +158,9 @@ fn convert_entity_kind(desc: &EntityKindDescriptor) -> specforge_registry::Manif
         incremental: desc.incremental,
         has_body_parser: desc.has_body_parser,
         open_fields: desc.open_fields,
+        contract_target: desc.contract_target,
+        declares_types: desc.declares_types,
+        lifecycle_field: desc.lifecycle_field.clone(),
         inference_guide: desc.inference_guide.clone(),
     }
 }
@@ -183,7 +179,10 @@ fn convert_field(desc: &FieldDescriptor) -> specforge_registry::ManifestField {
         enum_values: desc.enum_values.clone(),
         inverse_of: desc.inverse_of.clone(),
         normative: desc.normative,
+        exempts_obligations: desc.exempts_obligations,
+        headline: desc.headline,
         derived_from: desc.derived_from.clone(),
+        proof_role: desc.proof_role.clone(),
     }
 }
 
@@ -287,7 +286,7 @@ fn convert_surface_descriptor(desc: &SurfaceDescriptor) -> SurfaceContributions 
                     .iter()
                     .map(|a| specforge_registry::CommandArg {
                         name: a.name.clone(),
-                        arg_type: convert_command_arg_type(&a.arg_type),
+                        arg_type: a.arg_type.clone(),
                         required: a.required,
                         default_value: a.default_value.clone(),
                         description: a.description.clone(),
@@ -321,18 +320,6 @@ fn convert_surface_descriptor(desc: &SurfaceDescriptor) -> SurfaceContributions 
                 sandbox: r.sandbox.as_ref().map(convert_surface_sandbox),
             })
             .collect(),
-    }
-}
-
-fn convert_command_arg_type(t: &CommandArgType) -> specforge_registry::CommandArgType {
-    match t {
-        CommandArgType::String => specforge_registry::CommandArgType::StringArg,
-        CommandArgType::Path => specforge_registry::CommandArgType::PathArg,
-        CommandArgType::Bool => specforge_registry::CommandArgType::BoolArg,
-        CommandArgType::Integer => specforge_registry::CommandArgType::IntegerArg,
-        CommandArgType::Enum { values } => specforge_registry::CommandArgType::EnumArg {
-            values: values.clone(),
-        },
     }
 }
 

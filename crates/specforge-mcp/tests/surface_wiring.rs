@@ -87,7 +87,7 @@ fn init_server_with_kinds() -> McpServer {
         methods: Vec::new(),
     });
 
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
     server
 }
 
@@ -142,19 +142,19 @@ fn init_server_with_surfaces() -> (McpServer, TempDir) {
         description: Some("All items resource".into()),
         mime_type: Some("application/json".into()),
     });
-    state.surface_entries.push(SurfaceRegistryEntry {
-        extension_name: "@test/surfaces".into(),
-        surface_type: SurfaceType::McpTool,
-        contribution_name: "test.list_items".into(),
-        export_name: "mcp__list_items".into(),
-        enabled: true,
-    });
-    state.surface_entries.push(SurfaceRegistryEntry {
-        extension_name: "@test/surfaces".into(),
-        surface_type: SurfaceType::McpResource,
-        contribution_name: "test-items".into(),
-        export_name: "mcp__test_items".into(),
-        enabled: true,
+    state.edit_environment(|env| {
+        env.registries.surfaces.push(SurfaceRegistryEntry {
+            extension_name: "@test/surfaces".into(),
+            surface_type: SurfaceType::McpTool,
+            contribution_name: "test.list_items".into(),
+            export_name: "mcp__list_items".into(),
+        });
+        env.registries.surfaces.push(SurfaceRegistryEntry {
+            extension_name: "@test/surfaces".into(),
+            surface_type: SurfaceType::McpResource,
+            contribution_name: "test-items".into(),
+            export_name: "mcp__test_items".into(),
+        });
     });
 
     (server, dir)
@@ -278,6 +278,65 @@ fn list_tool_returns_entities_by_kind() {
     let ids: Vec<&str> = entities.iter().map(|e| e["id"].as_str().unwrap()).collect();
     assert!(ids.contains(&"feat_auth"));
     assert!(ids.contains(&"feat_search"));
+}
+
+/// The ids `specforge.list` returns for `args`.
+fn listed_ids(server: &mut McpServer, args: Value) -> Vec<String> {
+    let resp = call_tool(server, "specforge.list", args);
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    parsed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["id"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_entities_by_kind",
+    verify = "specforge.list keeps the entities whose fields hold the where values"
+)]
+fn list_tool_filters_by_field_values() {
+    let mut server = init_server_with_kinds();
+    let planned = json!({"kind": "feature", "where": {"status": "planned"}});
+    assert_eq!(
+        listed_ids(&mut server, planned),
+        ["feat_auth", "feat_search"]
+    );
+    let by_contract = json!({"where": {"contract": "MUST login"}});
+    assert_eq!(listed_ids(&mut server, by_contract), ["login_behavior"]);
+    let done = json!({"kind": "feature", "where": {"status": "done"}});
+    assert!(listed_ids(&mut server, done).is_empty());
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_entities_by_kind",
+    verify = "specforge.list pages the entities sorted by id with offset and limit"
+)]
+fn list_tool_pages_sorted_entities() {
+    let mut server = init_server_with_kinds();
+    assert_eq!(
+        listed_ids(&mut server, json!({})),
+        ["feat_auth", "feat_search", "login_behavior"]
+    );
+    let page = json!({"offset": 1, "limit": 1});
+    assert_eq!(listed_ids(&mut server, page), ["feat_search"]);
+}
+
+#[test]
+fn list_tool_refuses_a_malformed_filter_or_page() {
+    let mut server = init_server_with_kinds();
+    for args in [
+        json!({"where": "status=done"}),
+        json!({"limit": -1}),
+        json!({"offset": "one"}),
+        json!({"limit": 1.5}),
+    ] {
+        let resp = call_tool(&mut server, "specforge.list", args.clone());
+        assert_eq!(resp["result"]["isError"], true, "{args}: {resp}");
+        let error = crate::tool_errors::mcp_error(&resp);
+        assert_eq!(error["code"], "invalid_input", "{args}: {error}");
+    }
 }
 
 // B:provide_mcp_entities_by_kind — verify unit "specforge.list returns empty array for unknown kind"
@@ -516,28 +575,29 @@ fn cli_command_auto_promoted_to_mcp_tool() {
     assert_eq!(listed["category"], "core");
     assert_eq!(listed["source"], "@test/cmds");
 
-    // A call reaches the command's cmd__ export with the tool arguments,
-    // and the command's stdout is the tool result.
-    let args = json!({"format": "md", "verbose": true});
+    // A call reaches the command's cmd__ export with the tool arguments as
+    // its args, beside the project root and the served graph, and the
+    // command's stdout is the tool result.
+    let args = json!({"style": "md", "verbose": true});
     let resp = call_tool(&mut server, "specforge.cmds.report", args.clone());
     assert_eq!(
         resp["result"],
         json!({"content": [{"type": "text", "text": "3 of 4 covered"}], "isError": false})
     );
-    assert_eq!(
-        ext.calls(),
-        [(EXT.to_string(), "cmd__report".to_string(), args)]
-    );
+    let calls = ext.calls();
+    let [(extension, export, input)] = calls.as_slice() else {
+        panic!("one call: {calls:?}")
+    };
+    assert_eq!((extension.as_str(), export.as_str()), (EXT, "cmd__report"));
+    assert_eq!(input["args"], args);
+    assert!(input["cwd"].is_string(), "{input}");
+    assert!(input["graph"]["nodes"].is_array(), "{input}");
 
     // A failing command is a failed tool result carrying its stderr.
     let failing = json!({"exit_code": 2, "stdout": "", "stderr": "no tests found"});
     let (mut server, _ext, _dir) =
         fake_extension::initialized(FakeExtension::new().with_output("cmd__report", failing));
-    let resp = call_tool(
-        &mut server,
-        "specforge.cmds.report",
-        json!({"format": "md"}),
-    );
+    let resp = call_tool(&mut server, "specforge.cmds.report", json!({"style": "md"}));
     assert_eq!(
         resp["result"],
         json!({"content": [
@@ -545,6 +605,86 @@ fn cli_command_auto_promoted_to_mcp_tool() {
             {"type": "text", "text": "no tests found"}
         ], "isError": true})
     );
+}
+
+/// The `tools/call` result of `specforge.cmds.report` when its export
+/// returns `output`, and the input the export got.
+fn promoted_report(output: Value) -> (Value, Value) {
+    let (mut server, ext, _dir) =
+        fake_extension::initialized(FakeExtension::new().with_output("cmd__report", output));
+    let resp = call_tool(&mut server, "specforge.cmds.report", json!({"style": "md"}));
+    let calls = ext.calls();
+    let [(_, _, input)] = calls.as_slice() else {
+        panic!("one call: {calls:?}")
+    };
+    (resp["result"].clone(), input.clone())
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"
+)]
+fn over_mcp_a_commands_output_is_structured_only_when_it_is_one_object() {
+    let ran = |exit_code: i32, stdout: &str, stderr: &str| {
+        promoted_report(json!({"exit_code": exit_code, "stdout": stdout, "stderr": stderr})).0
+    };
+    let text = |blocks: &[&str]| -> Value {
+        blocks
+            .iter()
+            .map(|t| json!({"type": "text", "text": t}))
+            .collect()
+    };
+
+    // The command is asked for json, with the host's UTC date.
+    let (_, input) = promoted_report(json!({"exit_code": 0, "stdout": "{}", "stderr": ""}));
+    assert_eq!(input["format"], "json", "{input}");
+    let today = input["today"].as_str().unwrap();
+    assert!(
+        chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d").is_ok(),
+        "{input}"
+    );
+    assert_eq!(input["args"], json!({"style": "md"}), "only declared args");
+
+    // One object on stdout is the structured result, beside its text.
+    let result = ran(0, r#"{"covered": 3}"#, "");
+    assert_eq!(result["isError"], false, "{result}");
+    assert_eq!(result["structuredContent"], json!({"covered": 3}));
+
+    // JSON that is not an object, or an object beside a warning, is text.
+    for stdout in ["[1, 2]", "3", "\"done\""] {
+        let result = ran(0, stdout, "");
+        assert_eq!(
+            result,
+            json!({"content": text(&[stdout]), "isError": false}),
+            "{stdout}"
+        );
+    }
+    let result = ran(0, "{}", "warning: stale");
+    assert_eq!(
+        result,
+        json!({"content": text(&["{}", "warning: stale"]), "isError": false})
+    );
+
+    // A failure's one error object on stderr is the isError result.
+    let error = json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found"});
+    let result = ran(1, "", &error.to_string());
+    assert_eq!(result["isError"], true, "{result}");
+    assert_eq!(result["structuredContent"], error);
+    assert_eq!(result["content"], text(&[&error.to_string()]));
+
+    // A failure that wrote prose, or an array, is a failed text result.
+    for stderr in ["error: no tests found", "[\"a\"]"] {
+        let result = ran(2, "", stderr);
+        assert_eq!(
+            result,
+            json!({"content": text(&["", stderr]), "isError": true}),
+            "{stderr}"
+        );
+    }
+    // A failure's object beside stdout is not the error object alone.
+    let result = ran(1, "partial", &error.to_string());
+    assert_eq!(result["isError"], true, "{result}");
+    assert!(result.get("structuredContent").is_none(), "{result}");
 }
 
 #[specforge_test(
@@ -557,8 +697,7 @@ fn auto_promoted_tool_name_follows_pattern() {
     // specforge.cmds.<command id>, dispatched to the command's export.
     let promoted: Vec<(String, String, String)> = server
         .state()
-        .surface_entries
-        .iter()
+        .surface_entries()
         .filter(|e| e.surface_type == specforge_registry::SurfaceType::AutoPromotedTool)
         .map(|e| {
             (
@@ -580,6 +719,46 @@ fn auto_promoted_tool_name_follows_pattern() {
 
 #[specforge_test(
     behavior = "auto_promote_commands_to_mcp_tools",
+    verify = "a command the CLI refuses, such as one declaring an arg named format, is not promoted"
+)]
+fn a_command_the_cli_refuses_is_no_tool() {
+    let command = |id: &str, arg: &str| {
+        json!({"id": id, "title": id, "description": id, "export": format!("cmd__{id}"),
+            "args": [{"name": arg, "arg_type": "string"}]})
+    };
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        FakeExtension::new()
+            .with_command(command("render", "format"))
+            .with_command(command("open", "path"))
+            .with_command(command("draw", "shape")),
+    );
+    // The rule the CLI refuses a command line by is the one MCP promotes by.
+    let refused = |arg: &str| {
+        specforge_ops::command::refusal(&specforge_registry::CommandContribution {
+            id: "x".into(),
+            title: "x".into(),
+            description: String::new(),
+            category: None,
+            export: "cmd__x".into(),
+            args: vec![specforge_registry::CommandArg {
+                name: arg.into(),
+                arg_type: specforge_registry::CommandArgType::String,
+                required: false,
+                default_value: None,
+                description: None,
+            }],
+            sandbox: None,
+        })
+    };
+    assert!(refused("format").is_some());
+    assert!(refused("shape").is_none());
+    assert!(listed_tool(&mut server, "specforge.cmds.render").is_none());
+    assert!(listed_tool(&mut server, "specforge.cmds.open").is_none());
+    assert!(listed_tool(&mut server, "specforge.cmds.draw").is_some());
+}
+
+#[specforge_test(
+    behavior = "auto_promote_commands_to_mcp_tools",
     verify = "derived input_schema computed from command args"
 )]
 fn derived_input_schema_from_command_args() {
@@ -590,12 +769,12 @@ fn derived_input_schema_from_command_args() {
         json!({
             "type": "object",
             "properties": {
-                "format": {"type": "string", "enum": ["md", "json"], "description": "Output format"},
+                "style": {"type": "string", "enum": ["md", "json"], "description": "Output style"},
                 "verbose": {"type": "boolean"},
                 "limit": {"type": "integer"},
                 "out": {"type": "string"}
             },
-            "required": ["format"]
+            "required": ["style"]
         })
     );
 }
@@ -629,7 +808,7 @@ fn explicit_mcp_tool_wins_over_auto_promoted() {
     );
     let i017: Vec<_> = server
         .state()
-        .diagnostics
+        .diagnostics()
         .iter()
         .filter(|d| d.code == "I017")
         .map(|d| (d.severity, d.message.clone()))
@@ -690,7 +869,7 @@ fn event_commands_auto_promoted() {
 
 #[specforge_test(
     behavior = "dispatch_surface_mcp_tool",
-    verify = "the served project's runtime loads on the first call that needs it and serves later calls until the project recompiles"
+    verify = "the served project's runtime is the one its compile loaded and serves later calls until the project reloads"
 )]
 fn one_runtime_serves_extension_calls_until_the_next_compile() {
     let dir = TempDir::new().unwrap();
@@ -709,28 +888,34 @@ fn one_runtime_serves_extension_calls_until_the_next_compile() {
         json!({"projectRoot": dir.path().to_str().unwrap()}),
     );
     let root = server.state().project_root.clone().unwrap();
+    let compiled = std::sync::Arc::clone(
+        server
+            .state()
+            .session()
+            .runtime()
+            .expect("the served session runs its extensions"),
+    );
     assert!(
-        !server.state().has_loaded_runtime(),
-        "compiling loads no runtime for later calls"
+        std::sync::Arc::ptr_eq(&compiled, &server.state().wasm_runtime(&root)),
+        "extension calls run in the runtime the compile loaded"
     );
 
-    // analyze runs the extensions' passes: the first call loads the runtime.
+    // analyze runs the extensions' passes in it, call after call.
     let analyze = json!({"use_cached": true});
     call_tool(&mut server, "specforge.analyze", analyze.clone());
-    assert!(server.state().has_loaded_runtime());
-    let first = server.state().wasm_runtime(&root);
     call_tool(&mut server, "specforge.analyze", analyze);
     assert!(
-        std::sync::Arc::ptr_eq(&first, &server.state().wasm_runtime(&root)),
+        std::sync::Arc::ptr_eq(&compiled, &server.state().wasm_runtime(&root)),
         "later calls reuse it"
     );
 
-    // A recompile may load other modules: the next call loads them anew.
+    // A reload may load other modules: later calls run in its runtime.
     call_tool(&mut server, "specforge.validate", json!({}));
-    assert!(!server.state().has_loaded_runtime());
-    assert!(!std::sync::Arc::ptr_eq(
-        &first,
-        &server.state().wasm_runtime(&root)
+    let reloaded = server.state().wasm_runtime(&root);
+    assert!(!std::sync::Arc::ptr_eq(&compiled, &reloaded));
+    assert!(std::sync::Arc::ptr_eq(
+        &reloaded,
+        server.state().session().runtime().unwrap()
     ));
 }
 
@@ -780,8 +965,8 @@ fn extension_tool_input_is_checked_against_its_schema() {
         error["message"].as_str().unwrap().contains("$.strict"),
         "{error}"
     );
-    // The auto-promoted report requires format, one of md or json.
-    for arguments in [json!({}), json!({"format": "xml"})] {
+    // The auto-promoted report requires style, one of md or json.
+    for arguments in [json!({}), json!({"style": "xml"})] {
         let resp = call_tool(&mut server, "specforge.cmds.report", arguments.clone());
         let error = crate::tool_errors::mcp_error(&resp);
         assert_eq!(error["code"], "invalid_input", "{arguments}: {error}");
@@ -846,4 +1031,151 @@ fn the_schema_check_finds_type_enum_and_required_violations() {
         ["$.paths[0]: expected string, got integer"]
     );
     assert_eq!(check(json!(3)), ["$: expected object, got integer"]);
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "input JSON passed to mcp__ export"
+)]
+fn an_extension_tool_export_gets_its_arguments_as_json() {
+    let (mut server, ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
+    );
+    call_tool(&mut server, "specforge.cmds.check", json!({"strict": true}));
+    assert_eq!(
+        ext.calls(),
+        [(
+            EXT.to_string(),
+            "mcp__check".to_string(),
+            json!({"strict": true})
+        )]
+    );
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "Wasm trap returned as structured MCP error"
+)]
+fn a_trapping_extension_tool_is_a_structured_error() {
+    // No output for mcp__check: the export traps.
+    let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    let resp = call_tool(&mut server, "specforge.cmds.check", json!({}));
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "internal_error", "{error}");
+    assert_eq!(error["diagnostic"]["code"], "E028", "{error}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("MCP tool mcp__check() trapped: export_not_found"),
+        "{error}"
+    );
+    assert_eq!(error["tool"], "specforge.cmds.check", "{error}");
+    assert_eq!(ext.calls().len(), 1, "the export was called");
+    // The server keeps serving.
+    assert!(call(&mut server, "ping", json!({}))["result"].is_object());
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "tool output returned as MCP tool result"
+)]
+fn an_extension_tools_output_is_its_result() {
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        FakeExtension::new().with_output("mcp__check", json!({"checked": true})),
+    );
+    let resp = call_tool(&mut server, "specforge.cmds.check", json!({}));
+    let result = &resp["result"];
+    assert_eq!(result["isError"], false, "{resp}");
+    assert_eq!(result["structuredContent"], json!({"checked": true}));
+    let text: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(text, json!({"checked": true}));
+}
+
+const SUMMARY: &str = "specforge://ext/cmds/summary";
+
+fn with_summary() -> FakeExtension {
+    FakeExtension::new().with_output(
+        "mcp__summary",
+        json!({"content": "{\"commands\":2}", "mime_type": "application/json"}),
+    )
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "URI matched against registered templates"
+)]
+fn an_extension_resource_is_found_by_its_uri_template() {
+    let (mut server, ext, _dir) = fake_extension::initialized(with_summary());
+    let resp = read_resource(&mut server, SUMMARY);
+    assert!(resp["error"].is_null(), "{resp}");
+    // A URI no template of an extension matches reaches no export: the
+    // template has no placeholder, so it names itself only.
+    for other in [
+        "specforge://ext/other/summary",
+        "specforge://ext/cmds/summary/more",
+    ] {
+        let resp = read_resource(&mut server, other);
+        assert_eq!(resp["error"]["code"], -32602, "{resp}");
+        assert_eq!(
+            resp["error"]["message"],
+            format!("Unknown resource URI: {other}")
+        );
+    }
+    assert_eq!(ext.calls().len(), 1, "{:?}", ext.calls());
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "URI passed to mcp__ export"
+)]
+fn an_extension_resource_export_gets_the_uri() {
+    let (mut server, ext, _dir) = fake_extension::initialized(with_summary());
+    read_resource(&mut server, SUMMARY);
+    assert_eq!(
+        ext.calls(),
+        [(
+            EXT.to_string(),
+            "mcp__summary".to_string(),
+            json!({"uri": SUMMARY})
+        )]
+    );
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "Wasm trap returned as structured MCP error"
+)]
+fn a_trapping_extension_resource_is_a_structured_error() {
+    // No output for mcp__summary: the export traps.
+    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
+    let resp = read_resource(&mut server, SUMMARY);
+    let error = resp["error"]
+        .as_object()
+        .unwrap_or_else(|| panic!("{resp}"));
+    let mut keys: Vec<&str> = error.keys().map(String::as_str).collect();
+    keys.sort_unstable();
+    assert_eq!(keys, ["code", "message"], "{resp}");
+    assert_eq!(error["code"], -32602, "{resp}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("E028: MCP resource mcp__summary() trapped: export_not_found"),
+        "{resp}"
+    );
+    assert!(call(&mut server, "ping", json!({}))["result"].is_object());
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "resource content and mime_type returned to client"
+)]
+fn an_extension_resources_content_and_mime_type_are_returned() {
+    let (mut server, _ext, _dir) = fake_extension::initialized(with_summary());
+    let resp = read_resource(&mut server, SUMMARY);
+    let content = &resp["result"]["contents"][0];
+    assert_eq!(content["uri"], SUMMARY, "{resp}");
+    assert_eq!(content["mimeType"], "application/json", "{resp}");
+    assert_eq!(content["text"], "{\"commands\":2}", "{resp}");
 }

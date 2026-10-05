@@ -27,6 +27,16 @@ struct Testable {
     verify_kinds: &'static [&'static str],
     /// Warn (W004) when an entity of this kind declares no obligations.
     requires_obligations: bool,
+    /// The kind is risk-graded by the coverage rule: the field holding an
+    /// entity's risk, and the risk at which one without obligations is an
+    /// A002 error (ADR 0009, B).
+    risk: Option<Risk>,
+}
+
+/// Where a graded kind's risk lives and when its omission is an error.
+struct Risk {
+    field: &'static str,
+    error_at: &'static str,
 }
 
 /// The reserved statement whose meaning this extension supplies.
@@ -41,42 +51,52 @@ const TESTABLE: &[Testable] = &[
         owner: SOFTWARE,
         verify_kinds: &["unit", "contract", "integration", "property", "performance"],
         requires_obligations: true,
+        risk: None,
     },
     Testable {
         kind: "invariant",
         owner: SOFTWARE,
         verify_kinds: &["unit", "integration", "property", "performance", "mutation"],
         requires_obligations: true,
+        risk: Some(Risk {
+            field: "risk",
+            error_at: "high",
+        }),
     },
     Testable {
         kind: "event",
         owner: SOFTWARE,
         verify_kinds: &["integration", "unit", "deadlock_free", "liveness"],
         requires_obligations: true,
+        risk: None,
     },
     Testable {
         kind: "type",
         owner: SOFTWARE,
         verify_kinds: &["unit", "property"],
         requires_obligations: true,
+        risk: None,
     },
     Testable {
         kind: "port",
         owner: SOFTWARE,
         verify_kinds: &["integration", "unit"],
         requires_obligations: true,
+        risk: None,
     },
     Testable {
         kind: "constraint",
         owner: GOVERNANCE,
         verify_kinds: &["unit", "integration", "property", "load", "contract"],
         requires_obligations: false,
+        risk: None,
     },
     Testable {
         kind: "failure_mode",
         owner: GOVERNANCE,
         verify_kinds: &["unit", "integration", "property"],
         requires_obligations: false,
+        risk: None,
     },
 ];
 
@@ -116,7 +136,7 @@ impl Contributions for Testing {
                         "entity '{id}' has verify kind '{value}' not in allowed set {allowed}",
                     )
                     .constraint(|k| {
-                        k.kind("one_of").values(t.verify_kinds);
+                        k.kind(ConstraintKind::OneOf).values(t.verify_kinds);
                     });
             });
         }
@@ -130,7 +150,8 @@ impl Contributions for Testing {
 /// `coverage` — proof obligations, enforcement, and discharge per entity.
 ///
 /// - A001: testable entity with no verify obligations (no intent)
-/// - A002: invariant with no verify obligations (an error when high-risk)
+/// - A002: a risk-graded entity (an invariant) with no verify obligations
+///   (an error when high-risk); the grading is [`TESTABLE`]'s
 /// - A014: an entity's recorded tests include failures
 /// - A015: obligations no passing test names (with recorded results)
 /// - A016: tests name obligations the entity doesn't declare
@@ -139,6 +160,14 @@ impl Contributions for Testing {
 /// links too; this pass only adapts the pass input to it and its findings
 /// to pass diagnostics. `exempt` is parallel to `input.entities`.
 fn pass_coverage(input: &PassInput, exempt: &[bool]) -> PassOutput {
+    // The one kind TESTABLE grades by risk.
+    let graded = TESTABLE
+        .iter()
+        .find_map(|t| t.risk.as_ref().map(|r| (t.kind, r)));
+    let grading = graded.map(|(kind, risk)| coverage::RiskGrading {
+        kind: kind.to_string(),
+        error_at: risk.error_at.to_string(),
+    });
     let entities: Vec<coverage::Entity> = input
         .entities
         .iter()
@@ -150,7 +179,9 @@ fn pass_coverage(input: &PassInput, exempt: &[bool]) -> PassOutput {
             exempt: exempt.get(i).copied().unwrap_or(false),
             verify_kinds: e.verify_kinds.clone(),
             verify_texts: e.verify_texts.clone(),
-            risk: e.fields.get("risk").cloned(),
+            risk: graded
+                .filter(|(kind, _)| *kind == e.kind)
+                .and_then(|(_, risk)| e.fields.get(risk.field).cloned()),
             referenced: e.incoming_edge_count > 0,
         })
         .collect();
@@ -178,7 +209,12 @@ fn pass_coverage(input: &PassInput, exempt: &[bool]) -> PassOutput {
         .as_ref()
         .map(|ids| ids.iter().cloned().collect());
 
-    let assessment = coverage::assess(&entities, results.as_ref(), proved.as_ref());
+    let assessment = coverage::assess(
+        &entities,
+        results.as_ref(),
+        proved.as_ref(),
+        grading.as_ref(),
+    );
     let diagnostics = assessment
         .findings
         .into_iter()

@@ -422,6 +422,7 @@ behavior present_diagnostics_as_json "Present Diagnostics as JSON" {
   ensures {
     one_shape_everywhere "specforge check --format json, MCP validate, the specforge://diagnostics resource and tool _meta present diagnostics in one shape"
     location_both_ways   "each entry carries its span nested under span and the span's start flat as file, line and column"
+    data_only_when_typed "an entry carries data, the diagnostic's typed payload, only when the diagnostic has one"
   }
   contract   """
     Wherever SpecForge prints diagnostics as JSON (specforge check
@@ -434,15 +435,19 @@ behavior present_diagnostics_as_json "Present Diagnostics as JSON" {
     end_line, end_col; null without a location), and the span's start
     flat as file, line and column (null without a location). The shape
     is a superset of the nested and the flat shapes these surfaces used
-    before, so no reader of either breaks.
+    before, so no reader of either breaks. A diagnostic that carries a
+    typed payload (DiagnosticData, e.g. the target of an unresolved
+    reference) MUST present it under data, tagged by kind; one without
+    MUST NOT gain the key, so its entry is unchanged.
   """
   verify unit "diagnostics are presented as one JSON array"
   verify unit "each diagnostic carries code, severity, message, file, line and column"
   verify unit "suggestion is included when available"
   verify unit "the presented JSON is valid and parseable"
   verify unit "the span is nested beside the flat location, with its end positions"
+  verify unit "a typed payload is presented under data, and its absence adds no key"
   verify integration "check and MCP validate present the same diagnostics identically"
-  verify contract "Present Diagnostics as JSON: JSON diagnostic presentation holds — diagnostics_collected, one_shape_everywhere, location_both_ways"
+  verify contract "Present Diagnostics as JSON: JSON diagnostic presentation holds — diagnostics_collected, one_shape_everywhere, location_both_ways, data_only_when_typed"
 }
 
 // ── Agent-Optimized Export (Principle 3: agents are first-class consumers) ──
@@ -485,7 +490,10 @@ behavior export_agent_context_format "Export Agent Context Format" {
     contracts, relationships, and coverage status. Each entity also carries
     the fields its extension declares normative (an invariant's guarantee,
     a decision's decision text), so every kind keeps the text that states
-    what it promises; core reads the flag and knows no field by name. The output MUST omit
+    what it promises; core reads the flag and knows no field by name. The
+    fields an extension declares headline (a behavior's contract, a status)
+    sit at the entity's top level instead; a field no extension declares
+    headline is never lifted, whatever its name. The output MUST omit
     verbose fields (full descriptions, prose) to minimize token consumption.
     The format MUST be valid JSON conforming to the Graph Protocol schema.
     The output MUST include a schema_version field identifying the Graph

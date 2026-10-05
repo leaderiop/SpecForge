@@ -66,13 +66,19 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
 
     Entity enhancements add formal fields to @specforge/software entities:
     - behavior: requires, ensures, maintains, abstract, refines, assumes, satisfies, refinement
-    - invariant: maintains
+    - invariant: maintains, expression (a claim, below)
     - event: sync, follows_protocol, process
     - port.methods: requires, ensures
 
     The requires/ensures/maintains fields accept inline blocks that
     produce ConditionEntry nodes in the AST. These are not standalone
     graph entities but structured annotations on behaviors.
+
+    Proof roles (ADR 0009): a property's expression declares the claim
+    role (it must follow from the declared bounds); an axiom's expression
+    declares the bound role (an axiom is assumed, not proved); and the
+    invariant enhancement adds an optional expression declaring the claim
+    role, so an invariant can state a machine-checkable claim.
 
     Compiler passes: condition_check, layering_verify, event_graph_analyze,
     coverage_tracking (with proper dependency ordering).
@@ -113,7 +119,8 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     three_feature_flags      "feature_flags contains conditions, layering, concurrency"
     flag_dependencies        "layering requires conditions"
     inline_condition_fields  "requires/ensures/maintains fields accept inline blocks producing ConditionEntry nodes"
-    enhancements_declared    "entity_enhancements add requires/ensures/maintains/satisfies/sync/abstract/refines to behavior and follows_protocol/participates_in/sync to event"
+    enhancements_declared    "entity_enhancements add requires/ensures/maintains/satisfies/sync/abstract/refines to behavior, follows_protocol/participates_in/sync to event, and expression to invariant"
+    proof_roles_declared     "property.expression is a claim, axiom.expression a bound, invariant.expression a claim"
     verify_kinds_declared    "verify_kinds contains contract, refinement, deadlock_free, liveness"
     peer_dep_software        "peer_dependencies contains @specforge/software ^1.0 (required)"
     warning_level_strict     "all formal warnings require warning_level=strict"
@@ -141,6 +148,7 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
   verify unit "entity_enhancements add formal fields to software entities"
   verify unit "entity_enhancements add refinement field to behavior"
   verify unit "entity_enhancements add process field to event"
+  verify unit "property and invariant expressions are claims and axiom expressions bounds"
   verify unit "verify_kinds contains contract, refinement, deadlock_free, liveness"
   verify unit "peer_dependencies requires @specforge/software"
   verify unit "formal warnings require warning_level=strict"

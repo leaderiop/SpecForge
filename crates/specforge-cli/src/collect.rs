@@ -7,11 +7,14 @@
 //! This command runs the declared command after the user approves it for
 //! the project, then hands the report to the extension. `--no-run` and
 //! `--report` skip running and parse an existing report instead. The flow
-//! itself lives in [`specforge_emitter::collect`], shared with MCP.
+//! itself lives in [`specforge_ops::collect`], shared with MCP; this
+//! adapter only chooses the consent (a terminal prompt, `--yes`, or what
+//! was approved before) and presents the outcome.
 
 use crate::OutputFormat;
 use specforge_common::find_project_root;
-use specforge_emitter::collect::{self, Collector, Mode, Request, RunnerOutput};
+use specforge_ops::OpError;
+use specforge_ops::collect::{self, Collector, Consent, Mode, Request, RunnerOutput};
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
@@ -25,7 +28,8 @@ pub struct Options<'a> {
 pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
     let Some(root) = find_project_root(path) else {
         let msg = "no specforge project found (missing specforge.json or specforge.spec)";
-        return report_error(msg, "E045", format);
+        format.print_op_error(&OpError::new("E045", msg));
+        return 1;
     };
 
     let (ctx, runtime) = crate::pipeline::compile_with_runtime(&root);
@@ -46,9 +50,14 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
         runner: options.runner,
         mode,
     };
-    let store = collect::consent_path();
-    let mut approve = |collector: &Collector, argv: &[String]| {
-        approved(collector, argv, &root, options.yes, &store, format)
+    let mut prompt = |collector: &Collector, argv: &[String]| ask(collector, argv, &root);
+    let consent = if options.yes {
+        Consent::Yes
+    } else if format == OutputFormat::Json || !std::io::stdin().is_terminal() {
+        // Nobody to ask: only what was approved before runs.
+        Consent::Approved
+    } else {
+        Consent::Prompt(&mut prompt)
     };
     let mut announce = |collector: &Collector, argv: &[String]| {
         if format != OutputFormat::Json {
@@ -65,23 +74,23 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
         &ctx.manifests,
         &runtime,
         &known,
-        &mut approve,
+        consent,
         &mut announce,
     ) {
         Ok(outcome) => outcome,
-        Err(e) => return report_error(&e.message, e.code, format),
+        Err(e) => {
+            format.print_op_error(&e);
+            return 1;
+        }
     };
+    for why in &outcome.unsaved_approvals {
+        eprintln!("warning: could not remember the approval: {why}");
+    }
 
     if format == OutputFormat::Json {
-        let output = serde_json::json!({
-            "status": "collected",
-            "runners": outcome.runners,
-            "diagnostics": specforge_emitter::diagnostics_json(&outcome.diagnostics),
-            "report": outcome.report.display().to_string(),
-        });
         println!(
             "{}",
-            serde_json::to_string_pretty(&output).expect("serialize JSON output")
+            serde_json::to_string_pretty(&outcome.to_json()).expect("serialize JSON output")
         );
     } else {
         for r in &outcome.runners {
@@ -111,22 +120,8 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
     0
 }
 
-/// Whether the collector's command may run: approved before, approved with
-/// `--yes`, or approved now at an interactive prompt (and remembered).
-fn approved(
-    collector: &Collector,
-    argv: &[String],
-    root: &Path,
-    yes: bool,
-    store: &Path,
-    format: OutputFormat,
-) -> bool {
-    if yes || collect::is_approved(store, collector, root) {
-        return true;
-    }
-    if format == OutputFormat::Json || !std::io::stdin().is_terminal() {
-        return false;
-    }
+/// Ask on the terminal whether the collector's command may run here.
+fn ask(collector: &Collector, argv: &[String], root: &Path) -> bool {
     let mut err = std::io::stderr();
     let _ = writeln!(
         err,
@@ -141,28 +136,5 @@ fn approved(
     if std::io::stdin().lock().read_line(&mut answer).is_err() {
         return false;
     }
-    if !matches!(answer.trim(), "y" | "Y" | "yes") {
-        return false;
-    }
-    if let Err(e) = collect::approve(store, collector, root) {
-        eprintln!("warning: could not remember the approval: {e}");
-    }
-    true
-}
-
-fn report_error(msg: &str, code: &str, format: OutputFormat) -> i32 {
-    if format == OutputFormat::Json {
-        let output = serde_json::json!({
-            "error": msg,
-            "code": code,
-            "exit_code": 1,
-        });
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&output).expect("serialize JSON output")
-        );
-    } else {
-        eprintln!("error[{code}]: {msg}");
-    }
-    1
+    matches!(answer.trim(), "y" | "Y" | "yes")
 }

@@ -21,11 +21,11 @@ impl Contributions for Greet {
             });
         });
         c.rule("G101", |r| {
-            r.check(CheckKind::FieldConstraint);
+            r.check(CheckKind::FieldValueConstraint);
             r.target_kind("greeting");
             r.field("style");
             r.constraint(|fc| {
-                fc.kind("field-constraint");
+                fc.kind(ConstraintKind::Matches);
                 fc.pattern("^(warm|formal)$");
             });
             r.severity(ValidationSeverity::Error);
@@ -38,7 +38,4 @@ fn dispatch(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
     None
 }
 
-specforge_extension_sdk::component_guest!(
-    build = specforge_extension_build,
-    handler = dispatch
-);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);

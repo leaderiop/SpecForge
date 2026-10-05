@@ -18,7 +18,7 @@ use super::validation_engine::{
 };
 use crate::{
     EdgeRegistry, FieldRegistry, KindRegistry, ManifestFieldType, ManifestV2, SurfaceContributions,
-    SurfaceRegistryEntry, register_surface_contributions,
+    SurfaceRegistryEntry, refuse_malformed_tool_schemas, register_surface_contributions,
 };
 
 /// Everything the compiler derives from the loaded manifests, before any
@@ -109,14 +109,24 @@ pub fn build_registries(manifests: Vec<ManifestV2>) -> RegistryBuild {
         .iter()
         .map(|m| (m.name.clone(), m.version.clone()))
         .collect();
+    // A tool whose schema is not an object is refused before anything
+    // registers or lists it (E055).
+    let mut surface_diagnostics = Vec::new();
     let surface_inputs: Vec<(String, Option<SurfaceContributions>)> = manifests
         .iter()
-        .map(|m| (m.name.clone(), m.surfaces.clone()))
+        .map(|m| {
+            let surfaces = m.surfaces.clone().map(|mut s| {
+                surface_diagnostics.extend(refuse_malformed_tool_schemas(&m.name, &mut s));
+                s
+            });
+            (m.name.clone(), surfaces)
+        })
         .collect();
-    let (surfaces, surface_diagnostics) = register_surface_contributions(&surface_inputs);
-    let manifest_surfaces: Vec<(String, SurfaceContributions)> = manifests
-        .iter()
-        .filter_map(|m| m.surfaces.as_ref().map(|s| (m.name.clone(), s.clone())))
+    let (surfaces, duplicates) = register_surface_contributions(&surface_inputs);
+    surface_diagnostics.extend(duplicates);
+    let manifest_surfaces: Vec<(String, SurfaceContributions)> = surface_inputs
+        .into_iter()
+        .filter_map(|(name, s)| s.map(|s| (name, s)))
         .collect();
 
     RegistryBuild {

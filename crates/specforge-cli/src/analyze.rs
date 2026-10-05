@@ -6,7 +6,7 @@
 
 use std::path::Path;
 
-use specforge_emitter::truncate_diagnostics;
+use specforge_common::truncate_diagnostics;
 use specforge_ops::analyze::{
     AnalyzeOptions, Gate, ProjectView, ProveOptions, ReportSource, analyze,
 };

@@ -389,7 +389,7 @@ The field's Rust type determines the `field_type`:
 | Rust Type | Protocol Field Type |
 |-----------|-------------------|
 | `String` | `string` |
-| `bool` | `boolean` |
+| `bool` | `bool` |
 | `i64` | `integer` |
 | `Vec<String>` | `string_list` |
 | `EntityRef` | `reference` |
@@ -549,10 +549,8 @@ exports, the entity snapshot for `__pass_*`), and the guest's return value is
 the only channel back.
 
 A typed component host-import surface is future work. When it lands, guests
-will import exactly the functions below — these are the names the host's
-permission matrix (`specforge-wasm::host_functions::is_host_function_allowed`)
-already enforces, and they are kept in lockstep with this table by a drift
-guard test:
+will import the functions below, each allowed only from the call sites listed
+(the contracts are specified in `spec/behaviors/wasm-host-functions.spec`):
 
 | Function | Purpose | Allowed call sites |
 |----------|---------|--------------------|

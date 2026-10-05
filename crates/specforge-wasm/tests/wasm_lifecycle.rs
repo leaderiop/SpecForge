@@ -77,6 +77,7 @@ fn default_manifest() -> ManifestV2 {
         host_api_version: None,
         entity_enhancements: vec![],
         starter_template: None,
+        theme_color: None,
         ext_short: None,
         query_scope: None,
         collector_contributions: vec![],
@@ -240,6 +241,7 @@ fn test_call_validators_collects_diagnostics() {
         message: "custom warning".to_string(),
         span: None,
         suggestion: None,
+        data: None,
     }])
     .unwrap();
 

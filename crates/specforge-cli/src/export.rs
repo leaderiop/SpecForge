@@ -1,16 +1,16 @@
 use specforge_common::{Severity, find_project_root};
-use specforge_emitter::{
-    GraphProtocolSchema, attach_schema_version, detect_breaking_with_diagnostics, generate_schema,
-    persist_schema_cache,
-};
+use specforge_emitter::{GraphProtocolSchema, generate_schema};
 use specforge_ops::export;
+use specforge_ops::schema_cache::{
+    attach_schema_version, detect_breaking_with_diagnostics, persist_schema_cache,
+};
 use std::path::{Path, PathBuf};
 
 use crate::pipeline;
 use crate::{ExportFormat, SchemaFormat};
 
 pub(crate) fn build_schema(
-    ctx: &pipeline::CompilationContext,
+    ctx: &specforge_project::CompilationContext,
 ) -> specforge_emitter::GraphProtocolSchema {
     generate_schema(
         &ctx.kind_registry,
@@ -31,7 +31,10 @@ fn schema_cache_dir(path: &Path) -> PathBuf {
 
 /// The schema the extensions produce, versioned against the one the
 /// previous export cached (`attach_schema_version`).
-fn versioned_schema(ctx: &pipeline::CompilationContext, cache_dir: &Path) -> GraphProtocolSchema {
+fn versioned_schema(
+    ctx: &specforge_project::CompilationContext,
+    cache_dir: &Path,
+) -> GraphProtocolSchema {
     let mut schema = build_schema(ctx);
     attach_schema_version(&mut schema, cache_dir);
     schema
@@ -104,7 +107,7 @@ pub(crate) fn render_plain(diagnostic: &specforge_common::Diagnostic) -> String 
 
 /// The export text, or the exit code after the error is on stderr.
 fn render_export(
-    ctx: &pipeline::CompilationContext,
+    ctx: &specforge_project::CompilationContext,
     generated: &GraphProtocolSchema,
     format: ExportFormat,
     scope: Option<&str>,

@@ -57,7 +57,10 @@ fn context_includes_contracts_and_verify() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
-    let json = specforge_emitter::emit_context(&graph);
+    let json = specforge_emitter::context::emit_context_with_fields(
+        &graph,
+        Some(&crate::support::headline_registry(&["behavior", "feature"])),
+    );
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     let node = &parsed["nodes"].as_array().unwrap()[0];
@@ -83,7 +86,7 @@ fn context_omits_verbose_prose_fields() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
-    let json = specforge_emitter::emit_context(&graph);
+    let json = specforge_emitter::context::emit_context(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     let node = &parsed["nodes"].as_array().unwrap()[0];
@@ -127,7 +130,7 @@ fn context_includes_edges_and_schema_version() {
         label: Sym::new("behaviors"),
     });
 
-    let json = specforge_emitter::emit_context(&graph);
+    let json = specforge_emitter::context::emit_context(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     assert!(parsed["schema_version"].is_string());
@@ -143,7 +146,7 @@ fn context_conforms_to_graph_protocol_schema() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
-    let json = specforge_emitter::emit_context(&graph);
+    let json = specforge_emitter::context::emit_context(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     // Graph Protocol requires: schema_version, nodes array, edges array
@@ -168,8 +171,8 @@ fn context_is_smaller_than_full_json() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
 
-    let context = specforge_emitter::emit_context(&graph);
-    let full = specforge_emitter::emit_json(&graph);
+    let context = specforge_emitter::context::emit_context(&graph);
+    let full = specforge_emitter::json::emit_json(&graph);
     assert!(
         context.len() < full.len(),
         "context ({}) should be smaller than full ({})",
@@ -221,7 +224,10 @@ fn context_keeps_normative_fields() {
             required: false,
             inverse_of: None,
             normative,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
+            proof_role: None,
         });
     }
 
@@ -242,4 +248,82 @@ fn context_keeps_normative_fields() {
         "prose stays out"
     );
     assert!(emit(None).get("fields").is_none(), "no registry, no fields");
+}
+
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "context format includes entity IDs and contracts"
+)]
+fn context_lifts_the_fields_an_extension_declares_headline() {
+    use specforge_registry::{FieldRegistry, FieldRegistryEntry, ManifestFieldType};
+
+    let mut fields = FieldMap::new();
+    fields.push(
+        Sym::new("contract"),
+        FieldValue::String("The system MUST do X".to_string()),
+    );
+    fields.push(
+        Sym::new("status"),
+        FieldValue::Identifier("done".to_string()),
+    );
+    let mut graph = Graph::new();
+    for (id, kind) in [("b", "behavior"), ("t", "type")] {
+        graph.add_node(Node {
+            id: EntityId { raw: Sym::new(id) },
+            kind: EntityKind {
+                raw: Sym::new(kind),
+            },
+            title: None,
+            fields: fields.clone(),
+            source_span: span(),
+            methods: Vec::new(),
+        });
+    }
+    // Only `behavior` declares the two as headline fields; on `type` they
+    // are struct members.
+    let mut registry = FieldRegistry::new();
+    for field in ["contract", "status"] {
+        registry.register(FieldRegistryEntry {
+            kind_name: "behavior".to_string(),
+            field_name: field.to_string(),
+            description: None,
+            field_type: ManifestFieldType::String,
+            source_extension: "@test/ext".to_string(),
+            edge: None,
+            target_kind: None,
+            file_reference: false,
+            required: false,
+            inverse_of: None,
+            normative: field == "contract",
+            exempts_obligations: false,
+            headline: true,
+            derived_from: None,
+            proof_role: None,
+        });
+    }
+    let options = specforge_emitter::EmitOptions {
+        format: specforge_emitter::EmitFormat::Context,
+        field_registry: Some(&registry),
+        ..Default::default()
+    };
+    let json = specforge_emitter::emit(&graph, &options).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    let node = |id: &str| {
+        parsed["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|n| n["id"] == id)
+            .unwrap()
+            .clone()
+    };
+    let b = node("b");
+    assert_eq!(b["contract"], "The system MUST do X", "{b}");
+    assert_eq!(b["status"], "done", "{b}");
+    assert!(b.get("fields").is_none(), "a headline is not repeated: {b}");
+    let t = node("t");
+    assert!(
+        t.get("contract").is_none() && t.get("status").is_none(),
+        "{t}"
+    );
 }

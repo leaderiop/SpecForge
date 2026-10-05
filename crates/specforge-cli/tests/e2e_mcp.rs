@@ -996,7 +996,8 @@ fn mcp_tool_coverage_returns_status() {
     verify = "specforge.inspect returns full entity details"
 )]
 fn mcp_tool_inspect_returns_entity_detail() {
-    let responses = mcp_session(
+    // The builtins declare behavior's `contract` the headline statement.
+    let responses = mcp_session_with_builtins(
         BASIC_SPEC,
         &[mcp_request(
             1,
@@ -1033,7 +1034,14 @@ fn mcp_tool_inspect_returns_entity_detail() {
     assert_eq!(content["source_span"]["file"], "main.spec", "{content}");
     assert_eq!(content["source_span"]["start_line"], 1, "{content}");
     assert_eq!(content["coverage_status"], "uncovered", "{content}");
-    assert_eq!(content["diagnostics"], serde_json::json!([]), "{content}");
+    // Only alpha's own diagnostics (the builtins' rules), never beta's.
+    let diagnostics = content["diagnostics"].as_array().expect("diagnostics");
+    assert!(
+        diagnostics
+            .iter()
+            .all(|d| d["message"].as_str().unwrap().contains("'alpha'")),
+        "{content}"
+    );
 }
 
 #[specforge_test(
@@ -1185,7 +1193,7 @@ fn mcp_tool_outline_returns_entities_in_file() {
     verify = "format parameter changes output serialization"
 )]
 fn mcp_tool_query_format_context() {
-    let responses = mcp_session(
+    let responses = mcp_session_with_builtins(
         BASIC_SPEC,
         &[
             mcp_request(
@@ -1368,7 +1376,7 @@ fn mcp_tool_export_format_context() {
             }),
         )
     };
-    let responses = mcp_session(
+    let responses = mcp_session_with_builtins(
         BASIC_SPEC,
         &[export(1, "context"), export(2, "brief"), export(3, "graph")],
     );
@@ -1550,7 +1558,7 @@ fn mcp_resource_read_schema() {
     verify = "specforge://context resource returns token-optimized format"
 )]
 fn mcp_resource_read_context() {
-    let responses = mcp_session(
+    let responses = mcp_session_with_builtins(
         BASIC_SPEC,
         &[
             mcp_request(

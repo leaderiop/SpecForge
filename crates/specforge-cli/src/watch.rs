@@ -66,7 +66,7 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
                 "edges": session.graph().edge_count(),
                 "errors": errors,
                 "warnings": warnings,
-                "diagnostics": specforge_emitter::diagnostics_json(&diagnostics),
+                "diagnostics": specforge_common::diagnostics_json(&diagnostics),
             })
         );
     } else {
@@ -150,7 +150,7 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
                         "nodes": session.graph().node_count(),
                         "errors": errors,
                         "warnings": warnings,
-                        "diagnostics": specforge_emitter::diagnostics_json(&update.diagnostics),
+                        "diagnostics": specforge_common::diagnostics_json(&update.diagnostics),
                     })
                 );
             } else {
@@ -188,7 +188,7 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
                     "removed_edges": result.delta.removed_edges.len(),
                     "errors": errors,
                     "warnings": warnings,
-                    "diagnostics": specforge_emitter::diagnostics_json(&result.diagnostics),
+                    "diagnostics": specforge_common::diagnostics_json(&result.diagnostics),
                     "changed_diagnostic_files": result.changed_diagnostic_files,
                     "verification_failed": matches!(result.verification, Some(Err(_))),
                     "verification": match &result.verification {

@@ -13,6 +13,7 @@
           "edge": null,
           "field_type": "string",
           "file_reference": false,
+          "headline": true,
           "inverse_of": null,
           "name": "status",
           "required": true,
@@ -235,6 +236,7 @@
           "inverse_of": null,
           "name": "metric",
           "normative": true,
+          "proof_role": "bound",
           "required": false,
           "target_kind": null
         },

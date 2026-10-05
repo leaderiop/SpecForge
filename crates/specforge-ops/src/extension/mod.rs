@@ -5,11 +5,16 @@ mod add;
 mod diamond;
 mod list;
 mod remove;
+mod update;
 
 pub use add::{AddOutcome, AddRequest, Source, Trust, add, declared, parse};
 pub use diamond::check_diamonds;
 pub use list::{ExtensionEntry, ProviderEntry, Status, list, providers};
 pub use remove::{RemoveOutcome, RemoveRequest, remove};
+pub use update::{
+    BatchUpdateCompleted, ExtensionUpdate, NO_LOCK, UpdateOutcome, UpdateRequest, UpdateStatus,
+    update,
+};
 
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
 use std::path::{Path, PathBuf};

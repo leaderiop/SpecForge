@@ -1,9 +1,7 @@
 use std::path::Path;
 
-use specforge_component::ComponentRuntime;
-
-pub use specforge_component::project_runtime;
-pub use specforge_project::CompilationContext;
+use specforge_component::{ComponentRuntime, project_runtime};
+use specforge_project::CompilationContext;
 
 /// Compile a project and also return the runtime that produced the context,
 /// so later stages (extension passes, source scanning) reuse one engine
@@ -14,11 +12,7 @@ pub fn compile_with_runtime(path: &Path) -> (CompilationContext, ComponentRuntim
     (ctx, runtime)
 }
 
+/// Compile the project at `path` with its extensions.
 pub fn compile(path: &Path) -> CompilationContext {
     compile_with_runtime(path).0
-}
-
-/// Backwards-compat alias for the shared constructor.
-pub fn build_runtime(path: &Path) -> ComponentRuntime {
-    project_runtime(path)
 }

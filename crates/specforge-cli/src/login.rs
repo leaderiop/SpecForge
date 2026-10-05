@@ -1,8 +1,8 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_registry::{
+use specforge_registry_client::{
     AuthMethod, HttpRegistryClient, RegistryCredential,
-    client::credentials::{credentials_path, read_credentials, write_credentials},
+    credentials::{credentials_path, read_credentials, write_credentials},
     validate_credentials,
 };
 use std::path::Path;
@@ -18,18 +18,14 @@ pub fn run(
     let token_value = match token {
         Some(t) => t.to_string(),
         None => {
-            print_error(
-                format,
-                "no token provided. Use --token <TOKEN>",
-                "R-LOGIN-001",
-            );
+            format.print_error("no token provided. Use --token <TOKEN>", "R-LOGIN-001");
             return 1;
         }
     };
 
     // The token is validated against a configured registry; with none,
     // fail before any network call (ADR 0004 N1).
-    let registries = match specforge_ops::registry::configured(path, "login") {
+    let registries = match specforge_ops_registry::configured(path, "login") {
         Ok(configured) => {
             format.eprint_diagnostics(&configured.diagnostics);
             configured.registries
@@ -67,7 +63,7 @@ pub fn run(
     let expires_at = match validate_credentials(&client, &registry, &credential) {
         Ok(expires_at) => expires_at,
         Err(diag) => {
-            print_error(format, &diag.message, &diag.code);
+            format.print_error(&diag.message, &diag.code);
             return 1;
         }
     };
@@ -78,12 +74,12 @@ pub fn run(
     let cred_path = credentials_path();
     let mut store = read_credentials(&cred_path).unwrap_or_default();
     if let Err(message) = store.set_token(alias, token_value, expires_at) {
-        print_error(format, &message, "R-LOGIN-002");
+        format.print_error(&message, "R-LOGIN-002");
         return 1;
     }
 
     if let Err(diag) = write_credentials(&cred_path, &store) {
-        print_error(format, &diag.message, &diag.code);
+        format.print_error(&diag.message, &diag.code);
         return 1;
     }
 
@@ -110,7 +106,7 @@ pub fn run_logout(registry_alias: Option<&str>, format: OutputFormat) -> i32 {
 
     let mut store = read_credentials(&cred_path).unwrap_or_default();
     let removed = store.remove(alias);
-    specforge_registry::client::secrets::delete_secret(alias);
+    specforge_registry_client::secrets::delete_secret(alias);
 
     if !removed {
         match format {
@@ -128,7 +124,7 @@ pub fn run_logout(registry_alias: Option<&str>, format: OutputFormat) -> i32 {
     }
 
     if let Err(diag) = write_credentials(&cred_path, &store) {
-        print_error(format, &diag.message, &diag.code);
+        format.print_error(&diag.message, &diag.code);
         return 1;
     }
 
@@ -145,14 +141,4 @@ pub fn run_logout(registry_alias: Option<&str>, format: OutputFormat) -> i32 {
     }
 
     0
-}
-
-fn print_error(format: OutputFormat, message: &str, code: &str) {
-    match format {
-        OutputFormat::Json => {
-            let output = json!({"error": message, "code": code});
-            println!("{}", serde_json::to_string_pretty(&output).unwrap());
-        }
-        OutputFormat::Human => eprintln!("error[{}]: {}", code, message),
-    }
 }

@@ -11,15 +11,11 @@ use "types/diagnostics"
 behavior pe_query_milestone_completion "Query Milestone Completion" {
   category query
   types    [MilestoneCompletionPayload, ProductFeature, FeatureStatus]
-  produces [pe_milestone_completion_queried]
   contract """
     The @specforge/product extension MUST compute the completion ratio
     for a milestone by counting features with status=done vs total features
     in the milestone. completion_ratio = done_count / total_features.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     ratio_computed    "completion_ratio is done_count / total_features, finite float in [0.0, 1.0]"
     empty_milestone   "milestone with zero features returns completion_ratio 0.0"
@@ -37,16 +33,12 @@ behavior pe_query_milestone_completion "Query Milestone Completion" {
 behavior pe_query_deliverable_traceability "Query Deliverable Traceability" {
   category query
   types    [DeliverableTraceabilityPayload, ProductDeliverable, ProductTraceabilityPayload]
-  produces [pe_deliverable_traceability_queried, pe_traceability_computed]
   contract """
     The @specforge/product extension MUST enumerate all transitive features
     reachable from a deliverable via two paths: journeys (DeliverableSupportsJourney
     -> JourneyExercisesFeature) and modules (DeliverableContainsModule -> ModuleContainsFeature).
     The union of both path sets gives the deliverable's full feature scope.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     both_paths_traced "features reachable via journeys and modules are both included"
     deduplication     "features reachable via both paths appear once in the result"
@@ -64,14 +56,10 @@ behavior pe_query_deliverable_traceability "Query Deliverable Traceability" {
 behavior pe_query_journey_coverage "Query Journey Coverage" {
   category query
   types    [JourneyCoveragePayload, ProductJourney, FeatureStatus]
-  produces [pe_journey_coverage_queried]
   contract """
     The @specforge/product extension MUST check whether features referenced
     by a journey have status=done. Features without status=done are uncovered.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     coverage_computed "covered_features count reflects features with status=done"
     uncovered_listed  "uncovered feature IDs are returned in the result"
@@ -89,7 +77,6 @@ behavior pe_query_journey_coverage "Query Journey Coverage" {
 behavior pe_query_feature_ordering "Query Feature Ordering" {
   category query
   types    [FeatureOrderingPayload, ProductFeature, Priority, ProductListSortOrder]
-  produces [pe_feature_ordering_queried]
   contract """
     The @specforge/product extension MUST produce a topological sort of
     features based on FeatureDependsOn edges. Within each topological
@@ -99,9 +86,6 @@ behavior pe_query_feature_ordering "Query Feature Ordering" {
     dependency graph contains cycles, has_cycles MUST be true and
     cycle_members MUST list the features involved in the cycle.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     topological_order "sorted_features is in dependency order (dependencies before dependents)"
     priority_tiebreak "features at the same topological level are sorted by priority descending"
@@ -124,7 +108,6 @@ behavior pe_query_feature_ordering "Query Feature Ordering" {
 behavior pe_query_milestone_timeline "Query Milestone Timeline" {
   category query
   types    [MilestoneTimelinePayload, MilestoneTimelineEntry, ProductMilestone]
-  produces [pe_milestone_timeline_queried]
   contract """
     The @specforge/product extension MUST produce a sorted timeline of all
     milestones. Milestones with target_date are sorted chronologically;
@@ -132,10 +115,10 @@ behavior pe_query_milestone_timeline "Query Milestone Timeline" {
     Overdue milestones (target_date < as_of_date AND status != completed)
     are flagged with is_overdue=true in the query result.
 
-    The as_of_date parameter MUST be explicitly provided or default to the
-    build timestamp (captured once at build start). This ensures
-    deterministic results: the same spec files + the same as_of_date always
-    produce the same timeline.
+    as_of_date is the --as-of arg when given, else the host's today
+    (CommandInput.today, the UTC date of the call, YYYY-MM-DD). The query
+    is a function of its input: the same spec files and the same
+    as_of_date always produce the same timeline.
 
     IMPORTANT: Overdue detection is a QUERY-TIME operation, not a
     compile-time validation. I058 markers appear only in the timeline
@@ -143,9 +126,6 @@ behavior pe_query_milestone_timeline "Query Milestone Timeline" {
     emitted during specforge check. This preserves deterministic
     compilation — specforge check never depends on wall-clock time.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     date_sorted              "milestones with target_date are sorted chronologically (earliest first)"
     undated_last             "milestones without target_date appear after all dated milestones"
@@ -153,7 +133,7 @@ behavior pe_query_milestone_timeline "Query Milestone Timeline" {
     completed_not_overdue    "milestones with status=completed are never marked overdue regardless of target_date"
     empty_timeline           "zero milestones returns empty milestones list and overdue_count=0"
     no_compile_diagnostic    "overdue detection does NOT emit I058 during specforge check — query-time only"
-    as_of_date_explicit      "as_of_date defaults to build timestamp, not wall-clock time"
+    as_of_date_explicit      "as_of_date is --as-of when given, else the today the host passes"
     deterministic_tiebreaker "entities at the same topological level and priority are sorted alphabetically by entity ID for deterministic stable ordering; undated milestones and milestones sharing a target_date use entity ID as tiebreaker"
   }
   features [pe_query_lifecycle_metrics]
@@ -170,7 +150,6 @@ behavior pe_query_milestone_timeline "Query Milestone Timeline" {
 behavior pe_query_feature_deliverables "Query Feature Deliverables" {
   category query
   types    [FeatureDeliverablePayload, ProductFeature, ProductDeliverable]
-  produces [pe_feature_deliverables_queried]
   contract """
     The @specforge/product extension MUST compute which deliverables
     transitively contain a given feature by traversing reverse paths:
@@ -178,9 +157,6 @@ behavior pe_query_feature_deliverables "Query Feature Deliverables" {
     and feature <- ModuleContainsFeature <- module <- DeliverableContainsModule <- deliverable.
     The union of both path sets gives the feature's full deliverable scope.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     both_paths_traversed "deliverables reachable via reverse journey and module paths are both included"
     deduplication        "deliverables reachable via both paths appear once in the result"
@@ -196,110 +172,14 @@ behavior pe_query_feature_deliverables "Query Feature Deliverables" {
   verify unit "feature deliverable query is deterministic across repeated queries"
 }
 
-behavior pe_query_feature_milestones "Query Feature Milestones" {
-  category query
-  types    [FeatureMilestonePayload, ProductFeature, ProductMilestone]
-  produces [pe_feature_milestones_queried]
-  contract """
-    The @specforge/product extension MUST compute which milestones
-    schedule a given feature by traversing reverse MilestoneDeliversFeature edges.
-  """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
-  ensures {
-    reverse_traversal "milestones found via reverse MilestoneDeliversFeature edge traversal"
-    empty_feature     "feature not in any milestone returns empty milestones list"
-    sorted_by_id      "milestones are returned sorted alphabetically by entity ID for deterministic ordering"
-    deterministic     "same graph input always produces same result"
-  }
-  features [pe_query_traceability]
-  verify unit "feature in milestone returns that milestone"
-  verify unit "feature in multiple milestones returns all sorted by ID"
-  verify unit "feature not in any milestone returns empty list"
-}
-
-behavior pe_query_persona_journeys "Query Persona Journeys" {
-  category query
-  types    [PersonaJourneyPayload, ProductPersona, ProductJourney]
-  produces [pe_persona_journeys_queried]
-  contract """
-    The @specforge/product extension MUST compute which journeys
-    reference a given persona by traversing reverse JourneyTargetsPersona edges.
-  """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
-  ensures {
-    reverse_traversal "journeys found via reverse JourneyTargetsPersona edge traversal"
-    empty_persona     "persona not in any journey returns empty journeys list"
-    sorted_by_id      "journeys are returned sorted alphabetically by entity ID for deterministic ordering"
-    deterministic     "same graph input always produces same result"
-  }
-  features [pe_query_traceability]
-  verify unit "persona referenced by journey returns that journey"
-  verify unit "persona referenced by multiple journeys returns all sorted by ID"
-  verify unit "persona not referenced by any journey returns empty list"
-}
-
-behavior pe_query_channel_journeys "Query Channel Journeys" {
-  category query
-  types    [ChannelJourneyPayload, ProductChannel, ProductJourney]
-  produces [pe_channel_journeys_queried]
-  contract """
-    The @specforge/product extension MUST compute which journeys
-    reference a given channel by traversing reverse JourneyUsesChannel edges.
-  """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
-  ensures {
-    reverse_traversal "journeys found via reverse JourneyUsesChannel edge traversal"
-    empty_channel     "channel not in any journey returns empty journeys list"
-    sorted_by_id      "journeys are returned sorted alphabetically by entity ID for deterministic ordering"
-    deterministic     "same graph input always produces same result"
-  }
-  features [pe_query_traceability]
-  verify unit "channel referenced by journey returns that journey"
-  verify unit "channel referenced by multiple journeys returns all sorted by ID"
-  verify unit "channel not referenced by any journey returns empty list"
-}
-
-behavior pe_query_module_deliverables "Query Module Deliverables" {
-  category query
-  types    [ModuleDeliverablePayload, ProductModule, ProductDeliverable]
-  produces [pe_module_deliverables_queried]
-  contract """
-    The @specforge/product extension MUST compute which deliverables
-    contain a given module by traversing reverse DeliverableContainsModule edges.
-  """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
-  ensures {
-    reverse_traversal "deliverables found via reverse DeliverableContainsModule edge traversal"
-    empty_module      "module not in any deliverable returns empty deliverables list"
-    sorted_by_id      "deliverables are returned sorted alphabetically by entity ID for deterministic ordering"
-    deterministic     "same graph input always produces same result"
-  }
-  features [pe_query_traceability]
-  verify unit "module in deliverable returns that deliverable"
-  verify unit "module in multiple deliverables returns all sorted by ID"
-  verify unit "module not in any deliverable returns empty list"
-}
-
 behavior pe_query_term_graph "Query Term Graph" {
   category query
   types    [TermGraphPayload, ProductTerm]
-  produces [pe_term_graph_queried]
   contract """
     The @specforge/product extension MUST compute related terms reachable
     from a given term via N-hop TermReferencesRelatedTerm traversal. The maxHops
     parameter limits traversal depth (default 1).
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     n_hop_traversal  "related_terms includes terms reachable within maxHops"
     default_one_hop  "maxHops defaults to 1 when not specified"
@@ -319,55 +199,9 @@ behavior pe_query_term_graph "Query Term Graph" {
   verify unit "maxHops=0 returns empty related_terms"
 }
 
-behavior pe_query_milestone_deliverables "Query Milestone Deliverables" {
-  category query
-  types    [MilestoneDeliverablePayload, ProductMilestone, ProductDeliverable]
-  produces [pe_milestone_deliverables_queried]
-  contract """
-    The @specforge/product extension MUST compute which deliverables
-    include a given milestone by traversing reverse DeliverableTrackedByMilestone edges.
-  """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
-  ensures {
-    reverse_traversal "deliverables found via reverse DeliverableTrackedByMilestone edge traversal"
-    empty_milestone   "milestone not in any deliverable returns empty deliverables list"
-    sorted_by_id      "deliverables are returned sorted alphabetically by entity ID for deterministic ordering"
-    deterministic     "same graph input always produces same result"
-  }
-  features [pe_query_traceability]
-  verify unit "milestone in deliverable returns that deliverable"
-  verify unit "milestone in multiple deliverables returns all sorted by ID"
-  verify unit "milestone not in any deliverable returns empty list"
-}
-
-behavior pe_query_module_features "Query Module Features" {
-  category query
-  types    [ModuleFeaturePayload, ProductModule, ProductFeature]
-  produces [pe_module_features_queried]
-  contract """
-    The @specforge/product extension MUST compute which features a given
-    module implements by traversing outgoing ModuleContainsFeature edges.
-  """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
-  ensures {
-    forward_traversal "features found via outgoing ModuleContainsFeature edge traversal"
-    empty_module      "module with no features returns empty features list"
-    sorted_by_id      "features are returned sorted alphabetically by entity ID for deterministic ordering"
-    deterministic     "same graph input always produces same result"
-  }
-  features [pe_query_traceability]
-  verify unit "module with features returns those features"
-  verify unit "module with multiple features returns all sorted by ID"
-  verify unit "module with no features returns empty list"
-}
-
 behavior pe_query_entity_not_found "Query Entity Not Found" {
   category query
-  types    [ProductQueryError, ProductQueryFailedPayload]
+  types    [ProductQueryError]
   contract """
     Product graph queries receiving a non-existent entity ID MUST return
     a ProductQueryError with a descriptive message and optionally a
@@ -400,7 +234,6 @@ behavior pe_query_deliverable_completion "Query Deliverable Completion" {
     ProductMilestone,
     MilestoneStatus,
   ]
-  produces [pe_deliverable_completion_queried]
   contract """
     The @specforge/product extension MUST compute the aggregate milestone
     completion for a deliverable by traversing all DeliverableTrackedByMilestone
@@ -408,9 +241,6 @@ behavior pe_query_deliverable_completion "Query Deliverable Completion" {
     status=completed) / milestone_count. Deliverable with zero milestones
     returns completion_ratio 0.0.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     ratio_computed    "completion_ratio is completed_count / milestone_count, finite float in [0.0, 1.0]"
     empty_deliverable "deliverable with zero milestones returns completion_ratio 0.0"
@@ -428,7 +258,6 @@ behavior pe_query_deliverable_completion "Query Deliverable Completion" {
 behavior pe_query_milestone_velocity "Query Milestone Velocity" {
   category query
   types    [MilestoneVelocityPayload, ProductQueryError]
-  produces [pe_milestone_velocity_queried]
   contract """
     The @specforge/product extension MUST provide a velocity query for
     milestones that computes: total/done/in_progress/remaining feature
@@ -436,17 +265,16 @@ behavior pe_query_milestone_velocity "Query Milestone Velocity" {
     target_date if start_date absent) relative to as_of_date, estimated
     days remaining (based on current velocity), and features per day.
 
-    The as_of_date parameter MUST be explicitly provided or default to
-    the build timestamp (captured once at build start). This ensures
-    deterministic results: the same spec files + the same as_of_date
-    always produce the same velocity metrics.
+    as_of_date is the --as-of arg when given, else the host's today
+    (CommandInput.today, the UTC date of the call, YYYY-MM-DD). The same
+    spec files and the same as_of_date always produce the same velocity
+    metrics.
 
     When no features are done, features_per_day is null. When neither
     start_date nor target_date is present, days_elapsed and
     days_remaining are null.
   """
   requires {
-    graph_ready      "product graph is in ready state"
     milestone_exists "milestone with given ID exists in the graph"
   }
   ensures {
@@ -455,7 +283,7 @@ behavior pe_query_milestone_velocity "Query Milestone Velocity" {
     velocity_correct    "features_per_day = done / days_elapsed when both > 0"
     null_when_unknown   "features_per_day is null when done_features == 0"
     days_null_no_date   "days_elapsed and days_remaining are null when no date fields present"
-    as_of_date_explicit "as_of_date defaults to build timestamp, not wall-clock time"
+    as_of_date_explicit "as_of_date is --as-of when given, else the today the host passes"
     deterministic       "same inputs + same as_of_date = same velocity result"
     not_found_suggests  "missing milestone ID returns ENTITY_NOT_FOUND with suggestion"
   }
@@ -471,7 +299,6 @@ behavior pe_query_milestone_velocity "Query Milestone Velocity" {
 behavior pe_query_persona_features "Query Persona Features" {
   category query
   types    [PersonaFeaturePayload, ProductQueryError]
-  produces [pe_persona_features_queried]
   contract """
     The @specforge/product extension MUST provide a multi-hop query that
     traverses persona -> JourneyTargetsPersona -> journey -> JourneyExercisesFeature ->
@@ -480,7 +307,6 @@ behavior pe_query_persona_features "Query Persona Features" {
     answers the question: "What features does this persona need?"
   """
   requires {
-    graph_ready    "product graph is in ready state"
     persona_exists "persona with given ID exists in the graph"
   }
   ensures {
@@ -502,7 +328,6 @@ behavior pe_query_persona_features "Query Persona Features" {
 behavior pe_query_feature_impact "Query Feature Impact" {
   category query
   types    [FeatureImpactPayload, ProductQueryError]
-  produces [pe_feature_impact_queried]
   contract """
     The @specforge/product extension MUST provide a transitive impact
     analysis query that, given a feature ID, returns all entities that
@@ -510,17 +335,19 @@ behavior pe_query_feature_impact "Query Feature Impact" {
     traverses: reverse JourneyExercisesFeature -> affected journeys, reverse
     MilestoneDeliversFeature -> affected milestones, reverse ModuleContainsFeature ->
     affected modules, then DeliverableSupportsJourney/DeliverableContainsModule ->
-    affected deliverables, and forward FeatureDependsOn -> dependent
-    features. total_affected_entities is the count of all unique affected
-    entities across all categories.
+    affected deliverables, and reverse FeatureDependsOn (transitively) ->
+    dependent features. Only a depends_on reference makes a feature a
+    dependent: a feature that lists it under features (a "relates to"
+    link) is not one. total_affected_entities is the count of all unique
+    affected entities across all categories.
   """
   requires {
-    graph_ready    "product graph is in ready state"
     feature_exists "feature with given ID exists in the graph"
   }
   ensures {
     transitive_traversal  "follows all reverse edge paths from feature"
     includes_dependents   "dependent_features includes transitive FeatureDependsOn reverse"
+    relates_to_excluded   "a feature linked only by features (relates to) is not a dependent"
     deliverables_via_both "affected_deliverables found via both journey and module paths"
     total_is_union        "total_affected_entities is the deduplicated union of all arrays"
     not_found_suggests    "missing feature ID returns ENTITY_NOT_FOUND with suggestion"
@@ -531,6 +358,7 @@ behavior pe_query_feature_impact "Query Feature Impact" {
   verify unit "feature with no references returns zero affected entities"
   verify unit "affected deliverables found via both journey and module paths"
   verify unit "total_affected_entities is deduplicated count"
+  verify unit "a feature that only relates to the feature is not a dependent"
 }
 
 // -- Unscheduled Features ----------------------------------------------------
@@ -538,7 +366,6 @@ behavior pe_query_feature_impact "Query Feature Impact" {
 behavior pe_query_unscheduled_features "Query Unscheduled Features" {
   category query
   types    [UnscheduledFeaturesPayload]
-  produces [pe_unscheduled_features_queried]
   contract """
     The @specforge/product extension MUST provide a query that returns
     all features not scheduled in any milestone. A feature is unscheduled
@@ -547,9 +374,6 @@ behavior pe_query_unscheduled_features "Query Unscheduled Features" {
     unscheduled feature IDs. This enables planners and agents to identify
     features that exist but have not been committed to any release phase.
   """
-  requires {
-    graph_ready "product graph is in ready state"
-  }
   ensures {
     correct_set      "returned features have zero MilestoneDeliversFeature incoming edges"
     exhaustive       "no unscheduled feature is omitted"
@@ -565,7 +389,6 @@ behavior pe_query_unscheduled_features "Query Unscheduled Features" {
 behavior pe_query_feature_overlap "Query Cross-Deliverable Feature Overlap" {
   category query
   types    [FeatureOverlapPayload, FeatureOverlapEntry]
-  produces [pe_feature_overlap_queried]
   contract """
     The @specforge/product extension MUST provide a query that returns
     features shared across multiple deliverables. A feature overlaps if
@@ -574,9 +397,6 @@ behavior pe_query_feature_overlap "Query Cross-Deliverable Feature Overlap" {
     overlapping feature with its containing deliverable IDs. This enables
     release planners to identify shared dependencies across delivery streams.
   """
-  requires {
-    graph_ready "product graph is in ready state"
-  }
   ensures {
     correct_overlap "each returned feature is reachable from 2+ deliverables"
     exhaustive      "no overlapping feature is omitted"
@@ -593,7 +413,6 @@ behavior pe_query_feature_overlap "Query Cross-Deliverable Feature Overlap" {
 behavior pe_query_persona_coverage_matrix "Query Persona Coverage Matrix" {
   category query
   types    [PersonaCoverageMatrixPayload, PersonaCoverageEntry]
-  produces [pe_persona_coverage_matrix_queried]
   contract """
     The @specforge/product extension MUST provide a query that computes
     a coverage matrix showing which features each persona can reach via
@@ -604,9 +423,6 @@ behavior pe_query_persona_coverage_matrix "Query Persona Coverage Matrix" {
     mean of all persona coverage_ratios. Personas with zero journeys
     get coverage_ratio=0.0.
   """
-  requires {
-    graph_ready "product graph is in ready state"
-  }
   ensures {
     per_persona         "one entry per persona in the graph"
     reachable_correct   "reachable features match persona→journey→feature traversal"
@@ -624,14 +440,8 @@ behavior pe_query_persona_coverage_matrix "Query Persona Coverage Matrix" {
 
 behavior pe_query_channel_coverage_matrix "Query Channel Coverage Matrix" {
   category query
-  types    [
-    ChannelCoverageMatrixPayload,
-    ChannelCoverageEntry,
-    PaginatedQueryInput,
-    PaginationMetadata,
-  ]
+  types    [ChannelCoverageMatrixPayload, ChannelCoverageEntry, PaginationMetadata]
   ports    [ProductQueryPort, GraphQueryPort]
-  produces [pe_channel_coverage_matrix_queried]
   contract """
     The @specforge/product extension MUST provide a query that computes
     a coverage matrix showing which features each channel can reach via
@@ -643,9 +453,6 @@ behavior pe_query_channel_coverage_matrix "Query Channel Coverage Matrix" {
     get coverage_ratio=0.0. This is the symmetric counterpart to
     pe_query_persona_coverage_matrix.
   """
-  requires {
-    graph_ready "product graph is in ready state"
-  }
   ensures {
     per_channel         "one entry per channel in the graph"
     reachable_correct   "reachable features match channel→journey→feature traversal"
@@ -669,7 +476,6 @@ behavior pe_query_channel_coverage_matrix "Query Channel Coverage Matrix" {
 behavior pe_query_critical_path "Query Critical Path" {
   category query
   types    [CriticalPathPayload, CriticalPathNode]
-  produces [pe_critical_path_queried]
   contract """
     The @specforge/product extension MUST provide a query that computes
     the critical path through the milestone dependency graph. The critical
@@ -681,10 +487,6 @@ behavior pe_query_critical_path "Query Critical Path" {
     in_progress milestones on the critical path). Milestones without
     target_date are included but contribute no date information.
   """
-  requires {
-    graph_ready "product graph is in ready state"
-    no_cycles   "milestone dependency graph is acyclic (E015 not fired)"
-  }
   ensures {
     longest_path       "critical path is the longest dependency chain"
     zero_slack         "all nodes on the path have slack_days=0 or null"
@@ -706,16 +508,12 @@ behavior pe_query_critical_path "Query Critical Path" {
 behavior pe_query_persona_channels "Query Persona Channels" {
   category query
   types    [PersonaChannelPayload, ProductPersona, ProductJourney, ProductChannel]
-  produces [pe_persona_channels_queried]
   contract """
     The @specforge/product extension MUST compute which channels a given
     persona uses by traversing the multi-hop path: persona <- JourneyTargetsPersona
     <- journey -> JourneyUsesChannel -> channel. Returns a deduplicated channel
     list for a persona.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     multi_hop_traversal "channels found via persona <- JourneyTargetsPersona <- journey -> JourneyUsesChannel -> channel"
     deduplication       "channels reachable via multiple journeys appear once in the result"
@@ -732,43 +530,16 @@ behavior pe_query_persona_channels "Query Persona Channels" {
 
 // -- Journey Deliverables ----------------------------------------------------
 
-behavior pe_query_journey_deliverables "Query Journey Deliverables" {
-  category query
-  types    [JourneyDeliverablePayload, ProductJourney, ProductDeliverable]
-  produces [pe_journey_deliverables_queried]
-  contract """
-    The @specforge/product extension MUST compute which deliverables
-    contain a given journey by traversing reverse DeliverableSupportsJourney edges.
-  """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
-  ensures {
-    reverse_traversal "deliverables found via reverse DeliverableSupportsJourney edge traversal"
-    empty_journey     "journey not in any deliverable returns empty deliverables list"
-    sorted_by_id      "deliverables are returned sorted alphabetically by entity ID for deterministic ordering"
-    deterministic     "same graph input always produces same result"
-  }
-  features [pe_query_traceability]
-  verify unit "journey in deliverable returns that deliverable"
-  verify unit "journey in multiple deliverables returns all sorted by ID"
-  verify unit "journey not in any deliverable returns empty list"
-}
-
 // -- Feature Dependents ------------------------------------------------------
 
 behavior pe_query_feature_dependents "Query Feature Dependents" {
   invariants [pe_queries_derived_not_standard]
   category   query
   types      [FeatureDependentPayload, ProductFeature]
-  produces   [pe_feature_dependents_queried]
   contract   """
     The @specforge/product extension MUST compute which features depend
     on a given feature by traversing reverse FeatureDependsOn edges.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     reverse_traversal "dependents found via reverse FeatureDependsOn edge traversal"
     empty_feature     "feature with no dependents returns empty dependents list"
@@ -786,14 +557,10 @@ behavior pe_query_feature_dependents "Query Feature Dependents" {
 behavior pe_query_deliverable_dependents "Query Deliverable Dependents" {
   category query
   types    [DeliverableDependentPayload, ProductDeliverable]
-  produces [pe_deliverable_dependents_queried]
   contract """
     The @specforge/product extension MUST compute which deliverables depend
     on a given deliverable by traversing reverse DeliverableDependsOn edges.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     reverse_traversal "dependents found via reverse DeliverableDependsOn edge traversal"
     empty_deliverable "deliverable with no dependents returns empty dependents list"
@@ -811,7 +578,6 @@ behavior pe_query_deliverable_dependents "Query Deliverable Dependents" {
 behavior pe_query_deliverable_priority "Query Deliverable Priority" {
   category query
   types    [DeliverablePriorityPayload, ProductDeliverable, ProductMilestone, ProductJourney, Priority]
-  produces [pe_deliverable_priority_queried]
   contract """
     The @specforge/product extension MUST derive deliverable priority from
     constituent milestones and journeys. Algorithm: highest priority among
@@ -824,9 +590,6 @@ behavior pe_query_deliverable_priority "Query Deliverable Priority" {
     milestones and journeys have null/absent priority.
     source_count reflects only entities WITH explicit priority, not total.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     highest_priority       "derived priority is the highest among constituents with explicit priority"
     priority_ordering      "priority ordering: critical > high > medium > low"
@@ -852,7 +615,6 @@ behavior pe_query_deliverable_personas "Query Deliverable Personas" {
   category query
   types    [DeliverablePersonaPayload, ProductDeliverable, ProductJourney, ProductPersona]
   ports    [ProductQueryPort, GraphQueryPort]
-  produces [pe_deliverable_personas_queried]
   contract """
     The @specforge/product extension MUST compute which personas a
     deliverable serves by traversing: deliverable -> DeliverableSupportsJourney ->
@@ -861,9 +623,6 @@ behavior pe_query_deliverable_personas "Query Deliverable Personas" {
     a convenience query avoiding the two-hop traversal that would otherwise
     be required to answer "which personas does this deliverable serve?"
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     two_hop_traversal     "personas found via deliverable->journey->persona edge traversal"
     deduplicated          "each persona appears at most once in the result"
@@ -893,25 +652,20 @@ behavior pe_query_partial_graph "Query Behavior on Graphs with Validation Errors
     validation state. Entities with validation errors (orphans, broken
     references, invalid field values) MUST still be traversable and appear
     in query results. Queries MUST NOT filter entities based on diagnostic
-    state. The only condition that blocks queries is an active graph rebuild.
-    Consumers can cross-reference query results
+    state. A command runs only over a built graph, so no query sees a
+    graph mid-rebuild. Consumers can cross-reference query results
     with validation diagnostics to identify quality issues.
   """
-  requires {
-    graph_built "entity graph is built (not mid-rebuild)"
-  }
   ensures {
     errors_traversable   "entities with E-level diagnostics appear in query results"
     warnings_traversable "entities with W-level diagnostics appear in query results"
     no_diagnostic_filter "query results are identical whether validation has run or not"
-    rebuild_blocks       "queries during active rebuild return GRAPH_NOT_READY error"
   }
   features   [pe_partial_graph_queries, product_graph_diff]
   verify unit "milestone-completion includes milestones with E015 cycle diagnostic"
   verify unit "journey-coverage includes journeys with W042 orphan diagnostic"
   verify unit "feature-ordering includes features with W045 cycle warning"
   verify unit "query results identical before and after validation pass"
-  verify unit "GRAPH_NOT_READY returned during active rebuild only"
 }
 
 // -- Channel-Feature Traversal -----------------------------------------------
@@ -920,7 +674,6 @@ behavior pe_query_channel_features "Query Channel Features" {
   category query
   types    [ChannelFeaturePayload, ProductChannel, ProductJourney, ProductFeature]
   ports    [ProductQueryPort, GraphQueryPort]
-  produces [pe_channel_features_queried]
   contract """
     The @specforge/product extension MUST compute which features are reachable
     from a channel by traversing: channel -> JourneyUsesChannel (reverse) -> journey
@@ -929,9 +682,6 @@ behavior pe_query_channel_features "Query Channel Features" {
     counterpart to pe_query_persona_features (persona->journey->feature) and
     closes the channel→features query gap.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     two_hop_traversal     "features found via channel->journey->feature edge traversal"
     deduplicated          "each feature appears at most once in the result"
@@ -956,7 +706,6 @@ behavior pe_query_term_clusters "Query Term Clusters" {
   category query
   types    [TermClusterPayload, TermCluster]
   ports    [ProductQueryPort, GraphQueryPort]
-  produces [pe_term_clusters_queried]
   contract """
     The @specforge/product extension MUST compute connected components in
     the TermReferencesRelatedTerm subgraph. Each cluster is a set of terms reachable
@@ -968,9 +717,6 @@ behavior pe_query_term_clusters "Query Term Clusters" {
     overview of glossary structure that pe_query_term_graph (single-root
     BFS) cannot offer.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     connected_components "each cluster is a maximal connected component via TermReferencesRelatedTerm"
     undirected_treatment "TermReferencesRelatedTerm edges are treated as undirected for clustering"
@@ -995,7 +741,6 @@ behavior pe_query_term_density "Query Term Density" {
   category query
   types    [TermDensityPayload]
   ports    [ProductQueryPort, GraphQueryPort]
-  produces [pe_term_density_queried]
   contract """
     The @specforge/product extension MUST compute connectivity statistics
     for the TermReferencesRelatedTerm subgraph: total terms, total see_also edges,
@@ -1005,9 +750,6 @@ behavior pe_query_term_density "Query Term Density" {
     too many isolated terms suggests poor linking, while hub terms are
     central vocabulary. avg_connections is null when total_terms is 0.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     avg_computed        "avg_connections = total_see_also / total_terms (null when total_terms=0)"
     max_computed        "max_connections is the highest TermReferencesRelatedTerm degree across all terms"
@@ -1032,7 +774,6 @@ behavior pe_query_module_dependency_depth "Query Module Dependency Depth" {
   category query
   types    [ModuleDependencyDepthPayload]
   ports    [ProductQueryPort, GraphQueryPort]
-  produces [pe_module_dependency_depth_queried]
   contract """
     The @specforge/product extension MUST compute the longest dependency
     chain starting from a given module, following ModuleDependsOn edges.
@@ -1043,9 +784,6 @@ behavior pe_query_module_dependency_depth "Query Module Dependency Depth" {
     members. This enables architects to identify deep dependency chains
     that increase build/test coupling.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     depth_computed        "depth is the number of edges in the longest ModuleDependsOn chain"
     chain_ordered         "longest_chain lists module IDs from queried module to leaf"
@@ -1067,7 +805,6 @@ behavior pe_query_module_coupling "Query Module Coupling" {
   category query
   types    [ModuleCouplingPayload, ModuleCouplingEntry]
   ports    [ProductQueryPort, GraphQueryPort]
-  produces [pe_module_coupling_queried]
   contract """
     The @specforge/product extension MUST compute coupling metrics for
     all modules in the product graph. For each module: fan_in is the
@@ -1078,9 +815,6 @@ behavior pe_query_module_coupling "Query Module Coupling" {
     This enables architects to spot over-coupled modules that may need
     decomposition or interface stabilization.
   """
-  requires {
-    graph_ready "product graph is built and in ready state"
-  }
   ensures {
     fan_in_correct       "fan_in counts incoming ModuleDependsOn edges"
     fan_out_correct      "fan_out counts outgoing ModuleDependsOn edges"

@@ -9,7 +9,40 @@ type Diagnostic {
   span       SourceSpan     @readonly
   context    string         @optional
   suggestion string         @optional
+  // The values the message names, typed, for consumers that act on the
+  // diagnostic (an editor's quick fix) instead of parsing its message.
+  data       DiagnosticData @optional
   verify unit "Diagnostic schema is valid"
+}
+
+// A diagnostic's structured payload, tagged by kind. A kind exists only
+// for a diagnostic some consumer acts on.
+type DiagnosticData = UnresolvedReferenceData | UnresolvedImportData | ShadowedKeywordData
+
+// E003: entity's reference field names target, which no entity declares.
+type UnresolvedReferenceData {
+  kind         "unresolved_reference" @literal
+  target       string
+  entity       string
+  field        string
+  did_you_mean string                 @optional
+  verify unit "UnresolvedReferenceData schema is valid"
+}
+
+// E025: a use import names path, which resolves to no .spec file.
+type UnresolvedImportData {
+  kind         "unresolved_import" @literal
+  path         string
+  did_you_mean string              @optional
+  verify unit "UnresolvedImportData schema is valid"
+}
+
+// E013, E023, E026: keyword (an entity id or an extension's kind keyword)
+// collides with a keyword the grammar or an earlier extension owns.
+type ShadowedKeywordData {
+  kind    "shadowed_keyword" @literal
+  keyword string
+  verify unit "ShadowedKeywordData schema is valid"
 }
 
 // ValidationCode is a structured type with a display format: the prefix

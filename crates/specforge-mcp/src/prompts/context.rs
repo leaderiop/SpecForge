@@ -1,5 +1,4 @@
 use serde_json::Value;
-use specforge_graph::FieldValue;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
@@ -16,7 +15,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         }
     };
 
-    let node = match state.graph.node(entity_id) {
+    let node = match state.graph().node(entity_id) {
         Some(n) => n,
         None => {
             return JsonRpcResponse::error(
@@ -27,30 +26,27 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         }
     };
 
-    let contract_text = node
-        .fields
-        .get("contract")
-        .and_then(|v| match v {
-            FieldValue::String(s) => Some(s.clone()),
-            _ => None,
-        })
-        .unwrap_or_default();
+    // The statement the extension declares (headline and normative), e.g.
+    // a behavior's `contract`; empty for a kind that declares none.
+    let contract_text =
+        specforge_emitter::context::headline_statement(node, &state.registries().fields)
+            .unwrap_or_default();
 
     let upstream: Vec<String> = state
-        .graph
+        .graph()
         .edges_to(entity_id)
         .iter()
         .map(|e| e.source.to_string())
         .collect();
 
     let downstream: Vec<String> = state
-        .graph
+        .graph()
         .edges_from(entity_id)
         .iter()
         .map(|e| e.target.to_string())
         .collect();
 
-    let verify_expectations: Vec<String> = specforge_emitter::coverage::obligations(node)
+    let verify_expectations: Vec<String> = specforge_graph::obligations(node)
         .iter()
         .map(|s| format!("{} {}", s.kind, s.description))
         .collect();
@@ -70,7 +66,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         _ => Vec::new(),
     };
     for constraint_id in requested {
-        let Some(constraint) = state.graph.node(constraint_id) else {
+        let Some(constraint) = state.graph().node(constraint_id) else {
             return JsonRpcResponse::error(
                 id,
                 error_codes::INVALID_PARAMS,

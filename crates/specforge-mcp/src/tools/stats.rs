@@ -12,10 +12,10 @@ pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
         Ok(coverage) => coverage,
         Err(outcome) => return outcome,
     };
-    let stats = specforge_emitter::compute_project_stats(
-        &state.graph,
+    let stats = specforge_ops::stats::compute_project_stats(
+        state.graph(),
         &coverage.summary,
-        &state.diagnostics,
+        &state.diagnostics(),
     );
 
     let entity_counts: Vec<Value> = stats

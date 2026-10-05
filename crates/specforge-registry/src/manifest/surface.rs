@@ -41,20 +41,9 @@ pub struct CommandArg {
     pub description: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub enum CommandArgType {
-    #[serde(rename = "string")]
-    StringArg,
-    #[serde(rename = "path")]
-    PathArg,
-    #[serde(rename = "bool")]
-    BoolArg,
-    #[serde(rename = "enum")]
-    EnumArg { values: Vec<String> },
-    #[serde(rename = "integer")]
-    IntegerArg,
-}
+/// The protocol's own type: one wire shape (`"string"`, `{"enum":
+/// {"values": [..]}}`, ...) for manifests and describe payloads alike.
+pub use specforge_protocol_types::CommandArgType;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -109,7 +98,41 @@ pub struct SurfaceRegistryEntry {
     pub contribution_name: String,
     pub extension_name: String,
     pub export_name: String,
-    pub enabled: bool,
+}
+
+/// Refuse each explicit MCP tool of `ext_name` whose `input_schema` or
+/// `output_schema` is not a JSON object (E055): it is removed from
+/// `surfaces`, so it is neither registered nor listed.
+pub fn refuse_malformed_tool_schemas(
+    ext_name: &str,
+    surfaces: &mut SurfaceContributions,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    surfaces.mcp_tools.retain(|tool| {
+        let malformed: Vec<&str> = [
+            ("input_schema", Some(&tool.input_schema)),
+            ("output_schema", tool.output_schema.as_ref()),
+        ]
+        .into_iter()
+        .filter(|(_, schema)| schema.is_some_and(|s| !s.is_object()))
+        .map(|(name, _)| name)
+        .collect();
+        for name in &malformed {
+            diagnostics.push(Diagnostic {
+                code: "E055".to_string(),
+                severity: Severity::Error,
+                message: format!(
+                    "MCP tool '{}' of extension '{}': {} must be a JSON object; the tool is not registered",
+                    tool.name, ext_name, name
+                ),
+                span: None,
+                suggestion: Some("declare the schema as a JSON Schema object".to_string()),
+                data: None,
+            });
+        }
+        malformed.is_empty()
+    });
+    diagnostics
 }
 
 /// Register surface contributions from manifests.
@@ -137,6 +160,7 @@ pub fn register_surface_contributions(
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             } else {
                 seen_commands.insert(cmd.id.clone(), ext_name.clone());
@@ -145,7 +169,6 @@ pub fn register_surface_contributions(
                     contribution_name: cmd.id.clone(),
                     extension_name: ext_name.clone(),
                     export_name: cmd.export.clone(),
-                    enabled: true,
                 });
             }
         }
@@ -161,6 +184,7 @@ pub fn register_surface_contributions(
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             } else {
                 seen_tools.insert(tool.name.clone(), ext_name.clone());
@@ -169,7 +193,6 @@ pub fn register_surface_contributions(
                     contribution_name: tool.name.clone(),
                     extension_name: ext_name.clone(),
                     export_name: tool.export.clone(),
-                    enabled: true,
                 });
             }
         }
@@ -185,6 +208,7 @@ pub fn register_surface_contributions(
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             } else {
                 seen_resources.insert(resource.name.clone(), ext_name.clone());
@@ -193,7 +217,6 @@ pub fn register_surface_contributions(
                     contribution_name: resource.name.clone(),
                     extension_name: ext_name.clone(),
                     export_name: resource.export.clone(),
-                    enabled: true,
                 });
             }
         }

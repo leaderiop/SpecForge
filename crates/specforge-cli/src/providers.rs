@@ -26,7 +26,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
             let output = json!({
                 "providers": items,
                 "count": items.len(),
-                "diagnostics": specforge_emitter::diagnostics_json(&diagnostics),
+                "diagnostics": specforge_common::diagnostics_json(&diagnostics),
             });
             println!(
                 "{}",

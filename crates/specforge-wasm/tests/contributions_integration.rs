@@ -1,55 +1,14 @@
-// Slice 15: Contribution Dispatch & Validation Integration Tests
+// Slice 15: Contribution Validation Integration Tests
 //
-// Tests contribution dispatch, entity enhancements, reserved keywords,
+// Tests entity enhancements, reserved keywords,
 // and enhancement conflict resolution through the public API.
 
 use specforge_registry::{ExtensionContributions, FieldEnhancement, ManifestField, ManifestV2};
 use specforge_wasm::{
-    CallSite, ContributionToggle, EnhancementConflict, EnhancementOverride, EnhancementPolicy,
-    WasmCallResult, WasmRuntime, WasmTrapInfo, dispatch_contribution_exports,
+    ContributionToggle, EnhancementConflict, EnhancementOverride, EnhancementPolicy,
     is_contribution_disabled, register_entity_enhancements, reject_reserved_entity_kind,
     resolve_enhancement_conflicts, validate_contribution_exports,
 };
-use std::path::Path;
-
-// -- Local MockRuntime (WasmRuntime is pub but MockRuntime is cfg(test) only) --
-
-struct MockRuntime {
-    call_results: std::collections::HashMap<String, WasmCallResult>,
-}
-
-impl MockRuntime {
-    fn new() -> Self {
-        Self {
-            call_results: std::collections::HashMap::new(),
-        }
-    }
-
-    fn with_call_ok(mut self, export: &str, output: Vec<u8>) -> Self {
-        self.call_results
-            .insert(export.to_string(), WasmCallResult::Ok(output));
-        self
-    }
-
-    fn with_call_trap(mut self, export: &str, trap: WasmTrapInfo) -> Self {
-        self.call_results
-            .insert(export.to_string(), WasmCallResult::Trap(trap));
-        self
-    }
-}
-
-impl WasmRuntime for MockRuntime {
-    fn load_module(&self, _wasm_path: &Path) -> Result<(), String> {
-        Ok(())
-    }
-
-    fn call_export(&self, _ext: &str, export_name: &str, _input: &[u8]) -> WasmCallResult {
-        self.call_results
-            .get(export_name)
-            .cloned()
-            .unwrap_or(WasmCallResult::Ok(vec![]))
-    }
-}
 
 fn default_manifest() -> ManifestV2 {
     ManifestV2 {
@@ -71,98 +30,13 @@ fn default_manifest() -> ManifestV2 {
         host_api_version: None,
         entity_enhancements: vec![],
         starter_template: None,
+        theme_color: None,
         ext_short: None,
         query_scope: None,
         collector_contributions: vec![],
         analyzer_contributions: vec![],
         surfaces: None,
     }
-}
-
-// ============================================================
-// B:dispatch_contribution_exports
-// ============================================================
-
-// B:dispatch_contribution_exports — verify integration "validator call site routes to _validate export"
-#[test]
-fn dispatch_validator_routes_to_validate_export() {
-    let runtime = MockRuntime::new().with_call_ok("@specforge__software_validate", b"ok".to_vec());
-    let result = dispatch_contribution_exports(
-        "@specforge/software",
-        CallSite::Validator,
-        &runtime,
-        b"input",
-    );
-    assert_eq!(result.unwrap(), b"ok");
-}
-
-// B:dispatch_contribution_exports — verify integration "trap from wasm export produces E028"
-#[test]
-fn dispatch_trap_produces_e028() {
-    let runtime = MockRuntime::new().with_call_trap(
-        "@specforge__software_validate",
-        WasmTrapInfo {
-            kind: "unreachable".to_string(),
-            message: "stack overflow".to_string(),
-            export_name: "@specforge__software_validate".to_string(),
-        },
-    );
-    let err = dispatch_contribution_exports(
-        "@specforge/software",
-        CallSite::Validator,
-        &runtime,
-        b"input",
-    )
-    .unwrap_err();
-    assert_eq!(err.code, "E028");
-    assert!(err.message.contains("trapped"));
-    assert!(err.message.contains("stack overflow"));
-}
-
-// B:dispatch_contribution_exports — verify integration "different call sites route to different exports"
-#[test]
-fn dispatch_different_call_sites_route_differently() {
-    let runtime = MockRuntime::new()
-        .with_call_ok("@specforge__software_render", b"rendered".to_vec())
-        .with_call_ok("@specforge__software_collect", b"collected".to_vec());
-
-    let render_result = dispatch_contribution_exports(
-        "@specforge/software",
-        CallSite::Renderer,
-        &runtime,
-        b"input",
-    );
-    assert_eq!(render_result.unwrap(), b"rendered");
-
-    let collect_result = dispatch_contribution_exports(
-        "@specforge/software",
-        CallSite::Collector,
-        &runtime,
-        b"input",
-    );
-    assert_eq!(collect_result.unwrap(), b"collected");
-}
-
-// B:dispatch_contribution_exports — verify contract "requires extension name + call site + runtime, ensures routed output or diagnostic"
-#[test]
-fn dispatch_contribution_exports_contract() {
-    // Ensure: Ok result when export succeeds
-    let runtime = MockRuntime::new().with_call_ok("@test__ext_provide", b"data".to_vec());
-    let ok = dispatch_contribution_exports("@test/ext", CallSite::Provider, &runtime, b"");
-    assert!(ok.is_ok());
-
-    // Ensure: Err with E028 when export traps
-    let runtime = MockRuntime::new().with_call_trap(
-        "@test__ext_parse",
-        WasmTrapInfo {
-            kind: "panic".to_string(),
-            message: "oops".to_string(),
-            export_name: "@test__ext_parse".to_string(),
-        },
-    );
-    let err = dispatch_contribution_exports("@test/ext", CallSite::Parser, &runtime, b"");
-    assert!(err.is_err());
-    assert_eq!(err.unwrap_err().code, "E028");
 }
 
 // ============================================================
@@ -190,7 +64,10 @@ fn register_enhancement_new_field() {
             enum_values: vec![],
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
+            proof_role: None,
         }],
         edge_types: vec![],
     }];
@@ -217,7 +94,10 @@ fn register_enhancement_conflict_e017() {
         enum_values: vec![],
         inverse_of: None,
         normative: false,
+        exempts_obligations: false,
+        headline: false,
         derived_from: None,
+        proof_role: None,
     };
 
     // First extension registers successfully

@@ -1,7 +1,14 @@
+mod builtins;
 mod check_passes;
 mod compile;
 mod custom_rules;
+mod delta;
 mod derived_references;
+mod dual_mode;
+mod e2e_pipeline;
+mod field_types;
 mod policy;
 mod registered_fields;
+mod registry_fields;
+mod registry_order;
 mod session;

@@ -13,7 +13,6 @@ static DESCRIBE_FIELDS: &[u8] = include_bytes!("describe_fields.json");
 static DESCRIBE_SHARED_FIELDS: &[u8] = include_bytes!("describe_shared_fields.json");
 static DESCRIBE_ENHANCEMENTS: &[u8] = include_bytes!("describe_enhancements.json");
 static DESCRIBE_VALIDATION_RULES: &[u8] = include_bytes!("describe_validation_rules.json");
-static DESCRIBE_SURFACES: &[u8] = include_bytes!("describe_surfaces.json");
 static DESCRIBE_PASSES: &[u8] = include_bytes!("describe_passes.json");
 static DESCRIBE_FEATURE_FLAGS: &[u8] = include_bytes!("describe_feature_flags.json");
 
@@ -24,6 +23,8 @@ impl Contributions for Software {
     fn contribute(c: &mut ContributionsBuilder) {
         // Optional: product provides the kinds behind the feature, module
         // and milestone links; without it those links are inert (I004).
+        // Diagrams (`model`, `outline`) draw the extension in this colour.
+        c.theme_color("#4a90d9");
         c.meta.peer_dependencies.push(PeerDependency {
             name: "@specforge/product".to_string(),
             version: "^1.0".to_string(),
@@ -49,7 +50,6 @@ impl Contributions for Software {
             ("shared_fields", DESCRIBE_SHARED_FIELDS),
             ("enhancements", DESCRIBE_ENHANCEMENTS),
             ("validation_rules", DESCRIBE_VALIDATION_RULES),
-            ("surfaces", DESCRIBE_SURFACES),
             ("passes", DESCRIBE_PASSES),
             ("feature_flags", DESCRIBE_FEATURE_FLAGS),
         ] {
@@ -64,7 +64,7 @@ impl Contributions for Software {
 // ── Custom validators (`check: "custom"` rules) ────────────────────────────
 // Wire ABI v1: a `validate__<rule>` export receives a `ValidatorContext`
 // (`specforge-protocol-types`) and returns a `ValidatorVerdict`. The host
-// precomputes everything the native walks in `emitter/compile.rs` touched,
+// precomputes everything the native walks in `project/compile.rs` touched,
 // so each validator is a pure function of the context. The exports use the
 // same `#[plugin_fn]` wrapping the SDK's `#[compiler_pass]` generates for
 // `__pass_<name>` exports.
@@ -76,13 +76,40 @@ use specforge_extension_sdk::{ValidatorContext, ValidatorVerdict};
 /// `context.primitives`, so the union keeps the guest correct even for a
 /// host that ships an empty list.
 const PRIMITIVE_TYPES: &[&str] = &[
-    "string", "void", "bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64",
-    "usize", "isize", "any",
+    "string",
+    "void",
+    "bool",
+    "i8",
+    "i16",
+    "i32",
+    "i64",
+    "u8",
+    "u16",
+    "u32",
+    "u64",
+    "f32",
+    "f64",
+    "usize",
+    "isize",
+    "any",
     // the portable primitives docs/entities/type.md documents, and `never`
     // for an impossible error channel (docs/entities/port.md)
-    "number", "integer", "boolean", "timestamp", "never",
+    "number",
+    "integer",
+    "boolean",
+    "timestamp",
+    "never",
     // stdlib containers: their type arguments are checked recursively
-    "Result", "Option", "Vec", "Box", "Arc", "Rc", "HashMap", "HashSet", "BTreeMap", "BTreeSet",
+    "Result",
+    "Option",
+    "Vec",
+    "Box",
+    "Arc",
+    "Rc",
+    "HashMap",
+    "HashSet",
+    "BTreeMap",
+    "BTreeSet",
     "String",
 ];
 

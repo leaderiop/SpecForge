@@ -31,6 +31,7 @@ pub fn load_wasm_module(
                 "install the extension with: specforge add {}",
                 extension_name
             )),
+            data: None,
         });
     }
 
@@ -46,6 +47,7 @@ pub fn load_wasm_module(
         ),
         span: None,
         suggestion: None,
+        data: None,
     })?;
     let wasm_hash = hex_sha256(&bytes);
 
@@ -66,6 +68,7 @@ pub fn load_wasm_module(
                 "the installed binary changed after install — re-install it: specforge remove \"{0}\" && specforge add \"{0}\"",
                 extension_name
             )),
+            data: None,
         });
     }
 
@@ -80,6 +83,7 @@ pub fn load_wasm_module(
             ),
             span: None,
             suggestion: None,
+            data: None,
         })?;
 
     Ok(LoadedModule {
@@ -110,6 +114,7 @@ pub fn initialize_extension(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             })
         }
     }
@@ -149,6 +154,7 @@ pub fn call_extension_validators(
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
                 // Continue to next extension — don't stop
             }
@@ -158,18 +164,13 @@ pub fn call_extension_validators(
     all_diagnostics
 }
 
-/// Validate peer dependencies for a single extension against the full manifest set.
-/// Delegates to `specforge_registry::validate_peer_dependencies` and filters results
-/// to only the diagnostics relevant to the given manifest.
+/// Validate the peer dependencies one extension declares against the full
+/// manifest set (delegates to `specforge_registry::validate_peer_dependencies_of`).
 pub fn validate_extension_peer_dependencies(
     manifest: &ManifestV2,
     all_manifests: &[ManifestV2],
 ) -> Vec<Diagnostic> {
-    let peer_diags = specforge_registry::validate_peer_dependencies(all_manifests);
-    peer_diags
-        .into_iter()
-        .filter(|d| d.message.contains(&manifest.name))
-        .collect()
+    specforge_registry::validate_peer_dependencies_of(manifest, all_manifests)
 }
 
 #[cfg(test)]
@@ -353,6 +354,7 @@ mod tests {
             message: "custom warning".to_string(),
             span: None,
             suggestion: None,
+            data: None,
         }])
         .unwrap();
 
@@ -454,6 +456,21 @@ mod tests {
         assert_eq!(diags[0].code, "E027");
         assert!(diags[0].message.contains("@specforge/product"));
         assert!(diags[0].message.contains("@specforge/software"));
+    }
+
+    #[test]
+    fn test_peer_deps_report_only_the_extensions_own_peers() {
+        // `@x/a` is a prefix of `@x/ab`, and `@x/c` depends on `@x/a`: neither
+        // of their diagnostics belongs to `@x/a`, which declares no peers.
+        let a = make_manifest("@x/a", &[]);
+        let ab = make_manifest("@x/ab", &[("@x/missing", ">=1.0.0")]);
+        let c = make_manifest("@x/c", &[("@x/a", ">=9.0.0")]);
+        let all = vec![a.clone(), ab.clone(), c];
+
+        assert!(validate_extension_peer_dependencies(&a, &all).is_empty());
+        let diags = validate_extension_peer_dependencies(&ab, &all);
+        assert_eq!(diags.len(), 1, "{diags:?}");
+        assert!(diags[0].message.contains("@x/missing"));
     }
 
     // B:validate_extension_peer_dependencies — verify unit "version mismatch → E027"

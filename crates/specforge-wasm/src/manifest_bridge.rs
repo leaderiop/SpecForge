@@ -1,7 +1,7 @@
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, DiagnosticData, Severity};
 use specforge_registry::{
     ManifestV2, compilation::detect_duplicate_entity_kinds, validate_manifest,
-    validate_peer_dependencies,
+    validate_peer_dependencies_of,
 };
 use std::path::Path;
 
@@ -17,14 +17,8 @@ pub fn validate_extension_manifest(
     // Schema validation (delegates to specforge-registry)
     diagnostics.extend(validate_manifest(manifest));
 
-    // Peer dependency validation (delegates to specforge-registry)
-    let peer_diags = validate_peer_dependencies(all_manifests);
-    // Filter to only this manifest's peer dep errors
-    let relevant: Vec<_> = peer_diags
-        .into_iter()
-        .filter(|d| d.message.contains(&manifest.name))
-        .collect();
-    diagnostics.extend(relevant);
+    // The peers this manifest declares (delegates to specforge-registry)
+    diagnostics.extend(validate_peer_dependencies_of(manifest, all_manifests));
 
     diagnostics
 }
@@ -42,6 +36,7 @@ pub fn load_extension_manifest_from_path(path: &Path) -> Result<ManifestV2, Diag
         ),
         span: None,
         suggestion: None,
+        data: None,
     })?;
 
     serde_json::from_str::<ManifestV2>(&content).map_err(|e| Diagnostic {
@@ -54,6 +49,7 @@ pub fn load_extension_manifest_from_path(path: &Path) -> Result<ManifestV2, Diag
         ),
         span: None,
         suggestion: Some("check the manifest JSON syntax".to_string()),
+        data: None,
     })
 }
 
@@ -81,6 +77,9 @@ pub fn detect_entity_kind_collision(manifests: &[ManifestV2]) -> Vec<Diagnostic>
                     ),
                     span: None,
                     suggestion: Some("choose a different keyword for this entity kind".to_string()),
+                    data: Some(Box::new(DiagnosticData::ShadowedKeyword {
+                        keyword: kind.keyword.clone(),
+                    })),
                 });
             }
         }
@@ -248,6 +247,9 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
 
@@ -270,15 +272,18 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
 
         let diags = detect_entity_kind_collision(&[m1, m2]);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "E026" && d.message.contains("behavior"))
-        );
+        assert!(diags.iter().any(|d| d.code == "E026"
+            && d.data
+                == Some(Box::new(DiagnosticData::ShadowedKeyword {
+                    keyword: "behavior".into()
+                }))));
     }
 
     // B:detect_entity_kind_collision — verify unit "collision with structural keyword → E023"
@@ -305,15 +310,18 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
 
         let diags = detect_entity_kind_collision(&[m]);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "E023" && d.message.contains("spec"))
-        );
+        assert!(diags.iter().any(|d| d.code == "E023"
+            && d.data
+                == Some(Box::new(DiagnosticData::ShadowedKeyword {
+                    keyword: "spec".into()
+                }))));
     }
 
     // B:detect_entity_kind_collision — verify unit "no false positives"
@@ -340,6 +348,9 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
 
@@ -362,6 +373,9 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
 
@@ -395,6 +409,9 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
         assert!(detect_entity_kind_collision(&[m.clone()]).is_empty());
@@ -419,6 +436,9 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
+            lifecycle_field: None,
             inference_guide: None,
         }];
         let diags = detect_entity_kind_collision(&[bad]);

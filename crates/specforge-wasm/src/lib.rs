@@ -2,7 +2,6 @@
 
 mod contributions;
 mod discovery;
-mod host_functions;
 mod install;
 mod integrity;
 mod lifecycle;
@@ -25,19 +24,12 @@ pub(crate) mod test_helpers;
 
 pub use contributions::{
     ContributionToggle, EnhancementConflict, EnhancementOverride, EnhancementPolicy,
-    dispatch_contribution_exports, is_contribution_disabled, register_entity_enhancements,
-    reject_reserved_entity_kind, required_contribution_exports, resolve_enhancement_conflicts,
-    validate_contribution_exports,
+    is_contribution_disabled, register_entity_enhancements, reject_reserved_entity_kind,
+    required_contribution_exports, resolve_enhancement_conflicts, validate_contribution_exports,
 };
 pub use discovery::{
     ExtensionSource, ExtensionSpecifier, ResolvedExtension, discover_extensions,
     parse_extension_specifier,
-};
-pub use host_functions::{
-    CallSite, HOST_FUNCTIONS, QueryScope, compute_extension_query_scope,
-    filter_graph_by_query_scope, host_add_graph_edge_check, host_add_graph_node_check,
-    host_emit_diagnostic, host_emit_file_check, host_http_get_check, host_read_file_check,
-    is_host_function_allowed,
 };
 pub use install::{InstallResult, install_extension, install_from_local, installed_wasm_path};
 pub use integrity::{hex_sha256, verify_wasm_integrity, verify_wasm_integrity_or_skip};
@@ -64,11 +56,8 @@ pub use sandbox::{
     is_output_extension_allowed, is_path_allowed, validate_total_memory,
 };
 pub use surface::{
-    AutoPromotedMcpTool, CommandOutput, EffectiveSandbox, SurfaceEntry, SurfaceEntryType,
-    SurfaceSandboxOverrideValues, auto_promote_commands_to_mcp_tools, dispatch_surface_command,
-    dispatch_surface_mcp_resource, dispatch_surface_mcp_tool, enforce_resource_sandbox,
-    enforce_surface_sandbox, toggle_surface_contribution, validate_command_arg_types,
-    validate_mcp_tool_schemas, validate_surface_exports,
+    AutoPromotedMcpTool, CommandOutput, auto_promote_commands_to_mcp_tools,
+    dispatch_surface_command, dispatch_surface_mcp_resource, dispatch_surface_mcp_tool,
 };
 pub use toposort::topological_sort_extensions;
 pub use trap::{handle_wasm_trap, should_skip_extension};

@@ -262,7 +262,7 @@ impl McpError {
     }
 
     pub fn with_diagnostic(mut self, diagnostic: &Diagnostic) -> Self {
-        self.diagnostic = serde_json::to_value(specforge_emitter::diagnostics_json(
+        self.diagnostic = serde_json::to_value(specforge_common::diagnostics_json(
             std::slice::from_ref(diagnostic),
         ))
         .ok()
@@ -355,6 +355,12 @@ impl ToolOutcome {
     /// A successful plain-text result.
     pub fn text(text: impl Into<String>) -> Self {
         Self::done(Payload::Text(vec![text.into()]), false)
+    }
+
+    /// A failed run whose output is a JSON object: a command's error
+    /// object (ADR 0011).
+    pub fn failed(payload: Value) -> Self {
+        Self::done(Payload::Json(payload), true)
     }
 
     /// Plain-text blocks, failed or not: a command's output.
@@ -485,7 +491,7 @@ pub fn envelope(
     }
     if !diagnostics.is_empty() {
         result["_meta"] = json!({
-            "diagnostics": serde_json::to_value(specforge_emitter::diagnostics_json(&diagnostics))
+            "diagnostics": serde_json::to_value(specforge_common::diagnostics_json(&diagnostics))
                 .unwrap_or_default(),
         });
     }

@@ -1,7 +1,7 @@
 mod resolve;
 
 pub use resolve::{
-    PathAlias, Resolution, ResolveConfig, resolve_parsed, resolve_project,
+    PathAlias, Resolution, ResolveConfig, resolve_import, resolve_parsed, resolve_project,
     resolve_project_with_config,
 };
 pub use specforge_common::{Diagnostic, Severity, SourceSpan};

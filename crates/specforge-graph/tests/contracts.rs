@@ -1,4 +1,4 @@
-use specforge_common::{SourceSpan, Sym};
+use specforge_common::{DiagnosticData, SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, GraphConfig, Node, build_graph_with_config};
 use specforge_parser::{EntityId, EntityKind, FieldMap, parse};
 use specforge_test_macros::test as specforge_test;
@@ -13,25 +13,6 @@ fn make_node(id: &str, kind: &str) -> Node {
         fields: FieldMap::new(),
         source_span: SourceSpan {
             file: Sym::new("test.spec"),
-            start_line: 1,
-            start_col: 1,
-            end_line: 1,
-            end_col: 1,
-        },
-        methods: Vec::new(),
-    }
-}
-
-fn make_node_in_file(id: &str, kind: &str, file: &str) -> Node {
-    Node {
-        id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind {
-            raw: Sym::new(kind),
-        },
-        title: Some(id.to_string()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: Sym::new(file),
             start_line: 1,
             start_col: 1,
             end_line: 1,
@@ -82,6 +63,16 @@ feature delta "D" { behaviors [alpha] }
         "exactly one unresolved reference: {diagnostics:?}"
     );
     assert!(e003[0].message.contains("ghost"), "{}", e003[0].message);
+    // What it names is data as well as text: target, entity and field.
+    assert_eq!(
+        e003[0].data.as_deref().cloned(),
+        Some(DiagnosticData::UnresolvedReference {
+            target: "ghost".into(),
+            entity: "gamma".into(),
+            field: "behaviors".into(),
+            did_you_mean: None,
+        })
+    );
 
     // one_node_per_entity: exactly the four declared entities, nothing else.
     let mut ids: Vec<String> = graph.nodes().iter().map(|n| n.id.raw.to_string()).collect();
@@ -165,42 +156,6 @@ fn maintain_mutable_graph_contract() {
     assert!(graph.node("c").is_some());
 }
 
-// B:compute_subgraph_for_invalidation — verify contract "requires/ensures consistency for subgraph invalidation"
-#[specforge_test(
-    behavior = "compute_subgraph_for_invalidation",
-    verify = "Compute Subgraph for Invalidation: subgraph invalidation holds — graph_built_ready, changed_file_identified, invalidation_subgraph_computed, only_affected_rebuilt, unaffected_subgraphs_intact"
-)]
-fn compute_subgraph_for_invalidation_contract() {
-    // Requires: graph with nodes across files + import DAG
-    // Ensures: invalidation_set returns changed file + transitive dependents, excludes unrelated
-    let mut graph = Graph::new();
-    graph.add_node(make_node_in_file("a", "behavior", "types.spec"));
-    graph.add_node(make_node_in_file("b", "feature", "main.spec"));
-    graph.add_node(make_node_in_file("c", "behavior", "unrelated.spec"));
-    graph.add_edge(make_edge("b", "a", "behaviors"));
-
-    let import_dag = vec![
-        ("types.spec".to_string(), vec![]),
-        ("main.spec".to_string(), vec!["types.spec".to_string()]),
-        ("unrelated.spec".to_string(), vec![]),
-    ];
-
-    let affected = graph.invalidation_set("types.spec", &import_dag);
-
-    assert!(
-        affected.contains("types.spec"),
-        "changed file must be included"
-    );
-    assert!(
-        affected.contains("main.spec"),
-        "direct dependent must be included"
-    );
-    assert!(
-        !affected.contains("unrelated.spec"),
-        "unrelated file must be excluded"
-    );
-}
-
 // B:resolve_external_ref_declarations — verify contract "requires/ensures consistency for external ref resolution"
 #[specforge_test(
     behavior = "resolve_external_ref_declarations",
@@ -267,6 +222,16 @@ feature gamma "G" { behaviors [alpha_parsr] }
     assert!(
         e003[0].suggestion.is_some(),
         "close match must produce suggestion"
+    );
+    // The close match rides in the data, so a quick fix needn't parse it.
+    assert!(
+        matches!(
+            e003[0].data.as_deref(),
+            Some(DiagnosticData::UnresolvedReference { did_you_mean: Some(m), .. })
+                if m == "alpha_parser"
+        ),
+        "{:?}",
+        e003[0].data
     );
 
     let source_far = r#"

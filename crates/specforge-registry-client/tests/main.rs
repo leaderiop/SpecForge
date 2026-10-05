@@ -1,0 +1,6 @@
+mod credentials;
+mod http_client;
+mod registry_client;
+mod registry_config;
+mod registry_ops;
+mod resolver;

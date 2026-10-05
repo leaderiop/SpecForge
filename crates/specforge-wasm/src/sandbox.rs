@@ -71,6 +71,7 @@ pub fn configure_sandbox_policy(
                     ),
                     span: None,
                     suggestion: Some("remove code file extensions from allowed_output_extensions".to_string()),
+                    data: None,
                 });
             }
         }
@@ -193,6 +194,7 @@ pub fn validate_total_memory(
             ),
             span: None,
             suggestion: Some("reduce max_memory_mb in extension sandbox policies".to_string()),
+            data: None,
         }]
     } else {
         vec![]

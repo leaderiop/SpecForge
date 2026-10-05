@@ -1,11 +1,11 @@
 use crate::OutputFormat;
 use serde_json::json;
-use specforge_registry::{HttpRegistryClient, search_registries};
+use specforge_registry_client::{HttpRegistryClient, search_registries};
 use std::path::Path;
 
 pub fn run(query: &str, path: &Path, format: OutputFormat) -> i32 {
     // No registry configured: fail before any network call (ADR 0004 N1).
-    let registries = match specforge_ops::registry::configured(path, "search") {
+    let registries = match specforge_ops_registry::configured(path, "search") {
         Ok(configured) => {
             format.eprint_diagnostics(&configured.diagnostics);
             configured.registries

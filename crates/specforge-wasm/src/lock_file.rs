@@ -52,15 +52,27 @@ pub fn write_lock_file(lock: &LockFile, path: &Path) -> Result<(), Diagnostic> {
         message: format!("failed to serialize lock file: {}", e),
         span: None,
         suggestion: None,
+        data: None,
     })?;
 
-    std::fs::write(path, json).map_err(|e| Diagnostic {
-        code: "E033".to_string(),
-        severity: Severity::Error,
-        message: format!("failed to write lock file at '{}': {}", path.display(), e),
-        span: None,
-        suggestion: None,
-    })
+    // Write a sibling file, then rename it over the lock: a write that
+    // fails part-way (a full disk) leaves the old lock whole.
+    let mut temp_name = path.file_name().unwrap_or_default().to_os_string();
+    temp_name.push(".tmp");
+    let temp = path.with_file_name(temp_name);
+    std::fs::write(&temp, json)
+        .and_then(|()| std::fs::rename(&temp, path))
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&temp);
+            Diagnostic {
+                code: "E033".to_string(),
+                severity: Severity::Error,
+                message: format!("failed to write lock file at '{}': {}", path.display(), e),
+                span: None,
+                suggestion: None,
+                data: None,
+            }
+        })
 }
 
 /// Read a lock file from disk.
@@ -71,6 +83,7 @@ pub fn read_lock_file(path: &Path) -> Result<LockFile, Diagnostic> {
         message: format!("failed to read lock file at '{}': {}", path.display(), e),
         span: None,
         suggestion: None,
+        data: None,
     })?;
 
     serde_json::from_str::<LockFile>(&content).map_err(|e| Diagnostic {
@@ -81,6 +94,7 @@ pub fn read_lock_file(path: &Path) -> Result<LockFile, Diagnostic> {
         suggestion: Some(
             "delete the lock file and run `specforge install` to regenerate".to_string(),
         ),
+        data: None,
     })
 }
 
@@ -286,6 +300,21 @@ mod tests {
         let content = std::fs::read_to_string(&path).unwrap();
         assert!(content.contains("@specforge/software"));
         assert!(content.contains("abc123"));
+    }
+
+    #[test]
+    fn a_failed_lock_write_leaves_the_old_lock_whole() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("specforge.lock");
+        write_lock_file(&LockFile::new(), &path).unwrap();
+        let before = std::fs::read(&path).unwrap();
+        // The sibling it writes first cannot be created.
+        std::fs::create_dir(dir.path().join("specforge.lock.tmp")).unwrap();
+
+        let error = write_lock_file(&LockFile::new(), &path).unwrap_err();
+
+        assert_eq!(error.code, "E033");
+        assert_eq!(std::fs::read(&path).unwrap(), before);
     }
 
     // B:read_lock_file — verify unit "deserializes lock file from JSON"

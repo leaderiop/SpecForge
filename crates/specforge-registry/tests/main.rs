@@ -1,9 +1,3 @@
-mod credentials;
-mod http_client;
 mod provider;
 mod registry_build;
-mod registry_client;
-mod registry_config;
-mod registry_ops;
-mod resolver;
 mod surface;

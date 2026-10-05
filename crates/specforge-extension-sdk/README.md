@@ -2,9 +2,10 @@
 
 Author [SpecForge](https://github.com/leaderiop/SpecForge) extensions in Rust.
 Declare **what your extension contributes** — entity kinds, fields, edges,
-validation rules, compiler passes, feature flags — and the SDK generates every
-protocol export the SpecForge host loads: `__handshake` and `__describe`
-(handshake/describe protocol v1.0.0).
+validation rules, compiler passes, feature flags, commands — and the SDK
+generates every protocol export the SpecForge host loads: `__handshake` and
+`__describe` (handshake/describe protocol v1.0.0), and the `cmd__` / `mcp__`
+exports of the commands, MCP tools and MCP resources you declare.
 
 Your extension compiles to a Wasm module (`wasm32-unknown-unknown`) and is
 loaded by the SpecForge CLI, LSP, and MCP server.
@@ -68,6 +69,10 @@ $ specforge new --extension @you/my-ext
   protocol cannot drift between your extension and SpecForge.
 - **Contribution flags are derived** from what you actually contribute — they
   cannot contradict your content.
+- **A surface is declared with its handler** (`ContributionsBuilder::command`,
+  `mcp_tool`, `mcp_resource`): the describe payload and the export routing
+  come from that one declaration, and a command's handler reads its args
+  through it (`CommandCall`), checked against their declared types.
 - **Runtime-free testing**: build your contributions in a unit test and assert
   on the describe output (see the `testing` module).
 

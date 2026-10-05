@@ -86,6 +86,7 @@ fn load_installed(
             ),
             span: None,
             suggestion: Some(format!("install it with: specforge add {name}")),
+            data: None,
         });
     };
     let wasm = specforge_wasm::installed_wasm_path(&root.join(".specforge/extensions"), name);

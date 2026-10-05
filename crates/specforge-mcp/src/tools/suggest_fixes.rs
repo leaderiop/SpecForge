@@ -15,7 +15,7 @@ pub struct Args {
 
 pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let entity = match args.entity_id.as_deref() {
-        Some(entity_id) => match state.graph.node(entity_id) {
+        Some(entity_id) => match state.graph().node(entity_id) {
             Some(node) => Some(node),
             None => {
                 return McpError::new(
@@ -32,7 +32,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let code = args.diagnostic_code.as_deref();
 
     let suggestions: Vec<Value> = state
-        .diagnostics
+        .diagnostics()
         .iter()
         .filter(|d| entity.is_none_or(|node| super::inspect::belongs_to(d, node)))
         .filter(|d| {

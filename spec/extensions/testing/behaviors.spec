@@ -89,7 +89,11 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
     project at three layers. Intent: a testable entity that declares no
     verify obligations is A001, unless W004 exempts it (a union type, an
     abstract entity, or a kind no rule requires obligations of), and an
-    invariant with none is A002, an error when its risk is high. Exempt
+    invariant with none is A002, an error when its risk is high. The risk
+    grading (the graded kind, its risk field and the error level) is
+    testing's own, read from its testable-kinds table and passed to the
+    shared coverage rule, which names no kind; the host's per-entity
+    coverage views pass none and read no risk (ADR 0009). Exempt
     entities that declare nothing leave the testable count and are
     counted apart (testable_exempt). Enforcement: invariants nothing
     references are counted in the summary (the finding is software's
@@ -123,6 +127,7 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
   verify unit "an entity with no obligations is never proven, even by passing tests"
   verify unit "an entity whose obligations are all formally discharged is proven without tests"
   verify unit "entities W004 exempts are not A001 and leave the testable count"
+  verify unit "without a risk grading no kind is risk-tallied and nothing is A002"
 }
 
 behavior te_coverage_gate "Proof Coverage Gate" {

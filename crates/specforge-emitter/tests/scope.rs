@@ -53,7 +53,7 @@ fn build_chain_graph() -> Graph {
 )]
 fn scoped_json_returns_only_reachable_subgraph() {
     let graph = build_chain_graph();
-    let json = specforge_emitter::emit_json_scoped(&graph, "b").unwrap();
+    let json = specforge_emitter::scope::emit_json_scoped(&graph, "b").unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let nodes = parsed["nodes"].as_array().unwrap();
@@ -73,7 +73,7 @@ fn scoped_json_returns_only_reachable_subgraph() {
 )]
 fn scoped_context_returns_only_reachable_subgraph() {
     let graph = build_chain_graph();
-    let json = specforge_emitter::emit_context_scoped(&graph, "a").unwrap();
+    let json = specforge_emitter::scope::emit_context_scoped(&graph, "a").unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let nodes = parsed["nodes"].as_array().unwrap();
@@ -89,7 +89,7 @@ fn scoped_context_returns_only_reachable_subgraph() {
 #[test]
 fn scoped_export_on_nonexistent_entity_returns_error() {
     let graph = build_chain_graph();
-    let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
+    let result = specforge_emitter::scope::emit_json_scoped(&graph, "nonexistent");
     assert!(result.is_err());
 
     let err = result.unwrap_err();
@@ -125,7 +125,7 @@ fn graph_scoped_export_on_nonexistent_entity_returns_e001() {
         assert_eq!(err.exit_code(), 1);
     }
     // An existing scope is not an error.
-    assert!(specforge_emitter::emit_json_scoped(&graph, "a").is_ok());
+    assert!(specforge_emitter::scope::emit_json_scoped(&graph, "a").is_ok());
 }
 
 // B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"
@@ -133,7 +133,7 @@ fn graph_scoped_export_on_nonexistent_entity_returns_e001() {
 #[specforge_test(behavior = "export_agent_graph_format")]
 fn scoped_edges_only_between_reachable_nodes() {
     let graph = build_chain_graph();
-    let json = specforge_emitter::emit_json_scoped(&graph, "a").unwrap();
+    let json = specforge_emitter::scope::emit_json_scoped(&graph, "a").unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let edges = parsed["edges"].as_array().unwrap();
@@ -146,7 +146,7 @@ fn scoped_edges_only_between_reachable_nodes() {
 fn scoped_leaf_node_returns_single_node() {
     let graph = build_chain_graph();
     // "d" is disconnected, so scope returns just d
-    let json = specforge_emitter::emit_json_scoped(&graph, "d").unwrap();
+    let json = specforge_emitter::scope::emit_json_scoped(&graph, "d").unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let nodes = parsed["nodes"].as_array().unwrap();

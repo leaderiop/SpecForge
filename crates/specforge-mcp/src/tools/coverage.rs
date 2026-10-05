@@ -1,6 +1,6 @@
 use serde_json::Value;
-use specforge_emitter::analyze::TestReport;
-use specforge_emitter::coverage::{CoverageRegistries, ProjectCoverage, ReportError, Status};
+use specforge_project::coverage::TestReport;
+use specforge_project::coverage::{CoverageRegistries, ProjectCoverage, ReportError, Status};
 
 use crate::state::McpState;
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
@@ -11,7 +11,7 @@ use crate::tool::{ErrorCode, McpError, ToolOutcome};
 /// but unreadable is an error, as in the CLI (ADR 0004, D2-e).
 pub(crate) fn recorded_report(state: &McpState) -> Result<Option<TestReport>, ReportError> {
     match &state.project_root {
-        Some(root) => specforge_emitter::coverage::read_report(root),
+        Some(root) => specforge_project::coverage::read_report(root),
         None => Ok(None),
     }
 }
@@ -46,7 +46,7 @@ pub(crate) fn project_coverage(
 ) -> Result<ProjectCoverage, ToolOutcome> {
     let report = recorded_report(state).map_err(|e| report_error_result(&e, tool))?;
     Ok(ProjectCoverage::compute(
-        &state.graph,
+        state.graph(),
         coverage_registries(state),
         report.as_ref(),
     ))
@@ -55,9 +55,9 @@ pub(crate) fn project_coverage(
 /// The served project's registries, as the coverage rule reads them.
 pub(crate) fn coverage_registries(state: &McpState) -> CoverageRegistries<'_> {
     CoverageRegistries {
-        kinds: &state.kind_registry,
-        fields: &state.field_registry,
-        rules: &state.rules,
+        kinds: &state.registries().kinds,
+        fields: &state.registries().fields,
+        rules: &state.registries().rules,
     }
 }
 
@@ -90,9 +90,9 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let status_filter = args.status_filter.as_deref();
 
     // Testability is the extensions' call (their kinds' manifests).
-    let testable = specforge_emitter::coverage::testable_kinds(&state.kind_registry);
+    let testable = specforge_project::coverage::testable_kinds(&state.registries().kinds);
     let results: Vec<Value> = state
-        .graph
+        .graph()
         .nodes()
         .into_iter()
         .filter(|n| {

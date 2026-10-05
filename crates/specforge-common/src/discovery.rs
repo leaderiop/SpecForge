@@ -42,6 +42,24 @@ pub fn discover_spec_files(root: &Path, exclude: &[String]) -> Vec<PathBuf> {
     files
 }
 
+/// Whether [`discover_spec_files`] finds `relative` (a path relative to
+/// the walked root): a `.spec` file inside the root, under no
+/// [`SKIP_DIRS`] directory, that no `exclude` pattern matches. A surface
+/// told about one changed file applies the policy the walk would.
+pub fn is_discovered(relative: &str, exclude: &[String]) -> bool {
+    use std::path::Component;
+    let path = Path::new(relative);
+    path.extension().is_some_and(|ext| ext == "spec")
+        && path.parent().is_none_or(|dir| {
+            dir.components().all(|c| match c {
+                Component::Normal(name) => !name.to_str().is_some_and(|n| SKIP_DIRS.contains(&n)),
+                Component::CurDir => true,
+                _ => false,
+            })
+        })
+        && !is_excluded(relative, exclude)
+}
+
 /// Whether `relative` (a path relative to the walked root) matches an
 /// `exclude` pattern: patterns are plain substrings, not globs.
 pub fn is_excluded(relative: &str, exclude: &[String]) -> bool {
@@ -87,5 +105,19 @@ mod tests {
             .map(|p| p.strip_prefix(root).unwrap().to_string_lossy().to_string())
             .collect();
         assert_eq!(names, vec!["specs/current.spec".to_string()]);
+    }
+
+    #[test]
+    fn is_discovered_applies_the_walk_policy_to_one_path() {
+        let exclude = vec!["drafts/".to_string()];
+        assert!(is_discovered("a.spec", &exclude));
+        assert!(is_discovered("src/deep/a.spec", &exclude));
+        assert!(!is_discovered("notes.txt", &exclude));
+        assert!(!is_discovered("target/generated.spec", &exclude));
+        assert!(!is_discovered("src/node_modules/x.spec", &exclude));
+        assert!(!is_discovered("drafts/a.spec", &exclude));
+        assert!(!is_discovered("../outside.spec", &exclude));
+        // A file merely named like a skipped directory is still found.
+        assert!(is_discovered("build.spec", &exclude));
     }
 }

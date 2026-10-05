@@ -16,14 +16,13 @@ invariant surface_contribution_uniqueness "Surface Contribution Uniqueness" {
 
 invariant surface_sandbox_ceiling "Surface Sandbox Ceiling" {
   guarantee """
-    Per-contribution sandbox overrides can only restrict permissions below
-    the type ceiling, never expand beyond it. MCP resources MUST NOT have
-    fs_write access. CLI commands MUST NOT exceed the extension's
-    SandboxPolicy. Surface dispatch MUST enforce the ceiling before
-    calling any Wasm export.
+    Every surface export (a cmd__ command, an mcp__ tool or resource)
+    MUST run with no capability: no preopened directory, environment,
+    arguments, inherited stdio or network. That is the ceiling, so no
+    per-contribution sandbox override MAY grant an export more: MCP
+    resources MUST NOT write files, and CLI commands MUST NOT exceed the
+    extension's SandboxPolicy.
   """
   risk      high
-  verify property "sandbox override cannot expand beyond type ceiling"
-  verify unit "MCP resource with fs_write override is rejected"
-  verify unit "CLI command sandbox intersected with extension sandbox policy"
+  verify unit "a surface export whose sandbox override asks for every capability is granted none"
 }

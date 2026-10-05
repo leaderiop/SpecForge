@@ -27,7 +27,7 @@ pub fn read(state: &McpState, entity_id: &str) -> ReadOutcome {
         ..EmitOptions::default()
     };
 
-    match emit(&state.graph, &options) {
+    match emit(state.graph(), &options) {
         Ok(json_str) => {
             let uri = format!("specforge://graph/{}", entity_id);
             Ok(ResourceText::json(uri, json_str))

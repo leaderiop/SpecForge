@@ -66,6 +66,7 @@ fn sdk_greet_extension_passes_protocol() {
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(v["items"][0]["code"], "G101");
     assert_eq!(v["items"][0]["severity"], "error");
+    assert_eq!(v["items"][0]["check"], "field_value_constraint");
 
     // __describe: unsupported category mirrors the builtin error behavior.
     let bad = runtime.call_export("@sdk/greet", "__describe", br#"{"category":"nope"}"#);

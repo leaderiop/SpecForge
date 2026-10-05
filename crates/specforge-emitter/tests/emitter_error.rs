@@ -58,24 +58,11 @@ fn query_nonexistent_returns_entity_not_found() {
     );
 }
 
-// M2: trace for non-existent entity returns EmitterError::EntityNotFound
-#[test]
-fn trace_nonexistent_returns_entity_not_found() {
-    let graph = build_graph();
-    let result = specforge_emitter::trace(&graph, "nonexistent");
-    let err = result.unwrap_err();
-    assert!(
-        matches!(err, EmitterError::EntityNotFound(_)),
-        "expected EntityNotFound, got: {:?}",
-        err
-    );
-}
-
 // M2: scoped emit for non-existent entity returns EmitterError::EntityNotFound
 #[test]
 fn emit_scoped_nonexistent_returns_entity_not_found() {
     let graph = build_graph();
-    let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
+    let result = specforge_emitter::scope::emit_json_scoped(&graph, "nonexistent");
     let err = result.unwrap_err();
     assert!(
         matches!(err, EmitterError::EntityNotFound(_)),
@@ -112,7 +99,7 @@ fn emitter_error_implements_std_error() {
 fn budget_strategy_error_returns_other() {
     let graph = build_graph();
     // Use extremely small budget to force error
-    let result = specforge_emitter::emit_json_with_budget_strategy(&graph, 1, "error");
+    let result = specforge_emitter::budget::emit_json_with_budget_strategy(&graph, 1, "error");
     // Budget may or may not exceed with 2 nodes, so just verify the API compiles
     // and returns the right type
     match result {

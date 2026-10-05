@@ -52,6 +52,8 @@ it can only replay previously signed packages (see [residual risks](#residual-ri
 
 | Situation | Behavior |
 |---|---|
+| Reply (or its manifest) names another package or version than requested | **Always refused** ([R-TRUST-004](diagnostics.md#r-trust-004)), before any key is pinned |
+| Manifest missing or unreadable | **Always refused** ([R-OPS-004](diagnostics.md#r-ops-004)): it declares the peers the diamond check needs, so it is never read as "no peers" |
 | Package unsigned | Refused. `--allow-unsigned` accepts the risk explicitly |
 | Signature invalid (tampered wasm/manifest) | **Always refused** — `--allow-unsigned` does not bypass a broken signature |
 | Key differs from the pinned key | Refused with both key ids; interactive re-pin offered (`y/N`); `--yes` accepts non-interactively for CI |
@@ -97,8 +99,9 @@ registry install, so pins are auditable per project.
 
 ## Residual risks (stated plainly)
 
-- **Registry-controlled version lists**: `specforge update` resolves "latest"
-  from the registry, and a compromised registry can serve an *older*, still
+- **Registry-controlled version lists**: `specforge update` resolves the
+  newest version within the locked version's caret range (any version with
+  `--major`) from the registry, and a compromised registry can serve an *older*, still
   validly signed version (a downgrade within the semver range you accept).
   Version-list signatures (TUF-style) are deferred past v1. Pin exact versions
   via `specforge.lock` when this matters.

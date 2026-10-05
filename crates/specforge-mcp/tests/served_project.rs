@@ -101,7 +101,7 @@ fn a_refresh_lists_the_tools_of_the_extensions_it_loaded() {
     }
     // And the auto-promoted tool dispatches: the refresh registered its
     // surface, not only its descriptor.
-    let entries = &server.state().surface_entries;
+    let entries: Vec<_> = server.state().surface_entries().collect();
     assert!(
         entries
             .iter()
@@ -187,9 +187,9 @@ fn validate_on_another_project_keeps_serving_this_one() {
     // ...and the server still serves its own project.
     let state = server.state();
     assert_eq!(state.project_root.as_deref(), Some(served.path()));
-    assert!(state.graph.node("login").is_some());
-    assert!(state.graph.node("other").is_none());
-    assert!(state.diagnostics.iter().all(|d| d.code != "E003"));
+    assert!(state.graph().node("login").is_some());
+    assert!(state.graph().node("other").is_none());
+    assert!(state.diagnostics().iter().all(|d| d.code != "E003"));
 }
 
 #[specforge_test(
@@ -204,7 +204,7 @@ fn a_format_that_wrote_files_is_served() {
     let end_line = |server: &McpServer| {
         server
             .state()
-            .graph
+            .graph()
             .node("login")
             .map(|n| n.source_span.end_line)
     };
@@ -221,4 +221,25 @@ fn a_format_that_wrote_files_is_served() {
         "the server still serves the unformatted file"
     );
     assert_eq!(after, Some(on_disk.lines().count()));
+}
+
+/// Shutdown stops serving the project whole: its graph, diagnostics,
+/// config and spec root go with its session.
+#[test]
+fn shutdown_serves_nothing_of_the_project() {
+    let dir = project(&["@specforge/software"], "behavior login \"Login\" {\n}\n");
+    let mut server = McpServer::new();
+    initialize(&mut server, dir.path());
+    assert_eq!(server.state().config().name.as_deref(), Some("served"));
+    assert!(server.state().spec_root().is_some());
+
+    call(&mut server, "shutdown", json!({}));
+
+    let state = server.state();
+    assert_eq!(state.graph().node_count(), 0);
+    assert!(state.diagnostics().is_empty());
+    assert_eq!(state.config().name, None);
+    assert!(state.spec_root().is_none());
+    assert!(state.registries().rules.is_empty());
+    assert!(state.session().runtime().is_none());
 }

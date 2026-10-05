@@ -37,7 +37,6 @@ impl Contributions for RustAnalyzer {
 // ── Analyzer exports ───────────────────────────────────────────────────────
 // Same JSON wire format as the native builtin's `call_analyzer` dispatch.
 
-
 fn parse_req<T: serde::de::DeserializeOwned>(input: &[u8]) -> Result<T, String> {
     serde_json::from_slice(input).map_err(|e| format!("invalid request: {e}"))
 }
@@ -55,10 +54,7 @@ fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
     }
 }
 
-specforge_extension_sdk::component_guest!(
-    build = specforge_extension_build,
-    handler = dispatch
-);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);
 
 // ── Analyzer logic (ported verbatim from the native builtin) ───────────────
 

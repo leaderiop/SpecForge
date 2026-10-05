@@ -174,7 +174,7 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
             .map_err(|e| write_error(".gitignore", e))?;
         std::fs::write(dir.join(STARTER_FILE), &plan.starter)
             .map_err(|e| write_error(STARTER_FILE, e))?;
-        let registry = crate::registry::HttpRegistry::for_project(dir, "init");
+        let registry = crate::registry::Unconfigured("init");
         for wasm in &plan.installs {
             extension::add(
                 &extension::AddRequest {
@@ -285,7 +285,7 @@ fn starter_template(extensions: &[String], installs: &[PathBuf]) -> Option<Strin
     }
     // A load failure only costs the extension its template.
     let mut ignored = Vec::new();
-    specforge_emitter::compile::load_extensions(extensions, &runtime, &mut ignored)
+    specforge_project::compile::load_extensions(extensions, &runtime, &mut ignored)
         .into_iter()
         .find_map(|manifest| manifest.starter_template)
 }

@@ -34,7 +34,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
 fn empty_graph_produces_valid_dot() {
     // An empty graph is a complete digraph with no statements.
     let graph = Graph::new();
-    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert_eq!(
         dot,
         "digraph specforge {\n  rankdir=LR;\n  node [shape=box];\n}\n"
@@ -49,7 +49,7 @@ fn empty_graph_produces_valid_dot() {
         target: Sym::new("q"),
         label: Sym::new("behaviors"),
     });
-    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert_eq!(
         dot,
         concat!(
@@ -73,7 +73,7 @@ fn dot_nodes_labeled_with_id_and_title() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha Behavior")));
 
-    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(dot.contains("alpha"), "node ID in DOT output");
     assert!(dot.contains("Alpha Behavior"), "node title in DOT output");
 }
@@ -93,7 +93,7 @@ fn dot_edges_labeled_with_type() {
         label: Sym::new("behaviors"),
     });
 
-    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(
         dot.contains("feat_a") && dot.contains("beh_b"),
         "edge endpoints in DOT"
@@ -106,7 +106,7 @@ fn dot_node_default_shape_is_box() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha")));
 
-    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot = specforge_emitter::dot::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(dot.contains("box"), "default shape is box");
 }
 
@@ -119,7 +119,7 @@ fn dot_labels_toggle_drops_titles() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha Behavior")));
 
-    let dot = specforge_emitter::emit_dot(
+    let dot = specforge_emitter::dot::emit_dot(
         &graph,
         &specforge_emitter::DotOptions {
             labels: false,
@@ -149,7 +149,7 @@ fn dot_kind_filter_drops_nodes_and_edges() {
     });
 
     let behaviors = vec!["behavior".to_string()];
-    let dot = specforge_emitter::emit_dot(
+    let dot = specforge_emitter::dot::emit_dot(
         &graph,
         &specforge_emitter::DotOptions {
             kind_filter: Some(&behaviors),
@@ -186,6 +186,9 @@ fn dot_cluster_by_extension_groups_nodes() {
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
+        lifecycle_field: None,
     });
     registry.register(specforge_registry::KindRegistryEntry {
         kind_name: "term".to_string(),
@@ -202,12 +205,15 @@ fn dot_cluster_by_extension_groups_nodes() {
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
+        lifecycle_field: None,
     });
     let mut graph = Graph::new();
     graph.add_node(node("beh_b", "behavior", None));
     graph.add_node(node("term_t", "term", None));
 
-    let dot = specforge_emitter::emit_dot(
+    let dot = specforge_emitter::dot::emit_dot(
         &graph,
         &specforge_emitter::DotOptions {
             kind_registry: Some(&registry),

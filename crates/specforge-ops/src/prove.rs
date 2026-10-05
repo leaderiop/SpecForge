@@ -2,13 +2,19 @@
 //!
 //! Rungs 2–3 of the formal ladder (RES-25; Leino/de Moura anchors):
 //!
-//! **Consistency** (rung 2): every `constraint`'s parseable metric lines
-//! become individually named conjuncts asserted corpus-wide with z3. An
-//! unsat result carries the unsat core naming the minimal set of bounds
-//! that contradict each other (E046), across files, with per-bound
-//! citations.
+//! What the pass reads is declared, not named (ADR 0009): a field whose
+//! extension gives it the **bound** proof role (a governance constraint's
+//! `metric`, a formal axiom's `expression`) holds facts the solver assumes;
+//! one with the **claim** role (a formal property's or invariant's
+//! `expression`) holds statements that must follow from them. A field with
+//! no role is not read, whatever its name.
 //!
-//! **Entailment** (rung 3): any entity carrying an `expression` field is a
+//! **Consistency** (rung 2): every bound field's parseable lines become
+//! individually named conjuncts asserted corpus-wide with z3. An unsat
+//! result carries the unsat core naming the minimal set of bounds that
+//! contradict each other (E046), across files, with per-bound citations.
+//!
+//! **Entailment** (rung 3): every parseable line of a claim field is a
 //! *claim*. Each claim is checked as a verification condition
 //! `declared_bounds ⇒ claim` by asking z3 whether
 //! `bounds ∧ ¬claim` is satisfiable: unsat proves the claim from the
@@ -26,8 +32,9 @@
 use std::process::Command;
 
 use specforge_common::{Diagnostic, SourceSpan, Sym};
-use specforge_emitter::analyze::AnalysisContext;
 use specforge_parser::{Expr, SpannedExpr, parse_expression};
+use specforge_project::passes::AnalysisContext;
+use specforge_registry::ProofRole;
 
 /// Result of one prove run over the compiled project.
 pub struct ProveReport {
@@ -353,7 +360,7 @@ fn render_counterexample(
 struct Conjunct {
     expr: SpannedExpr,
     text: String,
-    /// Human location: metric-relative line (string form) or file line
+    /// Human location: field-relative line (string form) or file line
     /// (first-class `expr { }` form).
     loc: String,
     /// Owning entity's source span (attached by the collection loops).
@@ -367,14 +374,15 @@ struct Claim {
     text: String,
 }
 
-/// Parse a field that may be first-class (`expr { }`) or a legacy string
-/// block, returning conjuncts plus the number of skipped prose lines.
-fn conjuncts_from_field(value: &specforge_graph::FieldValue) -> (Vec<Conjunct>, usize) {
+/// Parse the field `name`, which may be first-class (`expr { }`) or a
+/// string block (one comparison per line), returning conjuncts plus the
+/// number of skipped prose lines.
+fn conjuncts_from_field(name: &str, value: &specforge_graph::FieldValue) -> (Vec<Conjunct>, usize) {
     let mut skipped = 0usize;
     let mut out = Vec::new();
     match value {
-        specforge_graph::FieldValue::String(metric) => {
-            for (i, line) in metric.lines().enumerate() {
+        specforge_graph::FieldValue::String(text) => {
+            for (i, line) in text.lines().enumerate() {
                 if line.trim().is_empty() {
                     continue;
                 }
@@ -382,7 +390,7 @@ fn conjuncts_from_field(value: &specforge_graph::FieldValue) -> (Vec<Conjunct>, 
                     Ok(expr) => out.push(Conjunct {
                         expr,
                         text: line.trim().to_string(),
-                        loc: format!("metric line {}", i + 1),
+                        loc: format!("line {} of '{name}'", i + 1),
                         span: SourceSpan {
                             file: Sym::new(""),
                             start_line: 0,
@@ -443,7 +451,7 @@ pub fn run_prove_with(ctx: &AnalysisContext, options: &ProveOptions) -> ProveRep
 pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveReport {
     let mut findings = Vec::new();
     let mut skipped_prose_lines = 0usize;
-    let mut constraints_with_metrics = 0usize;
+    let mut entities_with_bounds = 0usize;
     let mut conjunct_count = 0usize;
     let mut axioms: Vec<Conjunct> = Vec::new();
     let mut claims: Vec<Claim> = Vec::new();
@@ -452,34 +460,43 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
     let solver_version = version.unwrap_or_else(|| String::from("not found"));
 
     for node in ctx.graph.nodes() {
-        // Axioms: constraint metric bounds.
-        if node.kind.raw.as_str() == "constraint"
-            && let Some(field) = node.fields.get("metric")
-        {
-            let (mut conjuncts, skipped) = conjuncts_from_field(field);
+        let kind = node.kind.raw.as_str();
+        let mut has_bounds = false;
+        for entry in node.fields.entries() {
+            let name = entry.key.as_str();
+            // Only fields an extension declares a proof role for are read.
+            let Some(role) = ctx
+                .field_registry
+                .get(kind, name)
+                .and_then(|field| field.proof_role)
+            else {
+                continue;
+            };
+            let (mut conjuncts, skipped) = conjuncts_from_field(name, &entry.value);
             skipped_prose_lines += skipped;
-            if !conjuncts.is_empty() {
-                constraints_with_metrics += 1;
-                conjunct_count += conjuncts.len();
-                for c in &mut conjuncts {
-                    c.span = node.source_span.clone();
+            match role {
+                // Bounds: facts the solver assumes.
+                ProofRole::Bound => {
+                    has_bounds |= !conjuncts.is_empty();
+                    conjunct_count += conjuncts.len();
+                    for c in &mut conjuncts {
+                        c.span = node.source_span.clone();
+                    }
+                    axioms.extend(conjuncts);
                 }
-                axioms.extend(conjuncts);
+                // Claims: statements the bounds must entail.
+                ProofRole::Claim => {
+                    claims.extend(conjuncts.into_iter().map(|c| Claim {
+                        id: node.id.raw.to_string(),
+                        span: node.source_span.clone(),
+                        expr: c.expr,
+                        text: c.text,
+                    }));
+                }
             }
         }
-
-        // Claims: any entity carrying a formal `expression`.
-        if let Some(field) = node.fields.get("expression") {
-            let (conjuncts, skipped) = conjuncts_from_field(field);
-            skipped_prose_lines += skipped;
-            for c in conjuncts {
-                claims.push(Claim {
-                    id: node.id.raw.to_string(),
-                    span: node.source_span.clone(),
-                    expr: c.expr,
-                    text: c.text,
-                });
-            }
+        if has_bounds {
+            entities_with_bounds += 1;
         }
     }
 
@@ -552,9 +569,9 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
                         let first_idx = core.first().and_then(|name| names.get(name)).copied();
                         let mut diagnostic = Diagnostic::error(
                             "E046",
-                            format!("contradictory metric bounds: {}", cited.join("; ")),
+                            format!("contradictory bounds: {}", cited.join("; ")),
                         )
-                        .with_suggestion("relax or correct the listed metric bounds");
+                        .with_suggestion("relax or correct the listed bounds");
                         if let Some(idx) = first_idx {
                             diagnostic = diagnostic.with_span(axioms[idx].span.clone());
                         }
@@ -564,7 +581,7 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
                     _ => {
                         findings.push(Diagnostic::info(
                             "I098",
-                            "the solver could not decide the combined metric bounds".to_string(),
+                            "the solver could not decide the combined bounds".to_string(),
                         ));
                     }
                 },
@@ -629,7 +646,7 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
                             )
                             .with_span(claim.span.clone())
                             .with_suggestion(
-                                "strengthen the declared constraint bounds or weaken the claim",
+                                "strengthen the declared bounds or weaken the claim",
                             ),
                         );
                     }
@@ -670,7 +687,7 @@ pub(crate) fn analyze_with(ctx: &AnalysisContext, solver: &dyn Solver) -> ProveR
         "solver": solver_version,
         "solver_available": solver_available,
         "solver_runtime_failure": solver_runtime_failure,
-        "constraints_with_metrics": constraints_with_metrics,
+        "entities_with_bounds": entities_with_bounds,
         "axioms": axioms.len(),
         "conjuncts": conjunct_count,
         "skipped_prose_lines": skipped_prose_lines,
@@ -693,7 +710,7 @@ mod tests {
     use specforge_common::Sym;
     use specforge_graph::{FieldMap, Graph, Node};
     use specforge_parser::{EntityId, EntityKind, FieldValue};
-    use specforge_registry::{FieldRegistry, KindRegistry};
+    use specforge_registry::{FieldRegistry, FieldRegistryEntry, KindRegistry, ManifestFieldType};
     use std::path::Path;
 
     fn span(file: &str) -> SourceSpan {
@@ -735,9 +752,39 @@ mod tests {
         node(id, "invariant", fields)
     }
 
+    /// The builtins' proof roles: a constraint's metric and an axiom's
+    /// expression are bounds, an invariant's expression a claim.
+    fn roles() -> FieldRegistry {
+        let mut registry = FieldRegistry::default();
+        for (kind, field, role) in [
+            ("constraint", "metric", ProofRole::Bound),
+            ("axiom", "expression", ProofRole::Bound),
+            ("invariant", "expression", ProofRole::Claim),
+        ] {
+            registry.register(FieldRegistryEntry {
+                kind_name: kind.to_string(),
+                field_name: field.to_string(),
+                description: None,
+                field_type: ManifestFieldType::String,
+                source_extension: "@test/roles".to_string(),
+                edge: None,
+                target_kind: None,
+                file_reference: false,
+                required: false,
+                inverse_of: None,
+                normative: true,
+                exempts_obligations: false,
+                headline: false,
+                derived_from: None,
+                proof_role: Some(role),
+            });
+        }
+        registry
+    }
+
     fn prove(graph: &Graph) -> ProveReport {
         let kind_registry = KindRegistry::default();
-        let field_registry = FieldRegistry::default();
+        let field_registry = roles();
         let empty_proved = std::collections::HashSet::new();
         let ctx = AnalysisContext {
             graph,
@@ -928,6 +975,59 @@ mod tests {
         assert_eq!(report.summary["claims_proved"].as_u64(), Some(1));
     }
 
+    #[test]
+    fn a_field_without_a_proof_role_is_not_read() {
+        let mut g = Graph::new();
+        let mut fields = FieldMap::new();
+        fields.push(
+            Sym::new("metric"),
+            FieldValue::String("latency < 100ms".to_string()),
+        );
+        // Contradicts the metric, but no extension declares it a bound.
+        fields.push(
+            Sym::new("threshold"),
+            FieldValue::String("latency > 500ms".to_string()),
+        );
+        g.add_node(node("budget", "constraint", fields));
+        // An `expression` on a kind no extension declares it for is no claim.
+        let mut fields = FieldMap::new();
+        fields.push(Sym::new("expression"), expr_field("latency > 1s"));
+        g.add_node(node("login", "behavior", fields));
+        let report = prove(&g);
+        assert!(report.findings.iter().all(|f| f.code != "E046"));
+        assert_eq!(report.summary["axioms"].as_u64(), Some(1));
+        assert_eq!(report.summary["claims"].as_u64(), Some(0));
+        assert_eq!(report.summary["entities_with_bounds"].as_u64(), Some(1));
+    }
+
+    #[test]
+    fn an_axiom_style_bound_joins_the_bounds() {
+        let mut g = Graph::new();
+        let mut fields = FieldMap::new();
+        fields.push(Sym::new("expression"), expr_field("latency < 100ms"));
+        g.add_node(node("fast_network", "axiom", fields));
+        g.add_node(claim_node("inv", "latency < 200ms"));
+        let report = prove(&g);
+        assert_eq!(report.summary["entities_with_bounds"].as_u64(), Some(1));
+        assert_eq!(report.summary["claims"].as_u64(), Some(1));
+        assert_eq!(report.proved_claim_ids, vec!["inv".to_string()]);
+
+        // An assumption contradicting a constraint's bound is E046.
+        g.add_node(constraint_node("floor", "latency > 500ms"));
+        let report = prove(&g);
+        let e046 = report.findings.iter().find(|f| f.code == "E046").unwrap();
+        assert!(
+            e046.message.starts_with("contradictory bounds: "),
+            "{}",
+            e046.message
+        );
+        assert!(
+            e046.message.contains("line 1 of 'metric'"),
+            "{}",
+            e046.message
+        );
+    }
+
     // ── solver seam: scripted adapter, no z3 binary needed ─────────────────
 
     use std::cell::RefCell;
@@ -968,7 +1068,7 @@ mod tests {
 
     fn prove_with(graph: &Graph, solver: &dyn Solver) -> ProveReport {
         let kind_registry = KindRegistry::default();
-        let field_registry = FieldRegistry::default();
+        let field_registry = roles();
         let empty_proved = std::collections::HashSet::new();
         let ctx = AnalysisContext {
             graph,

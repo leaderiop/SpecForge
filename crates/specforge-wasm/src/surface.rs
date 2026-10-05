@@ -1,132 +1,6 @@
 use crate::runtime::{WasmCallResult, WasmRuntime};
 use specforge_common::{Diagnostic, Severity};
-use specforge_registry::SandboxPolicy;
 use std::collections::HashSet;
-
-/// Validate that all declared surface exports are present in the Wasm module.
-pub fn validate_surface_exports(
-    commands: &[(&str, &str)],      // (id, export_name)
-    mcp_tools: &[(&str, &str)],     // (name, export_name)
-    mcp_resources: &[(&str, &str)], // (name, export_name)
-    available_exports: &HashSet<String>,
-) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-
-    for (id, export) in commands {
-        let expected = format!("cmd__{}", id);
-        if !available_exports.contains(&expected) && !available_exports.contains(*export) {
-            diagnostics.push(Diagnostic {
-                code: "E020".to_string(),
-                severity: Severity::Error,
-                message: format!(
-                    "surface command '{}': export '{}' not found in Wasm module",
-                    id, expected
-                ),
-                span: None,
-                suggestion: Some(format!(
-                    "add #[export_name = \"{}\"] to the Wasm module",
-                    expected
-                )),
-            });
-        }
-    }
-
-    for (name, export) in mcp_tools {
-        let expected = format!("mcp__{}", name);
-        if !available_exports.contains(&expected) && !available_exports.contains(*export) {
-            diagnostics.push(Diagnostic {
-                code: "E020".to_string(),
-                severity: Severity::Error,
-                message: format!(
-                    "MCP tool '{}': export '{}' not found in Wasm module",
-                    name, expected
-                ),
-                span: None,
-                suggestion: Some(format!(
-                    "add #[export_name = \"{}\"] to the Wasm module",
-                    expected
-                )),
-            });
-        }
-    }
-
-    for (name, export) in mcp_resources {
-        let expected = format!("mcp__{}", name);
-        if !available_exports.contains(&expected) && !available_exports.contains(*export) {
-            diagnostics.push(Diagnostic {
-                code: "E020".to_string(),
-                severity: Severity::Error,
-                message: format!(
-                    "MCP resource '{}': export '{}' not found in Wasm module",
-                    name, expected
-                ),
-                span: None,
-                suggestion: Some(format!(
-                    "add #[export_name = \"{}\"] to the Wasm module",
-                    expected
-                )),
-            });
-        }
-    }
-
-    diagnostics
-}
-
-/// Validate MCP tool input/output schemas are valid JSON Schema objects.
-pub fn validate_mcp_tool_schemas(
-    tools: &[(&str, &serde_json::Value, Option<&serde_json::Value>)], // (tool_name, input_schema, output_schema)
-) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-
-    for (name, input_schema, output_schema) in tools {
-        if !input_schema.is_object() {
-            diagnostics.push(Diagnostic {
-                code: "E055".to_string(),
-                severity: Severity::Error,
-                message: format!("MCP tool '{}': input_schema must be a JSON object", name),
-                span: None,
-                suggestion: Some("provide a valid JSON Schema object".to_string()),
-            });
-        }
-        if let Some(out) = output_schema
-            && !out.is_object()
-        {
-            diagnostics.push(Diagnostic {
-                code: "E055".to_string(),
-                severity: Severity::Error,
-                message: format!("MCP tool '{}': output_schema must be a JSON object", name),
-                span: None,
-                suggestion: Some("provide a valid JSON Schema object".to_string()),
-            });
-        }
-    }
-
-    diagnostics
-}
-
-/// Validate command argument types are known.
-pub fn validate_command_arg_types(
-    commands: &[(&str, &[&str])], // (command_id, arg_types)
-) -> Vec<Diagnostic> {
-    let known_types = ["string", "path", "bool", "enum", "integer"];
-    let mut diagnostics = Vec::new();
-
-    for (id, arg_types) in commands {
-        for arg_type in *arg_types {
-            if !known_types.contains(arg_type) {
-                diagnostics.push(Diagnostic {
-                    code: "E055".to_string(),
-                    severity: Severity::Error,
-                    message: format!("command '{}': unknown argument type '{}'", id, arg_type),
-                    span: None,
-                    suggestion: Some(format!("known types: {}", known_types.join(", "))),
-                });
-            }
-        }
-    }
-
-    diagnostics
-}
 
 /// Auto-promoted MCP tool derived from a CLI command.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -160,6 +34,7 @@ pub fn auto_promote_commands_to_mcp_tools(
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             continue;
         }
@@ -245,6 +120,7 @@ pub fn dispatch_surface_command(
             ),
             span: None,
             suggestion: None,
+            data: None,
         }),
     }
 }
@@ -263,6 +139,7 @@ pub fn dispatch_surface_mcp_tool(
             message: format!("MCP tool {}() returned invalid JSON: {}", export_name, e),
             span: None,
             suggestion: None,
+            data: None,
         }),
         WasmCallResult::Trap(trap) => Err(Diagnostic {
             code: "E028".to_string(),
@@ -273,6 +150,7 @@ pub fn dispatch_surface_mcp_tool(
             ),
             span: None,
             suggestion: None,
+            data: None,
         }),
     }
 }
@@ -315,230 +193,15 @@ pub fn dispatch_surface_mcp_resource(
             ),
             span: None,
             suggestion: None,
+            data: None,
         }),
     }
-}
-
-/// Enforce surface sandbox: intersect override with extension ceiling.
-/// Override cannot expand beyond extension policy.
-pub fn enforce_surface_sandbox(
-    override_: &SurfaceSandboxOverrideValues,
-    extension_policy: &SandboxPolicy,
-) -> EffectiveSandbox {
-    let fs_read = match (override_.fs_read, extension_policy.file_system_access) {
-        (Some(true), Some(false)) => false, // Cannot expand beyond ceiling
-        (Some(v), _) => v,
-        (None, Some(v)) => v,
-        (None, None) => true,
-    };
-
-    let fs_write = match (override_.fs_write, extension_policy.file_system_access) {
-        (Some(true), Some(false)) => false,
-        (Some(v), _) => v,
-        (None, Some(v)) => v,
-        (None, None) => false,
-    };
-
-    let network = match (override_.network, extension_policy.network_access) {
-        (Some(true), Some(false)) => false,
-        (Some(v), _) => v,
-        (None, Some(v)) => v,
-        (None, None) => false,
-    };
-
-    EffectiveSandbox {
-        fs_read,
-        fs_write,
-        network,
-    }
-}
-
-/// Surface sandbox override values (simplified for enforcement).
-#[derive(Debug, Clone, Default)]
-pub struct SurfaceSandboxOverrideValues {
-    pub fs_read: Option<bool>,
-    pub fs_write: Option<bool>,
-    pub network: Option<bool>,
-}
-
-/// Effective sandbox after enforcement.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct EffectiveSandbox {
-    pub fs_read: bool,
-    pub fs_write: bool,
-    pub network: bool,
-}
-
-/// Enforce that MCP resources never get fs_write.
-pub fn enforce_resource_sandbox(
-    override_: &SurfaceSandboxOverrideValues,
-    extension_policy: &SandboxPolicy,
-) -> EffectiveSandbox {
-    let mut sandbox = enforce_surface_sandbox(override_, extension_policy);
-    sandbox.fs_write = false; // Resources are always read-only
-    sandbox
-}
-
-/// Toggle a surface contribution on/off. Returns true if found.
-pub fn toggle_surface_contribution(
-    entries: &mut [SurfaceEntry],
-    name: &str,
-    enabled: bool,
-) -> bool {
-    let mut found = false;
-    for entry in entries.iter_mut() {
-        if entry.name == name {
-            entry.enabled = enabled;
-            found = true;
-        }
-    }
-    found
-}
-
-/// Minimal surface entry for toggle tracking.
-#[derive(Debug, Clone)]
-pub struct SurfaceEntry {
-    pub name: String,
-    pub surface_type: SurfaceEntryType,
-    pub enabled: bool,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SurfaceEntryType {
-    Command,
-    McpTool,
-    McpResource,
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::runtime::{MockRuntime, WasmTrapInfo};
-
-    // -- validate_surface_exports --
-
-    // B:validate_surface_exports — verify unit "all declared cmd exports present passes"
-    #[test]
-    fn test_validate_all_cmd_exports_present_passes() {
-        let exports: HashSet<String> = ["cmd__analyze", "cmd__report"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
-        let commands = [("analyze", "cmd__analyze"), ("report", "cmd__report")];
-        let diags = validate_surface_exports(&commands, &[], &[], &exports);
-        assert!(diags.is_empty());
-    }
-
-    // B:validate_surface_exports — verify unit "missing cmd export produces E036"
-    #[test]
-    fn test_validate_missing_cmd_export_e020() {
-        let exports: HashSet<String> = HashSet::new();
-        let commands = [("analyze", "cmd__analyze")];
-        let diags = validate_surface_exports(&commands, &[], &[], &exports);
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "E020");
-        assert!(diags[0].message.contains("analyze"));
-    }
-
-    // B:validate_surface_exports — verify unit "all declared mcp exports present passes"
-    #[test]
-    fn test_validate_all_mcp_exports_present_passes() {
-        let exports: HashSet<String> = ["mcp__search", "mcp__spec_graph"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
-        let tools = [("search", "mcp__search")];
-        let resources = [("spec_graph", "mcp__spec_graph")];
-        let diags = validate_surface_exports(&[], &tools, &resources, &exports);
-        assert!(diags.is_empty());
-    }
-
-    // B:validate_surface_exports — verify unit "missing mcp export produces E036"
-    #[test]
-    fn test_validate_missing_mcp_export_e020() {
-        let exports: HashSet<String> = HashSet::new();
-        let tools = [("search", "mcp__search")];
-        let diags = validate_surface_exports(&[], &tools, &[], &exports);
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "E020");
-        assert!(diags[0].message.contains("search"));
-    }
-
-    // -- validate_mcp_tool_schemas --
-
-    // B:validate_mcp_tool_schemas — verify unit "valid JSON Schema passes"
-    #[test]
-    fn test_validate_valid_json_schema_passes() {
-        let schema = serde_json::json!({"type": "object", "properties": {}});
-        let tools = [("search", &schema, None)];
-        let diags = validate_mcp_tool_schemas(&tools);
-        assert!(diags.is_empty());
-    }
-
-    // B:validate_mcp_tool_schemas — verify unit "invalid input_schema produces diagnostic"
-    #[test]
-    fn test_validate_invalid_schema_produces_diagnostic() {
-        let schema = serde_json::json!("not an object");
-        let tools = [("search", &schema, None)];
-        let diags = validate_mcp_tool_schemas(&tools);
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "E055");
-    }
-
-    // B:validate_mcp_tool_schemas — verify unit "valid output_schema passes"
-    #[test]
-    fn test_validate_valid_output_schema_passes() {
-        let input = serde_json::json!({"type": "object"});
-        let output =
-            serde_json::json!({"type": "object", "properties": {"result": {"type": "string"}}});
-        let tools = [("search", &input, Some(&output))];
-        let diags = validate_mcp_tool_schemas(&tools);
-        assert!(diags.is_empty());
-    }
-
-    // B:validate_mcp_tool_schemas — verify unit "invalid output_schema produces diagnostic"
-    #[test]
-    fn test_validate_invalid_output_schema_produces_diagnostic() {
-        let input = serde_json::json!({"type": "object"});
-        let output = serde_json::json!("not an object");
-        let tools = [("search", &input, Some(&output))];
-        let diags = validate_mcp_tool_schemas(&tools);
-        assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "E055");
-        assert!(diags[0].message.contains("output_schema"));
-    }
-
-    // -- validate_command_arg_types --
-
-    // B:validate_command_arg_types — verify unit "known arg types pass"
-    #[test]
-    fn test_validate_known_arg_types_pass() {
-        let types = vec!["string", "path", "bool", "enum", "integer"];
-        let commands = [("analyze", types.as_slice())];
-        let diags = validate_command_arg_types(&commands);
-        assert!(diags.is_empty());
-    }
-
-    // B:validate_surface_exports — verify contract "validation contracts"
-    #[test]
-    fn test_validate_surface_exports_contract() {
-        // ensures: all present → no diagnostics
-        let exports: HashSet<String> = ["cmd__a", "mcp__b", "mcp__c"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
-        let diags = validate_surface_exports(
-            &[("a", "cmd__a")],
-            &[("b", "mcp__b")],
-            &[("c", "mcp__c")],
-            &exports,
-        );
-        assert!(diags.is_empty());
-
-        // ensures: missing → E020 with export name
-        let diags = validate_surface_exports(&[("x", "cmd__x")], &[], &[], &HashSet::new());
-        assert!(diags.iter().all(|d| d.code == "E020"));
-    }
 
     // -- auto_promote_commands_to_mcp_tools --
 
@@ -767,160 +430,5 @@ mod tests {
             dispatch_surface_mcp_resource("@ext/a", "mcp__res", "spec://res", &runtime3).unwrap();
         assert_eq!(content, b"data");
         assert_eq!(mime, "text/plain");
-    }
-
-    // -- enforce_surface_sandbox --
-
-    // B:enforce_surface_sandbox — verify unit "effective sandbox = intersection of override and ceiling"
-    #[test]
-    fn test_enforce_sandbox_intersection() {
-        let override_ = SurfaceSandboxOverrideValues {
-            fs_read: Some(true),
-            fs_write: Some(true),
-            network: Some(true),
-        };
-        let policy = SandboxPolicy {
-            file_system_access: Some(true),
-            network_access: Some(false),
-            ..Default::default()
-        };
-        let effective = enforce_surface_sandbox(&override_, &policy);
-        assert!(effective.fs_read);
-        assert!(effective.fs_write);
-        assert!(!effective.network); // Ceiling denies network
-    }
-
-    // B:enforce_surface_sandbox — verify unit "override cannot expand beyond extension policy"
-    #[test]
-    fn test_enforce_sandbox_cannot_expand() {
-        let override_ = SurfaceSandboxOverrideValues {
-            fs_read: Some(true),
-            fs_write: Some(true),
-            network: Some(true),
-        };
-        let policy = SandboxPolicy {
-            file_system_access: Some(false),
-            network_access: Some(false),
-            ..Default::default()
-        };
-        let effective = enforce_surface_sandbox(&override_, &policy);
-        assert!(!effective.fs_read);
-        assert!(!effective.fs_write);
-        assert!(!effective.network);
-    }
-
-    // B:enforce_surface_sandbox — verify unit "MCP resource fs_write denied regardless"
-    #[test]
-    fn test_enforce_resource_sandbox_fs_write_denied() {
-        let override_ = SurfaceSandboxOverrideValues {
-            fs_read: Some(true),
-            fs_write: Some(true), // Should still be denied for resources
-            network: None,
-        };
-        let policy = SandboxPolicy {
-            file_system_access: Some(true),
-            network_access: Some(true),
-            ..Default::default()
-        };
-        let effective = enforce_resource_sandbox(&override_, &policy);
-        assert!(effective.fs_read);
-        assert!(!effective.fs_write); // Always denied for resources
-    }
-
-    // -- toggle_surface_contribution --
-
-    // B:toggle_surface_contribution — verify unit "disabled command excluded"
-    #[test]
-    fn test_toggle_disabled_command_excluded() {
-        let mut entries = vec![
-            SurfaceEntry {
-                name: "analyze".to_string(),
-                surface_type: SurfaceEntryType::Command,
-                enabled: true,
-            },
-            SurfaceEntry {
-                name: "report".to_string(),
-                surface_type: SurfaceEntryType::Command,
-                enabled: true,
-            },
-        ];
-        assert!(toggle_surface_contribution(&mut entries, "analyze", false));
-        assert!(!entries[0].enabled);
-        assert!(entries[1].enabled);
-    }
-
-    // B:toggle_surface_contribution — verify unit "disabled MCP tool excluded"
-    #[test]
-    fn test_toggle_disabled_mcp_tool_excluded() {
-        let mut entries = vec![SurfaceEntry {
-            name: "search".to_string(),
-            surface_type: SurfaceEntryType::McpTool,
-            enabled: true,
-        }];
-        assert!(toggle_surface_contribution(&mut entries, "search", false));
-        assert!(!entries[0].enabled);
-    }
-
-    // B:toggle_surface_contribution — verify unit "disabled MCP resource excluded"
-    #[test]
-    fn test_toggle_disabled_mcp_resource_excluded() {
-        let mut entries = vec![SurfaceEntry {
-            name: "graph".to_string(),
-            surface_type: SurfaceEntryType::McpResource,
-            enabled: true,
-        }];
-        assert!(toggle_surface_contribution(&mut entries, "graph", false));
-        assert!(!entries[0].enabled);
-    }
-
-    // B:toggle_surface_contribution — verify unit "re-enabled contribution restored"
-    #[test]
-    fn test_toggle_reenabled_contribution_restored() {
-        let mut entries = vec![SurfaceEntry {
-            name: "analyze".to_string(),
-            surface_type: SurfaceEntryType::Command,
-            enabled: false,
-        }];
-        assert!(toggle_surface_contribution(&mut entries, "analyze", true));
-        assert!(entries[0].enabled);
-    }
-
-    // B:toggle_surface_contribution + sandbox — verify contract
-    #[test]
-    fn test_toggle_and_sandbox_contract() {
-        // Toggle contract: found returns true, not found returns false
-        let mut entries = vec![SurfaceEntry {
-            name: "x".to_string(),
-            surface_type: SurfaceEntryType::Command,
-            enabled: true,
-        }];
-        assert!(toggle_surface_contribution(&mut entries, "x", false));
-        assert!(!toggle_surface_contribution(
-            &mut entries,
-            "nonexistent",
-            false
-        ));
-
-        // Sandbox contract: intersection semantics
-        let override_ = SurfaceSandboxOverrideValues {
-            fs_read: Some(true),
-            fs_write: None,
-            network: Some(false),
-        };
-        let policy = SandboxPolicy {
-            file_system_access: Some(true),
-            network_access: Some(true),
-            ..Default::default()
-        };
-        let eff = enforce_surface_sandbox(&override_, &policy);
-        assert!(eff.fs_read);
-        assert!(!eff.network); // Override restricts
-
-        // Resource sandbox: fs_write always denied
-        let eff2 = enforce_resource_sandbox(
-            &SurfaceSandboxOverrideValues::default(),
-            &SandboxPolicy::default(),
-        );
-        assert!(!eff2.fs_write);
     }
 }

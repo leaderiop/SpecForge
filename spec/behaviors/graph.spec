@@ -128,33 +128,3 @@ behavior maintain_mutable_graph "Maintain Mutable Graph" {
   verify unit "added edges are reflected in outgoing edge queries"
   verify contract "Maintain Mutable Graph: mutable graph maintenance holds — graph_initialized, mutations_applied, no_dangling_edges_enforced, graph_consistency"
 }
-
-behavior compute_subgraph_for_invalidation "Compute Subgraph for Invalidation" {
-  features   [incremental_compilation]
-  invariants [incremental_correctness, graph_traversal_integrity]
-  category   query
-  types      [Graph, Subgraph, FileEntry]
-  requires {
-    graph_built_ready       "A fully constructed in-memory graph exists from a prior build"
-    changed_file_identified "The changed file path has been identified by the file watcher"
-  }
-  ensures {
-    invalidation_subgraph_computed "The subgraph containing the changed file and all transitive dependents is identified"
-    only_affected_rebuilt          "Only nodes and edges from invalidated files are removed and rebuilt"
-  }
-  maintains {
-    unaffected_subgraphs_intact "Subgraphs not reachable from the changed file remain unchanged"
-  }
-  contract   """
-    Given a changed file, the compiler MUST compute the invalidation
-    subgraph: the changed file plus all files that transitively depend
-    on it via use imports. Only nodes and edges from invalidated files
-    MUST be removed and rebuilt. Unaffected subgraphs MUST remain intact.
-    Called by invalidate_changed_files during incremental rebuilds.
-  """
-  verify unit "changed file and direct dependents are invalidated"
-  verify unit "transitive dependents are included in subgraph"
-  verify unit "unaffected files are not invalidated"
-  verify integration "subgraph rebuild matches full rebuild result"
-  verify contract "Compute Subgraph for Invalidation: subgraph invalidation holds — graph_built_ready, changed_file_identified, invalidation_subgraph_computed, only_affected_rebuilt, unaffected_subgraphs_intact"
-}

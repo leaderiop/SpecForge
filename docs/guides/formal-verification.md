@@ -13,10 +13,28 @@ with exact source locations.
 Requires `z3` on `PATH` (`brew install z3`). Without it, `--prove`
 reports solver availability in its summary and checks nothing.
 
+## Bounds and claims are declared
+
+The prove pass names no kind and no field. It reads the fields an
+extension declares with a **proof role** (`proof_role` in the manifest,
+ADR 0009): a **bound** is a fact the solver assumes, and a **claim** must
+follow from the bounds. A field without a role is never read. The
+builtins declare:
+
+| Field | Kind | Extension | Role |
+|---|---|---|---|
+| `metric` | `constraint` | `@specforge/governance` | bound |
+| `expression` | `axiom` | `@specforge/formal` | bound (an axiom is assumed, not proved) |
+| `expression` | `property` | `@specforge/formal` | claim |
+| `expression` | `invariant` | `@specforge/formal` (enhancement) | claim |
+
+`expression` on an invariant needs `@specforge/formal`: without it the
+field is undeclared (W020) and not a claim. On a kind no extension
+declares it for, it is W020 like any other field.
+
 ## The expression language
 
-Metric blocks and expression claims share a small, typed expression
-language:
+Bound and claim fields share a small, typed expression language:
 
 ```text
 latency < 100ms
@@ -40,9 +58,10 @@ data to bytes (`B` `KB` `MB` `GB` and `KiB` `MiB` `GiB`). `100ms` vs
 percent (`%`) is dimensionless. Mixing dimensions on one variable is
 undefined — don't.
 
-## Declaring bounds: constraints
+## Declaring bounds: constraints and axioms
 
-A `constraint`'s `metric` block declares bounds. Two forms:
+A `constraint`'s `metric` block declares bounds, and so does an axiom's
+`expression` (with `@specforge/formal`). Two forms:
 
 ```text
 constraint memory_usage "Memory Usage" {
@@ -76,13 +95,13 @@ constraint latency_budget "Latency Budget" {
 ```
 
 Prefer `expr { }` for new specs: syntax errors surface at parse time,
-and diagnostics cite exact file lines instead of metric-relative ones.
+and diagnostics cite exact file lines instead of field-relative ones.
 
-## Declaring claims: expressions on any entity
+## Declaring claims: properties and invariants
 
-Any entity can carry an `expression` field — a *claim*. The prove pass
-checks whether the declared bounds **entail** each claim by asking z3
-whether `bounds ∧ ¬claim` is satisfiable:
+With `@specforge/formal`, a property's or an invariant's `expression` is
+a *claim*. The prove pass checks whether the declared bounds **entail**
+each claim by asking z3 whether `bounds ∧ ¬claim` is satisfiable:
 
 ```text
 invariant responsive "System Stays Responsive" {
@@ -128,9 +147,9 @@ $ specforge analyze --prove
 ## Reading the output
 
 ```text
-analyze/prove — numeric constraint bounds verified with an SMT solver
-[E046] Error: contradictory metric bounds: `latency < 100ms` in constraint
-        budget (metric line 1); `latency > 1s` in constraint floor (line 11)
+analyze/prove — declared bounds and claims verified with an SMT solver
+[E046] Error: contradictory bounds: `latency < 100ms` (line 1 of 'metric');
+        `latency > 1s` (line 11)
 [W139] Warning: claim `peak_memory > 32MB` of memory_hog is not entailed by
         the declared bounds (counterexample: latency = 0.0, peak_memory = 0.0)
 ```
@@ -138,8 +157,9 @@ analyze/prove — numeric constraint bounds verified with an SMT solver
 - `E046` — contradiction; the unsat core names the **minimal** set of
   bounds that conflict, across files, each with its location.
 - `W139` — unproven claim with counterexample.
-- The `prove` summary reports `axioms`, `claims`, `claims_proved`,
-  `claims_unproved`, `satisfiable`, and `unsatisfiable`.
+- The `prove` summary reports `entities_with_bounds`, `axioms` (the bound
+  conjuncts), `claims`, `claims_proved`, `claims_unproved`, `satisfiable`,
+  and `unsatisfiable`.
 
 Every code is documented: `specforge explain E046`.
 

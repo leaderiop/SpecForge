@@ -5,7 +5,7 @@ use crate::state::McpState;
 
 pub fn read(state: &McpState, kind: &str) -> ReadOutcome {
     let entities: Vec<serde_json::Value> = state
-        .graph
+        .graph()
         .nodes_by_kind(kind)
         .iter()
         .map(|n| {

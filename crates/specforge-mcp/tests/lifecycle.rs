@@ -45,7 +45,7 @@ fn load_extension_surfaces(server: &mut McpServer) {
 fn state_snapshot(server: &McpServer) -> Value {
     let state = server.state();
     let mut nodes: Vec<String> = state
-        .graph
+        .graph()
         .nodes()
         .iter()
         .map(|n| n.id.raw.to_string())
@@ -63,8 +63,8 @@ fn state_snapshot(server: &McpServer) -> Value {
         "resources": state.resource_registry,
         "prompts": state.prompt_registry,
         "nodes": nodes,
-        "edges": state.graph.edge_count(),
-        "diagnostics": state.diagnostics.iter().map(|d| d.code.clone()).collect::<Vec<_>>(),
+        "edges": state.graph().edge_count(),
+        "diagnostics": state.diagnostics().iter().map(|d| d.code.clone()).collect::<Vec<_>>(),
         "subscriptions": subscriptions,
         "initialized": state.is_initialized(),
     })
@@ -234,7 +234,7 @@ fn initialize_registers_prompts() {
 )]
 fn initialize_compiles_project() {
     let (server, _dir) = init_server_with_project();
-    assert!(server.state().graph.node_count() > 0);
+    assert!(server.state().graph().node_count() > 0);
 }
 
 #[test]
@@ -301,7 +301,7 @@ fn can_reinitialize_after_shutdown() {
     assert!(resp["error"].is_null(), "reinitialize rejected: {resp}");
     assert!(server.state().is_initialized());
     assert!(
-        server.state().graph.node("hello_world").is_some(),
+        server.state().graph().node("hello_world").is_some(),
         "the project is compiled again"
     );
     let listed = call(&mut server, "tools/list", json!({}));
@@ -439,7 +439,7 @@ fn reinit_rejected_session_continues() {
     let resp = call(&mut server, "initialize", json!({}));
     assert!(resp["error"].is_object());
     // Graph should still be accessible after rejected reinit
-    assert!(server.state().graph.node_count() > 0);
+    assert!(server.state().graph().node_count() > 0);
 }
 
 // B:guard_mcp_reinitialization — verify unit "no resources leaked on rejected reinit"

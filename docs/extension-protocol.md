@@ -91,6 +91,8 @@ The `contribution_flags` object tells the host which categories this extension c
 
 `starter_template` is optional: the text of the starter `.spec` file `specforge init` writes for a project that enables the extension, with `{project}` standing for the project's entity id. When several enabled extensions declare one, `init` uses the template of the extension listed first in `specforge.json`; when none does, it writes a structural starter. SDK authors set it with `ContributionsBuilder::starter_template`.
 
+`theme_color` is optional: the hex colour (`#rgb`, `#rrggbb` or `#rrggbbaa`) the `model` and `outline` diagrams draw the extension in; anything else, or none, draws it grey. SDK authors set it with `ContributionsBuilder::theme_color`.
+
 The host checks `protocol_version` for compatibility. If the extension declares a protocol version the host does not support, the host emits a diagnostic and skips the extension.
 
 ### Describe
@@ -176,6 +178,21 @@ Returns entity kind descriptors. Each descriptor declares a DSL keyword, its fie
   ]
 }
 ```
+
+Optional flags, `false` and omitted from the wire unless set (ADR 0007): on
+a kind, `contract_target` (a reference field that targets the kind is a
+contract obligation, A010) and `declares_types` (its entity ids are the type
+names custom validators receive as `declared_types`); on a field, `normative`
+(the context export keeps it), `headline` (the context export lifts it to the
+node's top level; with `normative`, it is the statement MCP `inspect` reports
+as `contract`) and `exempts_obligations` (an entity that sets it owes no
+`verify` obligations).
+
+Field types (`specforge_protocol_types::FieldType`): `string`, `integer`,
+`bool`, `enum` (values in `enum_values`), `string_list`, `reference`,
+`reference_list`, `block`. The host also reads the `_type`-suffixed
+spellings (`string_type`, ...) and `boolean`; an unknown type drops the
+field with W019.
 
 ### Category: edges
 
@@ -267,17 +284,33 @@ Returns both declarative rules (pattern-based, evaluated by the host) and custom
 }
 ```
 
-Declarative check types:
+Declarative check types (`specforge_protocol_types::CheckKind`; an unknown
+check drops the rule with W112):
 
 | Check | Behavior |
 |-------|----------|
 | `no_incoming_edges` | Warns when entity has no incoming edges of the specified type |
 | `no_outgoing_edges` | Warns when entity has no outgoing edges of the specified type |
-| `missing_field_when_flag_set` | Warns when a field is empty but a condition is met |
-| `field_value_constraint` | Warns when a field value violates a pattern or enum constraint |
+| `no_edges` | Warns when entity has no edges in either direction |
+| `missing_field_when_flag_set` | Warns when `field` is absent (union types exempt for `verify`) |
+| `missing_required_field` | Warns when `field` is absent |
+| `conditional_field_required` | Warns when `field` is empty while the field named by `constraint.pattern` holds one of `constraint.values` |
+| `field_value_constraint` | Warns when a field value violates its constraint (`non_empty`, `one_of`, `matches`) |
 | `cycle_detection` | Errors when edges of the specified type form a cycle |
 | `file_exists` | Errors when a file-reference field points to a nonexistent file |
-| `custom` | Delegates to a `validate__*` Wasm export |
+| `verify_kind_allowlist` | Warns when a `verify` kind is not in `constraint.values` |
+| `no_verify_statements` | Warns when a testable entity declares no `verify` obligations |
+| `custom` | Delegates to the rule's `wasm_function` export |
+
+Older spellings earlier SDK releases emitted (`missing_field`,
+`field_constraint`, `cycle`, `conditional_required`) are still read.
+
+Constraint kinds (`specforge_protocol_types::ConstraintKind`): `non_empty`,
+`one_of` and `matches` (regex in `pattern`) for `field_value_constraint`;
+`when_field_equals` (condition field in `pattern`, triggering values in
+`values`) for `conditional_field_required`; `one_of` for
+`verify_kind_allowlist`. Any other kind on a `field_value_constraint` rule
+drops the rule with W112.
 
 ### Category: surfaces
 
@@ -432,9 +465,7 @@ access files.
 > pure-compute wasip2 components; the host passes all needed context as call
 > input (e.g. the `ValidatorContext` snapshot for `validate__*` exports). A
 > typed component host-import surface is future work — the names below are
-> what the host's permission matrix already enforces
-> (`specforge-wasm::host_functions`), kept in lockstep with this table by a
-> drift guard test.
+> the planned surface, specified in `spec/behaviors/wasm-host-functions.spec`.
 
 ### Host Function Table
 

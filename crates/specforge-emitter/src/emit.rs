@@ -9,7 +9,7 @@ use crate::schema::GraphProtocolSchema;
 pub enum EmitFormat {
     /// Full JSON with all fields, file locations, and line numbers.
     Json,
-    /// Agent-optimized: contract, status, verify only.
+    /// Agent-optimized: title, headline fields, normative fields, verify.
     Context,
     /// Minimal: id, kind, title only.
     Brief,
@@ -44,7 +44,7 @@ pub struct EmitOptions<'a> {
     /// extensions; C13-00). Default: None — nodes use built-in defaults.
     pub kind_registry: Option<&'a KindRegistry>,
     /// Field registry, so the context format keeps each entity's normative
-    /// fields. Default: None — context carries only contract/status/verify.
+    /// and headline fields. Default: None — context carries only title/verify.
     pub field_registry: Option<&'a FieldRegistry>,
 }
 

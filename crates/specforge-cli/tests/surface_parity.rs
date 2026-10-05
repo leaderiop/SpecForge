@@ -585,14 +585,15 @@ fn event_keys(event: &Value) -> Keys {
 /// Watch's `ready` diagnostics, then its `rebuilt` diagnostics after the
 /// entry file is rewritten with the same entities.
 fn watch(project: &Project) -> (Keys, Keys) {
-    let mut child = Command::new(binary())
-        .args(["watch", "--json", "--path"])
-        .arg(&project.root)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .unwrap();
-    let stdout = child.stdout.take().unwrap();
+    let mut watch = Command::new(binary());
+    watch.args(["watch", "--json", "--path"]).arg(&project.root);
+    let mut child = crate::child_guard::ChildGuard::spawn(
+        crate::child_guard::guarded_command(&watch)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null()),
+    )
+    .unwrap();
+    let stdout = child.take_stdout().unwrap();
     let (tx, rx) = mpsc::channel();
     std::thread::spawn(move || {
         for line in BufReader::new(stdout).lines().map_while(Result::ok) {
@@ -606,8 +607,7 @@ fn watch(project: &Project) -> (Keys, Keys) {
     let text = fs::read_to_string(&project.entry).unwrap();
     fs::write(&project.entry, format!("{text}\n")).unwrap();
     let rebuilt = wait_for_event(&rx, "rebuilt");
-    let _ = child.kill();
-    let _ = child.wait();
+    drop(child);
     // A debug build checks every rebuild against a cold one; the harness
     // relies on that to see incremental drift.
     assert!(

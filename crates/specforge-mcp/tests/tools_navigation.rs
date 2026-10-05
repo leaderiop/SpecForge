@@ -69,7 +69,7 @@ fn test_server() -> McpServer {
         target: "alpha".into(),
         label: "behaviors".into(),
     });
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
 
     server
 }
@@ -86,21 +86,23 @@ fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
 
 /// Adds a node with no fields at `file`:`line`:`col`.
 fn add_node_at(server: &mut McpServer, id: &str, file: &str, line: usize, col: usize) {
-    server.state_mut().graph.add_node(Node {
-        id: EntityId { raw: id.into() },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: None,
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: file.into(),
-            start_line: line,
-            start_col: col,
-            end_line: line + 2,
-            end_col: 0,
-        },
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId { raw: id.into() },
+            kind: EntityKind {
+                raw: "behavior".into(),
+            },
+            title: None,
+            fields: FieldMap::new(),
+            source_span: SourceSpan {
+                file: file.into(),
+                start_line: line,
+                start_col: col,
+                end_line: line + 2,
+                end_col: 0,
+            },
+            methods: Vec::new(),
+        });
     });
 }
 
@@ -135,6 +137,21 @@ fn tool_text(resp: &Value) -> String {
 
 // --- specforge.inspect ---
 
+/// The statement inspect reports is the field the extension declares
+/// headline and normative, not whatever field is named `contract`.
+#[test]
+fn inspect_reports_no_contract_its_kind_does_not_declare() {
+    let mut server = test_server();
+    let resp = call_tool(
+        &mut server,
+        "specforge.inspect",
+        json!({"entity_id": "alpha"}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert!(parsed["contract"].is_null(), "{parsed}");
+    assert!(parsed["fields"]["contract"].is_string(), "{parsed}");
+}
+
 // B:provide_mcp_inspect_tool — verify unit "returns entity details"
 #[specforge_test(
     behavior = "provide_mcp_inspect_tool",
@@ -142,6 +159,7 @@ fn tool_text(resp: &Value) -> String {
 )]
 fn inspect_returns_details() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
     let resp = call_tool(
         &mut server,
         "specforge.inspect",
@@ -209,17 +227,19 @@ fn inspect_returns_every_field() {
         FieldValue::String("Ids MUST be unique".into()),
     );
     fields.push("risk".into(), FieldValue::Identifier("medium".into()));
-    server.state_mut().graph.add_node(Node {
-        id: EntityId {
-            raw: "unique_ids".into(),
-        },
-        kind: EntityKind {
-            raw: "invariant".into(),
-        },
-        title: Some("Unique ids".into()),
-        fields,
-        source_span: span(),
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId {
+                raw: "unique_ids".into(),
+            },
+            kind: EntityKind {
+                raw: "invariant".into(),
+            },
+            title: Some("Unique ids".into()),
+            fields,
+            source_span: span(),
+            methods: Vec::new(),
+        });
     });
     let resp = call_tool(
         &mut server,
@@ -294,16 +314,21 @@ fn inspect_diagnostics_are_the_entitys_own() {
         methods: Vec::new(),
     };
     let state = server.state_mut();
-    state.graph.add_node(node("task", at(20, 22)));
-    state.graph.add_node(node("task_id_uniqueness", at(30, 34)));
+    state.edit_graph(|graph| {
+        graph.add_node(node("task", at(20, 22)));
+    });
+    state.edit_graph(|graph| {
+        graph.add_node(node("task_id_uniqueness", at(30, 34)));
+    });
     let diagnostic = |code: &str, message: &str, span| specforge_common::Diagnostic {
         code: code.into(),
         severity: specforge_common::Severity::Warning,
         message: message.into(),
         span,
         suggestion: None,
+        data: None,
     };
-    state.diagnostics = vec![
+    state.surface_diagnostics = vec![
         diagnostic(
             "W003",
             "invariant 'task_id_uniqueness' is not enforced",
@@ -513,13 +538,14 @@ fn suggest_fixes_returns_suggestions() {
     // Add a diagnostic with suggestion
     server
         .state_mut()
-        .diagnostics
+        .surface_diagnostics
         .push(specforge_common::Diagnostic {
             code: "W001".into(),
             severity: specforge_common::Severity::Warning,
             message: "alpha has no tests field".into(),
             span: Some(span()),
             suggestion: Some("Add a tests field".into()),
+            data: None,
         });
 
     let resp = call_tool(
@@ -539,19 +565,21 @@ fn suggest_fixes_returns_suggestions() {
 fn server_with_fixable_diagnostics() -> McpServer {
     use specforge_common::{Diagnostic, Severity};
     let mut server = test_server();
-    server.state_mut().diagnostics.push(Diagnostic {
+    server.state_mut().surface_diagnostics.push(Diagnostic {
         code: "V001".into(),
         severity: Severity::Error,
         message: "alpha is missing a field".into(),
         span: Some(span()),
         suggestion: Some("fix alpha".into()),
+        data: None,
     });
-    server.state_mut().diagnostics.push(Diagnostic {
+    server.state_mut().surface_diagnostics.push(Diagnostic {
         code: "W001".into(),
         severity: Severity::Warning,
         message: "feature 'beta' has no owner".into(),
         span: None,
         suggestion: Some("fix beta".into()),
+        data: None,
     });
     server
 }
@@ -574,20 +602,22 @@ fn fix_titles(server: &mut McpServer, args: Value) -> Vec<String> {
 fn suggest_fixes_for_a_clean_entity_is_empty() {
     use specforge_common::{Diagnostic, Severity};
     let mut server = test_server();
-    server.state_mut().diagnostics.push(Diagnostic {
+    server.state_mut().surface_diagnostics.push(Diagnostic {
         code: "V001".into(),
         severity: Severity::Error,
         message: "alpha is missing a field".into(),
         span: Some(span()),
         suggestion: Some("fix alpha".into()),
+        data: None,
     });
     // About another entity whose id merely contains beta's.
-    server.state_mut().diagnostics.push(Diagnostic {
+    server.state_mut().surface_diagnostics.push(Diagnostic {
         code: "W001".into(),
         severity: Severity::Warning,
         message: "feature 'beta_two' has no owner".into(),
         span: None,
         suggestion: Some("fix beta_two".into()),
+        data: None,
     });
 
     assert!(fix_titles(&mut server, json!({"entity_id": "beta"})).is_empty());
@@ -644,23 +674,25 @@ fn suggest_fixes_entity_and_file_filters() {
 )]
 fn find_references_empty_list() {
     let mut server = test_server();
-    server.state_mut().graph.add_node(Node {
-        id: EntityId {
-            raw: "orphan_node".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Orphan".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "orphan.spec".into(),
-            start_line: 1,
-            start_col: 0,
-            end_line: 3,
-            end_col: 0,
-        },
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId {
+                raw: "orphan_node".into(),
+            },
+            kind: EntityKind {
+                raw: "behavior".into(),
+            },
+            title: Some("Orphan".into()),
+            fields: FieldMap::new(),
+            source_span: SourceSpan {
+                file: "orphan.spec".into(),
+                start_line: 1,
+                start_col: 0,
+                end_line: 3,
+                end_col: 0,
+            },
+            methods: Vec::new(),
+        });
     });
     let resp = call_tool(
         &mut server,
@@ -685,31 +717,33 @@ fn outline_nests_an_entitys_methods() {
         end_line: 3,
         end_col: 40,
     };
-    server.state_mut().graph.add_node(Node {
-        id: EntityId {
-            raw: "store".into(),
-        },
-        kind: EntityKind { raw: "port".into() },
-        title: Some("Store".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "store.spec".into(),
-            start_line: 1,
-            start_col: 0,
-            end_line: 5,
-            end_col: 1,
-        },
-        methods: vec![specforge_parser::MethodDecl {
-            name: "load".into(),
-            params: vec![specforge_parser::Parameter {
-                name: "path".into(),
-                ty: "Path".into(),
-                optional: false,
-                annotations: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId {
+                raw: "store".into(),
+            },
+            kind: EntityKind { raw: "port".into() },
+            title: Some("Store".into()),
+            fields: FieldMap::new(),
+            source_span: SourceSpan {
+                file: "store.spec".into(),
+                start_line: 1,
+                start_col: 0,
+                end_line: 5,
+                end_col: 1,
+            },
+            methods: vec![specforge_parser::MethodDecl {
+                name: "load".into(),
+                params: vec![specforge_parser::Parameter {
+                    name: "path".into(),
+                    ty: "Path".into(),
+                    optional: false,
+                    annotations: Vec::new(),
+                }],
+                returns: Some("Store".into()),
+                span: method_span,
             }],
-            returns: Some("Store".into()),
-            span: method_span,
-        }],
+        });
     });
 
     let resp = call_tool(

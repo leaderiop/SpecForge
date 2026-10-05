@@ -83,10 +83,16 @@ fn test_server() -> McpServer {
         target: "alpha".into(),
         label: "behaviors".into(),
     });
-    state.graph = graph;
-    state.kind_registry.register(kind_entry("behavior", true));
-    state.kind_registry.register(kind_entry("invariant", true));
-    state.kind_registry.register(kind_entry("feature", false));
+    state.serve_graph(graph, Vec::new());
+    state.edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("behavior", true));
+    });
+    state.edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("invariant", true));
+    });
+    state.edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("feature", false));
+    });
 
     server
 }
@@ -107,6 +113,9 @@ fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEnt
         dot_color: None,
         dot_fillcolor: None,
         open_fields: false,
+        contract_target: false,
+        declares_types: false,
+        lifecycle_field: None,
     }
 }
 
@@ -290,15 +299,19 @@ fn review_prompt_detects_orphans() {
 fn review_depth_bounds_the_neighborhood() {
     let mut server = test_server();
     // alpha <- beta -> delta: delta is two hops from alpha.
-    let mut delta = server.state().graph.node("alpha").unwrap().clone();
+    let mut delta = server.state().graph().node("alpha").unwrap().clone();
     delta.id = EntityId {
         raw: "delta".into(),
     };
-    server.state_mut().graph.add_node(delta);
-    server.state_mut().graph.add_edge(Edge {
-        source: "beta".into(),
-        target: "delta".into(),
-        label: "behaviors".into(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(delta);
+    });
+    server.state_mut().edit_graph(|graph| {
+        graph.add_edge(Edge {
+            source: "beta".into(),
+            target: "delta".into(),
+            label: "behaviors".into(),
+        });
     });
 
     let default = review(&mut server, json!({"entity_id": "alpha"}));
@@ -323,8 +336,10 @@ fn review_depth_bounds_the_neighborhood() {
 fn review_of_a_graph_without_testable_entities_is_empty() {
     let mut server = test_server();
     // Only beta, a feature with no verify and no edges, is left.
-    server.state_mut().graph.remove_node("alpha");
-    server.state_mut().graph.remove_node("gamma_orphan");
+    server.state_mut().edit_graph(|graph| {
+        graph.remove_node("alpha");
+        graph.remove_node("gamma_orphan");
+    });
 
     let parsed = review(&mut server, json!({}));
 
@@ -645,7 +660,7 @@ fn context_zero_extensions() {
         source_span: span(),
         methods: Vec::new(),
     });
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
 
     let resp = call_prompt(
         &mut server,
@@ -653,7 +668,7 @@ fn context_zero_extensions() {
         json!({"entity_id": "minimal"}),
     );
     assert!(
-        server.state().kind_registry.is_empty(),
+        server.state().registries().kinds.is_empty(),
         "no extension may be installed"
     );
     let parsed: Value = serde_json::from_str(&prompt_text(&resp)).unwrap();
@@ -716,6 +731,7 @@ fn explore_high_connectivity() {
 )]
 fn context_includes_contract() {
     let mut server = test_server();
+    crate::support::declare_headline_fields(&mut server, "behavior");
     let resp = call_prompt(
         &mut server,
         "specforge://prompts/context",
@@ -738,23 +754,25 @@ fn context_includes_every_field() {
         "guarantee".into(),
         FieldValue::String("Ids MUST be unique".into()),
     );
-    server.state_mut().graph.add_node(Node {
-        id: EntityId {
-            raw: "unique_ids".into(),
-        },
-        kind: EntityKind {
-            raw: "invariant".into(),
-        },
-        title: None,
-        fields,
-        source_span: SourceSpan {
-            file: "t.spec".into(),
-            start_line: 1,
-            start_col: 1,
-            end_line: 3,
-            end_col: 2,
-        },
-        methods: Vec::new(),
+    server.state_mut().edit_graph(|graph| {
+        graph.add_node(Node {
+            id: EntityId {
+                raw: "unique_ids".into(),
+            },
+            kind: EntityKind {
+                raw: "invariant".into(),
+            },
+            title: None,
+            fields,
+            source_span: SourceSpan {
+                file: "t.spec".into(),
+                start_line: 1,
+                start_col: 1,
+                end_line: 3,
+                end_col: 2,
+            },
+            methods: Vec::new(),
+        });
     });
     let resp = call_prompt(
         &mut server,

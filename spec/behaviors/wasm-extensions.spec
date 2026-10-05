@@ -426,27 +426,30 @@ behavior write_build_cache "Write the Build Cache" {
     project_compiled "the project compiled and its diagnostics are known"
   }
   ensures {
-    statuses_recorded "check --cache writes every entity that declares a status, with its kind and status, to specforge-cache.json at the project root"
+    statuses_recorded "check --cache writes every entity whose kind declares a lifecycle field, with its kind and that field's value, to specforge-cache.json at the project root"
     deterministic     "the file is byte-identical for the same sources"
     opt_in            "check without --cache never writes the file, and no other command or surface writes it"
     clean_builds_only "the file is written only when check exits 0; otherwise the previous file is left as it was"
   }
   contract """
-    The build cache is the explicit, opt-in record of the statuses of one
-    build, so history rules (status transitions) compare against a
+    The build cache is the explicit, opt-in record of the lifecycle states
+    of one build, so history rules (status transitions) compare against a
     declared input, never hidden state. `specforge check --cache` writes
     it after the compile, to `specforge-cache.json` beside
     `specforge.json`:
     `{"format": 1, "statuses": {"<entity id>": {"kind": "<kind>",
     "status": "<status>"}}}`, entities sorted by id, pretty-printed with
-    a final newline. Only entities that declare a `status` field are
-    recorded. The file is replaced atomically (written beside, then
+    a final newline. Only entities whose kind declares a `lifecycle_field`
+    (ADR 0009) and that give it a text value are recorded, the value under
+    `status` whatever the field is called; no field name is known to the
+    cache. The file is replaced atomically (written beside, then
     renamed). A check that exits non-zero (errors, or warnings under
     `--strict`) does not write it: a broken build is not a baseline.
     CI may commit the file to check transitions across builds.
   """
   produces []
-  verify unit "check --cache records each entity's kind and status"
+  verify unit "check --cache records each entity's kind and lifecycle state"
+  verify unit "a kind without a lifecycle field is not recorded"
   verify unit "the cache file is deterministic"
   verify integration "check without --cache never writes the cache"
   verify unit "check --cache with errors leaves the cache untouched"
@@ -512,9 +515,10 @@ behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
     extension_file_parsers). Calls to unauthorized host functions MUST be
     rejected.
 
-    Surface contributions (cmd__, mcp__ exports) have their own sandbox
-    enforcement via enforce_surface_sandbox (behaviors/surface-contributions.spec).
-    This behavior covers compile-time contribution call sites only.
+    Surface contributions (cmd__, mcp__ exports) are granted no
+    capability at all (invariant surface_sandbox_ceiling,
+    behaviors/surface-contributions.spec). This behavior covers
+    compile-time contribution call sites only.
   """
   produces   [contribution_permission_denied]
   verify unit "validator export limited to query_graph and emit_diagnostic"
@@ -547,8 +551,8 @@ behavior validate_contribution_exports "Validate Contribution Exports" {
     exports all functions required by its declared compile-time contributions.
     Missing exports MUST produce an E020 diagnostic listing the expected export
     names. Extra exports beyond declared contributions MUST be ignored.
-    Surface contribution exports (cmd__, mcp__) are validated separately by
-    validate_surface_exports (behaviors/surface-contributions.spec).
+    Surface contribution exports (cmd__, mcp__) are not checked at load:
+    a missing one is an E028 when dispatched (ADR 0011).
   """
   produces   [contribution_exports_validated, contribution_export_validation_failed]
   verify unit "all declared contribution exports present passes"

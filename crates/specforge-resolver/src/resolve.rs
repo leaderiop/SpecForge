@@ -1,5 +1,5 @@
 use crate::{FileScope, ReexportDeclaration, ResolvedFile, ResolvedProject};
-use specforge_common::{Diagnostic, Severity, find_close_match};
+use specforge_common::{Diagnostic, DiagnosticData, Severity, find_close_match};
 use specforge_parser::{SpecFile, parse};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::{Component, Path, PathBuf};
@@ -50,6 +50,7 @@ pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> 
                     message: format!("cannot read file: {}", e),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
                 continue;
             }
@@ -164,18 +165,21 @@ pub fn resolve_parsed(
                         ),
                         span: Some(import.span.clone()),
                         suggestion: None,
+                        data: None,
                     });
                 }
                 Target::NotFound => {
-                    let suggestion =
-                        find_close_match(import.path.as_str(), candidates.iter().copied())
-                            .map(|m| format!("did you mean '{}'?", m));
+                    let close = find_close_match(import.path.as_str(), candidates.iter().copied());
                     diagnostics.push(Diagnostic {
                         code: "E025".to_string(),
                         severity: Severity::Error,
                         message: format!("import target not found: {}", import.path),
                         span: Some(import.span.clone()),
-                        suggestion,
+                        suggestion: close.map(|m| format!("did you mean '{}'?", m)),
+                        data: Some(Box::new(DiagnosticData::UnresolvedImport {
+                            path: import.path.to_string(),
+                            did_you_mean: close.map(str::to_string),
+                        })),
                     });
                 }
             }
@@ -193,6 +197,7 @@ pub fn resolve_parsed(
             message: format!("circular import detected: {}", cycle.join(" -> ")),
             span: None,
             suggestion: Some("break the cycle by removing one of the `use` imports or extracting shared entities into a separate file".to_string()),
+            data: None,
         });
     }
 
@@ -227,10 +232,38 @@ pub fn resolve_parsed(
 
 /// `path` relative to `spec_root`, as diagnostics and file keys print it.
 fn relative(spec_root: &Path, path: &Path) -> String {
-    path.strip_prefix(spec_root)
-        .unwrap_or(path)
+    if let Ok(rel) = path.strip_prefix(spec_root) {
+        return rel.to_string_lossy().to_string();
+    }
+    // A relative import's target is normalized; the spec root may not be.
+    let path = normalize_path(path);
+    path.strip_prefix(normalize_path(spec_root))
+        .unwrap_or(&path)
         .to_string_lossy()
         .to_string()
+}
+
+/// The file `use "<import_path>"` in `importing_file` (relative to
+/// `spec_root`) names, relative to `spec_root`, by the cascade the compile
+/// resolves imports with. `None` when it names no file under the spec
+/// root (E025) or an extension (I004).
+#[must_use]
+pub fn resolve_import(
+    spec_root: &Path,
+    importing_file: &str,
+    import_path: &str,
+    config: &ResolveConfig,
+) -> Option<String> {
+    match resolve_import_path(
+        spec_root,
+        &spec_root.join(importing_file),
+        import_path,
+        config,
+        &|p: &Path| p.is_file(),
+    ) {
+        Target::Found(target) => Some(relative(spec_root, &target)),
+        Target::ExtensionStub { .. } | Target::NotFound => None,
+    }
 }
 
 /// 5-step import resolution cascade:
@@ -239,7 +272,25 @@ fn relative(spec_root: &Path, path: &Path) -> String {
 /// 3. Bare paths — resolve from spec_root
 ///
 /// Each step applies index fallback: `path.spec` wins over `path/index.spec`.
+/// A target outside the spec root is not found, whichever step names it.
 fn resolve_import_path(
+    spec_root: &Path,
+    importing_file: &Path,
+    import_path: &str,
+    config: &ResolveConfig,
+    exists: &dyn Fn(&Path) -> bool,
+) -> Target {
+    match cascade(spec_root, importing_file, import_path, config, exists) {
+        Target::Found(target)
+            if !normalize_path(&target).starts_with(normalize_path(spec_root)) =>
+        {
+            Target::NotFound
+        }
+        other => other,
+    }
+}
+
+fn cascade(
     spec_root: &Path,
     importing_file: &Path,
     import_path: &str,
@@ -266,7 +317,6 @@ fn resolve_import_path(
 }
 
 /// Resolve a relative import (`./foo` or `../bar`) from the importing file's directory.
-/// The resolved path must stay within spec_root (path traversal protection).
 fn try_resolve_relative(
     spec_root: &Path,
     importing_file: &Path,
@@ -274,15 +324,9 @@ fn try_resolve_relative(
     exists: &dyn Fn(&Path) -> bool,
 ) -> Target {
     let base = importing_file.parent().unwrap_or(spec_root);
-    let raw = base.join(import_path);
-    let normalized = normalize_path(&raw);
-
-    // Path traversal check: normalized path must start with spec_root
-    if !normalized.starts_with(spec_root) {
-        return Target::NotFound;
-    }
-
-    apply_index_fallback(&normalized, exists)
+    // Normalized first, so `..` cannot reach a file outside the spec root
+    // that the lexical path would not.
+    apply_index_fallback(&normalize_path(&base.join(import_path)), exists)
 }
 
 /// Try to resolve an `@alias/rest` path via configured path aliases.
@@ -523,6 +567,7 @@ fn compute_file_scopes(
                                 ),
                                 span: Some(reexport.span.clone()),
                                 suggestion: None,
+                                data: None,
                             });
                         }
                     }

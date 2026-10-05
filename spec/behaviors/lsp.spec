@@ -330,12 +330,15 @@ behavior rename_entity_id "Rename Entity ID" {
     When a user renames an entity ID via the LSP, the system MUST
     update the entity declaration and every reference to it across
     all .spec files. The rename MUST be atomic — all files are updated
-    or none are.
+    or none are. The new ID follows the same rule as the MCP rename tool's:
+    a name that is not a legal entity ID, or that is taken, MUST be refused
+    with an error saying why.
   """
   verify unit "rename updates declaration and all references"
   verify unit "rename is atomic — all or nothing"
   verify unit "rename across multiple files"
   verify unit "rename rejects new name that duplicates existing entity ID"
+  verify unit "rename to an illegal entity ID is refused with why"
   verify contract "Rename Entity ID: entity rename holds — graph_available, prepare_rename_ready, all_references_updated, rename_atomic, entity_renamed_emitted"
 }
 
@@ -650,8 +653,10 @@ behavior goto_import_definition "Go-to-Definition on Imports" {
   }
   contract   """
     When a user Ctrl+clicks on a `use` import path (e.g., `use behaviors/core`),
-    the LSP MUST navigate to the target .spec file. The definition site
-    MUST be the first line of the resolved file.
+    the LSP MUST navigate to the target .spec file, resolved as the
+    compile resolves imports (resolve_use_imports: relative, alias, bare,
+    index.spec, never above the spec root). The definition site MUST be
+    the first line of the resolved file.
   """
   verify unit "go-to-def on use path navigates to target file"
   verify unit "go-to-def on non-existent use path returns no result"
@@ -661,7 +666,7 @@ behavior goto_import_definition "Go-to-Definition on Imports" {
 behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
   category   mutation
   invariants [zero_domain_knowledge_core, lsp_response_latency, lsp_text_edit_non_overlapping]
-  types      [EntityId, KindRegistryEntry, FieldRegistryEntry, CodeAction]
+  types      [EntityId, KindRegistryEntry, FieldRegistryEntry, CodeAction, Diagnostic]
   ports      [LspProtocol]
   features   [extension_driven_code_actions, code_actions]
   requires {
@@ -681,7 +686,10 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
     FieldRegistry — this is extension-driven metadata, not hardcoded logic.
     When no target_kind constraint exists on the enclosing field, the code
     action MUST NOT be offered (the kind cannot be inferred without domain
-    knowledge). The stub MUST be placed in the current file. The code
+    knowledge). The unresolved target, the entity that names it and the
+    field it is named in MUST be read from the diagnostic's data
+    (DiagnosticData), never parsed from its message, which is
+    presentation. The stub MUST be placed in the current file. The code
     action MUST use CodeActionKind::Refactor.
     The generated stub MUST contain only the structural entity block
     (keyword, ID, placeholder fields). It MUST NOT generate application
@@ -689,6 +697,7 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
     structural context; agents produce implementation.
   """
   verify unit "code action offered on E003 for non-existent entity"
+  verify unit "the stub is read from the diagnostic's data, whatever its message says"
   verify unit "stub uses correct entity kind from FieldRegistry target_kind"
   verify unit "no code action when enclosing field has no target_kind"
   verify unit "stub is inserted at end of current file"

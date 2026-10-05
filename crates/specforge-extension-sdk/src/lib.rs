@@ -12,6 +12,12 @@
 
 pub use specforge_extension_sdk_macros::extension;
 
+/// The extension vocabulary — field types, validation check kinds and
+/// constraint kinds — as the host's registry build reads it. `Custom` hands
+/// the decision to the rule's `wasm_function` (see
+/// [`RuleBuilder::wasm_function`]).
+pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType};
+
 pub use specforge_protocol_types::{
     ContributionFlags, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
     FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse,
@@ -33,68 +39,13 @@ pub struct HostApi;
 /// Runtime-free testing of an extension's contributions.
 pub mod testing;
 
-/// How a field's value is interpreted by the compiler and emitters.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FieldType {
-    String,
-    Integer,
-    Boolean,
-    Enum,
-    Date,
-    Reference,
-    ReferenceList,
-}
+/// Surface contributions (commands, MCP tools, MCP resources) declared with
+/// their handlers.
+pub mod surface;
 
-impl FieldType {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            FieldType::String => "string",
-            FieldType::Integer => "integer",
-            FieldType::Boolean => "boolean",
-            FieldType::Enum => "enum",
-            FieldType::Date => "date",
-            FieldType::Reference => "reference",
-            FieldType::ReferenceList => "reference_list",
-        }
-    }
-}
-
-/// Declarative check kinds understood by the host's validation engine
-/// (`specforge-registry` `validation_engine.rs`). `Custom` dispatches back into
-/// the extension via a wasm function — requires a runtime that passes a
-/// `WasmValidationRuntime` (not yet wired in production; see audit C10).
-#[derive(Debug, Clone)]
-pub enum CheckKind {
-    NoOutgoingEdges,
-    NoIncomingEdges,
-    MissingField,
-    FieldConstraint,
-    Cycle,
-    FileExists,
-    ConditionalRequired,
-    /// A testable entity declares no `verify` obligations.
-    NoVerifyStatements,
-    /// `verify` kinds must be within the rule constraint's `values`.
-    VerifyKindAllowlist,
-    Custom(String),
-}
-
-impl CheckKind {
-    pub fn as_str(&self) -> &str {
-        match self {
-            CheckKind::NoOutgoingEdges => "no_outgoing_edges",
-            CheckKind::NoIncomingEdges => "no_incoming_edges",
-            CheckKind::MissingField => "missing_field",
-            CheckKind::FieldConstraint => "field_constraint",
-            CheckKind::Cycle => "cycle",
-            CheckKind::FileExists => "file_exists",
-            CheckKind::ConditionalRequired => "conditional_required",
-            CheckKind::NoVerifyStatements => "no_verify_statements",
-            CheckKind::VerifyKindAllowlist => "verify_kind_allowlist",
-            CheckKind::Custom(s) => s,
-        }
-    }
-}
+pub use surface::{
+    ArgBuilder, CommandBuilder, CommandCall, McpResourceBuilder, McpToolBuilder, SandboxBuilder,
+};
 
 /// Identity of the extension: what `__handshake` reports.
 #[derive(Debug, Clone, Default)]
@@ -110,6 +61,8 @@ pub struct ExtensionMeta {
     /// The export `specforge migrate` calls after migrating the project's
     /// files.
     pub migration_hook: Option<String>,
+    /// The colour diagrams draw the extension in (`#rrggbb`).
+    pub theme_color: Option<String>,
 }
 
 impl ExtensionMeta {
@@ -143,6 +96,7 @@ pub struct ContributionsBuilder {
     passes: Vec<CompilerPassDescriptor>,
     collectors: Vec<CollectorDescriptor>,
     feature_flags: Vec<FeatureFlagDescriptor>,
+    surfaces: surface::Surfaces,
     raw: BTreeMap<String, serde_json::Value>,
 }
 
@@ -218,6 +172,56 @@ impl ContributionsBuilder {
         self
     }
 
+    /// Name the exports of the commands declared after it
+    /// `cmd__<prefix>_<id>` (the builtins use their short name:
+    /// `cmd__product_features`); without one they are `cmd__<id>`.
+    pub fn command_prefix(&mut self, prefix: &str) -> &mut Self {
+        self.surfaces.set_prefix(prefix);
+        self
+    }
+
+    /// Contribute a CLI command, `specforge <ext_short> <id with _ as ->`,
+    /// auto-promoted to the MCP tool `specforge.<ext_short>.<id>`. Its
+    /// declaration (title, description, args) is the `surfaces` payload;
+    /// its handler answers its export, reading the args through the
+    /// declaration ([`CommandCall`]). Panics without a handler.
+    pub fn command(&mut self, id: &str, f: impl FnOnce(&mut CommandBuilder)) -> &mut Self {
+        self.surfaces.add_command(id, f);
+        self
+    }
+
+    /// Contribute an explicit MCP tool, answered by its handler at the
+    /// export `mcp__<name>` (`.` and `-` as `_`).
+    pub fn mcp_tool(&mut self, name: &str, f: impl FnOnce(&mut McpToolBuilder)) -> &mut Self {
+        self.surfaces.add_tool(name, f);
+        self
+    }
+
+    /// Contribute an MCP resource, read by its handler at the export
+    /// `mcp__<name>` (`.` and `-` as `_`).
+    pub fn mcp_resource(
+        &mut self,
+        name: &str,
+        f: impl FnOnce(&mut McpResourceBuilder),
+    ) -> &mut Self {
+        self.surfaces.add_resource(name, f);
+        self
+    }
+
+    /// Run the declared command whose export is `export` on `input`, as the
+    /// host's call would; `None` when no command has that export.
+    pub fn call_command(&self, export: &str, input: &CommandInput) -> Option<CommandOutput> {
+        self.surfaces.call_command(export, input)
+    }
+
+    /// The wire answer of a declared surface's export (a command, an MCP
+    /// tool or an MCP resource); `None` when no declared surface has it.
+    /// The generated guest routes every export but `__handshake` and
+    /// `__describe` here first.
+    pub fn dispatch_export(&self, export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+        self.surfaces.dispatch(export, input)
+    }
+
     /// Contribute a feature flag.
     pub fn feature_flag(
         &mut self,
@@ -238,6 +242,13 @@ impl ContributionsBuilder {
     /// replaced with the project's entity id.
     pub fn starter_template(&mut self, template: &str) -> &mut Self {
         self.meta.starter_template = Some(template.to_string());
+        self
+    }
+
+    /// The colour diagrams draw this extension in (`#rrggbb`): its cluster
+    /// in `specforge model --format dot`, its node in `specforge outline`.
+    pub fn theme_color(&mut self, color: &str) -> &mut Self {
+        self.meta.theme_color = Some(color.to_string());
         self
     }
 
@@ -294,6 +305,7 @@ impl ContributionsBuilder {
             peer_dependencies: self.meta.peer_dependencies.clone(),
             sandbox_policy: self.meta.sandbox_policy.clone(),
             starter_template: self.meta.starter_template.clone(),
+            theme_color: self.meta.theme_color.clone(),
             migration_hook: self.meta.migration_hook.clone(),
         }
     }
@@ -325,6 +337,7 @@ impl ContributionsBuilder {
                 "passes" => serde_json::to_value(&self.passes).ok()?,
                 "collectors" => serde_json::to_value(&self.collectors).ok()?,
                 "feature_flags" => serde_json::to_value(&self.feature_flags).ok()?,
+                "surfaces" => self.surfaces.describe_items(),
                 _ => serde_json::Value::Array(vec![]),
             }
         };
@@ -383,6 +396,25 @@ impl KindBuilder {
     }
     pub fn open_fields(&mut self, o: bool) -> &mut Self {
         self.0.open_fields = o;
+        self
+    }
+    /// Reference fields that target this kind are contract obligations of
+    /// the entity that declares them (the `contracts` analysis, A010).
+    pub fn contract_target(&mut self) -> &mut Self {
+        self.0.contract_target = true;
+        self
+    }
+    /// The kind's entity ids name types: custom validators receive them as
+    /// `ValidatorContext::declared_types`.
+    pub fn declares_types(&mut self) -> &mut Self {
+        self.0.declares_types = true;
+        self
+    }
+    /// The field holding the kind's lifecycle state, whose previous value
+    /// the build cache records for check-phase passes. Must be one of the
+    /// kind's fields.
+    pub fn lifecycle_field(&mut self, field: &str) -> &mut Self {
+        self.0.lifecycle_field = Some(field.to_string());
         self
     }
     pub fn semantic_token(&mut self, t: &str) -> &mut Self {
@@ -458,6 +490,23 @@ impl FieldBuilder {
     /// guarantee) rather than prose, so token-optimized exports keep it.
     pub fn normative(&mut self) -> &mut Self {
         self.0.normative = true;
+        self
+    }
+    /// Set on an entity (`true`, or a non-empty value), the entity owes no
+    /// obligations of its own (W004, coverage and stats leave it out).
+    pub fn exempts_obligations(&mut self) -> &mut Self {
+        self.0.exempts_obligations = true;
+        self
+    }
+    /// The context export carries the field at the node's top level.
+    pub fn headline(&mut self) -> &mut Self {
+        self.0.headline = true;
+        self
+    }
+    /// What the prove pass reads the field as: `"bound"` (a fact the solver
+    /// assumes) or `"claim"` (a statement that must follow from the bounds).
+    pub fn proof_role(&mut self, role: &str) -> &mut Self {
+        self.0.proof_role = Some(role.to_string());
         self
     }
     pub fn default_value(&mut self, v: &str) -> &mut Self {
@@ -609,8 +658,8 @@ impl Default for FieldConstraintBuilder {
     }
 }
 impl FieldConstraintBuilder {
-    pub fn kind(&mut self, k: &str) -> &mut Self {
-        self.0.kind = k.to_string();
+    pub fn kind(&mut self, k: ConstraintKind) -> &mut Self {
+        self.0.kind = k.as_str().to_string();
         self
     }
     pub fn pattern(&mut self, p: &str) -> &mut Self {
@@ -707,6 +756,12 @@ pub fn handshake_json(b: &ContributionsBuilder) -> String {
     b.handshake_json()
 }
 
+/// The `handler` of a [`component_guest!`] that names none: no export
+/// beyond the protocol's and the declared surfaces'.
+pub fn no_other_exports(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    None
+}
+
 /// Generated by the `extension` attribute: dispatches `__describe`.
 pub fn describe_dispatch(b: &ContributionsBuilder, input: &[u8]) -> Result<Vec<u8>, String> {
     b.describe_dispatch(input)
@@ -717,11 +772,16 @@ pub use specforge_extension_sdk_macros::compiler_pass;
 
 pub mod prelude {
     pub use crate::{
-        CheckKind, Contributions, ContributionsBuilder, EdgeBuilder, EnhancementBuilder,
-        ExtensionMeta, FieldBuilder, FieldConstraintBuilder, FieldType, KindBuilder,
-        PassBuildCache, PassBuilder, PassCachedStatus, PassDiagnostic, PassEdge, PassEntity,
-        PassEntityResults, PassInput, PassOutput, PassSeverity, PassSpan, PassTestResult,
-        PassTestResults, RuleBuilder,
+        ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandFormat, CommandGraph,
+        CommandInput, CommandOutput, GraphEdge, GraphNode, McpResourceBuilder, McpToolBuilder,
+        SandboxBuilder,
+    };
+    pub use crate::{
+        CheckKind, ConstraintKind, Contributions, ContributionsBuilder, EdgeBuilder,
+        EnhancementBuilder, ExtensionMeta, FieldBuilder, FieldConstraintBuilder, FieldType,
+        KindBuilder, PassBuildCache, PassBuilder, PassCachedStatus, PassDiagnostic, PassEdge,
+        PassEntity, PassEntityResults, PassInput, PassOutput, PassSeverity, PassSpan,
+        PassTestResult, PassTestResults, RuleBuilder,
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,
@@ -964,6 +1024,377 @@ pub struct CollectTestResult {
     pub duration_ms: Option<f64>,
 }
 
+// ── Surface command ABI (v1) ───────────────────────────────────────────────
+// A CLI command an extension contributes ([`ContributionsBuilder::command`],
+// declared with its handler; see [`surface`]) is a `cmd__<name>` export. The host
+// parses the command line against the command's declared args, compiles the
+// project and calls the export with a [`CommandInput`]: the args, the
+// project root, the compiled graph in the graph export's shape
+// (`specforge export --format graph` without the schema), the format the
+// caller asked for and the host's date. The export answers with a
+// [`CommandOutput`]. The same export serves the MCP tool the command is
+// auto-promoted to (`specforge.<ext_short>.<id>`), so it never reads the
+// file system: the graph is all it knows.
+//
+// The host owns `--format` (ADR 0011): every command has it, `human` (the
+// CLI default) or `json` (always, over MCP), and no command declares an arg
+// of that name. The extension renders both: under `json` one root object on
+// stdout, under `human` its own layout. A command that cannot answer writes
+// one [`CommandError`] to stderr and nothing to stdout
+// ([`CommandOutput::error`]).
+
+/// The output a command is asked for: `human` (the CLI default) or `json`
+/// (always, over MCP).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum CommandFormat {
+    #[default]
+    Human,
+    Json,
+}
+
+/// What a `cmd__<name>` export receives.
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
+pub struct CommandInput {
+    /// The declared args the caller set, by name: strings (string, path and
+    /// enum args), integers and booleans. An arg the caller left out is
+    /// absent unless the host applied its declared default.
+    #[serde(default)]
+    pub args: serde_json::Map<String, serde_json::Value>,
+    /// The project root.
+    #[serde(default)]
+    pub cwd: String,
+    /// The compiled project's graph.
+    #[serde(default)]
+    pub graph: CommandGraph,
+    /// The format the caller asked for (the host's `--format`).
+    #[serde(default)]
+    pub format: CommandFormat,
+    /// The host's date when the command was called, UTC, `YYYY-MM-DD`;
+    /// empty when the host passed none.
+    #[serde(default)]
+    pub today: String,
+}
+
+impl CommandInput {
+    /// Whether the caller asked for `json`.
+    pub fn is_json(&self) -> bool {
+        self.format == CommandFormat::Json
+    }
+}
+
+/// The compiled graph a command reads: its entities sorted by id, its
+/// resolved references sorted by (source, target, label).
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(from = "GraphWire", into = "GraphWire")]
+pub struct CommandGraph {
+    nodes: Vec<GraphNode>,
+    edges: Vec<GraphEdge>,
+    by_id: std::collections::HashMap<String, usize>,
+    from: std::collections::HashMap<String, Vec<usize>>,
+    to: std::collections::HashMap<String, Vec<usize>>,
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct GraphWire {
+    #[serde(default)]
+    nodes: Vec<GraphNode>,
+    #[serde(default)]
+    edges: Vec<GraphEdge>,
+}
+
+impl From<GraphWire> for CommandGraph {
+    fn from(wire: GraphWire) -> Self {
+        CommandGraph::new(wire.nodes, wire.edges)
+    }
+}
+
+impl From<CommandGraph> for GraphWire {
+    fn from(graph: CommandGraph) -> Self {
+        GraphWire {
+            nodes: graph.nodes,
+            edges: graph.edges,
+        }
+    }
+}
+
+impl CommandGraph {
+    /// A graph of `nodes` and `edges`, indexed for lookups.
+    pub fn new(nodes: Vec<GraphNode>, edges: Vec<GraphEdge>) -> Self {
+        let mut graph = CommandGraph {
+            nodes,
+            edges,
+            ..Default::default()
+        };
+        for (i, node) in graph.nodes.iter().enumerate() {
+            graph.by_id.insert(node.id.clone(), i);
+        }
+        for (i, edge) in graph.edges.iter().enumerate() {
+            graph.from.entry(edge.source.clone()).or_default().push(i);
+            graph.to.entry(edge.target.clone()).or_default().push(i);
+        }
+        graph
+    }
+
+    /// Every entity, sorted by id.
+    pub fn nodes(&self) -> &[GraphNode] {
+        &self.nodes
+    }
+
+    /// Every resolved reference.
+    pub fn edges(&self) -> &[GraphEdge] {
+        &self.edges
+    }
+
+    /// The entity `id`.
+    pub fn node(&self, id: &str) -> Option<&GraphNode> {
+        self.by_id.get(id).map(|&i| &self.nodes[i])
+    }
+
+    /// The entities of `kind`, sorted by id.
+    pub fn nodes_of_kind<'a>(&'a self, kind: &'a str) -> impl Iterator<Item = &'a GraphNode> + 'a {
+        self.nodes.iter().filter(move |n| n.kind == kind)
+    }
+
+    /// The references out of `id`.
+    pub fn edges_from(&self, id: &str) -> Vec<&GraphEdge> {
+        self.indexed(&self.from, id)
+    }
+
+    /// The references into `id`.
+    pub fn edges_to(&self, id: &str) -> Vec<&GraphEdge> {
+        self.indexed(&self.to, id)
+    }
+
+    fn indexed(
+        &self,
+        index: &std::collections::HashMap<String, Vec<usize>>,
+        id: &str,
+    ) -> Vec<&GraphEdge> {
+        index
+            .get(id)
+            .map(|is| is.iter().map(|&i| &self.edges[i]).collect())
+            .unwrap_or_default()
+    }
+}
+
+/// One entity of a [`CommandGraph`]: fields as the graph export writes them
+/// (text as strings, lists as arrays).
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct GraphNode {
+    pub id: String,
+    pub kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    #[serde(default)]
+    pub fields: std::collections::BTreeMap<String, serde_json::Value>,
+}
+
+impl GraphNode {
+    /// A text field's value (a string or an identifier); `None` when the
+    /// field is absent or holds a list, a number or a block.
+    pub fn text(&self, field: &str) -> Option<&str> {
+        self.fields.get(field).and_then(|v| v.as_str())
+    }
+
+    /// Whether the entity sets `field`, whatever its value.
+    pub fn has_field(&self, field: &str) -> bool {
+        self.fields.contains_key(field)
+    }
+
+    /// A list field's string items, in declaration order; empty when the
+    /// field is absent or not a list.
+    pub fn list(&self, field: &str) -> Vec<&str> {
+        self.fields
+            .get(field)
+            .and_then(|v| v.as_array())
+            .map(|items| items.iter().filter_map(|i| i.as_str()).collect())
+            .unwrap_or_default()
+    }
+}
+
+/// One resolved reference of a [`CommandGraph`]; `label` is the field it
+/// was declared in.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct GraphEdge {
+    pub source: String,
+    pub target: String,
+    pub label: String,
+}
+
+/// What a `cmd__<name>` export returns: the exit code the CLI exits with
+/// (nonzero fails the MCP call), and the text for stdout and stderr.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct CommandOutput {
+    pub exit_code: i32,
+    #[serde(default)]
+    pub stdout: String,
+    #[serde(default)]
+    pub stderr: String,
+}
+
+impl CommandOutput {
+    /// Success, printing `stdout`.
+    pub fn ok(stdout: impl Into<String>) -> Self {
+        CommandOutput {
+            exit_code: 0,
+            stdout: stdout.into(),
+            stderr: String::new(),
+        }
+    }
+
+    /// Failure with exit code 1, printing `stderr`.
+    pub fn fail(stderr: impl Into<String>) -> Self {
+        CommandOutput {
+            exit_code: 1,
+            stdout: String::new(),
+            stderr: stderr.into(),
+        }
+    }
+
+    /// A command that cannot answer: `error` on stderr, nothing on stdout,
+    /// exit code `exit_code`. Under `json` the error object
+    /// (`{code, message, entity_id?, suggestion?}`); under `human` the line
+    /// `error: <message>`, then `did you mean '<id>'?` when there is a
+    /// suggestion.
+    pub fn error(format: CommandFormat, error: &CommandError, exit_code: i32) -> Self {
+        let stderr = match format {
+            CommandFormat::Json => {
+                let mut out =
+                    serde_json::to_string(error).expect("command error serialization cannot fail");
+                out.push('\n');
+                out
+            }
+            CommandFormat::Human => {
+                let mut out = format!("error: {}\n", error.message);
+                if let Some(suggestion) = &error.suggestion {
+                    out.push_str(&format!("did you mean '{suggestion}'?\n"));
+                }
+                out
+            }
+        };
+        CommandOutput {
+            exit_code,
+            stdout: String::new(),
+            stderr,
+        }
+    }
+
+    /// The wire bytes the export returns.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        serde_json::to_vec(self).expect("command output serialization cannot fail")
+    }
+}
+
+/// Why a command could not answer, as it writes it under `json`: a code
+/// (`ENTITY_NOT_FOUND`, `INVALID_INPUT`, ...), a message, and the entity it
+/// was asked about and the nearest id of the same kind, when there are.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct CommandError {
+    pub code: String,
+    pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub entity_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub suggestion: Option<String>,
+}
+
+impl CommandError {
+    pub fn new(code: impl Into<String>, message: impl Into<String>) -> Self {
+        CommandError {
+            code: code.into(),
+            message: message.into(),
+            ..Default::default()
+        }
+    }
+}
+
+#[cfg(test)]
+mod command_abi_tests {
+    use super::*;
+
+    #[test]
+    fn a_command_input_carries_its_args_and_graph() {
+        let input: CommandInput = serde_json::from_value(serde_json::json!({
+            "args": {"status": "done", "limit": 2, "offset": "1", "all": true},
+            "cwd": "/p",
+            "graph": {
+                "format_version": "1.0",
+                "nodes": [
+                    {"id": "a", "kind": "k", "title": "A", "file": "x.spec", "line": 1,
+                     "fields": {"status": "done", "refs": ["b"]}},
+                    {"id": "b", "kind": "k", "file": "x.spec", "line": 2, "fields": {}}
+                ],
+                "edges": [{"source": "a", "target": "b", "label": "refs"}]
+            }
+        }))
+        .unwrap();
+        assert_eq!(input.args["status"], "done");
+        assert_eq!(input.args["limit"], 2);
+        let a = input.graph.node("a").unwrap();
+        assert_eq!(a.text("status"), Some("done"));
+        assert_eq!(a.text("refs"), None);
+        assert_eq!(a.list("refs"), ["b"]);
+        assert_eq!(input.graph.nodes_of_kind("k").count(), 2);
+        assert_eq!(input.graph.edges_from("a")[0].target, "b");
+        assert_eq!(input.graph.edges_to("b")[0].source, "a");
+        assert!(input.graph.edges_to("a").is_empty());
+    }
+
+    #[test]
+    fn a_command_input_carries_the_format_and_the_date() {
+        let bare: CommandInput = serde_json::from_value(serde_json::json!({})).unwrap();
+        assert_eq!(bare.format, CommandFormat::Human);
+        assert!(!bare.is_json());
+        assert_eq!(bare.today, "");
+        let input: CommandInput =
+            serde_json::from_value(serde_json::json!({"format": "json", "today": "2026-10-03"}))
+                .unwrap();
+        assert!(input.is_json());
+        assert_eq!(input.today, "2026-10-03");
+    }
+
+    #[test]
+    fn a_command_error_is_an_object_under_json_and_a_line_under_human() {
+        let error = CommandError {
+            entity_id: Some("m2".into()),
+            suggestion: Some("m1".into()),
+            ..CommandError::new("ENTITY_NOT_FOUND", "milestone 'm2' not found")
+        };
+        let json = CommandOutput::error(CommandFormat::Json, &error, 1);
+        assert_eq!((json.exit_code, json.stdout.as_str()), (1, ""));
+        assert_eq!(
+            serde_json::from_str::<serde_json::Value>(&json.stderr).unwrap(),
+            serde_json::json!({"code": "ENTITY_NOT_FOUND", "message": "milestone 'm2' not found",
+                "entity_id": "m2", "suggestion": "m1"})
+        );
+        let human = CommandOutput::error(CommandFormat::Human, &error, 1);
+        assert_eq!(
+            human.stderr,
+            "error: milestone 'm2' not found\ndid you mean 'm1'?\n"
+        );
+        let plain = CommandOutput::error(
+            CommandFormat::Human,
+            &CommandError::new("INVALID_INPUT", "bad"),
+            2,
+        );
+        assert_eq!(
+            (plain.exit_code, plain.stderr.as_str()),
+            (2, "error: bad\n")
+        );
+    }
+
+    #[test]
+    fn a_command_output_is_the_wire_shape_the_host_reads() {
+        let out: serde_json::Value =
+            serde_json::from_slice(&CommandOutput::fail("nope\n").to_bytes()).unwrap();
+        assert_eq!(
+            out,
+            serde_json::json!({"exit_code": 1, "stdout": "", "stderr": "nope\n"})
+        );
+    }
+}
+
 /// A pass result carrying a summary beside its diagnostics. A pass may return
 /// either this or a bare `Vec<PassDiagnostic>`; the host merges `summary`
 /// into the pass report.
@@ -1058,9 +1489,13 @@ impl PassDiagnostic {
 ///
 /// - `__handshake` / `__describe` are served from the [`ContributionsBuilder`]
 ///   produced by `$build` (the same JSON wire protocol as always);
+/// - a declared surface's export (a command, an MCP tool, an MCP resource:
+///   [`ContributionsBuilder::command`] and its siblings) is answered by its
+///   declared handler ([`ContributionsBuilder::dispatch_export`]);
 /// - every other export name is forwarded to `$handler`, which returns
 ///   `None` for names it does not implement (the guest then errors, exactly
-///   like a missing export).
+///   like a missing export). An extension whose only exports are its
+///   surfaces leaves `handler` out.
 ///
 /// ```ignore
 /// fn build() -> specforge_extension_sdk::ContributionsBuilder { /* ... */ }
@@ -1074,6 +1509,12 @@ impl PassDiagnostic {
 /// ```
 #[macro_export]
 macro_rules! component_guest {
+    (build = $build:expr) => {
+        ::specforge_extension_sdk::component_guest!(
+            build = $build,
+            handler = ::specforge_extension_sdk::no_other_exports
+        );
+    };
     (build = $build:expr, handler = $handler:expr) => {
         ::wit_bindgen::generate!({
             inline: r#"
@@ -1099,9 +1540,12 @@ world bridge {
                     "__handshake" => Ok(::specforge_extension_sdk::handshake_json(&build)
                         .into_bytes()),
                     "__describe" => build.describe_dispatch(&input),
-                    other => match $handler(other, &input) {
+                    other => match build.dispatch_export(other, &input) {
                         Some(result) => result,
-                        None => Err(format!("unknown export '{other}'")),
+                        None => match $handler(other, &input) {
+                            Some(result) => result,
+                            None => Err(format!("unknown export '{other}'")),
+                        },
                     },
                 }
             }

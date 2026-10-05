@@ -11,7 +11,7 @@ pub struct Args {
 pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     let file = args.file.as_str();
 
-    let nodes = state.graph.nodes_in_file(file);
+    let nodes = state.graph().nodes_in_file(file);
     // A file the graph has no entity from is either empty or not there.
     let on_disk = match &state.project_root {
         Some(root) => root.join(file).exists(),

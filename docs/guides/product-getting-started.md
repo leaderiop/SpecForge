@@ -111,13 +111,12 @@ release v1 "Version 1.0" {
 ### 8. Validate and query
 
 ```bash
-specforge check                              # Validate spec
-specforge list-features --status=in_progress # Filter features
-specforge milestone-completion mvp           # Check progress
-specforge weighted-milestone-completion mvp  # Effort-weighted
-specforge owner-workload                     # Who owns what
-specforge product-health                     # Overall health
-specforge unscheduled-features               # Find gaps
+specforge check                                      # Validate spec
+specforge product features --status in_progress      # Filter features
+specforge product milestone-completion mvp           # Check progress
+specforge product journey-coverage sign_in           # Features covered by modules
+specforge product feature-impact user_auth           # What references a feature
+specforge product health                             # Overall health
 ```
 
 ## Progressive adoption
@@ -149,47 +148,44 @@ Every arrow is a validated graph edge. Orphan detection finds disconnected entit
 
 ### Effort estimation
 
-Features support t-shirt sizing: `xs`, `s`, `m`, `l`, `xl`. The `weighted-milestone-completion` query uses Fibonacci weights (1, 2, 3, 5, 8).
+Features support t-shirt sizing: `xs`, `s`, `m`, `l`, `xl`, set with the `effort` field.
 
 ### Ownership
 
-Add `owner` and `contributors` to any feature, milestone, deliverable, or release. Use `owner-workload` to see aggregate assignments.
+Add `owner` and `contributors` to any feature, milestone, deliverable, or release.
 
 ### Health score
 
-`specforge product-health` returns a composite score (0.0-1.0):
-- Milestone completion (30%)
-- Journey coverage (25%)
-- Orphan ratio (20%)
-- Cycle count (15%)
-- Error ratio (10%)
+`specforge product health` returns a composite score (0-100), the mean of:
+- Coverage: the share of product entities with at least one reference in or out
+- Connectivity: references relative to the most the entities could have
+- Completeness: features with a `status` and milestones that list features
 
 ## CLI commands
 
+The commands are `@specforge/product`'s own (`specforge product <command>`, or
+`specforge product:<command>`); `specforge product --help` lists them.
+
 | Command | Description |
 |---------|-------------|
-| `list-features` | List features with filtering |
-| `list-journeys` | List journeys |
-| `list-milestones` | List milestones |
-| `list-deliverables` | List deliverables |
-| `list-modules` | List modules |
-| `list-terms` | List glossary terms |
-| `list-personas` | List personas |
-| `list-channels` | List channels |
-| `list-releases` | List releases |
-| `milestone-completion <id>` | Completion ratio |
-| `weighted-milestone-completion <id>` | Effort-weighted completion |
-| `journey-coverage <id>` | Journey feature coverage |
-| `feature-ordering` | Topological feature sort |
-| `milestone-timeline` | Chronological milestone view |
-| `product-health` | Composite health metric |
-| `owner-workload` | Ownership statistics |
-| `graph-diff` | Compare snapshots |
-| `unscheduled-features` | Features not in any milestone |
-| `feature-overlap` | Features in multiple deliverables |
-| `coverage-matrix` | Per-persona feature coverage |
-| `critical-path` | Longest incomplete chain |
-| `bulk-status` | Batch status updates |
-| `snapshots` | List graph snapshots |
+| `features` | List features (`--status`, `--priority`, `--offset`, `--limit`) |
+| `journeys` | List journeys |
+| `deliverables` | List deliverables (`--status`) |
+| `milestones` | List milestones (`--status`) |
+| `modules` | List modules |
+| `terms` | List glossary terms |
+| `personas` | List personas |
+| `channels` | List channels |
+| `releases` | List releases (`--status`) |
+| `milestone-completion <milestone>` | Completion ratio of a milestone's features |
+| `journey-coverage <journey>` | Share of a journey's features some module contains |
+| `feature-impact <feature>` | Journeys, milestones, modules and features referencing a feature |
+| `feature-dependents <feature>` | Features that depend on a feature |
+| `persona-features <persona>` | Features reachable from a persona through its journeys |
+| `channel-features <channel>` | Features reachable from a channel through its journeys |
+| `bulk-status` | Status breakdown per kind |
+| `health` | Composite health score |
 
-All commands support `--format=json|table|brief` and are auto-promoted to MCP tools.
+Every command takes `--path <dir>` (the project, default `.`) and `--format human|json`
+(default `human`), and is auto-promoted to the MCP tool `specforge.product.<id>`
+(`specforge.product.milestone_completion`).

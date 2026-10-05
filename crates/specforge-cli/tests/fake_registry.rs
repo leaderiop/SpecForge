@@ -15,6 +15,11 @@ pub struct Package {
     pub wasm: Vec<u8>,
     /// `(name, range)` peers its manifest declares.
     pub peers: Vec<(String, String)>,
+    /// The publisher key that signed it; unsigned when `None`.
+    pub signer: Option<specforge_registry_client::SigningKey>,
+    /// Bytes the download serves instead of `wasm` (a tampered transfer:
+    /// the metadata still describes `wasm`).
+    pub served_wasm: Option<Vec<u8>>,
 }
 
 impl Package {
@@ -24,7 +29,35 @@ impl Package {
             version: version.to_string(),
             wasm,
             peers: Vec::new(),
+            signer: None,
+            served_wasm: None,
         }
+    }
+
+    pub fn signed_by(mut self, key: &specforge_registry_client::SigningKey) -> Self {
+        self.signer = Some(key.clone());
+        self
+    }
+
+    pub fn serving(mut self, wasm: Vec<u8>) -> Self {
+        self.served_wasm = Some(wasm);
+        self
+    }
+
+    /// The wire signature object and key id, empty when unsigned.
+    fn signature(&self) -> (String, String) {
+        let Some(key) = &self.signer else {
+            return (String::new(), String::new());
+        };
+        let signature = key.sign_package(
+            &self.name,
+            &self.version,
+            &sha256(&self.wasm),
+            &sha256(self.manifest().as_bytes()),
+            "2026-10-03T00:00:00+00:00",
+        );
+        let key_id = signature.key_id.clone();
+        (serde_json::to_string(&signature).unwrap(), key_id)
     }
 
     pub fn with_peer(mut self, name: &str, range: &str) -> Self {
@@ -134,12 +167,15 @@ fn respond(packages: &[Package], path: &str) -> (&'static str, Vec<u8>) {
             else {
                 return not_found;
             };
+            let (signature, key_id) = package.signature();
             let body = serde_json::json!({
                 "name": package.name,
                 "version": package.version,
                 "sha256": sha256(&package.wasm),
                 "wasm_url": format!("/wasm/{}/{}", name.replace('/', "%2F"), version),
                 "manifest": package.manifest(),
+                "signature": signature,
+                "key_id": key_id,
             })
             .to_string();
             ("200 OK", body.into_bytes())
@@ -150,7 +186,13 @@ fn respond(packages: &[Package], path: &str) -> (&'static str, Vec<u8>) {
                 .iter()
                 .find(|p| p.name == name && p.version == *version)
             {
-                Some(package) => ("200 OK", package.wasm.clone()),
+                Some(package) => (
+                    "200 OK",
+                    package
+                        .served_wasm
+                        .clone()
+                        .unwrap_or_else(|| package.wasm.clone()),
+                ),
                 None => not_found,
             }
         }

@@ -20,16 +20,18 @@ fn enqueue_delivers_graph_and_diagnostics_to_subscribers() {
     let previous = Graph::new();
     let mut current = Graph::new();
     current.add_node(node("alpha"));
-    state.graph = current;
-    state.diagnostics = vec![Diagnostic {
+    state.serve_graph(current, Vec::new());
+    state.surface_diagnostics = vec![Diagnostic {
         code: "V001".into(),
         severity: Severity::Error,
         message: "boom".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
 
-    enqueue_compile_notifications(&mut state, &previous, &[]);
+    let delta = compute_graph_delta(&previous, state.graph());
+    enqueue_compile_notifications(&mut state, &delta, &[]);
 
     assert_eq!(
         state.notification_outbox.len(),
@@ -55,24 +57,27 @@ fn enqueue_suppresses_unsubscribed_and_unchanged() {
 
     let mut graph = Graph::new();
     graph.add_node(node("alpha"));
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
 
     // Graph changed but nobody subscribes; diagnostics unchanged anyway.
-    enqueue_compile_notifications(&mut state, &Graph::new(), &[]);
+    let delta = compute_graph_delta(&Graph::new(), state.graph());
+    enqueue_compile_notifications(&mut state, &delta, &[]);
     assert!(
         state.notification_outbox.is_empty(),
         "graph delta must be suppressed without subscribers"
     );
 
     // Diagnostics changed and the channel is subscribed.
-    state.diagnostics = vec![Diagnostic {
+    state.surface_diagnostics = vec![Diagnostic {
         code: "V001".into(),
         severity: Severity::Error,
         message: "boom".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
-    enqueue_compile_notifications(&mut state, &Graph::new(), &[]);
+    let delta = compute_graph_delta(&Graph::new(), state.graph());
+    enqueue_compile_notifications(&mut state, &delta, &[]);
     assert_eq!(state.notification_outbox.len(), 1);
     assert_eq!(state.notification_outbox[0]["method"], DIAGNOSTICS_CHANNEL);
 }
@@ -166,6 +171,7 @@ fn diagnostics_delta_detects_added() {
         message: "test error".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
 
     let delta = compute_diagnostics_delta(&old, &new);
@@ -181,6 +187,7 @@ fn diagnostics_delta_detects_removed() {
         message: "test error".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
     let new: Vec<Diagnostic> = vec![];
 
@@ -202,6 +209,7 @@ fn diagnostics_notification_format() {
         message: "test warning".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
 
     let delta = compute_diagnostics_delta(&old, &new);
@@ -261,6 +269,7 @@ fn diagnostics_no_notification_when_unchanged() {
         message: "test error".into(),
         span: None,
         suggestion: None,
+        data: None,
     }];
 
     let delta = compute_diagnostics_delta(&diags, &diags);
@@ -271,15 +280,17 @@ fn diagnostics_no_notification_when_unchanged() {
     // diagnostics as they were ...
     let mut state = McpState::new();
     subscriptions::subscribe(&mut state, "c1", DIAGNOSTICS_CHANNEL);
-    state.diagnostics = diags.clone();
-    enqueue_compile_notifications(&mut state, &Graph::new(), &diags);
+    state.surface_diagnostics = diags.clone();
+    let delta = compute_graph_delta(&Graph::new(), state.graph());
+    enqueue_compile_notifications(&mut state, &delta, &diags);
     assert!(
         state.notification_outbox.is_empty(),
         "{:?}",
         state.notification_outbox
     );
     // ... and one notification when they change.
-    enqueue_compile_notifications(&mut state, &Graph::new(), &[]);
+    let delta = compute_graph_delta(&Graph::new(), state.graph());
+    enqueue_compile_notifications(&mut state, &delta, &[]);
     assert_eq!(state.notification_outbox.len(), 1);
     assert_eq!(state.notification_outbox[0]["method"], DIAGNOSTICS_CHANNEL);
 }
@@ -329,7 +340,11 @@ fn expression_positions_are_not_a_modification() {
     // A changed bound is a modification.
     let tighter = graph_of(metric_node("latency < 50ms", 1));
     assert_eq!(
-        compute_graph_delta(&before, &tighter).modified_nodes,
+        compute_graph_delta(&before, &tighter)
+            .modified_nodes
+            .iter()
+            .map(|n| n.id.as_str())
+            .collect::<Vec<_>>(),
         ["alpha"]
     );
 }

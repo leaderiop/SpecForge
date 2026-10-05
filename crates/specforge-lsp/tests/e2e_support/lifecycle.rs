@@ -265,6 +265,19 @@ async fn e2e_resolver_diagnostic_e003_unresolved_reference() {
         has_e003,
         "Expected E003 unresolved reference diagnostic, got: {diags:?}"
     );
+    // Its typed payload rides in the LSP diagnostic's `data`, which a
+    // client echoes back with a code-action request.
+    let e003 = diags.iter().find(|d| d["code"] == "E003").unwrap();
+    assert_eq!(
+        e003["data"],
+        serde_json::json!({
+            "kind": "unresolved_reference",
+            "target": "nonexistent",
+            "entity": "foo",
+            "field": "types",
+        }),
+        "{e003}"
+    );
 }
 
 #[tokio::test]

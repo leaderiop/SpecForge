@@ -65,7 +65,9 @@ behavior register_entity_kinds_from_manifest "Register Entity Kinds From Manifes
     singleton flag, supportsVerify flag, semantic token classification,
     LSP icon for outline, and DOT shape for
     visualization. The source extension name MUST be recorded for diagnostics
-    and doctor output.
+    and doctor output. A kind's lifecycle_field MUST be recorded when it
+    names one of the kind's own or the extension's shared fields, and
+    refused with a warning (W021) otherwise.
   """
   verify unit "entity kind registered with testable flag"
   verify unit "entity kind registered with singleton flag"
@@ -75,6 +77,7 @@ behavior register_entity_kinds_from_manifest "Register Entity Kinds From Manifes
   verify unit "testable=true entity participates in coverage"
   verify unit "testable=false entity excluded from coverage"
   verify unit "no default testability assumed by core"
+  verify unit "a kind's lifecycle_field must name a field it declares"
   verify contract "Register Entity Kinds From Manifest: entity kind registration holds — extension_manifests_loaded_fired, kinds_registered, source_extension_recorded"
 }
 
@@ -350,9 +353,14 @@ behavior populate_field_registry_from_extensions "Populate Field Registry From E
     flag on ManifestEntityKind. A field's normative flag MUST be kept in
     its registry entry, so exports can tell the text that states what an
     entity promises from prose without core knowing any field's name.
+    Likewise a field's proof_role (bound or claim) MUST reach its registry
+    entry, so the prove pass reads declared roles and no field name; any
+    other role value MUST be refused with a warning (W021).
   """
   verify unit "fields registered per entity kind"
   verify unit "a field's normative flag reaches its registry entry"
+  verify unit "a field's proof_role reaches the field registry"
+  verify unit "a proof_role other than bound or claim is refused"
   verify unit "field types validated against known types"
   verify unit "invalid field type produces warning"
   verify contract "Populate Field Registry From Extensions: field registry population holds — extension_manifests_loaded_fired, kind_registry_populated, fields_registered, field_types_validated, fields_populated"

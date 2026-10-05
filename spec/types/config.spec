@@ -31,8 +31,6 @@ type CompilerConfig {
   registries            RegistryConfig[]  @optional
   // federation config is extension-provided (see @specforge/federation extension)
   watch_debounce_ms     integer           @optional
-  // When true, GraphDelta includes old+new values for modified fields (default: false)
-  delta_include_values  boolean           @optional
   // Graph Protocol schema version compatibility range for agent negotiation.
   // Defaults to current major range (e.g., 1.0.0..1.x.x). See ADR graph_protocol_version_management.
   supported_schema_min  SchemaVersion     @optional

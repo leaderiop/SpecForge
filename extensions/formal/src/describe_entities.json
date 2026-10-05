@@ -2,6 +2,7 @@
   "category": "entities",
   "items": [
     {
+      "contract_target": true,
       "description": "A temporal property assertion (safety, liveness, fairness)",
       "dot_color": "#0D47A1",
       "dot_fillcolor": "#E3F2FD",
@@ -16,6 +17,7 @@
           "inverse_of": null,
           "name": "expression",
           "normative": true,
+          "proof_role": "claim",
           "required": true,
           "target_kind": null
         },
@@ -92,6 +94,7 @@
           "inverse_of": null,
           "name": "expression",
           "normative": true,
+          "proof_role": "bound",
           "required": true,
           "target_kind": null
         },

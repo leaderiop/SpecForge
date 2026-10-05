@@ -578,6 +578,131 @@ fn add_without_a_version_installs_the_latest() {
 }
 
 // ---------------------------------------------------------------
+// Publisher trust through `specforge add` (docs/registry-trust.md)
+// ---------------------------------------------------------------
+
+/// `specforge add @sdk/greet@0.1.0 --format json` in `dir`, with `home` as
+/// `$HOME` (where the known-keys store lives), plus `extra` flags.
+fn add_greet(dir: &TempDir, home: &TempDir, extra: &[&str]) -> std::process::Output {
+    specforge_cmd()
+        .args(["add", "@sdk/greet@0.1.0", "--format", "json"])
+        .args(extra)
+        .arg("--path")
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap()
+}
+
+/// The add failed with `code`, and installed nothing.
+fn assert_refused(output: &std::process::Output, dir: &TempDir, code: &str) {
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(!output.status.success(), "expected failure: {stdout}");
+    let json: serde_json::Value =
+        serde_json::from_str(&stdout).unwrap_or_else(|e| panic!("not JSON ({e}): {stdout}"));
+    assert_eq!(json["code"], code, "{json}");
+    assert!(
+        !dir.path().join("specforge.lock").exists(),
+        "a refused package is not locked"
+    );
+}
+
+fn known_keys(home: &TempDir) -> std::path::PathBuf {
+    home.path().join(".specforge").join("known-keys.json")
+}
+
+#[specforge_test(
+    invariant = "publisher_trust",
+    verify = "specforge add pins the publisher key and records it in specforge.lock"
+)]
+fn add_installs_a_signed_package_and_pins_its_key() {
+    use crate::fake_registry::{FakeRegistry, Package};
+    let key = specforge_registry_client::SigningKey::generate();
+    let registry = FakeRegistry::serve(vec![
+        Package::new("@sdk/greet", "0.1.0", greet_wasm()).signed_by(&key),
+    ]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = add_greet(&dir, &home, &[]);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let known = specforge_registry_client::load_known_keys_at(&known_keys(&home));
+    assert_eq!(known.pin_for("@sdk/greet"), Some(key.key_id().as_str()));
+    let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
+    assert!(
+        lock.contains(&key.key_id()),
+        "the lock records the key: {lock}"
+    );
+}
+
+#[specforge_test(
+    invariant = "publisher_trust",
+    verify = "specforge add refuses a package signed by another key than the pinned one"
+)]
+fn add_refuses_a_package_signed_by_another_key_than_the_pinned_one() {
+    use crate::fake_registry::{FakeRegistry, Package};
+    let pinned = specforge_registry_client::SigningKey::generate();
+    let other = specforge_registry_client::SigningKey::generate();
+    let registry = FakeRegistry::serve(vec![
+        Package::new("@sdk/greet", "0.1.0", greet_wasm()).signed_by(&other),
+    ]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+    let mut known = specforge_registry_client::KnownKeys::default();
+    known.pin("@sdk/greet", &pinned.key_id());
+    specforge_registry_client::save_known_keys_at(&known_keys(&home), &known).unwrap();
+
+    let output = add_greet(&dir, &home, &["--allow-unsigned"]);
+
+    assert_refused(&output, &dir, "R-TRUST-003");
+    let known = specforge_registry_client::load_known_keys_at(&known_keys(&home));
+    assert_eq!(known.pin_for("@sdk/greet"), Some(pinned.key_id().as_str()));
+}
+
+#[specforge_test(
+    invariant = "publisher_trust",
+    verify = "specforge add refuses an unsigned package without --allow-unsigned"
+)]
+fn add_refuses_an_unsigned_package_without_allow_unsigned() {
+    use crate::fake_registry::{FakeRegistry, Package};
+    let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = add_greet(&dir, &home, &[]);
+
+    assert_refused(&output, &dir, "R-TRUST-001");
+}
+
+#[specforge_test(
+    behavior = "verify_registry_integrity",
+    verify = "mismatched SHA256 produces hard error"
+)]
+fn add_refuses_a_download_that_does_not_match_the_registry_sha256() {
+    use crate::fake_registry::{FakeRegistry, Package};
+    let key = specforge_registry_client::SigningKey::generate();
+    let mut tampered = greet_wasm();
+    tampered.push(0);
+    let registry = FakeRegistry::serve(vec![
+        Package::new("@sdk/greet", "0.1.0", greet_wasm())
+            .signed_by(&key)
+            .serving(tampered),
+    ]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = add_greet(&dir, &home, &["--allow-unsigned", "--yes"]);
+
+    assert_refused(&output, &dir, "R-OPS-002");
+    assert!(!known_keys(&home).exists(), "nothing is pinned");
+}
+
+// ---------------------------------------------------------------
 // Guard: no source names specforge.dev
 // ---------------------------------------------------------------
 

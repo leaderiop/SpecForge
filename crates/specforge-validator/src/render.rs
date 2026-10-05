@@ -224,6 +224,7 @@ mod tests {
             message: "spanless".to_string(),
             span: None,
             suggestion: None,
+            data: None,
         };
         let out1 = render_diagnostics(std::slice::from_ref(&diag), &sources);
         let out2 = render_diagnostics(&[diag], &sources);
@@ -251,6 +252,7 @@ mod tests {
                 end_col: 10,
             }),
             suggestion: None,
+            data: None,
         };
         let out = render_diagnostics(&[diag], &sources);
         assert!(out.contains("beyond eof"));

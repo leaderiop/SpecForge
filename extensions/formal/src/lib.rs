@@ -17,7 +17,6 @@ static DESCRIBE_FIELDS: &[u8] = include_bytes!("describe_fields.json");
 static DESCRIBE_SHARED_FIELDS: &[u8] = include_bytes!("describe_shared_fields.json");
 static DESCRIBE_ENHANCEMENTS: &[u8] = include_bytes!("describe_enhancements.json");
 static DESCRIBE_VALIDATION_RULES: &[u8] = include_bytes!("describe_validation_rules.json");
-static DESCRIBE_SURFACES: &[u8] = include_bytes!("describe_surfaces.json");
 static DESCRIBE_FEATURE_FLAGS: &[u8] = include_bytes!("describe_feature_flags.json");
 
 #[specforge_extension_sdk::extension(name = "@specforge/formal", version = "1.0.0")]
@@ -25,6 +24,8 @@ struct Formal;
 
 impl Contributions for Formal {
     fn contribute(c: &mut ContributionsBuilder) {
+        // Diagrams (`model`, `outline`) draw the extension in this colour.
+        c.theme_color("#9b59b6");
         c.meta.peer_dependencies.push(PeerDependency {
             name: "@specforge/software".to_string(),
             version: "^1.0".to_string(),
@@ -53,7 +54,6 @@ impl Contributions for Formal {
             ("shared_fields", DESCRIBE_SHARED_FIELDS),
             ("enhancements", DESCRIBE_ENHANCEMENTS),
             ("validation_rules", DESCRIBE_VALIDATION_RULES),
-            ("surfaces", DESCRIBE_SURFACES),
             ("feature_flags", DESCRIBE_FEATURE_FLAGS),
         ] {
             let envelope: serde_json::Value = serde_json::from_slice(bytes)
@@ -1054,7 +1054,11 @@ mod coverage_tracking_tests {
             "1 coverage item(s) are not proven by a recorded test or an entailed claim: inv1"
         );
         assert!(
-            !findings[0].suggestion.as_deref().unwrap().contains("tests ["),
+            !findings[0]
+                .suggestion
+                .as_deref()
+                .unwrap()
+                .contains("tests ["),
             "never suggests the retired `tests` field"
         );
     }

@@ -1,6 +1,7 @@
 use serde_json::{Value, json};
 use specforge_registry::{
-    CommandArg, CommandArgType, SurfaceContributions, SurfaceRegistryEntry, SurfaceType,
+    CommandArg, CommandArgType, CommandContribution, SurfaceContributions, SurfaceRegistryEntry,
+    SurfaceType,
 };
 
 use crate::protocol::JsonRpcResponse;
@@ -49,7 +50,8 @@ pub fn register_extension_surfaces(
 
 /// Every extension CLI command becomes the MCP tool
 /// `specforge.{ext_short}.{cmd_id}`, its input schema derived from the
-/// command's args, dispatched to the command's export. A tool already
+/// command's args, dispatched to the command's export; but a command the
+/// host refuses (`specforge_ops::command::refusal`), which no surface runs. A tool already
 /// registered under that name (core or explicitly contributed) wins, and
 /// the command is reported with I017. Emits `commands_auto_promoted` when
 /// any extension contributes commands.
@@ -67,8 +69,14 @@ fn auto_promote_commands(
         any_commands = true;
         let explicit: std::collections::HashSet<String> =
             state.tool_registry.iter().map(|t| t.name.clone()).collect();
-        let args: Vec<Vec<(&str, &str)>> = surfaces
+        // A command the host refuses (an arg taking a host option, such as
+        // `format`) is no tool, as it is no command line.
+        let promotable: Vec<&CommandContribution> = surfaces
             .commands
+            .iter()
+            .filter(|cmd| specforge_ops::command::refusal(cmd).is_none())
+            .collect();
+        let args: Vec<Vec<(&str, &str)>> = promotable
             .iter()
             .map(|cmd| {
                 cmd.args
@@ -77,8 +85,7 @@ fn auto_promote_commands(
                     .collect()
             })
             .collect();
-        let commands: Vec<(&str, &[(&str, &str)])> = surfaces
-            .commands
+        let commands: Vec<(&str, &[(&str, &str)])> = promotable
             .iter()
             .zip(&args)
             .map(|(cmd, args)| (cmd.id.as_str(), args.as_slice()))
@@ -87,26 +94,12 @@ fn auto_promote_commands(
         let (tools, diagnostics) =
             specforge_wasm::auto_promote_commands_to_mcp_tools(&commands, &explicit, &short);
         conflict_count += diagnostics.len();
-        state.diagnostics.extend(diagnostics);
+        state.surface_diagnostics.extend(diagnostics);
 
         for tool in tools {
-            let Some(cmd) = surfaces
-                .commands
-                .iter()
-                .find(|c| c.id == tool.source_command_id)
-            else {
+            let Some(cmd) = promotable.iter().find(|c| c.id == tool.source_command_id) else {
                 continue;
             };
-            // The promoted tool follows its command's enabled state.
-            let enabled = state
-                .surface_entries
-                .iter()
-                .find(|e| {
-                    e.surface_type == SurfaceType::Command
-                        && e.contribution_name == cmd.id
-                        && &e.extension_name == ext_name
-                })
-                .is_none_or(|e| e.enabled);
             state.tool_registry.push(McpToolDescriptor {
                 name: tool.name.clone(),
                 description: cmd.description.clone(),
@@ -117,12 +110,11 @@ fn auto_promote_commands(
                 source: Some(ext_name.clone()),
                 annotations: None,
             });
-            state.surface_entries.push(SurfaceRegistryEntry {
+            state.promoted_surfaces.push(SurfaceRegistryEntry {
                 surface_type: SurfaceType::AutoPromotedTool,
                 contribution_name: tool.name,
                 extension_name: ext_name.clone(),
                 export_name: cmd.export.clone(),
-                enabled,
             });
             promoted_count += 1;
         }
@@ -147,30 +139,18 @@ fn extension_category(declared: Option<&str>) -> &'static str {
 /// The manifest spelling of a command arg type.
 fn arg_type_name(arg_type: &CommandArgType) -> &'static str {
     match arg_type {
-        CommandArgType::StringArg => "string",
-        CommandArgType::PathArg => "path",
-        CommandArgType::BoolArg => "bool",
-        CommandArgType::EnumArg { .. } => "enum",
-        CommandArgType::IntegerArg => "integer",
+        CommandArgType::String => "string",
+        CommandArgType::Path => "path",
+        CommandArgType::Bool => "bool",
+        CommandArgType::Enum { .. } => "enum",
+        CommandArgType::Integer => "integer",
     }
 }
 
-/// An extension's short name for tool naming: its manifest `ext_short`,
-/// else the last segment of its name (`@specforge/product` -> `product`).
+/// An extension's short name for tool naming, as the CLI names its
+/// commands (`specforge_ops::command::ext_short`).
 fn ext_short(state: &McpState, ext_name: &str) -> String {
-    state
-        .manifests
-        .iter()
-        .find(|m| m.name == ext_name)
-        .and_then(|m| m.ext_short.clone())
-        .unwrap_or_else(|| {
-            ext_name
-                .rsplit('/')
-                .next()
-                .unwrap_or(ext_name)
-                .trim_start_matches('@')
-                .to_string()
-        })
+    specforge_ops::command::ext_short(&state.registries().manifests, ext_name)
 }
 
 /// Complete the per-arg types of `schema` with what the args also declare:
@@ -180,7 +160,7 @@ fn derived_input_schema(mut schema: Value, args: &[CommandArg]) -> Value {
         let Some(property) = schema["properties"].get_mut(&arg.name) else {
             continue;
         };
-        if let CommandArgType::EnumArg { values } = &arg.arg_type {
+        if let CommandArgType::Enum { values } = &arg.arg_type {
             property["enum"] = json!(values);
         }
         if let Some(description) = &arg.description {
@@ -207,13 +187,6 @@ pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResp
     let tools: Vec<Value> = state
         .tool_registry
         .iter()
-        .filter(|t| {
-            !disabled(
-                state,
-                &t.name,
-                &[SurfaceType::McpTool, SurfaceType::AutoPromotedTool],
-            )
-        })
         .map(|t| {
             let mut tool = serde_json::to_value(t).unwrap();
             if !structured && let Some(listed) = tool.as_object_mut() {
@@ -230,7 +203,9 @@ pub fn handle_list_resources(state: &mut McpState, id: Option<Value>) -> JsonRpc
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
-    let resources: Vec<Value> = listed_resources(state)
+    let resources: Vec<Value> = state
+        .resource_registry
+        .iter()
         .filter(|r| !is_template(r))
         .map(|r| serde_json::to_value(r).unwrap())
         .collect();
@@ -244,7 +219,9 @@ pub fn handle_list_resource_templates(state: &mut McpState, id: Option<Value>) -
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
-    let templates: Vec<Value> = listed_resources(state)
+    let templates: Vec<Value> = state
+        .resource_registry
+        .iter()
         .filter(|r| is_template(r))
         .map(|r| {
             let mut template = json!({ "uriTemplate": r.uri, "name": r.name });
@@ -261,27 +238,9 @@ pub fn handle_list_resource_templates(state: &mut McpState, id: Option<Value>) -
     JsonRpcResponse::success(id, json!({ "resourceTemplates": templates }))
 }
 
-/// The registered resources a listing advertises: all but disabled
-/// extension contributions.
-fn listed_resources(state: &McpState) -> impl Iterator<Item = &McpResourceDescriptor> {
-    state
-        .resource_registry
-        .iter()
-        .filter(|r| !disabled(state, &r.name, &[SurfaceType::McpResource]))
-}
-
 /// Whether a resource's URI is an RFC 6570 template (`{placeholder}`).
 fn is_template(resource: &McpResourceDescriptor) -> bool {
     resource.uri.contains('{')
-}
-
-/// Whether an extension contributed `name` as one of `types` and that
-/// contribution is disabled: disabled contributions are not advertised.
-fn disabled(state: &McpState, name: &str, types: &[SurfaceType]) -> bool {
-    state
-        .surface_entries
-        .iter()
-        .any(|e| !e.enabled && e.contribution_name == name && types.contains(&e.surface_type))
 }
 
 pub fn handle_list_prompts(state: &mut McpState, id: Option<Value>) -> JsonRpcResponse {

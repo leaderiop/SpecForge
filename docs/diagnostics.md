@@ -548,11 +548,13 @@ Level: error
 ## E046
 
 ```
-E046: Metric bounds are contradictory
+E046: Declared bounds are contradictory
 
-`specforge analyze --prove`'s SMT solver found the declared `constraint` metric
-bounds mutually unsatisfiable; the cited bounds form the conflicting core. Relax
-or correct one of the listed bounds.
+`specforge analyze --prove`'s SMT solver found the declared bounds mutually
+unsatisfiable; the cited bounds form the conflicting core. Bounds are the fields
+an extension declares with the `bound` proof role (a governance constraint's
+`metric`, a formal axiom's `expression`). Relax or correct one of the listed
+bounds.
 
 Owner: core
 Level: error
@@ -597,24 +599,6 @@ Owner: @specforge/product
 Level: error
 ```
 
-## E053
-
-```
-E053: Host call denied by sandbox
-
-An extension's Wasm host call was refused by the sandbox: it was made from a
-call site that isn't allowed for that operation, the relevant policy flag
-(`file_system_access`/`network_access`) is disabled, a file path escaped
-`spec_root`/the output directory or used a `..` component, an output extension
-is blocked or not allowlisted, an HTTP domain isn't in `allowed_domains`, or a
-graph node/edge referenced an undeclared kind/label or a nonexistent node.
-Adjust the extension's `sandbox_policy` or the call itself to stay within the
-granted permissions.
-
-Owner: core
-Level: error
-```
-
 ## E054
 
 ```
@@ -634,10 +618,11 @@ Level: error
 ```
 E055: Invalid surface contribution schema
 
-A surface contribution's schema is malformed: an MCP tool's `input_schema` or
-`output_schema` isn't a JSON object, or a CLI command declares an argument type
-outside the known set (`string`, `path`, `bool`, `enum`, `integer`). Fix the
-schema or argument type in the manifest.
+An extension's explicit MCP tool declares an `input_schema` or `output_schema`
+that isn't a JSON object, so the tool is not registered. Declare the schema as a
+JSON Schema object. (A command argument type outside `string`, `path`, `bool`,
+`enum` and `integer` fails the extension's load as E028: its surfaces don't
+parse.)
 
 Owner: core
 Level: error
@@ -1267,9 +1252,9 @@ Level: info
 I098: Solver could not decide bounds
 
 The `specforge analyze --prove` SMT solver returned an undecided result rather
-than `sat`/`unsat` when checking combined metric bounds, or whether the declared
-bounds entail a claim. Simplify the constraint expressions or supply tighter
-bounds so the solver can decide.
+than `sat`/`unsat` when checking the combined declared bounds, or whether they
+entail a declared claim. Simplify the bound or claim expressions, or supply
+tighter bounds, so the solver can decide.
 
 Owner: core
 Level: info
@@ -1405,6 +1390,22 @@ Owner: core
 Level: error
 ```
 
+## R-OPS-004
+
+```
+R-OPS-004: Package manifest unreadable
+
+The registry served no manifest for the package, or one that isn't a valid
+extension manifest. The manifest declares the package's peer dependencies, which
+`specforge add` checks against the installed extensions before installing
+anything, so a package whose manifest can't be read is refused rather than
+treated as having no peers. Nothing is installed and no publisher key is pinned.
+Don't install the package, and check the registry.
+
+Owner: core
+Level: error
+```
+
 ## R-RES-001
 
 ```
@@ -1526,9 +1527,11 @@ Level: error
 ```
 R-TRUST-004: Signature metadata mismatch
 
-The key ID the registry reports for the package differs from the key ID inside
-its signature, so the registry metadata was edited apart from the signature or
-is stale. Don't install the package, and check the registry.
+The registry's answer doesn't match: it, or the manifest it serves, describes
+another package or version than the one requested, or the key ID it reports
+differs from the key ID inside the signature, so the registry metadata was
+edited apart from the signature or is stale. Don't install the package, and
+check the registry.
 
 Owner: core
 Level: error
@@ -1913,7 +1916,9 @@ A field or edge type references a `target_kind` or edge label that isn't
 declared — either in the extension's own manifest when it declares no peer
 dependencies, or in the compiler's global kind/edge registry once all extensions
 are loaded. Declare the missing kind or edge label, or add the appropriate peer
-dependency.
+dependency. The same code reports a declaration the registry refuses: a
+`derived_from` that derives nothing, a `proof_role` other than `bound` or
+`claim`, or a `lifecycle_field` that is not one of the kind's fields.
 
 Owner: core
 Level: warning
@@ -2636,13 +2641,14 @@ Level: warning
 ```
 W139: Formal claim not entailed by declared bounds
 
-`specforge analyze --prove` found that a `claim` isn't guaranteed by the
-declared metric bounds: the SMT solver found a counterexample that satisfies
-every bound while violating the claim. The claim isn't wrong; the bounds just
-don't guarantee it yet, and its `verify property` obligation stays unproven.
-Strengthen the declared constraint bounds or weaken the claim. Use `--strict` to
-fail the run on it. This code was E047 until it was renumbered to match its
-severity.
+`specforge analyze --prove` found that a declared claim (a field an extension
+gives the `claim` proof role, such as a formal property's or invariant's
+`expression`) isn't guaranteed by the declared bounds: the SMT solver found a
+counterexample that satisfies every bound while violating the claim. The claim
+isn't wrong; the bounds just don't guarantee it yet, and its `verify property`
+obligation stays unproven. Strengthen the declared bounds or weaken the claim.
+Use `--strict` to fail the run on it. This code was E047 until it was renumbered
+to match its severity.
 
 Owner: core
 Level: warning
@@ -2728,6 +2734,7 @@ These codes are no longer emitted, and are never reused for another meaning.
 | E037 | (nothing) |
 | E038 | (nothing) |
 | E047 | [W139](#w139) |
+| E053 | (nothing) |
 | I006 | (nothing) |
 | W024 | (nothing) |
 | W025 | (nothing) |

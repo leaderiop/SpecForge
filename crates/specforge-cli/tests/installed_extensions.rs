@@ -97,8 +97,9 @@ fn a_local_install_loads_through_check() {
 
     let (ok, after) = check(dir.path());
     assert!(ok, "{after:?}");
-    // `greeting` is a known kind now, and nothing failed to load.
-    for code in ["E024", "E028", "E033"] {
+    // `greeting` is a known kind now, and nothing failed to load — its
+    // field types (W019) and rule (W112) included.
+    for code in ["E024", "E028", "E033", "W019", "W112"] {
         assert!(!codes(&after).contains(&code), "{code}: {after:?}");
     }
 }
@@ -265,6 +266,47 @@ fn update_never_replaces_a_local_install() {
         registry.hits(),
         0,
         "update asked the registry about a local build"
+    );
+}
+
+#[specforge_test(
+    behavior = "batch_update_completed",
+    verify = "emits batch_update_completed with correct updatedCount after bulk update"
+)]
+fn a_bulk_update_reports_batch_update_completed() {
+    // greet is locked from the registry one version behind; a local build
+    // sits beside it, which a registry never replaces.
+    let registry = FakeRegistry::serve(vec![Package::new("@sdk/greet", "0.1.0", greet_wasm())]);
+    let dir = project_on(&registry);
+    let lock = json!({
+        "lockfile_version": 1,
+        "entries": [
+            {"name": "@sdk/greet", "version": "0.0.9", "source": "registry", "wasm_hash": "00"},
+            {"name": "@acme/local", "version": "1.0.0", "source": "local:local.wasm", "wasm_hash": "00"},
+        ],
+    });
+    std::fs::write(dir.path().join("specforge.lock"), lock.to_string()).unwrap();
+    let home = TempDir::new().unwrap();
+
+    let out = specforge()
+        .args(["update", "--major", "--allow-unsigned", "--format", "json"])
+        .args(["--path"])
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+
+    assert!(out.status.success(), "{out:?}");
+    let output: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(lock_entry(dir.path(), "@sdk/greet")["version"], "0.1.0");
+    let event = &output["batch_update_completed"];
+    assert_eq!(event["updatedCount"], 1, "{output}");
+    assert_eq!(event["failedCount"], 0, "{output}");
+    assert_eq!(event["skippedCount"], 1, "{output}");
+    let timestamp = event["timestamp"].as_str().unwrap_or_default();
+    assert!(
+        chrono::DateTime::parse_from_rfc3339(timestamp).is_ok(),
+        "{output}"
     );
 }
 

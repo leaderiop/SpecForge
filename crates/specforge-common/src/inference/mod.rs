@@ -12,7 +12,8 @@ use sha2::{Digest, Sha256};
 pub use discovery::{AnalyzerConfig, SourceDiscoveryConfig, discover_source_files};
 
 const CURRENT_VERSION: u32 = 1;
-const MANIFEST_FILENAME: &str = "specforge-infer.json";
+/// The inference manifest, at the project root.
+pub const MANIFEST_FILENAME: &str = "specforge-infer.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InferenceManifest {
@@ -173,6 +174,7 @@ pub fn compute_inference_diagnostics(
             severity: crate::Severity::Info,
             span: None,
             suggestion: Some("Re-analyze this file to update inferred entities".to_string()),
+            data: None,
         });
     }
 
@@ -203,6 +205,7 @@ pub fn compute_inference_diagnostics(
                 severity: crate::Severity::Info,
                 span: None,
                 suggestion: Some("Consider whether some inferred entities should be merged or removed".to_string()),
+                data: None,
             });
         }
     }

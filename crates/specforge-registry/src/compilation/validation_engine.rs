@@ -1,5 +1,6 @@
 use crate::ManifestValidationRule;
 use specforge_common::{Diagnostic, Severity};
+use specforge_protocol_types::ConstraintKind;
 
 /// Parsed and validated rule pattern, ready for execution.
 #[derive(Debug, Clone)]
@@ -19,37 +20,21 @@ pub struct ValidationRulePattern {
     pub wasm_function: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum ValidationPatternKind {
-    NoIncomingEdges,
-    NoOutgoingEdges,
-    NoEdges,
-    MissingFieldWhenFlagSet,
-    FieldValueConstraint,
-    CycleDetection,
-    FileExists,
-    Custom,
-    /// When a condition field equals a specific value, a required field must be present.
-    /// Uses `constraint.pattern` as the condition field name, `constraint.values` as
-    /// the triggering values, and `field` as the required field.
-    ConditionalFieldRequired,
-    /// A field declared `required: true` must be present on every entity of its kind.
-    /// Produces E006 at Error severity.
-    MissingRequiredField,
-    /// Verify statement kinds must be within the rule's `values` allowlist
-    /// (mirrors the kind descriptor's `verify_kinds`).
-    VerifyKindAllowlist,
-    /// A testable entity declares neither verify obligations nor a gherkin
-    /// scenario.
-    NoVerifyStatements,
-}
+/// What a rule checks — the extension vocabulary's [`CheckKind`], under
+/// the name the validation engine has always used for it.
+///
+/// [`CheckKind`]: specforge_protocol_types::CheckKind
+pub type ValidationPatternKind = specforge_protocol_types::CheckKind;
 
 /// The statement that declares an entity's obligations.
 const VERIFY_FIELD: &str = "verify";
 
 #[derive(Debug, Clone)]
 pub struct FieldConstraintPattern {
-    pub kind: String,
+    /// `None` for a name this host does not read. Only
+    /// `field_value_constraint` dispatches on the kind, and it rejects such
+    /// a name at parse time; the other checks read `pattern` and `values`.
+    pub kind: Option<ConstraintKind>,
     pub pattern: Option<String>,
     pub values: Vec<String>,
     /// Regex compiled once at parse time for `field_value_constraint` rules
@@ -128,6 +113,7 @@ fn unexecutable_rule(extension_name: &str, rule_code: &str, why: &str) -> Diagno
         ),
         span: None,
         suggestion: None,
+        data: None,
     }
 }
 
@@ -139,31 +125,18 @@ pub(crate) fn parse_rule_pattern(
     rule: &ManifestValidationRule,
     extension_name: &str,
 ) -> Result<ValidationRulePattern, Diagnostic> {
-    let check = match rule.check.as_str() {
-        "no_incoming_edges" => ValidationPatternKind::NoIncomingEdges,
-        "no_outgoing_edges" => ValidationPatternKind::NoOutgoingEdges,
-        "no_edges" => ValidationPatternKind::NoEdges,
-        "missing_field_when_flag_set" => ValidationPatternKind::MissingFieldWhenFlagSet,
-        "field_value_constraint" => ValidationPatternKind::FieldValueConstraint,
-        "cycle_detection" => ValidationPatternKind::CycleDetection,
-        "file_exists" => ValidationPatternKind::FileExists,
-        "custom" => ValidationPatternKind::Custom,
-        "verify_kind_allowlist" => ValidationPatternKind::VerifyKindAllowlist,
-        "no_verify_statements" => ValidationPatternKind::NoVerifyStatements,
-        "conditional_field_required" => ValidationPatternKind::ConditionalFieldRequired,
-        "missing_required_field" => ValidationPatternKind::MissingRequiredField,
-        other => {
-            return Err(Diagnostic {
-                code: "W112".to_string(),
-                severity: Severity::Warning,
-                message: format!(
-                    "extension '{}': unrecognized validation pattern kind '{}'",
-                    extension_name, other
-                ),
-                span: None,
-                suggestion: None,
-            });
-        }
+    let Some(check) = ValidationPatternKind::parse(&rule.check) else {
+        return Err(Diagnostic {
+            code: "W112".to_string(),
+            severity: Severity::Warning,
+            message: format!(
+                "extension '{}': unrecognized validation pattern kind '{}'",
+                extension_name, rule.check
+            ),
+            span: None,
+            suggestion: None,
+            data: None,
+        });
     };
 
     let severity = match rule.severity.as_str() {
@@ -186,29 +159,30 @@ pub(crate) fn parse_rule_pattern(
                     "check 'field_value_constraint' requires a constraint but none is set",
                 ));
             }
-            Some(c) => match c.kind.as_str() {
-                "non_empty" => {}
-                "one_of" if c.values.is_empty() => {
+            Some(c) => match ConstraintKind::parse(&c.kind) {
+                Some(ConstraintKind::NonEmpty) => {}
+                Some(ConstraintKind::OneOf) if c.values.is_empty() => {
                     return Err(unexecutable_rule(
                         extension_name,
                         &rule.code,
                         "one_of constraint has an empty values list — every field value would be flagged as a violation",
                     ));
                 }
-                "matches" if c.pattern.is_none() => {
+                Some(ConstraintKind::Matches) if c.pattern.is_none() => {
                     return Err(unexecutable_rule(
                         extension_name,
                         &rule.code,
                         "matches constraint has no pattern — no value can ever be checked",
                     ));
                 }
-                "one_of" | "matches" => {}
-                other => {
+                Some(ConstraintKind::OneOf | ConstraintKind::Matches) => {}
+                Some(ConstraintKind::WhenFieldEquals) | None => {
                     return Err(unexecutable_rule(
                         extension_name,
                         &rule.code,
                         &format!(
-                            "unknown constraint kind '{other}' for check 'field_value_constraint' (expected non_empty, one_of, or matches)"
+                            "unknown constraint kind '{}' for check 'field_value_constraint' (expected non_empty, one_of, or matches)",
+                            c.kind
                         ),
                     ));
                 }
@@ -247,7 +221,7 @@ pub(crate) fn parse_rule_pattern(
             return Err(unexecutable_rule(
                 extension_name,
                 &rule.code,
-                &format!("check '{}' requires a field but none is set", rule.check),
+                &format!("check '{check}' requires a field but none is set"),
             ));
         }
         ValidationPatternKind::Custom if rule.wasm_function.is_none() => {
@@ -262,8 +236,9 @@ pub(crate) fn parse_rule_pattern(
 
     let constraint = match rule.constraint.as_ref() {
         Some(c) => {
+            let kind = ConstraintKind::parse(&c.kind);
             let compiled_pattern = if matches!(check, ValidationPatternKind::FieldValueConstraint)
-                && c.kind == "matches"
+                && kind == Some(ConstraintKind::Matches)
             {
                 match c.pattern.as_deref().map(regex::Regex::new) {
                     Some(Ok(re)) => Some(re),
@@ -280,6 +255,7 @@ pub(crate) fn parse_rule_pattern(
                             ),
                             span: None,
                             suggestion: None,
+                            data: None,
                         });
                     }
                     None => None,
@@ -288,7 +264,7 @@ pub(crate) fn parse_rule_pattern(
                 None
             };
             Some(FieldConstraintPattern {
-                kind: c.kind.clone(),
+                kind,
                 pattern: c.pattern.clone(),
                 values: c.values.clone(),
                 compiled_pattern,
@@ -478,10 +454,10 @@ pub fn execute_pattern(
             }
             ValidationPatternKind::MissingFieldWhenFlagSet => {
                 if let Some(ref field_name) = pattern.field {
-                    // Union types (type X = A | B) have a "variants" field but
-                    // cannot syntactically hold verify statements, so skip them
-                    // for verify-related checks.
-                    if field_name == "verify" && entity.fields.contains_key("variants") {
+                    // An entity that owes no obligations (a union, which has
+                    // no body to hold them, or one an extension's flag
+                    // exempts: `obligation_exempt`) is not missing `verify`.
+                    if field_name == VERIFY_FIELD && entity.obligation_exempt {
                         false
                     } else {
                         !entity.fields.contains_key(field_name)
@@ -494,10 +470,10 @@ pub fn execute_pattern(
                 if let (Some(field_name), Some(constraint)) = (&pattern.field, &pattern.constraint)
                 {
                     if let Some(value) = entity.fields.get(field_name) {
-                        match constraint.kind.as_str() {
-                            "non_empty" => value.is_empty(),
-                            "one_of" => !constraint.values.contains(value),
-                            "matches" => {
+                        match constraint.kind {
+                            Some(ConstraintKind::NonEmpty) => value.is_empty(),
+                            Some(ConstraintKind::OneOf) => !constraint.values.contains(value),
+                            Some(ConstraintKind::Matches) => {
                                 // The regex was compiled once at parse time; a
                                 // malformed pattern is rejected at load time with
                                 // a W112 diagnostic, so `None` here only means the
@@ -661,6 +637,7 @@ pub fn execute_pattern(
                 message,
                 span: Some(entity.span.clone()),
                 suggestion: None,
+                data: None,
             });
         }
     }
@@ -726,7 +703,7 @@ mod tests {
             edge_peer_kind: None,
             field: None,
             constraint: Some(FieldConstraintPattern {
-                kind: "one_of".to_string(),
+                kind: Some(ConstraintKind::OneOf),
                 pattern: None,
                 values: allowed.iter().map(|s| s.to_string()).collect(),
                 compiled_pattern: None,
@@ -1712,7 +1689,7 @@ mod tests {
         assert_eq!(pattern.field.as_deref(), Some("reason"));
         assert_eq!(
             pattern.constraint.as_ref().unwrap().kind,
-            "when_field_equals"
+            Some(ConstraintKind::WhenFieldEquals)
         );
         assert_eq!(
             pattern.constraint.as_ref().unwrap().pattern.as_deref(),

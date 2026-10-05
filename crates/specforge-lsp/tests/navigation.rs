@@ -130,6 +130,38 @@ fn go_to_def_works_across_files() {
 
 // -- goto_import_definition ---------------------------------------------------
 
+/// Go to the target of `use "<import>"` in `main.spec` under `spec_root`.
+fn goto_import(spec_root: &std::path::Path, import: &str) -> Option<specforge_common::SourceSpan> {
+    specforge_lsp::goto_import_definition(
+        import,
+        "main.spec",
+        spec_root,
+        &specforge_resolver::ResolveConfig::default(),
+    )
+}
+
+/// The resolver's cascade, not a hand-built `{root}/{import}.spec`: a
+/// relative path from a nested file and a directory's `index.spec`.
+#[spec(
+    behavior = "goto_import_definition",
+    verify = "go-to-def on use path navigates to target file"
+)]
+fn goto_import_resolves_relative_and_index_targets() {
+    let tmp = tempfile::tempdir().unwrap();
+    fs::create_dir_all(tmp.path().join("models")).unwrap();
+    fs::create_dir_all(tmp.path().join("sub")).unwrap();
+    fs::write(tmp.path().join("models/index.spec"), "term m \"M\" {}\n").unwrap();
+    fs::write(tmp.path().join("types.spec"), "term t \"T\" {}\n").unwrap();
+    let config = specforge_resolver::ResolveConfig::default();
+    let goto = |import: &str| {
+        specforge_lsp::goto_import_definition(import, "sub/main.spec", tmp.path(), &config)
+            .map(|s| s.file.to_string())
+    };
+    assert_eq!(goto("../types").as_deref(), Some("types.spec"));
+    assert_eq!(goto("models").as_deref(), Some("models/index.spec"));
+    assert_eq!(goto("@specforge/software"), None);
+}
+
 #[spec(
     behavior = "goto_import_definition",
     verify = "go-to-def on use path navigates to target file"
@@ -144,10 +176,9 @@ fn goto_import_navigates_to_file() {
     )
     .unwrap();
 
-    let spec_root = tmp.path().to_str().unwrap();
-    let result = specforge_lsp::goto_import_definition("behaviors/auth", spec_root);
+    let result = goto_import(tmp.path(), "behaviors/auth");
     let loc = result.expect("should resolve import");
-    assert!(loc.file.as_str().ends_with("behaviors/auth.spec"));
+    assert_eq!(loc.file.as_str(), "behaviors/auth.spec");
     assert_eq!(loc.start_line, 0);
 }
 
@@ -157,9 +188,13 @@ fn goto_import_navigates_to_file() {
 )]
 fn goto_import_returns_none_for_missing() {
     let tmp = tempfile::tempdir().unwrap();
-    let spec_root = tmp.path().to_str().unwrap();
-    let result = specforge_lsp::goto_import_definition("nonexistent/path", spec_root);
-    assert!(result.is_none());
+    assert!(goto_import(tmp.path(), "nonexistent/path").is_none());
+    // Nor does a path that leaves the spec root.
+    fs::write(tmp.path().join("inside.spec"), "term inside \"I\" {}\n").unwrap();
+    let root = tmp.path().join("spec");
+    fs::create_dir_all(&root).unwrap();
+    assert!(goto_import(&root, "../inside").is_none());
+    assert!(goto_import(&root, "a/../../inside").is_none());
 }
 
 // -- goto_import_definition (LSP dispatch integration) ------------------------
@@ -178,8 +213,6 @@ fn goto_definition_dispatches_to_import_on_use_line() {
     )
     .unwrap();
 
-    let spec_root = tmp.path().to_str().unwrap();
-
     // Simulate document content with a use line
     let content = "use \"behaviors/auth\"\n\nbehavior login \"Login\" {}\n";
     let line = content.lines().next().unwrap();
@@ -189,9 +222,9 @@ fn goto_definition_dispatches_to_import_on_use_line() {
         .expect("should extract import path from use line");
 
     // Dispatch to goto_import_definition (as the LSP handler would)
-    let result = specforge_lsp::goto_import_definition(import_path, spec_root);
+    let result = goto_import(tmp.path(), import_path);
     let loc = result.expect("should resolve import from use line");
-    assert!(loc.file.as_str().ends_with("behaviors/auth.spec"));
+    assert_eq!(loc.file.as_str(), "behaviors/auth.spec");
     assert_eq!(loc.start_line, 0);
 }
 

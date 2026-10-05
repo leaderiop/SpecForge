@@ -41,10 +41,10 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
     let reported: Vec<specforge_common::Diagnostic> = if state.serves_other_than(&root) {
         state.compile_project(&root).diagnostics()
     } else {
-        if !use_cached || state.diagnostics.is_empty() {
-            state.recompile(&root);
+        if !use_cached || state.diagnostics().is_empty() {
+            state.reload(&root);
         }
-        state.diagnostics.clone()
+        state.diagnostics()
     };
 
     // The policy `specforge check` applies: lint profiles add theirs, and
@@ -66,7 +66,7 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
         .collect();
 
     let filtered: Vec<specforge_common::Diagnostic> = diagnostics.into_iter().cloned().collect();
-    let diag_json = specforge_emitter::serialize_diagnostics(&filtered);
+    let diag_json = specforge_common::serialize_diagnostics(&filtered);
 
     ToolOutcome::text(diag_json)
 }

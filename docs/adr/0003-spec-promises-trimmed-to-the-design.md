@@ -33,4 +33,8 @@ A second pass (tier 3, strengthening weak tests) settled more:
   terminal (plain when piped or under `NO_COLOR`), unknown-kind reports from the MCP query and
   search tools, and auto-promotion of extension CLI commands to MCP tools.
 - **Known gap, left unproven:** the CLI does not run extension-contributed commands. No builtin
-  extension contributes one yet; the obligations stay unproven until one does.
+  extension contributes one yet; the obligations stay unproven until one does. *Closed by
+  [ADR 0008](0008-extension-commands-run-over-the-graph.md):* `@specforge/product` contributes the
+  `specforge product` commands, the CLI routes to them, and the dispatch obligations (args to the
+  export, a trap as an extension error, exit code and output back to the CLI, a disabled command not
+  routed) are proven.

@@ -1,10 +1,10 @@
 use crate::OutputFormat;
 use serde_json::json;
 use specforge_common::Diagnostic;
-use specforge_registry::{
-    AuthMethod, CredentialStore, HttpRegistryClient, ManifestV2, RegistryConfig,
-    RegistryCredential,
-    client::credentials::{credentials_path, read_credentials},
+use specforge_registry::ManifestV2;
+use specforge_registry_client::{
+    AuthMethod, CredentialStore, HttpRegistryClient, RegistryConfig, RegistryCredential,
+    credentials::{credentials_path, read_credentials},
     find_registry_for_specifier, load_or_create_signing_key, publish_to_registry,
 };
 use std::path::Path;
@@ -13,22 +13,14 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     // Load manifest
     let manifest_path = path.join("manifest.json");
     if !manifest_path.exists() {
-        print_error(
-            format,
-            "no manifest.json found in current directory",
-            "E040",
-        );
+        format.print_error("no manifest.json found in current directory", "E040");
         return 1;
     }
 
     let manifest_content = match std::fs::read_to_string(&manifest_path) {
         Ok(c) => c,
         Err(e) => {
-            print_error(
-                format,
-                &format!("failed to read manifest.json: {}", e),
-                "E040",
-            );
+            format.print_error(&format!("failed to read manifest.json: {}", e), "E040");
             return 1;
         }
     };
@@ -43,7 +35,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let manifest: ManifestV2 = match serde_json::from_str(&manifest_content) {
         Ok(m) => m,
         Err(e) => {
-            print_error(format, &format!("invalid manifest.json: {}", e), "E030");
+            format.print_error(&format!("invalid manifest.json: {}", e), "E030");
             return 1;
         }
     };
@@ -51,8 +43,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     // Load wasm binary
     let wasm_path = path.join(&manifest.wasm_path);
     if !wasm_path.exists() {
-        print_error(
-            format,
+        format.print_error(
             &format!("wasm binary not found at '{}'", wasm_path.display()),
             "E040",
         );
@@ -62,17 +53,13 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let wasm_bytes = match std::fs::read(&wasm_path) {
         Ok(b) => b,
         Err(e) => {
-            print_error(
-                format,
-                &format!("failed to read wasm binary: {}", e),
-                "E040",
-            );
+            format.print_error(&format!("failed to read wasm binary: {}", e), "E040");
             return 1;
         }
     };
 
     // No registry configured: fail before any network call (ADR 0004 N1).
-    let registries = match specforge_ops::registry::configured(path, "publish") {
+    let registries = match specforge_ops_registry::configured(path, "publish") {
         Ok(configured) => {
             format.eprint_diagnostics(&configured.diagnostics);
             configured.registries
@@ -86,11 +73,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let registry = match find_registry_for_specifier(&manifest.name, &registries) {
         Some(r) => r,
         None => {
-            print_error(
-                format,
-                "no registry configured for this package scope",
-                "R-OPS-001",
-            );
+            format.print_error("no registry configured for this package scope", "R-OPS-001");
             return 1;
         }
     };
@@ -98,7 +81,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let credential = match load_credential(registry) {
         Ok(credential) => credential,
         Err(diag) => {
-            print_error(format, &diag.message, &diag.code);
+            format.print_error(&diag.message, &diag.code);
             return 1;
         }
     };
@@ -107,7 +90,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let (signing_key, key_created) = match load_or_create_signing_key() {
         Ok(pair) => pair,
         Err(message) => {
-            print_error(format, &message, "SIGNING_KEY_ERROR");
+            format.print_error(&message, "SIGNING_KEY_ERROR");
             return 1;
         }
     };
@@ -152,19 +135,9 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
             0
         }
         Err(diag) => {
-            print_error(format, &diag.message, &diag.code);
+            format.print_error(&diag.message, &diag.code);
             1
         }
-    }
-}
-
-fn print_error(format: OutputFormat, message: &str, code: &str) {
-    match format {
-        OutputFormat::Json => {
-            let output = json!({"error": message, "code": code});
-            println!("{}", serde_json::to_string_pretty(&output).unwrap());
-        }
-        OutputFormat::Human => eprintln!("error[{}]: {}", code, message),
     }
 }
 
@@ -209,7 +182,7 @@ mod tests {
         // Legacy plaintext form (what a pre-keyring credentials.json holds).
         store.registries.insert(
             alias.to_string(),
-            specforge_registry::client::credentials::CredentialEntry::Token {
+            specforge_registry_client::credentials::CredentialEntry::Token {
                 token: token.to_string(),
                 expires_at: None,
                 in_keyring: false,

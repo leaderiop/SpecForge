@@ -12,6 +12,24 @@ pub enum ManifestFieldType {
     Block,
 }
 
+/// An enum field's values come with the field, not its type name, so the
+/// conversion leaves them empty.
+impl From<specforge_protocol_types::FieldType> for ManifestFieldType {
+    fn from(t: specforge_protocol_types::FieldType) -> Self {
+        use specforge_protocol_types::FieldType as T;
+        match t {
+            T::String => Self::String,
+            T::Integer => Self::Integer,
+            T::Bool => Self::Bool,
+            T::Enum => Self::Enum(Vec::new()),
+            T::StringList => Self::StringList,
+            T::Reference => Self::Reference,
+            T::ReferenceList => Self::ReferenceList,
+            T::Block => Self::Block,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FieldRegistryEntry {
     pub kind_name: String,
@@ -26,9 +44,35 @@ pub struct FieldRegistryEntry {
     pub inverse_of: Option<String>,
     /// The field states what the entity promises rather than prose.
     pub normative: bool,
+    /// Set on an entity, the entity owes no obligations of its own.
+    pub exempts_obligations: bool,
+    /// The context export carries the field at the node's top level.
+    pub headline: bool,
     /// Where the host derives the field's edges from, when it does
     /// (`type_expressions` or `method_signatures`).
     pub derived_from: Option<String>,
+    /// What the prove pass reads the field as, when anything (ADR 0009, A).
+    pub proof_role: Option<ProofRole>,
+}
+
+/// A field's role in the prove pass, declared by its extension.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProofRole {
+    /// A fact the solver assumes; the bounds must be consistent (E046).
+    Bound,
+    /// A statement that must follow from the bounds (W139 when it does not).
+    Claim,
+}
+
+impl ProofRole {
+    /// The role a manifest names (`bound` or `claim`); None for any other.
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "bound" => Some(Self::Bound),
+            "claim" => Some(Self::Claim),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -172,7 +216,10 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
+            proof_role: None,
         });
         assert!(registry.get("behavior", "title").is_none());
     }
@@ -209,7 +256,10 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
+            proof_role: None,
         });
 
         // These calls should not allocate — they take &str and use HashMap<String,_>::get(&str)
@@ -237,7 +287,10 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
+            proof_role: None,
         };
         registry.register(entry.clone());
         assert_eq!(registry.len(), 1);
@@ -255,7 +308,10 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
+            proof_role: None,
         };
         registry.register(entry2);
         assert_eq!(registry.len(), 1);
@@ -273,7 +329,10 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
+            proof_role: None,
         });
         assert_eq!(registry.len(), 2);
     }
@@ -294,7 +353,10 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
+            proof_role: None,
         });
         registry.register(FieldRegistryEntry {
             kind_name: "event".to_string(),
@@ -308,7 +370,10 @@ mod tests {
             required: false,
             inverse_of: None,
             normative: false,
+            exempts_obligations: false,
+            headline: false,
             derived_from: None,
+            proof_role: None,
         });
 
         let items: Vec<_> = registry.iter().collect();

@@ -1,4 +1,4 @@
-use specforge_common::{SourceSpan, Sym};
+use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym};
 use specforge_graph::{Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test_macros::test as spec;
@@ -41,6 +41,9 @@ fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::Kind
             dot_color: None,
             dot_fillcolor: None,
             open_fields: false,
+            contract_target: false,
+            declares_types: false,
+            lifecycle_field: None,
         });
     }
     registry
@@ -249,4 +252,173 @@ fn stub_no_app_code() {
     assert!(action.edit_text.contains('{'));
     assert!(!action.edit_text.contains("fn "));
     assert!(!action.edit_text.contains("class "));
+}
+
+// -- actions from a diagnostic's data, not its text ----------------------------
+
+/// An E003 on `line` (1-based) whose message and suggestion say nothing a
+/// parser could use: only its data names the reference.
+fn reworded_e003(line: usize, data: Option<DiagnosticData>) -> Diagnostic {
+    let mut diag =
+        Diagnostic::error("E003", "this wording is not a contract").with_span(SourceSpan {
+            file: Sym::new("auth.spec"),
+            start_line: line,
+            start_col: 14,
+            end_line: line,
+            end_col: 25,
+        });
+    diag.data = data.map(Box::new);
+    diag
+}
+
+fn unresolved(target: &str, entity: &str, field: &str, close: Option<&str>) -> DiagnosticData {
+    DiagnosticData::UnresolvedReference {
+        target: target.into(),
+        entity: entity.into(),
+        field: field.into(),
+        did_you_mean: close.map(String::from),
+    }
+}
+
+#[spec(
+    behavior = "emit_live_diagnostics",
+    verify = "code actions act on the diagnostics last published for the document"
+)]
+fn a_rename_quickfix_reads_the_data_whatever_the_message_says() {
+    let content = "behavior login \"L\" {\n  invariants [tokn_unique]\n}\n";
+    let diag = reworded_e003(
+        2,
+        Some(unresolved(
+            "tokn_unique",
+            "login",
+            "invariants",
+            Some("token_unique"),
+        )),
+    );
+
+    let actions = specforge_lsp::code_actions_from_diagnostics(&[diag], content);
+
+    assert_eq!(actions.len(), 1, "{actions:?}");
+    assert_eq!(actions[0].title, "Replace with 'token_unique'");
+    assert_eq!(actions[0].edit_text, "token_unique");
+    assert_eq!(actions[0].insert_line, 2);
+    assert_eq!(actions[0].replace_cols, Some((14, 25)));
+}
+
+#[test]
+fn the_old_message_and_suggestion_text_alone_offer_nothing() {
+    let content = "behavior login \"L\" {\n  invariants [tokn_unique]\n}\n";
+    let mut diag = reworded_e003(2, None);
+    diag.message = "unresolved reference 'tokn_unique' in entity 'login'".into();
+    diag.suggestion = Some("did you mean 'token_unique'?".into());
+
+    assert!(specforge_lsp::code_actions_from_diagnostics(&[diag], content).is_empty());
+}
+
+#[test]
+fn an_import_rename_quickfix_reads_the_path_from_the_data() {
+    let content = "use \"autth\"\n";
+    let diag = Diagnostic::error("E025", "reworded")
+        .with_span(SourceSpan {
+            file: Sym::new("main.spec"),
+            start_line: 1,
+            start_col: 0,
+            end_line: 1,
+            end_col: 11,
+        })
+        .with_data(DiagnosticData::UnresolvedImport {
+            path: "autth".into(),
+            did_you_mean: Some("auth".into()),
+        });
+
+    let actions = specforge_lsp::code_actions_from_diagnostics(&[diag], content);
+
+    assert_eq!(actions.len(), 1, "{actions:?}");
+    assert_eq!(actions[0].edit_text, "auth");
+    assert_eq!(actions[0].replace_cols, Some((5, 10)));
+}
+
+/// `behavior.invariants` targets the `invariant` kind.
+fn invariants_target_invariant() -> specforge_registry::FieldRegistry {
+    use specforge_registry::{FieldRegistry, FieldRegistryEntry, ManifestFieldType};
+    let mut reg = FieldRegistry::new();
+    reg.register(FieldRegistryEntry {
+        kind_name: "behavior".into(),
+        field_name: "invariants".into(),
+        description: None,
+        field_type: ManifestFieldType::ReferenceList,
+        source_extension: "@specforge/software".into(),
+        edge: None,
+        target_kind: Some("invariant".into()),
+        file_reference: false,
+        required: false,
+        inverse_of: None,
+        normative: false,
+        exempts_obligations: false,
+        headline: false,
+        derived_from: None,
+        proof_role: None,
+    });
+    reg
+}
+
+#[spec(
+    behavior = "code_action_create_entity_stub",
+    verify = "the stub is read from the diagnostic's data, whatever its message says"
+)]
+fn a_stub_reads_target_entity_and_field_from_the_data() {
+    let mut graph = Graph::new();
+    graph.add_node(node("login", "behavior", "auth.spec", 1));
+    let data = unresolved("session_limit", "login", "invariants", None);
+    // Twice: one stub per target.
+    let diags = [
+        reworded_e003(2, Some(data.clone())),
+        reworded_e003(3, Some(data)),
+    ];
+
+    let actions = specforge_lsp::code_actions_create_stubs(
+        &diags,
+        &graph,
+        &invariants_target_invariant(),
+        "auth.spec",
+    );
+
+    assert_eq!(actions.len(), 1, "{actions:?}");
+    assert_eq!(actions[0].title, "Create invariant stub for session_limit");
+    assert_eq!(actions[0].file, "auth.spec");
+
+    // The same diagnostic as text alone, in the wording the compiler
+    // prints today, offers no stub.
+    let mut text_only = reworded_e003(2, None);
+    text_only.message = "unresolved reference 'session_limit' in entity 'login'".into();
+    assert!(
+        specforge_lsp::code_actions_create_stubs(
+            &[text_only],
+            &graph,
+            &invariants_target_invariant(),
+            "auth.spec",
+        )
+        .is_empty()
+    );
+}
+
+#[test]
+fn no_stub_for_a_target_that_now_exists() {
+    let mut graph = Graph::new();
+    graph.add_node(node("login", "behavior", "auth.spec", 1));
+    graph.add_node(node("session_limit", "invariant", "auth.spec", 5));
+    let diags = [reworded_e003(
+        2,
+        Some(unresolved("session_limit", "login", "invariants", None)),
+    )];
+
+    assert!(
+        specforge_lsp::code_actions_create_stubs(
+            &diags,
+            &graph,
+            &invariants_target_invariant(),
+            "auth.spec",
+        )
+        .is_empty()
+    );
 }

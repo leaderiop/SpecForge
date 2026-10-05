@@ -87,6 +87,10 @@ pub struct OutlineExtension {
     pub surface_counts: OutlineSurfaceCounts,
     pub shared_fields: Vec<OutlineSharedField>,
     pub collector_count: usize,
+    /// The colour the extension declares for diagrams (`theme_color`).
+    /// Not serialized.
+    #[serde(skip)]
+    pub color: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

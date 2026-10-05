@@ -6,6 +6,8 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
+# The catalog's title on every diagnostics JSON entry; it has no dependencies.
+specforge-diagnostics = { path = "../specforge-diagnostics" }
 lasso = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

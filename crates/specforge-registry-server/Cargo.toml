@@ -31,4 +31,4 @@ parking_lot = "0.12"
 tower = { version = "0.5", features = ["util"] }
 reqwest = { workspace = true }
 tempfile = { workspace = true }
-specforge-registry = { path = "../specforge-registry" }
+specforge-registry-client = { path = "../specforge-registry-client" }

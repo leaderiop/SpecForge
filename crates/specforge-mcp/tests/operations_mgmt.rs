@@ -46,7 +46,7 @@ fn test_server() -> McpServer {
         },
         methods: Vec::new(),
     });
-    state.graph = graph;
+    state.serve_graph(graph, Vec::new());
     attach_project(state);
     server
 }
@@ -444,7 +444,7 @@ fn providers_entry_fields() {
 fn extensions_contract() {
     // compiler_api_available: the server compiled the project.
     let (mut server, root) = software_project();
-    assert!(!server.state().manifests.is_empty());
+    assert!(!server.state().registries().manifests.is_empty());
 
     // extensions_listed: name, version, entity kinds and status.
     let resp = call_tool(&mut server, "specforge.extensions", json!({}));
@@ -497,7 +497,7 @@ fn providers_contract() {
         "name": "t", "version": "0.1.0", "extensions": ["@specforge/software"],
         "providers": [{"alias": "tracker", "scheme": "jira", "extension": "@acme/jira"}]
     }));
-    assert!(!server.state().manifests.is_empty());
+    assert!(!server.state().registries().manifests.is_empty());
 
     // providers_listed: scheme, alias, extension and status.
     let resp = call_tool(&mut server, "specforge.providers", json!({}));
@@ -729,23 +729,25 @@ fn doctor_lists_extension_conflicts_from_the_compile() {
     // What the compiler reports when two extensions register one kind.
     server
         .state_mut()
-        .diagnostics
+        .surface_diagnostics
         .push(specforge_common::Diagnostic {
             code: "E026".into(),
             severity: specforge_common::Severity::Error,
             message: "entity kind 'feature' is already registered by '@specforge/product'".into(),
             span: None,
             suggestion: None,
+            data: None,
         });
     server
         .state_mut()
-        .diagnostics
+        .surface_diagnostics
         .push(specforge_common::Diagnostic {
             code: "W001".into(),
             severity: specforge_common::Severity::Warning,
             message: "an unrelated warning".into(),
             span: None,
             suggestion: None,
+            data: None,
         });
 
     // Over those diagnostics, as the last compile's, not a fresh compile.

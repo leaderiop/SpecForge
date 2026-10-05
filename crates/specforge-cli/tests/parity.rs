@@ -1046,3 +1046,236 @@ fn analyze_bad_pass_uses_each_surfaces_channel() {
     assert!(text.contains("invalid_input"), "{text}");
     assert!(text.contains("Unknown analysis pass 'nonsense'"), "{text}");
 }
+
+// ── infer: one progress and gap document on both surfaces ───────────────────
+
+/// A Rust project half-way through inference: `src/lib.rs` is indexed and
+/// its `alpha` has an entity, `src/net/wire.rs` is not.
+fn infer_project(root: &Path) {
+    std::fs::create_dir_all(root.join("spec")).unwrap();
+    std::fs::create_dir_all(root.join("src/net")).unwrap();
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"inf","spec_root":"spec","extensions":["@specforge/software","@specforge/rust"]}"#,
+    )
+    .unwrap();
+    std::fs::write(root.join("spec/a.spec"), MAIN_SPEC).unwrap();
+    std::fs::write(
+        root.join("src/lib.rs"),
+        "pub fn alpha() {}\npub fn beta() {}\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("src/net/wire.rs"), "pub struct Wire;\n").unwrap();
+    std::fs::write(
+        root.join("specforge-infer.json"),
+        json!({
+            "version": 1,
+            "source_roots": ["src"],
+            "source_index": [{
+                "path": "src/lib.rs", "content_hash": "stale",
+                "entities_produced": ["alpha"], "analyzed_at": "2026-10-01T00:00:00Z"
+            }]
+        })
+        .to_string(),
+    )
+    .unwrap();
+}
+
+/// `specforge infer-status --format json` with `flags`.
+fn cli_infer_status(root: &Path, flags: &[&str]) -> Value {
+    let out = cli()
+        .args(["infer-status", "--format", "json", "--path", &s(root)])
+        .args(flags)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    serde_json::from_slice(&out.stdout).unwrap()
+}
+
+/// What the tool `name` answered on a server rooted at `root`.
+fn mcp_tool(root: &Path, name: &str) -> Value {
+    let mut server = mcp_on(root);
+    let req = json!({
+        "jsonrpc": "2.0", "id": 2, "method": "tools/call",
+        "params": {"name": name, "arguments": {}}
+    });
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    assert_ne!(resp["result"]["isError"], true, "{resp}");
+    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
+    serde_json::from_str(text).unwrap()
+}
+
+#[test]
+fn infer_progress_is_equal_on_both_surfaces() {
+    let dir = tempfile::tempdir().unwrap();
+    infer_project(dir.path());
+
+    let cli_doc = cli_infer_status(dir.path(), &[]);
+    let mcp_doc = mcp_tool(dir.path(), "specforge.infer_progress");
+
+    assert_eq!(
+        cli_doc["unanalyzed"],
+        json!(["src/net/wire.rs"]),
+        "{cli_doc}"
+    );
+    assert_eq!(cli_doc["stale"], json!(["src/lib.rs"]), "{cli_doc}");
+    assert_eq!(cli_doc, mcp_doc);
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_infer_status_cli",
+    verify = "--format json includes the gaps --gaps and --gaps-detail ask for"
+)]
+fn infer_status_json_carries_the_gaps_asked_for() {
+    let dir = tempfile::tempdir().unwrap();
+    infer_project(dir.path());
+
+    let plain = cli_infer_status(dir.path(), &[]);
+    assert!(plain.get("unanalyzed_by_directory").is_none(), "{plain}");
+    assert!(plain.get("gap_analysis").is_none(), "{plain}");
+
+    let doc = cli_infer_status(dir.path(), &["--gaps", "--gaps-detail"]);
+    assert_eq!(
+        doc["unanalyzed_by_directory"],
+        json!([{"directory": "src/net", "count": 1, "files": ["src/net/wire.rs"]}])
+    );
+    // The gap report is the one specforge.infer_gaps answers with.
+    let gaps = &doc["gap_analysis"];
+    assert_eq!(gaps, &mcp_tool(dir.path(), "specforge.infer_gaps"));
+    let names: Vec<&str> = gaps["by_directory"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .flat_map(|d| d["items"].as_array().unwrap())
+        .map(|i| i["name"].as_str().unwrap())
+        .collect();
+    assert!(names.contains(&"beta") && names.contains(&"Wire"), "{gaps}");
+    assert!(!names.contains(&"alpha"), "alpha has an entity: {gaps}");
+}
+
+// ── doctor: one report on both surfaces ─────────────────────────────────────
+
+#[test]
+fn doctor_report_is_the_same_on_both_surfaces() {
+    let dir = tempfile::tempdir().unwrap();
+    project_with_greet_installed(dir.path());
+    // A lock entry whose binary is gone: an issue both must report.
+    let lock_path = dir.path().join("specforge.lock");
+    let mut lock: Value =
+        serde_json::from_str(&std::fs::read_to_string(&lock_path).unwrap()).unwrap();
+    lock["entries"].as_array_mut().unwrap().push(json!({
+        "name": "@acme/gone", "version": "1.0.0", "source": "registry", "wasm_hash": "00"
+    }));
+    std::fs::write(&lock_path, lock.to_string()).unwrap();
+
+    let out = cli()
+        .args(["doctor", "--format", "json", "--path", &s(dir.path())])
+        .output()
+        .unwrap();
+    let cli_doc: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let mcp_doc = mcp_tool(dir.path(), "specforge.doctor");
+
+    // MCP answers with the spec's McpDoctorReport plus the report's
+    // sections; the CLI with the whole report. What both carry is equal.
+    for key in [
+        "findings",
+        "extensions",
+        "enhancements",
+        "shadowed",
+        "load_failures",
+        "issues",
+        "cache_status",
+        "z3_available",
+    ] {
+        assert_eq!(cli_doc[key], mcp_doc[key], "{key} differs");
+    }
+    assert!(
+        !cli_doc["issues"].as_array().unwrap().is_empty(),
+        "{cli_doc}"
+    );
+    assert_eq!(mcp_doc["installed_count"], cli_doc["extensions_checked"]);
+    assert_eq!(mcp_doc["extensions_ok"], false);
+    let messages: Vec<&Value> = cli_doc["conflicts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| &c["message"])
+        .collect();
+    assert_eq!(mcp_doc["conflicts"], json!(messages));
+    // Registry credentials are the user's, reported by the CLI only.
+    assert!(cli_doc.get("credentials").is_some());
+    assert!(mcp_doc.get("credentials").is_none());
+}
+
+// ── collect: one outcome on both surfaces ───────────────────────────────────
+
+/// A cargo-test project with a report already on disk: one test proves
+/// `alpha`, one names an entity the project lacks (W115).
+fn collect_project(root: &Path) {
+    std::fs::create_dir_all(root.join("spec")).unwrap();
+    std::fs::create_dir_all(root.join("target/specforge")).unwrap();
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"col","spec_root":"spec","extensions":["@specforge/software","@specforge/testing","@specforge/cargo-test"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("spec/a.spec"),
+        "behavior alpha \"Alpha\" {\n  verify unit \"works\"\n}\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("Cargo.toml"), "").unwrap();
+    std::fs::write(
+        root.join("target/specforge/demo.json"),
+        json!({"entries": [
+            {"entity_id": "alpha", "test_name": "works", "verify": "works", "status": "pass"},
+            {"entity_id": "omega", "test_name": "lost", "status": "pass"}
+        ]})
+        .to_string(),
+    )
+    .unwrap();
+}
+
+#[test]
+fn collect_outcome_is_the_same_on_both_surfaces() {
+    let cli_dir = tempfile::tempdir().unwrap();
+    let mcp_dir = tempfile::tempdir().unwrap();
+    collect_project(cli_dir.path());
+    collect_project(mcp_dir.path());
+
+    let out = cli()
+        .args([
+            "collect",
+            "--no-run",
+            "--format",
+            "json",
+            "--path",
+            &s(cli_dir.path()),
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    let cli_doc: Value = serde_json::from_slice(&out.stdout).unwrap();
+    let mcp_doc = mcp_tool(mcp_dir.path(), "specforge.collect");
+
+    assert_eq!(cli_doc["diagnostics"][0]["code"], "W115", "{cli_doc}");
+    let without_report = |doc: &Value, root: &Path| {
+        let mut doc = doc.clone();
+        let report = doc["report"].as_str().unwrap().to_string();
+        assert!(
+            Path::new(&report).ends_with("specforge-report.json"),
+            "{report}"
+        );
+        doc["report"] = json!(normalized(&json!(report), root));
+        doc
+    };
+    assert_eq!(
+        without_report(&cli_doc, cli_dir.path()),
+        without_report(&mcp_doc, mcp_dir.path())
+    );
+    assert_eq!(
+        std::fs::read_to_string(cli_dir.path().join("specforge-report.json")).unwrap(),
+        std::fs::read_to_string(mcp_dir.path().join("specforge-report.json")).unwrap(),
+    );
+}

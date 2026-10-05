@@ -39,6 +39,7 @@ pub fn parse_extension_specifier(input: &str) -> Result<ExtensionSpecifier, Diag
             message: "empty extension specifier".to_string(),
             span: None,
             suggestion: Some("provide a specifier like '@scope/name@1.0.0', './local/path', or 'git+https://...'".to_string()),
+            data: None,
         });
     }
 
@@ -85,6 +86,7 @@ pub fn parse_extension_specifier(input: &str) -> Result<ExtensionSpecifier, Diag
         suggestion: Some(
             "use format: 'name@version', './local/path', or 'git+https://...'".to_string(),
         ),
+        data: None,
     })
 }
 
@@ -108,6 +110,7 @@ pub fn discover_extensions(extensions_dir: &Path) -> (Vec<ResolvedExtension>, Ve
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
             return (resolved, diagnostics);
         }
@@ -144,6 +147,7 @@ pub fn discover_extensions(extensions_dir: &Path) -> (Vec<ResolvedExtension>, Ve
                         ),
                         span: None,
                         suggestion: None,
+                        data: None,
                     });
                 }
             },
@@ -158,6 +162,7 @@ pub fn discover_extensions(extensions_dir: &Path) -> (Vec<ResolvedExtension>, Ve
                     ),
                     span: None,
                     suggestion: None,
+                    data: None,
                 });
             }
         }

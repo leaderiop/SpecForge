@@ -38,6 +38,7 @@ pub fn format_source(source: &str, config: &FormatConfig) -> FormatResult {
                     message: "Failed to parse source".into(),
                     span: None,
                     suggestion: None,
+                    data: None,
                 }],
             };
         }
@@ -62,6 +63,7 @@ pub fn format_source(source: &str, config: &FormatConfig) -> FormatResult {
                 ),
                 span: None,
                 suggestion: None,
+                data: None,
             });
         }
     }

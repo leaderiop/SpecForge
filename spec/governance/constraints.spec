@@ -198,7 +198,6 @@ constraint reference_resolution_correctness "Reference Resolution Correctness" {
     link_entity_references,
     resolve_soft_cross_extension_references,
     resolve_external_ref_declarations,
-    compute_subgraph_for_invalidation,
   ]
   protects    [import_dag, reference_resolution_completeness]
   verify unit "references resolve correctly with no false positives or negatives"
