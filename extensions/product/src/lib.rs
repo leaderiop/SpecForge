@@ -16,7 +16,11 @@ mod tests;
 
 use specforge_extension_sdk::prelude::*;
 
-#[specforge_extension_sdk::extension(name = "@specforge/product", version = "1.0.0")]
+#[specforge_extension_sdk::extension(
+    name = "@specforge/product",
+    version = "1.0.0",
+    description = "Product planning: features, journeys, deliverables, milestones, modules, terms, personas, channels and releases, and the commands that query them"
+)]
 struct Product;
 
 impl Contributions for Product {

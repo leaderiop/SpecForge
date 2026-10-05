@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_cargo_test.wasm",
-  "artifact_sha256": "858af509bf58a66ad6693c3c39ff1e16d414758a73f85fd4fdb5f5197e09e0ca",
+  "artifact_sha256": "23b7d8194bd57b51c0b69c22513a2b62149edf47f217650f07e0267bf050310c",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
@@ -16,6 +16,6 @@
     "crates/specforge-protocol-types/src/vocabulary.rs": "5ac29ff84aee649bd56a873d2fae8941e0c1beb6c6255aa98631a3a650c2247d",
     "extensions/cargo-test/Cargo.lock": "385174ae983645db0e44d43b6b46bcd9322af16f6fff28d6477911ee2b4ce85a",
     "extensions/cargo-test/Cargo.toml": "5ce2d984c18226d2d8cf446439b4e89ddafadf80d40bca2051a86a780d9de10e",
-    "extensions/cargo-test/src/lib.rs": "3aa31354b3e30db474bb06763b9223767c003475d93bb1e5038ebcd81415cdb1"
+    "extensions/cargo-test/src/lib.rs": "9e7ca46ee84d6fe611be8462e7c3417dc45b8e12c62697ca68643771d6c01828"
   }
 }

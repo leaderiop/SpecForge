@@ -11,7 +11,11 @@ use specforge_coverage as coverage;
 use specforge_extension_sdk::prelude::*;
 use specforge_extension_sdk::{PassDiagnostic, PassEntity, PassInput};
 
-#[specforge_extension_sdk::extension(name = "@specforge/formal", version = "1.0.0")]
+#[specforge_extension_sdk::extension(
+    name = "@specforge/formal",
+    version = "1.0.0",
+    description = "Formal methods: properties, axioms, protocols, refinements and processes, with contract, layering and coverage passes"
+)]
 struct Formal;
 
 impl Contributions for Formal {

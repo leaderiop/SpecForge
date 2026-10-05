@@ -26,5 +26,6 @@
       "optional": true
     }
   ],
-  "sandbox_policy": null
+  "sandbox_policy": null,
+  "description": "The runner-agnostic test vocabulary: which kinds owe verify obligations, the rules over them and the coverage pass"
 }

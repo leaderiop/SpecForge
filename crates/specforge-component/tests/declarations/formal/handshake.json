@@ -22,5 +22,6 @@
     }
   ],
   "sandbox_policy": null,
-  "theme_color": "#9b59b6"
+  "theme_color": "#9b59b6",
+  "description": "Formal methods: properties, axioms, protocols, refinements and processes, with contract, layering and coverage passes"
 }

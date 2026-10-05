@@ -13,7 +13,11 @@ use specforge_protocol_types::{
     ScanRequest, ScanResponse, ScannedItem,
 };
 
-#[specforge_extension_sdk::extension(name = "@specforge/typescript", version = "1.0.0")]
+#[specforge_extension_sdk::extension(
+    name = "@specforge/typescript",
+    version = "1.0.0",
+    description = "TypeScript and JavaScript analyzer: finds the exported symbols of sources for specforge infer"
+)]
 struct TypeScriptAnalyzer;
 
 impl Contributions for TypeScriptAnalyzer {

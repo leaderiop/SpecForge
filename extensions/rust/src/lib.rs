@@ -13,7 +13,11 @@ use specforge_protocol_types::{
     ScanRequest, ScanResponse, ScannedItem,
 };
 
-#[specforge_extension_sdk::extension(name = "@specforge/rust", version = "1.0.0")]
+#[specforge_extension_sdk::extension(
+    name = "@specforge/rust",
+    version = "1.0.0",
+    description = "Rust analyzer: finds the public items of Rust sources for specforge infer"
+)]
 struct RustAnalyzer;
 
 impl Contributions for RustAnalyzer {

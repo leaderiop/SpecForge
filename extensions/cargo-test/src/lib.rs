@@ -19,7 +19,11 @@ use std::collections::{BTreeMap, BTreeSet};
 
 const COLLECTOR: &str = "cargo-test";
 
-#[specforge_extension_sdk::extension(name = "@specforge/cargo-test", version = "1.0.0")]
+#[specforge_extension_sdk::extension(
+    name = "@specforge/cargo-test",
+    version = "1.0.0",
+    description = "Collects cargo test results for tests linked to entities with #[specforge_test]"
+)]
 struct CargoTest;
 
 impl Contributions for CargoTest {

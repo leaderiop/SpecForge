@@ -9,7 +9,11 @@ mod declaration;
 
 use specforge_extension_sdk::prelude::*;
 
-#[specforge_extension_sdk::extension(name = "@specforge/software", version = "1.0.0")]
+#[specforge_extension_sdk::extension(
+    name = "@specforge/software",
+    version = "1.0.0",
+    description = "Software design: behaviors, invariants, events, types and ports, and the checks that keep them consistent"
+)]
 struct Software;
 
 impl Contributions for Software {

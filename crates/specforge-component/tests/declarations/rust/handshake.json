@@ -23,5 +23,6 @@
     "allowed_output_extensions": [],
     "network_access": false,
     "file_system_access": true
-  }
+  },
+  "description": "Rust analyzer: finds the public items of Rust sources for specforge infer"
 }

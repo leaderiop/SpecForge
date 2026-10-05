@@ -100,7 +100,11 @@ const TESTABLE: &[Testable] = &[
     },
 ];
 
-#[specforge_extension_sdk::extension(name = "@specforge/testing", version = "1.0.0")]
+#[specforge_extension_sdk::extension(
+    name = "@specforge/testing",
+    version = "1.0.0",
+    description = "The runner-agnostic test vocabulary: which kinds owe verify obligations, the rules over them and the coverage pass"
+)]
 struct Testing;
 
 impl Contributions for Testing {

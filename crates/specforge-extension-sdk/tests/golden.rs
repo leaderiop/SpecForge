@@ -10,6 +10,11 @@ use specforge_protocol_types::SUPPORTED_CATEGORIES;
 
 fn software_builder() -> ContributionsBuilder {
     let mut meta = ExtensionMeta::new("@specforge/software", "1.0.0");
+    meta.description = Some(
+        "Software design: behaviors, invariants, events, types and ports, and the checks that \
+         keep them consistent"
+            .to_string(),
+    );
     meta.peer_dependencies = vec![PeerDependency {
         name: "@specforge/product".to_string(),
         version: "^1.0".to_string(),

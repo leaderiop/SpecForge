@@ -27,5 +27,6 @@
     }
   ],
   "sandbox_policy": null,
-  "theme_color": "#e74c3c"
+  "theme_color": "#e74c3c",
+  "description": "Governance: decisions, constraints and failure modes"
 }

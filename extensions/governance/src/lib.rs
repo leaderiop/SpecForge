@@ -8,7 +8,11 @@ mod declaration;
 
 use specforge_extension_sdk::prelude::*;
 
-#[specforge_extension_sdk::extension(name = "@specforge/governance", version = "1.0.0")]
+#[specforge_extension_sdk::extension(
+    name = "@specforge/governance",
+    version = "1.0.0",
+    description = "Governance: decisions, constraints and failure modes"
+)]
 struct Governance;
 
 impl Contributions for Governance {

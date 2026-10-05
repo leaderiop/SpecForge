@@ -25,7 +25,11 @@ const META_KEY: &str = "specforge";
 /// The linkage key naming the obligation; every other key names an entity.
 const VERIFY_KEY: &str = "verify";
 
-#[specforge_extension_sdk::extension(name = "@specforge/vitest", version = "1.0.0")]
+#[specforge_extension_sdk::extension(
+    name = "@specforge/vitest",
+    version = "1.0.0",
+    description = "Collects vitest results for tests linked to entities through their specforge metadata"
+)]
 struct Vitest;
 
 impl Contributions for Vitest {
