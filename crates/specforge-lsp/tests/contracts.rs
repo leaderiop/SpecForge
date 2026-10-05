@@ -984,6 +984,74 @@ fn shared_incremental_pipeline_contract() {
 /// A JSON-RPC session with an in-process server that keeps every message
 /// the server sends, so tests can assert on published diagnostics and log
 /// messages (the e2e client reads past them).
+/// A reference cycle has no one place: the LSP publishes it at the
+/// first entity its data names, on that entity's name, pointing at the
+/// others as related information (ADR 0016, D8), not on line 1 of the
+/// document last edited.
+#[specforge_test(
+    behavior = "emit_live_diagnostics",
+    verify = "a spanless diagnostic about entities is published at the first one's name"
+)]
+#[tokio::test]
+async fn a_spanless_diagnostic_about_entities_is_published_at_its_name() {
+    use serde_json::Value;
+    use wire::{Session, uri_of};
+
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"c","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    let cycle = dir.path().join("cycle.spec");
+    let other = dir.path().join("other.spec");
+    let cycle_text = "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior beta \"B\" {\n  depends_on [alpha]\n}\n";
+    std::fs::write(&cycle, cycle_text).unwrap();
+    std::fs::write(&other, "behavior gamma \"G\" {\n}\n").unwrap();
+    let (mut session, _) = Session::start(Some(dir.path())).await;
+    // Edit the other document: the cycle is still published on its own.
+    let other_uri = uri_of(&other);
+    session
+        .open(&other_uri, "behavior gamma \"G\" {\n}\n")
+        .await;
+
+    let cycle_uri = uri_of(&cycle);
+    let has_w061 = |p: &Value| {
+        p["diagnostics"]
+            .as_array()
+            .is_some_and(|d| d.iter().any(|d| d["code"] == "W061"))
+    };
+    let published = session
+        .notification("textDocument/publishDiagnostics", |p| {
+            p["uri"] == cycle_uri && has_w061(p)
+        })
+        .await
+        .expect("W061 is published on the cycle's file");
+    let w061 = published["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["code"] == "W061")
+        .unwrap()
+        .clone();
+    let range = |r: &Value| {
+        (
+            r["start"]["line"].as_u64().unwrap(),
+            r["start"]["character"].as_u64().unwrap(),
+            r["end"]["character"].as_u64().unwrap(),
+        )
+    };
+    assert_eq!(range(&w061["range"]), (0, 9, 14), "alpha's name: {w061}");
+    let related = w061["relatedInformation"].as_array().expect("the others");
+    assert_eq!(related.len(), 1, "{w061}");
+    assert_eq!(related[0]["location"]["uri"], cycle_uri);
+    assert_eq!(
+        range(&related[0]["location"]["range"]),
+        (3, 9, 13),
+        "beta's name"
+    );
+}
+
 pub(crate) mod wire {
     use serde_json::{Value, json};
     use std::path::Path;

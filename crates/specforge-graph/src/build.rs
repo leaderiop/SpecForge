@@ -245,7 +245,8 @@ pub fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnos
                 "W061",
                 format!("reference cycle detected: {}", path.join(" -> ")),
             )
-            .with_suggestion("break the cycle by removing or inverting one reference"),
+            .with_suggestion("break the cycle by removing or inverting one reference")
+            .with_data(specforge_common::DiagnosticData::ReferenceCycle { path }),
         );
     }
 

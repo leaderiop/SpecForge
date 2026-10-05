@@ -326,7 +326,10 @@ pub type PassSummary = serde_json::Map<String, serde_json::Value>;
 /// A pass returns either bare diagnostics or `{ diagnostics, summary }`
 /// (the SDK's `PassOutput`); the summary's keys join the host's report
 /// summary. A diagnostic may name the entity it is about (`entity`): with
-/// no span of its own, it gets that entity's.
+/// no span of its own, it gets that entity's, and with no data of its own
+/// it carries the name as `DiagnosticData::Subject`, so the diagnostic is
+/// attributed to the entity (navigation reads data, never the message),
+/// even one the graph lacks.
 fn parse_pass_output(
     bytes: &[u8],
     graph: &Graph,
@@ -358,7 +361,14 @@ fn parse_pass_output(
                     .and_then(|id| graph.node(id))
                     .map(|node| node.source_span.clone())
             });
-            Diagnostic { span, ..diagnostic }
+            let data = diagnostic.data.clone().or_else(|| {
+                entity.map(|entity| Box::new(specforge_common::DiagnosticData::Subject { entity }))
+            });
+            Diagnostic {
+                span,
+                data,
+                ..diagnostic
+            }
         })
         .collect();
     Ok((diagnostics, summary))

@@ -35,7 +35,11 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let suggestions: Vec<Value> = state
         .diagnostics()
         .iter()
-        .filter(|d| entity.is_none_or(|node| super::inspect::belongs_to(d, node)))
+        .filter(|d| {
+            entity.is_none_or(|node| {
+                specforge_ops::navigate::is_about(state.graph(), d, node.id.raw.as_str())
+            })
+        })
         .filter(|d| {
             file_path.is_none_or(|file| d.span.as_ref().is_some_and(|span| span.file == file))
         })

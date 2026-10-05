@@ -578,3 +578,95 @@ fn the_referencing_filter_keeps_the_entities_that_reference_the_target() {
     };
     assert!(found(&p, &both).is_empty());
 }
+
+// ── Attribution: which entities a diagnostic is about ──────────────────
+
+use specforge_common::{Diagnostic, DiagnosticData, Sym};
+use specforge_ops::navigate::{is_about, subjects};
+
+fn ids(nodes: &[&specforge_graph::Node]) -> Vec<String> {
+    nodes.iter().map(|n| n.id.raw.to_string()).collect()
+}
+
+fn span(file: &str, (sl, sc): (usize, usize), (el, ec): (usize, usize)) -> SourceSpan {
+    SourceSpan {
+        file: Sym::new(file),
+        start_line: sl,
+        start_col: sc,
+        end_line: el,
+        end_col: ec,
+    }
+}
+
+#[test]
+fn a_diagnostic_is_about_what_its_data_names() {
+    let p = compile(
+        SOFTWARE,
+        &[(
+            "a.spec",
+            "behavior alpha \"A\" {\n  contract \"x\"\n}\nbehavior beta \"B\" {\n  contract \"x\"\n}\n",
+        )],
+    );
+    let graph = &p.project.graph;
+    let cycle = Diagnostic::warning("W061", "reference cycle detected").with_data(
+        DiagnosticData::ReferenceCycle {
+            path: vec!["beta".into(), "alpha".into(), "beta".into()],
+        },
+    );
+    assert_eq!(ids(&subjects(graph, &cycle)), ["beta", "alpha"]);
+    // Data wins over the span.
+    let named = Diagnostic::warning("W900", "x")
+        .with_span(span("a.spec", (1, 1), (3, 2)))
+        .with_data(DiagnosticData::Subject {
+            entity: "beta".into(),
+        });
+    assert_eq!(ids(&subjects(graph, &named)), ["beta"]);
+    // A name the graph lacks attributes nothing, unless the span does.
+    let ghost = Diagnostic::warning("W900", "x").with_data(DiagnosticData::Subject {
+        entity: "ghost".into(),
+    });
+    assert!(subjects(graph, &ghost).is_empty());
+    let ghost_inside = ghost.clone().with_span(span("a.spec", (2, 3), (2, 10)));
+    assert_eq!(ids(&subjects(graph, &ghost_inside)), ["alpha"]);
+}
+
+#[test]
+fn a_spanned_diagnostic_is_about_the_innermost_block_holding_it_by_column() {
+    let p = compile(
+        SOFTWARE,
+        &[(
+            "a.spec",
+            "behavior alpha \"A\" { contract \"x\" } behavior beta \"B\" { contract \"y\" }\n",
+        )],
+    );
+    let graph = &p.project.graph;
+    let alpha = &graph.node("alpha").unwrap().source_span;
+    let beta = &graph.node("beta").unwrap().source_span;
+    assert_eq!(alpha.start_line, beta.start_line, "one line, two blocks");
+    let at =
+        |col| Diagnostic::warning("W900", "x").with_span(span("a.spec", (1, col), (1, col + 1)));
+    assert_eq!(ids(&subjects(graph, &at(alpha.start_col + 2))), ["alpha"]);
+    assert_eq!(ids(&subjects(graph, &at(beta.start_col + 2))), ["beta"]);
+    // Between the blocks, and in another file: nobody's.
+    assert!(subjects(graph, &at(alpha.end_col)).is_empty());
+    let elsewhere = Diagnostic::warning("W900", "x").with_span(span("b.spec", (1, 1), (1, 2)));
+    assert!(subjects(graph, &elsewhere).is_empty());
+}
+
+#[test]
+fn the_message_is_never_read() {
+    let p = nav();
+    let graph = &p.project.graph;
+    let quoting = Diagnostic::warning("W900", "invariant 'session_limit' is spanless");
+    assert!(subjects(graph, &quoting).is_empty());
+    assert!(!is_about(graph, &quoting, "session_limit"));
+    // E003 is about the entity holding the unresolved reference.
+    let e003 = p
+        .project
+        .diagnostics()
+        .into_iter()
+        .find(|d| d.code == "E003")
+        .unwrap();
+    assert!(is_about(graph, &e003, "logout"));
+    assert!(!is_about(graph, &e003, "login"));
+}

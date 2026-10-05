@@ -384,12 +384,16 @@ behavior emit_live_diagnostics "Live Diagnostics" {
     The LSP MUST provide real-time diagnostics as the user types.
     After each file change, the LSP MUST incrementally recompile and
     push updated diagnostics to the editor. Error squiggles MUST appear
-    within 100ms of the user stopping typing.
+    within 100ms of the user stopping typing. A diagnostic without a span
+    that is about entities (its data names them, as a reference cycle's
+    does) MUST be published at the first one's name, with related
+    information at each other's.
   """
   verify unit "diagnostics update after file change"
   verify unit "code actions act on the diagnostics last published for the document"
   verify unit "only changed file diagnostics are refreshed"
   verify integration "diagnostics appear within 100ms"
+  verify unit "a spanless diagnostic about entities is published at the first one's name"
   verify contract "Live Diagnostics: live diagnostics holds — lsp_initialized_fired, graph_available, diagnostics_pushed, latency_enforced"
 }
 

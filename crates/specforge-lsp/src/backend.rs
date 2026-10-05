@@ -332,11 +332,13 @@ impl Backend {
     }
 
     /// Publish what the project reports now, each diagnostic on the file
-    /// its span names. One without a span goes on `edited`, else on the
-    /// document the last one went on while it is open, else on the first
-    /// open document. Files that had diagnostics and have none now, and
-    /// every `touched` file, are published too (an empty list clears
-    /// them).
+    /// its span names. One without a span that is about entities (its data
+    /// names them: a reference cycle, a pass's subject) goes at the first
+    /// one's name, with related information at each other's (ADR 0016,
+    /// D8); one about none goes on `edited`, else on the document the last
+    /// one went on while it is open, else on the first open document.
+    /// Files that had diagnostics and have none now, and every `touched`
+    /// file, are published too (an empty list clears them).
     async fn publish(
         state: &RwLock<LspState>,
         client: &Client,
@@ -354,7 +356,21 @@ impl Backend {
                 .or_else(|| st.anchor().and_then(|uri| Url::parse(uri).ok()))
                 .or_else(|| st.open_uris().first().and_then(|uri| Url::parse(uri).ok()));
             let diagnostics = st.session().map(|s| s.diagnostics()).unwrap_or_default();
+            let nav = navigator(&st);
             for diagnostic in &diagnostics {
+                let mut related = Vec::new();
+                let placed;
+                let diagnostic = match &diagnostic.span {
+                    Some(_) => diagnostic,
+                    None => match place_at_subjects(&st, &nav, diagnostic) {
+                        Some((at, others)) => {
+                            related = others;
+                            placed = at;
+                            &placed
+                        }
+                        None => diagnostic,
+                    },
+                };
                 let uri = match &diagnostic.span {
                     Some(span) => uri_of(&st, span.file.as_str()),
                     None => match &anchor {
@@ -366,10 +382,11 @@ impl Backend {
                     .span
                     .as_ref()
                     .and_then(|s| file_content(&st, s.file.as_str()));
-                published
-                    .entry(uri.clone())
-                    .or_default()
-                    .push(diagnostic_to_lsp(diagnostic, text.as_deref()));
+                let mut lsp = diagnostic_to_lsp(diagnostic, text.as_deref());
+                if !related.is_empty() {
+                    lsp.related_information = Some(related);
+                }
+                published.entry(uri.clone()).or_default().push(lsp);
                 core.entry(uri).or_default().push(diagnostic.clone());
             }
             targets.extend(published.keys().cloned());
@@ -406,6 +423,38 @@ impl Backend {
             client.publish_diagnostics(uri, diagnostics, version).await;
         }
     }
+}
+
+/// A spanless diagnostic about entities, placed at the first one's name,
+/// and the related information pointing at each other's name. `None`
+/// when its data names no entity the graph holds.
+fn place_at_subjects<F: Fn(&str) -> Option<String>>(
+    state: &LspState,
+    nav: &specforge_ops::navigate::Navigator<'_, F>,
+    diagnostic: &specforge_common::Diagnostic,
+) -> Option<(
+    specforge_common::Diagnostic,
+    Vec<DiagnosticRelatedInformation>,
+)> {
+    let subjects = specforge_ops::navigate::subjects(state.graph(), diagnostic);
+    let (first, others) = subjects.split_first()?;
+    let name = |node: &specforge_graph::Node| {
+        nav.definition(node.id.raw.as_str())
+            .map(|d| d.name)
+            .unwrap_or_else(|_| node.source_span.clone())
+    };
+    let placed = specforge_common::Diagnostic {
+        span: Some(name(first)),
+        ..diagnostic.clone()
+    };
+    let related = others
+        .iter()
+        .map(|node| DiagnosticRelatedInformation {
+            location: location(state, &name(node)),
+            message: format!("also about '{}'", node.id.raw),
+        })
+        .collect();
+    Some((placed, related))
 }
 
 /// The session file key of a document.

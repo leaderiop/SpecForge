@@ -149,6 +149,12 @@ impl WasmRuntime for PassesExtension {
                             "code": "W952", "severity": "Warning",
                             "message": "the audit ran"
                         }));
+                        // About an entity the graph does not hold.
+                        diagnostics.push(json!({
+                            "code": "W953", "severity": "Warning",
+                            "message": "a gadget went missing",
+                            "entity": "ghost_gadget"
+                        }));
                         ok(json!({ "diagnostics": diagnostics, "summary": { "audited": true } }))
                     }
                     "__pass_report" => ok(Value::Array(
@@ -215,6 +221,36 @@ fn a_check_pass_runs_on_every_compile() {
     let again = CompiledProject::compile(dir.path(), Some(&ext)).diagnostics();
     assert_eq!(with_code(&again, "E951").len(), 1, "{again:?}");
     assert!(ext.called().contains(&"__pass_audit".to_string()));
+}
+
+/// A pass that names the entity a diagnostic is about: the name survives
+/// as `Subject` data (attribution reads it, never the message), the span
+/// is the entity's when the graph holds it, and none when it does not.
+#[test]
+fn a_pass_diagnostic_naming_an_entity_carries_it_as_data() {
+    let dir = project(SPEC);
+    let ext = PassesExtension::new();
+    let diagnostics = CompiledProject::compile(dir.path(), Some(&ext)).diagnostics();
+
+    let audit = with_code(&diagnostics, "E951")[0];
+    assert_eq!(
+        audit.data.as_deref(),
+        Some(&specforge_common::DiagnosticData::Subject {
+            entity: "bad_one".into()
+        })
+    );
+    assert_eq!(audit.span.as_ref().map(|s| s.start_line), Some(5));
+    let ghost = with_code(&diagnostics, "W953")[0];
+    assert!(ghost.span.is_none(), "{ghost:?}");
+    assert_eq!(
+        ghost.data.as_deref().map(|d| d.entities()),
+        Some(vec!["ghost_gadget"])
+    );
+    let ran = with_code(&diagnostics, "W952")[0];
+    assert!(
+        ran.data.is_none(),
+        "a diagnostic naming nothing carries nothing"
+    );
 }
 
 #[specforge_test(

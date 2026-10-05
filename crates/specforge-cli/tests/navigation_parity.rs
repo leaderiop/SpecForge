@@ -642,12 +642,6 @@ const CASES: &[Case] = &[
 /// none may be added to excuse a regression.
 const EXPECTED_DIVERGENCES: &[Divergence] = &[
     Divergence {
-        id: "N10",
-        case: "inspect_alpha_in_a_cycle",
-        surface: Surface::Mcp,
-        today: &["E006", "W006", "W020"],
-    },
-    Divergence {
         id: "N11",
         case: "fixes_for_the_unresolved_reference",
         surface: Surface::Mcp,

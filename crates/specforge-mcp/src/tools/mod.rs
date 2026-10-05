@@ -62,6 +62,15 @@ pub(crate) fn span_json(span: &specforge_common::SourceSpan) -> Value {
     })
 }
 
+/// What the server reports for the project the call reads: its project's
+/// diagnostics, else (no project) the served session's.
+pub(crate) fn reported(call: &Call<'_>) -> Vec<specforge_common::Diagnostic> {
+    match call.project() {
+        Ok(project) => project.diagnostics(),
+        Err(_) => call.state.diagnostics(),
+    }
+}
+
 /// The refusal of a question about `entity_id`, which no entity declares.
 pub(crate) fn entity_not_found(entity_id: &str) -> Box<McpError> {
     Box::new(

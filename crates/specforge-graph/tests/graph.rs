@@ -1048,6 +1048,39 @@ behavior c "C" { contract "c" depends_on [a] }
 
 #[specforge_test(
     behavior = "build_in_memory_graph",
+    verify = "W061 names the cycle's entities in its data"
+)]
+fn w061_names_the_cycles_entities_in_its_data() {
+    use specforge_common::DiagnosticData;
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = r#"
+behavior a "A" { contract "c" depends_on [b] }
+behavior b "B" { contract "c" depends_on [a] }
+"#;
+    let (_, diagnostics) = build_graph(&[parse(source, "main.spec")]);
+    let w061 = diagnostics
+        .iter()
+        .find(|d| d.code == "W061")
+        .expect("a two-cycle is a W061");
+    assert!(w061.span.is_none(), "a cycle has no one place");
+    let data = w061.data.as_deref().expect("W061 carries data");
+    assert_eq!(
+        data,
+        &DiagnosticData::ReferenceCycle {
+            path: vec!["a".into(), "b".into(), "a".into()]
+        }
+    );
+    assert_eq!(
+        data.entities(),
+        ["a", "b"],
+        "each entity once, in path order"
+    );
+}
+
+#[specforge_test(
+    behavior = "build_in_memory_graph",
     verify = "build_graph no W061 for acyclic refs"
 )]
 fn build_graph_no_w061_for_acyclic_refs() {

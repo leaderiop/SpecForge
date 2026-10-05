@@ -462,12 +462,14 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     MUST count the recorded test results in specforge-report.json exactly as
     specforge.coverage does. References are split by direction:
     referenced_by (incoming) and refers_to (outgoing); references and
-    reference_count remain as deprecated aliases. The related diagnostics are those whose span
-    lies within the entity's source span, or, for a diagnostic without a
-    span, whose message names the entity in quotes; an entity whose ID is a
-    prefix of another's never collects the other's diagnostics. LSP equivalence: this tool
-    mirrors textDocument/hover, providing the same entity detail an IDE shows
-    on hover but over the MCP transport. If the entity does not exist, the
+    reference_count remain as deprecated aliases. The related diagnostics
+    are those about the entity: the entities a diagnostic's data names, or,
+    when its data names none, the innermost entity whose source span holds
+    the diagnostic's span. A diagnostic's message is never read; an entity
+    whose ID is a prefix of another's never collects the other's
+    diagnostics. LSP equivalence: this tool mirrors textDocument/hover,
+    providing the same entity detail an IDE shows on hover but over the MCP
+    transport. If the entity does not exist, the
     tool MUST return an error response.
   """
   verify unit "specforge.inspect returns full entity details"
@@ -476,6 +478,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "response includes every field, like an invariant's guarantee"
   verify unit "coverage status matches specforge.coverage obligation by obligation"
   verify unit "diagnostics are the entity's own, not those of an entity whose ID contains it"
+  verify unit "a spanless diagnostic belongs to the entities its data names, never to one its message quotes"
   verify unit "testable is the kind's testability and declared says whether the entity has obligations"
   verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 }

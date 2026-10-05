@@ -358,23 +358,23 @@ fn inspect_diagnostics_are_the_entitys_own() {
     state.edit_graph(|graph| {
         graph.add_node(node("task_id_uniqueness", at(30, 34)));
     });
-    let diagnostic = |code: &str, message: &str, span| specforge_common::Diagnostic {
+    let diagnostic = |code: &str, span, subject: Option<&str>| specforge_common::Diagnostic {
         code: code.into(),
         severity: specforge_common::Severity::Warning,
-        message: message.into(),
+        message: "a finding".into(),
         span,
         suggestion: None,
-        data: None,
+        data: subject.map(|entity| {
+            Box::new(specforge_common::DiagnosticData::Subject {
+                entity: entity.into(),
+            })
+        }),
     };
     state.surface_diagnostics = vec![
-        diagnostic(
-            "W003",
-            "invariant 'task_id_uniqueness' is not enforced",
-            Some(at(30, 34)),
-        ),
-        diagnostic("W100", "field inside task", Some(at(21, 21))),
-        diagnostic("W101", "invariant 'task' is spanless", None),
-        diagnostic("W102", "invariant 'task_id_uniqueness' is spanless", None),
+        diagnostic("W003", Some(at(30, 34)), None),
+        diagnostic("W100", Some(at(21, 21)), None),
+        diagnostic("W101", None, Some("task")),
+        diagnostic("W102", None, Some("task_id_uniqueness")),
     ];
     let codes = |server: &mut McpServer, id: &str| {
         let resp = call_tool(server, "specforge.inspect", json!({"entity_id": id}));
@@ -391,6 +391,38 @@ fn inspect_diagnostics_are_the_entitys_own() {
         codes(&mut server, "task_id_uniqueness"),
         vec!["W003", "W102"]
     );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "a spanless diagnostic belongs to the entities its data names, never to one its message quotes"
+)]
+fn inspect_attributes_spanless_diagnostics_by_data() {
+    // A reference cycle: no span, its entities in its data.
+    let (mut server, _dir) = served(&[(
+        "a.spec",
+        "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior beta \"B\" {\n  depends_on [alpha]\n}\nbehavior gamma \"G\" {\n}\n",
+    )]);
+    let codes = |server: &mut McpServer, id: &str| -> Vec<String> {
+        let parsed = result(server, "specforge.inspect", json!({"entity_id": id}));
+        parsed["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["code"].as_str().unwrap().to_string())
+            .collect()
+    };
+    assert!(codes(&mut server, "alpha").contains(&"W061".to_string()));
+    assert!(codes(&mut server, "beta").contains(&"W061".to_string()));
+    assert!(!codes(&mut server, "gamma").contains(&"W061".to_string()));
+
+    // A spanless diagnostic whose message quotes an ID but whose data
+    // names none belongs to nobody.
+    server.state_mut().surface_diagnostics = vec![specforge_common::Diagnostic::warning(
+        "W900",
+        "behavior 'gamma' is mentioned here",
+    )];
+    assert!(!codes(&mut server, "gamma").contains(&"W900".to_string()));
 }
 
 // --- specforge.find_definition ---
@@ -671,7 +703,7 @@ fn suggest_fixes_returns_suggestions() {
 }
 
 /// `test_server` with one fixable diagnostic inside alpha's span and one,
-/// spanless, that names beta.
+/// spanless, whose data names beta.
 fn server_with_fixable_diagnostics() -> McpServer {
     use specforge_common::{Diagnostic, Severity};
     let mut server = test_server();
@@ -686,10 +718,12 @@ fn server_with_fixable_diagnostics() -> McpServer {
     server.state_mut().surface_diagnostics.push(Diagnostic {
         code: "W001".into(),
         severity: Severity::Warning,
-        message: "feature 'beta' has no owner".into(),
+        message: "the feature has no owner".into(),
         span: None,
         suggestion: Some("fix beta".into()),
-        data: None,
+        data: Some(Box::new(specforge_common::DiagnosticData::Subject {
+            entity: "beta".into(),
+        })),
     });
     server
 }
@@ -724,10 +758,12 @@ fn suggest_fixes_for_a_clean_entity_is_empty() {
     server.state_mut().surface_diagnostics.push(Diagnostic {
         code: "W001".into(),
         severity: Severity::Warning,
-        message: "feature 'beta_two' has no owner".into(),
+        message: "feature 'beta' has no owner".into(),
         span: None,
         suggestion: Some("fix beta_two".into()),
-        data: None,
+        data: Some(Box::new(specforge_common::DiagnosticData::Subject {
+            entity: "beta_two".into(),
+        })),
     });
 
     assert!(fix_titles(&mut server, json!({"entity_id": "beta"})).is_empty());

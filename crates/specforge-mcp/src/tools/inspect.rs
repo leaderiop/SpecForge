@@ -12,7 +12,6 @@ pub struct Args {
 
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let view = call.view();
-    let state = &*call.state;
     let entity_id = args.entity_id.as_str();
 
     let node = match view.graph.node(entity_id) {
@@ -93,10 +92,11 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
             .collect()
     });
 
-    let entity_diagnostics: Vec<Value> = state
-        .diagnostics()
+    // The diagnostics about the entity: those its data names it in, else
+    // those inside its block (ADR 0016); never by reading the message.
+    let entity_diagnostics: Vec<Value> = super::reported(call)
         .iter()
-        .filter(|d| belongs_to(d, node))
+        .filter(|d| specforge_ops::navigate::is_about(view.graph, d, entity_id))
         .map(|d| {
             serde_json::json!({
                 "code": d.code,
@@ -133,22 +133,4 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     });
 
     ToolOutcome::ok(result)
-}
-
-/// Whether `diagnostic` is about `node`: its span lies within the node's,
-/// or, without a span, its message names the node in quotes. A substring
-/// match would give `task` the diagnostics of `task_id_uniqueness`.
-pub(crate) fn belongs_to(
-    diagnostic: &specforge_common::Diagnostic,
-    node: &specforge_graph::Node,
-) -> bool {
-    let entity = &node.source_span;
-    match &diagnostic.span {
-        Some(span) => {
-            span.file == entity.file
-                && span.start_line >= entity.start_line
-                && span.end_line <= entity.end_line
-        }
-        None => diagnostic.message.contains(&format!("'{}'", node.id.raw)),
-    }
 }

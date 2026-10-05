@@ -39,6 +39,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "W060 carries actionable suggestion"
   verify unit "W061 carries actionable suggestion"
   verify unit "build_graph emits W061 for reference cycles"
+  verify unit "W061 names the cycle's entities in its data"
   verify unit "build_graph no W061 for acyclic refs"
   verify unit "custom bidirectional pairs suppress false-positive cycles"
   verify unit "detects cycles in directed graph"
