@@ -1,15 +1,18 @@
 //! `specforge://prompts/trace`: the dependency chain of a plan or of one
 //! entity, and what in it is unverified.
 
+use std::collections::BTreeSet;
+
 use serde::Deserialize;
 use serde_json::{Value, json};
-
 use specforge_ops::plan::PlanError;
-use specforge_ops::trace::Target;
+use specforge_ops::trace::{Target, trace};
 
 use crate::prompt::{PromptArgs, PromptOutcome, Rendered};
 use crate::target::Call;
 use crate::tool::{ErrorCode, McpError, entity_not_found};
+use crate::tools::coverage::report_mcp_error;
+use crate::tools::trace::{analyze_plan, gap_json};
 
 #[derive(Debug, Deserialize)]
 pub struct Args {
@@ -32,29 +35,23 @@ impl PromptArgs for Args {
 
 pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
     let view = call.view();
-    let graph = view.graph;
-    // A plan's entries, or the one entity, seed the trace.
+    // A plan's entries, or the one entity, seed the trace; the gaps are the
+    // plan's, or the entity's chain's missing links.
     let (seeds, coverage_gaps, subject) = match (&args.plan, args.entity_id.as_deref()) {
         (Some(plan), _) => {
-            let analysis =
-                crate::tools::trace::analyze_plan(&view, plan).map_err(|error| match error {
-                    PlanError::NotAPlan(why) => {
-                        McpError::new(ErrorCode::InvalidInput, why).with_argument("plan")
-                    }
-                    PlanError::Report(e) => crate::tools::coverage::report_mcp_error(&e),
-                })?;
-            (
-                analysis.entries,
-                Value::from(analysis.gaps),
-                "the plan".to_string(),
-            )
+            let analysis = analyze_plan(&view, plan).map_err(|error| match error {
+                PlanError::NotAPlan(why) => {
+                    McpError::new(ErrorCode::InvalidInput, why).with_argument("plan")
+                }
+                PlanError::Report(e) => report_mcp_error(&e),
+            })?;
+            (analysis.entries, analysis.gaps, "the plan".to_string())
         }
         (None, Some(entity_id)) => {
-            if graph.node(entity_id).is_none() {
-                return Err(entity_not_found(entity_id).into());
-            }
-            let gaps = serde_json::to_value(specforge_ops::trace::detect_trace_gaps(graph))
-                .unwrap_or_default();
+            // As the trace tool traces it: its chain and missing links.
+            let outcome =
+                trace(&view, Target::Entity(entity_id)).map_err(|_| entity_not_found(entity_id))?;
+            let gaps = outcome.gaps().iter().map(gap_json).collect();
             (
                 vec![entity_id.to_string()],
                 gaps,
@@ -74,31 +71,25 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
     };
 
     // Everything the seeds' trace chains reach, the seeds included.
-    let mut affected: Vec<String> = seeds.clone();
+    let mut affected: BTreeSet<String> = seeds.iter().cloned().collect();
     for seed in &seeds {
-        if let Ok(outcome) = specforge_ops::trace::trace(&view, Target::Entity(seed)) {
+        if let Ok(outcome) = trace(&view, Target::Entity(seed)) {
             affected.extend(outcome.reached().into_iter().map(str::to_string));
         }
     }
-    affected.sort();
-    affected.dedup();
 
-    // Find unverified entities in the trace
-    let unverified: Vec<String> = affected
+    // The affected entities that count toward coverage and are not proven
+    // (the coverage view's one definition of unverified).
+    let coverage = view.coverage().map_err(|e| report_mcp_error(&e))?;
+    let unverified: Vec<&String> = affected
         .iter()
-        .filter(|eid| {
-            graph
-                .node(eid)
-                .map(|n| specforge_graph::obligations(n).is_empty())
-                .unwrap_or(true)
-        })
-        .cloned()
+        .filter(|id| coverage.is_unverified(id))
         .collect();
 
     let payload = json!({
         "coverage_gaps": coverage_gaps,
         "unverified_entities": unverified,
-        "affected_entities": affected
+        "affected_entities": affected,
     });
 
     let instruction = format!(

@@ -455,9 +455,9 @@ type McpReviewFinding {
 }
 
 type McpTracePromptResult "Trace Prompt Result" {
-  /// Gaps in traceability between plan items and graph entities.
+  /// Plan gaps for a plan; the traced entities' missing links for an entity.
   coverage_gaps       McpTraceGap[]
-  /// Entity IDs that have no verify declarations, no linked evidence, and no collected evidence.
+  /// Entity IDs the trace reaches that count toward coverage and are not proven.
   unverified_entities string[]
   /// Entity IDs that the plan touches directly or transitively via graph edges.
   affected_entities   string[]

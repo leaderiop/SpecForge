@@ -33,7 +33,8 @@ expression: "shape(&reply, dir.path())"
       }
     ],
     "unverified_entities": [
-      "feat_login"
+      "beta",
+      "inv_session"
     ]
   },
   "roles": [

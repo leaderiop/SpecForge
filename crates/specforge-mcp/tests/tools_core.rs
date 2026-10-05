@@ -108,7 +108,7 @@ fn test_server() -> McpServer {
             if testable {
                 env.registries
                     .rules
-                    .push((obligations_rule(kind), "@test/ext".into()));
+                    .push(crate::support::obligations_rule(kind));
             }
         });
     }
@@ -133,23 +133,6 @@ fn inspect_testable_is_the_kinds_and_declared_is_the_entitys() {
     assert_eq!(inspect("gamma_orphan"), (json!(true), json!(false)));
     // A feature: its kind is not testable.
     assert_eq!(inspect("beta_feature"), (json!(false), json!(false)));
-}
-
-/// The W004 rule requiring `kind`'s entities to declare obligations.
-fn obligations_rule(kind: &str) -> specforge_registry::validation_engine::ValidationRulePattern {
-    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
-    ValidationRulePattern {
-        code: "W004".into(),
-        severity: specforge_common::Severity::Warning,
-        message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
-        check: ValidationPatternKind::NoVerifyStatements,
-        target_kind: Some(kind.into()),
-        edge_type: None,
-        edge_peer_kind: None,
-        field: Some("verify".into()),
-        constraint: None,
-        wasm_function: None,
-    }
 }
 
 /// A kind as an extension registers it; only `testable` matters here.

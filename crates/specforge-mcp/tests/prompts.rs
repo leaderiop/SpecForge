@@ -93,6 +93,10 @@ fn test_server() -> McpServer {
     state.edit_environment(|env| {
         env.registries.kinds.register(kind_entry("feature", false));
     });
+    // As @specforge/software does: behaviors and invariants must declare
+    // obligations, so one that declares none counts toward coverage.
+    crate::support::obligate(&mut server, "behavior");
+    crate::support::obligate(&mut server, "invariant");
 
     server
 }
@@ -373,9 +377,82 @@ fn trace_prompt_identifies_unverified() {
     );
     let text = prompt_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    let unverified = parsed["unverified_entities"].as_array().unwrap();
-    // beta is in the trace but has no verify
-    assert!(unverified.contains(&json!("beta")));
+    assert_eq!(
+        parsed["affected_entities"],
+        json!(["alpha", "beta"]),
+        "{parsed}"
+    );
+    // alpha is testable and no test proves it; beta, a feature, is not
+    // testable, so it is not unverified though it declares no verify.
+    assert_eq!(parsed["unverified_entities"], json!(["alpha"]), "{parsed}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_trace_prompt",
+    verify = "unverified entities are the ones the trace reaches that count toward coverage and are not proven"
+)]
+fn trace_unverified_is_counted_and_not_proven() {
+    let mut server = test_server();
+    let t = trace_plan(&mut server, json!({"entries": [{"entity_id": "beta"}]}));
+    assert_eq!(t["affected_entities"], json!(["alpha", "beta"]));
+    assert_eq!(t["unverified_entities"], json!(["alpha"]));
+
+    // A recorded test proving alpha's obligation: nothing is unverified.
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("specforge-report.json"),
+        r#"{"results":{"alpha":{"tests":[{"name":"t","verify":"test alpha","status":"pass"}]}}}"#,
+    )
+    .unwrap();
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
+    let t = trace_plan(&mut server, json!({"entries": [{"entity_id": "beta"}]}));
+    assert_eq!(t["unverified_entities"], json!([]), "{t}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_trace_prompt",
+    verify = "response returns identified gaps with gap context"
+)]
+fn trace_entity_mode_reports_the_chains_missing_links() {
+    let mut server = test_server();
+    // A behavior is expected to reference an invariant: alpha does not.
+    crate::support::declare_reference(&mut server, "behavior", "invariants", "invariant");
+    // A dangling edge elsewhere is no gap of alpha's chain.
+    server.state_mut().edit_graph(|graph| {
+        graph.add_edge(Edge {
+            source: "gamma_orphan".into(),
+            target: "nowhere".into(),
+            label: "refines".into(),
+        });
+    });
+    let resp = call_prompt(
+        &mut server,
+        "specforge://prompts/trace",
+        json!({"entity_id": "alpha"}),
+    );
+    let parsed: Value = serde_json::from_str(&prompt_text(&resp)).unwrap();
+    let gaps = parsed["coverage_gaps"].as_array().unwrap();
+    assert_eq!(gaps.len(), 1, "{parsed}");
+    let gap = &gaps[0];
+    assert_eq!(gap["source_entity"], "alpha");
+    assert_eq!(gap["target_entity"], "invariant");
+    assert!(gap["missing_link_type"].is_string(), "{gap}");
+    assert!(
+        gap["gap_context"].as_str().is_some_and(|c| !c.is_empty()),
+        "{gap}"
+    );
+    // The same missing link the trace tool reports.
+    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {"name": "specforge.trace", "arguments": {"entity_id": "alpha"}}});
+    let tool: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    let document: Value =
+        serde_json::from_str(tool["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        document["missing"].as_array().map(Vec::len),
+        Some(1),
+        "{document}"
+    );
 }
 
 #[test]
@@ -486,7 +563,8 @@ fn trace_prompt_lists_the_entities_a_plan_affects() {
         json!(["alpha", "beta"]),
         "{result}"
     );
-    assert_eq!(result["unverified_entities"], json!(["beta"]), "{result}");
+    // alpha is testable and unproven; beta, a feature, is not testable.
+    assert_eq!(result["unverified_entities"], json!(["alpha"]), "{result}");
 }
 
 #[specforge_test(

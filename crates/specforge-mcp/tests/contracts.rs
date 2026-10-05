@@ -1209,6 +1209,8 @@ fn contract_context_prompt() {
 )]
 fn contract_review_prompt() {
     let mut server = test_server();
+    // A behavior must declare obligations, as @specforge/software says.
+    crate::support::obligate(&mut server, "behavior");
     // gamma: a testable behavior of beta with no verify declarations;
     // delta: two hops from beta, outside depth 1.
     let state = server.state_mut();
@@ -1288,7 +1290,9 @@ fn contract_trace_prompt() {
         json!({"plan": {"entries": [{"entity_id": "alpha"}, {"entity_id": "ghost"}]}}),
     );
     assert_eq!(trace["affected_entities"], json!(["alpha", "beta"]));
-    assert_eq!(trace["unverified_entities"], json!(["beta"]));
+    // alpha counts toward coverage and is not proven; beta, a feature, is
+    // not testable (kind_entry("feature", false)).
+    assert_eq!(trace["unverified_entities"], json!(["alpha"]));
 
     // gaps_returned: the entry the graph lacks, with its gap context.
     let gaps = trace["coverage_gaps"].as_array().unwrap();

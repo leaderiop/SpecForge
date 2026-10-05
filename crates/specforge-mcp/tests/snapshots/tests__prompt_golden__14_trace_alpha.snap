@@ -11,9 +11,40 @@ expression: "shape(&reply, dir.path())"
       "alpha",
       "feat_login"
     ],
-    "coverage_gaps": [],
+    "coverage_gaps": [
+      {
+        "gap_context": "behavior 'alpha' has no 'consumes' link to a event",
+        "missing_link_type": "missing_link",
+        "source_entity": "alpha",
+        "target_entity": "event"
+      },
+      {
+        "gap_context": "behavior 'alpha' has no 'invariants' link to a invariant",
+        "missing_link_type": "missing_link",
+        "source_entity": "alpha",
+        "target_entity": "invariant"
+      },
+      {
+        "gap_context": "behavior 'alpha' has no 'ports' link to a port",
+        "missing_link_type": "missing_link",
+        "source_entity": "alpha",
+        "target_entity": "port"
+      },
+      {
+        "gap_context": "behavior 'alpha' has no 'produces' link to a event",
+        "missing_link_type": "missing_link",
+        "source_entity": "alpha",
+        "target_entity": "event"
+      },
+      {
+        "gap_context": "behavior 'alpha' has no 'types' link to a type",
+        "missing_link_type": "missing_link",
+        "source_entity": "alpha",
+        "target_entity": "type"
+      }
+    ],
     "unverified_entities": [
-      "feat_login"
+      "alpha"
     ]
   },
   "roles": [

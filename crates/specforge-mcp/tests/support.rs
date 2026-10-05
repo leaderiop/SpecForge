@@ -77,3 +77,37 @@ pub fn update_of(delta: specforge_project::GraphDelta) -> specforge_project::Upd
         verification: None,
     }
 }
+
+/// The W004 rule requiring `kind`'s entities to declare obligations, as
+/// the extension declaring `kind` registers it.
+pub fn obligations_rule(
+    kind: &str,
+) -> (
+    specforge_registry::validation_engine::ValidationRulePattern,
+    String,
+) {
+    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
+    (
+        ValidationRulePattern {
+            code: "W004".into(),
+            severity: specforge_common::Severity::Warning,
+            message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
+            check: ValidationPatternKind::NoVerifyStatements,
+            target_kind: Some(kind.into()),
+            edge_type: None,
+            edge_peer_kind: None,
+            field: Some("verify".into()),
+            constraint: None,
+            wasm_function: None,
+        },
+        "@test/ext".into(),
+    )
+}
+
+/// Make entities of `kind` owe obligations ([`obligations_rule`]): one
+/// that declares none counts toward coverage instead of being exempt.
+pub fn obligate(server: &mut McpServer, kind: &str) {
+    server
+        .state_mut()
+        .edit_environment(|env| env.registries.rules.push(obligations_rule(kind)));
+}
