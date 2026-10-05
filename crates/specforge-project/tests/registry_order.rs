@@ -42,6 +42,7 @@ impl WasmRuntime for Extensions {
                 starter_template: None,
                 theme_color: None,
                 migration_hook: None,
+                ..Default::default()
             })
             .unwrap(),
             "__describe" => {

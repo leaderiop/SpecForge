@@ -94,6 +94,11 @@ behavior load_extension_declaration "Load Extension Declaration" {
     nothing describes a category again outside it.
   """
   verify integration "every builtin's handshake and describe answers match their pinned snapshot byte for byte"
+  verify unit "a declaration round-trips through its wire answers unchanged"
+  verify unit "a describe category that does not parse fails the load naming the category"
+  verify unit "a describe item key the protocol does not define produces W138"
+  verify unit "the fields category is every kind's fields, concatenated"
+  verify unit "an absent short is the name's last segment"
 }
 
 behavior build_registries_from_declarations "Build Registries From Declarations" {

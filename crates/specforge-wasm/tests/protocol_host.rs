@@ -86,6 +86,7 @@ fn handshake_response_json(name: &str, entities: bool, validators: bool) -> Vec<
         starter_template: None,
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
     serde_json::to_vec(&resp).unwrap()
 }
@@ -133,6 +134,7 @@ fn handshake_applies_declared_max_execution_ms() {
         starter_template: None,
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
     let runtime =
         MockRuntime::new().with_call_ok("__handshake", serde_json::to_vec(&resp).unwrap());
@@ -212,6 +214,7 @@ fn validate_protocol_version_compatible() {
         starter_template: None,
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
     assert!(host.validate_protocol_version(&resp).is_ok());
 }
@@ -230,6 +233,7 @@ fn validate_protocol_version_incompatible() {
         starter_template: None,
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
     let err = host.validate_protocol_version(&resp).unwrap_err();
     match err {
@@ -405,6 +409,7 @@ fn validate_protocol_version_compatible_patch_bump() {
         starter_template: None,
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
     assert!(
         host.validate_protocol_version(&resp).is_ok(),
@@ -427,6 +432,7 @@ fn validate_protocol_version_compatible_minor_bump() {
         starter_template: None,
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
     assert!(
         host.validate_protocol_version(&resp).is_ok(),
@@ -449,6 +455,7 @@ fn validate_protocol_version_incompatible_major_bump() {
         starter_template: None,
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
     let err = host.validate_protocol_version(&resp).unwrap_err();
     match err {
@@ -478,6 +485,7 @@ fn validate_protocol_version_exact_match_still_works() {
         starter_template: None,
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
     assert!(host.validate_protocol_version(&resp).is_ok());
 }
@@ -494,6 +502,7 @@ fn load_protocol_extension_version_mismatch_propagated() {
         starter_template: None,
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
     // Patch protocol_version to something incompatible
     resp.protocol_version = "99.0".to_string();

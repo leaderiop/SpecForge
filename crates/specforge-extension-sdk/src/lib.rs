@@ -307,6 +307,7 @@ impl ContributionsBuilder {
             starter_template: self.meta.starter_template.clone(),
             theme_color: self.meta.theme_color.clone(),
             migration_hook: self.meta.migration_hook.clone(),
+            ..Default::default()
         }
     }
 

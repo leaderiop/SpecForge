@@ -10,3 +10,7 @@ readme = "../../docs/extension-protocol.md"
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+specforge-test-macros = { workspace = true }
+specforge-test = { workspace = true }

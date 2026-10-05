@@ -23,6 +23,7 @@ fn minimal_protocol_extension(
             starter_template: None,
             theme_color: None,
             migration_hook: None,
+            ..Default::default()
         },
         descriptions: ExtensionDescriptions {
             entity_kinds,
@@ -621,6 +622,7 @@ fn convert_metadata_peer_deps_sandbox_flags() {
             starter_template: Some("spec \"{project}\" {}\n".to_string()),
             theme_color: None,
             migration_hook: None,
+            ..Default::default()
         },
         descriptions: ExtensionDescriptions::default(),
     };
@@ -894,6 +896,7 @@ fn parity_protocol_vs_manifest_registries() {
             starter_template: None,
             theme_color: None,
             migration_hook: None,
+            ..Default::default()
         },
         descriptions: ExtensionDescriptions {
             entity_kinds: vec![EntityKindDescriptor {

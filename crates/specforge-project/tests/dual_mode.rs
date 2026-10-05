@@ -54,6 +54,7 @@ impl MockRuntime {
             starter_template: None,
             theme_color: None,
             migration_hook: None,
+            ..Default::default()
         };
         self.call_results.insert(
             "__handshake".to_string(),
@@ -270,6 +271,7 @@ fn protocol_version_mismatch_produces_e028() {
         starter_template: None,
         theme_color: None,
         migration_hook: None,
+        ..Default::default()
     };
     let runtime = MockRuntime {
         call_results: {
