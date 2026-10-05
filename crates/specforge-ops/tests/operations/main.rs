@@ -6,6 +6,7 @@ mod coverage;
 mod determinism;
 mod errors;
 mod model;
+mod navigate;
 mod plan;
 mod scan;
 mod schema_cache;

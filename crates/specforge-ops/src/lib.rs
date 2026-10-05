@@ -22,6 +22,7 @@ pub mod infer;
 pub mod init;
 pub mod migrate;
 pub mod model;
+pub mod navigate;
 pub mod plan;
 pub mod prove;
 pub mod registry;

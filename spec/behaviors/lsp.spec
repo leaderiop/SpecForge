@@ -150,6 +150,7 @@ behavior go_to_definition "Go-to-Definition" {
   }
   ensures {
     declaration_site_returned "the file path, line, and column of the entity declaration block header are returned"
+    name_selected             "the entity's name token is the definition's selection range"
   }
   contract   """
     When a user Ctrl+clicks on an entity ID in a .spec file, the LSP
@@ -161,6 +162,7 @@ behavior go_to_definition "Go-to-Definition" {
   verify unit "go-to-def on non-existent ID returns no result"
   verify integration "go-to-def works across files"
   verify unit "source spans convert from 1-based to 0-based for LSP"
+  verify unit "the definition's selection is the entity's name token"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
 }
 
@@ -175,16 +177,24 @@ behavior find_all_references "Find All References" {
   }
   ensures {
     all_references_returned "every location across all .spec files where the entity is referenced is returned"
-    declaration_included    "the entity's own declaration site is included in results"
+    declaration_included    "the entity's own declaration site is included when the request asks for it"
   }
   contract   """
     When a user triggers find-references on an entity ID, the LSP MUST
-    return every location across all .spec files where that entity is
-    referenced. Results MUST include the entity's own declaration site.
+    return every location across all .spec files where another entity's
+    field names that entity: the identifier token as written, one location
+    per occurrence. What the entity itself references is not a reference
+    to it. The entity's own declaration (its name token) MUST be included
+    when the request asks for it (includeDeclaration) and MUST NOT be
+    otherwise. The LSP and MCP specforge.find_references answer from the
+    same navigation (specforge_ops::navigate).
   """
   verify unit "find-refs returns all reference sites"
   verify unit "find-refs includes the declaration site"
   verify unit "find-refs across multiple files"
+  verify unit "find-refs excludes what the entity itself references"
+  verify unit "find-refs omits the declaration when the request excludes it"
+  verify unit "each reference is the identifier token as written"
   verify contract "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
 }
 
