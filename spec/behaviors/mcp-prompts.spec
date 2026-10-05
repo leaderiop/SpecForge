@@ -198,12 +198,17 @@ behavior provide_mcp_explore_prompt "Provide MCP Explore Prompt" {
     including suggested starting points, high-connectivity entities, and orphan
     nodes. When entity_id is provided, exploration MUST start from that entity
     using BFS traversal from that node. When kind is specified, results MUST
-    be filtered to that entity kind.
+    be filtered to that entity kind. depth? (optional count; unbounded when
+    omitted) bounds the BFS, which reaches exactly the entities review's
+    depth reaches. If entity_id names no entity, the prompt MUST return an
+    error.
   """
   verify unit "specforge://prompts/explore returns exploration starting points"
   verify unit "entity_id focuses exploration on that entity"
   verify unit "kind filter restricts results to matching entity kind"
   verify unit "high_connectivity field lists entities with highest edge degree"
   verify unit "orphan_nodes field lists entities with zero incoming and outgoing edges"
+  verify unit "unknown entity_id returns error"
+  verify unit "explore and review reach the same entities at the same depth"
   verify contract "Provide MCP Explore Prompt: MCP explore prompt holds — graph_available, exploration_returned, bfs_from_entity, prompt_invoked_emitted"
 }

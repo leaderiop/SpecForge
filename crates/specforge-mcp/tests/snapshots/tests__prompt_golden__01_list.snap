@@ -63,6 +63,11 @@ expression: "reply[\"result\"]"
           "description": "Filter by entity kind",
           "name": "kind",
           "required": false
+        },
+        {
+          "description": "Hops from entity_id the exploration reaches (unbounded if omitted)",
+          "name": "depth",
+          "required": false
         }
       ],
       "description": "Discover exploration starting points in the graph",

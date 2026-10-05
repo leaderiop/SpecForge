@@ -3,30 +3,25 @@ source: crates/specforge-mcp/tests/prompt_golden.rs
 expression: "shape(&reply, dir.path())"
 ---
 {
-  "description": "Discover exploration starting points in the graph",
-  "instruction": "Explore the spec graph using the data below. Start with high-connectivity nodes to understand the core structure, then investigate orphan nodes that may need relationships. Use starting_points for top-down traversal.",
-  "layout": "turns",
-  "payload": {
-    "high_connectivity": [
-      "beta",
-      "feat_login",
-      "inv_session",
-      "alpha",
-      "delta"
-    ],
-    "matching_entities": [],
-    "orphan_nodes": [],
-    "relationship_paths": [],
-    "starting_points": [
-      "beta",
-      "alpha",
-      "delta",
-      "feat_login",
-      "inv_session"
-    ]
-  },
-  "roles": [
-    "user",
-    "user"
-  ]
+  "error": {
+    "code": -32602,
+    "data": {
+      "code": "entity_not_found",
+      "diagnostic": {
+        "code": "E003",
+        "column": null,
+        "file": null,
+        "line": null,
+        "message": "unresolved entity 'ghost' — not found in graph",
+        "severity": "Error",
+        "span": null,
+        "suggestion": null,
+        "title": "Unresolved reference"
+      },
+      "entity_id": "ghost",
+      "message": "unresolved entity 'ghost' — not found in graph",
+      "prompt": "specforge://prompts/explore"
+    },
+    "message": "unresolved entity 'ghost' — not found in graph"
+  }
 }

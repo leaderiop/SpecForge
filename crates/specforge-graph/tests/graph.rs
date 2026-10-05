@@ -1600,3 +1600,88 @@ fn add_edge_checked_rejects_both_missing() {
         "edge should not be added when both nodes are missing"
     );
 }
+
+// --- reach: the one breadth-first traversal ---
+
+/// A diamond `top -> left -> bottom`, `top -> right -> bottom`, plus a tail
+/// `bottom -> tail` and an edge to an id no node declares.
+fn diamond() -> Graph {
+    let mut graph = Graph::new();
+    for id in ["top", "left", "right", "bottom", "tail"] {
+        graph.add_node(make_node(id, "behavior"));
+    }
+    graph.add_edge(make_edge("top", "right", "r"));
+    graph.add_edge(make_edge("top", "left", "l"));
+    graph.add_edge(make_edge("left", "bottom", "lb"));
+    graph.add_edge(make_edge("right", "bottom", "rb"));
+    graph.add_edge(make_edge("bottom", "tail", "t"));
+    graph.add_edge(make_edge("tail", "ghost", "g"));
+    graph
+}
+
+#[test]
+fn reach_is_breadth_first_with_deterministic_paths() {
+    let graph = diamond();
+    let reached = graph.reach("top", None).unwrap();
+    let order: Vec<(&str, usize)> = reached.iter().map(|r| (r.id.as_str(), r.depth)).collect();
+    // Neighbours in (id, label) order: left before right; bottom is first
+    // reached from left, whatever order the edges were added in.
+    assert_eq!(
+        order,
+        [
+            ("top", 0),
+            ("left", 1),
+            ("right", 1),
+            ("bottom", 2),
+            ("tail", 3)
+        ]
+    );
+    let labels = |id: &str| -> Vec<String> {
+        Graph::reach_path(&reached, Sym::new(id))
+            .iter()
+            .map(|l| l.as_str().to_string())
+            .collect()
+    };
+    assert_eq!(labels("top"), Vec::<String>::new());
+    assert_eq!(labels("bottom"), ["l", "lb"]);
+    assert_eq!(labels("tail"), ["l", "lb", "t"]);
+    // The edge to an id no node declares is not walked.
+    assert!(reached.iter().all(|r| r.id.as_str() != "ghost"));
+    assert!(Graph::reach_path(&reached, Sym::new("ghost")).is_empty());
+}
+
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "depth N returns all entities within N hops"
+)]
+fn reach_stops_at_its_depth_bound() {
+    let graph = diamond();
+    let ids = |depth: usize| -> Vec<String> {
+        graph
+            .reach("tail", Some(depth))
+            .unwrap()
+            .iter()
+            .map(|r| r.id.as_str().to_string())
+            .collect()
+    };
+    assert_eq!(ids(0), ["tail"]);
+    assert_eq!(ids(1), ["tail", "bottom"]);
+    assert_eq!(ids(2), ["tail", "bottom", "left", "right"]);
+    assert_eq!(ids(3), ["tail", "bottom", "left", "right", "top"]);
+    // The subgraphs are what reach reaches, and every edge between them.
+    let sub = graph.subgraph_depth("tail", 2).unwrap();
+    let mut nodes: Vec<&str> = sub.nodes().iter().map(|n| n.id.raw.as_str()).collect();
+    nodes.sort_unstable();
+    assert_eq!(nodes, ["bottom", "left", "right", "tail"]);
+    assert_eq!(sub.edges().len(), 3, "lb, rb and t; not the edges to top");
+    assert_eq!(graph.subgraph("tail").unwrap().nodes().len(), 5);
+}
+
+#[test]
+fn reach_from_an_unknown_root_is_none() {
+    let graph = diamond();
+    assert!(graph.reach("ghost", None).is_none());
+    assert!(graph.reach("nope", Some(1)).is_none());
+    assert!(graph.subgraph("nope").is_none());
+    assert!(graph.subgraph_depth("nope", 2).is_none());
+}

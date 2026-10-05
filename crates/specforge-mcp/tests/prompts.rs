@@ -828,7 +828,9 @@ fn full_arguments(prompt: &str) -> Value {
             "plan": {"entries": [{"entity_id": "alpha", "action": "modify"}]},
             "entity_id": "alpha",
         }),
-        "specforge://prompts/explore" => json!({"entity_id": "alpha", "kind": "behavior"}),
+        "specforge://prompts/explore" => {
+            json!({"entity_id": "alpha", "kind": "behavior", "depth": "1"})
+        }
         "specforge://prompts/infer" => {
             json!({"scope": "plan", "target_spec_directory": "spec/", "cursor": "0"})
         }
@@ -1140,4 +1142,86 @@ fn behavior_manifest() -> specforge_registry::ManifestV2 {
         "entityKinds": [{"name": "behavior", "keyword": "behavior"}],
     }))
     .expect("a minimal manifest")
+}
+
+// --- explore and review share Graph::reach ---
+
+/// A chain `a - b - c - d` of testable behaviors.
+fn chain_server() -> McpServer {
+    let mut server = test_server();
+    let template = server.state().graph().node("alpha").unwrap().clone();
+    let mut graph = Graph::new();
+    for id in ["a", "b", "c", "d"] {
+        let mut node = template.clone();
+        node.id = EntityId { raw: id.into() };
+        graph.add_node(node);
+    }
+    for (source, target) in [("a", "b"), ("b", "c"), ("c", "d")] {
+        graph.add_edge(Edge {
+            source: source.into(),
+            target: target.into(),
+            label: "next".into(),
+        });
+    }
+    server.state_mut().serve_graph(graph, Vec::new());
+    server.state_mut().edit_environment(|env| {
+        env.registries.kinds.register(kind_entry("behavior", true));
+    });
+    server
+}
+
+const EXPLORE: &str = "specforge://prompts/explore";
+
+/// The entities explore's relationship paths reach.
+fn explored_ids(resp: &Value) -> Vec<String> {
+    let payload: Value = serde_json::from_str(&prompt_text(resp)).unwrap();
+    payload["relationship_paths"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{resp}"))
+        .iter()
+        .map(|p| p["to_entity"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_explore_prompt",
+    verify = "explore and review reach the same entities at the same depth"
+)]
+fn explore_and_review_share_one_neighbourhood() {
+    let mut server = chain_server();
+    for depth in [0, 1, 2, 3] {
+        let depth = depth.to_string();
+        let explore = call_prompt(
+            &mut server,
+            EXPLORE,
+            json!({"entity_id": "a", "depth": depth}),
+        );
+        let explored: std::collections::BTreeSet<String> = explored_ids(&explore)
+            .into_iter()
+            .chain(["a".to_string()])
+            .collect();
+        let reviewed = review(&mut server, json!({"entity_id": "a", "depth": depth}));
+        let reviewed: std::collections::BTreeSet<String> = reviewed_ids(&reviewed)
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        assert_eq!(explored, reviewed, "depth {depth}");
+    }
+    // Unbounded by default: the whole component, nearest first.
+    let all = call_prompt(&mut server, EXPLORE, json!({"entity_id": "a"}));
+    assert_eq!(explored_ids(&all), ["b", "c", "d"]);
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_explore_prompt",
+    verify = "unknown entity_id returns error"
+)]
+fn explore_unknown_entity_is_an_error() {
+    let mut server = test_server();
+    let resp = call_prompt(&mut server, EXPLORE, json!({"entity_id": "ghost"}));
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    let data = &resp["error"]["data"];
+    assert_eq!(data["code"], "entity_not_found");
+    assert_eq!(data["entity_id"], "ghost");
+    assert_eq!(data["diagnostic"]["code"], "E003");
 }
