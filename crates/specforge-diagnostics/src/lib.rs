@@ -1976,7 +1976,7 @@ mod tests {
                 if parts.len() < 3 || parts[2] != "src" {
                     continue;
                 }
-                if !is_rust && file_name != "describe_validation_rules.json" {
+                if !is_rust {
                     continue;
                 }
                 format!("@specforge/{}", parts[1])
@@ -2002,11 +2002,7 @@ mod tests {
             let Ok(src) = std::fs::read_to_string(&path) else {
                 continue;
             };
-            let lines = if is_rust {
-                strip_test_items(&src)
-            } else {
-                src.lines().collect()
-            };
+            let lines = strip_test_items(&src);
             for (index, line) in lines.iter().enumerate() {
                 for (code, range) in code_literals(line) {
                     if is_third_party(code) {

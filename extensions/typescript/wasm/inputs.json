@@ -1,13 +1,13 @@
 {
   "artifact": "specforge_ext_typescript.wasm",
-  "artifact_sha256": "df4c33f6d79fb8a8c1dd83fcbe22bbc0c37a794afdb7cbc6ed7686fcfa0a1c22",
+  "artifact_sha256": "f9239e1b5837afd0a9435a63aa2fe628aa08d09af5ce1f67abdd91f9833e3c21",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
     "crates/specforge-extension-sdk-macros/Cargo.toml": "955bf40f337ee1672fe7c42e6c8ce1e061bab42bde1f0808fdf183fb6ff72e42",
     "crates/specforge-extension-sdk-macros/src/lib.rs": "721bf7b201a0c2c409018813642f582bb5cece9c66b8900c906b256a2c01a83d",
     "crates/specforge-extension-sdk/Cargo.toml": "5c252f7c95e39a3e8abce8f804c1e1927d990010c569099e79229996e00f24f0",
-    "crates/specforge-extension-sdk/src/lib.rs": "4bfb73014fa38faf53c8ae4e81c947df295825767b5332cd64f0001d65e27e87",
+    "crates/specforge-extension-sdk/src/lib.rs": "266f4cfc5e3534c45bc8e09511c16a07ca4a600fe8bdcf4a95a8c7e8e939f4fb",
     "crates/specforge-extension-sdk/src/surface.rs": "967be41fb0bed6653187e6151c0398d174f5bfa1195282c88ed23bd08e8ccffe",
     "crates/specforge-extension-sdk/src/testing.rs": "373f3f6c6cf83670abc4afeda155aefa0e88874cbe559a71c401974e2bf4c412",
     "crates/specforge-protocol-types/Cargo.toml": "3aabc6c02bf27c7528c65857954017aaa9d9ef56e142f56c75cd0cab1478f01b",
@@ -16,7 +16,6 @@
     "crates/specforge-protocol-types/src/vocabulary.rs": "5ac29ff84aee649bd56a873d2fae8941e0c1beb6c6255aa98631a3a650c2247d",
     "extensions/typescript/Cargo.lock": "4a84e8daae0987704a587411a12a1d95d7b10f0339dc1c086eefe86954062642",
     "extensions/typescript/Cargo.toml": "d0c3e603698b97a98fa449425f9d8e81d67fa6112adf950277a02fc31eb7b0e0",
-    "extensions/typescript/src/describe_analyzers.json": "b41c3fd3e25dad9d8b198c5af2b50cfc0f0a82e1e4e8905d07acb886144c8e49",
-    "extensions/typescript/src/lib.rs": "b0f8da0edd28890b220a52fc235cc6626fb95feb9a4c188a5941efc370e909e7"
+    "extensions/typescript/src/lib.rs": "235f4179b64d8a91d8a40f09943aead3eae2fe19c3aff2ecb629709d1e2be668"
   }
 }

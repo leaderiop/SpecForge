@@ -12,7 +12,12 @@ path = "src/build_builtins.rs"
 name = "snapshot-builtins"
 path = "src/snapshot_builtins.rs"
 
+[[bin]]
+name = "declaration-to-rust"
+path = "src/bin/declaration_to_rust.rs"
+
 [dependencies]
+specforge-protocol-types = { path = "../crates/specforge-protocol-types" }
 specforge-component = { path = "../crates/specforge-component" }
 serde = "1.0"
 specforge-emitter = { path = "../crates/specforge-emitter" }

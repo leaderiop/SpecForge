@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_formal.wasm",
-  "artifact_sha256": "3e27877f61bb6d3e9072c154dbac384ace998a80fa84f16c767de31b23b1c3e9",
+  "artifact_sha256": "4a12bee4c196c522d292159c4a77427e7dc1bea9f9085b9228a0afd025b2f7a0",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
@@ -9,7 +9,7 @@
     "crates/specforge-extension-sdk-macros/Cargo.toml": "955bf40f337ee1672fe7c42e6c8ce1e061bab42bde1f0808fdf183fb6ff72e42",
     "crates/specforge-extension-sdk-macros/src/lib.rs": "721bf7b201a0c2c409018813642f582bb5cece9c66b8900c906b256a2c01a83d",
     "crates/specforge-extension-sdk/Cargo.toml": "5c252f7c95e39a3e8abce8f804c1e1927d990010c569099e79229996e00f24f0",
-    "crates/specforge-extension-sdk/src/lib.rs": "4bfb73014fa38faf53c8ae4e81c947df295825767b5332cd64f0001d65e27e87",
+    "crates/specforge-extension-sdk/src/lib.rs": "266f4cfc5e3534c45bc8e09511c16a07ca4a600fe8bdcf4a95a8c7e8e939f4fb",
     "crates/specforge-extension-sdk/src/surface.rs": "967be41fb0bed6653187e6151c0398d174f5bfa1195282c88ed23bd08e8ccffe",
     "crates/specforge-extension-sdk/src/testing.rs": "373f3f6c6cf83670abc4afeda155aefa0e88874cbe559a71c401974e2bf4c412",
     "crates/specforge-protocol-types/Cargo.toml": "3aabc6c02bf27c7528c65857954017aaa9d9ef56e142f56c75cd0cab1478f01b",
@@ -18,13 +18,7 @@
     "crates/specforge-protocol-types/src/vocabulary.rs": "5ac29ff84aee649bd56a873d2fae8941e0c1beb6c6255aa98631a3a650c2247d",
     "extensions/formal/Cargo.lock": "57014bca1969d002fb0a5f1d2539f597a9704e195f4d9f08f552b8bc488c7dfc",
     "extensions/formal/Cargo.toml": "a0733bbdd4c9783c214e14ee14cbf996188006f05dca61ca7779627a6d3982dc",
-    "extensions/formal/src/describe_edges.json": "e42689c2bd27d95fe8cba7ae14aef9a159f52ce5259a956f825baa6f8fc8a7eb",
-    "extensions/formal/src/describe_enhancements.json": "15ef251dbb01ea22e379a363ec1dffb4287ba75b14671da16395293ac8d48d2b",
-    "extensions/formal/src/describe_entities.json": "1a5f119fde70831b5c687525364b3479a6f71075bb29c06ecb62fc0f6cfd41c8",
-    "extensions/formal/src/describe_feature_flags.json": "11e9c7a339d20bdee69f54fbb75c3ecc65e634f55c01ad8b7c90889b0c3826ae",
-    "extensions/formal/src/describe_fields.json": "8e6bbe87c4c14e11086cd547f9fa7d1e5260f31781689eb85d755f2f498c1b86",
-    "extensions/formal/src/describe_shared_fields.json": "14faf141b6e8cd457f9aeb486f1205793c5c4e4bc3d2882e063067a1250acfe4",
-    "extensions/formal/src/describe_validation_rules.json": "9589fa7d6d3f8e1734d17d66e81064576beb83564136cef8496ae7e233ab5d21",
-    "extensions/formal/src/lib.rs": "e8525211dec5f9cb95cf7019a396994ee698b1164be8455e5f8695172649c093"
+    "extensions/formal/src/declaration.rs": "7c1aa4d1a3888f11fbdced395b35fe24ac45293fa0f0d4124deef1a1b97952d8",
+    "extensions/formal/src/lib.rs": "6c2723399d44756d6ff16e688f087959e6df9084263e9a15cf0aad610732ed90"
   }
 }

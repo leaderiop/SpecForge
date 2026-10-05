@@ -27,8 +27,8 @@ pub use specforge_protocol_types::{
 };
 
 use specforge_protocol_types::{
-    AutoDetectConfig, CollectorDescriptor, CompilerPassDescriptor, DECLARED_CATEGORIES,
-    DescribeRequest, DescribeResponse, SUPPORTED_CATEGORIES,
+    AnalyzerDescriptor, AutoDetectConfig, CollectorDescriptor, CompilerPassDescriptor,
+    DECLARED_CATEGORIES, DescribeRequest, DescribeResponse, SUPPORTED_CATEGORIES,
 };
 
 use std::collections::BTreeMap;
@@ -225,6 +225,16 @@ impl ContributionsBuilder {
     /// `__describe` here first.
     pub fn dispatch_export(&self, export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
         self.surfaces.dispatch(export, input)
+    }
+
+    /// Contribute a language analyzer: `specforge infer` scans the files
+    /// with these extensions through its exports, `scan__<language>`,
+    /// `classify__<language>` and `map__<language>` unless set otherwise.
+    pub fn analyzer(&mut self, language: &str, f: impl FnOnce(&mut AnalyzerBuilder)) -> &mut Self {
+        let mut b = AnalyzerBuilder::new(language);
+        f(&mut b);
+        self.decl.analyzers.push(b.0);
+        self
     }
 
     /// Contribute a feature flag.
@@ -447,6 +457,13 @@ impl KindBuilder {
         self.0.open_fields = o;
         self
     }
+    /// The kind's body carries syntax the extension parses, not the core
+    /// grammar: the host does not report the core grammar's parse errors
+    /// inside its entities.
+    pub fn has_body_parser(&mut self) -> &mut Self {
+        self.0.has_body_parser = true;
+        self
+    }
     /// Reference fields that target this kind are contract obligations of
     /// the entity that declares them (the `contracts` analysis, A010).
     pub fn contract_target(&mut self) -> &mut Self {
@@ -560,6 +577,13 @@ impl FieldBuilder {
     }
     pub fn default_value(&mut self, v: &str) -> &mut Self {
         self.0.default_value = Some(v.to_string());
+        self
+    }
+    /// The host fills this reference field's edges from type names the
+    /// entity writes elsewhere: `"type_expressions"` (its field types) or
+    /// `"method_signatures"` (its method parameter and return types).
+    pub fn derived_from(&mut self, source: &str) -> &mut Self {
+        self.0.derived_from = Some(source.to_string());
         self
     }
     pub fn file_reference(&mut self) -> &mut Self {
@@ -750,6 +774,48 @@ impl PassBuilder {
     }
 }
 
+/// Builder for [`AnalyzerDescriptor`].
+pub struct AnalyzerBuilder(AnalyzerDescriptor);
+impl AnalyzerBuilder {
+    fn new(language: &str) -> Self {
+        Self(AnalyzerDescriptor {
+            language: language.to_string(),
+            file_extensions: Vec::new(),
+            excluded_dirs: Vec::new(),
+            scan_export: format!("scan__{language}"),
+            classify_export: format!("classify__{language}"),
+            map_export: format!("map__{language}"),
+            description: None,
+        })
+    }
+    /// The file extensions it scans, with their dot (`.rs`).
+    pub fn file_extensions(&mut self, extensions: &[&str]) -> &mut Self {
+        self.0.file_extensions = extensions.iter().map(|e| e.to_string()).collect();
+        self
+    }
+    /// Directories it never scans (`target`, `node_modules`).
+    pub fn excluded_dirs(&mut self, dirs: &[&str]) -> &mut Self {
+        self.0.excluded_dirs = dirs.iter().map(|d| d.to_string()).collect();
+        self
+    }
+    pub fn scan_export(&mut self, export: &str) -> &mut Self {
+        self.0.scan_export = export.to_string();
+        self
+    }
+    pub fn classify_export(&mut self, export: &str) -> &mut Self {
+        self.0.classify_export = export.to_string();
+        self
+    }
+    pub fn map_export(&mut self, export: &str) -> &mut Self {
+        self.0.map_export = export.to_string();
+        self
+    }
+    pub fn description(&mut self, d: &str) -> &mut Self {
+        self.0.description = Some(d.to_string());
+        self
+    }
+}
+
 /// Builder for [`CollectorDescriptor`].
 pub struct CollectorBuilder(CollectorDescriptor);
 impl CollectorBuilder {
@@ -855,16 +921,16 @@ pub use specforge_extension_sdk_macros::compiler_pass;
 
 pub mod prelude {
     pub use crate::{
+        AnalyzerBuilder, CheckKind, ConstraintKind, Contributions, ContributionsBuilder,
+        EdgeBuilder, EnhancementBuilder, ExtensionMeta, FieldBuilder, FieldConstraintBuilder,
+        FieldType, KindBuilder, PassBuildCache, PassBuilder, PassCachedStatus, PassDiagnostic,
+        PassEdge, PassEntity, PassEntityResults, PassInput, PassOutput, PassSeverity, PassSpan,
+        PassTestResult, PassTestResults, RuleBuilder,
+    };
+    pub use crate::{
         ArgBuilder, CommandBuilder, CommandCall, CommandError, CommandFormat, CommandGraph,
         CommandInput, CommandOutput, GraphEdge, GraphNode, McpResourceBuilder, McpToolBuilder,
         SandboxBuilder,
-    };
-    pub use crate::{
-        CheckKind, ConstraintKind, Contributions, ContributionsBuilder, EdgeBuilder,
-        EnhancementBuilder, ExtensionMeta, FieldBuilder, FieldConstraintBuilder, FieldType,
-        KindBuilder, PassBuildCache, PassBuilder, PassCachedStatus, PassDiagnostic, PassEdge,
-        PassEntity, PassEntityResults, PassInput, PassOutput, PassSeverity, PassSpan,
-        PassTestResult, PassTestResults, RuleBuilder,
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,

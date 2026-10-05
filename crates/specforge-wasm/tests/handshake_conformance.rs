@@ -1,15 +1,11 @@
 //! Fixture conformance for the extension handshake/describe protocol
-//! (audit C7-07): every builtin extension's committed `handshake.json` and
-//! `describe_*.json` source-of-truth copies must deserialize against the
+//! (audit C7-07): every builtin's pinned wire answers (`handshake.json` and
+//! `describe_*.json` under `crates/specforge-component/tests/declarations/`,
+//! the exact bytes each vendored blob answers) must deserialize against the
 //! shared Rust protocol types, and the handshake's critical fields must be
 //! present — a truncated handshake now FAILS deserialization instead of
 //! silently yielding empty contribution flags / no peer dependencies / no
 //! sandbox limits.
-//!
-//! These fixtures are the same bytes the guest blobs embed via
-//! `include_bytes!`, so drift between the fixtures and
-//! `specforge-protocol-types` breaks the real handshake; this test is the CI
-//! tie that catches it with a message naming the drifted file.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -27,21 +23,21 @@ const REQUIRED_HANDSHAKE_KEYS: &[&str] = &[
     "sandbox_policy",
 ];
 
-fn extensions_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../extensions")
+fn declarations_dir() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../specforge-component/tests/declarations")
 }
 
-/// Every extension crate under `extensions/` (each has `src/lib.rs`).
+/// Every pinned declaration (one directory per builtin, and greet).
 fn extension_dirs() -> Vec<PathBuf> {
-    let mut dirs: Vec<PathBuf> = fs::read_dir(extensions_dir())
-        .expect("extensions/ directory exists")
+    let mut dirs: Vec<PathBuf> = fs::read_dir(declarations_dir())
+        .expect("the pinned declarations exist")
         .filter_map(|e| e.ok().map(|e| e.path()))
-        .filter(|p| p.join("src/lib.rs").is_file())
+        .filter(|p| p.join("handshake.json").is_file())
         .collect();
     dirs.sort();
     assert!(
-        !dirs.is_empty(),
-        "expected builtin extension crates under extensions/"
+        dirs.len() >= 10,
+        "expected every builtin's pinned declaration"
     );
     dirs
 }
@@ -50,13 +46,13 @@ fn extension_dirs() -> Vec<PathBuf> {
 fn every_builtin_handshake_fixture_parses_against_protocol_types() {
     for dir in extension_dirs() {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
-        let path = dir.join("src/handshake.json");
+        let path = dir.join("handshake.json");
         let raw = fs::read_to_string(&path).unwrap_or_else(|e| {
-            panic!("extensions/{name}/src/handshake.json missing or unreadable: {e}")
+            panic!("declarations/{name}/handshake.json missing or unreadable: {e}")
         });
 
         let value: serde_json::Value = serde_json::from_str(&raw)
-            .unwrap_or_else(|e| panic!("extensions/{name}/src/handshake.json is not JSON: {e}"));
+            .unwrap_or_else(|e| panic!("declarations/{name}/handshake.json is not JSON: {e}"));
 
         let missing: Vec<&str> = REQUIRED_HANDSHAKE_KEYS
             .iter()
@@ -65,20 +61,20 @@ fn every_builtin_handshake_fixture_parses_against_protocol_types() {
             .collect();
         assert!(
             missing.is_empty(),
-            "extensions/{name}/src/handshake.json drifted: missing required handshake field(s) \
+            "declarations/{name}/handshake.json drifted: missing required handshake field(s) \
              {missing:?} — the host now REJECTS handshakes without them (C7-07). \
              Fix the fixture (it is the source of truth the guest blob embeds)."
         );
 
         let response: HandshakeResponse = serde_json::from_str(&raw).unwrap_or_else(|e| {
             panic!(
-                "extensions/{name}/src/handshake.json no longer deserializes as \
+                "declarations/{name}/handshake.json no longer deserializes as \
                      HandshakeResponse: {e}"
             )
         });
         assert!(
             !response.protocol_version.is_empty() && !response.name.is_empty(),
-            "extensions/{name}/src/handshake.json has empty protocol_version/name"
+            "declarations/{name}/handshake.json has empty protocol_version/name"
         );
     }
 }
@@ -87,8 +83,8 @@ fn every_builtin_handshake_fixture_parses_against_protocol_types() {
 fn every_builtin_describe_fixture_parses_against_protocol_types() {
     for dir in extension_dirs() {
         let name = dir.file_name().unwrap().to_string_lossy().to_string();
-        let mut describe_fixtures: Vec<PathBuf> = fs::read_dir(dir.join("src"))
-            .unwrap_or_else(|e| panic!("extensions/{name}/src unreadable: {e}"))
+        let mut describe_fixtures: Vec<PathBuf> = fs::read_dir(&dir)
+            .unwrap_or_else(|e| panic!("declarations/{name} unreadable: {e}"))
             .filter_map(|e| e.ok().map(|e| e.path()))
             .filter(|p| {
                 p.file_name()
@@ -98,22 +94,20 @@ fn every_builtin_describe_fixture_parses_against_protocol_types() {
         describe_fixtures.sort();
         assert!(
             !describe_fixtures.is_empty(),
-            "extensions/{name}/src has no describe_*.json fixtures"
+            "declarations/{name} has no describe_*.json fixtures"
         );
 
         for path in describe_fixtures {
             let file = path.file_name().unwrap().to_string_lossy().to_string();
             let raw = fs::read_to_string(&path)
-                .unwrap_or_else(|e| panic!("extensions/{name}/src/{file} unreadable: {e}"));
+                .unwrap_or_else(|e| panic!("declarations/{name}/{file} unreadable: {e}"));
             let response: DescribeResponse = serde_json::from_str(&raw).unwrap_or_else(|e| {
-                panic!(
-                    "extensions/{name}/src/{file} no longer deserializes as DescribeResponse: {e}"
-                )
+                panic!("declarations/{name}/{file} no longer deserializes as DescribeResponse: {e}")
             });
             // `items` is a raw JSON array of typed descriptors.
             assert!(
                 response.items.is_array(),
-                "extensions/{name}/src/{file} items must be a JSON array"
+                "declarations/{name}/{file} items must be a JSON array"
             );
         }
     }
@@ -122,7 +116,7 @@ fn every_builtin_describe_fixture_parses_against_protocol_types() {
 #[test]
 fn truncated_handshake_missing_contribution_flags_fails_deserialization() {
     let dir = extension_dirs().remove(0);
-    let raw = fs::read_to_string(dir.join("src/handshake.json")).expect("fixture exists");
+    let raw = fs::read_to_string(dir.join("handshake.json")).expect("fixture exists");
     let mut value: serde_json::Value = serde_json::from_str(&raw).expect("fixture is JSON");
     value
         .as_object_mut()

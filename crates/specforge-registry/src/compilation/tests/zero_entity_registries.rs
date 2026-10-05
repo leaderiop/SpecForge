@@ -1233,11 +1233,13 @@ fn suggest_missing_ext_unknown_keyword() {
     verify = "keyword-to-extension index is loaded from bundled data file"
 )]
 fn bundled_keyword_index_maps_every_builtin_keyword() {
-    // The bundled file must say what the builtins' own descriptions say.
-    let extensions = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../extensions");
+    // The bundled file must say what the builtins' own declarations say
+    // (their pinned wire answers).
+    let declarations = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../specforge-component/tests/declarations");
     let mut expected = std::collections::BTreeMap::new();
-    for entry in std::fs::read_dir(&extensions).unwrap() {
-        let src = entry.unwrap().path().join("src");
+    for entry in std::fs::read_dir(&declarations).unwrap() {
+        let src = entry.unwrap().path();
         let Ok(entities) = std::fs::read_to_string(src.join("describe_entities.json")) else {
             continue;
         };
@@ -1245,6 +1247,10 @@ fn bundled_keyword_index_maps_every_builtin_keyword() {
             serde_json::from_str(&std::fs::read_to_string(src.join("handshake.json")).unwrap())
                 .unwrap();
         let name = handshake["name"].as_str().unwrap().to_string();
+        // The SDK greet fixture is pinned beside the builtins.
+        if !name.starts_with("@specforge/") {
+            continue;
+        }
         let entities: serde_json::Value = serde_json::from_str(&entities).unwrap();
         for item in entities["items"].as_array().unwrap() {
             expected.insert(item["keyword"].as_str().unwrap().to_string(), name.clone());
@@ -1283,11 +1289,13 @@ fn bundled_keyword_index_maps_every_builtin_keyword() {
     verify = "an undeclared field a builtin enhancement adds suggests its extension"
 )]
 fn bundled_field_index_maps_every_builtin_enhancement_field() {
-    // The bundled file must say what the builtins' enhancements say.
-    let extensions = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../extensions");
+    // The bundled file must say what the builtins' enhancements say (their
+    // pinned wire answers).
+    let declarations = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../specforge-component/tests/declarations");
     let mut expected = std::collections::BTreeMap::new();
-    for entry in std::fs::read_dir(&extensions).unwrap() {
-        let src = entry.unwrap().path().join("src");
+    for entry in std::fs::read_dir(&declarations).unwrap() {
+        let src = entry.unwrap().path();
         let Ok(enhancements) = std::fs::read_to_string(src.join("describe_enhancements.json"))
         else {
             continue;
@@ -1296,6 +1304,10 @@ fn bundled_field_index_maps_every_builtin_enhancement_field() {
             serde_json::from_str(&std::fs::read_to_string(src.join("handshake.json")).unwrap())
                 .unwrap();
         let name = handshake["name"].as_str().unwrap().to_string();
+        // The SDK greet fixture is pinned beside the builtins.
+        if !name.starts_with("@specforge/") {
+            continue;
+        }
         let enhancements: serde_json::Value = serde_json::from_str(&enhancements).unwrap();
         for item in enhancements["items"].as_array().unwrap() {
             let kind = item["target_kind"].as_str().unwrap();
@@ -1562,7 +1574,7 @@ fn peer_deps_missing_optional_peer_passes() {
 )]
 fn governance_peer_on_software_is_optional() {
     let handshake = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../extensions/governance/src/handshake.json");
+        .join("../specforge-component/tests/declarations/governance/handshake.json");
     let handshake: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(handshake).unwrap()).unwrap();
     let software = handshake["peer_dependencies"]
