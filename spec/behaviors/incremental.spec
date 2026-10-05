@@ -29,14 +29,18 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
     When specforge watch is active, the system MUST monitor all .spec files
     under the spec root for changes using the OS file watching API.
     File creation, modification, and deletion MUST each trigger
-    recompilation of affected files.
+    recompilation of affected files. Changed paths are classified by the
+    project session (classify_project_changes); after an environment
+    reload the watcher follows the session's new watch roots.
   """
   verify unit "file modification triggers recompilation"
   verify unit "file creation triggers recompilation"
   verify unit "file deletion triggers recompilation"
   verify integration "watch detects changes within 100ms"
   verify contract "Watch File System for Changes: file system watching holds for the declared obligations"
-  verify unit "specforge.json and .wasm changes classify as config/plugin"
+  verify integration "a specforge.lock change reloads the environment"
+  verify integration "a .wasm file no extension loads changes nothing"
+  verify integration "after spec_root changes, files under the new spec root are watched"
 }
 
 behavior classify_project_changes "Classify Project Changes" {

@@ -3222,7 +3222,6 @@ name = "specforge-watch"
 version = "0.1.0"
 dependencies = [
  "notify",
- "serde",
  "specforge-test",
  "specforge-test-macros",
  "tempfile",

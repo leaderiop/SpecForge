@@ -348,13 +348,28 @@ impl ProjectSession {
                     InputRole::Unrelated
                 }
             }
-            Origin::Disk => self.classify_on_disk(path),
+            Origin::Disk => self.classify_on_disk(&self.classifier(), path),
         }
     }
 
     /// What a batch of changed paths means to this session.
     pub fn changes<'p>(&self, paths: impl IntoIterator<Item = &'p Path>) -> Changes {
-        Changes::from_roles(paths.into_iter().map(|path| self.classify(path)))
+        Changes::from_roles(self.classify_all(paths))
+    }
+
+    /// Each of `paths` [classified](Self::classify), in order, the inputs
+    /// compared against computed once.
+    pub fn classify_all<'p>(&self, paths: impl IntoIterator<Item = &'p Path>) -> Vec<InputRole> {
+        match self.origin {
+            Origin::Disk => {
+                let classifier = self.classifier();
+                paths
+                    .into_iter()
+                    .map(|path| self.classify_on_disk(&classifier, path))
+                    .collect()
+            }
+            _ => paths.into_iter().map(|path| self.classify(path)).collect(),
+        }
     }
 
     /// Apply `changes`: the environment first (a reload rebuilds
@@ -471,38 +486,47 @@ impl ProjectSession {
         self.origin == Origin::Disk && self.env.excludes(path)
     }
 
-    /// [`Self::classify`] for a project on disk.
-    fn classify_on_disk(&self, path: &Path) -> InputRole {
-        let path = canonical(path);
+    /// What paths are compared against to classify them, for a project
+    /// on disk: computed once per batch.
+    fn classifier(&self) -> Classifier {
         let inputs = self.env.inputs();
-        if inputs
-            .environment_paths()
-            .any(|input| canonical(input) == path)
-        {
+        let references = self.env.referenced_files(self.graph());
+        Classifier {
+            spec_root: canonical(&self.env.spec_root),
+            environment: inputs.environment_paths().map(canonical).collect(),
+            checks: inputs
+                .check_inputs
+                .iter()
+                .chain(&references)
+                .map(|path| canonical(path))
+                .collect(),
+            // A missing referenced file's suggestion names a similar file
+            // in its directory: a file created or deleted there changes it.
+            suggestion_dirs: references
+                .iter()
+                .filter(|path| !path.exists())
+                .filter_map(|path| path.parent().map(canonical))
+                .collect(),
+        }
+    }
+
+    /// [`Self::classify`] for a project on disk, against `classifier`.
+    fn classify_on_disk(&self, classifier: &Classifier, path: &Path) -> InputRole {
+        let path = canonical(path);
+        if classifier.environment.contains(&path) {
             return InputRole::Environment;
         }
-        let references = self.env.referenced_files(self.graph());
-        let checked = inputs
-            .check_inputs
-            .iter()
-            .chain(&references)
-            .map(|input| canonical(input))
-            .any(|input| input == path);
-        // A missing referenced file's suggestion names a similar file in
-        // its directory: a file created or deleted there changes it.
-        let suggested = || {
-            references
-                .iter()
-                .filter(|r| !r.exists())
-                .any(|missing| missing.parent().map(canonical).as_deref() == path.parent())
-        };
-        if let Ok(relative) = path.strip_prefix(canonical(&self.env.spec_root)) {
+        if let Ok(relative) = path.strip_prefix(&classifier.spec_root) {
             let key = relative.to_string_lossy().into_owned();
             if !self.env.excludes(&key) {
                 return InputRole::Source(key);
             }
         }
-        if checked || suggested() {
+        if classifier.checks.contains(&path)
+            || path
+                .parent()
+                .is_some_and(|dir| classifier.suggestion_dirs.contains(dir))
+        {
             return InputRole::CheckInput;
         }
         InputRole::Unrelated
@@ -547,6 +571,15 @@ impl ProjectSession {
         }
         self.check()
     }
+}
+
+/// What changed paths are compared against: canonical paths of the
+/// session's inputs (see [`ProjectSession::classify`]).
+struct Classifier {
+    spec_root: PathBuf,
+    environment: std::collections::BTreeSet<PathBuf>,
+    checks: std::collections::BTreeSet<PathBuf>,
+    suggestion_dirs: std::collections::BTreeSet<PathBuf>,
 }
 
 fn project_runtime(root: &Path) -> SharedRuntime {

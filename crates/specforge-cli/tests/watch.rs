@@ -382,10 +382,89 @@ fn watch_reports_what_check_reports_for_an_extension_that_fails_to_load() {
     assert_eq!(rebuilt["verification"], "passed", "{rebuilt}");
 }
 
-/// Watch writes the freshness marker in the project root as soon as it is
-/// ready, not only after a rebuild, so a running MCP server sees it (D9).
-#[test]
-fn watch_writes_the_freshness_marker_at_startup() {
+/// The next JSON event line, skipping a late `rebuilt` for content that
+/// did not change (macOS can deliver an event for a project's initial
+/// write after `ready`).
+fn next_event(rx: &mpsc::Receiver<String>, timeout: Duration) -> Option<serde_json::Value> {
+    let deadline = Instant::now() + timeout;
+    while Instant::now() < deadline {
+        let Ok(line) = rx.recv_timeout(Duration::from_millis(200)) else {
+            continue;
+        };
+        let Ok(event) = serde_json::from_str::<serde_json::Value>(&line) else {
+            continue;
+        };
+        let unchanged = event["event"] == "rebuilt"
+            && event["added_nodes"] == 0
+            && event["removed_nodes"] == 0
+            && event["modified_nodes"] == 0;
+        if !unchanged {
+            return Some(event);
+        }
+    }
+    None
+}
+
+/// The E028 messages an event reports.
+fn e028(event: &serde_json::Value) -> Vec<String> {
+    event["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|d| d["code"] == "E028")
+        .map(|d| d["message"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "watch_file_system_for_changes",
+    verify = "a specforge.lock change reloads the environment"
+)]
+fn watch_reloads_on_a_lock_change() {
+    let project = TempDir::new().unwrap();
+    fs::write(
+        project.path().join("specforge.json"),
+        r#"{"name":"w","version":"0.1.0","extensions":["@acme/missing"]}"#,
+    )
+    .unwrap();
+    fs::write(project.path().join("main.spec"), "").unwrap();
+
+    let (rx, child) = spawn_watch(&project);
+    let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
+        .expect("watch never reported ready");
+    let ready: serde_json::Value = serde_json::from_str(&ready).unwrap();
+    let unlocked = e028(&ready);
+    assert!(
+        unlocked
+            .iter()
+            .any(|m| m.contains("no specforge.lock entry")),
+        "{unlocked:?}"
+    );
+
+    std::thread::sleep(Duration::from_millis(300));
+    let lock = serde_json::json!({
+        "lockfile_version": 1,
+        "entries": [{"name": "@acme/missing", "version": "1.0.0", "source": "local:missing.wasm", "wasm_hash": "sha256:00"}]
+    });
+    fs::write(project.path().join("specforge.lock"), lock.to_string()).unwrap();
+
+    let event = next_event(&rx, Duration::from_secs(20));
+    drop(child);
+    let event = event.expect("no event after the lock change");
+    assert_eq!(event["event"], "extensions_reloaded", "{event}");
+    let locked = e028(&event);
+    assert_eq!(locked.len(), 1, "{event}");
+    assert_ne!(
+        locked, unlocked,
+        "the lock changed what the environment loads"
+    );
+}
+
+#[specforge_test(
+    behavior = "watch_file_system_for_changes",
+    verify = "a .wasm file no extension loads changes nothing"
+)]
+fn watch_ignores_a_wasm_no_extension_loads() {
     let project = TempDir::new().unwrap();
     fs::write(project.path().join("specforge.json"), "{}").unwrap();
     fs::write(
@@ -395,12 +474,87 @@ fn watch_writes_the_freshness_marker_at_startup() {
     .unwrap();
 
     let (rx, child) = spawn_watch(&project);
-    let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60));
-    drop(child);
+    wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
+        .expect("watch never reported ready");
+    std::thread::sleep(Duration::from_millis(300));
 
-    assert!(ready.is_some(), "watch never reported ready");
-    let marker = project.path().join(".specforge/graph.json");
-    let marker: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&marker).expect("no marker at startup")).unwrap();
-    assert_eq!(marker["nodes"], 1, "{marker}");
+    // Build output no extension loads, then a real edit: the first event
+    // is the edit's rebuild, not a reload for the .wasm.
+    fs::create_dir_all(project.path().join("target")).unwrap();
+    fs::write(project.path().join("target/x.wasm"), b"\0asm\x01\0\0\0").unwrap();
+    std::thread::sleep(Duration::from_millis(500));
+    fs::write(
+        project.path().join("main.spec"),
+        "entity one { title \"One\" }\nentity two { title \"Two\" }\n",
+    )
+    .unwrap();
+
+    let event = next_event(&rx, Duration::from_secs(20));
+    drop(child);
+    let event = event.expect("no event after the edit");
+    assert_eq!(event["event"], "rebuilt", "{event}");
+    assert_eq!(
+        event["changed"],
+        serde_json::json!(["main.spec"]),
+        "{event}"
+    );
+    assert_eq!(event["added_nodes"], 1, "{event}");
+}
+
+#[specforge_test(
+    behavior = "watch_file_system_for_changes",
+    verify = "after spec_root changes, files under the new spec root are watched"
+)]
+fn watch_follows_a_moved_spec_root() {
+    let project = TempDir::new().unwrap();
+    let root = project.path();
+    fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"w","version":"0.1.0","spec_root":"a"}"#,
+    )
+    .unwrap();
+    fs::create_dir_all(root.join("a")).unwrap();
+    fs::create_dir_all(root.join("b")).unwrap();
+    fs::write(root.join("a/one.spec"), "entity one { title \"One\" }\n").unwrap();
+
+    let (rx, child) = spawn_watch(&project);
+    let ready = wait_for_line(&rx, "\"event\":\"ready\"", Duration::from_secs(60))
+        .expect("watch never reported ready");
+    assert!(ready.contains("\"nodes\":1"), "{ready}");
+    std::thread::sleep(Duration::from_millis(300));
+
+    fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"w","version":"0.1.0","spec_root":"b"}"#,
+    )
+    .unwrap();
+    let reloaded = next_event(&rx, Duration::from_secs(20)).expect("no reload");
+    assert_eq!(reloaded["event"], "extensions_reloaded", "{reloaded}");
+    assert_eq!(reloaded["nodes"], 0, "{reloaded}");
+    std::thread::sleep(Duration::from_millis(300));
+
+    // The old spec root is no longer the project's: an edit there changes
+    // nothing; a file under the new one is a source.
+    fs::write(
+        root.join("a/one.spec"),
+        "entity one { title \"One\" }\nentity uno { title \"Uno\" }\n",
+    )
+    .unwrap();
+    std::thread::sleep(Duration::from_millis(500));
+    fs::write(
+        root.join("b/three.spec"),
+        "entity three { title \"Three\" }\n",
+    )
+    .unwrap();
+
+    let event = next_event(&rx, Duration::from_secs(20));
+    drop(child);
+    let event = event.expect("no event for the new spec root");
+    assert_eq!(event["event"], "rebuilt", "{event}");
+    assert_eq!(
+        event["rebuilt_files"],
+        serde_json::json!(["three.spec"]),
+        "{event}"
+    );
+    assert_eq!(event["added_nodes"], 1, "{event}");
 }
