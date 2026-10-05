@@ -47,12 +47,17 @@ fn resource_json(resp: &serde_json::Value) -> serde_json::Value {
     serde_json::from_str(text).unwrap_or_else(|e| panic!("resource text not JSON: {e}\n{text}"))
 }
 
-/// The JSON data message (the last one) a `prompts/get` response carries.
+/// The JSON data message (the second user message, after the instruction)
+/// a `prompts/get` response carries.
 fn prompt_data(resp: &serde_json::Value) -> serde_json::Value {
     let messages = resp["result"]["messages"]
         .as_array()
         .unwrap_or_else(|| panic!("no messages: {resp}"));
-    assert!(messages.len() >= 2, "instruction + data messages: {resp}");
+    assert_eq!(messages.len(), 2, "instruction + data messages: {resp}");
+    assert!(
+        messages.iter().all(|m| m["role"] == "user"),
+        "both messages are user messages: {resp}"
+    );
     let text = messages.last().unwrap()["content"]["text"]
         .as_str()
         .unwrap_or_else(|| panic!("data message has no text: {resp}"));
@@ -1807,7 +1812,7 @@ fn mcp_prompt_context_returns_messages() {
         messages.len() >= 2,
         "should have instruction + data messages"
     );
-    // Data is in the last message (assistant role)
+    // Data is in the last message (a user message, after the instruction)
     let data_msg = messages.last().unwrap();
     let text = data_msg["content"]["text"]
         .as_str()

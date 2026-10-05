@@ -34,17 +34,6 @@ pub trait PromptArgs: DeserializeOwned {
     const DESCRIPTIONS: &'static [(&'static str, &'static str)];
 }
 
-/// How a rendered prompt's messages are laid out.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Layout {
-    /// The instruction as a user message, then the JSON payload as an
-    /// assistant message.
-    Turns,
-    /// One user message: the instruction, then the payload after a
-    /// `## Reference Data` header.
-    Inline,
-}
-
 /// One core prompt: everything the server lists and renders about it.
 pub struct PromptSpec {
     pub name: &'static str,
@@ -58,8 +47,6 @@ pub struct PromptSpec {
     pub descriptions: &'static [(&'static str, &'static str)],
     /// Which project it reads: the served one, brought up to date first.
     pub target: TargetSpec,
-    /// How its messages are laid out.
-    pub layout: Layout,
     /// Reads the prompt's `Args` from the request's `arguments` (refusing
     /// what does not parse) and renders.
     pub render: fn(&Call<'_>, Value) -> PromptOutcome,
@@ -96,7 +83,9 @@ pub fn arguments<A: PromptArgs>() -> Vec<McpPromptArgument> {
 }
 
 /// The `prompts/get` reply for `outcome`: the only place that builds a
-/// prompt's `messages` or a prompt's error. MCP prompts have no `isError`,
+/// prompt's `messages` or a prompt's error. A rendered prompt is its
+/// description and two user messages: the instruction, then the payload
+/// as JSON text. MCP prompts have no `isError`,
 /// so a refusal is a JSON-RPC error: -32602 for input the client can fix,
 /// -32603 for a failure on the server's side ([`crate::tool::ErrorCode::rpc_code`]),
 /// its `McpError`, naming the prompt, as the error's `data`.
@@ -106,25 +95,21 @@ pub fn prompt_envelope(
     id: Option<Value>,
 ) -> JsonRpcResponse {
     match outcome {
+        // Both user messages (C9-14): graph data, user-authored text
+        // included, never poses as the model's own earlier turn.
         Ok(Rendered {
             instruction,
             payload,
-        }) => {
-            let messages = match spec.layout {
-                Layout::Turns => json!([
+        }) => JsonRpcResponse::success(
+            id,
+            json!({
+                "description": spec.description,
+                "messages": [
                     { "role": "user", "content": { "type": "text", "text": instruction } },
-                    { "role": "assistant", "content": { "type": "text", "text": payload.to_string() } },
-                ]),
-                Layout::Inline => json!([{
-                    "role": "user",
-                    "content": {
-                        "type": "text",
-                        "text": format!("{instruction}\n\n## Reference Data\n{payload}"),
-                    },
-                }]),
-            };
-            JsonRpcResponse::success(id, json!({ "messages": messages }))
-        }
+                    { "role": "user", "content": { "type": "text", "text": payload.to_string() } },
+                ],
+            }),
+        ),
         Err(mut error) => {
             error.prompt.get_or_insert_with(|| spec.name.to_string());
             JsonRpcResponse::error_with_data(

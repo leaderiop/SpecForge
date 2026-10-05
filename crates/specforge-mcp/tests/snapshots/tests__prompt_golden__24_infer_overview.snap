@@ -3,8 +3,9 @@ source: crates/specforge-mcp/tests/prompt_golden.rs
 expression: "shape(&reply, dir.path())"
 ---
 {
+  "description": "Get inference guidance for discovering spec entities from code",
   "instruction": "You are inferring spec entities from this codebase. Use the inference guides below to identify entities in the code, write .spec files, and validate them with specforge_validate. Each kind has signals describing what to look for in code. Do not duplicate entities that already exist.",
-  "layout": "inline",
+  "layout": "turns",
   "payload": {
     "existing_entities": {
       "behavior": 3,
@@ -281,6 +282,7 @@ expression: "shape(&reply, dir.path())"
     "validation": "After writing .spec files, call specforge_validate to check for errors (and specforge_analyze for coverage/contract findings). Fix any errors before proceeding."
   },
   "roles": [
+    "user",
     "user"
   ]
 }

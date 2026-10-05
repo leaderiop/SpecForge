@@ -186,7 +186,7 @@ fn tool(server: &mut McpServer, name: &str, args: Value) -> Value {
     tool_json(&call_tool(server, name, args))
 }
 
-/// A prompt's structured payload: the assistant message's JSON text.
+/// A prompt's structured payload: the second user message's JSON text.
 fn prompt(server: &mut McpServer, name: &str, args: Value) -> Value {
     let resp = call(
         server,

@@ -3,6 +3,7 @@ source: crates/specforge-mcp/tests/prompt_golden.rs
 expression: "shape(&reply, dir.path())"
 ---
 {
+  "description": "Discover exploration starting points in the graph",
   "instruction": "Explore the spec graph using the data below. Start with high-connectivity nodes to understand the core structure, then investigate orphan nodes that may need relationships. Use starting_points for top-down traversal.",
   "layout": "turns",
   "payload": {
@@ -37,6 +38,6 @@ expression: "shape(&reply, dir.path())"
   },
   "roles": [
     "user",
-    "assistant"
+    "user"
   ]
 }

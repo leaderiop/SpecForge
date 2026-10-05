@@ -27,6 +27,7 @@ behavior serve_mcp_prompt "Serve MCP Prompt" {
   ensures {
     arguments_derived  "listed arguments are exactly those the prompt reads, required exactly when it cannot render without them"
     refusal_structured "a prompt that cannot render answers a JSON-RPC error whose data is an McpError"
+    one_layout         "every prompt result is an instruction then a JSON payload, both user messages"
     fresh_graph        "a prompt renders the graph a tool call would see"
   }
   contract   """
@@ -37,10 +38,12 @@ behavior serve_mcp_prompt "Serve MCP Prompt" {
     that are not an object are -32602. A prompt that cannot render (an
     invalid argument, an unknown entity, an unusable project file) answers
     a JSON-RPC error, -32602 for input the client can fix and -32603 for a
-    server-side failure, whose data is an McpError naming the prompt.
-    prompts/get first brings the served project up to date with disk, as
-    tools/call does (bring_session_up_to_date). An unknown prompt is -32602
-    and is not an invocation.
+    server-side failure, whose data is an McpError naming the prompt. A
+    rendered prompt is its description and two user messages: the
+    instruction, then the JSON payload. prompts/get first brings the
+    served project up to date with disk, as tools/call does
+    (bring_session_up_to_date). An unknown prompt is -32602 and is not an
+    invocation.
   """
   verify unit "each core prompt lists exactly the arguments its handler reads"
   verify unit "a listed required argument is exactly one the prompt cannot render without"
@@ -48,6 +51,7 @@ behavior serve_mcp_prompt "Serve MCP Prompt" {
   verify unit "a missing required prompt argument is -32602 naming the argument"
   verify unit "prompt arguments that are not an object produce -32602 Invalid params"
   verify unit "a numeric prompt argument is read from a string, as MCP sends it"
+  verify unit "every prompt result is an instruction then a JSON payload, both user messages"
   verify unit "an unknown prompt records no mcp_prompt_invoked event"
   verify unit "a stateless prompts/get renders without initialize"
 }

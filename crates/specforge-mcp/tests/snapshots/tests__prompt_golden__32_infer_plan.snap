@@ -3,8 +3,9 @@ source: crates/specforge-mcp/tests/prompt_golden.rs
 expression: "shape(&reply, dir.path())"
 ---
 {
+  "description": "Get inference guidance for discovering spec entities from code",
   "instruction": "Create a prioritized inference plan. There are 0 unanalyzed files and 0 stale files. Write .spec files to 'spec/'. Process files with the most entity signals first. Use specforge.infer_session to track progress (start → mark_analyzed per file → end). After each file, call specforge.validate to check for errors.",
-  "layout": "inline",
+  "layout": "turns",
   "payload": {
     "plan": {
       "cursor": 0,
@@ -94,6 +95,7 @@ expression: "shape(&reply, dir.path())"
     }
   },
   "roles": [
+    "user",
     "user"
   ]
 }

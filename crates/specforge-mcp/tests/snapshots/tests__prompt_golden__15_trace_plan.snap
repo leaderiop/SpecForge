@@ -3,6 +3,7 @@ source: crates/specforge-mcp/tests/prompt_golden.rs
 expression: "shape(&reply, dir.path())"
 ---
 {
+  "description": "Identify traceability gaps for a plan",
   "instruction": "Trace the dependency chain for the plan. The data below shows all affected entities, unverified entities in the chain, and coverage gaps. Prioritize addressing unverified entities that are on critical paths.",
   "layout": "turns",
   "payload": {
@@ -37,6 +38,6 @@ expression: "shape(&reply, dir.path())"
   },
   "roles": [
     "user",
-    "assistant"
+    "user"
   ]
 }

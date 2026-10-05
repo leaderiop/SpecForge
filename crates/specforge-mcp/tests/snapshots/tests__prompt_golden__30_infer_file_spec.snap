@@ -3,8 +3,9 @@ source: crates/specforge-mcp/tests/prompt_golden.rs
 expression: "shape(&reply, dir.path())"
 ---
 {
+  "description": "Get inference guidance for discovering spec entities from code",
   "instruction": "You are inferring spec entities from the file 'main.spec'. The entities listed below already reference this file — do not duplicate them. Use the kind guides to identify new entities.",
-  "layout": "inline",
+  "layout": "turns",
   "payload": {
     "existing_entities_referencing_file": [
       "alpha (behavior)",
@@ -77,6 +78,7 @@ expression: "shape(&reply, dir.path())"
     "validation": "After writing .spec files, call specforge_validate to check for errors (and specforge_analyze for coverage/contract findings). Fix any errors before proceeding."
   },
   "roles": [
+    "user",
     "user"
   ]
 }

@@ -130,7 +130,7 @@ fn call_prompt(server: &mut McpServer, name: &str, args: Value) -> Value {
 }
 
 fn prompt_text(resp: &Value) -> String {
-    // Data is in the last message (assistant role), instruction is first (user role)
+    // The instruction is the first user message, the JSON payload the second.
     let messages = resp["result"]["messages"].as_array().unwrap();
     let last = messages.last().unwrap();
     last["content"]["text"].as_str().unwrap().to_string()
@@ -173,10 +173,10 @@ fn context_prompt_returns_context() {
         instruction
     );
 
-    // Second message has the data (role: assistant)
+    // Second message has the data, a user message too (C9-14)
     assert_eq!(
-        messages[1]["role"], "assistant",
-        "data message should be role 'assistant'"
+        messages[1]["role"], "user",
+        "data message should be role 'user'"
     );
     let text = messages[1]["content"]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
@@ -1047,14 +1047,7 @@ fn infer_plan_reads_cursor_from_a_string() {
             "specforge://prompts/infer",
             json!({"scope": "plan", "cursor": cursor}),
         );
-        let text = resp["result"]["messages"][0]["content"]["text"]
-            .as_str()
-            .unwrap()
-            .split("## Reference Data\n")
-            .nth(1)
-            .map(str::to_string)
-            .unwrap_or_default();
-        serde_json::from_str::<Value>(&text).unwrap()["plan"]["cursor"].clone()
+        serde_json::from_str::<Value>(&prompt_text(&resp)).unwrap()["plan"]["cursor"].clone()
     };
     assert_eq!(plan(&mut server, json!("50")), 50);
     assert_eq!(plan(&mut server, json!(50)), 50);
@@ -1081,4 +1074,70 @@ fn unknown_prompt_records_no_invocation() {
     // tool's is.
     call_prompt(&mut server, "specforge://prompts/context", json!({}));
     assert_eq!(invoked(&server), 1);
+}
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "every prompt result is an instruction then a JSON payload, both user messages"
+)]
+fn every_prompt_renders_an_instruction_then_a_json_payload() {
+    let mut server = test_server();
+    let mut cases: Vec<(&str, Value)> = vec![
+        ("specforge://prompts/context", json!({"entity_id": "alpha"})),
+        ("specforge://prompts/review", json!({})),
+        ("specforge://prompts/trace", json!({"entity_id": "alpha"})),
+        ("specforge://prompts/explore", json!({"entity_id": "alpha"})),
+    ];
+    for scope in [
+        None,
+        Some("kind:behavior"),
+        Some("file:test.spec"),
+        Some("plan"),
+        Some("workflow"),
+    ] {
+        let arguments = scope.map_or_else(|| json!({}), |scope| json!({"scope": scope}));
+        cases.push(("specforge://prompts/infer", arguments));
+    }
+    // Infer's kind scope needs the kind's extension.
+    server.state_mut().edit_environment(|env| {
+        env.registries.manifests.push(behavior_manifest());
+    });
+    let listed: Vec<String> = listed_prompts(&mut server)
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect();
+    for (prompt, arguments) in cases {
+        let resp = call_prompt(&mut server, prompt, arguments.clone());
+        let result = &resp["result"];
+        assert!(
+            result["description"].is_string(),
+            "{prompt} {arguments}: {resp}"
+        );
+        let messages = result["messages"].as_array().unwrap();
+        assert_eq!(messages.len(), 2, "{prompt} {arguments}: {resp}");
+        for message in messages {
+            assert_eq!(message["role"], "user", "{prompt} {arguments}: {resp}");
+            assert_eq!(message["content"]["type"], "text");
+        }
+        let instruction = messages[0]["content"]["text"].as_str().unwrap();
+        assert!(!instruction.is_empty(), "{prompt}: {resp}");
+        let payload = messages[1]["content"]["text"].as_str().unwrap();
+        assert!(
+            serde_json::from_str::<Value>(payload).is_ok_and(|p| p.is_object()),
+            "{prompt} {arguments}: the second message is a JSON object: {payload}"
+        );
+    }
+    assert_eq!(listed.len(), 5, "every core prompt is covered: {listed:?}");
+}
+
+/// A manifest declaring `behavior`, as `@specforge/software` does.
+fn behavior_manifest() -> specforge_registry::ManifestV2 {
+    serde_json::from_value(json!({
+        "name": "@test/ext",
+        "version": "1.0.0",
+        "manifestVersion": 2,
+        "wasmPath": "",
+        "entityKinds": [{"name": "behavior", "keyword": "behavior"}],
+    }))
+    .expect("a minimal manifest")
 }
