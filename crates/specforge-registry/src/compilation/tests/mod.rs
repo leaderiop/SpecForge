@@ -3,5 +3,6 @@
 //! `specforge_registry` (an alias of `crate` in test builds) as the
 //! integration tests do.
 
+pub(crate) mod support;
 mod zero_entity_registries;
 mod zero_entity_validation;

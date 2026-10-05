@@ -3,6 +3,7 @@
 use super::{Origin, builtin_name, lock_path};
 use specforge_common::{Diagnostic, extension_entry_name, load_project_config};
 use specforge_graph::Graph;
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
     KindRegistry, ManifestV2, ProviderStatus, load_provider_configurations,
     register_provider_schemes_with_status,
@@ -136,16 +137,17 @@ pub struct ProviderEntry {
 
 /// The providers `specforge.json` configures, in declaration order (the
 /// first to declare a scheme wins it), each with its status in the scheme
-/// registry built from the loaded manifests, and the diagnostics loading
-/// and registering them produced (W118, E057).
-pub fn providers(root: &Path, loaded: &[ManifestV2]) -> (Vec<ProviderEntry>, Vec<Diagnostic>) {
+/// registry built from the loaded declarations, and the diagnostics
+/// loading and registering them produced (W118, E057).
+pub fn providers(
+    root: &Path,
+    loaded: &[ExtensionDeclaration],
+) -> (Vec<ProviderEntry>, Vec<Diagnostic>) {
     let config = load_project_config(root)
         .raw
         .unwrap_or(serde_json::Value::Null);
     let (configs, mut diagnostics) = load_provider_configurations(&config);
-    let manifests: Vec<(String, ManifestV2)> =
-        loaded.iter().map(|m| (m.name.clone(), m.clone())).collect();
-    let (_, statuses, registration) = register_provider_schemes_with_status(&configs, &manifests);
+    let (_, statuses, registration) = register_provider_schemes_with_status(&configs, loaded);
     diagnostics.extend(registration);
     let entries = configs
         .into_iter()

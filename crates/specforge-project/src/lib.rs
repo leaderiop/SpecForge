@@ -37,9 +37,10 @@ use coverage::{CoverageRegistries, ProjectCoverage, TestReport};
 use specforge_common::{Diagnostic, ProjectConfig, is_discovered, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
-    ManifestV2, RegistryBuild, build_registries, load_provider_configurations,
-    register_provider_schemes,
+    ManifestV2, RegistryBuild, SurfaceContributions, build_registries,
+    load_provider_configurations, register_provider_schemes,
 };
 use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
 use specforge_wasm::WasmRuntime;
@@ -47,7 +48,6 @@ use specforge_wasm::WasmRuntime;
 pub use build_cache::{
     BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus, record_build_cache,
 };
-pub use check_passes::CheckPass;
 pub use compile::CompilationContext;
 pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
 pub use policy::{DiagnosticPolicy, apply_policy};
@@ -62,17 +62,25 @@ pub struct Environment {
     /// Where `.spec` files are discovered: `spec_root` from the config,
     /// relative to the project root, or the project root itself.
     pub spec_root: PathBuf,
-    /// The registries, rules and graph inputs built from the manifests.
+    /// The registries, rules, passes and graph inputs built from the loaded
+    /// declarations.
     pub registries: RegistryBuild,
+    /// The loaded declarations as manifests, for the readers that still
+    /// take them (removed once they read the declarations, plan 03 T7).
+    pub manifests: Vec<ManifestV2>,
+    /// Each loaded declaration's surfaces as manifest surfaces, for the
+    /// same readers (plan 03 T7).
+    pub manifest_surfaces: Vec<(String, SurfaceContributions)>,
     /// The ref schemes the configured providers registered (ADR 0004
     /// D3-c): with any registered, a ref with another scheme is I005.
     pub provider_schemes: HashSet<String>,
-    /// Extension loading diagnostics (E028, manifest validation, peer
-    /// consistency), in load order.
+    /// Extension loading diagnostics: the runtime's load failures
+    /// (E028/E033) in load order, then the declarations' unknown keys
+    /// (W138).
     pub load_diagnostics: Vec<Diagnostic>,
-    /// The compiler passes the extensions declare with `phase: "check"`,
-    /// in the order every compile runs them after the graph checks.
-    pub check_passes: Vec<CheckPass>,
+    /// After the registry build: provider registration (W118/E057), then
+    /// I002 when no extension loaded.
+    pub setup_diagnostics: Vec<Diagnostic>,
 }
 
 impl Environment {
@@ -83,9 +91,25 @@ impl Environment {
             config: ProjectConfig::default(),
             spec_root: PathBuf::new(),
             registries: RegistryBuild::default(),
+            manifests: Vec::new(),
+            manifest_surfaces: Vec::new(),
             provider_schemes: HashSet::new(),
             load_diagnostics: Vec::new(),
-            check_passes: Vec::new(),
+            setup_diagnostics: Vec::new(),
+        }
+    }
+
+    /// An environment of `declarations` (in load order) and no project:
+    /// the default config, no spec root, the registry build of exactly
+    /// these declarations.
+    pub fn from_declarations(declarations: Vec<ExtensionDeclaration>) -> Self {
+        let registries = build_registries(declarations);
+        let (manifests, manifest_surfaces) = manifest_views(&registries);
+        Environment {
+            registries,
+            manifests,
+            manifest_surfaces,
+            ..Environment::empty()
         }
     }
 
@@ -98,26 +122,19 @@ impl Environment {
             Some(runtime) => load_extensions(&config.extensions, runtime, &mut load_diagnostics),
             None => Vec::new(),
         };
-        let mut registries = build_registries(
-            declarations
-                .iter()
-                .map(specforge_wasm::protocol::declaration_to_manifest)
-                .collect(),
-        );
+        let mut registries = build_registries(declarations);
         // A custom rule's wasm_function is resolved against its extension
         // now, so a name it does not export is reported once (W112).
         if let Some(runtime) = runtime {
             let probes = probe_custom_rules(&registries.rules, runtime);
             registries.registry_diagnostics.extend(probes);
         }
-        let provider_schemes = register_providers(&config, &registries, &mut load_diagnostics);
-        let check_passes = match runtime {
-            Some(runtime) => check_passes::declared(&registries.manifests, runtime),
-            None => Vec::new(),
-        };
-        if registries.manifests.is_empty() {
-            load_diagnostics.push(structural_only_notice(&config.extensions));
+        let mut setup_diagnostics = Vec::new();
+        let provider_schemes = register_providers(&config, &registries, &mut setup_diagnostics);
+        if registries.declarations().is_empty() {
+            setup_diagnostics.push(structural_only_notice(&config.extensions));
         }
+        let (manifests, manifest_surfaces) = manifest_views(&registries);
         let spec_root = match &config.spec_root {
             Some(spec_root) => root.join(spec_root),
             None => root.to_path_buf(),
@@ -127,9 +144,11 @@ impl Environment {
             config,
             spec_root,
             registries,
+            manifests,
+            manifest_surfaces,
             provider_schemes,
             load_diagnostics,
-            check_passes,
+            setup_diagnostics,
         }
     }
 
@@ -163,11 +182,15 @@ impl Environment {
         diagnostics
     }
 
-    /// The diagnostics reported before any source: extension loading, then
-    /// the registry build.
+    /// The diagnostics reported before any source, in this order: the
+    /// runtime's load failures (E028/E033), unknown declaration keys
+    /// (W138), the declarations' own (E030, W021, E027, W145), provider
+    /// registration (W118/E057), I002, then the registry build's.
     pub fn diagnostics(&self) -> impl Iterator<Item = &Diagnostic> {
         self.load_diagnostics
             .iter()
+            .chain(&self.registries.declaration_diagnostics)
+            .chain(&self.setup_diagnostics)
             .chain(&self.registries.registry_diagnostics)
     }
 
@@ -206,6 +229,23 @@ impl Environment {
     }
 }
 
+/// The loaded declarations as manifests, and their surfaces as manifest
+/// surfaces, for the readers that still take them (plan 03 T7 removes it).
+fn manifest_views(
+    registries: &RegistryBuild,
+) -> (Vec<ManifestV2>, Vec<(String, SurfaceContributions)>) {
+    let manifests: Vec<ManifestV2> = registries
+        .declarations()
+        .iter()
+        .map(specforge_wasm::protocol::declaration_to_manifest)
+        .collect();
+    let surfaces = manifests
+        .iter()
+        .filter_map(|m| Some((m.name.clone(), m.surfaces.clone()?)))
+        .collect();
+    (manifests, surfaces)
+}
+
 /// Register the `providers` specforge.json configures against the loaded
 /// extensions, in declaration order, and return the schemes they
 /// registered. W118 (a malformed entry, or an extension that is not
@@ -221,12 +261,7 @@ fn register_providers(
     };
     let (providers, config_diagnostics) = load_provider_configurations(raw);
     diagnostics.extend(config_diagnostics);
-    let manifests: Vec<(String, ManifestV2)> = registries
-        .manifests
-        .iter()
-        .map(|m| (m.name.clone(), m.clone()))
-        .collect();
-    let (schemes, registration) = register_provider_schemes(&providers, &manifests);
+    let (schemes, registration) = register_provider_schemes(&providers, registries.declarations());
     diagnostics.extend(registration);
     schemes.entries.into_iter().map(|e| e.scheme).collect()
 }
@@ -352,18 +387,24 @@ impl CompiledProject {
             ..
         } = self;
         let registries = env.registries;
+        let declarations = registries.declarations().to_vec();
         CompilationContext {
             graph,
+            extension_info: registries
+                .extension_info()
+                .map(|(name, version)| (name.to_string(), version.to_string()))
+                .collect(),
             kind_registry: registries.kinds,
             field_registry: registries.fields,
             edge_registry: registries.edges,
             diagnostics,
             resolved,
             extension_rules: registries.rules,
-            extension_info: registries.extension_info,
             surface_entries: registries.surfaces,
-            manifest_surfaces: registries.manifest_surfaces,
-            manifests: registries.manifests,
+            manifest_surfaces: env.manifest_surfaces,
+            manifests: env.manifests,
+            declarations,
+            passes: registries.passes,
             spec_root: env.spec_root,
         }
     }

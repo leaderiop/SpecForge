@@ -150,7 +150,7 @@ fn arg_type_name(arg_type: &CommandArgType) -> &'static str {
 /// An extension's short name for tool naming, as the CLI names its
 /// commands (`specforge_ops::command::ext_short`).
 fn ext_short(state: &McpState, ext_name: &str) -> String {
-    specforge_ops::command::ext_short(&state.registries().manifests, ext_name)
+    specforge_ops::command::ext_short(&state.environment().manifests, ext_name)
 }
 
 /// Complete the per-arg types of `schema` with what the args also declare:

@@ -743,7 +743,7 @@ impl LanguageServer for Backend {
             let (ext_count, kind_count, file_count, spec_root) = {
                 let st = state.read().await;
                 (
-                    st.registries().manifests.len(),
+                    st.registries().declarations().len(),
                     st.kind_registry().len(),
                     st.session().map_or(0, ProjectSession::file_count),
                     st.spec_root().to_string_lossy().into_owned(),
@@ -860,7 +860,7 @@ impl LanguageServer for Backend {
         });
         if reload {
             Self::recompile(&self.state, &self.client, &self.updates, Change::Reload).await;
-            let ext_count = self.state.read().await.registries().manifests.len();
+            let ext_count = self.state.read().await.registries().declarations().len();
             self.client
                 .log_message(
                     MessageType::INFO,

@@ -56,12 +56,11 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let root = project_path(&rest);
     let runtime = specforge_component::project_runtime(&root);
     let env = Environment::load(&root, Some(&runtime));
-    let build = &env.registries;
-    let all = extension_commands(build);
+    let all = extension_commands(&env);
     let commands: Vec<ExtensionCommand> = all
         .iter()
         .copied()
-        .filter(|c| ext_short(&build.manifests, c.extension) == ext)
+        .filter(|c| ext_short(&env.manifests, c.extension) == ext)
         .collect();
     if commands.is_empty() {
         eprintln!(
@@ -69,7 +68,7 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
             root.display()
         );
         let mut names: Vec<String> = builtins.to_vec();
-        names.extend(all.iter().map(|c| ext_short(&build.manifests, c.extension)));
+        names.extend(all.iter().map(|c| ext_short(&env.manifests, c.extension)));
         if let Some(close) =
             specforge_common::find_close_match(&ext, names.iter().map(String::as_str))
         {
@@ -167,13 +166,12 @@ fn failed_run(diagnostic: &specforge_common::Diagnostic, format: CommandFormat) 
 pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
     let runtime = specforge_component::project_runtime(root);
     let env = Environment::load(root, Some(&runtime));
-    let build = &env.registries;
     let mut by_ext: Vec<(String, Vec<ExtensionCommand>)> = Vec::new();
-    for command in extension_commands(build) {
+    for command in extension_commands(&env) {
         if refusal(command.contribution).is_some() {
             continue;
         }
-        let short = ext_short(&build.manifests, command.extension);
+        let short = ext_short(&env.manifests, command.extension);
         match by_ext.iter_mut().find(|(ext, _)| *ext == short) {
             Some((_, commands)) => commands.push(command),
             None => by_ext.push((short, vec![command])),

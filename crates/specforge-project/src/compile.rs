@@ -6,13 +6,12 @@ use specforge_common::{Diagnostic, Severity, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
-    EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, RegistryBuild, SurfaceContributions,
-    SurfaceRegistryEntry,
+    DeclaredPass, EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, RegistryBuild,
+    SurfaceContributions, SurfaceRegistryEntry,
     compilation::{
         EntityView, detect_identifier_length_violations, detect_mistyped_references,
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
     },
-    validate_manifest, validate_manifest_consistency_with_peers, validate_peer_dependencies,
     validation_engine::{ValidationEntity, ValidationRulePattern, execute_pattern},
 };
 use specforge_resolver::{ResolvedProject, resolve_project};
@@ -40,6 +39,10 @@ pub struct CompilationContext {
     pub manifest_surfaces: Vec<(String, SurfaceContributions)>,
     /// Raw extension manifests (needed for outline rendering).
     pub manifests: Vec<ManifestV2>,
+    /// The loaded declarations, in load order.
+    pub declarations: Vec<ExtensionDeclaration>,
+    /// The extensions' passes, in the order they run.
+    pub passes: Vec<DeclaredPass>,
     pub spec_root: std::path::PathBuf,
 }
 
@@ -195,6 +198,8 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
         surface_entries: Vec::new(),
         manifest_surfaces: Vec::new(),
         manifests: Vec::new(),
+        declarations: Vec::new(),
+        passes: Vec::new(),
         spec_root,
     }
 }
@@ -219,10 +224,11 @@ fn normalize_extension_name(ext_spec: &str) -> String {
 
 /// Load the declarations of `extensions` (as `specforge.json` lists them)
 /// through `runtime`, in that order: one [`load_declaration`] each. An
-/// extension that does not load is E028 (or the runtime's own reason, when
-/// it knows one) and is left out; the W138s of the others follow their
-/// load. Then the declarations are checked as manifests: E030 shape,
-/// W021 consistency against the loaded peers, E027 peer dependencies.
+/// extension that does not load is E028 (or the runtime's own reason, E033,
+/// when it knows one) and is left out. `diagnostics` receives those runtime
+/// failures in load order, then the W138s of the declarations that loaded.
+/// What the declarations themselves are worth (E030, W021, E027, W145) is
+/// the registry build's to say.
 ///
 /// [`load_declaration`]: specforge_wasm::protocol::load_declaration
 pub fn load_extensions(
@@ -230,17 +236,15 @@ pub fn load_extensions(
     runtime: &dyn WasmRuntime,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<ExtensionDeclaration> {
-    use specforge_wasm::protocol::{declaration_to_manifest, load_declaration};
+    use specforge_wasm::protocol::load_declaration;
 
     let mut declarations = Vec::new();
+    let mut warnings = Vec::new();
     for ext_spec in extensions {
         let ext_name = normalize_extension_name(ext_spec);
         match load_declaration(runtime, &ext_name) {
             Ok(loaded) => {
-                diagnostics.extend(loaded.warnings);
-                diagnostics.extend(validate_manifest(&declaration_to_manifest(
-                    &loaded.declaration,
-                )));
+                warnings.extend(loaded.warnings);
                 declarations.push(loaded.declaration);
             }
             // Why the runtime could not load it (a missing or tampered
@@ -260,20 +264,7 @@ pub fn load_extensions(
             }
         }
     }
-
-    let manifests: Vec<ManifestV2> = declarations.iter().map(declaration_to_manifest).collect();
-    // Once every extension is in, so a kind is checked against what its
-    // peers declare and a non-peer's kind is caught.
-    for manifest in &manifests {
-        diagnostics.extend(validate_manifest_consistency_with_peers(
-            manifest, &manifests,
-        ));
-    }
-    // Every required peer is loaded, and every loaded peer is in range
-    // (E027). The extension still registers: an error here fails the
-    // check without turning each of its entities into an E024.
-    diagnostics.extend(validate_peer_dependencies(&manifests));
-
+    diagnostics.extend(warnings);
     declarations
 }
 

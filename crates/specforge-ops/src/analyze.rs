@@ -19,7 +19,7 @@ use specforge_project::coverage::TestReport;
 use specforge_project::coverage::{self, ReportError};
 use specforge_project::passes::{self, AnalysisContext};
 use specforge_registry::validation_engine::ValidationRulePattern;
-use specforge_registry::{FieldRegistry, KindRegistry, ManifestV2};
+use specforge_registry::{DeclaredPass, FieldRegistry, KindRegistry};
 use specforge_wasm::runtime::WasmRuntime;
 
 use crate::OpError;
@@ -33,7 +33,8 @@ pub struct ProjectView<'a> {
     pub kind_registry: &'a KindRegistry,
     pub field_registry: &'a FieldRegistry,
     pub rules: &'a [(ValidationRulePattern, String)],
-    pub manifests: &'a [ManifestV2],
+    /// The extensions' passes, as the registry build ordered them.
+    pub passes: &'a [DeclaredPass],
     pub root: Option<&'a Path>,
 }
 
@@ -45,7 +46,7 @@ impl<'a> ProjectView<'a> {
             kind_registry: &ctx.kind_registry,
             field_registry: &ctx.field_registry,
             rules: &ctx.extension_rules,
-            manifests: &ctx.manifests,
+            passes: &ctx.passes,
             root: Some(root),
         }
     }
@@ -63,7 +64,7 @@ impl<'a> ProjectView<'a> {
             kind_registry: &registries.kinds,
             field_registry: &registries.fields,
             rules: &registries.rules,
-            manifests: &registries.manifests,
+            passes: &registries.passes,
             root,
         }
     }
@@ -269,7 +270,7 @@ fn analyze_via(
     options: &AnalyzeOptions,
     prove: ProveFn,
 ) -> Result<AnalyzeOutcome, AnalyzeError> {
-    let selection = select(view, runtime, &options.pass)?;
+    let selection = select(view, &options.pass)?;
     let report = read_report(view, &options.report)?;
     if options.min.is_some() && report.is_none() {
         return Err(AnalyzeError::MinNeedsTestResults);
@@ -318,7 +319,7 @@ fn analyze_via(
         // Declared `after` constraints order a single extension's passes;
         // across extensions they are advisory.
         passes_run.extend(
-            passes::run_extension_passes(view.manifests, &input, runtime, &selection.extension)
+            passes::run_extension_passes(view.passes, &input, runtime, &selection.extension)
                 .into_iter()
                 .map(|r| PassOutcome {
                     name: r.name,
@@ -382,11 +383,7 @@ struct Selection {
     extension: String,
 }
 
-fn select(
-    view: &ProjectView,
-    runtime: &dyn WasmRuntime,
-    requested: &str,
-) -> Result<Selection, AnalyzeError> {
+fn select(view: &ProjectView, requested: &str) -> Result<Selection, AnalyzeError> {
     let one = |builtins: Vec<&'static str>, extension: &str| Selection {
         builtins,
         extension: extension.to_string(),
@@ -401,7 +398,7 @@ fn select(
     if let Some(name) = PASS_NAMES.iter().find(|n| **n == requested) {
         return Ok(one(vec![name], requested));
     }
-    let declared = declared_pass_names(view, runtime);
+    let declared = declared_pass_names(view);
     if declared.iter().any(|n| n == requested) {
         return Ok(one(Vec::new(), requested));
     }
@@ -414,20 +411,15 @@ fn select(
     })
 }
 
-/// `<extension>:<pass>` of every analyze-phase pass the manifests declare.
-fn declared_pass_names(view: &ProjectView, runtime: &dyn WasmRuntime) -> Vec<String> {
+/// `<extension>:<pass>` of every analyze-phase pass the extensions declare.
+fn declared_pass_names(view: &ProjectView) -> Vec<String> {
     if view.root.is_none() {
         return Vec::new();
     }
-    view.manifests
+    view.passes
         .iter()
-        .flat_map(|m| {
-            passes::declared_passes(runtime, &m.name)
-                .into_iter()
-                .filter(|p| !passes::is_check_phase(p))
-                .map(|p| format!("{}:{}", m.name, p.name))
-                .collect::<Vec<_>>()
-        })
+        .filter(|p| !p.is_check_phase())
+        .map(DeclaredPass::full_name)
         .collect()
 }
 
@@ -471,39 +463,14 @@ mod tests {
         }
     }
 
-    /// A guest's handshake: `ext`, declaring nothing but what it describes.
-    fn handshake(ext: &str) -> Value {
-        json!({
-            "protocol_version": "1.0.0", "name": ext, "version": "1.0.0",
-            "contribution_flags": {}, "peer_dependencies": [], "sandbox_policy": null
-        })
-    }
-
-    /// A guest's describe answer: `passes` for the passes category, none
-    /// for the others.
-    fn describe(input: &[u8], passes: Value) -> Value {
-        let category = serde_json::from_slice::<Value>(input).unwrap()["category"].clone();
-        let items = if category == "passes" {
-            passes
-        } else {
-            json!([])
-        };
-        json!({"category": category, "items": items})
-    }
-
     impl WasmRuntime for Fake {
         fn load_module(&self, _: &Path) -> Result<(), String> {
             Ok(())
         }
 
-        fn call_export(&self, ext: &str, export: &str, input: &[u8]) -> WasmCallResult {
+        fn call_export(&self, _ext: &str, export: &str, input: &[u8]) -> WasmCallResult {
             let ok = |v: Value| WasmCallResult::Ok(v.to_string().into_bytes());
             match export {
-                "__handshake" => ok(handshake(ext)),
-                "__describe" => ok(describe(
-                    input,
-                    json!([{"name": "scan"}, {"name": "hidden", "phase": "check"}]),
-                )),
                 "__pass_scan" => {
                     let input: Value = serde_json::from_slice(input).unwrap();
                     self.proved_seen
@@ -525,23 +492,34 @@ mod tests {
         graph: Graph,
         kinds: KindRegistry,
         fields: FieldRegistry,
-        manifests: Vec<ManifestV2>,
+        passes: Vec<DeclaredPass>,
         dir: tempfile::TempDir,
+    }
+
+    /// `name`, a pass of `extension` in `phase`.
+    fn declared(extension: &str, name: &str, phase: Option<&str>) -> DeclaredPass {
+        DeclaredPass {
+            extension: extension.to_string(),
+            pass: specforge_protocol_types::CompilerPassDescriptor {
+                name: name.to_string(),
+                phase: phase.map(str::to_string),
+                ..Default::default()
+            },
+        }
     }
 
     impl Project {
         fn new() -> Self {
             let dir = tempfile::TempDir::new().unwrap();
             std::fs::write(dir.path().join("specforge.json"), "{}").unwrap();
-            let manifest = serde_json::from_value(json!({
-                "name": EXT, "version": "1.0.0", "manifestVersion": 2, "wasmPath": ""
-            }))
-            .unwrap();
             Self {
                 graph: Graph::new(),
                 kinds: KindRegistry::default(),
                 fields: FieldRegistry::default(),
-                manifests: vec![manifest],
+                passes: vec![
+                    declared(EXT, "scan", None),
+                    declared(EXT, "hidden", Some("check")),
+                ],
                 dir,
             }
         }
@@ -552,7 +530,7 @@ mod tests {
                 kind_registry: &self.kinds,
                 field_registry: &self.fields,
                 rules: &[],
-                manifests: &self.manifests,
+                passes: &self.passes,
                 root: Some(self.dir.path()),
             }
         }
@@ -764,11 +742,9 @@ mod tests {
             Ok(())
         }
 
-        fn call_export(&self, ext: &str, export: &str, input: &[u8]) -> WasmCallResult {
+        fn call_export(&self, _ext: &str, export: &str, _: &[u8]) -> WasmCallResult {
             let ok = |v: Value| WasmCallResult::Ok(v.to_string().into_bytes());
             match export {
-                "__handshake" => ok(handshake(ext)),
-                "__describe" => ok(describe(input, json!([{"name": "coverage"}]))),
                 "__pass_coverage" => ok(json!({"diagnostics": [], "summary": self.summary})),
                 _ => WasmCallResult::Trap(WasmTrapInfo {
                     kind: "export_not_found".into(),
@@ -783,13 +759,7 @@ mod tests {
     /// testing extension reports `proven` of `total`.
     fn gate_of(pass_name: &str, min: Option<f64>, summary: Value) -> Gate {
         let mut project = Project::new();
-        project.manifests = vec![
-            serde_json::from_value(json!({
-                "name": "@specforge/testing", "version": "1.0.0",
-                "manifestVersion": 2, "wasmPath": ""
-            }))
-            .unwrap(),
-        ];
+        project.passes = vec![declared("@specforge/testing", "coverage", None)];
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let options = AnalyzeOptions {
             pass: pass_name.to_string(),
@@ -857,7 +827,7 @@ mod tests {
     )]
     fn a_failed_gate_leaves_ok_and_the_reports_alone() {
         let mut project = Project::new();
-        project.manifests.clear();
+        project.passes.clear();
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let outcome = project
             .run(&AnalyzeOptions {

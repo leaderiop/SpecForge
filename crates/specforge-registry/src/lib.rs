@@ -34,8 +34,8 @@ pub use manifest::types::{
 
 // --- Registry compilation (plan 05): one build, and the graph checks ---
 pub use compilation::{
-    EntityView, ProviderConfig, ProviderSchemeRegistry, ProviderStatus, RegistryBuild,
-    SchemeRegistryEntry, build_registries, detect_identifier_length_violations,
+    CHECK_PHASE, DeclaredPass, EntityView, ProviderConfig, ProviderSchemeRegistry, ProviderStatus,
+    RegistryBuild, SchemeRegistryEntry, build_registries, detect_identifier_length_violations,
     detect_mistyped_references, detect_reserved_entity_ids, detect_unknown_entity_fields,
     detect_unknown_entity_kinds, load_provider_configurations, populate_registries,
     register_provider_schemes, register_provider_schemes_with_status, validate_peer_dependencies,

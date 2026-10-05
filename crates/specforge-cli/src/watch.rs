@@ -136,9 +136,9 @@ pub fn run(path: &Path, json: bool, verify_incremental: bool) -> i32 {
             let extensions: Vec<&str> = session
                 .environment()
                 .registries
-                .manifests
+                .declarations()
                 .iter()
-                .map(|m| m.name.as_str())
+                .map(|d| d.name())
                 .collect();
             if json {
                 println!(

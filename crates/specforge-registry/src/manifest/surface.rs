@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, Severity};
+use specforge_protocol_types::SurfaceDescriptor;
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -105,7 +106,7 @@ pub struct SurfaceRegistryEntry {
 /// `surfaces`, so it is neither registered nor listed.
 pub fn refuse_malformed_tool_schemas(
     ext_name: &str,
-    surfaces: &mut SurfaceContributions,
+    surfaces: &mut SurfaceDescriptor,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     surfaces.mcp_tools.retain(|tool| {
@@ -135,10 +136,11 @@ pub fn refuse_malformed_tool_schemas(
     diagnostics
 }
 
-/// Register surface contributions from manifests.
-/// Detects duplicate command IDs and MCP tool names across extensions (E039).
+/// Register the declared surfaces, extension by extension in load order
+/// (first registration wins). Detects duplicate command IDs, MCP tool
+/// names and MCP resource names across extensions (E039).
 pub fn register_surface_contributions(
-    manifests: &[(String, Option<SurfaceContributions>)],
+    declared: &[(String, SurfaceDescriptor)],
 ) -> (Vec<SurfaceRegistryEntry>, Vec<Diagnostic>) {
     let mut entries = Vec::new();
     let mut diagnostics = Vec::new();
@@ -146,9 +148,7 @@ pub fn register_surface_contributions(
     let mut seen_tools: HashMap<String, String> = HashMap::new();
     let mut seen_resources: HashMap<String, String> = HashMap::new();
 
-    for (ext_name, surfaces) in manifests {
-        let Some(surfaces) = surfaces else { continue };
-
+    for (ext_name, surfaces) in declared {
         for cmd in &surfaces.commands {
             if let Some(first_ext) = seen_commands.get(&cmd.id) {
                 diagnostics.push(Diagnostic {

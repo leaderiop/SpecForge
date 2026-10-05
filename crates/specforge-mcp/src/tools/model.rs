@@ -91,11 +91,15 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         &state.registries().kinds,
         &state.registries().edges,
         &state.registries().fields,
-        &state.registries().extension_info,
+        &state
+            .registries()
+            .extension_info()
+            .map(|(name, version)| (name.to_string(), version.to_string()))
+            .collect::<Vec<_>>(),
     );
 
     let model =
-        ModelIntermediate_from_schema(&schema).with_theme_colors(&state.registries().manifests);
+        ModelIntermediate_from_schema(&schema).with_theme_colors(&state.environment().manifests);
     let model = filter_entities(&model, &options);
     let model = filter_fields(&model, options.fields);
     let output = render(&model, &options);

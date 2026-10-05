@@ -121,6 +121,12 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
     edge registries, the rules and the surfaces. It MUST be pure.
   """
   verify integration "the registry build of the builtins matches its pinned snapshot"
+  verify unit "a declaration with an empty name or version produces E030"
+  verify unit "a malformed ext_short produces E030"
+  verify unit "peer dependencies are checked in the registry build"
+  verify unit "declared passes are ordered in the registry build"
+  verify unit "a pass constraint cycle produces W145 and keeps declaration order"
+  verify integration "a passes description that does not parse fails the extension's load"
 }
 
 // register_extension_entity_types is a thin delegation wrapper that calls

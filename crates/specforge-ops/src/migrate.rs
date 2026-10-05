@@ -178,7 +178,7 @@ pub fn run_with_hooks(
             .map(|r| r.file_path.clone())
             .collect(),
     };
-    let (invoked, failures) = hooks(&pre.env.registries.manifests, &input);
+    let (invoked, failures) = hooks(&pre.env.manifests, &input);
     outcome.hooks_invoked = invoked;
     outcome.hook_failures = failures;
     if !outcome.hook_failures.is_empty() {
@@ -209,7 +209,10 @@ fn schema_of(project: &CompiledProject) -> specforge_emitter::GraphProtocolSchem
         &registries.kinds,
         &registries.edges,
         &registries.fields,
-        &registries.extension_info,
+        &registries
+            .extension_info()
+            .map(|(name, version)| (name.to_string(), version.to_string()))
+            .collect::<Vec<_>>(),
     )
 }
 

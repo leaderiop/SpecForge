@@ -9,9 +9,7 @@ use specforge_common::{SourceSpan, Sym};
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, prelude::*};
 use specforge_registry::build_registries;
 use specforge_registry::validation_engine::{ValidationEntity, execute_pattern};
-use specforge_wasm::protocol::{
-    DescribeResponse, ExtensionDeclaration, HandshakeResponse, declaration_to_manifest,
-};
+use specforge_wasm::protocol::{DescribeResponse, ExtensionDeclaration, HandshakeResponse};
 
 fn extension() -> ContributionsBuilder {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@you/vocab", "0.1.0"));
@@ -97,7 +95,7 @@ fn entity(id: &str, fields: &[(&str, &str)]) -> ValidationEntity {
 
 #[test]
 fn sdk_vocabulary_round_trips_through_the_registry_build() {
-    let build = build_registries(vec![declaration_to_manifest(&loaded(&extension()))]);
+    let build = build_registries(vec![loaded(&extension())]);
 
     let unread: Vec<_> = build
         .registry_diagnostics
@@ -150,7 +148,7 @@ fn older_sdk_check_names_still_load() {
     }
     ext.entities[0].fields[0].field_type = "boolean".to_string();
 
-    let build = build_registries(vec![declaration_to_manifest(&ext)]);
+    let build = build_registries(vec![ext]);
     let unread: Vec<_> = build
         .registry_diagnostics
         .iter()
@@ -217,7 +215,7 @@ fn sdk_constraint_kinds_load_for_the_checks_that_read_them() {
         });
     }
 
-    let build = build_registries(vec![declaration_to_manifest(&loaded(&c))]);
+    let build = build_registries(vec![loaded(&c)]);
     let unread: Vec<_> = build
         .registry_diagnostics
         .iter()

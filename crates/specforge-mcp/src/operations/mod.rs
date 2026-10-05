@@ -111,7 +111,11 @@ pub(crate) fn project_schema(state: &McpState) -> specforge_emitter::GraphProtoc
         &state.registries().kinds,
         &state.registries().edges,
         &state.registries().fields,
-        &state.registries().extension_info,
+        &state
+            .registries()
+            .extension_info()
+            .map(|(name, version)| (name.to_string(), version.to_string()))
+            .collect::<Vec<_>>(),
     );
     if let Some(root) = &state.project_root {
         specforge_ops::schema_cache::attach_schema_version(&mut schema, &root.join(".specforge"));
@@ -477,7 +481,7 @@ pub(crate) fn remove_extension_op(state: &McpState, args: RemoveArgs) -> ToolOut
         name: &name,
         force,
         dry_run,
-        loaded: &state.registries().manifests,
+        loaded: &state.environment().manifests,
         kinds: &state.registries().kinds,
         graph: state.graph(),
     };
@@ -607,7 +611,7 @@ pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> Too
     // The shared listing, over what the session compiled.
     let entries = extension::list(
         root,
-        &state.registries().manifests,
+        &state.environment().manifests,
         &state.registries().kinds,
         state.graph(),
     );
@@ -660,7 +664,7 @@ pub(crate) fn providers_op(state: &McpState, _args: crate::args::NoArgs) -> Tool
     // The providers specforge.json configures, as the scheme registry built
     // from the loaded extensions sees them: the listing the CLI prints.
     let (providers, diagnostics) =
-        specforge_ops::extension::providers(root, &state.registries().manifests);
+        specforge_ops::extension::providers(root, state.registries().declarations());
     let listed: Vec<Value> = providers
         .iter()
         .map(|p| {
@@ -702,8 +706,11 @@ pub(crate) fn doctor_op(state: &mut McpState, args: DoctorArgs) -> ToolOutcome {
     // The same report `specforge doctor` prints, as the spec's
     // McpDoctorReport plus its sections. Credential health is the user's,
     // not the project's: only the CLI reports it.
-    let report =
-        specforge_ops::doctor::diagnose(&root, &state.registries().manifests, &state.diagnostics());
+    let report = specforge_ops::doctor::diagnose(
+        &root,
+        &state.environment().manifests,
+        &state.diagnostics(),
+    );
     ok(json!({
         "extensions_ok": report.extensions_ok(),
         "conflicts": report.conflict_messages(),
@@ -752,8 +759,8 @@ pub(crate) fn collect_op(state: &mut McpState, args: CollectArgs) -> ToolOutcome
     let compiled =
         other.then(|| specforge_project::CompiledProject::compile(&root, Some(runtime.as_ref())));
     let (graph, manifests) = match &compiled {
-        Some(project) => (&project.graph, &project.env.registries.manifests),
-        None => (state.graph(), &state.registries().manifests),
+        Some(project) => (&project.graph, &project.env.manifests),
+        None => (state.graph(), &state.environment().manifests),
     };
     let known = collect::KnownEntities::from_graph(graph);
 

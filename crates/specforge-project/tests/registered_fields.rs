@@ -343,9 +343,9 @@ fn population_completes_before_any_validation() {
     let loaded: Vec<&str> = project
         .env
         .registries
-        .manifests
+        .declarations()
         .iter()
-        .map(|m| m.name.as_str())
+        .map(|d| d.name())
         .collect();
     assert_eq!(loaded, ["@test/tasks", "@test/people"], "load order");
     let diagnostics = project.diagnostics();

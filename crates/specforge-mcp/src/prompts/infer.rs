@@ -113,7 +113,7 @@ fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
     }
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for manifest in &state.registries().manifests {
+    for manifest in &state.environment().manifests {
         for kind in &manifest.entity_kinds {
             let keyword = kind.keyword.to_lowercase();
             let guide = build_guide_for_kind(&keyword, manifest, &state.config().inference);
@@ -142,7 +142,7 @@ fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
     let global_conventions = state.config().inference.global.as_deref().unwrap_or("");
 
     let result = serde_json::json!({
-        "installed_extensions": state.registries().extension_info.iter().map(|(name, _)| name.clone()).collect::<Vec<_>>(),
+        "installed_extensions": state.registries().extension_info().map(|(name, _)| name.to_string()).collect::<Vec<_>>(),
         "existing_entities": kind_counts,
         "kinds": kinds_info,
         "project_conventions": global_conventions,
@@ -161,7 +161,7 @@ fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
 
 fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> JsonRpcResponse {
     let matched_kind = state
-        .registries()
+        .environment()
         .manifests
         .iter()
         .flat_map(|m| m.entity_kinds.iter().map(move |k| (m, k)))
@@ -244,7 +244,7 @@ fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> Json
     };
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for manifest in &state.registries().manifests {
+    for manifest in &state.environment().manifests {
         for kind in &manifest.entity_kinds {
             let keyword = kind.keyword.to_lowercase();
             let guide = build_guide_for_kind(&keyword, manifest, &state.config().inference);
@@ -288,7 +288,7 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
     let (summary, unanalyzed, stale) = match project_root {
         Some(root) => {
             let progress =
-                specforge_ops::infer::progress_or_fresh(root, &state.registries().manifests);
+                specforge_ops::infer::progress_or_fresh(root, &state.environment().manifests);
             (progress.summary, progress.unanalyzed, progress.stale)
         }
         None => {
@@ -302,7 +302,7 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
     };
 
     let kind_priorities: Vec<Value> = state
-        .registries()
+        .environment()
         .manifests
         .iter()
         .flat_map(|m| m.entity_kinds.iter().map(move |k| (m, k)))
@@ -376,7 +376,7 @@ fn get_workflow(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
     ];
 
     let installed_kinds: Vec<String> = state
-        .registries()
+        .environment()
         .manifests
         .iter()
         .flat_map(|m| m.entity_kinds.iter())
@@ -498,90 +498,37 @@ mod tests {
         serde_json::from_str(text.split("## Reference Data\n").nth(1).unwrap()).unwrap()
     }
 
-    use specforge_registry::{ManifestEntityKind, ManifestField, ManifestV2};
+    use specforge_extension_sdk::prelude::*;
+    use specforge_protocol_types::{AnalyzerDescriptor, ExtensionDeclaration};
 
-    fn test_manifest(kind_name: &str, guide: Option<&str>) -> ManifestV2 {
-        ManifestV2 {
-            name: "@specforge/test".to_string(),
-            version: "1.0.0".to_string(),
-            manifest_version: 2,
-            wasm_path: String::new(),
-            contributes: Default::default(),
-            entity_kinds: vec![ManifestEntityKind {
-                name: kind_name.to_string(),
-                keyword: kind_name.to_string(),
-                description: Some(format!("A test {} entity", kind_name)),
-                testable: false,
-                singleton: false,
-                supports_verify: false,
-                allowed_verify_kinds: vec![],
-                semantic_token: None,
-                lsp_icon: None,
-                dot_shape: None,
-                dot_color: None,
-                dot_fillcolor: None,
-                fields: vec![ManifestField {
-                    name: "description".to_string(),
-                    field_type: "string".to_string(),
-                    required: false,
-                    description: Some("A description".to_string()),
-                    edge: None,
-                    target_kind: None,
-                    file_reference: false,
-                    default_value: None,
-                    enum_values: vec![],
-                    inverse_of: None,
-                    normative: false,
-                    exempts_obligations: false,
-                    headline: false,
-                    derived_from: None,
-                    proof_role: None,
-                }],
-                incremental: None,
-                has_body_parser: false,
-                open_fields: false,
-                contract_target: false,
-                declares_types: false,
-                lifecycle_field: None,
-                inference_guide: guide.map(|s| s.to_string()),
-            }],
-            edge_types: vec![],
-            validation_rules: vec![],
-            verify_kinds: vec![],
-            fields: vec![],
-            incremental: None,
-            reserved_keywords: vec![],
-            migration_hook: None,
-            peer_dependencies: vec![],
-            sandbox_policy: None,
-            host_api_version: None,
-            entity_enhancements: vec![],
-            starter_template: None,
-            theme_color: None,
-            ext_short: None,
-            query_scope: None,
-            collector_contributions: vec![],
-            analyzer_contributions: vec![],
-            surfaces: None,
-        }
+    fn test_declaration(kind_name: &str, guide: Option<&str>) -> ExtensionDeclaration {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@specforge/test", "1.0.0"));
+        c.kind(kind_name, |k| {
+            k.description(&format!("A test {} entity", kind_name));
+            if let Some(guide) = guide {
+                k.inference_guide(guide);
+            }
+            k.field("description", |f| {
+                f.field_type(FieldType::String).description("A description");
+            });
+        });
+        c.declaration()
     }
 
     fn make_state_with_kind(kind_name: &str, guide: Option<&str>) -> McpState {
         let mut state = McpState::new();
         serve(
             &mut state,
-            vec![test_manifest(kind_name, guide)],
+            vec![test_declaration(kind_name, guide)],
             ProjectConfig::default(),
         );
         state
     }
 
-    /// Serve the test extension's `manifests` with `config`, over the
+    /// Serve the test extension's `declarations` with `config`, over the
     /// graph already served.
-    fn serve(state: &mut McpState, manifests: Vec<ManifestV2>, config: ProjectConfig) {
-        let mut env = specforge_project::Environment::empty();
-        env.registries.manifests = manifests;
-        env.registries.extension_info = vec![("@specforge/test".to_string(), "1.0.0".to_string())];
+    fn serve(state: &mut McpState, declarations: Vec<ExtensionDeclaration>, config: ProjectConfig) {
+        let mut env = specforge_project::Environment::from_declarations(declarations);
         env.config = config;
         let graph = state.graph().clone();
         state.serve_session(specforge_project::ProjectSession::from_graph(
@@ -645,8 +592,11 @@ mod tests {
             },
             ..Default::default()
         };
-        let manifests = vec![test_manifest("behavior", Some("Look for public functions"))];
-        serve(&mut state, manifests, config);
+        let declarations = vec![test_declaration(
+            "behavior",
+            Some("Look for public functions"),
+        )];
+        serve(&mut state, declarations, config);
         let resp = get(&state, serde_json::json!({}), Some(Value::from(1)));
         let content: Value = parse_payload(&resp);
         let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
@@ -944,17 +894,13 @@ mod tests {
 
     fn plan_state_with_sources(count: usize) -> (McpState, tempfile::TempDir) {
         let mut state = make_state_with_kind("behavior", Some("guide text"));
-        let mut manifest = test_manifest("behavior", Some("guide text"));
-        manifest.analyzer_contributions = vec![specforge_registry::AnalyzerContribution {
+        let mut declaration = test_declaration("behavior", Some("guide text"));
+        declaration.analyzers = vec![AnalyzerDescriptor {
             language: "rust".to_string(),
             file_extensions: vec![".rs".to_string()],
-            excluded_dirs: vec![],
-            scan_export: String::new(),
-            classify_export: String::new(),
-            map_export: String::new(),
-            description: None,
+            ..Default::default()
         }];
-        serve(&mut state, vec![manifest], ProjectConfig::default());
+        serve(&mut state, vec![declaration], ProjectConfig::default());
         let dir = tempfile::TempDir::new().unwrap();
         let src = dir.path().join("src");
         std::fs::create_dir_all(&src).unwrap();

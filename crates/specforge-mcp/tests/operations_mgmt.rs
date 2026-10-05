@@ -444,7 +444,7 @@ fn providers_entry_fields() {
 fn extensions_contract() {
     // compiler_api_available: the server compiled the project.
     let (mut server, root) = software_project();
-    assert!(!server.state().registries().manifests.is_empty());
+    assert!(!server.state().registries().declarations().is_empty());
 
     // extensions_listed: name, version, entity kinds and status.
     let resp = call_tool(&mut server, "specforge.extensions", json!({}));
@@ -497,7 +497,7 @@ fn providers_contract() {
         "name": "t", "version": "0.1.0", "extensions": ["@specforge/software"],
         "providers": [{"alias": "tracker", "scheme": "jira", "extension": "@acme/jira"}]
     }));
-    assert!(!server.state().registries().manifests.is_empty());
+    assert!(!server.state().registries().declarations().is_empty());
 
     // providers_listed: scheme, alias, extension and status.
     let resp = call_tool(&mut server, "specforge.providers", json!({}));

@@ -347,10 +347,10 @@ pub const CATALOG: &[CodeEntry] = &[
     },
     CodeEntry {
         code: "E030",
-        title: "Invalid extension manifest",
+        title: "Invalid extension declaration",
         owner: "core",
         level: Level::Error,
-        explanation: "An extension's manifest is unreadable, isn't valid JSON, or fails schema validation — a wrong `manifestVersion`, a missing `name`/`version`/`wasmPath`, an empty grammar/body-parser/analyzer contribution field, or a sandbox policy that allowlists a code file extension for output. `specforge publish` reports it for a `manifest.json` that doesn't parse. Fix the manifest according to the reported detail.",
+        explanation: "An extension's declaration (its handshake and describe answers) can't be used as declared: its name or version is empty, its `ext_short` isn't lowercase kebab case (`[a-z][a-z0-9-]*`; it names the extension's CLI subcommand and MCP tool prefix), or an analyzer has no language, no file extensions or an empty export name. The registry build reports it on every load, and `specforge publish` refuses such a binary before any network call. Fix the declaration in the extension's source (with the SDK: `#[extension(name, version, short)]` and the builders) and rebuild it.",
     },
     CodeEntry {
         code: "E031",
@@ -1516,10 +1516,10 @@ pub const CATALOG: &[CodeEntry] = &[
     },
     CodeEntry {
         code: "W138",
-        title: "Unknown manifest field",
+        title: "Unknown describe key",
         owner: "core",
         level: Level::Warning,
-        explanation: "An extension's manifest.json has a top-level field the v2 manifest schema doesn't define, so SpecForge ignores it. It is usually a misspelling (`entityKnds` for `entityKinds`) that leaves the extension without what the field was meant to declare. Fix the spelling or remove the field.",
+        explanation: "An item of an extension's describe answer has a key the extension protocol doesn't define, so the host ignores it. It's usually a misspelling in a hand-written (`raw_category`) item, `testabel` for `testable`, which leaves the item without what the key was meant to declare; or the extension was built with a newer SDK than this host. The message names the extension, the category, the item and the key. Fix the spelling, or update SpecForge.",
     },
     CodeEntry {
         code: "W139",
@@ -1562,6 +1562,13 @@ pub const CATALOG: &[CodeEntry] = &[
         owner: "core",
         level: Level::Warning,
         explanation: "The project root has a `specforge-cache.json` that can't be read, isn't valid JSON, or declares a `format` other than 1. The build cache records each entity's status from the build `specforge check --cache` last wrote, and check-phase passes compare against it (status transitions); with the file invalid they get no previous statuses, so history rules stay silent. Rewrite it with `specforge check --cache`, or delete it.",
+    },
+    CodeEntry {
+        code: "W145",
+        title: "Pass order constraints form a cycle",
+        owner: "core",
+        level: Level::Warning,
+        explanation: "An extension's compiler passes declare `after`/`before` constraints that form a cycle, so no order satisfies them all. The registry build reports it, naming the passes in the cycle, and runs that extension's passes in the order it declares them. Remove the constraint that closes the cycle.",
     },
 ];
 

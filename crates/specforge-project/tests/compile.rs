@@ -582,12 +582,136 @@ mod declared_in_process {
     fn the_declared_short_name_reaches_the_registry_build() {
         let runtime = InProcessRuntime::new().with(reports);
         let env = load(&["@acme/reports"], &runtime);
-        let manifest = env
-            .registries
-            .manifests
+        let declaration = env.registries.declaration("@acme/reports").expect("loaded");
+        assert_eq!(declaration.short(), "rep");
+    }
+}
+
+mod declared_passes {
+    //! The passes an environment runs are the ones its one declaration load
+    //! read: nothing describes `passes` again, and a passes answer that does
+    //! not parse fails the extension's load.
+
+    use super::project;
+    use specforge_extension_sdk::prelude::*;
+    use specforge_project::{CompiledProject, Environment};
+    use specforge_wasm::testing::InProcessRuntime;
+    use specforge_wasm::{WasmCallResult, WasmRuntime};
+    use std::path::Path;
+
+    fn audit() -> ContributionsBuilder {
+        let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/audit", "0.1.0"));
+        b.pass("audit", |p| {
+            p.phase("check");
+        });
+        b
+    }
+
+    fn audit_pass(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+        Some(Ok(b"[]".to_vec()))
+    }
+
+    /// The audit extension, whose `passes` answer is `items` instead of
+    /// what it declares.
+    struct MalformedPasses(InProcessRuntime, serde_json::Value);
+
+    impl WasmRuntime for MalformedPasses {
+        fn load_module(&self, path: &Path) -> Result<(), String> {
+            self.0.load_module(path)
+        }
+
+        fn call_export(&self, extension: &str, export: &str, input: &[u8]) -> WasmCallResult {
+            let request: serde_json::Value = serde_json::from_slice(input).unwrap_or_default();
+            if export == "__describe" && request["category"] == "passes" {
+                let answer = serde_json::json!({ "category": "passes", "items": self.1 });
+                return WasmCallResult::Ok(answer.to_string().into_bytes());
+            }
+            self.0.call_export(extension, export, input)
+        }
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "build_registries_from_declarations",
+        verify = "a passes description that does not parse fails the extension's load"
+    )]
+    fn a_passes_description_that_does_not_parse_fails_the_load() {
+        let runtime = MalformedPasses(
+            InProcessRuntime::new().with(audit),
+            serde_json::json!([{ "nam": "x" }]),
+        );
+        let dir = project(
+            serde_json::json!({ "name": "p", "version": "0.1.0", "extensions": ["@acme/audit"] }),
+            &[],
+        );
+        let env = Environment::load(dir.path(), Some(&runtime));
+        let e028: Vec<&str> = env
+            .diagnostics()
+            .filter(|d| d.code == "E028")
+            .map(|d| d.message.as_str())
+            .collect();
+        assert_eq!(e028.len(), 1, "{e028:?}");
+        assert!(
+            e028[0].contains("describe 'passes' failed")
+                && e028[0].contains("missing field `name`"),
+            "{}",
+            e028[0]
+        );
+        assert_eq!(env.registries.check_passes().count(), 0);
+    }
+
+    /// One environment load describes each category of each extension
+    /// once; compiling with it runs the check passes it read, describing
+    /// nothing again.
+    #[test]
+    fn an_environment_describes_each_category_once() {
+        let runtime = InProcessRuntime::new().with_handler(audit, audit_pass);
+        let dir = project(
+            serde_json::json!({ "name": "p", "version": "0.1.0", "extensions": ["@acme/audit"] }),
+            &[("a.spec", "spec p \"P\" {\n}\n")],
+        );
+        let compiled = CompiledProject::compile(dir.path(), Some(&runtime));
+        let calls: Vec<String> = runtime
+            .calls()
             .iter()
-            .find(|m| m.name == "@acme/reports")
-            .expect("loaded");
-        assert_eq!(manifest.ext_short.as_deref(), Some("rep"));
+            .map(|c| match c.input["category"].as_str() {
+                Some(category) => format!("{}:{category}", c.export),
+                None => c.export.clone(),
+            })
+            .collect();
+        let describes = calls.iter().filter(|c| c.starts_with("__describe")).count();
+        assert_eq!(
+            describes,
+            specforge_wasm::protocol::DECLARED_CATEGORIES.len(),
+            "{calls:?}"
+        );
+        assert_eq!(calls.iter().filter(|c| *c == "__handshake").count(), 1);
+        assert_eq!(calls.last().map(String::as_str), Some("__pass_audit"));
+        assert!(
+            compiled.diagnostics().iter().all(|d| d.code != "E028"),
+            "{:?}",
+            compiled.diagnostics()
+        );
+    }
+
+    fn no_version() -> ContributionsBuilder {
+        ContributionsBuilder::new(ExtensionMeta::new("@acme/noversion", ""))
+    }
+
+    /// The runtime's load failures (E028) come before the declarations'
+    /// own diagnostics (E030), whatever the load order (ADR 0012): they
+    /// used to interleave extension by extension.
+    #[test]
+    fn load_failures_come_before_declaration_diagnostics() {
+        let runtime = InProcessRuntime::new().with(no_version);
+        let dir = project(
+            serde_json::json!({
+                "name": "p", "version": "0.1.0",
+                "extensions": ["@acme/noversion", "@acme/missing"]
+            }),
+            &[],
+        );
+        let env = Environment::load(dir.path(), Some(&runtime));
+        let codes: Vec<&str> = env.diagnostics().map(|d| d.code.as_str()).collect();
+        assert_eq!(codes, ["E028", "E030"], "{codes:?}");
     }
 }

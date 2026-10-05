@@ -1,6 +1,7 @@
-//! Extension compiler passes: what an extension declares (`__describe
-//! passes`), in which order they run, the input every `__pass_<name>`
-//! export receives and how its answer is read. Check-phase passes run with
+//! Extension compiler passes: the input every `__pass_<name>` export
+//! receives and how its answer is read. What an extension declares, and in
+//! which order its passes run, is the registry build's
+//! (`specforge_registry::RegistryBuild::passes`). Check-phase passes run with
 //! every compile ([`crate::check_passes`]); the others under
 //! `specforge analyze` (`specforge_ops::analyze`). Findings are standard host
 //! diagnostics.
@@ -47,104 +48,6 @@ pub struct ExtensionPassReport {
     pub name: String,
     pub findings: Vec<Finding>,
     pub summary: serde_json::Value,
-}
-
-/// Order an extension's passes by their declared constraints: `after` /
-/// `before` names become edges, and ties resolve by declaration order
-/// (stable Kahn). Constraints referencing unknown passes — host phases like
-/// "resolve", or other extensions' passes — are ignored; a constraint cycle
-/// falls back to declaration order with a warning.
-pub fn order_passes(
-    passes: &[specforge_protocol_types::CompilerPassDescriptor],
-) -> Vec<specforge_protocol_types::CompilerPassDescriptor> {
-    use std::collections::{HashMap, VecDeque};
-
-    let index: HashMap<&str, usize> = passes
-        .iter()
-        .enumerate()
-        .map(|(i, p)| (p.name.as_str(), i))
-        .collect();
-    let mut successors: Vec<Vec<usize>> = vec![Vec::new(); passes.len()];
-    let mut indegree = vec![0usize; passes.len()];
-    let mut cyclic_constraint = false;
-
-    for (i, pass) in passes.iter().enumerate() {
-        // (dependency name, dependency_runs_first): `after: X` means X runs
-        // first; `before: X` means this pass runs first.
-        let mut deps: Vec<(&str, bool)> = Vec::new();
-        if let Some(after) = &pass.after {
-            deps.push((after, true));
-        }
-        if let Some(before) = &pass.before {
-            deps.push((before, false));
-        }
-        for (dep, dep_first) in deps {
-            let Some(&dep_idx) = index.get(dep) else {
-                continue; // unknown name: host phase or cross-extension
-            };
-            if dep == pass.name.as_str() {
-                continue; // self-referential constraint: ignore
-            }
-            let (from, to) = if dep_first {
-                (dep_idx, i)
-            } else {
-                (i, dep_idx)
-            };
-            if successors[from].contains(&to) {
-                continue;
-            }
-            successors[from].push(to);
-            indegree[to] += 1;
-        }
-    }
-
-    let mut ready: VecDeque<usize> = (0..passes.len()).filter(|&i| indegree[i] == 0).collect();
-    let mut order = Vec::with_capacity(passes.len());
-    while let Some(i) = ready.pop_front() {
-        order.push(i);
-        for &to in &successors[i] {
-            indegree[to] -= 1;
-            if indegree[to] == 0 {
-                ready.push_back(to);
-            }
-        }
-    }
-    if order.len() != passes.len() {
-        cyclic_constraint = true;
-    }
-
-    let mut result: Vec<specforge_protocol_types::CompilerPassDescriptor> =
-        order.into_iter().map(|i| passes[i].clone()).collect();
-    if cyclic_constraint {
-        eprintln!(
-            "warning: extension pass constraints form a cycle; falling back to declaration order"
-        );
-        result = passes.to_vec();
-    }
-    result
-}
-
-/// The phase a pass declares to run with every compile instead of under
-/// `specforge analyze`: the compiled project runs it after the graph
-/// checks, and its diagnostics are the compile's.
-pub const CHECK_PHASE: &str = "check";
-
-/// Whether `pass` runs with every compile ([`CHECK_PHASE`]).
-pub fn is_check_phase(pass: &specforge_protocol_types::CompilerPassDescriptor) -> bool {
-    pass.phase.as_deref() == Some(CHECK_PHASE)
-}
-
-/// The compiler passes `extension` declares (`__describe passes`), in the
-/// order they run ([`order_passes`]). Empty when it declares none, or its
-/// answer does not parse.
-pub fn declared_passes(
-    runtime: &dyn specforge_wasm::runtime::WasmRuntime,
-    extension: &str,
-) -> Vec<specforge_protocol_types::CompilerPassDescriptor> {
-    match specforge_wasm::protocol::load_declaration(runtime, extension) {
-        Ok(loaded) => order_passes(&loaded.declaration.passes),
-        Err(_) => Vec::new(),
-    }
 }
 
 /// The input every `__pass_<name>` export receives (the SDK's
@@ -243,22 +146,19 @@ pub fn call_pass(
     }
 }
 
-/// Dispatch extension-declared compiler passes through the wasm runtime.
-///
-/// Each extension's describe payload lists `CompilerPassDescriptor`s; the
-/// pass implementation lives in a `__pass_<name>` export that receives an
+/// Run the extensions' analyze passes (`passes` as the registry build
+/// ordered them; check-phase passes run with every compile instead)
+/// through the wasm runtime: each `__pass_<name>` export receives the
 /// entity snapshot and returns host Diagnostics. Traps (e.g. an extension
 /// that declares a pass but never implemented the export) are surfaced as
-/// warnings rather than run failures. Check-phase passes
-/// ([`is_check_phase`]) are not analyze passes: they run with every
-/// compile.
+/// warnings rather than run failures.
 pub fn run_extension_passes(
-    manifests: &[specforge_registry::ManifestV2],
+    passes: &[specforge_registry::DeclaredPass],
     input: &AnalysisContext,
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
     requested: &str,
 ) -> Vec<ExtensionPassReport> {
-    if manifests.is_empty() {
+    if passes.is_empty() {
         return Vec::new();
     }
     // Only the "all" sweep and exact `<extension>:<pass>` selections run
@@ -276,39 +176,35 @@ pub fn run_extension_passes(
     };
 
     let mut reports = Vec::new();
-    for manifest in manifests {
-        for pass in declared_passes(runtime, &manifest.name) {
-            if is_check_phase(&pass) {
-                continue;
-            }
-            let report_name = format!("{}:{}", manifest.name, pass.name);
-            if !wants(&report_name) {
-                continue;
-            }
-            match call_pass(
-                runtime,
-                &manifest.name,
-                &pass.name,
-                &payload_bytes,
-                input.graph,
-            ) {
-                Ok((findings, pass_summary)) => {
-                    let mut summary = serde_json::json!({
-                        "extension": manifest.name,
-                        "pass": pass.name,
-                        "entities_analyzed": entities_analyzed,
-                    });
-                    if let (Some(base), Some(extra)) = (summary.as_object_mut(), pass_summary) {
-                        base.extend(extra);
-                    }
-                    reports.push(ExtensionPassReport {
-                        name: report_name,
-                        findings,
-                        summary,
-                    })
+    for declared in passes.iter().filter(|p| !p.is_check_phase()) {
+        let report_name = declared.full_name();
+        if !wants(&report_name) {
+            continue;
+        }
+        let pass = &declared.pass;
+        match call_pass(
+            runtime,
+            &declared.extension,
+            &pass.name,
+            &payload_bytes,
+            input.graph,
+        ) {
+            Ok((findings, pass_summary)) => {
+                let mut summary = serde_json::json!({
+                    "extension": declared.extension,
+                    "pass": pass.name,
+                    "entities_analyzed": entities_analyzed,
+                });
+                if let (Some(base), Some(extra)) = (summary.as_object_mut(), pass_summary) {
+                    base.extend(extra);
                 }
-                Err(e) => eprintln!("warning: extension pass '{report_name}' {e}"),
+                reports.push(ExtensionPassReport {
+                    name: report_name,
+                    findings,
+                    summary,
+                })
             }
+            Err(e) => eprintln!("warning: extension pass '{report_name}' {e}"),
         }
     }
     reports
@@ -356,64 +252,4 @@ fn parse_pass_output(
         })
         .collect();
     Ok((diagnostics, summary))
-}
-
-#[cfg(test)]
-mod order_tests {
-    use super::order_passes;
-    use specforge_protocol_types::CompilerPassDescriptor;
-
-    fn pass(name: &str, after: Option<&str>, before: Option<&str>) -> CompilerPassDescriptor {
-        CompilerPassDescriptor {
-            name: name.to_string(),
-            after: after.map(str::to_string),
-            before: before.map(str::to_string),
-            phase: None,
-        }
-    }
-
-    fn names(passes: &[CompilerPassDescriptor]) -> Vec<&str> {
-        passes.iter().map(|p| p.name.as_str()).collect()
-    }
-
-    #[test]
-    fn after_constraints_order_dependencies_first() {
-        let passes = vec![
-            pass("layering_verify", Some("condition_check"), None),
-            pass("condition_check", Some("resolve"), None),
-            pass("event_graph_analyze", Some("layering_verify"), None),
-        ];
-        assert_eq!(
-            names(&order_passes(&passes)),
-            vec!["condition_check", "layering_verify", "event_graph_analyze"]
-        );
-    }
-
-    #[test]
-    fn before_constraints_run_this_pass_first() {
-        // `before: "first"` means this pass runs BEFORE "first".
-        let passes = vec![
-            pass("second", None, Some("first")),
-            pass("first", None, None),
-        ];
-        assert_eq!(names(&order_passes(&passes)), vec!["second", "first"]);
-    }
-
-    #[test]
-    fn ties_resolve_in_declaration_order() {
-        let passes = vec![pass("b", None, None), pass("a", None, None)];
-        assert_eq!(names(&order_passes(&passes)), vec!["b", "a"]);
-    }
-
-    #[test]
-    fn unknown_constraint_names_are_ignored() {
-        let passes = vec![pass("solo", Some("resolve"), None)];
-        assert_eq!(names(&order_passes(&passes)), vec!["solo"]);
-    }
-
-    #[test]
-    fn constraint_cycles_fall_back_to_declaration_order() {
-        let passes = vec![pass("a", Some("b"), None), pass("b", Some("a"), None)];
-        assert_eq!(names(&order_passes(&passes)), vec!["a", "b"]);
-    }
 }

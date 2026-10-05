@@ -12,7 +12,7 @@ use specforge_common::Diagnostic;
 use specforge_component::ComponentRuntime;
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
 use specforge_project::Environment;
-use specforge_registry::SurfaceContributions;
+use specforge_protocol_types::{SurfaceDescriptor, SurfaceSandboxOverride};
 use tempfile::TempDir;
 
 fn runtime() -> ComponentRuntime {
@@ -49,8 +49,8 @@ fn sorted(mut values: Vec<Value>) -> Value {
     Value::Array(values)
 }
 
-fn surfaces(s: &SurfaceContributions) -> Value {
-    let sandbox = |s: Option<&specforge_registry::SurfaceSandboxOverride>| {
+fn surfaces(s: &SurfaceDescriptor) -> Value {
+    let sandbox = |s: Option<&SurfaceSandboxOverride>| {
         s.map(|s| json!({ "fs_read": s.fs_read, "fs_write": s.fs_write, "network": s.network }))
     };
     json!({
@@ -86,19 +86,6 @@ fn surfaces(s: &SurfaceContributions) -> Value {
             "mime_type": r.mime_type,
             "sandbox": sandbox(r.sandbox.as_ref()),
         })).collect::<Vec<_>>(),
-    })
-}
-
-/// An extension's routing name: its declared short name, else its name's
-/// last segment.
-fn short(extension: &str, declared: Option<&str>) -> String {
-    declared.map(str::to_string).unwrap_or_else(|| {
-        extension
-            .rsplit('/')
-            .next()
-            .unwrap_or(extension)
-            .trim_start_matches('@')
-            .to_string()
     })
 }
 
@@ -213,18 +200,21 @@ fn digest(env: &Environment) -> Value {
         .iter()
         .map(|((kind, field), target)| (format!("{kind}.{field}"), target))
         .collect();
-    let extensions: Vec<&str> = r.extension_info.iter().map(|(n, _)| n.as_str()).collect();
-    let ext_short: BTreeMap<&str, String> = extensions
+    // An extension's routing name: its declared short name, else its name's
+    // last segment.
+    let ext_short: BTreeMap<&str, String> = r
+        .declarations()
         .iter()
-        .map(|name| {
-            let declared = r
-                .manifests
-                .iter()
-                .find(|m| m.name == *name)
-                .and_then(|m| m.ext_short.as_deref());
-            (*name, short(name, declared))
-        })
+        .map(|d| (d.name(), d.short().into_owned()))
         .collect();
+    // The load's diagnostics, then the declarations' own, then the setup's
+    // (providers, I002): what `Environment::diagnostics()` reports before
+    // the registry build's.
+    let load_diagnostics = env
+        .load_diagnostics
+        .iter()
+        .chain(&r.declaration_diagnostics)
+        .chain(&env.setup_diagnostics);
     json!({
         "kinds": kinds,
         "fields": fields,
@@ -242,15 +232,16 @@ fn digest(env: &Environment) -> Value {
             "extension": s.extension_name,
             "export": s.export_name,
         })).collect::<Vec<_>>(),
-        "manifest_surfaces": r.manifest_surfaces.iter()
-            .map(|(name, s)| json!({ "extension": name, "surfaces": surfaces(s) }))
+        "manifest_surfaces": r.declarations().iter()
+            .filter(|d| d.surfaces != SurfaceDescriptor::default())
+            .map(|d| json!({ "extension": d.name(), "surfaces": surfaces(&d.surfaces) }))
             .collect::<Vec<_>>(),
-        "extension_info": r.extension_info,
-        "check_passes": env.check_passes.iter()
-            .map(|p| json!({ "extension": p.extension, "name": p.name }))
+        "extension_info": r.extension_info().collect::<Vec<_>>(),
+        "check_passes": r.check_passes()
+            .map(|p| json!({ "extension": p.extension, "name": p.pass.name }))
             .collect::<Vec<_>>(),
         "ext_short": ext_short,
-        "load_diagnostics": diagnostics(&env.load_diagnostics),
+        "load_diagnostics": diagnostics(load_diagnostics),
         "registry_diagnostics": diagnostics(&r.registry_diagnostics),
         "surface_diagnostics": diagnostics(&r.surface_diagnostics),
     })

@@ -227,7 +227,7 @@ fn uri_template<'a>(
     entry: &specforge_registry::SurfaceRegistryEntry,
 ) -> Option<&'a str> {
     state
-        .registries()
+        .environment()
         .manifest_surfaces
         .iter()
         .filter(|(extension, _)| *extension == entry.extension_name)

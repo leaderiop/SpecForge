@@ -156,15 +156,15 @@ fn registries_for(
 ) {
     let names: Vec<String> = extensions.iter().map(|s| s.to_string()).collect();
     let runtime = wasm_runtime_for(&names);
-    let manifests: Vec<_> = names
+    let declarations: Vec<_> = names
         .iter()
         .map(|name| {
             let loaded = specforge_wasm::protocol::load_declaration(&runtime, name)
                 .unwrap_or_else(|e| panic!("{name} does not load: {e:?}"));
-            specforge_wasm::protocol::declaration_to_manifest(&loaded.declaration)
+            loaded.declaration
         })
         .collect();
-    let build = specforge_registry::build_registries(manifests);
+    let build = specforge_registry::build_registries(declarations);
     (build.kinds, build.fields)
 }
 
@@ -302,15 +302,13 @@ fn complete_field_names_contract() {
     .map(|s| s.to_string())
     .collect();
     let runtime = wasm_runtime_for(&ext_names);
-    let mut manifests = Vec::new();
+    let mut declarations = Vec::new();
     for name in &ext_names {
         if let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) {
-            manifests.push(specforge_wasm::protocol::declaration_to_manifest(
-                &loaded.declaration,
-            ));
+            declarations.push(loaded.declaration);
         }
     }
-    let field_reg = specforge_registry::build_registries(manifests).fields;
+    let field_reg = specforge_registry::build_registries(declarations).fields;
 
     let behavior_fields = specforge_lsp::complete_field_names("behavior", Some(&field_reg));
     assert!(

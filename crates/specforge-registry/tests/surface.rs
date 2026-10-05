@@ -1,24 +1,27 @@
+use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
+use specforge_protocol_types::{
+    CommandArgDescriptor, CommandDescriptor, ExtensionDeclaration, McpResourceDescriptor,
+    McpToolDescriptor, SurfaceDescriptor,
+};
 use specforge_registry::{
-    CommandArg, CommandArgType, CommandContribution, ManifestV2, McpResourceContribution,
-    McpToolContribution, SurfaceContributions, SurfaceRegistryEntry, SurfaceType,
-    register_surface_contributions,
+    CommandArgType, SurfaceRegistryEntry, SurfaceType, register_surface_contributions,
 };
 use specforge_test_macros::test as specforge_test;
 
 fn make_surfaces(
-    commands: Vec<CommandContribution>,
-    tools: Vec<McpToolContribution>,
-    resources: Vec<McpResourceContribution>,
-) -> SurfaceContributions {
-    SurfaceContributions {
+    commands: Vec<CommandDescriptor>,
+    tools: Vec<McpToolDescriptor>,
+    resources: Vec<McpResourceDescriptor>,
+) -> SurfaceDescriptor {
+    SurfaceDescriptor {
         commands,
         mcp_tools: tools,
         mcp_resources: resources,
     }
 }
 
-fn make_command(id: &str, export: &str) -> CommandContribution {
-    CommandContribution {
+fn make_command(id: &str, export: &str) -> CommandDescriptor {
+    CommandDescriptor {
         id: id.to_string(),
         title: id.to_string(),
         description: format!("{} command", id),
@@ -29,8 +32,8 @@ fn make_command(id: &str, export: &str) -> CommandContribution {
     }
 }
 
-fn make_tool(name: &str, export: &str) -> McpToolContribution {
-    McpToolContribution {
+fn make_tool(name: &str, export: &str) -> McpToolDescriptor {
+    McpToolDescriptor {
         name: name.to_string(),
         description: format!("{} tool", name),
         category: None,
@@ -41,8 +44,8 @@ fn make_tool(name: &str, export: &str) -> McpToolContribution {
     }
 }
 
-fn make_resource(name: &str, export: &str) -> McpResourceContribution {
-    McpResourceContribution {
+fn make_resource(name: &str, export: &str) -> McpResourceDescriptor {
+    McpResourceDescriptor {
         uri_template: format!("spec://{}", name),
         name: name.to_string(),
         description: None,
@@ -50,6 +53,16 @@ fn make_resource(name: &str, export: &str) -> McpResourceContribution {
         mime_type: "application/json".to_string(),
         sandbox: None,
     }
+}
+
+/// The declaration of `@ext/test`, its `surfaces` category served as the
+/// raw JSON `surfaces` (absent when `None`).
+fn declared_with(surfaces: Option<serde_json::Value>) -> ExtensionDeclaration {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@ext/test", "1.0.0"));
+    if let Some(surfaces) = surfaces {
+        c.raw_category("surfaces", serde_json::json!([surfaces]));
+    }
+    c.declaration()
 }
 
 // B:surface_contributions_types — verify unit "SurfaceContributions round-trip JSON serialization"
@@ -62,38 +75,29 @@ fn test_surface_contributions_round_trip_json() {
     );
 
     let json = serde_json::to_string(&surfaces).unwrap();
-    let parsed: SurfaceContributions = serde_json::from_str(&json).unwrap();
+    let parsed: SurfaceDescriptor = serde_json::from_str(&json).unwrap();
     assert_eq!(surfaces, parsed);
 }
 
 // B:surface_contributions_types — verify unit "ManifestV2 with surfaces field parses"
 #[test]
 fn test_manifest_with_surfaces_parses() {
-    let manifest: ManifestV2 = serde_json::from_str(
-        r#"{
-        "name": "@ext/test",
-        "version": "1.0.0",
-        "manifestVersion": 2,
-        "wasmPath": "test.wasm",
-        "surfaces": {
-            "commands": [{
-                "id": "analyze",
-                "title": "Analyze",
-                "description": "Run analysis",
-                "export": "cmd__analyze"
-            }],
-            "mcpTools": [{
-                "name": "search",
-                "description": "Search entities",
-                "export": "mcp__search",
-                "inputSchema": {"type": "object"}
-            }]
-        }
-    }"#,
-    )
-    .unwrap();
+    let declaration = declared_with(Some(serde_json::json!({
+        "commands": [{
+            "id": "analyze",
+            "title": "Analyze",
+            "description": "Run analysis",
+            "export": "cmd__analyze"
+        }],
+        "mcp_tools": [{
+            "name": "search",
+            "description": "Search entities",
+            "export": "mcp__search",
+            "input_schema": {"type": "object"}
+        }]
+    })));
 
-    let surfaces = manifest.surfaces.unwrap();
+    let surfaces = declaration.surfaces;
     assert_eq!(surfaces.commands.len(), 1);
     assert_eq!(surfaces.commands[0].id, "analyze");
     assert_eq!(surfaces.mcp_tools.len(), 1);
@@ -103,29 +107,21 @@ fn test_manifest_with_surfaces_parses() {
 // B:surface_contributions_types — verify unit "ManifestV2 without surfaces defaults to None"
 #[test]
 fn test_manifest_without_surfaces_defaults_none() {
-    let manifest: ManifestV2 = serde_json::from_str(
-        r#"{
-        "name": "@ext/test",
-        "version": "1.0.0",
-        "manifestVersion": 2,
-        "wasmPath": "test.wasm"
-    }"#,
-    )
-    .unwrap();
-    assert!(manifest.surfaces.is_none());
+    let declaration = declared_with(None);
+    assert_eq!(declaration.surfaces, SurfaceDescriptor::default());
 }
 
 // B:surface_contributions_types — verify unit "all 5 CommandArgType variants deserialize"
 #[test]
 fn test_all_command_arg_type_variants_deserialize() {
     let json = r#"[
-        {"name": "path", "argType": "string"},
-        {"name": "file", "argType": "path"},
-        {"name": "verbose", "argType": "bool"},
-        {"name": "format", "argType": {"enum": {"values": ["json", "text"]}}},
-        {"name": "count", "argType": "integer"}
+        {"name": "path", "arg_type": "string"},
+        {"name": "file", "arg_type": "path"},
+        {"name": "verbose", "arg_type": "bool"},
+        {"name": "format", "arg_type": {"enum": {"values": ["json", "text"]}}},
+        {"name": "count", "arg_type": "integer"}
     ]"#;
-    let args: Vec<CommandArg> = serde_json::from_str(json).unwrap();
+    let args: Vec<CommandArgDescriptor> = serde_json::from_str(json).unwrap();
     assert_eq!(args.len(), 5);
     assert_eq!(args[0].arg_type, CommandArgType::String);
     assert_eq!(args[1].arg_type, CommandArgType::Path);
@@ -134,40 +130,33 @@ fn test_all_command_arg_type_variants_deserialize() {
     assert_eq!(args[4].arg_type, CommandArgType::Integer);
 }
 
-/// The registry entries of one manifest, parsed from its JSON, whose
-/// `surfaces` field declares a command, an MCP tool and an MCP resource.
+/// The registry entries of one declaration, parsed from its JSON, whose
+/// `surfaces` category declares a command, an MCP tool and an MCP resource.
 fn registered_from_manifest() -> Vec<SurfaceRegistryEntry> {
-    let manifest: ManifestV2 = serde_json::from_str(
-        r#"{
-        "name": "@ext/test",
-        "version": "1.0.0",
-        "manifestVersion": 2,
-        "wasmPath": "test.wasm",
-        "surfaces": {
-            "commands": [{
-                "id": "analyze",
-                "title": "Analyze",
-                "description": "Run analysis",
-                "export": "cmd__analyze"
-            }],
-            "mcpTools": [{
-                "name": "search",
-                "description": "Search entities",
-                "export": "mcp__search",
-                "inputSchema": {"type": "object"}
-            }],
-            "mcpResources": [{
-                "uriTemplate": "spec://graph",
-                "name": "graph",
-                "export": "mcp__graph",
-                "mimeType": "application/json"
-            }]
-        }
-    }"#,
-    )
-    .unwrap();
-    let (entries, diags) =
-        register_surface_contributions(&[(manifest.name.clone(), manifest.surfaces.clone())]);
+    let declaration = declared_with(Some(serde_json::json!({
+        "commands": [{
+            "id": "analyze",
+            "title": "Analyze",
+            "description": "Run analysis",
+            "export": "cmd__analyze"
+        }],
+        "mcp_tools": [{
+            "name": "search",
+            "description": "Search entities",
+            "export": "mcp__search",
+            "input_schema": {"type": "object"}
+        }],
+        "mcp_resources": [{
+            "uri_template": "spec://graph",
+            "name": "graph",
+            "export": "mcp__graph",
+            "mime_type": "application/json"
+        }]
+    })));
+    let (entries, diags) = register_surface_contributions(&[(
+        declaration.name().to_string(),
+        declaration.surfaces.clone(),
+    )]);
     assert!(diags.is_empty(), "{diags:?}");
     assert_eq!(entries.len(), 3);
     entries
@@ -237,10 +226,7 @@ fn test_register_duplicate_command_id_e039() {
         vec![],
     );
 
-    let manifests = vec![
-        ("@ext/a".to_string(), Some(s1)),
-        ("@ext/b".to_string(), Some(s2)),
-    ];
+    let manifests = vec![("@ext/a".to_string(), s1), ("@ext/b".to_string(), s2)];
     let (_, diags) = register_surface_contributions(&manifests);
     assert_eq!(diags.len(), 1);
     assert_eq!(diags[0].code, "E039");
@@ -255,10 +241,7 @@ fn test_register_duplicate_mcp_tool_e039() {
     let s1 = make_surfaces(vec![], vec![make_tool("search", "mcp__search")], vec![]);
     let s2 = make_surfaces(vec![], vec![make_tool("search", "mcp__search_v2")], vec![]);
 
-    let manifests = vec![
-        ("@ext/a".to_string(), Some(s1)),
-        ("@ext/b".to_string(), Some(s2)),
-    ];
+    let manifests = vec![("@ext/a".to_string(), s1), ("@ext/b".to_string(), s2)];
     let (_, diags) = register_surface_contributions(&manifests);
     assert_eq!(diags.len(), 1);
     assert_eq!(diags[0].code, "E039");
@@ -281,10 +264,7 @@ fn test_register_no_duplicates_clean() {
         vec![make_resource("graph", "mcp__graph")],
     );
 
-    let manifests = vec![
-        ("@ext/a".to_string(), Some(s1)),
-        ("@ext/b".to_string(), Some(s2)),
-    ];
+    let manifests = vec![("@ext/a".to_string(), s1), ("@ext/b".to_string(), s2)];
     let (entries, diags) = register_surface_contributions(&manifests);
     assert!(diags.is_empty());
     assert_eq!(entries.len(), 4);
@@ -293,21 +273,21 @@ fn test_register_no_duplicates_clean() {
 // B:register_surface_contributions — verify contract
 #[test]
 fn test_register_surface_contributions_contract() {
-    // requires: manifests with surface contributions
+    // requires: declarations with surface contributions
     // ensures: all contributions registered with correct types
     let surfaces = make_surfaces(
         vec![make_command("run", "cmd__run")],
         vec![make_tool("query", "mcp__query")],
         vec![make_resource("spec", "mcp__spec")],
     );
-    let manifests = vec![("@ext/a".to_string(), Some(surfaces))];
+    let manifests = vec![("@ext/a".to_string(), surfaces)];
     let (entries, diags) = register_surface_contributions(&manifests);
     assert!(diags.is_empty());
     assert_eq!(entries.len(), 3);
     assert!(entries.iter().all(|e| e.extension_name == "@ext/a"));
 
-    // ensures: None surfaces are skipped
-    let manifests2 = vec![("@ext/b".to_string(), None)];
+    // ensures: empty surfaces register nothing
+    let manifests2 = vec![("@ext/b".to_string(), SurfaceDescriptor::default())];
     let (entries2, diags2) = register_surface_contributions(&manifests2);
     assert!(entries2.is_empty());
     assert!(diags2.is_empty());
@@ -315,23 +295,18 @@ fn test_register_surface_contributions_contract() {
     // ensures: duplicates produce E039
     let s1 = make_surfaces(vec![make_command("x", "cmd__x")], vec![], vec![]);
     let s2 = make_surfaces(vec![make_command("x", "cmd__x2")], vec![], vec![]);
-    let manifests3 = vec![
-        ("@ext/a".to_string(), Some(s1)),
-        ("@ext/b".to_string(), Some(s2)),
-    ];
+    let manifests3 = vec![("@ext/a".to_string(), s1), ("@ext/b".to_string(), s2)];
     let (_, diags3) = register_surface_contributions(&manifests3);
     assert!(diags3.iter().all(|d| d.code == "E039"));
 }
 
 /// The registry build over one extension contributing `tools`: the tools
 /// it registered (and lists to MCP), and its surface diagnostics.
-fn build_with_tools(tools: Vec<McpToolContribution>) -> (Vec<String>, Vec<String>, Vec<String>) {
-    let mut manifest: ManifestV2 = serde_json::from_str(
-        r#"{"name": "@ext/t", "version": "1.0.0", "manifestVersion": 2, "wasmPath": "t.wasm"}"#,
-    )
-    .unwrap();
-    manifest.surfaces = Some(make_surfaces(vec![], tools, vec![]));
-    let build = specforge_registry::build_registries(vec![manifest]);
+fn build_with_tools(tools: Vec<McpToolDescriptor>) -> (Vec<String>, Vec<String>, Vec<String>) {
+    let mut declaration =
+        ContributionsBuilder::new(ExtensionMeta::new("@ext/t", "1.0.0")).declaration();
+    declaration.surfaces = make_surfaces(vec![], tools, vec![]);
+    let build = specforge_registry::build_registries(vec![declaration]);
     let registered = build
         .surfaces
         .iter()
@@ -339,9 +314,9 @@ fn build_with_tools(tools: Vec<McpToolContribution>) -> (Vec<String>, Vec<String
         .map(|e| e.contribution_name.clone())
         .collect();
     let listed = build
-        .manifest_surfaces
+        .declarations()
         .iter()
-        .flat_map(|(_, s)| s.mcp_tools.iter().map(|t| t.name.clone()))
+        .flat_map(|d| d.surfaces.mcp_tools.iter().map(|t| t.name.clone()))
         .collect();
     let codes = build
         .surface_diagnostics

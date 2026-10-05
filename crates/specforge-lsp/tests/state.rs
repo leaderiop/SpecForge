@@ -120,15 +120,13 @@ fn load_patterns_for(
 )> {
     let names: Vec<String> = ext_names.iter().map(|s| s.to_string()).collect();
     let runtime = wasm_runtime_for(&names);
-    let mut manifests = Vec::new();
+    let mut declarations = Vec::new();
     for name in &names {
         if let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) {
-            manifests.push(specforge_wasm::protocol::declaration_to_manifest(
-                &loaded.declaration,
-            ));
+            declarations.push(loaded.declaration);
         }
     }
-    specforge_registry::build_registries(manifests).rules
+    specforge_registry::build_registries(declarations).rules
 }
 
 #[spec(

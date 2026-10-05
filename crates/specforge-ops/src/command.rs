@@ -12,7 +12,8 @@
 use serde_json::{Map, Value};
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_registry::{CommandContribution, ManifestV2, RegistryBuild};
+use specforge_project::Environment;
+use specforge_registry::{CommandContribution, ManifestV2};
 use specforge_wasm::CommandOutput;
 use specforge_wasm::runtime::WasmRuntime;
 use std::path::Path;
@@ -33,10 +34,9 @@ impl ExtensionCommand<'_> {
     }
 }
 
-/// The commands a project's extensions contribute, in manifest order.
-pub fn extension_commands(build: &RegistryBuild) -> Vec<ExtensionCommand<'_>> {
-    build
-        .manifest_surfaces
+/// The commands a project's extensions contribute, in load order.
+pub fn extension_commands(env: &Environment) -> Vec<ExtensionCommand<'_>> {
+    env.manifest_surfaces
         .iter()
         .flat_map(|(extension, surfaces)| {
             surfaces
@@ -355,7 +355,7 @@ mod tests {
             "only what the project enables"
         );
         let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
-        let commands = extension_commands(&env.registries);
+        let commands = extension_commands(&env);
         let features = commands
             .iter()
             .find(|c| c.contribution.id == "features")

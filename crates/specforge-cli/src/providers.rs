@@ -8,7 +8,7 @@ use std::path::Path;
 /// the loaded extensions gives it.
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let ctx = crate::pipeline::compile(path);
-    let (providers, diagnostics) = extension::providers(path, &ctx.manifests);
+    let (providers, diagnostics) = extension::providers(path, &ctx.declarations);
 
     match format {
         OutputFormat::Json => {

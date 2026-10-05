@@ -280,7 +280,7 @@ fn a_pass_without_the_check_phase_runs_only_under_analyze() {
         proved_claims: None,
     };
     let reports =
-        specforge_project::passes::run_extension_passes(&registries.manifests, &ctx, &ext, "all");
+        specforge_project::passes::run_extension_passes(&registries.passes, &ctx, &ext, "all");
     let names: Vec<&str> = reports.iter().map(|r| r.name.as_str()).collect();
     assert_eq!(names, ["@test/passes:report"], "analyze skips check passes");
     assert_eq!(reports[0].findings.len(), 2);

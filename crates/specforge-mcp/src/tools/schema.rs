@@ -46,7 +46,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     if args.include_validation_rules.unwrap_or(false) {
         // The rules each loaded extension declares, tagged with its name.
         let rules: Vec<Value> = state
-            .registries()
+            .environment()
             .manifests
             .iter()
             .flat_map(|manifest| {

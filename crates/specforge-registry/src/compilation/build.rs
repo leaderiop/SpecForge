@@ -1,32 +1,63 @@
-//! One registry build: loaded manifests in, everything the compiler derives
-//! from them out (architecture plan 05, step R1).
+//! One registry build: the loaded declarations in, everything the
+//! compiler derives from them out (ADR 0012).
 //!
-//! Callers used to run the steps themselves (populate, parse the rules,
-//! scope the edge rules, generate the E006 rules, register the surfaces)
-//! and derive the graph's inputs from the result, each in its own copy.
-//! [`build_registries`] owns that order; callers read [`RegistryBuild`].
+//! [`build_registries`] owns the order: it checks the declarations
+//! themselves (identity and shape, consistency, peers, pass order), then
+//! populates the registries, parses and scopes the rules, generates the
+//! E006 rules and registers the surfaces. Callers read [`RegistryBuild`].
+//! It is pure: no I/O, no runtime.
 
 use std::collections::{HashMap, HashSet};
 
 use specforge_common::Diagnostic;
+use specforge_protocol_types::{CompilerPassDescriptor, ExtensionDeclaration};
 
+use super::declaration::{consistency, order_passes, shape};
 use super::detection::generate_required_field_rules;
-use super::populate::populate_registries;
-use super::validate::{register_validation_rules, validate_extension_testability};
+use super::populate::{keyword, populate};
+use super::validate::{
+    peer_dependencies, register_validation_rules, validate_extension_testability,
+};
 use super::validation_engine::{
     ValidationRulePattern, parse_all_rule_patterns, resolve_edge_rules,
 };
 use crate::{
-    EdgeRegistry, FieldRegistry, KindRegistry, ManifestFieldType, ManifestV2, SurfaceContributions,
-    SurfaceRegistryEntry, refuse_malformed_tool_schemas, register_surface_contributions,
+    EdgeRegistry, FieldRegistry, KindRegistry, ManifestFieldType, SurfaceRegistryEntry,
+    refuse_malformed_tool_schemas, register_surface_contributions,
 };
 
-/// Everything the compiler derives from the loaded manifests, before any
-/// `.spec` file is read.
+/// The phase a pass declares to run with every compile instead of under
+/// `specforge analyze`: the compiled project runs it after the graph
+/// checks, and its diagnostics are the compile's.
+pub const CHECK_PHASE: &str = "check";
+
+/// One pass an extension declares, with that extension.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DeclaredPass {
+    pub extension: String,
+    pub pass: CompilerPassDescriptor,
+}
+
+impl DeclaredPass {
+    /// Whether the pass runs with every compile ([`CHECK_PHASE`]) rather
+    /// than under `specforge analyze`.
+    pub fn is_check_phase(&self) -> bool {
+        self.pass.phase.as_deref() == Some(CHECK_PHASE)
+    }
+
+    /// `<extension>:<pass>`, the name `specforge analyze` runs it by.
+    pub fn full_name(&self) -> String {
+        format!("{}:{}", self.extension, self.pass.name)
+    }
+}
+
+/// Everything the compiler derives from the loaded declarations, before
+/// any `.spec` file is read.
 #[derive(Debug, Default)]
 pub struct RegistryBuild {
-    /// The manifests the build was made from, in load order.
-    pub manifests: Vec<ManifestV2>,
+    /// The declarations the build was made from, in load order; MCP tools
+    /// refused for a malformed schema (E055) are left out of their surfaces.
+    declarations: Vec<ExtensionDeclaration>,
     pub kinds: KindRegistry,
     pub fields: FieldRegistry,
     pub edges: EdgeRegistry,
@@ -48,36 +79,94 @@ pub struct RegistryBuild {
     pub absent_reference_targets: HashMap<(String, String), String>,
     /// Registered surface contributions (first registration wins).
     pub surfaces: Vec<SurfaceRegistryEntry>,
-    /// Each manifest's raw surface contributions, for MCP descriptors.
-    pub manifest_surfaces: Vec<(String, SurfaceContributions)>,
-    /// (name, version) of each loaded extension.
-    pub extension_info: Vec<(String, String)>,
-    /// Populate (E026, W018, W019, I004), rule-parse (W112), then
-    /// duplicate rule codes (W023)
-    /// diagnostics, in that order. `specforge_project::Environment::load`
-    /// appends the custom rules' probes (W112) when the extensions ran in a
-    /// runtime.
+    /// Every declared pass with its extension: extension by extension in
+    /// load order, each extension's in its after/before order.
+    pub passes: Vec<DeclaredPass>,
+    /// The declarations' own diagnostics: E030 identity and shape, W021
+    /// self-consistency, E027 peers, W145 pass cycles — in that order,
+    /// extension by extension within each. Reported before
+    /// `registry_diagnostics`.
+    pub declaration_diagnostics: Vec<Diagnostic>,
+    /// Populate (E026, W018, W019, W021, I004), W017, rule-parse (W112),
+    /// then duplicate rule codes (W023) diagnostics, in that order.
+    /// `specforge_project::Environment::load` appends the custom rules'
+    /// probes (W112) when the extensions ran in a runtime.
     pub registry_diagnostics: Vec<Diagnostic>,
-    /// Surface registration conflicts (E039). `specforge check` reports
-    /// them after the graph's own diagnostics.
+    /// Refused MCP tools (E055) and surface registration conflicts (E039).
+    /// `specforge check` reports them after the graph's own diagnostics.
     pub surface_diagnostics: Vec<Diagnostic>,
 }
 
-/// Build every registry and derived input from the loaded manifests, which
-/// come in load order (dependencies first).
-pub fn build_registries(manifests: Vec<ManifestV2>) -> RegistryBuild {
-    let (kinds, fields, edges, mut registry_diagnostics) = populate_registries(&manifests);
+impl RegistryBuild {
+    /// The declarations the build was made from, in load order.
+    pub fn declarations(&self) -> &[ExtensionDeclaration] {
+        &self.declarations
+    }
+
+    /// The declaration of the extension named `name`, when it is loaded.
+    pub fn declaration(&self, name: &str) -> Option<&ExtensionDeclaration> {
+        self.declarations.iter().find(|d| d.name() == name)
+    }
+
+    /// The passes every compile runs (`phase: "check"`), in order.
+    pub fn check_passes(&self) -> impl Iterator<Item = &DeclaredPass> {
+        self.passes.iter().filter(|p| p.is_check_phase())
+    }
+
+    /// The passes `specforge analyze` runs, in order.
+    pub fn analyze_passes(&self) -> impl Iterator<Item = &DeclaredPass> {
+        self.passes.iter().filter(|p| !p.is_check_phase())
+    }
+
+    /// (name, version) of each loaded extension, in load order.
+    pub fn extension_info(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.declarations.iter().map(|d| (d.name(), d.version()))
+    }
+}
+
+/// Build every registry and derived input from the loaded declarations,
+/// which come in load order (dependencies first).
+pub fn build_registries(mut declarations: Vec<ExtensionDeclaration>) -> RegistryBuild {
+    // The declarations themselves: E030, W021, E027, then W145.
+    let mut declaration_diagnostics: Vec<Diagnostic> =
+        declarations.iter().flat_map(shape).collect();
+    for declaration in &declarations {
+        declaration_diagnostics.extend(consistency(declaration, &declarations));
+    }
+    declaration_diagnostics.extend(peer_dependencies(&declarations));
+    let mut passes = Vec::new();
+    for declaration in &declarations {
+        let (ordered, cycle) = order_passes(declaration.name(), &declaration.passes);
+        declaration_diagnostics.extend(cycle);
+        passes.extend(ordered.into_iter().map(|pass| DeclaredPass {
+            extension: declaration.name().to_string(),
+            pass,
+        }));
+    }
+
+    // A tool whose schema is not an object is refused before anything
+    // registers or lists it (E055).
+    let mut surface_diagnostics = Vec::new();
+    for declaration in &mut declarations {
+        let name = declaration.name().to_string();
+        surface_diagnostics.extend(refuse_malformed_tool_schemas(
+            &name,
+            &mut declaration.surfaces,
+        ));
+    }
+
+    let (kinds, fields, edges, mut registry_diagnostics) = populate(&declarations);
     // W017: a testable kind that can't declare obligations.
     registry_diagnostics.extend(validate_extension_testability(&kinds));
 
-    let rule_inputs: Vec<(String, Vec<_>)> = manifests
+    let rule_inputs: Vec<(String, Vec<_>)> = declarations
         .iter()
-        .map(|m| (m.name.clone(), m.validation_rules.clone()))
+        .map(|d| (d.name().to_string(), d.validation_rules.clone()))
         .collect();
     let (mut rules, rule_diagnostics) = parse_all_rule_patterns(&rule_inputs);
     registry_diagnostics.extend(rule_diagnostics);
     // W023: two extensions declaring the same rule code.
-    registry_diagnostics.extend(register_validation_rules(&manifests).1);
+    registry_diagnostics.extend(register_validation_rules(&declarations).1);
     resolve_edge_rules(&mut rules, &edges, &kinds);
     // Required fields (`required: true`) get host-generated, declarative
     // E006 rules: originless, so never dispatched to an extension.
@@ -87,11 +176,11 @@ pub fn build_registries(manifests: Vec<ManifestV2>) -> RegistryBuild {
             .map(|p| (p, String::new())),
     );
 
-    let body_parser_kinds: HashSet<String> = manifests
+    let body_parser_kinds: HashSet<String> = declarations
         .iter()
-        .flat_map(|m| m.entity_kinds.iter())
+        .flat_map(|d| d.entities.iter())
         .filter(|k| k.has_body_parser)
-        .map(|k| k.keyword.clone())
+        .map(|k| keyword(k).to_string())
         .collect();
     let single_reference_fields: HashSet<(String, String)> = if kinds.is_empty() {
         HashSet::new()
@@ -105,32 +194,15 @@ pub fn build_registries(manifests: Vec<ManifestV2>) -> RegistryBuild {
     let bidirectional_pairs = fields.bidirectional_pairs();
     let absent_reference_targets = fields.absent_reference_targets(&kinds);
 
-    let extension_info: Vec<(String, String)> = manifests
+    let surface_inputs: Vec<(String, _)> = declarations
         .iter()
-        .map(|m| (m.name.clone(), m.version.clone()))
-        .collect();
-    // A tool whose schema is not an object is refused before anything
-    // registers or lists it (E055).
-    let mut surface_diagnostics = Vec::new();
-    let surface_inputs: Vec<(String, Option<SurfaceContributions>)> = manifests
-        .iter()
-        .map(|m| {
-            let surfaces = m.surfaces.clone().map(|mut s| {
-                surface_diagnostics.extend(refuse_malformed_tool_schemas(&m.name, &mut s));
-                s
-            });
-            (m.name.clone(), surfaces)
-        })
+        .map(|d| (d.name().to_string(), d.surfaces.clone()))
         .collect();
     let (surfaces, duplicates) = register_surface_contributions(&surface_inputs);
     surface_diagnostics.extend(duplicates);
-    let manifest_surfaces: Vec<(String, SurfaceContributions)> = surface_inputs
-        .into_iter()
-        .filter_map(|(name, s)| s.map(|s| (name, s)))
-        .collect();
 
     RegistryBuild {
-        manifests,
+        declarations,
         kinds,
         fields,
         edges,
@@ -140,8 +212,8 @@ pub fn build_registries(manifests: Vec<ManifestV2>) -> RegistryBuild {
         bidirectional_pairs,
         absent_reference_targets,
         surfaces,
-        manifest_surfaces,
-        extension_info,
+        passes,
+        declaration_diagnostics,
         registry_diagnostics,
         surface_diagnostics,
     }

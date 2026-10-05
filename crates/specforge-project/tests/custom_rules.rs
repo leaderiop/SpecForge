@@ -231,7 +231,7 @@ fn custom_rules_register_resolve_and_dispatch_through_a_compile() {
     let compiled = CompiledProject::compile(dir.path(), Some(&RulesExtension));
 
     // extension_manifests_loaded_fired + custom_patterns_registered
-    assert_eq!(compiled.env.registries.manifests.len(), 1);
+    assert_eq!(compiled.env.registries.declarations().len(), 1);
     let mut registered: Vec<(&str, &str)> = compiled
         .env
         .registries

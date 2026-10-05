@@ -15,15 +15,13 @@ fn default_field_registry() -> FieldRegistry {
     .map(|s| s.to_string())
     .collect();
     let runtime = wasm_runtime_for(&ext_names);
-    let mut manifests = Vec::new();
+    let mut declarations = Vec::new();
     for name in &ext_names {
         if let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) {
-            manifests.push(specforge_wasm::protocol::declaration_to_manifest(
-                &loaded.declaration,
-            ));
+            declarations.push(loaded.declaration);
         }
     }
-    specforge_registry::build_registries(manifests).fields
+    specforge_registry::build_registries(declarations).fields
 }
 
 fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
