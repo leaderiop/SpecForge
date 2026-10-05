@@ -2,8 +2,8 @@
 //! (__handshake / __describe) through a WasmRuntime implementation.
 
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, no_other_exports};
+use specforge_protocol_types::{ContributionFlags, HandshakeResponse};
 use specforge_test::prelude::*;
-use specforge_wasm::protocol::{ContributionFlags, HandshakeResponse};
 use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{WasmCallResult, WasmTrapInfo};
 use std::fs;

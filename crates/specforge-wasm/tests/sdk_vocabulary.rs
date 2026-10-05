@@ -7,9 +7,10 @@ use std::collections::HashMap;
 
 use specforge_common::{SourceSpan, Sym};
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, prelude::*};
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::build_registries;
 use specforge_registry::validation_engine::{ValidationEntity, execute_pattern};
-use specforge_wasm::protocol::{ExtensionDeclaration, load_declaration};
+use specforge_wasm::protocol::load_declaration;
 use specforge_wasm::testing::InProcessRuntime;
 
 fn extension() -> ContributionsBuilder {

@@ -1,5 +1,5 @@
 use crate::integrity::hex_sha256;
-use crate::runtime::{ExtensionLifecycleState, LoadedModule, WasmRuntime};
+use crate::runtime::WasmRuntime;
 use specforge_common::{Diagnostic, Severity};
 use std::path::Path;
 
@@ -14,7 +14,7 @@ pub fn load_wasm_module(
     wasm_path: &Path,
     runtime: &dyn WasmRuntime,
     expected_hash: Option<&str>,
-) -> Result<LoadedModule, Diagnostic> {
+) -> Result<(), Diagnostic> {
     // Check if the .wasm binary exists
     if !wasm_path.exists() {
         return Err(Diagnostic {
@@ -34,7 +34,7 @@ pub fn load_wasm_module(
         });
     }
 
-    // Content hash recorded on the loaded module (lockfile verification)
+    // The binary's content hash, checked against the lockfile pin.
     let bytes = std::fs::read(wasm_path).map_err(|e| Diagnostic {
         code: "E028".to_string(),
         severity: Severity::Error,
@@ -83,13 +83,7 @@ pub fn load_wasm_module(
             span: None,
             suggestion: None,
             data: None,
-        })?;
-
-    Ok(LoadedModule {
-        extension_name: extension_name.to_string(),
-        wasm_hash,
-        state: ExtensionLifecycleState::Loading,
-    })
+        })
 }
 
 #[cfg(test)]
@@ -122,10 +116,7 @@ mod tests {
         let wasm_path = create_fake_wasm(&dir, "ext.wasm");
         let runtime = runtime();
 
-        let module = load_wasm_module("test-ext", &wasm_path, &runtime, None).unwrap();
-        assert_eq!(module.extension_name, "test-ext");
-        assert_eq!(module.state, ExtensionLifecycleState::Loading);
-        assert!(!module.wasm_hash.is_empty());
+        load_wasm_module("test-ext", &wasm_path, &runtime, None).unwrap();
     }
 
     // B:load_wasm_module — verify unit "missing .wasm produces ExtensionError"
@@ -147,8 +138,7 @@ mod tests {
         let runtime = runtime();
 
         // ensures: extension_loaded on success
-        let module = load_wasm_module("test-ext", &wasm_path, &runtime, None).unwrap();
-        assert_eq!(module.state, ExtensionLifecycleState::Loading);
+        load_wasm_module("test-ext", &wasm_path, &runtime, None).unwrap();
 
         // ensures: missing_binary_diagnosed
         let missing = Path::new("/nonexistent.wasm");

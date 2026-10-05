@@ -1,9 +1,7 @@
-//! The extension protocol on the host side: the wire types (shared with
-//! the SDK through `specforge-protocol-types`) and the one loader that
-//! reads an extension's declaration ([`load_declaration`], ADR 0012).
+//! The one loader that reads an extension's declaration
+//! ([`load_declaration`], ADR 0012). The wire types are
+//! `specforge_protocol_types`, shared with the SDK.
 
 mod load;
 
 pub use load::{Loaded, load_declaration};
-
-pub use specforge_protocol_types::*;

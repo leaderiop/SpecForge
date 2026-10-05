@@ -315,7 +315,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Extension load or execution failure",
         owner: "core",
         level: Level::Error,
-        explanation: "An extension's Wasm module failed somewhere in its lifecycle — the binary is missing or unreadable, failed to load, trapped while running `initialize`/`validate`/a check-phase compiler pass/a collector/body parser/surface command/MCP tool or resource, returned output that isn't valid JSON, a grammar cache path couldn't be written, or the extension's declared host API version isn't supported. Check the extension's logs or report the trap to its author, and confirm the extension is installed and up to date.",
+        explanation: "An extension failed somewhere in its lifecycle: its binary is missing, unreadable or does not load as a component; its handshake or one of its describe categories failed or does not parse, so its declaration cannot be read (`specforge add` and `specforge publish` refuse such a binary); or a call the host makes on the loaded extension failed. The host calls ten exports: the handshake and describe, a command, an MCP tool, an MCP resource, a compiler pass, a collector, a custom validator, a scanner and the migration hook. Each call fails when the export traps (its time or fuel included), when the extension does not route it, or when it answers output that is not the protocol type the operation owes; the message names the operation, the export and the extension (`command cmd__x() of '@acme/x' trapped: ...`). What the failure costs is the operation's: a check pass's is the compile's error, an analyze pass's a finding of that pass, a scanner's makes `infer` approximate. Report the failure to the extension's author, and confirm the extension is installed and up to date.",
     },
     CodeEntry {
         code: "E030",
@@ -1375,13 +1375,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "Two or more `.spec` files import each other, forming a cycle in the import graph. Break the cycle by removing one of the `use` imports or extracting the shared entities into a separate file.",
     },
     CodeEntry {
-        code: "W114",
-        title: "Integrity check skipped",
-        owner: "core",
-        level: Level::Warning,
-        explanation: "A Wasm extension's integrity check was bypassed because the `--skip-verify` flag was passed. Remove `--skip-verify` to re-enable hash verification of the extension's `.wasm` binary.",
-    },
-    CodeEntry {
         code: "W115",
         title: "Invalid collector report",
         owner: "core",
@@ -1537,6 +1530,7 @@ pub const RETIRED: &[(&str, Option<&str>)] = &[
     ("W063", None),
     ("W099", None),
     ("W111", None),
+    ("W114", None),
     ("W116", None),
     ("W117", None),
     ("W120", None),

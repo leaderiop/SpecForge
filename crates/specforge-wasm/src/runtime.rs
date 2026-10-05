@@ -15,26 +15,6 @@ pub struct WasmTrapInfo {
     pub export_name: String,
 }
 
-/// Extension lifecycle state tracked by the compiler.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ExtensionLifecycleState {
-    Discovered,
-    Loading,
-    Initialized,
-    Validating,
-    Exporting,
-    Unloaded,
-    Failed,
-}
-
-/// A loaded Wasm module — opaque handle returned by the runtime.
-#[derive(Debug)]
-pub struct LoadedModule {
-    pub extension_name: String,
-    pub wasm_hash: String,
-    pub state: ExtensionLifecycleState,
-}
-
 /// Testable abstraction over a Wasm runtime (wasmtime component engine).
 ///
 /// Compilation caching is a host-engine concern (wasmtime's native on-disk

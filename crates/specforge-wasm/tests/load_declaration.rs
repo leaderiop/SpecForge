@@ -4,7 +4,8 @@
 //! are served in process from their SDK builders (`InProcessRuntime`).
 
 use specforge_extension_sdk::prelude::*;
-use specforge_wasm::protocol::{DECLARED_CATEGORIES, ProtocolError, load_declaration};
+use specforge_protocol_types::{DECLARED_CATEGORIES, ProtocolError};
+use specforge_wasm::protocol::load_declaration;
 use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{WasmCallResult, WasmRuntime, WasmTrapInfo};
 

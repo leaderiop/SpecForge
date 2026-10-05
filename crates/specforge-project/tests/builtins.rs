@@ -256,7 +256,7 @@ fn rust_extension_loads_via_protocol() {
 
 #[test]
 fn rust_scanner_produces_same_items_as_fallback() {
-    use specforge_wasm::protocol::{ScanRequest, ScanResponse};
+    use specforge_protocol_types::{ScanRequest, ScanResponse};
 
     let source = r#"pub fn hello() {}
 pub struct MyConfig {}
@@ -318,7 +318,7 @@ fn typescript_extension_loads_via_protocol() {
 
 #[test]
 fn typescript_scanner_finds_exported_symbols() {
-    use specforge_wasm::protocol::{ScanRequest, ScanResponse};
+    use specforge_protocol_types::{ScanRequest, ScanResponse};
 
     let source = r#"export function handleRequest() {}
 export async function fetchData() {}

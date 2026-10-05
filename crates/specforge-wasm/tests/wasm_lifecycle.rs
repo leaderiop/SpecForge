@@ -6,9 +6,7 @@ use specforge_common::Severity;
 use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta};
 use specforge_protocol_types::PeerDependency;
 use specforge_wasm::testing::InProcessRuntime;
-use specforge_wasm::{
-    ExtensionLifecycleState, LockFile, load_wasm_module, topological_sort_extensions,
-};
+use specforge_wasm::{LockFile, load_wasm_module, topological_sort_extensions};
 use std::path::Path;
 use tempfile::TempDir;
 
@@ -56,18 +54,14 @@ fn create_fake_wasm(dir: &TempDir, name: &str) -> std::path::PathBuf {
 // B:load_wasm_module — integration tests
 // ============================================================================
 
-// B:load_wasm_module — verify integration "load valid module bytes → Ok with LoadedModule"
+// B:load_wasm_module — verify integration "load valid module bytes → Ok"
 #[test]
-fn test_load_valid_module_returns_loaded_module() {
+fn test_load_valid_module_loads() {
     let dir = TempDir::new().unwrap();
     let wasm_path = create_fake_wasm(&dir, "ext.wasm");
     let runtime = runtime();
 
-    let module = load_wasm_module("@test/ext", &wasm_path, &runtime, None).unwrap();
-    assert_eq!(module.extension_name, "@test/ext");
-    assert_eq!(module.state, ExtensionLifecycleState::Loading);
-    assert!(!module.wasm_hash.is_empty());
-    assert_eq!(module.wasm_hash.len(), 64); // SHA256 hex
+    load_wasm_module("@test/ext", &wasm_path, &runtime, None).unwrap();
 }
 
 // B:load_wasm_module — verify integration "load corrupted bytes → Err with E028"
@@ -81,16 +75,15 @@ fn test_load_missing_wasm_returns_e028() {
     assert!(err.message.contains("not found"));
 }
 
-// B:load_wasm_module — verify contract "requires valid bytes, ensures LoadedModule or diagnostic"
+// B:load_wasm_module — verify contract "requires valid bytes, ensures a load or a diagnostic"
 #[test]
 fn test_load_wasm_module_contract() {
     let dir = TempDir::new().unwrap();
     let wasm_path = create_fake_wasm(&dir, "ext.wasm");
     let runtime = runtime();
 
-    // ensures: success path returns LoadedModule
-    let module = load_wasm_module("@test/ext", &wasm_path, &runtime, None).unwrap();
-    assert_eq!(module.state, ExtensionLifecycleState::Loading);
+    // ensures: success path loads it
+    load_wasm_module("@test/ext", &wasm_path, &runtime, None).unwrap();
 
     // ensures: failure path returns E028 diagnostic
     let err = load_wasm_module("bad", Path::new("/no/such.wasm"), &runtime, None).unwrap_err();
@@ -210,14 +203,13 @@ fn load_refuses_binary_that_differs_from_lockfile_hash() {
 
     // Load with the recorded hash: succeeds.
     let runtime = runtime();
-    let module = load_wasm_module(
+    load_wasm_module(
         "@test/ext",
         &wasm_path,
         &runtime,
         Some(lock.entries[0].wasm_hash.as_str()),
     )
     .unwrap();
-    assert_eq!(module.wasm_hash, lock.entries[0].wasm_hash);
 
     // Tamper with the installed binary, then load: refused with E033.
     std::fs::write(&wasm_path, b"\0asm-swapped-after-install").unwrap();
@@ -242,11 +234,7 @@ fn load_with_empty_or_absent_hash_does_not_fail() {
     let runtime = runtime();
 
     // Legacy lockfile entry: empty hash string — warn-and-load, not fail.
-    let module = load_wasm_module("@test/legacy", &wasm_path, &runtime, Some("")).unwrap();
-    assert_eq!(
-        module.wasm_hash,
-        specforge_wasm::hex_sha256(b"\0asm-legacy")
-    );
+    load_wasm_module("@test/legacy", &wasm_path, &runtime, Some("")).unwrap();
 
     // No hash context at all (local dev load): unchanged behavior.
     load_wasm_module("@test/local", &wasm_path, &runtime, None).unwrap();

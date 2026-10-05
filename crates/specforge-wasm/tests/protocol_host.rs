@@ -6,9 +6,8 @@
 
 use serde_json::json;
 use specforge_extension_sdk::prelude::*;
-use specforge_wasm::protocol::{
-    HandshakeResponse, Loaded, PROTOCOL_VERSION, ProtocolError, load_declaration,
-};
+use specforge_protocol_types::{HandshakeResponse, PROTOCOL_VERSION, ProtocolError};
+use specforge_wasm::protocol::{Loaded, load_declaration};
 use specforge_wasm::testing::InProcessRuntime;
 use specforge_wasm::{WasmCallResult, WasmTrapInfo};
 

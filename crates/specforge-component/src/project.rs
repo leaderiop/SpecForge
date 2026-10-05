@@ -90,7 +90,7 @@ fn load_installed(
         });
     };
     let wasm = specforge_wasm::installed_wasm_path(&root.join(".specforge/extensions"), name);
-    specforge_wasm::load_wasm_module(name, &wasm, runtime, Some(&entry.wasm_hash)).map(|_| ())
+    specforge_wasm::load_wasm_module(name, &wasm, runtime, Some(&entry.wasm_hash))
 }
 
 /// Per-user Wasmtime compilation cache directory.

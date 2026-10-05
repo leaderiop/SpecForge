@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 
 use specforge_component::ComponentRuntime;
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
-use specforge_wasm::protocol::{PROTOCOL_VERSION, SUPPORTED_CATEGORIES};
+use specforge_protocol_types::{PROTOCOL_VERSION, SUPPORTED_CATEGORIES};
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
 fn repo_root() -> PathBuf {

@@ -720,7 +720,7 @@ mod passes_of_the_declaration {
         let describes = calls.iter().filter(|c| c.starts_with("__describe")).count();
         assert_eq!(
             describes,
-            specforge_wasm::protocol::DECLARED_CATEGORIES.len(),
+            specforge_protocol_types::DECLARED_CATEGORIES.len(),
             "{calls:?}"
         );
         assert_eq!(calls.iter().filter(|c| *c == "__handshake").count(), 1);

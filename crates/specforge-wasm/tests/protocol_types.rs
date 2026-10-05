@@ -1,4 +1,4 @@
-use specforge_wasm::protocol::*;
+use specforge_protocol_types::*;
 
 // ── Step 1: HandshakeRequest tracer bullet ──
 

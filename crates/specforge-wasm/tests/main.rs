@@ -1,7 +1,6 @@
 mod calls;
 mod discovery_and_lockfile;
 mod handshake_conformance;
-mod integrity;
 mod load_declaration;
 mod protocol_host;
 mod protocol_types;

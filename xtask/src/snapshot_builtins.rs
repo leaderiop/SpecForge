@@ -13,7 +13,7 @@
 
 use specforge_component::ComponentRuntime;
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
-use specforge_wasm::protocol::{PROTOCOL_VERSION, SUPPORTED_CATEGORIES};
+use specforge_protocol_types::{PROTOCOL_VERSION, SUPPORTED_CATEGORIES};
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 use std::path::Path;
 
