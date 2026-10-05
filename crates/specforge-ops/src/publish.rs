@@ -100,69 +100,92 @@ fn crate_name(cargo_toml: &Path) -> Option<String> {
     None
 }
 
-/// Load `wasm`, read its declaration and check it as the registry build
-/// alone would: a binary that isn't a loadable extension is E028, a
-/// declaration with an error (E030, a refused tool schema, ...) is refused
-/// with that error, both before any network call. Missing peers are not
-/// errors here: they are installed beside it, not with it.
-pub fn prepare(wasm: Vec<u8>) -> Result<Prepared, OpError> {
-    const CANDIDATE: &str = "__publish";
+/// Load `wasm` and read its declaration, with what the registry build
+/// alone reports of it (its W138s first). A binary that isn't a loadable
+/// extension is E028. Missing peers (E027) are left out: they are
+/// installed beside the extension, not with it.
+pub fn declare(wasm: &[u8]) -> Result<(ExtensionDeclaration, Vec<Diagnostic>), OpError> {
+    const CANDIDATE: &str = "__candidate";
     let runtime = specforge_component::ComponentRuntime::new();
     let invalid = |why: String| {
         OpError::new("E028", format!("not a loadable SpecForge extension: {why}"))
             .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
     };
     runtime
-        .load_module_bytes(CANDIDATE, &wasm)
+        .load_module_bytes(CANDIDATE, wasm)
         .map_err(invalid)?;
     let loaded = specforge_wasm::protocol::load_declaration(&runtime, CANDIDATE)
         .map_err(|e| invalid(e.to_string()))?;
-    let diagnostics = check(&loaded.declaration, loaded.warnings)?;
+    let diagnostics = diagnostics_of(&loaded.declaration, loaded.warnings);
+    Ok((loaded.declaration, diagnostics))
+}
+
+/// Load `wasm`, read its declaration and check it as the registry build
+/// alone would ([`declare`], [`check`]), both before any network call.
+pub fn prepare(wasm: Vec<u8>) -> Result<Prepared, OpError> {
+    let (declaration, diagnostics) = declare(&wasm)?;
+    refuse_errors(&declaration, &diagnostics)?;
     Ok(Prepared {
-        declaration: loaded.declaration,
+        declaration,
         wasm,
         diagnostics,
     })
 }
 
-/// Check `declaration` as the registry build alone checks it: an error
-/// (E030, a refused tool schema, ...) refuses it, naming every error;
-/// otherwise its warnings come back, after `warnings` (its W138s). Missing
-/// peers (E027) are not errors here: they are installed beside it, not
-/// with it.
-pub fn check(
+/// `warnings`, then what the registry build of `declaration` alone reports
+/// (its declaration, registry and surface diagnostics), without missing
+/// peers (E027).
+fn diagnostics_of(
     declaration: &ExtensionDeclaration,
     warnings: Vec<Diagnostic>,
-) -> Result<Vec<Diagnostic>, OpError> {
+) -> Vec<Diagnostic> {
     let build = specforge_registry::build_registries(vec![declaration.clone()]);
-    let diagnostics: Vec<Diagnostic> = warnings
+    warnings
         .into_iter()
         .chain(build.declaration_diagnostics)
         .chain(build.registry_diagnostics)
         .chain(build.surface_diagnostics)
         .filter(|d| d.code != "E027")
-        .collect();
+        .collect()
+}
+
+/// Check `declaration` as the registry build alone checks it: an error
+/// (E030, a refused tool schema, ...) refuses it, naming every error;
+/// otherwise its warnings come back, after `warnings` (its W138s).
+pub fn check(
+    declaration: &ExtensionDeclaration,
+    warnings: Vec<Diagnostic>,
+) -> Result<Vec<Diagnostic>, OpError> {
+    let diagnostics = diagnostics_of(declaration, warnings);
+    refuse_errors(declaration, &diagnostics)?;
+    Ok(diagnostics)
+}
+
+fn refuse_errors(
+    declaration: &ExtensionDeclaration,
+    diagnostics: &[Diagnostic],
+) -> Result<(), OpError> {
     let errors: Vec<&Diagnostic> = diagnostics
         .iter()
         .filter(|d| d.severity == Severity::Error)
         .collect();
-    if let Some(first) = errors.first() {
-        let detail: Vec<String> = errors
-            .iter()
-            .map(|d| format!("{}: {}", d.code, d.message))
-            .collect();
-        return Err(OpError::new(
-            first.code.clone(),
-            format!(
-                "{}@{} can't be published: its declaration has errors ({})",
-                declaration.name(),
-                declaration.version(),
-                detail.join("; ")
-            ),
-        )
-        .with_suggestion("fix the declaration in the extension's source and rebuild it"));
-    }
-    Ok(diagnostics)
+    let Some(first) = errors.first() else {
+        return Ok(());
+    };
+    let detail: Vec<String> = errors
+        .iter()
+        .map(|d| format!("{}: {}", d.code, d.message))
+        .collect();
+    Err(OpError::new(
+        first.code.clone(),
+        format!(
+            "{}@{} can't be published: its declaration has errors ({})",
+            declaration.name(),
+            declaration.version(),
+            detail.join("; ")
+        ),
+    )
+    .with_suggestion("fix the declaration in the extension's source and rebuild it"))
 }
 
 #[cfg(test)]

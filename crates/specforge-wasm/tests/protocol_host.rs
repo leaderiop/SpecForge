@@ -213,7 +213,10 @@ fn compatible_protocol_versions_load() {
     }
 }
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake whose protocol major differs from the host's produces E028"
+)]
 fn an_incompatible_protocol_version_fails_the_load() {
     for version in ["2.0.0", "0.9.0", "99.0"] {
         let runtime = MockRuntime::new().with_call_ok("__handshake", handshake_with(version));

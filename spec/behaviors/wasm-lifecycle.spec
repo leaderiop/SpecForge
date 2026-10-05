@@ -311,30 +311,29 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   ports      [FileSystem]
   consumes   [manifest_loaded]
   requires {
-    manifest_loaded_fired "manifest_loaded event has fired, confirming sidecar manifest.json has been parsed"
+    declaration_loaded_fired "the extension's declaration has been loaded (load_extension_declaration)"
   }
   ensures {
     manifest_validated_emitted "manifest_validated event is emitted on successful validation"
-    invalid_manifest_diagnosed "manifests with missing required fields or invalid manifest_version produce hard error"
+    invalid_manifest_diagnosed "declarations with missing required fields, or a handshake of another protocol major, produce a hard error"
     schema_validated           "manifest schema is validated via validate_manifest_v2_schema"
   }
   contract   """
-    This is the single entry point for manifest validation. The compiler
-    MUST call this behavior once per extension manifest. It delegates to
-    validate_manifest_v2_schema for schema validation. The entity_kinds
-    array, if present, MUST contain valid ManifestEntityKind entries.
-    Manifests missing required fields or with an invalid manifest_version
-    MUST produce a hard error. The compiler MUST accept manifest_version
-    2 (current). Unknown or missing manifest_version values MUST produce
-    a hard error with diagnostic code E028. Future manifest versions
-    MUST be rejected until the compiler is updated to support them.
+    This is the single entry point for validating what an extension
+    declares. The compiler MUST call this behavior once per loaded
+    declaration (no sidecar manifest file is read). It delegates to
+    validate_manifest_v2_schema for the declaration's validation. The
+    entities, if present, MUST be valid entity kind descriptors.
+    Declarations missing required fields MUST produce a hard error. A
+    handshake whose protocol major version differs from the host's MUST
+    fail the extension's load with E028.
   """
   produces   [manifest_validated]
   verify unit "valid manifest passes validation"
   verify unit "missing required fields produce hard error"
   verify unit "unknown fields produce warning"
-  verify unit "unknown manifest_version produces hard error"
-  verify contract "Validate Extension Manifest: extension manifest validation holds — manifest_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
+  verify unit "a handshake whose protocol major differs from the host's produces E028"
+  verify contract "Validate Extension Manifest: extension declaration validation holds — declaration_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
 }
 
 behavior verify_wasm_integrity "Verify Wasm Integrity" {

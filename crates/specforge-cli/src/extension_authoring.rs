@@ -1,269 +1,201 @@
+//! `specforge extension init|build|validate`: author an extension with the
+//! SDK (ADR 0012). `init` scaffolds an SDK crate declaring the extension,
+//! `build` builds its `wasm32-wasip2` component, and `validate` loads the
+//! built component and reports its declaration as the registry build sees
+//! it. No manifest file is written or read: the binary declares the
+//! extension.
+
 use crate::OutputFormat;
+use serde_json::json;
+use specforge_common::{Diagnostic, Severity};
 use std::path::Path;
+
+/// The diagnostic for an extension project that isn't there or isn't
+/// built.
+const NOT_BUILT: &str = "E040";
 
 pub fn run_init(path: &Path, name: Option<&str>, format: OutputFormat) -> i32 {
     let ext_name = name.unwrap_or("my-extension");
-    let ext_dir = path.join(ext_name);
+    let ext_dir = path.join(ext_name.rsplit('/').next().unwrap_or(ext_name));
+    let declared = if ext_name.starts_with('@') {
+        ext_name.to_string()
+    } else {
+        format!("@local/{ext_name}")
+    };
 
     if ext_dir.exists() {
-        let msg = format!("directory '{}' already exists", ext_dir.display());
-        if format == OutputFormat::Json {
-            println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
-        } else {
-            eprintln!("error: {}", msg);
-        }
-        return 1;
-    }
-
-    if let Err(e) = std::fs::create_dir_all(&ext_dir) {
-        let msg = format!("cannot create directory: {}", e);
-        if format == OutputFormat::Json {
-            println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
-        } else {
-            eprintln!("error: {}", msg);
-        }
-        return 1;
-    }
-
-    // Write manifest.json
-    let manifest = serde_json::json!({
-        "name": format!("@local/{}", ext_name),
-        "version": "0.1.0",
-        "manifestVersion": 2,
-        "wasmPath": format!("target/wasm32-wasip1/release/{}.wasm", ext_name.replace('-', "_")),
-        "contributes": { "entities": true },
-        "entityKinds": [],
-        "edgeTypes": [],
-        "fields": []
-    });
-    if let Err(e) = std::fs::write(
-        ext_dir.join("manifest.json"),
-        serde_json::to_string_pretty(&manifest).expect("serialize JSON output"),
-    ) {
-        let msg = format!("cannot write manifest.json: {}", e);
-        if format == OutputFormat::Json {
-            println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
-        } else {
-            eprintln!("error: {}", msg);
-        }
-        return 1;
-    }
-
-    // Write src/lib.rs skeleton
-    if let Err(e) = std::fs::create_dir_all(ext_dir.join("src")) {
-        let msg = format!("cannot create src directory: {}", e);
-        if format == OutputFormat::Json {
-            println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
-        } else {
-            eprintln!("error: {}", msg);
-        }
-        return 1;
-    }
-    if let Err(e) = std::fs::write(
-        ext_dir.join("src/lib.rs"),
-        format!(
-            r#"//! {} -- a SpecForge extension
-//!
-//! Build with: cargo build --target wasm32-wasip1 --release
-
-#[no_mangle]
-pub extern "C" fn _start() {{}}
-"#,
-            ext_name
-        ),
-    ) {
-        let msg = format!("cannot write src/lib.rs: {}", e);
-        if format == OutputFormat::Json {
-            println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
-        } else {
-            eprintln!("error: {}", msg);
-        }
-        return 1;
-    }
-
-    // Write Cargo.toml
-    if let Err(e) = std::fs::write(
-        ext_dir.join("Cargo.toml"),
-        format!(
-            r#"[package]
-name = "{}"
-version = "0.1.0"
-edition = "2024"
-
-[lib]
-crate-type = ["cdylib"]
-"#,
-            ext_name
-        ),
-    ) {
-        let msg = format!("cannot write Cargo.toml: {}", e);
-        if format == OutputFormat::Json {
-            println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
-        } else {
-            eprintln!("error: {}", msg);
-        }
-        return 1;
-    }
-
-    if format == OutputFormat::Json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&serde_json::json!({
-                "path": ext_dir.display().to_string(),
-                "name": ext_name,
-                "files": ["manifest.json", "src/lib.rs", "Cargo.toml"],
-            }))
-            .expect("serialize JSON output")
+        format.print_error(
+            &format!("directory '{}' already exists", ext_dir.display()),
+            "E065",
         );
-    } else {
-        println!("Created extension scaffold at {}", ext_dir.display());
-        println!("  manifest.json");
-        println!("  src/lib.rs");
-        println!("  Cargo.toml");
+        return 1;
+    }
+    if let Err(message) = crate::new::scaffold(&ext_dir, &declared) {
+        format.print_error(&message, "E066");
+        return 1;
     }
 
+    match format {
+        OutputFormat::Json => {
+            let output = json!({
+                "status": "created",
+                "name": declared,
+                "short": crate::new::short_name(&declared),
+                "path": ext_dir.display().to_string(),
+                "files": crate::new::SCAFFOLDED,
+            });
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output).expect("serialize JSON output")
+            );
+        }
+        OutputFormat::Human => {
+            println!("Created extension {} at {}", declared, ext_dir.display());
+            for file in crate::new::SCAFFOLDED {
+                println!("  {file}");
+            }
+            println!();
+            println!("next steps:");
+            println!("  specforge extension build --path {}", ext_dir.display());
+            println!(
+                "  specforge extension validate --path {}",
+                ext_dir.display()
+            );
+        }
+    }
     0
 }
 
 pub fn run_build(path: &Path, format: OutputFormat) -> i32 {
-    // Check for Cargo.toml
     if !path.join("Cargo.toml").exists() {
-        let msg = format!("no Cargo.toml found at {}", path.display());
-        if format == OutputFormat::Json {
-            println!(
-                "{}",
-                serde_json::json!({"error": msg, "code": "E040", "exit_code": 1})
-            );
-        } else {
-            eprintln!("E040: {}", msg);
-        }
+        format.print_error(
+            &format!("no Cargo.toml found at {}", path.display()),
+            NOT_BUILT,
+        );
         return 1;
     }
 
-    // Check for manifest.json
-    if !path.join("manifest.json").exists() {
-        let msg = format!("no manifest.json found at {}", path.display());
-        if format == OutputFormat::Json {
-            println!(
-                "{}",
-                serde_json::json!({"error": msg, "code": "E040", "exit_code": 1})
-            );
-        } else {
-            eprintln!("E040: {}", msg);
+    // The component the host loads: release, wasm32-wasip2.
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+    let output = match std::process::Command::new(cargo)
+        .args(["build", "--release", "--target", "wasm32-wasip2"])
+        .current_dir(path)
+        .output()
+    {
+        Ok(output) => output,
+        Err(e) => {
+            format.print_error(&format!("cannot run cargo: {e}"), NOT_BUILT);
+            return 1;
         }
+    };
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let first_error = stderr.lines().find(|l| l.starts_with("error"));
+        let message = format!(
+            "cargo build --release --target wasm32-wasip2 failed in {}{}",
+            path.display(),
+            first_error.map(|l| format!(": {l}")).unwrap_or_default()
+        );
+        if format == OutputFormat::Human {
+            eprint!("{stderr}");
+        }
+        format.print_error(&message, NOT_BUILT);
         return 1;
     }
+    let binary = match specforge_ops::publish::binary_at(path) {
+        Ok(binary) => binary,
+        Err(error) => {
+            format.print_op_error(&error);
+            return 1;
+        }
+    };
 
-    if format == OutputFormat::Json {
-        println!(
+    match format {
+        OutputFormat::Json => println!(
             "{}",
-            serde_json::to_string_pretty(&serde_json::json!({
-                "status": "validated",
+            serde_json::to_string_pretty(&json!({
+                "status": "built",
                 "path": path.display().to_string(),
+                "component": binary.display().to_string(),
             }))
             .expect("serialize JSON output")
-        );
-    } else {
-        println!(
-            "Extension project structure validated at {}",
-            path.display()
-        );
+        ),
+        OutputFormat::Human => println!("Built {}", binary.display()),
     }
-
     0
 }
 
 pub fn run_validate(path: &Path, format: OutputFormat) -> i32 {
-    // Check manifest exists
-    let manifest_path = path.join("manifest.json");
-    if !manifest_path.exists() {
-        let msg = format!("no manifest.json found at {}", path.display());
-        if format == OutputFormat::Json {
-            println!(
-                "{}",
-                serde_json::json!({"error": msg, "code": "E040", "exit_code": 1})
-            );
-        } else {
-            eprintln!("E040: {}", msg);
-        }
-        return 1;
-    }
-
-    // Load and validate manifest
-    let content = match std::fs::read_to_string(&manifest_path) {
-        Ok(c) => c,
-        Err(e) => {
-            let msg = format!("cannot read manifest.json: {}", e);
-            if format == OutputFormat::Json {
-                println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
-            } else {
-                eprintln!("error: {}", msg);
-            }
+    let binary = match specforge_ops::publish::binary_at(path) {
+        Ok(binary) => binary,
+        Err(error) => {
+            format.print_op_error(&error);
             return 1;
         }
     };
-
-    let manifest: specforge_registry::ManifestV2 = match serde_json::from_str(&content) {
-        Ok(m) => m,
+    let wasm = match std::fs::read(&binary) {
+        Ok(wasm) => wasm,
         Err(e) => {
-            let msg = format!("invalid manifest.json: {}", e);
-            if format == OutputFormat::Json {
+            format.print_error(&format!("cannot read {}: {e}", binary.display()), NOT_BUILT);
+            return 1;
+        }
+    };
+    let (declaration, diagnostics) = match specforge_ops::publish::declare(&wasm) {
+        Ok(declared) => declared,
+        Err(error) => {
+            format.print_op_error(&error);
+            return 1;
+        }
+    };
+    let valid = !diagnostics.iter().any(|d| d.severity == Severity::Error);
+
+    match format {
+        OutputFormat::Json => {
+            let output = json!({
+                "valid": valid,
+                "name": declaration.name(),
+                "version": declaration.version(),
+                "short": declaration.short(),
+                "component": binary.display().to_string(),
+                "diagnostics": diagnostics.iter().map(diagnostic_json).collect::<Vec<_>>(),
+                "declaration": declaration,
+            });
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output).expect("serialize JSON output")
+            );
+        }
+        OutputFormat::Human => {
+            for d in &diagnostics {
+                eprintln!("{}[{}]: {}", level(d), d.code, d.message);
+            }
+            if valid {
                 println!(
-                    "{}",
-                    serde_json::json!({"error": msg, "code": "E030", "exit_code": 1})
+                    "{} v{} declares a valid extension ({})",
+                    declaration.name(),
+                    declaration.version(),
+                    binary.display()
                 );
             } else {
-                eprintln!("E030: {}", msg);
-            }
-            return 1;
-        }
-    };
-
-    let diags = specforge_registry::validate_manifest(&manifest);
-    if !diags.is_empty() {
-        if format == OutputFormat::Json {
-            let errs: Vec<_> = diags
-                .iter()
-                .map(|d| {
-                    serde_json::json!({
-                        "code": d.code,
-                        "message": d.message,
-                    })
-                })
-                .collect();
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&serde_json::json!({
-                    "valid": false,
-                    "diagnostics": errs,
-                    "exit_code": 1,
-                }))
-                .expect("serialize JSON output")
-            );
-        } else {
-            for d in &diags {
-                eprintln!("{}: {}", d.code, d.message);
+                eprintln!(
+                    "{} v{}: the declaration has errors",
+                    declaration.name(),
+                    declaration.version()
+                );
             }
         }
-        return 1;
     }
+    if valid { 0 } else { 1 }
+}
 
-    if format == OutputFormat::Json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&serde_json::json!({
-                "valid": true,
-                "name": manifest.name,
-                "version": manifest.version,
-            }))
-            .expect("serialize JSON output")
-        );
-    } else {
-        println!(
-            "manifest.json is valid: {} v{}",
-            manifest.name, manifest.version
-        );
+fn level(d: &Diagnostic) -> &'static str {
+    match d.severity {
+        Severity::Error => "error",
+        Severity::Warning => "warning",
+        _ => "info",
     }
+}
 
-    0
+fn diagnostic_json(d: &Diagnostic) -> serde_json::Value {
+    json!({ "code": d.code, "severity": level(d), "message": d.message })
 }

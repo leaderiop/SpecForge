@@ -705,7 +705,7 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum ExtensionAction {
-    /// Scaffold a new extension project
+    /// Scaffold an extension crate written with the SDK
     Init {
         /// Extension name
         #[arg(long)]
@@ -719,7 +719,8 @@ enum ExtensionAction {
         #[arg(long, default_value = "human")]
         format: OutputFormat,
     },
-    /// Validate extension project structure
+    /// Build the extension's component (cargo build --release --target
+    /// wasm32-wasip2)
     Build {
         /// Path to the extension project
         #[arg(long, default_value = ".")]
@@ -729,7 +730,7 @@ enum ExtensionAction {
         #[arg(long, default_value = "human")]
         format: OutputFormat,
     },
-    /// Validate extension manifest against schema
+    /// Load the built component and report its declaration's diagnostics
     Validate {
         /// Path to the extension project
         #[arg(long, default_value = ".")]

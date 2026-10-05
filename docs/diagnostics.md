@@ -492,13 +492,14 @@ Level: error
 ## E040
 
 ```
-E040: Missing extension project file
+E040: Extension project not found or not built
 
-`specforge extension build`, `extension validate` or `publish` was run against a
-directory that's missing its `Cargo.toml` or `manifest.json`, or (`publish`) the
-Wasm binary the manifest's `wasmPath` names, or one of those files couldn't be
-read. Run the command from a scaffolded extension project, build the binary, or
-create the missing file.
+`specforge extension build`, `extension validate` or `publish` found no
+extension to work on: the directory has no `Cargo.toml`, the build (`cargo build
+--release --target wasm32-wasip2`) failed, no built component is in
+`target/wasm32-wasip2/release/` (or several are, and none is the crate's), or
+the `.wasm` file couldn't be read. Build the extension, fix the build error the
+message quotes, or name the component to use.
 
 Owner: core
 Level: error
