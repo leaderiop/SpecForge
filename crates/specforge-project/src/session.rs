@@ -3,15 +3,16 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, discover_spec_files, load_project_config};
 use specforge_graph::{Graph, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_resolver::resolve_parsed;
 use specforge_wasm::WasmRuntime;
 
 use crate::delta::{GraphDelta, compute_graph_delta};
+use crate::freshness::DiskSnapshot;
 use crate::incremental::IncrementalBuild;
-use crate::inputs::{Changes, InputRole, Origin, UpdateKind, canonical};
+use crate::inputs::{Changes, InputRole, Origin, UpdateKind, canonical, environment_inputs};
 use crate::{Environment, sources_in_path_order};
 
 /// The runtime a session runs its project's extensions in (every
@@ -85,6 +86,9 @@ pub struct ProjectSession {
     /// no spec root to resolve their imports against and no environment to
     /// reload; with [`Origin::InMemory`] the graph was built by the host.
     origin: Origin,
+    /// What the session last built from, as it was when read: what
+    /// [`Self::stale`] compares with disk.
+    snapshot: DiskSnapshot,
 }
 
 impl ProjectSession {
@@ -100,6 +104,7 @@ impl ProjectSession {
             check_diagnostics: Vec::new(),
             verify_incremental: false,
             origin: Origin::None,
+            snapshot: DiskSnapshot::default(),
         }
     }
 
@@ -129,6 +134,7 @@ impl ProjectSession {
             check_diagnostics: Vec::new(),
             verify_incremental: false,
             origin: Origin::InMemory,
+            snapshot: DiskSnapshot::default(),
         }
     }
 
@@ -143,7 +149,16 @@ impl ProjectSession {
     /// Open the project at `root` with `runtime` (none: no extension
     /// loads). A reload keeps using the same runtime.
     pub fn open_with_runtime(root: &Path, runtime: Option<SharedRuntime>) -> Self {
+        // Everything is stamped before it is read (crate::freshness): the
+        // config first, then what it names, then the sources.
+        let mut snapshot = DiskSnapshot::default();
+        snapshot.stamp_environment(&root.join("specforge.json"), || {
+            let inputs = environment_inputs(root, &load_project_config(root), false);
+            std::iter::once(inputs.lock).chain(inputs.modules).collect()
+        });
         let env = Environment::load(root, runtime.as_deref());
+        let discovered = discover_spec_files(&env.spec_root, &env.config.exclude);
+        snapshot.stamp_all_sources(&env.spec_root, &discovered);
         let resolved = env.resolve();
         let (paths, specs): (Vec<String>, Vec<SpecFile>) =
             sources_in_path_order(&resolved).into_iter().unzip();
@@ -163,8 +178,9 @@ impl ProjectSession {
             check_diagnostics: Vec::new(),
             verify_incremental: false,
             origin: Origin::Disk,
+            snapshot,
         };
-        session.check_diagnostics = session.check();
+        session.check_diagnostics = session.checked();
         session
     }
 
@@ -185,14 +201,23 @@ impl ProjectSession {
     /// [`Self::update`], running the checks `mode` asks for.
     pub fn update_with(&mut self, change: SourceChange<'_>, mode: CheckMode<'_>) -> Update {
         let changes: Vec<(String, Option<String>)> = match change {
-            SourceChange::Disk(paths) => paths
-                .iter()
-                .filter(|path| !self.excludes(path))
-                .map(|path| {
-                    let text = std::fs::read_to_string(self.env.spec_root.join(path)).ok();
-                    (path.clone(), text)
-                })
-                .collect(),
+            SourceChange::Disk(paths) => {
+                let keys: Vec<String> = paths
+                    .iter()
+                    .filter(|path| !self.excludes(path))
+                    .cloned()
+                    .collect();
+                // Stamped before they are read again (crate::freshness).
+                if self.origin == Origin::Disk {
+                    self.snapshot.stamp_sources(&self.env.spec_root, &keys);
+                }
+                keys.into_iter()
+                    .map(|path| {
+                        let text = std::fs::read_to_string(self.env.spec_root.join(&path)).ok();
+                        (path, text)
+                    })
+                    .collect()
+            }
             SourceChange::Buffer { path, .. } if self.excludes(path) => Vec::new(),
             SourceChange::Buffer { path, text } => {
                 vec![(path.to_string(), text.map(str::to_string))]
@@ -210,7 +235,7 @@ impl ProjectSession {
             {
                 Vec::new()
             }
-            _ => self.check(),
+            _ => self.checked(),
         };
         Update {
             kind: UpdateKind::Sources,
@@ -382,6 +407,27 @@ impl ProjectSession {
         roots
     }
 
+    /// What changed on disk since the session last built (behavior
+    /// `bring_session_up_to_date`): the sources discovery finds now against
+    /// those it read, and every environment and check input against what
+    /// it read. A session that was not opened from disk reports nothing.
+    pub fn stale(&self) -> Changes {
+        if self.origin != Origin::Disk {
+            return Changes::default();
+        }
+        let discovered = discover_spec_files(&self.env.spec_root, &self.env.config.exclude);
+        self.snapshot.changes(&self.env.spec_root, &discovered)
+    }
+
+    /// Bring the session up to date with disk, without a watcher: apply
+    /// exactly what [`Self::stale`] finds. Afterwards its graph and
+    /// diagnostics are what a fresh compile of the files on disk gives.
+    /// `None` when nothing changed.
+    pub fn ensure_fresh(&mut self) -> Option<Update> {
+        let changes = self.stale();
+        self.apply(&changes)
+    }
+
     pub fn environment(&self) -> &Environment {
         &self.env
     }
@@ -464,7 +510,7 @@ impl ProjectSession {
 
     /// Run every check again on the current graph: a check input changed.
     fn recheck(&mut self) -> Update {
-        self.check_diagnostics = self.check();
+        self.check_diagnostics = self.checked();
         Update {
             kind: UpdateKind::Checks,
             delta: GraphDelta::default(),
@@ -491,6 +537,15 @@ impl ProjectSession {
     fn check(&self) -> Vec<Diagnostic> {
         self.env
             .run_checks(self.build.graph(), self.runtime.as_deref())
+    }
+
+    /// [`Self::check`], the check inputs stamped first.
+    fn checked(&mut self) -> Vec<Diagnostic> {
+        if self.origin == Origin::Disk {
+            let inputs = self.env.check_inputs(self.build.graph());
+            self.snapshot.stamp_checks(inputs);
+        }
+        self.check()
     }
 }
 

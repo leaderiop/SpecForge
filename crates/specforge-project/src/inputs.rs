@@ -11,7 +11,7 @@
 
 use std::path::{Path, PathBuf};
 
-use specforge_common::extension_entry_name;
+use specforge_common::{ProjectConfig, extension_entry_name};
 use specforge_parser::FieldValue;
 
 use crate::Environment;
@@ -120,42 +120,26 @@ impl Environment {
     /// `classify_project_changes`). Built-in extensions are compiled into
     /// the binary and have no module on disk.
     pub fn inputs(&self) -> EnvironmentInputs {
-        let installed = self.root.join(".specforge").join("extensions");
-        let modules = self
-            .config
-            .extensions
-            .iter()
-            .filter_map(|entry| {
-                if entry.ends_with(".wasm") {
-                    // `name=path.wasm` or a bare `path.wasm`, relative to
-                    // the root (as `specforge_component::project_runtime`
-                    // resolves it).
-                    let path = entry.split_once('=').map_or(entry.as_str(), |(_, p)| p);
-                    let path = Path::new(path);
-                    return Some(if path.is_relative() {
-                        self.root.join(path)
-                    } else {
-                        path.to_path_buf()
-                    });
-                }
-                let name = extension_entry_name(entry);
-                if specforge_component::builtins::is_builtin(name) {
-                    return None;
-                }
-                Some(specforge_wasm::installed_wasm_path(&installed, name))
-            })
-            .collect();
-        let check_inputs = if self.check_passes.is_empty() {
-            Vec::new()
-        } else {
-            vec![self.root.join(BUILD_CACHE_FILE)]
-        };
-        EnvironmentInputs {
-            config: self.root.join("specforge.json"),
-            lock: self.root.join("specforge.lock"),
-            modules,
-            check_inputs,
-        }
+        environment_inputs(&self.root, &self.config, !self.check_passes.is_empty())
+    }
+
+    /// The check inputs of this environment over `graph`, as the checks
+    /// read them: the build cache when check-phase passes read it, every
+    /// file a `file_reference` field names, and the directory of each one
+    /// that is missing (the E016 suggestion lists it).
+    pub(crate) fn check_inputs(&self, graph: &specforge_graph::Graph) -> Vec<PathBuf> {
+        let references = self.referenced_files(graph);
+        let mut inputs: Vec<PathBuf> = self.inputs().check_inputs;
+        inputs.extend(
+            references
+                .iter()
+                .filter(|path| !path.exists())
+                .filter_map(|path| path.parent().map(Path::to_path_buf)),
+        );
+        inputs.extend(references);
+        inputs.sort();
+        inputs.dedup();
+        inputs
     }
 
     /// A `.spec` path's key: relative to the spec root when the file is
@@ -197,6 +181,50 @@ impl Environment {
         files.sort();
         files.dedup();
         files
+    }
+}
+
+/// The files an environment rooted at `root` with `config` is loaded from;
+/// `check_passes`: it declares check-phase passes, which read the build
+/// cache.
+pub(crate) fn environment_inputs(
+    root: &Path,
+    config: &ProjectConfig,
+    check_passes: bool,
+) -> EnvironmentInputs {
+    let installed = root.join(".specforge").join("extensions");
+    let modules = config
+        .extensions
+        .iter()
+        .filter_map(|entry| {
+            if entry.ends_with(".wasm") {
+                // `name=path.wasm` or a bare `path.wasm`, relative to the
+                // root (as `specforge_component::project_runtime` resolves
+                // it).
+                let path = entry.split_once('=').map_or(entry.as_str(), |(_, p)| p);
+                let path = Path::new(path);
+                return Some(if path.is_relative() {
+                    root.join(path)
+                } else {
+                    path.to_path_buf()
+                });
+            }
+            let name = extension_entry_name(entry);
+            if specforge_component::builtins::is_builtin(name) {
+                return None;
+            }
+            Some(specforge_wasm::installed_wasm_path(&installed, name))
+        })
+        .collect();
+    EnvironmentInputs {
+        config: root.join("specforge.json"),
+        lock: root.join("specforge.lock"),
+        modules,
+        check_inputs: if check_passes {
+            vec![root.join(BUILD_CACHE_FILE)]
+        } else {
+            Vec::new()
+        },
     }
 }
 

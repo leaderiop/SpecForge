@@ -24,6 +24,7 @@ pub mod compile;
 pub mod coverage;
 mod delta;
 pub mod field_types;
+mod freshness;
 mod incremental;
 mod inputs;
 pub mod passes;
