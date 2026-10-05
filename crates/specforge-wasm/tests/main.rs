@@ -1,3 +1,4 @@
+mod calls;
 mod discovery_and_lockfile;
 mod handshake_conformance;
 mod integrity;

@@ -41,6 +41,14 @@ fn sorted(value: &Value) -> Value {
     }
 }
 
+fn golden_value(name: &str) -> Value {
+    let path = wire_dir().join(name);
+    serde_json::from_str(
+        &fs::read_to_string(&path).unwrap_or_else(|e| panic!("golden {}: {e}", path.display())),
+    )
+    .unwrap()
+}
+
 fn golden(name: &str, actual: &Value) {
     let path = wire_dir().join(name);
     if std::env::var_os("SPECFORGE_BLESS").is_some() {
@@ -160,7 +168,14 @@ fn c4_the_pass_input_of_an_analysis() {
         test_results: Some(&report),
         proved_claims: Some(&proved),
     });
-    golden("pass.input.json", &input);
+    // pinned: the host forwards the report's own keys, which the protocol's
+    // PassTestResults does not define (flips in T6)
+    let mut expected = golden_value("pass.input.json");
+    let a = &mut expected["test_results"]["results"]["a"];
+    a["file"] = json!("a.rs");
+    a["tests"][0]["duration_ms"] = json!(1.5);
+    a["tests"][0]["runner"] = json!("cargo-test");
+    assert_eq!(input, expected);
 }
 
 #[test]
@@ -174,10 +189,10 @@ fn c4_the_pass_input_of_a_compile_carries_nulls_and_previous() {
     let runtime = runtime();
     CompiledProject::compile(dir.path(), Some(&runtime));
     // pinned: `test_results` and `proved_claims` are null, flips in T6 (absent)
-    golden(
-        "pass.check.input.json",
-        &last_input(&runtime, "__pass_audit"),
-    );
+    let mut expected = golden_value("pass.check.input.json");
+    expected["test_results"] = Value::Null;
+    expected["proved_claims"] = Value::Null;
+    assert_eq!(last_input(&runtime, "__pass_audit"), expected);
 }
 
 fn span(file: &str, line: usize) -> Value {

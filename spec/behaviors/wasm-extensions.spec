@@ -416,6 +416,13 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "every operational payload is one protocol type the host and the SDK share"
   verify unit "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
   verify unit "both runtimes report an unknown extension, an unrouted export, a guest error and a guest panic as traps"
+  verify unit "every extension call encodes its input as the protocol type the SDK decodes"
+  verify unit "every extension call decodes the protocol type the SDK encodes"
+  verify unit "a call whose export trapped is E028 naming the extension, the operation and the export"
+  verify unit "a call whose answer does not decode as its protocol type is E028, never a default"
+  verify unit "an unknown field in an answer is ignored and an absent optional field takes its default"
+  verify unit "a pass answer may be bare diagnostics or diagnostics with a summary, and its diagnostics come back in canonical order with an entity's span attached"
+  verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree"
 }
 
 // -- Check-Phase Passes and the Build Cache -----

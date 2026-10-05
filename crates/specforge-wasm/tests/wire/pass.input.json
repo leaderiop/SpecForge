@@ -81,12 +81,9 @@
   "test_results": {
     "results": {
       "a": {
-        "file": "a.rs",
         "tests": [
           {
-            "duration_ms": 1.5,
             "name": "a_works",
-            "runner": "cargo-test",
             "status": "pass",
             "verify": "a works"
           }

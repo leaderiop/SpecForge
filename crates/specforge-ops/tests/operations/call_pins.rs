@@ -142,7 +142,11 @@ fn c5_the_collect_input() {
     );
     dispatch(&runtime, &collector(), &reports(), None).unwrap();
     // pinned: `stdout` is null, flips in T7 (absent)
-    golden("collect.input.json", &runtime.calls()[0].input);
+    let mut expected: Value =
+        serde_json::from_str(&fs::read_to_string(wire_dir().join("collect.input.json")).unwrap())
+            .unwrap();
+    expected["stdout"] = Value::Null;
+    assert_eq!(runtime.calls()[0].input, expected);
     dispatch(&runtime, &collector(), &reports(), Some("out")).unwrap();
     assert_eq!(runtime.calls()[1].input["stdout"], "out");
 }

@@ -1,5 +1,6 @@
 #![allow(clippy::result_large_err)]
 
+pub mod calls;
 mod install;
 mod integrity;
 mod lifecycle;
@@ -15,6 +16,7 @@ mod toposort;
 mod trap;
 mod uninstall;
 
+pub use calls::{CallError, CallFailure, Encoded, ExtensionCalls, Operation, pass_diagnostics};
 pub use install::{InstallResult, install_extension, installed_wasm_path};
 pub use integrity::{hex_sha256, verify_wasm_integrity, verify_wasm_integrity_or_skip};
 pub use lifecycle::load_wasm_module;
