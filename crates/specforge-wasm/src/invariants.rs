@@ -2,7 +2,7 @@
 mod tests {
     use crate::integrity::hex_sha256;
     use crate::runtime::{ExtensionLifecycleState, LoadedModule, MockRuntime, WasmTrapInfo};
-    use crate::test_helpers::make_manifest;
+    use crate::test_helpers::{make_declaration, make_manifest};
     use crate::toposort::topological_sort_extensions;
     use crate::trap::{handle_wasm_trap, should_skip_extension};
     use specforge_common::Severity;
@@ -52,9 +52,9 @@ mod tests {
     #[test]
     fn test_deterministic_load_order_across_100_runs() {
         let manifests = vec![
-            make_manifest("C", &[]),
-            make_manifest("A", &[("B", ">=1.0.0")]),
-            make_manifest("B", &[]),
+            make_declaration("C", &[]),
+            make_declaration("A", &[("B", ">=1.0.0")]),
+            make_declaration("B", &[]),
         ];
 
         let first = topological_sort_extensions(&manifests).unwrap();
@@ -68,14 +68,14 @@ mod tests {
     #[test]
     fn test_load_order_deterministic_regardless_of_input_order() {
         let order1 = vec![
-            make_manifest("A", &[]),
-            make_manifest("B", &[("A", ">=1.0.0")]),
-            make_manifest("C", &[]),
+            make_declaration("A", &[]),
+            make_declaration("B", &[("A", ">=1.0.0")]),
+            make_declaration("C", &[]),
         ];
         let order2 = vec![
-            make_manifest("C", &[]),
-            make_manifest("B", &[("A", ">=1.0.0")]),
-            make_manifest("A", &[]),
+            make_declaration("C", &[]),
+            make_declaration("B", &[("A", ">=1.0.0")]),
+            make_declaration("A", &[]),
         ];
 
         let result1 = topological_sort_extensions(&order1).unwrap();

@@ -16,8 +16,6 @@ fn init_server(project_dir: &std::path::Path) -> McpServer {
             typescript_declaration(),
         ]);
         env.registries = built.registries;
-        env.manifests = built.manifests;
-        env.manifest_surfaces = built.manifest_surfaces;
     });
     server
 }

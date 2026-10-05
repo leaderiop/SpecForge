@@ -18,11 +18,10 @@ use clap::builder::PossibleValuesParser;
 use clap::{Arg, ArgAction, ArgMatches, Command};
 use serde_json::{Map, Value};
 use specforge_ops::command::{
-    CommandContext, CommandFormat, ExtensionCommand, ext_short, extension_commands, refusal,
-    run_command,
+    CommandContext, CommandFormat, ExtensionCommand, extension_commands, refusal, run_command,
 };
 use specforge_project::Environment;
-use specforge_registry::{CommandArg, CommandArgType};
+use specforge_protocol_types::{CommandArgDescriptor, CommandArgType};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -56,19 +55,16 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let root = project_path(&rest);
     let runtime = specforge_component::project_runtime(&root);
     let env = Environment::load(&root, Some(&runtime));
-    let all = extension_commands(&env);
-    let commands: Vec<ExtensionCommand> = all
-        .iter()
-        .copied()
-        .filter(|c| ext_short(&env.manifests, c.extension) == ext)
-        .collect();
+    let all = extension_commands(&env.registries);
+    let short = |c: &ExtensionCommand| short_name(&env, c.extension);
+    let commands: Vec<ExtensionCommand> = all.iter().copied().filter(|c| short(c) == ext).collect();
     if commands.is_empty() {
         eprintln!(
             "error: unrecognized subcommand '{ext}': no built-in command, and no extension of the project at {} with that name contributes commands",
             root.display()
         );
         let mut names: Vec<String> = builtins.to_vec();
-        names.extend(all.iter().map(|c| ext_short(&env.manifests, c.extension)));
+        names.extend(all.iter().map(short));
         if let Some(close) =
             specforge_common::find_close_match(&ext, names.iter().map(String::as_str))
         {
@@ -167,11 +163,11 @@ pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
     let runtime = specforge_component::project_runtime(root);
     let env = Environment::load(root, Some(&runtime));
     let mut by_ext: Vec<(String, Vec<ExtensionCommand>)> = Vec::new();
-    for command in extension_commands(&env) {
+    for command in extension_commands(&env.registries) {
         if refusal(command.contribution).is_some() {
             continue;
         }
-        let short = ext_short(&env.manifests, command.extension);
+        let short = short_name(&env, command.extension);
         match by_ext.iter_mut().find(|(ext, _)| *ext == short) {
             Some((_, commands)) => commands.push(command),
             None => by_ext.push((short, vec![command])),
@@ -184,6 +180,15 @@ pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
         }
     }
     cli
+}
+
+/// The short name of the loaded extension `extension`, which names its
+/// commands on the command line.
+fn short_name(env: &Environment, extension: &str) -> String {
+    env.registries
+        .short(extension)
+        .map(std::borrow::Cow::into_owned)
+        .unwrap_or_default()
 }
 
 /// The exit code of a usage error clap catches, `INVALID_INPUT`'s: the
@@ -375,7 +380,7 @@ fn command_line(ext: &str, commands: &[ExtensionCommand]) -> Command {
 
 /// A declared arg on the command line: required ones are positional, but a
 /// bool, which is always a `--flag` (set or not).
-fn declared_arg(declared: &CommandArg) -> Arg {
+fn declared_arg(declared: &CommandArgDescriptor) -> Arg {
     let mut arg = Arg::new(declared.name.clone());
     let flag = matches!(declared.arg_type, CommandArgType::Bool);
     if !flag {
@@ -413,7 +418,7 @@ fn format_value(matches: &ArgMatches) -> CommandFormat {
 
 /// The args the command line set (or defaulted), typed as declared; never
 /// the host's own options.
-fn arg_values(declared: &[CommandArg], matches: &ArgMatches) -> Map<String, Value> {
+fn arg_values(declared: &[CommandArgDescriptor], matches: &ArgMatches) -> Map<String, Value> {
     let mut args = Map::new();
     for arg in declared {
         let value = match arg.arg_type {
@@ -433,7 +438,7 @@ fn arg_values(declared: &[CommandArg], matches: &ArgMatches) -> Map<String, Valu
 #[cfg(test)]
 mod tests {
     use super::*;
-    use specforge_registry::CommandContribution;
+    use specforge_protocol_types::CommandDescriptor;
     use specforge_test_macros::test as specforge_test;
 
     fn arg(
@@ -441,8 +446,8 @@ mod tests {
         arg_type: CommandArgType,
         required: bool,
         default: Option<&str>,
-    ) -> CommandArg {
-        CommandArg {
+    ) -> CommandArgDescriptor {
+        CommandArgDescriptor {
             name: name.into(),
             arg_type,
             required,
@@ -451,8 +456,8 @@ mod tests {
         }
     }
 
-    fn contribution() -> CommandContribution {
-        CommandContribution {
+    fn contribution() -> CommandDescriptor {
+        CommandDescriptor {
             id: "milestone_completion".into(),
             title: "Show progress".into(),
             description: String::new(),
@@ -556,7 +561,7 @@ mod tests {
         verify = "a command declaring an arg named format is refused on the command line"
     )]
     fn an_arg_taking_a_host_option_or_another_args_name_is_refused() {
-        let with = |args: Vec<CommandArg>| CommandContribution {
+        let with = |args: Vec<CommandArgDescriptor>| CommandDescriptor {
             args,
             ..contribution()
         };

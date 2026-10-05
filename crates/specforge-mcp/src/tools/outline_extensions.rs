@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use specforge_emitter::outline::{
-    DependencyDepth, OutlineDetail, OutlineFormat, OutlineIntermediate_from_manifests,
+    DependencyDepth, OutlineDetail, OutlineFormat, OutlineIntermediate_from_declarations,
     OutlineOptions, render,
 };
 
@@ -69,7 +69,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
         deps: dep_depth,
     };
 
-    let outline = OutlineIntermediate_from_manifests(&state.environment().manifests);
+    let outline = OutlineIntermediate_from_declarations(state.registries().declarations());
     let output = render(&outline, &options);
 
     ToolOutcome::text(output)

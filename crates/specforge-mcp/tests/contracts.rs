@@ -2818,8 +2818,6 @@ fn contract_providers() {
         declarations.push(github.declaration());
         let built = specforge_project::Environment::from_declarations(declarations);
         env.registries = built.registries;
-        env.manifests = built.manifests;
-        env.manifest_surfaces = built.manifest_surfaces;
     });
 
     // providers_listed: scheme, alias, backing extension and status.

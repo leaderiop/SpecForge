@@ -6,8 +6,7 @@ use specforge_common::{Diagnostic, Severity, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
-    DeclaredPass, EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, RegistryBuild,
-    SurfaceContributions, SurfaceRegistryEntry,
+    DeclaredPass, EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild, SurfaceRegistryEntry,
     compilation::{
         EntityView, detect_identifier_length_violations, detect_mistyped_references,
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
@@ -35,10 +34,6 @@ pub struct CompilationContext {
     pub extension_rules: Vec<(ValidationRulePattern, String)>,
     pub extension_info: Vec<(String, String)>,
     pub surface_entries: Vec<SurfaceRegistryEntry>,
-    /// Raw surface contributions from manifests (needed for MCP descriptor generation).
-    pub manifest_surfaces: Vec<(String, SurfaceContributions)>,
-    /// Raw extension manifests (needed for outline rendering).
-    pub manifests: Vec<ManifestV2>,
     /// The loaded declarations, in load order.
     pub declarations: Vec<ExtensionDeclaration>,
     /// The extensions' passes, in the order they run.
@@ -202,8 +197,6 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
         extension_rules: Vec::new(),
         extension_info: Vec::new(),
         surface_entries: Vec::new(),
-        manifest_surfaces: Vec::new(),
-        manifests: Vec::new(),
         declarations: Vec::new(),
         passes: Vec::new(),
         spec_root,

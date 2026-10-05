@@ -8,7 +8,7 @@ use std::path::Path;
 /// registered and how many of the project's entities use them.
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let ctx = crate::pipeline::compile(path);
-    let entries = extension::list(path, &ctx.manifests, &ctx.kind_registry, &ctx.graph);
+    let entries = extension::list(path, &ctx.declarations, &ctx.kind_registry, &ctx.graph);
 
     match format {
         OutputFormat::Json => {

@@ -481,7 +481,7 @@ pub(crate) fn remove_extension_op(state: &McpState, args: RemoveArgs) -> ToolOut
         name: &name,
         force,
         dry_run,
-        loaded: &state.environment().manifests,
+        loaded: state.registries().declarations(),
         kinds: &state.registries().kinds,
         graph: state.graph(),
     };
@@ -611,7 +611,7 @@ pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> Too
     // The shared listing, over what the session compiled.
     let entries = extension::list(
         root,
-        &state.environment().manifests,
+        state.registries().declarations(),
         &state.registries().kinds,
         state.graph(),
     );
@@ -708,7 +708,7 @@ pub(crate) fn doctor_op(state: &mut McpState, args: DoctorArgs) -> ToolOutcome {
     // not the project's: only the CLI reports it.
     let report = specforge_ops::doctor::diagnose(
         &root,
-        &state.environment().manifests,
+        state.registries().declarations(),
         &state.diagnostics(),
     );
     ok(json!({
@@ -758,9 +758,9 @@ pub(crate) fn collect_op(state: &mut McpState, args: CollectArgs) -> ToolOutcome
     let runtime = state.wasm_runtime(&root);
     let compiled =
         other.then(|| specforge_project::CompiledProject::compile(&root, Some(runtime.as_ref())));
-    let (graph, manifests) = match &compiled {
-        Some(project) => (&project.graph, &project.env.manifests),
-        None => (state.graph(), &state.environment().manifests),
+    let (graph, declarations) = match &compiled {
+        Some(project) => (&project.graph, project.env.registries.declarations()),
+        None => (state.graph(), state.registries().declarations()),
     };
     let known = collect::KnownEntities::from_graph(graph);
 
@@ -776,7 +776,7 @@ pub(crate) fn collect_op(state: &mut McpState, args: CollectArgs) -> ToolOutcome
     };
     match collect::collect(
         &request,
-        manifests,
+        declarations,
         runtime.as_ref(),
         &known,
         // The server never prompts: a command runs only if the user already

@@ -112,12 +112,15 @@ fn extension_error(diag: &specforge_common::Diagnostic) -> ToolOutcome {
 /// declares with the tool's export.
 fn command_id(state: &McpState, entry: &SurfaceRegistryEntry) -> String {
     state
-        .environment()
-        .manifest_surfaces
-        .iter()
-        .filter(|(extension, _)| *extension == entry.extension_name)
-        .flat_map(|(_, surfaces)| &surfaces.commands)
-        .find(|command| command.export == entry.export_name)
+        .registries()
+        .declaration(&entry.extension_name)
+        .and_then(|declaration| {
+            declaration
+                .surfaces
+                .commands
+                .iter()
+                .find(|command| command.export == entry.export_name)
+        })
         .map_or_else(|| entry.contribution_name.clone(), |c| c.id.clone())
 }
 

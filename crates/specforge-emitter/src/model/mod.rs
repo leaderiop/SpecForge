@@ -214,19 +214,22 @@ pub struct ModelExtension {
     pub edge_count: usize,
     /// The colour the extension declares for diagrams (`theme_color`). The
     /// schema does not carry it: [`ModelIntermediate::with_theme_colors`]
-    /// sets it from the manifests. Not serialized.
+    /// sets it from the declarations. Not serialized.
     #[serde(skip)]
     pub color: Option<String>,
 }
 
 impl ModelIntermediate {
-    /// Each extension's declared `theme_color`, from its manifest.
-    pub fn with_theme_colors(mut self, manifests: &[specforge_registry::ManifestV2]) -> Self {
+    /// Each extension's declared `theme_color`, from its handshake.
+    pub fn with_theme_colors(
+        mut self,
+        declarations: &[specforge_protocol_types::ExtensionDeclaration],
+    ) -> Self {
         for ext in &mut self.extensions {
-            ext.color = manifests
+            ext.color = declarations
                 .iter()
-                .find(|m| m.name == ext.name)
-                .and_then(|m| m.theme_color.clone());
+                .find(|d| d.name() == ext.name)
+                .and_then(|d| d.handshake.theme_color.clone());
         }
         self
     }

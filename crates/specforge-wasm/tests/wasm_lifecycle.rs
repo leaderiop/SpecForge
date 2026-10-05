@@ -103,6 +103,29 @@ fn make_manifest(name: &str, version: &str, peers: &[(&str, &str)]) -> ManifestV
     }
 }
 
+fn make_declaration(
+    name: &str,
+    version: &str,
+    peers: &[(&str, &str)],
+) -> specforge_protocol_types::ExtensionDeclaration {
+    specforge_protocol_types::ExtensionDeclaration {
+        handshake: specforge_protocol_types::HandshakeResponse {
+            name: name.to_string(),
+            version: version.to_string(),
+            peer_dependencies: peers
+                .iter()
+                .map(|(n, v)| PeerDependency {
+                    name: n.to_string(),
+                    version: v.to_string(),
+                    optional: false,
+                })
+                .collect(),
+            ..Default::default()
+        },
+        ..Default::default()
+    }
+}
+
 fn create_fake_wasm(dir: &TempDir, name: &str) -> std::path::PathBuf {
     let path = dir.path().join(name);
     std::fs::write(&path, b"\x00asm\x01\x00\x00\x00fake").unwrap();
@@ -345,12 +368,12 @@ fn test_call_validators_contract() {
 #[test]
 fn test_toposort_linear_chain() {
     let manifests = vec![
-        make_manifest(
+        make_declaration(
             "@specforge/governance",
             "1.0.0",
             &[("@specforge/software", ">=1.0.0")],
         ),
-        make_manifest("@specforge/software", "1.0.0", &[]),
+        make_declaration("@specforge/software", "1.0.0", &[]),
     ];
 
     let order = topological_sort_extensions(&manifests).unwrap();
@@ -361,18 +384,18 @@ fn test_toposort_linear_chain() {
 #[test]
 fn test_toposort_diamond_dependency() {
     let manifests = vec![
-        make_manifest("@specforge/software", "1.0.0", &[]),
-        make_manifest(
+        make_declaration("@specforge/software", "1.0.0", &[]),
+        make_declaration(
             "@specforge/product",
             "1.0.0",
             &[("@specforge/software", ">=1.0.0")],
         ),
-        make_manifest(
+        make_declaration(
             "@specforge/governance",
             "1.0.0",
             &[("@specforge/software", ">=1.0.0")],
         ),
-        make_manifest(
+        make_declaration(
             "@specforge/dashboard",
             "1.0.0",
             &[
@@ -393,9 +416,9 @@ fn test_toposort_diamond_dependency() {
 #[test]
 fn test_toposort_cycle_produces_e027() {
     let manifests = vec![
-        make_manifest("A", "1.0.0", &[("B", ">=1.0.0")]),
-        make_manifest("B", "1.0.0", &[("C", ">=1.0.0")]),
-        make_manifest("C", "1.0.0", &[("A", ">=1.0.0")]),
+        make_declaration("A", "1.0.0", &[("B", ">=1.0.0")]),
+        make_declaration("B", "1.0.0", &[("C", ">=1.0.0")]),
+        make_declaration("C", "1.0.0", &[("A", ">=1.0.0")]),
     ];
 
     let err = topological_sort_extensions(&manifests).unwrap_err();
@@ -410,9 +433,9 @@ fn test_toposort_cycle_produces_e027() {
 fn test_toposort_contract() {
     // ensures: deterministic ordering on ties (alphabetical)
     let manifests = vec![
-        make_manifest("Z-ext", "1.0.0", &[]),
-        make_manifest("A-ext", "1.0.0", &[]),
-        make_manifest("M-ext", "1.0.0", &[]),
+        make_declaration("Z-ext", "1.0.0", &[]),
+        make_declaration("A-ext", "1.0.0", &[]),
+        make_declaration("M-ext", "1.0.0", &[]),
     ];
     let order = topological_sort_extensions(&manifests).unwrap();
     assert_eq!(order, vec!["A-ext", "M-ext", "Z-ext"]);

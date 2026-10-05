@@ -13,7 +13,7 @@ use specforge_common::inference::{
     self, InferenceManifest, InferenceSummary, SourceItem, discovery::SourceDiscoveryConfig,
 };
 use specforge_graph::Graph;
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::runtime::WasmRuntime;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -64,12 +64,12 @@ fn manifest(root: &Path) -> Result<InferenceManifest, OpError> {
 /// source roots.
 fn source_files(
     root: &Path,
-    manifests: &[ManifestV2],
+    declarations: &[ExtensionDeclaration],
     manifest: &InferenceManifest,
 ) -> Vec<String> {
-    let analyzers: Vec<AnalyzerConfig> = manifests
+    let analyzers: Vec<AnalyzerConfig> = declarations
         .iter()
-        .flat_map(|m| m.analyzer_contributions.iter())
+        .flat_map(|d| d.analyzers.iter())
         .map(|ac| AnalyzerConfig {
             language: ac.language.clone(),
             file_extensions: ac.file_extensions.clone(),
@@ -81,19 +81,23 @@ fn source_files(
 }
 
 /// Inference progress for the project at `root`, whose enabled extensions
-/// declare `manifests`.
-pub fn progress(root: &Path, manifests: &[ManifestV2]) -> Result<Progress, OpError> {
-    Ok(progress_under(root, manifests, &manifest(root)?))
+/// are `declarations`.
+pub fn progress(root: &Path, declarations: &[ExtensionDeclaration]) -> Result<Progress, OpError> {
+    Ok(progress_under(root, declarations, &manifest(root)?))
 }
 
 /// [`progress`], counting from scratch when `specforge-infer.json` cannot
 /// be read: the infer prompt plans a fresh inference then.
-pub fn progress_or_fresh(root: &Path, manifests: &[ManifestV2]) -> Progress {
-    progress_under(root, manifests, &manifest(root).unwrap_or_default())
+pub fn progress_or_fresh(root: &Path, declarations: &[ExtensionDeclaration]) -> Progress {
+    progress_under(root, declarations, &manifest(root).unwrap_or_default())
 }
 
-fn progress_under(root: &Path, manifests: &[ManifestV2], manifest: &InferenceManifest) -> Progress {
-    let files = source_files(root, manifests, manifest);
+fn progress_under(
+    root: &Path,
+    declarations: &[ExtensionDeclaration],
+    manifest: &InferenceManifest,
+) -> Progress {
+    let files = source_files(root, declarations, manifest);
     let index = manifest.source_index_map();
     let unanalyzed = files
         .iter()
@@ -113,12 +117,13 @@ fn progress_under(root: &Path, manifests: &[ManifestV2], manifest: &InferenceMan
 /// `graph` names, scanned through the extensions' scanners on `runtime`.
 pub fn gaps(
     root: &Path,
-    manifests: &[ManifestV2],
+    declarations: &[ExtensionDeclaration],
     graph: &Graph,
     runtime: &dyn WasmRuntime,
 ) -> Result<Gaps, OpError> {
-    let files = source_files(root, manifests, &manifest(root)?);
-    let (items, scanners_used) = crate::scan::scan_source_files(runtime, manifests, root, &files);
+    let files = source_files(root, declarations, &manifest(root)?);
+    let (items, scanners_used) =
+        crate::scan::scan_source_files(runtime, declarations, root, &files);
     let entity_ids: Vec<&str> = graph
         .nodes()
         .into_iter()
@@ -239,22 +244,23 @@ mod tests {
     }
 
     /// An extension analyzing Rust files.
-    fn rust_analyzer() -> Vec<ManifestV2> {
-        let manifest = serde_json::from_value(json!({
-            "name": "@acme/rust",
-            "version": "1.0.0",
-            "manifestVersion": 2,
-            "wasmPath": "rust.wasm",
-            "analyzerContributions": [{
-                "language": "rust",
-                "fileExtensions": [".rs"],
-                "scanExport": "scan",
-                "classifyExport": "classify",
-                "mapExport": "map"
-            }]
-        }))
-        .unwrap();
-        vec![manifest]
+    fn rust_analyzer() -> Vec<ExtensionDeclaration> {
+        vec![ExtensionDeclaration {
+            handshake: specforge_protocol_types::HandshakeResponse {
+                name: "@acme/rust".into(),
+                version: "1.0.0".into(),
+                ..Default::default()
+            },
+            analyzers: vec![specforge_protocol_types::AnalyzerDescriptor {
+                language: "rust".into(),
+                file_extensions: vec![".rs".into()],
+                scan_export: "scan".into(),
+                classify_export: "classify".into(),
+                map_export: "map".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }]
     }
 
     #[specforge_test(

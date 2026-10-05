@@ -46,14 +46,14 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     if args.include_validation_rules.unwrap_or(false) {
         // The rules each loaded extension declares, tagged with its name.
         let rules: Vec<Value> = state
-            .environment()
-            .manifests
+            .registries()
+            .declarations()
             .iter()
-            .flat_map(|manifest| {
-                manifest.validation_rules.iter().filter_map(|rule| {
-                    let mut rule = serde_json::to_value(rule).ok()?;
-                    rule["extension"] = Value::from(manifest.name.as_str());
-                    Some(rule)
+            .flat_map(|declaration| {
+                declaration.validation_rules.iter().map(|rule| {
+                    let mut rule = rule_json(rule);
+                    rule["extension"] = Value::from(declaration.name());
+                    rule
                 })
             })
             .filter(|rule| kind_filter.is_none_or(|kind| rule["targetKind"].as_str() == Some(kind)))
@@ -70,4 +70,19 @@ fn touches(edge: &SchemaEdgeType, kind: &str) -> bool {
     let on =
         |kinds: &Option<Vec<String>>| kinds.as_ref().is_none_or(|k| k.iter().any(|k| k == kind));
     on(&edge.source_kinds) || on(&edge.target_kinds)
+}
+
+/// A declared validation rule as the schema lists it (camelCase keys).
+fn rule_json(rule: &specforge_protocol_types::ValidationRuleDescriptor) -> Value {
+    serde_json::json!({
+        "code": rule.code,
+        "severity": rule.severity,
+        "messageTemplate": rule.message_template,
+        "check": rule.check,
+        "targetKind": rule.target_kind,
+        "edgeType": rule.edge_type,
+        "field": rule.field,
+        "constraint": rule.constraint,
+        "wasmFunction": rule.wasm_function,
+    })
 }

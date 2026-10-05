@@ -108,6 +108,13 @@ impl RegistryBuild {
         self.declarations.iter().find(|d| d.name() == name)
     }
 
+    /// The short name of the loaded extension `extension` (its declared
+    /// `ext_short`, else its name's last segment), which names its commands
+    /// on the CLI and its tools over MCP.
+    pub fn short(&self, extension: &str) -> Option<std::borrow::Cow<'_, str>> {
+        self.declaration(extension).map(ExtensionDeclaration::short)
+    }
+
     /// The passes every compile runs (`phase: "check"`), in order.
     pub fn check_passes(&self) -> impl Iterator<Item = &DeclaredPass> {
         self.passes.iter().filter(|p| p.is_check_phase())

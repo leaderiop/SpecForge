@@ -99,7 +99,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
     );
 
     let model =
-        ModelIntermediate_from_schema(&schema).with_theme_colors(&state.environment().manifests);
+        ModelIntermediate_from_schema(&schema).with_theme_colors(state.registries().declarations());
     let model = filter_entities(&model, &options);
     let model = filter_fields(&model, options.fields);
     let output = render(&model, &options);

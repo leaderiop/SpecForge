@@ -227,11 +227,11 @@ fn uri_template<'a>(
     entry: &specforge_registry::SurfaceRegistryEntry,
 ) -> Option<&'a str> {
     state
-        .environment()
-        .manifest_surfaces
+        .registries()
+        .declaration(&entry.extension_name)?
+        .surfaces
+        .mcp_resources
         .iter()
-        .filter(|(extension, _)| *extension == entry.extension_name)
-        .flat_map(|(_, surfaces)| &surfaces.mcp_resources)
         .find(|resource| resource.name == entry.contribution_name)
         .map(|resource| resource.uri_template.as_str())
 }

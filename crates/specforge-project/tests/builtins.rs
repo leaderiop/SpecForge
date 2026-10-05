@@ -1,6 +1,7 @@
-use specforge_registry::{ManifestV2, validate_manifest, validate_manifest_consistency};
+use specforge_common::Diagnostic;
+use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration};
 use specforge_wasm::WasmRuntime;
-use specforge_wasm::protocol::{declaration_to_manifest, load_declaration};
+use specforge_wasm::protocol::load_declaration;
 
 /// Build a Wasm runtime for a temp project listing `ext_names` — the only
 /// way extensions exist now (WASM-only migration, Phase 7: the native
@@ -17,28 +18,42 @@ fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime
 }
 
 /// Load an extension through the full protocol pipeline over its real Wasm
-/// blob: project_runtime → load_declaration → bridge → ManifestV2.
-fn load_via_protocol(ext_name: &str) -> ManifestV2 {
+/// blob: project_runtime → load_declaration → ExtensionDeclaration.
+fn load_via_protocol(ext_name: &str) -> ExtensionDeclaration {
     let runtime = wasm_runtime_for(&[ext_name]);
-    declaration_to_manifest(&load_declaration(&runtime, ext_name).unwrap().declaration)
+    load_declaration(&runtime, ext_name).unwrap().declaration
+}
+
+/// What the registry build reports about `declaration` itself, loaded
+/// alone: its identity and shape (E030) and its self-consistency (W021).
+/// Its peers are not loaded, so their absence (E027) is not its fault.
+fn declaration_diagnostics(declaration: &ExtensionDeclaration) -> Vec<Diagnostic> {
+    specforge_registry::build_registries(vec![declaration.clone()])
+        .declaration_diagnostics
+        .into_iter()
+        .filter(|d| d.code != "E027")
+        .collect()
+}
+
+/// The keyword a kind is written with: its declared keyword, else its name.
+fn keyword(kind: &EntityKindDescriptor) -> &str {
+    kind.keyword.as_deref().unwrap_or(&kind.name)
 }
 
 #[test]
 fn product_extension_loads_via_protocol() {
     let manifest = load_via_protocol("@specforge/product");
-    assert_eq!(manifest.name, "@specforge/product");
-    assert_eq!(manifest.version, "1.0.0");
-    assert_eq!(manifest.entity_kinds.len(), 9);
-    assert_eq!(manifest.edge_types.len(), 20);
+    assert_eq!(manifest.name(), "@specforge/product");
+    assert_eq!(manifest.version(), "1.0.0");
+    assert_eq!(manifest.entities.len(), 9);
+    assert_eq!(manifest.edges.len(), 20);
     assert_eq!(manifest.validation_rules.len(), 61);
-    assert_eq!(manifest.fields.len(), 1, "shared fields (tags)");
-    assert!(manifest.contributes.entities);
-    assert!(manifest.contributes.validators);
+    assert_eq!(manifest.shared_fields.len(), 1, "shared fields (tags)");
+    assert!(manifest.contribution_flags().entities);
+    assert!(manifest.contribution_flags().validators);
 
-    let diags = validate_manifest(&manifest);
-    assert!(diags.is_empty(), "schema validation errors: {:?}", diags);
-    let diags = validate_manifest_consistency(&manifest);
-    assert!(diags.is_empty(), "consistency errors: {:?}", diags);
+    let diags = declaration_diagnostics(&manifest);
+    assert!(diags.is_empty(), "declaration errors: {:?}", diags);
 }
 
 #[test]
@@ -65,21 +80,17 @@ fn product_w093_semver_pattern_is_not_trivial() {
 #[test]
 fn governance_extension_loads_via_protocol() {
     let manifest = load_via_protocol("@specforge/governance");
-    assert_eq!(manifest.name, "@specforge/governance");
-    assert_eq!(manifest.version, "1.0.0");
-    assert_eq!(manifest.entity_kinds.len(), 3);
-    assert_eq!(manifest.edge_types.len(), 11);
+    assert_eq!(manifest.name(), "@specforge/governance");
+    assert_eq!(manifest.version(), "1.0.0");
+    assert_eq!(manifest.entities.len(), 3);
+    assert_eq!(manifest.edges.len(), 11);
     assert_eq!(manifest.validation_rules.len(), 7);
     assert_eq!(
-        manifest.peer_dependencies.len(),
+        manifest.peers().len(),
         2,
         "governance should depend on software AND product"
     );
-    let dep_names: Vec<&str> = manifest
-        .peer_dependencies
-        .iter()
-        .map(|p| p.name.as_str())
-        .collect();
+    let dep_names: Vec<&str> = manifest.peers().iter().map(|p| p.name.as_str()).collect();
     assert!(
         dep_names.contains(&"@specforge/software"),
         "must depend on software"
@@ -88,22 +99,20 @@ fn governance_extension_loads_via_protocol() {
         dep_names.contains(&"@specforge/product"),
         "must depend on product (declares edges to feature)"
     );
-    assert!(manifest.contributes.entities);
-    assert!(manifest.contributes.validators);
+    assert!(manifest.contribution_flags().entities);
+    assert!(manifest.contribution_flags().validators);
 
-    let diags = validate_manifest(&manifest);
-    assert!(diags.is_empty(), "schema validation errors: {:?}", diags);
-    let diags = validate_manifest_consistency(&manifest);
-    assert!(diags.is_empty(), "consistency errors: {:?}", diags);
+    let diags = declaration_diagnostics(&manifest);
+    assert!(diags.is_empty(), "declaration errors: {:?}", diags);
 }
 
 #[test]
 fn testing_extension_makes_software_kinds_testable() {
     let manifest = load_via_protocol("@specforge/testing");
-    assert_eq!(manifest.name, "@specforge/testing");
-    assert!(manifest.entity_kinds.is_empty(), "testing owns no kinds");
+    assert_eq!(manifest.name(), "@specforge/testing");
+    assert!(manifest.entities.is_empty(), "testing owns no kinds");
     let testable: Vec<(&str, &str)> = manifest
-        .entity_enhancements
+        .enhancements
         .iter()
         .filter(|e| e.verify_kinds.is_some())
         .map(|e| (e.target_kind.as_str(), e.source_extension.as_str()))
@@ -134,66 +143,64 @@ fn testing_extension_makes_software_kinds_testable() {
 )]
 fn software_extension_loads_via_protocol() {
     let manifest = load_via_protocol("@specforge/software");
-    assert_eq!(manifest.name, "@specforge/software");
-    assert_eq!(manifest.version, "1.0.0");
-    assert_eq!(manifest.entity_kinds.len(), 5);
-    assert_eq!(manifest.edge_types.len(), 15);
+    assert_eq!(manifest.name(), "@specforge/software");
+    assert_eq!(manifest.version(), "1.0.0");
+    assert_eq!(manifest.entities.len(), 5);
+    assert_eq!(manifest.edges.len(), 15);
     // W004/W009 moved to @specforge/testing (ADR 0002).
     assert_eq!(manifest.validation_rules.len(), 11);
-    assert_eq!(manifest.entity_enhancements.len(), 2);
+    assert_eq!(manifest.enhancements.len(), 2);
     assert!(
         manifest
-            .entity_kinds
+            .entities
             .iter()
             .all(|k| !k.supports_verify && !k.testable),
         "software declares no test vocabulary"
     );
-    assert_eq!(manifest.peer_dependencies.len(), 1);
+    assert_eq!(manifest.peers().len(), 1);
     assert!(
-        manifest.peer_dependencies[0].optional,
+        manifest.peers()[0].optional,
         "product is an optional peer: software works without it"
     );
-    assert!(manifest.sandbox_policy.is_some());
-    assert!(manifest.contributes.entities);
-    assert!(manifest.contributes.validators);
+    assert!(manifest.handshake.sandbox_policy.is_some());
+    assert!(manifest.contribution_flags().entities);
+    assert!(manifest.contribution_flags().validators);
 
-    let diags = validate_manifest(&manifest);
-    assert!(diags.is_empty(), "schema validation errors: {:?}", diags);
-    let diags = validate_manifest_consistency(&manifest);
-    assert!(diags.is_empty(), "consistency errors: {:?}", diags);
+    let diags = declaration_diagnostics(&manifest);
+    assert!(diags.is_empty(), "declaration errors: {:?}", diags);
 }
 
 #[test]
 fn formal_extension_loads_via_protocol() {
     let manifest = load_via_protocol("@specforge/formal");
-    assert_eq!(manifest.name, "@specforge/formal");
-    assert_eq!(manifest.version, "1.0.0");
-    assert_eq!(manifest.entity_kinds.len(), 5);
-    assert_eq!(manifest.edge_types.len(), 13);
+    assert_eq!(manifest.name(), "@specforge/formal");
+    assert_eq!(manifest.version(), "1.0.0");
+    assert_eq!(manifest.entities.len(), 5);
+    assert_eq!(manifest.edges.len(), 13);
     assert!(
         manifest.validation_rules.len() >= 6,
         "formal needs at least 6 validation rules, got {}",
         manifest.validation_rules.len()
     );
     // behavior, event, and invariant (its `expression` claim, ADR 0009).
-    assert_eq!(manifest.entity_enhancements.len(), 3);
-    assert_eq!(manifest.peer_dependencies.len(), 1);
-    assert!(manifest.contributes.entities);
-    assert!(manifest.contributes.validators);
+    assert_eq!(manifest.enhancements.len(), 3);
+    assert_eq!(manifest.peers().len(), 1);
+    assert!(manifest.contribution_flags().entities);
+    assert!(manifest.contribution_flags().validators);
 
     let property = manifest
-        .entity_kinds
+        .entities
         .iter()
-        .find(|k| k.keyword == "property")
+        .find(|k| keyword(k) == "property")
         .unwrap();
     assert!(
         property.supports_verify,
         "property should support verify (model-checkable)"
     );
     let axiom = manifest
-        .entity_kinds
+        .entities
         .iter()
-        .find(|k| k.keyword == "axiom")
+        .find(|k| keyword(k) == "axiom")
         .unwrap();
     assert!(
         axiom.supports_verify,
@@ -201,9 +208,9 @@ fn formal_extension_loads_via_protocol() {
     );
 
     let refinement = manifest
-        .entity_kinds
+        .entities
         .iter()
-        .find(|k| k.keyword == "refinement")
+        .find(|k| keyword(k) == "refinement")
         .unwrap();
     let abstract_f = refinement
         .fields
@@ -224,10 +231,8 @@ fn formal_extension_loads_via_protocol() {
         "refinement.concrete_entity should be required"
     );
 
-    let diags = validate_manifest(&manifest);
-    assert!(diags.is_empty(), "schema validation errors: {:?}", diags);
-    let diags = validate_manifest_consistency(&manifest);
-    assert!(diags.is_empty(), "consistency errors: {:?}", diags);
+    let diags = declaration_diagnostics(&manifest);
+    assert!(diags.is_empty(), "declaration errors: {:?}", diags);
 }
 
 // ── @specforge/rust ──
@@ -235,18 +240,18 @@ fn formal_extension_loads_via_protocol() {
 #[test]
 fn rust_extension_loads_via_protocol() {
     let manifest = load_via_protocol("@specforge/rust");
-    assert_eq!(manifest.name, "@specforge/rust");
-    assert_eq!(manifest.version, "1.0.0");
-    assert!(manifest.contributes.analyzers);
-    assert!(!manifest.contributes.entities);
-    assert_eq!(manifest.analyzer_contributions.len(), 1);
-    let ac = &manifest.analyzer_contributions[0];
+    assert_eq!(manifest.name(), "@specforge/rust");
+    assert_eq!(manifest.version(), "1.0.0");
+    assert!(manifest.contribution_flags().analyzers);
+    assert!(!manifest.contribution_flags().entities);
+    assert_eq!(manifest.analyzers.len(), 1);
+    let ac = &manifest.analyzers[0];
     assert_eq!(ac.language, "rust");
     assert_eq!(ac.file_extensions, vec![".rs"]);
     assert_eq!(ac.scan_export, "scan__rust");
 
-    let diags = validate_manifest(&manifest);
-    assert!(diags.is_empty(), "schema validation errors: {:?}", diags);
+    let diags = declaration_diagnostics(&manifest);
+    assert!(diags.is_empty(), "declaration errors: {:?}", diags);
 }
 
 #[test]
@@ -297,18 +302,18 @@ pub const MAX_SIZE: usize = 100;
 #[test]
 fn typescript_extension_loads_via_protocol() {
     let manifest = load_via_protocol("@specforge/typescript");
-    assert_eq!(manifest.name, "@specforge/typescript");
-    assert_eq!(manifest.version, "1.0.0");
-    assert!(manifest.contributes.analyzers);
-    assert!(!manifest.contributes.entities);
-    assert_eq!(manifest.analyzer_contributions.len(), 1);
-    let ac = &manifest.analyzer_contributions[0];
+    assert_eq!(manifest.name(), "@specforge/typescript");
+    assert_eq!(manifest.version(), "1.0.0");
+    assert!(manifest.contribution_flags().analyzers);
+    assert!(!manifest.contribution_flags().entities);
+    assert_eq!(manifest.analyzers.len(), 1);
+    let ac = &manifest.analyzers[0];
     assert_eq!(ac.language, "typescript");
     assert_eq!(ac.file_extensions, vec![".ts", ".tsx", ".js", ".jsx"]);
     assert_eq!(ac.scan_export, "scan__typescript");
 
-    let diags = validate_manifest(&manifest);
-    assert!(diags.is_empty(), "schema validation errors: {:?}", diags);
+    let diags = declaration_diagnostics(&manifest);
+    assert!(diags.is_empty(), "declaration errors: {:?}", diags);
 }
 
 #[test]
@@ -370,21 +375,21 @@ export * from './barrel';
 }
 
 /// The proof role of `kind`'s `field` as the protocol bridge reads it,
-/// looking at the manifest's enhancements of `kind` too.
-fn proof_role(manifest: &ManifestV2, kind: &str, field: &str) -> Option<String> {
+/// looking at the declaration's enhancements of `kind` too.
+fn proof_role(manifest: &ExtensionDeclaration, kind: &str, field: &str) -> Option<String> {
     let own = manifest
-        .entity_kinds
+        .entities
         .iter()
-        .filter(|k| k.keyword == kind)
+        .filter(|k| keyword(k) == kind)
         .flat_map(|k| &k.fields);
     let enhanced = manifest
-        .entity_enhancements
+        .enhancements
         .iter()
         .filter(|e| e.target_kind == kind)
         .flat_map(|e| &e.fields);
     own.chain(enhanced)
         .find(|f| f.name == field)
-        .unwrap_or_else(|| panic!("{} declares no {kind}.{field}", manifest.name))
+        .unwrap_or_else(|| panic!("{} declares no {kind}.{field}", manifest.name()))
         .proof_role
         .clone()
 }
@@ -421,9 +426,9 @@ fn formal_expressions_declare_their_proof_roles() {
 fn product_lifecycle_kinds_declare_status() {
     let manifest = load_via_protocol("@specforge/product");
     let lifecycle: Vec<(&str, Option<&str>)> = manifest
-        .entity_kinds
+        .entities
         .iter()
-        .map(|k| (k.keyword.as_str(), k.lifecycle_field.as_deref()))
+        .map(|k| (keyword(k), k.lifecycle_field.as_deref()))
         .collect();
     for (kind, field) in lifecycle {
         let expected = matches!(

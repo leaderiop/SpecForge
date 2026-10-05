@@ -158,7 +158,7 @@ impl McpState {
         self.session.environment()
     }
 
-    /// The served project's registries, rules, manifests and surfaces.
+    /// The served project's registries, rules, declarations and surfaces.
     pub fn registries(&self) -> &RegistryBuild {
         &self.environment().registries
     }
@@ -310,7 +310,7 @@ impl McpState {
         self.promoted_surfaces.clear();
         crate::registry::register_defaults(self);
         let env = self.session.shared_environment();
-        crate::registry::register_extension_surfaces(self, &env.manifest_surfaces);
+        crate::registry::register_extension_surfaces(self, env.registries.declarations());
         crate::notifications::enqueue_compile_notifications(
             self,
             &update.delta,

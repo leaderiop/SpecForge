@@ -11,7 +11,7 @@ use std::path::Path;
 /// plus registry credential health. Exit 1 on any error-level finding.
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let ctx = crate::pipeline::compile(path);
-    let report = diagnose(path, &ctx.manifests, &ctx.diagnostics);
+    let report = diagnose(path, &ctx.declarations, &ctx.diagnostics);
     let credentials = user_credential_health();
     let healthy = !report.has_errors();
 

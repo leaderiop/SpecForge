@@ -18,7 +18,7 @@ use crate::OpError;
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, Severity};
 use specforge_project::coverage::{ReportedEntity, ReportedTest, TestReport};
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
@@ -50,13 +50,13 @@ pub struct Collector {
 /// The only `capture` value: the command's standard output.
 pub const CAPTURE_STDOUT: &str = "stdout";
 
-/// Every collector the enabled extensions declare, in manifest order.
-pub fn collectors(manifests: &[ManifestV2]) -> Vec<Collector> {
-    manifests
+/// Every collector the enabled extensions declare, in declaration order.
+pub fn collectors(declarations: &[ExtensionDeclaration]) -> Vec<Collector> {
+    declarations
         .iter()
-        .flat_map(|m| {
-            m.collector_contributions.iter().map(|c| Collector {
-                extension: m.name.clone(),
+        .flat_map(|d| {
+            d.collectors.iter().map(|c| Collector {
+                extension: d.name().to_string(),
                 name: c.name.clone(),
                 export: c.export.clone(),
                 detect: c
@@ -730,14 +730,14 @@ impl Outcome {
 /// command may run; `announce` is told just before it runs.
 pub fn collect(
     request: &Request,
-    manifests: &[ManifestV2],
+    declarations: &[ExtensionDeclaration],
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
     known: &KnownEntities,
     mut consent: Consent,
     announce: &mut dyn FnMut(&Collector, &[String]),
 ) -> Result<Outcome, OpError> {
     let root = request.root;
-    let available = collectors(manifests);
+    let available = collectors(declarations);
     let parse_only = !matches!(request.mode, Mode::Run(_));
     let selected = select(&available, request.runner, root)?;
     if let Mode::Reports(_) = request.mode

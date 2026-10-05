@@ -17,7 +17,7 @@ pub fn run(
     show_gaps_detail: bool,
 ) -> i32 {
     let (ctx, runtime) = crate::pipeline::compile_with_runtime(path);
-    let progress = match infer::progress(path, &ctx.manifests) {
+    let progress = match infer::progress(path, &ctx.declarations) {
         Ok(progress) => progress,
         Err(error) => {
             format.print_op_error(&error);
@@ -25,7 +25,7 @@ pub fn run(
         }
     };
     let gaps = if show_gaps_detail {
-        match infer::gaps(path, &ctx.manifests, &ctx.graph, &runtime) {
+        match infer::gaps(path, &ctx.declarations, &ctx.graph, &runtime) {
             Ok(gaps) => Some(gaps),
             Err(error) => {
                 format.print_op_error(&error);

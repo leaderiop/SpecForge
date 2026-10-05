@@ -3,7 +3,8 @@
 use super::{NOT_FOUND, Origin, builtin_name, extensions_dir, lock_path};
 use crate::OpError;
 use specforge_graph::Graph;
-use specforge_registry::{KindRegistry, ManifestV2};
+use specforge_protocol_types::ExtensionDeclaration;
+use specforge_registry::KindRegistry;
 use specforge_wasm::{LockFile, read_lock_file, uninstall_extension, write_lock_file};
 use std::path::Path;
 
@@ -15,8 +16,8 @@ pub struct RemoveRequest<'a> {
     pub force: bool,
     /// Report what would be removed; change nothing.
     pub dry_run: bool,
-    /// The manifests a compile of the project loaded.
-    pub loaded: &'a [ManifestV2],
+    /// The declarations a compile of the project loaded.
+    pub loaded: &'a [ExtensionDeclaration],
     pub kinds: &'a KindRegistry,
     pub graph: &'a Graph,
 }
@@ -55,8 +56,8 @@ pub fn remove(req: &RemoveRequest) -> Result<RemoveOutcome, OpError> {
             if !enabled(req.root, builtin)? {
                 return Err(not_installed(req.name, None));
             }
-            let loaded = req.loaded.iter().find(|m| m.name == builtin);
-            (loaded.map(|m| m.version.clone()), Origin::Builtin)
+            let loaded = req.loaded.iter().find(|d| d.name() == builtin);
+            (loaded.map(|d| d.version().to_string()), Origin::Builtin)
         }
         (None, None) => {
             let why = lock.is_none().then_some("no lock file found");
@@ -89,7 +90,7 @@ pub fn remove(req: &RemoveRequest) -> Result<RemoveOutcome, OpError> {
     }
 
     if let (Origin::Installed { .. }, Some(mut lock)) = (&outcome.origin, lock) {
-        // Dependents are checked above, over the loaded manifests and the lock.
+        // Dependents are checked above, over the loaded declarations and the lock.
         uninstall_extension(req.name, &[], &extensions_dir(req.root), &mut lock, true)
             .map_err(OpError::from)?;
         write_lock_file(&lock, &lock_path(req.root)).map_err(OpError::from)?;
@@ -125,14 +126,14 @@ fn not_installed(name: &str, why: Option<&str>) -> OpError {
 
 /// The extensions that require `name` as a non-optional peer: loaded ones
 /// (their handshake) and locked ones (the peers recorded at install).
-fn dependents(name: &str, loaded: &[ManifestV2], lock: Option<&LockFile>) -> Vec<String> {
+fn dependents(name: &str, loaded: &[ExtensionDeclaration], lock: Option<&LockFile>) -> Vec<String> {
     let requires = |peers: &[specforge_registry::PeerDependency]| {
         peers.iter().any(|p| p.name == name && !p.optional)
     };
     let mut out: Vec<String> = loaded
         .iter()
-        .filter(|m| m.name != name && requires(&m.peer_dependencies))
-        .map(|m| m.name.clone())
+        .filter(|d| d.name() != name && requires(d.peers()))
+        .map(|d| d.name().to_string())
         .chain(
             lock.iter()
                 .flat_map(|lock| &lock.entries)

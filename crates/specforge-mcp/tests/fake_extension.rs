@@ -40,7 +40,7 @@ impl FakeExtension {
         }
     }
 
-    /// Also declare `command` (a `CommandContribution`).
+    /// Also declare `command` (a `CommandDescriptor`).
     pub fn with_command(mut self, command: Value) -> Self {
         self.commands.push(command);
         self

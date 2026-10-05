@@ -169,13 +169,13 @@ fn protocol_extension_loaded_with_runtime() {
         .collect();
     assert!(e028.is_empty(), "should not have E028: {:?}", e028);
 
-    // ManifestV2 should appear in ctx.manifests
+    // Its declaration should appear in ctx.declarations
     assert_eq!(
-        ctx.manifests.len(),
+        ctx.declarations.len(),
         1,
-        "expected 1 manifest from protocol extension"
+        "expected 1 declaration from protocol extension"
     );
-    assert_eq!(ctx.manifests[0].name, "@test/proto");
+    assert_eq!(ctx.declarations[0].name(), "@test/proto");
 
     // KindRegistry should have "gadget"
     assert!(
@@ -238,10 +238,10 @@ fn protocol_handshake_trap_produces_e028() {
         "E028 should describe the error"
     );
 
-    // No manifests from the broken extension
+    // No declaration from the broken extension
     assert!(
-        ctx.manifests.is_empty(),
-        "broken extension should not produce a manifest"
+        ctx.declarations.is_empty(),
+        "broken extension should not produce a declaration"
     );
 }
 

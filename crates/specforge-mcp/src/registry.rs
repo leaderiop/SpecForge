@@ -1,8 +1,8 @@
 use serde_json::{Value, json};
-use specforge_registry::{
-    CommandArg, CommandArgType, CommandContribution, SurfaceContributions, SurfaceRegistryEntry,
-    SurfaceType,
+use specforge_protocol_types::{
+    CommandArgDescriptor, CommandArgType, CommandDescriptor, ExtensionDeclaration,
 };
+use specforge_registry::{SurfaceRegistryEntry, SurfaceType};
 
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
@@ -15,23 +15,22 @@ pub fn register_defaults(state: &mut McpState) {
     state.prompt_registry = default_prompts();
 }
 
-/// Convert manifest surface contributions into MCP tool and resource descriptors,
+/// Convert the declarations' surfaces into MCP tool and resource descriptors,
 /// appending them to the existing registries, then auto-promote every CLI
 /// command to an MCP tool (see [`auto_promote_commands`]).
-pub fn register_extension_surfaces(
-    state: &mut McpState,
-    manifest_surfaces: &[(String, SurfaceContributions)],
-) {
-    for (ext_name, surfaces) in manifest_surfaces {
+pub fn register_extension_surfaces(state: &mut McpState, declarations: &[ExtensionDeclaration]) {
+    for declaration in declarations {
+        let ext_name = declaration.name();
+        let surfaces = &declaration.surfaces;
         for tool in &surfaces.mcp_tools {
             state.tool_registry.push(McpToolDescriptor {
                 name: tool.name.clone(),
                 description: tool.description.clone(),
                 input_schema: tool.input_schema.clone(),
-                // The manifest's output_schema is the tool's outputSchema.
+                // The declared output_schema is the tool's outputSchema.
                 output_schema: tool.output_schema.clone(),
                 category: Some(extension_category(tool.category.as_deref()).into()),
-                source: Some(ext_name.clone()),
+                source: Some(ext_name.to_string()),
                 annotations: None,
             });
         }
@@ -45,7 +44,7 @@ pub fn register_extension_surfaces(
             });
         }
     }
-    auto_promote_commands(state, manifest_surfaces);
+    auto_promote_commands(state, declarations);
 }
 
 /// Every extension CLI command becomes the MCP tool
@@ -55,14 +54,13 @@ pub fn register_extension_surfaces(
 /// registered under that name (core or explicitly contributed) wins, and
 /// the command is reported with I017. Emits `commands_auto_promoted` when
 /// any extension contributes commands.
-fn auto_promote_commands(
-    state: &mut McpState,
-    manifest_surfaces: &[(String, SurfaceContributions)],
-) {
+fn auto_promote_commands(state: &mut McpState, declarations: &[ExtensionDeclaration]) {
     let mut promoted_count = 0;
     let mut conflict_count = 0;
     let mut any_commands = false;
-    for (ext_name, surfaces) in manifest_surfaces {
+    for declaration in declarations {
+        let ext_name = declaration.name();
+        let surfaces = &declaration.surfaces;
         if surfaces.commands.is_empty() {
             continue;
         }
@@ -71,7 +69,7 @@ fn auto_promote_commands(
             state.tool_registry.iter().map(|t| t.name.clone()).collect();
         // A command the host refuses (an arg taking a host option, such as
         // `format`) is no tool, as it is no command line.
-        let promotable: Vec<&CommandContribution> = surfaces
+        let promotable: Vec<&CommandDescriptor> = surfaces
             .commands
             .iter()
             .filter(|cmd| specforge_ops::command::refusal(cmd).is_none())
@@ -90,7 +88,7 @@ fn auto_promote_commands(
             .zip(&args)
             .map(|(cmd, args)| (cmd.id.as_str(), args.as_slice()))
             .collect();
-        let short = ext_short(state, ext_name);
+        let short = declaration.short();
         let (tools, diagnostics) =
             specforge_wasm::auto_promote_commands_to_mcp_tools(&commands, &explicit, &short);
         conflict_count += diagnostics.len();
@@ -107,13 +105,13 @@ fn auto_promote_commands(
                 output_schema: None,
                 // A command's own category is a CLI grouping, not a role.
                 category: Some(Category::Core.as_str().into()),
-                source: Some(ext_name.clone()),
+                source: Some(ext_name.to_string()),
                 annotations: None,
             });
             state.promoted_surfaces.push(SurfaceRegistryEntry {
                 surface_type: SurfaceType::AutoPromotedTool,
                 contribution_name: tool.name,
-                extension_name: ext_name.clone(),
+                extension_name: ext_name.to_string(),
                 export_name: cmd.export.clone(),
             });
             promoted_count += 1;
@@ -136,7 +134,7 @@ fn extension_category(declared: Option<&str>) -> &'static str {
         .as_str()
 }
 
-/// The manifest spelling of a command arg type.
+/// The declared spelling of a command arg type.
 fn arg_type_name(arg_type: &CommandArgType) -> &'static str {
     match arg_type {
         CommandArgType::String => "string",
@@ -147,15 +145,9 @@ fn arg_type_name(arg_type: &CommandArgType) -> &'static str {
     }
 }
 
-/// An extension's short name for tool naming, as the CLI names its
-/// commands (`specforge_ops::command::ext_short`).
-fn ext_short(state: &McpState, ext_name: &str) -> String {
-    specforge_ops::command::ext_short(&state.environment().manifests, ext_name)
-}
-
 /// Complete the per-arg types of `schema` with what the args also declare:
 /// enum values, descriptions, and which args are required.
-fn derived_input_schema(mut schema: Value, args: &[CommandArg]) -> Value {
+fn derived_input_schema(mut schema: Value, args: &[CommandArgDescriptor]) -> Value {
     for arg in args {
         let Some(property) = schema["properties"].get_mut(&arg.name) else {
             continue;

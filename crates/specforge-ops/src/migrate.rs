@@ -13,7 +13,7 @@ use specforge_migrate::{
     run_rollback,
 };
 use specforge_project::CompiledProject;
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
@@ -115,18 +115,18 @@ pub struct HookInput {
 /// Migrate the project, running its extensions (and their migration hooks)
 /// in `runtime`.
 pub fn run(request: &Request, runtime: Option<&dyn WasmRuntime>) -> Outcome {
-    run_with_hooks(request, runtime, &mut |manifests, input| match runtime {
-        Some(runtime) => invoke_hooks(manifests, runtime, input),
+    run_with_hooks(request, runtime, &mut |declarations, input| match runtime {
+        Some(runtime) => invoke_hooks(declarations, runtime, input),
         None => (Vec::new(), Vec::new()),
     })
 }
 
-/// [`run`] with the hook step supplied: given the loaded manifests, it
+/// [`run`] with the hook step supplied: given the loaded declarations, it
 /// returns the hooks it ran and why any failed.
 pub fn run_with_hooks(
     request: &Request,
     runtime: Option<&dyn WasmRuntime>,
-    hooks: &mut dyn FnMut(&[ManifestV2], &HookInput) -> HookRun,
+    hooks: &mut dyn FnMut(&[ExtensionDeclaration], &HookInput) -> HookRun,
 ) -> Outcome {
     let root = request.root;
     let target = &request.target;
@@ -178,7 +178,7 @@ pub fn run_with_hooks(
             .map(|r| r.file_path.clone())
             .collect(),
     };
-    let (invoked, failures) = hooks(&pre.env.manifests, &input);
+    let (invoked, failures) = hooks(pre.env.registries.declarations(), &input);
     outcome.hooks_invoked = invoked;
     outcome.hook_failures = failures;
     if !outcome.hook_failures.is_empty() {
@@ -220,7 +220,7 @@ fn schema_of(project: &CompiledProject) -> specforge_emitter::GraphProtocolSchem
 /// hook that traps is recorded and the rest still run. Returns the hooks
 /// run (`extension:hook`) and the failures.
 pub fn invoke_hooks(
-    manifests: &[ManifestV2],
+    declarations: &[ExtensionDeclaration],
     runtime: &dyn WasmRuntime,
     input: &HookInput,
 ) -> HookRun {
@@ -233,7 +233,7 @@ pub fn invoke_hooks(
     .into_bytes();
     use specforge_wasm::runtime::WasmCallResult;
 
-    let order = match specforge_wasm::topological_sort_extensions(manifests) {
+    let order = match specforge_wasm::topological_sort_extensions(declarations) {
         Ok(order) => order,
         Err(diagnostics) => {
             let reason = diagnostics
@@ -246,10 +246,15 @@ pub fn invoke_hooks(
     let mut invoked = Vec::new();
     let mut failures = Vec::new();
     for name in &order {
-        let Some(manifest) = manifests.iter().find(|m| &m.name == name) else {
+        let Some(declaration) = declarations.iter().find(|d| d.name() == name) else {
             continue;
         };
-        let Some(hook) = manifest.migration_hook.as_deref().filter(|h| !h.is_empty()) else {
+        let Some(hook) = declaration
+            .handshake
+            .migration_hook
+            .as_deref()
+            .filter(|h| !h.is_empty())
+        else {
             continue;
         };
         match runtime.call_export(name, hook, &payload) {
@@ -513,15 +518,16 @@ mod tests {
         }
     }
 
-    fn manifest(name: &str, hook: &str) -> ManifestV2 {
-        serde_json::from_value(serde_json::json!({
-            "name": name,
-            "version": "1.0.0",
-            "manifestVersion": 2,
-            "wasmPath": "",
-            "migrationHook": hook,
-        }))
-        .unwrap()
+    fn manifest(name: &str, hook: &str) -> ExtensionDeclaration {
+        ExtensionDeclaration {
+            handshake: specforge_protocol_types::HandshakeResponse {
+                name: name.into(),
+                version: "1.0.0".into(),
+                migration_hook: Some(hook.into()),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
     }
 
     /// Records each hook's input.

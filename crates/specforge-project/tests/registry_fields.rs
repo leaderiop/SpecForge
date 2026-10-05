@@ -10,11 +10,7 @@ fn no_spec_side_tests_field_is_registered() {
     let runtime = wasm_runtime_for(&exts);
     let mut diags = Vec::new();
     let declarations = specforge_project::compile::load_extensions(&exts, &runtime, &mut diags);
-    let manifests: Vec<_> = declarations
-        .iter()
-        .map(specforge_wasm::protocol::declaration_to_manifest)
-        .collect();
-    let (_kind_reg, field_reg, _edge, _d) = specforge_registry::populate_registries(&manifests);
+    let field_reg = specforge_registry::build_registries(declarations).fields;
     assert!(field_reg.contains("behavior", "invariants"));
     assert!(!field_reg.contains("behavior", "tests"));
     assert!(!field_reg.contains("invariant", "tests"));

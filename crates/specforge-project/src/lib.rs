@@ -39,8 +39,7 @@ use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
-    ManifestV2, RegistryBuild, SurfaceContributions, build_registries,
-    load_provider_configurations, register_provider_schemes,
+    RegistryBuild, build_registries, load_provider_configurations, register_provider_schemes,
 };
 use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
 use specforge_wasm::WasmRuntime;
@@ -65,12 +64,6 @@ pub struct Environment {
     /// The registries, rules, passes and graph inputs built from the loaded
     /// declarations.
     pub registries: RegistryBuild,
-    /// The loaded declarations as manifests, for the readers that still
-    /// take them (removed once they read the declarations, plan 03 T7).
-    pub manifests: Vec<ManifestV2>,
-    /// Each loaded declaration's surfaces as manifest surfaces, for the
-    /// same readers (plan 03 T7).
-    pub manifest_surfaces: Vec<(String, SurfaceContributions)>,
     /// The ref schemes the configured providers registered (ADR 0004
     /// D3-c): with any registered, a ref with another scheme is I005.
     pub provider_schemes: HashSet<String>,
@@ -91,8 +84,6 @@ impl Environment {
             config: ProjectConfig::default(),
             spec_root: PathBuf::new(),
             registries: RegistryBuild::default(),
-            manifests: Vec::new(),
-            manifest_surfaces: Vec::new(),
             provider_schemes: HashSet::new(),
             load_diagnostics: Vec::new(),
             setup_diagnostics: Vec::new(),
@@ -103,12 +94,8 @@ impl Environment {
     /// the default config, no spec root, the registry build of exactly
     /// these declarations.
     pub fn from_declarations(declarations: Vec<ExtensionDeclaration>) -> Self {
-        let registries = build_registries(declarations);
-        let (manifests, manifest_surfaces) = manifest_views(&registries);
         Environment {
-            registries,
-            manifests,
-            manifest_surfaces,
+            registries: build_registries(declarations),
             ..Environment::empty()
         }
     }
@@ -134,7 +121,6 @@ impl Environment {
         if registries.declarations().is_empty() {
             setup_diagnostics.push(structural_only_notice(&config.extensions));
         }
-        let (manifests, manifest_surfaces) = manifest_views(&registries);
         let spec_root = match &config.spec_root {
             Some(spec_root) => root.join(spec_root),
             None => root.to_path_buf(),
@@ -144,8 +130,6 @@ impl Environment {
             config,
             spec_root,
             registries,
-            manifests,
-            manifest_surfaces,
             provider_schemes,
             load_diagnostics,
             setup_diagnostics,
@@ -227,23 +211,6 @@ impl Environment {
     pub fn build_graph(&self) -> Graph {
         build_graph_with_config(&source_files(&self.resolve()), &self.graph_config()).0
     }
-}
-
-/// The loaded declarations as manifests, and their surfaces as manifest
-/// surfaces, for the readers that still take them (plan 03 T7 removes it).
-fn manifest_views(
-    registries: &RegistryBuild,
-) -> (Vec<ManifestV2>, Vec<(String, SurfaceContributions)>) {
-    let manifests: Vec<ManifestV2> = registries
-        .declarations()
-        .iter()
-        .map(specforge_wasm::protocol::declaration_to_manifest)
-        .collect();
-    let surfaces = manifests
-        .iter()
-        .filter_map(|m| Some((m.name.clone(), m.surfaces.clone()?)))
-        .collect();
-    (manifests, surfaces)
 }
 
 /// Register the `providers` specforge.json configures against the loaded
@@ -401,8 +368,6 @@ impl CompiledProject {
             resolved,
             extension_rules: registries.rules,
             surface_entries: registries.surfaces,
-            manifest_surfaces: env.manifest_surfaces,
-            manifests: env.manifests,
             declarations,
             passes: registries.passes,
             spec_root: env.spec_root,

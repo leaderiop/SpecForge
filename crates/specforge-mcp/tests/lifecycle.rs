@@ -16,28 +16,33 @@ fn init_server() -> McpServer {
     server
 }
 
-/// Register what an extension's manifest contributes to MCP, as loading
+/// Register what an extension's declaration contributes to MCP, as loading
 /// the extension does.
 fn load_extension_surfaces(server: &mut McpServer) {
-    let surfaces: specforge_registry::SurfaceContributions = serde_json::from_value(json!({
-        "mcpTools": [{
+    let surfaces: specforge_protocol_types::SurfaceDescriptor = serde_json::from_value(json!({
+        "mcp_tools": [{
             "name": "ext.hello",
             "description": "Say hello",
             "export": "tool__hello",
-            "inputSchema": {"type": "object"}
+            "input_schema": {"type": "object"}
         }],
-        "mcpResources": [{
-            "uriTemplate": "specforge://ext/hello/{name}",
+        "mcp_resources": [{
+            "uri_template": "specforge://ext/hello/{name}",
             "name": "hello",
             "export": "resource__hello",
-            "mimeType": "application/json"
+            "mime_type": "application/json"
         }]
     }))
     .unwrap();
-    specforge_mcp::registry::register_extension_surfaces(
-        server.state_mut(),
-        &[("@you/hello".to_string(), surfaces)],
-    );
+    let declaration = specforge_protocol_types::ExtensionDeclaration {
+        handshake: specforge_protocol_types::HandshakeResponse {
+            name: "@you/hello".to_string(),
+            ..Default::default()
+        },
+        surfaces,
+        ..Default::default()
+    };
+    specforge_mcp::registry::register_extension_surfaces(server.state_mut(), &[declaration]);
 }
 
 /// What a cancellation must leave untouched: the registries, the graph, the

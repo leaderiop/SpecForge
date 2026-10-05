@@ -1,3 +1,4 @@
+use specforge_protocol_types::{ExtensionDeclaration, HandshakeResponse};
 use specforge_registry::{ManifestV2, PeerDependency};
 
 pub fn default_manifest() -> ManifestV2 {
@@ -44,5 +45,25 @@ pub fn make_manifest(name: &str, peers: &[(&str, &str)]) -> ManifestV2 {
             })
             .collect(),
         ..default_manifest()
+    }
+}
+
+/// A declaration of `name` (version 1.0.0) whose only content is `peers`.
+pub fn make_declaration(name: &str, peers: &[(&str, &str)]) -> ExtensionDeclaration {
+    ExtensionDeclaration {
+        handshake: HandshakeResponse {
+            name: name.to_string(),
+            version: "1.0.0".to_string(),
+            peer_dependencies: peers
+                .iter()
+                .map(|(n, v)| PeerDependency {
+                    name: n.to_string(),
+                    version: v.to_string(),
+                    optional: false,
+                })
+                .collect(),
+            ..HandshakeResponse::default()
+        },
+        ..ExtensionDeclaration::default()
     }
 }

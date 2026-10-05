@@ -734,15 +734,15 @@ fn a_command_the_cli_refuses_is_no_tool() {
     );
     // The rule the CLI refuses a command line by is the one MCP promotes by.
     let refused = |arg: &str| {
-        specforge_ops::command::refusal(&specforge_registry::CommandContribution {
+        specforge_ops::command::refusal(&specforge_protocol_types::CommandDescriptor {
             id: "x".into(),
             title: "x".into(),
             description: String::new(),
             category: None,
             export: "cmd__x".into(),
-            args: vec![specforge_registry::CommandArg {
+            args: vec![specforge_protocol_types::CommandArgDescriptor {
                 name: arg.into(),
-                arg_type: specforge_registry::CommandArgType::String,
+                arg_type: specforge_protocol_types::CommandArgType::String,
                 required: false,
                 default_value: None,
                 description: None,

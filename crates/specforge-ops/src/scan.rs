@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use specforge_common::SourceItem;
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::protocol::{ScanRequest, ScanResponse};
 use specforge_wasm::runtime::WasmRuntime;
 
@@ -13,13 +13,13 @@ struct ScannerEntry {
 
 pub fn scan_source_files(
     runtime: &dyn WasmRuntime,
-    manifests: &[ManifestV2],
+    declarations: &[ExtensionDeclaration],
     project_root: &Path,
     source_files: &[String],
 ) -> (Vec<SourceItem>, Vec<String>) {
     let mut ext_lookup: HashMap<String, ScannerEntry> = HashMap::new();
-    for manifest in manifests {
-        for ac in &manifest.analyzer_contributions {
+    for declaration in declarations {
+        for ac in &declaration.analyzers {
             for ext in &ac.file_extensions {
                 let normalized = if ext.starts_with('.') {
                     ext.clone()
@@ -29,7 +29,7 @@ pub fn scan_source_files(
                 ext_lookup
                     .entry(normalized)
                     .or_insert_with(|| ScannerEntry {
-                        extension_name: manifest.name.clone(),
+                        extension_name: declaration.name().to_string(),
                         scan_export: ac.scan_export.clone(),
                     });
             }

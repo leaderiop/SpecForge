@@ -1,6 +1,6 @@
 use specforge_component::ComponentRuntime;
 use specforge_ops::scan;
-use specforge_registry::{AnalyzerContribution, ExtensionContributions, ManifestV2};
+use specforge_protocol_types::{AnalyzerDescriptor, ExtensionDeclaration, HandshakeResponse};
 use tempfile::TempDir;
 
 /// Build a Wasm runtime for a temp project listing `ext_names` — the only
@@ -21,31 +21,14 @@ fn rust_only_runtime() -> ComponentRuntime {
     wasm_runtime_for(&["@specforge/rust"])
 }
 
-fn rust_manifest() -> ManifestV2 {
-    ManifestV2 {
-        name: "@specforge/rust".into(),
-        version: "1.0.0".into(),
-        manifest_version: 2,
-        wasm_path: String::new(),
-        contributes: ExtensionContributions::default(),
-        entity_kinds: vec![],
-        edge_types: vec![],
-        validation_rules: vec![],
-        verify_kinds: vec![],
-        fields: vec![],
-        incremental: None,
-        reserved_keywords: vec![],
-        migration_hook: None,
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        host_api_version: None,
-        entity_enhancements: vec![],
-        starter_template: None,
-        theme_color: None,
-        ext_short: None,
-        query_scope: None,
-        collector_contributions: vec![],
-        analyzer_contributions: vec![AnalyzerContribution {
+fn rust_manifest() -> ExtensionDeclaration {
+    ExtensionDeclaration {
+        handshake: HandshakeResponse {
+            name: "@specforge/rust".into(),
+            version: "1.0.0".into(),
+            ..HandshakeResponse::default()
+        },
+        analyzers: vec![AnalyzerDescriptor {
             language: "rust".into(),
             file_extensions: vec![".rs".into()],
             excluded_dirs: vec!["target".into()],
@@ -54,7 +37,7 @@ fn rust_manifest() -> ManifestV2 {
             map_export: "map__rust".into(),
             description: None,
         }],
-        surfaces: None,
+        ..ExtensionDeclaration::default()
     }
 }
 
@@ -143,31 +126,14 @@ fn default_runtime_scans_rust_files() {
     assert_eq!(scanners, vec!["@specforge/rust"]);
 }
 
-fn typescript_manifest() -> ManifestV2 {
-    ManifestV2 {
-        name: "@specforge/typescript".into(),
-        version: "1.0.0".into(),
-        manifest_version: 2,
-        wasm_path: String::new(),
-        contributes: ExtensionContributions::default(),
-        entity_kinds: vec![],
-        edge_types: vec![],
-        validation_rules: vec![],
-        verify_kinds: vec![],
-        fields: vec![],
-        incremental: None,
-        reserved_keywords: vec![],
-        migration_hook: None,
-        peer_dependencies: vec![],
-        sandbox_policy: None,
-        host_api_version: None,
-        entity_enhancements: vec![],
-        starter_template: None,
-        theme_color: None,
-        ext_short: None,
-        query_scope: None,
-        collector_contributions: vec![],
-        analyzer_contributions: vec![AnalyzerContribution {
+fn typescript_manifest() -> ExtensionDeclaration {
+    ExtensionDeclaration {
+        handshake: HandshakeResponse {
+            name: "@specforge/typescript".into(),
+            version: "1.0.0".into(),
+            ..HandshakeResponse::default()
+        },
+        analyzers: vec![AnalyzerDescriptor {
             language: "typescript".into(),
             file_extensions: vec![".ts".into(), ".tsx".into(), ".js".into(), ".jsx".into()],
             excluded_dirs: vec!["node_modules".into(), "dist".into()],
@@ -176,7 +142,7 @@ fn typescript_manifest() -> ManifestV2 {
             map_export: "map__typescript".into(),
             description: None,
         }],
-        surfaces: None,
+        ..ExtensionDeclaration::default()
     }
 }
 

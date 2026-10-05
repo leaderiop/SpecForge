@@ -1,6 +1,6 @@
 use crate::lock_file::LockFile;
 use specforge_common::{Diagnostic, Severity};
-use specforge_registry::ManifestV2;
+use specforge_protocol_types::ExtensionDeclaration;
 use std::path::Path;
 
 /// Result of an uninstall operation.
@@ -11,24 +11,24 @@ pub struct UninstallResult {
 }
 
 /// Check if any installed extensions depend on the one being uninstalled.
-pub fn check_dependents(name: &str, installed_manifests: &[ManifestV2]) -> Vec<String> {
-    installed_manifests
+pub fn check_dependents(name: &str, installed: &[ExtensionDeclaration]) -> Vec<String> {
+    installed
         .iter()
-        .filter(|m| m.name != name && m.peer_dependencies.iter().any(|dep| dep.name == name))
-        .map(|m| m.name.clone())
+        .filter(|d| d.name() != name && d.peers().iter().any(|dep| dep.name == name))
+        .map(|d| d.name().to_string())
         .collect()
 }
 
 /// Uninstall: check dependents -> remove from lock -> delete .wasm.
 pub fn uninstall_extension(
     name: &str,
-    installed_manifests: &[ManifestV2],
+    installed: &[ExtensionDeclaration],
     extensions_dir: &Path,
     lock: &mut LockFile,
     force: bool,
 ) -> Result<UninstallResult, Diagnostic> {
     // 1. Check dependents
-    let dependents = check_dependents(name, installed_manifests);
+    let dependents = check_dependents(name, installed);
     if !dependents.is_empty() && !force {
         return Err(Diagnostic {
             code: "E027".to_string(),

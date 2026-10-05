@@ -1,4 +1,5 @@
 use serde_json::Value;
+use specforge_protocol_types::{EntityKindDescriptor, ExtensionDeclaration, FieldDescriptor};
 use std::collections::HashMap;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
@@ -113,10 +114,10 @@ fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
     }
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for manifest in &state.environment().manifests {
-        for kind in &manifest.entity_kinds {
-            let keyword = kind.keyword.to_lowercase();
-            let guide = build_guide_for_kind(&keyword, manifest, &state.config().inference);
+    for declaration in state.registries().declarations() {
+        for kind in &declaration.entities {
+            let keyword = keyword(kind).to_lowercase();
+            let guide = build_guide_for_kind(&keyword, declaration, &state.config().inference);
             let fields: Vec<String> = kind
                 .fields
                 .iter()
@@ -131,7 +132,7 @@ fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
 
             kinds_info.push(serde_json::json!({
                 "kind": keyword,
-                "extension": manifest.name,
+                "extension": declaration.name(),
                 "description": kind.description,
                 "fields": fields,
                 "inference_guide": guide,
@@ -161,13 +162,13 @@ fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
 
 fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> JsonRpcResponse {
     let matched_kind = state
-        .environment()
-        .manifests
+        .registries()
+        .declarations()
         .iter()
-        .flat_map(|m| m.entity_kinds.iter().map(move |k| (m, k)))
-        .find(|(_, k)| k.keyword.to_lowercase() == kind_name);
+        .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
+        .find(|(_, k)| keyword(k).to_lowercase() == kind_name);
 
-    let (manifest, kind_def) = match matched_kind {
+    let (declaration, kind_def) = match matched_kind {
         Some(pair) => pair,
         None => {
             return JsonRpcResponse::error(
@@ -189,7 +190,7 @@ fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> Json
         .map(|n| n.id.raw.to_string())
         .collect();
 
-    let guide = build_guide_for_kind(kind_name, manifest, &state.config().inference);
+    let guide = build_guide_for_kind(kind_name, declaration, &state.config().inference);
     let fields: Vec<Value> = kind_def
         .fields
         .iter()
@@ -244,10 +245,10 @@ fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> Json
     };
 
     let mut kinds_info: Vec<Value> = Vec::new();
-    for manifest in &state.environment().manifests {
-        for kind in &manifest.entity_kinds {
-            let keyword = kind.keyword.to_lowercase();
-            let guide = build_guide_for_kind(&keyword, manifest, &state.config().inference);
+    for declaration in state.registries().declarations() {
+        for kind in &declaration.entities {
+            let keyword = keyword(kind).to_lowercase();
+            let guide = build_guide_for_kind(&keyword, declaration, &state.config().inference);
             kinds_info.push(serde_json::json!({
                 "kind": keyword,
                 "inference_guide": guide,
@@ -288,7 +289,7 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
     let (summary, unanalyzed, stale) = match project_root {
         Some(root) => {
             let progress =
-                specforge_ops::infer::progress_or_fresh(root, &state.environment().manifests);
+                specforge_ops::infer::progress_or_fresh(root, state.registries().declarations());
             (progress.summary, progress.unanalyzed, progress.stale)
         }
         None => {
@@ -302,12 +303,12 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
     };
 
     let kind_priorities: Vec<Value> = state
-        .environment()
-        .manifests
+        .registries()
+        .declarations()
         .iter()
-        .flat_map(|m| m.entity_kinds.iter().map(move |k| (m, k)))
-        .map(|(m, k)| {
-            let keyword = k.keyword.to_lowercase();
+        .flat_map(|d| d.entities.iter().map(move |k| (d, k)))
+        .map(|(d, k)| {
+            let keyword = keyword(k).to_lowercase();
             let existing_count = state
                 .graph()
                 .nodes()
@@ -316,7 +317,7 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
                 .count();
             serde_json::json!({
                 "kind": keyword,
-                "extension": m.name,
+                "extension": d.name(),
                 "existing_count": existing_count,
             })
         })
@@ -376,11 +377,11 @@ fn get_workflow(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
     ];
 
     let installed_kinds: Vec<String> = state
-        .environment()
-        .manifests
+        .registries()
+        .declarations()
         .iter()
-        .flat_map(|m| m.entity_kinds.iter())
-        .map(|k| k.keyword.to_lowercase())
+        .flat_map(|d| d.entities.iter())
+        .map(|k| keyword(k).to_lowercase())
         .collect();
 
     let result = serde_json::json!({
@@ -422,15 +423,20 @@ If a file has no identifiable entities, still mark it as analyzed with an empty 
     JsonRpcResponse::success(id, user_prompt(workflow, &result))
 }
 
+/// The keyword a kind is written with: its declared keyword, else its name.
+fn keyword(kind: &EntityKindDescriptor) -> &str {
+    kind.keyword.as_deref().unwrap_or(&kind.name)
+}
+
 fn build_guide_for_kind(
     kind_name: &str,
-    manifest: &specforge_registry::ManifestV2,
+    declaration: &ExtensionDeclaration,
     inference_config: &specforge_common::InferenceConfig,
 ) -> String {
-    let extension_guide = manifest
-        .entity_kinds
+    let extension_guide = declaration
+        .entities
         .iter()
-        .find(|k| k.keyword.to_lowercase() == kind_name)
+        .find(|k| keyword(k).to_lowercase() == kind_name)
         .and_then(|k| k.inference_guide.as_deref())
         .unwrap_or("");
 
@@ -448,10 +454,9 @@ fn build_guide_for_kind(
     }
 }
 
-fn build_example_for_kind(kind_name: &str, fields: &[specforge_registry::ManifestField]) -> String {
-    let required_fields: Vec<&specforge_registry::ManifestField> =
-        fields.iter().filter(|f| f.required).collect();
-    let optional_fields: Vec<&specforge_registry::ManifestField> =
+fn build_example_for_kind(kind_name: &str, fields: &[FieldDescriptor]) -> String {
+    let required_fields: Vec<&FieldDescriptor> = fields.iter().filter(|f| f.required).collect();
+    let optional_fields: Vec<&FieldDescriptor> =
         fields.iter().filter(|f| !f.required).take(3).collect();
 
     let mut lines = vec![format!(

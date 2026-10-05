@@ -16,7 +16,7 @@ pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
             "message": "No project root available"
         }));
     };
-    match specforge_ops::infer::progress(root, &state.environment().manifests) {
+    match specforge_ops::infer::progress(root, state.registries().declarations()) {
         Ok(progress) => ToolOutcome::ok(progress.to_json()),
         Err(error) => crate::operations::op_error(error).into(),
     }

@@ -19,7 +19,7 @@ pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
     let runtime = state.wasm_runtime(&root);
     match specforge_ops::infer::gaps(
         &root,
-        &state.environment().manifests,
+        state.registries().declarations(),
         state.graph(),
         runtime.as_ref(),
     ) {

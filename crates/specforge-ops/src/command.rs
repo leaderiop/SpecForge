@@ -1,5 +1,5 @@
-//! Extension commands: the CLI commands extensions contribute in their
-//! manifest's surfaces, each a `cmd__<id>` Wasm export.
+//! Extension commands: the CLI commands extensions declare in their
+//! surfaces, each a `cmd__<id>` Wasm export.
 //!
 //! The CLI routes `specforge <ext_short> <command>` to one, and MCP
 //! auto-promotes each to the tool `specforge.<ext_short>.<id>`. Both run it
@@ -12,8 +12,8 @@
 use serde_json::{Map, Value};
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_project::Environment;
-use specforge_registry::{CommandContribution, ManifestV2};
+use specforge_protocol_types::CommandDescriptor;
+use specforge_registry::RegistryBuild;
 use specforge_wasm::CommandOutput;
 use specforge_wasm::runtime::WasmRuntime;
 use std::path::Path;
@@ -23,7 +23,7 @@ use std::path::Path;
 pub struct ExtensionCommand<'a> {
     /// The contributing extension's name (`@specforge/product`).
     pub extension: &'a str,
-    pub contribution: &'a CommandContribution,
+    pub contribution: &'a CommandDescriptor,
 }
 
 impl ExtensionCommand<'_> {
@@ -35,37 +35,21 @@ impl ExtensionCommand<'_> {
 }
 
 /// The commands a project's extensions contribute, in load order.
-pub fn extension_commands(env: &Environment) -> Vec<ExtensionCommand<'_>> {
-    env.manifest_surfaces
+pub fn extension_commands(build: &RegistryBuild) -> Vec<ExtensionCommand<'_>> {
+    build
+        .declarations()
         .iter()
-        .flat_map(|(extension, surfaces)| {
-            surfaces
+        .flat_map(|declaration| {
+            declaration
+                .surfaces
                 .commands
                 .iter()
                 .map(move |contribution| ExtensionCommand {
-                    extension,
+                    extension: declaration.name(),
                     contribution,
                 })
         })
         .collect()
-}
-
-/// An extension's short name, which names its commands on the CLI and its
-/// tools over MCP: its manifest `ext_short`, else the last segment of its
-/// name (`@specforge/product` is `product`).
-pub fn ext_short(manifests: &[ManifestV2], extension: &str) -> String {
-    manifests
-        .iter()
-        .find(|m| m.name == extension)
-        .and_then(|m| m.ext_short.clone())
-        .unwrap_or_else(|| {
-            extension
-                .rsplit('/')
-                .next()
-                .unwrap_or(extension)
-                .trim_start_matches('@')
-                .to_string()
-        })
 }
 
 /// The output a command is asked for: `human` (the CLI default) or `json`
@@ -103,7 +87,7 @@ pub const HOST_OPTIONS: &[&str] = &["path", "format", "help"];
 /// `-` spelled alike). A refused command is on neither surface: the CLI
 /// refuses to run it (exit 2) and MCP does not promote it to a tool
 /// (ADR 0011).
-pub fn refusal(contribution: &CommandContribution) -> Option<String> {
+pub fn refusal(contribution: &CommandDescriptor) -> Option<String> {
     let mut seen: Vec<String> = Vec::new();
     for arg in &contribution.args {
         let name = arg.name.replace('_', "-");
@@ -233,8 +217,8 @@ mod tests {
         graph
     }
 
-    fn command(id: &str) -> CommandContribution {
-        CommandContribution {
+    fn command(id: &str) -> CommandDescriptor {
+        CommandDescriptor {
             id: id.into(),
             title: id.into(),
             description: String::new(),
@@ -355,7 +339,7 @@ mod tests {
             "only what the project enables"
         );
         let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
-        let commands = extension_commands(&env);
+        let commands = extension_commands(&env.registries);
         let features = commands
             .iter()
             .find(|c| c.contribution.id == "features")
@@ -419,7 +403,14 @@ mod tests {
 
     #[test]
     fn a_command_is_named_by_its_extension_short_name_and_dashed_id() {
-        assert_eq!(ext_short(&[], "@specforge/product"), "product");
+        let product = specforge_protocol_types::ExtensionDeclaration {
+            handshake: specforge_protocol_types::HandshakeResponse {
+                name: "@specforge/product".into(),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        assert_eq!(product.short(), "product");
         let c = command("milestone_completion");
         let routed = ExtensionCommand {
             extension: "@specforge/product",

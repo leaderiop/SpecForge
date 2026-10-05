@@ -5,7 +5,7 @@ use specforge_common::{Diagnostic, extension_entry_name, load_project_config};
 use specforge_graph::Graph;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
-    KindRegistry, ManifestV2, ProviderStatus, load_provider_configurations,
+    KindRegistry, ProviderStatus, load_provider_configurations,
     register_provider_schemes_with_status,
 };
 use specforge_wasm::read_lock_file;
@@ -52,7 +52,7 @@ pub struct ExtensionEntry {
 /// how many of the graph's entities use them, and its rule count.
 pub fn list(
     root: &Path,
-    loaded: &[ManifestV2],
+    loaded: &[ExtensionDeclaration],
     kinds: &KindRegistry,
     graph: &Graph,
 ) -> Vec<ExtensionEntry> {
@@ -75,7 +75,7 @@ pub fn list(
         .iter()
         .cloned()
         .chain(lock.entries.iter().map(|e| e.name.clone()))
-        .chain(loaded.iter().map(|m| m.name.clone()))
+        .chain(loaded.iter().map(|d| d.name().to_string()))
         .collect();
     names.sort();
     names.dedup();
@@ -83,9 +83,9 @@ pub fn list(
     names
         .into_iter()
         .map(|name| {
-            let manifest = loaded.iter().find(|m| m.name == name);
+            let declaration = loaded.iter().find(|d| d.name() == name);
             let locked = lock.entries.iter().find(|e| e.name == name);
-            let status = match (enabled.contains(&name), manifest) {
+            let status = match (enabled.contains(&name), declaration) {
                 (true, Some(_)) => Status::Loaded,
                 (true, None) => Status::NotLoaded,
                 (false, _) => Status::NotConfigured,
@@ -111,11 +111,11 @@ pub fn list(
                 .filter(|n| entity_kinds.iter().any(|k| k == n.kind.raw.as_str()))
                 .count();
             ExtensionEntry {
-                version: manifest
-                    .map(|m| m.version.clone())
+                version: declaration
+                    .map(|d| d.version().to_string())
                     .or_else(|| locked.map(|e| e.version.clone()))
                     .or_else(|| configured_version(&name)),
-                validation_rules: manifest.map_or(0, |m| m.validation_rules.len()),
+                validation_rules: declaration.map_or(0, |d| d.validation_rules.len()),
                 name,
                 origin,
                 status,

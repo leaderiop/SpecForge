@@ -2,7 +2,7 @@ use std::path::Path;
 
 use specforge_emitter::outline::{
     DependencyDepth as EmitterDependencyDepth, OutlineDetail as EmitterOutlineDetail,
-    OutlineFormat as EmitterOutlineFormat, OutlineIntermediate_from_manifests, OutlineOptions,
+    OutlineFormat as EmitterOutlineFormat, OutlineIntermediate_from_declarations, OutlineOptions,
     render,
 };
 
@@ -37,7 +37,7 @@ pub fn run(path: &Path, format: OutlineFormat, fields: FieldLevel, deps: DepsLev
         deps: dep_depth,
     };
 
-    let outline = OutlineIntermediate_from_manifests(&ctx.manifests);
+    let outline = OutlineIntermediate_from_declarations(&ctx.declarations);
     let output = render(&outline, &options);
     print!("{}", output);
 
