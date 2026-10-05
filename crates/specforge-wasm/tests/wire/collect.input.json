@@ -1,0 +1,9 @@
+{
+  "reports": [
+    {
+      "content": "{}",
+      "path": "target/report.json"
+    }
+  ],
+  "stdout": null
+}

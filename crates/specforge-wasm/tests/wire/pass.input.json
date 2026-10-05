@@ -1,0 +1,98 @@
+{
+  "edges": [
+    {
+      "label": "needs",
+      "source": "a",
+      "target": "b"
+    }
+  ],
+  "entities": [
+    {
+      "exempt": false,
+      "fields": {
+        "needs": "b",
+        "status": "active",
+        "verify": "a works"
+      },
+      "id": "a",
+      "incoming_edge_count": 0,
+      "kind": "gadget",
+      "outgoing_edge_count": 1,
+      "span": {
+        "end_col": 2,
+        "end_line": 5,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 1
+      },
+      "testable": true,
+      "verify_kinds": [
+        "unit"
+      ],
+      "verify_texts": [
+        "a works"
+      ]
+    },
+    {
+      "exempt": false,
+      "fields": {
+        "status": "retired"
+      },
+      "id": "b",
+      "incoming_edge_count": 1,
+      "kind": "gadget",
+      "outgoing_edge_count": 0,
+      "span": {
+        "end_col": 2,
+        "end_line": 9,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 7
+      },
+      "testable": true,
+      "verify_kinds": [],
+      "verify_texts": []
+    },
+    {
+      "exempt": true,
+      "fields": {
+        "abstract": "true"
+      },
+      "id": "c",
+      "incoming_edge_count": 0,
+      "kind": "gadget",
+      "outgoing_edge_count": 0,
+      "span": {
+        "end_col": 2,
+        "end_line": 13,
+        "file": "a.spec",
+        "start_col": 1,
+        "start_line": 11
+      },
+      "testable": true,
+      "verify_kinds": [],
+      "verify_texts": []
+    }
+  ],
+  "proved_claims": [
+    "a",
+    "b"
+  ],
+  "test_results": {
+    "results": {
+      "a": {
+        "file": "a.rs",
+        "tests": [
+          {
+            "duration_ms": 1.5,
+            "name": "a_works",
+            "runner": "cargo-test",
+            "status": "pass",
+            "verify": "a works"
+          }
+        ]
+      }
+    },
+    "runner": "cargo-test"
+  }
+}

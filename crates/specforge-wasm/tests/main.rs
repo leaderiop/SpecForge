@@ -6,3 +6,4 @@ mod protocol_host;
 mod protocol_types;
 mod sdk_vocabulary;
 mod wasm_lifecycle;
+mod wire_pins;

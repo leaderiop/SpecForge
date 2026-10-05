@@ -1,0 +1,25 @@
+{
+  "args": {
+    "all": true,
+    "limit": 2,
+    "status": "done"
+  },
+  "cwd": "/p",
+  "format": "json",
+  "graph": {
+    "edges": [],
+    "format_version": "1.0",
+    "nodes": [
+      {
+        "fields": {},
+        "file": "main.spec",
+        "id": "f1",
+        "kind": "feature",
+        "line": 1,
+        "title": "One"
+      }
+    ],
+    "schema_version": "0.1.0"
+  },
+  "today": "2026-10-03"
+}

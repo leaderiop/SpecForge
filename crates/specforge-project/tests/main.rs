@@ -7,6 +7,7 @@ mod derived_references;
 mod dual_mode;
 mod e2e_pipeline;
 mod field_types;
+mod pass_wire_pins;
 mod policy;
 mod registered_fields;
 mod registry_build_snapshot;

@@ -28,6 +28,9 @@ specforge-wasm = { workspace = true }
 semver = { workspace = true }
 
 [dev-dependencies]
+# Extensions declared with the SDK, served in process.
+specforge-extension-sdk = { path = "../specforge-extension-sdk" }
+specforge-wasm = { workspace = true, features = ["testing"] }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 tempfile = { workspace = true }

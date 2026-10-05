@@ -1,6 +1,7 @@
 //! The graph views and project files operations compute: traces, plan
 //! validation, stats, source scanning and the schema cache.
 
+mod call_pins;
 mod contracts;
 mod determinism;
 mod errors;
