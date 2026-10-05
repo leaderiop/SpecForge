@@ -3,6 +3,7 @@ mod e2e_fixtures;
 
 mod analyze;
 mod build_cache;
+mod check_surfaces;
 mod child_guard;
 mod cli;
 mod collect;

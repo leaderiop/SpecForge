@@ -1,0 +1,142 @@
+---
+source: crates/specforge-cli/tests/check_surfaces.rs
+expression: "normalized(&Value::Array(calls), dir.path())"
+---
+[
+  {
+    "arguments": {},
+    "result": {
+      "_meta": "<absent>",
+      "content": [
+        {
+          "text": [],
+          "type": "text"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "arguments": {
+      "strict": true
+    },
+    "result": {
+      "_meta": "<absent>",
+      "content": [
+        {
+          "text": [],
+          "type": "text"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "arguments": {
+      "severity_filter": "error"
+    },
+    "result": {
+      "_meta": "<absent>",
+      "content": [
+        {
+          "text": [],
+          "type": "text"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "arguments": {
+      "severity_filter": "warning"
+    },
+    "result": {
+      "_meta": "<absent>",
+      "content": [
+        {
+          "text": [],
+          "type": "text"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "arguments": {
+      "severity_filter": "info"
+    },
+    "result": {
+      "_meta": "<absent>",
+      "content": [
+        {
+          "text": [],
+          "type": "text"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "arguments": {
+      "severity_filter": "error",
+      "strict": true
+    },
+    "result": {
+      "_meta": "<absent>",
+      "content": [
+        {
+          "text": [],
+          "type": "text"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "arguments": {
+      "severity_filter": "Error"
+    },
+    "result": {
+      "_meta": "<absent>",
+      "content": [
+        {
+          "text": [],
+          "type": "text"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "arguments": {
+      "severity_filter": "errors"
+    },
+    "result": {
+      "_meta": "<absent>",
+      "content": [
+        {
+          "text": [],
+          "type": "text"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "arguments": {
+      "lint": [
+        "nonsense"
+      ]
+    },
+    "result": {
+      "_meta": "<absent>",
+      "content": [
+        {
+          "text": [],
+          "type": "text"
+        }
+      ],
+      "isError": false
+    }
+  }
+]
