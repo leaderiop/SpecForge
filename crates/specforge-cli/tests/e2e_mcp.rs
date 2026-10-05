@@ -419,7 +419,7 @@ fn mcp_tool_trace_returns_chain() {
     behavior = "provide_mcp_trace_tool",
     verify = "missing links flagged in trace output"
 )]
-fn mcp_tool_trace_includes_gaps() {
+fn mcp_tool_trace_of_an_isolated_entity_lists_no_invented_gaps() {
     let responses = mcp_session(
         ISOLATED_SPEC,
         &[mcp_request(
@@ -435,17 +435,12 @@ fn mcp_tool_trace_includes_gaps() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    let gaps = content["gaps"]
-        .as_array()
-        .expect("trace should have gaps array");
-    assert!(
-        gaps.iter()
-            .any(|g| g.as_str().unwrap().contains("upstream"))
-    );
-    assert!(
-        gaps.iter()
-            .any(|g| g.as_str().unwrap().contains("downstream"))
-    );
+    // Isolation is an empty upstream and downstream; what the entity
+    // lacks are its missing links, the trace document's only gaps.
+    assert_eq!(content["upstream"], serde_json::json!([]), "{content}");
+    assert_eq!(content["downstream"], serde_json::json!([]), "{content}");
+    assert!(content["missing"].is_array(), "{content}");
+    assert!(content.get("gaps").is_none(), "{content}");
 }
 
 // The MCP trace flags the same missing links as `specforge trace`: pay has

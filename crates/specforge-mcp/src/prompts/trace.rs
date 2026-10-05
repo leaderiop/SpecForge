@@ -1,21 +1,36 @@
 use serde_json::Value;
 
+use specforge_ops::plan::PlanError;
+use specforge_ops::trace::Target;
+
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
 use crate::target::Call;
 
 pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let state: &McpState = call.state;
+    let view = call.view();
     // A plan's entries, or the one entity, seed the trace.
     let (seeds, coverage_gaps, subject) = if let Some(plan) = args.get("plan") {
-        match crate::tools::trace::analyze_plan(state, plan) {
+        match crate::tools::trace::analyze_plan(&view, plan) {
             Ok(analysis) => (
                 analysis.entries,
                 Value::from(analysis.gaps),
                 "the plan".to_string(),
             ),
-            Err(message) => {
+            Err(PlanError::NotAPlan(message)) => {
                 return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, message);
+            }
+            // A prompt has no isError result: an unusable report is a
+            // JSON-RPC error carrying the McpError the tools return.
+            Err(PlanError::Report(e)) => {
+                return JsonRpcResponse::error_with_data(
+                    id,
+                    error_codes::INTERNAL_ERROR,
+                    e.to_string(),
+                    crate::tools::coverage::report_mcp_error(&e, "specforge://prompts/trace")
+                        .to_json(),
+                );
             }
         }
     } else {
@@ -48,14 +63,8 @@ pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
     // Everything the seeds' trace chains reach, the seeds included.
     let mut affected: Vec<String> = seeds.clone();
     for seed in &seeds {
-        if let Ok(chain) = specforge_ops::trace::trace(state.graph(), seed) {
-            affected.extend(
-                chain
-                    .upstream
-                    .iter()
-                    .chain(chain.downstream.iter())
-                    .map(|l| l.entity_id.clone()),
-            );
+        if let Ok(outcome) = specforge_ops::trace::trace(&view, Target::Entity(seed)) {
+            affected.extend(outcome.reached().into_iter().map(str::to_string));
         }
     }
     affected.sort();

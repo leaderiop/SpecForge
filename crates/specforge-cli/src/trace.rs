@@ -1,54 +1,32 @@
 use std::path::Path;
 
-use specforge_ops::trace::TraceExpectations;
+use specforge_ops::trace::Target;
+use specforge_ops::view::ProjectView;
 
 use crate::OutputFormat;
 use crate::pipeline;
 
-/// `specforge trace [entity]`: one entity's chain, or every entity's when
-/// none is named. Expected edges come from the loaded extensions'
-/// registries; the ones a chain lacks are reported as missing.
+/// `specforge trace [entity]`: the trace operation over the project
+/// compiled at `path`: one entity's chain, or every entity's when none is
+/// named. Expected edges come from the loaded extensions' registries; the
+/// ones a chain lacks are reported as missing.
 pub fn run(path: &Path, entity: Option<&str>, format: OutputFormat) -> i32 {
-    let ctx = pipeline::compile(path);
-    let expectations = TraceExpectations::from_registries(&ctx.field_registry, &ctx.kind_registry);
-
-    let chains = match entity {
-        Some(entity) => {
-            match specforge_ops::trace::trace_with_expectations(&ctx.graph, entity, &expectations) {
-                Ok(chain) => vec![chain],
-                Err(err) => {
-                    eprintln!("{err}");
-                    return 1;
-                }
-            }
+    let (project, _runtime) = pipeline::compile_project(path);
+    let target = entity.map_or(Target::Every, Target::Entity);
+    let outcome = match specforge_ops::trace::trace(&ProjectView::of(&project), target) {
+        Ok(outcome) => outcome,
+        Err(error) => {
+            eprintln!("{}", crate::export::render_op_error(&error.into()));
+            return 1;
         }
-        None => specforge_ops::trace::trace_all_with_expectations(&ctx.graph, &expectations),
     };
 
     match format {
-        OutputFormat::Human => {
-            let text: Vec<String> = chains
-                .iter()
-                .map(specforge_ops::trace::render_trace_human)
-                .collect();
-            print!("{}", text.join("\n"));
-            0
-        }
-        OutputFormat::Json => {
-            let json = match entity {
-                Some(_) => specforge_ops::trace::serialize_trace(&chains[0]),
-                None => specforge_ops::trace::serialize_trace_all(&chains),
-            };
-            match json {
-                Ok(json) => {
-                    println!("{json}");
-                    0
-                }
-                Err(err) => {
-                    eprintln!("{err}");
-                    1
-                }
-            }
-        }
+        OutputFormat::Human => print!("{}", outcome.to_human()),
+        OutputFormat::Json => println!(
+            "{}",
+            serde_json::to_string_pretty(&outcome).expect("a trace serializes")
+        ),
     }
+    0
 }

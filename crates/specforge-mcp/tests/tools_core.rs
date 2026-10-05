@@ -1805,23 +1805,40 @@ fn stats_diagnostic_summary_severity_counts() {
     );
 }
 
-// B:provide_mcp_trace_tool — verify unit "gaps array lists missing expected links"
+// B:provide_mcp_trace_tool — the missing links are the expected edges the
+// entity lacks, as `specforge trace` flags them.
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "missing links flagged in trace output"
 )]
-fn trace_gaps_array() {
+fn trace_flags_the_missing_links() {
     let mut server = test_server();
+    // Invariants are expected to name the behaviors that enforce them.
+    crate::support::declare_reference(&mut server, "invariant", "enforced_by", "behavior");
     let resp = call_tool(
         &mut server,
         "specforge.trace",
         json!({"entity_id": "gamma_orphan"}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let gaps = parsed["gaps"].as_array().unwrap();
-    assert!(gaps.contains(&json!("no upstream links")));
-    assert!(gaps.contains(&json!("no downstream links")));
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    let missing: Vec<(&str, &str, &str)> = parsed["missing"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|m| {
+            assert_eq!(m["status"], "missing", "{m}");
+            (
+                m["from"].as_str().unwrap(),
+                m["edge_label"].as_str().unwrap(),
+                m["expected_kind"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(missing, [("gamma_orphan", "enforced_by", "behavior")]);
+    // Isolation is an empty upstream and downstream, not a gap list.
+    assert_eq!(parsed["upstream"], json!([]));
+    assert_eq!(parsed["downstream"], json!([]));
+    assert!(parsed.get("gaps").is_none(), "{parsed}");
 }
 
 // B:provide_mcp_validate_tool — verify unit "use_cached returns existing diagnostics"

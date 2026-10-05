@@ -80,14 +80,6 @@ fn build_graph() -> Graph {
 
 // === compute_traceability_chain contract ===
 
-/// Expected edges from the test registries: behaviors expect `invariants`
-/// and `features` (the latter also declared by a feature's `behaviors`),
-/// features expect `behaviors`.
-fn trace_expectations() -> specforge_ops::trace::TraceExpectations {
-    let (fields, kinds) = crate::trace_support::registries();
-    specforge_ops::trace::TraceExpectations::from_registries(&fields, &kinds)
-}
-
 // No event bus exists in the codebase: like the other emitter contracts,
 // the *_emitted clause is not observable here.
 #[specforge_test(
@@ -99,7 +91,6 @@ fn trace_contract_entity_in_graph_produces_chain() {
     // Ensures (full_chain_traversed): the full chain, both directions,
     // every hop.
     let graph = build_graph();
-    let expectations = trace_expectations();
     let links = |links: &[specforge_ops::trace::TraceLink]| -> Vec<(String, String, usize)> {
         links
             .iter()
@@ -124,7 +115,7 @@ fn trace_contract_entity_in_graph_produces_chain() {
             .collect()
     };
 
-    let trace = specforge_ops::trace::trace_with_expectations(&graph, "b", &expectations).unwrap();
+    let trace = crate::view_support::chain_in(&graph, crate::trace_support::build(), "b").unwrap();
     assert_eq!(trace.entity_id, "b");
     assert_eq!(trace.entity_kind, "behavior");
     assert_eq!(
@@ -149,7 +140,7 @@ fn trace_contract_entity_in_graph_produces_chain() {
 
     // From the root the chain reaches the leaf two hops away, and the root
     // has the one edge its kind expects.
-    let root = specforge_ops::trace::trace_with_expectations(&graph, "a", &expectations).unwrap();
+    let root = crate::view_support::chain_in(&graph, crate::trace_support::build(), "a").unwrap();
     assert!(root.upstream.is_empty());
     assert_eq!(
         links(&root.downstream),
@@ -161,7 +152,7 @@ fn trace_contract_entity_in_graph_produces_chain() {
     assert!(root.missing.is_empty(), "{:?}", root.missing);
 
     // c: no feature lists it and it declares nothing its kind expects.
-    let leaf = specforge_ops::trace::trace_with_expectations(&graph, "c", &expectations).unwrap();
+    let leaf = crate::view_support::chain_in(&graph, crate::trace_support::build(), "c").unwrap();
     assert_eq!(
         missing(&leaf),
         vec![
@@ -179,8 +170,11 @@ fn trace_contract_entity_in_graph_produces_chain() {
     );
 
     // The JSON carries the Graph Protocol schema_version and the gaps.
-    let json: serde_json::Value =
-        serde_json::from_str(&specforge_ops::trace::serialize_trace(&leaf).unwrap()).unwrap();
+    let project = crate::view_support::Project::of_graph(graph, crate::trace_support::build());
+    let outcome =
+        specforge_ops::trace::trace(&project.view(), specforge_ops::trace::Target::Entity("c"))
+            .unwrap();
+    let json = serde_json::to_value(&outcome).unwrap();
     assert_eq!(json["schema_version"], specforge_emitter::SCHEMA_VERSION);
     assert_eq!(json["missing"][0]["status"], "missing");
     assert_eq!(json["upstream"][0]["status"], "resolved");
@@ -273,7 +267,7 @@ fn plan_contract_validates_ids_coverage_ordering() {
         ]
     });
 
-    let result = specforge_ops::plan::validate_plan(&graph, &plan, &["behavior"]);
+    let result = crate::view_support::plan_check(&graph, &["behavior"], &plan);
     assert!(
         !result.errors.is_empty(),
         "unresolvable IDs must produce errors"
@@ -299,8 +293,8 @@ fn plan_contract_validates_ids_coverage_ordering() {
 fn trace_data_contract_all_entities_traced() {
     // Requires (validation_complete_fired): a finalized graph.
     let graph = build_graph();
-    let traces = specforge_ops::trace::trace_all_with_expectations(&graph, &trace_expectations());
-    let json = specforge_ops::trace::serialize_trace_all(&traces).unwrap();
+    let traces = crate::view_support::every_chain(&graph, crate::trace_support::build());
+    let json = serde_json::to_string_pretty(&traces).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     // graph_protocol_conformance: the protocol's schema_version, and a
@@ -382,7 +376,7 @@ fn trace_data_contract_all_entities_traced() {
 )]
 fn trace_data_full_trace_covers_all_roots() {
     let graph = build_graph();
-    let traces = specforge_ops::trace::trace_all(&graph);
+    let traces = crate::view_support::every_chain(&graph, Default::default()).chains;
     let ids: Vec<&str> = traces.iter().map(|t| t.entity_id.as_str()).collect();
     assert!(ids.contains(&"a"), "root entity a must be traced");
     assert!(ids.contains(&"b"), "mid entity b must be traced");
@@ -398,8 +392,8 @@ fn trace_data_gaps_highlighted() {
     // in the full trace, with the registered edge type each would be.
     let mut graph = Graph::new();
     graph.add_node(testable_node("isolated"));
-    let traces = specforge_ops::trace::trace_all_with_expectations(&graph, &trace_expectations());
-    let json = specforge_ops::trace::serialize_trace_all(&traces).unwrap();
+    let traces = crate::view_support::every_chain(&graph, crate::trace_support::build());
+    let json = serde_json::to_string_pretty(&traces).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(
         parsed["traces"][0]["missing"],
@@ -428,7 +422,7 @@ fn trace_data_gaps_highlighted() {
     );
 
     // Without expectations nothing is missing.
-    let bare = specforge_ops::trace::trace_all(&graph);
+    let bare = crate::view_support::every_chain(&graph, Default::default()).chains;
     assert!(bare[0].missing.is_empty());
 }
 
@@ -438,8 +432,8 @@ fn trace_data_gaps_highlighted() {
 )]
 fn trace_data_output_conforms_to_schema() {
     let graph = build_graph();
-    let traces = specforge_ops::trace::trace_all(&graph);
-    let json = specforge_ops::trace::serialize_trace_all(&traces).unwrap();
+    let traces = crate::view_support::every_chain(&graph, Default::default());
+    let json = serde_json::to_string_pretty(&traces).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed["schema_version"].is_string());
     assert!(parsed["traces"].is_array());

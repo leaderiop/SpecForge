@@ -694,10 +694,12 @@ fn contract_trace() {
         json!([{"entity_id": "beta", "entity_kind": "feature", "edge_label": "behaviors", "depth": 1, "status": "resolved"}])
     );
     assert_eq!(chain["downstream"], json!([]));
-    // gaps_identified: alpha has nothing downstream, beta nothing upstream.
-    assert_eq!(chain["gaps"], json!(["no downstream links"]));
+    // gaps_identified: the missing links, the expected edges an entity
+    // lacks; isolation on a side is an empty list, not a gap.
+    assert!(chain["missing"].is_array());
+    assert!(chain.get("gaps").is_none(), "{chain}");
     let beta = tool(&mut server, "specforge.trace", json!({"entity_id": "beta"}));
-    assert_eq!(beta["gaps"], json!(["no upstream links"]));
+    assert_eq!(beta["upstream"], json!([]));
 
     // ...or a McpTracePlanResult for a plan, flagging what the graph lacks.
     let plan = tool(

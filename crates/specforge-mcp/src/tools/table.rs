@@ -153,9 +153,47 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             })
         },
         mutation: None,
-        output: Some(
-            || json!({ "type": "object", "properties": { "entity_id": { "type": "string" }, "entity_kind": { "type": "string" }, "upstream": { "type": "array" }, "downstream": { "type": "array" }, "missing": { "type": "array" }, "gaps": { "type": "array" }, "schema_version": { "type": "string" }, "affected_entities": { "type": "array" } }, "required": ["gaps"] }),
-        ),
+        // An entity's chain is the document `specforge trace <entity>
+        // --format json` writes; a plan's check is an McpTracePlanResult.
+        output: Some(|| {
+            json!({
+                "type": "object",
+                "oneOf": [
+                    {
+                        "type": "object",
+                        "properties": {
+                            "schema_version": { "type": "string" },
+                            "entity_id": { "type": "string" },
+                            "entity_kind": { "type": "string" },
+                            "upstream": { "type": "array", "items": { "type": "object" } },
+                            "downstream": { "type": "array", "items": { "type": "object" } },
+                            "missing": { "type": "array", "items": { "type": "object" } }
+                        },
+                        "required": ["schema_version", "entity_id", "entity_kind", "upstream", "downstream", "missing"]
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "affected_entities": { "type": "array", "items": { "type": "string" } },
+                            "gaps": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "source_entity": { "type": "string" },
+                                        "target_entity": { "type": "string" },
+                                        "missing_link_type": { "type": "string" },
+                                        "gap_context": { "type": "string" }
+                                    },
+                                    "required": ["source_entity", "target_entity", "missing_link_type"]
+                                }
+                            }
+                        },
+                        "required": ["affected_entities", "gaps"]
+                    }
+                ]
+            })
+        }),
         target: TargetSpec::SERVED,
         fields: fields::<trace::Args>,
         call: typed!(trace::call, trace::Args),

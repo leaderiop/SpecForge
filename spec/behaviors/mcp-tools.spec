@@ -184,15 +184,17 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
   }
   ensures {
     trace_result_returned "TraceChain or McpTracePlanResult returned depending on input parameter"
-    gaps_identified       "Missing traceability links flagged in trace output"
+    gaps_identified       "Missing links flagged in the trace document"
     tool_invoked_emitted  "mcp_tool_invoked event emitted"
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.trace tool that
     accepts entityId? (optional) and plan? (optional inline JSON). When entityId
     is provided, the tool MUST delegate to compute_traceability_chain to traverse
-    the graph upstream and downstream from the entity and return a TraceChain
-    with TraceLink entries and gap indicators. When plan is provided, the tool
+    the graph upstream and downstream from the entity and return the document
+    `specforge trace <entity> --format json` writes: the TraceChain with its
+    TraceLink entries and its missing links, the expected edges the entity
+    lacks. It carries no other gap list. When plan is provided, the tool
     MUST perform gap analysis against the graph and return a McpTracePlanResult
     containing affected entities, gaps, and suggestions. At least one of entityId
     or plan MUST be provided; otherwise the tool MUST return an error.

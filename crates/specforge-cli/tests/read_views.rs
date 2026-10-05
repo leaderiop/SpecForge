@@ -233,6 +233,36 @@ fn trace_today() {
     snap("ghost_mcp", &mcp[2]);
 }
 
+/// For every entity of `root`, `specforge.trace` answers the document
+/// `specforge trace <id> --format json` prints.
+fn assert_traces_agree(root: &Path) {
+    let every = cli_json(&["trace", "--path", s(root), "--format", "json"]);
+    let ids: Vec<String> = every["traces"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["entity_id"].as_str().unwrap().to_string())
+        .collect();
+    assert!(!ids.is_empty(), "{root:?}");
+    let calls: Vec<Value> = ids
+        .iter()
+        .map(|id| json!({"name": "specforge.trace", "arguments": {"entity_id": id}}))
+        .collect();
+    for (id, mcp) in ids.iter().zip(mcp_calls(root, &calls)) {
+        let cli = cli_json(&["trace", id, "--path", s(root), "--format", "json"]);
+        assert_eq!(mcp, cli, "{id} on {root:?}");
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_views_over_the_project_view",
+    verify = "specforge trace and specforge.trace return the same chain for an entity"
+)]
+fn cli_and_mcp_trace_are_the_same_chain() {
+    assert_traces_agree(project("fx1").path());
+    assert_traces_agree(rv1().path());
+}
+
 #[test]
 fn coverage_views_today() {
     let tmp = project("fx1");

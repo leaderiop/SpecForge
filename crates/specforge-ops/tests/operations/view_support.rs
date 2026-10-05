@@ -4,7 +4,9 @@
 
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
+use specforge_ops::plan::PlanOutcome;
 use specforge_ops::stats::{Stats, StatsRequest};
+use specforge_ops::trace::{Target, TraceChain};
 use specforge_ops::view::ProjectView;
 use specforge_project::coverage::RecordedCoverage;
 use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
@@ -149,4 +151,33 @@ impl Project {
 pub fn stats_of(graph: &Graph, testable: &[&str], diagnostics: &[Diagnostic]) -> Stats {
     let project = Project::of_graph(graph.clone(), registries(testable, &[]));
     specforge_ops::stats::stats(&project.view(), &StatsRequest { diagnostics }).unwrap()
+}
+
+/// `plan` checked against `graph`, whose `testable` kinds are testable and
+/// must declare obligations.
+pub fn plan_check(graph: &Graph, testable: &[&str], plan: &serde_json::Value) -> PlanOutcome {
+    let project = Project::of_graph(graph.clone(), registries(testable, &[]));
+    specforge_ops::plan::check(&project.view(), plan).unwrap()
+}
+
+/// The chain of `entity_id` in `graph`, its expected edges from
+/// `registries`; `None` when the graph lacks it.
+pub fn chain_in(graph: &Graph, registries: RegistryBuild, entity_id: &str) -> Option<TraceChain> {
+    let project = Project::of_graph(graph.clone(), registries);
+    specforge_ops::trace::trace(&project.view(), Target::Entity(entity_id))
+        .ok()
+        .map(|outcome| outcome.chains.into_iter().next().unwrap())
+}
+
+/// The chain of `entity_id` in `graph`, with no extension: nothing is
+/// expected, so nothing is missing.
+pub fn chain(graph: &Graph, entity_id: &str) -> TraceChain {
+    chain_in(graph, RegistryBuild::default(), entity_id).unwrap()
+}
+
+/// Every entity's chain in `graph`, with `registries`, as the trace
+/// operation returns them.
+pub fn every_chain(graph: &Graph, registries: RegistryBuild) -> specforge_ops::trace::TraceOutcome {
+    let project = Project::of_graph(graph.clone(), registries);
+    specforge_ops::trace::trace(&project.view(), Target::Every).unwrap()
 }

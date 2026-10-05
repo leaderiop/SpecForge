@@ -14,9 +14,6 @@ expression: "normalized(value, root)"
   ],
   "entity_id": "login",
   "entity_kind": "behavior",
-  "gaps": [
-    "no upstream links"
-  ],
   "missing": [
     {
       "depth": 1,

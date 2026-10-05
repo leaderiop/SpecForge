@@ -105,6 +105,16 @@ pub(crate) fn render_plain(diagnostic: &specforge_common::Diagnostic) -> String 
     text
 }
 
+/// An operation's failure as `error[CODE]: message`, with its suggestion
+/// on a `= help:` line.
+pub(crate) fn render_op_error(error: &specforge_ops::OpError) -> String {
+    let mut diagnostic = specforge_common::Diagnostic::error(error.code.as_ref(), &error.message);
+    if let Some(suggestion) = &error.suggestion {
+        diagnostic = diagnostic.with_suggestion(suggestion);
+    }
+    render_plain(&diagnostic)
+}
+
 /// The export text, or the exit code after the error is on stderr.
 fn render_export(
     ctx: &specforge_project::CompilationContext,

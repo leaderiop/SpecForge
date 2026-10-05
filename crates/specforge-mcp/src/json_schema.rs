@@ -1,6 +1,6 @@
 //! Checking a JSON value against a tool's JSON Schema: the subset tool
-//! schemas use (`type`, `enum`, `properties`, `required`, `items`). Other
-//! keywords are not checked.
+//! schemas use (`type`, `enum`, `properties`, `required`, `items`, `oneOf`,
+//! `anyOf`). Other keywords are not checked.
 
 use serde_json::Value;
 
@@ -25,6 +25,30 @@ fn check(schema: &Value, value: &Value, path: &str, found: &mut Vec<String>) {
             type_name(value)
         ));
         return;
+    }
+    for (keyword, exactly_one) in [("oneOf", true), ("anyOf", false)] {
+        let Some(Value::Array(branches)) = schema.get(keyword) else {
+            continue;
+        };
+        let matching = branches
+            .iter()
+            .filter(|branch| {
+                let mut branch_found = Vec::new();
+                check(branch, value, path, &mut branch_found);
+                branch_found.is_empty()
+            })
+            .count();
+        let conforms = if exactly_one {
+            matching == 1
+        } else {
+            matching > 0
+        };
+        if !conforms {
+            found.push(format!(
+                "{path}: matches {matching} of the {} {keyword} schemas",
+                branches.len()
+            ));
+        }
     }
     if let Some(Value::Array(allowed)) = schema.get("enum")
         && !allowed.contains(value)
@@ -81,5 +105,32 @@ fn type_name(value: &Value) -> &'static str {
         Value::String(_) => "string",
         Value::Array(_) => "array",
         Value::Object(_) => "object",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::violations;
+    use serde_json::json;
+
+    #[test]
+    fn one_of_needs_exactly_one_branch_and_any_of_at_least_one() {
+        let branch = |key: &str| json!({"type": "object", "required": [key]});
+        let one_of = json!({"type": "object", "oneOf": [branch("a"), branch("b")]});
+        assert!(violations(&one_of, &json!({"a": 1})).is_empty());
+        assert_eq!(
+            violations(&one_of, &json!({"c": 1})),
+            ["$: matches 0 of the 2 oneOf schemas"]
+        );
+        assert_eq!(
+            violations(&one_of, &json!({"a": 1, "b": 2})),
+            ["$: matches 2 of the 2 oneOf schemas"]
+        );
+        let any_of = json!({"anyOf": [branch("a"), branch("b")]});
+        assert!(violations(&any_of, &json!({"a": 1, "b": 2})).is_empty());
+        assert_eq!(
+            violations(&any_of, &json!({})),
+            ["$: matches 0 of the 2 anyOf schemas"]
+        );
     }
 }

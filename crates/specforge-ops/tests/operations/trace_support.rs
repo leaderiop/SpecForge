@@ -2,6 +2,7 @@
 
 use specforge_registry::{
     FieldRegistry, FieldRegistryEntry, KindRegistry, KindRegistryEntry, ManifestFieldType,
+    RegistryBuild,
 };
 
 fn kind(name: &str, extension: &str) -> KindRegistryEntry {
@@ -106,4 +107,14 @@ pub fn registries() -> (FieldRegistry, KindRegistry) {
         None,
     ));
     (fields, kinds)
+}
+
+/// [`registries`] as a registry build, what a project view holds.
+pub fn build() -> RegistryBuild {
+    let (fields, kinds) = registries();
+    RegistryBuild {
+        fields,
+        kinds,
+        ..RegistryBuild::default()
+    }
 }

@@ -4,4 +4,4 @@ expression: "format!(\"exit: {:?}\\nstderr:\\n{}\", ghost.code, ghost.stderr)"
 ---
 exit: Some(1)
 stderr:
-E003: unresolved entity 'ghost' — not found in graph
+error[E003]: unresolved entity 'ghost' — not found in graph

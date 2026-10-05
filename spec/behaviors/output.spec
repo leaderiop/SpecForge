@@ -124,11 +124,14 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
     entities in the current graph. This distinguishes from broken
     references (E003), which are caught during resolution.
     The JSON trace output MUST carry the Graph Protocol schema_version.
+    Tracing an entity the graph does not have MUST be E003, naming the
+    closest entity when one is near.
   """
   verify unit "trace from entity shows upstream and downstream connections"
   verify unit "trace shows full chain depth"
   verify unit "missing link in chain is flagged"
   verify unit "trace output includes schema version"
+  verify unit "tracing an entity the graph lacks is E003 naming the closest entity"
   verify contract "Compute Traceability Chain: traceability chain computation holds — validation_complete_fired, full_chain_traversed, missing_links_flagged, trace_chain_computed_emitted"
 }
 
@@ -212,6 +215,7 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify unit "coverage is computed once per compile and report content, and again after the report changes"
   verify unit "an entity is unverified when it counts toward coverage and is not proven"
   verify integration "specforge stats and specforge.stats report the same numbers"
+  verify integration "specforge trace and specforge.trace return the same chain for an entity"
 }
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {

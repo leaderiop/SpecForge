@@ -1,18 +1,60 @@
+//! An agent plan checked against the graph: the trace tool's plan mode,
+//! one operation over the project view (ADR 0015).
+
 use serde::Serialize;
 use serde_json::Value;
-use specforge_graph::Graph;
+use specforge_project::coverage::{ProjectCoverage, ReportError};
 use std::collections::{HashMap, HashSet};
 
 use specforge_emitter::SCHEMA_VERSION;
 
-#[derive(Debug)]
-pub struct PlanValidationResult {
-    pub errors: Vec<String>,
-    pub warnings: Vec<String>,
-    pub ordering_violations: Vec<String>,
-    pub validated_entries: Vec<String>,
-    /// Every error, warning and ordering violation above, as a record.
+use crate::OpError;
+use crate::view::ProjectView;
+
+/// How a plan falls short of the graph.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlanOutcome {
+    /// Plan entries that name an entity in the graph, in plan order.
+    pub entries: Vec<String>,
+    /// Every error, warning and ordering violation below, as a record.
     pub gaps: Vec<PlanGap>,
+    /// Entries naming no entity (E003).
+    pub errors: Vec<String>,
+    /// Testable entities with obligations the plan has no entry for.
+    pub warnings: Vec<String>,
+    /// Entries listed before an entity they depend on.
+    pub ordering_violations: Vec<String>,
+}
+
+/// Why a plan could not be checked.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PlanError {
+    /// The value is not an `AgentPlan`: why.
+    NotAPlan(String),
+    /// The recorded test report, which says which entities owe
+    /// obligations, is there but unusable (E045).
+    Report(ReportError),
+}
+
+impl std::fmt::Display for PlanError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PlanError::NotAPlan(why) => f.write_str(why),
+            PlanError::Report(error) => error.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for PlanError {}
+
+/// `invalid_input` for a value that is no plan; E045 for the report.
+impl From<PlanError> for OpError {
+    fn from(error: PlanError) -> Self {
+        match error {
+            PlanError::NotAPlan(why) => OpError::new("invalid_input", why),
+            PlanError::Report(error) => error.diagnostic().into(),
+        }
+    }
 }
 
 /// One way a plan falls short of the graph. `source` is `"plan"` when the
@@ -50,19 +92,48 @@ impl PlanGapKind {
 /// The side of a gap that is the plan itself.
 const PLAN: &str = "plan";
 
-pub fn validate_plan(graph: &Graph, plan: &Value, testable_kinds: &[&str]) -> PlanValidationResult {
+/// Check `plan`, an `AgentPlan` object or JSON text of one, against the
+/// view's graph: entries naming no entity, testable entities with
+/// obligations it has no entry for, and entries ordered before an entity
+/// they depend on.
+pub fn check(view: &ProjectView, plan: &Value) -> Result<PlanOutcome, PlanError> {
+    let parsed;
+    let plan = match plan {
+        Value::String(text) => {
+            parsed = serde_json::from_str::<Value>(text)
+                .map_err(|e| PlanError::NotAPlan(format!("plan is not valid JSON: {e}")))?;
+            &parsed
+        }
+        other => other,
+    };
+    let Some(entries) = plan.get("entries").and_then(Value::as_array) else {
+        return Err(PlanError::NotAPlan(
+            "plan must be an AgentPlan object with an entries array".into(),
+        ));
+    };
+    for (i, entry) in entries.iter().enumerate() {
+        if !entry.get("entity_id").is_some_and(Value::is_string) {
+            return Err(PlanError::NotAPlan(format!(
+                "plan.entries[{i}].entity_id must be a string"
+            )));
+        }
+    }
+    let coverage = view.coverage().map_err(PlanError::Report)?;
+    Ok(validate(view, entries, &coverage))
+}
+
+fn validate(view: &ProjectView, entries: &[Value], coverage: &ProjectCoverage) -> PlanOutcome {
+    let graph = view.graph;
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
     let mut ordering_violations = Vec::new();
     let mut validated_entries = Vec::new();
     let mut gaps = Vec::new();
 
-    let entries = plan["entries"].as_array().cloned().unwrap_or_default();
-
     let mut plan_ids: Vec<String> = Vec::new();
 
     // Validate each entry
-    for entry in &entries {
+    for entry in entries {
         if let Some(id) = entry["entity_id"].as_str() {
             plan_ids.push(id.to_string());
             if graph.node(id).is_some() {
@@ -84,21 +155,19 @@ pub fn validate_plan(graph: &Graph, plan: &Value, testable_kinds: &[&str]) -> Pl
     }
     let plan_id_set: HashSet<String> = plan_ids.iter().cloned().collect();
 
-    // Check for testable entities missing from plan
-    let testable_set: HashSet<&str> = testable_kinds.iter().copied().collect();
-    for node in graph.nodes() {
-        if !testable_set.contains(node.kind.raw.as_str()) {
-            continue;
-        }
-        let has_verify = !specforge_graph::obligations(node).is_empty();
-        if has_verify && !plan_id_set.contains(node.id.raw.as_str()) {
+    // Testable entities that declare obligations, missing from the plan.
+    for (id, standing) in &coverage.standings {
+        let obliged = coverage
+            .verdict(id)
+            .is_some_and(|verdict| verdict.obligations > 0);
+        if standing.testable && obliged && !plan_id_set.contains(id.as_str()) {
             let message = format!(
-                "testable entity '{}' ({}) is not covered by the plan",
-                node.id.raw, node.kind.raw
+                "testable entity '{id}' ({}) is not covered by the plan",
+                standing.kind
             );
             gaps.push(PlanGap {
                 source: PLAN.to_string(),
-                target: node.id.raw.to_string(),
+                target: id.clone(),
                 kind: PlanGapKind::MissingPlanEntry,
                 context: message.clone(),
             });
@@ -138,16 +207,18 @@ pub fn validate_plan(graph: &Graph, plan: &Value, testable_kinds: &[&str]) -> Pl
         }
     }
 
-    PlanValidationResult {
+    PlanOutcome {
+        entries: validated_entries,
+        gaps,
         errors,
         warnings,
         ordering_violations,
-        validated_entries,
-        gaps,
     }
 }
 
-pub fn serialize_plan_result(result: &PlanValidationResult) -> String {
+/// The plan check as a JSON report: `schema_version`, `errors`,
+/// `warnings`, `ordering_violations`, `validated_entries`.
+pub fn serialize_plan_result(result: &PlanOutcome) -> String {
     #[derive(Serialize)]
     struct Output<'a> {
         schema_version: &'static str,
@@ -162,7 +233,7 @@ pub fn serialize_plan_result(result: &PlanValidationResult) -> String {
         errors: &result.errors,
         warnings: &result.warnings,
         ordering_violations: &result.ordering_violations,
-        validated_entries: &result.validated_entries,
+        validated_entries: &result.entries,
     };
 
     serde_json::to_string(&output).expect("serialization cannot fail")
