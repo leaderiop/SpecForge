@@ -20,15 +20,15 @@ pub use specforge_protocol_types::{CheckKind, ConstraintKind, FieldType};
 
 pub use specforge_protocol_types::{
     ContributionFlags, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
-    FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse,
-    PeerDependency, ProtocolError, SandboxPolicy, ValidationRuleDescriptor, ValidationSeverity,
-    ValidatorContext, ValidatorEntity, ValidatorField, ValidatorMethod, ValidatorParam,
-    ValidatorRef, ValidatorVerdict,
+    ExtensionDeclaration, FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor,
+    HandshakeResponse, PeerDependency, ProtocolError, SandboxPolicy, ValidationRuleDescriptor,
+    ValidationSeverity, ValidatorContext, ValidatorEntity, ValidatorField, ValidatorMethod,
+    ValidatorParam, ValidatorRef, ValidatorVerdict,
 };
 
 use specforge_protocol_types::{
-    AutoDetectConfig, CollectorDescriptor, CompilerPassDescriptor, DescribeRequest,
-    DescribeResponse,
+    AutoDetectConfig, CollectorDescriptor, CompilerPassDescriptor, DECLARED_CATEGORIES,
+    DescribeRequest, DescribeResponse, SUPPORTED_CATEGORIES,
 };
 
 use std::collections::BTreeMap;
@@ -52,7 +52,16 @@ pub use surface::{
 pub struct ExtensionMeta {
     pub name: String,
     pub version: String,
+    /// The short name routing the extension's commands and tools
+    /// (`specforge <short> <command>`, `specforge.<short>.<id>`), lowercase
+    /// kebab case; the name's last segment when absent. On the wire as
+    /// `ext_short`.
     pub short: Option<String>,
+    /// One line saying what the extension is for (package registries show
+    /// it).
+    pub description: Option<String>,
+    /// Search keywords for package registries.
+    pub keywords: Vec<String>,
     pub peer_dependencies: Vec<PeerDependency>,
     pub sandbox_policy: Option<SandboxPolicy>,
     /// The starter `.spec` file `specforge init` writes for a project that
@@ -81,21 +90,17 @@ pub trait Contributions {
     fn contribute(c: &mut ContributionsBuilder);
 }
 
-/// Accumulates everything an extension contributes, then serializes to the
-/// wire format on demand. Contribution flags are **derived** from what was
-/// actually contributed, so they cannot drift from the content.
+/// Accumulates everything an extension contributes: its
+/// [`ExtensionDeclaration`] ([`ContributionsBuilder::declaration`]), which
+/// the guest serves on the wire, plus the handlers of its declared
+/// surfaces. Contribution flags are **derived** from what was actually
+/// contributed, so they cannot drift from the content.
 #[derive(Default)]
 pub struct ContributionsBuilder {
     pub meta: ExtensionMeta,
-    entity_kinds: Vec<EntityKindDescriptor>,
-    edge_types: Vec<EdgeTypeDescriptor>,
-    fields: Vec<FieldDescriptor>,
-    shared_fields: Vec<FieldDescriptor>,
-    enhancements: Vec<EntityEnhancementDescriptor>,
-    validation_rules: Vec<ValidationRuleDescriptor>,
-    passes: Vec<CompilerPassDescriptor>,
-    collectors: Vec<CollectorDescriptor>,
-    feature_flags: Vec<FeatureFlagDescriptor>,
+    /// The declared categories (the handshake is derived from `meta` when
+    /// the declaration is built, the surfaces from `surfaces`).
+    decl: ExtensionDeclaration,
     surfaces: surface::Surfaces,
     raw: BTreeMap<String, serde_json::Value>,
 }
@@ -112,7 +117,7 @@ impl ContributionsBuilder {
     pub fn kind(&mut self, name: &str, f: impl FnOnce(&mut KindBuilder)) -> &mut Self {
         let mut b = KindBuilder::new(name);
         f(&mut b);
-        self.entity_kinds.push(b.0);
+        self.decl.entities.push(b.0);
         self
     }
 
@@ -120,7 +125,7 @@ impl ContributionsBuilder {
     pub fn edge(&mut self, label: &str, f: impl FnOnce(&mut EdgeBuilder)) -> &mut Self {
         let mut b = EdgeBuilder::new(label);
         f(&mut b);
-        self.edge_types.push(b.0);
+        self.decl.edges.push(b.0);
         self
     }
 
@@ -128,7 +133,7 @@ impl ContributionsBuilder {
     pub fn shared_field(&mut self, name: &str, f: impl FnOnce(&mut FieldBuilder)) -> &mut Self {
         let mut b = FieldBuilder::new(name);
         f(&mut b);
-        self.shared_fields.push(b.0);
+        self.decl.shared_fields.push(b.0);
         self
     }
 
@@ -142,7 +147,7 @@ impl ContributionsBuilder {
     ) -> &mut Self {
         let mut b = EnhancementBuilder::new(target_kind, source_extension);
         f(&mut b);
-        self.enhancements.push(b.0);
+        self.decl.enhancements.push(b.0);
         self
     }
 
@@ -150,7 +155,7 @@ impl ContributionsBuilder {
     pub fn rule(&mut self, code: &str, f: impl FnOnce(&mut RuleBuilder)) -> &mut Self {
         let mut b = RuleBuilder::new(code);
         f(&mut b);
-        self.validation_rules.push(b.0);
+        self.decl.validation_rules.push(b.0);
         self
     }
 
@@ -158,7 +163,7 @@ impl ContributionsBuilder {
     pub fn pass(&mut self, name: &str, f: impl FnOnce(&mut PassBuilder)) -> &mut Self {
         let mut b = PassBuilder::new(name);
         f(&mut b);
-        self.passes.push(b.0);
+        self.decl.passes.push(b.0);
         self
     }
 
@@ -168,7 +173,7 @@ impl ContributionsBuilder {
     pub fn collector(&mut self, name: &str, f: impl FnOnce(&mut CollectorBuilder)) -> &mut Self {
         let mut b = CollectorBuilder::new(name);
         f(&mut b);
-        self.collectors.push(b.0);
+        self.decl.collectors.push(b.0);
         self
     }
 
@@ -229,7 +234,7 @@ impl ContributionsBuilder {
         default_enabled: bool,
         description: &str,
     ) -> &mut Self {
-        self.feature_flags.push(FeatureFlagDescriptor {
+        self.decl.feature_flags.push(FeatureFlagDescriptor {
             name: name.to_string(),
             description: (!description.is_empty()).then(|| description.to_string()),
             default_enabled,
@@ -260,93 +265,109 @@ impl ContributionsBuilder {
         self
     }
 
-    /// Escape hatch for categories the SDK does not model yet. `items` is the
-    /// raw JSON array the host receives for `category`.
+    /// Escape hatch for an extension not written with the builders (ADR
+    /// 0011): `items` is the raw JSON array the host receives for
+    /// `category`, served as given. A declared category's items must parse
+    /// as its descriptors: [`ContributionsBuilder::declaration`] panics
+    /// naming the category when they do not, so the extension fails when it
+    /// is built, not when a host loads it. Keys the descriptors do not
+    /// define are ignored by the host and reported (W138).
     pub fn raw_category(&mut self, category: &str, items: serde_json::Value) -> &mut Self {
         self.raw.insert(category.to_string(), items);
         self
     }
 
-    fn flags(&self) -> ContributionFlags {
-        let mut f = ContributionFlags::default();
+    /// The contribution flags the handshake carries: derived from the
+    /// declaration's content, plus each raw category served (a raw
+    /// `entities` contributes entities exactly as much as the builders do)
+    /// and the flags only a raw category can raise (`providers`, the
+    /// reserved ones).
+    fn flags(&self, declaration: &ExtensionDeclaration) -> ContributionFlags {
         let has = |cat: &str| self.raw.get(cat).is_some_and(|v| !v.is_null());
-        // Raw categories count toward their flags too — an extension serving
-        // `entities` via raw_category contributes entities exactly as much as
-        // one that used the typed builders (formal's migration proved this
-        // gap: its describes are static data, not builder calls).
-        f.entities = has("entities")
-            || has("edges")
-            || has("fields")
-            || has("shared_fields")
-            || has("enhancements")
-            || !self.entity_kinds.is_empty()
-            || !self.edge_types.is_empty()
-            || !self.fields.is_empty()
-            || !self.shared_fields.is_empty()
-            || !self.enhancements.is_empty();
-        f.validators = has("validation_rules") || !self.validation_rules.is_empty();
-        f.renderers = has("renderers");
-        f.prompts = has("prompts");
-        f.parsers = has("parsers");
-        f.grammars = has("grammars");
-        f.body_parsers = has("body_parsers");
-        f.analyzers = has("analyzers");
-        f.collectors = has("collectors") || !self.collectors.is_empty();
-        f.providers = has("providers");
-        f
+        let derived = declaration.contribution_flags();
+        ContributionFlags {
+            entities: derived.entities
+                || [
+                    "entities",
+                    "edges",
+                    "fields",
+                    "shared_fields",
+                    "enhancements",
+                ]
+                .iter()
+                .any(|cat| has(cat)),
+            validators: derived.validators || has("validation_rules"),
+            renderers: has("renderers"),
+            providers: has("providers"),
+            collectors: derived.collectors || has("collectors"),
+            prompts: has("prompts"),
+            parsers: has("parsers"),
+            grammars: has("grammars"),
+            body_parsers: has("body_parsers"),
+            analyzers: derived.analyzers || has("analyzers"),
+        }
     }
 
-    fn handshake_response(&self) -> HandshakeResponse {
-        HandshakeResponse {
+    /// Everything this extension declares, as the guest serves it and the
+    /// host loads it: the handshake (from [`ExtensionMeta`], flags derived),
+    /// every category the builders contributed, the declared surfaces, and
+    /// each raw category in place of its builders'.
+    ///
+    /// # Panics
+    ///
+    /// When a raw category's items do not parse as its descriptors, naming
+    /// the category: a build-time error of the extension.
+    pub fn declaration(&self) -> ExtensionDeclaration {
+        let mut declaration = self.decl.clone();
+        declaration.surfaces = self.surfaces.descriptor();
+        for (category, items) in &self.raw {
+            if DECLARED_CATEGORIES.contains(&category.as_str()) {
+                apply_raw(&mut declaration, category, items);
+            }
+        }
+        declaration.handshake = HandshakeResponse {
             protocol_version: specforge_protocol_types::PROTOCOL_VERSION.to_string(),
             name: self.meta.name.clone(),
             version: self.meta.version.clone(),
-            contribution_flags: self.flags(),
+            contribution_flags: ContributionFlags::default(),
             peer_dependencies: self.meta.peer_dependencies.clone(),
             sandbox_policy: self.meta.sandbox_policy.clone(),
             starter_template: self.meta.starter_template.clone(),
-            theme_color: self.meta.theme_color.clone(),
             migration_hook: self.meta.migration_hook.clone(),
-            ..Default::default()
-        }
+            theme_color: self.meta.theme_color.clone(),
+            ext_short: self.meta.short.clone(),
+            description: self.meta.description.clone(),
+            keywords: self.meta.keywords.clone(),
+        };
+        declaration.handshake.contribution_flags = self.flags(&declaration);
+        declaration
     }
 
     /// The `__handshake` wire payload (pretty JSON, matching the format of the
     /// existing builtin extensions).
     pub fn handshake_json(&self) -> String {
-        serde_json::to_string_pretty(&self.handshake_response())
-            .expect("handshake serialization cannot fail")
+        self.declaration().handshake_json()
     }
 
     /// The `__describe` wire payload for `category`, or `None` when the
-    /// category is not one of the protocol's supported categories.
+    /// category is not one of the protocol's supported categories: a raw
+    /// category as given, else the declaration's items (`fields` derived
+    /// from the kinds, the reserved categories empty).
     pub fn describe_response_json(&self, category: &str) -> Option<String> {
-        use specforge_protocol_types::SUPPORTED_CATEGORIES;
         if !SUPPORTED_CATEGORIES.contains(&category) {
             return None;
         }
-        let items = if let Some(raw) = self.raw.get(category) {
-            raw.clone()
-        } else {
-            match category {
-                "entities" => serde_json::to_value(&self.entity_kinds).ok()?,
-                "edges" => serde_json::to_value(&self.edge_types).ok()?,
-                "fields" => serde_json::to_value(&self.fields).ok()?,
-                "shared_fields" => serde_json::to_value(&self.shared_fields).ok()?,
-                "enhancements" => serde_json::to_value(&self.enhancements).ok()?,
-                "validation_rules" => serde_json::to_value(&self.validation_rules).ok()?,
-                "passes" => serde_json::to_value(&self.passes).ok()?,
-                "collectors" => serde_json::to_value(&self.collectors).ok()?,
-                "feature_flags" => serde_json::to_value(&self.feature_flags).ok()?,
-                "surfaces" => self.surfaces.describe_items(),
-                _ => serde_json::Value::Array(vec![]),
-            }
-        };
-        let resp = DescribeResponse {
-            category: category.to_string(),
-            items,
-        };
-        Some(serde_json::to_string_pretty(&resp).expect("describe serialization cannot fail"))
+        let declaration = self.declaration();
+        match self.raw.get(category) {
+            Some(raw) => Some(
+                DescribeResponse {
+                    category: category.to_string(),
+                    items: raw.clone(),
+                }
+                .wire_json(),
+            ),
+            None => declaration.describe_json(category),
+        }
     }
 
     /// Full dispatch for the generated `__describe` export: parses the host's
@@ -359,6 +380,33 @@ impl ContributionsBuilder {
             Some(body) => Ok(body.into_bytes()),
             None => Err(format!("unsupported category: {}", request.category)),
         }
+    }
+}
+
+/// Put a raw category's items in `declaration`, in place of the builders'.
+fn apply_raw(declaration: &mut ExtensionDeclaration, category: &str, items: &serde_json::Value) {
+    fn parse<T: serde::de::DeserializeOwned>(category: &str, items: &serde_json::Value) -> Vec<T> {
+        <Vec<T> as serde::Deserialize>::deserialize(items).unwrap_or_else(|e| {
+            panic!("raw category '{category}' does not parse as its descriptors: {e}")
+        })
+    }
+    match category {
+        "entities" => declaration.entities = parse(category, items),
+        "edges" => declaration.edges = parse(category, items),
+        "shared_fields" => declaration.shared_fields = parse(category, items),
+        "enhancements" => declaration.enhancements = parse(category, items),
+        "validation_rules" => declaration.validation_rules = parse(category, items),
+        "surfaces" => {
+            declaration.surfaces = parse(category, items)
+                .into_iter()
+                .next()
+                .unwrap_or_default()
+        }
+        "collectors" => declaration.collectors = parse(category, items),
+        "analyzers" => declaration.analyzers = parse(category, items),
+        "passes" => declaration.passes = parse(category, items),
+        "feature_flags" => declaration.feature_flags = parse(category, items),
+        _ => {}
     }
 }
 
@@ -757,6 +805,40 @@ pub fn handshake_json(b: &ContributionsBuilder) -> String {
     b.handshake_json()
 }
 
+/// The `handler` of a [`component_guest!`]: the answer to an export no
+/// declaration answers, `None` for a name it does not implement.
+pub type ExportHandler = fn(&str, &[u8]) -> Option<Result<Vec<u8>, String>>;
+
+/// A guest's answer to the host's `call(name, export, input)`: the body of
+/// [`component_guest!`]'s `call`, as a function, so an in-process host
+/// (`specforge_wasm::testing::InProcessRuntime`) routes an extension
+/// exactly as its component does.
+///
+/// - `__handshake` and `__describe` are served from `build`'s declaration;
+/// - a declared surface's export is answered by its declared handler
+///   ([`ContributionsBuilder::dispatch_export`]);
+/// - any other export goes to `handler`, which returns `None` for names it
+///   does not implement: the answer is then the error
+///   `unknown export '<name>'`, exactly like a missing export.
+pub fn guest_call(
+    build: &ContributionsBuilder,
+    handler: ExportHandler,
+    export: &str,
+    input: &[u8],
+) -> Result<Vec<u8>, String> {
+    match export {
+        "__handshake" => Ok(build.handshake_json().into_bytes()),
+        "__describe" => build.describe_dispatch(input),
+        other => match build.dispatch_export(other, input) {
+            Some(result) => result,
+            None => match handler(other, input) {
+                Some(result) => result,
+                None => Err(format!("unknown export '{other}'")),
+            },
+        },
+    }
+}
+
 /// The `handler` of a [`component_guest!`] that names none: no export
 /// beyond the protocol's and the declared surfaces'.
 pub fn no_other_exports(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
@@ -805,7 +887,15 @@ mod raw_category_flag_tests {
     fn raw_categories_raise_their_flags() {
         let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/formal", "1.0.0"));
         b.raw_category("entities", serde_json::json!([{ "name": "Property" }]));
-        b.raw_category("validation_rules", serde_json::json!([{ "code": "F100" }]));
+        b.raw_category(
+            "validation_rules",
+            serde_json::json!([{
+                "code": "F100",
+                "severity": "warning",
+                "message_template": "m",
+                "check": "custom"
+            }]),
+        );
 
         let handshake = b.handshake_json();
         let value: serde_json::Value = serde_json::from_str(&handshake).unwrap();
@@ -1536,19 +1626,7 @@ world bridge {
                 export_name: String,
                 input: Vec<u8>,
             ) -> Result<Vec<u8>, String> {
-                let build = $build();
-                match export_name.as_str() {
-                    "__handshake" => Ok(::specforge_extension_sdk::handshake_json(&build)
-                        .into_bytes()),
-                    "__describe" => build.describe_dispatch(&input),
-                    other => match build.dispatch_export(other, &input) {
-                        Some(result) => result,
-                        None => match $handler(other, &input) {
-                            Some(result) => result,
-                            None => Err(format!("unknown export '{other}'")),
-                        },
-                    },
-                }
+                ::specforge_extension_sdk::guest_call(&$build(), $handler, &export_name, &input)
             }
         }
 

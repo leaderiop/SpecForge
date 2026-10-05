@@ -16,3 +16,7 @@ proc-macro = true
 syn = { version = "2", features = ["full", "parsing", "derive"] }
 quote = "1"
 proc-macro2 = "1"
+
+[dev-dependencies]
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }

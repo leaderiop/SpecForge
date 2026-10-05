@@ -6,7 +6,8 @@ use specforge_extension_sdk::prelude::*;
 #[specforge_extension_sdk::extension(
     name = "@sdk/greet",
     version = "0.1.0",
-    short = "Friendly greetings"
+    short = "greet",
+    description = "Friendly greetings"
 )]
 struct Greet;
 

@@ -83,7 +83,7 @@ type ExportAnswer = Option<Result<Vec<u8>, String>>;
 
 #[derive(Clone, Copy)]
 struct Machinery {
-    describe: fn(&Surfaces) -> Value,
+    describe: fn(&Surfaces) -> SurfaceDescriptor,
     dispatch: fn(&Surfaces, &str, &[u8]) -> ExportAnswer,
     call_command: fn(&Surfaces, &str, &CommandInput) -> Option<CommandOutput>,
 }
@@ -284,12 +284,12 @@ impl Surfaces {
         });
     }
 
-    /// The `surfaces` describe items: none when nothing is declared, else
-    /// one [`SurfaceDescriptor`] of everything, in declaration order.
-    pub(crate) fn describe_items(&self) -> Value {
+    /// Every declared surface, in declaration order (empty when nothing is
+    /// declared): the declaration's `surfaces`.
+    pub(crate) fn descriptor(&self) -> SurfaceDescriptor {
         match self.machinery {
             Some(m) => (m.describe)(self),
-            None => Value::Array(vec![]),
+            None => SurfaceDescriptor::default(),
         }
     }
 
@@ -305,8 +305,8 @@ impl Surfaces {
         (self.machinery?.dispatch)(self, export, input)
     }
 
-    fn describe_declared(&self) -> Value {
-        let surface = SurfaceDescriptor {
+    fn describe_declared(&self) -> SurfaceDescriptor {
+        SurfaceDescriptor {
             commands: self.commands.iter().map(|c| c.descriptor.clone()).collect(),
             mcp_tools: self.tools.iter().map(|t| t.descriptor.clone()).collect(),
             mcp_resources: self
@@ -314,8 +314,7 @@ impl Surfaces {
                 .iter()
                 .map(|r| r.descriptor.clone())
                 .collect(),
-        };
-        serde_json::to_value(vec![surface]).expect("surface serialization cannot fail")
+        }
     }
 
     fn call_declared_command(&self, export: &str, input: &CommandInput) -> Option<CommandOutput> {

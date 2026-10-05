@@ -2887,6 +2887,8 @@ dependencies = [
  "serde_json",
  "specforge-extension-sdk-macros",
  "specforge-protocol-types",
+ "specforge-test",
+ "specforge-test-macros",
  "wit-bindgen 0.30.0",
 ]
 
@@ -2896,6 +2898,8 @@ version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
+ "specforge-test",
+ "specforge-test-macros",
  "syn 2.0.117",
 ]
 

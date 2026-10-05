@@ -15,5 +15,7 @@
     "analyzers": false
   },
   "peer_dependencies": [],
-  "sandbox_policy": null
+  "sandbox_policy": null,
+  "ext_short": "greet",
+  "description": "Friendly greetings"
 }
