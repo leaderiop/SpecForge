@@ -1,0 +1,10 @@
+---
+source: crates/specforge-mcp/tests/prompt_golden.rs
+expression: "shape(&reply, dir.path())"
+---
+{
+  "error": {
+    "code": -32602,
+    "message": "plan is not valid JSON: key must be a string at line 1 column 2"
+  }
+}

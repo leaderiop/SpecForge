@@ -1,0 +1,44 @@
+---
+source: crates/specforge-mcp/tests/prompt_golden.rs
+expression: "shape(&reply, dir.path())"
+---
+{
+  "instruction": "Analyze the following coverage report for alpha. Identify the highest-priority gaps to address. Focus on entities marked 'uncovered' and orphan nodes that may indicate missing relationships.",
+  "layout": "turns",
+  "payload": {
+    "coverage_summary": [
+      {
+        "declared": true,
+        "entity_id": "alpha",
+        "evidence_collected": false,
+        "kind": "behavior",
+        "linked": false,
+        "obligations": 1,
+        "proven": 0,
+        "status": "uncovered",
+        "unproven": [
+          "alpha works"
+        ]
+      },
+      {
+        "declared": true,
+        "entity_id": "beta",
+        "evidence_collected": false,
+        "kind": "behavior",
+        "linked": false,
+        "obligations": 1,
+        "proven": 0,
+        "status": "uncovered",
+        "unproven": [
+          "beta works"
+        ]
+      }
+    ],
+    "entity_id": "alpha",
+    "findings": []
+  },
+  "roles": [
+    "user",
+    "assistant"
+  ]
+}

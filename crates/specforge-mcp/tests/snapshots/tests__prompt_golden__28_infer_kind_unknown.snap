@@ -1,0 +1,10 @@
+---
+source: crates/specforge-mcp/tests/prompt_golden.rs
+expression: "shape(&reply, dir.path())"
+---
+{
+  "error": {
+    "code": -32602,
+    "message": "Unknown entity kind: 'nope'. Check installed extensions."
+  }
+}

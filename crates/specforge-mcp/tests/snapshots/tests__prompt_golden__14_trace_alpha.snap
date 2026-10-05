@@ -1,0 +1,22 @@
+---
+source: crates/specforge-mcp/tests/prompt_golden.rs
+expression: "shape(&reply, dir.path())"
+---
+{
+  "instruction": "Trace the dependency chain for entity 'alpha'. The data below shows all affected entities, unverified entities in the chain, and coverage gaps. Prioritize addressing unverified entities that are on critical paths.",
+  "layout": "turns",
+  "payload": {
+    "affected_entities": [
+      "alpha",
+      "feat_login"
+    ],
+    "coverage_gaps": [],
+    "unverified_entities": [
+      "feat_login"
+    ]
+  },
+  "roles": [
+    "user",
+    "assistant"
+  ]
+}

@@ -8,6 +8,7 @@ mod lifecycle;
 mod notifications;
 mod operations_mgmt;
 mod operations_mutation;
+mod prompt_golden;
 mod prompts;
 mod protocol;
 mod resources;
