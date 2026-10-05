@@ -29,3 +29,26 @@ pub fn declare_headline_fields(server: &mut McpServer, kind: &str) {
         }
     });
 }
+
+/// Serve the graph the server serves now, as built in memory, at `root`:
+/// a test that hands the server a graph and a project directory beside
+/// it. The graph is never refreshed from disk; a call that writes files
+/// under `root` serves the project on disk there.
+pub fn serve_in_memory_at(state: &mut specforge_mcp::state::McpState, root: &std::path::Path) {
+    let graph = state.graph().clone();
+    let diagnostics = state.session().graph_diagnostics();
+    state.serve_in_memory_at(Some(root.to_path_buf()), graph, diagnostics);
+}
+
+/// The update of a served project's sources that changed its graph by
+/// `delta` (as the session reports one).
+pub fn update_of(delta: specforge_project::GraphDelta) -> specforge_project::Update {
+    specforge_project::Update {
+        kind: specforge_project::UpdateKind::Sources,
+        delta,
+        rebuilt_files: Vec::new(),
+        changed_diagnostic_files: Vec::new(),
+        diagnostics: Vec::new(),
+        verification: None,
+    }
+}

@@ -718,7 +718,7 @@ fn server_with_report(tests: &[(&str, &str)]) -> (McpServer, tempfile::TempDir) 
         json!({"results": {"two": {"tests": tests}}}).to_string(),
     )
     .unwrap();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
     (server, project)
 }
 
@@ -933,7 +933,7 @@ fn coverage_refuses_a_malformed_report() {
         r#"{"results": {"alpha": {"tests": ["#,
     )
     .unwrap();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
 
     let error = mcp_error(&call_tool(&mut server, "specforge.coverage", json!({})));
     assert_eq!(error["code"], "schema_mismatch", "{error}");
@@ -1091,7 +1091,10 @@ fn analyze_of_another_project_leaves_the_served_one() {
     use crate::fake_extension::{self, FakeExtension};
 
     let (mut server, _ext, _served) = fake_extension::initialized(FakeExtension::new());
-    let served_root = server.state_mut().project_root.clone();
+    let served_root = server
+        .state_mut()
+        .project_root()
+        .map(std::path::Path::to_path_buf);
     assert!(served_root.is_some());
     let served_nodes = server.state_mut().graph().node_count();
 
@@ -1114,7 +1117,13 @@ fn analyze_of_another_project_leaves_the_served_one() {
     let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert_eq!(parsed["passes"][0]["pass"], "contracts", "{parsed}");
 
-    assert_eq!(server.state_mut().project_root, served_root);
+    assert_eq!(
+        server
+            .state()
+            .project_root()
+            .map(std::path::Path::to_path_buf),
+        served_root
+    );
     assert_eq!(server.state_mut().graph().node_count(), served_nodes);
 }
 
@@ -1228,7 +1237,7 @@ fn unknown_tool_returns_error() {
 fn validate_returns_all_diagnostics() {
     let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
     assert!(server.state().graph().node("alpha").is_some());
     assert!(server.state().diagnostics().is_empty());
 
@@ -1326,7 +1335,7 @@ fn validate_strict_promotes_warnings_to_errors() {
 fn validate_use_cached_false() {
     let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
     let first = codes_of(&call_tool(&mut server, "specforge.validate", json!({})));
     assert!(first.contains(&"E003".to_string()), "{first:?}");
 
@@ -1793,7 +1802,7 @@ fn trace_gaps_array() {
 fn validate_use_cached_true() {
     let project = project_with_errors_and_warnings();
     let mut server = test_server();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
     let first = codes_of(&call_tool(&mut server, "specforge.validate", json!({})));
     assert!(first.contains(&"E003".to_string()), "{first:?}");
 
@@ -1853,7 +1862,7 @@ fn validate_updates_graph() {
 fn validate_use_cached_false_triggers_fresh() {
     let mut server = test_server();
     let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
-    server.state_mut().project_root = Some(project_root);
+    crate::support::serve_in_memory_at(server.state_mut(), &project_root);
     // First compile
     let _resp1 = call_tool(&mut server, "specforge.validate", json!({}));
     // Second call with use_cached=false should recompile

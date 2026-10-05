@@ -31,7 +31,7 @@ fn enqueue_delivers_graph_and_diagnostics_to_subscribers() {
     }];
 
     let delta = compute_graph_delta(&previous, state.graph());
-    enqueue_compile_notifications(&mut state, &delta, &[]);
+    enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &[]);
 
     assert_eq!(
         state.notification_outbox.len(),
@@ -61,7 +61,7 @@ fn enqueue_suppresses_unsubscribed_and_unchanged() {
 
     // Graph changed but nobody subscribes; diagnostics unchanged anyway.
     let delta = compute_graph_delta(&Graph::new(), state.graph());
-    enqueue_compile_notifications(&mut state, &delta, &[]);
+    enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &[]);
     assert!(
         state.notification_outbox.is_empty(),
         "graph delta must be suppressed without subscribers"
@@ -77,7 +77,7 @@ fn enqueue_suppresses_unsubscribed_and_unchanged() {
         data: None,
     }];
     let delta = compute_graph_delta(&Graph::new(), state.graph());
-    enqueue_compile_notifications(&mut state, &delta, &[]);
+    enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &[]);
     assert_eq!(state.notification_outbox.len(), 1);
     assert_eq!(state.notification_outbox[0]["method"], DIAGNOSTICS_CHANNEL);
 }
@@ -282,7 +282,7 @@ fn diagnostics_no_notification_when_unchanged() {
     subscriptions::subscribe(&mut state, "c1", DIAGNOSTICS_CHANNEL);
     state.surface_diagnostics = diags.clone();
     let delta = compute_graph_delta(&Graph::new(), state.graph());
-    enqueue_compile_notifications(&mut state, &delta, &diags);
+    enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &diags);
     assert!(
         state.notification_outbox.is_empty(),
         "{:?}",
@@ -290,7 +290,7 @@ fn diagnostics_no_notification_when_unchanged() {
     );
     // ... and one notification when they change.
     let delta = compute_graph_delta(&Graph::new(), state.graph());
-    enqueue_compile_notifications(&mut state, &delta, &[]);
+    enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &[]);
     assert_eq!(state.notification_outbox.len(), 1);
     assert_eq!(state.notification_outbox[0]["method"], DIAGNOSTICS_CHANNEL);
 }

@@ -18,7 +18,7 @@ fn attach_project(state: &mut specforge_mcp::state::McpState) {
     .unwrap();
     let root = dir.path().to_path_buf();
     std::mem::forget(dir); // outlives the test
-    state.project_root = Some(root);
+    crate::support::serve_in_memory_at(state, &root);
 }
 
 fn test_server() -> McpServer {
@@ -464,18 +464,8 @@ fn extensions_contract() {
         json!({"name": "t", "version": "0.1.0", "extensions": ["@specforge/testing"]}).to_string(),
     )
     .unwrap();
-    assert_eq!(
-        listed_extensions(&mut server),
-        vec![
-            (
-                "@specforge/software".to_string(),
-                "not_configured".to_string()
-            ),
-            ("@specforge/testing".to_string(), "not_loaded".to_string()),
-        ]
-    );
-    // After the next compile, only the configured extension is loaded.
-    call_tool(&mut server, "specforge.validate", json!({}));
+    // The call serves the project as it is on disk now: only the
+    // configured extension is loaded.
     assert_eq!(
         listed_extensions(&mut server),
         vec![("@specforge/testing".to_string(), "loaded".to_string())]
@@ -566,7 +556,11 @@ const GREET: &str = "@sdk/greet";
 /// `test_server` with the product blob installed in its project.
 fn server_with_product() -> (McpServer, std::path::PathBuf) {
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let blob = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../fixtures/greet-extension/greet.wasm");
     let resp = call_tool(
@@ -751,7 +745,6 @@ fn doctor_lists_extension_conflicts_from_the_compile() {
         });
 
     // Over those diagnostics, as the last compile's, not a fresh compile.
-    server.state_mut().loaded_at = Some(std::time::SystemTime::now());
     let resp = call_tool(&mut server, "specforge.doctor", json!({"use_cached": true}));
     let report: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
 

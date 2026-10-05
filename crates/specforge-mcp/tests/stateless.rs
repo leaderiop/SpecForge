@@ -263,7 +263,7 @@ fn change_graph(server: &mut McpServer, dir: &tempfile::TempDir) {
         "behavior beta \"Beta\" {\n  contract \"MUST also work\"\n}\n",
     )
     .unwrap();
-    server.state_mut().reload(dir.path());
+    server.state_mut().serve(dir.path());
 }
 
 #[specforge_test(
@@ -306,7 +306,7 @@ fn a_change_reaches_the_stream() {
     );
 
     // A recompile that changes nothing sends nothing.
-    server.state_mut().reload(dir.path());
+    server.state_mut().serve(dir.path());
     assert!(server.take_notifications().is_empty());
 
     change_graph(&mut server, &dir);
@@ -347,7 +347,7 @@ fn a_stream_hears_only_what_it_asked_for() {
 
     // A broken spec changes the diagnostics: that is heard.
     std::fs::write(dir.path().join("broken.spec"), "behavior {\n").unwrap();
-    server.state_mut().reload(dir.path());
+    server.state_mut().serve(dir.path());
     let sent = server.take_notifications();
     assert_eq!(sent.len(), 1, "{sent:?}");
     assert_eq!(sent[0]["params"]["uri"], "specforge://diagnostics");

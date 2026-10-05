@@ -46,17 +46,21 @@ invariant mcp_tool_idempotency "MCP Tool Idempotency" {
 
 invariant mcp_served_project_consistency "MCP Served Project Consistency" {
   guarantee """
-    The project an MCP server serves is replaced whole or not at all.
-    Every compile that replaces it (initialize, a refresh after watch
-    writes a newer snapshot, validate, analyze, doctor, collect, a
-    mutation tool that wrote files) installs the graph, diagnostics,
-    registries and extension tools and resources of that one compile together, and
-    tells subscribed clients what changed. A tool call whose path names
-    another project compiles that project for the call only: the server
-    keeps serving its own.
+    The project an MCP server serves is replaced whole or not at all, and
+    every request that reads it (tools/call, resources/read, prompts/get and
+    the list methods) first brings it up to date with the files on disk
+    (bring_session_up_to_date), unless the tool's use_cached says otherwise:
+    an update for changed sources, an environment reload with its extension
+    tools and resources for a changed specforge.json, specforge.lock or
+    extension module. Subscribed clients learn what changed. A tool call
+    whose path names another project compiles that project for the call
+    only: the server keeps serving its own.
   """
   risk      high
-  verify unit "a refresh after a newer watch snapshot updates the extension tools listed"
+  verify unit "an environment change on disk updates the extension tools listed"
+  verify unit "a tool call serves files written since the last call, without watch"
+  verify unit "a resource read serves files written since the last call, without watch"
+  verify unit "a prompt reads the project as it is on disk"
   verify unit "analyze notifies subscribers when the diagnostics it compiled changed"
   verify unit "validate with a path to another project leaves the served project in place"
   verify unit "a mutation tool that wrote files leaves the server serving what is on disk"

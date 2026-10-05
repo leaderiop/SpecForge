@@ -798,7 +798,7 @@ fn review_coverage_matches_the_coverage_tool() {
         r#"{"results":{"alpha":{"tests":[{"name":"t","verify":"test alpha","status":"pass"}]}}}"#,
     )
     .unwrap();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
     let resp = call_prompt(
         &mut server,
         "specforge://prompts/review",

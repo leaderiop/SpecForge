@@ -33,7 +33,7 @@ pub(crate) fn add_extension(state: &mut McpState, args: AddArgs) -> ToolOutcome 
 /// Resolve the project root, preferring an explicit `path` argument.
 fn project_root_of(state: &McpState, path: Option<&str>) -> Option<PathBuf> {
     path.map(PathBuf::from)
-        .or_else(|| state.project_root.clone())
+        .or_else(|| state.project_root().map(std::path::Path::to_path_buf))
 }
 
 fn ok(result: Value) -> ToolOutcome {
@@ -113,7 +113,7 @@ pub(crate) fn project_schema(state: &McpState) -> specforge_emitter::GraphProtoc
         &state.registries().fields,
         &state.registries().extension_info,
     );
-    if let Some(root) = &state.project_root {
+    if let Some(root) = state.project_root() {
         specforge_ops::schema_cache::attach_schema_version(&mut schema, &root.join(".specforge"));
     }
     schema
@@ -210,7 +210,7 @@ pub(crate) fn format_op(state: &mut McpState, args: FormatArgs) -> ToolOutcome {
     result["failed_files"] = Value::from(failed_files);
     // What was written is on disk: serve it, as a successful run would be.
     if outcome.changes.iter().any(|c| c.written(mode)) && !state.serves_other_than(&project_root) {
-        state.reload(&project_root);
+        state.serve(&project_root);
     }
     let message = result["message"].as_str().unwrap_or_default().to_string();
     McpError::new(ErrorCode::InternalError, message)
@@ -297,7 +297,7 @@ pub(crate) fn rename_op(state: &mut McpState, args: RenameArgs) -> ToolOutcome {
     // Recompile from disk, not just the renamed files: the diagnostics
     // returned are what `specforge check` reports now, edits made since
     // the last load included.
-    state.reload(&root);
+    state.serve(&root);
     result["diagnostics"] =
         serde_json::to_value(specforge_common::diagnostics_json(&state.diagnostics()))
             .unwrap_or_default();
@@ -330,7 +330,7 @@ pub(crate) fn init_op(state: &mut McpState, args: InitArgs) -> ToolOutcome {
         name: args.name.as_deref(),
         version: args.version.as_deref(),
         extensions,
-        forbid_inside: state.project_root.as_deref(),
+        forbid_inside: state.project_root(),
     };
     let outcome = match init::plan(&request).and_then(|plan| init::apply(&path, &plan)) {
         Ok(outcome) => outcome,
@@ -601,7 +601,7 @@ pub(crate) fn migrate_op(state: &McpState, args: MigrateArgs) -> ToolOutcome {
 pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
     use specforge_ops::extension::{self, Origin};
 
-    let Some(root) = &state.project_root else {
+    let Some(root) = state.project_root() else {
         return ToolOutcome::no_project("no project root available");
     };
     // The shared listing, over what the session compiled.
@@ -654,7 +654,7 @@ pub(crate) fn extensions_op(state: &McpState, _args: crate::args::NoArgs) -> Too
 // ── providers ───────────────────────────────────────────────────────────────
 
 pub(crate) fn providers_op(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
-    let Some(root) = &state.project_root else {
+    let Some(root) = state.project_root() else {
         return ToolOutcome::no_project("no project root available");
     };
     // The providers specforge.json configures, as the scheme registry built
@@ -689,15 +689,15 @@ pub struct DoctorArgs {
 }
 
 pub(crate) fn doctor_op(state: &mut McpState, args: DoctorArgs) -> ToolOutcome {
-    let Some(root) = state.project_root.clone() else {
+    let Some(root) = state.project_root().map(std::path::Path::to_path_buf) else {
         return ToolOutcome::no_project("doctor needs a project root");
     };
     // Like specforge.validate, a fresh compile unless the caller opts into
     // the last one (ADR 0004 D3-d): the agent may have edited the project
     // since, and the session would not know.
     let use_cached = args.use_cached.unwrap_or(false);
-    if !use_cached || state.loaded_at.is_none() {
-        state.reload(&root);
+    if !use_cached {
+        state.serve(&root);
     }
     // The same report `specforge doctor` prints, as the spec's
     // McpDoctorReport plus its sections. Credential health is the user's,
@@ -745,7 +745,7 @@ pub(crate) fn collect_op(state: &mut McpState, args: CollectArgs) -> ToolOutcome
     // compiled for the call only.
     let other = state.serves_other_than(&root);
     if !other {
-        state.reload(&root);
+        state.serve(&root);
     }
     let state: &McpState = state;
     let runtime = state.wasm_runtime(&root);

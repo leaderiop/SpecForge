@@ -2901,15 +2901,13 @@ fn mcp_stdio_client_receives_graph_notification() {
     ));
     lines.next().unwrap().unwrap();
 
-    // What watch leaves behind: a new entity and a newer graph snapshot.
+    // A new entity on disk: the next read brings the project up to date,
+    // with no watch running.
     std::fs::write(
         dir.path().join("spec/added.spec"),
         r#"behavior added "A" { contract "a" }"#,
     )
     .unwrap();
-    std::thread::sleep(std::time::Duration::from_millis(50));
-    std::fs::create_dir_all(dir.path().join(".specforge")).unwrap();
-    std::fs::write(dir.path().join(".specforge/graph.json"), "{}").unwrap();
 
     send(mcp_request(
         2,

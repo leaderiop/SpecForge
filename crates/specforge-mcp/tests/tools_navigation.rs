@@ -269,7 +269,7 @@ fn inspect_coverage_matches_the_coverage_tool() {
         )
     };
     let project = tempfile::tempdir().unwrap();
-    server.state_mut().project_root = Some(project.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), project.path());
     let report = |tests: &str| {
         std::fs::write(
             project.path().join("specforge-report.json"),
@@ -502,7 +502,7 @@ fn outline_of_an_existing_file_without_entities_is_empty() {
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::write(dir.path().join("empty.spec"), "// nothing yet\n").unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
 
     let resp = call_tool(
         &mut server,

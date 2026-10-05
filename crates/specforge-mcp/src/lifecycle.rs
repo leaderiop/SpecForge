@@ -102,14 +102,14 @@ pub fn handle_initialize(
 /// Compile and serve the project at `project_root` when there is one: its
 /// registries, and the core tools, resources and prompts plus what its
 /// extensions contribute; the core surface alone otherwise. Subscribed
-/// clients learn what it changed (C9-01).
+/// clients learn what it changed (C9-01). A root that does not exist has
+/// no config to read: nothing is served (a call's `path` may serve a
+/// project later).
 pub fn serve_project(state: &mut McpState, project_root: Option<PathBuf>) {
     match &project_root {
-        Some(root) if root.exists() => state.reload(root),
-        // A root that does not exist has no config to read.
+        Some(root) if root.exists() => state.serve(root),
         _ => register_defaults(state),
     }
-    state.project_root = project_root;
     state.served = true;
 }
 

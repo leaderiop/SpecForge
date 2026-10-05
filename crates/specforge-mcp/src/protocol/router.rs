@@ -15,17 +15,25 @@ pub fn route(
         "shutdown" => crate::lifecycle::handle_shutdown(state, id),
         "ping" => JsonRpcResponse::success(id, serde_json::json!({})),
 
-        // Listing
-        "tools/list" => crate::registry::handle_list_tools(state, id),
-        "resources/list" => crate::registry::handle_list_resources(state, id),
+        // Listing: an environment change on disk changes the extension
+        // tools, resources and prompts listed.
+        "tools/list" => {
+            fresh(state);
+            crate::registry::handle_list_tools(state, id)
+        }
+        "resources/list" => {
+            fresh(state);
+            crate::registry::handle_list_resources(state, id)
+        }
         "resources/templates/list" => crate::registry::handle_list_resource_templates(state, id),
-        "prompts/list" => crate::registry::handle_list_prompts(state, id),
+        "prompts/list" => {
+            fresh(state);
+            crate::registry::handle_list_prompts(state, id)
+        }
 
         // Resources
         "resources/read" => {
-            // C9-07: serve a fresh graph when watch has produced a newer
-            // snapshot.
-            state.refresh_if_stale();
+            fresh(state);
             crate::resources::handle_resource_read(state, params, id)
         }
 
@@ -34,12 +42,20 @@ pub fn route(
 
         // Tools
         "tools/call" => {
-            state.refresh_if_stale();
+            // A call that asks for the last compile (`use_cached`) is
+            // served as it is.
+            let cached = params["arguments"]["use_cached"].as_bool() == Some(true);
+            if !cached {
+                fresh(state);
+            }
             crate::tools::handle_tool_call(state, params, id)
         }
 
         // Prompts
-        "prompts/get" => crate::prompts::handle_prompt_get(state, params, id),
+        "prompts/get" => {
+            fresh(state);
+            crate::prompts::handle_prompt_get(state, params, id)
+        }
 
         // Notifications (no response for notifications — id is None)
         "notifications/initialized" => {
@@ -56,5 +72,13 @@ pub fn route(
             error_codes::METHOD_NOT_FOUND,
             format!("Method not found: {}", method),
         ),
+    }
+}
+
+/// Every request that reads the project first brings it up to date with
+/// disk (`mcp_served_project_consistency`), once initialized.
+fn fresh(state: &mut McpState) {
+    if state.is_initialized() {
+        state.ensure_fresh();
     }
 }

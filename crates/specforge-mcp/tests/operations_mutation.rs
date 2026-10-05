@@ -19,7 +19,7 @@ fn attach_project(state: &mut specforge_mcp::state::McpState) {
     .unwrap();
     let root = dir.path().to_path_buf();
     std::mem::forget(dir); // outlives the test
-    state.project_root = Some(root);
+    crate::support::serve_in_memory_at(state, &root);
 }
 
 fn test_server() -> McpServer {
@@ -148,7 +148,11 @@ const UNFORMATTED: &str = "behavior messy \"Messy\" {\ncontract \"The system MUS
 /// `test_server` whose project holds two unformatted files, a.spec and b.spec.
 fn server_with_unformatted() -> (McpServer, std::path::PathBuf) {
     let server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     std::fs::write(root.join("test.spec"), "").unwrap();
     std::fs::write(root.join("a.spec"), UNFORMATTED).unwrap();
     std::fs::write(root.join("b.spec"), UNFORMATTED.replace("messy", "other")).unwrap();
@@ -540,7 +544,7 @@ fn rename_edits_the_files_under_a_configured_spec_root() {
         r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"],"spec_root":"spec"}"#,
     )
     .unwrap();
-    server.state_mut().reload(&root);
+    server.state_mut().serve(&root);
     assert!(server.state().graph().node("token_unique").is_some());
 
     let parsed = rename(
@@ -766,7 +770,11 @@ fn init_extensions_in_result() {
 )]
 fn init_refuses_a_path_inside_the_current_project() {
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let nested = root.join("sub");
 
     let error = init_error(
@@ -888,7 +896,11 @@ fn init_contract() {
     assert!(dir.path().join("spec/hello.spec").is_file());
 
     // path_outside_current: a path inside the server's project is refused.
-    let current = server.state().project_root.clone().unwrap();
+    let current = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let nested = current.join("nested");
     let error = init_error(
         &mut server,
@@ -927,7 +939,7 @@ fn init_contract() {
 fn add_extension_returns_result() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
     std::fs::write(
         dir.path().join("specforge.json"),
         r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
@@ -979,7 +991,11 @@ const GREET: &str = "@sdk/greet";
 /// `test_server` with the product blob installed in its project.
 fn server_with_product() -> (McpServer, std::path::PathBuf) {
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let resp = call_tool(
         &mut server,
         "specforge.add_extension",
@@ -1024,7 +1040,11 @@ fn config_extensions(root: &Path) -> Vec<String> {
 )]
 fn add_extension_dry_run_writes_nothing() {
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let before = files_under(&root);
 
     let resp = call_tool(
@@ -1193,7 +1213,7 @@ fn migrate_returns_result() {
 fn add_extension_already_installed_placeholder() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
     std::fs::write(
         dir.path().join("specforge.json"),
         r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
@@ -1348,7 +1368,7 @@ fn migrate_post_validation() {
 fn add_extension_dry_run() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
     std::fs::write(
         dir.path().join("specforge.json"),
         r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
@@ -1375,7 +1395,7 @@ fn add_extension_dry_run() {
 fn remove_extension_dry_run() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
     std::fs::write(
         dir.path().join("specforge.json"),
         r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
@@ -1457,7 +1477,11 @@ fn format_contract() {
 fn add_extension_contract() {
     // filesystem_available: a project on disk.
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let before = files_under(&root);
     let specifier = json!(greet_blob().to_str().unwrap());
 
@@ -1505,7 +1529,7 @@ fn add_extension_contract() {
 fn remove_extension_contract() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
     std::fs::write(
         dir.path().join("specforge.json"),
         r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
@@ -1541,7 +1565,11 @@ fn migrate_contract() {
     // filesystem_available: a project with one spec file in format 0.9
     // whose feature references an entity that does not exist.
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let old = "// specforge-format: 0.9\nfeature gamma \"Gamma\" {\n    behaviors [ghost]\n}\n";
     std::fs::write(root.join("old.spec"), old).unwrap();
     let migrate = |server: &mut McpServer, args: Value| -> Value {
@@ -1609,7 +1637,11 @@ fn migrate_contract() {
 /// `test_server` whose project also holds `old.spec`, in format 0.9.
 fn server_with_old_spec() -> (McpServer, std::path::PathBuf) {
     let server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     std::fs::write(
         root.join("old.spec"),
         "// specforge-format: 0.9\nbehavior gamma \"Gamma\" {\n}\n",

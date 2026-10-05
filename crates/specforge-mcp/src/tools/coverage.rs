@@ -10,7 +10,7 @@ use crate::tool::{ErrorCode, McpError, ToolOutcome};
 /// (ADR 0002), so recorded results are the linkage. A report that is there
 /// but unreadable is an error, as in the CLI (ADR 0004, D2-e).
 pub(crate) fn recorded_report(state: &McpState) -> Result<Option<TestReport>, ReportError> {
-    match &state.project_root {
+    match state.project_root() {
         Some(root) => specforge_project::coverage::read_report(root),
         None => Ok(None),
     }

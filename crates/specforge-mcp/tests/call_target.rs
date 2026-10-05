@@ -4,6 +4,7 @@
 
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
+use specforge_test::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
@@ -91,7 +92,7 @@ fn finds(server: &mut McpServer, id: &str) -> bool {
 
 /// The root the server serves, canonical.
 fn served_root(server: &McpServer) -> Option<PathBuf> {
-    server.state().project_root.as_deref().map(canonical)
+    server.state().project_root().map(canonical)
 }
 
 /// A project whose Rust tests `@specforge/cargo-test` collects, with the
@@ -265,4 +266,160 @@ fn extension_tool_without_a_project_is_refused() {
     let resp = call_tool(&mut server, "test.list_items", json!({}));
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["code"], "precondition_failed", "{error}");
+}
+
+fn tool_names(server: &mut McpServer) -> Vec<String> {
+    let resp = call(server, "tools/list", json!({}));
+    resp["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap().to_string())
+        .collect()
+}
+
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "a tool call serves files written since the last call, without watch"
+)]
+fn a_tool_call_serves_files_written_since_the_last_call() {
+    let dir = project(&[], "behavior login \"Login\" {\n}\n");
+    let mut server = McpServer::new();
+    initialize(&mut server, dir.path());
+    assert!(finds(&mut server, "login"));
+
+    // Written after initialize, with no watch running.
+    fs::write(
+        dir.path().join("added.spec"),
+        "feature fresh \"Fresh\" {\n  behaviors [login]\n}\n",
+    )
+    .unwrap();
+    assert!(
+        finds(&mut server, "fresh"),
+        "the call serves what is on disk"
+    );
+
+    // A file deleted since: its entities go.
+    fs::remove_file(dir.path().join("added.spec")).unwrap();
+    assert!(!finds(&mut server, "fresh"), "a deleted file's entities go");
+}
+
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "a prompt reads the project as it is on disk"
+)]
+fn a_prompt_reads_the_project_as_it_is_on_disk() {
+    let dir = project(&[], "behavior login \"Login\" {\n}\n");
+    let mut server = McpServer::new();
+    initialize(&mut server, dir.path());
+
+    fs::write(
+        dir.path().join("added.spec"),
+        "behavior fresh \"Fresh\" {\n}\n",
+    )
+    .unwrap();
+    let resp = call(
+        &mut server,
+        "prompts/get",
+        json!({"name": "specforge://prompts/context", "arguments": {"entity_id": "fresh"}}),
+    );
+    assert!(resp["error"].is_null(), "{resp}");
+    assert!(resp["result"]["messages"].is_array(), "{resp}");
+}
+
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "a resource read serves files written since the last call, without watch"
+)]
+fn a_resource_read_serves_files_written_since_the_last_call() {
+    let dir = project(&[], "behavior login \"Login\" {\n}\n");
+    let mut server = McpServer::new();
+    initialize(&mut server, dir.path());
+
+    fs::write(
+        dir.path().join("added.spec"),
+        "behavior fresh \"Fresh\" {\n}\n",
+    )
+    .unwrap();
+    let resp = call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://graph/fresh"}),
+    );
+    assert!(resp["error"].is_null(), "{resp}");
+    let text = resp["result"]["contents"][0]["text"].as_str().unwrap();
+    assert!(text.contains("\"fresh\""), "{text}");
+}
+
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "an environment change on disk updates the extension tools listed"
+)]
+fn an_environment_change_on_disk_updates_the_extension_tools_listed() {
+    use crate::fake_extension::{self, EXT, FakeExtension};
+
+    let ext = std::sync::Arc::new(FakeExtension::new());
+    let dir = project(&[], "");
+    let mut server = fake_extension::server_with(&ext);
+    initialize(&mut server, dir.path());
+    let before = tool_names(&mut server);
+    assert!(
+        !before.iter().any(|t| t.starts_with("specforge.cmds.")),
+        "{before:?}"
+    );
+
+    // The project enables the extension: listing the tools alone sees it.
+    write_config(dir.path(), &[EXT]);
+    let after = tool_names(&mut server);
+    for tool in ["specforge.cmds.check", "specforge.cmds.report"] {
+        assert!(
+            after.iter().any(|t| t == tool),
+            "{tool} is not listed after the change: {after:?}"
+        );
+    }
+    // And the auto-promoted tool dispatches: the reload registered its
+    // surface, not only its descriptor.
+    let entries: Vec<_> = server.state().surface_entries().collect();
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.contribution_name == "specforge.cmds.report"),
+        "{entries:?}"
+    );
+
+    // Listing again changes nothing: each tool is listed once.
+    let again = tool_names(&mut server);
+    let reports = again
+        .iter()
+        .filter(|t| *t == "specforge.cmds.report")
+        .count();
+    assert_eq!(reports, 1, "{again:?}");
+}
+
+#[specforge_test(
+    invariant = "mcp_tool_idempotency",
+    verify = "read-only tools return equivalent results for identical inputs"
+)]
+fn an_unchanged_project_is_not_rebuilt_by_a_call() {
+    let dir = project(&[], "behavior login \"Login\" {\n}\n");
+    let mut server = McpServer::new();
+    initialize(&mut server, dir.path());
+    let generation = server.state().session_generation();
+
+    let first = call_tool(
+        &mut server,
+        "specforge.query",
+        json!({"entity_id": "login"}),
+    );
+    let second = call_tool(
+        &mut server,
+        "specforge.query",
+        json!({"entity_id": "login"}),
+    );
+    assert_eq!(first, second);
+    assert_eq!(
+        server.state().session_generation(),
+        generation,
+        "nothing changed on disk: nothing was rebuilt"
+    );
 }

@@ -242,7 +242,7 @@ fn extension_resource(state: &McpState, uri: &str) -> ReadOutcome {
     let Some(entry) = extension_resource_entry(state, uri) else {
         return Err(invalid_params(format!("Unknown resource URI: {uri}")));
     };
-    let Some(root) = state.project_root.clone() else {
+    let Some(root) = state.project_root().map(std::path::Path::to_path_buf) else {
         return Err(invalid_params(
             "Extension resources need a project root; pass {\"path\": ...} to specforge.analyze first",
         ));

@@ -253,7 +253,7 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
     let mutation = spec
         .and_then(|spec| spec.mutation)
         .filter(|mutation| (mutation.writes)(&arguments));
-    let served_since = state.loaded_at;
+    let served_since = state.session_generation();
 
     let mut outcome = match (spec, extension) {
         (Some(spec), _) => (spec.call)(state, arguments),
@@ -277,10 +277,10 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         // or it is reloaded now.
         if mutation.recompiles
             && outcome.succeeded()
-            && state.loaded_at == served_since
-            && let Some(root) = state.project_root.clone()
+            && state.session_generation() == served_since
+            && let Some(root) = state.project_root().map(std::path::Path::to_path_buf)
         {
-            state.reload(&root);
+            state.serve(&root);
         }
         // Every call that meant to write reports what its structured
         // result says it changed: nothing, when it failed.
@@ -322,7 +322,7 @@ fn extension_tool(
     entry: &SurfaceRegistryEntry,
     arguments: Value,
 ) -> (ToolOutcome, Dispatched) {
-    let Some(root) = state.project_root.clone() else {
+    let Some(root) = state.project_root().map(std::path::Path::to_path_buf) else {
         let refused = ToolOutcome::no_project(format!(
             "Extension tool '{}' needs a project root; pass {{\"path\": ...}} to specforge.analyze first",
             entry.contribution_name

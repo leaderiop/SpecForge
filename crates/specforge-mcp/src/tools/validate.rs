@@ -24,7 +24,7 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
     let path = args
         .path
         .map(PathBuf::from)
-        .or_else(|| state.project_root.clone());
+        .or_else(|| state.project_root().map(std::path::Path::to_path_buf));
 
     let root = match path {
         Some(p) => p,
@@ -42,7 +42,7 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
         state.compile_project(&root).diagnostics()
     } else {
         if !use_cached || state.diagnostics().is_empty() {
-            state.reload(&root);
+            state.serve(&root);
         }
         state.diagnostics()
     };

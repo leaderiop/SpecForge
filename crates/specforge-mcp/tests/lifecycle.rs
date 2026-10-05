@@ -290,7 +290,11 @@ fn duplicate_initialize_returns_error() {
 )]
 fn can_reinitialize_after_shutdown() {
     let (mut server, _dir) = init_server_with_project();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     call(&mut server, "shutdown", json!({}));
 
     let resp = call(

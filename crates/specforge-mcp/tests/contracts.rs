@@ -21,7 +21,7 @@ fn attach_project(state: &mut specforge_mcp::state::McpState) {
     .unwrap();
     let root = dir.path().to_path_buf();
     std::mem::forget(dir); // outlives the test
-    state.project_root = Some(root);
+    crate::support::serve_in_memory_at(state, &root);
 }
 
 fn span_at(file: &str, start_line: usize, start_col: usize, end_line: usize) -> SourceSpan {
@@ -365,7 +365,7 @@ fn contract_initialize() {
 
     // compiler_api_available: the project root was located and used.
     assert_eq!(
-        server.state().project_root.as_deref(),
+        server.state().project_root(),
         Some(dir.path()),
         "initialize must adopt the projectRoot it was given"
     );
@@ -415,7 +415,11 @@ fn contract_shutdown() {
     // A compile left a graph notification pending for the subscriber.
     let delta =
         specforge_mcp::notifications::compute_graph_delta(&Graph::new(), server.state().graph());
-    specforge_mcp::notifications::enqueue_compile_notifications(server.state_mut(), &delta, &[]);
+    specforge_mcp::notifications::enqueue_compile_notifications(
+        server.state_mut(),
+        &crate::support::update_of(delta),
+        &[],
+    );
     assert_eq!(server.state().notification_outbox.len(), 1);
 
     let resp = call(&mut server, "shutdown", json!({}));
@@ -451,7 +455,7 @@ fn contract_shutdown() {
     assert_eq!(state.graph().node_count(), 0);
     assert!(state.registries().manifests.is_empty());
     assert!(state.surface_entries().next().is_none());
-    assert!(state.project_root.is_none());
+    assert!(state.project_root().is_none());
 
     // shutdown_emitted, with what it released.
     let shutdown = events(&server, "mcp_server_shutdown");
@@ -1028,7 +1032,11 @@ fn contract_coverage() {
     );
 
     // Recorded evidence: a passing test that names the obligation.
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     std::fs::write(
         root.join("specforge-report.json"),
         json!({"results": {"alpha": {"tests": [
@@ -1522,7 +1530,11 @@ fn contract_dispatch_surface_command() {
         json!({"projectRoot": dir.path().to_str().unwrap()}),
     );
     assert!(init["error"].is_null(), "{init}");
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
 
     // command_declared: the commands the probe declares are its tools.
     let tools = call(&mut server, "tools/list", json!({}));
@@ -1842,7 +1854,10 @@ fn contract_list_prompts() {
 )]
 fn contract_guard_reinit() {
     let mut server = test_server();
-    let root = server.state().project_root.clone();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf);
     let tools = server.state().tool_registry.len();
     let other = tempfile::TempDir::new().unwrap();
 
@@ -1856,7 +1871,7 @@ fn contract_guard_reinit() {
 
     // session_unaffected: same project, graph and registries.
     let state = server.state();
-    assert_eq!(state.project_root, root);
+    assert_eq!(state.project_root().map(std::path::Path::to_path_buf), root);
     assert_eq!(state.tool_registry.len(), tools);
     assert_eq!(state.graph().node_count(), 2);
     let stats = tool(&mut server, "specforge.stats", json!({}));
@@ -1887,8 +1902,8 @@ fn contract_protocol_error() {
     let mut server = test_server();
     let root = server
         .state()
-        .project_root
-        .clone()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
         .unwrap()
         .display()
         .to_string();
@@ -2067,7 +2082,11 @@ fn contract_suggest_fixes() {
 )]
 fn contract_format() {
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let messy = root.join("messy.spec");
     let source = "behavior   gamma \"Gamma\"{\ncontract \"x\"\n}\n";
     std::fs::write(&messy, source).unwrap();
@@ -2184,7 +2203,7 @@ fn contract_doctor() {
     )
     .unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
     let installed = tool(
         &mut server,
         "specforge.add_extension",
@@ -2446,8 +2465,8 @@ fn project_server() -> (McpServer, PathBuf) {
     attach_project(server.state_mut());
     let spec = server
         .state()
-        .project_root
-        .clone()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
         .unwrap()
         .join("test.spec");
     (server, spec)
@@ -2733,7 +2752,7 @@ fn contract_diagnostics_notification() {
 fn contract_add_extension() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
     std::fs::write(
         dir.path().join("specforge.json"),
         r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
@@ -2758,7 +2777,7 @@ fn contract_add_extension() {
 fn contract_remove_extension() {
     let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
-    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
     std::fs::write(
         dir.path().join("specforge.json"),
         r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
@@ -2782,7 +2801,11 @@ fn contract_remove_extension() {
 #[test]
 fn contract_migrate() {
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let before = std::fs::read_to_string(root.join("test.spec")).unwrap();
 
     let result = tool(&mut server, "specforge.migrate", json!({"dry_run": false}));
@@ -2801,7 +2824,11 @@ fn contract_migrate() {
 )]
 fn contract_providers() {
     let mut server = test_server();
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     std::fs::write(
         root.join("specforge.json"),
         json!({

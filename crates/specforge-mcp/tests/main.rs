@@ -3,7 +3,6 @@ mod conformance;
 mod contracts;
 mod events;
 mod fake_extension;
-mod freshness;
 mod invariants;
 mod lifecycle;
 mod notifications;

@@ -887,7 +887,11 @@ fn one_runtime_serves_extension_calls_until_the_next_compile() {
         "initialize",
         json!({"projectRoot": dir.path().to_str().unwrap()}),
     );
-    let root = server.state().project_root.clone().unwrap();
+    let root = server
+        .state()
+        .project_root()
+        .map(std::path::Path::to_path_buf)
+        .unwrap();
     let compiled = std::sync::Arc::clone(
         server
             .state()

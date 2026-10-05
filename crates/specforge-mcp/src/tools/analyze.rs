@@ -47,7 +47,7 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
     let path = args
         .path
         .map(PathBuf::from)
-        .or_else(|| state.project_root.clone());
+        .or_else(|| state.project_root().map(std::path::Path::to_path_buf));
 
     let use_cached = args.use_cached.unwrap_or(false);
 
@@ -61,7 +61,7 @@ pub fn call(state: &mut McpState, args: Args) -> ToolOutcome {
         }
         Some(root) => {
             if !use_cached || state.graph().node_count() == 0 {
-                state.reload(root);
+                state.serve(root);
             }
             None
         }

@@ -7,7 +7,7 @@ use crate::tool::ToolOutcome;
 /// (`specforge_ops::infer::gaps`), as `specforge infer-status --gaps-detail
 /// --format json` prints it under `gap_analysis`.
 pub fn call(state: &McpState, _args: crate::args::NoArgs) -> ToolOutcome {
-    let Some(root) = state.project_root.clone() else {
+    let Some(root) = state.project_root().map(std::path::Path::to_path_buf) else {
         return ToolOutcome::ok(json!({
             "total_pub_items": 0,
             "covered_items": 0,

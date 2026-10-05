@@ -283,7 +283,7 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
         .unwrap_or("spec/");
     let cursor = args.get("cursor").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
 
-    let project_root = state.project_root.as_deref();
+    let project_root = state.project_root();
 
     let (summary, unanalyzed, stale) = match project_root {
         Some(root) => {
@@ -961,7 +961,9 @@ mod tests {
         for i in 0..count {
             std::fs::write(src.join(format!("mod_{i:02}.rs")), "fn stub() {}\n").unwrap();
         }
-        state.project_root = Some(dir.path().to_path_buf());
+        let graph = state.graph().clone();
+        let diagnostics = state.session().graph_diagnostics();
+        state.serve_in_memory_at(Some(dir.path().to_path_buf()), graph, diagnostics);
         (state, dir)
     }
 

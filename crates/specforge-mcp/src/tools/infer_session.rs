@@ -34,8 +34,8 @@ pub struct Args {
 }
 
 pub fn call(state: &McpState, args: Args) -> ToolOutcome {
-    let project_root = match &state.project_root {
-        Some(p) => p.clone(),
+    let project_root = match state.project_root() {
+        Some(p) => p.to_path_buf(),
         None => {
             return ToolOutcome::no_project("No project root available");
         }

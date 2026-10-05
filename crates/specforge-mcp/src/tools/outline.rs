@@ -13,7 +13,7 @@ pub fn call(state: &McpState, args: Args) -> ToolOutcome {
 
     let nodes = state.graph().nodes_in_file(file);
     // A file the graph has no entity from is either empty or not there.
-    let on_disk = match &state.project_root {
+    let on_disk = match state.project_root() {
         Some(root) => root.join(file).exists(),
         None => std::path::Path::new(file).exists(),
     };
