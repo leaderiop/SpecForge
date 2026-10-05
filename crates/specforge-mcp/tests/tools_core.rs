@@ -1594,6 +1594,27 @@ fn coverage_status_filter_restricts_status() {
 }
 
 #[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "an unknown status_filter is an invalid-input error naming the closest status"
+)]
+fn coverage_refuses_an_unknown_status_filter() {
+    let mut server = test_server();
+    let resp = call_tool(
+        &mut server,
+        "specforge.coverage",
+        json!({"status_filter": "coverd"}),
+    );
+    assert_eq!(resp["result"]["isError"], true, "{resp}");
+    let error: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "status_filter", "{error}");
+    assert_eq!(
+        error["data"]["suggestion"], "did you mean 'covered'?",
+        "{error}"
+    );
+}
+
+#[specforge_test(
     behavior = "provide_mcp_stats_tool",
     verify = "response includes coverage percentage"
 )]

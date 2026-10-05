@@ -49,7 +49,7 @@ pub(crate) fn op_error(error: specforge_ops::OpError) -> McpError {
         "config_not_found" => ErrorCode::FileNotFound,
         "config_invalid" | "invalid_schema_version" => ErrorCode::SchemaMismatch,
         specforge_ops::infer::MANIFEST_INVALID => ErrorCode::SchemaMismatch,
-        "unknown_format" => ErrorCode::InvalidInput,
+        "unknown_format" | "invalid_input" | "unknown_kind" => ErrorCode::InvalidInput,
         "extension_conflict" | "project_exists" => ErrorCode::Conflict,
         "invalid_name" => ErrorCode::InvalidInput,
         code => ErrorCode::for_diagnostic(code),

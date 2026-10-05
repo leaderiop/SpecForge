@@ -350,10 +350,20 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
     A specforge-report.json that exists but cannot be read or parsed MUST be
     an error, an isError result carrying an McpError, as the CLI refuses it;
     it is never read as a project with no recorded tests.
-    When no filters are provided, the tool MUST return coverage for all
-    testable entities. Testability is determined by extension manifests.
+    When no filters are provided, the tool MUST return coverage for every
+    entity that counts toward coverage: an entity of a kind the extension
+    manifests declare testable, less the entities W004 exempts that
+    declare no obligations (union types, abstract entities, governance
+    kinds), the entities stats counts as testable. An entity_id filter
+    returns that entity whether it counts or not; each result says
+    whether the entity is exempt. A status_filter other than covered,
+    uncovered or partial MUST be an invalid-input error on status_filter
+    naming the closest status.
   """
   verify unit "specforge.coverage returns coverage for all testable entities"
+  verify unit "with no filters the rows are the entities that count toward coverage"
+  verify unit "an exempt entity named by entity_id is returned with exempt true"
+  verify unit "an unknown status_filter is an invalid-input error naming the closest status"
   verify unit "entity_id filter returns single entity coverage"
   verify unit "kind filter restricts to matching entity kinds"
   verify unit "status_filter restricts to matching coverage status"
@@ -362,6 +372,7 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
   verify unit "a field named verify does not hide an entity's verify statements"
   verify unit "a malformed specforge-report.json is an error result, not an empty report"
   verify integration "specforge.coverage reports covered exactly for the entities analyze coverage proves"
+  verify integration "with no filters the coverage rows are the entities stats counts as testable"
   verify contract "Provide MCP Coverage Tool: MCP coverage tool holds — graph_available, coverage_returned, testability_respected, tool_invoked_emitted"
 }
 

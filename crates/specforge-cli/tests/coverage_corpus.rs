@@ -273,10 +273,11 @@ fn fx1_mcp_coverage_today() {
     let rows = coverage_rows(&results[0]);
     let row =
         |status: &str, obligations: u64, proven: u64| (status.to_string(), obligations, proven);
+    // The union Status owes nothing: it does not count toward coverage, so
+    // the unfiltered view leaves it out, as stats does (plan 02 D3).
     let expected: BTreeMap<String, (String, u64, u64)> = [
         // Payload's statement sits behind its `verify` struct field (S2).
         ("Payload", row("covered", 1, 1)),
-        ("Status", row("uncovered", 0, 0)),
         ("login", row("covered", 1, 1)),
         ("logout", row("uncovered", 0, 0)),
         ("reset_password", row("uncovered", 1, 0)),
@@ -347,12 +348,13 @@ fn assert_mcp_coverage_matches_analyze(root: &Path) {
             &[json!({"name": "specforge.coverage", "arguments": {}})],
         )[0],
     );
-    // MCP lists every entity of a testable kind, exempt ones included.
+    // MCP lists the entities that count toward coverage, as analyze counts
+    // them.
     let summary = &pass["summary"];
     assert_eq!(
         rows.len() as u64,
-        summary["testable_total"].as_u64().unwrap() + summary["testable_exempt"].as_u64().unwrap(),
-        "MCP lists every entity of a testable kind analyze sees"
+        summary["testable_total"].as_u64().unwrap(),
+        "MCP lists the testable entities analyze counts"
     );
     let covered = rows.values().filter(|(status, _, _)| status == "covered");
     assert_eq!(
@@ -383,6 +385,54 @@ fn mcp_coverage_matches_analyze_coverage() {
         example.path(),
     );
     assert_mcp_coverage_matches_analyze(example.path());
+}
+
+/// `specforge.coverage {}` lists exactly the entities `specforge stats`
+/// counts as testable, and covers exactly as many as analyze proves.
+fn assert_mcp_coverage_rows_are_what_stats_counts(root: &Path) {
+    let results = mcp_calls(
+        root,
+        &[
+            json!({"name": "specforge.coverage", "arguments": {}}),
+            json!({"name": "specforge.coverage", "arguments": {"status_filter": "covered"}}),
+        ],
+    );
+    let stats = stats(root);
+    assert_eq!(
+        results[0].as_array().unwrap().len() as u64,
+        stats["testable_count"].as_u64().unwrap(),
+        "{}",
+        results[0]
+    );
+    assert!(
+        results[0]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|row| row["exempt"] == false)
+    );
+    let proven = analyze_coverage(root)["summary"]["testable_proven"].clone();
+    assert_eq!(
+        json!(results[1].as_array().unwrap().len()),
+        proven,
+        "{}",
+        results[1]
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "with no filters the coverage rows are the entities stats counts as testable"
+)]
+fn mcp_coverage_rows_are_what_stats_counts() {
+    let tmp = project("fx1");
+    assert_mcp_coverage_rows_are_what_stats_counts(tmp.path());
+    let example = TempDir::new().unwrap();
+    copy_tree(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/todo-app"),
+        example.path(),
+    );
+    assert_mcp_coverage_rows_are_what_stats_counts(example.path());
 }
 
 #[specforge_test(

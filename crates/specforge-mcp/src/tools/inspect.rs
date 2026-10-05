@@ -9,7 +9,7 @@ pub struct Args {
 }
 
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let root = call.root();
+    let view = call.view();
     let state = &*call.state;
     let entity_id = args.entity_id.as_str();
 
@@ -32,13 +32,25 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     // behavior's `contract`; `null` for a kind that declares none.
     let contract = specforge_emitter::context::headline_statement(node, &state.registries().fields);
 
+    // The entity's row of the coverage view: whether its kind counts toward
+    // coverage, as hover, the schema and the outline say (ADR 0004, D2-d);
+    // whether the entity itself declares obligations; and the status
+    // `specforge.coverage` reports for it.
+    let row = match specforge_ops::coverage::row(&view, entity_id) {
+        Ok(row) => row,
+        Err(error) => return super::coverage::report_error_result(&error, "specforge.inspect"),
+    };
     let obligations = specforge_graph::obligations(node);
-    let declared = !obligations.is_empty();
-    // Whether the entity's kind counts toward coverage, as hover, the
-    // schema and the outline say (ADR 0004, D2-d); `declared` says whether
-    // the entity itself declares obligations.
-    let testable = specforge_project::coverage::testable_kinds(&state.registries().kinds)
-        .contains(node.kind.raw.as_str());
+    let declared = row
+        .as_ref()
+        .map_or(!obligations.is_empty(), |row| row.declared());
+    let testable = row.as_ref().is_some_and(|row| row.testable);
+    let coverage_status = row
+        .as_ref()
+        .map_or(specforge_project::coverage::Status::Uncovered, |row| {
+            row.status()
+        })
+        .as_str();
     let verify_declarations: Option<Vec<String>> = declared.then(|| {
         obligations
             .iter()
@@ -72,17 +84,6 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
             })
         })
         .collect();
-
-    // The same classification `specforge.coverage` reports.
-    let coverage_status = match super::coverage::project_coverage(
-        state.graph(),
-        state.registries(),
-        root,
-        "specforge.inspect",
-    ) {
-        Ok(coverage) => super::coverage::status_name(coverage.status(entity_id)),
-        Err(outcome) => return outcome,
-    };
 
     let result = serde_json::json!({
         "entity_id": node.id.raw,

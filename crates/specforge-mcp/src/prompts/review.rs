@@ -40,10 +40,12 @@ pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
 
     let mut findings: Vec<Value> = Vec::new();
     let mut coverage: Vec<Value> = Vec::new();
-    // A prompt has no isError result: an unusable report is a JSON-RPC
-    // error carrying the same McpError the coverage tool returns.
-    let report = match crate::tools::coverage::recorded_report(call.root()) {
-        Ok(report) => report,
+    // The same classification `specforge.coverage` reports, from the
+    // project view's memo. A prompt has no isError result: an unusable
+    // report is a JSON-RPC error carrying the same McpError the coverage
+    // tool returns.
+    let project = match call.view().coverage() {
+        Ok(coverage) => coverage,
         Err(e) => {
             return JsonRpcResponse::error_with_data(
                 id,
@@ -54,13 +56,6 @@ pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
             );
         }
     };
-
-    // The same classification `specforge.coverage` reports.
-    let project = specforge_project::coverage::ProjectCoverage::compute(
-        state.graph(),
-        crate::tools::coverage::coverage_registries(state.registries()),
-        report.as_ref(),
-    );
     for node in &nodes {
         let Some(verdict) = project.verdict(node.id.raw.as_str()) else {
             continue;
@@ -69,7 +64,7 @@ pub fn get(call: &Call<'_>, args: Value, id: Option<Value>) -> JsonRpcResponse {
         coverage.push(serde_json::json!({
             "entity_id": node.id.raw,
             "kind": node.kind.raw,
-            "status": crate::tools::coverage::status_name(verdict.status()),
+            "status": verdict.status().as_str(),
             "declared": has_verify,
             "linked": verdict.tests > 0,
             "evidence_collected": verdict.tests > 0,

@@ -2,6 +2,7 @@
 //! validation, stats, source scanning and the schema cache.
 
 mod contracts;
+mod coverage;
 mod determinism;
 mod errors;
 mod plan;
@@ -10,3 +11,4 @@ mod schema_cache;
 mod stats;
 mod trace;
 mod trace_support;
+mod view_support;

@@ -64,6 +64,23 @@ fn text_field(key: &str, text: &str) -> FieldMap {
 }
 
 /// A kind as an extension registers it; only `testable` matters here.
+/// The W004 rule requiring `kind`'s entities to declare obligations.
+fn obligations_rule(kind: &str) -> specforge_registry::validation_engine::ValidationRulePattern {
+    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
+    ValidationRulePattern {
+        code: "W004".into(),
+        severity: Severity::Warning,
+        message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
+        check: ValidationPatternKind::NoVerifyStatements,
+        target_kind: Some(kind.into()),
+        edge_type: None,
+        edge_peer_kind: None,
+        field: Some("verify".into()),
+        constraint: None,
+        wasm_function: None,
+    }
+}
+
 fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
     specforge_registry::KindRegistryEntry {
         kind_name: kind.into(),
@@ -1028,6 +1045,7 @@ fn contract_coverage() {
             "obligations": 1,
             "proven": 0,
             "unproven": ["works"],
+            "exempt": false,
         }])
     );
 
@@ -1052,14 +1070,38 @@ fn contract_coverage() {
     assert_eq!(alpha["linked"], true);
     assert_eq!(alpha["unproven"], json!([]));
 
-    // testability_respected: the registry, not the kind name, decides.
+    // testability_respected: the registry, not the kind name, decides. A
+    // testable feature no rule obliges to declare obligations owes none:
+    // it does not count, and is reachable by id, exempt.
     server.state_mut().edit_environment(|env| {
         env.registries.kinds.register(kind_entry("feature", true));
+    });
+    let coverage = tool(&mut server, "specforge.coverage", json!({}));
+    assert!(
+        coverage
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["entity_id"] != "beta")
+    );
+    let beta = tool(
+        &mut server,
+        "specforge.coverage",
+        json!({"entity_id": "beta"}),
+    );
+    assert_eq!(beta[0]["exempt"], true, "{beta}");
+    assert_eq!(beta[0]["obligations"], 0);
+    // Once a rule obliges features to declare obligations, beta counts.
+    server.state_mut().edit_environment(|env| {
+        env.registries
+            .rules
+            .push((obligations_rule("feature"), String::new()));
     });
     let coverage = tool(&mut server, "specforge.coverage", json!({}));
     let beta = find(&coverage, "entity_id", "beta");
     assert_eq!(beta["obligations"], 0);
     assert_eq!(beta["status"], "uncovered");
+    assert_eq!(beta["exempt"], false);
 
     assert_tool_invoked(&server, "specforge.coverage");
 }

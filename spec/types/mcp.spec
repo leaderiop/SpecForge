@@ -297,6 +297,8 @@ type McpCoverageResult {
   proven             integer
   /// Verify texts no passing recorded test names, in declaration order.
   unproven           string[]
+  /// A testable-kind entity that owes no obligations and declares none (W004 exempts it).
+  exempt             boolean
   verify unit "McpCoverageResult schema is valid"
 }
 
