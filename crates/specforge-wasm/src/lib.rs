@@ -29,10 +29,7 @@ pub use runtime::{
 };
 pub use sandbox::default_sandbox_policy;
 pub use specifier::{ExtensionSpecifier, parse_extension_specifier};
-pub use surface::{
-    AutoPromotedMcpTool, CommandOutput, auto_promote_commands_to_mcp_tools,
-    dispatch_surface_command, dispatch_surface_mcp_resource, dispatch_surface_mcp_tool,
-};
+pub use surface::{AutoPromotedMcpTool, auto_promote_commands_to_mcp_tools};
 pub use toposort::topological_sort_extensions;
 pub use trap::{handle_wasm_trap, should_skip_extension};
 pub use uninstall::{UninstallResult, uninstall_extension};

@@ -107,10 +107,7 @@ fn c1_the_command_input() {
             today: "2026-10-03".into(),
         },
     );
-    golden(
-        "command.input.json",
-        &serde_json::from_slice(&input).unwrap(),
-    );
+    golden("command.input.json", &serde_json::to_value(&input).unwrap());
 }
 
 // ── C5 · collector ──

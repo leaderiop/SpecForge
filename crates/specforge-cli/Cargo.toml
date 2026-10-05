@@ -53,6 +53,8 @@ specforge-registry-client = { path = "../specforge-registry-client" }
 semver = { workspace = true }
 
 [dev-dependencies]
+# Extensions served in process (`specforge_wasm::testing`).
+specforge-wasm = { workspace = true, features = ["testing"] }
 assert_cmd = { workspace = true }
 predicates = { workspace = true }
 insta = { workspace = true }

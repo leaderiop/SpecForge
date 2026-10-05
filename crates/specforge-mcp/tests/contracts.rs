@@ -1582,7 +1582,7 @@ fn contract_dispatch_surface_command() {
         error["message"]
             .as_str()
             .unwrap()
-            .starts_with("surface command cmd__trap() trapped"),
+            .starts_with("command cmd__trap() of '@test/probe' trapped: call_failed: "),
         "{error}"
     );
     assert_eq!(events(&server, "surface_command_dispatched").len(), 1);

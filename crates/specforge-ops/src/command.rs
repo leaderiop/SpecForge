@@ -3,20 +3,26 @@
 //!
 //! The CLI routes `specforge <ext_short> <command>` to one, and MCP
 //! auto-promotes each to the tool `specforge.<ext_short>.<id>`. Both run it
-//! here: the export receives the SDK's `CommandInput` (the args, the project
-//! root, the compiled graph in the graph export's shape, the format the
-//! caller asked for and the host's date) and answers with a `CommandOutput`.
-//! The host knows no command: which exist, their args and what they print
-//! are the extension's (ADR 0008). The host owns `--format` (ADR 0011).
+//! here: the export receives the protocol's `CommandInput` (the args, the
+//! project root, the compiled graph in the graph export's shape, the format
+//! the caller asked for and the host's date) and answers with a
+//! `CommandOutput` (`specforge_protocol_types`, through
+//! `specforge_wasm::ExtensionCalls`). The host knows no command: which
+//! exist, their args and what they print are the extension's (ADR 0008).
+//! The host owns `--format` (ADR 0011).
 
 use serde_json::{Map, Value};
-use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_protocol_types::CommandDescriptor;
+use specforge_protocol_types::{CommandDescriptor, CommandInput, CommandOutput, RawGraph};
 use specforge_registry::RegistryBuild;
-use specforge_wasm::CommandOutput;
 use specforge_wasm::runtime::WasmRuntime;
+use specforge_wasm::{CallError, ExtensionCalls};
 use std::path::Path;
+
+/// The output a command is asked for: `human` (the CLI default) or `json`
+/// (always, over MCP). The host's, not the command's: no command declares
+/// an arg named `format` (ADR 0011).
+pub use specforge_protocol_types::CommandFormat;
 
 /// One enabled command an extension contributes.
 #[derive(Debug, Clone, Copy)]
@@ -52,32 +58,6 @@ pub fn extension_commands(build: &RegistryBuild) -> Vec<ExtensionCommand<'_>> {
         .collect()
 }
 
-/// The output a command is asked for: `human` (the CLI default) or `json`
-/// (always, over MCP). The host's, not the command's: no command declares
-/// an arg named `format` (ADR 0011).
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum CommandFormat {
-    #[default]
-    Human,
-    Json,
-}
-
-impl CommandFormat {
-    /// Every format, as the CLI's `--format` takes them.
-    pub const ALL: [CommandFormat; 2] = [CommandFormat::Human, CommandFormat::Json];
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            CommandFormat::Human => "human",
-            CommandFormat::Json => "json",
-        }
-    }
-
-    pub fn parse(value: &str) -> Option<Self> {
-        Self::ALL.into_iter().find(|f| f.as_str() == value)
-    }
-}
-
 /// The options the host gives every extension command on the command line
 /// (`--path`, `--format`, `--help`), which no declared arg may take.
 pub const HOST_OPTIONS: &[&str] = &["path", "format", "help"];
@@ -111,33 +91,28 @@ pub struct CommandContext {
     pub today: String,
 }
 
-/// What a `cmd__` export receives: `{"args", "cwd", "format", "today",
-/// "graph"}`, the graph as `specforge_emitter::json::emit_json` writes it.
+/// What a `cmd__` export receives: the args, the project root, the format
+/// and the date, and `graph` as `specforge_emitter::json::emit_json` renders
+/// it, spliced as rendered rather than parsed back into a value.
 pub fn command_input(
     graph: &Graph,
     args: &Map<String, Value>,
     cwd: &Path,
     context: &CommandContext,
-) -> Vec<u8> {
-    let head = serde_json::json!({
-        "args": args,
-        "cwd": cwd.display().to_string(),
-        "format": context.format.as_str(),
-        "today": context.today,
-    })
-    .to_string();
-    // Splice the graph export in rather than parse it back into a Value.
-    let graph = specforge_emitter::json::emit_json(graph);
-    let mut input = String::with_capacity(head.len() + graph.len() + 10);
-    input.push_str(&head[..head.len() - 1]);
-    input.push_str(",\"graph\":");
-    input.push_str(&graph);
-    input.push('}');
-    input.into_bytes()
+) -> CommandInput<RawGraph> {
+    CommandInput {
+        args: args.clone(),
+        cwd: cwd.display().to_string(),
+        format: context.format,
+        today: context.today.clone(),
+        graph: RawGraph::new(specforge_emitter::json::emit_json(graph))
+            .expect("the graph export is one JSON value"),
+    }
 }
 
 /// Run `export` of `extension` with `args` over `graph`, in `context`. Err:
-/// the export trapped (E028).
+/// the export did not answer a `CommandOutput` (it trapped, the guest does
+/// not route it, or its answer is not one): E028.
 pub fn run_command(
     runtime: &dyn WasmRuntime,
     extension: &str,
@@ -146,9 +121,9 @@ pub fn run_command(
     args: &Map<String, Value>,
     cwd: &Path,
     context: &CommandContext,
-) -> Result<CommandOutput, Diagnostic> {
+) -> Result<CommandOutput, CallError> {
     let input = command_input(graph, args, cwd, context);
-    specforge_wasm::dispatch_surface_command(extension, export, &input, runtime)
+    ExtensionCalls::new(runtime).run_command(extension, export, &input)
 }
 
 #[cfg(test)]
@@ -156,42 +131,47 @@ mod tests {
     use super::*;
     use serde_json::json;
     use specforge_common::{SourceSpan, Sym};
+    use specforge_extension_sdk::prelude::*;
     use specforge_graph::Node;
     use specforge_parser::{EntityId, EntityKind, FieldMap};
     use specforge_test_macros::test as specforge_test;
-    use specforge_wasm::runtime::{WasmCallResult, WasmTrapInfo};
-    use std::sync::Mutex;
+    use specforge_wasm::runtime::WasmCallResult;
+    use specforge_wasm::testing::InProcessRuntime;
+    use specforge_wasm::{CallFailure, Operation};
 
-    /// Answers `cmd__ok` with a command output and records its input; any
-    /// other export traps.
-    #[derive(Default)]
-    struct Fake {
-        inputs: Mutex<Vec<Value>>,
+    const EXT: &str = "@acme/x";
+
+    /// `@acme/x`, whose guest answers `cmd__ok` with a command output after
+    /// reading its input as the SDK's `CommandInput`, and panics in
+    /// `cmd__boom`; it routes no other export.
+    fn fake() -> InProcessRuntime {
+        fn guest(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+            match export {
+                "cmd__ok" => Some(
+                    serde_json::from_slice::<specforge_extension_sdk::CommandInput>(input)
+                        .map_err(|e| e.to_string())
+                        .map(|_| {
+                            CommandOutput {
+                                exit_code: 3,
+                                stdout: "out\n".into(),
+                                stderr: "err\n".into(),
+                            }
+                            .to_bytes()
+                        }),
+                ),
+                "cmd__boom" => panic!("the command panicked"),
+                _ => None,
+            }
+        }
+        InProcessRuntime::new().with_handler(
+            || ContributionsBuilder::new(ExtensionMeta::new(EXT, "1.0.0")),
+            guest,
+        )
     }
 
-    impl WasmRuntime for Fake {
-        fn load_module(&self, _: &Path) -> Result<(), String> {
-            Ok(())
-        }
-
-        fn call_export(&self, _: &str, export: &str, input: &[u8]) -> WasmCallResult {
-            if export != "cmd__ok" {
-                return WasmCallResult::Trap(WasmTrapInfo {
-                    kind: "unreachable".into(),
-                    message: "the command panicked".into(),
-                    export_name: export.into(),
-                });
-            }
-            self.inputs
-                .lock()
-                .unwrap()
-                .push(serde_json::from_slice(input).unwrap());
-            WasmCallResult::Ok(
-                json!({"exit_code": 3, "stdout": "out\n", "stderr": "err\n"})
-                    .to_string()
-                    .into_bytes(),
-            )
-        }
+    /// The input the last call received, as JSON.
+    fn last_input(runtime: &InProcessRuntime) -> Value {
+        runtime.calls().last().expect("a call").input.clone()
     }
 
     fn graph() -> Graph {
@@ -234,11 +214,11 @@ mod tests {
         verify = "args serialized as JSON to cmd__ export"
     )]
     fn args_reach_the_export_as_json_with_the_graph() {
-        let runtime = Fake::default();
+        let runtime = fake();
         let args = json!({"status": "done", "limit": 2, "all": true});
         let out = run_command(
             &runtime,
-            "@acme/x",
+            EXT,
             "cmd__ok",
             &graph(),
             args.as_object().unwrap(),
@@ -246,15 +226,18 @@ mod tests {
             &CommandContext::default(),
         )
         .unwrap();
-        let input = runtime.inputs.lock().unwrap().remove(0);
-        assert_eq!(input["args"], args);
-        assert_eq!(input["cwd"], "/p");
-        assert_eq!(input["graph"]["nodes"][0]["id"], "f1");
-        assert_eq!(input["graph"]["nodes"][0]["title"], "One");
-        assert_eq!(input["graph"]["edges"], json!([]));
-        assert_eq!(out.exit_code, 3);
-        assert_eq!(out.stdout, b"out\n");
-        assert_eq!(out.stderr, b"err\n");
+        // What the guest decodes: the SDK's CommandInput.
+        let input: specforge_extension_sdk::CommandInput =
+            serde_json::from_value(last_input(&runtime)).unwrap();
+        assert_eq!(Value::Object(input.args), args);
+        assert_eq!(input.cwd, "/p");
+        let f1 = input.graph.node("f1").unwrap();
+        assert_eq!(f1.title.as_deref(), Some("One"));
+        assert!(input.graph.edges().is_empty());
+        assert_eq!(
+            (out.exit_code, out.stdout.as_str(), out.stderr.as_str()),
+            (3, "out\n", "err\n")
+        );
     }
 
     #[specforge_test(
@@ -262,7 +245,7 @@ mod tests {
         verify = "the CommandInput carries the format the caller asked for and the host's date"
     )]
     fn the_input_carries_the_format_and_the_date() {
-        let runtime = Fake::default();
+        let runtime = fake();
         for format in CommandFormat::ALL {
             let context = CommandContext {
                 format,
@@ -270,7 +253,7 @@ mod tests {
             };
             run_command(
                 &runtime,
-                "@acme/x",
+                EXT,
                 "cmd__ok",
                 &graph(),
                 &Map::new(),
@@ -278,7 +261,7 @@ mod tests {
                 &context,
             )
             .unwrap();
-            let input = runtime.inputs.lock().unwrap().remove(0);
+            let input = last_input(&runtime);
             assert_eq!(input["format"], format.as_str());
             assert_eq!(input["today"], "2026-10-03");
             assert_eq!(input["args"], json!({}), "the format is not an arg");
@@ -293,8 +276,8 @@ mod tests {
     )]
     fn a_trapping_command_is_an_extension_error() {
         let err = run_command(
-            &Fake::default(),
-            "@acme/x",
+            &fake(),
+            EXT,
             "cmd__boom",
             &graph(),
             &Map::new(),
@@ -302,12 +285,58 @@ mod tests {
             &CommandContext::default(),
         )
         .unwrap_err();
-        assert_eq!(err.code, "E028");
-        assert!(
-            err.message.contains("cmd__boom") && err.message.contains("the command panicked"),
-            "{}",
-            err.message
+        let diagnostic = err.diagnostic();
+        assert_eq!(diagnostic.code, "E028");
+        assert_eq!(
+            diagnostic.message,
+            "command cmd__boom() of '@acme/x' trapped: call_failed: unreachable: the command panicked"
         );
+    }
+
+    #[specforge_test(
+        behavior = "dispatch_surface_command",
+        verify = "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
+    )]
+    fn a_command_whose_output_is_not_a_command_output_is_an_extension_error() {
+        for raw in [
+            &b"not json at all"[..],
+            br#"{"exit_code":"3","stdout":"x"}"#,
+            br#"{}"#,
+            br#"[1,2]"#,
+        ] {
+            let runtime = fake().answer_raw(EXT, "cmd__ok", WasmCallResult::Ok(raw.to_vec()));
+            let err = run_command(
+                &runtime,
+                EXT,
+                "cmd__ok",
+                &graph(),
+                &Map::new(),
+                Path::new("/p"),
+                &CommandContext::default(),
+            )
+            .unwrap_err();
+            let shown = String::from_utf8_lossy(raw);
+            assert_eq!(err.operation, Operation::Command, "{shown}");
+            assert!(
+                matches!(
+                    err.failure,
+                    CallFailure::Malformed {
+                        expected: "CommandOutput",
+                        ..
+                    }
+                ),
+                "{shown}: {err}"
+            );
+            let diagnostic = err.diagnostic();
+            assert_eq!(diagnostic.code, "E028");
+            assert!(
+                diagnostic.message.starts_with(
+                    "command cmd__ok() of '@acme/x' answered output that is not a CommandOutput: "
+                ),
+                "{}",
+                diagnostic.message
+            );
+        }
     }
 
     #[specforge_test(
@@ -360,8 +389,8 @@ mod tests {
             &json,
         )
         .unwrap();
-        assert_eq!(out.exit_code, 0, "{}", String::from_utf8_lossy(&out.stderr));
-        let listed: Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(out.exit_code, 0, "{}", out.stderr);
+        let listed: Value = serde_json::from_str(&out.stdout).unwrap();
         assert_eq!(listed["features"][0]["id"], "f1", "{listed}");
         assert_eq!(
             runtime.loaded_names(),
@@ -393,11 +422,11 @@ mod tests {
             &CommandContext::default(),
         )
         .unwrap_err();
-        assert_eq!(err.code, "E028");
-        assert!(
-            err.message.contains("cmd__product_no_such_command"),
-            "{}",
-            err.message
+        assert_eq!(err.diagnostic().code, "E028");
+        assert_eq!(
+            err.to_string(),
+            "command cmd__product_no_such_command() of '@specforge/product' trapped: guest_error: \
+             unknown export 'cmd__product_no_such_command'"
         );
     }
 

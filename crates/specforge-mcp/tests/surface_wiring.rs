@@ -1067,7 +1067,7 @@ fn a_trapping_extension_tool_is_a_structured_error() {
         error["message"]
             .as_str()
             .unwrap()
-            .starts_with("MCP tool mcp__check() trapped: export_not_found"),
+            .starts_with("MCP tool mcp__check() of '@test/cmds' trapped: export_not_found"),
         "{error}"
     );
     assert_eq!(error["tool"], "specforge.cmds.check", "{error}");
@@ -1158,13 +1158,38 @@ fn a_trapping_extension_resource_is_a_structured_error() {
     assert_eq!(keys, ["code", "message"], "{resp}");
     assert_eq!(error["code"], -32602, "{resp}");
     assert!(
-        error["message"]
-            .as_str()
-            .unwrap()
-            .starts_with("E028: MCP resource mcp__summary() trapped: export_not_found"),
+        error["message"].as_str().unwrap().starts_with(
+            "E028: MCP resource mcp__summary() of '@test/cmds' trapped: export_not_found"
+        ),
         "{resp}"
     );
     assert!(call(&mut server, "ping", json!({}))["result"].is_object());
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "a resource whose answer is not its content and mime type is a structured MCP error"
+)]
+fn a_resource_answering_no_content_is_a_structured_error() {
+    for answer in [
+        json!("oops"),
+        json!({"text": "t"}),
+        json!({"content": "c"}),
+        json!([1, 2]),
+    ] {
+        let (mut server, _ext, _dir) = fake_extension::initialized(
+            FakeExtension::new().with_output("mcp__summary", answer.clone()),
+        );
+        let resp = read_resource(&mut server, SUMMARY);
+        assert!(resp["result"].is_null(), "{answer}: {resp}");
+        assert_eq!(resp["error"]["code"], -32602, "{resp}");
+        assert!(
+            resp["error"]["message"].as_str().unwrap().starts_with(
+                "E028: MCP resource mcp__summary() of '@test/cmds' answered output that is not a McpResourceContent: "
+            ),
+            "{resp}"
+        );
+    }
 }
 
 #[specforge_test(

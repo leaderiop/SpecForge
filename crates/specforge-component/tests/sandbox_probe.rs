@@ -9,7 +9,9 @@
 
 use serde_json::{Value, json};
 use specforge_component::ComponentRuntime;
+use specforge_protocol_types::{CommandInput, RawGraph};
 use specforge_test_macros::test as specforge_test;
+use specforge_wasm::ExtensionCalls;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 use std::net::TcpListener;
 use std::path::Path;
@@ -88,6 +90,17 @@ fn granted_nothing(report: &Value, attempts: &[&str]) {
     assert_eq!(report["stdin_bytes"], 0, "{report}");
 }
 
+/// The probe command's input: the bait's port as its arg, the bait's
+/// directory as the project root, an empty graph.
+fn command_input(bait: &Bait) -> CommandInput<RawGraph> {
+    CommandInput {
+        args: json!({"port": bait.port()}).as_object().unwrap().clone(),
+        cwd: bait.dir(),
+        graph: RawGraph::new(r#"{"nodes":[],"edges":[]}"#.to_string()).unwrap(),
+        ..CommandInput::default()
+    }
+}
+
 const ALL: &[&str] = &[
     "read_root",
     "read_dir",
@@ -110,19 +123,10 @@ fn a_command_export_is_granted_no_capability() {
     );
 
     let bait = Bait::new();
-    let input = json!({
-        "args": {"port": bait.port()},
-        "cwd": bait.dir(),
-        "graph": {"nodes": [], "edges": []},
-    });
-    let output = specforge_wasm::dispatch_surface_command(
-        PROBE,
-        "cmd__probe",
-        input.to_string().as_bytes(),
-        &runtime,
-    )
-    .expect("the probe answers");
-    let out: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let output = ExtensionCalls::new(&runtime)
+        .run_command(PROBE, "cmd__probe", &command_input(&bait))
+        .expect("the probe answers");
+    let out: Value = serde_json::from_str(&output.stdout).unwrap();
     assert_eq!(out["cwd"], bait.dir(), "told the project root");
     granted_nothing(&out["sandbox"], ALL);
     bait.untouched();
@@ -139,13 +143,9 @@ fn an_mcp_tool_export_is_granted_no_capability() {
 
     let bait = Bait::new();
     let input = json!({"dir": bait.dir(), "port": bait.port()});
-    let report = specforge_wasm::dispatch_surface_mcp_tool(
-        PROBE,
-        "mcp__probe_tool",
-        input.to_string().as_bytes(),
-        &runtime,
-    )
-    .expect("the probe answers");
+    let report = ExtensionCalls::new(&runtime)
+        .call_mcp_tool(PROBE, "mcp__probe_tool", &input)
+        .expect("the probe answers");
     granted_nothing(&report, ALL);
     bait.untouched();
 }
@@ -161,11 +161,11 @@ fn an_mcp_resource_export_cannot_write() {
 
     let bait = Bait::new();
     let uri = format!("specforge://ext/probe{}", bait.dir());
-    let (content, mime) =
-        specforge_wasm::dispatch_surface_mcp_resource(PROBE, "mcp__probe_resource", &uri, &runtime)
-            .expect("the probe answers");
-    assert_eq!(mime, "application/json");
-    let content: Value = serde_json::from_slice(&content).unwrap();
+    let read = ExtensionCalls::new(&runtime)
+        .read_mcp_resource(PROBE, "mcp__probe_resource", &uri)
+        .expect("the probe answers");
+    assert_eq!(read.mime_type, "application/json");
+    let content: Value = serde_json::from_str(&read.content).unwrap();
     assert_eq!(content["uri"], uri);
     assert_eq!(
         content["sandbox"]["write_file"]["granted"], false,
@@ -191,29 +191,23 @@ fn no_override_expands_the_ceiling() {
     }
 
     let bait = Bait::new();
-    let command = json!({"args": {"port": bait.port()}, "cwd": bait.dir(), "graph": {"nodes": [], "edges": []}});
-    let output = specforge_wasm::dispatch_surface_command(
-        PROBE,
-        "cmd__probe",
-        command.to_string().as_bytes(),
-        &runtime,
-    )
-    .unwrap();
-    let command: Value = serde_json::from_slice(&output.stdout).unwrap();
-    let tool = specforge_wasm::dispatch_surface_mcp_tool(
-        PROBE,
-        "mcp__probe_tool",
-        json!({"dir": bait.dir(), "port": bait.port()})
-            .to_string()
-            .as_bytes(),
-        &runtime,
-    )
-    .unwrap();
+    let calls = ExtensionCalls::new(&runtime);
+    let output = calls
+        .run_command(PROBE, "cmd__probe", &command_input(&bait))
+        .unwrap();
+    let command: Value = serde_json::from_str(&output.stdout).unwrap();
+    let tool = calls
+        .call_mcp_tool(
+            PROBE,
+            "mcp__probe_tool",
+            &json!({"dir": bait.dir(), "port": bait.port()}),
+        )
+        .unwrap();
     let uri = format!("specforge://ext/probe{}", bait.dir());
-    let (resource, _) =
-        specforge_wasm::dispatch_surface_mcp_resource(PROBE, "mcp__probe_resource", &uri, &runtime)
-            .unwrap();
-    let resource: Value = serde_json::from_slice(&resource).unwrap();
+    let resource = calls
+        .read_mcp_resource(PROBE, "mcp__probe_resource", &uri)
+        .unwrap();
+    let resource: Value = serde_json::from_str(&resource.content).unwrap();
 
     granted_nothing(&command["sandbox"], ALL);
     granted_nothing(&tool, ALL);

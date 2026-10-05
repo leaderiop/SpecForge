@@ -1,12 +1,14 @@
 //! Characterization of today's extension-call wire (plan 04, T1): the bytes
-//! the host sends and how it reads what comes back, for the command, MCP
-//! tool, MCP resource and declaration (handshake/describe) calls. Pins, not
-//! proofs: a pin that encodes a bug says which ticket flips it.
+//! the host sends and how it reads what comes back, for the declaration
+//! (handshake/describe) calls. Pins, not proofs: a pin that encodes a bug
+//! says which ticket flips it. The command, MCP tool and resource pins
+//! flipped in T5: those calls go through `ExtensionCalls` (`tests/calls.rs`),
+//! where an answer that is not the protocol type is E028.
 //!
 //! Goldens live in `tests/wire/` (one JSON per family and direction),
 //! compared as JSON values; `SPECFORGE_BLESS=1` rewrites them.
 
-use serde_json::{Value, json};
+use serde_json::Value;
 use specforge_extension_sdk::prelude::*;
 use specforge_wasm::protocol::{ProtocolError, load_declaration};
 use specforge_wasm::testing::InProcessRuntime;
@@ -66,123 +68,6 @@ fn trap(kind: &str, message: &str, export: &str) -> WasmCallResult {
 
 fn answering(export: &str, result: WasmCallResult) -> InProcessRuntime {
     InProcessRuntime::new().answer_raw(EXT, export, result)
-}
-
-// ── C1 · command ──
-
-#[test]
-fn c1_a_well_formed_command_answer_is_read_field_by_field() {
-    let runtime = answering(
-        "cmd__x",
-        raw(br#"{"exit_code":3,"stdout":"out","stderr":"err"}"#),
-    );
-    let out = specforge_wasm::dispatch_surface_command(EXT, "cmd__x", b"{}", &runtime).unwrap();
-    assert_eq!(
-        (out.exit_code, out.stdout.as_slice(), out.stderr.as_slice()),
-        (3, &b"out"[..], &b"err"[..])
-    );
-}
-
-#[test]
-fn c1_a_malformed_command_answer_is_exit_0() {
-    // pinned: flips in T5 (each is E028)
-    for (answer, stdout) in [
-        (&b"not json at all"[..], &b"not json at all"[..]),
-        (br#"{"exit_code":"3","stdout":"x"}"#, b"x"),
-        (br#"{}"#, b""),
-        (br#"[1,2]"#, b""),
-    ] {
-        let runtime = answering("cmd__x", raw(answer));
-        let out = specforge_wasm::dispatch_surface_command(EXT, "cmd__x", b"{}", &runtime).unwrap();
-        assert_eq!(out.exit_code, 0, "{}", String::from_utf8_lossy(answer));
-        assert_eq!(out.stdout, stdout);
-    }
-}
-
-#[test]
-fn c1_a_trapping_command_is_e028() {
-    let runtime = answering("cmd__x", trap("unreachable", "p", "cmd__x"));
-    let err = specforge_wasm::dispatch_surface_command(EXT, "cmd__x", b"{}", &runtime).unwrap_err();
-    assert_eq!(err.code, "E028");
-    assert_eq!(
-        err.message,
-        "surface command cmd__x() trapped: unreachable — p"
-    );
-}
-
-// ── C2 · MCP tool ──
-
-#[test]
-fn c2_tool_arguments_pass_through_byte_identical() {
-    let runtime = answering("mcp__t", raw(br#"{"ok":true}"#));
-    let arguments = br#"{"query":"x","limit":2}"#;
-    let value =
-        specforge_wasm::dispatch_surface_mcp_tool(EXT, "mcp__t", arguments, &runtime).unwrap();
-    assert_eq!(value, json!({"ok": true}));
-    let calls = runtime.calls();
-    assert_eq!(calls[0].input, json!({"query": "x", "limit": 2}));
-    // Any JSON is a tool answer.
-    for answer in [&b"[1,2]"[..], b"3", b"\"s\""] {
-        let runtime = answering("mcp__t", raw(answer));
-        assert!(specforge_wasm::dispatch_surface_mcp_tool(EXT, "mcp__t", b"{}", &runtime).is_ok());
-    }
-}
-
-#[test]
-fn c2_a_non_json_tool_answer_or_a_trap_is_e028() {
-    let runtime = answering("mcp__t", raw(b"oops"));
-    let err =
-        specforge_wasm::dispatch_surface_mcp_tool(EXT, "mcp__t", b"{}", &runtime).unwrap_err();
-    assert_eq!(err.code, "E028");
-    assert!(
-        err.message
-            .starts_with("MCP tool mcp__t() returned invalid JSON: "),
-        "{}",
-        err.message
-    );
-    let runtime = answering("mcp__t", trap("k", "m", "mcp__t"));
-    let err =
-        specforge_wasm::dispatch_surface_mcp_tool(EXT, "mcp__t", b"{}", &runtime).unwrap_err();
-    assert_eq!(err.message, "MCP tool mcp__t() trapped: k — m");
-}
-
-// ── C3 · MCP resource ──
-
-#[test]
-fn c3_a_resource_receives_its_uri() {
-    let runtime = answering(
-        "mcp__r",
-        raw(br#"{"content":"c","mime_type":"text/plain"}"#),
-    );
-    let (content, mime) =
-        specforge_wasm::dispatch_surface_mcp_resource(EXT, "mcp__r", "u://r", &runtime).unwrap();
-    assert_eq!(
-        (content.as_slice(), mime.as_str()),
-        (&b"c"[..], "text/plain")
-    );
-    golden("resource.input.json", &runtime.calls()[0].input);
-}
-
-#[test]
-fn c3_a_malformed_resource_answer_is_served_as_octet_stream() {
-    // pinned: flips in T5 (each is E028)
-    for (answer, content) in [(&b"oops"[..], &b"oops"[..]), (br#"{"text":"t"}"#, b"")] {
-        let runtime = answering("mcp__r", raw(answer));
-        let (served, mime) =
-            specforge_wasm::dispatch_surface_mcp_resource(EXT, "mcp__r", "u://r", &runtime)
-                .unwrap();
-        assert_eq!(served, content);
-        assert_eq!(mime, "application/octet-stream");
-    }
-}
-
-#[test]
-fn c3_a_trapping_resource_is_e028() {
-    let runtime = answering("mcp__r", trap("k", "m", "mcp__r"));
-    let err = specforge_wasm::dispatch_surface_mcp_resource(EXT, "mcp__r", "u://r", &runtime)
-        .unwrap_err();
-    assert_eq!(err.code, "E028");
-    assert_eq!(err.message, "MCP resource mcp__r() trapped: k — m");
 }
 
 // ── C9 · handshake and describe ──

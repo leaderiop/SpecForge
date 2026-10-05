@@ -173,8 +173,11 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
     Wasm traps MUST be caught and reported as ExtensionError
     diagnostics, as is a declared export the guest does not route (the
     host cannot list a component guest's exports, so presence is known
-    only by calling); under --format json the CLI writes it to stderr as
-    one error object of the shape commands write ({code, message}). A
+    only by calling). An answer that is not a CommandOutput is an
+    ExtensionError (E028), like a trap: never exit 0 with the raw bytes.
+    Under --format json the CLI writes the error to stderr as one error
+    object of the shape commands write ({code, message, suggestion}),
+    and exits 1. A
     usage error the command line catches before the command runs (a
     value outside a one_of, a missing required arg, an unknown flag, a
     value that is not an integer) is, under --format json (wherever it
@@ -195,6 +198,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "the CommandInput carries the format the caller asked for and the host's date"
   verify unit "a command declaring an arg named format is refused on the command line"
   verify unit "under --format json a command whose export trapped prints one JSON error object"
+  verify unit "a command whose output is not a CommandOutput is an ExtensionError, not exit 0 with the raw bytes"
   verify integration "under --format json a usage error the command line catches is one INVALID_INPUT error object on stderr, exit 2"
   verify integration "over MCP a command is asked for json and its JSON output is the tool's structured content"
   verify unit "over MCP a failure's JSON error object is an isError result carrying it, and output that is not one object is text"
@@ -261,7 +265,13 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
     mcp_structured_error_responses,
   ]
   category   command
-  types      [McpResourceContribution, SurfaceError, WasmTrapInfo]
+  types      [
+    McpResourceContribution,
+    McpResourceRequest,
+    McpResourceContent,
+    SurfaceError,
+    WasmTrapInfo,
+  ]
   ports      [WasmRuntime, McpProtocol]
   produces   [surface_mcp_resource_dispatched]
   requires {
@@ -284,7 +294,9 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
     (surface_sandbox_ceiling). The export receives only the URI, not
     the graph: a resource serves content that needs no project data
     (graph queries are commands, served as tools). Wasm traps MUST be
-    caught and returned as structured MCP error responses. The resource
+    caught and returned as structured MCP error responses, and so is an
+    answer that is not the resource's content and MIME type
+    (McpResourceContent): it is never served as raw bytes. The resource
     content and mime_type MUST be returned to the MCP client. The MCP
     server records each read whose export returned as a
     surface_mcp_resource_dispatched event.
@@ -294,6 +306,7 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
   verify unit "fs_write denied for resource contributions"
   verify unit "Wasm trap returned as structured MCP error"
   verify unit "resource content and mime_type returned to client"
+  verify unit "a resource whose answer is not its content and mime type is a structured MCP error"
   verify integration "a returned resource read is recorded as a surface_mcp_resource_dispatched event"
   verify contract "Dispatch Surface MCP Resource: surface MCP resource dispatch holds — resource_registered, uri_matched, fs_write_denied, traps_as_mcp_errors, content_returned, surface_mcp_resource_dispatched_emitted"
 }
