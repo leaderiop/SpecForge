@@ -211,6 +211,7 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify unit "the recorded test report is read at the view's root, never an ancestor's"
   verify unit "coverage is computed once per compile and report content, and again after the report changes"
   verify unit "an entity is unverified when it counts toward coverage and is not proven"
+  verify integration "specforge stats and specforge.stats report the same numbers"
 }
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {

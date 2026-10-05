@@ -226,8 +226,7 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
     };
     graph.add_node(verified_feature);
 
-    let stats =
-        specforge_ops::stats::compute_stats_with_diagnostics(&graph, &["behavior"], &diagnostics);
+    let stats = crate::view_support::stats_of(&graph, &["behavior"], &diagnostics);
     assert_eq!(stats.total_entities, 5);
     assert_eq!(stats.total_edges, 2);
     // entity_counts_produced: counts grouped by kind.
@@ -250,7 +249,7 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
     // zero_testable_safe: no testable kinds, or a testable kind with no
     // entities, reports 0%, not NaN.
     for testable in [&[][..], &["event"][..]] {
-        let none = specforge_ops::stats::compute_stats_with_diagnostics(&graph, testable, &[]);
+        let none = crate::view_support::stats_of(&graph, testable, &[]);
         assert_eq!(none.testable_count, 0);
         assert_eq!(none.coverage_pct, 0.0, "testable kinds {testable:?}");
     }

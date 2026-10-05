@@ -58,7 +58,7 @@ fn stats_reports_correct_entity_counts() {
     graph.add_node(node("b", "behavior"));
     graph.add_node(node("c", "feature"));
 
-    let stats = specforge_ops::stats::compute_stats(&graph);
+    let stats = crate::view_support::stats_of(&graph, &[], &[]);
     assert_eq!(stats.total_entities, 3);
     assert_eq!(stats.entities_by_kind["behavior"], 2);
     assert_eq!(stats.entities_by_kind["feature"], 1);
@@ -77,7 +77,7 @@ fn stats_reports_edge_count() {
         label: Sym::new("behaviors"),
     });
 
-    let stats = specforge_ops::stats::compute_stats(&graph);
+    let stats = crate::view_support::stats_of(&graph, &[], &[]);
     assert_eq!(stats.total_edges, 1);
 }
 
@@ -97,7 +97,7 @@ fn stats_reports_orphan_count() {
         label: Sym::new("behaviors"),
     });
 
-    let stats = specforge_ops::stats::compute_stats(&graph);
+    let stats = crate::view_support::stats_of(&graph, &[], &[]);
     assert_eq!(stats.orphan_count, 1); // only "a" is orphan
 }
 
@@ -109,7 +109,7 @@ fn stats_reports_verified_count() {
     graph.add_node(node_with_verify("a", "behavior"));
     graph.add_node(node("b", "behavior")); // no verify
 
-    let stats = specforge_ops::stats::compute_stats(&graph);
+    let stats = crate::view_support::stats_of(&graph, &[], &[]);
     assert_eq!(stats.verified_count, 1);
 }
 
@@ -118,7 +118,7 @@ fn stats_reports_verified_count() {
 #[specforge_test(behavior = "compute_project_statistics")]
 fn stats_on_empty_graph() {
     let graph = Graph::new();
-    let stats = specforge_ops::stats::compute_stats(&graph);
+    let stats = crate::view_support::stats_of(&graph, &[], &[]);
     assert_eq!(stats.total_entities, 0);
     assert_eq!(stats.total_edges, 0);
     assert_eq!(stats.orphan_count, 0);
@@ -130,14 +130,14 @@ fn stats_on_empty_graph() {
     behavior = "compute_project_statistics",
     verify = "stats reports coverage percentage"
 )]
-fn stats_coverage_with_testable_kinds() {
+fn stats_coverage_over_the_testable_kinds() {
     let mut graph = Graph::new();
     graph.add_node(node_with_verify("a", "behavior")); // testable + verified
     graph.add_node(node("b", "behavior")); // testable, not verified
     graph.add_node(node("c", "feature")); // not testable
 
     let testable = &["behavior"];
-    let stats = specforge_ops::stats::compute_stats_with_testable(&graph, testable);
+    let stats = crate::view_support::stats_of(&graph, testable, &[]);
     // 1 verified out of 2 testable = 50%
     assert_eq!(stats.testable_count, 2);
     assert_eq!(stats.verified_count, 1);
@@ -154,7 +154,7 @@ fn stats_coverage_zero_when_no_testable_entities() {
     graph.add_node(node("a", "feature")); // not testable
 
     let testable: &[&str] = &["behavior"]; // no behaviors in graph
-    let stats = specforge_ops::stats::compute_stats_with_testable(&graph, testable);
+    let stats = crate::view_support::stats_of(&graph, testable, &[]);
     assert_eq!(stats.testable_count, 0);
     assert_eq!(stats.coverage_pct, 0.0);
 }
@@ -184,7 +184,7 @@ fn stats_includes_diagnostic_summary() {
             data: None,
         },
     ];
-    let stats = specforge_ops::stats::compute_stats_with_diagnostics(&graph, &[], &diagnostics);
+    let stats = crate::view_support::stats_of(&graph, &[], &diagnostics);
     assert_eq!(stats.error_count, 1);
     assert_eq!(stats.warning_count, 1);
     assert_eq!(stats.info_count, 0);
@@ -209,7 +209,7 @@ fn stats_counts_obligations_behind_a_verify_member() {
     graph.add_node(payload);
     graph.add_node(node("Status", "type"));
 
-    let stats = specforge_ops::stats::compute_stats_with_testable(&graph, &["type"]);
+    let stats = crate::view_support::stats_of(&graph, &["type"], &[]);
     assert_eq!(stats.testable_count, 2);
     assert_eq!(stats.verified_count, 1, "Payload declares an obligation");
     assert!((stats.coverage_pct - 50.0).abs() < 0.01);
@@ -237,56 +237,9 @@ fn stats_leaves_union_types_out_of_the_testable_count() {
     graph.add_node(named);
     graph.add_node(node_with_verify("Payload", "type"));
 
-    let stats = specforge_ops::stats::compute_stats_with_testable(&graph, &["type"]);
+    let stats = crate::view_support::stats_of(&graph, &["type"], &[]);
     assert_eq!(stats.testable_count, 2, "Named and Payload");
     assert!((stats.coverage_pct - 50.0).abs() < 0.01);
-}
-
-/// The registries of a project whose `testable` kinds are testable and
-/// must declare obligations (a W004 `no_verify_statements` rule targets
-/// each), as `@specforge/software` declares `behavior`.
-fn registries(testable: &[&str]) -> specforge_registry::RegistryBuild {
-    use specforge_registry::KindRegistryEntry;
-    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
-    let mut build = specforge_registry::RegistryBuild::default();
-    for kind in testable {
-        build.kinds.register(KindRegistryEntry {
-            kind_name: kind.to_string(),
-            description: None,
-            source_extension: "@t/soft".into(),
-            testable: true,
-            singleton: false,
-            supports_verify: true,
-            allowed_verify_kinds: Vec::new(),
-            has_body_parser: false,
-            semantic_token: None,
-            lsp_icon: None,
-            dot_shape: None,
-            dot_color: None,
-            dot_fillcolor: None,
-            open_fields: false,
-            contract_target: false,
-            declares_types: false,
-            lifecycle_field: None,
-        });
-        build.rules.push((
-            ValidationRulePattern {
-                code: "W004".into(),
-                severity: specforge_common::Severity::Warning,
-                message_template: "{kind} '{id}' is testable but declares no verify obligations"
-                    .into(),
-                check: ValidationPatternKind::NoVerifyStatements,
-                target_kind: Some(kind.to_string()),
-                edge_type: None,
-                edge_peer_kind: None,
-                field: Some("verify".into()),
-                constraint: None,
-                wasm_function: None,
-            },
-            "@t/soft".into(),
-        ));
-    }
-    build
 }
 
 /// The contracts graph (a feature listing b, b depending on c, both
@@ -337,26 +290,22 @@ fn debug_body(stats: &impl std::fmt::Debug) -> String {
     text[text.find('{').unwrap()..].to_string()
 }
 
-// Pins what the surfaces' stats path computes today (plan 02 T0): no
-// spec obligation, it must stay byte-identical when the path moves.
+// Pins what the surfaces' stats path computed before plan 02 T3 (the
+// coverage rule over the registries, then the tally): moved behind the
+// stats operation, it must stay byte-identical. No spec obligation.
 #[test]
 fn stats_today_through_the_registries() {
-    let graph = registries_graph();
-    let build = registries(&["behavior"]);
+    let project = crate::view_support::Project::of_graph(
+        registries_graph(),
+        crate::view_support::registries(&["behavior"], &[]),
+    );
     let diagnostics = vec![
         specforge_common::Diagnostic::error("E001", "err"),
         specforge_common::Diagnostic::warning("W002", "warn"),
     ];
-    let coverage = specforge_project::coverage::ProjectCoverage::compute(
-        &graph,
-        specforge_project::coverage::CoverageRegistries {
-            kinds: &build.kinds,
-            fields: &build.fields,
-            rules: &build.rules,
-        },
-        None,
-    );
-    let stats =
-        specforge_ops::stats::compute_project_stats(&graph, &coverage.summary, &diagnostics);
+    let request = specforge_ops::stats::StatsRequest {
+        diagnostics: &diagnostics,
+    };
+    let stats = specforge_ops::stats::stats(&project.view(), &request).unwrap();
     assert_eq!(debug_body(&stats), STATS_TODAY);
 }

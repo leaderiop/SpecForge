@@ -312,7 +312,9 @@ pub struct ProjectCoverage {
 
 impl ProjectCoverage {
     /// Score `graph` against its recorded tests (`None` without a report).
-    pub fn compute(
+    /// Callers read it through a [`RecordedCoverage`], which computes it
+    /// once per compile and report content.
+    pub(crate) fn compute(
         graph: &Graph,
         registries: CoverageRegistries<'_>,
         report: Option<&TestReport>,
@@ -322,25 +324,6 @@ impl ProjectCoverage {
             .into_iter()
             .map(|(_, entity)| entity)
             .collect();
-        Self::assess(&entities, report)
-    }
-
-    /// Score `graph` knowing only which kinds are testable: every testable
-    /// kind must declare obligations, and only structure exempts (a union
-    /// type). For callers without the project's registries.
-    pub fn with_testable_kinds(
-        graph: &Graph,
-        testable_kinds: &[&str],
-        report: Option<&TestReport>,
-    ) -> Self {
-        let entities: Vec<specforge_coverage::Entity> =
-            build_validation_entities(graph, &FieldRegistry::new())
-                .iter()
-                .map(|e| {
-                    let testable = testable_kinds.contains(&e.kind.as_str());
-                    rule_entity(e, testable, testable)
-                })
-                .collect();
         Self::assess(&entities, report)
     }
 

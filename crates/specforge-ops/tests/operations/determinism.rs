@@ -61,7 +61,7 @@ fn build_graph() -> Graph {
 fn stats_output_is_deterministic() {
     let outputs: Vec<_> = (0..5)
         .map(|_| {
-            let stats = specforge_ops::stats::compute_stats(&build_graph());
+            let stats = crate::view_support::stats_of(&build_graph(), &[], &[]);
             format!("{:?}", stats)
         })
         .collect();

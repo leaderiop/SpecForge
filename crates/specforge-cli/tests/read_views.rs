@@ -150,6 +150,51 @@ fn stats_today() {
     pin_stats("rv1", rv1().path());
 }
 
+/// `specforge stats` and `specforge.stats` on `root` carry the same numbers
+/// in their two shapes (`ProjectStatistics`, `McpStatsResult`).
+fn assert_stats_agree(root: &Path) {
+    let cli = cli_json(&["stats", "--format", "json", s(root)]);
+    let mcp = &mcp_calls(root, &[json!({"name": "specforge.stats", "arguments": {}})])[0];
+    let counts: serde_json::Map<String, Value> = mcp["entity_counts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| (c["kind"].as_str().unwrap().to_string(), c["count"].clone()))
+        .collect();
+    assert_eq!(cli["entities_by_kind"], Value::Object(counts), "{root:?}");
+    let total: u64 = mcp["entity_counts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["count"].as_u64().unwrap())
+        .sum();
+    assert_eq!(cli["total_entities"], json!(total));
+    assert_eq!(cli["total_edges"], mcp["edge_count"]);
+    assert_eq!(cli["orphan_count"], mcp["orphan_count"]);
+    for key in ["declared_pct", "proof_pct", "coverage_pct"] {
+        assert_eq!(cli[key], mcp[key], "{key} on {root:?}");
+    }
+    let summary = &mcp["diagnostic_summary"];
+    assert_eq!(cli["error_count"], summary["errors"]);
+    assert_eq!(cli["warning_count"], summary["warnings"]);
+    assert_eq!(cli["info_count"], summary["infos"]);
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_views_over_the_project_view",
+    verify = "specforge stats and specforge.stats report the same numbers"
+)]
+fn cli_and_mcp_stats_report_the_same_numbers() {
+    assert_stats_agree(project("fx1").path());
+    assert_stats_agree(rv1().path());
+    let example = TempDir::new().unwrap();
+    copy_tree(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/todo-app"),
+        example.path(),
+    );
+    assert_stats_agree(example.path());
+}
+
 #[test]
 fn trace_today() {
     let tmp = project("fx1");

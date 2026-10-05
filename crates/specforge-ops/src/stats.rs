@@ -1,13 +1,31 @@
+//! `specforge stats` and `specforge.stats`: the project's statistics, one
+//! operation over the project view (ADR 0015). The numbers live here; each
+//! surface presents them in its own result type (`ProjectStatistics`,
+//! `McpStatsResult`).
+
 use specforge_common::{Diagnostic, Severity};
 use specforge_graph::Graph;
+use specforge_project::coverage::{ReportError, Summary};
 use std::collections::{BTreeMap, HashSet};
 
-#[derive(Debug)]
-pub struct ProjectStats {
+use crate::view::ProjectView;
+
+/// What a surface asks stats for.
+#[derive(Debug, Clone, Copy)]
+pub struct StatsRequest<'r> {
+    /// What this surface reports for the project: the CLI what `specforge
+    /// check` reports, MCP that plus its surface registration conflicts.
+    pub diagnostics: &'r [Diagnostic],
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Stats {
     pub total_entities: usize,
     pub total_edges: usize,
     pub orphan_count: usize,
+    /// Entities, of any kind, that declare at least one obligation.
     pub verified_count: usize,
+    /// The entities that count toward coverage.
     pub testable_count: usize,
     /// Testable entities that declare at least one obligation.
     pub declared_count: usize,
@@ -27,42 +45,18 @@ pub struct ProjectStats {
     pub entities_by_kind: BTreeMap<String, usize>,
 }
 
-pub fn compute_stats(graph: &Graph) -> ProjectStats {
-    compute_stats_with_diagnostics(graph, &[], &[])
+/// The project's statistics. The testable, declared and proven counts are
+/// the coverage rule's over the view's recorded report, so stats and
+/// `analyze coverage` report the same numbers: testable entities are those
+/// that count toward coverage (the entities W004 exempts that declare
+/// nothing are left out). A recorded report that cannot be read is the
+/// error.
+pub fn stats(view: &ProjectView, request: &StatsRequest) -> Result<Stats, ReportError> {
+    let coverage = view.coverage()?;
+    Ok(tally(view.graph, &coverage.summary, request.diagnostics))
 }
 
-pub fn compute_stats_with_testable(graph: &Graph, testable_kinds: &[&str]) -> ProjectStats {
-    compute_stats_with_diagnostics(graph, testable_kinds, &[])
-}
-
-/// Stats knowing only which kinds are testable: every testable kind must
-/// declare obligations, and only structure exempts an entity (a union
-/// type). With the project's registries, use [`compute_project_stats`].
-pub fn compute_stats_with_diagnostics(
-    graph: &Graph,
-    testable_kinds: &[&str],
-    diagnostics: &[Diagnostic],
-) -> ProjectStats {
-    let coverage = specforge_project::coverage::ProjectCoverage::with_testable_kinds(
-        graph,
-        testable_kinds,
-        None,
-    );
-    compute_project_stats(graph, &coverage.summary, diagnostics)
-}
-
-/// The project's statistics. The testable and verified counts are the
-/// coverage rule's (`coverage`, from
-/// [`specforge_project::coverage::ProjectCoverage`]), so stats and `analyze coverage`
-/// report the same numbers: testable entities are those that count toward
-/// coverage (entities W004 exempts and that declare nothing are left
-/// out), and an entity is verified when it declares at least one
-/// obligation.
-pub fn compute_project_stats(
-    graph: &Graph,
-    coverage: &specforge_project::coverage::Summary,
-    diagnostics: &[Diagnostic],
-) -> ProjectStats {
+fn tally(graph: &Graph, coverage: &Summary, diagnostics: &[Diagnostic]) -> Stats {
     let mut entities_by_kind = BTreeMap::new();
     for node in graph.nodes() {
         *entities_by_kind
@@ -103,7 +97,7 @@ pub fn compute_project_stats(
         }
     }
 
-    ProjectStats {
+    Stats {
         total_entities: graph.node_count(),
         total_edges: graph.edge_count(),
         orphan_count,

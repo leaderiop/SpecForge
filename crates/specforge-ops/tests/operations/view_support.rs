@@ -2,7 +2,9 @@
 //! registries declaring what made-up extensions declare, and a root
 //! directory to record a test report in.
 
+use specforge_common::Diagnostic;
 use specforge_graph::Graph;
+use specforge_ops::stats::{Stats, StatsRequest};
 use specforge_ops::view::ProjectView;
 use specforge_project::coverage::RecordedCoverage;
 use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
@@ -140,4 +142,11 @@ impl Project {
         )
         .unwrap();
     }
+}
+
+/// The stats of `graph`, whose `testable` kinds are testable and must
+/// declare obligations, with no recorded report, reporting `diagnostics`.
+pub fn stats_of(graph: &Graph, testable: &[&str], diagnostics: &[Diagnostic]) -> Stats {
+    let project = Project::of_graph(graph.clone(), registries(testable, &[]));
+    specforge_ops::stats::stats(&project.view(), &StatsRequest { diagnostics }).unwrap()
 }
