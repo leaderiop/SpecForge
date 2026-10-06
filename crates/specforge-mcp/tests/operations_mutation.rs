@@ -1645,7 +1645,8 @@ fn migrate_contract() {
     assert_eq!(migrate(&mut server, json!({}))["migrated"], false);
 
     // mutation_completed_emitted, tool_invoked_emitted
-    // The migration rewrote one file; the second run changed nothing.
+    // The migration rewrote one file and backed it up; the second run
+    // changed nothing.
     let migration = |files_changed: usize| {
         json!({
             "toolName": "specforge.migrate",
@@ -1656,7 +1657,7 @@ fn migrate_contract() {
     };
     assert_eq!(
         events(&server, "mcp_mutation_completed"),
-        [migration(1), migration(0)]
+        [migration(2), migration(0)]
     );
     assert!(invoked(&server, "specforge.migrate"));
 }

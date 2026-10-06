@@ -31,6 +31,11 @@ expression: mcp_snap
   "ok": true,
   "payload": {
     "extension": "@sdk/greet",
+    "files_written": [
+      ".specforge/extensions/@sdk/greet/extension.wasm",
+      "specforge.json",
+      "specforge.lock"
+    ],
     "installed": true,
     "key_id": null,
     "note": "the server serves it from the next call on",

@@ -9,6 +9,8 @@ use std::path::{Path, PathBuf};
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 
+use specforge_test::prelude::*;
+
 use crate::support::*;
 
 /// test.spec: the behavior `alpha` and the feature `beta` that has it.
@@ -84,7 +86,10 @@ fn event_names_since(server: &McpServer, since: usize, names: &[&str]) -> Vec<St
 }
 
 // 1
-#[test]
+#[specforge_test(
+    behavior = "mcp_mutation_completed",
+    verify = "files_changed is the number of files the call wrote, for every mutation tool"
+)]
 fn enabling_a_builtin_writes_one_file() {
     let mut server = empty_components();
     let root = server.root().to_path_buf();
@@ -98,15 +103,17 @@ fn enabling_a_builtin_writes_one_file() {
 
     assert_ok(&reply);
     assert_eq!(changed, names(&["specforge.json"]));
-    // BUG (04-T3 flips): one file written, three reported.
     assert_eq!(
         events(&server, "mcp_mutation_completed"),
-        [completed("specforge.add_extension", 3, 0, true)]
+        [completed("specforge.add_extension", 1, 0, true)]
     );
 }
 
 // 2
-#[test]
+#[specforge_test(
+    behavior = "mcp_mutation_completed",
+    verify = "files_changed is the number of files the call wrote, for every mutation tool"
+)]
 fn disabling_a_builtin_writes_one_file() {
     let mut server = empty_components();
     let root = server.root().to_path_buf();
@@ -125,10 +132,9 @@ fn disabling_a_builtin_writes_one_file() {
 
     assert_ok(&reply);
     assert_eq!(changed, names(&["specforge.json"]));
-    // BUG (04-T3 flips): one file written, three reported.
     assert_eq!(
         last_completed(&server),
-        Some(completed("specforge.remove_extension", 3, 0, true))
+        Some(completed("specforge.remove_extension", 1, 0, true))
     );
 }
 
@@ -201,7 +207,10 @@ fn installing_and_removing_a_local_extension_write_three_files() {
 }
 
 // 5
-#[test]
+#[specforge_test(
+    behavior = "mcp_mutation_completed",
+    verify = "files_changed is the number of files the call wrote, for every mutation tool"
+)]
 fn init_with_a_local_extension_writes_five_files() {
     let mut server = empty_components();
     let scratch = tempfile::TempDir::new().unwrap();
@@ -225,15 +234,17 @@ fn init_with_a_local_extension_writes_five_files() {
             "specforge.lock",
         ])
     );
-    // BUG (04-T3 flips): five files written, three reported.
     assert_eq!(
         last_completed(&server),
-        Some(completed("specforge.init", 3, 0, true))
+        Some(completed("specforge.init", 5, 0, true))
     );
 }
 
 // 6
-#[test]
+#[specforge_test(
+    behavior = "mcp_mutation_completed",
+    verify = "files_changed is the number of files the call wrote, for every mutation tool"
+)]
 fn init_beside_a_complete_gitignore_writes_two_files() {
     let mut server = empty_components();
     let scratch = tempfile::TempDir::new().unwrap();
@@ -254,16 +265,18 @@ fn init_beside_a_complete_gitignore_writes_two_files() {
 
     assert_ok(&reply);
     assert_eq!(changed, names(&["spec/hello.spec", "specforge.json"]));
-    // BUG (04-T3 flips): two files written, three reported.
     assert_eq!(
         last_completed(&server),
-        Some(completed("specforge.init", 3, 0, true))
+        Some(completed("specforge.init", 2, 0, true))
     );
 }
 
 // 7
 #[cfg(unix)]
-#[test]
+#[specforge_test(
+    behavior = "mcp_mutation_completed",
+    verify = "a mutation that fails after writing reports the files it wrote"
+)]
 fn a_format_that_fails_on_one_file_reports_what_it_wrote() {
     use std::os::unix::fs::PermissionsExt;
     let mut server = TestProject::new()
@@ -281,17 +294,20 @@ fn a_format_that_fails_on_one_file_reports_what_it_wrote() {
     let error = crate::tool_errors::mcp_error(&reply);
     assert_eq!(error["code"], "internal_error", "{error}");
     assert_eq!(changed, names(&["b.spec"]));
-    // BUG (04-T3 flips): one file written, none reported.
     assert_eq!(
         last_completed(&server),
-        Some(completed("specforge.format", 0, 0, false))
+        Some(completed("specforge.format", 1, 0, false))
     );
+    assert_eq!(error["data"]["files_written"], json!(["b.spec"]), "{error}");
     // What was written is served.
     assert!(server.state().session_generation() > generation);
 }
 
 // 8
-#[test]
+#[specforge_test(
+    behavior = "mcp_mutation_completed",
+    verify = "files_changed is the number of files the call wrote, for every mutation tool"
+)]
 fn a_migration_writes_the_file_and_its_backup() {
     let mut server = TestProject::new()
         .file("old.spec", OLD)
@@ -302,10 +318,9 @@ fn a_migration_writes_the_file_and_its_backup() {
 
     assert_ok(&reply);
     assert_eq!(changed, names(&["old.spec", "old.spec.bak"]));
-    // BUG (04-T3 flips): the file and its backup written, one reported.
     assert_eq!(
         last_completed(&server),
-        Some(completed("specforge.migrate", 1, 0, true))
+        Some(completed("specforge.migrate", 2, 0, true))
     );
 }
 
@@ -452,11 +467,14 @@ fn a_mutation_refused_for_its_arguments_is_a_failed_mutation() {
         json!({"entity_id": 3, "dry_run": true}),
     );
     assert_eq!(reply["result"]["isError"], true, "{reply}");
-    // 04-T3 flips (D6): arguments that do not parse cannot say they asked
-    // for a preview: a failed mutation.
+    // Arguments that do not parse cannot say they asked for a preview
+    // (ADR 0022): a failed mutation.
     assert_eq!(
         events(&server, "mcp_mutation_completed"),
-        [completed("specforge.rename", 0, 0, false)]
+        [
+            completed("specforge.rename", 0, 0, false),
+            completed("specforge.rename", 0, 0, false)
+        ]
     );
 }
 
@@ -594,4 +612,182 @@ fn infer_session_leaves_the_served_project_as_it_is() {
 
     // specforge-infer.json is no project input.
     assert_eq!(server.state().session_generation(), generation);
+}
+
+/// The `files_written` a mutation reply lists: in its result (and its
+/// `structuredContent`, when sent), or in a refusal's `data`.
+fn files_written(reply: &Value) -> Vec<String> {
+    let text = tool_json(reply);
+    let listed = match reply["result"]["isError"] == true {
+        true => &text["data"]["files_written"],
+        false => &text["files_written"],
+    };
+    let structured = &reply["result"]["structuredContent"];
+    if structured.is_object() {
+        assert_eq!(&structured["files_written"], listed, "{reply}");
+    }
+    listed
+        .as_array()
+        .unwrap_or_else(|| panic!("no files_written in {reply}"))
+        .iter()
+        .map(|f| f.as_str().expect("a file name").to_string())
+        .collect()
+}
+
+/// `changed` as the names `files_written` lists.
+fn shown(changed: &[PathBuf]) -> Vec<String> {
+    changed.iter().map(|p| p.display().to_string()).collect()
+}
+
+/// Call `tool`; the files it wrote on disk equal its reply's
+/// `files_written`, whose length is its event's `files_changed`.
+fn lists_what_it_wrote(server: &mut McpServer, root: &Path, tool: &str, arguments: Value) -> Value {
+    let (reply, changed) = wrote(server, root, tool, arguments.clone());
+    let listed = files_written(&reply);
+    assert_eq!(listed, shown(&changed), "{tool} {arguments}: {reply}");
+    let event = last_completed(server).expect("a mutation event");
+    assert_eq!(event["toolName"], tool);
+    assert_eq!(event["files_changed"], listed.len(), "{tool} {arguments}");
+    reply
+}
+
+#[specforge_test(
+    behavior = "mcp_mutation_completed",
+    verify = "a mutation's reply lists in files_written the files files_changed counts"
+)]
+fn every_mutation_reply_lists_what_it_wrote() {
+    // Enable a builtin, enable it again, disable it.
+    let mut server = empty_components();
+    let root = server.root().to_path_buf();
+    let add = "specforge.add_extension";
+    let enabled = lists_what_it_wrote(&mut server, &root, add, json!({"specifier": PRODUCT}));
+    assert_eq!(files_written(&enabled), ["specforge.json"]);
+    let again = lists_what_it_wrote(&mut server, &root, add, json!({"specifier": PRODUCT}));
+    assert_eq!(files_written(&again), Vec::<String>::new());
+    let remove = "specforge.remove_extension";
+    lists_what_it_wrote(&mut server, &root, remove, json!({"name": PRODUCT}));
+
+    // Install a local extension, then remove it: module, lock, config.
+    let installed = lists_what_it_wrote(&mut server, &root, add, json!({"specifier": greet()}));
+    assert_eq!(files_written(&installed).len(), 3);
+    lists_what_it_wrote(&mut server, &root, remove, json!({"name": GREET}));
+
+    // Init with a local extension elsewhere, and beside a complete
+    // .gitignore: named from the new project's root.
+    let scratch = tempfile::TempDir::new().unwrap();
+    let n1 = scratch.path().join("n1");
+    let init = "specforge.init";
+    let first = lists_what_it_wrote(
+        &mut server,
+        &n1,
+        init,
+        json!({"path": n1.to_str().unwrap(), "name": "newone", "extensions": [greet()]}),
+    );
+    assert_eq!(files_written(&first).len(), 5);
+    let n2 = scratch.path().join("n2");
+    std::fs::create_dir_all(&n2).unwrap();
+    std::fs::write(
+        n2.join(".gitignore"),
+        "specforge-infer.json\nspecforge-report.json\n.specforge/\n",
+    )
+    .unwrap();
+    lists_what_it_wrote(
+        &mut server,
+        &n2,
+        init,
+        json!({"path": n2.to_str().unwrap(), "name": "newtwo"}),
+    );
+
+    // A migration with backups.
+    let mut migrating = TestProject::new()
+        .file("old.spec", OLD)
+        .serve(&[TestExtension::software()]);
+    let root = migrating.root().to_path_buf();
+    let migrated = lists_what_it_wrote(&mut migrating, &root, "specforge.migrate", json!({}));
+    assert_eq!(files_written(&migrated), ["old.spec", "old.spec.bak"]);
+
+    // A rename.
+    let mut renaming = rename_server();
+    let root = renaming.root().to_path_buf();
+    lists_what_it_wrote(
+        &mut renaming,
+        &root,
+        "specforge.rename",
+        json!({"entity_id": "alpha", "new_name": "omega"}),
+    );
+
+    // An inference step.
+    let mut inferring = TestProject::new()
+        .file("src/main.rs", "fn main() {}\n")
+        .serve(&[TestExtension::software()]);
+    let root = inferring.root().to_path_buf();
+    lists_what_it_wrote(
+        &mut inferring,
+        &root,
+        "specforge.infer_session",
+        json!({"action": "start"}),
+    );
+
+    // A format that fails on one file: the refusal's data names the one it
+    // wrote.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut formatting = TestProject::new()
+            .file("a.spec", UNFORMATTED)
+            .file("b.spec", &UNFORMATTED.replace("messy", "other"))
+            .serve(&[TestExtension::software()]);
+        let root = formatting.root().to_path_buf();
+        let locked = root.join("a.spec");
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o444)).unwrap();
+        let failed = lists_what_it_wrote(&mut formatting, &root, "specforge.format", json!({}));
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
+        assert_eq!(failed["result"]["isError"], true, "{failed}");
+        assert_eq!(files_written(&failed), ["b.spec"]);
+    }
+}
+
+#[test]
+fn a_preview_reply_has_no_files_written() {
+    let mut server = TestProject::new()
+        .enabling(&["@specforge/software"])
+        .file("test.spec", TEST_SPEC)
+        .file("a.spec", UNFORMATTED)
+        .file("old.spec", OLD)
+        .serve_components();
+
+    for (tool, arguments) in [
+        ("specforge.format", json!({"check": true})),
+        ("specforge.format", json!({"diff": true})),
+        (
+            "specforge.rename",
+            json!({"entity_id": "alpha", "new_name": "omega", "dry_run": true}),
+        ),
+        (
+            "specforge.add_extension",
+            json!({"specifier": PRODUCT, "dry_run": true}),
+        ),
+        (
+            "specforge.remove_extension",
+            json!({"name": "@specforge/software", "dry_run": true}),
+        ),
+        ("specforge.migrate", json!({"dry_run": true})),
+    ] {
+        let reply = call_tool(&mut server, tool, arguments.clone());
+        let text = tool_json(&reply);
+        assert!(
+            text.get("files_written").is_none(),
+            "{tool} {arguments}: {reply}"
+        );
+        assert!(
+            text["data"].get("files_written").is_none(),
+            "{tool} {arguments}: {reply}"
+        );
+        assert!(
+            reply["result"]["structuredContent"]
+                .get("files_written")
+                .is_none(),
+            "{tool} {arguments}: {reply}"
+        );
+    }
 }

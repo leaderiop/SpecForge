@@ -27,6 +27,9 @@ expression: mcp_snap
   },
   "ok": true,
   "payload": {
+    "files_written": [
+      "specforge.json"
+    ],
     "orphan_warnings": [],
     "removed_extension": "@specforge/product",
     "success": true,
