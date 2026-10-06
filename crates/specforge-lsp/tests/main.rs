@@ -11,6 +11,7 @@ mod navigation;
 mod publish;
 mod rename;
 mod semantic_tokens;
+mod session;
 mod state;
 
 /// The LSP range from (`start_line`, `start_character`) to (`end_line`,

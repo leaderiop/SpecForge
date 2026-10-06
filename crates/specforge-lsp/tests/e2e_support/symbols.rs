@@ -7,7 +7,7 @@ async fn e2e_document_symbols_lists_all() {
         "type beta \"Beta\" {}\n",
         "event gamma \"Gamma\" {}\n",
     );
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     let resp = client.document_symbol(&uri).await;
     let result = &resp["result"];
     assert!(!result.is_null(), "Expected document symbols");
@@ -22,7 +22,7 @@ async fn e2e_document_symbols_lists_all() {
 #[tokio::test]
 async fn e2e_document_symbols_include_kind() {
     let text = "behavior alpha \"Alpha\" {}\ntype beta \"Beta\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     let resp = client.document_symbol(&uri).await;
     let symbols = resp["result"].as_array().unwrap();
     // containerName should match the entity kind
@@ -41,7 +41,7 @@ async fn e2e_document_symbols_include_kind() {
 #[tokio::test]
 async fn e2e_document_symbols_correct_location() {
     let text = "behavior alpha \"Alpha\" {}\ntype beta \"Beta\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     let resp = client.document_symbol(&uri).await;
     let symbols = resp["result"].as_array().unwrap();
     let alpha = symbols.iter().find(|s| s["name"] == "alpha").unwrap();
@@ -60,7 +60,7 @@ async fn e2e_document_symbols_correct_location() {
 #[tokio::test]
 async fn e2e_workspace_symbol_by_id_prefix() {
     let text = "behavior user_login \"Login\" {}\ntype auth_token \"Token\" {}\n";
-    let (mut client, _uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, _uri) = Session::with_doc(None, "test.spec", text).await;
     let resp = client.workspace_symbol("user").await;
     let result = &resp["result"];
     assert!(!result.is_null());
@@ -79,7 +79,7 @@ async fn e2e_workspace_symbol_by_id_prefix() {
 #[tokio::test]
 async fn e2e_workspace_symbol_by_title() {
     let text = "behavior user_login \"User Login\" {}\ntype auth_token \"Token\" {}\n";
-    let (mut client, _uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, _uri) = Session::with_doc(None, "test.spec", text).await;
     let resp = client.workspace_symbol("Login").await;
     let result = &resp["result"];
     assert!(!result.is_null());
@@ -94,7 +94,7 @@ async fn e2e_workspace_symbol_by_title() {
 #[tokio::test]
 async fn e2e_workspace_symbol_empty_query() {
     let text = "behavior alpha \"Alpha\" {}\ntype beta \"Beta\" {}\n";
-    let (mut client, _uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, _uri) = Session::with_doc(None, "test.spec", text).await;
     let resp = client.workspace_symbol("").await;
     let result = &resp["result"];
     assert!(!result.is_null());

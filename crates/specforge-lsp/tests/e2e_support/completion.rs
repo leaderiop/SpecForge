@@ -8,7 +8,7 @@ async fn e2e_completion_entity_ids() {
         "  types [tok]\n",
         "}\n",
     );
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Completion inside ref list at "tok" (line 2, col 11)
     let resp = client.completion(&uri, 2, 11).await;
     let result = &resp["result"];
@@ -28,7 +28,7 @@ async fn e2e_completion_entity_ids() {
 #[tokio::test]
 async fn e2e_completion_entity_with_title() {
     let text = "type token \"Auth Token\" {}\nbehavior b \"B\" {\n  types [tok]\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     let resp = client.completion(&uri, 2, 11).await;
     let items = resp["result"].as_array().unwrap();
     let token_item = items.iter().find(|i| i["label"] == "token");
@@ -48,7 +48,7 @@ async fn e2e_completion_entity_with_title() {
 async fn e2e_completion_keywords_at_top_level() {
     let text = "behavior foo \"Foo\" {}\n";
     let (mut client, uri, _dir) =
-        start_server_with_extensions(&["@specforge/software"], "test.spec", text).await;
+        Session::with_extensions(&["@specforge/software"], "test.spec", text).await;
     // Completion at column 0 (top level, line start)
     let resp = client.completion(&uri, 1, 0).await;
     let result = &resp["result"];
@@ -68,7 +68,7 @@ async fn e2e_completion_keywords_at_top_level() {
 #[tokio::test]
 async fn e2e_completion_no_keywords_inside_block() {
     let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Completion inside entity body (line 1, col 5) — character >= 2
     let resp = client.completion(&uri, 1, 5).await;
     let result = &resp["result"];
@@ -87,7 +87,7 @@ async fn e2e_completion_no_keywords_inside_block() {
 
 /// Completion items at (line, col) of `text`, with software enabled.
 async fn items_at(text: &str, line: u32, col: u32) -> Vec<Value> {
-    let (mut client, uri, _dir) = start_server_with_extensions(
+    let (mut client, uri, _dir) = Session::with_extensions(
         &["@specforge/software", "@specforge/testing"],
         "test.spec",
         text,
@@ -217,7 +217,7 @@ async fn scheme_ref_items(insert_replace: bool) -> Vec<Value> {
         "textDocument": {"completion": {"completionItem": {"insertReplaceSupport": insert_replace}}}
     });
     let (mut client, uri, _dir, _) =
-        start_server_with_extensions_as(&["@specforge/software"], "test.spec", text, capabilities)
+        Session::with_extensions_as(&["@specforge/software"], "test.spec", text, capabilities)
             .await;
     let resp = client.completion(&uri, 4, 13).await;
     resp["result"].as_array().cloned().unwrap_or_default()

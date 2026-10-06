@@ -73,12 +73,12 @@ fn pos(text: &str, needle: &str, nth: usize, offset: u32) -> (u32, u32) {
 }
 
 /// A server over `text` as `file`, in a project with software.
-async fn open(file: &str, text: &str) -> (LspClient, String, tempfile::TempDir) {
-    start_server_with_extensions(&["@specforge/software"], file, text).await
+async fn open(file: &str, text: &str) -> (Session, String, tempfile::TempDir) {
+    Session::with_extensions(&["@specforge/software"], file, text).await
 }
 
 /// The hover's markdown at a position, or "" when there is none.
-async fn hover_text(client: &mut LspClient, uri: &str, (line, character): (u32, u32)) -> String {
+async fn hover_text(client: &mut Session, uri: &str, (line, character): (u32, u32)) -> String {
     let resp = client.hover(uri, line, character).await;
     resp["result"]["contents"]["value"]
         .as_str()
@@ -87,7 +87,7 @@ async fn hover_text(client: &mut LspClient, uri: &str, (line, character): (u32, 
 }
 
 /// The completion items at a position.
-async fn items(client: &mut LspClient, uri: &str, line: u32, character: u32) -> Vec<Value> {
+async fn items(client: &mut Session, uri: &str, line: u32, character: u32) -> Vec<Value> {
     let resp = client.completion(uri, line, character).await;
     resp["result"].as_array().cloned().unwrap_or_default()
 }
@@ -190,7 +190,7 @@ async fn field_help_answers_on_a_field_name_only() {
 /// client, the directory, and each file's URI and text.
 async fn open_project(
     files: &[(&str, &str)],
-) -> (LspClient, tempfile::TempDir, Vec<(String, String)>) {
+) -> (Session, tempfile::TempDir, Vec<(String, String)>) {
     let dir = tempfile::TempDir::new().unwrap();
     let config = json!({
         "name": "test",
@@ -204,7 +204,7 @@ async fn open_project(
         std::fs::write(path, text).unwrap();
     }
     let root = dir.path().to_str().unwrap();
-    let (mut client, _) = start_server_with_capabilities(Some(root), json!({})).await;
+    let (mut client, _) = Session::launch(Some(root), json!({})).await;
     client
         .wait_for_notification("window/logMessage", 5000)
         .await;

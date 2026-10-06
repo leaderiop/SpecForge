@@ -4,7 +4,7 @@ use super::*;
 async fn e2e_formatting_returns_edits() {
     // Badly formatted: extra spaces, wrong indentation
     let text = "behavior  foo   \"Foo\"  {\ncontract \"test\"\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     let resp = client.formatting(&uri, 2).await;
     let result = &resp["result"];
     assert!(!result.is_null(), "Expected formatting edits");
@@ -19,7 +19,7 @@ async fn e2e_formatting_returns_edits() {
 async fn e2e_formatting_idempotent() {
     // Well-formatted spec
     let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     let resp = client.formatting(&uri, 2).await;
     let result = &resp["result"];
     // For well-formatted input, edits should be empty or produce identical text
@@ -40,7 +40,7 @@ async fn e2e_formatting_idempotent() {
 #[tokio::test]
 async fn e2e_range_formatting() {
     let text = "behavior foo \"Foo\" {\ncontract \"test\"\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Format only lines 0-2
     let resp = client.range_formatting(&uri, 2, 0, 2).await;
     let result = &resp["result"];

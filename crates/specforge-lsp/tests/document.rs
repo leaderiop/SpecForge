@@ -46,7 +46,7 @@ fn multiple_incremental_changes_produce_correct_source() {
 )]
 #[tokio::test]
 async fn incremental_sync_reduces_transfer_size() {
-    use crate::contracts::wire::Session;
+    use crate::session::Session;
     use serde_json::json;
 
     let (mut session, init) = Session::start(None).await;

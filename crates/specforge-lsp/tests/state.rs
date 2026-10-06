@@ -1,4 +1,4 @@
-use crate::contracts::wire::{Session, codes};
+use crate::session::{Session, codes};
 use serde_json::json;
 use specforge_test_macros::test as spec;
 

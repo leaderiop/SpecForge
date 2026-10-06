@@ -51,7 +51,7 @@ fn node_at(id: &str, kind: &str, file: &str, line: usize, col: usize) -> Node {
 async fn lsp_initialize_contract() {
     let extensions = ["@specforge/software", "@specforge/testing"];
     let dir = project_with(&extensions);
-    let (mut session, init) = wire::Session::start(Some(dir.path())).await;
+    let (mut session, init) = crate::session::Session::start(Some(dir.path())).await;
     let caps = &init["capabilities"];
 
     // incremental_sync_advertised: TextDocumentSyncKind::INCREMENTAL.
@@ -205,7 +205,7 @@ fn lsp_shutdown_contract() {
 #[tokio::test]
 async fn document_open_close_contract() {
     // lsp_initialized_fired: the session is initialized.
-    let (mut session, _) = wire::Session::start(None).await;
+    let (mut session, _) = crate::session::Session::start(None).await;
     // Only in the editor buffer: nothing on disk.
     let uri = "file:///buffer/open_close.spec";
     let text = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n";
@@ -214,7 +214,7 @@ async fn document_open_close_contract() {
     // diagnostics are the buffer's dangling reference.
     session.open(uri, text).await;
     let opened = session.diagnostics(uri).await;
-    assert_eq!(wire::codes(&opened), ["E003"], "{opened:?}");
+    assert_eq!(crate::session::codes(&opened), ["E003"], "{opened:?}");
     assert_eq!(
         opened[0]["message"],
         "unresolved reference 'session_limit' in entity 'login'"
@@ -241,12 +241,12 @@ async fn document_open_close_contract() {
 )]
 #[tokio::test]
 async fn formatting_keeps_the_compile_diagnostics() {
-    let (mut session, _) = wire::Session::start(None).await;
+    let (mut session, _) = crate::session::Session::start(None).await;
     let uri = "file:///buffer/format_keeps.spec";
     let text = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n\n}}}\n";
     session.open(uri, text).await;
     let compiled = session.diagnostics(uri).await;
-    let mut compile_codes = wire::codes(&compiled);
+    let mut compile_codes = crate::session::codes(&compiled);
     compile_codes.sort();
     assert!(
         compile_codes.contains(&"E001"),
@@ -255,7 +255,7 @@ async fn formatting_keeps_the_compile_diagnostics() {
 
     assert!(session.format(uri).await.is_array());
     let after = session.diagnostics(uri).await;
-    let mut codes = wire::codes(&after);
+    let mut codes = crate::session::codes(&after);
     codes.sort();
     let mut expected = compile_codes.clone();
     expected.push("W142");
@@ -651,11 +651,15 @@ fn replace_all(uri: &str, version: i32, text: &str) -> serde_json::Value {
 
 /// A session whose client declares `workspace.semanticTokens.refreshSupport`
 /// as `refresh_support`, with `text` open at `uri` and its first compile done.
-async fn session_with_open(refresh_support: bool, uri: &str, text: &str) -> wire::Session {
+async fn session_with_open(
+    refresh_support: bool,
+    uri: &str,
+    text: &str,
+) -> crate::session::Session {
     let caps = serde_json::json!({
         "workspace": {"semanticTokens": {"refreshSupport": refresh_support}},
     });
-    let (mut session, _) = wire::Session::start_with_capabilities(None, caps).await;
+    let (mut session, _) = crate::session::Session::start_with_capabilities(None, caps).await;
     session.open(uri, text).await;
     session.diagnostics(uri).await;
     session
@@ -977,7 +981,7 @@ fn incremental_document_sync_contract() {
 async fn live_diagnostics_contract() {
     // lsp_initialized_fired, graph_available: an initialized session with
     // a document compiled into the graph, cleanly.
-    let (mut session, _) = wire::Session::start(None).await;
+    let (mut session, _) = crate::session::Session::start(None).await;
     let uri = "file:///buffer/live.spec";
     let text = "behavior login \"Login\" {\n  invariants [session_limit]\n}\n\n\
                 invariant session_limit \"Limit\" {\n}\n";
@@ -1007,7 +1011,7 @@ async fn live_diagnostics_contract() {
     let broken = session.diagnostics(uri).await;
     // latency_enforced: squiggles within 100ms of the last keystroke.
     let latency = typed.elapsed();
-    assert_eq!(wire::codes(&broken), ["E003"], "{broken:?}");
+    assert_eq!(crate::session::codes(&broken), ["E003"], "{broken:?}");
     assert_eq!(
         broken[0]["message"],
         "unresolved reference 'session_limit' in entity 'login'"
@@ -1064,8 +1068,8 @@ fn shared_incremental_pipeline_contract() {
 )]
 #[tokio::test]
 async fn a_spanless_diagnostic_about_entities_is_published_at_its_name() {
+    use crate::session::{Session, uri_of};
     use serde_json::Value;
-    use wire::{Session, uri_of};
 
     let dir = tempfile::TempDir::new().unwrap();
     std::fs::write(
@@ -1120,218 +1124,6 @@ async fn a_spanless_diagnostic_about_entities_is_published_at_its_name() {
         (3, 9, 13),
         "beta's name"
     );
-}
-
-pub(crate) mod wire {
-    use serde_json::{Value, json};
-    use std::path::Path;
-    use std::time::Duration;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
-    use tokio::task::JoinHandle;
-    use tower_lsp::{LspService, Server};
-
-    pub(crate) struct Session {
-        writer: DuplexStream,
-        reader: DuplexStream,
-        next_id: i64,
-        server: JoinHandle<()>,
-        /// Server notifications and server-to-client requests (already
-        /// answered) not yet taken by `notification`.
-        pending: Vec<Value>,
-    }
-
-    impl Drop for Session {
-        fn drop(&mut self) {
-            self.server.abort();
-        }
-    }
-
-    /// The `file://` URI of `path`.
-    pub(crate) fn uri_of(path: &Path) -> String {
-        tower_lsp::lsp_types::Url::from_file_path(path)
-            .unwrap()
-            .to_string()
-    }
-
-    impl Session {
-        /// Start a server, send `initialize` (with `root` as rootUri) and
-        /// `initialized`, and wait until workspace indexing has ended.
-        /// Returns the session and the `initialize` result.
-        pub(crate) async fn start(root: Option<&Path>) -> (Session, Value) {
-            Self::start_with_capabilities(root, json!({})).await
-        }
-
-        /// [`Self::start`] with the client declaring `capabilities` in
-        /// its `initialize` request.
-        pub(crate) async fn start_with_capabilities(
-            root: Option<&Path>,
-            capabilities: Value,
-        ) -> (Session, Value) {
-            let (client_to_server, server_stdin) = tokio::io::duplex(1 << 20);
-            let (server_stdout, server_to_client) = tokio::io::duplex(1 << 20);
-            let (service, socket) = LspService::new(specforge_lsp::backend::Backend::new);
-            let server = tokio::spawn(async move {
-                Server::new(server_stdin, server_stdout, socket)
-                    .serve(service)
-                    .await;
-            });
-            let mut session = Session {
-                writer: client_to_server,
-                reader: server_to_client,
-                next_id: 1,
-                server,
-                pending: Vec::new(),
-            };
-            let root_uri = root.map(uri_of);
-            let init = session
-                .request(
-                    "initialize",
-                    json!({"processId": null, "rootUri": root_uri, "capabilities": capabilities}),
-                )
-                .await;
-            session.notify("initialized", json!({})).await;
-            session
-                .notification("$/progress", |p| p["value"]["kind"] == "end")
-                .await
-                .expect("workspace indexing never ended");
-            (session, init["result"].clone())
-        }
-
-        async fn write(&mut self, msg: &Value) {
-            let body = serde_json::to_string(msg).unwrap();
-            let frame = format!("Content-Length: {}\r\n\r\n{body}", body.len());
-            self.writer.write_all(frame.as_bytes()).await.unwrap();
-            self.writer.flush().await.unwrap();
-        }
-
-        /// The next message from the server, answering server-to-client
-        /// requests (registrations, progress tokens) with a null result.
-        async fn read(&mut self) -> Value {
-            let mut header = Vec::new();
-            while !header.ends_with(b"\r\n\r\n") {
-                let mut byte = [0u8; 1];
-                self.reader.read_exact(&mut byte).await.unwrap();
-                header.push(byte[0]);
-            }
-            let header = String::from_utf8(header).unwrap();
-            let length: usize = header
-                .lines()
-                .find_map(|l| l.strip_prefix("Content-Length:"))
-                .unwrap()
-                .trim()
-                .parse()
-                .unwrap();
-            let mut body = vec![0u8; length];
-            self.reader.read_exact(&mut body).await.unwrap();
-            let msg: Value = serde_json::from_slice(&body).unwrap();
-            if msg.get("method").is_some() && msg.get("id").is_some() {
-                let reply = json!({"jsonrpc": "2.0", "id": msg["id"], "result": null});
-                self.write(&reply).await;
-            }
-            msg
-        }
-
-        /// Send a request and return its response; notifications that
-        /// arrive meanwhile are kept for `notification`.
-        pub(crate) async fn request(&mut self, method: &str, params: Value) -> Value {
-            let id = self.next_id;
-            self.next_id += 1;
-            let mut msg = json!({"jsonrpc": "2.0", "id": id, "method": method});
-            if !params.is_null() {
-                msg["params"] = params;
-            }
-            self.write(&msg).await;
-            loop {
-                let msg = self.read().await;
-                if msg.get("method").is_none() && msg["id"] == id {
-                    return msg;
-                }
-                if msg.get("method").is_some() {
-                    self.pending.push(msg);
-                }
-            }
-        }
-
-        pub(crate) async fn notify(&mut self, method: &str, params: Value) {
-            let msg = json!({"jsonrpc": "2.0", "method": method, "params": params});
-            self.write(&msg).await;
-        }
-
-        /// The params of the first `method` notification (or answered
-        /// server-to-client request) matching `pred`, kept or arriving
-        /// within `wait`; it is taken, the others kept.
-        pub(crate) async fn notification_within(
-            &mut self,
-            method: &str,
-            wait: Duration,
-            pred: impl Fn(&Value) -> bool,
-        ) -> Option<Value> {
-            let hit = |m: &Value| m["method"] == method && pred(&m["params"]);
-            if let Some(i) = self.pending.iter().position(hit) {
-                return Some(self.pending.remove(i)["params"].clone());
-            }
-            let deadline = tokio::time::Instant::now() + wait;
-            loop {
-                let msg = tokio::time::timeout_at(deadline, self.read()).await.ok()?;
-                if hit(&msg) {
-                    return Some(msg["params"].clone());
-                }
-                if msg.get("method").is_some() {
-                    self.pending.push(msg);
-                }
-            }
-        }
-
-        /// [`Self::notification_within`] ten seconds.
-        pub(crate) async fn notification(
-            &mut self,
-            method: &str,
-            pred: impl Fn(&Value) -> bool,
-        ) -> Option<Value> {
-            self.notification_within(method, Duration::from_secs(10), pred)
-                .await
-        }
-
-        /// The next diagnostics published for `uri`.
-        pub(crate) async fn diagnostics(&mut self, uri: &str) -> Vec<Value> {
-            let params = self
-                .notification("textDocument/publishDiagnostics", |p| p["uri"] == uri)
-                .await
-                .unwrap_or_else(|| panic!("no diagnostics published for {uri}"));
-            params["diagnostics"].as_array().unwrap().clone()
-        }
-
-        pub(crate) async fn open(&mut self, uri: &str, text: &str) {
-            let doc = json!({"uri": uri, "languageId": "specforge", "version": 1, "text": text});
-            self.notify("textDocument/didOpen", json!({"textDocument": doc}))
-                .await;
-        }
-
-        pub(crate) async fn close(&mut self, uri: &str) {
-            self.notify(
-                "textDocument/didClose",
-                json!({"textDocument": {"uri": uri}}),
-            )
-            .await;
-        }
-
-        /// `textDocument/formatting`, which only serves open documents.
-        pub(crate) async fn format(&mut self, uri: &str) -> Value {
-            let params = json!({
-                "textDocument": {"uri": uri},
-                "options": {"tabSize": 2, "insertSpaces": true},
-            });
-            self.request("textDocument/formatting", params).await["result"].clone()
-        }
-    }
-
-    /// The codes of `diagnostics`.
-    pub(crate) fn codes(diagnostics: &[Value]) -> Vec<&str> {
-        diagnostics
-            .iter()
-            .map(|d| d["code"].as_str().unwrap_or(""))
-            .collect()
-    }
 }
 
 /// Build a Wasm runtime for a temp project listing `ext_names`, mirroring
