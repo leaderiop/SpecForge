@@ -13,8 +13,6 @@ pub mod project;
 pub mod rpc;
 
 pub use extension::TestExtension;
-pub use legacy::{
-    declare_headline_fields, obligate, report, report_also, serve_in_memory_at, update_of,
-};
+pub use legacy::{declare_headline_fields, obligate, report, serve_in_memory_at, update_of};
 pub use project::{Served, TestProject};
 pub use rpc::*;

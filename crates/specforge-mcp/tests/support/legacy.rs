@@ -93,12 +93,3 @@ pub fn report(
 ) {
     state.edit_environment(|env| env.registries.surface_diagnostics = diagnostics);
 }
-
-/// Add `diagnostic` to what the served in-memory project reports last
-/// ([`report`]).
-pub fn report_also(
-    state: &mut specforge_mcp::state::McpState,
-    diagnostic: specforge_common::Diagnostic,
-) {
-    state.edit_environment(|env| env.registries.surface_diagnostics.push(diagnostic));
-}

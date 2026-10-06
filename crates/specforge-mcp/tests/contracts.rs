@@ -1,11 +1,10 @@
 use crate::support::*;
 use serde_json::{Value, json};
 use specforge_common::{Diagnostic, Severity, SourceSpan};
-use specforge_graph::{Edge, Graph, Node};
+use specforge_extension_sdk::prelude::{CheckKind, PassDiagnostic, PassSpan, ValidationSeverity};
+use specforge_graph::{Edge, Node};
 use specforge_mcp::McpServer;
-use specforge_parser::{
-    EntityId, EntityKind, FieldMap, FieldValue, MethodDecl, Parameter, VerifyStatement,
-};
+use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
 use specforge_test::prelude::*;
 use std::path::{Path, PathBuf};
 
@@ -35,10 +34,6 @@ fn span_at(file: &str, start_line: usize, start_col: usize, end_line: usize) -> 
     }
 }
 
-fn span() -> SourceSpan {
-    span_at("test.spec", 1, 0, 5)
-}
-
 fn node(id: &str, kind: &str, span: SourceSpan, fields: FieldMap) -> Node {
     Node {
         id: EntityId { raw: id.into() },
@@ -64,90 +59,37 @@ fn text_field(key: &str, text: &str) -> FieldMap {
     fields
 }
 
-/// A kind as an extension registers it; only `testable` matters here.
-/// The W004 rule requiring `kind`'s entities to declare obligations.
-fn obligations_rule(kind: &str) -> specforge_registry::validation_engine::ValidationRulePattern {
-    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
-    ValidationRulePattern {
-        code: "W004".into(),
-        severity: Severity::Warning,
-        message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
-        check: ValidationPatternKind::NoVerifyStatements,
-        target_kind: Some(kind.into()),
-        edge_type: None,
-        edge_peer_kind: None,
-        field: Some("verify".into()),
-        constraint: None,
-        wasm_function: None,
-    }
+/// test.spec: behavior `alpha` on lines 1–5, contract "MUST work", verify
+/// unit "works".
+const ALPHA_SPEC: &str = concat!(
+    "behavior alpha \"Alpha\" {\n",
+    "    contract \"MUST work\"\n",
+    "    verify unit \"works\"\n",
+    "    // the one behavior\n",
+    "}\n",
+);
+
+/// feat.spec: feature `beta` on lines 1–3, its `behaviors [alpha]` on line
+/// 2 (`alpha` at columns 16–21).
+const BETA_SPEC: &str = "feature beta \"Beta\" {\n    behaviors [alpha]\n}\n";
+
+/// The two-entity project the contracts read: behavior `alpha` (test.spec)
+/// and feature `beta` (feat.spec) with a `behaviors` edge beta -> alpha.
+fn contracts_project() -> TestProject {
+    TestProject::new()
+        .file("test.spec", ALPHA_SPEC)
+        .file("feat.spec", BETA_SPEC)
 }
 
-fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
-    specforge_registry::KindRegistryEntry {
-        kind_name: kind.into(),
-        source_extension: "@test/ext".into(),
-        testable,
-        supports_verify: testable,
-        allowed_verify_kinds: Vec::new(),
-        lifecycle_field: None,
-        ..Default::default()
-    }
+/// `@test/ext` with the software kinds: behaviors are testable, features
+/// are not; `behavior`'s contract is a headline field.
+fn extension() -> TestExtension {
+    TestExtension::software().headline("behavior")
 }
 
-/// An initialized server over a two-entity graph: behavior `alpha`
-/// (test.spec:1-5, contract "MUST work", verify unit "works") and feature
-/// `beta` (feat.spec:1-3) with a `behaviors` edge beta -> alpha. Behaviors
-/// are testable, features are not.
-fn test_server() -> McpServer {
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
-
-    let state = server.state_mut();
-    let mut graph = Graph::new();
-    let mut fields = FieldMap::new();
-    fields.push("contract".into(), FieldValue::String("MUST work".into()));
-    fields.push(
-        "verify".into(),
-        FieldValue::VerifyList(vec![VerifyStatement {
-            kind: "unit".into(),
-            description: "works".into(),
-        }]),
-    );
-
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "alpha".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Alpha".into()),
-        fields,
-        source_span: span(),
-        methods: Vec::new(),
-    });
-    graph.add_node(Node {
-        id: EntityId { raw: "beta".into() },
-        kind: EntityKind {
-            raw: "feature".into(),
-        },
-        title: Some("Beta".into()),
-        fields: FieldMap::new(),
-        source_span: span_at("feat.spec", 1, 0, 3),
-        methods: Vec::new(),
-    });
-    graph.add_edge(edge("beta", "alpha", "behaviors"));
-    state.serve_graph(graph, Vec::new());
-    state.edit_environment(|env| {
-        env.registries.kinds.register(kind_entry("behavior", true));
-    });
-    state.edit_environment(|env| {
-        env.registries.kinds.register(kind_entry("feature", false));
-    });
-    attach_project(state);
-
-    server
+/// An initialized server over [`contracts_project`].
+fn test_server() -> Served {
+    contracts_project().serve(&[extension()])
 }
 
 fn assert_resource_read(server: &McpServer, uri: &str) {
@@ -334,14 +276,10 @@ fn contract_shutdown() {
         "resources/subscribe",
         json!({"uri": "specforge://diagnostics"}),
     );
-    // A compile left a graph notification pending for the subscriber.
-    let delta =
-        specforge_mcp::notifications::compute_graph_delta(&Graph::new(), server.state().graph());
-    specforge_mcp::notifications::enqueue_compile_notifications(
-        server.state_mut(),
-        &crate::support::update_of(delta),
-        &[],
-    );
+    // A compile left a graph notification pending for the subscriber: a
+    // behavior written to disk, served by the next call.
+    server.write("more.spec", "behavior gamma \"Gamma\" {\n}\n");
+    call_tool(&mut server, "specforge.stats", json!({}));
     assert_eq!(server.state().notification_outbox.len(), 1);
 
     let resp = call(&mut server, "shutdown", json!({}));
@@ -358,7 +296,7 @@ fn contract_shutdown() {
         .map(|v| v.as_str().unwrap())
         .collect();
     added.sort();
-    assert_eq!(added, ["alpha", "beta"]);
+    assert_eq!(added, ["gamma"]);
 
     // subscriptions_removed: none left, and each removal was announced.
     assert!(server.state().subscriptions.is_empty());
@@ -385,7 +323,8 @@ fn contract_shutdown() {
     assert_eq!(shutdown.len(), 1, "{shutdown:?}");
     assert_eq!(shutdown[0]["pending_notifications_flushed"], 1);
     assert_eq!(shutdown[0]["subscriptions_released"], 2);
-    assert_eq!(shutdown[0]["wasm_engines_released"], 0);
+    // The served session's runtime went with it.
+    assert_eq!(shutdown[0]["wasm_engines_released"], 1);
 
     // No new tool calls during teardown.
     let late = call_tool(&mut server, "specforge.stats", json!({}));
@@ -476,7 +415,6 @@ fn contract_query() {
 )]
 fn contract_export() {
     let mut server = test_server();
-    crate::support::declare_headline_fields(&mut server, "behavior");
 
     // format_produced: each format carries the graph in its own shape.
     let graph = tool(&mut server, "specforge.export", json!({"format": "graph"}));
@@ -516,15 +454,12 @@ fn contract_export() {
 
     // token_budget_enforced: an orphan with a long contract is the first
     // thing a tight budget drops; the connected pair stays.
+    // gamma, written on test.spec lines 10–12.
     let long = "MUST ".repeat(200);
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(node(
-            "gamma",
-            "behavior",
-            span_at("test.spec", 10, 0, 12),
-            text_field("contract", &long),
-        ));
-    });
+    server.write(
+        "test.spec",
+        &format!("{ALPHA_SPEC}\n\n\n\nbehavior gamma \"GAMMA\" {{\n    contract \"{long}\"\n}}\n"),
+    );
     let budgeted = tool(
         &mut server,
         "specforge.export",
@@ -719,7 +654,16 @@ fn contract_search() {
     verify = "Provide MCP Stats Tool: MCP stats tool holds — graph_available, stats_returned, latest_state_reflected, tool_invoked_emitted"
 )]
 fn contract_stats() {
-    let mut server = test_server();
+    // An orphan behavior, one nothing references, is a warning: a rule the
+    // extension declares (W901, NoIncomingEdges on `behavior`).
+    let mut server = contracts_project().serve(&[extension().declaring(|c| {
+        c.rule("W901", |r| {
+            r.check(CheckKind::NoIncomingEdges)
+                .target_kind("behavior")
+                .severity(ValidationSeverity::Warning)
+                .message_template("behavior '{id}' is an orphan");
+        });
+    })]);
     let stats = tool(&mut server, "specforge.stats", json!({}));
     assert_eq!(
         stats["entity_counts"],
@@ -733,17 +677,12 @@ fn contract_stats() {
         json!({"errors": 0, "warnings": 0, "infos": 0})
     );
 
-    // latest_state_reflected: a new orphan and a warning show up at once.
-    let state = server.state_mut();
-    state.edit_graph(|graph| {
-        graph.add_node(node(
-            "gamma",
-            "behavior",
-            span_at("test.spec", 10, 0, 12),
-            FieldMap::new(),
-        ));
-    });
-    crate::support::report_also(state, diagnostic("W001", "a warning", None));
+    // latest_state_reflected: a new orphan, written to disk (test.spec
+    // line 10), and its warning show up at once.
+    server.write(
+        "test.spec",
+        &format!("{ALPHA_SPEC}\n\n\n\nbehavior gamma \"GAMMA\" {{\n}}\n"),
+    );
     let stats = tool(&mut server, "specforge.stats", json!({}));
     assert_eq!(
         stats["entity_counts"],
@@ -760,16 +699,18 @@ fn contract_stats() {
     verify = "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 )]
 fn contract_inspect() {
-    let mut server = test_server();
-    crate::support::declare_headline_fields(&mut server, "behavior");
-    // One diagnostic inside alpha's span, one in beta's file.
-    crate::support::report(
-        server.state_mut(),
-        vec![
-            diagnostic("W001", "inside alpha", Some(span_at("test.spec", 2, 4, 2))),
-            diagnostic("W002", "inside beta", Some(span_at("feat.spec", 2, 0, 2))),
-        ],
-    );
+    // One diagnostic inside alpha's span (test.spec line 2), one in beta's
+    // file (feat.spec line 2), as a check-phase pass reports them.
+    let at = |file: &str, start_col| PassSpan {
+        file: file.into(),
+        start_line: 2,
+        start_col,
+        end_line: 2,
+        end_col: start_col + 8,
+    };
+    let mut server = contracts_project().serve(&[extension()
+        .reporting(PassDiagnostic::warning("W001", "inside alpha").with_span(at("test.spec", 5)))
+        .reporting(PassDiagnostic::warning("W002", "inside beta").with_span(at("feat.spec", 5)))]);
 
     let details = tool(
         &mut server,
@@ -802,23 +743,22 @@ fn contract_inspect() {
     verify = "Provide MCP Find Definition Tool: MCP find definition tool holds — graph_available, source_location_returned, tool_invoked_emitted"
 )]
 fn contract_find_definition() {
-    let mut server = test_server();
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(node(
-            "gamma",
-            "behavior",
-            span_at("more/gamma.spec", 7, 2, 9),
-            FieldMap::new(),
-        ));
-    });
+    // more/gamma.spec line 7 is `  behavior gamma "GAMMA" {`: a 2-column
+    // indent.
+    let mut server = contracts_project()
+        .file(
+            "more/gamma.spec",
+            "\n\n\n\n\n\n  behavior gamma \"GAMMA\" {\n\n  }\n",
+        )
+        .serve(&[extension()]);
 
     let alpha = tool(
         &mut server,
         "specforge.find_definition",
         json!({"entity_id": "alpha"}),
     );
-    // A graph built without text: the position is the block's start (the
-    // name cannot be read), and the answer says so.
+    // The position is the entity's name, read from its source, and the
+    // answer says so.
     let location = |v: &Value| {
         json!([
             v["entity_id"],
@@ -828,20 +768,28 @@ fn contract_find_definition() {
             v["precision"]
         ])
     };
+    // test.spec line 1, `behavior alpha`: the name at column 10.
     assert_eq!(
         location(&alpha),
-        json!(["alpha", "test.spec", 1, 0, "entity"])
+        json!(["alpha", "test.spec", 1, 10, "token"])
     );
-    assert_eq!(alpha["source_span"], alpha["name_span"]);
+    assert_eq!(
+        alpha["name_span"],
+        json!({"file": "test.spec", "start_line": 1, "start_col": 10, "end_line": 1, "end_col": 15})
+    );
+    assert_eq!(alpha["source_span"]["start_col"], 1);
+    assert_eq!(alpha["source_span"]["end_line"], 5);
     let gamma = tool(
         &mut server,
         "specforge.find_definition",
         json!({"entity_id": "gamma"}),
     );
+    // more/gamma.spec line 7: the keyword at column 3, the name at 12.
     assert_eq!(
         location(&gamma),
-        json!(["gamma", "more/gamma.spec", 7, 2, "entity"])
+        json!(["gamma", "more/gamma.spec", 7, 12, "token"])
     );
+    assert_eq!(gamma["source_span"]["start_col"], 3);
 
     assert_tool_invoked(&server, "specforge.find_definition");
 }
@@ -864,9 +812,11 @@ fn contract_find_references() {
     let locations = refs["locations"].as_array().unwrap();
     assert_eq!(locations.len(), 1, "{locations:?}");
     assert_eq!(locations[0]["referencing_entity_id"], "beta");
+    // The token as written: feat.spec line 2, `    behaviors [alpha]`.
     assert_eq!(locations[0]["source_span"]["file"], "feat.spec");
-    assert_eq!(locations[0]["source_span"]["start_line"], 1);
-    assert_eq!(locations[0]["source_span"]["start_col"], 0);
+    assert_eq!(locations[0]["source_span"]["start_line"], 2);
+    assert_eq!(locations[0]["source_span"]["start_col"], 16);
+    assert_eq!(locations[0]["precision"], "token");
 
     // empty_list_for_unreferenced: nothing references beta; not an error.
     let resp = call_tool(
@@ -886,27 +836,16 @@ fn contract_find_references() {
     verify = "Provide MCP Outline Tool: MCP outline tool holds — graph_available, outline_returned, tool_invoked_emitted"
 )]
 fn contract_outline() {
-    let mut server = test_server();
-    let mut gamma = node(
-        "gamma",
-        "port",
-        span_at("test.spec", 7, 0, 12),
-        FieldMap::new(),
-    );
-    gamma.methods.push(MethodDecl {
-        name: "check".into(),
-        params: vec![Parameter {
-            name: "x".into(),
-            ty: "Int".into(),
-            optional: false,
-            annotations: Vec::new(),
-        }],
-        returns: Some("Bool".into()),
-        span: span_at("test.spec", 8, 4, 8),
-    });
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(gamma);
-    });
+    // test.spec: alpha on lines 1–5, the port gamma on 7–12, its method
+    // `check` on line 8.
+    let mut server = contracts_project()
+        .file(
+            "test.spec",
+            &format!(
+                "{ALPHA_SPEC}\nport gamma \"GAMMA\" {{\n    method check(x: Int) -> Bool\n    // a\n    // b\n    // c\n}}\n"
+            ),
+        )
+        .serve(&[extension().kind("port", false)]);
 
     let outline = tool(
         &mut server,
@@ -964,19 +903,13 @@ fn contract_coverage() {
     );
 
     // Recorded evidence: a passing test that names the obligation.
-    let root = server
-        .state()
-        .project_root()
-        .map(std::path::Path::to_path_buf)
-        .unwrap();
-    std::fs::write(
-        root.join("specforge-report.json"),
-        json!({"results": {"alpha": {"tests": [
+    server.write(
+        "specforge-report.json",
+        &json!({"results": {"alpha": {"tests": [
             {"name": "alpha_works", "status": "pass", "verify": "works"}
         ]}}})
         .to_string(),
-    )
-    .unwrap();
+    );
     let coverage = tool(&mut server, "specforge.coverage", json!({}));
     let alpha = find(&coverage, "entity_id", "alpha");
     assert_eq!(alpha["status"], "covered");
@@ -986,10 +919,10 @@ fn contract_coverage() {
 
     // testability_respected: the registry, not the kind name, decides. A
     // testable feature no rule obliges to declare obligations owes none:
-    // it does not count, and is reachable by id, exempt.
-    server.state_mut().edit_environment(|env| {
-        env.registries.kinds.register(kind_entry("feature", true));
-    });
+    // it does not count, and is reachable by id, exempt. Each declaration
+    // set is a project of its own.
+    let testable_feature = extension().kind("feature", true);
+    let mut server = contracts_project().serve(std::slice::from_ref(&testable_feature));
     let coverage = tool(&mut server, "specforge.coverage", json!({}));
     assert!(
         coverage
@@ -1006,11 +939,7 @@ fn contract_coverage() {
     assert_eq!(beta[0]["exempt"], true, "{beta}");
     assert_eq!(beta[0]["obligations"], 0);
     // Once a rule obliges features to declare obligations, beta counts.
-    server.state_mut().edit_environment(|env| {
-        env.registries
-            .rules
-            .push((obligations_rule("feature"), String::new()));
-    });
+    let mut server = contracts_project().serve(&[testable_feature.obligating("feature")]);
     let coverage = tool(&mut server, "specforge.coverage", json!({}));
     let beta = find(&coverage, "entity_id", "beta");
     assert_eq!(beta["obligations"], 0);
@@ -2259,14 +2188,10 @@ fn contract_extensions() {
     verify = "Provide MCP Doctor Tool: MCP doctor tool holds — compiler_api_available, health_checked, resolution_steps_provided, tool_invoked_emitted"
 )]
 fn contract_doctor() {
-    let dir = tempfile::TempDir::new().unwrap();
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        json!({"name":"t","version":"0.1.0","extensions":[]}).to_string(),
-    )
-    .unwrap();
-    let mut server = test_server();
-    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
+    // A project that enables nothing, served with its own component
+    // runtime, so the extension it installs loads.
+    let mut server = TestProject::new().serve_components();
+    let dir = server.root().to_path_buf();
     let installed = tool(
         &mut server,
         "specforge.add_extension",
@@ -2280,7 +2205,7 @@ fn contract_doctor() {
     assert_eq!(healthy["cache_status"], "ok");
 
     // Tamper with the installed binary: a stale Wasm cache entry.
-    let wasm = walk(&dir.path().join(".specforge").join("extensions"))
+    let wasm = walk(&dir.join(".specforge").join("extensions"))
         .into_iter()
         .find(|p| p.extension().is_some_and(|e| e == "wasm"))
         .expect("the install wrote a wasm binary");
