@@ -596,6 +596,43 @@ mod tests {
 
     #[specforge_test(
         behavior = "invoke_extension_migration_hooks",
+        verify = "the nine builtin extensions' hooks run in dependency order with no failure"
+    )]
+    fn the_builtin_extensions_hooks_run_without_a_dependency_failure() {
+        // Every builtin loaded together, as a project enabling all of them
+        // does: the peer graph (optional peers included) must sort, or the
+        // hooks never run and a migration rolls back.
+        let names: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
+            .iter()
+            .map(|(name, _)| *name)
+            .collect();
+        assert_eq!(names.len(), 9);
+        let dir = tempfile::TempDir::new().unwrap();
+        let config = serde_json::json!({"name": "p", "version": "0.1.0", "extensions": names});
+        std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+        let runtime = specforge_component::project_runtime(dir.path());
+        let declarations: Vec<ExtensionDeclaration> = names
+            .iter()
+            .map(|name| {
+                specforge_wasm::protocol::load_declaration(&runtime, name)
+                    .unwrap()
+                    .declaration
+            })
+            .collect();
+        let input = MigrationInput {
+            from: "0.9".into(),
+            to: "1.0".into(),
+            files: Vec::new(),
+        };
+
+        let (_, failures) = invoke_hooks(&declarations, &runtime, &input);
+
+        assert!(failures.is_empty(), "{failures:?}");
+        assert!(specforge_wasm::topological_sort_extensions(&declarations).is_ok());
+    }
+
+    #[specforge_test(
+        behavior = "invoke_extension_migration_hooks",
         verify = "hook that traps collects WasmTrapInfo and continues"
     )]
     fn a_trapping_hook_is_recorded_and_the_next_one_still_runs() {
