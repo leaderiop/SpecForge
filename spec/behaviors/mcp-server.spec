@@ -441,8 +441,11 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
     send a specforge/graphChanged notification to all subscribed MCP
     clients. The notification payload MUST include the GraphDelta describing
     added, removed, and modified nodes and edges. Clients MUST be able to
-    subscribe and unsubscribe from delta notifications. If no clients are
-    subscribed, the notification MUST be suppressed.
+    subscribe and unsubscribe from delta notifications. resources/subscribe to
+    a URI the server does not serve is refused as resources/read refuses it
+    (not found: -32002, Unknown resource URI); resources/unsubscribe never
+    fails. If no clients are subscribed, the notification MUST be
+    suppressed.
   """
   verify unit "graph_changed notification sent after incremental rebuild"
   verify unit "notification includes GraphDelta payload"
@@ -451,6 +454,7 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
   verify unit "unsubscribed clients do not receive notifications"
   verify unit "no notification when no clients subscribed"
   verify unit "clients can subscribe and unsubscribe from delta notifications"
+  verify unit "resources/subscribe to a URI the server does not serve is refused as not found, as resources/read refuses it"
   verify contract "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
 }
 
@@ -665,6 +669,7 @@ behavior listen_for_mcp_resource_updates "Listen for MCP Resource Updates" {
   verify unit "subscriptions/listen is acknowledged first with the resources honoured"
   verify unit "a recompile that changes a listened resource sends resources/updated with the subscription id"
   verify unit "a listen stream receives no notification type it did not ask for"
+  verify unit "both eras decide what a change touches by one rule"
   verify unit "cancelling the listen request ends the stream"
 }
 

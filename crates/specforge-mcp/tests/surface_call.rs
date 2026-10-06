@@ -8,8 +8,7 @@
 
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
-use specforge_mcp::notifications::{DIAGNOSTICS_CHANNEL, GRAPH_CHANNEL};
-use specforge_mcp::subscriptions::subscribers;
+use specforge_mcp::subscriptions::{Watched, subscribers};
 use specforge_ops::export::{Format, Request};
 use specforge_ops::view::ProjectView;
 use specforge_project::CompiledProject;
@@ -301,17 +300,51 @@ fn an_unknown_scope_is_entity_not_found_with_its_code_in_diagnostic() {
 
 // --- P9: subscribe ---
 
-#[test]
-fn subscribe_accepts_an_unserved_uri() {
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "resources/subscribe to a URI the server does not serve is refused as not found, as resources/read refuses it"
+)]
+fn subscribing_to_an_unserved_uri_is_refused_as_not_found() {
     let mut server = served();
-    // PIN: flipped by T7: refused as not found, as a read refuses it.
-    let reply = call(
-        &mut server,
-        "resources/subscribe",
-        json!({"uri": "specforge://nope"}),
+    for uri in ["specforge://nope", "not a uri at all"] {
+        // A handshake session says not found as -32002, with the URI.
+        let reply = call(&mut server, "resources/subscribe", json!({"uri": uri}));
+        assert_eq!(reply["error"]["code"], -32002, "{reply}");
+        assert_eq!(
+            reply["error"]["message"],
+            format!("Unknown resource URI: {uri}")
+        );
+        assert_eq!(reply["error"]["data"], json!({ "uri": uri }), "{reply}");
+        // The same URI a read refuses, refused the same way.
+        let read = read_error(&mut server, uri);
+        assert_eq!(read["code"], reply["error"]["code"]);
+        assert_eq!(read["message"], reply["error"]["message"]);
+    }
+    assert!(server.state().subscriptions.is_empty());
+
+    // What the server serves is subscribed to, and unsubscribing never fails.
+    for uri in [
+        "specforge://graph",
+        "specforge://graph/alpha",
+        "specforge://diagnostics",
+    ] {
+        let reply = call(&mut server, "resources/subscribe", json!({"uri": uri}));
+        assert_eq!(reply["result"], json!({}), "{uri}: {reply}");
+    }
+    assert_eq!(subscribers(server.state(), Watched::Graph), ["default"]);
+    assert_eq!(
+        subscribers(server.state(), Watched::Diagnostics),
+        ["default"]
     );
-    assert_eq!(reply["result"], json!({}), "{reply}");
-    assert_eq!(subscribers(server.state(), GRAPH_CHANNEL), ["default"]);
+    for uri in [
+        "specforge://nope",
+        "specforge://graph",
+        "specforge://never-subscribed",
+    ] {
+        let reply = call(&mut server, "resources/unsubscribe", json!({"uri": uri}));
+        assert_eq!(reply["result"], json!({}), "{uri}: {reply}");
+    }
+    assert!(subscribers(server.state(), Watched::Graph).is_empty());
 }
 
 // --- P10: an extension enabled on disk ---
@@ -780,7 +813,7 @@ fn listen_and_subscribe_watch_by_one_rule() {
         1
     );
     assert_eq!(
-        subscribers(server.state(), DIAGNOSTICS_CHANNEL),
+        subscribers(server.state(), Watched::Diagnostics),
         ["default"]
     );
 }

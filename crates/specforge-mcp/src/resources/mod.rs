@@ -3,7 +3,7 @@ mod views;
 
 use serde_json::{Value, json};
 
-use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
+use crate::protocol::{JsonRpcError, JsonRpcResponse};
 use crate::state::McpState;
 use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
 use crate::surface_table::ResourceEntry;
@@ -329,56 +329,57 @@ fn extension_resource(call: &Call<'_>, entry: &ResourceEntry, uri: &str) -> Ran<
 }
 
 use crate::DEFAULT_CLIENT_ID as DEFAULT_SUBSCRIBER;
-
-/// Map a subscribed resource URI to the delta-notification channel whose
-/// changes it observes (C9-01).
-fn notification_channel(uri: &str) -> &'static str {
-    if uri == "specforge://diagnostics" {
-        crate::notifications::DIAGNOSTICS_CHANNEL
-    } else {
-        crate::notifications::GRAPH_CHANNEL
-    }
-}
+use crate::subscriptions::Watched;
 
 /// MCP `resources/subscribe`: track the client's interest in a resource so
-/// updates of the served project deliver delta notifications (C9-01).
+/// updates of the served project deliver delta notifications (C9-01). A URI
+/// the server does not serve is refused as `resources/read` refuses it:
+/// not found, the code of the revision of the request.
 pub fn handle_resource_subscribe(
     state: &mut McpState,
     params: Value,
     id: Option<Value>,
 ) -> JsonRpcResponse {
-    let Some(uri) = params.get("uri").and_then(|v| v.as_str()) else {
-        return JsonRpcResponse::error(
-            id,
-            error_codes::INVALID_PARAMS,
-            "Missing required parameter: uri",
-        );
+    let invocation = match Invocation::read::<Resources>(&params) {
+        Ok(invocation) => invocation,
+        Err(error) => return JsonRpcResponse::from_error(id, error),
     };
+    let uri = invocation.name.as_str();
+    // An extension enabled on disk since the last request serves its
+    // resources from now on (ADR 0014 D12).
+    if !is_served(state, uri) && state.project_root().is_some() {
+        state.ensure_fresh();
+    }
+    if !is_served(state, uri) {
+        return JsonRpcResponse::from_error(
+            id,
+            unknown_resource(state.resource_not_found_code(), uri),
+        );
+    }
     let client = params
         .get("client_id")
         .and_then(|v| v.as_str())
         .unwrap_or(DEFAULT_SUBSCRIBER);
-    crate::subscriptions::subscribe(state, client, notification_channel(uri));
+    crate::subscriptions::subscribe(state, client, Watched::of(uri));
     JsonRpcResponse::success(id, serde_json::json!({}))
 }
 
-/// MCP `resources/unsubscribe`: drop the client's interest in a resource.
+/// MCP `resources/unsubscribe`: drop the client's interest in a resource. It
+/// never refuses a URI: dropping what was never subscribed (or what an
+/// extension stopped serving) is a no-op success.
 pub fn handle_resource_unsubscribe(
     state: &mut McpState,
     params: Value,
     id: Option<Value>,
 ) -> JsonRpcResponse {
-    let Some(uri) = params.get("uri").and_then(|v| v.as_str()) else {
-        return JsonRpcResponse::error(
-            id,
-            error_codes::INVALID_PARAMS,
-            "Missing required parameter: uri",
-        );
+    let invocation = match Invocation::read::<Resources>(&params) {
+        Ok(invocation) => invocation,
+        Err(error) => return JsonRpcResponse::from_error(id, error),
     };
     let client = params
         .get("client_id")
         .and_then(|v| v.as_str())
         .unwrap_or(DEFAULT_SUBSCRIBER);
-    crate::subscriptions::unsubscribe(state, client, notification_channel(uri));
+    crate::subscriptions::unsubscribe(state, client, Watched::of(&invocation.name));
     JsonRpcResponse::success(id, serde_json::json!({}))
 }
