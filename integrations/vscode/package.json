@@ -35,6 +35,12 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "configurationDefaults": {
+      "[specforge]": {
+        "editor.tabSize": 2,
+        "editor.insertSpaces": true
+      }
+    },
     "viewsContainers": {
       "activitybar": [
         {

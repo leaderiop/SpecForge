@@ -263,34 +263,210 @@ async fn formatting_keeps_the_compile_diagnostics() {
     assert_eq!(codes, expected, "{after:?}");
 }
 
-/// Pin (plan 03): today's behaviour; flipped by T9.
-#[tokio::test]
-async fn formatting_ignores_the_project_format_config() {
-    use wire::{Session, uri_of};
-
+/// A project on disk (`specforge.json` = `{}`) with `files` written
+/// (path, text), its root canonical.
+fn format_project(files: &[(&str, &str)]) -> (tempfile::TempDir, std::path::PathBuf) {
     let dir = tempfile::TempDir::new().unwrap();
     let root = dir.path().canonicalize().unwrap();
     std::fs::write(root.join("specforge.json"), "{}").unwrap();
-    std::fs::write(root.join(".specforgefmt.toml"), "indent_width = 4\n").unwrap();
-    std::fs::create_dir(root.join("spec")).unwrap();
-    let file = root.join("spec/a.spec");
-    let text = "behavior login \"Login\" {\n    contract \"The system MUST log in\"\n}\n";
-    std::fs::write(&file, text).unwrap();
-    let (mut session, _) = Session::start(Some(&root)).await;
-    let uri = uri_of(&file);
-    session.open(&uri, text).await;
-    session.diagnostics(&uri).await;
+    for (path, text) in files {
+        let path = root.join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    (dir, root)
+}
 
-    // Canonical under the project's config, the file is still reindented
-    // to the editor's tabSize 2.
+/// A session over `root` with `file` (relative to it) open, its compile
+/// published; the file's URI.
+async fn open_in(root: &std::path::Path, file: &str) -> (crate::session::Session, String) {
+    use crate::session::{Session, uri_of};
+    let path = root.join(file);
+    let text = std::fs::read_to_string(&path).unwrap();
+    let (mut session, _) = Session::start(Some(root)).await;
+    let uri = uri_of(&path);
+    session.open(&uri, &text).await;
+    session.diagnostics(&uri).await;
+    (session, uri)
+}
+
+/// `text` with LSP `edits` (UTF-16 columns) applied.
+fn apply_edits(text: &str, edits: &[serde_json::Value]) -> String {
+    let lines: Vec<&str> = text.split('\n').collect();
+    let offset = |position: &serde_json::Value| {
+        let line = position["line"].as_u64().unwrap() as usize;
+        let character = position["character"].as_u64().unwrap() as usize;
+        let start: usize = lines[..line].iter().map(|l| l.len() + 1).sum();
+        let mut units = 0;
+        let column = lines[line]
+            .char_indices()
+            .find(|(_, c)| {
+                let here = units >= character;
+                units += c.len_utf16();
+                here
+            })
+            .map_or(lines[line].len(), |(i, _)| i);
+        start + column
+    };
+    let mut ranges: Vec<(usize, usize, &str)> = edits
+        .iter()
+        .map(|e| {
+            (
+                offset(&e["range"]["start"]),
+                offset(&e["range"]["end"]),
+                e["newText"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    ranges.sort_by_key(|r| std::cmp::Reverse(r.0));
+    let mut out = text.to_string();
+    for (start, end, new_text) in ranges {
+        out.replace_range(start..end, new_text);
+    }
+    out
+}
+
+/// A behavior indented by 4.
+const FOUR: &str = "behavior login \"Login\" {\n    contract \"The system MUST log in\"\n}\n";
+
+#[specforge_test(
+    behavior = "lsp_respect_editor_config",
+    verify = "the editor formats a project file as specforge format --check expects"
+)]
+#[tokio::test]
+async fn formatting_uses_the_project_format_config() {
+    let (_dir, root) = format_project(&[
+        (".specforgefmt.toml", "indent_width = 4\n"),
+        ("spec/a.spec", FOUR),
+    ]);
+    let (mut session, uri) = open_in(&root, "spec/a.spec").await;
+
+    // Canonical under the project's config: no edit at the editor's tabSize 2.
     let edits = session.format(&uri).await;
-    let edits = edits.as_array().expect("an edit list");
-    assert!(!edits.is_empty(), "{edits:?}");
-    let new_text = edits[0]["newText"].as_str().unwrap();
+    assert_eq!(edits, serde_json::json!([]));
+}
+
+#[specforge_test(
+    behavior = "load_format_config",
+    verify = "a file is formatted with the configuration of its own project"
+)]
+#[tokio::test]
+async fn the_cli_and_the_editor_agree_on_a_nested_project() {
+    let two = "behavior login \"Login\" {\n  contract \"The system MUST log in\"\n}\n";
+    let (_dir, root) = format_project(&[
+        (".specforgefmt.toml", "indent_width = 4\n"),
+        ("inner/specforge.json", "{}"),
+        ("inner/spec/a.spec", two),
+    ]);
+    let (mut session, uri) = open_in(&root.join("inner"), "spec/a.spec").await;
+
+    // The inner project has no configuration file: its defaults, not the
+    // outer project's, and not the editor's tabSize 4.
+    let edits = session.formatting(&uri, 4).await["result"].clone();
+    assert_eq!(edits, serde_json::json!([]));
+    let outcome = specforge_ops::format::run(&specforge_ops::format::Request {
+        root: &root,
+        paths: &[root.join("inner")],
+        mode: specforge_ops::format::Mode::Check,
+    });
+    assert_eq!((outcome.checked, outcome.changes.len()), (1, 0));
+}
+
+#[specforge_test(
+    behavior = "lsp_format_document",
+    verify = "LSP format produces same result as CLI format"
+)]
+#[tokio::test]
+async fn lsp_format_matches_cli_format() {
+    let messy = "behavior login \"Connexion é\" {\n  contract   \"The system MUST log in\"\n      types [a, b]\n}\n";
+    let (_dir, root) = format_project(&[
+        (".specforgefmt.toml", "indent_width = 4\n"),
+        ("spec/a.spec", messy),
+    ]);
+    let (mut session, uri) = open_in(&root, "spec/a.spec").await;
+
+    let edits = session.format(&uri).await;
+    let edited = apply_edits(messy, edits.as_array().expect("an edit list"));
+
+    let outcome = specforge_ops::format::run(&specforge_ops::format::Request {
+        root: &root,
+        paths: &[],
+        mode: specforge_ops::format::Mode::Check,
+    });
+    assert_eq!(edited, outcome.changes[0].after);
+    assert!(edited.contains("\n    contract"), "{edited}");
+}
+
+#[specforge_test(
+    behavior = "lsp_format_range",
+    verify = "a region left unformatted is reported at its document lines"
+)]
+#[tokio::test]
+async fn range_formatting_publishes_a_kept_region_at_its_line() {
+    let text = "behavior a \"A\" {\n  contract \"a\"\n}\n\nbehavior b \"B\" {\n  contract \"b\"\n}\n\nbehavior c \"C\" {\n      contract \"c\"\n}\n\n}}}\n";
+    let (_dir, root) = format_project(&[("spec/r.spec", text)]);
+    let (mut session, uri) = open_in(&root, "spec/r.spec").await;
+
+    session.range_formatting(&uri, 2, 8, 12).await;
+    let published = session.diagnostics(&uri).await;
+
+    let w142 = published
+        .iter()
+        .find(|d| d["code"] == "W142")
+        .unwrap_or_else(|| panic!("{published:?}"));
+    assert_eq!(w142["range"]["start"]["line"], 12, "{w142}");
+    assert_eq!(w142["range"]["end"]["line"], 12, "{w142}");
+    assert_eq!(w142["range"]["end"]["character"], 3, "{w142}");
     assert!(
-        new_text.starts_with("  contract") && !new_text.starts_with("   "),
-        "{new_text:?}"
+        w142["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("Parse error at lines 13-13,"),
+        "{w142}"
     );
+}
+
+#[specforge_test(
+    behavior = "lsp_respect_editor_config",
+    verify = "the editor is told once when the project's configuration overrides its settings"
+)]
+#[tokio::test]
+async fn precedence_is_logged_once() {
+    let two = "behavior login \"Login\" {\n  contract \"The system MUST log in\"\n}\n";
+    let (_dir, root) = format_project(&[("spec/a.spec", two)]);
+    let (mut session, uri) = open_in(&root, "spec/a.spec").await;
+    let overridden = |p: &serde_json::Value| {
+        p["message"]
+            .as_str()
+            .is_some_and(|m| m.starts_with("formatting with the defaults (indent 2, spaces)"))
+    };
+
+    assert_eq!(
+        session.formatting(&uri, 4).await["result"],
+        serde_json::json!([])
+    );
+    assert_eq!(
+        session.formatting(&uri, 4).await["result"],
+        serde_json::json!([])
+    );
+
+    let first = session
+        .notification_within(
+            "window/logMessage",
+            std::time::Duration::from_secs(2),
+            overridden,
+        )
+        .await;
+    let message = first.expect("one log message")["message"].clone();
+    assert!(message.as_str().unwrap().contains("tabSize 4"), "{message}");
+    let second = session
+        .notification_within(
+            "window/logMessage",
+            std::time::Duration::from_millis(300),
+            overridden,
+        )
+        .await;
+    assert!(second.is_none(), "logged twice: {second:?}");
 }
 
 // B:autocomplete_entity_ids — verify contract "requires/ensures consistency for entity ID autocomplete"

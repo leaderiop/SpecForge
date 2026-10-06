@@ -8,7 +8,7 @@ use specforge_registry::{
     EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild,
     validation_engine::ValidationRulePattern,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -28,6 +28,9 @@ pub struct LspState {
     /// The recorded-coverage memo of the stand-in graph readers see while
     /// the session is out for an update (it records nothing: no root).
     stand_in_recorded: RecordedCoverage,
+    /// The format configurations the editor was told override its settings
+    /// (once per session and configuration, ADR 0021 D1).
+    format_notices: HashSet<String>,
 }
 
 /// The session, or what readers see while it is out for an update.
@@ -59,9 +62,16 @@ impl LspState {
             last_token_signature: 0,
             shutdown: false,
             stand_in_recorded: RecordedCoverage::default(),
+            format_notices: HashSet::new(),
         };
         state.last_token_signature = state.token_signature();
         state
+    }
+
+    /// Record that the editor is told `configuration` overrides its
+    /// settings: true the first time this session, false after.
+    pub fn first_format_notice(&mut self, configuration: &str) -> bool {
+        self.format_notices.insert(configuration.to_string())
     }
 
     /// A digest of everything in the graph and registries that semantic

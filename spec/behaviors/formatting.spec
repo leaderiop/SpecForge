@@ -439,11 +439,16 @@ behavior lsp_respect_editor_config "LSP Respect Editor Config" {
     MUST NOT change it, so a file the editor formats passes
     specforge format --check. Outside any project (an unsaved buffer, a file
     with no specforge.json above it), LSP formatting MUST use the editor's
-    tab size and insert-spaces.
+    tab size and insert-spaces. When it ignores editor settings that differ
+    from the project's configuration, the server MUST say so once per
+    session and configuration, as a log message naming the configuration
+    it used.
   """
   verify unit "editor settings are used for a document outside any project"
   verify unit "config file takes precedence over editor settings"
   verify unit "a project without a config file formats with the defaults, not the editor's settings"
+  verify integration "the editor formats a project file as specforge format --check expects"
+  verify integration "the editor is told once when the project's configuration overrides its settings"
   verify contract "LSP Respect Editor Config: editor config respect holds — lsp_initialized_fired, config_precedence_enforced, editor_fallback_applied"
 }
 

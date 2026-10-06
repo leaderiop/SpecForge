@@ -2,7 +2,6 @@ pub mod backend;
 mod capabilities;
 pub mod completion;
 mod document;
-pub mod formatting;
 mod hover;
 mod navigation;
 pub mod publish;
