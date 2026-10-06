@@ -7,20 +7,10 @@ use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
 
 use crate::fake_extension::{self, FakeExtension};
-use crate::support::files_under;
+use crate::support::{TestProject, call, call_tool, files_under};
 use crate::tool_errors::mcp_error;
 
 const GREET: &str = "@sdk/greet";
-
-fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
-    let req = json!({
-        "jsonrpc": "2.0", "id": 1,
-        "method": "tools/call",
-        "params": { "name": tool_name, "arguments": args }
-    });
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
 
 /// A tool's JSON answer.
 fn answer(resp: &Value) -> Value {
@@ -31,26 +21,25 @@ fn answer(resp: &Value) -> Value {
 }
 
 /// A server initialized over a temp project whose `specforge.json` is
-/// `config` as written (valid JSON or not), with one behavior.
-fn server_over_text(config: &str) -> (McpServer, std::path::PathBuf) {
-    let dir = tempfile::TempDir::new().unwrap();
+/// `config` as written (valid JSON or not), with one behavior; the project's
+/// directory, which lives as long as the test holds it.
+fn server_over_text(config: &str) -> (McpServer, tempfile::TempDir) {
+    let dir = TestProject::new()
+        .file("test.spec", "behavior alpha \"Alpha\" {\n}\n")
+        .into_dir();
     std::fs::write(dir.path().join("specforge.json"), config).unwrap();
-    std::fs::write(
-        dir.path().join("test.spec"),
-        "behavior alpha \"Alpha\" {\n}\n",
-    )
-    .unwrap();
-    let root = dir.path().to_path_buf();
-    std::mem::forget(dir); // outlives the test
     let mut server = McpServer::new();
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
-        "params": {"projectRoot": root.to_str().unwrap()}});
-    server.handle_message(&req.to_string());
-    (server, root)
+    let reply = call(
+        &mut server,
+        "initialize",
+        json!({"projectRoot": dir.path().to_str().unwrap()}),
+    );
+    assert!(reply["error"].is_null(), "initialize: {reply}");
+    (server, dir)
 }
 
 /// [`server_over_text`] over a config written from JSON.
-fn server_over(config: Value) -> (McpServer, std::path::PathBuf) {
+fn server_over(config: Value) -> (McpServer, tempfile::TempDir) {
     server_over_text(&config.to_string())
 }
 
@@ -62,7 +51,7 @@ fn greet_blob() -> std::path::PathBuf {
 /// A served project with `@sdk/greet` installed from its local blob: a lock
 /// entry, the binary under `.specforge/extensions/` and a `specforge.json`
 /// entry.
-fn server_with_greet_installed() -> (McpServer, std::path::PathBuf) {
+fn server_with_greet_installed() -> (McpServer, tempfile::TempDir) {
     let (mut server, root) =
         server_over(json!({"name": "t", "version": "0.1.0", "extensions": []}));
     let resp = call_tool(
@@ -71,7 +60,12 @@ fn server_with_greet_installed() -> (McpServer, std::path::PathBuf) {
         json!({"specifier": greet_blob().to_str().unwrap()}),
     );
     assert_eq!(resp["result"]["isError"], false, "install failed: {resp}");
-    assert!(root.join(".specforge/extensions").join(GREET).exists());
+    assert!(
+        root.path()
+            .join(".specforge/extensions")
+            .join(GREET)
+            .exists()
+    );
     (server, root)
 }
 
@@ -175,11 +169,11 @@ fn stats_and_validate_count_the_served_projects_surface_conflicts() {
 fn remove_extension_with_an_unreadable_config_changes_nothing() {
     let (mut server, root) = server_with_greet_installed();
     std::fs::write(
-        root.join("specforge.json"),
+        root.path().join("specforge.json"),
         r#"{ "extensions": ["@sdk/greet",  }"#,
     )
     .unwrap();
-    let before = files_under(&root);
+    let before = files_under(root.path());
 
     let resp = call_tool(
         &mut server,
@@ -196,7 +190,7 @@ fn remove_extension_with_an_unreadable_config_changes_nothing() {
             .contains("is not valid JSON"),
         "{error}"
     );
-    assert_eq!(files_under(&root), before);
+    assert_eq!(files_under(root.path()), before);
 }
 
 #[specforge_test(
