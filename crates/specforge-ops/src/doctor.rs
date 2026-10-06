@@ -521,7 +521,10 @@ fn z3_on_path() -> bool {
 fn remediation(diag: &Diagnostic, fallback: impl FnOnce() -> String) -> String {
     diag.suggestion
         .clone()
-        .or_else(|| specforge_diagnostics::lookup(&diag.code).map(|e| e.explanation.to_string()))
+        .or_else(|| {
+            specforge_diagnostics::describes(&diag.code, diag.origin())
+                .map(|e| e.explanation.to_string())
+        })
         .unwrap_or_else(fallback)
 }
 
@@ -539,6 +542,7 @@ mod tests {
             span: None,
             suggestion: suggestion.map(String::from),
             data: None,
+            origin: None,
         }
     }
 

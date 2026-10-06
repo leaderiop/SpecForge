@@ -53,18 +53,18 @@ fn every_declared_rule_is_in_the_build_with_its_extension() {
         c.meta
             .peer_dependencies
             .push(crate::support::peer("@specforge/software", ">=1.0.0"));
-        c.rule("W100", |r| {
+        c.rule("W900", |r| {
             r.severity(ValidationSeverity::Warning)
                 .message_template("orphan {kind} '{id}'")
                 .check(CheckKind::NoIncomingEdges)
                 .target_kind("behavior");
         });
     });
-    let b = rules("@ext/b", &[("W200", "b rule", CheckKind::NoOutgoingEdges)]);
+    let b = rules("@ext/b", &[("W901", "b rule", CheckKind::NoOutgoingEdges)]);
     let build = build([software(), a, b]);
 
     assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
-    assert_eq!(rule_codes(&build), [("W100", "@ext/a"), ("W200", "@ext/b")]);
+    assert_eq!(rule_codes(&build), [("W900", "@ext/a"), ("W901", "@ext/b")]);
     let w100 = nth(&build, 0);
     assert_eq!(w100.check_kind(), CheckKind::NoIncomingEdges);
     assert_eq!(w100.check_kind().as_str(), "no_incoming_edges");
@@ -82,30 +82,30 @@ fn the_extensions_rules_are_ordered_by_code() {
     let a = rules(
         "@ext/a",
         &[
-            ("W300", "a300", CheckKind::NoIncomingEdges),
-            ("W100", "a100", CheckKind::NoIncomingEdges),
+            ("W902", "a300", CheckKind::NoIncomingEdges),
+            ("W900", "a100", CheckKind::NoIncomingEdges),
         ],
     );
     let b = rules(
         "@ext/b",
         &[
-            ("W200", "b200", CheckKind::NoOutgoingEdges),
-            ("W100", "b100", CheckKind::NoOutgoingEdges),
+            ("W901", "b200", CheckKind::NoOutgoingEdges),
+            ("W900", "b100", CheckKind::NoOutgoingEdges),
         ],
     );
     let build = build([a.clone(), b.clone()]);
     assert_eq!(
         rule_codes(&build),
         [
-            ("W100", "@ext/a"),
-            ("W100", "@ext/b"),
-            ("W200", "@ext/b"),
-            ("W300", "@ext/a"),
+            ("W900", "@ext/a"),
+            ("W900", "@ext/b"),
+            ("W901", "@ext/b"),
+            ("W902", "@ext/a"),
         ]
     );
     assert_eq!(
         templates(&build),
-        ["W100: a100", "W100: b100", "W200: b200", "W300: a300"]
+        ["W900: a100", "W900: b100", "W901: b200", "W902: a300"]
     );
 
     // Rules sharing a code keep load order.
@@ -113,10 +113,10 @@ fn the_extensions_rules_are_ordered_by_code() {
     assert_eq!(
         rule_codes(&swapped),
         [
-            ("W100", "@ext/b"),
-            ("W100", "@ext/a"),
-            ("W200", "@ext/b"),
-            ("W300", "@ext/a"),
+            ("W900", "@ext/b"),
+            ("W900", "@ext/a"),
+            ("W901", "@ext/b"),
+            ("W902", "@ext/a"),
         ]
     );
 
@@ -242,13 +242,13 @@ fn required_fields_get_e006_rules() {
 )]
 fn rule_collection_holds() {
     // declarations_in_load_order: each extension's rules out of code order;
-    // both declare W100; `b` has a required field and a rule for a kind no
+    // both declare W900; `b` has a required field and a rule for a kind no
     // extension declares.
     let a = rules(
         "@ext/a",
         &[
-            ("W300", "a300", CheckKind::NoIncomingEdges),
-            ("W100", "a100", CheckKind::NoIncomingEdges),
+            ("W902", "a300", CheckKind::NoIncomingEdges),
+            ("W900", "a100", CheckKind::NoIncomingEdges),
         ],
     );
     let b = declare("@ext/b", |c| {
@@ -262,14 +262,14 @@ fn rule_collection_holds() {
                 f.field_type(FieldType::String).required();
             });
         });
-        for (code, message) in [("W200", "b200"), ("W100", "b100")] {
+        for (code, message) in [("W901", "b200"), ("W900", "b100")] {
             c.rule(code, |r| {
                 r.severity(ValidationSeverity::Warning)
                     .message_template(message)
                     .check(CheckKind::NoOutgoingEdges);
             });
         }
-        c.rule("W400", |r| {
+        c.rule("W903", |r| {
             r.severity(ValidationSeverity::Warning)
                 .message_template("b400")
                 .check(CheckKind::NoIncomingEdges)
@@ -282,11 +282,11 @@ fn rule_collection_holds() {
     assert_eq!(
         rule_codes(&build),
         [
-            ("W100", "@ext/a"),
-            ("W100", "@ext/b"),
-            ("W200", "@ext/b"),
-            ("W300", "@ext/a"),
-            ("W400", "@ext/b"),
+            ("W900", "@ext/a"),
+            ("W900", "@ext/b"),
+            ("W901", "@ext/b"),
+            ("W902", "@ext/a"),
+            ("W903", "@ext/b"),
             ("E006", ""),
         ]
     );
@@ -295,7 +295,7 @@ fn rule_collection_holds() {
     let w023 = coded(&build, "W023");
     assert_eq!(w023.len(), 1, "{:?}", diagnostics(&build));
     assert_eq!(w023[0].severity, Severity::Warning);
-    for part in ["'W100'", "'@ext/a'", "'@ext/b'"] {
+    for part in ["'W900'", "'@ext/a'", "'@ext/b'"] {
         assert!(w023[0].message.contains(part), "{}", w023[0].message);
     }
     assert!(build.registry_diagnostics.contains(w023[0]));
@@ -312,8 +312,8 @@ fn rule_collection_holds() {
     let repeated = crate::support::build([rules(
         "@ext/solo",
         &[
-            ("W100", "first", CheckKind::NoIncomingEdges),
-            ("W100", "again", CheckKind::NoIncomingEdges),
+            ("W900", "first", CheckKind::NoIncomingEdges),
+            ("W900", "again", CheckKind::NoIncomingEdges),
         ],
     )]);
     assert!(coded(&repeated, "W023").is_empty());

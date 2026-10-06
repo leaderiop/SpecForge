@@ -39,7 +39,7 @@ fn extension() -> ContributionsBuilder {
         r.message_template("thing '{id}' is missing a description");
     });
     // The greet fixture's rule.
-    c.rule("G101", |r| {
+    c.rule("E901", |r| {
         r.check(CheckKind::FieldValueConstraint);
         r.target_kind("thing");
         r.field("style");
@@ -105,7 +105,7 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
         );
     }
 
-    for code in ["W900", "G101"] {
+    for code in ["W900", "E901"] {
         assert!(
             build.rules.iter().any(|rule| rule.code() == code),
             "rule {code} not registered"
@@ -129,11 +129,11 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
     let w900 = fired("W900", &bare);
     assert_eq!(w900.len(), 1, "{w900:?}");
     assert_eq!(w900[0].message, "thing 'bare' is missing a description");
-    let g101 = fired("G101", &bare);
+    let g101 = fired("E901", &bare);
     assert_eq!(g101.len(), 1, "{g101:?}");
-    assert_eq!(g101[0].code, "G101");
+    assert_eq!(g101[0].code, "E901");
     assert!(fired("W900", &fine).is_empty());
-    assert!(fired("G101", &fine).is_empty());
+    assert!(fired("E901", &fine).is_empty());
 }
 
 /// Rules written by SDK releases before the vocabulary was shared still
@@ -158,7 +158,7 @@ fn older_sdk_check_names_still_load() {
         .collect();
     assert!(unread.is_empty(), "host could not read: {unread:?}");
     assert!(build.rules.iter().any(|rule| rule.code() == "W900"));
-    assert!(build.rules.iter().any(|rule| rule.code() == "G101"));
+    assert!(build.rules.iter().any(|rule| rule.code() == "E901"));
 }
 
 /// Every constraint kind the SDK can name loads on the check that reads it:

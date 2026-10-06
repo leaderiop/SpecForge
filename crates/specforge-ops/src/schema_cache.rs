@@ -140,6 +140,7 @@ fn detect_breaking(
                         "Run a full compilation to regenerate the schema cache.".to_string(),
                     ),
                     data: None,
+                    origin: None,
                 });
             }
             None
@@ -160,6 +161,7 @@ fn detect_breaking(
                     .to_string(),
             ),
             data: None,
+            origin: None,
         });
     }
     (migration, diagnostics)

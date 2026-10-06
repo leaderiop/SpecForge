@@ -1845,9 +1845,9 @@ fn stats_diagnostic_summary_severity_counts() {
             "feature broken \"Broken\" {\n    behaviors [ghost]\n}\n",
         )
         .serve(&[TestExtension::software()
-            .reporting(PassDiagnostic::new("W001", PassSeverity::Warning, "m").with_entity("alpha"))
+            .reporting(PassDiagnostic::new("W901", PassSeverity::Warning, "m").with_entity("alpha"))
             .reporting(
-                PassDiagnostic::new("W003", PassSeverity::Warning, "m").with_entity("gamma_orphan"),
+                PassDiagnostic::new("W902", PassSeverity::Warning, "m").with_entity("gamma_orphan"),
             )]);
     let resp = call_tool(&mut server, "specforge.stats", json!({}));
     let text = tool_text(&resp);

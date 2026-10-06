@@ -43,6 +43,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
                 span: None,
                 suggestion: Some("Ensure the configuration is valid JSON.".to_string()),
                 data: None,
+                origin: None,
             });
             return (Vec::new(), diagnostics);
         }
@@ -58,6 +59,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
                 span: None,
                 suggestion: Some("Add a \"registries\" array to your configuration.".to_string()),
                 data: None,
+                origin: None,
             });
             return (Vec::new(), diagnostics);
         }
@@ -73,6 +75,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
                 span: None,
                 suggestion: None,
                 data: None,
+                origin: None,
             });
             return (Vec::new(), diagnostics);
         }
@@ -95,6 +98,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
                         span: None,
                         suggestion: Some("Use unique aliases for each registry.".to_string()),
                         data: None,
+                        origin: None,
                     });
                 }
                 registries.push(reg);
@@ -107,6 +111,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
                     span: None,
                     suggestion: None,
                     data: None,
+                    origin: None,
                 });
             }
         }
@@ -123,6 +128,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
                 "Set \"default_registry\": true on one of your registries.".to_string(),
             ),
             data: None,
+            origin: None,
         });
     }
 

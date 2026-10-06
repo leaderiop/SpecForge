@@ -27,7 +27,7 @@ fn hello(c: &mut ContributionsBuilder) {
 
 /// `@pin/software`: W017 (`thing`), a lifecycle W021 (`note`), a proof-role
 /// W021 and a W019 (`rule`), two declaration W021s (`behavior`'s `owner`
-/// and `watched`), an E006 rule (`contract`), a W112 (`W101`) and a W145
+/// and `watched`), an E006 rule (`contract`), a W112 (`W901`) and a W145
 /// (passes `a`, `b`).
 fn pin_software() -> ExtensionDeclaration {
     let mut software = declare("@pin/software", |c| {
@@ -64,13 +64,13 @@ fn pin_software() -> ExtensionDeclaration {
         c.edge("links_to", |e| {
             e.description("Links one entity to another");
         });
-        c.rule("W100", |r| {
+        c.rule("W900", |r| {
             r.severity(ValidationSeverity::Warning)
                 .message_template("'{id}' has no incoming edge")
                 .check(CheckKind::NoIncomingEdges)
                 .target_kind("behavior");
         });
-        c.rule("W101", |r| {
+        c.rule("W901", |r| {
             r.severity(ValidationSeverity::Warning)
                 .message_template("'{id}' is bogus")
                 .check(CheckKind::NoIncomingEdges);
@@ -91,7 +91,7 @@ fn pin_software() -> ExtensionDeclaration {
 }
 
 /// `@pin/product`: two E027s and a W062 (its peers), E026 (`behavior`),
-/// W018 (`links_to`), W023 (`W100`), I004 (an enhancement of an unknown
+/// W018 (`links_to`), W023 (`W900`), I004 (an enhancement of an unknown
 /// kind it owns), E039 (`hello`) and E055 (a tool whose input schema is
 /// not an object). Its enhancement of `module`, owned by an extension that
 /// is not loaded, is skipped silently.
@@ -108,7 +108,7 @@ fn pin_product() -> ExtensionDeclaration {
     c.edge("links_to", |e| {
         e.description("Links again");
     });
-    c.rule("W100", |r| {
+    c.rule("W900", |r| {
         r.severity(ValidationSeverity::Warning)
             .message_template("'{id}' again")
             .check(CheckKind::NoIncomingEdges);

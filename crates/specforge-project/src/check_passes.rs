@@ -61,7 +61,12 @@ pub(crate) fn run(
             )),
         };
         match answer {
-            Ok(output) => diagnostics.extend(pass_findings(output, entities)),
+            Ok(output) => diagnostics.extend(pass_findings(
+                &declared.extension,
+                &pass.name,
+                output,
+                entities,
+            )),
             Err(error) => diagnostics.push(error.diagnostic()),
         }
     }

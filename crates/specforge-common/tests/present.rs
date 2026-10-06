@@ -22,6 +22,7 @@ fn diag_with_span(
         }),
         suggestion: None,
         data: None,
+        origin: None,
     }
 }
 
@@ -39,6 +40,7 @@ fn diag_with_suggestion(code: &str, severity: Severity, msg: &str, suggestion: &
         }),
         suggestion: Some(suggestion.to_string()),
         data: None,
+        origin: None,
     }
 }
 
@@ -230,6 +232,7 @@ fn exit_code_zero_no_errors() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
         Diagnostic {
             code: "I003".to_string(),
@@ -238,6 +241,7 @@ fn exit_code_zero_no_errors() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
     ];
     assert_eq!(specforge_common::compute_exit_code(&diags), 0);
@@ -257,6 +261,7 @@ fn exit_code_one_with_errors() {
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     }];
     assert_eq!(specforge_common::compute_exit_code(&diags), 1);
 }
@@ -276,6 +281,7 @@ fn exit_code_contract() {
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     }];
     let with_errors = vec![
         Diagnostic {
@@ -285,6 +291,7 @@ fn exit_code_contract() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
         Diagnostic {
             code: "W001".into(),
@@ -293,6 +300,7 @@ fn exit_code_contract() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
     ];
     assert_eq!(specforge_common::compute_exit_code(&no_errors), 0);
@@ -400,6 +408,7 @@ fn span_is_nested_beside_the_flat_location() {
         }),
         suggestion: None,
         data: None,
+        origin: None,
     };
     let unlocated = Diagnostic::warning("W113", "circular import detected: a.spec -> b.spec");
     let json = specforge_common::serialize_diagnostics(&[located, unlocated]);
@@ -489,6 +498,7 @@ fn spanless_diagnostic_uses_code_as_fallback() {
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     };
     let formatted = specforge_common::format_diagnostic(&diag);
     // Should include the diagnostic code in the location fallback
@@ -517,6 +527,7 @@ fn spanless_error_diagnostic_uses_code() {
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     };
     let formatted = specforge_common::format_diagnostic(&diag);
     assert!(
@@ -682,4 +693,34 @@ fn subject_data_is_tagged_and_names_its_entity() {
         did_you_mean: None,
     };
     assert!(import.entities().is_empty());
+}
+
+/// A diagnostic an extension reported names it, and the catalogue describes
+/// the diagnostic only for the code's owner: a squatted core code is not
+/// titled as core's, an owner's own code is, and the host's carries no
+/// `origin` key.
+#[specforge_test(
+    behavior = "call_extension_exports",
+    verify = "a diagnostic an extension reported names its extension, and a code it may not use is not described as its owner's"
+)]
+fn a_squatted_code_is_not_described_as_core() {
+    let squatted = Diagnostic::from_extension("@acme/squat", "E001", Severity::Info, "found");
+    let own = Diagnostic::from_extension("@specforge/testing", "W004", Severity::Warning, "w");
+    let host = Diagnostic::new(specforge_common::codes::E003, "unresolved");
+    assert_eq!(squatted.origin(), Some("@acme/squat"));
+    assert_eq!(host.origin(), None);
+
+    let json =
+        serde_json::to_value(specforge_common::diagnostics_json(&[squatted, own, host])).unwrap();
+    assert_eq!(json[0]["code"], "E001");
+    assert_eq!(json[0]["title"], serde_json::Value::Null);
+    assert_eq!(json[0]["origin"], "@acme/squat");
+    assert_eq!(json[1]["title"], "Untested testable entity");
+    assert_eq!(json[1]["origin"], "@specforge/testing");
+    assert_eq!(json[2]["title"], "Unresolved reference");
+    assert!(
+        json[2].as_object().unwrap().get("origin").is_none(),
+        "a host diagnostic has no origin key: {}",
+        json[2]
+    );
 }

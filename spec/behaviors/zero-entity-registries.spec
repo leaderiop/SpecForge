@@ -500,6 +500,7 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     duplicates_warned      "A rule code two extensions declare is W023, and both rules are kept"
     required_enforced      "Every field registered as required has a host-generated E006 rule"
     unloaded_targets_inert "A rule whose target kind or edge type no loaded extension declares reports nothing"
+    rule_codes_checked     "A rule whose code its extension may not use is reported (W150) and still registered"
   }
   contract   """
     The registry build MUST collect every extension's validation rules
@@ -521,6 +522,14 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     extensions' rules,
     the rule set MUST contain a host-generated E006 rule, owned by no
     extension, for every field registered as required.
+
+    Each rule's code is checked against the diagnostic catalog when it
+    is registered: an extension's rule uses its own catalogued code at
+    the catalogued level, or a code in E900-E998, W900-W998 or I900-I998
+    whose prefix states the rule's severity. Any other is reported as
+    W150 naming the extension, the code and why, once per code and
+    severity; the rule is still registered and runs with the code it
+    declares.
   """
   verify unit "every declared rule is in the build's rules with the extension that declared it"
   verify unit "the extensions' rules are ordered by code"
@@ -530,7 +539,8 @@ behavior registry_build_rules "Registry Build Collects Rules" {
   verify unit "a rule targeting a kind no loaded extension declares reports nothing"
   verify unit "extensions produce E006 rules for required fields"
   verify unit "E006 covers all required fields from builtin extensions"
-  verify contract "Registry Build Collects Rules: rule collection holds — declarations_in_load_order, rules_collected, duplicates_warned, required_enforced, unloaded_targets_inert"
+  verify unit "a rule whose code the extension may not use is reported (W150) and still registered"
+  verify contract "Registry Build Collects Rules: rule collection holds — declarations_in_load_order, rules_collected, duplicates_warned, required_enforced, unloaded_targets_inert, rule_codes_checked"
 }
 
 behavior registry_build_declaration_consistency "Registry Build Checks Declaration Consistency" {

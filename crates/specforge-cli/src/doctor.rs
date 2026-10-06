@@ -229,6 +229,7 @@ mod tests {
             span: None,
             suggestion: suggestion.map(String::from),
             data: None,
+            origin: None,
         }
     }
 

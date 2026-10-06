@@ -224,10 +224,10 @@ fn brief_resource_returns_brief_graph() {
     verify = "specforge://diagnostics resource returns current DiagnosticBag as JSON"
 )]
 fn diagnostics_resource_returns_array() {
-    // E003: a real unresolved reference; W001: a check-phase pass's
+    // E003: a real unresolved reference; W901: a check-phase pass's
     // finding, reported after the graph checks.
     let mut server = project().file("broken.spec", BROKEN).serve(&[
-        extension().reporting(at_alpha(PassDiagnostic::warning("W001", "orphan entity")))
+        extension().reporting(at_alpha(PassDiagnostic::warning("W901", "orphan entity")))
     ]);
     let resp = read_resource(&mut server, "specforge://diagnostics");
     let text = resource_text(&resp);
@@ -236,7 +236,7 @@ fn diagnostics_resource_returns_array() {
     assert_eq!(diags.len(), 2, "{parsed}");
     assert_eq!(diags[0]["code"], "E003");
     assert_eq!(diags[0]["message"], UNRESOLVED_GHOST);
-    assert_eq!(diags[1]["code"], "W001");
+    assert_eq!(diags[1]["code"], "W901");
     assert_eq!(diags[1]["message"], "orphan entity");
 }
 
@@ -749,18 +749,25 @@ fn context_entity_template_registered() {
     verify = "each catalogued diagnostic in the resource carries its title"
 )]
 fn diagnostics_resource_gives_catalogued_codes_their_title() {
-    // W008 is catalogued; W901 is a third-party extension's. Both are a
-    // check-phase pass's findings, in canonical (code) order.
-    let mut server = project().serve(&[extension()
-        .reporting(PassDiagnostic::new("W901", PassSeverity::Warning, "m"))
-        .reporting(PassDiagnostic::new("W008", PassSeverity::Warning, "m"))]);
+    // E003 is catalogued and the host's own; W901 is a third-party
+    // extension's check-phase pass finding, which names its extension and
+    // has no catalogue entry.
+    let mut server = project()
+        .file("broken.spec", BROKEN)
+        .serve(&[extension().reporting(at_alpha(PassDiagnostic::new(
+            "W901",
+            PassSeverity::Warning,
+            "m",
+        )))]);
     let bag: Value = serde_json::from_str(&resource_text(&read_resource(
         &mut server,
         "specforge://diagnostics",
     )))
     .unwrap();
-    assert_eq!(bag[0]["code"], "W008");
-    assert_eq!(bag[0]["title"], "Unimplemented feature");
+    assert_eq!(bag[0]["code"], "E003");
+    assert_eq!(bag[0]["title"], "Unresolved reference");
+    assert!(bag[0].get("origin").is_none(), "{bag}");
     assert_eq!(bag[1]["code"], "W901");
     assert_eq!(bag[1]["title"], Value::Null, "{bag}");
+    assert_eq!(bag[1]["origin"], "@test/ext", "{bag}");
 }

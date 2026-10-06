@@ -68,9 +68,10 @@ pub fn registries(obligated: &[&str], free: &[&str]) -> RegistryBuild {
     for name in obligated.iter().chain(free) {
         build.kinds.register(kind(name, true));
     }
-    // The rule set `@t/soft`'s W004 rules make, through the rules' build.
+    // The rule set the testing extension's W004 rules make (it owns W004),
+    // through the rules' build.
     let mut soft = ExtensionDeclaration::default();
-    soft.handshake.name = "@t/soft".into();
+    soft.handshake.name = "@specforge/testing".into();
     soft.validation_rules = obligated
         .iter()
         .map(|name| obligations_rule(name))

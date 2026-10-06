@@ -24,7 +24,7 @@ const EXT: &str = "@test/passes";
 ///   span-less, entity-less message, and W953 naming `ghost_gadget`, an
 ///   entity the graph does not hold;
 /// - `boom` (check) panics, a trap;
-/// - `report` (no phase) reports A999 for every gadget.
+/// - `report` (no phase) reports I950 for every gadget.
 ///
 /// The runtime records every call with its input, oldest first.
 pub(crate) fn passes_extension() -> InProcessRuntime {
@@ -95,7 +95,7 @@ fn report(input: &PassInput) -> Vec<PassDiagnostic> {
         .filter(|e| e.kind == "gadget")
         .map(|e| {
             PassDiagnostic::new(
-                "A999",
+                "I950",
                 PassSeverity::Info,
                 format!("gadget '{}' reported", e.id),
             )
@@ -263,7 +263,7 @@ fn a_pass_without_the_check_phase_runs_only_under_analyze() {
         "{:?}",
         called(&ext)
     );
-    assert!(with_code(&compiled.diagnostics(), "A999").is_empty());
+    assert!(with_code(&compiled.diagnostics(), "I950").is_empty());
 
     ext.clear_calls();
     let registries = &compiled.env.registries;
@@ -540,29 +540,37 @@ fn the_pass_input_carries_each_entitys_exemption() {
     );
 }
 
-// pin: flipped by plan 11 T7 (the finding is kept, and one W150 is added
-// because a third-party pass may not report a core code).
-#[test]
-fn a_pass_finding_with_a_core_code_passes_through() {
+/// A pass finding whose code the extension may not use is kept as given,
+/// and one W150 is added per distinct (code, severity).
+#[specforge_test(
+    behavior = "call_extension_exports",
+    verify = "a pass diagnostic whose code the extension may not use is reported (W150) and kept"
+)]
+fn a_pass_finding_with_a_code_it_may_not_use_is_reported() {
     let output = PassOutput {
-        diagnostics: vec![PassDiagnostic::new("E001", PassSeverity::Info, "x")],
+        diagnostics: vec![
+            PassDiagnostic::new("E001", PassSeverity::Info, "x"),
+            PassDiagnostic::new("E001", PassSeverity::Info, "y"),
+            // Its own range, at the level its prefix states: not reported.
+            PassDiagnostic::new("W950", PassSeverity::Warning, "fine"),
+        ],
         summary: Default::default(),
     };
 
     let findings = specforge_project::passes::pass_findings(
+        "@acme/squat",
+        "audit",
         output,
         &specforge_project::snapshot::EntitySnapshot::default(),
     );
 
-    assert_eq!(
-        findings,
-        [Diagnostic {
-            code: "E001".to_string(),
-            severity: Severity::Info,
-            message: "x".to_string(),
-            span: None,
-            suggestion: None,
-            data: None,
-        }]
-    );
+    let codes: Vec<_> = findings.iter().map(|d| d.code.as_str()).collect();
+    assert_eq!(codes, ["E001", "E001", "W950", "W150"]);
+    assert!(findings[..3].iter().all(|d| d.severity != Severity::Error));
+    let w150 = &findings[3];
+    assert_eq!(w150.severity, Severity::Warning);
+    assert!(w150.message.contains("'@acme/squat'"), "{}", w150.message);
+    assert!(w150.message.contains("pass 'audit'"), "{}", w150.message);
+    assert!(w150.message.contains("'E001'"), "{}", w150.message);
+    assert!(w150.message.contains("core owns"), "{}", w150.message);
 }

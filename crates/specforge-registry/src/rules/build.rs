@@ -3,9 +3,10 @@
 //! registries, then the host's E006 rules and W023 for a code two
 //! extensions declare.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use specforge_common::{Diagnostic, Severity};
+use specforge_diagnostics::{Level, check_extension_code};
 use specforge_protocol_types::{
     CheckKind, ConstraintKind, ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
 };
@@ -24,9 +25,11 @@ pub(super) fn build(
     let mut rules = Vec::new();
     for declaration in declarations {
         let extension = declaration.name();
+        // The (code, severity) pairs already reported as W150: a code an
+        // extension declares for several target kinds is reported once.
+        let mut misused = HashSet::new();
         for descriptor in &declaration.validation_rules {
-            // Plan 11-T7: the check that an extension may report this code
-            // (`check_extension_code`, W150) runs here, per declared rule.
+            diagnostics.extend(code_misuse(extension, descriptor, &mut misused));
             let built = shape(descriptor, extension).and_then(|mut rule| {
                 let unread = ignore_unread(descriptor, &mut rule);
                 Ok((resolve(rule, registries)?, unread))
@@ -46,6 +49,38 @@ pub(super) fn build(
     diagnostics.extend(duplicate_codes(declarations));
     rules.extend(required_field_rules(registries));
     (Rules { rules }, diagnostics)
+}
+
+/// W150 when `extension` may not report `descriptor`'s code at its
+/// severity (`check_extension_code`), once per (code, severity) of an
+/// extension. The rule is registered as declared.
+fn code_misuse(
+    extension: &str,
+    descriptor: &ValidationRuleDescriptor,
+    reported: &mut HashSet<(String, Level)>,
+) -> Option<Diagnostic> {
+    let level = match descriptor.severity {
+        ValidationSeverity::Error => Level::Error,
+        ValidationSeverity::Warning => Level::Warning,
+        ValidationSeverity::Info => Level::Info,
+    };
+    let misuse = check_extension_code(extension, &descriptor.code, level).err()?;
+    if !reported.insert((descriptor.code.clone(), level)) {
+        return None;
+    }
+    Some(
+        Diagnostic::warning(
+            "W150",
+            format!(
+                "extension '{extension}': rule '{}' uses {misuse}",
+                descriptor.code
+            ),
+        )
+        .with_suggestion(
+            "renumber the rule in the extension's range, or, for a first-party extension, \
+             catalogue the code",
+        ),
+    )
 }
 
 /// W112 for `extension`'s rule `code`: it cannot work as declared (`why`),

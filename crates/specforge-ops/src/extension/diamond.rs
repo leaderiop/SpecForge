@@ -79,6 +79,7 @@ fn unify_diamond(
             span: None,
             suggestion: Some("use semver syntax: ^1.0, ~2.3, >=1.0.0 <2.0.0".to_string()),
             data: None,
+            origin: None,
         })?;
         reqs.push((requirer.as_str(), range.as_str(), req));
     }
@@ -114,6 +115,7 @@ fn unify_diamond(
                 "no version unifies these ranges; upgrade the requirer with the narrowest range or pin a compatible peer version manually".to_string(),
             ),
             data: None,
+            origin: None,
         }
     })
 }

@@ -440,12 +440,14 @@ fn encode<T: Serialize>(
         .map_err(|failure| CallError::new(operation, extension, export, failure))
 }
 
-/// The host diagnostics of a pass's answer, in canonical order (code, then
-/// file and line, then message), whatever order the guest built them in. A
-/// diagnostic without a span that names an entity gets that entity's
-/// (`span_of`); one that names an entity carries it as
-/// `DiagnosticData::Subject`.
+/// The host diagnostics of `extension`'s pass answer, in canonical order
+/// (code, then file and line, then message), whatever order the guest built
+/// them in. Each names `extension` as its origin
+/// ([`Diagnostic::from_extension`]); one without a span that names an entity
+/// gets that entity's (`span_of`), and one that names an entity carries it
+/// as `DiagnosticData::Subject`.
 pub fn pass_diagnostics(
+    extension: &str,
     output: PassOutput,
     span_of: impl Fn(&str) -> Option<SourceSpan>,
 ) -> Vec<Diagnostic> {
@@ -464,21 +466,19 @@ pub fn pass_diagnostics(
             let span = span
                 .map(source_span)
                 .or_else(|| entity.as_deref().and_then(&span_of));
-            Diagnostic {
-                code,
-                severity: match severity {
-                    PassSeverity::Error => Severity::Error,
-                    PassSeverity::Warning => Severity::Warning,
-                    PassSeverity::Info => Severity::Info,
-                },
-                message,
-                span,
-                suggestion,
-                // The entity the guest names is the diagnostic's subject,
-                // even one the graph lacks: navigation reads data, never the
-                // message (ADR 0016). A guest's own `data` is not carried.
-                data: entity.map(|entity| Box::new(DiagnosticData::Subject { entity })),
-            }
+            let severity = match severity {
+                PassSeverity::Error => Severity::Error,
+                PassSeverity::Warning => Severity::Warning,
+                PassSeverity::Info => Severity::Info,
+            };
+            let mut reported = Diagnostic::from_extension(extension, code, severity, message);
+            reported.span = span;
+            reported.suggestion = suggestion;
+            // The entity the guest names is the diagnostic's subject,
+            // even one the graph lacks: navigation reads data, never the
+            // message (ADR 0016). A guest's own `data` is not carried.
+            reported.data = entity.map(|entity| Box::new(DiagnosticData::Subject { entity }));
+            reported
         })
         .collect();
     diagnostics.sort_by(|a, b| {

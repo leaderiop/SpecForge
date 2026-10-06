@@ -679,4 +679,7 @@ catalog! {
     W148: Warning core,
         "Custom rule could not check entities",
         "A `check: \"custom\"` rule's `wasm_function` failed (trapped, or answered something that is not a verdict) on some entities during this check, so they were not checked. Reported once per rule, with how many failed and the first one's error. The load-time probe (W112) calls the function on an empty entity only; fix the function so that it answers every entity of the rule's target kind. The diagnostic's data lists every entity that was not checked, with its error.";
+    W150: Warning core,
+        "Extension reports a code it may not use",
+        "An extension declared a validation rule, or a pass reported a diagnostic, with a code it may not use: a code the catalog gives to core or to another extension, its own code at a level the catalog does not give it, a retired code, a first-party extension's uncatalogued code, or a third-party code outside `E900`-`E998`, `W900`-`W998` and `I900`-`I998` or whose prefix contradicts its level. The rule still runs and the finding is still reported, with the code as given, so its title and docs link may describe another diagnostic. Renumber it in the extension's range (a third-party extension) or catalogue it (a first-party one).";
 }

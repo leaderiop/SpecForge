@@ -47,10 +47,14 @@ invariant diagnostic_code_uniqueness "Diagnostic Code Uniqueness" {
     diagnostic catalog. Several rules of the owning extension MAY share
     a code (one per target kind). A diagnostic the host builds from a
     core code's constant has the code's level; only a diagnostic policy
-    changes a severity afterwards.
+    changes a severity afterwards. A code an extension reports MUST be
+    its own catalogued code at its catalogued level, or a code in
+    E900-E998, W900-W998 or I900-I998 whose prefix states its level;
+    any other is reported (W150).
   """
   risk      high
   verify property "Diagnostic Code Uniqueness guarantee holds"
   verify unit "a core code's constant carries its catalogued level and owner"
   verify unit "a host diagnostic's severity is its code's catalogued level"
+  verify unit "an extension reports only its own catalogued codes, or third-party codes whose prefix states their level"
 }

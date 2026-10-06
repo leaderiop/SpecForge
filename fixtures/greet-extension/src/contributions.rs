@@ -24,7 +24,7 @@ impl Contributions for Greet {
                 f.required();
             });
         });
-        c.rule("G101", |r| {
+        c.rule("E901", |r| {
             r.check(CheckKind::FieldValueConstraint);
             r.target_kind("greeting");
             r.field("style");

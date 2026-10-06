@@ -64,7 +64,7 @@ fn sdk_greet_extension_passes_protocol() {
         other => panic!("describe rules failed: {other:?}"),
     };
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-    assert_eq!(v["items"][0]["code"], "G101");
+    assert_eq!(v["items"][0]["code"], "E901");
     assert_eq!(v["items"][0]["severity"], "error");
     assert_eq!(v["items"][0]["check"], "field_value_constraint");
 

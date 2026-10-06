@@ -26,6 +26,7 @@ pub fn resolve_version(
             span: None,
             suggestion: Some("check the package name and registry configuration".to_string()),
             data: None,
+            origin: None,
         },
         other => other.to_diagnostic(),
     })?;
@@ -38,6 +39,7 @@ pub fn resolve_version(
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         });
     }
 
@@ -52,6 +54,7 @@ pub fn resolve_version(
         span: None,
         suggestion: Some("use semver syntax: ^1.0, ~2.3, >=1.0.0 <2.0.0".to_string()),
         data: None,
+        origin: None,
     })?;
 
     let mut matching: Vec<Version> = versions
@@ -79,6 +82,7 @@ pub fn resolve_version(
                 "try a different version range or check available versions".to_string(),
             ),
             data: None,
+            origin: None,
         })
 }
 
@@ -100,6 +104,7 @@ fn pick_highest(versions: &[String], name: &str) -> Result<String, Diagnostic> {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         })
 }
 

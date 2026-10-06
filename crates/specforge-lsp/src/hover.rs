@@ -38,19 +38,29 @@ pub fn diagnostics_at<'d>(
 pub fn diagnostics(shown: &[&Diagnostic]) -> Option<String> {
     let sections: Vec<String> = shown
         .iter()
-        .map(|diag| match specforge_diagnostics::lookup(&diag.code) {
-            Some(entry) => {
-                let mut section = format!(
-                    "**{}** · {}\n\n{}\n\n{}",
-                    entry.code, entry.title, diag.message, entry.explanation
-                );
-                if let Some(href) = specforge_diagnostics::docs_href(entry.code) {
-                    section.push_str(&format!("\n\n[Documentation]({href})"));
+        .map(
+            |diag| match specforge_diagnostics::describes(&diag.code, diag.origin()) {
+                Some(entry) => {
+                    let mut section = format!(
+                        "**{}** · {}\n\n{}\n\n{}",
+                        entry.code, entry.title, diag.message, entry.explanation
+                    );
+                    if let Some(href) = specforge_diagnostics::docs_href(entry.code) {
+                        section.push_str(&format!("\n\n[Documentation]({href})"));
+                    }
+                    section
                 }
-                section
-            }
-            None => format!("**{}**\n\n{}", diag.code, diag.message),
-        })
+                // An extension's own uncatalogued code, or one it may not use
+                // (W150): no catalogue entry describes it.
+                None => match diag.origin() {
+                    Some(extension) => format!(
+                        "**{}** · reported by '{extension}'\n\n{}",
+                        diag.code, diag.message
+                    ),
+                    None => format!("**{}**\n\n{}", diag.code, diag.message),
+                },
+            },
+        )
         .collect();
     (!sections.is_empty()).then(|| sections.join("\n\n---\n\n"))
 }
@@ -168,10 +178,12 @@ pub fn entity(facts: &EntityFacts, shown: &[&Diagnostic], rebuilding: bool) -> S
         .iter()
         .filter(|diagnostic| !shown.contains(diagnostic))
         .map(|diagnostic| {
-            let code = match specforge_diagnostics::docs_href(&diagnostic.code) {
-                Some(href) => format!("[**{}**]({href})", diagnostic.code),
-                None => format!("**{}**", diagnostic.code),
-            };
+            let described = specforge_diagnostics::describes(&diagnostic.code, diagnostic.origin());
+            let code =
+                match described.and_then(|entry| specforge_diagnostics::docs_href(entry.code)) {
+                    Some(href) => format!("[**{}**]({href})", diagnostic.code),
+                    None => format!("**{}**", diagnostic.code),
+                };
             format!("- {code} {}", diagnostic.message)
         })
         .collect();

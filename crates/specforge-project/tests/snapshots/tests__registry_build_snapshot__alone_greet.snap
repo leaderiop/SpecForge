@@ -90,7 +90,7 @@ expression: "digest(&load(&runtime, &[\"@sdk/greet\"]))"
   "rules": [
     {
       "check": "field_value_constraint",
-      "code": "G101",
+      "code": "E901",
       "constraint": {
         "kind": "matches",
         "pattern": "^(warm|formal)$",

@@ -84,6 +84,7 @@ fn apply_entity_enhancements(
                 span: None,
                 suggestion: None,
                 data: None,
+                origin: None,
             });
             continue;
         }
@@ -148,6 +149,7 @@ fn register_entity_kinds(
                 data: Some(Box::new(DiagnosticData::ShadowedKeyword {
                     keyword: keyword.to_string(),
                 })),
+                origin: None,
             });
             // Restore the first registration (it wins)
             registry.register(existing);
@@ -208,6 +210,7 @@ fn register_single_field(
                 span: None,
                 suggestion: None,
                 data: None,
+                origin: None,
             });
             return;
         }
@@ -251,6 +254,7 @@ fn lifecycle_field(
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     });
     None
 }
@@ -276,6 +280,7 @@ fn proof_role(
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         });
     }
     role
@@ -310,6 +315,7 @@ fn register_edge_types(
                 span: None,
                 suggestion: None,
                 data: None,
+                origin: None,
             });
             // Restore first registration
             registry.register(existing);

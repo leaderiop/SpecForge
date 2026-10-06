@@ -175,6 +175,7 @@ fn diagnostics_delta_detects_added() {
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     }];
 
     let delta = compute_diagnostics_delta(&old, &new);
@@ -191,6 +192,7 @@ fn diagnostics_delta_detects_removed() {
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     }];
     let new: Vec<Diagnostic> = vec![];
 
@@ -213,6 +215,7 @@ fn diagnostics_notification_format() {
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     }];
 
     let delta = compute_diagnostics_delta(&old, &new);
@@ -273,6 +276,7 @@ fn diagnostics_no_notification_when_unchanged() {
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     }];
 
     let delta = compute_diagnostics_delta(&diags, &diags);

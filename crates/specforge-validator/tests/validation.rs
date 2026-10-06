@@ -362,6 +362,7 @@ fn diagnostic_renders_multiline_span() {
         }),
         suggestion: None,
         data: None,
+        origin: None,
     };
 
     let source = "line 1\nbehavior alpha \"A\" {\n  contract \"first\"\n}\nline 5\n";
@@ -411,6 +412,7 @@ fn render_one(
         }),
         suggestion: Some("link a test".to_string()),
         data: None,
+        origin: None,
     };
     let sources = std::collections::HashMap::from([("t.spec".to_string(), source.to_string())]);
     specforge_validator::render_diagnostics(&[diag], &sources)
@@ -485,6 +487,7 @@ fn diagnostics_are_separated_by_a_blank_line() {
         }),
         suggestion: None,
         data: None,
+        origin: None,
     };
     let sources = std::collections::HashMap::from([("t.spec".to_string(), "a\n".to_string())]);
     let output = specforge_validator::render_diagnostics(&[diag("A001"), diag("A002")], &sources);
@@ -513,6 +516,7 @@ fn summary_shows_correct_counts() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
         specforge_validator::Diagnostic {
             code: "W012".to_string(),
@@ -521,6 +525,7 @@ fn summary_shows_correct_counts() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
         specforge_validator::Diagnostic {
             code: "E002".to_string(),
@@ -529,6 +534,7 @@ fn summary_shows_correct_counts() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
         specforge_validator::Diagnostic {
             code: "I004".to_string(),
@@ -537,6 +543,7 @@ fn summary_shows_correct_counts() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
     ];
 
@@ -608,6 +615,7 @@ fn summary_red_when_errors_exist() {
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     }];
     let summary = diagnostic_summary(&diagnostics);
 
@@ -748,6 +756,7 @@ fn diagnostic_format_contract_consistency() {
         }),
         suggestion: None,
         data: None,
+        origin: None,
     };
 
     let source = "line 1\nfeature gamma \"G\" { behaviors [nonexistent] }\nline 3\n";
@@ -801,6 +810,7 @@ fn summary_contract_consistency() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
         Diagnostic {
             code: "E002".to_string(),
@@ -809,6 +819,7 @@ fn summary_contract_consistency() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
         Diagnostic {
             code: "E003".to_string(),
@@ -817,6 +828,7 @@ fn summary_contract_consistency() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
         Diagnostic {
             code: "W012".to_string(),
@@ -825,6 +837,7 @@ fn summary_contract_consistency() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
     ];
     let summary = diagnostic_summary(&diagnostics);

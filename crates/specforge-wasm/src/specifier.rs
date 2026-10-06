@@ -28,6 +28,7 @@ pub fn parse_extension_specifier(input: &str) -> Result<ExtensionSpecifier, Diag
             span: None,
             suggestion: Some("provide a specifier like '@scope/name@1.0.0', './local/path', or 'git+https://...'".to_string()),
             data: None,
+            origin: None,
         });
     }
 
@@ -75,6 +76,7 @@ pub fn parse_extension_specifier(input: &str) -> Result<ExtensionSpecifier, Diag
             "use format: 'name@version', './local/path', or 'git+https://...'".to_string(),
         ),
         data: None,
+        origin: None,
     })
 }
 

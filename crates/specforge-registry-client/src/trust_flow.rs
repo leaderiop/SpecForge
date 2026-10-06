@@ -44,6 +44,7 @@ pub fn check_and_pin(
         span: None,
         suggestion,
         data: None,
+        origin: None,
     };
 
     match verify_package_signature(response, wasm_bytes)? {
@@ -83,6 +84,7 @@ pub fn check_and_pin(
                         "remove the key from denied_keys only if you trust it again".to_string(),
                     ),
                     data: None,
+                    origin: None,
                 });
             }
 
@@ -122,6 +124,7 @@ pub fn check_and_pin(
                                 key_id
                             )),
                             data: None,
+                            origin: None,
                         });
                     }
                     known.pin(name, &key_id);
@@ -150,6 +153,7 @@ fn save(known: &KnownKeys, override_path: Option<&Path>) -> Result<(), Diagnosti
         span: None,
         suggestion: Some("check permissions on the file".to_string()),
         data: None,
+        origin: None,
     })
 }
 

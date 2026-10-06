@@ -11,6 +11,7 @@ expression: "normalized(&doc, dir.path())"
       "file": "main.spec",
       "line": 4,
       "message": "type 'Money' is not referenced by any behavior, port, or type",
+      "origin": "@specforge/software",
       "severity": "Warning",
       "span": {
         "end_col": 2,
@@ -28,6 +29,7 @@ expression: "normalized(&doc, dir.path())"
       "file": "main.spec",
       "line": 4,
       "message": "type 'Money' is testable but declares no verify obligations",
+      "origin": "@specforge/testing",
       "severity": "Warning",
       "span": {
         "end_col": 2,
@@ -45,6 +47,7 @@ expression: "normalized(&doc, dir.path())"
       "file": "main.spec",
       "line": 4,
       "message": "type 'Money' field 'amount' has unknown annotation '@min'",
+      "origin": "@specforge/software",
       "severity": "Warning",
       "span": {
         "end_col": 2,

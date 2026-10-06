@@ -619,6 +619,7 @@ fn diagnostic_at(
         }),
         suggestion: None,
         data: None,
+        origin: None,
     }
 }
 
@@ -632,6 +633,38 @@ fn diagnostic_hover(
     specforge_lsp::hover::diagnostics(&specforge_lsp::hover::diagnostics_at(
         published, index, position,
     ))
+}
+
+/// An extension's finding with a code it may not use (here E001, core's)
+/// is not described as that code: the hover names the extension instead of
+/// quoting the parse-error explanation.
+#[spec(
+    behavior = "call_extension_exports",
+    verify = "a diagnostic an extension reported names its extension, and a code it may not use is not described as its owner's"
+)]
+fn hover_names_the_extension_of_a_squatted_code() {
+    let content = "behavior login \"Login\" {\n  types [ghost]\n}\n";
+    let mut squatted = diagnostic_at("E001", "an extension's finding", 2, 10, 15);
+    squatted.origin = Some("@acme/squat".to_string());
+    // The same extension's own owner would be described: W004 is testing's.
+    let mut owned = diagnostic_at("W004", "untested", 2, 10, 15);
+    owned.origin = Some("@specforge/testing".to_string());
+
+    let index = LineIndex::new(content);
+    let md = diagnostic_hover(&[squatted], &index, Position::new(1, 11)).unwrap();
+    assert_eq!(
+        md,
+        "**E001** \u{b7} reported by '@acme/squat'\n\nan extension's finding"
+    );
+    assert!(!md.contains("Parse error"), "{md}");
+    assert!(!md.contains("Documentation"), "{md}");
+
+    let md = diagnostic_hover(&[owned], &index, Position::new(1, 11)).unwrap();
+    assert!(
+        md.starts_with("**W004** \u{b7} Untested testable entity"),
+        "{md}"
+    );
+    assert!(md.contains("[Documentation]"), "{md}");
 }
 
 #[spec(

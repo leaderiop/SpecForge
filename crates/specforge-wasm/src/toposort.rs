@@ -42,6 +42,7 @@ pub fn topological_sort_extensions(
             span: None,
             suggestion: Some("remove or break the circular dependency".to_string()),
             data: None,
+            origin: None,
         }]);
     }
 
