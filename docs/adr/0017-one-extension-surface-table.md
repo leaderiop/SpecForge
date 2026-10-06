@@ -60,6 +60,8 @@ to the host (ADR 0004 D4-a).
 
 **D6. An extension resource failure is -32603 with an McpError in `data`** carrying the E028
 diagnostic (`data.diagnostic.code`). "Unknown resource URI" stays -32602 for core and extension alike.
+*(ADR 0024: an unknown URI is -32002 in a handshake session and -32602 in a 2026-07-28 request, as
+each revision's server/resources says, with `data.uri`.)*
 
 **D7. The table is the only authority on what MCP serves; each name once, first wins, I017 says why.**
 `specforge_mcp::surface_table::ExtensionSurfaceTable`, built from the declarations whenever the
@@ -103,6 +105,7 @@ branches of the tool, resource, migrate, collect and gaps handlers (each answeri
 internal error, invalid params, a skipped pass) were unreachable and are deleted. Analyze always runs
 the extensions' passes in the project's runtime. With nothing served there is no project:
 an extension call is `precondition_failed` (-32602 with that McpError for a resource); ADR 0025.
+*(ADR 0024: -32603, the code rule every refusal without `isError` follows.)*
 
 ## Consequences
 
@@ -132,7 +135,9 @@ an extension call is `precondition_failed` (-32602 with that McpError for a reso
   but `is_set` would change on the command line.
 - **A new diagnostic code for "not served"**: I017 is already MCP's "not served" report; an E-level
   code would make MCP's validate report errors `check` does not.
-- **MCP's -32002 for unknown resources**: it touches every core resource; out of scope.
+- **MCP's -32002 for unknown resources**: it touches every core resource; out of scope. *(Reopened and
+  adopted by ADR 0024: one envelope writes every resource error, and the handshake revisions had
+  -32002 all along.)*
 
 ## What would reopen it
 

@@ -108,12 +108,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_coverage::Verdict`).
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
   independent of surface. An operation that writes names the files it changed on disk in its
-  outcome (`specforge_ops::Writes`), recorded where it wrote. The CLI and MCP are adapters over it
-  (`specforge-ops`).
+  outcome (`specforge_ops::Writes`), recorded where it wrote. It fails with an `OpError` whose kind
+  (`OpErrorKind`: invalid input, not found, conflict, …) is decided where it is raised; its code is
+  what the CLI prints. The CLI and MCP are adapters over it (`specforge-ops`).
 - **Mutation outcome**: what one MCP mutation call wrote: the files its operation changed, the
   entities it changed and the domain event it produces (`specforge_mcp::mutation::Written`), or
-  nothing for a preview. The dispatcher alone turns it into the call target's refresh, the domain
-  event and `mcp_mutation_completed` (ADR 0022), and the reply's `files_written`, the one place a
+  nothing for a preview. The request pipeline's tools adapter alone turns it into the call target's
+  refresh, the domain event and `mcp_mutation_completed` (ADR 0022), and the reply's `files_written`, the one place a
   client learns which files the call wrote.
 - **Project sources**: the `.spec` files under the spec root (`spec_root`, else the project root) that
   discovery keeps — no skipped directory, no `exclude` entry. What a compile reads, and what format
@@ -165,12 +166,23 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
   only it knows its payloads (ADR 0011).
 - **Tool spec**: the single definition of an MCP tool, from which its descriptor, typed arguments,
-  output schema, annotations, its target (reach and freshness) and its handler, a tool's (a reply)
+  output schema, annotations, its target (reach and freshness, which declares the `path` and
+  `use_cached` arguments) and its handler, a tool's (a reply)
   or a mutation's (a reply and its mutation outcome), are derived (`specforge_mcp`'s `ToolSpec`
   table).
 - **Prompt spec**: the single definition of an MCP prompt, from which its descriptor, typed arguments
   and reply are derived; it renders over the call target and refuses with an McpError, sent as a
   JSON-RPC error's data since prompts have no isError (`specforge_mcp`'s `PromptSpec` table).
+- **Surface call**: one MCP request that invokes a named tool, resource or prompt (`tools/call`,
+  `resources/read`, `prompts/get`), run through one pipeline: read the request, find the entry (the
+  core table, then, with the served project brought up to date, the extension surface table), record
+  the invocation, resolve the call target, run the handler, record its events, answer with the kind's
+  envelope. Each kind is one adapter; a refusal without `isError` (resources, prompts) is a JSON-RPC
+  error whose data is its McpError (`specforge_mcp::surface_call`, ADR 0024).
+- **Resource spec**: the single definition of a core MCP resource: its URI or template, descriptor,
+  target and read. A graph view (`graph`, `context`, `brief`, scoped or not, and `graph/{entity_id}`)
+  is `specforge export` over the call's project view; the entity list and the diagnostics read what
+  `specforge.list` and `specforge.validate` read (`specforge_mcp`'s `ResourceSpec` table).
 - **Stateless request**: an MCP request whose `_meta` names its protocol version (MCP 2026-07-28),
   answered on its own without `initialize`; every other request follows the revision `initialize`
   negotiated (`specforge_mcp::modern`).
