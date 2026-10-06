@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-cli/tests/inspect_views.rs
-assertion_line: 139
 expression: markdown
 ---
 **I048** · Feature without acceptance criteria

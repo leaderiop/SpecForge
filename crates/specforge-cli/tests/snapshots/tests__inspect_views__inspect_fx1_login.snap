@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-cli/tests/inspect_views.rs
-assertion_line: 104
 expression: "normalized(result, root)"
 ---
 {
@@ -16,6 +15,7 @@ expression: "normalized(result, root)"
     }
   ],
   "entity_id": "login",
+  "exempt": false,
   "fields": {
     "contract": "The system MUST let a known user log in",
     "features": [
@@ -29,6 +29,7 @@ expression: "normalized(result, root)"
     ]
   },
   "kind": "behavior",
+  "obligated": true,
   "reference_count": 1,
   "referenced_by": [],
   "references": [
@@ -37,6 +38,7 @@ expression: "normalized(result, root)"
   "refers_to": [
     "signin"
   ],
+  "source_extension": "@specforge/software",
   "source_span": {
     "end_col": 2,
     "end_line": 5,

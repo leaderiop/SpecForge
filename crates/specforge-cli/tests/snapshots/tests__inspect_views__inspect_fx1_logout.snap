@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-cli/tests/inspect_views.rs
-assertion_line: 104
 expression: "normalized(result, root)"
 ---
 {
@@ -28,14 +27,17 @@ expression: "normalized(result, root)"
     }
   ],
   "entity_id": "logout",
+  "exempt": false,
   "fields": {
     "contract": "The system MUST end the session on logout"
   },
   "kind": "behavior",
+  "obligated": true,
   "reference_count": 0,
   "referenced_by": [],
   "references": [],
   "refers_to": [],
+  "source_extension": "@specforge/software",
   "source_span": {
     "end_col": 2,
     "end_line": 9,

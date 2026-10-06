@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-cli/tests/inspect_views.rs
-assertion_line: 111
 expression: "normalized(&result, root)"
 ---
 {
@@ -34,12 +33,14 @@ expression: "normalized(&result, root)"
     }
   ],
   "entity_id": "alpha",
+  "exempt": false,
   "fields": {
     "depends_on": [
       "beta"
     ]
   },
   "kind": "behavior",
+  "obligated": false,
   "reference_count": 2,
   "referenced_by": [
     "beta"
@@ -51,6 +52,7 @@ expression: "normalized(&result, root)"
   "refers_to": [
     "beta"
   ],
+  "source_extension": "@specforge/software",
   "source_span": {
     "end_col": 2,
     "end_line": 3,

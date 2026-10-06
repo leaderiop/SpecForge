@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-cli/tests/inspect_views.rs
-assertion_line: 104
 expression: "normalized(result, root)"
 ---
 {

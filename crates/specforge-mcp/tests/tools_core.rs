@@ -72,6 +72,109 @@ fn inspect_testable_is_the_kinds_and_declared_is_the_entitys() {
     assert_eq!(inspect("beta_feature"), (json!(false), json!(false)));
 }
 
+/// [`test_server`] with a testable kind no rule obligates (`constraint`),
+/// a union of one (`type`), and an entity of a kind no extension declares.
+fn standings_server() -> Served {
+    project()
+        .file(
+            "standings.spec",
+            "constraint free_one \"Free\" {\n}\ntype Choice = yes | no\ngizmo thing \"Thing\" {\n}\n",
+        )
+        .serve(&[extension().kind("constraint", true).kind("type", true)])
+}
+
+const STANDING_IDS: [&str; 6] = [
+    "alpha",
+    "beta_feature",
+    "gamma_orphan",
+    "free_one",
+    "Choice",
+    "thing",
+];
+
+fn inspected(server: &mut McpServer, id: &str) -> Value {
+    let resp = call_tool(server, "specforge.inspect", json!({"entity_id": id}));
+    tool_json(&resp)
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "exempt says the entity does not count toward coverage, as specforge.coverage's row says"
+)]
+fn inspect_exempt_is_the_coverage_rows() {
+    let mut server = standings_server();
+    let mut exempt = Vec::new();
+    for id in STANDING_IDS {
+        let inspect = inspected(&mut server, id);
+        let resp = call_tool(&mut server, "specforge.coverage", json!({"entity_id": id}));
+        let rows = tool_json(&resp);
+        let row = &rows.as_array().unwrap_or_else(|| panic!("{rows}"))[0];
+        assert_eq!(inspect["exempt"], row["exempt"], "{id}");
+        exempt.push((id, inspect["exempt"].as_bool().unwrap()));
+    }
+    assert_eq!(
+        exempt,
+        [
+            ("alpha", false),
+            ("beta_feature", false),
+            ("gamma_orphan", false),
+            ("free_one", true),
+            ("Choice", true),
+            ("thing", false),
+        ]
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "obligated says whether the entity's kind must declare obligations"
+)]
+fn inspect_obligated_follows_the_rule_set() {
+    let mut server = standings_server();
+    // W004 targets behavior and invariant.
+    assert_eq!(inspected(&mut server, "alpha")["obligated"], json!(true));
+    assert_eq!(
+        inspected(&mut server, "gamma_orphan")["obligated"],
+        json!(true)
+    );
+    // A union of a kind no rule obligates: exempt, and why.
+    let choice = inspected(&mut server, "Choice");
+    assert_eq!(
+        (&choice["exempt"], &choice["obligated"]),
+        (&json!(true), &json!(false))
+    );
+    assert_eq!(
+        inspected(&mut server, "free_one")["obligated"],
+        json!(false)
+    );
+    assert_eq!(
+        inspected(&mut server, "beta_feature")["obligated"],
+        json!(false)
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "source_extension names the extension that declares the entity's kind"
+)]
+fn inspect_names_the_declaring_extension() {
+    let mut server = standings_server();
+    for id in ["alpha", "beta_feature", "free_one", "Choice"] {
+        assert_eq!(
+            inspected(&mut server, id)["source_extension"],
+            json!("@test/ext"),
+            "{id}"
+        );
+    }
+    // A kind no loaded extension declares.
+    let thing = inspected(&mut server, "thing");
+    assert!(thing["source_extension"].is_null(), "{thing}");
+    assert!(
+        thing.as_object().unwrap().contains_key("source_extension"),
+        "always present"
+    );
+}
+
 /// The node ids of a graph-shaped payload, sorted.
 fn node_ids(parsed: &Value) -> Vec<String> {
     let mut ids: Vec<String> = parsed["nodes"]

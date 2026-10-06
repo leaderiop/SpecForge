@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-cli/tests/inspect_views.rs
-assertion_line: 146
 expression: markdown
 ---
 **W061** · Reference cycle detected

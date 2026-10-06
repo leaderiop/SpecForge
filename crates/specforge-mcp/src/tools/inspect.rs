@@ -47,6 +47,12 @@ fn result_json(facts: &EntityFacts, coverage: &EntityCoverage) -> Value {
         // D2-d); whether it declares obligations; its coverage status.
         "testable": facts.standing.testable,
         "declared": declared,
+        // It does not count toward coverage (the coverage row's `exempt`),
+        // and whether its kind must declare obligations: why it is exempt.
+        "exempt": facts.standing.exempt,
+        "obligated": facts.standing.obligated,
+        // The extension that declares its kind; `null` when none does.
+        "source_extension": facts.kind.map(|kind| kind.source_extension.as_str()),
         "reference_count": references.len(),
         "source_span": super::span_json(&node.source_span),
         // The statement the extension declares (headline and normative):

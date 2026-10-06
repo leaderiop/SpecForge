@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-cli/tests/inspect_views.rs
-assertion_line: 104
 expression: "normalized(result, root)"
 ---
 {
@@ -16,6 +15,7 @@ expression: "normalized(result, root)"
     }
   ],
   "entity_id": "Status",
+  "exempt": true,
   "fields": {
     "variants": [
       "active",
@@ -23,10 +23,12 @@ expression: "normalized(result, root)"
     ]
   },
   "kind": "type",
+  "obligated": true,
   "reference_count": 0,
   "referenced_by": [],
   "references": [],
   "refers_to": [],
+  "source_extension": "@specforge/software",
   "source_span": {
     "end_col": 32,
     "end_line": 16,

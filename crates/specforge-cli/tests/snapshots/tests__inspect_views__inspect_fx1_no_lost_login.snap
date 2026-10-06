@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-cli/tests/inspect_views.rs
-assertion_line: 104
 expression: "normalized(result, root)"
 ---
 {
@@ -16,6 +15,7 @@ expression: "normalized(result, root)"
     }
   ],
   "entity_id": "no_lost_login",
+  "exempt": false,
   "fields": {
     "expression": "once logged in, a session stays until logout",
     "property_type": "safety",
@@ -27,10 +27,12 @@ expression: "normalized(result, root)"
     ]
   },
   "kind": "property",
+  "obligated": false,
   "reference_count": 0,
   "referenced_by": [],
   "references": [],
   "refers_to": [],
+  "source_extension": "@specforge/formal",
   "source_span": {
     "end_col": 2,
     "end_line": 32,
