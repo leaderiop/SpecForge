@@ -394,3 +394,115 @@ fn a_single_reference_value_completes_its_target_kinds_ids() {
     let found = complete(text, 1, 8, &fixture.view()).1;
     assert_eq!(labels(&found), ["alpha"]);
 }
+
+/// Holds a project's indexing where it reads `path`, a named pipe named
+/// `blocker.spec`: reading it blocks until something writes to it, so a
+/// test decides when indexing may end. Dropping the hold releases it.
+#[cfg(unix)]
+struct IndexingHold(std::path::PathBuf);
+
+#[cfg(unix)]
+impl IndexingHold {
+    fn new(dir: &std::path::Path) -> Self {
+        let path = dir.join("blocker.spec");
+        let made = std::process::Command::new("mkfifo")
+            .arg(&path)
+            .status()
+            .expect("mkfifo runs");
+        assert!(made.success(), "mkfifo {}", path.display());
+        IndexingHold(path)
+    }
+
+    /// Let every read of the pipe finish (an empty file each: the project
+    /// stamps a file written this second by its content, then reads it).
+    fn release(&self) {
+        let path = self.0.clone();
+        // Opening a pipe for writing waits for a reader: off this thread, so
+        // a reader that never comes cannot hang the test, and once more
+        // after each reader that did.
+        std::thread::spawn(
+            move || {
+                while std::fs::OpenOptions::new().write(true).open(&path).is_ok() {}
+            },
+        );
+    }
+}
+
+#[cfg(unix)]
+impl Drop for IndexingHold {
+    fn drop(&mut self) {
+        self.release();
+    }
+}
+
+#[cfg(unix)]
+#[spec(
+    behavior = "complete_keywords",
+    verify = "keyword completion answers with the registered kinds as soon as the environment is loaded, before indexing ends"
+)]
+#[tokio::test]
+async fn keywords_complete_from_the_environment_while_indexing_runs() {
+    use crate::session::Session;
+    use serde_json::json;
+    use std::time::Duration;
+
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        json!({"name": "t", "version": "0.1.0", "extensions": ["@specforge/software"]}).to_string(),
+    )
+    .unwrap();
+    let hold = IndexingHold::new(dir.path());
+
+    // The server opens the project: the environment loads, then indexing
+    // blocks reading the pipe.
+    let root = dir.path().to_str().unwrap();
+    let (mut session, _) = Session::launch(Some(root), json!({})).await;
+    let uri = crate::session::uri_of(&dir.path().join("main.spec"));
+    session.did_open(&uri, "specforge", "\n").await;
+
+    // Asked until the environment is shown (the extensions take a moment
+    // to load): the answer then names the kinds, and indexing has not
+    // ended, because it cannot.
+    let deadline = std::time::Instant::now() + Duration::from_secs(30);
+    let labels = loop {
+        let reply = session.completion(&uri, 0, 0).await;
+        let labels: Vec<String> = reply["result"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .filter_map(|item| item["label"].as_str().map(str::to_string))
+            .collect();
+        if labels.iter().any(|label| label == "behavior") {
+            break labels;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "no kind completed while indexing: {labels:?}"
+        );
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    };
+    assert!(labels.iter().any(|label| label == "use"), "{labels:?}");
+    assert!(!labels.iter().any(|label| label == "define"), "{labels:?}");
+    let ended = session
+        .notification_within("$/progress", Duration::ZERO, |p| {
+            p["value"]["kind"] == "end"
+        })
+        .await;
+    assert!(ended.is_none(), "indexing ended while it was held");
+
+    // Released, indexing ends, and the same completion still answers.
+    hold.release();
+    session
+        .notification("$/progress", |p| p["value"]["kind"] == "end")
+        .await
+        .expect("indexing ends once the pipe is read");
+    let reply = session.completion(&uri, 0, 0).await;
+    let after: Vec<&str> = reply["result"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|item| item["label"].as_str())
+        .collect();
+    assert!(after.contains(&"behavior"), "{after:?}");
+}

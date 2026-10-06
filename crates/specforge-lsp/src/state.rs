@@ -292,6 +292,20 @@ impl LspState {
         }
     }
 
+    /// While the session is out for a project's first open: let readers see
+    /// its loaded `environment` (no graph yet), so what needs only the
+    /// environment (the kinds a keyword completion offers) is served before
+    /// its sources are read. Nothing when the session is held.
+    pub fn show_environment(&mut self, environment: Arc<Environment>) {
+        if let Project::Out(stand_in) = &mut self.project {
+            **stand_in = StandIn {
+                graph: Graph::new(),
+                env: environment,
+                texts: HashMap::new(),
+            };
+        }
+    }
+
     /// Put a session in: one taken out, or a newly opened project. After
     /// shutdown it is dropped (its runtime freed) for an empty one.
     pub fn set_session(&mut self, session: ProjectSession) {

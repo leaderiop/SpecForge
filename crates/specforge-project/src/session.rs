@@ -98,6 +98,70 @@ pub struct ProjectSession {
     recorded: RecordedCoverage,
 }
 
+/// A project whose environment is loaded and whose sources are not read yet
+/// ([`ProjectSession::begin_open`]). Its environment is shared, so a reader
+/// can serve what needs only it (an editor's keyword completion) while
+/// [`Self::finish`] reads and builds the sources.
+pub struct OpeningProject {
+    env: Arc<Environment>,
+    runtime: Option<SharedRuntime>,
+    /// The session built its runtime, so a reload builds a fresh one.
+    owns_runtime: bool,
+    /// Stamped for the environment; the sources are stamped by `finish`.
+    snapshot: DiskSnapshot,
+}
+
+impl OpeningProject {
+    /// The loaded environment: what the finished session will have, until
+    /// the environment is loaded again.
+    pub fn environment(&self) -> &Arc<Environment> {
+        &self.env
+    }
+
+    /// Read every source, build the graph and run the checks: the session
+    /// [`ProjectSession::open`] returns.
+    pub fn finish(self) -> ProjectSession {
+        let mut snapshot = self.snapshot;
+        let discovered = discover_spec_files(&self.env.spec_root, &self.env.config.exclude);
+        snapshot.stamp_all_sources(&self.env.spec_root, &discovered);
+        let resolved = self.env.resolve();
+        let (paths, specs): (Vec<String>, Vec<SpecFile>) =
+            sources_in_path_order(&resolved).into_iter().unzip();
+        let graph_config = self.env.graph_config();
+        // The one cold build seeds the incremental one.
+        let (graph, graph_diagnostics) = build_graph_with_config(&specs, &graph_config);
+        let files: Vec<(String, SpecFile)> = paths.into_iter().zip(specs).collect();
+        // The text each file was parsed from (the resolver kept it).
+        let sources: HashMap<String, Arc<str>> = resolved
+            .files
+            .iter()
+            .map(|file| (file.path.clone(), Arc::from(file.source.as_str())))
+            .collect();
+        let build = IncrementalBuild::from_cold_build(
+            files,
+            sources,
+            graph,
+            &graph_diagnostics,
+            graph_config,
+        );
+
+        let mut session = ProjectSession {
+            env: self.env,
+            runtime: self.runtime,
+            owns_runtime: self.owns_runtime,
+            build,
+            import_diagnostics: resolved.diagnostics,
+            check_diagnostics: Vec::new(),
+            verify_incremental: false,
+            origin: Origin::Disk,
+            snapshot,
+            recorded: RecordedCoverage::default(),
+        };
+        session.check_diagnostics = session.checked();
+        session
+    }
+}
+
 impl ProjectSession {
     /// A session with no project: no config, no extension and no file
     /// until a buffer is added.
@@ -119,14 +183,28 @@ impl ProjectSession {
     /// Open the project at `root`, running its extensions in the project's
     /// own runtime.
     pub fn open(root: &Path) -> Self {
-        let mut session = Self::open_with_runtime(root, Some(project_runtime(root)));
-        session.owns_runtime = true;
-        session
+        Self::begin_open(root).finish()
     }
 
     /// Open the project at `root` with `runtime` (none: no extension
     /// loads). A reload keeps using the same runtime.
     pub fn open_with_runtime(root: &Path, runtime: Option<SharedRuntime>) -> Self {
+        Self::begin_open_with_runtime(root, runtime).finish()
+    }
+
+    /// The first half of [`Self::open`]: the environment loaded (config,
+    /// extensions, registries), no `.spec` file read. What needs only the
+    /// environment (the kinds and fields a keyword completion offers) is
+    /// served from [`OpeningProject::environment`] while
+    /// [`OpeningProject::finish`] reads and builds the sources.
+    pub fn begin_open(root: &Path) -> OpeningProject {
+        let mut opening = Self::begin_open_with_runtime(root, Some(project_runtime(root)));
+        opening.owns_runtime = true;
+        opening
+    }
+
+    /// [`Self::begin_open`] with `runtime` (none: no extension loads).
+    pub fn begin_open_with_runtime(root: &Path, runtime: Option<SharedRuntime>) -> OpeningProject {
         // Everything is stamped before it is read (crate::freshness): the
         // config first, then what it names, then the sources.
         let mut snapshot = DiskSnapshot::default();
@@ -134,44 +212,12 @@ impl ProjectSession {
             let inputs = environment_inputs(root, &load_project_config(root), false);
             std::iter::once(inputs.lock).chain(inputs.modules).collect()
         });
-        let env = Environment::load(root, runtime.as_deref());
-        let discovered = discover_spec_files(&env.spec_root, &env.config.exclude);
-        snapshot.stamp_all_sources(&env.spec_root, &discovered);
-        let resolved = env.resolve();
-        let (paths, specs): (Vec<String>, Vec<SpecFile>) =
-            sources_in_path_order(&resolved).into_iter().unzip();
-        let graph_config = env.graph_config();
-        // The one cold build seeds the incremental one.
-        let (graph, graph_diagnostics) = build_graph_with_config(&specs, &graph_config);
-        let files: Vec<(String, SpecFile)> = paths.into_iter().zip(specs).collect();
-        // The text each file was parsed from (the resolver kept it).
-        let sources: HashMap<String, Arc<str>> = resolved
-            .files
-            .iter()
-            .map(|file| (file.path.clone(), Arc::from(file.source.as_str())))
-            .collect();
-        let build = IncrementalBuild::from_cold_build(
-            files,
-            sources,
-            graph,
-            &graph_diagnostics,
-            graph_config,
-        );
-
-        let mut session = ProjectSession {
-            env: Arc::new(env),
+        OpeningProject {
+            env: Arc::new(Environment::load(root, runtime.as_deref())),
             runtime,
             owns_runtime: false,
-            build,
-            import_diagnostics: resolved.diagnostics,
-            check_diagnostics: Vec::new(),
-            verify_incremental: false,
-            origin: Origin::Disk,
             snapshot,
-            recorded: RecordedCoverage::default(),
-        };
-        session.check_diagnostics = session.checked();
-        session
+        }
     }
 
     /// Compare every update's graph with a cold rebuild (costly: a debug

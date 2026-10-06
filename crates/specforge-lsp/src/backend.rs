@@ -221,13 +221,37 @@ impl Backend {
             return None;
         }
 
+        // Opening a project loads its environment first and shows it to
+        // readers before the sources are read: the kinds and fields
+        // keyword completion offers need no `.spec` file, so they are
+        // answered while indexing runs (CONTEXT: Environment).
+        let mut opening = None;
+        if let Change::Open(root) = &change {
+            let root = root.clone();
+            match tokio::task::spawn_blocking(move || ProjectSession::begin_open(&root)).await {
+                Ok(loaded) => {
+                    state
+                        .write()
+                        .await
+                        .show_environment(Arc::clone(loaded.environment()));
+                    opening = Some(loaded);
+                }
+                Err(e) => {
+                    Self::lose_session(state, client, e).await;
+                    return None;
+                }
+            }
+        }
+
         let joined = tokio::task::spawn_blocking(move || {
             let mut session = session;
             let mut touched: Vec<String> = Vec::new();
             let mut environment = false;
             match (&change, changes) {
-                (Change::Open(root), _) => {
-                    session = ProjectSession::open(root);
+                (Change::Open(_), _) => {
+                    if let Some(loaded) = opening {
+                        session = loaded.finish();
+                    }
                     environment = true;
                 }
                 (Change::Apply(_), Some(changes)) => {
@@ -274,18 +298,26 @@ impl Backend {
                 Some(Recompiled { environment })
             }
             Err(e) => {
-                // The update panicked: the session is lost, so the state
-                // falls back to an empty one rather than a stale stand-in.
-                state.write().await.set_session(ProjectSession::detached());
-                client
-                    .log_message(
-                        MessageType::ERROR,
-                        format!("specforge-lsp: recompile failed: {e}"),
-                    )
-                    .await;
+                Self::lose_session(state, client, e).await;
                 None
             }
         }
+    }
+
+    /// An update panicked: the session is lost, so the state falls back to
+    /// an empty one rather than a stale stand-in.
+    async fn lose_session(
+        state: &RwLock<LspState>,
+        client: &Client,
+        error: tokio::task::JoinError,
+    ) {
+        state.write().await.set_session(ProjectSession::detached());
+        client
+            .log_message(
+                MessageType::ERROR,
+                format!("specforge-lsp: recompile failed: {error}"),
+            )
+            .await;
     }
 
     /// Ask the client to watch every file the project is built from

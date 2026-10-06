@@ -7,7 +7,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `.spec` file is read: config, spec root, registries, rules, surfaces, and load diagnostics
   (`specforge_project::Environment`). A `specforge.json` that is there and can't be used is the
   default config (for the unusable file or key), with each reason kept (`config_problems`) and
-  reported as the error E069.
+  reported as the error E069. A session opens in two steps (`ProjectSession::begin_open`, then
+  `OpeningProject::finish`), so an editor answers what needs only the environment (keyword
+  completion) while the sources are still being read.
 - **Compiled project**: an environment plus the resolved sources and the built graph. Its
   diagnostics are, by definition, what `specforge check` reports under the default policy
   (`specforge_project::CompiledProject`).

@@ -746,9 +746,13 @@ behavior complete_keywords "Complete Keywords" {
     detail string MUST show the source extension name for each keyword.
     After verify in an entity's body, the verify kinds the entity's kind
     allows (its allowed_verify_kinds) MUST be suggested, and nothing when
-    the kind takes no verify statements.
+    the kind takes no verify statements. The registered kinds come from the
+    environment (CONTEXT: Environment), which is loaded before any .spec
+    file is read, so keyword completion MUST name them as soon as the
+    environment is loaded, while the workspace is still being indexed.
   """
   verify unit "keyword completion includes all registered kinds"
+  verify unit "keyword completion answers with the registered kinds as soon as the environment is loaded, before indexing ends"
   verify unit "use is always suggested and define never is"
   verify unit "verify suggests the kinds the entity's kind allows"
   verify unit "no keyword suggestions inside entity blocks"

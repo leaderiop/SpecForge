@@ -59,7 +59,10 @@ body, the kind's allowed verify kinds after `verify`, entity IDs in a reference 
 single-reference field's value, an enum field's declared values, `true`/`false` for a boolean field,
 nothing in strings, comments, nested blocks, define blocks and other values. Every item carries an
 edit over the word under the cursor (the lexer's word, a scheme ref ID whole), an insert/replace edit
-when the client supports one, so the client's own word rules never decide what is replaced.
+when the client supports one, so the client's own word rules never decide what is replaced. Keywords and
+fields come from the environment's registries alone, so opening a project loads its environment first
+(`ProjectSession::begin_open`) and shows it to readers before the sources are read (`OpeningProject::finish`):
+completion lists the kinds while the workspace is still being indexed, not only `use`.
 
 ## Consequences
 
