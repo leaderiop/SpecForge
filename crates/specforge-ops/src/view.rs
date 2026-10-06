@@ -17,7 +17,7 @@ use specforge_common::Diagnostic;
 use specforge_emitter::{GraphProtocolSchema, generate_schema};
 use specforge_graph::Graph;
 use specforge_project::coverage::{
-    CoverageRegistries, ProjectCoverage, RecordedCoverage, ReportError, TestReport,
+    CoverageRegistries, ProjectCoverage, Recorded, RecordedCoverage, ReportError, TestReport,
 };
 use specforge_project::{CompiledProject, Environment, ProjectSession};
 use specforge_registry::RegistryBuild;
@@ -171,13 +171,18 @@ impl<'a> ProjectView<'a> {
     /// The coverage rule over the graph and the recorded report, computed
     /// once per compile and report content.
     pub fn coverage(&self) -> Result<Arc<ProjectCoverage>, ReportError> {
-        self.recorded
-            .at(
-                self.root,
-                self.graph,
-                CoverageRegistries::of(self.registries),
-            )
-            .map(|recorded| recorded.coverage)
+        self.recorded().map(|recorded| recorded.coverage)
+    }
+
+    /// The recorded report ([`Self::test_report`]) and the coverage computed
+    /// from it ([`Self::coverage`]), read together: one read of the report
+    /// file for a view that needs both.
+    pub fn recorded(&self) -> Result<Recorded, ReportError> {
+        self.recorded.at(
+            self.root,
+            self.graph,
+            CoverageRegistries::of(self.registries),
+        )
     }
 
     /// The Graph Protocol schema the loaded extensions produce, unversioned

@@ -21,6 +21,7 @@ pub mod extension;
 pub mod format;
 pub mod infer;
 pub mod init;
+pub mod inspect;
 pub mod migrate;
 pub mod model;
 pub mod navigate;

@@ -7,6 +7,7 @@ mod determinism;
 mod diagnostics_json;
 mod errors;
 mod extension_calls;
+mod inspect;
 mod management;
 mod model;
 mod navigate;

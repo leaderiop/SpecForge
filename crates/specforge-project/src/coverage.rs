@@ -354,6 +354,14 @@ impl ProjectCoverage {
         Self::assess(&entities, report)
     }
 
+    /// The coverage of `graph` with no recorded tests: what the rule says
+    /// of each entity whatever a report holds (its standing). A surface
+    /// reads it only when the recorded report cannot be read, so the
+    /// standing still holds; it is not memoized.
+    pub fn without_report(graph: &Graph, registries: CoverageRegistries<'_>) -> Self {
+        Self::compute(graph, registries, None)
+    }
+
     fn assess(entities: &[specforge_coverage::Entity], report: Option<&TestReport>) -> Self {
         let results = report.map(recorded_tests);
         let assessment = specforge_coverage::assess(entities, results.as_ref(), None, None);

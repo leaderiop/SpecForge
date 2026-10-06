@@ -199,9 +199,12 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   }
   contract   """
     Stats, trace (one entity or every entity), the coverage view, the
-    model and outline diagrams and the versioned Graph Protocol schema
-    MUST each be one operation over the project view, shared by the CLI
-    and MCP; a surface maps its arguments and renders the outcome. The
+    model and outline diagrams, the versioned Graph Protocol schema and
+    inspect (one entity's facts: its kind, standing, headline, references,
+    coverage and the diagnostics about it) MUST each be one operation over
+    the project view, shared by the surfaces that show them (the CLI, MCP,
+    and for inspect the LSP hover); a surface maps its arguments and renders
+    the outcome. The
     view's root is the root the project was compiled from: its recorded
     test report is <root>/specforge-report.json and its schema cache
     <root>/.specforge/schema-cache.json, and no view looks in an ancestor
@@ -218,6 +221,8 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify unit "the schema cache is the view root's, never an ancestor's"
   verify unit "coverage is computed once per compile and report content, and again after the report changes"
   verify unit "an entity is unverified when it counts toward coverage and is not proven"
+  verify unit "inspect reports an entity's standing as the coverage view counts it"
+  verify unit "a report that cannot be read is the coverage's error, and the standing still holds"
   verify integration "specforge stats and specforge.stats report the same numbers"
   verify integration "specforge trace and specforge.trace return the same chain for an entity"
   verify integration "specforge schema and specforge.schema carry the same version"

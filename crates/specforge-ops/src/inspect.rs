@@ -1,0 +1,162 @@
+//! Inspect: what one entity is, as a read view over the project view
+//! (ADR 0015, section "Inspect"). MCP `specforge.inspect` renders it as
+//! JSON, the LSP hover as markdown, the context prompt as its payload;
+//! none of them reads the graph, the registries or the coverage for it.
+
+use specforge_common::Diagnostic;
+use specforge_graph::Node;
+use specforge_parser::VerifyStatement;
+use specforge_project::coverage::{
+    CoverageRegistries, ProjectCoverage, ReportError, Status, Verdict, obligated_kinds,
+};
+use specforge_registry::KindRegistryEntry;
+
+use crate::OpError;
+use crate::navigate::{References, is_about, not_found};
+use crate::view::ProjectView;
+
+/// Everything a surface shows about one entity, borrowed from the view.
+#[derive(Debug, Clone)]
+pub struct EntityFacts<'v> {
+    /// The entity: id, kind, title, block span, and its fields in
+    /// declaration order (a struct member named `verify` and the verify
+    /// statements are two entries).
+    pub node: &'v Node,
+    /// Its kind's registry entry: the declaring extension, the kind's
+    /// description, `supports_verify`, `singleton`. `None` for a kind no
+    /// loaded extension declares.
+    pub kind: Option<&'v KindRegistryEntry>,
+    /// The statement its extension declares headline and normative (a
+    /// behavior's `contract`), borrowed from the node's field; `None` when
+    /// its kind declares none.
+    pub headline: Option<&'v str>,
+    /// How the coverage rule counts it. Independent of the recorded report.
+    pub standing: Standing,
+    /// Its `verify` statements, in declaration order.
+    pub obligations: &'v [VerifyStatement],
+    /// The references to it and the ones it makes (ADR 0016 D2), in graph
+    /// edge order.
+    pub references: References,
+    /// Its coverage under the one rule, or why the recorded report cannot
+    /// be read (E045). A surface decides whether that fails it (MCP) or
+    /// is shown (hover).
+    pub coverage: Result<EntityCoverage, ReportError>,
+    /// The diagnostics the view reports about it (`navigate::is_about`:
+    /// what their data names, else the innermost block holding their
+    /// span), in the order they are reported.
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+/// How the coverage rule counts an entity (ADR 0004 D2-b, D2-d).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Standing {
+    /// Its kind is testable (its extension's declaration says so).
+    pub testable: bool,
+    /// Its kind must declare obligations: a `no_verify_statements` rule
+    /// (W004) targets it.
+    pub obligated: bool,
+    /// Testable, but it owes no obligations and declares none, so it does
+    /// not count toward coverage (a union, an `abstract` entity, a
+    /// governance entity of a kind no W004 rule targets).
+    pub exempt: bool,
+}
+
+impl Standing {
+    /// It counts toward coverage.
+    pub fn counts(&self) -> bool {
+        self.testable && !self.exempt
+    }
+}
+
+/// An entity's coverage: its verdict, and whether a recorded report was
+/// read at the view's root (without one every verdict has no tests).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntityCoverage {
+    pub verdict: Verdict,
+    pub recorded: bool,
+}
+
+impl EntityCoverage {
+    pub fn status(&self) -> Status {
+        self.verdict.status()
+    }
+
+    /// It declares at least one obligation (`inspect.declared`).
+    pub fn declared(&self) -> bool {
+        self.verdict.obligations > 0
+    }
+}
+
+/// The facts of the entity `entity_id`, with the diagnostics the view
+/// reports about it (MCP: its call target's; the LSP: what it published).
+/// An entity the graph lacks is `navigate::NOT_FOUND`.
+pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFacts<'v>, OpError> {
+    let graph = view.graph;
+    let node = graph.node(entity_id).ok_or_else(|| not_found(entity_id))?;
+    let recorded = view.recorded();
+    let standing = standing(
+        view,
+        node,
+        recorded.as_ref().ok().map(|r| r.coverage.as_ref()),
+    );
+    let coverage = recorded.map(|recorded| EntityCoverage {
+        verdict: recorded
+            .coverage
+            .verdict(entity_id)
+            .cloned()
+            .unwrap_or_default(),
+        recorded: recorded.report.is_some(),
+    });
+    Ok(EntityFacts {
+        node,
+        kind: view.registries.kinds.get(node.kind.raw.as_str()),
+        headline: specforge_emitter::context::headline_statement(node, &view.registries.fields),
+        standing,
+        obligations: specforge_graph::obligations(node),
+        references: References::of(view, entity_id),
+        coverage,
+        diagnostics: view
+            .reported()
+            .into_iter()
+            .filter(|d| is_about(graph, d, entity_id))
+            .collect(),
+    })
+}
+
+/// An obligation as MCP inspect and the context prompt list it:
+/// `"<kind> <text>"`.
+pub fn obligation_text(statement: &VerifyStatement) -> String {
+    format!("{} {}", statement.kind, statement.description)
+}
+
+/// How the coverage rule counts `node`: the one place inspect decides it.
+/// `coverage` is the view's (`None` when the recorded report cannot be
+/// read: the standing is then the rule's without a report, as it never
+/// depends on one).
+///
+/// Cross-plan (01): once the entity snapshot lands, the body is
+/// `view.entities().standing(id)` mapped to this type (`testable`,
+/// `obligated()`, `exempt()`), and `without_report` and `obligated_kinds`
+/// are no longer read here.
+fn standing(view: &ProjectView, node: &Node, coverage: Option<&ProjectCoverage>) -> Standing {
+    let id = node.id.raw.as_str();
+    let fallback;
+    let coverage = match coverage {
+        Some(coverage) => coverage,
+        None => {
+            fallback = ProjectCoverage::without_report(
+                view.graph,
+                CoverageRegistries::of(view.registries),
+            );
+            &fallback
+        }
+    };
+    let (testable, counts) = coverage
+        .standing(id)
+        .map_or((false, false), |s| (s.testable, s.counts));
+    Standing {
+        testable,
+        obligated: obligated_kinds(&view.registries.rules).contains(node.kind.raw.as_str()),
+        exempt: testable && !counts,
+    }
+}
