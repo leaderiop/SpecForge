@@ -96,9 +96,6 @@ impl EnvironmentInputs {
 pub enum Origin {
     /// Opened from the project on disk: it can be brought up to date.
     Disk,
-    /// Built in memory ([`crate::ProjectSession::from_graph`]): never
-    /// changed by disk.
-    InMemory,
     /// No project (an editor with no workspace folder): files are buffers
     /// keyed by absolute path.
     None,
