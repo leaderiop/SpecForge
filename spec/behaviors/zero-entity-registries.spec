@@ -540,6 +540,7 @@ behavior registry_build_rules "Registry Build Collects Rules" {
   verify unit "extensions produce E006 rules for required fields"
   verify unit "E006 covers all required fields from builtin extensions"
   verify unit "a rule whose code the extension may not use is reported (W150) and still registered"
+  verify unit "every builtin rule uses a code its extension owns, at the catalogued level"
   verify contract "Registry Build Collects Rules: rule collection holds — declarations_in_load_order, rules_collected, duplicates_warned, required_enforced, unloaded_targets_inert, rule_codes_checked"
 }
 
