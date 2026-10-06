@@ -101,7 +101,13 @@ fn derived_from_problem(field: &FieldDescriptor, source: &str) -> Option<&'stati
 /// W021: the kind exists, but the dependency is undeclared. While a named
 /// peer is not loaded its kinds are unknown, so any kind is let through.
 /// Every edge label a field maps to must be one of its own edges, and a
-/// `derived_from` must derive something.
+/// `derived_from` must derive something. A validation rule's target kind
+/// and edge type resolve against the extension's own, then its loaded
+/// peers', then its `target_extension`'s: that extension not loaded makes
+/// the rule inert (no W021); loaded without the kind or edge type, W021.
+/// With no `target_extension` a rule resolves as a field does (anything
+/// goes while a named peer is not loaded), and a kind only a non-peer
+/// declares is W021 suggesting `target_extension`.
 pub(crate) fn consistency(
     declaration: &ExtensionDeclaration,
     loaded: &[ExtensionDeclaration],
@@ -125,6 +131,11 @@ pub(crate) fn consistency(
         .collect();
     let own_edge_labels: HashSet<&str> =
         declaration.edges.iter().map(|e| e.label.as_str()).collect();
+    let peer_edge_labels: HashSet<&str> = loaded
+        .iter()
+        .filter(|d| peer_deps.contains(d.name()))
+        .flat_map(|d| d.edges.iter().map(|e| e.label.as_str()))
+        .collect();
 
     // Why `kind` does not resolve, or None when it does.
     let unresolved = |kind: &str| -> Option<String> {
@@ -193,6 +204,61 @@ pub(crate) fn consistency(
                 diagnostics.push(warn(format!(
                     "extension '{}': edge type '{}' references {} '{}' {}",
                     name, edge.label, role, kind, why
+                )));
+            }
+        }
+    }
+
+    for rule in &declaration.validation_rules {
+        // The extension the rule says its kind or edge type belongs to,
+        // when it is loaded.
+        let target_extension = rule.target_extension.as_deref();
+        let loaded_target = target_extension.and_then(|n| loaded.iter().find(|d| d.name() == n));
+        if let Some(target) = &rule.target_kind {
+            let problem = match (target_extension, loaded_target) {
+                _ if own_kinds.contains(target.as_str())
+                    || peer_kinds.contains(target.as_str()) =>
+                {
+                    None
+                }
+                // Not loaded: the rule is inert, and nothing is wrong.
+                (Some(_), None) => None,
+                (Some(extension), Some(declared)) => {
+                    (!declared.entities.iter().any(|k| keyword(k) == target))
+                        .then(|| format!("not declared by '{extension}', its target_extension"))
+                }
+                (None, _) => unresolved(target).map(|why| {
+                    if why.starts_with("declared by") {
+                        format!("{why}; name it as the rule's target_extension")
+                    } else {
+                        why
+                    }
+                }),
+            };
+            if let Some(why) = problem {
+                diagnostics.push(warn(format!(
+                    "extension '{}': rule '{}' references target_kind '{}' {}",
+                    name, rule.code, target, why
+                )));
+            }
+        }
+        if let Some(edge_type) = &rule.edge_type
+            && !own_edge_labels.contains(edge_type.as_str())
+            && !peer_edge_labels.contains(edge_type.as_str())
+        {
+            let why = match (target_extension, loaded_target) {
+                (Some(_), None) => None,
+                (Some(extension), Some(declared)) => {
+                    (!declared.edges.iter().any(|e| e.label == *edge_type))
+                        .then(|| format!("not declared by '{extension}', its target_extension"))
+                }
+                (None, _) => peers_known
+                    .then(|| "not declared among its edges or its peers' edges".to_string()),
+            };
+            if let Some(why) = why {
+                diagnostics.push(warn(format!(
+                    "extension '{}': rule '{}' references edge type '{}' {}",
+                    name, rule.code, edge_type, why
                 )));
             }
         }

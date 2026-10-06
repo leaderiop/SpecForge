@@ -4,10 +4,7 @@ use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
 use specforge_project::coverage::RecordedCoverage;
 use specforge_project::{Environment, ProjectSession};
-use specforge_registry::{
-    EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild,
-    validation_engine::ValidationRulePattern,
-};
+use specforge_registry::{EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -274,13 +271,6 @@ impl LspState {
 
     pub fn edge_registry(&self) -> &EdgeRegistry {
         &self.registries().edges
-    }
-
-    /// Patterns paired with their originating extension ("" for
-    /// host-generated rules); the origin names the module that owns a
-    /// custom rule's `wasm_function` export.
-    pub fn validation_patterns(&self) -> &[(ValidationRulePattern, String)] {
-        &self.registries().rules
     }
 
     /// Everything built from the loaded extensions.

@@ -455,6 +455,7 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
   verify unit "extension without migration_hook field is skipped silently"
   verify unit "extension with empty migration_hook field is skipped silently"
   verify unit "hook returning error collects diagnostic and continues"
+  verify unit "the nine builtin extensions' hooks run in dependency order with no failure"
   verify unit "hook that traps collects WasmTrapInfo and continues"
   verify unit "hooks invoked in deterministic extension load order"
   verify unit "extension in failed lifecycle state has hook skipped"

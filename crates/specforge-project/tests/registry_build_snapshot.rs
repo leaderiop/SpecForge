@@ -167,24 +167,10 @@ fn digest(env: &Environment) -> Value {
     let rules: Vec<Value> = r
         .rules
         .iter()
-        .map(|(rule, owner)| {
-            json!({
-                "code": rule.code,
-                "severity": format!("{:?}", rule.severity),
-                "message_template": rule.message_template,
-                "check": rule.check.as_str(),
-                "target_kind": rule.target_kind,
-                "edge_type": rule.edge_type,
-                "edge_peer_kind": rule.edge_peer_kind,
-                "field": rule.field,
-                "constraint": rule.constraint.as_ref().map(|c| json!({
-                    "kind": c.kind.as_ref().map(|k| k.as_str()),
-                    "pattern": c.pattern,
-                    "values": c.values,
-                })),
-                "wasm_function": rule.wasm_function,
-                "owner": owner,
-            })
+        .map(|rule| {
+            let mut described = rule.describe();
+            described["owner"] = json!(rule.origin().name());
+            described
         })
         .collect();
     let bidirectional_pairs: Vec<Value> = r

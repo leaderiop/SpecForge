@@ -439,3 +439,93 @@ fn product_lifecycle_kinds_declare_status() {
         assert_eq!(field, expected, "{kind}'s lifecycle field");
     }
 }
+
+/// The nine builtin extensions loaded together, as a project enabling all
+/// of them does: their rules register with no W112 or W147, the custom
+/// ones' functions answer the load probe, and every rule's target kind and
+/// edge type is its extension's or a declared peer's (no W021).
+#[specforge_test_macros::test(
+    behavior = "execute_validation_pattern",
+    verify = "the builtin extensions' rules register with no W112, W147 or W021"
+)]
+fn the_builtin_extensions_rules_register_cleanly() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let names: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
+        .iter()
+        .map(|(name, _)| *name)
+        .collect();
+    assert_eq!(names.len(), 9, "{names:?}");
+    let config = serde_json::json!({ "name": "all", "version": "0.1.0", "extensions": names });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    let runtime = specforge_component::project_runtime(dir.path());
+
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+
+    assert_eq!(env.registries.declarations().len(), 9);
+    assert!(
+        env.registries.rules.len() > 80,
+        "{}",
+        env.registries.rules.len()
+    );
+    let unworkable: Vec<&Diagnostic> = env
+        .diagnostics()
+        .filter(|d| ["W112", "W147", "W021"].contains(&d.code.as_str()))
+        .collect();
+    assert!(unworkable.is_empty(), "{unworkable:?}");
+}
+
+#[specforge_test_macros::test(
+    behavior = "registry_build_declaration_consistency",
+    verify = "a rule's target_extension, loaded, must declare its target kind and edge type; not loaded, the rule is inert and costs no W021"
+)]
+fn product_alone_is_clean_and_names_governance_for_w078() {
+    let product = load_via_protocol("@specforge/product");
+    // W078 on `constraint` names governance; product has no peers.
+    assert!(product.peers().is_empty());
+    let w078: Vec<_> = product
+        .validation_rules
+        .iter()
+        .filter(|r| r.code == "W078" && r.target_kind.as_deref() == Some("constraint"))
+        .collect();
+    assert_eq!(w078.len(), 1);
+    assert_eq!(
+        w078[0].target_extension.as_deref(),
+        Some("@specforge/governance")
+    );
+
+    // Alone: no W021 (governance absent: that rule is inert), and the field
+    // checks still run, so a typo'd kind in product would still be W021.
+    let alone = specforge_registry::build_registries(vec![product.clone()]);
+    assert!(
+        alone
+            .declaration_diagnostics
+            .iter()
+            .all(|d| d.code != "W021"),
+        "{:?}",
+        alone.declaration_diagnostics
+    );
+    let mut typo = product.clone();
+    typo.entities[0].fields[0].target_kind = Some("featur".to_string());
+    let broken = specforge_registry::build_registries(vec![typo]);
+    assert_eq!(
+        broken
+            .declaration_diagnostics
+            .iter()
+            .filter(|d| d.code == "W021")
+            .count(),
+        1
+    );
+
+    // With governance: it declares `constraint`, so nothing is wrong either.
+    let both = specforge_registry::build_registries(vec![
+        load_via_protocol("@specforge/governance"),
+        product,
+    ]);
+    assert!(
+        both.declaration_diagnostics
+            .iter()
+            .all(|d| d.code != "W021"),
+        "{:?}",
+        both.declaration_diagnostics
+    );
+}

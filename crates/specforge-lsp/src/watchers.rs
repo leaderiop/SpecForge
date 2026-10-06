@@ -56,7 +56,7 @@ pub fn file_watchers(session: &ProjectSession, relative_patterns: bool) -> Vec<F
     watchers.extend(pattern(spec_root, "**/*.spec"));
     watchers.extend(file(&root.join("specforge.json")));
     watchers.extend(file(&root.join("specforge.lock")));
-    let references = env.referenced_files(session.graph());
+    let references = env.named_files(session.graph(), session.entities());
     for path in inputs
         .modules
         .iter()

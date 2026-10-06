@@ -92,6 +92,8 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 }
 ```
 
+Peer dependencies order extension loading (peers load first, ties by name) and are checked against the loaded versions (E027). A cycle among **required** peers is E027. **Optional** peers are only a preference: extensions may name each other as optional peers, and the host adds the optional edges after the required ones in name order, skipping any that would close a cycle. A rule on another extension's kind that this one works without uses the rule's `target_extension` (see "Category: validation_rules"), not a peer.
+
 `protocol_version`, `name`, `version`, `contribution_flags`, `peer_dependencies` and `sandbox_policy` are required on the wire (`sandbox_policy` may be `null`: the host then applies its own deny-by-default policy). The others are optional and omitted when absent:
 
 - `starter_template`: the text of the starter `.spec` file `specforge init` writes for a project that enables the extension, `{project}` standing for the project's entity id. When several enabled extensions declare one, `init` uses the first listed in `specforge.json`. SDK: `ContributionsBuilder::starter_template`.
@@ -299,23 +301,29 @@ Returns both declarative rules (pattern-based, evaluated by the host) and custom
 }
 ```
 
-Declarative check types (`specforge_protocol_types::CheckKind`; an unknown
-check drops the rule with W112):
+Check kinds (`specforge_protocol_types::CheckKind`). The descriptor stays flat
+and string-typed on the wire; the host's registry build turns each rule into a
+typed rule (`specforge_registry::rules`, ADR 0020) and checks its shape against
+this table. A rule missing what its check **requires** (or with an unknown
+check) is **W112** and is not registered. A property its check does **not read**
+is **W147**: the rule is registered without it. `field` is never W147: every
+check's message reads it as the default `{field}`, and its text as the default
+`{value}`.
 
-| Check | Behavior |
-|-------|----------|
-| `no_incoming_edges` | Warns when entity has no incoming edges of the specified type |
-| `no_outgoing_edges` | Warns when entity has no outgoing edges of the specified type |
-| `no_edges` | Warns when entity has no edges in either direction |
-| `missing_field_when_flag_set` | Warns when `field` is absent (union types exempt for `verify`) |
-| `missing_required_field` | Warns when `field` is absent |
-| `conditional_field_required` | Warns when `field` is empty while the field named by `constraint.pattern` holds one of `constraint.values` |
-| `field_value_constraint` | Warns when a field value violates its constraint (`non_empty`, `one_of`, `matches`) |
-| `cycle_detection` | Errors when edges of the specified type form a cycle |
-| `file_exists` | Errors when a file-reference field points to a nonexistent file |
-| `verify_kind_allowlist` | Warns when a `verify` kind is not in `constraint.values` |
-| `no_verify_statements` | Warns when a testable entity declares no `verify` obligations |
-| `custom` | Delegates to the rule's `wasm_function` export |
+| Check | Fires when | Requires (W112 when missing) | Reads | W147 when set |
+|-------|------------|------------------------------|-------|---------------|
+| `no_incoming_edges` | no edge points at the entity (only edges of `edge_type`, from its source kind, when set) | — | `edge_type` | `constraint`, `wasm_function` |
+| `no_outgoing_edges` | the entity points at nothing (only edges of `edge_type`, to its target kind, when set) | — | `edge_type` | `constraint`, `wasm_function` |
+| `no_edges` | the entity has no edges in either direction | — | — | `edge_type`, `constraint`, `wasm_function` |
+| `missing_field_when_flag_set` | `field` is absent (an entity owing no `verify` statements is exempt for `verify`) | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |
+| `missing_required_field` | `field` is absent | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |
+| `file_exists` | the path in `field` (each item of a list field) does not exist, relative to the spec root | `field` | `field` | `edge_type`, `constraint`, `wasm_function` |
+| `field_value_constraint` | `field`'s value breaks the constraint | `field`; a constraint `non_empty`, `one_of` with values, or `matches` with a `pattern` that compiles | the constraint | `edge_type`, `wasm_function`; `pattern` on `non_empty`/`one_of`; `values` on `non_empty`/`matches` |
+| `conditional_field_required` | `field` is absent or empty while the field named by `constraint.pattern` holds one of `constraint.values` | `field`; `constraint.pattern` and non-empty `constraint.values` | constraint kind `when_field_equals` | `edge_type`, `wasm_function`; any other constraint kind (read as `when_field_equals`) |
+| `cycle_detection` | the entity sits on a cycle of `edge_type` edges, following every field that writes it | `edge_type` | `target_kind` (unset: every entity) | `constraint`, `wasm_function` |
+| `verify_kind_allowlist` | a `verify` kind is not in `constraint.values` | a constraint with non-empty `values`; a target kind that accepts `verify` | constraint kind `one_of` | `edge_type`, `wasm_function`; `pattern`; any other constraint kind (read as `one_of`) |
+| `no_verify_statements` | a testable entity declares no `verify` obligations (or does not write `field` when it names another obligation field) | a target kind that accepts `verify` (for `verify` statements) | `field` (default `verify`) | `edge_type`, `constraint`, `wasm_function` |
+| `custom` | the rule's `wasm_function` export answers `fail` | `wasm_function` | — | `edge_type`, `constraint` |
 
 Older spellings earlier SDK releases emitted (`missing_field`,
 `field_constraint`, `cycle`, `conditional_required`) are still read.
@@ -326,6 +334,25 @@ Constraint kinds (`specforge_protocol_types::ConstraintKind`): `non_empty`,
 `values`) for `conditional_field_required`; `one_of` for
 `verify_kind_allowlist`. Any other kind on a `field_value_constraint` rule
 drops the rule with W112.
+
+References resolve against the loaded registries. A rule whose target kind or
+edge type no loaded extension declares reports nothing (it belongs to an
+extension that is not installed); an edge type resolves through the edge
+registry only, never as a field name. A target kind or edge type that neither
+the extension, its declared peers nor the rule's `target_extension` declare is
+**W021** (anything goes while a named peer is not loaded).
+
+`target_extension` (optional, protocol `1.1.0`) names the extension whose kind
+or edge type a rule is about when that is neither the declaring extension nor
+one of its declared peers: a rule on another extension's kind that this one
+works without. No peer dependency is needed (a peer orders extension loading
+and pins a version range). While the named extension is not loaded, that rule
+alone is inert and costs no W021; loaded but without the kind or edge type, it
+is W021. With no `target_extension`, a kind only a non-peer extension declares
+is W021 suggesting it. A `custom` rule's function is probed once at load
+(W112 when it cannot answer); a function that fails on real entities during a
+check is **W148**, once per rule, its data listing every entity that was not
+checked.
 
 ### Category: surfaces
 
@@ -614,7 +641,7 @@ or answered.
 | Version | What it guarantees |
 |---------|--------------------|
 | `1.0.0` | The baseline: the handshake, describe and operate payloads of this document. |
-| `1.1.0` | Field text (ADR 0019): every field an entity writes has one text, the same in a pass's `PassEntity.fields`, a validator's `ValidatorField.value` and what declarative rules match (see "Field text" in `extension-sdk.md`). A written field is present even when empty (`""`). A validator's field `value` is always a string (a variant list, mixed list, expression or type union was `null`). `PassEntity.exempt` follows the host's one obligation rule: a `no_verify_statements` rule without a target kind obliges every kind that accepts `verify` statements (an entity of a kind that accepts none is exempt). |
+| `1.1.0` | A validation rule's optional `target_extension` (ADR 0020). Field text (ADR 0019): every field an entity writes has one text, the same in a pass's `PassEntity.fields`, a validator's `ValidatorField.value` and what declarative rules match (see "Field text" in `extension-sdk.md`). A written field is present even when empty (`""`). A validator's field `value` is always a string (a variant list, mixed list, expression or type union was `null`). `PassEntity.exempt` follows the host's one obligation rule: a `no_verify_statements` rule without a target kind obliges every kind that accepts `verify` statements (an entity of a kind that accepts none is exempt). |
 
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.

@@ -223,6 +223,84 @@ fn a_referenced_file_reruns_the_checks() {
     assert_eq!(e016(&session), 0, "{:?}", session.diagnostics());
 }
 
+/// An extension whose `note` kind's `doc` (a string) and `docs` (a list)
+/// a `file_exists` rule `F001` reads.
+fn file_rule_extension() -> specforge_wasm::testing::InProcessRuntime {
+    use specforge_extension_sdk::prelude::*;
+    specforge_wasm::testing::InProcessRuntime::new().with(|| {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/files", "1.0.0"));
+        c.kind("note", |k| {
+            k.keyword("note");
+            k.field("doc", |f| {
+                f.field_type(FieldType::String);
+            });
+            k.field("docs", |f| {
+                f.field_type(FieldType::StringList);
+            });
+        });
+        for (code, field) in [("F001", "doc"), ("F002", "docs")] {
+            c.rule(code, |r| {
+                r.check(CheckKind::FileExists)
+                    .severity(ValidationSeverity::Warning)
+                    .target_kind("note")
+                    .field(field)
+                    .message_template("note '{id}': missing '{value}'");
+            });
+        }
+        c
+    })
+}
+
+#[specforge_test(
+    behavior = "classify_project_changes",
+    verify = "a file a file_exists rule names re-runs the checks"
+)]
+fn a_file_a_file_exists_rule_names_reruns_the_checks() {
+    let (dir, _) = open(
+        json!({"name": "c", "version": "0.1.0", "spec_root": "spec", "extensions": ["@test/files"]}),
+        &[(
+            "spec/a.spec",
+            "note n \"N\" {\n  doc \"guide.md\"\n  docs [\"more/one.md\"]\n}\n",
+        )],
+    );
+    let root = dir.path();
+    let ext = Arc::new(file_rule_extension());
+    let mut session =
+        ProjectSession::open_with_runtime(root, Some(Arc::clone(&ext) as SharedRuntime));
+    let missing = |session: &ProjectSession| -> Vec<String> {
+        session
+            .diagnostics()
+            .iter()
+            .filter(|d| d.code.starts_with('F'))
+            .map(|d| d.message.clone())
+            .collect()
+    };
+    assert_eq!(
+        missing(&session),
+        [
+            "note 'n': missing 'guide.md'",
+            "note 'n': missing 'more/one.md'"
+        ]
+    );
+
+    // A file named by a scalar field, under the spec root.
+    write(root, "spec/guide.md", "# Guide\n");
+    let guide = root.join("spec/guide.md");
+    assert_eq!(session.classify(&guide), InputRole::CheckInput);
+    let update = session
+        .apply(&session.changes([guide.as_path()]))
+        .expect("a file a file_exists rule names changed");
+    assert_eq!(update.kind, UpdateKind::Checks);
+    assert_eq!(missing(&session), ["note 'n': missing 'more/one.md'"]);
+
+    // An item of a list field, in a directory that did not exist.
+    write(root, "spec/more/one.md", "# One\n");
+    let one = root.join("spec/more/one.md");
+    assert_eq!(session.classify(&one), InputRole::CheckInput);
+    session.apply(&session.changes([one.as_path()])).unwrap();
+    assert!(missing(&session).is_empty(), "{:?}", session.diagnostics());
+}
+
 #[specforge_test(
     behavior = "classify_project_changes",
     verify = "an excluded or undiscovered .spec file changes nothing"

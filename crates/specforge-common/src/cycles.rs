@@ -4,10 +4,14 @@
 //! entity-level detector. Two semantics are parameterized because the
 //! call sites genuinely differ:
 //!
-//! - `report_paths` (`true` in graph.rs): return each cycle as a closed
-//!   path `[A, B, A]`;
-//! - `cycle_members` (emitter per-rule pass): return the set of nodes that
-//!   are ON a cycle — nodes that merely lead into one are never members.
+//! - `report_paths` (`true` in specforge-graph's graph.rs): return each
+//!   cycle as a closed path `[A, B, A]`;
+//! - `cycle_members` (the `cycle_detection` rules): return the set of nodes
+//!   that are ON a cycle — nodes that merely lead into one are never
+//!   members.
+//!
+//! It lives here, std-only, so the registry's rules reach it without
+//! linking the graph or the parser; `specforge_graph` re-exports it.
 //!
 //! Determinism (R-6): seeds must be passed sorted, and adjacency is a
 //! BTreeMap/BTreeSet pair so traversal order is fixed regardless of HashMap

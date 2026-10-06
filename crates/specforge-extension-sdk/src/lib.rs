@@ -807,6 +807,7 @@ impl RuleBuilder {
                 field: None,
                 constraint: None,
                 wasm_function: None,
+                target_extension: None,
             },
             validate: None,
         }
@@ -849,6 +850,15 @@ impl RuleBuilder {
     }
     pub fn wasm_function(&mut self, f: &str) -> &mut Self {
         self.descriptor.wasm_function = Some(f.to_string());
+        self
+    }
+    /// The extension whose kind or edge type this rule names, when it is
+    /// neither this extension nor one of its declared peers (a rule on a
+    /// kind of an extension this one works without, so no peer dependency
+    /// is declared). While `extension` is not loaded the rule is inert, and
+    /// costs the host no W021.
+    pub fn target_extension(&mut self, extension: &str) -> &mut Self {
+        self.descriptor.target_extension = Some(extension.to_string());
         self
     }
     pub fn constraint(&mut self, f: impl FnOnce(&mut FieldConstraintBuilder)) -> &mut Self {

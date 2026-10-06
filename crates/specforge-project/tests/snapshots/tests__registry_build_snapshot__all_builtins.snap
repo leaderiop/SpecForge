@@ -5957,6 +5957,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "cycle_detection",
       "code": "E007",
       "constraint": null,
+      "edge_fields": [
+        "depends_on"
+      ],
       "edge_peer_kind": null,
       "edge_type": "ModuleDependsOn",
       "field": null,
@@ -5983,6 +5986,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "cycle_detection",
       "code": "E015",
       "constraint": null,
+      "edge_fields": [
+        "depends_on"
+      ],
       "edge_peer_kind": null,
       "edge_type": "MilestoneDependsOn",
       "field": null,
@@ -6009,6 +6015,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "cycle_detection",
       "code": "E052",
       "constraint": null,
+      "edge_fields": [
+        "depends_on"
+      ],
       "edge_peer_kind": null,
       "edge_type": "DeliverableDependsOn",
       "field": null,
@@ -6138,6 +6147,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "no_outgoing_edges",
       "code": "I055",
       "constraint": null,
+      "edge_fields": [
+        "channels"
+      ],
       "edge_peer_kind": "channel",
       "edge_type": "JourneyUsesChannel",
       "field": null,
@@ -6267,6 +6279,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "no_outgoing_edges",
       "code": "I067",
       "constraint": null,
+      "edge_fields": [
+        "features"
+      ],
       "edge_peer_kind": "feature",
       "edge_type": "ModuleContainsFeature",
       "field": null,
@@ -6536,6 +6551,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "no_outgoing_edges",
       "code": "I082",
       "constraint": null,
+      "edge_fields": [
+        "deliverables"
+      ],
       "edge_peer_kind": "deliverable",
       "edge_type": "ReleaseIncludesDeliverable",
       "field": null,
@@ -6549,6 +6567,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "no_outgoing_edges",
       "code": "I083",
       "constraint": null,
+      "edge_fields": [
+        "milestones"
+      ],
       "edge_peer_kind": "milestone",
       "edge_type": "ReleaseCompletesMilestone",
       "field": null,
@@ -6615,6 +6636,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "no_outgoing_edges",
       "code": "W001",
       "constraint": null,
+      "edge_fields": [
+        "features"
+      ],
       "edge_peer_kind": "feature",
       "edge_type": "BehaviorImplementsFeature",
       "field": null,
@@ -6758,6 +6782,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "no_incoming_edges",
       "code": "W008",
       "constraint": null,
+      "edge_fields": [
+        "features"
+      ],
       "edge_peer_kind": "behavior",
       "edge_type": "BehaviorImplementsFeature",
       "field": null,
@@ -6962,6 +6989,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "no_outgoing_edges",
       "code": "W043",
       "constraint": null,
+      "edge_fields": [
+        "journeys"
+      ],
       "edge_peer_kind": "journey",
       "edge_type": "DeliverableSupportsJourney",
       "field": null,
@@ -6988,6 +7018,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "cycle_detection",
       "code": "W045",
       "constraint": null,
+      "edge_fields": [
+        "depends_on"
+      ],
       "edge_peer_kind": null,
       "edge_type": "FeatureDependsOn",
       "field": null,
@@ -7001,6 +7034,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "no_outgoing_edges",
       "code": "W046",
       "constraint": null,
+      "edge_fields": [
+        "modules"
+      ],
       "edge_peer_kind": "module",
       "edge_type": "DeliverableContainsModule",
       "field": null,
@@ -7263,6 +7299,7 @@ expression: "digest(&load(&runtime, &all))"
       "message_template": "{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low",
       "owner": "@specforge/product",
       "severity": "Warning",
+      "target_extension": "@specforge/governance",
       "target_kind": "constraint",
       "wasm_function": null
     },
@@ -7381,6 +7418,9 @@ expression: "digest(&load(&runtime, &all))"
       "check": "cycle_detection",
       "code": "W092",
       "constraint": null,
+      "edge_fields": [
+        "depends_on"
+      ],
       "edge_peer_kind": null,
       "edge_type": "ReleaseDependsOn",
       "field": null,

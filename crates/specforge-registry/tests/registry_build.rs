@@ -112,7 +112,7 @@ fn rules_include_the_manifest_rules_and_the_required_field_rules() {
     let codes: Vec<(&str, &str)> = build
         .rules
         .iter()
-        .map(|(p, origin)| (p.code.as_str(), origin.as_str()))
+        .map(|rule| (rule.code(), rule.origin().name()))
         .collect();
     // The extension's rule keeps its origin (for custom-rule dispatch);
     // the host-generated E006 rule for `contract` has none.
@@ -204,10 +204,7 @@ fn a_rule_code_declared_by_two_extensions_warns() {
     for part in ["'W100'", "'@ext/a'", "'@ext/b'"] {
         assert!(message.contains(part), "{message}");
     }
-    assert_eq!(
-        build.rules.iter().filter(|(r, _)| r.code == "W100").count(),
-        2
-    );
+    assert_eq!(build.rules.iter().filter(|r| r.code() == "W100").count(), 2);
 }
 
 /// With no extension loaded the host knows no kind, field or edge: every
@@ -270,8 +267,8 @@ fn registered(
     build
         .rules
         .iter()
-        .filter(|(rule, _)| rule.code == code)
-        .map(|(rule, origin)| (rule.severity, origin.clone()))
+        .filter(|rule| rule.code() == code)
+        .map(|rule| (rule.severity(), rule.origin().name().to_string()))
         .collect()
 }
 

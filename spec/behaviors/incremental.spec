@@ -55,8 +55,9 @@ behavior classify_project_changes "Classify Project Changes" {
     specforge.lock and every extension module the environment loaded (an
     installed extension's extension.wasm, a local .wasm entry) are
     environment changes; specforge-cache.json, which check-phase passes
-    read, and every file a file_reference field names, which the checks
-    look for, are check-input changes; any other path changes nothing.
+    read, and every file a file_reference field or a file_exists rule
+    names, which the checks look for, are check-input changes; any other
+    path changes nothing.
     Watch, the LSP and MCP MUST classify through the session.
   """
   verify unit "a discovered .spec file is a source change keyed relative to the spec root"
@@ -64,6 +65,7 @@ behavior classify_project_changes "Classify Project Changes" {
   verify unit "a .wasm file no extension loads changes nothing"
   verify unit "specforge-cache.json re-runs the checks without re-parsing"
   verify unit "a file a file_reference field names re-runs the checks"
+  verify unit "a file a file_exists rule names re-runs the checks"
   verify unit "an excluded or undiscovered .spec file changes nothing"
 }
 

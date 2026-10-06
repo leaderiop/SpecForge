@@ -134,13 +134,13 @@ pub fn codes(build: &RegistryBuild) -> Vec<&str> {
         .collect()
 }
 
-/// The build's rules as (code, origin), in order: the one accessor that
-/// changes when `RegistryBuild::rules` changes type.
+/// The build's rules as (code, origin), in order (the host's origin is
+/// `""`).
 pub fn rule_codes(build: &RegistryBuild) -> Vec<(&str, &str)> {
     build
         .rules
         .iter()
-        .map(|(rule, origin)| (rule.code.as_str(), origin.as_str()))
+        .map(|rule| (rule.code(), rule.origin().name()))
         .collect()
 }
 

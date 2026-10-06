@@ -14,7 +14,6 @@ use specforge_protocol_types::{
     PassEdge, PassEntity, PassSpan, ValidatorContext, ValidatorEntity, ValidatorField,
     ValidatorMethod, ValidatorParam, ValidatorRef,
 };
-use specforge_registry::validation_engine::obliging_rule;
 use specforge_registry::{FieldRegistry, KindRegistry, RegistryBuild};
 
 pub use specforge_registry::entity::{
@@ -314,7 +313,10 @@ impl Standing {
                 .kinds
                 .get(&record.kind)
                 .is_some_and(|kind| kind.testable),
-            rule: obliging_rule(&registries.rules, &record.kind).map(|rule| rule.code.clone()),
+            rule: registries
+                .rules
+                .verify_rule_for(&record.kind)
+                .map(|rule| rule.code().to_string()),
             exemption: record.exemption.clone(),
             declared: record.obligations.len(),
         }
@@ -741,9 +743,10 @@ mod tests {
 
     // ── The obligation rule (moved from coverage.rs; links kept) ──
 
-    use specforge_registry::validation_engine::{
-        ValidationPatternKind, ValidationRulePattern, execute_pattern,
+    use specforge_protocol_types::{
+        ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
     };
+    use specforge_registry::rules::{NoVerdicts, Registries, Rules};
     use specforge_registry::{FieldRegistry, KindRegistry, KindRegistryEntry, RegistryBuild};
 
     fn kind(name: &str, testable: bool, supports_verify: bool) -> KindRegistryEntry {
@@ -782,34 +785,40 @@ mod tests {
         fields
     }
 
-    fn w004(kind: &str) -> ValidationRulePattern {
-        ValidationRulePattern {
+    fn w004(kind: &str) -> ValidationRuleDescriptor {
+        ValidationRuleDescriptor {
             code: "W004".into(),
-            severity: specforge_common::Severity::Warning,
+            severity: ValidationSeverity::Warning,
             message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
-            check: ValidationPatternKind::NoVerifyStatements,
+            check: "no_verify_statements".into(),
             target_kind: Some(kind.into()),
-            edge_type: None,
-            edge_peer_kind: None,
             field: Some("verify".into()),
-            constraint: None,
-            wasm_function: None,
+            ..Default::default()
         }
     }
 
-    /// The registry build of `kinds`, `fields` and `rules`.
+    /// The registry build of `kinds`, `fields` and the rule set of an
+    /// extension declaring `rules`.
     fn build(
         kinds: KindRegistry,
         fields: FieldRegistry,
-        rules: Vec<ValidationRulePattern>,
+        rules: Vec<ValidationRuleDescriptor>,
     ) -> RegistryBuild {
         let mut build = RegistryBuild::default();
         build.kinds = kinds;
         build.fields = fields;
-        build.rules = rules
-            .into_iter()
-            .map(|rule| (rule, String::new()))
-            .collect();
+        let declaration = ExtensionDeclaration {
+            validation_rules: rules,
+            ..Default::default()
+        };
+        (build.rules, _) = Rules::build(
+            &[declaration],
+            Registries {
+                kinds: &build.kinds,
+                fields: &build.fields,
+                edges: &build.edges,
+            },
+        );
         build
     }
 
@@ -819,10 +828,16 @@ mod tests {
 
     /// The ids W004 reports on `source` (rules on `behavior` and `type`).
     fn w004_ids(source: &str, fields: FieldRegistry) -> Vec<String> {
-        let snapshot = snapshot(source, &build(KindRegistry::new(), fields, Vec::new()));
-        let mut ids: Vec<String> = ["behavior", "type"]
+        let registries = build(
+            KindRegistry::new(),
+            fields,
+            vec![w004("behavior"), w004("type")],
+        );
+        let snapshot = snapshot(source, &registries);
+        let mut ids: Vec<String> = registries
+            .rules
+            .check(&snapshot.rule_input(), &NoVerdicts)
             .into_iter()
-            .flat_map(|kind| execute_pattern(&w004(kind), &snapshot.rule_input(), None))
             .map(|d| d.message.split('\'').nth(1).unwrap().to_string())
             .collect();
         ids.sort();
@@ -916,7 +931,7 @@ mod tests {
         let source = "behavior open \"Open\" {\n}\n\nbehavior base \"Base\" {\n  abstract true\n}\n\n\
                       type Status = active | inactive\n\ntype Plain \"Plain\" {\n  id string\n}\n\n\
                       memo note \"Note\" {\n}\n";
-        let owes = |rules: Vec<ValidationRulePattern>| -> Vec<String> {
+        let owes = |rules: Vec<ValidationRuleDescriptor>| -> Vec<String> {
             let registries = build(kinds(), abstract_behaviors(), rules);
             snapshot(source, &registries)
                 .iter()
