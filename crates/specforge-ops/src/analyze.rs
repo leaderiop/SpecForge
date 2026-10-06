@@ -439,7 +439,7 @@ mod tests {
     struct Project {
         graph: Graph,
         env: specforge_project::Environment,
-        recorded: coverage::RecordedCoverage,
+        recorded: std::sync::OnceLock<coverage::RecordedCoverage>,
         dir: tempfile::TempDir,
     }
 
@@ -467,7 +467,7 @@ mod tests {
             Self {
                 graph: Graph::new(),
                 env: specforge_project::Environment::with_registries(registries),
-                recorded: coverage::RecordedCoverage::default(),
+                recorded: std::sync::OnceLock::new(),
                 dir,
             }
         }
@@ -477,7 +477,8 @@ mod tests {
                 &self.graph,
                 &self.env,
                 Some(self.dir.path()),
-                &self.recorded,
+                self.recorded
+                    .get_or_init(|| coverage::RecordedCoverage::over(&self.graph, &self.env)),
             )
         }
 

@@ -300,6 +300,50 @@ fn shutdown_frees_the_wasm_runtime() {
     );
 }
 
+// While the session is out for an update, readers see the stand-in of its
+// last complete graph: its entity snapshot is that graph's own, and a later
+// stand-in never reads the memo of an earlier one.
+#[spec(
+    behavior = "snapshot_entities_once",
+    verify = "a session's snapshot follows every update"
+)]
+fn a_stand_in_reads_the_snapshot_of_its_own_graph() {
+    let project = tempfile::TempDir::new().unwrap();
+    std::fs::write(
+        project.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
+    std::fs::write(project.path().join("a.spec"), "behavior a \"A\" {\n}\n").unwrap();
+    let mut state = specforge_lsp::LspState::new();
+    state.set_session(specforge_project::ProjectSession::open_with_runtime(
+        project.path(),
+        None,
+    ));
+
+    let session = state.take_session().expect("the session is held");
+    let first = state.view().entities().kind_of("a").map(str::to_string);
+    assert_eq!(first.as_deref(), Some("behavior"));
+    assert!(state.view().entities().kind_of("b").is_none());
+    let first_snapshot = state.view().entities() as *const _;
+    state.set_session(session);
+
+    // The graph changes while the session is held; the next stand-in is of
+    // the new graph, with a snapshot of its own.
+    std::fs::write(project.path().join("b.spec"), "behavior b \"B\" {\n}\n").unwrap();
+    let mut session = state.take_session().expect("the session is held");
+    session.update(specforge_project::SourceChange::Disk(&[
+        "b.spec".to_string()
+    ]));
+    state.set_session(session);
+    let session = state.take_session().expect("the session is held");
+    let view = state.view();
+    assert_eq!(view.entities().kind_of("b"), Some("behavior"));
+    assert!(!std::ptr::eq(view.entities(), first_snapshot));
+    // It is the snapshot the session holds for that graph.
+    assert!(std::ptr::eq(view.entities(), session.entities()));
+}
+
 /// The watchers derive from the session: relative to each input's
 /// directory for a client with relative pattern support, absolute globs
 /// otherwise, and the static set with no project.

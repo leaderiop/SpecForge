@@ -22,9 +22,6 @@ pub struct LspState {
     /// recompile can tell whether the client's semantic tokens went stale.
     last_token_signature: u64,
     shutdown: bool,
-    /// The recorded-coverage memo of the stand-in graph readers see while
-    /// the session is out for an update (it records nothing: no root).
-    stand_in_recorded: RecordedCoverage,
     /// The format configurations the editor was told override its settings
     /// (once per session and configuration, ADR 0021 D1).
     format_notices: HashSet<String>,
@@ -39,6 +36,10 @@ enum Project {
     Out {
         graph: Graph,
         env: Arc<Environment>,
+        /// The recorded-coverage memo of this stand-in graph (it records
+        /// nothing: no root), seeded with the snapshot the session held
+        /// for that graph, so no stand-in reads the memo of another.
+        recorded: RecordedCoverage,
     },
 }
 
@@ -58,7 +59,6 @@ impl LspState {
             anchor: None,
             last_token_signature: 0,
             shutdown: false,
-            stand_in_recorded: RecordedCoverage::default(),
             format_notices: HashSet::new(),
         };
         state.last_token_signature = state.token_signature();
@@ -212,9 +212,11 @@ impl LspState {
     pub fn view(&self) -> ProjectView<'_> {
         match &self.project {
             Project::Held(session) => ProjectView::of_session(session, session.root()),
-            Project::Out { graph, env } => {
-                ProjectView::new(graph, env, None, &self.stand_in_recorded)
-            }
+            Project::Out {
+                graph,
+                env,
+                recorded,
+            } => ProjectView::new(graph, env, None, recorded),
         }
     }
 
@@ -242,6 +244,7 @@ impl LspState {
             Project::Held(session) => Project::Out {
                 graph: session.graph().clone(),
                 env: session.shared_environment(),
+                recorded: RecordedCoverage::of(Arc::clone(session.recorded().entities())),
             },
             Project::Out { .. } => return None,
         };

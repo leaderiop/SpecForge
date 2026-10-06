@@ -32,7 +32,12 @@ build reads it:
 - the coverage view, plan validation, stats and the verify-stub fix read its standings.
 
 Operations reach it through the project view (`ProjectView::entities`), seeded into the per-compile memo
-that already holds the coverage.
+that already holds the coverage. The memo is bound to its snapshot when it is made (`RecordedCoverage::of`
+with the snapshot the checks read, or `RecordedCoverage::over(graph, env)` for a graph assembled
+elsewhere, which takes it with `Environment::entity_snapshot`): it is never asked for a snapshot with
+inputs of its own, so no caller can score a graph with another's registries or spec root. A session
+whose update skipped the checks makes its memo over its own graph on first use; the LSP's stand-in
+graph carries the snapshot its session held for that graph.
 
 ### Placement
 

@@ -276,7 +276,7 @@ mod tests {
 
         let graph = specforge_graph::Graph::new();
         let env = specforge_project::Environment::with_registries(Default::default());
-        let recorded = specforge_project::coverage::RecordedCoverage::default();
+        let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
         let view =
             ProjectView::new(&graph, &env, Some(dir.path()), &recorded).reporting(&diagnostics);
         let report = specforge_ops::doctor::diagnose_with(&view, true);

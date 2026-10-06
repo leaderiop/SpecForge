@@ -196,6 +196,14 @@ impl Environment {
         }
     }
 
+    /// The entity snapshot of `graph`, built in this environment: its
+    /// registries decide each entity's standing and its spec root resolves
+    /// the relative paths the rules read. The one place a snapshot is
+    /// taken from an environment.
+    pub fn entity_snapshot(&self, graph: &Graph) -> EntitySnapshot {
+        EntitySnapshot::of(graph, &self.registries, &self.spec_root)
+    }
+
     /// What the checks on a built graph need from this environment, with
     /// the graph's entity snapshot.
     pub fn checks<'a>(
@@ -386,7 +394,7 @@ impl CompiledProject {
         let resolved = env.resolve();
         let (graph, graph_diagnostics) =
             build_graph_with_config(&source_files(&resolved), &env.graph_config());
-        let entities = Arc::new(EntitySnapshot::of(&graph, &env.registries, &env.spec_root));
+        let entities = Arc::new(env.entity_snapshot(&graph));
         let check_diagnostics = env.run_checks(&graph, &entities, runtime);
         CompiledProject {
             env,

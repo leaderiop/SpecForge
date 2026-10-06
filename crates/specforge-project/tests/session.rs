@@ -1533,17 +1533,7 @@ fn an_update_starts_a_fresh_coverage_memo() {
     );
     let root = dir.path();
     let mut session = ProjectSession::open(root);
-    let coverage = |session: &ProjectSession| {
-        session
-            .recorded()
-            .at(
-                Some(root),
-                session.graph(),
-                &session.environment().registries,
-            )
-            .unwrap()
-            .coverage
-    };
+    let coverage = |session: &ProjectSession| session.recorded().at(Some(root)).unwrap().coverage;
     let first = coverage(&session);
     assert!(std::sync::Arc::ptr_eq(&first, &coverage(&session)));
     assert!(first.standing("a").unwrap().counts());
@@ -1633,15 +1623,7 @@ fn a_sessions_snapshot_follows_every_update() {
     let standing = session.entities().standing("gizmo").unwrap();
     assert_eq!(standing.declared, 1);
     assert!(standing.counts() && standing.reported_by().is_none());
-    let coverage = session
-        .recorded()
-        .at(
-            Some(root),
-            session.graph(),
-            &session.environment().registries,
-        )
-        .unwrap()
-        .coverage;
+    let coverage = session.recorded().at(Some(root)).unwrap().coverage;
     assert!(std::ptr::eq(session.entities(), coverage.entities()));
     assert_eq!(coverage.verdict("gizmo").unwrap().obligations, 1);
     assert_eq!(coverage.summary.testable_total, 1);
@@ -1653,4 +1635,46 @@ fn a_sessions_snapshot_follows_every_update() {
         !session.diagnostics().iter().any(|d| d.code == "P300"),
         "the rule read the same snapshot"
     );
+}
+
+#[specforge_test(
+    behavior = "snapshot_entities_once",
+    verify = "a session's snapshot follows every update"
+)]
+fn an_update_that_skips_the_checks_still_scores_its_own_graph() {
+    use specforge_project::CheckMode;
+
+    let dir = project(
+        CONFIG,
+        &[(
+            "a.spec",
+            "behavior a \"A\" {\n  contract \"The system MUST a\"\n}\n",
+        )],
+    );
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    let before = session.entities() as *const _;
+    assert!(session.entities().kind_of("a").is_some());
+
+    // The file now has a parse error: the checks are skipped, and nothing
+    // seeded the memo. What the session scores is still its own graph's
+    // snapshot, taken once, in its environment (the spec root included).
+    write(root, "b.spec", "behavior b \"B\" {\n  contract \"\n");
+    session.update_with(
+        SourceChange::Disk(&changed(&["b.spec"])),
+        CheckMode::SyntaxOnlyIfParseErrorsIn("b.spec"),
+    );
+    let entities = session.entities();
+    assert!(!std::ptr::eq(entities, before), "a fresh memo per update");
+    assert_eq!(entities.spec_root(), session.environment().spec_root);
+    assert!(std::ptr::eq(entities, session.entities()), "taken once");
+    for node in session.graph().nodes() {
+        assert!(
+            entities.standing(node.id.raw.as_str()).is_some(),
+            "{} is scored",
+            node.id.raw
+        );
+    }
+    let coverage = session.recorded().at(Some(root)).unwrap().coverage;
+    assert!(std::ptr::eq(entities, coverage.entities()));
 }

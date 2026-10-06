@@ -133,7 +133,7 @@ fn use_is_suggested_and_define_never_is() {
     // With and without extensions.
     let empty = specforge_project::Environment::with_registries(RegistryBuild::default());
     let graph = Graph::new();
-    let recorded = RecordedCoverage::default();
+    let recorded = RecordedCoverage::over(&graph, &empty);
     let bare = ProjectView::new(&graph, &empty, None, &recorded);
     let found = complete("\n", 0, 0, &bare).1;
     assert_eq!(labels(&found), ["use"]);
@@ -308,10 +308,12 @@ impl Fixture {
                 methods: Vec::new(),
             });
         }
+        let env = specforge_project::Environment::with_registries(registries);
+        let recorded = RecordedCoverage::over(&graph, &env);
         Fixture {
-            env: specforge_project::Environment::with_registries(registries),
+            env,
             graph,
-            recorded: RecordedCoverage::default(),
+            recorded,
         }
     }
 

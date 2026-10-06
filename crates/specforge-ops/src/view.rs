@@ -65,8 +65,8 @@ enum Reported<'a> {
 
 impl<'a> ProjectView<'a> {
     /// The view of `graph`, compiled in `env`, rooted at `root`. `recorded`
-    /// must belong to the owner of `graph` (`RecordedCoverage::default()`
-    /// for a graph assembled in a test). It reports nothing until
+    /// must belong to the owner of `graph` (`RecordedCoverage::over(graph,
+    /// env)` for a graph assembled in a test). It reports nothing until
     /// [`Self::reporting`].
     pub fn new(
         graph: &'a Graph,
@@ -218,19 +218,15 @@ impl<'a> ProjectView<'a> {
     /// from it ([`Self::coverage`]), read together: one read of the report
     /// file for a view that needs both.
     pub fn recorded(&self) -> Result<Recorded, ReportError> {
-        // The snapshot first, so an unseeded memo takes it with the
-        // environment's spec root.
-        self.entities();
-        self.recorded.at(self.root, self.graph, self.registries())
+        self.recorded.at(self.root)
     }
 
     /// The graph's entity snapshot (ADR 0019): every entity with what it
-    /// writes and its standing, the one the project's checks read. A view
-    /// whose owner seeded none (a graph assembled in a test, the LSP's
-    /// stand-in) takes one on first use, with the environment's spec root.
+    /// writes and its standing, the one the project's checks read. It is
+    /// the one the view's memo was made with: its owner's, so the view
+    /// cannot read another graph's.
     pub fn entities(&self) -> &'a EntitySnapshot {
-        self.recorded
-            .entities(self.graph, self.registries(), &self.env.spec_root)
+        self.recorded.entities()
     }
 
     /// The Graph Protocol schema the loaded extensions produce, unversioned
@@ -277,7 +273,9 @@ pub(crate) mod testing {
         pub dir: TempDir,
         pub graph: Graph,
         pub env: Environment,
-        pub recorded: RecordedCoverage,
+        /// Made over the graph and environment as they are at the first
+        /// view ([`Self::recorded`]).
+        recorded: std::sync::OnceLock<RecordedCoverage>,
         pub reported: Vec<Diagnostic>,
     }
 
@@ -297,9 +295,15 @@ pub(crate) mod testing {
                 dir,
                 graph: Graph::new(),
                 env,
-                recorded: RecordedCoverage::default(),
+                recorded: std::sync::OnceLock::new(),
                 reported: Vec::new(),
             }
+        }
+
+        /// The coverage memo of the graph and environment the test built.
+        fn recorded(&self) -> &RecordedCoverage {
+            self.recorded
+                .get_or_init(|| RecordedCoverage::over(&self.graph, &self.env))
         }
 
         /// The compile read `config` as `specforge.json` (not written to
@@ -410,14 +414,15 @@ pub(crate) mod testing {
                 &self.graph,
                 &self.env,
                 Some(self.dir.path()),
-                &self.recorded,
+                self.recorded(),
             )
             .reporting(&self.reported)
         }
 
         /// The same project without a root.
         pub fn rootless_view(&self) -> ProjectView<'_> {
-            ProjectView::new(&self.graph, &self.env, None, &self.recorded).reporting(&self.reported)
+            ProjectView::new(&self.graph, &self.env, None, self.recorded())
+                .reporting(&self.reported)
         }
     }
 }
@@ -450,7 +455,7 @@ mod tests {
         let graph = Graph::new();
         let mut env = Environment::with_registries(RegistryBuild::default());
         env.spec_root = dir.path().join("spec");
-        let recorded = RecordedCoverage::default();
+        let recorded = RecordedCoverage::over(&graph, &env);
         let view = ProjectView::new(&graph, &env, None, &recorded);
         assert!(view.entities().is_empty());
         assert!(std::ptr::eq(view.entities(), view.entities()));
@@ -475,18 +480,18 @@ mod tests {
         let graph = Graph::new();
         let env = Environment::with_registries(RegistryBuild::default());
 
-        let recorded = RecordedCoverage::default();
+        let recorded = RecordedCoverage::over(&graph, &env);
         let at_sub = ProjectView::new(&graph, &env, Some(&sub), &recorded);
         assert!(at_sub.test_report().unwrap().is_none());
         assert!(at_sub.coverage().unwrap().summary.test_results.is_none());
 
-        let recorded = RecordedCoverage::default();
+        let recorded = RecordedCoverage::over(&graph, &env);
         let at_root = ProjectView::new(&graph, &env, Some(project), &recorded);
         let error = at_root.test_report().unwrap_err();
         assert_eq!(error.diagnostic().code, "E045");
         assert!(at_root.coverage().is_err());
 
-        let recorded = RecordedCoverage::default();
+        let recorded = RecordedCoverage::over(&graph, &env);
         let rootless = ProjectView::new(&graph, &env, None, &recorded);
         assert!(rootless.test_report().unwrap().is_none());
     }
@@ -514,7 +519,7 @@ mod tests {
         // A view built in memory reports nothing until it is told what.
         let graph = Graph::new();
         let env = Environment::with_registries(RegistryBuild::default());
-        let recorded = RecordedCoverage::default();
+        let recorded = RecordedCoverage::over(&graph, &env);
         let bare = ProjectView::new(&graph, &env, None, &recorded);
         assert!(bare.reported().is_empty());
         let warning = [Diagnostic::untyped("W002", Severity::Warning, "unused")];
