@@ -2,23 +2,25 @@
 
 <!-- Generated file: do not edit by hand. -->
 
-This page is generated from the catalog in `crates/specforge-diagnostics/src/lib.rs`,
+This page is generated from the catalog table in `crates/specforge-diagnostics/src/catalog.rs`,
 the single registry of diagnostic codes; `specforge explain <CODE>` prints the
 same text. Every code emitted by the compiler, the CLI, or a first-party
 extension has exactly one entry, and each entry names its owner: `core` for the
-compiler and CLI, or the `@specforge/<name>` extension that emits it. A test
-fails when an emitted code is missing here, is attributed to the wrong owner,
-or is listed but never emitted.
+compiler and CLI, or the `@specforge/<name>` extension that emits it. The same
+table generates a typed constant for every core code
+(`specforge_diagnostics::codes`). A test fails when an emitted code is missing
+here, is attributed to the wrong owner, or is listed but never emitted.
 
 Codes follow the pattern `E###` (error), `W###` (warning) and `I###` (info);
 `A###` codes are `specforge analyze` findings, whose severity the pass sets.
 The registry client keeps its own family, `R###` and `R-<AREA>-###`, whose
 prefix doesn't state the severity; no other family is accepted. Each entry's
-`Level` is the severity every emit site uses, and a test checks the emit sites
-against it. The ranges `E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for
-third-party extensions and never appear in this catalog; `I999` is a core code.
+`Level` is the severity a diagnostic of that code has when it is reported;
+`specforge check --strict` raises warnings to errors afterwards. The ranges
+`E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for third-party
+extensions and never appear in this catalog; `I999` is a core code.
 
-Regenerate this page after editing the catalog:
+Regenerate this page after editing the catalog table:
 
 ```sh
 SPECFORGE_BLESS=1 cargo test -p specforge-diagnostics explain_docs_sync
