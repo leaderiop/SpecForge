@@ -1,100 +1,36 @@
 use crate::support::*;
 use serde_json::{Value, json};
-use specforge_common::SourceSpan;
-use specforge_graph::{Edge, Graph, Node};
+use specforge_extension_sdk::prelude::{PassDiagnostic, PassSpan};
 use specforge_mcp::McpServer;
-use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
 use specforge_test::prelude::*;
 
-fn span() -> SourceSpan {
-    SourceSpan {
-        file: "test.spec".into(),
-        start_line: 1,
-        start_col: 0,
-        end_line: 5,
-        end_col: 0,
-    }
+/// test.spec: `alpha` on lines 1–4, `beta` on lines 10–12 (its
+/// `behaviors [alpha]` on line 11).
+const TEST_SPEC: &str = concat!(
+    "behavior alpha \"Alpha Behavior\" {\n",
+    "    contract \"The system MUST do alpha\"\n",
+    "    verify unit \"test alpha\"\n",
+    "}\n",
+    "\n\n\n\n\n",
+    "feature beta \"Beta Feature\" {\n",
+    "    behaviors [alpha]\n",
+    "}\n",
+);
+
+/// The project every in-process test serves, before its own files.
+fn project() -> TestProject {
+    TestProject::new().file("test.spec", TEST_SPEC)
 }
 
-fn test_server() -> McpServer {
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
-
-    let state = server.state_mut();
-    let mut graph = Graph::new();
-
-    let mut fields_a = FieldMap::new();
-    fields_a.push(
-        "contract".into(),
-        FieldValue::String("The system MUST do alpha".into()),
-    );
-    fields_a.push(
-        "verify".into(),
-        FieldValue::VerifyList(vec![VerifyStatement {
-            kind: "unit".into(),
-            description: "test alpha".into(),
-        }]),
-    );
-
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "alpha".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Alpha Behavior".into()),
-        fields: fields_a,
-        source_span: span(),
-        methods: Vec::new(),
-    });
-    graph.add_node(Node {
-        id: EntityId { raw: "beta".into() },
-        kind: EntityKind {
-            raw: "feature".into(),
-        },
-        title: Some("Beta Feature".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "test.spec".into(),
-            start_line: 10,
-            start_col: 0,
-            end_line: 15,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-    graph.add_edge(Edge {
-        source: "beta".into(),
-        target: "alpha".into(),
-        label: "behaviors".into(),
-    });
-    state.serve_graph(graph, Vec::new());
-
-    server
+fn test_server() -> Served {
+    project().serve(&[TestExtension::software()])
 }
 
-/// Adds a node with no fields at `file`:`line`:`col`.
-fn add_node_at(server: &mut McpServer, id: &str, file: &str, line: usize, col: usize) {
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId { raw: id.into() },
-            kind: EntityKind {
-                raw: "behavior".into(),
-            },
-            title: None,
-            fields: FieldMap::new(),
-            source_span: SourceSpan {
-                file: file.into(),
-                start_line: line,
-                start_col: col,
-                end_line: line + 2,
-                end_col: 0,
-            },
-            methods: Vec::new(),
-        });
-    });
+/// `text` after `line - 1` line breaks: placed after what precedes it, an
+/// entity it declares starts `line - 1` lines below the line it follows
+/// (on line `line` of a file it begins).
+fn at_line(line: usize, text: &str) -> String {
+    format!("{}{text}", "\n".repeat(line - 1))
 }
 
 /// The outline of `file`, as entity ids in the order returned.
@@ -109,33 +45,33 @@ fn outline_ids(server: &mut McpServer, file: &str) -> Vec<String> {
         .collect()
 }
 
-/// A server whose graph holds order.spec's entities out of line order:
-/// `late` (line 20) is added before `early` (line 5) and `middle` (line 12).
-fn server_with_unordered_file() -> McpServer {
-    let mut server = test_server();
-    add_node_at(&mut server, "late", "order.spec", 20, 0);
-    add_node_at(&mut server, "early", "order.spec", 5, 0);
-    add_node_at(&mut server, "middle", "order.spec", 12, 0);
-    server
+/// A server whose order.spec declares `early` (line 5), `middle` (line 12)
+/// and `late` (line 20): the graph holds them by id (early, late, middle),
+/// not in line order.
+fn server_with_unordered_file() -> Served {
+    project()
+        .file(
+            "order.spec",
+            &format!(
+                "{}{}{}",
+                at_line(5, "behavior early \"Early\" {\n}\n"),
+                at_line(6, "behavior middle \"Middle\" {\n}\n"),
+                at_line(7, "behavior late \"Late\" {\n}\n"),
+            ),
+        )
+        .serve(&[TestExtension::software()])
 }
 
 /// A server serving a project of `files` with `@specforge/software`,
-/// compiled from disk: spans come from the parser. Keep the directory.
-fn served(files: &[(&str, &str)]) -> (McpServer, tempfile::TempDir) {
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        r#"{"name":"nav","extensions":["@specforge/software"]}"#,
-    )
-    .unwrap();
-    for (file, text) in files {
-        std::fs::write(dir.path().join(file), text).unwrap();
-    }
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
-        "params": {"projectRoot": dir.path().to_str().unwrap()}});
-    server.handle_message(&req.to_string());
-    (server, dir)
+/// compiled from disk: spans come from the parser.
+fn served(files: &[(&str, &str)]) -> Served {
+    files
+        .iter()
+        .fold(
+            TestProject::new().enabling(&["@specforge/software"]),
+            |project, (file, text)| project.file(file, text),
+        )
+        .serve_components()
 }
 
 const LIMIT: &str = "invariant session_limit \"Limit\" {\n  guarantee \"x\"\n}\n";
@@ -170,8 +106,7 @@ fn inspect_reports_no_contract_its_kind_does_not_declare() {
     verify = "specforge.inspect returns full entity details"
 )]
 fn inspect_returns_details() {
-    let mut server = test_server();
-    crate::support::declare_headline_fields(&mut server, "behavior");
+    let mut server = project().serve(&[TestExtension::software().headline("behavior")]);
     let resp = call_tool(
         &mut server,
         "specforge.inspect",
@@ -242,27 +177,12 @@ fn inspect_unknown_entity() {
     verify = "response includes every field, like an invariant's guarantee"
 )]
 fn inspect_returns_every_field() {
-    let mut server = test_server();
-    let mut fields = FieldMap::new();
-    fields.push(
-        "guarantee".into(),
-        FieldValue::String("Ids MUST be unique".into()),
-    );
-    fields.push("risk".into(), FieldValue::Identifier("medium".into()));
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId {
-                raw: "unique_ids".into(),
-            },
-            kind: EntityKind {
-                raw: "invariant".into(),
-            },
-            title: Some("Unique ids".into()),
-            fields,
-            source_span: span(),
-            methods: Vec::new(),
-        });
-    });
+    let mut server = project()
+        .file(
+            "ids.spec",
+            "invariant unique_ids \"Unique ids\" {\n    guarantee \"Ids MUST be unique\"\n    risk medium\n}\n",
+        )
+        .serve(&[TestExtension::software().string_field("invariant", "risk")]);
     let resp = call_tool(
         &mut server,
         "specforge.inspect",
@@ -290,23 +210,25 @@ fn inspect_coverage_matches_the_coverage_tool() {
             coverage[0]["status"].as_str().unwrap().to_string(),
         )
     };
-    let project = tempfile::tempdir().unwrap();
-    crate::support::serve_in_memory_at(server.state_mut(), project.path());
-    let report = |tests: &str| {
-        std::fs::write(
-            project.path().join("specforge-report.json"),
-            format!(r#"{{"results":{{"alpha":{{"tests":[{tests}]}}}}}}"#),
-        )
-        .unwrap();
+    // The recorded report is a check input: written to disk, it is read
+    // by the next call (ADR 0014 D8).
+    let report = |server: &Served, tests: &str| {
+        server.write(
+            "specforge-report.json",
+            &format!(r#"{{"results":{{"alpha":{{"tests":[{tests}]}}}}}}"#),
+        );
     };
 
     // A passing test that names no obligation proves none of them.
-    report(r#"{"name":"t","status":"pass"}"#);
+    report(&server, r#"{"name":"t","status":"pass"}"#);
     let (inspect, coverage) = statuses(&mut server);
     assert_eq!(inspect, "uncovered");
     assert_eq!(inspect, coverage);
 
-    report(r#"{"name":"t","status":"pass","verify":"test alpha"}"#);
+    report(
+        &server,
+        r#"{"name":"t","status":"pass","verify":"test alpha"}"#,
+    );
     let (inspect, coverage) = statuses(&mut server);
     assert_eq!(inspect, "covered");
     assert_eq!(inspect, coverage);
@@ -317,52 +239,36 @@ fn inspect_coverage_matches_the_coverage_tool() {
     verify = "diagnostics are the entity's own, not those of an entity whose ID contains it"
 )]
 fn inspect_diagnostics_are_the_entitys_own() {
-    let mut server = test_server();
-    let at = |start_line, end_line| SourceSpan {
-        file: "test.spec".into(),
+    // tasks.spec: `task` on lines 20–22, `task_id_uniqueness` on 30–34.
+    let tasks = format!(
+        "{}{}",
+        at_line(
+            20,
+            "invariant task \"Task\" {\n    guarantee \"a task exists\"\n}\n"
+        ),
+        at_line(
+            8,
+            "invariant task_id_uniqueness \"Unique\" {\n    guarantee \"ids are unique\"\n    // one\n    // two\n}\n"
+        ),
+    );
+    let at = |start_line, end_line| PassSpan {
+        file: "tasks.spec".into(),
         start_line,
         start_col: 1,
         end_line,
         end_col: 2,
     };
-    let node = |id: &str, span: SourceSpan| Node {
-        id: EntityId { raw: id.into() },
-        kind: EntityKind {
-            raw: "invariant".into(),
-        },
-        title: None,
-        fields: FieldMap::new(),
-        source_span: span,
-        methods: Vec::new(),
-    };
-    let state = server.state_mut();
-    state.edit_graph(|graph| {
-        graph.add_node(node("task", at(20, 22)));
-    });
-    state.edit_graph(|graph| {
-        graph.add_node(node("task_id_uniqueness", at(30, 34)));
-    });
-    let diagnostic = |code: &str, span, subject: Option<&str>| specforge_common::Diagnostic {
-        code: code.into(),
-        severity: specforge_common::Severity::Warning,
-        message: "a finding".into(),
-        span,
-        suggestion: None,
-        data: subject.map(|entity| {
-            Box::new(specforge_common::DiagnosticData::Subject {
-                entity: entity.into(),
-            })
-        }),
-    };
-    crate::support::report(
-        state,
-        vec![
-            diagnostic("W003", Some(at(30, 34)), None),
-            diagnostic("W100", Some(at(21, 21)), None),
-            diagnostic("W101", None, Some("task")),
-            diagnostic("W102", None, Some("task_id_uniqueness")),
-        ],
-    );
+    // Two findings placed by their spans (task_id_uniqueness's block, a
+    // line inside task's), two by the entity they name.
+    let mut server = project()
+        .file("tasks.spec", &tasks)
+        .serve(&[TestExtension::software()
+            .reporting(PassDiagnostic::warning("W003", "a finding").with_span(at(30, 34)))
+            .reporting(PassDiagnostic::warning("W100", "a finding").with_span(at(21, 21)))
+            .reporting(PassDiagnostic::warning("W101", "a finding").with_entity("task"))
+            .reporting(
+                PassDiagnostic::warning("W102", "a finding").with_entity("task_id_uniqueness"),
+            )]);
     let codes = |server: &mut McpServer, id: &str| {
         let resp = call_tool(server, "specforge.inspect", json!({"entity_id": id}));
         let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
@@ -386,10 +292,19 @@ fn inspect_diagnostics_are_the_entitys_own() {
 )]
 fn inspect_attributes_spanless_diagnostics_by_data() {
     // A reference cycle: no span, its entities in its data.
-    let (mut server, _dir) = served(&[(
-        "a.spec",
-        "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior beta \"B\" {\n  depends_on [alpha]\n}\nbehavior gamma \"G\" {\n}\n",
-    )]);
+    // and a spanless diagnostic whose message quotes `gamma` but whose
+    // data names nothing, a check-phase pass's.
+    let mut server = TestProject::new()
+        .file(
+            "a.spec",
+            "behavior alpha \"A\" {\n  depends_on [beta]\n}\nbehavior beta \"B\" {\n  depends_on [alpha]\n}\nbehavior gamma \"G\" {\n}\n",
+        )
+        .serve(&[TestExtension::software()
+            .reference("behavior", "depends_on", "behavior")
+            .reporting(PassDiagnostic::warning(
+                "W900",
+                "behavior 'gamma' is mentioned here",
+            ))]);
     let codes = |server: &mut McpServer, id: &str| -> Vec<String> {
         let parsed = result(server, "specforge.inspect", json!({"entity_id": id}));
         parsed["diagnostics"]
@@ -405,13 +320,13 @@ fn inspect_attributes_spanless_diagnostics_by_data() {
 
     // A spanless diagnostic whose message quotes an ID but whose data
     // names none belongs to nobody.
-    crate::support::report(
-        server.state_mut(),
-        vec![specforge_common::Diagnostic::warning(
-            "W900",
-            "behavior 'gamma' is mentioned here",
-        )],
-    );
+    let w900 = server
+        .state()
+        .diagnostics()
+        .into_iter()
+        .find(|d| d.code == "W900")
+        .expect("the pass reports W900");
+    assert!(w900.span.is_none() && w900.data.is_none(), "{w900:?}");
     assert!(!codes(&mut server, "gamma").contains(&"W900".to_string()));
 }
 
@@ -423,7 +338,7 @@ fn inspect_attributes_spanless_diagnostics_by_data() {
     verify = "specforge.find_definition returns file, line, and column"
 )]
 fn find_definition_returns_location() {
-    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
+    let mut server = served(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
     let parsed = result(
         &mut server,
         "specforge.find_definition",
@@ -446,9 +361,14 @@ fn find_definition_returns_location() {
     );
     assert_eq!(parsed["precision"], "token");
 
-    // A graph without text: the block's start, and says so.
-    let mut server = test_server();
-    add_node_at(&mut server, "indented", "nested.spec", 7, 4);
+    // An indented declaration: nested.spec line 7 is
+    // `    behavior indented "Indented" {`, its name at column 14.
+    let mut server = project()
+        .file(
+            "nested.spec",
+            &at_line(7, "    behavior indented \"Indented\" {\n    }\n"),
+        )
+        .serve(&[TestExtension::software()]);
     let parsed = result(
         &mut server,
         "specforge.find_definition",
@@ -456,9 +376,11 @@ fn find_definition_returns_location() {
     );
     assert_eq!(
         (&parsed["file_path"], &parsed["line"], &parsed["column"]),
-        (&json!("nested.spec"), &json!(7), &json!(4))
+        (&json!("nested.spec"), &json!(7), &json!(14))
     );
-    assert_eq!(parsed["precision"], "entity");
+    // The block starts at the keyword, column 5.
+    assert_eq!(parsed["source_span"]["start_col"], 5, "{parsed}");
+    assert_eq!(parsed["precision"], "token");
 }
 
 // B:provide_mcp_find_definition_tool — verify unit "unknown entity returns error"
@@ -490,7 +412,7 @@ fn find_definition_unknown_entity() {
     verify = "specforge.find_references returns all reference locations"
 )]
 fn find_references_returns_refs() {
-    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
+    let mut server = served(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
     let parsed = result(
         &mut server,
         "specforge.find_references",
@@ -516,7 +438,7 @@ fn find_references_returns_refs() {
     verify = "direction and include_declaration select which occurrences are returned"
 )]
 fn find_references_direction_and_declaration() {
-    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
+    let mut server = served(&[("limit.spec", LIMIT), ("login.spec", LOGIN)]);
     let mut spans = |args: Value| -> Vec<String> {
         let parsed = result(&mut server, "specforge.find_references", args);
         parsed["locations"]
@@ -607,7 +529,10 @@ fn outline_returns_entities_in_file() {
         assert_eq!(entry["range"]["file"], "test.spec");
     }
     // Both of test.spec's entities, and none from another file.
-    add_node_at(&mut server, "elsewhere", "other.spec", 3, 0);
+    server.write(
+        "other.spec",
+        &at_line(3, "behavior elsewhere \"Elsewhere\" {\n}\n"),
+    );
     assert_eq!(outline_ids(&mut server, "test.spec"), vec!["alpha", "beta"]);
     assert_eq!(outline_ids(&mut server, "other.spec"), vec!["elsewhere"]);
 }
@@ -631,10 +556,9 @@ fn outline_of_a_missing_file_is_an_error() {
 
 #[test]
 fn outline_of_an_existing_file_without_entities_is_empty() {
-    let dir = tempfile::TempDir::new().unwrap();
-    std::fs::write(dir.path().join("empty.spec"), "// nothing yet\n").unwrap();
-    let mut server = test_server();
-    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
+    let mut server = project()
+        .file("empty.spec", "// nothing yet\n")
+        .serve(&[TestExtension::software()]);
 
     let resp = call_tool(
         &mut server,
@@ -711,7 +635,7 @@ const CREATE: &str = "Create invariant stub for sesion_limit refactor E003 | log
     verify = "specforge.suggest_fixes returns applicable fix suggestions"
 )]
 fn suggest_fixes_returns_suggestions() {
-    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
+    let mut server = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
     // Each fix carries the edits that apply it.
     assert_eq!(
         fixes(&mut server, json!({"entity_id": "logout"})),
@@ -724,7 +648,7 @@ fn suggest_fixes_returns_suggestions() {
     verify = "clean entity with no diagnostics returns empty list"
 )]
 fn suggest_fixes_for_a_clean_entity_is_empty() {
-    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
+    let mut server = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
     let inspected = result(
         &mut server,
         "specforge.inspect",
@@ -742,7 +666,7 @@ fn suggest_fixes_for_a_clean_entity_is_empty() {
     verify = "diagnostic_code filter restricts to matching diagnostics"
 )]
 fn suggest_fixes_diagnostic_code_filter() {
-    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
+    let mut server = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
     assert_eq!(
         fixes(&mut server, json!({"diagnostic_code": "E003"})),
         [CREATE, REPLACE]
@@ -752,7 +676,7 @@ fn suggest_fixes_diagnostic_code_filter() {
 
 #[test]
 fn suggest_fixes_entity_and_file_filters() {
-    let (mut server, _dir) = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
+    let mut server = served(&[("limit.spec", LIMIT), ("login.spec", NAV_LOGIN)]);
     assert_eq!(
         fixes(&mut server, json!({"file_path": "login.spec"})),
         [CREATE, REPLACE]
@@ -772,27 +696,9 @@ fn suggest_fixes_entity_and_file_filters() {
     verify = "entity with no references returns empty list"
 )]
 fn find_references_empty_list() {
-    let mut server = test_server();
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId {
-                raw: "orphan_node".into(),
-            },
-            kind: EntityKind {
-                raw: "behavior".into(),
-            },
-            title: Some("Orphan".into()),
-            fields: FieldMap::new(),
-            source_span: SourceSpan {
-                file: "orphan.spec".into(),
-                start_line: 1,
-                start_col: 0,
-                end_line: 3,
-                end_col: 0,
-            },
-            methods: Vec::new(),
-        });
-    });
+    let mut server = project()
+        .file("orphan.spec", "behavior orphan_node \"Orphan\" {\n}\n")
+        .serve(&[TestExtension::software()]);
     let resp = call_tool(
         &mut server,
         "specforge.find_references",
@@ -808,42 +714,13 @@ fn find_references_empty_list() {
     verify = "nested entries included for complex entities"
 )]
 fn outline_nests_an_entitys_methods() {
-    let mut server = test_server();
-    let method_span = SourceSpan {
-        file: "store.spec".into(),
-        start_line: 3,
-        start_col: 2,
-        end_line: 3,
-        end_col: 40,
-    };
-    server.state_mut().edit_graph(|graph| {
-        graph.add_node(Node {
-            id: EntityId {
-                raw: "store".into(),
-            },
-            kind: EntityKind { raw: "port".into() },
-            title: Some("Store".into()),
-            fields: FieldMap::new(),
-            source_span: SourceSpan {
-                file: "store.spec".into(),
-                start_line: 1,
-                start_col: 0,
-                end_line: 5,
-                end_col: 1,
-            },
-            methods: vec![specforge_parser::MethodDecl {
-                name: "load".into(),
-                params: vec![specforge_parser::Parameter {
-                    name: "path".into(),
-                    ty: "Path".into(),
-                    optional: false,
-                    annotations: Vec::new(),
-                }],
-                returns: Some("Store".into()),
-                span: method_span,
-            }],
-        });
-    });
+    // store.spec: the port `store`, its method `load` on line 3.
+    let mut server = project()
+        .file(
+            "store.spec",
+            "port store \"Store\" {\n    // what it stores\n    method load(path: Path) -> Store\n\n}\n",
+        )
+        .serve(&[TestExtension::software().kind("port", false)]);
 
     let resp = call_tool(
         &mut server,
@@ -880,8 +757,8 @@ fn find_references_returns_source_spans() {
         "specforge.find_references",
         json!({"entity_id": "alpha"}),
     );
-    // A graph built without text: the token cannot be read, so the
-    // location is beta's block (test.spec lines 10-15), and says so.
+    // The token as written: test.spec line 11 is `    behaviors [alpha]`,
+    // `alpha` at columns 16–21.
     assert_eq!(
         parsed["locations"],
         json!([{
@@ -889,13 +766,13 @@ fn find_references_returns_source_spans() {
             "referenced_entity_id": "alpha",
             "field": "behaviors",
             "role": "reference",
-            "precision": "entity",
+            "precision": "token",
             "source_span": {
                 "file": "test.spec",
-                "start_line": 10,
-                "start_col": 0,
-                "end_line": 15,
-                "end_col": 0
+                "start_line": 11,
+                "start_col": 16,
+                "end_line": 11,
+                "end_col": 21
             }
         }])
     );
