@@ -163,7 +163,7 @@ that create typed edges between entities, and they can carry constraints
 Rules are structural checks the compiler runs on every graph build:
 
 ```rust
-c.rule("G101", |r| {
+c.rule("E901", |r| {
     r.check(CheckKind::FieldValueConstraint);
     r.target_kind("greeting");
     r.field("style");
@@ -175,6 +175,14 @@ c.rule("G101", |r| {
     r.message_template("greeting '{id}' has unknown style");
 });
 ```
+
+A rule's code names your extension's diagnostic, so it comes from the range
+third-party extensions own: `E900`-`E998` for an error, `W900`-`W998` for a
+warning, `I900`-`I998` for an info, with the prefix matching the rule's
+severity (`E901` above is an error). A rule that uses a code core or another
+extension owns, or a prefix that contradicts its severity, still runs, and the
+host adds a `W150` warning naming it; under `--strict` that warning fails the
+check.
 
 Rules are declarative patterns — they run in-process, cost nothing at Wasm
 boundaries, and are the right tool for per-field shape checks. When a check

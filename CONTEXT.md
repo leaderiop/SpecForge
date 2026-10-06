@@ -194,7 +194,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   level is the catalog's: a table entry whose `E`/`W`/`I`/`A` prefix contradicts its level does not
   compile. The host builds a diagnostic from one (`specforge_common::Diagnostic::new`, or
   `Diagnostic::graded` with the pass's severity), so its severity is the code's catalog level. Codes
-  an extension reports cross the protocol as text and have no constant (`Diagnostic::untyped`).
+  an extension reports cross the protocol as text and have no constant (`Diagnostic::untyped`); they
+  are checked against the catalog where they enter the host (`check_extension_code`, W150).
 - **Diagnostic data**: a diagnostic's optional typed payload, the values its message names
   (`specforge_common::DiagnosticData`, e.g. an E003's unresolved target, a W061's cycle, the entity
   an extension pass named). Consumers that act on a diagnostic (the LSP's quick fixes, MCP's

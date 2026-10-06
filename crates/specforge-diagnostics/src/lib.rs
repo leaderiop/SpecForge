@@ -14,11 +14,13 @@
 #[macro_use]
 mod catalog;
 mod code;
+mod extension;
 
 pub use catalog::{CATALOG, codes};
 #[doc(hidden)]
 pub use code::prefix_states;
 pub use code::{Code, GradedCode};
+pub use extension::{CodeMisuse, check_extension_code};
 
 /// One diagnostic code and what it means.
 #[derive(Debug, Clone, Copy)]
@@ -151,7 +153,9 @@ Codes follow the pattern `E###` (error), `W###` (warning) and `I###` (info);
 The registry client keeps its own family, `R###` and `R-<AREA>-###`, whose
 prefix doesn't state the severity; no other family is accepted. Each entry's
 `Level` is the severity a diagnostic of that code has when it is reported;
-`specforge check --strict` raises warnings to errors afterwards. The ranges
+`specforge check --strict` raises warnings to errors afterwards. A code an
+extension reports at another level, or a code it does not own, is reported as
+W150. The ranges
 `E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for third-party
 extensions and never appear in this catalog; `I999` is a core code.
 
@@ -343,7 +347,7 @@ mod tests {
         );
         assert_eq!(
             CATALOG.iter().filter(|e| e.owner == "core").count(),
-            115,
+            116,
             "every core entry has a constant; extensions' entries have none"
         );
     }

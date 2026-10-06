@@ -7,10 +7,12 @@
 //! diagnostics.
 
 use specforge_common::Diagnostic;
+use specforge_diagnostics::{Level, check_extension_code};
 use specforge_graph::Graph;
-use specforge_protocol_types::{PassInput, PassOutput, PassTestResults};
+use specforge_protocol_types::{PassInput, PassOutput, PassSeverity, PassTestResults};
 use specforge_registry::{FieldRegistry, KindRegistry};
 use specforge_wasm::{CallError, ExtensionCalls, Operation};
+use std::collections::HashSet;
 use std::path::Path;
 
 use crate::coverage::TestReport;
@@ -73,12 +75,58 @@ fn sorted_ids(claims: &std::collections::HashSet<String>) -> Vec<String> {
     ids
 }
 
-/// The host diagnostics of a pass's answer: in canonical order, a
-/// span-less one naming an entity of `entities` given that entity's span.
-pub fn pass_findings(output: PassOutput, entities: &EntitySnapshot) -> Vec<Diagnostic> {
-    specforge_wasm::pass_diagnostics(output, |id| {
+/// The host diagnostics of `extension`'s pass `pass` answering `output`: in
+/// canonical order, a span-less one naming an entity of `entities` given
+/// that entity's span. A code the extension may not report at the severity
+/// it gave (`check_extension_code`) is reported once, as W150 after the
+/// findings; the findings themselves are kept as the pass gave them.
+pub fn pass_findings(
+    extension: &str,
+    pass: &str,
+    output: PassOutput,
+    entities: &EntitySnapshot,
+) -> Vec<Diagnostic> {
+    let mut misused = code_misuse(extension, pass, &output);
+    let mut findings = specforge_wasm::pass_diagnostics(output, |id| {
         entities.get(id).map(|(record, _)| record.span.clone())
-    })
+    });
+    findings.append(&mut misused);
+    findings
+}
+
+/// W150 for each distinct (code, severity) of `output` that `extension`
+/// may not report.
+fn code_misuse(extension: &str, pass: &str, output: &PassOutput) -> Vec<Diagnostic> {
+    let mut seen = HashSet::new();
+    let mut diagnostics = Vec::new();
+    for finding in &output.diagnostics {
+        let level = match finding.severity {
+            PassSeverity::Error => Level::Error,
+            PassSeverity::Warning => Level::Warning,
+            PassSeverity::Info => Level::Info,
+        };
+        let Err(misuse) = check_extension_code(extension, &finding.code, level) else {
+            continue;
+        };
+        if !seen.insert((finding.code.as_str(), level)) {
+            continue;
+        }
+        diagnostics.push(
+            Diagnostic::warning(
+                "W150",
+                format!(
+                    "extension '{extension}' pass '{pass}' reported '{}': {misuse}",
+                    finding.code
+                ),
+            )
+            .with_suggestion(
+                "renumber the diagnostic in the extension's range, or, for a first-party \
+                 extension, catalogue the code",
+            ),
+        );
+    }
+    diagnostics.sort_by(|a, b| a.message.cmp(&b.message));
+    diagnostics
 }
 
 /// Run the extensions' analyze passes (`passes` as the registry build
@@ -129,7 +177,7 @@ pub fn run_extension_passes(
             Ok(output) => {
                 let extra = output.summary.clone();
                 summary.extend(extra);
-                pass_findings(output, input.entities)
+                pass_findings(&declared.extension, &pass.name, output, input.entities)
             }
             Err(error) => {
                 summary.insert("failed".into(), true.into());

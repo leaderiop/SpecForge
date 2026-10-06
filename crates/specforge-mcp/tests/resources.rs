@@ -224,10 +224,10 @@ fn brief_resource_returns_brief_graph() {
     verify = "specforge://diagnostics resource returns current DiagnosticBag as JSON"
 )]
 fn diagnostics_resource_returns_array() {
-    // E003: a real unresolved reference; W001: a check-phase pass's
+    // E003: a real unresolved reference; W901: a check-phase pass's
     // finding, reported after the graph checks.
     let mut server = project().file("broken.spec", BROKEN).serve(&[
-        extension().reporting(at_alpha(PassDiagnostic::warning("W001", "orphan entity")))
+        extension().reporting(at_alpha(PassDiagnostic::warning("W901", "orphan entity")))
     ]);
     let resp = read_resource(&mut server, "specforge://diagnostics");
     let text = resource_text(&resp);
@@ -236,7 +236,7 @@ fn diagnostics_resource_returns_array() {
     assert_eq!(diags.len(), 2, "{parsed}");
     assert_eq!(diags[0]["code"], "E003");
     assert_eq!(diags[0]["message"], UNRESOLVED_GHOST);
-    assert_eq!(diags[1]["code"], "W001");
+    assert_eq!(diags[1]["code"], "W901");
     assert_eq!(diags[1]["message"], "orphan entity");
 }
 

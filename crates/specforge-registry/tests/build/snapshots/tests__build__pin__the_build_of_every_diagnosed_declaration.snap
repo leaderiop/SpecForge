@@ -127,18 +127,18 @@ expression: digest(&build)
     [
       "W023",
       "Warning",
-      "validation rule code 'W100' from '@pin/product' duplicates code from '@pin/software'"
+      "validation rule code 'W900' from '@pin/product' duplicates code from '@pin/software'"
     ]
   ],
   "rules": [
     [
-      "W100",
+      "W900",
       "@pin/software",
       "behavior",
       null
     ],
     [
-      "W100",
+      "W900",
       "@pin/product",
       null,
       null

@@ -106,7 +106,8 @@ term t_diagnostic "diagnostic" {
     owner (core or a single extension) and one level, stated once in the
     diagnostic catalog (`specforge explain`, rendered to
     docs/diagnostics.md), which also gives every core code a typed
-    constant. Third-party extensions use E900-E998, W900-W998,
+    constant. Codes an extension reports are checked where they enter
+    the host. Third-party extensions use E900-E998, W900-W998,
     I900-I998 (I999 is core), at the level the prefix states.
   """
   aliases    ["compiler diagnostic", "validation message"]

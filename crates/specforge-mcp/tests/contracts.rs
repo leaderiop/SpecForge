@@ -2269,14 +2269,14 @@ fn contract_brief_resource() {
 fn contract_diagnostics_resource() {
     // broken.spec: `broken` names `ghost`, which no entity declares (E003
     // at 2:16–2:21); `lonely` (lines 4–5), a behavior nothing references,
-    // is a warning by a rule the extension declares (W001).
+    // is a warning by a rule the extension declares (W901, in its range).
     let mut server = contracts_project()
         .file(
             "broken.spec",
             "feature broken \"Broken\" {\n    behaviors [ghost]\n}\nbehavior lonely \"Lonely\" {\n}\n",
         )
         .serve(&[extension().declaring(|c| {
-            c.rule("W001", |r| {
+            c.rule("W901", |r| {
                 r.check(CheckKind::NoIncomingEdges)
                     .target_kind("behavior")
                     .severity(ValidationSeverity::Warning)
@@ -2296,7 +2296,7 @@ fn contract_diagnostics_resource() {
              "suggestion": null,
              "data": {"kind": "unresolved_reference", "target": "ghost", "entity": "broken", "field": "behaviors"},
              "file": "broken.spec", "line": 2, "column": 16},
-            {"code": "W001", "title": "Behavior implements no feature", "severity": "Warning", "message": "a warning",
+            {"code": "W901", "title": null, "severity": "Warning", "message": "a warning",
              "span": {"file": "broken.spec", "start_line": 4, "start_col": 1, "end_line": 5, "end_col": 2},
              "suggestion": null,
              "file": "broken.spec", "line": 4, "column": 1},
