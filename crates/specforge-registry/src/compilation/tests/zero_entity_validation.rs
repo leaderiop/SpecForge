@@ -70,7 +70,7 @@ fn make_entity(id: &str, kind: &str, incoming: usize, outgoing: usize) -> Valida
         verify_texts: Vec::new(),
         outgoing_kinds: Default::default(),
         incoming_kinds: Default::default(),
-        obligation_exempt: false,
+        exemption: None,
     }
 }
 

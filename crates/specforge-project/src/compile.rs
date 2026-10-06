@@ -303,11 +303,12 @@ pub fn load_extensions(
 /// Convert all graph nodes into `ValidationEntity` structs for the validation engine.
 /// Shared by CLI (`compile.rs`) and LSP (`backend.rs`).
 ///
-/// `field_registry` decides which entities owe no obligations
-/// ([`ValidationEntity::obligation_exempt`], see
-/// [`crate::coverage::obligation_exempt`]).
+/// `kind_registry` and `field_registry` decide what exempts an entity from
+/// obligations ([`ValidationEntity::exemption`], see
+/// [`crate::coverage::exemption`]).
 pub fn build_validation_entities(
     graph: &Graph,
+    kind_registry: &KindRegistry,
     field_registry: &FieldRegistry,
 ) -> Vec<ValidationEntity> {
     // Sorted by id: rule diagnostics must emit in a stable order
@@ -357,7 +358,7 @@ pub fn build_validation_entities(
                 verify_texts,
                 outgoing_kinds,
                 incoming_kinds,
-                obligation_exempt: crate::coverage::obligation_exempt(node, field_registry),
+                exemption: crate::coverage::exemption(node, kind_registry, field_registry),
             }
         })
         .collect()
@@ -620,7 +621,7 @@ fn run_extension_validation(
         return Vec::new();
     }
 
-    let entities = build_validation_entities(graph, fields);
+    let entities = build_validation_entities(graph, kinds, fields);
     let declared_types = declared_type_ids(graph, kinds);
 
     if std::env::var("SPECFORGE_DEBUG_RULES").is_ok() {

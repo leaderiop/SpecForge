@@ -614,7 +614,7 @@ or answered.
 | Version | What it guarantees |
 |---------|--------------------|
 | `1.0.0` | The baseline: the handshake, describe and operate payloads of this document. |
-| `1.1.0` | Field text (ADR 0019): every field an entity writes has one text, the same in a pass's `PassEntity.fields`, a validator's `ValidatorField.value` and what declarative rules match (see "Field text" in `extension-sdk.md`). A written field is present even when empty (`""`). A validator's field `value` is always a string (a variant list, mixed list, expression or type union was `null`). `PassEntity.exempt` follows the host's one obligation rule. |
+| `1.1.0` | Field text (ADR 0019): every field an entity writes has one text, the same in a pass's `PassEntity.fields`, a validator's `ValidatorField.value` and what declarative rules match (see "Field text" in `extension-sdk.md`). A written field is present even when empty (`""`). A validator's field `value` is always a string (a variant list, mixed list, expression or type union was `null`). `PassEntity.exempt` follows the host's one obligation rule: a `no_verify_statements` rule without a target kind obliges every kind that accepts `verify` statements (an entity of a kind that accepts none is exempt). |
 
 A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
 `1.1.0` values can read `host_version` in its handshake request.

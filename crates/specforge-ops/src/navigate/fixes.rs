@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 
 use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym};
 use specforge_graph::Node;
-use specforge_registry::validation_engine::ValidationPatternKind;
+use specforge_registry::validation_engine::obliging_rule;
 
 use super::text::{SourceText, TokenKind};
 use super::{Navigator, is_about, overlaps};
@@ -276,18 +276,8 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
         };
         // The rule that reports an entity of this kind without verify
         // statements, when the project has one.
-        let code = registries
-            .rules
-            .iter()
-            .map(|(rule, _)| rule)
-            .find(|rule| {
-                rule.check == ValidationPatternKind::NoVerifyStatements
-                    && rule
-                        .target_kind
-                        .as_deref()
-                        .is_none_or(|k| k == node.kind.raw.as_str())
-            })
-            .map(|rule| rule.code.clone());
+        let code =
+            obliging_rule(&registries.rules, node.kind.raw.as_str()).map(|rule| rule.code.clone());
         Some(Fix {
             title: format!("Add verify stub for {}", node.id.raw),
             kind: FixKind::QuickFix,

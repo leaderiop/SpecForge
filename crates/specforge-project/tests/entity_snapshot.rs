@@ -28,8 +28,8 @@ const FIELDS: &[&str] = &[
     "shape",
 ];
 
-/// `item` (testable, accepts verify, `abstract` exempts) and `note` (not
-/// testable, accepts verify); `P100` a custom rule answering `Pass` (its
+/// `item` (testable, accepts verify, `abstract` exempts), `note` (not
+/// testable, accepts verify) and `memo` (neither); `P100` a custom rule answering `Pass` (its
 /// inputs are read from the runtime's calls); `P200`–`P206` rules that
 /// never match, on the fields of [`FIELDS`]; `P300` an obligation rule
 /// with no target kind; `P400` `file_exists` on `doc`; a check pass `echo`
@@ -50,6 +50,9 @@ fn extension() -> ContributionsBuilder {
             .testable(false)
             .supports_verify(true)
             .open_fields(true);
+    });
+    c.kind("memo", |k| {
+        k.description("probe, accepts no verify").open_fields(true);
     });
     c.rule("P100", |r| {
         r.check(CheckKind::Custom)
@@ -115,6 +118,9 @@ note gamma "Gamma" {
 
 item delta "Delta" {
   abstract true
+}
+
+memo epsilon "Epsilon" {
 }
 "#;
 
@@ -309,9 +315,26 @@ fn an_empty_list_or_block_is_written() {
     );
 }
 
-#[test]
-fn pin_an_untargeted_obligation_rule_fires_everywhere_and_exempts_everyone() {
-    // pin (01-T0): today's behaviour; flipped by 01-T3
+/// The project's coverage, as the compile records it.
+fn testable_total(compiled: &CompiledProject, root: &Path) -> usize {
+    compiled
+        .recorded()
+        .at(
+            Some(root),
+            &compiled.graph,
+            specforge_project::coverage::CoverageRegistries::of(&compiled.env.registries),
+        )
+        .unwrap()
+        .coverage
+        .summary
+        .testable_total
+}
+
+#[specforge_test_macros::test(
+    behavior = "snapshot_entities_once",
+    verify = "a rule without a target kind applies to every kind, for the rule, the standing and the verify stub alike"
+)]
+fn an_untargeted_obligation_rule_obliges_every_kind() {
     let dir = project();
     let runtime = runtime();
     let (compiled, diagnostics) = compile(dir.path(), &runtime);
@@ -323,18 +346,40 @@ fn pin_an_untargeted_obligation_rule_fires_everywhere_and_exempts_everyone() {
             "P300 note 'gamma' declares no verify obligations",
         ]
     );
-    for id in ["alpha", "beta", "gamma", "delta"] {
-        assert_eq!(pass_entity(&runtime, id)["exempt"], true, "{id}");
+    // The pass input agrees with the rule: alpha, beta and gamma owe
+    // obligations (alpha declares one); delta's flag exempts it.
+    for (id, exempt) in [
+        ("alpha", false),
+        ("beta", false),
+        ("gamma", false),
+        ("delta", true),
+    ] {
+        assert_eq!(pass_entity(&runtime, id)["exempt"], exempt, "{id}");
     }
-    let recorded = compiled
-        .recorded()
-        .at(
-            Some(dir.path()),
-            &compiled.graph,
-            specforge_project::coverage::CoverageRegistries::of(&compiled.env.registries),
-        )
-        .unwrap();
-    assert_eq!(recorded.coverage.summary.testable_total, 1);
+    // And so does coverage: alpha and beta are testable and owe (gamma's
+    // kind is not testable).
+    assert_eq!(testable_total(&compiled, dir.path()), 2);
+}
+
+#[specforge_test_macros::test(
+    behavior = "snapshot_entities_once",
+    verify = "a kind that accepts no verify statements owes no obligations, whatever rule applies to it"
+)]
+fn an_untargeted_obligation_rule_skips_kinds_that_accept_no_verify() {
+    let dir = project();
+    let runtime = runtime();
+    let (compiled, diagnostics) = compile(dir.path(), &runtime);
+
+    // `memo` accepts no `verify`: P300 does not ask epsilon for one.
+    assert!(
+        !reported(&diagnostics, "P3")
+            .iter()
+            .any(|d| d.contains("epsilon")),
+        "{diagnostics:?}"
+    );
+    assert_eq!(pass_entity(&runtime, "epsilon")["exempt"], true);
+    assert_eq!(pass_entity(&runtime, "epsilon")["testable"], false);
+    assert_eq!(testable_total(&compiled, dir.path()), 2);
 }
 
 #[test]

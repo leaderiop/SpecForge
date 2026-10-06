@@ -1,3 +1,4 @@
+use crate::entity::Exemption;
 use specforge_common::{Diagnostic, Severity};
 use specforge_protocol_types::ConstraintKind;
 use specforge_protocol_types::{ValidationRuleDescriptor, ValidationSeverity};
@@ -18,6 +19,35 @@ pub struct ValidationRulePattern {
     pub field: Option<String>,
     pub constraint: Option<FieldConstraintPattern>,
     pub wasm_function: Option<String>,
+}
+
+impl ValidationRulePattern {
+    /// Whether the rule applies to entities of `kind`: its target kind's,
+    /// or every kind's when it names none. The one reading of
+    /// `target_kind` (ADR 0019): the rule engine, the entity's standing and
+    /// the verify-stub fix share it.
+    pub fn applies_to(&self, kind: &str) -> bool {
+        self.target_kind
+            .as_deref()
+            .is_none_or(|target| target == kind)
+    }
+}
+
+/// The rule that requires entities of `kind` to declare obligations: the
+/// first `no_verify_statements` rule, in code order, that applies to it
+/// ([`ValidationRulePattern::applies_to`]). A kind that accepts no `verify`
+/// statements may have one; its entities are exempt instead
+/// ([`Exemption::NoVerify`]).
+pub fn obliging_rule<'r>(
+    rules: &'r [(ValidationRulePattern, String)],
+    kind: &str,
+) -> Option<&'r ValidationRulePattern> {
+    rules
+        .iter()
+        .map(|(rule, _)| rule)
+        .filter(|rule| rule.check == ValidationPatternKind::NoVerifyStatements)
+        .filter(|rule| rule.applies_to(kind))
+        .min_by(|a, b| a.code.cmp(&b.code))
 }
 
 /// What a rule checks — the extension vocabulary's [`CheckKind`], under
@@ -367,17 +397,31 @@ pub struct ValidationEntity {
     /// Incoming edges by the kind of the entity they come from.
     #[serde(skip)]
     pub incoming_kinds: std::collections::BTreeMap<String, usize>,
-    /// The entity owes no obligations of its own: a union type, which has
-    /// no body to hold them, or an entity marked `abstract true` through a
-    /// field its kind's registry entry declares. The host decides it from
-    /// the entity's structure and the field registry, never from a field's
-    /// name alone, so a struct member named `abstract` or `gherkin`
-    /// exempts nothing.
-    #[serde(default)]
-    pub obligation_exempt: bool,
+    /// What exempts the entity from obligations of its own, if anything: a
+    /// union type, which has no body to hold them, an entity marked
+    /// `abstract true` through a field its kind's registry entry declares,
+    /// or a kind that accepts no `verify` statements. The host decides it
+    /// from the entity's structure and the registries, never from a
+    /// field's name alone, so a struct member named `abstract` or
+    /// `gherkin` exempts nothing.
+    #[serde(skip)]
+    pub exemption: Option<Exemption>,
 }
 
 impl ValidationEntity {
+    /// It owes no `verify` statements of its own: anything exempts it.
+    pub fn exempts_statements(&self) -> bool {
+        self.exemption.is_some()
+    }
+
+    /// It owes no obligations declared in another field: a union body or
+    /// an exempting flag exempts it ([`Exemption::exempts_fields`]).
+    pub fn exempts_fields(&self) -> bool {
+        self.exemption
+            .as_ref()
+            .is_some_and(Exemption::exempts_fields)
+    }
+
     /// Edges out of (`outgoing`) or into this entity, only those to or from
     /// `peer_kind` when it is set.
     fn edge_count(&self, outgoing: bool, peer_kind: Option<&str>) -> usize {
@@ -401,13 +445,7 @@ pub fn execute_pattern(
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
-    let applicable: Vec<&ValidationEntity> = if let Some(ref target) = pattern.target_kind {
-        entities.iter().filter(|e| e.kind == *target).collect()
-    } else {
-        entities.iter().collect()
-    };
-
-    for entity in applicable {
+    for entity in entities.iter().filter(|e| pattern.applies_to(&e.kind)) {
         let mut violation_field: Option<String> = None;
         let mut violation_value: Option<String> = None;
         let violated = match pattern.check {
@@ -423,9 +461,10 @@ pub fn execute_pattern(
             ValidationPatternKind::MissingFieldWhenFlagSet => {
                 if let Some(ref field_name) = pattern.field {
                     // An entity that owes no obligations (a union, which has
-                    // no body to hold them, or one an extension's flag
-                    // exempts: `obligation_exempt`) is not missing `verify`.
-                    if field_name == VERIFY_FIELD && entity.obligation_exempt {
+                    // no body to hold them, one an extension's flag exempts,
+                    // or one whose kind accepts no `verify`) is not missing
+                    // `verify`.
+                    if field_name == VERIFY_FIELD && entity.exempts_statements() {
                         false
                     } else {
                         !entity.fields.contains_key(field_name)
@@ -537,13 +576,13 @@ pub fn execute_pattern(
                 // the field the declaring extension names instead). A
                 // struct member named `verify` is a field, not a statement,
                 // so it never stands in for one. Union types and abstract
-                // entities owe none (`obligation_exempt`, which the host
-                // sets from structure and the registry).
-                let declared = match pattern.field.as_deref().unwrap_or(VERIFY_FIELD) {
-                    VERIFY_FIELD => !entity.verify_texts.is_empty(),
-                    field => entity.fields.contains_key(field),
-                };
-                !entity.obligation_exempt && !declared
+                // entities owe none, nor does an entity whose kind accepts
+                // no `verify` statements owe those (`exemption`, which the
+                // host sets from structure and the registries).
+                match pattern.field.as_deref().unwrap_or(VERIFY_FIELD) {
+                    VERIFY_FIELD => !entity.exempts_statements() && entity.verify_texts.is_empty(),
+                    field => !entity.exempts_fields() && !entity.fields.contains_key(field),
+                }
             }
             ValidationPatternKind::Custom => {
                 if let (Some(func), Some(rt)) = (&pattern.wasm_function, wasm) {
@@ -663,7 +702,7 @@ mod tests {
             verify_texts: Vec::new(),
             outgoing_kinds: Default::default(),
             incoming_kinds: Default::default(),
-            obligation_exempt: false,
+            exemption: None,
         }
     }
 
@@ -766,7 +805,7 @@ mod tests {
         }
 
         let mut exempt = make_entity("b4", "behavior", 1, 1);
-        exempt.obligation_exempt = true;
+        exempt.exemption = Some(Exemption::Union);
         assert!(execute_pattern(&rule, &[exempt], None).is_empty());
     }
 
@@ -1873,5 +1912,91 @@ mod tests {
         let diags = execute_pattern(&pattern, &[beh, evt], None);
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("my_beh"));
+    }
+
+    /// A `no_verify_statements` rule with `code`, on `target` (or every
+    /// kind), reading `field`.
+    fn obligation_rule(code: &str, target: Option<&str>, field: &str) -> ValidationRulePattern {
+        ValidationRulePattern {
+            code: code.to_string(),
+            target_kind: target.map(str::to_string),
+            field: Some(field.to_string()),
+            ..w004_rule()
+        }
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "execute_validation_pattern",
+        verify = "pattern violation produces diagnostic with configured code and severity"
+    )]
+    fn applies_to_reads_target_kind_once() {
+        let targeted = obligation_rule("W004", Some("behavior"), "verify");
+        assert!(targeted.applies_to("behavior"));
+        assert!(!targeted.applies_to("event"));
+        let untargeted = obligation_rule("P300", None, "verify");
+        assert!(untargeted.applies_to("behavior") && untargeted.applies_to("event"));
+
+        // The engine reads it the same way: an untargeted rule runs on
+        // every kind, a targeted one on its own.
+        let entities = [
+            make_entity("b", "behavior", 0, 0),
+            make_entity("e", "event", 0, 0),
+        ];
+        assert_eq!(execute_pattern(&targeted, &entities, None).len(), 1);
+        let diagnostics = execute_pattern(&untargeted, &entities, None);
+        assert_eq!(diagnostics.len(), 2);
+        assert!(
+            diagnostics
+                .iter()
+                .all(|d| d.code == "P300" && d.severity == Severity::Warning)
+        );
+
+        // The obliging rule is the first by code that applies; rules of
+        // other checks oblige nothing.
+        let mut other = obligation_rule("A000", None, "verify");
+        other.check = ValidationPatternKind::MissingRequiredField;
+        let rules: Vec<(ValidationRulePattern, String)> = [
+            other,
+            obligation_rule("W004", Some("behavior"), "verify"),
+            obligation_rule("P300", None, "verify"),
+            obligation_rule("W009", Some("event"), "verify"),
+        ]
+        .into_iter()
+        .map(|rule| (rule, String::new()))
+        .collect();
+        let code = |kind| obliging_rule(&rules, kind).map(|r| r.code.as_str());
+        assert_eq!(code("behavior"), Some("P300"));
+        assert_eq!(code("event"), Some("P300"));
+        assert_eq!(code("type"), Some("P300"));
+        assert_eq!(
+            obliging_rule(&rules[1..2], "behavior").unwrap().code,
+            "W004"
+        );
+        assert!(obliging_rule(&rules[1..2], "type").is_none());
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "snapshot_entities_once",
+        verify = "a kind that accepts no verify statements owes no obligations, whatever rule applies to it"
+    )]
+    fn a_kind_without_verify_owes_no_statements_but_still_owes_other_fields() {
+        let mut memo = make_entity("m", "memo", 0, 0);
+        memo.exemption = Some(Exemption::NoVerify);
+        // Statement obligations: exempt.
+        let statements = obligation_rule("P300", None, "verify");
+        assert!(execute_pattern(&statements, std::slice::from_ref(&memo), None).is_empty());
+        let mut flagged = obligation_rule("P301", None, "verify");
+        flagged.check = ValidationPatternKind::MissingFieldWhenFlagSet;
+        assert!(execute_pattern(&flagged, std::slice::from_ref(&memo), None).is_empty());
+        // An obligation declared in another field: not exempt.
+        let gherkin = obligation_rule("P302", None, "gherkin");
+        assert_eq!(
+            execute_pattern(&gherkin, std::slice::from_ref(&memo), None).len(),
+            1
+        );
+        // A union body exempts from both.
+        let mut union = make_entity("u", "memo", 0, 0);
+        union.exemption = Some(Exemption::Union);
+        assert!(execute_pattern(&gherkin, &[union], None).is_empty());
     }
 }

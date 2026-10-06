@@ -11,8 +11,9 @@ use serde::Deserialize;
 use specforge_common::Diagnostic;
 use specforge_graph::{FieldValue, Graph, Node};
 use specforge_parser::UNION_VARIANTS_FIELD;
+use specforge_registry::entity::Exemption;
 use specforge_registry::validation_engine::{
-    ValidationEntity, ValidationPatternKind, ValidationRulePattern,
+    ValidationEntity, ValidationRulePattern, obliging_rule,
 };
 use specforge_registry::{FieldRegistry, KindRegistry, RegistryBuild};
 use std::collections::{BTreeMap, BTreeSet};
@@ -180,32 +181,44 @@ fn parse_report(path: &Path, bytes: &[u8]) -> Result<TestReport, ReportError> {
     })
 }
 
-/// Whether an entity owes no obligations of its own, whatever it declares
-/// (ADR 0004, D2-b): a union (`type X = A | B`, which has no body to hold
-/// them), or an entity that sets a field its kind's registry entry declares
-/// `exempts_obligations` (as `@specforge/formal` declares `abstract true`).
-/// Decided from the entity's structure and the field registry, never from
-/// field names: a struct member that only happens to be named `abstract`
-/// exempts nothing.
-pub fn obligation_exempt(node: &Node, fields: &FieldRegistry) -> bool {
+/// What exempts an entity from obligations of its own, whatever it declares
+/// (ADR 0004, D2-b; ADR 0019), in this order: a union (`type X = A | B`,
+/// which has no body to hold them); a set field its kind's registry entry
+/// declares `exempts_obligations` (as `@specforge/formal` declares
+/// `abstract true`); a kind that accepts no `verify` statements
+/// (`supports_verify` unset), which has nowhere to declare them. Decided
+/// from the entity's structure and the registries, never from field names:
+/// a struct member that only happens to be named `abstract` exempts
+/// nothing. A kind no extension declares is not known to refuse `verify`,
+/// so it is not exempt for that.
+pub fn exemption(node: &Node, kinds: &KindRegistry, fields: &FieldRegistry) -> Option<Exemption> {
     let kind = node.kind.raw.as_str();
-    node.fields
-        .entries()
-        .iter()
-        .any(|entry| match &entry.value {
-            // The union syntax is structural: its body is the variant list,
-            // under the parser's own key (a user's `values [a, b]` is a
-            // variant list too, and exempts nothing).
-            FieldValue::VariantList(variants) if entry.key.as_str() == UNION_VARIANTS_FIELD => {
-                !variants.is_empty()
-            }
-            value => {
-                is_set(value)
-                    && fields
-                        .get(kind, entry.key.as_str())
-                        .is_some_and(|f| f.declared.exempts_obligations)
-            }
-        })
+    let entries = node.fields.entries();
+    // The union syntax is structural: its body is the variant list, under
+    // the parser's own key (a user's `values [a, b]` is a variant list too,
+    // and exempts nothing).
+    let union = entries.iter().any(|entry| {
+        matches!(&entry.value, FieldValue::VariantList(variants)
+            if entry.key.as_str() == UNION_VARIANTS_FIELD && !variants.is_empty())
+    });
+    if union {
+        return Some(Exemption::Union);
+    }
+    let flag = entries.iter().find(|entry| {
+        is_set(&entry.value)
+            && fields
+                .get(kind, entry.key.as_str())
+                .is_some_and(|f| f.declared.exempts_obligations)
+    });
+    if let Some(entry) = flag {
+        return Some(Exemption::Flag {
+            field: entry.key.to_string(),
+        });
+    }
+    kinds
+        .get(kind)
+        .is_some_and(|entry| !entry.supports_verify)
+        .then_some(Exemption::NoVerify)
 }
 
 /// A field value that turns an exempting flag on: `true`, or any value
@@ -220,16 +233,13 @@ fn is_set(value: &FieldValue) -> bool {
     }
 }
 
-/// The kinds whose entities must declare obligations: those a
-/// `no_verify_statements` rule (W004) targets. A testable kind no such rule
-/// targets (a governance `constraint` or `failure_mode`) need not declare
-/// any, so its entities that declare none are exempt.
-pub fn obligated_kinds(rules: &[(ValidationRulePattern, String)]) -> BTreeSet<&str> {
-    rules
-        .iter()
-        .filter(|(rule, _)| rule.check == ValidationPatternKind::NoVerifyStatements)
-        .filter_map(|(rule, _)| rule.target_kind.as_deref())
-        .collect()
+/// Whether entities of `kind` must declare obligations: a
+/// `no_verify_statements` rule (W004) applies to it, its target kind's or
+/// every kind's when it names none ([`obliging_rule`]). A testable kind no
+/// such rule applies to (a governance `constraint` or `failure_mode`) need
+/// not declare any, so its entities that declare none are exempt.
+fn obliges(rules: &[(ValidationRulePattern, String)], kind: &str) -> bool {
+    obliging_rule(rules, kind).is_some()
 }
 
 /// What decides how the coverage rule sees each entity: which kinds are
@@ -255,14 +265,13 @@ impl<'a> CoverageRegistries<'a> {
     /// it was taken from (what the extension passes receive).
     pub fn entities(&self, graph: &Graph) -> Vec<(ValidationEntity, specforge_coverage::Entity)> {
         let testable = testable_kinds(self.kinds);
-        let obligated = obligated_kinds(self.rules);
-        build_validation_entities(graph, self.fields)
+        build_validation_entities(graph, self.kinds, self.fields)
             .into_iter()
             .map(|e| {
                 let entity = rule_entity(
                     &e,
                     testable.contains(e.kind.as_str()),
-                    obligated.contains(e.kind.as_str()),
+                    obliges(self.rules, &e.kind),
                 );
                 (e, entity)
             })
@@ -273,7 +282,7 @@ impl<'a> CoverageRegistries<'a> {
 /// An entity as the coverage rule (`specforge-coverage`) sees it: the same
 /// facts the host hands the `@specforge/testing:coverage` pass, so a
 /// per-entity view and the pass cannot disagree. `obligated`: its kind must
-/// declare obligations ([`obligated_kinds`]).
+/// declare obligations (a `no_verify_statements` rule applies to it).
 pub fn rule_entity(
     entity: &ValidationEntity,
     testable: bool,
@@ -283,7 +292,7 @@ pub fn rule_entity(
         id: entity.id.clone(),
         kind: entity.kind.clone(),
         testable,
-        exempt: entity.obligation_exempt || !obligated,
+        exempt: entity.exemption.is_some() || !obligated,
         verify_kinds: entity.verify_kinds.clone(),
         verify_texts: entity.verify_texts.clone(),
         // The host grades no kind by risk (ADR 0009, B): the testing
@@ -522,6 +531,7 @@ impl RecordedCoverage {
 mod tests {
     use super::*;
     use specforge_registry::KindRegistryEntry;
+    use specforge_registry::validation_engine::ValidationPatternKind;
     use specforge_test_macros::test as specforge_test;
 
     fn kind(name: &str, testable: bool, supports_verify: bool) -> KindRegistryEntry {
@@ -577,7 +587,7 @@ mod tests {
 
     /// The ids W004 reports on `source` (rules on `behavior` and `type`).
     fn w004_ids(source: &str, fields: &FieldRegistry) -> Vec<String> {
-        let entities = build_validation_entities(&graph_of(source), fields);
+        let entities = build_validation_entities(&graph_of(source), &KindRegistry::new(), fields);
         let mut ids: Vec<String> = ["behavior", "type"]
             .into_iter()
             .flat_map(|kind| {
@@ -651,6 +661,66 @@ mod tests {
         assert_eq!(
             testable_kinds(&reg).into_iter().collect::<Vec<_>>(),
             ["behavior", "type"]
+        );
+    }
+
+    #[specforge_test(
+        behavior = "snapshot_entities_once",
+        verify = "an entity owes obligations when a no_verify_statements rule applies to its kind and neither a union body nor an exempting flag exempts it"
+    )]
+    fn an_entity_owes_obligations_when_a_rule_applies_and_nothing_exempts_it() {
+        let mut kinds = KindRegistry::new();
+        kinds.register(kind("behavior", true, true));
+        kinds.register(kind("type", true, true));
+        kinds.register(kind("memo", false, false));
+        let fields = abstract_behaviors();
+        let graph = graph_of(
+            "behavior open \"Open\" {\n}\n\nbehavior base \"Base\" {\n  abstract true\n}\n\n\
+             type Status = active | inactive\n\ntype Plain \"Plain\" {\n  id string\n}\n\n\
+             memo note \"Note\" {\n}\n",
+        );
+        let owes = |rules: &[(ValidationRulePattern, String)]| -> Vec<String> {
+            let registries = CoverageRegistries {
+                kinds: &kinds,
+                fields: &fields,
+                rules,
+            };
+            registries
+                .entities(&graph)
+                .into_iter()
+                .filter(|(_, entity)| !entity.exempt)
+                .map(|(e, _)| e.id)
+                .collect()
+        };
+        // No rule: nobody owes anything.
+        assert!(owes(&[]).is_empty());
+        // A rule on `behavior`: its entities owe, unless a flag exempts.
+        assert_eq!(owes(&[(w004("behavior"), String::new())]), ["open"]);
+        // A rule without a target kind applies to every kind; a union body,
+        // a flag and a kind without `verify` still exempt.
+        let mut untargeted = w004("behavior");
+        untargeted.target_kind = None;
+        assert_eq!(owes(&[(untargeted, String::new())]), ["Plain", "open"]);
+        // What exempts each, decided once.
+        let exemptions: Vec<(String, Option<Exemption>)> =
+            build_validation_entities(&graph, &kinds, &fields)
+                .into_iter()
+                .map(|e| (e.id, e.exemption))
+                .collect();
+        assert_eq!(
+            exemptions,
+            [
+                ("Plain".to_string(), None),
+                ("Status".to_string(), Some(Exemption::Union)),
+                (
+                    "base".to_string(),
+                    Some(Exemption::Flag {
+                        field: "abstract".to_string()
+                    })
+                ),
+                ("note".to_string(), Some(Exemption::NoVerify)),
+                ("open".to_string(), None),
+            ]
         );
     }
 

@@ -87,7 +87,7 @@ fn entity(id: &str, fields: &[(&str, &str)]) -> ValidationEntity {
         verify_texts: Vec::new(),
         outgoing_kinds: Default::default(),
         incoming_kinds: Default::default(),
-        obligation_exempt: false,
+        exemption: None,
     }
 }
 

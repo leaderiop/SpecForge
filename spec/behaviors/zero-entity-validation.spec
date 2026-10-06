@@ -216,6 +216,9 @@ behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
   verify unit "every field an entity writes has one text, the same for declarative rules, custom validators and compiler passes"
   verify unit "a variant list or type union is its members joined by ' | ', a mixed list or expression group its items joined by ', '"
   verify unit "an empty list or block is written, with empty text, never left out or null"
+  verify unit "an entity owes obligations when a no_verify_statements rule applies to its kind and neither a union body nor an exempting flag exempts it"
+  verify unit "a rule without a target kind applies to every kind, for the rule, the standing and the verify stub alike"
+  verify unit "a kind that accepts no verify statements owes no obligations, whatever rule applies to it"
 }
 
 // -- Field Validation --------------------------------------------------------

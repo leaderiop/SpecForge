@@ -1,5 +1,6 @@
 // Module groups
 pub mod compilation;
+pub mod entity;
 mod registries;
 
 #[cfg(test)]
