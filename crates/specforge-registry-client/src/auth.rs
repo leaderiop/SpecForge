@@ -1,6 +1,6 @@
 #![allow(clippy::result_large_err)]
 
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, codes};
 
 use super::registry_client::{RegistryClient, RegistryError};
 use super::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
@@ -12,38 +12,34 @@ use super::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
 /// - `Bearer(token)` returns the token directly.
 pub fn resolve_credential(credential: &RegistryCredential) -> Result<String, Diagnostic> {
     match &credential.auth_method {
-        AuthMethod::TokenEnvVar(var_name) => std::env::var(var_name).map_err(|_| Diagnostic {
-            code: "R010".to_string(),
-            severity: Severity::Error,
-            message: format!(
-                "Environment variable '{}' not set for registry '{}'.",
-                var_name, credential.alias
-            ),
-            span: None,
-            suggestion: Some(format!(
+        AuthMethod::TokenEnvVar(var_name) => std::env::var(var_name).map_err(|_| {
+            Diagnostic::new(
+                codes::R010,
+                format!(
+                    "Environment variable '{}' not set for registry '{}'.",
+                    var_name, credential.alias
+                ),
+            )
+            .with_suggestion(format!(
                 "Set the environment variable: export {var_name}=<token>"
-            )),
-            data: None,
-            origin: None,
+            ))
         }),
         AuthMethod::TokenFile(path) => std::fs::read_to_string(path)
             .map(|s| s.trim().to_string())
-            .map_err(|e| Diagnostic {
-                code: "R011".to_string(),
-                severity: Severity::Error,
-                message: format!(
-                    "Cannot read token file '{}' for registry '{}': {}",
-                    path.display(),
-                    credential.alias,
-                    e
-                ),
-                span: None,
-                suggestion: Some(format!(
+            .map_err(|e| {
+                Diagnostic::new(
+                    codes::R011,
+                    format!(
+                        "Cannot read token file '{}' for registry '{}': {}",
+                        path.display(),
+                        credential.alias,
+                        e
+                    ),
+                )
+                .with_suggestion(format!(
                     "Ensure the file exists and is readable: {}",
                     path.display()
-                )),
-                data: None,
-                origin: None,
+                ))
             }),
         AuthMethod::Bearer(token) => Ok(token.clone()),
     }
@@ -104,20 +100,14 @@ pub fn authenticate_with_retry(
             let _token = resolve_credential(credential)?;
             match client.authenticate(registry, credential) {
                 Ok(_) => Ok(()),
-                Err(RegistryError::Unauthorized { guidance }) => Err(Diagnostic {
-                    code: "R001".to_string(),
-                    severity: Severity::Error,
-                    message: format!(
+                Err(RegistryError::Unauthorized { guidance }) => Err(Diagnostic::new(
+                    codes::R001,
+                    format!(
                         "Authentication failed after retry for registry '{}': {}",
                         registry.alias, guidance
                     ),
-                    span: None,
-                    suggestion: Some(
-                        "Run `specforge registry login` to re-authenticate.".to_string(),
-                    ),
-                    data: None,
-                    origin: None,
-                }),
+                )
+                .with_suggestion("Run `specforge registry login` to re-authenticate.".to_string())),
                 Err(other) => Err(other.to_diagnostic()),
             }
         }
