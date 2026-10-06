@@ -601,13 +601,13 @@ fn hover_information_contract() {
     let mut g = Graph::new();
     g.add_node(node("user_login", "behavior", Some("User Login")));
 
-    let hover = specforge_lsp::hover_info(&g, "user_login");
+    let hover = crate::hover::plain_hover(&g, "user_login");
     let text = hover.expect("existing entity must produce hover");
     assert!(text.contains("behavior"), "hover must include kind");
     assert!(text.contains("user_login"), "hover must include id");
     assert!(text.contains("User Login"), "hover must include title");
 
-    let missing = specforge_lsp::hover_info(&g, "nonexistent");
+    let missing = crate::hover::plain_hover(&g, "nonexistent");
     assert!(missing.is_none(), "missing entity must return None");
 }
 
@@ -1027,37 +1027,32 @@ fn code_action_create_entity_stub_contract() {
 
 /// `behavior.invariants` as a reference list targeting `target_kind`.
 fn invariants_field(target_kind: Option<&str>) -> specforge_registry::FieldRegistry {
-    let mut fields = specforge_registry::FieldRegistry::new();
-    fields.register(specforge_registry::FieldRegistryEntry {
-        kind_name: "behavior".into(),
-        field_type: specforge_registry::ManifestFieldType::ReferenceList,
-        source_extension: "@test/ext".into(),
-        proof_role: None,
-        declared: specforge_registry::FieldDescriptor {
-            name: "invariants".into(),
-            target_kind: target_kind.map(str::to_string),
-            ..Default::default()
-        },
-    });
-    fields
+    crate::registries::registries("@test/ext", |c| {
+        c.kind("behavior", |k| {
+            k.field("invariants", |f| {
+                f.field_type(specforge_extension_sdk::prelude::FieldType::ReferenceList);
+                if let Some(target_kind) = target_kind {
+                    f.target_kind(target_kind);
+                }
+            });
+        });
+    })
+    .fields
 }
 
 // B:code_actions_for_missing_verify — verify contract "requires/ensures consistency for missing verify code actions"
 /// A registry where `kinds` accept verify statements of `verify_kinds`.
 fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::KindRegistry {
-    let mut registry = specforge_registry::KindRegistry::new();
-    for kind in kinds {
-        registry.register(specforge_registry::KindRegistryEntry {
-            kind_name: kind.to_string(),
-            source_extension: "@test/ext".into(),
-            testable: true,
-            supports_verify: true,
-            allowed_verify_kinds: verify_kinds.iter().map(|k| k.to_string()).collect(),
-            lifecycle_field: None,
-            ..Default::default()
-        });
-    }
-    registry
+    crate::registries::registries("@test/ext", |c| {
+        for kind in kinds {
+            c.kind(kind, |k| {
+                k.testable(true)
+                    .supports_verify(true)
+                    .verify_kinds(verify_kinds);
+            });
+        }
+    })
+    .kinds
 }
 
 #[specforge_test(

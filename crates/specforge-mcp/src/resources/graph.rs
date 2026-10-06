@@ -3,7 +3,7 @@ use specforge_ops::export::{Format, Request};
 
 use specforge_ops::view::ProjectView;
 
-use crate::resources::{ReadOutcome, ResourceText, invalid_params};
+use crate::resources::{ReadOutcome, ResourceText, entity_not_found, invalid_params};
 
 /// `specforge://graph` — full corpus, or scoped via query parameters
 /// (C9-06): `?root=<entity_id>` scopes to a subgraph, `depth=<n>` bounds the
@@ -29,6 +29,11 @@ pub fn read(view: &ProjectView, uri: &str) -> ReadOutcome {
                 serde_json::from_str(&payload).expect("graph emit always produces JSON");
             Ok(ResourceText::json(base, contents.to_string()))
         }
+        // A scope the graph has no entity for: E003, naming the root.
+        Err(err) if err.code == "E003" => Err(entity_not_found(
+            err.message,
+            parsed.root.unwrap_or_default(),
+        )),
         Err(err) => Err(invalid_params(err.message)),
     }
 }

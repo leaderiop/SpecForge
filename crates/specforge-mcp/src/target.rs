@@ -8,7 +8,6 @@
 //! [`ProjectRef`] and cannot tell which adapter answered it; they never
 //! resolve a root, pick a freshness rule or reload anything themselves.
 
-use std::cell::OnceCell;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -16,10 +15,10 @@ use serde_json::Value;
 use specforge_common::{Diagnostic, find_project_root};
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
-use specforge_project::{CompiledProject, Environment, Origin, SharedRuntime};
+use specforge_project::{CompiledProject, Environment, SharedRuntime};
 
 use crate::state::McpState;
-use crate::tool::{ErrorCode, McpError};
+use crate::tool::{ErrorCode, FILE_NOT_FOUND, McpError, ToolOutcome};
 
 /// Which project a tool may act on, declared on its table entry.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -133,9 +132,9 @@ pub struct ProjectRef<'a> {
     pub env: &'a Environment,
     pub graph: &'a Graph,
     /// The runtime its extensions run in: every project a call reaches has
-    /// one (the served session's, the host's, or one built for a project
-    /// served in memory; the one-shot compile's for another project), so
-    /// an extension call never finds none (ADR 0017).
+    /// one (the served session's, the host's or the project's own; the
+    /// one-shot compile's for another project), so an extension call never
+    /// finds none (ADR 0017).
     pub runtime: &'a SharedRuntime,
     /// The project view, built once for the call: rooted at the project
     /// root, reporting what the server reports for the project.
@@ -200,33 +199,73 @@ impl From<TargetError> for McpError {
     }
 }
 
+/// What a client can do about it, ending every no-project refusal.
+const SERVE_A_PROJECT: &str = "pass {\"path\": ...} or start the server in a project";
+
 /// The refusal of a handler that needs a project when none is served.
 pub fn no_project() -> McpError {
     McpError::new(
         ErrorCode::PreconditionFailed,
-        "no project is served: pass {\"path\": ...} or start the server in a project",
+        format!("no project is served: {SERVE_A_PROJECT}"),
     )
 }
 
-/// One call: the state, its target, and what the handler wrote.
+/// A refusal that names something of the project (a file, an entity), as
+/// the call's target makes it: with nothing served ([`CallTarget::NoProject`])
+/// a file or an entity is not "not found", there is no project to look in,
+/// so the refusal is [`no_project`] (`precondition_failed`), its message
+/// leading with what was asked, `entity_id` kept and `argument` dropped. Any
+/// other refusal, and every refusal of a call that has a project, is
+/// returned as it is. The one place that rule is applied: the dispatchers of
+/// tools, prompts and resources call it on what their handler refused with
+/// (ADR 0025).
+pub(crate) fn without_project(target: &CallTarget, error: McpError) -> McpError {
+    if !matches!(target, CallTarget::NoProject) {
+        return error;
+    }
+    let asked = match error.code {
+        ErrorCode::FileNotFound => match error.message.strip_prefix(FILE_NOT_FOUND) {
+            Some(file) => format!("'{file}' is no project's file"),
+            None => error.message.clone(),
+        },
+        ErrorCode::EntityNotFound => {
+            let entity = error.entity_id.as_deref().unwrap_or("that entity");
+            format!("entity '{entity}' is in no project")
+        }
+        _ => return error,
+    };
+    let mut refused = McpError::new(
+        ErrorCode::PreconditionFailed,
+        format!("no project is served, so {asked}: {SERVE_A_PROJECT}"),
+    );
+    refused.entity_id = error.entity_id;
+    refused.tool = error.tool;
+    refused.prompt = error.prompt;
+    refused.reported = error.reported;
+    refused
+}
+
+/// [`without_project`] for what a tool refused with: a refusal is replaced,
+/// a result is returned as it is.
+pub(crate) fn without_project_outcome(target: &CallTarget, outcome: ToolOutcome) -> ToolOutcome {
+    match outcome {
+        ToolOutcome::Refused(error) => {
+            ToolOutcome::Refused(Box::new(without_project(target, *error)))
+        }
+        done => done,
+    }
+}
+
+/// One call: the state and its target.
 pub struct Call<'s> {
     pub state: &'s mut McpState,
     target: CallTarget,
-    wrote: bool,
-    /// The runtime of a served project built in memory, which has none of
-    /// its own: the host's, else one built for its root on first use.
-    in_memory_runtime: OnceCell<SharedRuntime>,
 }
 
 impl<'s> Call<'s> {
     /// A call on `target`, resolved by [`resolve`].
     pub fn new(state: &'s mut McpState, target: CallTarget) -> Self {
-        Call {
-            state,
-            target,
-            wrote: false,
-            in_memory_runtime: OnceCell::new(),
-        }
+        Call { state, target }
     }
 
     /// The project the call acts on. `NoProject` (and a target that is no
@@ -240,16 +279,11 @@ impl<'s> Call<'s> {
         match &self.target {
             CallTarget::Served => {
                 let session = self.state.session();
-                let root = session.root().ok_or_else(no_project)?;
-                let runtime = match session.runtime() {
-                    Some(runtime) => runtime,
-                    None => {
-                        self.in_memory_runtime
-                            .get_or_init(|| match &self.state.extension_runtime {
-                                Some(host) => Arc::clone(host),
-                                None => project_runtime(root),
-                            })
-                    }
+                // `McpState::serve` opens every served project from disk, with
+                // a runtime: a session without either is no project (it is
+                // unreachable, and a server answers rather than panics).
+                let (Some(root), Some(runtime)) = (session.root(), session.runtime()) else {
+                    return Err(no_project());
                 };
                 Ok(ProjectRef {
                     root,
@@ -279,11 +313,11 @@ impl<'s> Call<'s> {
     }
 
     /// The project view of what the call reads: its project's
-    /// ([`ProjectRef::view`]), else, with no project, the served session's
-    /// graph without a root (a graph built in memory with no project, or
-    /// none): no recorded report, no schema cache; it reports what the
-    /// server reports for the served session ([`McpState::diagnostics`]).
-    /// For a read view that answers without a project.
+    /// ([`ProjectRef::view`]), else, with no project, the empty session's
+    /// graph without a root: no recorded report, no schema cache; it
+    /// reports what the server reports for the served session
+    /// ([`McpState::diagnostics`]). For a read view that answers without a
+    /// project.
     pub fn view(&self) -> ProjectView<'_> {
         match self.project() {
             Ok(project) => project.view(),
@@ -325,38 +359,31 @@ impl<'s> Call<'s> {
         }
     }
 
-    /// The handler wrote its target's files: bring the target up to date
-    /// now and return what `specforge check` reports for it. The served
-    /// project is brought up to date with disk (a project built in memory
-    /// is replaced by the project on disk at its root); another project is
-    /// compiled again; the server keeps serving its own.
-    pub fn wrote(&mut self) -> Vec<Diagnostic> {
-        self.wrote = true;
+    /// The call wrote its target's files: bring the target up to date now
+    /// and return what `specforge check` reports for it. Called only by
+    /// [`crate::mutation::refresh`] (ADR 0022). The served project is
+    /// brought up to date with disk; another project is compiled again (the
+    /// server keeps serving its own); the directory `init` created is
+    /// served when nothing is (ADR 0014 D5).
+    pub(crate) fn bring_up_to_date(&mut self) -> Vec<Diagnostic> {
         match &mut self.target {
             CallTarget::Served => {
-                match (self.state.session().origin(), self.state.project_root()) {
-                    (Origin::Disk, _) => {
-                        self.state.ensure_fresh();
-                    }
-                    (_, Some(root)) => {
-                        let root = root.to_path_buf();
-                        self.state.serve(&root);
-                    }
-                    (_, None) => {}
-                }
+                self.state.ensure_fresh();
                 self.state.diagnostics()
             }
             CallTarget::Other(other) => {
                 other.recompile();
                 other.project.diagnostics()
             }
-            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject => Vec::new(),
+            CallTarget::New(dir) => {
+                if self.state.project_root().is_none() {
+                    let dir = dir.clone();
+                    self.state.serve(&dir);
+                }
+                Vec::new()
+            }
+            CallTarget::Unscoped | CallTarget::NoProject => Vec::new(),
         }
-    }
-
-    /// Whether the handler reported writing its target ([`Self::wrote`]).
-    pub fn has_written(&self) -> bool {
-        self.wrote
     }
 }
 

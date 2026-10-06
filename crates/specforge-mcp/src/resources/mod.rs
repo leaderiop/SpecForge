@@ -53,6 +53,36 @@ pub(crate) fn invalid_params(message: impl Into<String>) -> JsonRpcError {
     JsonRpcError::new(error_codes::INVALID_PARAMS, message)
 }
 
+/// A read that names an entity the graph does not have: invalid params, as
+/// ever, its `McpError` (`entity_not_found`) as the error's `data`, which is
+/// what [`without_project`] reads.
+pub(crate) fn entity_not_found(message: impl Into<String>, entity_id: &str) -> JsonRpcError {
+    let error = crate::tool::entity_not_found(entity_id);
+    JsonRpcError::new(error.code.rpc_code(), message).with_data(error.to_json())
+}
+
+/// What a read refused with, as the call's target makes it
+/// ([`target::without_project`]): with nothing served, an entity that is
+/// not found is the no-project refusal, an internal error (-32603) whose
+/// `data` is its `McpError`, as the refusal of a resource that needs a
+/// project is. Any other refusal is returned as it is.
+fn without_project(target: &target::CallTarget, error: JsonRpcError) -> JsonRpcError {
+    let named = error
+        .data
+        .as_ref()
+        .filter(|data| data.get("code").and_then(Value::as_str) == Some("entity_not_found"))
+        .and_then(|data| data.get("entity_id")?.as_str())
+        .map(str::to_string);
+    let Some(entity_id) = named else {
+        return error;
+    };
+    let refused = target::without_project(target, crate::tool::entity_not_found(&entity_id));
+    if refused.code != crate::tool::ErrorCode::PreconditionFailed {
+        return error;
+    }
+    JsonRpcError::new(refused.code.rpc_code(), refused.message.clone()).with_data(refused.to_json())
+}
+
 pub fn handle_resource_read(
     state: &mut McpState,
     params: Value,
@@ -86,7 +116,7 @@ pub fn handle_resource_read(
         }
     };
     let call = Call::new(state, target);
-    let read = read(&call, &uri);
+    let read = read(&call, &uri).map_err(|refused| without_project(call.target(), refused));
     drop(call);
     match read {
         Ok(mut content) => {

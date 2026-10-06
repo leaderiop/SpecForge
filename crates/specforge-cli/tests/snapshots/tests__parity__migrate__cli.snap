@@ -45,6 +45,10 @@ expression: cli_snap
       }
     ],
     "failed_count": 0,
+    "files_written": [
+      "spec/old.spec",
+      "spec/old.spec.bak"
+    ],
     "migrated_count": 1,
     "results": [
       {

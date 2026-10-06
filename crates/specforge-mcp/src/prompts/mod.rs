@@ -77,7 +77,11 @@ pub fn handle_prompt_get(
 
     // The project the prompt reads, brought up to date with disk first.
     let outcome = match target::resolve(state, spec.target, &arguments) {
-        Ok(target) => (spec.render)(&Call::new(state, target), arguments),
+        Ok(target) => {
+            let call = Call::new(state, target);
+            (spec.render)(&call, arguments)
+                .map_err(|refused| Box::new(target::without_project(call.target(), *refused)))
+        }
         Err(refused) => Err(Box::new(crate::tool::McpError::from(refused))),
     };
     prompt_envelope(outcome, spec, id)

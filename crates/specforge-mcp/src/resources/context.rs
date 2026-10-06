@@ -1,6 +1,6 @@
-use specforge_emitter::{EmitFormat, EmitOptions, emit};
+use specforge_emitter::{EmitFormat, EmitOptions, EmitterError, emit};
 
-use crate::resources::{ReadOutcome, ResourceText, invalid_params};
+use crate::resources::{ReadOutcome, ResourceText, entity_not_found, invalid_params};
 use crate::state::McpState;
 
 /// `specforge://context` and `specforge://context/{entity_id}` —
@@ -36,6 +36,9 @@ pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
 
     match json_str {
         Ok(payload) => Ok(ResourceText::json(base, payload)),
+        Err(EmitterError::EntityNotFound(message)) => {
+            Err(entity_not_found(message, parsed.root.unwrap_or_default()))
+        }
         Err(err) => Err(invalid_params(err.to_string())),
     }
 }

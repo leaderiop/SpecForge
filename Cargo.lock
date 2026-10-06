@@ -2945,6 +2945,7 @@ dependencies = [
  "specforge-component",
  "specforge-diagnostics",
  "specforge-emitter",
+ "specforge-extension-sdk",
  "specforge-formatter",
  "specforge-graph",
  "specforge-ops",

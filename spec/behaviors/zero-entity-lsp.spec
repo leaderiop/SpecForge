@@ -72,18 +72,24 @@ behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
   types      [KindRegistryEntry, HoverContent]
   ports      [LspProtocol]
   contract   """
-    When hovering over an entity keyword or entity ID, the LSP MUST show
-    the entity kind name, the source extension that defines it, the
-    entity's title, and the incoming/outgoing reference count from the
-    graph. For entity kinds with testable=true, the hover MUST also
-    indicate testability. The LSP MUST also display the first string
-    field value (if any) as a summary — "first string field" means the
-    first string field in declaration order within the .spec file (the
-    order fields appear in the entity block's AST). The specific field
-    name depends on the extension's field definitions. The hover content MUST be
-    formatted as markdown. This is the authoritative behavior for
-    extension-aware hover logic; hover_information (behaviors/lsp.spec)
-    delegates here.
+    When hovering over an entity ID, the LSP MUST render the entity's facts
+    from the inspect read view, the one specforge.inspect renders: the
+    entity kind name, the source extension that defines it, the kind's
+    description, the entity's title, its testability (for a testable kind,
+    from the same standing inspect reports), the statement its extension
+    declares headline and normative as a summary (whole, every line
+    quoted), its coverage (status, proven obligations and recorded tests;
+    or that it is exempt and why; or that the recorded report cannot be
+    read; or, while the project rebuilds, that coverage is unavailable),
+    the references to it grouped
+    by referencing kind and field and the references it makes grouped by
+    field, each with its count, every other field value (a long string cut
+    at a character boundary), and the diagnostics about the entity that the
+    diagnostics under the cursor do not already show, each code linked to
+    its catalogue entry when it has one. The hover content MUST be
+    formatted as markdown and MUST NOT carry editor-specific markup.
+    This is the authoritative behavior for extension-aware hover logic;
+    hover_information (behaviors/lsp.spec) delegates here.
   """
   requires {
     kind_registry_populated "KindRegistry is populated (registries_populated event has fired)"
@@ -95,8 +101,12 @@ behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
   verify unit "hover shows entity kind and source extension"
   verify unit "hover shows testability for testable kinds"
   verify unit "hover content formatted as markdown"
-  verify unit "hover shows first string field as summary"
+  verify unit "hover shows the headline statement as its summary"
   verify unit "hover shows reference count from graph"
+  verify unit "hover shows the entity's coverage as specforge.inspect reports it"
+  verify unit "hover lists the entity's diagnostics the cursor's do not already show"
+  verify unit "a long field value is cut at a character boundary"
+  verify unit "hover never states a coverage fact it cannot read: while the project rebuilds it says so"
   verify contract "Provide Extension Entity Hover: extension entity hover holds — kind_registry_populated, hover_content_from_registry, source_extension_shown"
 }
 

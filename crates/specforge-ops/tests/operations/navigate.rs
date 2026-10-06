@@ -1498,3 +1498,123 @@ fn the_outline_shows_kind_id_title_and_name() {
     assert_eq!(save.signature, "save(item: Item, note?: string) -> Item");
     assert_eq!(at(&save.name_span), "store.spec 7:10-7:14");
 }
+
+// ── The reference list without tokens ───────────────────────────────────
+
+use specforge_ops::navigate::{Reference, References};
+
+const CYCLE: &str = "behavior alpha \"A\" {\n  depends_on [beta]\n}\n\
+                     behavior beta \"B\" {\n  depends_on [alpha]\n}\n";
+
+fn cyc() -> Compiled {
+    compile(SOFTWARE, &[("a.spec", CYCLE)])
+}
+
+/// The distinct ids of the occurrences' holders (incoming) or targets
+/// (outgoing), sorted.
+fn ends(occurrences: &[Occurrence], direction: Direction) -> Vec<String> {
+    let ids: std::collections::BTreeSet<String> = occurrences
+        .iter()
+        .map(|o| match direction {
+            Direction::Outgoing => o.target.to_string(),
+            _ => o.holder.to_string(),
+        })
+        .collect();
+    ids.into_iter().collect()
+}
+
+#[specforge_test(
+    behavior = "find_all_references",
+    verify = "find-refs excludes what the entity itself references"
+)]
+fn references_list_the_same_entities_the_navigator_finds() {
+    for p in [nav(), cyc()] {
+        let navigator = p.navigator();
+        let view = ProjectView::of(&p.project);
+        let mut checked = 0;
+        for node in p.project.graph.nodes() {
+            let id = node.id.raw.as_str();
+            let references = References::of(&view, id);
+            for direction in [Direction::Incoming, Direction::Outgoing] {
+                let query = ReferenceQuery {
+                    direction,
+                    include_declaration: false,
+                };
+                let found = ends(&navigator.references(id, query).unwrap(), direction);
+                let listed = match direction {
+                    Direction::Outgoing => references.refers_to(),
+                    _ => references.referenced_by(),
+                };
+                assert_eq!(listed, found, "{id} {direction:?}");
+                checked += found.len();
+            }
+        }
+        assert!(checked > 0, "the fixture has references");
+    }
+}
+
+#[test]
+fn references_keep_edge_order_peer_kind_and_field() {
+    for p in [nav(), cyc()] {
+        let view = ProjectView::of(&p.project);
+        let graph = &p.project.graph;
+        let kind_of = |id: &str| graph.node(id).map(|n| n.kind.raw);
+        for node in graph.nodes() {
+            let id = node.id.raw.as_str();
+            let references = References::of(&view, id);
+            let incoming: Vec<Reference> = graph
+                .edges_to(id)
+                .iter()
+                .map(|e| Reference {
+                    peer: e.source,
+                    peer_kind: kind_of(e.source.as_str()),
+                    field: e.label,
+                })
+                .collect();
+            let outgoing: Vec<Reference> = graph
+                .edges_from(id)
+                .iter()
+                .map(|e| Reference {
+                    peer: e.target,
+                    peer_kind: kind_of(e.target.as_str()),
+                    field: e.label,
+                })
+                .collect();
+            assert_eq!(references.incoming, incoming, "{id}");
+            assert_eq!(references.outgoing, outgoing, "{id}");
+        }
+    }
+    let cyc = cyc();
+    let alpha = References::of(&ProjectView::of(&cyc.project), "alpha");
+    assert_eq!(alpha.referenced_by(), ["beta"]);
+    assert_eq!(alpha.refers_to(), ["beta"]);
+    assert_eq!(alpha.incoming[0].peer_kind, Some(Sym::new("behavior")));
+    assert_eq!(alpha.incoming[0].field, Sym::new("depends_on"));
+}
+
+#[test]
+fn an_outgoing_reference_to_a_missing_entity_has_no_peer_kind() {
+    let (mut graph, _) = specforge_graph::build_graph(&[specforge_parser::parse(
+        "behavior a \"A\" {\n}\n",
+        "a.spec",
+    )]);
+    graph.add_edge(specforge_graph::Edge {
+        source: "a".into(),
+        target: "ghost".into(),
+        label: "uses".into(),
+    });
+    let env = Environment::empty();
+    let recorded = RecordedCoverage::default();
+    let view = ProjectView::new(&graph, &env, None, &recorded);
+    let references = References::of(&view, "a");
+    assert_eq!(
+        references.outgoing,
+        [Reference {
+            peer: Sym::new("ghost"),
+            peer_kind: None,
+            field: Sym::new("uses"),
+        }]
+    );
+    assert!(references.incoming.is_empty());
+    assert_eq!(References::of(&view, "ghost"), References::default());
+}

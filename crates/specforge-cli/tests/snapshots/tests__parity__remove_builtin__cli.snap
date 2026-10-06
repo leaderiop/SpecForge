@@ -27,6 +27,9 @@ expression: cli_snap
   },
   "ok": true,
   "payload": {
+    "files_written": [
+      "specforge.json"
+    ],
     "orphan_warnings": [],
     "removed": "@specforge/product",
     "source": "builtin"

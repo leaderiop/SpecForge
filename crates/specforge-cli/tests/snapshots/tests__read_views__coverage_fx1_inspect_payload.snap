@@ -15,6 +15,7 @@ expression: "normalized(&result, root)"
     }
   ],
   "entity_id": "Payload",
+  "exempt": false,
   "fields": {
     "verify": [
       {
@@ -24,10 +25,12 @@ expression: "normalized(&result, root)"
     ]
   },
   "kind": "type",
+  "obligated": true,
   "reference_count": 0,
   "referenced_by": [],
   "references": [],
   "refers_to": [],
+  "source_extension": "@specforge/software",
   "source_span": {
     "end_col": 2,
     "end_line": 21,

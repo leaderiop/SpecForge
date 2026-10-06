@@ -122,14 +122,20 @@ type McpInspectResult {
   entity_id           string       @readonly
   kind                string       @readonly
   title               string
+  /// The extension that declares the entity's kind; null when none does.
   source_extension    string       @optional
-  /// The entity's kind is testable (its KindRegistry entry), as hover shows.
+  /// The entity's kind is testable, the standing the LSP hover shows.
   testable            boolean
   /// The entity declares at least one verify obligation.
   declared            boolean
+  /// Testable, but it owes no obligations and declares none: it does not
+  /// count toward coverage (specforge.coverage's row says the same).
+  exempt              boolean
+  /// Its kind must declare obligations (a no_verify_statements rule targets
+  /// it): why an exempt entity is exempt.
+  obligated           boolean
   /// Deprecated: the number of edges in both directions.
   reference_count     integer
-  summary             string       @optional
   source_span         SourceSpan   @readonly
   /// The field the entity's extension declares headline and normative (a
   /// behavior's contract); absent when its kind declares none.

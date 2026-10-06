@@ -458,7 +458,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     graph_available "Compiled graph is available via CompilerApi"
   }
   ensures {
-    entity_details_returned "Full entity details returned: kind, fields, contract, references, verify, coverage, diagnostics"
+    entity_details_returned "Full entity details returned: kind, fields, contract, references, verify, standing, coverage, diagnostics"
     tool_invoked_emitted    "mcp_tool_invoked event emitted"
   }
   contract   """
@@ -466,9 +466,15 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     accepts entity_id (required). The tool MUST return full entity details
     including kind, fields, contract text, references, verify declarations,
     coverage status, and related diagnostics. Its testable field is the
-    testability of the entity's kind, from the KindRegistry, as hover
-    shows it; a separate declared field says whether the entity declares
-    at least one verify obligation. The fields MUST include every
+    testability of the entity's kind, the standing the LSP hover shows; a
+    separate declared field says whether the entity declares at least one
+    verify obligation, and exempt whether its kind is testable but it owes
+    no obligations and declares none, so it does not count toward
+    coverage (specforge.coverage's row says the same). obligated says
+    whether its kind must declare obligations (a no_verify_statements rule
+    targets it), the reason an exempt entity is exempt. source_extension
+    names the extension that declares its kind, null when no loaded
+    extension does. The fields MUST include every
     field the entity declares, whatever its kind names them (an invariant's
     guarantee, a decision's rationale), not just contract. The coverage status
     MUST count the recorded test results in specforge-report.json exactly as
@@ -479,10 +485,10 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     when its data names none, the innermost entity whose source span holds
     the diagnostic's span. A diagnostic's message is never read; an entity
     whose ID is a prefix of another's never collects the other's
-    diagnostics. LSP equivalence: this tool mirrors textDocument/hover,
-    providing the same entity detail an IDE shows on hover but over the MCP
-    transport. If the entity does not exist, the
-    tool MUST return an error response.
+    diagnostics. LSP equivalence: this tool and textDocument/hover render
+    one read view of the entity, so its kind, standing, references,
+    coverage and diagnostics are the same on both. If the entity does not
+    exist, the tool MUST return an error response.
   """
   verify unit "specforge.inspect returns full entity details"
   verify unit "response includes references and verify declarations"
@@ -492,6 +498,9 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "diagnostics are the entity's own, not those of an entity whose ID contains it"
   verify unit "a spanless diagnostic belongs to the entities its data names, never to one its message quotes"
   verify unit "testable is the kind's testability and declared says whether the entity has obligations"
+  verify unit "exempt says the entity does not count toward coverage, as specforge.coverage's row says"
+  verify unit "obligated says whether the entity's kind must declare obligations"
+  verify unit "source_extension names the extension that declares the entity's kind"
   verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 }
 
@@ -595,7 +604,9 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
     method members). LSP equivalence: this tool mirrors
     textDocument/documentSymbol, returning the same outline structure an IDE
     shows in its symbol navigator but over the MCP transport. If the file
-    does not exist, the tool MUST return an error.
+    does not exist, the tool MUST return an error. With no project served, no
+    file is a project's: the tool MUST return the no-project refusal
+    (precondition_failed), whatever the server's working directory holds.
   """
   verify unit "specforge.outline returns all entities defined in file"
   verify unit "nested entries included for complex entities"
@@ -603,6 +614,7 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   verify contract "Provide MCP Outline Tool: MCP outline tool holds — graph_available, outline_returned, tool_invoked_emitted"
   verify unit "outline entries sorted by line number"
   verify unit "a file under the spec root with no entities has an empty outline"
+  verify unit "with no project served, outline is the no-project refusal"
   verify unit "sorted by line number"
 }
 

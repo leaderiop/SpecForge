@@ -1,13 +1,15 @@
 //! What a tool call produced, and the one place that turns it into a
 //! `tools/call` reply.
 //!
-//! Handlers return a [`ToolOutcome`]; [`envelope`] alone builds `content`,
-//! `isError` and `_meta`. The dispatcher reads events and mutation effects
-//! from the typed payload, never from the reply text.
+//! Handlers return a [`ToolOutcome`] (a mutation's handler, a
+//! [`Mutated`](crate::mutation::Mutated) holding one); [`envelope`] alone
+//! builds `content`, `isError` and `_meta`. What a mutation wrote crosses
+//! to the dispatcher typed (ADR 0022), never read back from the reply.
 
 use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 
+use crate::mutation::Mutated;
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::target::{Call, TargetSpec};
 use crate::types::McpToolDescriptor;
@@ -86,29 +88,15 @@ impl Access {
     }
 }
 
-/// What a completed mutation changed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct Effect {
-    pub files_changed: usize,
-    pub entities_affected: usize,
-}
-
-/// How a tool that changes the project reports it.
-#[derive(Debug, Clone, Copy)]
-pub struct MutationSpec {
-    /// Whether a call with these arguments writes (false for a dry run or a
-    /// check).
-    pub writes: fn(&Value) -> bool,
-    /// What a successful call changed, read from its structured payload.
-    pub effect: fn(&Value) -> Effect,
-}
-
-/// Every write call unless it is a `dry_run`.
-pub fn writes_unless_dry_run(args: &Value) -> bool {
-    !args
-        .get("dry_run")
-        .and_then(Value::as_bool)
-        .unwrap_or(false)
+/// How a tool is run: its handler, by role.
+#[derive(Clone, Copy)]
+pub enum Handler {
+    /// Any tool but a mutation: its reply is all there is (collect and
+    /// render write output artifacts, not project sources; spec feature
+    /// `mcp_project_management_tools`).
+    Tool(fn(&mut Call<'_>, Value) -> ToolOutcome),
+    /// A mutation (category `mutation`): its reply and what it wrote.
+    Mutation(fn(&mut Call<'_>, Value) -> Mutated),
 }
 
 /// One core tool: everything the server lists, dispatches and reports
@@ -126,14 +114,12 @@ pub struct ToolSpec {
     /// The fields of the handler's `Args` struct ([`crate::args::fields`]):
     /// the arguments it reads.
     pub fields: fn() -> &'static [&'static str],
-    /// How a mutation reports what it changed: present exactly for the
-    /// `mutation` category.
-    pub mutation: Option<MutationSpec>,
     /// Which project it acts on, and whether that project is brought up
     /// to date first: resolved into the call's target before the handler.
     pub target: TargetSpec,
-    /// The handler, reading its `Args` from the call's `arguments`.
-    pub call: fn(&mut Call<'_>, Value) -> ToolOutcome,
+    /// The handler, reading its `Args` from the call's `arguments`: a
+    /// [`Handler::Mutation`] exactly for the `mutation` category.
+    pub handler: Handler,
 }
 
 impl ToolSpec {
@@ -299,6 +285,20 @@ impl McpError {
         self
     }
 
+    /// The same error with `value` under `key` in its `data` object
+    /// (created when it has none; a `data` that is no object is left as
+    /// it is).
+    pub fn with_data_field(mut self, key: &str, value: Value) -> Self {
+        self.set_data_field(key, value);
+        self
+    }
+
+    fn set_data_field(&mut self, key: &str, value: Value) {
+        if let Value::Object(data) = self.data.get_or_insert_with(|| json!({})) {
+            data.insert(key.to_string(), value);
+        }
+    }
+
     /// The error as its `isError` result carries it.
     pub fn to_json(&self) -> Value {
         let mut error = json!({ "code": self.code.as_str(), "message": self.message });
@@ -327,6 +327,16 @@ pub fn entity_not_found(entity_id: &str) -> McpError {
         &format!("E003: unresolved entity '{entity_id}' — not found in graph"),
     )
     .with_entity(entity_id)
+}
+
+/// What a refusal of a file the project does not hold says before the file's
+/// name ([`file_not_found`]).
+pub(crate) const FILE_NOT_FOUND: &str = "File not found: ";
+
+/// A question about `file`, which the project has no entity from and does
+/// not hold under its spec root: `file_not_found` on argument `file`.
+pub(crate) fn file_not_found(file: &str) -> McpError {
+    McpError::new(ErrorCode::FileNotFound, format!("{FILE_NOT_FOUND}{file}")).with_argument("file")
 }
 
 /// `("E003", "unresolved …")` for `"E003: unresolved …"`: a leading
@@ -361,13 +371,12 @@ pub enum Payload {
 pub enum ToolOutcome {
     /// The tool ran. `is_error` marks a failed run (an `isError` result);
     /// `diagnostics` ride in `_meta.diagnostics` and `meta`'s entries beside
-    /// them in `_meta`; `events` are pushed before the reply goes out.
+    /// them in `_meta`.
     Done {
         payload: Payload,
         is_error: bool,
         diagnostics: Vec<Diagnostic>,
         meta: serde_json::Map<String, Value>,
-        events: Vec<(String, Value)>,
     },
     /// The tool failed: an `isError` result carrying the `McpError` (ADR
     /// 0004 D4-a). The one way a tool reports a failure.
@@ -381,7 +390,6 @@ impl ToolOutcome {
             is_error,
             diagnostics: Vec::new(),
             meta: serde_json::Map::new(),
-            events: Vec::new(),
         }
     }
 
@@ -443,12 +451,26 @@ impl ToolOutcome {
         self
     }
 
-    /// The same outcome with an event to push when it is delivered.
-    pub fn with_event(mut self, name: impl Into<String>, params: Value) -> Self {
-        if let ToolOutcome::Done { events, .. } = &mut self {
-            events.push((name.into(), params));
-        }
+    /// The same outcome with `value` under `key`: in its payload when that
+    /// is a JSON object, in its `McpError`'s `data` when it refused. A
+    /// text payload is left as it is.
+    pub(crate) fn with_field(mut self, key: &str, value: Value) -> Self {
+        self.set_field(key, value);
         self
+    }
+
+    /// [`Self::with_field`], in place.
+    pub(crate) fn set_field(&mut self, key: &str, value: Value) {
+        match self {
+            ToolOutcome::Done {
+                payload: Payload::Json(Value::Object(object)),
+                ..
+            } => {
+                object.insert(key.to_string(), value);
+            }
+            ToolOutcome::Done { .. } => {}
+            ToolOutcome::Refused(error) => error.set_data_field(key, value),
+        }
     }
 
     /// The same outcome, a failure naming `tool` unless it names one.
@@ -461,18 +483,6 @@ impl ToolOutcome {
         self
     }
 
-    /// The structured payload of a successful run.
-    pub fn success_payload(&self) -> Option<&Value> {
-        match self {
-            ToolOutcome::Done {
-                payload: Payload::Json(value),
-                is_error: false,
-                ..
-            } => Some(value),
-            _ => None,
-        }
-    }
-
     /// Whether the tool ran without failing.
     pub fn succeeded(&self) -> bool {
         matches!(
@@ -482,14 +492,6 @@ impl ToolOutcome {
                 ..
             }
         )
-    }
-
-    /// Take the events to push, leaving none.
-    pub fn take_events(&mut self) -> Vec<(String, Value)> {
-        match self {
-            ToolOutcome::Done { events, .. } => std::mem::take(events),
-            ToolOutcome::Refused(_) => Vec::new(),
-        }
     }
 }
 
@@ -508,6 +510,12 @@ pub trait IntoOutcome {
 impl IntoOutcome for ToolOutcome {
     fn into_outcome(self) -> ToolOutcome {
         self
+    }
+}
+
+impl IntoOutcome for McpError {
+    fn into_outcome(self) -> ToolOutcome {
+        self.into()
     }
 }
 
@@ -549,7 +557,6 @@ pub fn envelope(
             is_error,
             diagnostics,
             meta,
-            ..
         } => (payload, is_error, diagnostics, meta),
     };
     let content: Vec<Value> = match &payload {

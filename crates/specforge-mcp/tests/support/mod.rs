@@ -7,10 +7,12 @@
 //! a graph or a diagnostic into the server's state: what a test serves is
 //! what its sources and its extension declare.
 
+pub mod disk;
 pub mod extension;
 pub mod project;
 pub mod rpc;
 
+pub use disk::{changed_files, files_under};
 pub use extension::TestExtension;
 pub use project::{Served, TestProject};
 pub use rpc::*;

@@ -16,7 +16,9 @@ use std::sync::Arc;
 use specforge_common::Diagnostic;
 use specforge_emitter::{GraphProtocolSchema, generate_schema};
 use specforge_graph::Graph;
-use specforge_project::coverage::{ProjectCoverage, RecordedCoverage, ReportError, TestReport};
+use specforge_project::coverage::{
+    ProjectCoverage, Recorded, RecordedCoverage, ReportError, TestReport,
+};
 use specforge_project::snapshot::EntitySnapshot;
 use specforge_project::{CompiledProject, Environment, ProjectSession};
 use specforge_registry::RegistryBuild;
@@ -170,12 +172,17 @@ impl<'a> ProjectView<'a> {
     /// The coverage rule over the graph's entity snapshot and the recorded
     /// report, computed once per compile and report content.
     pub fn coverage(&self) -> Result<Arc<ProjectCoverage>, ReportError> {
+        self.recorded().map(|recorded| recorded.coverage)
+    }
+
+    /// The recorded report ([`Self::test_report`]) and the coverage computed
+    /// from it ([`Self::coverage`]), read together: one read of the report
+    /// file for a view that needs both.
+    pub fn recorded(&self) -> Result<Recorded, ReportError> {
         // The snapshot first, so an unseeded memo takes it with the
         // environment's spec root.
         self.entities();
-        self.recorded
-            .at(self.root, self.graph, self.registries)
-            .map(|recorded| recorded.coverage)
+        self.recorded.at(self.root, self.graph, self.registries)
     }
 
     /// The graph's entity snapshot (ADR 0019): every entity with what it

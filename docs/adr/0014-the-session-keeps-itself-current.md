@@ -55,8 +55,9 @@ before each read) with disk, and `ensure_fresh` applies exactly that.
   may not lie inside the served project.
 - **D7. One refusal for "no project".** With nothing served and no `path`, `Call::project` is
   `precondition_failed`; analyze no longer runs over an empty graph with a `NoRuntime`. Tools that
-  answer usefully without a project (list, stats, coverage and outline over the empty session or a
-  graph built in memory) keep reading the session.
+  answer usefully without a project (list, stats, coverage and the other reads of the whole
+  project, over the empty session; a read that names a file or an entity is the same
+  `precondition_failed`, ADR 0025) keep reading the session.
 - **D8. Environment inputs** are `specforge.json`, `specforge.lock` and each loaded module path,
   even outside the root; builtin blobs are in the binary. A `.wasm` no extension loads changes
   nothing. Check inputs re-run the checks without re-parsing.
@@ -64,10 +65,9 @@ before each read) with disk, and `ensure_fresh` applies exactly that.
   its watchers from `watch_roots` after a reload that moved them (and catches up with
   `ensure_fresh`); the LSP classifies inside the update, while it holds the session, and registers
   its `didChangeWatchedFiles` watchers from the session, again after a reload that changed them.
-- **D10. No public root.** `McpState::project_root()` is the session's root. A graph built in memory
-  carries its root (`serve_in_memory_at`) and is never refreshed from disk; a call that writes
-  project files under that root serves the project on disk there. An `initialize` root that does
-  not exist serves nothing.
+- **D10. No public root.** `McpState::project_root()` is the session's root. MCP serves only a
+  project opened from disk (amended by ADR 0025). An `initialize` root that does not exist serves
+  nothing.
 - **D11. `use_cached`** (validate, analyze, doctor) skips bringing the served project up to date,
   whatever its diagnostics. With nothing served there is nothing cached, so a call with a `path`
   adopts and compiles it. ADR 0004 D3-d's "compiles fresh" now reads "brought up to date with disk,
@@ -84,9 +84,9 @@ entry declares a `TargetSpec`: its reach (`Unscoped`, `Served`, `AnyProject`, `W
 `resolve` turns the call's `path` and that spec into one `CallTarget` (`Served`, `Other`, `New`,
 `Unscoped`, `NoProject`), and handlers read their project through `Call::project()` as a
 `ProjectRef` (root, spec root, environment, graph, runtime, `view()`, `diagnostics()`), unable to
-tell the served session from a project compiled for the call. `Call::wrote` brings the target up to
-date after a handler writes it. The dispatcher no longer reloads after mutations; a successful
-mutation of the served project brings it up to date with exactly what changed.
+tell the served session from a project compiled for the call. A mutation's handler returns what it
+wrote (ADR 0022); `mutation::refresh`, called by the dispatcher alone, brings the target up to date
+after any call that wrote files, succeeded or not, with exactly what changed.
 
 ## Consequences
 

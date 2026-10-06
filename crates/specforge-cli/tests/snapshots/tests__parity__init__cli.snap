@@ -24,6 +24,11 @@ expression: cli_snap
   "payload": {
     "config_path": "[ROOT]/specforge.json",
     "extensions_installed": [],
+    "files_written": [
+      ".gitignore",
+      "spec/hello.spec",
+      "specforge.json"
+    ],
     "project_root": "[ROOT]",
     "spec_file_path": "[ROOT]/spec/hello.spec"
   }

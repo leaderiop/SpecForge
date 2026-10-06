@@ -2,6 +2,7 @@ pub mod args;
 pub mod json_schema;
 pub mod lifecycle;
 pub mod modern;
+pub mod mutation;
 pub mod notifications;
 pub mod operations;
 pub mod prompt;

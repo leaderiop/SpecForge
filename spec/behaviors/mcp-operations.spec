@@ -152,7 +152,7 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
     project_created             "specforge.json and spec directory scaffolded at specified path"
     path_outside_current        "Target path verified to be outside current project's spec_root"
     extensions_validated        "When extensions specified, manifests validated and added to config"
-    project_initialized_emitted "project_initialized event emitted on success"
+    project_initialized_emitted "project_initialized event emitted on success, with the project name, its extension count and the starter file"
     tool_invoked_emitted        "mcp_tool_invoked event emitted"
   }
   contract   """
@@ -222,7 +222,8 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
     extension conflicts with an existing one, the tool MUST return an error.
     If the extension is already installed, the tool MUST return an info
     response indicating the extension is already present without modifying
-    specforge.json. A registry specifier with no registry configured in
+    specforge.json. That call still emits extension_added, with wasDuplicate
+    true; a dry run emits none. A registry specifier with no registry configured in
     specforge.json MUST make no network call and MUST return an E063 error
     whose suggestion names the registries key. The tool MUST run the add
     specforge add runs: a builtin is enabled offline with its required

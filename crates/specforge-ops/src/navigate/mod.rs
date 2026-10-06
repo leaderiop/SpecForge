@@ -15,6 +15,7 @@ mod files;
 mod find;
 mod fixes;
 mod occurrences;
+mod references;
 mod text;
 
 use std::cell::RefCell;
@@ -38,6 +39,7 @@ pub use fixes::{Fix, FixKind, FixQuery, FixSource, TextEdit};
 pub use occurrences::{
     DIRECTION, Definition, Direction, Occurrence, Precision, ReferenceQuery, Role,
 };
+pub use references::{Reference, References};
 
 use text::SourceText;
 

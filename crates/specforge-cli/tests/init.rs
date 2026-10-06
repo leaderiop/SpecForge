@@ -1496,3 +1496,63 @@ fn one_character_name_is_rejected() {
         .assert()
         .success();
 }
+
+use crate::written::{changed_since, files_written};
+
+#[specforge_test(
+    behavior = "scaffold_new_project",
+    verify = "init lists every file it wrote, in its human and JSON output"
+)]
+fn init_lists_every_file_it_wrote() {
+    // Human: one line per file written.
+    let dir = TempDir::new().unwrap();
+    let output = specforge_cmd()
+        .args(["init", "--name", "listed"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let listed: Vec<&str> = stdout
+        .lines()
+        .skip(1)
+        .take_while(|line| line.starts_with("  "))
+        .map(str::trim)
+        .collect();
+    let written = changed_since(dir.path(), &Default::default());
+    assert_eq!(written, [".gitignore", "spec/hello.spec", "specforge.json"]);
+    assert_eq!(listed, written, "{stdout}");
+
+    // JSON, with a local extension: its module and the lock too.
+    let dir = TempDir::new().unwrap();
+    let blob = TempDir::new().unwrap();
+    let wasm = blob.path().join("greet.wasm");
+    fs::write(&wasm, crate::registry::greet_wasm()).unwrap();
+    let output = specforge_cmd()
+        .args([
+            "init",
+            "--name",
+            "listed",
+            "--format",
+            "json",
+            "--extensions",
+        ])
+        .arg(&wasm)
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let written = changed_since(dir.path(), &Default::default());
+    assert_eq!(
+        written,
+        [
+            ".gitignore",
+            ".specforge/extensions/@sdk/greet/extension.wasm",
+            "spec/hello.spec",
+            "specforge.json",
+            "specforge.lock",
+        ]
+    );
+    assert_eq!(files_written(&json), written);
+}

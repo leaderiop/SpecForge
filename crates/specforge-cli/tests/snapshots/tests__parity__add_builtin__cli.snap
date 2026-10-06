@@ -32,6 +32,9 @@ expression: cli_snap
   "payload": {
     "action": "add",
     "changed": true,
+    "files_written": [
+      "specforge.json"
+    ],
     "name": "@specforge/product",
     "peers_enabled": [],
     "source": "builtin"

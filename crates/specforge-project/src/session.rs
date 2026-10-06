@@ -86,7 +86,7 @@ pub struct ProjectSession {
     /// Where the project comes from. With [`Origin::None`] (an editor with
     /// no workspace folder) files are buffers keyed by absolute path, with
     /// no spec root to resolve their imports against and no environment to
-    /// reload; with [`Origin::InMemory`] the graph was built by the host.
+    /// reload.
     origin: Origin,
     /// What the session last built from, as it was when read: what
     /// [`Self::stale`] compares with disk.
@@ -110,37 +110,6 @@ impl ProjectSession {
             check_diagnostics: Vec::new(),
             verify_incremental: false,
             origin: Origin::None,
-            snapshot: DiskSnapshot::default(),
-            recorded: RecordedCoverage::default(),
-        }
-    }
-
-    /// A session serving `graph`, built in memory rather than from
-    /// sources, in `env`: a host that assembles its graph itself (and a
-    /// test) serves one. It has no file and runs no extension; it reports
-    /// the environment's diagnostics and `graph_diagnostics` as its graph
-    /// build's. It has nothing on disk to reload ([`Origin::InMemory`]); its
-    /// root is the environment's.
-    pub fn from_graph(
-        env: Arc<Environment>,
-        graph: Graph,
-        graph_diagnostics: Vec<Diagnostic>,
-    ) -> Self {
-        let graph_config = env.graph_config();
-        ProjectSession {
-            env,
-            runtime: None,
-            owns_runtime: false,
-            build: IncrementalBuild::from_cold_build(
-                Vec::new(),
-                graph,
-                &graph_diagnostics,
-                graph_config,
-            ),
-            import_diagnostics: Vec::new(),
-            check_diagnostics: Vec::new(),
-            verify_incremental: false,
-            origin: Origin::InMemory,
             snapshot: DiskSnapshot::default(),
             recorded: RecordedCoverage::default(),
         }
@@ -320,13 +289,12 @@ impl ProjectSession {
         self.build.graph()
     }
 
-    /// Where the project comes from: disk, memory, or nowhere.
+    /// Where the project comes from: disk, or nowhere.
     pub fn origin(&self) -> Origin {
         self.origin
     }
 
-    /// The project root: `None` with no project ([`Origin::None`], or a
-    /// session built in memory with no root).
+    /// The project root: `None` with no project ([`Origin::None`]).
     pub fn root(&self) -> Option<&Path> {
         let root = self.env.root.as_path();
         (self.origin != Origin::None && !root.as_os_str().is_empty()).then_some(root)
@@ -345,12 +313,10 @@ impl ProjectSession {
     }
 
     /// What `path` (absolute, or relative to the working directory) is to
-    /// this session (behavior `classify_project_changes`). A session built
-    /// in memory is never changed by disk; with no project, a `.spec` file
-    /// is a buffer source keyed by its path.
+    /// this session (behavior `classify_project_changes`). With no project,
+    /// a `.spec` file is a buffer source keyed by its path.
     pub fn classify(&self, path: &Path) -> InputRole {
         match self.origin {
-            Origin::InMemory => InputRole::Unrelated,
             Origin::None => {
                 if path.extension().is_some_and(|ext| ext == "spec") {
                     InputRole::Source(self.source_key(path))
@@ -385,18 +351,16 @@ impl ProjectSession {
     /// Apply `changes`: the environment first (a reload rebuilds
     /// everything), else the sources (an update re-runs every check), else
     /// the checks alone. `None` when there is nothing to apply: `changes` is
-    /// empty, or the session was built in memory.
+    /// empty.
     pub fn apply(&mut self, changes: &Changes) -> Option<Update> {
-        match self.origin {
-            Origin::InMemory => None,
-            _ if changes.environment && self.origin == Origin::Disk => {
-                Some(self.reload_environment())
-            }
-            _ if !changes.sources.is_empty() => {
-                Some(self.update(SourceChange::Disk(&changes.sources)))
-            }
-            _ if changes.check_inputs && self.origin == Origin::Disk => Some(self.recheck()),
-            _ => None,
+        if changes.environment && self.origin == Origin::Disk {
+            Some(self.reload_environment())
+        } else if !changes.sources.is_empty() {
+            Some(self.update(SourceChange::Disk(&changes.sources)))
+        } else if changes.check_inputs && self.origin == Origin::Disk {
+            Some(self.recheck())
+        } else {
+            None
         }
     }
 

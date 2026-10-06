@@ -116,6 +116,17 @@ pub fn events(server: &McpServer, name: &str) -> Vec<Value> {
         .collect()
 }
 
+/// `mcp_mutation_completed`'s params (without `timestamp`, as [`events`]
+/// returns them) for `tool`.
+pub fn completed(tool: &str, files: usize, entities: usize, success: bool) -> Value {
+    json!({
+        "toolName": tool,
+        "files_changed": files,
+        "entities_affected": entities,
+        "success": success,
+    })
+}
+
 /// Panics unless an `mcp_tool_invoked` event names `tool`.
 pub fn assert_tool_invoked(server: &McpServer, tool: &str) {
     let invoked = events(server, "mcp_tool_invoked");

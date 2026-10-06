@@ -16,8 +16,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   loaded — and its check inputs, `specforge-cache.json` and the files `file_reference` fields name).
   It classifies any changed path, applies changes as an update, an environment reload or a re-check,
   and can bring itself up to date with disk without a watcher (`ensure_fresh`). Watch, the LSP and
-  MCP each hold one (`specforge_project::ProjectSession`); watch and the LSP feed it watcher events,
-  MCP asks it to be fresh before every request that reads the project (ADR 0014).
+  MCP each hold one (`specforge_project::ProjectSession`; MCP's is always opened from disk, ADR
+  0025); watch and the LSP feed it watcher events, MCP asks it to be fresh before every request that
+  reads the project (ADR 0014).
 - **Call target**: the project one MCP call acts on, resolved from the call's optional `path` and its
   tool spec's target (reach and freshness) before the handler runs: the served session (brought up to
   date unless `use_cached`), another project compiled for that call only, or the directory `init`
@@ -89,8 +90,12 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   target (`ProjectRef::view`: the project session with its I017 notices, or another project
   compiled for one call); the LSP from its session (`ProjectView::of_session`) (ADR 0015).
 - **Read view**: an operation that only reads the project view: stats, trace, the coverage view, the
-  model and outline diagrams, the versioned schema. Each returns a typed outcome; the CLI and MCP
-  only render it.
+  model and outline diagrams, the versioned schema, and inspect. Each returns a typed outcome; the
+  CLI, MCP and the LSP only render it.
+- **Entity facts**: what inspect returns for one entity: its node and kind entry, headline
+  statement, standing (testable, obligated, exempt), obligations, references in both directions,
+  coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
+  `specforge.inspect` renders it as JSON and the LSP hover as markdown, so the two cannot disagree.
 - **Management operation**: an operation about a project's setup and tooling rather than its
   graph: the extensions and providers listings, doctor, remove, collect, inference progress and
   gaps. Like a read view it takes the project view and a request and returns a typed outcome; unlike
@@ -113,7 +118,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   both "proven" (the gate) and the covered/partial/uncovered status (the MCP view)
   (`specforge_coverage::Verdict`).
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
-  independent of surface. The CLI and MCP are adapters over it (`specforge-ops`).
+  independent of surface. An operation that writes names the files it changed on disk in its
+  outcome (`specforge_ops::Writes`), recorded where it wrote. The CLI and MCP are adapters over it
+  (`specforge-ops`).
+- **Mutation outcome**: what one MCP mutation call wrote: the files its operation changed, the
+  entities it changed and the domain event it produces (`specforge_mcp::mutation::Written`), or
+  nothing for a preview. The dispatcher alone turns it into the call target's refresh, the domain
+  event and `mcp_mutation_completed` (ADR 0022), and the reply's `files_written`, the one place a
+  client learns which files the call wrote.
 - **Project sources**: the `.spec` files under the spec root (`spec_root`, else the project root) that
   discovery keeps — no skipped directory, no `exclude` entry. What a compile reads, and what format
   and migrate rewrite (`specforge_common::ProjectConfig::spec_files`).
@@ -158,13 +170,15 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   extension in the host process through the guest's own routing (`guest_call`), unsandboxed
   (`specforge_wasm::testing::InProcessRuntime`). Host tests declare their extensions with it; the
   component runtime is the production adapter, and both keep one contract
-  (`assert_runtime_contract`).
+  (`assert_runtime_contract`). MCP's tests serve every project from a temporary directory through
+  it (`tests/support`): no test writes a registry, a graph or a diagnostic into a server (ADR 0025).
 - **Command format**: the output an extension command is asked for, `human` (the CLI default) or
   `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
   only it knows its payloads (ADR 0011).
 - **Tool spec**: the single definition of an MCP tool, from which its descriptor, typed arguments,
-  output schema, annotations, its target (reach and freshness), mutation event and reply are derived
-  (`specforge_mcp`'s `ToolSpec` table).
+  output schema, annotations, its target (reach and freshness) and its handler, a tool's (a reply)
+  or a mutation's (a reply and its mutation outcome), are derived (`specforge_mcp`'s `ToolSpec`
+  table).
 - **Prompt spec**: the single definition of an MCP prompt, from which its descriptor, typed arguments
   and reply are derived; it renders over the call target and refuses with an McpError, sent as a
   JSON-RPC error's data since prompts have no isError (`specforge_mcp`'s `PromptSpec` table).

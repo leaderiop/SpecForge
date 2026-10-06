@@ -24,6 +24,11 @@ expression: mcp_snap
   "payload": {
     "config_file": "specforge.json",
     "extensions_installed": [],
+    "files_written": [
+      ".gitignore",
+      "spec/hello.spec",
+      "specforge.json"
+    ],
     "name": "demo",
     "project_path": "[ROOT]",
     "starter_file": "spec/hello.spec",

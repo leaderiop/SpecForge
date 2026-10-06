@@ -83,15 +83,13 @@ behavior bring_session_up_to_date "Bring a Session Up to Date with Disk" {
     applies exactly those changes: sources by an update, environment
     inputs by an environment reload, check inputs by re-running the
     checks. Afterwards its graph and diagnostics MUST be those a fresh
-    compile of the files on disk produces. A session built in memory is
-    never changed by disk.
+    compile of the files on disk produces.
   """
   verify unit "an up-to-date session reports no change and re-parses nothing"
   verify unit "edits, creations and deletions since the last build are applied as one update"
   verify unit "a file rewritten within the timestamp granularity of the last build is still seen"
   verify unit "a specforge.lock change reloads the environment"
   verify unit "after bringing itself up to date a session matches a fresh compile"
-  verify unit "a session built in memory is never changed by disk"
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {

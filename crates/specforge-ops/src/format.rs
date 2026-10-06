@@ -353,6 +353,12 @@ impl Outcome {
             .map(|c| c.path.as_path())
     }
 
+    /// The files this run wrote, as every writing operation reports them
+    /// (ADR 0022): each change whose write worked, recorded at the write.
+    pub fn writes(&self) -> crate::Writes {
+        self.written().collect()
+    }
+
     /// No file failed.
     pub fn succeeded(&self) -> bool {
         self.failures.is_empty()
