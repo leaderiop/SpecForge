@@ -193,6 +193,64 @@ fn remove_extension_with_an_unreadable_config_changes_nothing() {
     assert_eq!(files_under(root.path()), before);
 }
 
+// One refusal for an unusable specforge.json: add_extension and
+// remove_extension (MCP has no update tool) answer the same schema_mismatch
+// with the reason E069 gives, and change nothing.
+#[specforge_test(
+    behavior = "management_operations_over_the_project_view",
+    verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
+)]
+fn add_and_remove_extension_refuse_an_unusable_config_alike() {
+    for config in [
+        r#"{ "extensions": ["@specforge/product",  }"#,
+        "[1,2]",
+        r#"{"extensions": "@specforge/product"}"#,
+    ] {
+        let (mut server, root) = server_over_text(config);
+        let before = files_under(root.path());
+        let validated = answer(&call_tool(&mut server, "specforge.validate", json!({})));
+        let reason = validated[0]["message"].as_str().unwrap().to_string();
+
+        let mut refusals = Vec::new();
+        for (tool, arguments) in [
+            (
+                "specforge.add_extension",
+                json!({"specifier": "@specforge/product"}),
+            ),
+            (
+                "specforge.add_extension",
+                json!({"specifier": "@specforge/product", "dry_run": true}),
+            ),
+            (
+                "specforge.remove_extension",
+                json!({"name": "@specforge/product"}),
+            ),
+        ] {
+            let resp = call_tool(&mut server, tool, arguments.clone());
+
+            let error = mcp_error(&resp);
+            assert_eq!(
+                error["code"], "schema_mismatch",
+                "{config}: {tool}: {error}"
+            );
+            assert!(
+                reason.contains(error["message"].as_str().unwrap()),
+                "{config}: {tool}: E069 says `{reason}`, the refusal `{error}`"
+            );
+            assert_eq!(
+                files_under(root.path()),
+                before,
+                "{config}: {tool} {arguments} wrote"
+            );
+            refusals.push(error["message"].clone());
+        }
+        assert!(
+            refusals.windows(2).all(|pair| pair[0] == pair[1]),
+            "{refusals:?}"
+        );
+    }
+}
+
 #[specforge_test(
     behavior = "provide_mcp_infer_progress_tool",
     verify = "graceful handling when specforge-infer.json is missing"

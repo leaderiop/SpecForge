@@ -88,9 +88,9 @@ pub fn builtin_name(specifier: &str) -> Option<&'static str> {
         .find(|builtin| *builtin == name)
 }
 
-/// Builtins enabled in the project's `specforge.json`, in declaration order.
-pub fn enabled_builtins(root: &Path) -> Vec<&'static str> {
-    specforge_common::load_project_config(root)
+/// Builtins `config` enables, in declaration order.
+pub fn enabled_builtins(config: &specforge_common::ProjectConfig) -> Vec<&'static str> {
+    config
         .extensions
         .iter()
         .filter_map(|entry| builtin_name(entry))

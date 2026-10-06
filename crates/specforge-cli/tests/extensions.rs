@@ -1691,6 +1691,71 @@ fn removing_a_builtin_with_an_unreadable_config_is_config_invalid() {
     );
 }
 
+// One refusal for an unusable specforge.json: add, update and remove all
+// answer config_invalid with the reason E069 gives, and change nothing.
+#[specforge_test(
+    behavior = "management_operations_over_the_project_view",
+    verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
+)]
+fn add_update_and_remove_refuse_an_unusable_config_alike() {
+    for config in UNUSABLE_CONFIGS {
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("specforge.json"), config).unwrap();
+        // A lock, so `update` has something it could touch.
+        fs::write(
+            dir.path().join("specforge.lock"),
+            r#"{"lockfile_version":1,"entries":[{"name":"@acme/x","version":"1.0.0","source":"registry","wasm_hash":"h"}]}"#,
+        )
+        .unwrap();
+        let before = crate::written::files_under(dir.path());
+        // What the compile reports as E069 for it.
+        let check = specforge_cmd()
+            .args(["check", "--format", "json"])
+            .arg(dir.path())
+            .output()
+            .unwrap();
+        let found: Vec<serde_json::Value> = serde_json::from_slice(&check.stdout).unwrap();
+        let reason = found[0]["message"].as_str().unwrap().to_string();
+
+        let mut refusals = Vec::new();
+        for args in [
+            vec!["add", "@specforge/product"],
+            vec!["update"],
+            vec!["remove", "@acme/x"],
+        ] {
+            let output = specforge_cmd()
+                .args(&args)
+                .args(["--format", "json", "--path"])
+                .arg(dir.path())
+                .output()
+                .unwrap();
+
+            assert_eq!(
+                output.status.code(),
+                Some(1),
+                "{config}: {args:?}: {output:?}"
+            );
+            let json: serde_json::Value = serde_json::from_slice(&output.stdout)
+                .unwrap_or_else(|e| panic!("{args:?}: not JSON ({e}): {output:?}"));
+            assert_eq!(json["code"], "config_invalid", "{config}: {args:?}: {json}");
+            assert!(
+                reason.contains(json["error"].as_str().unwrap()),
+                "{config}: {args:?}: E069 says `{reason}`, the refusal `{json}`"
+            );
+            assert_eq!(
+                crate::written::files_under(dir.path()),
+                before,
+                "{config}: {args:?} wrote"
+            );
+            refusals.push(json);
+        }
+        assert!(
+            refusals.windows(2).all(|pair| pair[0] == pair[1]),
+            "{refusals:?}"
+        );
+    }
+}
+
 #[specforge_test(
     behavior = "list_installed_extensions",
     verify = "list includes entity counts and entity types"

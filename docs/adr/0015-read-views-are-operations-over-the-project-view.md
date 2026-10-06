@@ -175,7 +175,9 @@ runtime)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compil
 - **M7. One presenter per listing** (`ExtensionEntry::to_json`, `ProviderListing::to_json`); doctor
   keeps two published shapes (ADR 0004 D1-c).
 - **M8. `add`, `update`, `init` and `migrate` are not view operations**: they run before or instead
-  of a compile, and `add`/`update` reach the `Registry` port.
+  of a compile, and `add`/`update` reach the `Registry` port. `add` and `update` read the config
+  through `config::usable`/`config::required` (`read_project_config`, the function the compile reads
+  it with) and the lock through `LockState::at` (M10), never a reader of their own (see M11).
 - **M9. A `specforge.json` not used as written is E069, an error.** The Environment keeps every way
   the file is not used as written (`config_problems`: unreadable, not JSON, not an object, a key of
   the wrong type, a non-string `extensions` or `exclude` item) and
@@ -195,12 +197,23 @@ runtime)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compil
   Environment, the extension loader and the root-based `add` and `update` (M8), which read it with
   the same `LockState::at`.
 
+- **M11. One refusal for an unusable `specforge.json`.** `add`, `update` and `remove` refuse a
+  config that `ConfigProblem::blocks_edits` names with `config::refusal`: code `config_invalid`
+  (kind `schema_mismatch`), the problem's text, which is E069's reason, as the message; before they
+  install, write or delete anything, dry runs included. `remove` builds it from the compile's
+  problems (M5); `add` and `update`, which run without a compile (M8), from `read_project_config`.
+  `config::edit_extensions`, the one writer, refuses through the same function, so a config that
+  changed after the compile is refused too. A missing `specforge.json` is `config_not_found` for
+  `add` (hint: `specforge init`) and not refused by `update`, which only reads the lock. `add` used
+  to refuse with E032 ("extension install or uninstall failed"), a code about something else.
+
 ### Consequences
 
 - `specforge doctor` and `specforge.doctor` report a `.wasm` file entry's source as
   `file:<path>`, and an extension of unknown origin as `unknown`, not `builtin`.
 - `specforge remove` and `specforge.remove_extension` with an unreadable `specforge.json` change
-  nothing (they used to uninstall first).
+  nothing (they used to uninstall first); `specforge add`, `specforge.add_extension` and `specforge
+  update` refuse it the same way (`config_invalid`, not E032).
 - A `specforge.json` that is there and not used as written is the error E069 on every surface
   (`check`, watch, the LSP, MCP validate and doctor), and I002 says the file could not be read when
   nothing loaded; `check` fails on it where it passed, and so does `specforge doctor`.

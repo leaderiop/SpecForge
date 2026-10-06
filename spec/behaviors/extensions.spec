@@ -484,11 +484,18 @@ behavior management_operations_over_the_project_view "Management Operations over
     there, at the one path the environment reads it from. Without a root, remove, collect and inference
     progress and gaps MUST refuse with no_project; the listings list what
     the view enabled and loaded, and doctor skips the installation checks.
+    add and update run before or instead of a compile, so they read
+    specforge.json themselves, through the function the compile reads it
+    with; add, update and remove MUST refuse a specforge.json the compile
+    reports as E069 and an edit cannot go around, with one refusal
+    (config_invalid, the E069 reason as its message), before they write
+    anything.
   """
   verify unit "an operation that reads or writes the project on disk refuses a view without a root"
   verify unit "the extensions listing reads the config entries from the view, never specforge.json again"
   verify unit "doctor reads the diagnostics its view reports"
   verify unit "list, doctor and remove read the lock the compile read, once"
+  verify integration "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
   verify unit "collect maps test results to the entities of its view"
   verify contract "Management Operations over the Project View: management operations hold — project_compiled, one_project_read, root_for_disk"
 }

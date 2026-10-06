@@ -142,11 +142,12 @@ pub struct Added {
 /// [`OpError::writes`].
 pub fn add(req: &AddRequest, registry: &dyn Registry) -> Result<Added, OpError> {
     // The project must exist, with a config the writer can edit, before
-    // anything is installed into it.
-    crate::config::edit_extensions(req.root, |_| false).map_err(config_error)?;
+    // anything is installed into it: the refusal `update` and `remove`
+    // give an unusable specforge.json too (`config_invalid`).
+    let config = crate::config::required(req.root)?.config;
     let mut writes = Writes::none();
     let outcome = match &req.source {
-        Source::Builtin(name) => add_builtin(req, name, &mut writes),
+        Source::Builtin(name) => add_builtin(req, &config, name, &mut writes),
         Source::Local(path) => add_local(req, path, &mut writes),
         Source::Registry { name, range } => {
             add_from_registry(req, registry, name, range, &mut writes)
@@ -159,7 +160,8 @@ pub fn add(req: &AddRequest, registry: &dyn Registry) -> Result<Added, OpError> 
     Ok(Added {
         outcome,
         writes,
-        extensions_enabled: specforge_common::load_project_config(req.root)
+        extensions_enabled: specforge_common::read_project_config(req.root)
+            .config
             .extensions
             .len(),
     })
@@ -167,10 +169,11 @@ pub fn add(req: &AddRequest, registry: &dyn Registry) -> Result<Added, OpError> 
 
 fn add_builtin(
     req: &AddRequest,
+    config: &specforge_common::ProjectConfig,
     name: &'static str,
     writes: &mut Writes,
 ) -> Result<AddOutcome, OpError> {
-    let enabled = super::enabled_builtins(req.root);
+    let enabled = super::enabled_builtins(config);
     if req.dry_run {
         return Ok(AddOutcome::Planned {
             name: name.to_string(),
@@ -190,29 +193,20 @@ fn add_builtin(
     let config = req.root.join(crate::config::CONFIG_FILE);
     for peer in peers {
         let added = crate::config::add_extension(req.root, peer, peer)
-            .map_err(|e| config_error(e).with_writes(writes.clone()))?;
+            .map_err(|e| e.with_writes(writes.clone()))?;
         writes.record_if(added, &config);
         if added {
             peers_enabled.push(peer);
         }
     }
     let changed = crate::config::add_extension(req.root, name, name)
-        .map_err(|e| config_error(e).with_writes(writes.clone()))?;
+        .map_err(|e| e.with_writes(writes.clone()))?;
     writes.record_if(changed, &config);
     Ok(AddOutcome::Builtin {
         name,
         changed,
         peers_enabled,
     })
-}
-
-/// A config the writer can't edit, under the code `add` has always used.
-fn config_error(e: OpError) -> OpError {
-    let message = match &e.suggestion {
-        Some(hint) => format!("{} — {hint}", e.message),
-        None => e.message.clone(),
-    };
-    OpError::diagnostic(codes::E032, message)
 }
 
 fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOutcome, OpError> {
@@ -490,7 +484,7 @@ fn install(
     write_lock_file(lock, &lock_file).map_err(|e| OpError::from(e).with_writes(writes.clone()))?;
     writes.record_if(std::fs::read(&lock_file).ok() != lock_before, lock_file);
     let enabled = crate::config::add_extension(root, declared.name(), declared.name())
-        .map_err(|e| config_error(e).with_writes(writes.clone()))?;
+        .map_err(|e| e.with_writes(writes.clone()))?;
     writes.record_if(enabled, root.join(crate::config::CONFIG_FILE));
     Ok(AddOutcome::Installed {
         name: result.name,
@@ -550,6 +544,7 @@ fn shown_path(root: &Path, path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_test_macros::test as specforge_test;
 
     #[test]
     fn parse_names_each_source() {
@@ -581,5 +576,63 @@ mod tests {
         assert_eq!(parse("").unwrap_err().code, "E054");
         assert_eq!(parse("not-scoped").unwrap_err().code, "E054");
         assert_eq!(parse("@acme/").unwrap_err().code, "E054");
+    }
+
+    #[specforge_test(
+        behavior = "management_operations_over_the_project_view",
+        verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
+    )]
+    fn an_unusable_config_is_refused_before_anything_is_installed() {
+        use crate::config::testing::{UNUSABLE, files_under};
+
+        for config in UNUSABLE {
+            let dir = tempfile::tempdir().unwrap();
+            std::fs::write(dir.path().join("specforge.json"), config).unwrap();
+            let before = files_under(dir.path());
+            let read = specforge_common::read_project_config(dir.path());
+            let refused = crate::config::refusal(&read.problems[0]);
+
+            for source in [
+                Source::Builtin("@specforge/product"),
+                // A file that is not there: the config is refused first.
+                Source::Local(dir.path().join("missing.wasm")),
+                Source::Registry {
+                    name: "@acme/tool".into(),
+                    range: "latest".into(),
+                },
+            ] {
+                for dry_run in [false, true] {
+                    let request = AddRequest {
+                        root: dir.path(),
+                        source: source.clone(),
+                        allow_unsigned: false,
+                        trust: Trust::Refuse,
+                        dry_run,
+                    };
+                    let error = add(&request, &crate::registry::Unconfigured("add")).unwrap_err();
+
+                    assert_eq!(error, refused, "{config}: {source:?}");
+                    assert_eq!(files_under(dir.path()), before, "{config}: {source:?}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_missing_config_is_config_not_found_with_the_hint_to_init() {
+        let dir = tempfile::tempdir().unwrap();
+        let request = AddRequest {
+            root: dir.path(),
+            source: Source::Builtin("@specforge/product"),
+            allow_unsigned: false,
+            trust: Trust::Refuse,
+            dry_run: false,
+        };
+
+        let error = add(&request, &crate::registry::Unconfigured("add")).unwrap_err();
+
+        assert_eq!(error.code, "config_not_found");
+        assert!(error.suggestion.unwrap().contains("specforge init"));
+        assert!(!dir.path().join("specforge.json").exists());
     }
 }

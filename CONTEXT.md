@@ -102,7 +102,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   gaps. Like a read view it takes the project view and a request and returns a typed outcome; unlike
   one it also reads what the view does not own (installed binaries, source files),
   and remove and collect write, at the view's root only. `add`, `update`, `init` and `migrate` are
-  operations but not over a view: they run before or instead of a compile (ADR 0015).
+  operations but not over a view: they run before or instead of a compile (ADR 0015); `add` and
+  `update` read `specforge.json` through the compile's own reader and refuse an unusable one with
+  the refusal `remove` gives.
 - **Recorded test report**: `<root>/specforge-report.json`, what `specforge collect` last wrote. The
   project view reads it once per compile and per content
   (`specforge_project::coverage::RecordedCoverage`).

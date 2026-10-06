@@ -82,11 +82,7 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
         .iter()
         .find(|problem| problem.blocks_edits())
     {
-        return Err(OpError::new(
-            OpErrorKind::SchemaMismatch,
-            "config_invalid",
-            problem.to_string(),
-        ));
+        return Err(crate::config::refusal(problem));
     }
     let req = &Removing {
         root,
@@ -501,6 +497,56 @@ mod tests {
             assert_eq!(error.code, "config_invalid");
             assert_eq!(error.message, "./specforge.json must be a JSON object");
             assert_eq!(files_under(fixture.dir.path()), before);
+        }
+    }
+
+    #[specforge_test(
+        behavior = "management_operations_over_the_project_view",
+        verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
+    )]
+    fn remove_refuses_as_add_and_update_do() {
+        use crate::config::testing::UNUSABLE;
+        use crate::extension::{AddRequest, Source, Trust, UpdateRequest, add, update};
+
+        for config in UNUSABLE {
+            let fixture = installed(Fixture::new(), "@acme/x");
+            write_config(&fixture, config);
+            let read = specforge_common::read_project_config(fixture.dir.path());
+            // The compile reported these problems; the others read them.
+            let fixture = fixture.config_problems(read.problems.clone());
+            let before = files_under(fixture.dir.path());
+            let unconfigured = crate::registry::Unconfigured("both");
+
+            let removed = remove(&fixture.view(), &removing("@acme/x")).unwrap_err();
+            let added = add(
+                &AddRequest {
+                    root: fixture.dir.path(),
+                    source: Source::Builtin("@specforge/product"),
+                    allow_unsigned: false,
+                    trust: Trust::Refuse,
+                    dry_run: false,
+                },
+                &unconfigured,
+            )
+            .unwrap_err();
+            let updated = update(
+                &UpdateRequest {
+                    root: fixture.dir.path(),
+                    name: None,
+                    major: false,
+                    allow_unsigned: true,
+                    trust: Trust::Refuse,
+                },
+                &unconfigured,
+            )
+            .unwrap_err();
+
+            assert_eq!(removed.code, "config_invalid", "{config}");
+            assert_eq!(removed.kind, OpErrorKind::SchemaMismatch, "{config}");
+            assert_eq!(removed.message, read.problems[0].to_string(), "{config}");
+            assert_eq!(added, removed, "{config}");
+            assert_eq!(updated, removed, "{config}");
+            assert_eq!(files_under(fixture.dir.path()), before, "{config}");
         }
     }
 
