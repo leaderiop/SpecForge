@@ -22,6 +22,7 @@ mod served_project;
 mod stateless;
 mod subscriptions;
 mod support;
+mod surface_call;
 mod surface_wiring;
 mod tool_errors;
 mod tools_core;

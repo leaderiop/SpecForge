@@ -1,0 +1,652 @@
+//! What one request that invokes a named tool, resource or prompt answers,
+//! per request kind (ADR 0024): its failures, its events, its lookup, its
+//! subscriptions. Every test serves a project on disk with the builtin
+//! extensions, as `specforge mcp <root>` does.
+//!
+//! A pin marked `PIN` asserts today's behaviour and is flipped, with its
+//! spec link, by the ticket it names.
+
+use serde_json::{Value, json};
+use specforge_mcp::McpServer;
+use specforge_mcp::notifications::{DIAGNOSTICS_CHANNEL, GRAPH_CHANNEL};
+use specforge_mcp::subscriptions::subscribers;
+use specforge_ops::export::{Format, Request};
+use specforge_ops::view::ProjectView;
+use specforge_project::CompiledProject;
+use specforge_test::prelude::*;
+
+use crate::support::*;
+
+const SOFTWARE: &str = "@specforge/software";
+const PRODUCT: &str = "@specforge/product";
+
+/// `alpha` then `zeta`, two behaviors declared in that order.
+const SOURCE: &str = "behavior zeta \"Zeta\" {\n  contract \"The system MUST rest.\"\n  verify unit \"rests\"\n}\n\nbehavior alpha \"Alpha\" {\n  contract \"The system MUST work.\"\n  verify unit \"works\"\n}\n";
+
+fn project() -> TestProject {
+    TestProject::new()
+        .enabling(&[SOFTWARE])
+        .file("main.spec", SOURCE)
+}
+
+fn served() -> Served {
+    project().serve_components()
+}
+
+/// `specforge.json` enabling `extensions`.
+fn config(extensions: &[&str]) -> String {
+    json!({"name": "t", "version": "0.1.0", "extensions": extensions}).to_string()
+}
+
+/// The `_meta` a stateless (2026-07-28) request carries.
+fn modern(mut params: Value) -> Value {
+    params["_meta"] = json!({
+        "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+        "io.modelcontextprotocol/clientCapabilities": {},
+    });
+    params
+}
+
+/// A resource read's JSON-RPC error.
+fn read_error(server: &mut McpServer, uri: &str) -> Value {
+    let reply = read_resource(server, uri);
+    assert!(reply["result"].is_null(), "{uri} is served: {reply}");
+    reply["error"].clone()
+}
+
+/// A tool call's `isError` result, parsed.
+fn tool_error(response: &Value) -> Value {
+    assert_eq!(response["result"]["isError"], true, "{response}");
+    tool_json(response)
+}
+
+/// The names of every event recorded so far.
+fn event_names(server: &McpServer) -> Vec<String> {
+    server
+        .state()
+        .events
+        .iter()
+        .map(|e| e.name.clone())
+        .collect()
+}
+
+/// The names of the events `act` records, `mcp_protocol_error_handled`
+/// (the report of any JSON-RPC error) left out.
+fn recorded(server: &mut McpServer, act: impl FnOnce(&mut McpServer)) -> Vec<String> {
+    let before = server.state().events.len();
+    act(server);
+    event_names(server)
+        .split_off(before)
+        .into_iter()
+        .filter(|name| name != "mcp_protocol_error_handled")
+        .collect()
+}
+
+// --- P1: a path on resources/read is not an argument ---
+
+#[test]
+fn a_resource_read_ignores_a_path_param() {
+    let mut server = served();
+    let reply = call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://graph", "path": "/nope"}),
+    );
+    let graph: Value = serde_json::from_str(&resource_text(&reply)).unwrap();
+    assert_eq!(graph["format_version"], "2.0", "{reply}");
+    assert!(graph["nodes"].as_array().is_some_and(|n| n.len() >= 2));
+}
+
+// --- P2: graph/{id} and graph?root= name one subgraph ---
+
+#[test]
+fn the_entity_resource_is_a_1_0_document() {
+    let mut server = served();
+    let (_, entity) = resource(&mut server, "specforge://graph/alpha");
+    // PIN: flipped by T6: a 2.0 document with its schema_ref.
+    assert_eq!(entity["format_version"], "1.0");
+    assert!(entity.get("schema_ref").is_none(), "{entity}");
+
+    let (_, scoped) = resource(&mut server, "specforge://graph?root=alpha&depth=1");
+    assert_eq!(scoped["format_version"], "2.0");
+    assert!(scoped["schema_ref"].is_object(), "{scoped}");
+    let ids = |graph: &Value| -> Vec<String> {
+        let mut ids: Vec<String> = graph["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| n["id"].as_str().unwrap().to_string())
+            .collect();
+        ids.sort();
+        ids
+    };
+    assert_eq!(ids(&entity), ids(&scoped));
+}
+
+// --- P3: a core resource's refusal ---
+
+#[test]
+fn a_core_resource_failure_is_a_bare_message() {
+    let mut server = served();
+    // PIN: flipped by T5 (-32002 in a handshake session, `data.uri`) and,
+    // for the message, T6.
+    for uri in ["specforge://graph?root=ghost", "specforge://context/ghost"] {
+        let error = read_error(&mut server, uri);
+        assert_eq!(error["code"], -32602, "{uri}: {error}");
+        assert!(
+            error["message"].as_str().unwrap().starts_with("E003:"),
+            "{uri}: {error}"
+        );
+        assert_eq!(error["data"]["code"], "entity_not_found", "{uri}: {error}");
+        assert_eq!(error["data"]["entity_id"], "ghost", "{uri}: {error}");
+        assert!(error["data"].get("uri").is_none(), "{uri}: {error}");
+        assert!(error["data"].get("resource").is_none(), "{uri}: {error}");
+    }
+    let error = read_error(&mut server, "specforge://graph/ghost");
+    assert_eq!(error["code"], -32602, "{error}");
+    assert_eq!(error["message"], "Entity not found: ghost");
+    assert_eq!(error["data"]["code"], "entity_not_found", "{error}");
+    assert!(error["data"].get("uri").is_none(), "{error}");
+}
+
+// --- P4, P5: a prompt's refusal ---
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "a prompt refusal is a JSON-RPC error whose data is an McpError naming the prompt"
+)]
+fn a_prompt_refusal_carries_its_mcp_error() {
+    let mut server = served();
+    let reply = get_prompt(
+        &mut server,
+        "specforge://prompts/context",
+        json!({"entity_id": "ghost"}),
+    );
+    let error = &reply["error"];
+    assert_eq!(error["code"], -32602, "{reply}");
+    assert_eq!(error["data"]["code"], "entity_not_found", "{reply}");
+    assert_eq!(error["data"]["diagnostic"]["code"], "E003", "{reply}");
+    assert_eq!(
+        error["data"]["prompt"], "specforge://prompts/context",
+        "{reply}"
+    );
+}
+
+#[test]
+fn a_prompt_path_refusal_is_a_server_fault() {
+    let mut server = served();
+    let reply = get_prompt(
+        &mut server,
+        "specforge://prompts/context",
+        json!({"entity_id": "alpha", "path": "/nope"}),
+    );
+    // PIN: flipped by T5: -32602, an argument the client named.
+    assert_eq!(reply["error"]["code"], -32603, "{reply}");
+    assert_eq!(reply["error"]["data"]["code"], "file_not_found", "{reply}");
+    assert_eq!(reply["error"]["data"]["argument"], "path", "{reply}");
+}
+
+// --- P6: a tool's path refusal ---
+
+#[specforge_test(
+    invariant = "mcp_structured_error_responses",
+    verify = "a path that does not exist is a file_not_found error on path"
+)]
+fn a_tool_path_refusal_is_file_not_found() {
+    let mut server = served();
+    let reply = call_tool(
+        &mut server,
+        "specforge.query",
+        json!({"entity_id": "alpha", "path": "/nope"}),
+    );
+    let error = tool_error(&reply);
+    assert_eq!(error["code"], "file_not_found", "{error}");
+    assert_eq!(error["argument"], "path", "{error}");
+    assert_eq!(error["tool"], "specforge.query", "{error}");
+}
+
+// --- P7, P8: an operation's failure code ---
+
+#[test]
+fn a_budget_too_small_is_an_internal_error() {
+    let mut server = served();
+    let reply = call_tool(&mut server, "specforge.export", json!({"max_tokens": 1}));
+    let error = tool_error(&reply);
+    // PIN: flipped by T2 (the tool: invalid_input) and T5 (the resource's data).
+    assert_eq!(error["code"], "internal_error", "{error}");
+    assert_eq!(error["diagnostic"]["code"], "E062", "{error}");
+
+    let error = read_error(&mut server, "specforge://graph?max_tokens=1");
+    assert_eq!(error["code"], -32602, "{error}");
+    assert!(
+        error["message"].as_str().unwrap().starts_with("E062"),
+        "{error}"
+    );
+    assert!(error.get("data").is_none(), "{error}");
+}
+
+#[test]
+fn an_unknown_scope_keeps_its_code_in_the_message() {
+    let mut server = served();
+    let reply = call_tool(&mut server, "specforge.export", json!({"scope": "ghost"}));
+    let error = tool_error(&reply);
+    assert_eq!(error["code"], "entity_not_found", "{error}");
+    // PIN: flipped by T2: the code is in `diagnostic`, not repeated in the message.
+    assert!(
+        error["message"].as_str().unwrap().starts_with("E003: "),
+        "{error}"
+    );
+    assert_eq!(error["diagnostic"]["code"], "E003", "{error}");
+}
+
+// --- P9: subscribe ---
+
+#[test]
+fn subscribe_accepts_an_unserved_uri() {
+    let mut server = served();
+    // PIN: flipped by T7: refused as not found, as a read refuses it.
+    let reply = call(
+        &mut server,
+        "resources/subscribe",
+        json!({"uri": "specforge://nope"}),
+    );
+    assert_eq!(reply["result"], json!({}), "{reply}");
+    assert_eq!(subscribers(server.state(), GRAPH_CHANNEL), ["default"]);
+}
+
+// --- P10: an extension enabled on disk ---
+
+#[test]
+fn an_extension_enabled_on_disk_is_unknown_until_a_refresh() {
+    let mut server = served();
+    let features =
+        |server: &mut McpServer| call_tool(server, "specforge.product.features", json!({}));
+    let unknown = features(&mut server);
+    assert_eq!(unknown["error"]["code"], -32602, "{unknown}");
+
+    server.write("specforge.json", &config(&[SOFTWARE, PRODUCT]));
+    // PIN: flipped by T4: the first call after the edit succeeds.
+    for _ in 0..2 {
+        let still_unknown = features(&mut server);
+        assert_eq!(still_unknown["error"]["code"], -32602, "{still_unknown}");
+        assert_eq!(
+            still_unknown["error"]["message"],
+            "Unknown tool: specforge.product.features"
+        );
+    }
+    let stats = call_tool(&mut server, "specforge.stats", json!({}));
+    assert!(stats["error"].is_null(), "{stats}");
+    let known = features(&mut server);
+    assert!(known["error"].is_null(), "{known}");
+    assert_eq!(known["result"]["isError"], false, "{known}");
+}
+
+// --- P11, P12: the scope query ---
+
+#[test]
+fn scope_is_ignored_and_root_scopes() {
+    let mut server = served();
+    let nodes = |graph: &Value| graph["nodes"].as_array().unwrap().len();
+    let (_, whole) = resource(&mut server, "specforge://graph");
+    // PIN: flipped by T6: `scope` scopes, `root` stays its alias.
+    let (_, by_scope) = resource(&mut server, "specforge://graph?scope=alpha");
+    assert_eq!(nodes(&by_scope), nodes(&whole));
+    assert!(by_scope.get("schema").is_some(), "the schema is embedded");
+    let (_, by_root) = resource(&mut server, "specforge://graph?root=alpha");
+    assert!(nodes(&by_root) < nodes(&whole));
+}
+
+#[test]
+fn a_scoped_read_names_the_unscoped_uri() {
+    let mut server = served();
+    let (content, _) = resource(&mut server, "specforge://graph?root=alpha");
+    // PIN: flipped by T6: the URI the client read.
+    assert_eq!(content["uri"], "specforge://graph");
+}
+
+// --- P13, P14: the graph views are the exports ---
+
+/// What `specforge export` writes for `request`, over the project at `root`.
+fn exported(root: &std::path::Path, request: &Request) -> String {
+    let runtime = specforge_component::project_runtime(root);
+    let project = CompiledProject::compile(root, Some(&runtime));
+    specforge_ops::export::export(&ProjectView::of(&project), request).unwrap()
+}
+
+#[specforge_test(
+    behavior = "expose_context_as_mcp_resource",
+    verify = "the context resource is the context export of the same request"
+)]
+fn context_resource_is_its_export() {
+    let mut server = served();
+    let root = server.root().to_path_buf();
+    for (uri, scope, kinds) in [
+        ("specforge://context", None, vec![]),
+        ("specforge://context/alpha", Some("alpha"), vec![]),
+        ("specforge://context?root=alpha", Some("alpha"), vec![]),
+    ] {
+        let request = Request {
+            format: Some(Format::Context),
+            scope,
+            kinds,
+            ..Request::default()
+        };
+        let text = resource_text(&read_resource(&mut server, uri));
+        assert_eq!(text, exported(&root, &request), "{uri}");
+    }
+}
+
+#[specforge_test(
+    behavior = "expose_brief_as_mcp_resource",
+    verify = "the brief resource is the brief export of the same request"
+)]
+fn the_brief_resource_is_its_export() {
+    let mut server = served();
+    let root = server.root().to_path_buf();
+    for (uri, kinds) in [
+        ("specforge://brief", vec![]),
+        ("specforge://brief?kinds=behavior", vec!["behavior"]),
+    ] {
+        let request = Request {
+            format: Some(Format::Brief),
+            kinds,
+            ..Request::default()
+        };
+        let text = resource_text(&read_resource(&mut server, uri));
+        assert_eq!(text, exported(&root, &request), "{uri}");
+    }
+}
+
+#[test]
+fn the_graph_resource_is_the_export_json() {
+    let mut server = served();
+    let root = server.root().to_path_buf();
+    let request = Request {
+        format: Some(Format::Graph),
+        ..Request::default()
+    };
+    let exported = exported(&root, &request);
+    let text = resource_text(&read_resource(&mut server, "specforge://graph"));
+    let (read, written): (Value, Value) = (
+        serde_json::from_str(&text).unwrap(),
+        serde_json::from_str(&exported).unwrap(),
+    );
+    assert_eq!(read, written);
+    // PIN: flipped by T6: the export's text as written.
+    assert_ne!(text, exported, "the resource re-serializes its keys");
+}
+
+// --- P15, P16: the request's own schema ---
+
+#[specforge_test(
+    behavior = "handle_mcp_protocol_error",
+    verify = "returns -32600 for invalid request"
+)]
+fn every_session_method_needs_initialize() {
+    let mut server = McpServer::new();
+    for method in [
+        "tools/list",
+        "resources/list",
+        "resources/templates/list",
+        "prompts/list",
+        "tools/call",
+        "resources/read",
+        "resources/subscribe",
+        "resources/unsubscribe",
+        "prompts/get",
+    ] {
+        let reply = call(&mut server, method, json!({}));
+        assert_eq!(reply["error"]["code"], -32600, "{method}: {reply}");
+        assert_eq!(
+            reply["error"]["message"], "Server not initialized",
+            "{method}"
+        );
+    }
+    let reply = call(&mut server, "ping", json!({}));
+    assert!(reply["error"].is_null(), "{reply}");
+    let reply = call(&mut server, "nope/method", json!({}));
+    assert_eq!(reply["error"]["code"], -32601, "{reply}");
+}
+
+#[specforge_test(
+    behavior = "handle_mcp_protocol_error",
+    verify = "missing required params produces -32602 Invalid params"
+)]
+fn arguments_must_be_an_object() {
+    let mut server = served();
+    let reply = call(
+        &mut server,
+        "tools/call",
+        json!({"name": "specforge.stats", "arguments": []}),
+    );
+    assert_eq!(reply["error"]["code"], -32602, "{reply}");
+    assert_eq!(
+        reply["error"]["message"],
+        "Invalid params: arguments must be an object"
+    );
+    let reply = call(
+        &mut server,
+        "prompts/get",
+        json!({"name": "specforge://prompts/context", "arguments": []}),
+    );
+    assert_eq!(reply["error"]["code"], -32602, "{reply}");
+    assert_eq!(
+        reply["error"]["message"],
+        "Invalid params: arguments must be an object"
+    );
+    let reply = call(&mut server, "resources/read", json!({}));
+    assert_eq!(reply["error"]["code"], -32602, "{reply}");
+    assert_eq!(reply["error"]["message"], "Missing required parameter: uri");
+    for method in ["tools/call", "prompts/get"] {
+        let reply = call(&mut server, method, json!({}));
+        assert_eq!(reply["error"]["code"], -32602, "{reply}");
+        assert_eq!(
+            reply["error"]["message"],
+            "Missing required parameter: name"
+        );
+    }
+}
+
+// --- P17: the arguments a target declares ---
+
+#[test]
+fn target_argument_descriptions() {
+    let tools = core_tools();
+    let described = |argument: &str| -> Vec<(String, String)> {
+        tools
+            .iter()
+            .filter_map(|tool| {
+                let property = &tool.input_schema["properties"][argument];
+                Some((tool.name.clone(), property["description"].as_str()?.into()))
+            })
+            .collect()
+    };
+
+    // PIN: flipped by T3: one description, declared by the target.
+    let use_cached: Vec<(String, String)> = described("use_cached");
+    let names: Vec<&str> = use_cached.iter().map(|(name, _)| name.as_str()).collect();
+    assert_eq!(
+        names,
+        [
+            "specforge.validate",
+            "specforge.analyze",
+            "specforge.doctor"
+        ],
+        "{use_cached:?}"
+    );
+    assert_eq!(
+        use_cached
+            .iter()
+            .map(|(_, text)| text.as_str())
+            .collect::<Vec<_>>(),
+        [
+            "Report cached diagnostics from the last compile instead of recompiling",
+            "Analyze the last compiled graph instead of recompiling (a server with no graph compiles anyway)",
+            "Check the last compile instead of recompiling the project",
+        ]
+    );
+
+    let paths = described("path");
+    let (init, others): (Vec<_>, Vec<_>) =
+        paths.iter().partition(|(name, _)| name == "specforge.init");
+    assert_eq!(others.len(), 8, "{paths:?}");
+    for (name, text) in &others {
+        assert_eq!(
+            text, "Project root path (uses initialized root if omitted)",
+            "{name}"
+        );
+    }
+    assert_eq!(
+        init[0].1,
+        "Directory for the new project, outside the current one"
+    );
+    let init_tool = tools.iter().find(|t| t.name == "specforge.init").unwrap();
+    assert_eq!(init_tool.input_schema["required"], json!(["path"]));
+}
+
+// --- P18: the events of each request kind ---
+
+#[specforge_test(
+    behavior = "serve_mcp_prompt",
+    verify = "an unknown prompt records no mcp_prompt_invoked event"
+)]
+fn events_per_request_kind() {
+    let mut server = served();
+    let base = event_names(&server).len();
+
+    // A tool: the invocation first, even when its target refuses.
+    let names = recorded(&mut server, |s| {
+        call_tool(s, "specforge.stats", json!({}));
+    });
+    assert_eq!(
+        names.first().map(String::as_str),
+        Some("mcp_tool_invoked"),
+        "{names:?}"
+    );
+    let names = recorded(&mut server, |s| {
+        let refused = call_tool(s, "specforge.stats", json!({"path": "/nope"}));
+        assert_eq!(tool_error(&refused)["code"], "file_not_found");
+    });
+    assert_eq!(names, ["mcp_tool_invoked"]);
+    let names = recorded(&mut server, |s| {
+        call_tool(s, "specforge.no_such_tool", json!({}));
+    });
+    assert!(
+        !names.iter().any(|n| n == "mcp_tool_invoked"),
+        "an unknown tool is no invocation: {names:?}"
+    );
+
+    // A resource: one read event, only for a read that returned content.
+    let names = recorded(&mut server, |s| {
+        read_resource(s, "specforge://graph");
+    });
+    assert_eq!(names, ["mcp_resource_read"]);
+    let read = events(&server, "mcp_resource_read");
+    assert_eq!(
+        read.last().unwrap(),
+        &json!({"resourceUri": "specforge://graph", "format": "application/json"})
+    );
+    let names = recorded(&mut server, |s| {
+        read_resource(s, "specforge://graph?root=ghost");
+        read_resource(s, "specforge://nope");
+    });
+    assert!(names.is_empty(), "{names:?}");
+
+    // A prompt: the invocation, none for an unknown one.
+    let names = recorded(&mut server, |s| {
+        get_prompt(
+            s,
+            "specforge://prompts/context",
+            json!({"entity_id": "alpha"}),
+        );
+    });
+    assert_eq!(names, ["mcp_prompt_invoked"]);
+    let names = recorded(&mut server, |s| {
+        get_prompt(s, "specforge://prompts/nope", json!({}));
+    });
+    assert!(names.is_empty(), "{names:?}");
+    assert!(event_names(&server).len() > base);
+}
+
+// --- P19: one rule says what a change touches ---
+
+#[specforge_test(
+    behavior = "listen_for_mcp_resource_updates",
+    verify = "a recompile that changes a listened resource sends resources/updated with the subscription id"
+)]
+fn listen_and_subscribe_watch_by_one_rule() {
+    let mut server = served();
+    let (context, diagnostics) = ("specforge://context", "specforge://diagnostics");
+    for uri in [context, diagnostics] {
+        let reply = call(&mut server, "resources/subscribe", json!({"uri": uri}));
+        assert_eq!(reply["result"], json!({}), "{reply}");
+    }
+    // A listen stream has no response; its acknowledgement is queued.
+    let listen = json!({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "subscriptions/listen",
+        "params": modern(json!({"notifications": {"resourceSubscriptions": [context, diagnostics]}})),
+    });
+    assert!(server.handle_message(&listen.to_string()).is_none());
+    let acknowledged = server.take_notifications();
+    assert_eq!(
+        acknowledged[0]["method"], "notifications/subscriptions/acknowledged",
+        "{acknowledged:?}"
+    );
+
+    let methods = |notifications: &[Value]| -> Vec<(String, String)> {
+        notifications
+            .iter()
+            .map(|n| {
+                (
+                    n["method"].as_str().unwrap().to_string(),
+                    n["params"]["uri"].as_str().unwrap_or_default().to_string(),
+                )
+            })
+            .collect()
+    };
+
+    // A renamed title changes the graph, not what is reported about it.
+    server.write(
+        "main.spec",
+        &SOURCE.replace("\"Alpha\"", "\"Alpha, renamed\""),
+    );
+    call_tool(&mut server, "specforge.stats", json!({}));
+    let sent = server.take_notifications();
+    assert_eq!(
+        methods(&sent),
+        [
+            (
+                "notifications/resources/updated".to_string(),
+                context.to_string()
+            ),
+            ("specforge/graphChanged".to_string(), String::new()),
+        ],
+        "{sent:?}"
+    );
+
+    // A source that does not parse changes the diagnostics, not the graph.
+    server.write("broken.spec", "behavior {\n");
+    call_tool(&mut server, "specforge.stats", json!({}));
+    let sent = server.take_notifications();
+    assert_eq!(
+        methods(&sent),
+        [
+            (
+                "notifications/resources/updated".to_string(),
+                diagnostics.to_string()
+            ),
+            ("specforge/diagnosticsChanged".to_string(), String::new()),
+        ],
+        "{sent:?}"
+    );
+    assert_eq!(
+        sent[0]["params"]["_meta"]["io.modelcontextprotocol/subscriptionId"],
+        1
+    );
+    assert_eq!(
+        subscribers(server.state(), DIAGNOSTICS_CHANNEL),
+        ["default"]
+    );
+}

@@ -301,6 +301,7 @@ behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
   """
   verify unit "specforge://context resource returns token-optimized format"
   verify unit "resource refreshes after recompilation"
+  verify unit "the context resource is the context export of the same request"
   verify contract "Expose Context as MCP Resource: context MCP resource holds — validation_complete_fired, context_format_returned, resource_read_emitted"
 }
 
@@ -333,6 +334,7 @@ behavior expose_brief_as_mcp_resource "Expose Brief as MCP Resource" {
   """
   verify unit "specforge://brief resource returns minimal IDs and edges format"
   verify unit "resource refreshes after recompilation"
+  verify unit "the brief resource is the brief export of the same request"
   verify contract "Expose Brief as MCP Resource: brief MCP resource holds — validation_complete_fired, brief_format_returned, resource_read_emitted"
 }
 
