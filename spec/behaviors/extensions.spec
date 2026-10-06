@@ -97,7 +97,9 @@ behavior load_extension_declaration "Load Extension Declaration" {
     A category that does not parse MUST fail the extension's load (E028)
     naming the category. A describe item key the protocol does not define
     MUST produce W138. The declaration is read once per environment load;
-    nothing describes a category again outside it.
+    nothing describes a category again outside it. A handshake whose
+    protocol major version differs from the host's MUST fail the
+    extension's load (E028), and none of its categories are read.
   """
   verify integration "every builtin's handshake and describe answers match their pinned snapshot byte for byte"
   verify unit "a declaration round-trips through its wire answers unchanged"
@@ -112,6 +114,7 @@ behavior load_extension_declaration "Load Extension Declaration" {
   verify integration "an extension that only declares commands registers its commands"
   verify integration "an extension that only declares passes has them in its declaration"
   verify integration "the declared short name reaches the registry build"
+  verify integration "an unsupported protocol major version fails the load"
 }
 
 behavior build_registries_from_declarations "Build Registries From Declarations" {
@@ -126,6 +129,13 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
     dependencies (E027), the order of declared passes (W145 when their
     constraints form a cycle, declaration order kept), the kind, field and
     edge registries, the rules and the surfaces. It MUST be pure.
+
+    Its outcomes are stated by registry_build_kinds, registry_build_fields,
+    registry_build_edges, registry_build_rules,
+    registry_build_declaration_consistency and
+    registry_build_peer_dependencies. The build produces
+    registries_populated: nothing reads a registry before every loaded
+    declaration is in it.
   """
   verify integration "the registry build of the builtins matches its pinned snapshot"
   verify unit "a declaration with an empty name or version produces E030"
@@ -134,6 +144,9 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   verify unit "declared passes are ordered in the registry build"
   verify unit "a pass constraint cycle produces W145 and keeps declaration order"
   verify integration "a passes description that does not parse fails the extension's load"
+  verify unit "a build of no declarations has empty registries, no rules and no diagnostics"
+  verify unit "the declarations' own diagnostics come in a fixed order: E030, W021, E027, W145"
+  verify integration "every loaded declaration is registered before a compile checks anything"
 }
 
 // register_extension_entity_types is a thin delegation wrapper that calls

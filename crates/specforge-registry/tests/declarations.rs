@@ -195,7 +195,10 @@ fn a_pass_cycle_is_w145_in_declaration_order() {
 
 /// The declarations' own diagnostics come in one fixed order: E030, then
 /// W021, then E027, then W145, each extension by extension.
-#[test]
+#[specforge_test_macros::test(
+    behavior = "build_registries_from_declarations",
+    verify = "the declarations' own diagnostics come in a fixed order: E030, W021, E027, W145"
+)]
 fn declaration_diagnostics_come_in_a_fixed_order() {
     let mut cyclic = passes("@acme/z", |c| {
         c.pass("a", |p| {
