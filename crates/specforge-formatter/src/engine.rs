@@ -169,8 +169,8 @@ pub fn format_range(
 /// the end of its last (1-based lines and columns, end exclusive; the file
 /// is left for the caller, who knows the document).
 fn kept_region(first: usize, last: usize, last_line_len: usize) -> Diagnostic {
-    Diagnostic::new(
-        codes::W142,
+    Diagnostic::warning(
+        "W142",
         format!(
             "Parse error at lines {}-{}, error region preserved verbatim",
             first + 1,
