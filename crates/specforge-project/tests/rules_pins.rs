@@ -1,0 +1,378 @@
+//! Pins of how extension validation rules behave through a real load and
+//! compile, before the typed rule set (plan 02). Each test declares its
+//! rules raw (`raw_category`), so rules the SDK's builders would refuse can
+//! be written, on the kind `node` of an in-process extension. A pin that
+//! encodes a bug says which ticket flips it.
+
+use std::fs;
+use std::path::Path;
+
+use serde_json::{Value, json};
+use specforge_common::Diagnostic;
+use specforge_extension_sdk::prelude::*;
+use specforge_project::CompiledProject;
+use specforge_wasm::testing::InProcessRuntime;
+use tempfile::TempDir;
+
+const EXT: &str = "@pin/rules";
+
+/// The extension's kind `node` (testable, accepts `verify`): `deps`
+/// (reference list writing the edge `NodeDependsOn` to `node`), `doc`,
+/// `status` and `reason` (strings), and `owner`, a string that is
+/// `required` when `required_owner` is set. `rules` is its
+/// `validation_rules` as written.
+fn extension(rules: Value, required_owner: bool) -> impl Fn() -> ContributionsBuilder {
+    move || {
+        let mut c = ContributionsBuilder::new(ExtensionMeta::new(EXT, "0.1.0"));
+        c.kind("node", |k| {
+            k.description("A node").testable(true).supports_verify(true);
+            k.field("deps", |f| {
+                f.field_type(FieldType::ReferenceList)
+                    .edge("NodeDependsOn")
+                    .target_kind("node");
+            });
+            for field in ["doc", "status", "reason"] {
+                k.field(field, |f| {
+                    f.field_type(FieldType::String);
+                });
+            }
+            k.field("owner", |f| {
+                f.field_type(FieldType::String);
+                if required_owner {
+                    f.required();
+                }
+            });
+        });
+        c.edge("NodeDependsOn", |e| {
+            e.source_kind("node").target_kind("node");
+        });
+        c.raw_category("validation_rules", rules.clone());
+        c
+    }
+}
+
+/// `validate__x007`: fails `gamma`, cannot answer for `beta` (the way a
+/// trap reaches the host: the call errs), passes every other entity.
+fn x007(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    if export != "validate__x007" {
+        return None;
+    }
+    let context: ValidatorContext = match serde_json::from_slice(input) {
+        Ok(context) => context,
+        Err(e) => return Some(Err(e.to_string())),
+    };
+    if context.entity.id == "beta" {
+        return Some(Err("cannot read beta".to_string()));
+    }
+    Some(specforge_extension_sdk::answer_export(
+        export,
+        input,
+        |context: &ValidatorContext| {
+            if context.entity.id == "gamma" {
+                ValidatorVerdict::Fail {
+                    field: None,
+                    value: None,
+                }
+            } else {
+                ValidatorVerdict::Pass
+            }
+        },
+    ))
+}
+
+/// The three nodes of the plan's reproduction: `alpha` and `beta` depend
+/// on each other, `gamma` names a file only the spec root holds.
+const NODES: &str = r#"node alpha "Alpha" {
+  deps [beta]
+}
+
+node beta "Beta" {
+  deps [alpha]
+}
+
+node gamma "Gamma" {
+  doc "pin-only-under-spec-root.md"
+}
+"#;
+
+/// A project (`spec_root: "spec"`) whose `spec/nodes.spec` is `source`,
+/// with `spec/pin-only-under-spec-root.md` present.
+fn project(source: &str) -> TempDir {
+    let dir = TempDir::new().unwrap();
+    let config =
+        json!({ "name": "pins", "version": "0.1.0", "spec_root": "spec", "extensions": [EXT] });
+    fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    fs::create_dir(dir.path().join("spec")).unwrap();
+    fs::write(dir.path().join("spec/nodes.spec"), source).unwrap();
+    fs::write(
+        dir.path().join("spec/pin-only-under-spec-root.md"),
+        "# pin\n",
+    )
+    .unwrap();
+    dir
+}
+
+/// The compile of `root` with the extension declaring `rules`.
+fn compile_with(root: &Path, rules: Value, required_owner: bool) -> CompiledProject {
+    let runtime = InProcessRuntime::new().with_handler(extension(rules, required_owner), x007);
+    CompiledProject::compile(root, Some(&runtime))
+}
+
+/// The diagnostics of compiling `source` with the extension declaring `rules`.
+fn check(source: &str, rules: Value) -> Vec<Diagnostic> {
+    let dir = project(source);
+    compile_with(dir.path(), rules, false).diagnostics()
+}
+
+/// The messages of the diagnostics with `code`.
+fn messages<'a>(diagnostics: &'a [Diagnostic], code: &str) -> Vec<&'a str> {
+    diagnostics
+        .iter()
+        .filter(|d| d.code == code)
+        .map(|d| d.message.as_str())
+        .collect()
+}
+
+/// The diagnostics with `code` that mention `part`.
+fn naming<'a>(diagnostics: &'a [Diagnostic], code: &str, part: &str) -> Vec<&'a Diagnostic> {
+    diagnostics
+        .iter()
+        .filter(|d| d.code == code && d.message.contains(part))
+        .collect()
+}
+
+/// A cycle rule `code` on `NodeDependsOn` (the control of P1).
+fn cycle(code: &str) -> Value {
+    json!({
+        "code": code, "severity": "error", "check": "cycle_detection",
+        "message_template": format!("{code} cycle through '{{id}}'"),
+        "target_kind": "node", "edge_type": "NodeDependsOn"
+    })
+}
+
+// PIN: flipped by T4 (W112: a cycle rule needs an edge type).
+#[test]
+fn a_cycle_rule_without_edge_type_is_silent() {
+    let diagnostics = check(
+        NODES,
+        json!([
+            cycle("X001"),
+            {
+                "code": "X002", "severity": "error", "check": "cycle_detection",
+                "message_template": "X002 cycle through '{id}'", "target_kind": "node"
+            }
+        ]),
+    );
+
+    assert_eq!(
+        messages(&diagnostics, "X001"),
+        ["X001 cycle through 'alpha'", "X001 cycle through 'beta'"]
+    );
+    assert!(messages(&diagnostics, "X002").is_empty(), "{diagnostics:?}");
+    assert!(
+        naming(&diagnostics, "W112", "X002").is_empty(),
+        "{diagnostics:?}"
+    );
+}
+
+// PIN: flipped by T4 (an untargeted cycle rule checks every entity).
+#[test]
+fn a_cycle_rule_without_target_kind_reports_nothing() {
+    let diagnostics = check(
+        NODES,
+        json!([{
+            "code": "X008", "severity": "error", "check": "cycle_detection",
+            "message_template": "X008 cycle through '{id}'", "edge_type": "NodeDependsOn"
+        }]),
+    );
+
+    assert!(messages(&diagnostics, "X008").is_empty(), "{diagnostics:?}");
+    assert!(
+        diagnostics.iter().any(|d| d.code == "W061"),
+        "alpha and beta are a cycle: {diagnostics:?}"
+    );
+}
+
+// PIN: flipped by T5 (an undeclared edge type makes the rule inert).
+#[test]
+fn an_edge_rule_naming_an_undeclared_edge_type_counts_every_edge() {
+    let diagnostics = check(
+        NODES,
+        json!([{
+            "code": "X005", "severity": "info", "check": "no_outgoing_edges",
+            "message_template": "X005 '{id}' has no NoSuchEdge edge",
+            "target_kind": "node", "edge_type": "NoSuchEdge"
+        }]),
+    );
+
+    assert_eq!(
+        messages(&diagnostics, "X005"),
+        ["X005 'gamma' has no NoSuchEdge edge"]
+    );
+}
+
+// PIN: flipped by T5 (W021 for the undeclared edge type; the rule stays inert).
+#[test]
+fn a_cycle_rule_naming_an_undeclared_edge_type_is_inert_without_w021() {
+    let diagnostics = check(
+        NODES,
+        json!([{
+            "code": "X003", "severity": "error", "check": "cycle_detection",
+            "message_template": "X003 cycle through '{id}'",
+            "target_kind": "node", "edge_type": "NoSuchEdge"
+        }]),
+    );
+
+    assert!(messages(&diagnostics, "X003").is_empty(), "{diagnostics:?}");
+    assert!(
+        naming(&diagnostics, "W021", "X003").is_empty(),
+        "{diagnostics:?}"
+    );
+}
+
+// REGRESSION (01-T5): file_exists resolves against the spec root, never the
+// working directory. Never flipped.
+#[test]
+fn file_exists_reads_the_spec_root_whatever_the_working_directory() {
+    let rules = json!([{
+        "code": "X004", "severity": "warning", "check": "file_exists",
+        "message_template": "X004 '{id}': missing file '{value}'",
+        "target_kind": "node", "field": "doc"
+    }]);
+    let dir = project(NODES);
+    // The test's working directory does not hold the file.
+    assert!(!Path::new("pin-only-under-spec-root.md").exists());
+
+    let diagnostics = compile_with(dir.path(), rules.clone(), false).diagnostics();
+    assert!(messages(&diagnostics, "X004").is_empty(), "{diagnostics:?}");
+
+    fs::remove_file(dir.path().join("spec/pin-only-under-spec-root.md")).unwrap();
+    let diagnostics = compile_with(dir.path(), rules, false).diagnostics();
+    assert_eq!(
+        messages(&diagnostics, "X004"),
+        ["X004 'gamma': missing file 'pin-only-under-spec-root.md'"]
+    );
+}
+
+// PIN: flipped by T9 (W148 for the entities the function failed on).
+#[test]
+fn a_custom_function_failing_on_an_entity_is_silent() {
+    let diagnostics = check(
+        NODES,
+        json!([{
+            "code": "X007", "severity": "warning", "check": "custom",
+            "message_template": "X007 '{id}' failed the custom check",
+            "target_kind": "node", "wasm_function": "validate__x007"
+        }]),
+    );
+
+    assert_eq!(
+        messages(&diagnostics, "X007"),
+        ["X007 'gamma' failed the custom check"]
+    );
+    assert!(
+        naming(&diagnostics, "W112", "X007").is_empty(),
+        "{diagnostics:?}"
+    );
+    let others: Vec<&Diagnostic> = diagnostics
+        .iter()
+        .filter(|d| d.code != "X007" && d.message.contains("X007"))
+        .collect();
+    assert!(others.is_empty(), "{others:?}");
+}
+
+// Stable: declared rules in code order, then the host's E006 rules; each
+// rule's entities in id order. Never flipped.
+#[test]
+fn rule_diagnostics_come_in_rule_order_then_entity_id_order() {
+    let dir = project(
+        "node gamma \"Gamma\" {\n}\n\nnode alpha \"Alpha\" {\n  deps [beta]\n}\n\n\
+         node beta \"Beta\" {\n  deps [alpha]\n}\n",
+    );
+    let rules = json!([
+        cycle("X001"),
+        {
+            "code": "W900", "severity": "warning", "check": "no_incoming_edges",
+            "message_template": "W900 '{id}' is unreferenced", "target_kind": "node"
+        },
+        {
+            "code": "E901", "severity": "error", "check": "missing_required_field",
+            "message_template": "E901 '{id}' has no reason", "target_kind": "node",
+            "field": "reason"
+        }
+    ]);
+
+    let diagnostics = compile_with(dir.path(), rules, true).diagnostics();
+
+    let order: Vec<String> = diagnostics
+        .iter()
+        .filter(|d| ["E901", "W900", "X001", "E006"].contains(&d.code.as_str()))
+        .map(|d| format!("{} {}", d.code, d.message))
+        .collect();
+    assert_eq!(
+        order,
+        [
+            "E901 E901 'alpha' has no reason",
+            "E901 E901 'beta' has no reason",
+            "E901 E901 'gamma' has no reason",
+            "W900 W900 'gamma' is unreferenced",
+            "X001 X001 cycle through 'alpha'",
+            "X001 X001 cycle through 'beta'",
+            "E006 node 'alpha' is missing required field 'owner'",
+            "E006 node 'beta' is missing required field 'owner'",
+            "E006 node 'gamma' is missing required field 'owner'",
+        ]
+    );
+}
+
+// REGRESSION (01-T3): a rule without a target kind obliges every kind, for
+// the rule, the standing and the pass input alike. Never flipped.
+#[test]
+fn an_untargeted_obligation_rule_obliges_every_kind_after_the_move() {
+    let dir = project("node alpha \"Alpha\" {\n}\n");
+    let rules = json!([{
+        "code": "W904", "severity": "warning", "check": "no_verify_statements",
+        "message_template": "{kind} '{id}' declares no verify obligations"
+    }]);
+
+    let compiled = compile_with(dir.path(), rules, false);
+
+    assert_eq!(
+        messages(&compiled.diagnostics(), "W904"),
+        ["node 'alpha' declares no verify obligations"]
+    );
+    let standing = compiled.entities().standing("alpha").unwrap();
+    assert_eq!(standing.rule.as_deref(), Some("W904"));
+    assert!(standing.owes_obligations());
+    let alpha = compiled
+        .entities()
+        .pass_entities()
+        .into_iter()
+        .find(|e| e.id == "alpha")
+        .unwrap();
+    assert!(!alpha.exempt);
+}
+
+// PIN: flipped by T8 (W147 for the constraint kind; the rule still fires).
+#[test]
+fn a_conditional_rule_with_a_matches_constraint_reads_pattern_as_a_field() {
+    let diagnostics = check(
+        "node alpha \"Alpha\" {\n  status \"deferred\"\n}\n\n\
+         node beta \"Beta\" {\n  status \"deferred\"\n  reason \"later\"\n}\n",
+        json!([{
+            "code": "I905", "severity": "info", "check": "conditional_field_required",
+            "message_template": "I905 '{id}' is deferred with no reason",
+            "target_kind": "node", "field": "reason",
+            "constraint": { "kind": "matches", "pattern": "status", "values": ["deferred"] }
+        }]),
+    );
+
+    assert_eq!(
+        messages(&diagnostics, "I905"),
+        ["I905 'alpha' is deferred with no reason"]
+    );
+    assert!(
+        naming(&diagnostics, "W112", "I905").is_empty(),
+        "{diagnostics:?}"
+    );
+}
