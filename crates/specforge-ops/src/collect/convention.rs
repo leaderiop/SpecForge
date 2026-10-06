@@ -58,6 +58,7 @@ pub fn resolve(
                         "rename the test, or link it with #[specforge_test]".to_string(),
                     ),
                     data: None,
+                    origin: None,
                 });
                 continue;
             }

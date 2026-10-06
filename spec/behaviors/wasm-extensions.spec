@@ -157,6 +157,9 @@ behavior call_extension_exports "Call Extension Exports" {
     the code is not one the extension may use (its own catalogued code
     at its level, or a third-party code whose prefix states its level),
     the host adds one W150 per code naming the extension and the pass.
+    Every diagnostic a rule or a pass of an extension produces names that
+    extension as its origin, and a code the extension may not use is not
+    titled or explained as its owner's.
   """
   verify unit "every operational payload is one protocol type the host and the SDK share"
   verify unit "an SDK-declared extension answers the same through the in-process runtime as through the component runtime"
@@ -171,6 +174,7 @@ behavior call_extension_exports "Call Extension Exports" {
   verify unit "a scanner that traps or answers malformed output is reported, not dropped"
   verify unit "a pass, collector, custom rule, scanner or migration hook is declared with its handler, and its export answers through it"
   verify unit "a pass diagnostic whose code the extension may not use is reported (W150) and kept"
+  verify unit "a diagnostic an extension reported names its extension, and a code it may not use is not described as its owner's"
   verify contract "Call Extension Exports: extension calls hold — extension_loaded, one_protocol_type, strict_answers, one_failure, no_silent_failure, runtimes_agree, pass_codes_checked"
 }
 

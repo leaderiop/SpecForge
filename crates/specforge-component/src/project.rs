@@ -87,6 +87,7 @@ fn load_file(
         span: None,
         suggestion: Some(suggestion),
         data: None,
+        origin: None,
     };
     if !file.is_file() {
         return Err(refused(
@@ -157,6 +158,7 @@ fn load_installed(
             span: None,
             suggestion: Some(format!("install it with: specforge add {name}")),
             data: None,
+            origin: None,
         });
     };
     let wasm = specforge_wasm::installed_wasm_path(&root.join(".specforge/extensions"), name);

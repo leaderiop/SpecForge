@@ -225,6 +225,7 @@ mod tests {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         };
         let out1 = render_diagnostics(std::slice::from_ref(&diag), &sources);
         let out2 = render_diagnostics(&[diag], &sources);
@@ -253,6 +254,7 @@ mod tests {
             }),
             suggestion: None,
             data: None,
+            origin: None,
         };
         let out = render_diagnostics(&[diag], &sources);
         assert!(out.contains("beyond eof"));

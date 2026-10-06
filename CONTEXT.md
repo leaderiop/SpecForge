@@ -196,6 +196,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `Diagnostic::graded` with the pass's severity), so its severity is the code's catalog level. Codes
   an extension reports cross the protocol as text and have no constant (`Diagnostic::untyped`); they
   are checked against the catalog where they enter the host (`check_extension_code`, W150).
+- **Diagnostic origin**: the extension that reported a diagnostic (`Diagnostic::origin`, JSON `origin`;
+  a rule's declaring extension, a pass's extension; absent for the host's own). The catalog describes
+  a diagnostic (title, explanation, docs link) only for the host's own or for the code's owner
+  (`specforge_diagnostics::describes`), so an extension's finding with a code it may not use (W150) is
+  kept but never presented as that code's owner's.
 - **Diagnostic data**: a diagnostic's optional typed payload, the values its message names
   (`specforge_common::DiagnosticData`, e.g. an E003's unresolved target, a W061's cycle, the entity
   an extension pass named). Consumers that act on a diagnostic (the LSP's quick fixes, MCP's

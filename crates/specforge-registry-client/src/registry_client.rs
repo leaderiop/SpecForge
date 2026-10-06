@@ -49,6 +49,7 @@ impl RegistryError {
                 span: None,
                 suggestion: Some("Run `specforge registry login` to authenticate.".to_string()),
                 data: None,
+                origin: None,
             },
             RegistryError::Forbidden { guidance } => Diagnostic {
                 code: "R002".to_string(),
@@ -59,6 +60,7 @@ impl RegistryError {
                     "Check your permissions for this registry or package scope.".to_string(),
                 ),
                 data: None,
+                origin: None,
             },
             RegistryError::RateLimited { retry_after_ms } => Diagnostic {
                 code: "R003".to_string(),
@@ -67,6 +69,7 @@ impl RegistryError {
                 span: None,
                 suggestion: None,
                 data: None,
+                origin: None,
             },
             RegistryError::Timeout { url } => Diagnostic {
                 code: "R004".to_string(),
@@ -75,6 +78,7 @@ impl RegistryError {
                 span: None,
                 suggestion: Some("Check your network connection or try again later.".to_string()),
                 data: None,
+                origin: None,
             },
             RegistryError::NetworkError { message } => Diagnostic {
                 code: "R005".to_string(),
@@ -83,6 +87,7 @@ impl RegistryError {
                 span: None,
                 suggestion: Some("Check your network connection.".to_string()),
                 data: None,
+                origin: None,
             },
             RegistryError::NotFound { specifier } => Diagnostic {
                 code: "R006".to_string(),
@@ -91,6 +96,7 @@ impl RegistryError {
                 span: None,
                 suggestion: Some("Verify the package name and version.".to_string()),
                 data: None,
+                origin: None,
             },
             RegistryError::DuplicateVersion { name, version } => Diagnostic {
                 code: "R007".to_string(),
@@ -99,6 +105,7 @@ impl RegistryError {
                 span: None,
                 suggestion: Some("Bump the version number before publishing.".to_string()),
                 data: None,
+                origin: None,
             },
         }
     }

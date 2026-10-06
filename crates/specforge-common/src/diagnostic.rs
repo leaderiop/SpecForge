@@ -41,6 +41,13 @@ pub struct Diagnostic {
     /// the error type of many `Result`s).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub data: Option<Box<DiagnosticData>>,
+    /// The extension that reported this diagnostic (a rule's or a pass's
+    /// declaring extension); `None` for the host's own. Presentation titles
+    /// and explains a code only for its owner (`specforge_diagnostics::describes`),
+    /// so a kept finding whose code the extension may not use (W150) is never
+    /// described as another owner's. Serialized only when set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
 }
 
 /// A diagnostic's structured payload: the values its message names, as
@@ -165,7 +172,28 @@ impl Diagnostic {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         }
+    }
+
+    /// A diagnostic an extension reported (a rule's or a pass's), as the
+    /// extension gave it: its code and severity are kept, and it names
+    /// `extension` as its origin, so that presentation never describes the
+    /// code as its catalog owner's when the extension may not use it (W150).
+    pub fn from_extension(
+        extension: impl Into<String>,
+        code: impl Into<String>,
+        severity: Severity,
+        message: impl Into<String>,
+    ) -> Self {
+        let mut diagnostic = Self::untyped(code, severity, message);
+        diagnostic.origin = Some(extension.into());
+        diagnostic
+    }
+
+    /// The extension that reported this diagnostic; `None` for the host's own.
+    pub fn origin(&self) -> Option<&str> {
+        self.origin.as_deref()
     }
 
     /// Whether this diagnostic is of `code`.
@@ -181,6 +209,7 @@ impl Diagnostic {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         }
     }
 
@@ -192,6 +221,7 @@ impl Diagnostic {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         }
     }
 
@@ -203,6 +233,7 @@ impl Diagnostic {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         }
     }
 

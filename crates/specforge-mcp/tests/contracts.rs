@@ -1879,6 +1879,7 @@ fn contract_validate() {
                 "file": "broken.spec",
                 "line": 1,
                 "column": 1,
+                "origin": "@specforge/testing",
             },
         ]),
         "{resp}"
@@ -2296,7 +2297,7 @@ fn contract_diagnostics_resource() {
              "suggestion": null,
              "data": {"kind": "unresolved_reference", "target": "ghost", "entity": "broken", "field": "behaviors"},
              "file": "broken.spec", "line": 2, "column": 16},
-            {"code": "W901", "title": null, "severity": "Warning", "message": "a warning",
+            {"code": "W901", "title": null, "origin": "@test/ext", "severity": "Warning", "message": "a warning",
              "span": {"file": "broken.spec", "start_line": 4, "start_col": 1, "end_line": 5, "end_col": 2},
              "suggestion": null,
              "file": "broken.spec", "line": 4, "column": 1},

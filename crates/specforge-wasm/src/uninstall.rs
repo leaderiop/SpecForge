@@ -36,6 +36,7 @@ pub fn uninstall_extension(
             span: None,
             suggestion: Some(format!("manually remove '{}'", ext_dir.display())),
             data: None,
+            origin: None,
         });
     }
 

@@ -51,6 +51,7 @@ pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> 
                     span: None,
                     suggestion: None,
                     data: None,
+                    origin: None,
                 });
                 continue;
             }
@@ -171,6 +172,7 @@ pub fn resolve_parsed(
                         span: Some(import.span.clone()),
                         suggestion: None,
                         data: None,
+                        origin: None,
                     });
                 }
                 Target::NotFound => {
@@ -185,6 +187,7 @@ pub fn resolve_parsed(
                             path: import.path.to_string(),
                             did_you_mean: close.map(str::to_string),
                         })),
+                        origin: None,
                     });
                 }
             }
@@ -203,6 +206,7 @@ pub fn resolve_parsed(
             span: None,
             suggestion: Some("break the cycle by removing one of the `use` imports or extracting shared entities into a separate file".to_string()),
             data: None,
+            origin: None,
         });
     }
 
@@ -573,6 +577,7 @@ fn compute_file_scopes(
                                 span: Some(reexport.span.clone()),
                                 suggestion: None,
                                 data: None,
+                                origin: None,
                             });
                         }
                     }

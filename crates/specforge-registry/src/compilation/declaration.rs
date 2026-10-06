@@ -21,6 +21,7 @@ fn e030(message: String) -> Diagnostic {
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     }
 }
 
@@ -161,6 +162,7 @@ pub(crate) fn consistency(
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     };
 
     for kind in &declaration.entities {
@@ -348,6 +350,7 @@ pub(crate) fn order_passes(
             "remove the `after`/`before` constraint that closes the cycle".to_string(),
         ),
         data: None,
+        origin: None,
     };
     (passes.to_vec(), Some(warning))
 }

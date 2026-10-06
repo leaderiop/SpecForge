@@ -52,6 +52,7 @@ pub fn refuse_malformed_tool_schemas(
                 span: None,
                 suggestion: Some("declare the schema as a JSON Schema object".to_string()),
                 data: None,
+                origin: None,
             });
         }
         malformed.is_empty()
@@ -84,6 +85,7 @@ pub fn register_surface_contributions(
                     span: None,
                     suggestion: None,
                     data: None,
+                    origin: None,
                 });
             } else {
                 seen_commands.insert(cmd.id.clone(), ext_name.clone());
@@ -108,6 +110,7 @@ pub fn register_surface_contributions(
                     span: None,
                     suggestion: None,
                     data: None,
+                    origin: None,
                 });
             } else {
                 seen_tools.insert(tool.name.clone(), ext_name.clone());
@@ -132,6 +135,7 @@ pub fn register_surface_contributions(
                     span: None,
                     suggestion: None,
                     data: None,
+                    origin: None,
                 });
             } else {
                 seen_resources.insert(resource.name.clone(), ext_name.clone());

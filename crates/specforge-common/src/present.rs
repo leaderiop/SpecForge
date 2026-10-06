@@ -40,7 +40,8 @@ pub fn format_diagnostic(diag: &Diagnostic) -> String {
 /// span nested under `span`, and the span's start flat as `file`, `line`
 /// and `column`. Absent values are `null`, never missing keys — except
 /// `data`, the typed payload, which is there only when the diagnostic
-/// carries one (so a diagnostic without it prints as it always has). The
+/// carries one (so a diagnostic without it prints as it always has), and
+/// `origin`, the extension that reported it, there only for an extension's. The
 /// shape is the superset of the nested (CLI) and flat (MCP) shapes the
 /// surfaces printed before, so readers of either keep working.
 pub fn diagnostics_json(diagnostics: &[Diagnostic]) -> Vec<DiagnosticJson<'_>> {
@@ -48,7 +49,7 @@ pub fn diagnostics_json(diagnostics: &[Diagnostic]) -> Vec<DiagnosticJson<'_>> {
         .iter()
         .map(|d| DiagnosticJson {
             code: &d.code,
-            title: specforge_diagnostics::lookup(&d.code).map(|entry| entry.title),
+            title: specforge_diagnostics::describes(&d.code, d.origin()).map(|entry| entry.title),
             severity: &d.severity,
             message: &d.message,
             span: d.span.as_ref(),
@@ -57,6 +58,7 @@ pub fn diagnostics_json(diagnostics: &[Diagnostic]) -> Vec<DiagnosticJson<'_>> {
             line: d.span.as_ref().map(|s| s.start_line),
             column: d.span.as_ref().map(|s| s.start_col),
             data: d.data.as_deref(),
+            origin: d.origin(),
         })
         .collect()
 }
@@ -90,8 +92,10 @@ pub fn truncate_diagnostics(diagnostics: &mut Vec<Diagnostic>) {
 #[derive(Debug, Serialize)]
 pub struct DiagnosticJson<'a> {
     pub code: &'a str,
-    /// The catalogue's title for the code; null for a code it doesn't have
-    /// (a third-party extension's).
+    /// The catalogue's title for the code, when the catalogue describes this
+    /// diagnostic (`specforge_diagnostics::describes`); null for a code it
+    /// doesn't have (a third-party extension's) and for one an extension
+    /// reported that is another owner's (W150).
     pub title: Option<&'static str>,
     pub severity: &'a Severity,
     pub message: &'a str,
@@ -106,6 +110,10 @@ pub struct DiagnosticJson<'a> {
     /// absent when it has none.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<&'a DiagnosticData>,
+    /// The extension that reported the diagnostic (a rule's or a pass's);
+    /// the key is absent for the host's own.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub origin: Option<&'a str>,
 }
 
 /// Compute the process exit code from collected diagnostics.

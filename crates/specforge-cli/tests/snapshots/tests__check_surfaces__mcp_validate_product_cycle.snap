@@ -43,6 +43,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 1,
               "message": "module dependency cycle detected involving 'core_mod'",
+              "origin": "@specforge/product",
               "severity": "Error",
               "span": {
                 "end_col": 2,
@@ -60,6 +61,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 6,
               "message": "module dependency cycle detected involving 'edge_mod'",
+              "origin": "@specforge/product",
               "severity": "Error",
               "span": {
                 "end_col": 2,
@@ -77,6 +79,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 1,
               "message": "module 'core_mod' contains no features",
+              "origin": "@specforge/product",
               "severity": "Info",
               "span": {
                 "end_col": 2,
@@ -94,6 +97,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 6,
               "message": "module 'edge_mod' contains no features",
+              "origin": "@specforge/product",
               "severity": "Info",
               "span": {
                 "end_col": 2,
@@ -154,6 +158,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 1,
               "message": "module dependency cycle detected involving 'core_mod'",
+              "origin": "@specforge/product",
               "severity": "Error",
               "span": {
                 "end_col": 2,
@@ -171,6 +176,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 6,
               "message": "module dependency cycle detected involving 'edge_mod'",
+              "origin": "@specforge/product",
               "severity": "Error",
               "span": {
                 "end_col": 2,
@@ -188,6 +194,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 1,
               "message": "module 'core_mod' contains no features",
+              "origin": "@specforge/product",
               "severity": "Info",
               "span": {
                 "end_col": 2,
@@ -205,6 +212,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 6,
               "message": "module 'edge_mod' contains no features",
+              "origin": "@specforge/product",
               "severity": "Info",
               "span": {
                 "end_col": 2,
@@ -246,6 +254,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 1,
               "message": "module dependency cycle detected involving 'core_mod'",
+              "origin": "@specforge/product",
               "severity": "Error",
               "span": {
                 "end_col": 2,
@@ -263,6 +272,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 6,
               "message": "module dependency cycle detected involving 'edge_mod'",
+              "origin": "@specforge/product",
               "severity": "Error",
               "span": {
                 "end_col": 2,
@@ -347,6 +357,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 1,
               "message": "module 'core_mod' contains no features",
+              "origin": "@specforge/product",
               "severity": "Info",
               "span": {
                 "end_col": 2,
@@ -364,6 +375,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 6,
               "message": "module 'edge_mod' contains no features",
+              "origin": "@specforge/product",
               "severity": "Info",
               "span": {
                 "end_col": 2,
@@ -425,6 +437,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 1,
               "message": "module dependency cycle detected involving 'core_mod'",
+              "origin": "@specforge/product",
               "severity": "Error",
               "span": {
                 "end_col": 2,
@@ -442,6 +455,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 6,
               "message": "module dependency cycle detected involving 'edge_mod'",
+              "origin": "@specforge/product",
               "severity": "Error",
               "span": {
                 "end_col": 2,
@@ -483,6 +497,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 1,
               "message": "module dependency cycle detected involving 'core_mod'",
+              "origin": "@specforge/product",
               "severity": "Error",
               "span": {
                 "end_col": 2,
@@ -500,6 +515,7 @@ expression: "normalized(&Value::Array(calls), dir.path())"
               "file": "main.spec",
               "line": 6,
               "message": "module dependency cycle detected involving 'edge_mod'",
+              "origin": "@specforge/product",
               "severity": "Error",
               "span": {
                 "end_col": 2,

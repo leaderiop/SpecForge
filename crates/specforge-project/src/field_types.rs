@@ -100,6 +100,7 @@ pub fn check_field_value_types(
                 ),
                 suggestion: mismatch.suggestion,
                 data: None,
+                origin: None,
             });
         }
     }

@@ -306,6 +306,7 @@ fn config_problem_diagnostic(problem: &ConfigProblem) -> Diagnostic {
             "fix specforge.json; `specforge explain E069` says what it must be".to_string(),
         ),
         data: None,
+        origin: None,
     }
 }
 
@@ -341,6 +342,7 @@ fn structural_only_notice(configured: &[String], problems: &[ConfigProblem]) -> 
         span: None,
         suggestion: Some(suggestion),
         data: None,
+        origin: None,
     }
 }
 

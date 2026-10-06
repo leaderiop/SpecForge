@@ -199,6 +199,7 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
         Diagnostic {
             code: "W002".into(),
@@ -207,6 +208,7 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
     ];
 

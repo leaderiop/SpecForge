@@ -174,6 +174,7 @@ fn stats_includes_diagnostic_summary() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
         specforge_common::Diagnostic {
             code: "W012".to_string(),
@@ -182,6 +183,7 @@ fn stats_includes_diagnostic_summary() {
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         },
     ];
     let stats = crate::view_support::stats_of(&graph, &[], &diagnostics);

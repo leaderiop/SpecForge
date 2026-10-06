@@ -113,5 +113,6 @@ fn unknown_key(extension: &str, key: UnknownKey) -> Diagnostic {
                 .to_string(),
         ),
         data: None,
+        origin: None,
     }
 }

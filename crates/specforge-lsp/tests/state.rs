@@ -77,6 +77,7 @@ fn e003() -> specforge_common::Diagnostic {
         severity: specforge_common::Severity::Error,
         span: None,
         data: None,
+        origin: None,
     }
 }
 

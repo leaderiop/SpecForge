@@ -90,6 +90,21 @@ pub fn lookup(code: &str) -> Option<&'static CodeEntry> {
         .map(|index| &CATALOG[index])
 }
 
+/// The catalog entry that describes a diagnostic of `code` reported by
+/// `origin` (the extension that reported it; `None` for the host's own): the
+/// entry when the host reported it, or when the entry's owner is that very
+/// extension. A code an extension squats (W150) is not described by its
+/// owner's entry: its title, explanation and docs link would be another
+/// diagnostic's. Ownership only, not level: a warning `--strict` promoted to
+/// an error keeps its description.
+pub fn describes(code: &str, origin: Option<&str>) -> Option<&'static CodeEntry> {
+    let entry = lookup(code)?;
+    match origin {
+        None => Some(entry),
+        Some(extension) => (entry.owner == extension).then_some(entry),
+    }
+}
+
 /// Greedy word wrap; never splits a word.
 pub fn wrap(text: &str, width: usize) -> String {
     let mut out = String::new();
@@ -311,6 +326,32 @@ mod tests {
             "CATALOG problems:\n  {}",
             problems.join("\n  ")
         );
+    }
+
+    /// The catalog describes a diagnostic the host reported, or one its
+    /// owner reported; ownership decides, not the level it was reported at.
+    #[specforge_test(
+        invariant = "diagnostic_code_uniqueness",
+        verify = "an extension reports only its own catalogued codes, or third-party codes whose prefix states their level"
+    )]
+    fn describes_reads_ownership_not_level() {
+        // The host's own: described.
+        assert_eq!(
+            describes("E001", None).map(|e| e.title),
+            Some("Parse error")
+        );
+        // A code the extension owns, whatever level `--strict` gave it.
+        assert_eq!(
+            describes("W004", Some("@specforge/testing")).map(|e| e.code),
+            Some("W004")
+        );
+        // A code another owner has: not described.
+        assert!(describes("E001", Some("@acme/squat")).is_none());
+        assert!(describes("W004", Some("@acme/squat")).is_none());
+        assert!(describes("E001", Some("@specforge/testing")).is_none());
+        // A code the catalog does not have: nothing to describe.
+        assert!(describes("W950", Some("@acme/x")).is_none());
+        assert!(describes("W950", None).is_none());
     }
 
     #[test]

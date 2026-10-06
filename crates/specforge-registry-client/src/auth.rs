@@ -24,6 +24,7 @@ pub fn resolve_credential(credential: &RegistryCredential) -> Result<String, Dia
                 "Set the environment variable: export {var_name}=<token>"
             )),
             data: None,
+            origin: None,
         }),
         AuthMethod::TokenFile(path) => std::fs::read_to_string(path)
             .map(|s| s.trim().to_string())
@@ -42,6 +43,7 @@ pub fn resolve_credential(credential: &RegistryCredential) -> Result<String, Dia
                     path.display()
                 )),
                 data: None,
+                origin: None,
             }),
         AuthMethod::Bearer(token) => Ok(token.clone()),
     }
@@ -114,6 +116,7 @@ pub fn authenticate_with_retry(
                         "Run `specforge registry login` to re-authenticate.".to_string(),
                     ),
                     data: None,
+                    origin: None,
                 }),
                 Err(other) => Err(other.to_diagnostic()),
             }

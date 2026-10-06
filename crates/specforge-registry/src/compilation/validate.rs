@@ -35,6 +35,7 @@ fn peer_dependencies_of(
                     span: None,
                     suggestion: Some(format!("install it with: specforge add {}", peer.name)),
                     data: None,
+                    origin: None,
                 });
             }
             Some(installed_version) => {
@@ -53,6 +54,7 @@ fn peer_dependencies_of(
                         span: None,
                         suggestion: Some("use a valid semver range like ^1.0.0, ~1.2.0, or >=1.0.0".to_string()),
                         data: None,
+                        origin: None,
                     });
                 } else if ver_parse.is_err() {
                     diagnostics.push(Diagnostic {
@@ -65,6 +67,7 @@ fn peer_dependencies_of(
                         span: None,
                         suggestion: Some("use a valid semver version like 1.0.0".to_string()),
                         data: None,
+                        origin: None,
                     });
                 } else if !version_satisfies(installed_version, &peer.version) {
                     diagnostics.push(Diagnostic {
@@ -77,6 +80,7 @@ fn peer_dependencies_of(
                         span: None,
                         suggestion: None,
                         data: None,
+                        origin: None,
                     });
                 }
             }
@@ -122,6 +126,7 @@ pub(crate) fn validate_extension_testability(kind_reg: &crate::KindRegistry) -> 
                         .to_string(),
                 ),
                 data: None,
+                origin: None,
             });
         }
     }

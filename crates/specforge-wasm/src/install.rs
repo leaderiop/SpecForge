@@ -37,6 +37,7 @@ pub fn install_extension(
             span: None,
             suggestion: Some("re-download the extension or verify the source".to_string()),
             data: None,
+            origin: None,
         });
     }
 
@@ -54,6 +55,7 @@ pub fn install_extension(
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     })?;
 
     let temp_wasm_path = temp_dir.join("extension.wasm");
@@ -66,6 +68,7 @@ pub fn install_extension(
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         });
     }
 
@@ -87,6 +90,7 @@ pub fn install_extension(
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         });
     }
 
@@ -131,6 +135,7 @@ fn rollback_install(ext_dir: &Path) -> Vec<Diagnostic> {
             span: None,
             suggestion: Some(format!("manually remove '{}'", ext_dir.display())),
             data: None,
+            origin: None,
         });
     }
     diagnostics

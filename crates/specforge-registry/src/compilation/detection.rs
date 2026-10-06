@@ -90,6 +90,7 @@ pub fn detect_unknown_entity_kinds(
             span: Some(span.clone()),
             suggestion,
             data: None,
+            origin: None,
         });
     }
 
@@ -138,6 +139,7 @@ pub fn detect_reserved_entity_ids(
             data: Some(Box::new(DiagnosticData::ShadowedKeyword {
                 keyword: id.to_string(),
             })),
+            origin: None,
         });
     }
     diagnostics
@@ -165,6 +167,7 @@ pub fn detect_identifier_length_violations(entities: &[EntityRecord]) -> Vec<Dia
                 "pick a descriptive identifier between 2 and 60 characters".to_string(),
             ),
             data: None,
+            origin: None,
         });
     }
     diagnostics
@@ -228,6 +231,7 @@ pub fn detect_unknown_entity_fields(
                 span: Some(span.clone()),
                 suggestion,
                 data: None,
+                origin: None,
             });
         }
     }
@@ -285,6 +289,7 @@ pub fn detect_mistyped_references(
                         span: Some(span.clone()),
                         suggestion: None,
                         data: None,
+                        origin: None,
                     });
                 }
             }

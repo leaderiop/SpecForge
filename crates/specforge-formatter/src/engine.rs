@@ -38,6 +38,7 @@ pub fn format_source(source: &str, config: &FormatConfig) -> FormatResult {
                     span: None,
                     suggestion: None,
                     data: None,
+                    origin: None,
                 }],
             };
         }

@@ -42,6 +42,7 @@ fn provider_warning(message: String, suggestion: &str) -> Diagnostic {
         span: None,
         suggestion: Some(suggestion.to_string()),
         data: None,
+        origin: None,
     }
 }
 
@@ -195,6 +196,7 @@ pub fn register_provider_schemes_with_status(
                             "give each provider instance its own scheme".to_string(),
                         ),
                         data: None,
+                        origin: None,
                     });
                     ProviderStatus::SchemeTaken
                 }

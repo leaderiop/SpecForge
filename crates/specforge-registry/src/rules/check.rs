@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use specforge_common::cycles::{CycleOptions, find_cycles};
 use specforge_common::{CustomRuleFailure, Diagnostic, DiagnosticData};
 
-use super::Rule;
 use super::verdicts::{CustomCall, CustomVerdicts, Subject, Verdict, VerdictError};
+use super::{Origin, Rule};
 use crate::entity::{Direction, EntityRecord, RuleInput};
 
 /// One variant per check kind; each carries what it reads, resolved.
@@ -286,15 +286,17 @@ fn report(rule: &Rule, record: &EntityRecord, violation: Violation) -> Diagnosti
     diagnostic(rule, message, record)
 }
 
+/// What `rule` reports on `record`. A rule an extension declared names that
+/// extension as the diagnostic's origin; the host's own (E006) has none.
 fn diagnostic(rule: &Rule, message: String, record: &EntityRecord) -> Diagnostic {
-    Diagnostic {
-        code: rule.code.clone(),
-        severity: rule.severity,
-        message,
-        span: Some(record.span.clone()),
-        suggestion: None,
-        data: None,
-    }
+    let mut diagnostic = match &rule.origin {
+        Origin::Extension(extension) => {
+            Diagnostic::from_extension(extension, rule.code.clone(), rule.severity, message)
+        }
+        Origin::Host => Diagnostic::untyped(rule.code.clone(), rule.severity, message),
+    };
+    diagnostic.span = Some(record.span.clone());
+    diagnostic
 }
 
 /// `template` with `{id}`, `{kind}`, and `{field}`, `{value}`, `{allowed}`

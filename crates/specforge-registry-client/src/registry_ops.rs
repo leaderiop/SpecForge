@@ -39,6 +39,7 @@ pub fn resolve_from_registry(
                 .to_string(),
         ),
         data: None,
+        origin: None,
     })?;
 
     client.fetch(specifier, registry).map_err(|e| {
@@ -119,6 +120,7 @@ pub fn publish_to_registry(
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     })?;
 
     // Sign when a key is provided: the payload binds the exact uploaded
@@ -184,6 +186,7 @@ pub fn verify_registry_integrity(data: &[u8], expected_sha256: &str) -> Result<(
                     .to_string(),
             ),
             data: None,
+            origin: None,
         })
     }
 }
@@ -224,6 +227,7 @@ pub fn verify_package_signature(
             span: None,
             suggestion: Some("refuse this package; the registry response is malformed".to_string()),
             data: None,
+            origin: None,
         })?;
 
     // Cross-check the server-extracted key id against the signature object:
@@ -240,6 +244,7 @@ pub fn verify_package_signature(
             span: None,
             suggestion: Some("refuse this package and verify the registry".to_string()),
             data: None,
+            origin: None,
         });
     }
 
@@ -264,6 +269,7 @@ pub fn verify_package_signature(
             "the package does not match its publisher signature; do not install it".to_string(),
         ),
         data: None,
+        origin: None,
     })?;
 
     Ok(TrustCheck::Verified {

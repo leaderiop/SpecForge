@@ -87,7 +87,7 @@ pub fn pass_findings(
     entities: &EntitySnapshot,
 ) -> Vec<Diagnostic> {
     let mut misused = code_misuse(extension, pass, &output);
-    let mut findings = specforge_wasm::pass_diagnostics(output, |id| {
+    let mut findings = specforge_wasm::pass_diagnostics(extension, output, |id| {
         entities.get(id).map(|(record, _)| record.span.clone())
     });
     findings.append(&mut misused);

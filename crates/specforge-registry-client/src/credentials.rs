@@ -72,6 +72,7 @@ impl CredentialStore {
                             alias
                         )),
                         data: None,
+                        origin: None,
                     });
                 }
                 let secret = if *in_keyring {
@@ -91,6 +92,7 @@ impl CredentialStore {
                                     alias
                                 )),
                                 data: None,
+                                origin: None,
                             });
                         }
                         Err(message) => {
@@ -104,6 +106,7 @@ impl CredentialStore {
                                     alias
                                 )),
                                 data: None,
+                                origin: None,
                             });
                         }
                     }
@@ -190,6 +193,7 @@ pub fn read_credentials(path: &Path) -> Result<CredentialStore, Diagnostic> {
         span: None,
         suggestion: Some(format!("check permissions on '{}'", path.display())),
         data: None,
+        origin: None,
     })?;
 
     serde_json::from_str(&content).map_err(|e| Diagnostic {
@@ -202,6 +206,7 @@ pub fn read_credentials(path: &Path) -> Result<CredentialStore, Diagnostic> {
             path.display()
         )),
         data: None,
+        origin: None,
     })
 }
 
@@ -214,6 +219,7 @@ pub fn write_credentials(path: &Path, store: &CredentialStore) -> Result<(), Dia
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         })?;
     }
 
@@ -224,6 +230,7 @@ pub fn write_credentials(path: &Path, store: &CredentialStore) -> Result<(), Dia
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     })?;
 
     std::fs::write(path, json).map_err(|e| Diagnostic {
@@ -233,6 +240,7 @@ pub fn write_credentials(path: &Path, store: &CredentialStore) -> Result<(), Dia
         span: None,
         suggestion: Some(format!("check write permissions on '{}'", path.display())),
         data: None,
+        origin: None,
     })?;
     restrict_permissions(path);
     Ok(())

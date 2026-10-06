@@ -31,6 +31,7 @@ pub fn load_wasm_module(
                 extension_name
             )),
             data: None,
+            origin: None,
         });
     }
 
@@ -47,6 +48,7 @@ pub fn load_wasm_module(
         span: None,
         suggestion: None,
         data: None,
+        origin: None,
     })?;
     let wasm_hash = hex_sha256(&bytes);
 
@@ -68,6 +70,7 @@ pub fn load_wasm_module(
                 extension_name
             )),
             data: None,
+            origin: None,
         });
     }
 
@@ -83,6 +86,7 @@ pub fn load_wasm_module(
             span: None,
             suggestion: None,
             data: None,
+            origin: None,
         })
 }
 

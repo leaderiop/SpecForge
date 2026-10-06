@@ -204,6 +204,7 @@ pub fn load_extensions(
                     span: None,
                     suggestion: None,
                     data: None,
+                    origin: None,
                 });
             }
         }
