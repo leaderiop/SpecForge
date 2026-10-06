@@ -1,60 +1,6 @@
-#[cfg(test)]
-use crate::{EdgeRegistry, FieldRegistry, KindRegistry};
 use specforge_common::{Diagnostic, Severity};
 use specforge_protocol_types::ExtensionDeclaration;
 use std::collections::HashMap;
-
-/// Cross-validate registered entity fields: check target_kind and edge label references
-/// resolve to registered entries. Test-only: the registry build reports W021 on load
-/// (`declaration::consistency`).
-#[cfg(test)]
-pub fn validate_registered_entity_fields(
-    field_reg: &FieldRegistry,
-    kind_reg: &KindRegistry,
-    edge_reg: &EdgeRegistry,
-) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-
-    for (kind_name, field_name, entry) in field_reg.iter() {
-        // Validate target_kind references
-        if let Some(target) = &entry.declared.target_kind
-            && !kind_reg.contains(target)
-        {
-            diagnostics.push(Diagnostic {
-                code: "W021".to_string(),
-                severity: Severity::Warning,
-                message: format!(
-                    "field '{}' on kind '{}' references target_kind '{}' which is not in the KindRegistry",
-                    field_name, kind_name, target
-                ),
-                span: None,
-                suggestion: None,
-                data: None,
-            });
-        }
-
-        // Validate edge label references
-        if let Some(edge) = &entry.declared.edge
-            && !edge_reg.contains(edge)
-        {
-            diagnostics.push(Diagnostic {
-                code: "W021".to_string(),
-                severity: Severity::Warning,
-                message: format!(
-                    "field '{}' on kind '{}' references edge label '{}' which is not in the EdgeRegistry",
-                    field_name, kind_name, edge
-                ),
-                span: None,
-                suggestion: None,
-                data: None,
-            });
-        }
-    }
-
-    // Sort for deterministic output
-    diagnostics.sort_by(|a, b| a.message.cmp(&b.message));
-    diagnostics
-}
 
 /// E027/W062 for every declaration's peers, against the loaded ones.
 pub(crate) fn peer_dependencies(declarations: &[ExtensionDeclaration]) -> Vec<Diagnostic> {
@@ -221,7 +167,6 @@ pub(crate) fn duplicate_rule_codes(declarations: &[ExtensionDeclaration]) -> Vec
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::compilation::populate::populate;
     use crate::compilation::tests::support::{declare, peer};
     use specforge_extension_sdk::prelude::*;
 
@@ -257,105 +202,6 @@ mod tests {
     }
 
     // -- B:validate_registered_entity_fields --
-
-    // B:validate_registered_entity_fields — verify unit "target_kind reference resolves to registered kind"
-    // B:register_validation_rules_from_manifest — verify unit "target_kind reference validated against KindRegistry after registries_populated"
-    #[test]
-    fn test_target_kind_reference_resolves_to_registered_kind() {
-        let (kind_reg, field_reg, edge_reg, _) = populate(&[software_manifest()]);
-        let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-        assert!(
-            !diags.iter().any(|d| d.message.contains("target_kind")),
-            "expected no target_kind warnings, got: {:?}",
-            diags
-        );
-    }
-
-    // B:validate_registered_entity_fields — verify unit "edge label resolves to registered edge type"
-    // B:register_validation_rules_from_manifest — verify unit "edge_type reference validated against edge type set after registries_populated"
-    #[test]
-    fn test_edge_label_resolves_to_registered_edge_type() {
-        let (kind_reg, field_reg, edge_reg, _) = populate(&[software_manifest()]);
-        let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-        assert!(
-            !diags.iter().any(|d| d.message.contains("edge label")),
-            "expected no edge label warnings, got: {:?}",
-            diags
-        );
-    }
-
-    // B:validate_registered_entity_fields — verify unit "unresolved target_kind produces warning"
-    // B:register_validation_rules_from_manifest — verify unit "invalid reference produces warning not error"
-    #[test]
-    fn test_unresolved_target_kind_produces_warning() {
-        let declaration = declare("@test/ext", |c| {
-            c.kind("Task", |k| {
-                k.keyword("task");
-                k.field("owner", |f| {
-                    f.field_type(FieldType::Reference).target_kind("person");
-                });
-            });
-        });
-        let (kind_reg, field_reg, edge_reg, _) = populate(&[declaration]);
-        let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "W021" && d.message.contains("person")),
-            "expected W021 about unresolved target_kind 'person', got: {:?}",
-            diags
-        );
-    }
-
-    // B:validate_registered_entity_fields — verify unit "unresolved edge label produces warning"
-    #[test]
-    fn test_unresolved_edge_label_produces_warning() {
-        let declaration = declare("@test/ext", |c| {
-            c.kind("Task", |k| {
-                k.keyword("task");
-                k.field("owner", |f| {
-                    f.field_type(FieldType::Reference).edge("owns");
-                });
-            });
-        });
-        let (kind_reg, field_reg, edge_reg, _) = populate(&[declaration]);
-        let _diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-        // "owns" was auto-created as an implicit edge during populate, so it resolves
-        assert!(
-            edge_reg.contains("owns"),
-            "implicit edge 'owns' should have been created"
-        );
-    }
-
-    // B:validate_registered_entity_fields — verify unit "cross-validation uses no domain-specific logic"
-    #[test]
-    fn test_cross_validation_uses_no_domain_specific_logic() {
-        // Custom domain: entirely made-up entity kinds, field types, edges
-        let declaration = declare("@custom/cooking", |c| {
-            c.kind("Recipe", |k| {
-                k.keyword("recipe").testable(true).supports_verify(true);
-                k.field("ingredients", |f| {
-                    f.field_type(FieldType::ReferenceList)
-                        .edge("uses")
-                        .target_kind("ingredient");
-                });
-            });
-            c.kind("Ingredient", |k| {
-                k.keyword("ingredient");
-            });
-            c.edge("uses", |e| {
-                e.source_kind("recipe").target_kind("ingredient");
-            });
-        });
-        let (kind_reg, field_reg, edge_reg, pop_diags) = populate(&[declaration]);
-        assert!(pop_diags.is_empty());
-        let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-        assert!(
-            diags.is_empty(),
-            "custom domain should validate cleanly: {:?}",
-            diags
-        );
-    }
 
     // -- B:detect_duplicate_entity_kinds --
 
@@ -406,29 +252,6 @@ mod tests {
     // -- B:validate_extension_testability --
 
     // -- B:register_validation_rules_from_manifest --
-
-    // B:validate_registered_entity_fields — verify contract "requires/ensures consistency for field cross-validation"
-    #[test]
-    fn test_validate_registered_entity_fields_contract() {
-        // requires: all registries populated
-        let (kind_reg, field_reg, edge_reg, _) = populate(&[software_manifest()]);
-        let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-        // ensures: valid references produce no warnings
-        assert!(diags.is_empty());
-        // ensures: unresolved references produce W021
-        let bad_manifest = declare("@t/e", |c| {
-            c.kind("A", |k| {
-                k.keyword("a");
-                k.field("f", |f| {
-                    f.field_type(FieldType::Reference)
-                        .target_kind("nonexistent");
-                });
-            });
-        });
-        let (kr, fr, er, _) = populate(&[bad_manifest]);
-        let bad_diags = validate_registered_entity_fields(&fr, &kr, &er);
-        assert!(bad_diags.iter().any(|d| d.code == "W021"));
-    }
 
     // B:validate_peer_dependencies — verify contract "requires/ensures consistency for peer dependency validation"
     #[test]

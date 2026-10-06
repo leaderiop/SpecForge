@@ -371,17 +371,6 @@ mod tests {
 
     // -- B:populate_kind_registry_from_extensions tests --
 
-    // B:populate_kind_registry_from_extensions — verify unit "population completes before validation"
-    #[test]
-    fn test_population_completes_before_validation() {
-        // populate_registries returns all three registries fully populated.
-        // Validation is a separate step that consumes these registries.
-        let (kind_reg, field_reg, edge_reg, _) = populate(&[software_manifest()]);
-        assert!(!kind_reg.is_empty());
-        assert!(!field_reg.is_empty());
-        assert!(!edge_reg.is_empty());
-    }
-
     // -- B:register_edge_types_from_manifest tests --
 
     // -- B:populate_field_registry_from_extensions tests --

@@ -63,24 +63,3 @@ pub(crate) fn software() -> ExtensionDeclaration {
         });
     })
 }
-
-/// `@specforge/product`, a peer of `@specforge/software`: the untestable
-/// `feature` kind, composing `behavior`s over the `composes` edge.
-pub(crate) fn product() -> ExtensionDeclaration {
-    let mut c = extension("@specforge/product");
-    c.meta
-        .peer_dependencies
-        .push(peer("@specforge/software", ">=1.0.0"));
-    c.kind("Feature", |k| {
-        k.keyword("feature").testable(false).dot_shape("box");
-        k.field("behaviors", |f| {
-            f.field_type(FieldType::ReferenceList)
-                .edge("composes")
-                .target_kind("behavior");
-        });
-    });
-    c.edge("composes", |e| {
-        e.source_kind("feature").target_kind("behavior");
-    });
-    c.declaration()
-}
