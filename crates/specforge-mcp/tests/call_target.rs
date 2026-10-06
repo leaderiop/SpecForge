@@ -766,6 +766,49 @@ fn outline_finds_an_empty_file_under_the_spec_root() {
     assert_eq!(error["code"], "file_not_found", "{error}");
 }
 
+/// Pin (architecture plan 10, T0): with nothing served, outline looks a
+/// file up relative to the server's working directory. Nextest runs this
+/// binary in the package root, where `Cargo.toml` exists: outline answers
+/// it with an empty outline, though no project is served. A file that is
+/// nowhere is `file_not_found`.
+#[test]
+fn outline_with_nothing_served_reads_the_working_directory() {
+    assert!(
+        Path::new("Cargo.toml").is_file(),
+        "run from the package root"
+    );
+    let mut server = serving_nothing();
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.outline",
+        json!({"file": "Cargo.toml"}),
+    );
+    assert_eq!(resp["result"]["isError"], false, "{resp}");
+    assert_eq!(tool_text(&resp), "[]");
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.outline",
+        json!({"file": "absent.spec"}),
+    );
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "file_not_found", "{error}");
+    assert_eq!(error["argument"], "file", "{error}");
+}
+
+/// Pin (architecture plan 10, T0): with nothing served, inspecting an
+/// entity answers that the entity is not found, not that no project is
+/// served.
+#[test]
+fn inspect_with_nothing_served_is_entity_not_found() {
+    let mut server = serving_nothing();
+
+    let resp = call_tool(&mut server, "specforge.inspect", json!({"entity_id": "x"}));
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "entity_not_found", "{error}");
+}
+
 #[specforge_test(
     behavior = "provide_mcp_analyze_tool",
     verify = "analyze with no project served and no path is a no-project error"
