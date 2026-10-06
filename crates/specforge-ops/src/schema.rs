@@ -10,9 +10,9 @@ use specforge_emitter::{
     GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo, SchemaVersion,
 };
 
-use crate::OpError;
 use crate::export::{self, AGENT_FORMAT, FORMAT};
 use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind};
 
 /// What part of the schema to return.
 #[derive(Debug, Clone, Copy)]
@@ -84,7 +84,7 @@ pub fn json_schema(view: &ProjectView, format: export::Format) -> Result<String,
             .expect_err("a format the agent table does not admit is refused"));
     }
     specforge_emitter::publish_json_schema_format(&view.versioned_schema(), format.emit_format())
-        .map_err(|error| OpError::new("export_failed", error.to_string()))
+        .map_err(|error| OpError::new(OpErrorKind::Internal, "export_failed", error.to_string()))
 }
 
 /// The view's versioned schema, as `request` selects it. A kind no loaded
@@ -124,7 +124,11 @@ pub fn schema(view: &ProjectView, request: &SchemaRequest) -> Result<SchemaOutco
 }
 
 fn unknown_kind(kind: &str, schema: &GraphProtocolSchema) -> OpError {
-    let error = OpError::new("unknown_kind", format!("unknown entity kind: '{kind}'"));
+    let error = OpError::new(
+        OpErrorKind::InvalidInput,
+        "unknown_kind",
+        format!("unknown entity kind: '{kind}'"),
+    );
     let known = schema.entity_kinds.iter().map(|entry| entry.name.as_str());
     match specforge_common::suggest::find_close_match(kind, known) {
         Some(close) => error.with_suggestion(format!("did you mean '{close}'?")),

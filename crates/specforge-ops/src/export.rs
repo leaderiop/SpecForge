@@ -1,6 +1,7 @@
 //! Graph export: the one function behind `specforge export`, the MCP
-//! `specforge.export` tool, `specforge.render` and the `specforge://graph`
-//! resource (ADR 0004 D3-a).
+//! `specforge.export` tool, `specforge.render` and the `specforge://graph`,
+//! `context` and `brief` resources with their scoped forms and
+//! `specforge://graph/{entity_id}` (ADR 0004 D3-a, ADR 0024 D4).
 //!
 //! Every caller gets the same Graph Protocol document for the same request,
 //! under the CLI's schema policy: a full `graph` export embeds the schema
@@ -8,10 +9,12 @@
 //! `brief` and any export under a token budget leave it out unless asked
 //! for it. `dot` never carries a schema.
 
-use crate::OpError;
 use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
-use specforge_emitter::{EmitFormat, EmitOptions, GraphProtocolSchema, SchemaVersion, emit};
+use crate::{OpError, OpErrorKind};
+use specforge_emitter::{
+    EmitFormat, EmitOptions, EmitterError, GraphProtocolSchema, SchemaVersion, emit,
+};
 
 /// An export format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -149,10 +152,45 @@ pub fn export(view: &ProjectView, request: &Request) -> Result<String, OpError> 
         kind_registry: Some(&view.registries.kinds),
         field_registry: Some(&view.registries.fields),
     };
-    emit(view.graph, &options).map_err(|e| {
-        let message = e.to_string();
-        OpError::new(leading_code(&message).unwrap_or("export_failed"), message)
-    })
+    emit(view.graph, &options).map_err(|error| failure(error, request.scope))
+}
+
+/// The emitter's failure as the operation's: what kind it is is decided by
+/// the variant, and a diagnostic code its message leads with (`E003`,
+/// `E062`) is the failure's code, not text of its message.
+fn failure(error: EmitterError, scope: Option<&str>) -> OpError {
+    match error {
+        EmitterError::EntityNotFound(message) => {
+            let error = OpError::new(
+                OpErrorKind::EntityNotFound,
+                "E003",
+                without_code(&message, "E003"),
+            );
+            match scope {
+                Some(scope) => error.with_entity(scope),
+                None => error,
+            }
+        }
+        EmitterError::Other(message) | EmitterError::InvalidScope(message) => {
+            if let Some(rest) = message.strip_prefix("E062: ") {
+                OpError::new(OpErrorKind::InvalidInput, "E062", rest)
+            } else {
+                OpError::new(OpErrorKind::InvalidInput, "export_failed", message)
+            }
+        }
+        EmitterError::SerializationError(message) => {
+            OpError::new(OpErrorKind::Internal, "export_failed", message)
+        }
+    }
+}
+
+/// `message` without the `"{code}: "` it leads with.
+fn without_code(message: &str, code: &str) -> String {
+    message
+        .strip_prefix(code)
+        .and_then(|rest| rest.strip_prefix(": "))
+        .unwrap_or(message)
+        .to_string()
 }
 
 /// `schema`, at `requested` when one is asked for: the same major as the
@@ -166,22 +204,22 @@ fn negotiated(
     };
     let requested = requested.parse::<SchemaVersion>().map_err(|e| {
         OpError::new(
+            OpErrorKind::SchemaMismatch,
             "invalid_schema_version",
             format!("invalid schema version: {e}"),
         )
     })?;
     let max = schema.schema_version.clone();
     let min = SchemaVersion::new(max.major, 0, 0);
-    specforge_emitter::negotiate_version(&requested, &min, &max)
-        .map_err(|e| OpError::new("E027", e.to_string()))?;
+    specforge_emitter::negotiate_version(&requested, &min, &max).map_err(|e| {
+        OpError::new(
+            OpErrorKind::Conflict,
+            "E027",
+            without_code(&e.to_string(), "E027"),
+        )
+    })?;
     schema.schema_version = requested;
     Ok(schema)
-}
-
-/// The `E###`/`W###` code a message starts with (`"E062: ..."`).
-fn leading_code(message: &str) -> Option<&'static str> {
-    const CODES: [&str; 3] = ["E003", "E062", "E027"];
-    CODES.into_iter().find(|code| message.starts_with(code))
 }
 
 #[cfg(test)]
@@ -210,6 +248,46 @@ mod tests {
             AGENT_FORMAT.parse("dot").unwrap_err().message,
             "Unknown format: dot. Expected: graph, context, brief"
         );
+    }
+
+    fn failed(request: &Request) -> OpError {
+        let fixture = crate::view::testing::Fixture::new();
+        export(&fixture.view(), request).unwrap_err()
+    }
+
+    #[test]
+    fn export_failures_carry_their_kind() {
+        let error = failed(&Request {
+            scope: Some("ghost"),
+            ..request(Format::Graph)
+        });
+        assert_eq!(error.kind, OpErrorKind::EntityNotFound);
+        assert_eq!(error.code, "E003");
+        assert_eq!(error.entity.as_deref(), Some("ghost"));
+        assert!(!error.message.starts_with("E003"), "{}", error.message);
+        assert!(error.message.contains("'ghost'"), "{}", error.message);
+
+        let error = failed(&Request {
+            max_tokens: Some(1),
+            ..request(Format::Graph)
+        });
+        assert_eq!(error.kind, OpErrorKind::InvalidInput);
+        assert_eq!(error.code, "E062");
+        assert!(
+            error.message.starts_with("the token budget"),
+            "{}",
+            error.message
+        );
+    }
+
+    #[test]
+    fn a_message_loses_the_code_it_leads_with() {
+        assert_eq!(
+            without_code("E003: no such entity", "E003"),
+            "no such entity"
+        );
+        assert_eq!(without_code("no such entity", "E003"), "no such entity");
+        assert_eq!(without_code("E0031: odd", "E003"), "E0031: odd");
     }
 
     #[test]

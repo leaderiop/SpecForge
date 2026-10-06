@@ -8,7 +8,7 @@
 //! have, so it is added afterwards with `specforge add`.
 
 use crate::extension::{self, Source};
-use crate::{OpError, Writes};
+use crate::{OpError, OpErrorKind, Writes};
 use serde_json::{Value, json};
 use specforge_common::validate_project_name;
 use std::path::{Path, PathBuf};
@@ -81,6 +81,7 @@ pub fn plan(req: &Request) -> Result<Plan, OpError> {
         .find(|marker| req.dir.join(marker).exists())
     {
         return Err(OpError::new(
+            OpErrorKind::Conflict,
             PROJECT_EXISTS,
             format!("project already exists at {} ({marker})", req.dir.display()),
         ));
@@ -89,6 +90,7 @@ pub fn plan(req: &Request) -> Result<Plan, OpError> {
         && absolute(req.dir).starts_with(absolute(current))
     {
         return Err(OpError::new(
+            OpErrorKind::Conflict,
             PROJECT_EXISTS,
             format!(
                 "{} is inside the current project at {}",
@@ -162,7 +164,11 @@ pub fn plan(req: &Request) -> Result<Plan, OpError> {
 /// what init wrote (and its error reports nothing written).
 pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
     let write_error = |what: &str, e: std::io::Error| {
-        OpError::new("init_write_failed", format!("cannot write {what}: {e}"))
+        OpError::new(
+            OpErrorKind::of_io(&e),
+            "init_write_failed",
+            format!("cannot write {what}: {e}"),
+        )
     };
     let created_dir = !dir.exists();
     let spec_dir = dir.join(SPEC_ROOT);
@@ -236,6 +242,7 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
 
 fn invalid_name(name: &str, why: &str) -> OpError {
     OpError::new(
+        OpErrorKind::InvalidInput,
         INVALID_NAME,
         format!("invalid project name '{name}': {why}"),
     )
@@ -252,6 +259,7 @@ fn extensions_of(specifiers: &[String]) -> Result<(Vec<String>, Vec<PathBuf>), O
         let specifier = specifier.trim();
         let unresolvable = |why: String| {
             OpError::new(
+                OpErrorKind::ExtensionNotFound,
                 extension::NOT_FOUND,
                 format!("unresolvable extension '{specifier}': {why}"),
             )

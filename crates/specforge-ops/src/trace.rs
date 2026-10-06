@@ -271,7 +271,7 @@ impl From<TraceError> for OpError {
         let message = error.to_string();
         match error {
             TraceError::EntityNotFound { near, .. } => {
-                let op_error = OpError::new("E003", message);
+                let op_error = OpError::diagnostic("E003", message);
                 match near {
                     Some(near) => op_error.with_suggestion(format!("did you mean '{near}'?")),
                     None => op_error,

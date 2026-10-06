@@ -6,8 +6,8 @@
 //! comments and verify statements that mentions the ID is not a reference,
 //! and is left alone (ADR 0016).
 
-use crate::OpError;
 use crate::navigate::{Direction, Navigator, Precision, ReferenceQuery};
+use crate::{OpError, OpErrorKind};
 use specforge_graph::rename::{RenameEdit, apply_edits};
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -37,6 +37,7 @@ pub fn validate_id(id: &str) -> Result<(), OpError> {
         return Ok(());
     }
     Err(OpError::new(
+        OpErrorKind::InvalidInput,
         INVALID_ID,
         format!(
             "invalid entity ID '{id}': it must be 2-60 characters, letters, digits and \
@@ -76,15 +77,19 @@ pub fn plan<F: Fn(&str) -> Option<String>>(
     let graph = nav.view().graph;
     if graph.node(old_id).is_none() {
         return Err(OpError::new(
+            OpErrorKind::EntityNotFound,
             NOT_FOUND,
             format!("Entity not found: {old_id}"),
-        ));
+        )
+        .with_entity(old_id));
     }
     if graph.node(new_id).is_some() {
         return Err(OpError::new(
+            OpErrorKind::Conflict,
             TAKEN,
             format!("cannot rename '{old_id}': '{new_id}' exists"),
-        ));
+        )
+        .with_entity(old_id));
     }
     let query = ReferenceQuery {
         direction: Direction::Incoming,
@@ -99,6 +104,7 @@ pub fn plan<F: Fn(&str) -> Option<String>>(
     if !unreadable.is_empty() {
         let files: Vec<&str> = unreadable.into_iter().collect();
         return Err(OpError::new(
+            OpErrorKind::Internal,
             UNREADABLE,
             format!("cannot rename '{old_id}': cannot read {}", files.join(", ")),
         ));
@@ -131,6 +137,7 @@ pub fn apply(plan: &RenamePlan, spec_root: &Path) -> Result<crate::Writes, OpErr
         let path = spec_root.join(file);
         let old = std::fs::read_to_string(&path).map_err(|e| {
             OpError::new(
+                OpErrorKind::of_io(&e),
                 UNREADABLE,
                 format!("failed to read {}: {e}", path.display()),
             )
@@ -144,6 +151,7 @@ pub fn apply(plan: &RenamePlan, spec_root: &Path) -> Result<crate::Writes, OpErr
                 let _ = std::fs::write(written, old);
             }
             return Err(OpError::new(
+                OpErrorKind::of_io(&e),
                 UNREADABLE,
                 format!("failed to write {}: {e}", path.display()),
             ));

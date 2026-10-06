@@ -228,8 +228,13 @@ behavior serve_graph_resource "Serve Graph Resource via MCP" {
     format (equivalent to specforge export --format=context). The
     specforge://brief resource MUST return the minimal brief format
     (equivalent to specforge export --format=brief). All three resources
-    MUST support a scope query parameter to restrict output to a subgraph
-    rooted at a specific entity (e.g., specforge://context?scope=auth_login).
+    MUST support a scope query parameter (root is accepted as its alias) to
+    restrict output to a subgraph rooted at a specific entity (e.g.,
+    specforge://context?scope=auth_login), with depth, kinds and max_tokens as
+    specforge export takes them. Query keys and values are percent-decoded; an
+    unknown key, a repeated key, scope with root, a scope on a templated URI,
+    or a value that does not parse is refused as invalid input naming the key,
+    never ignored.
     Resources MUST follow the export schema policy through the function
     specforge export uses: specforge://graph embeds the GraphProtocolSchema
     for the full graph, carries a schema_ref when scoped, and leaves the
@@ -246,6 +251,8 @@ behavior serve_graph_resource "Serve Graph Resource via MCP" {
   verify unit "specforge://context returns token-optimized format"
   verify unit "specforge://brief returns minimal format"
   verify unit "scope query parameter restricts to subgraph"
+  verify unit "root is accepted as an alias of the scope query parameter"
+  verify unit "an unknown query key, a repeated key or a malformed value is invalid_input naming the key"
   verify integration "specforge://graph under max_tokens stays within the budget, as the budgeted export does"
   verify unit "resources reflect current compilation state"
   verify unit "compilation failure returns error resource with diagnostic summary"

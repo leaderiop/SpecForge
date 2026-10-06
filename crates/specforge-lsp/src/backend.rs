@@ -942,7 +942,7 @@ impl LanguageServer for Backend {
         // done whole is refused with why.
         let edits = match specforge_ops::rename::plan(&navigator(&state), id.as_str(), &new_name) {
             Ok(plan) => plan.edits,
-            Err(e) if e.code == specforge_ops::rename::NOT_FOUND => return Ok(None),
+            Err(e) if e.kind == specforge_ops::OpErrorKind::EntityNotFound => return Ok(None),
             Err(e) => return Err(tower_lsp::jsonrpc::Error::invalid_params(e.message)),
         };
 

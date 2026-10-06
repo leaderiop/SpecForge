@@ -12,6 +12,7 @@ pub mod registry;
 pub mod resources;
 pub mod state;
 pub mod subscriptions;
+mod surface_call;
 pub mod surface_table;
 pub mod target;
 pub mod tool;

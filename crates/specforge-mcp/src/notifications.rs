@@ -7,7 +7,7 @@ pub const GRAPH_CHANNEL: &str = "specforge/graphChanged";
 pub const DIAGNOSTICS_CHANNEL: &str = "specforge/diagnosticsChanged";
 
 use crate::state::McpState;
-use crate::subscriptions::subscribers;
+use crate::subscriptions::{Changes, Watched, subscribers};
 use specforge_common::Diagnostic;
 use specforge_project::Update;
 pub use specforge_project::{EdgeChange, GraphDelta, compute_graph_delta};
@@ -17,55 +17,30 @@ pub struct DiagnosticsDelta {
     pub removed: Vec<Diagnostic>,
 }
 
+/// What names a diagnostic in a delta: its code, its message and its file.
+fn identity(diagnostic: &Diagnostic) -> (&str, &str, &str) {
+    (
+        diagnostic.code.as_str(),
+        diagnostic.message.as_str(),
+        diagnostic
+            .span
+            .as_ref()
+            .map_or("", |span| span.file.as_str()),
+    )
+}
+
 pub fn compute_diagnostics_delta(old: &[Diagnostic], new: &[Diagnostic]) -> DiagnosticsDelta {
-    let old_keys: std::collections::HashSet<String> = old
-        .iter()
-        .map(|d| {
-            format!(
-                "{}:{}:{}",
-                d.code,
-                d.message,
-                d.span.as_ref().map(|s| s.file.as_str()).unwrap_or("")
-            )
-        })
-        .collect();
-    let new_keys: std::collections::HashSet<String> = new
-        .iter()
-        .map(|d| {
-            format!(
-                "{}:{}:{}",
-                d.code,
-                d.message,
-                d.span.as_ref().map(|s| s.file.as_str()).unwrap_or("")
-            )
-        })
-        .collect();
+    let old_keys: std::collections::HashSet<_> = old.iter().map(identity).collect();
+    let new_keys: std::collections::HashSet<_> = new.iter().map(identity).collect();
 
     let added: Vec<Diagnostic> = new
         .iter()
-        .filter(|d| {
-            let key = format!(
-                "{}:{}:{}",
-                d.code,
-                d.message,
-                d.span.as_ref().map(|s| s.file.as_str()).unwrap_or("")
-            );
-            !old_keys.contains(&key)
-        })
+        .filter(|d| !old_keys.contains(&identity(d)))
         .cloned()
         .collect();
-
     let removed: Vec<Diagnostic> = old
         .iter()
-        .filter(|d| {
-            let key = format!(
-                "{}:{}:{}",
-                d.code,
-                d.message,
-                d.span.as_ref().map(|s| s.file.as_str()).unwrap_or("")
-            );
-            !new_keys.contains(&key)
-        })
+        .filter(|d| !new_keys.contains(&identity(d)))
         .cloned()
         .collect();
 
@@ -123,60 +98,54 @@ pub fn format_diagnostics_notification(delta: &DiagnosticsDelta) -> Value {
 }
 
 /// Queue delta notifications after an update of the served project
-/// (C9-01): its delta is what changed in the graph, and the previous
-/// diagnostics are diffed against the fresh ones. One notification per
-/// subscribed channel goes onto the server→client outbox.
-/// Channels without subscribers are suppressed, and unchanged state emits
-/// nothing.
+/// (C9-01): what changed in the graph is the update's delta, and the previous
+/// diagnostics are diffed against the fresh ones, once, for both
+/// subscription eras ([`Changes`]). Streams opened with `subscriptions/listen`
+/// (MCP 2026-07-28) hear that a resource they listen to changed; each
+/// subscribed handshake channel gets one notification onto the
+/// server→client outbox. Channels without subscribers are suppressed, and
+/// unchanged state emits nothing.
 pub fn enqueue_compile_notifications(
     state: &mut McpState,
     update: &Update,
     previous_diagnostics: &[Diagnostic],
 ) {
-    let graph_delta = &update.delta;
-    // Streams opened with subscriptions/listen (MCP 2026-07-28) hear that a
-    // resource they listen to changed.
+    if state.listens.is_empty() && state.subscriptions.is_empty() {
+        return;
+    }
+    let changes = Changes::of(update, previous_diagnostics, &state.diagnostics());
     if !state.listens.is_empty() {
-        let graph_changed = !graph_delta.is_empty();
-        let diagnostics_delta =
-            compute_diagnostics_delta(previous_diagnostics, &state.diagnostics());
-        let diagnostics_changed =
-            !diagnostics_delta.added.is_empty() || !diagnostics_delta.removed.is_empty();
-        crate::modern::enqueue_resource_updates(state, graph_changed, diagnostics_changed);
+        crate::modern::enqueue_resource_updates(state, &changes);
     }
 
-    if !subscribers(state, GRAPH_CHANNEL).is_empty() && !graph_delta.is_empty() {
-        state
-            .notification_outbox
-            .push(format_graph_notification(graph_delta));
-        state.push_event(
-            "mcp_delta_notified",
-            serde_json::json!({
-                "notificationType": "graph",
-                "subscriberCount": subscribers(state, GRAPH_CHANNEL).len(),
-                "addedNodes": graph_delta.added_nodes.len(),
-                "removedNodes": graph_delta.removed_nodes.len(),
-                "modifiedNodes": graph_delta.modified_nodes.len(),
-            }),
-        );
-    }
-
-    if !subscribers(state, DIAGNOSTICS_CHANNEL).is_empty() {
-        let diag_delta = compute_diagnostics_delta(previous_diagnostics, &state.diagnostics());
-        if !diag_delta.added.is_empty() || !diag_delta.removed.is_empty() {
-            state
-                .notification_outbox
-                .push(format_diagnostics_notification(&diag_delta));
-            state.push_event(
-                "mcp_delta_notified",
+    for watched in [Watched::Graph, Watched::Diagnostics] {
+        let subscriber_count = subscribers(state, watched).len();
+        if subscriber_count == 0 || !changes.touched(watched) {
+            continue;
+        }
+        let (notification, event) = match watched {
+            Watched::Graph => (
+                format_graph_notification(changes.graph),
+                serde_json::json!({
+                    "notificationType": "graph",
+                    "subscriberCount": subscriber_count,
+                    "addedNodes": changes.graph.added_nodes.len(),
+                    "removedNodes": changes.graph.removed_nodes.len(),
+                    "modifiedNodes": changes.graph.modified_nodes.len(),
+                }),
+            ),
+            Watched::Diagnostics => (
+                format_diagnostics_notification(&changes.diagnostics),
                 serde_json::json!({
                     "notificationType": "diagnostics",
-                    "subscriberCount": subscribers(state, DIAGNOSTICS_CHANNEL).len(),
-                    "addedDiagnostics": diag_delta.added.len(),
-                    "removedDiagnostics": diag_delta.removed.len(),
+                    "subscriberCount": subscriber_count,
+                    "addedDiagnostics": changes.diagnostics.added.len(),
+                    "removedDiagnostics": changes.diagnostics.removed.len(),
                 }),
-            );
-        }
+            ),
+        };
+        state.notification_outbox.push(notification);
+        state.push_event("mcp_delta_notified", event);
     }
 }
 

@@ -24,8 +24,8 @@ use std::rc::Rc;
 
 use specforge_common::{SourceSpan, Sym};
 
-use crate::OpError;
 use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind};
 
 pub use attribution::{is_about, subjects};
 pub use files::{
@@ -88,7 +88,12 @@ impl<'a, F: Fn(&str) -> Option<String>> Navigator<'a, F> {
 
 /// The error of a question about `id`, which no entity declares.
 pub fn not_found(id: &str) -> OpError {
-    OpError::new(NOT_FOUND, format!("Entity not found: {id}"))
+    OpError::new(
+        OpErrorKind::EntityNotFound,
+        NOT_FOUND,
+        format!("Entity not found: {id}"),
+    )
+    .with_entity(id)
 }
 
 /// Whether span `inner` lies within `outer`: same file, and its start and

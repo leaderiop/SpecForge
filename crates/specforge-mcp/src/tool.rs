@@ -10,9 +10,10 @@ use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 
 use crate::mutation::Mutated;
-use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::target::{Call, TargetSpec};
 use crate::types::McpToolDescriptor;
+use specforge_ops::{OpError, OpErrorKind};
 
 /// A tool's role: the spec's `McpToolCategory`. Where a tool comes from is
 /// its `source`, a separate field (ADR 0004 D4-b).
@@ -112,7 +113,8 @@ pub struct ToolSpec {
     /// result is a JSON object.
     pub output: Option<fn() -> Value>,
     /// The fields of the handler's `Args` struct ([`crate::args::fields`]):
-    /// the arguments it reads.
+    /// the arguments it reads, beside the ones its target reads
+    /// ([`Self::reads`]).
     pub fields: fn() -> &'static [&'static str],
     /// Which project it acts on, and whether that project is brought up
     /// to date first: resolved into the call's target before the handler.
@@ -123,12 +125,41 @@ pub struct ToolSpec {
 }
 
 impl ToolSpec {
+    /// The input schema `tools/list` lists: [`Self::schema`] with the
+    /// target's properties merged in and its required arguments added.
+    pub fn input_schema(&self) -> Value {
+        let mut schema = (self.schema)();
+        if let Some(properties) = schema.get_mut("properties").and_then(Value::as_object_mut) {
+            properties.extend(self.target.properties());
+        }
+        let required = self.target.required();
+        if !required.is_empty() {
+            let listed = schema
+                .as_object_mut()
+                .map(|schema| schema.entry("required").or_insert_with(|| json!([])));
+            if let Some(Value::Array(listed)) = listed {
+                listed.extend(required.iter().map(|name| Value::from(*name)));
+            }
+        }
+        schema
+    }
+
+    /// Every argument the call reads: the handler's `Args` fields, then the
+    /// target's ([`TargetSpec::fields`]).
+    pub fn reads(&self) -> Vec<&'static str> {
+        (self.fields)()
+            .iter()
+            .chain(self.target.fields())
+            .copied()
+            .collect()
+    }
+
     /// The tool as `tools/list` describes it.
     pub fn descriptor(&self) -> McpToolDescriptor {
         McpToolDescriptor {
             name: self.name.into(),
             description: self.description.into(),
-            input_schema: (self.schema)(),
+            input_schema: self.input_schema(),
             output_schema: self.output.map(|schema| schema()),
             category: Some(self.category.as_str().into()),
             source: Some(CORE_SOURCE.into()),
@@ -193,17 +224,28 @@ impl ErrorCode {
         }
     }
 
-    /// The code a failure reported with diagnostic `code` carries.
+    /// The code a failure reported with diagnostic `code` carries: the
+    /// kind operations give it ([`OpErrorKind::of_diagnostic`]).
     pub fn for_diagnostic(code: &str) -> Self {
-        match code {
-            "E003" => ErrorCode::EntityNotFound,
-            "E019" | "E054" | "E064" => ErrorCode::InvalidInput,
-            "E027" => ErrorCode::Conflict,
-            "E045" => ErrorCode::SchemaMismatch,
-            "E058" | "E063" => ErrorCode::PreconditionFailed,
-            "E059" => ErrorCode::PermissionDenied,
-            "R004" => ErrorCode::Timeout,
-            _ => ErrorCode::InternalError,
+        OpErrorKind::of_diagnostic(code).into()
+    }
+}
+
+/// The code an operation's failure kind is reported as: total, one arm per
+/// kind (ADR 0024 D15).
+impl From<OpErrorKind> for ErrorCode {
+    fn from(kind: OpErrorKind) -> Self {
+        match kind {
+            OpErrorKind::InvalidInput => ErrorCode::InvalidInput,
+            OpErrorKind::EntityNotFound => ErrorCode::EntityNotFound,
+            OpErrorKind::FileNotFound => ErrorCode::FileNotFound,
+            OpErrorKind::ExtensionNotFound => ErrorCode::ExtensionNotFound,
+            OpErrorKind::Conflict => ErrorCode::Conflict,
+            OpErrorKind::SchemaMismatch => ErrorCode::SchemaMismatch,
+            OpErrorKind::PreconditionFailed => ErrorCode::PreconditionFailed,
+            OpErrorKind::PermissionDenied => ErrorCode::PermissionDenied,
+            OpErrorKind::Timeout => ErrorCode::Timeout,
+            OpErrorKind::Internal => ErrorCode::InternalError,
         }
     }
 }
@@ -218,6 +260,9 @@ pub struct McpError {
     pub tool: Option<String>,
     /// The prompt that refused: a `prompts/get` answered with an error.
     pub prompt: Option<String>,
+    /// The URI of the resource whose read failed: a `resources/read`
+    /// answered with an error (the URI read).
+    pub uri: Option<String>,
     pub entity_id: Option<String>,
     pub argument: Option<String>,
     pub diagnostic: Option<Value>,
@@ -234,6 +279,7 @@ impl McpError {
             message: message.into(),
             tool: None,
             prompt: None,
+            uri: None,
             entity_id: None,
             argument: None,
             diagnostic: None,
@@ -299,12 +345,27 @@ impl McpError {
         }
     }
 
+    /// This refusal as the JSON-RPC error of a request that has no `isError`
+    /// result (`prompts/get`, `resources/read`): -32602 when the client can
+    /// fix it (it names an argument the client sent, or
+    /// [`ErrorCode::rpc_code`] marks its code as input), else -32603; its
+    /// data is this McpError (ADR 0004 D4-d, ADR 0024 D5).
+    pub fn into_rpc_error(self) -> JsonRpcError {
+        let code = if self.argument.is_some() {
+            error_codes::INVALID_PARAMS
+        } else {
+            self.code.rpc_code()
+        };
+        JsonRpcError::new(code, self.message.clone()).with_data(self.to_json())
+    }
+
     /// The error as its `isError` result carries it.
     pub fn to_json(&self) -> Value {
         let mut error = json!({ "code": self.code.as_str(), "message": self.message });
         for (key, value) in [
             ("tool", self.tool.clone().map(Value::from)),
             ("prompt", self.prompt.clone().map(Value::from)),
+            ("uri", self.uri.clone().map(Value::from)),
             ("entity_id", self.entity_id.clone().map(Value::from)),
             ("argument", self.argument.clone().map(Value::from)),
             ("diagnostic", self.diagnostic.clone()),
@@ -315,6 +376,33 @@ impl McpError {
             }
         }
         error
+    }
+}
+
+/// An operation's failure as an `McpError`: its kind picks the code. A
+/// diagnostic code (`E027`) rides in `diagnostic`, with its suggestion; a
+/// slug's suggestion and the operation's own data ride in `data`; the
+/// entity the failure is about is `entity_id`.
+impl From<OpError> for McpError {
+    fn from(error: OpError) -> Self {
+        let mut mcp_error = McpError::new(error.kind.into(), error.message.clone());
+        let mut data = error.data.map_or_else(|| json!({}), |data| *data);
+        if is_diagnostic_code(&error.code) {
+            let mut diagnostic = Diagnostic::error(error.code.as_ref(), error.message);
+            if let Some(suggestion) = error.suggestion {
+                diagnostic = diagnostic.with_suggestion(suggestion);
+            }
+            mcp_error = mcp_error.with_diagnostic(&diagnostic);
+        } else if let Some(suggestion) = error.suggestion {
+            data["suggestion"] = Value::from(suggestion);
+        }
+        if data.as_object().is_some_and(|d| !d.is_empty()) {
+            mcp_error = mcp_error.with_data(data);
+        }
+        match error.entity {
+            Some(entity) => mcp_error.with_entity(entity),
+            None => mcp_error,
+        }
     }
 }
 
@@ -606,6 +694,49 @@ mod tests {
     ];
 
     #[test]
+    fn every_operation_kind_has_an_error_code() {
+        for (kind, code) in [
+            (OpErrorKind::InvalidInput, ErrorCode::InvalidInput),
+            (OpErrorKind::EntityNotFound, ErrorCode::EntityNotFound),
+            (OpErrorKind::FileNotFound, ErrorCode::FileNotFound),
+            (OpErrorKind::ExtensionNotFound, ErrorCode::ExtensionNotFound),
+            (OpErrorKind::Conflict, ErrorCode::Conflict),
+            (OpErrorKind::SchemaMismatch, ErrorCode::SchemaMismatch),
+            (
+                OpErrorKind::PreconditionFailed,
+                ErrorCode::PreconditionFailed,
+            ),
+            (OpErrorKind::PermissionDenied, ErrorCode::PermissionDenied),
+            (OpErrorKind::Timeout, ErrorCode::Timeout),
+            (OpErrorKind::Internal, ErrorCode::InternalError),
+        ] {
+            assert_eq!(ErrorCode::from(kind), code, "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn an_operation_failure_is_an_mcp_error_by_its_kind() {
+        let error: McpError = OpError::new(OpErrorKind::Conflict, "entity_exists", "taken")
+            .with_entity("alpha")
+            .with_suggestion("pick another")
+            .into();
+        let json = error.to_json();
+        assert_eq!(json["code"], "conflict");
+        assert_eq!(json["entity_id"], "alpha");
+        assert_eq!(json["data"]["suggestion"], "pick another");
+        assert!(json.get("diagnostic").is_none(), "{json}");
+
+        let error: McpError = OpError::diagnostic("E062", "the budget is too small")
+            .with_suggestion("raise it")
+            .into();
+        let json = error.to_json();
+        assert_eq!(json["code"], "invalid_input");
+        assert_eq!(json["diagnostic"]["code"], "E062");
+        assert_eq!(json["diagnostic"]["suggestion"], "raise it");
+        assert_eq!(json["message"], "the budget is too small");
+    }
+
+    #[test]
     fn every_error_code_has_a_json_rpc_code() {
         for code in ALL {
             let rpc = code.rpc_code();
@@ -627,6 +758,41 @@ mod tests {
         error.prompt = Some("specforge://prompts/context".into());
         assert_eq!(error.to_json()["prompt"], "specforge://prompts/context");
         assert!(error.to_json().get("tool").is_none());
+    }
+
+    #[test]
+    fn a_resources_refusal_names_the_uri() {
+        let mut error = McpError::new(ErrorCode::InvalidInput, "no");
+        assert!(error.to_json().get("uri").is_none());
+        error.uri = Some("specforge://graph?depth=two".into());
+        assert_eq!(error.to_json()["uri"], "specforge://graph?depth=two");
+        assert!(error.to_json().get("resource").is_none());
+        assert!(error.to_json().get("prompt").is_none());
+    }
+
+    #[test]
+    fn a_refusal_without_is_error_is_invalid_params_when_the_client_can_fix_it() {
+        let rpc = |error: McpError| error.into_rpc_error();
+        // An argument it named, whatever its code.
+        let named = McpError::new(ErrorCode::FileNotFound, "path not found").with_argument("path");
+        let named = rpc(named);
+        assert_eq!(named.code, error_codes::INVALID_PARAMS);
+        assert_eq!(named.data.as_ref().unwrap()["argument"], "path");
+        // A code that is input.
+        assert_eq!(
+            rpc(McpError::new(ErrorCode::EntityNotFound, "no")).code,
+            error_codes::INVALID_PARAMS
+        );
+        // A failure on the server's side, and a missing project (no params
+        // fix it).
+        assert_eq!(
+            rpc(McpError::new(ErrorCode::InternalError, "no")).code,
+            error_codes::INTERNAL_ERROR
+        );
+        assert_eq!(
+            rpc(McpError::new(ErrorCode::PreconditionFailed, "no")).code,
+            error_codes::INTERNAL_ERROR
+        );
     }
 
     #[test]

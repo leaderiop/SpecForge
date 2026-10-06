@@ -18,6 +18,6 @@ pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
     };
     match specforge_ops::infer::gaps(&project.view(), project.runtime.as_ref()) {
         Ok(gaps) => ToolOutcome::ok(gaps.to_json()),
-        Err(error) => crate::operations::op_error(error).into(),
+        Err(error) => crate::tool::McpError::from(error).into(),
     }
 }

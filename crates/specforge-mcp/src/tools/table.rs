@@ -86,11 +86,9 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" },
                     "severity_filter": names_schema(specforge_ops::check::SEVERITY_NAMES, "Only report diagnostics of this severity, after strict promotion (case-insensitive). The verdict in _meta[\"specforge/check\"] still counts everything reported"),
                     "strict": { "type": "boolean", "description": "Promote warnings to errors, before severity_filter applies", "default": false },
-                    "lint": { "type": "array", "items": names_schema(specforge_project::LINT_PROFILE_NAMES, "A lint profile"), "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)" },
-                    "use_cached": { "type": "boolean", "description": "Report cached diagnostics from the last compile instead of recompiling", "default": false }
+                    "lint": { "type": "array", "items": names_schema(specforge_project::LINT_PROFILE_NAMES, "A lint profile"), "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)" }
                 }
             })
         },
@@ -110,9 +108,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "properties": {
                     "pass": { "type": "string", "description": "Analysis pass to run: all, coverage, contracts, or a pass an extension declares (`<extension>:<pass>`)", "default": specforge_ops::analyze::EVERY_PASS },
                     "strict": { "type": "boolean", "description": "Promote warnings to errors" },
-                    "test_results": { "type": "string", "description": "Path to a specforge-report.json for proof-level verdicts" },
-                    "use_cached": { "type": "boolean", "description": "Analyze the last compiled graph instead of recompiling (a server with no graph compiles anyway)", "default": false },
-                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
+                    "test_results": { "type": "string", "description": "Path to a specforge-report.json for proof-level verdicts" }
                 }
             })
         },
@@ -555,7 +551,6 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" },
                     "paths": { "type": "array", "items": { "type": "string" }, "description": "Files or directories to format, relative to the project root (defaults to every spec file)" },
                     "check": { "type": "boolean", "description": "Check only, don't modify", "default": false },
                     "diff": { "type": "boolean", "description": "Return a before/after diff for each file that would change, without modifying it", "default": false },
@@ -587,8 +582,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "properties": {
                     "entity_id": { "type": "string", "description": "Current entity ID" },
                     "new_name": { "type": "string", "description": "New entity ID" },
-                    "dry_run": { "type": "boolean", "description": "Return the rename plan without changing any file", "default": false },
-                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
+                    "dry_run": { "type": "boolean", "description": "Return the rename plan without changing any file", "default": false }
                 },
                 "required": ["entity_id", "new_name"]
             })
@@ -615,12 +609,10 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "Directory for the new project, outside the current one" },
                     "name": { "type": "string", "description": "Project name (defaults to the directory name)" },
                     "version": { "type": "string", "description": "Project version", "default": "0.1.0" },
                     "extensions": { "type": "array", "items": { "type": "string" }, "description": "Builtin extensions to enable (e.g. @specforge/software) and local .wasm files to install" }
-                },
-                "required": ["path"]
+                }
             })
         },
         output: Some(|| {
@@ -647,8 +639,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "properties": {
                     "specifier": { "type": "string", "description": "Extension specifier" },
                     "dry_run": { "type": "boolean", "description": "Preview the install without changing any file", "default": false },
-                    "allow_unsigned": { "type": "boolean", "description": "Accept a registry package with no publisher signature (publisher verification skipped)", "default": false },
-                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
+                    "allow_unsigned": { "type": "boolean", "description": "Accept a registry package with no publisher signature (publisher verification skipped)", "default": false }
                 },
                 "required": ["specifier"]
             })
@@ -677,8 +668,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "properties": {
                     "name": { "type": "string", "description": "Extension name" },
                     "force": { "type": "boolean", "description": "Force removal", "default": false },
-                    "dry_run": { "type": "boolean", "description": "Preview the removal, orphan warnings included, without changing any file", "default": false },
-                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
+                    "dry_run": { "type": "boolean", "description": "Preview the removal, orphan warnings included, without changing any file", "default": false }
                 },
                 "required": ["name"]
             })
@@ -707,8 +697,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "properties": {
                     "dry_run": { "type": "boolean", "description": "Return the diffs without changing any file", "default": false },
                     "target_version": { "type": "string", "description": "Format version to migrate to, as MAJOR.MINOR (defaults to the current format version)" },
-                    "no_backup": { "type": "boolean", "description": "Skip the .bak backup of each migrated file", "default": false },
-                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
+                    "no_backup": { "type": "boolean", "description": "Skip the .bak backup of each migrated file", "default": false }
                 }
             })
         },
@@ -755,9 +744,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
         schema: || {
             json!({
                 "type": "object",
-                "properties": {
-                    "use_cached": { "type": "boolean", "description": "Check the last compile instead of recompiling the project", "default": false }
-                }
+                "properties": {}
             })
         },
         output: Some(
@@ -781,8 +768,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "type": "object",
                 "properties": {
                     "runner": { "type": "string", "description": "Collector name (e.g. cargo-test); detected from project files if omitted" },
-                    "run": { "type": "boolean", "description": "Run the test command first; it must have been approved with `specforge collect` in a terminal (default false: parse the existing report)" },
-                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
+                    "run": { "type": "boolean", "description": "Run the test command first; it must have been approved with `specforge collect` in a terminal (default false: parse the existing report)" }
                 }
             })
         },
@@ -994,39 +980,13 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
 #[cfg(test)]
 mod tests {
     use super::CORE_TOOLS;
-    use crate::target::{Freshness, Reach};
+    use crate::target::Reach;
 
-    /// The arguments a tool's schema declares.
-    fn declares(tool: &crate::tool::ToolSpec, argument: &str) -> bool {
-        (tool.schema)()["properties"].get(argument).is_some()
-    }
-
-    #[specforge_test_macros::test(
-        behavior = "list_mcp_tools",
-        verify = "every tool that reads path or use_cached declares it in its target"
-    )]
-    fn every_tool_declares_how_it_reaches_its_project() {
+    /// A tool that writes the files of the project its path names is a
+    /// mutation; one that reads no project takes no path.
+    #[test]
+    fn a_tool_that_writes_its_target_is_a_mutation() {
         for tool in CORE_TOOLS {
-            let reaches_by_path = matches!(
-                tool.target.reach,
-                Reach::AnyProject | Reach::WritesAnyProject | Reach::NewProject
-            );
-            assert_eq!(
-                declares(tool, "path"),
-                reaches_by_path,
-                "{}: path in its schema, yet reach {:?}",
-                tool.name,
-                tool.target.reach
-            );
-            assert_eq!(
-                declares(tool, "use_cached"),
-                tool.target.freshness == Freshness::FreshUnlessCached,
-                "{}: use_cached in its schema, yet freshness {:?}",
-                tool.name,
-                tool.target.freshness
-            );
-            // A tool that writes the files of the project its path names
-            // is a mutation; one that reads no project reads no path.
             if tool.target.reach == Reach::WritesAnyProject {
                 assert!(
                     matches!(tool.handler, crate::tool::Handler::Mutation(_)),
@@ -1035,7 +995,13 @@ mod tests {
                 );
             }
             if tool.target.reach == Reach::Unscoped {
-                assert!(!declares(tool, "path"), "{}", tool.name);
+                assert!(
+                    !tool.input_schema()["properties"]
+                        .as_object()
+                        .is_some_and(|properties| properties.contains_key("path")),
+                    "{}",
+                    tool.name
+                );
             }
         }
     }

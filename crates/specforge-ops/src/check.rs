@@ -16,8 +16,8 @@ use serde_json::{Value, json};
 use specforge_common::{Diagnostic, Severity};
 use specforge_project::{BuildCache, DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile};
 
-use crate::OpError;
 use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind};
 
 /// What to report and record. `Default` is a plain `specforge check`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -164,11 +164,11 @@ impl std::error::Error for CheckError {}
 /// closest valid name as its suggestion; a missing root is `no_project`.
 impl From<CheckError> for OpError {
     fn from(error: CheckError) -> Self {
-        let code = match error {
-            CheckError::NoProjectRoot => "no_project",
-            _ => "invalid_input",
+        let (kind, code) = match error {
+            CheckError::NoProjectRoot => (OpErrorKind::PreconditionFailed, "no_project"),
+            _ => (OpErrorKind::InvalidInput, "invalid_input"),
         };
-        let op_error = OpError::new(code, error.to_string());
+        let op_error = OpError::new(kind, code, error.to_string());
         match error.suggestion() {
             Some(suggestion) => op_error.with_suggestion(suggestion),
             None => op_error,

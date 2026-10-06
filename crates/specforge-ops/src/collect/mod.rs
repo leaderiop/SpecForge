@@ -14,8 +14,8 @@
 
 mod convention;
 
-use crate::OpError;
 use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind};
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, Severity};
 use specforge_project::coverage::{ReportedEntity, ReportedTest, TestReport};
@@ -635,8 +635,9 @@ impl Consent<'_> {
     }
 }
 
+/// A failure reported as diagnostic `code` (E058, E045).
 fn fail(code: &'static str, message: impl Into<String>) -> OpError {
-    OpError::new(code, message)
+    OpError::diagnostic(code, message)
 }
 
 /// What happened for one collector.
@@ -792,7 +793,7 @@ pub fn collect(
         });
     }
 
-    let report = save_report(root, &report).map_err(|m| fail("E056", m))?;
+    let report = save_report(root, &report)?;
     Ok(Outcome {
         runners,
         diagnostics,
@@ -869,10 +870,16 @@ pub fn load_report(root: &Path) -> TestReport {
 }
 
 /// Write `specforge-report.json`.
-pub fn save_report(root: &Path, report: &TestReport) -> Result<PathBuf, String> {
+pub fn save_report(root: &Path, report: &TestReport) -> Result<PathBuf, OpError> {
     let path = root.join(REPORT_FILE);
     let json = serde_json::to_string_pretty(report).expect("report serialization cannot fail");
-    std::fs::write(&path, json).map_err(|e| format!("failed to write {}: {e}", path.display()))?;
+    std::fs::write(&path, json).map_err(|e| {
+        OpError::new(
+            OpErrorKind::of_io(&e),
+            "E056",
+            format!("failed to write {}: {e}", path.display()),
+        )
+    })?;
     Ok(path)
 }
 

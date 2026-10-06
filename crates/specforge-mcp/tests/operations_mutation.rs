@@ -751,6 +751,19 @@ fn init_creates_the_project() {
 
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
+    verify = "init without a path is invalid_input on path"
+)]
+fn init_without_a_path_is_invalid_input_on_path() {
+    let mut server = test_server();
+    let error = init_error(&mut server, json!({"name": "myproject"}));
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "path", "{error}");
+    assert_eq!(error["message"], "Missing required parameter: path");
+    assert_eq!(error["tool"], "specforge.init", "{error}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
     verify = "extensions installed when specified"
 )]
 fn init_adds_the_requested_extensions_to_the_config() {

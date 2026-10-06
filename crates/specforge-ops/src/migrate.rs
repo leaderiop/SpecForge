@@ -30,14 +30,14 @@ pub fn parse_target(raw: Option<&str>) -> Result<FormatVersion, OpError> {
         "Use a format version between {MIN_SUPPORTED_VERSION} and {MAX_SUPPORTED_VERSION}."
     );
     match raw.parse::<FormatVersion>() {
-        Ok(version) if version > MAX_SUPPORTED_VERSION => Err(OpError::new(
+        Ok(version) if version > MAX_SUPPORTED_VERSION => Err(OpError::diagnostic(
             "E019",
             format!("unsupported target version {raw} (max supported: {MAX_SUPPORTED_VERSION})"),
         )
         .with_suggestion(supported)),
         Ok(version) => Ok(version),
         Err(e) => Err(
-            OpError::new("E019", format!("invalid target version '{raw}': {e}"))
+            OpError::diagnostic("E019", format!("invalid target version '{raw}': {e}"))
                 .with_suggestion(supported),
         ),
     }

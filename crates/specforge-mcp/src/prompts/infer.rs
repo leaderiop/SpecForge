@@ -251,14 +251,17 @@ fn unknown_kind(project: &ProjectView, kind_name: &str) -> McpError {
         .flat_map(|d| d.entities.iter())
         .map(|k| keyword(k).to_lowercase())
         .collect();
-    let mut error =
-        specforge_ops::OpError::new("unknown_kind", format!("unknown entity kind '{kind_name}'"));
+    let mut error = specforge_ops::OpError::new(
+        specforge_ops::OpErrorKind::InvalidInput,
+        "unknown_kind",
+        format!("unknown entity kind '{kind_name}'"),
+    );
     if let Some(close) =
         specforge_common::find_close_match(kind_name, installed.iter().map(String::as_str))
     {
         error = error.with_suggestion(format!("did you mean '{close}'?"));
     }
-    crate::operations::op_error(error).with_argument("scope")
+    McpError::from(error).with_argument("scope")
 }
 
 fn get_file_scoped(project: &ProjectView, file_path: &str) -> PromptOutcome {

@@ -7,12 +7,12 @@
 //! [`HttpRegistry`] and pass it in.
 
 use specforge_common::Diagnostic;
-use specforge_ops::OpError;
 use specforge_ops::config::CONFIG_FILE;
 use specforge_ops::extension::Trust;
 use specforge_ops::registry::{
     METADATA_MISMATCH, Package, Registry, UNREADABLE_MANIFEST, is_range, no_registry,
 };
+use specforge_ops::{OpError, OpErrorKind};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry_client::{
     HttpRegistryClient, RegistryConfig, find_registry_for_specifier, parse_registries_from_config,
@@ -55,7 +55,7 @@ pub fn configured(root: &Path, operation: &str) -> Result<Configured, OpError> {
             return Err(no_registry(operation));
         }
         return Err(
-            OpError::new(INVALID_CONFIG, unreadable.join("; ")).with_suggestion(
+            OpError::new(OpErrorKind::SchemaMismatch, INVALID_CONFIG, unreadable.join("; ")).with_suggestion(
                 "fix the \"registries\" entries in specforge.json: each needs an \"alias\" and a \"url\"",
             ),
         );
@@ -140,6 +140,7 @@ impl Registry for HttpRegistry {
         // installed in place of the one asked for.
         if response.name != name || response.version != version {
             return Err(OpError::new(
+                OpErrorKind::SchemaMismatch,
                 METADATA_MISMATCH,
                 format!(
                     "registry answered {name}@{version} with {}@{}",
@@ -163,6 +164,7 @@ impl Registry for HttpRegistry {
         let declaration = read_declaration(name, version, &response.manifest)?;
         if declaration.name() != name || declaration.version() != version {
             return Err(OpError::new(
+                OpErrorKind::SchemaMismatch,
                 METADATA_MISMATCH,
                 format!(
                     "registry served {name}@{version} with the declaration of {}@{}",
@@ -219,6 +221,7 @@ fn read_declaration(
 ) -> Result<ExtensionDeclaration, OpError> {
     let unreadable = |why: String| {
         OpError::new(
+            OpErrorKind::SchemaMismatch,
             UNREADABLE_MANIFEST,
             format!("the manifest of {name}@{version} can't be read: {why}"),
         )

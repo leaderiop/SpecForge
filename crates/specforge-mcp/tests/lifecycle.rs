@@ -586,7 +586,7 @@ fn cancel_state_consistent() {
     specforge_mcp::subscriptions::subscribe(
         server.state_mut(),
         "client1",
-        "specforge/graphChanged",
+        specforge_mcp::subscriptions::Watched::Graph,
     );
     let before = state_snapshot(&server);
     assert_eq!(before["nodes"], json!(["greeting", "hello_world"]));

@@ -45,7 +45,13 @@ pub fn run(
     let output = match export::export(&view, &request) {
         Ok(output) => output,
         Err(err) => {
-            eprintln!("{}", err.message);
+            // A diagnostic's code leads its message, as `specforge export`
+            // has always said it (`E062: the token budget …`).
+            if err.code.starts_with(|c: char| c.is_ascii_uppercase()) {
+                eprintln!("{}: {}", err.code, err.message);
+            } else {
+                eprintln!("{}", err.message);
+            }
             return 1;
         }
     };

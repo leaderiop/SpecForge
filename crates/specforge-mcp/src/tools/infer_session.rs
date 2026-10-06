@@ -41,7 +41,7 @@ pub struct Args {
 /// (a mutation that names it); a refusal writes nothing.
 pub fn call(call: &mut Call<'_>, args: Args) -> Mutated {
     let Some(project_root) = call.root().map(std::path::Path::to_path_buf) else {
-        return Mutated::refused(crate::target::no_project());
+        return Mutated::refused(crate::target::no_project(crate::target::Reach::Served));
     };
     let state = &*call.state;
 

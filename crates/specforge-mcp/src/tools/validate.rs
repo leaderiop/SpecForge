@@ -7,20 +7,12 @@ use specforge_ops::check::{CheckError, CheckOptions, check, parse_lint_profiles,
 
 #[derive(Debug, Deserialize)]
 pub struct Args {
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     severity_filter: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     strict: Option<bool>,
     #[serde(default, deserialize_with = "strings")]
     lint: Vec<String>,
-    /// Read by the call's target (`Freshness::FreshUnlessCached`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target applies use_cached")]
-    use_cached: Option<bool>,
 }
 
 /// The `_meta` key of validate's verdict: `{ok, errors, warnings, infos,
@@ -64,10 +56,12 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
 /// Why validate could not run: an argument it cannot use (`invalid_input`
 /// naming it, with the closest valid name), or no project root.
 fn refused(error: CheckError, argument: &str) -> ToolOutcome {
-    match error {
-        CheckError::NoProjectRoot => ToolOutcome::no_project(error.to_string()),
-        error => crate::operations::op_error(error.into())
-            .with_argument(argument)
-            .into(),
+    let error = specforge_ops::OpError::from(error);
+    let argument = (error.kind == specforge_ops::OpErrorKind::InvalidInput).then_some(argument);
+    let refused = crate::tool::McpError::from(error);
+    match argument {
+        Some(argument) => refused.with_argument(argument),
+        None => refused,
     }
+    .into()
 }

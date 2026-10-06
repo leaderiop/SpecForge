@@ -182,6 +182,7 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
   verify unit "unknown extension returns error with diagnostic"
   verify unit "version parameter overrides default 0.1.0"
   verify unit "specforge.init result includes the starter file path and installed extensions"
+  verify unit "init without a path is invalid_input on path"
   verify integration "MCP init followed by check produces zero errors"
   verify integration "specforge.init writes the files and config specforge init writes for the same inputs"
   verify contract "Provide MCP Init Tool: MCP init tool holds — filesystem_available, project_created, path_outside_current, extensions_validated, project_initialized_emitted, tool_invoked_emitted"

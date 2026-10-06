@@ -2,7 +2,7 @@
 //! version can satisfy every requirer of a peer before it installs,
 //! instead of leaving `doctor` to find the conflict afterwards.
 
-use crate::OpError;
+use crate::{OpError, OpErrorKind};
 use semver::{Version, VersionReq};
 use specforge_common::{Diagnostic, Severity};
 use specforge_registry::PeerDependency;
@@ -41,6 +41,7 @@ pub fn check_diamonds(
         return match unify_diamond(&peer.name, &published, &requirers)
         {
             Ok(unified) => Err(OpError::new(
+                OpErrorKind::Conflict,
                 "R-RES-006",
                 format!(
                     "version diamond: '{package}' requires peer '{}' {} but {} is locked; {} {unified} would satisfy every requirer",
@@ -223,7 +224,7 @@ mod tests {
             &lock("^1.0"),
             "@acme/app",
             &[peer("@acme/base", "^2.0")],
-            &|_| Err(OpError::new("E063", "no registry")),
+            &|_| Err(OpError::diagnostic("E063", "no registry")),
         )
         .unwrap_err();
         assert_eq!(err.code, "E063");

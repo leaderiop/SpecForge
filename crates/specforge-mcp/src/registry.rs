@@ -36,9 +36,6 @@ pub fn listed_resources(state: &McpState) -> impl Iterator<Item = McpResourceDes
 }
 
 pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResponse {
-    if !state.is_initialized() {
-        return JsonRpcResponse::error(id, -32600, "Server not initialized");
-    }
     // outputSchema came with structuredContent, in 2025-06-18.
     let structured = state.sends_structured_content();
     let tools: Vec<Value> = listed_tools(state)
@@ -55,9 +52,6 @@ pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResp
 }
 
 pub fn handle_list_resources(state: &mut McpState, id: Option<Value>) -> JsonRpcResponse {
-    if !state.is_initialized() {
-        return JsonRpcResponse::error(id, -32600, "Server not initialized");
-    }
     let resources: Vec<Value> = listed_resources(state)
         .filter(|r| !is_template(r))
         .map(|r| serde_json::to_value(r).unwrap())
@@ -69,9 +63,6 @@ pub fn handle_list_resources(state: &mut McpState, id: Option<Value>) -> JsonRpc
 /// MCP `resources/templates/list`: the resources whose URI is a template,
 /// as `ResourceTemplate`s.
 pub fn handle_list_resource_templates(state: &mut McpState, id: Option<Value>) -> JsonRpcResponse {
-    if !state.is_initialized() {
-        return JsonRpcResponse::error(id, -32600, "Server not initialized");
-    }
     let templates: Vec<Value> = listed_resources(state)
         .filter(is_template)
         .map(|r| {
@@ -95,9 +86,6 @@ fn is_template(resource: &McpResourceDescriptor) -> bool {
 }
 
 pub fn handle_list_prompts(state: &mut McpState, id: Option<Value>) -> JsonRpcResponse {
-    if !state.is_initialized() {
-        return JsonRpcResponse::error(id, -32600, "Server not initialized");
-    }
     // The core prompts, derived from their table: no extension declares a
     // prompt.
     let prompts: Vec<Value> = crate::prompts::descriptors()

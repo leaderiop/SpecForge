@@ -8,7 +8,7 @@
 //! refuses the same names. A set the project decides (analysis passes,
 //! entity kinds) is not a table: its operation checks it against the view.
 
-use crate::OpError;
+use crate::{OpError, OpErrorKind};
 
 /// One accepted value of an enumerated argument.
 #[derive(Debug, Clone, Copy)]
@@ -54,6 +54,7 @@ impl<T: Copy + PartialEq + 'static> OptionTable<T> {
         }
         let names: Vec<&str> = self.names().collect();
         let error = OpError::new(
+            OpErrorKind::InvalidInput,
             self.code,
             format!(
                 "Unknown {}: {name}. Expected: {}",

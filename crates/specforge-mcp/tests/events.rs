@@ -68,11 +68,15 @@ fn event_mcp_initialized() {
 fn event_mcp_server_shutdown() {
     let mut server = init_server();
     // Two subscriptions and one notification waiting to be sent.
-    subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
+    subscriptions::subscribe(
+        server.state_mut(),
+        "client1",
+        specforge_mcp::subscriptions::Watched::Graph,
+    );
     subscriptions::subscribe(
         server.state_mut(),
         "client2",
-        "specforge/diagnosticsChanged",
+        specforge_mcp::subscriptions::Watched::Diagnostics,
     );
     server
         .state_mut()
@@ -307,7 +311,11 @@ fn event_mcp_delta_notified() {
     // A project on disk, served; then a file written beside its own: the
     // routed read brings the project up to date and notifies.
     let mut server = init_server();
-    subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
+    subscriptions::subscribe(
+        server.state_mut(),
+        "client1",
+        specforge_mcp::subscriptions::Watched::Graph,
+    );
     server.write(
         "more.spec",
         "behavior gamma \"Gamma\" {\n}\nbehavior delta \"Delta\" {\n}\n",
@@ -371,10 +379,14 @@ fn event_mcp_mutation_completed() {
 )]
 fn event_mcp_subscription_created() {
     let mut server = init_server();
-    subscriptions::subscribe(server.state_mut(), "client1", "graph");
+    subscriptions::subscribe(
+        server.state_mut(),
+        "client1",
+        specforge_mcp::subscriptions::Watched::Graph,
+    );
     assert_eq!(
         only_event(&server, "mcp_subscription_created"),
-        json!({"subscriptionType": "graph", "clientId": "client1"})
+        json!({"subscriptionType": "specforge/graphChanged", "clientId": "client1"})
     );
 }
 
@@ -385,11 +397,19 @@ fn event_mcp_subscription_created() {
 )]
 fn event_mcp_subscription_removed() {
     let mut server = init_server();
-    subscriptions::subscribe(server.state_mut(), "client1", "graph");
-    subscriptions::unsubscribe(server.state_mut(), "client1", "graph");
+    subscriptions::subscribe(
+        server.state_mut(),
+        "client1",
+        specforge_mcp::subscriptions::Watched::Graph,
+    );
+    subscriptions::unsubscribe(
+        server.state_mut(),
+        "client1",
+        specforge_mcp::subscriptions::Watched::Graph,
+    );
     assert_eq!(
         only_event(&server, "mcp_subscription_removed"),
-        json!({"subscriptionType": "graph", "clientId": "client1"})
+        json!({"subscriptionType": "specforge/graphChanged", "clientId": "client1"})
     );
 }
 
