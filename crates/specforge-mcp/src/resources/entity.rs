@@ -1,6 +1,6 @@
 use specforge_emitter::{EmitFormat, EmitOptions, emit};
 
-use crate::resources::{ReadOutcome, ResourceText, invalid_params};
+use crate::resources::{ReadOutcome, ResourceText, entity_not_found, invalid_params};
 use crate::state::McpState;
 
 pub fn read(state: &McpState, entity_id: &str) -> ReadOutcome {
@@ -32,6 +32,9 @@ pub fn read(state: &McpState, entity_id: &str) -> ReadOutcome {
             let uri = format!("specforge://graph/{}", entity_id);
             Ok(ResourceText::json(uri, json_str))
         }
-        Err(_) => Err(invalid_params(format!("Entity not found: {}", entity_id))),
+        Err(_) => Err(entity_not_found(
+            format!("Entity not found: {entity_id}"),
+            entity_id,
+        )),
     }
 }

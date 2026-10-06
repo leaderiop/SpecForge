@@ -15,7 +15,7 @@ use specforge_common::Diagnostic;
 use specforge_ops::{OpError, Writes};
 
 use crate::state::McpState;
-use crate::target::{Call, Reach};
+use crate::target::Call;
 use crate::tool::{IntoOutcome, McpError, ToolOutcome};
 
 /// The reply key naming the files a mutation wrote, relative to the call
@@ -229,19 +229,17 @@ impl IntoMutated for MutationHandled {
 
 /// Bring the call's target up to date with what the mutation wrote, when
 /// it wrote anything, succeeded or not; then, when asked, put the target's
-/// diagnostics in the reply. The served project on disk is brought up to
-/// date (`ensure_fresh`); a served project built in memory is replaced by
-/// the project on disk at its root, for a tool that writes project files
-/// (`Reach::WritesAnyProject`); another project is compiled again; the
-/// directory init created is served when nothing is (ADR 0014 D5).
+/// diagnostics in the reply. The served project is brought up to date
+/// (`ensure_fresh`); another project is compiled again; the directory init
+/// created is served when nothing is (ADR 0014 D5).
 ///
 /// Returns the root the written files are named from: the call target's
 /// (the directory init created, for init).
-pub(crate) fn refresh(call: &mut Call<'_>, reach: Reach, mutated: &mut Mutated) -> Option<PathBuf> {
+pub(crate) fn refresh(call: &mut Call<'_>, mutated: &mut Mutated) -> Option<PathBuf> {
     if let Some(written) = &mutated.written {
         let wrote = !written.files.is_empty();
         if wrote || written.fresh_diagnostics {
-            let diagnostics = call.bring_up_to_date(reach);
+            let diagnostics = call.bring_up_to_date();
             if written.fresh_diagnostics {
                 let diagnostics =
                     serde_json::to_value(specforge_common::diagnostics_json(&diagnostics))

@@ -329,6 +329,16 @@ pub fn entity_not_found(entity_id: &str) -> McpError {
     .with_entity(entity_id)
 }
 
+/// What a refusal of a file the project does not hold says before the file's
+/// name ([`file_not_found`]).
+pub(crate) const FILE_NOT_FOUND: &str = "File not found: ";
+
+/// A question about `file`, which the project has no entity from and does
+/// not hold under its spec root: `file_not_found` on argument `file`.
+pub(crate) fn file_not_found(file: &str) -> McpError {
+    McpError::new(ErrorCode::FileNotFound, format!("{FILE_NOT_FOUND}{file}")).with_argument("file")
+}
+
 /// `("E003", "unresolved …")` for `"E003: unresolved …"`: a leading
 /// diagnostic code, a letter and three digits.
 fn split_code(message: &str) -> Option<(&str, &str)> {

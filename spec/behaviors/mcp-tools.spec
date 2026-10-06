@@ -604,7 +604,9 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
     method members). LSP equivalence: this tool mirrors
     textDocument/documentSymbol, returning the same outline structure an IDE
     shows in its symbol navigator but over the MCP transport. If the file
-    does not exist, the tool MUST return an error.
+    does not exist, the tool MUST return an error. With no project served, no
+    file is a project's: the tool MUST return the no-project refusal
+    (precondition_failed), whatever the server's working directory holds.
   """
   verify unit "specforge.outline returns all entities defined in file"
   verify unit "nested entries included for complex entities"
@@ -612,6 +614,7 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   verify contract "Provide MCP Outline Tool: MCP outline tool holds — graph_available, outline_returned, tool_invoked_emitted"
   verify unit "outline entries sorted by line number"
   verify unit "a file under the spec root with no entities has an empty outline"
+  verify unit "with no project served, outline is the no-project refusal"
   verify unit "sorted by line number"
 }
 

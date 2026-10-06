@@ -16,8 +16,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   loaded — and its check inputs, `specforge-cache.json` and the files `file_reference` fields name).
   It classifies any changed path, applies changes as an update, an environment reload or a re-check,
   and can bring itself up to date with disk without a watcher (`ensure_fresh`). Watch, the LSP and
-  MCP each hold one (`specforge_project::ProjectSession`); watch and the LSP feed it watcher events,
-  MCP asks it to be fresh before every request that reads the project (ADR 0014).
+  MCP each hold one (`specforge_project::ProjectSession`; MCP's is always opened from disk, ADR
+  0025); watch and the LSP feed it watcher events, MCP asks it to be fresh before every request that
+  reads the project (ADR 0014).
 - **Call target**: the project one MCP call acts on, resolved from the call's optional `path` and its
   tool spec's target (reach and freshness) before the handler runs: the served session (brought up to
   date unless `use_cached`), another project compiled for that call only, or the directory `init`
@@ -158,7 +159,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   extension in the host process through the guest's own routing (`guest_call`), unsandboxed
   (`specforge_wasm::testing::InProcessRuntime`). Host tests declare their extensions with it; the
   component runtime is the production adapter, and both keep one contract
-  (`assert_runtime_contract`).
+  (`assert_runtime_contract`). MCP's tests serve every project from a temporary directory through
+  it (`tests/support`): no test writes a registry, a graph or a diagnostic into a server (ADR 0025).
 - **Command format**: the output an extension command is asked for, `human` (the CLI default) or
   `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
   only it knows its payloads (ADR 0011).

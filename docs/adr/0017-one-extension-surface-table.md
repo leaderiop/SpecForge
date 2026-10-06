@@ -96,13 +96,13 @@ an empty `one_of`; the host holds a raw-JSON guest to the same rule, its require
 **D13. Two extensions with one short name:** the first in load order routes a CLI name on both
 surfaces; the later is reported (I017 over MCP, a note on stderr on the CLI).
 
-**D14. Every project a call reaches has an extension runtime.** The served session's, the host's, one
-built for a project served in memory, or the one-shot compile's for another project: so
+**D14. Every project a call reaches has an extension runtime.** The served session's (the host's, or the
+project's own) or the one-shot compile's for another project: so
 `target::ProjectRef::runtime` is not optional, and the "the project has no extension runtime"
 branches of the tool, resource, migrate, collect and gaps handlers (each answering differently: an
 internal error, invalid params, a skipped pass) were unreachable and are deleted. Analyze always runs
-the extensions' passes in the project's runtime. A served graph with no project root has no project:
-an extension call on it is `precondition_failed` (-32602 with that McpError for a resource).
+the extensions' passes in the project's runtime. With nothing served there is no project:
+an extension call is `precondition_failed` (-32602 with that McpError for a resource); ADR 0025.
 
 ## Consequences
 
