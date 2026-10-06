@@ -58,8 +58,8 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     let runtime = specforge_component::project_runtime(&root);
     let env = Environment::load(&root, Some(&runtime));
     let all = extension_commands(&env.registries);
-    let short = |c: &ExtensionCommand| short_name(&env, c.extension);
-    let commands: Vec<ExtensionCommand> = all.iter().copied().filter(|c| short(c) == ext).collect();
+    let short = |c: &ExtensionCommand| short_name(&env, c.extension());
+    let commands: Vec<ExtensionCommand> = all.iter().filter(|c| short(c) == ext).cloned().collect();
     if commands.is_empty() {
         eprintln!(
             "error: unrecognized subcommand '{ext}': no built-in command, and no extension of the project at {} with that name contributes commands",
@@ -77,11 +77,11 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
     }
     if let Some(requested) = rest.first()
         && let Some(command) = commands.iter().find(|c| c.cli_name() == *requested)
-        && let Some(why) = refusal(command.contribution)
+        && let Some(why) = refusal(command.declaration())
     {
         eprintln!(
             "error: {}'s command '{requested}' cannot run on the command line: {why}",
-            command.extension
+            command.extension()
         );
         return 2;
     }
@@ -109,7 +109,7 @@ pub fn run(argv: &[String], builtins: &[String]) -> i32 {
         return 2;
     };
 
-    let args = arg_values(&command.contribution.args, matches);
+    let args = arg_values(&command.declaration().args, matches);
     let context = CommandContext {
         format: format_value(matches),
         today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
@@ -142,15 +142,7 @@ fn dispatch(
     stdout: &mut dyn Write,
     stderr: &mut dyn Write,
 ) -> i32 {
-    match run_command(
-        runtime,
-        command.extension,
-        &command.contribution.export,
-        graph,
-        args,
-        cwd,
-        context,
-    ) {
+    match run_command(runtime, command, graph, args, cwd, context) {
         Ok(output) => {
             let _ = stdout.write_all(output.stdout.as_bytes());
             let _ = stderr.write_all(output.stderr.as_bytes());
@@ -194,10 +186,10 @@ pub fn with_extension_commands(mut cli: Command, root: &Path) -> Command {
     let env = Environment::load(root, Some(&runtime));
     let mut by_ext: Vec<(String, Vec<ExtensionCommand>)> = Vec::new();
     for command in extension_commands(&env.registries) {
-        if refusal(command.contribution).is_some() {
+        if refusal(command.declaration()).is_some() {
             continue;
         }
-        let short = short_name(&env, command.extension);
+        let short = short_name(&env, command.extension());
         match by_ext.iter_mut().find(|(ext, _)| *ext == short) {
             Some((_, commands)) => commands.push(command),
             None => by_ext.push((short, vec![command])),
@@ -374,7 +366,7 @@ fn command_line(ext: &str, commands: &[ExtensionCommand]) -> Command {
         .subcommand_required(true)
         .arg_required_else_help(true);
     for command in commands {
-        let contribution = command.contribution;
+        let contribution = command.declaration();
         if refusal(contribution).is_some() {
             continue;
         }
@@ -516,10 +508,7 @@ mod tests {
         argv: &[&str],
     ) -> Result<(Map<String, Value>, CommandFormat), clap::Error> {
         let c = contribution();
-        let commands = [ExtensionCommand {
-            extension: "@acme/x",
-            contribution: &c,
-        }];
+        let commands = [ExtensionCommand::new("@acme/x", "x", &c)];
         let matches = command_line("x", &commands)
             .try_get_matches_from(std::iter::once("specforge x").chain(argv.iter().copied()))?;
         let (name, sub) = matches.subcommand().unwrap();
@@ -571,10 +560,7 @@ mod tests {
     fn a_required_bool_is_a_flag_and_a_repeated_flag_is_refused() {
         let mut c = contribution();
         c.args.push(arg("strict", CommandArgType::Bool, true, None));
-        let commands = [ExtensionCommand {
-            extension: "@acme/x",
-            contribution: &c,
-        }];
+        let commands = [ExtensionCommand::new("@acme/x", "x", &c)];
         let parse = |argv: &[&str]| {
             command_line("x", &commands)
                 .try_get_matches_from(["specforge x", "milestone-completion"].iter().chain(argv))
@@ -586,33 +572,6 @@ mod tests {
         let (_, sub) = matches.subcommand().unwrap();
         assert_eq!(arg_values(&c.args, sub)["strict"], false);
         assert!(parse(&["m1", "--limit", "1", "--limit", "2"]).is_err());
-    }
-
-    #[specforge_test(
-        behavior = "dispatch_surface_command",
-        verify = "a command declaring an arg named format is refused on the command line"
-    )]
-    fn an_arg_taking_a_host_option_or_another_args_name_is_refused() {
-        let with = |args: Vec<CommandArgDescriptor>| CommandDescriptor {
-            args,
-            ..contribution()
-        };
-        assert_eq!(refusal(&contribution()), None);
-        for name in ["path", "format", "help"] {
-            let c = with(vec![arg(name, CommandArgType::String, false, None)]);
-            assert_eq!(
-                refusal(&c),
-                Some(format!("its arg '{name}' takes the host's --{name}"))
-            );
-        }
-        let twice = with(vec![
-            arg("all_kinds", CommandArgType::Bool, false, None),
-            arg("all-kinds", CommandArgType::Bool, false, None),
-        ]);
-        assert_eq!(
-            refusal(&twice),
-            Some("it declares the arg 'all-kinds' twice".into())
-        );
     }
 
     #[specforge_test(
@@ -654,10 +613,7 @@ mod tests {
         use specforge_wasm::testing::InProcessRuntime;
 
         let c = contribution();
-        let command = ExtensionCommand {
-            extension: "@acme/x",
-            contribution: &c,
-        };
+        let command = ExtensionCommand::new("@acme/x", "x", &c);
         for format in CommandFormat::ALL {
             let runtime = InProcessRuntime::new().answer_raw(
                 "@acme/x",
@@ -705,10 +661,7 @@ mod tests {
     /// `CommandDescriptor` as JSON.
     fn sent(declared: Value, argv: &[&str]) -> Value {
         let c: CommandDescriptor = serde_json::from_value(declared).unwrap();
-        let commands = [ExtensionCommand {
-            extension: "@test/cmds",
-            contribution: &c,
-        }];
+        let commands = [ExtensionCommand::new("@test/cmds", "x", &c)];
         let matches = command_line("x", &commands)
             .try_get_matches_from(std::iter::once("specforge x").chain(argv.iter().copied()))
             .unwrap();

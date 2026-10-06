@@ -429,11 +429,37 @@ fn extension_tool(
             format: specforge_ops::command::CommandFormat::Json,
             today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
         };
+        let Some(command) = state
+            .registries()
+            .declaration(&entry.extension_name)
+            .and_then(|declaration| {
+                declaration
+                    .surfaces
+                    .commands
+                    .iter()
+                    .find(|command| command.export == entry.export_name)
+                    .map(|command| {
+                        specforge_ops::command::ExtensionCommand::new(
+                            declaration.name(),
+                            &declaration.short(),
+                            command,
+                        )
+                    })
+            })
+        else {
+            let refused = ToolOutcome::error(
+                ErrorCode::InternalError,
+                format!(
+                    "no command of '{}' runs {}",
+                    entry.extension_name, entry.export_name
+                ),
+            );
+            return (refused, None);
+        };
         let started = std::time::Instant::now();
         let outcome = specforge_ops::command::run_command(
             runtime.as_ref(),
-            &entry.extension_name,
-            &entry.export_name,
+            &command,
             project.graph,
             &args,
             project.root,

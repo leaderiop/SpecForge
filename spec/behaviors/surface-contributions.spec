@@ -94,7 +94,7 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
   features   [surface_contributions]
   invariants [surface_contribution_uniqueness]
   category   command
-  types      [CommandContribution, AutoPromotedMcpTool, SurfaceRegistryEntry]
+  types      [CommandContribution, ExtensionCommand]
   produces   [commands_auto_promoted]
   requires {
     surfaces_registered "the registry build has registered the project's CLI command and MCP tool contributions"
@@ -104,6 +104,7 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
     naming_convention_enforced     "Auto-promoted tools follow the specforge.{ext_short}.{cmd_id} naming pattern"
     explicit_tool_wins             "Explicit MCP tool contributions take precedence over auto-promoted tools with I017 emitted"
     commands_auto_promoted_emitted "commands_auto_promoted event is emitted after promotion completes"
+    schema_is_the_declaration      "The derived input_schema states each arg's type, one_of values, minimum, default and description; required lists the required args that are not flags; no undeclared property is accepted"
   }
   contract   """
     After surface contributions are registered, the compiler MUST
@@ -111,7 +112,11 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
     the naming convention specforge.{ext_short}.{cmd_id}, but one the
     host refuses on the command line (an arg named path, format or help,
     or two args of one name): the one rule keeps both surfaces alike. The derived
-    input_schema MUST be computed from the command's args declaration.
+    input_schema MUST be computed from the command's args declaration
+    alone (specforge_ops::command::ExtensionCommand): each arg's type,
+    its one_of values, its minimum, its default and its description;
+    required lists the required args that are not flags, since a flag is
+    false unless set; no undeclared property is accepted.
     If an explicit MCP tool contribution already exists with the same
     name, the explicit tool MUST win and I017 MUST be emitted. Auto-
     promoted tools appear in list_mcp_tools alongside explicit tools.
@@ -121,6 +126,8 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
   verify unit "derived input_schema computed from command args"
   verify unit "explicit MCP tool wins over auto-promoted tool with I017"
   verify unit "a command the CLI refuses, such as one declaring an arg named format, is not promoted"
+  verify unit "the derived input_schema states each arg's default and minimum and accepts no undeclared argument"
+  verify unit "a required flag is not required over MCP, as on the command line"
   verify contract "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted"
 }
 

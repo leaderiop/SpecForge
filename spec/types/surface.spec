@@ -142,15 +142,21 @@ type SurfaceSandboxOverride {
   verify unit "SurfaceSandboxOverride schema is valid"
 }
 
-// ── Auto-Promotion ──────────────────────────────────────────
+// ── Extension Commands ──────────────────────────────────────
 
-type AutoPromotedMcpTool {
-  source_command       string @readonly
-  source_extension     string @readonly
-  // MCP tool name: specforge.{ext_short}.{cmd_id}
-  mcp_tool_name        string @readonly
-  derived_input_schema JsonSchema
-  verify unit "AutoPromotedMcpTool schema is valid"
+// One command an extension declares, derived once for every surface:
+// its CLI name, its MCP tool name, its args' command-line shapes, its
+// input schema, the args both surfaces send, and why the host refuses it.
+type ExtensionCommand {
+  extension    string @readonly
+  short        string @readonly
+  cli_name     string @readonly
+  // specforge.{short}.{id}
+  tool_name    string @readonly
+  args         CommandArg[]
+  input_schema JsonSchema
+  refusal      string @optional
+  verify unit "ExtensionCommand schema is valid"
 }
 
 // ── Surface Registry ────────────────────────────────────────
