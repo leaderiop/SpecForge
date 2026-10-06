@@ -102,7 +102,14 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   both "proven" (the gate) and the covered/partial/uncovered status (the MCP view)
   (`specforge_coverage::Verdict`).
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
-  independent of surface. The CLI and MCP are adapters over it (`specforge-ops`).
+  independent of surface. An operation that writes names the files it changed on disk in its
+  outcome (`specforge_ops::Writes`), recorded where it wrote. The CLI and MCP are adapters over it
+  (`specforge-ops`).
+- **Mutation outcome**: what one MCP mutation call wrote: the files its operation changed, the
+  entities it changed and the domain event it produces (`specforge_mcp::mutation::Written`), or
+  nothing for a preview. The dispatcher alone turns it into the call target's refresh, the domain
+  event and `mcp_mutation_completed` (ADR 0022), and the reply's `files_written`, the one place a
+  client learns which files the call wrote.
 - **Project sources**: the `.spec` files under the spec root (`spec_root`, else the project root) that
   discovery keeps — no skipped directory, no `exclude` entry. What a compile reads, and what format
   and migrate rewrite (`specforge_common::ProjectConfig::spec_files`).
@@ -152,8 +159,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `json` (always, over MCP). The host owns the `--format` flag; the extension renders both, since
   only it knows its payloads (ADR 0011).
 - **Tool spec**: the single definition of an MCP tool, from which its descriptor, typed arguments,
-  output schema, annotations, its target (reach and freshness), mutation event and reply are derived
-  (`specforge_mcp`'s `ToolSpec` table).
+  output schema, annotations, its target (reach and freshness) and its handler, a tool's (a reply)
+  or a mutation's (a reply and its mutation outcome), are derived (`specforge_mcp`'s `ToolSpec`
+  table).
 - **Prompt spec**: the single definition of an MCP prompt, from which its descriptor, typed arguments
   and reply are derived; it renders over the call target and refuses with an McpError, sent as a
   JSON-RPC error's data since prompts have no isError (`specforge_mcp`'s `PromptSpec` table).
