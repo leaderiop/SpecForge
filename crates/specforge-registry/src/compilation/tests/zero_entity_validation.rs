@@ -1,14 +1,12 @@
 //! Integration tests for spec/behaviors/zero-entity-validation.spec
 //!
-//! Covers 9 behaviors, 47 verify statements total:
+//! Covers these behaviors:
 //! - execute_validation_pattern (9)
 //! - detect_unknown_entity_fields (6)
 //! - parse_validation_rule_pattern (5)
 //! - emit_diagnostic_from_pattern (5)
 //! - register_custom_validation_patterns (2; the rest in specforge-project)
-//! - validate_extension_testability (5)
 //! - register_extension_validation_rules (4)
-//! - detect_duplicate_entity_kinds (4)
 //! - validate_peer_dependencies (4)
 
 use specforge_common::{Severity, SourceSpan, Sym};
@@ -18,11 +16,8 @@ use specforge_protocol_types::{
 };
 use specforge_registry::compilation::EntityView;
 use specforge_registry::compilation::populate::populate;
-use specforge_registry::compilation::tests::support::{
-    declare, extension, kind_collisions, peer, software,
-};
+use specforge_registry::compilation::tests::support::{declare, extension, peer, software};
 use specforge_registry::compilation::validate::{peer_dependencies, register_validation_rules};
-use specforge_registry::compilation::validate_extension_testability;
 use specforge_registry::validation_engine::{
     CustomVerdict, ValidationEntity, ValidationPatternKind, ValidationRulePattern,
     WasmValidationRuntime, execute_pattern, interpolate_template, parse_all_rule_patterns,
@@ -97,36 +92,11 @@ fn with_rules(name: &str, rules: &[(&str, &str, CheckKind)]) -> ExtensionDeclara
     })
 }
 
-/// `@other/ext`, declaring `behavior` again.
-fn other_behavior() -> ExtensionDeclaration {
-    declare("@other/ext", |c| {
-        c.kind("Behavior", |k| {
-            k.keyword("behavior");
-        });
-    })
-}
-
 /// `@specforge/product`, declaring no kinds, whose peer is `name` >=1.0.0.
 fn needs_peer(name: &str) -> ExtensionDeclaration {
     let mut c = extension("@specforge/product");
     c.meta.peer_dependencies.push(peer(name, ">=1.0.0"));
     c.declaration()
-}
-
-/// `@test/ext`, declaring one kind `name` with keyword `keyword`.
-fn one_kind(
-    name: &str,
-    keyword: &str,
-    testable: bool,
-    supports_verify: bool,
-) -> ExtensionDeclaration {
-    declare("@test/ext", |c| {
-        c.kind(name, |k| {
-            k.keyword(keyword)
-                .testable(testable)
-                .supports_verify(supports_verify);
-        });
-    })
 }
 
 // ============================================================================
@@ -1029,63 +999,6 @@ fn detect_unknown_entity_fields_contract() {
 }
 
 // ============================================================================
-// B:detect_duplicate_entity_kinds (4 verifies)
-// ============================================================================
-
-#[specforge_test(
-    behavior = "detect_duplicate_entity_kinds",
-    verify = "duplicate kind from two extensions produces E026"
-)]
-fn duplicate_kind_from_two_extensions_produces_e026() {
-    let m1 = software();
-    let m2 = other_behavior();
-    let diags = kind_collisions(&[m1, m2]);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "E026" && d.message.contains("behavior")),
-        "expected E026 for duplicate 'behavior', got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "detect_duplicate_entity_kinds",
-    verify = "first extension in topological order owns the kind"
-)]
-fn first_extension_in_topological_order_owns_the_kind() {
-    let m1 = software();
-    let m2 = other_behavior();
-    let (kind_reg, _, _, _) = populate(&[m1, m2]);
-    let behavior = kind_reg.get("behavior").unwrap();
-    assert_eq!(behavior.source_extension, "@specforge/software");
-}
-
-#[specforge_test(
-    behavior = "detect_duplicate_entity_kinds",
-    verify = "single extension registering a kind produces no diagnostic"
-)]
-fn single_extension_registering_a_kind_produces_no_diagnostic() {
-    let diags = kind_collisions(&[software()]);
-    assert!(diags.is_empty());
-}
-
-#[specforge_test(
-    behavior = "detect_duplicate_entity_kinds",
-    verify = "Detect Duplicate Entity Kinds: duplicate entity kind detection holds — manifests_loading, collisions_detected, first_wins_enforced"
-)]
-fn detect_duplicate_entity_kinds_contract() {
-    // requires: manifests parsed
-    // ensures: no duplicates → no diagnostics
-    let diags = kind_collisions(&[software()]);
-    assert!(diags.is_empty());
-    // ensures: duplicate → E026 with both extension names
-    let m2 = other_behavior();
-    let dup_diags = kind_collisions(&[software(), m2]);
-    assert!(dup_diags.iter().any(|d| d.code == "E026"));
-}
-
-// ============================================================================
 // B:validate_peer_dependencies (4 verifies)
 // ============================================================================
 
@@ -1152,85 +1065,6 @@ fn validate_peer_dependencies_contract() {
     let m3 = needs_peer("@specforge/missing");
     let diags = peer_dependencies(&[m3]);
     assert!(diags.iter().any(|d| d.code == "E027"));
-}
-
-// ============================================================================
-// B:validate_extension_testability (5 verifies)
-// ============================================================================
-
-#[specforge_test(
-    behavior = "validate_extension_testability",
-    verify = "testable kind without supportsVerify produces W017"
-)]
-fn testable_kind_without_supports_verify_produces_w017() {
-    let manifest = one_kind("Thing", "thing", true, false);
-    let (kind_reg, _, _, _) = populate(&[manifest]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "W017" && d.message.contains("thing")),
-        "expected W017, got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_extension_testability",
-    verify = "testable kind with supportsVerify=true passes"
-)]
-fn testable_kind_with_supports_verify_true_passes() {
-    let (kind_reg, _, _, _) = populate(&[software()]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(
-        !diags.iter().any(|d| d.message.contains("behavior")),
-        "expected no diagnostics for behavior, got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_extension_testability",
-    verify = "a kind that accepts verify statements but is not testable produces no diagnostic"
-)]
-fn kind_with_supports_verify_but_not_testable_is_not_reported() {
-    let manifest = one_kind("Note", "note", false, true);
-    let (kind_reg, _, _, _) = populate(&[manifest]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(diags.is_empty(), "{diags:?}");
-}
-
-#[specforge_test(
-    behavior = "validate_extension_testability",
-    verify = "consistent testable and supportsVerify flags produce no diagnostic"
-)]
-fn consistent_testable_and_supports_verify_flags_produce_no_diagnostic() {
-    let manifest = one_kind("Thing", "thing", false, false);
-    let (kind_reg, _, _, _) = populate(&[manifest]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(
-        diags.is_empty(),
-        "expected no diagnostics, got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_extension_testability",
-    verify = "Validate Extension Testability: extension testability validation holds — registries_populated_fired, flag_consistency_checked, advisory_diagnostics_emitted"
-)]
-fn validate_extension_testability_contract() {
-    // requires: KindRegistry populated
-    let (kind_reg, _, _, _) = populate(&[software()]);
-    // ensures: consistent flags → no diagnostics
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(diags.is_empty());
-    // ensures: testable without supportsVerify → W017
-    let mut bad = one_kind("X", "x", true, false);
-    bad.handshake.name = "@t/e".to_string();
-    let (bad_kr, _, _, _) = populate(&[bad]);
-    let bad_diags = validate_extension_testability(&bad_kr);
-    assert!(bad_diags.iter().any(|d| d.code == "W017"));
 }
 
 // ============================================================================

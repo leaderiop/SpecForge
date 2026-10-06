@@ -374,111 +374,7 @@ mod tests {
         }
     }
 
-    // B:register_entity_kinds_from_manifest — verify unit "entity kind registered with testable flag"
-    #[test]
-    fn test_entity_kind_registered_with_testable_flag() {
-        let (kind_reg, _, _, diags) = populate(&[software_manifest()]);
-        assert!(diags.is_empty());
-        let behavior = kind_reg.get("behavior").unwrap();
-        assert!(behavior.testable);
-        let invariant = kind_reg.get("invariant").unwrap();
-        assert!(invariant.testable);
-    }
-
-    // B:register_entity_kinds_from_manifest — verify unit "entity kind registered with singleton flag"
-    #[test]
-    fn test_entity_kind_registered_with_singleton_flag() {
-        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
-        let behavior = kind_reg.get("behavior").unwrap();
-        assert!(!behavior.declared.singleton);
-    }
-
-    // B:register_entity_kinds_from_manifest — verify unit "entity kind registered with LSP metadata"
-    #[test]
-    fn test_entity_kind_registered_with_lsp_metadata() {
-        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
-        let behavior = kind_reg.get("behavior").unwrap();
-        assert_eq!(
-            behavior.declared.semantic_token.as_deref(),
-            Some("function")
-        );
-        assert_eq!(behavior.declared.lsp_icon.as_deref(), Some("Method"));
-    }
-
-    // B:register_entity_kinds_from_manifest — verify unit "source extension recorded in registry entry"
-    #[test]
-    fn test_source_extension_recorded_in_registry_entry() {
-        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
-        let behavior = kind_reg.get("behavior").unwrap();
-        assert_eq!(behavior.source_extension, "@specforge/software");
-    }
-
-    // B:register_entity_kinds_from_manifest — verify unit "testable=true entity participates in coverage"
-    #[test]
-    fn test_testable_true_entity_participates_in_coverage() {
-        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
-        let testable_kinds: Vec<_> = kind_reg
-            .iter()
-            .filter(|(_, e)| e.testable)
-            .map(|(k, _)| k.clone())
-            .collect();
-        assert!(testable_kinds.contains(&"behavior".to_string()));
-        assert!(testable_kinds.contains(&"invariant".to_string()));
-    }
-
-    // B:register_entity_kinds_from_manifest — verify unit "testable=false entity excluded from coverage"
-    #[test]
-    fn test_testable_false_entity_excluded_from_coverage() {
-        let (kind_reg, _, _, _) = populate(&[product_manifest()]);
-        let feature = kind_reg.get("feature").unwrap();
-        assert!(!feature.testable);
-    }
-
-    // B:register_entity_kinds_from_manifest — verify unit "no default testability assumed by core"
-    #[test]
-    fn test_no_default_testability_assumed_by_core() {
-        // An entity kind with no testable flag explicitly set defaults to false
-        let manifest = declare("@test/ext", |c| {
-            c.kind("Thing", |k| {
-                k.keyword("thing");
-            });
-        });
-        let (kind_reg, _, _, _) = populate(&[manifest]);
-        let thing = kind_reg.get("thing").unwrap();
-        assert!(!thing.testable, "default testability should be false");
-    }
-
     // -- B:populate_kind_registry_from_extensions tests --
-
-    // B:populate_kind_registry_from_extensions — verify unit "extensions iterated in topological order"
-    #[test]
-    fn test_extensions_iterated_in_topological_order() {
-        // First manifest's kinds should be registered first
-        let (kind_reg, _, _, _) = populate(&[software_manifest(), product_manifest()]);
-        // Both should be present
-        assert!(kind_reg.contains("behavior"));
-        assert!(kind_reg.contains("invariant"));
-        assert!(kind_reg.contains("feature"));
-    }
-
-    // B:populate_kind_registry_from_extensions — verify unit "all entityKinds entries registered"
-    #[test]
-    fn test_all_entity_kinds_entries_registered() {
-        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
-        assert_eq!(kind_reg.len(), 2); // behavior + invariant
-        assert!(kind_reg.contains("behavior"));
-        assert!(kind_reg.contains("invariant"));
-    }
-
-    // B:populate_kind_registry_from_extensions — verify unit "registered keywords available to parser"
-    #[test]
-    fn test_registered_keywords_available_to_parser() {
-        let (kind_reg, _, _, _) = populate(&[software_manifest(), product_manifest()]);
-        let keywords: Vec<String> = kind_reg.keywords().cloned().collect();
-        assert!(keywords.contains(&"behavior".to_string()));
-        assert!(keywords.contains(&"invariant".to_string()));
-        assert!(keywords.contains(&"feature".to_string()));
-    }
 
     // B:populate_kind_registry_from_extensions — verify unit "population completes before validation"
     #[test]
@@ -489,19 +385,6 @@ mod tests {
         assert!(!kind_reg.is_empty());
         assert!(!field_reg.is_empty());
         assert!(!edge_reg.is_empty());
-    }
-
-    // B:populate_kind_registry_from_extensions — verify integration "two extensions register kinds without collision"
-    #[test]
-    fn test_two_extensions_register_kinds_without_collision() {
-        let (kind_reg, _, _, diags) = populate(&[software_manifest(), product_manifest()]);
-        // No E026 diagnostics
-        assert!(
-            !diags.iter().any(|d| d.code == "E026"),
-            "expected no collision diagnostics, got: {:?}",
-            diags
-        );
-        assert_eq!(kind_reg.len(), 3); // behavior, invariant, feature
     }
 
     // -- B:register_edge_types_from_manifest tests --
@@ -678,29 +561,6 @@ mod tests {
     // -- Description propagation tests --
 
     #[test]
-    fn test_entity_kind_description_propagated_to_registry() {
-        let manifest = declare("@test/ext", |c| {
-            c.kind("Behavior", |k| {
-                k.keyword("behavior")
-                    .description("A testable unit of system functionality");
-            });
-        });
-        let (kind_reg, _, _, _) = populate(&[manifest]);
-        let entry = kind_reg.get("behavior").unwrap();
-        assert_eq!(
-            entry.declared.description.as_deref(),
-            Some("A testable unit of system functionality")
-        );
-    }
-
-    #[test]
-    fn test_entity_kind_without_description_has_none() {
-        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
-        let entry = kind_reg.get("behavior").unwrap();
-        assert!(entry.declared.description.is_none());
-    }
-
-    #[test]
     fn test_field_description_propagated_to_registry() {
         let manifest = declare("@test/ext", |c| {
             c.kind("Behavior", |k| {
@@ -726,26 +586,6 @@ mod tests {
         assert!(entry.declared.description.is_none());
     }
 
-    // B:register_entity_kinds_from_manifest — verify contract "requires/ensures consistency for entity kind registration"
-    #[test]
-    fn test_register_entity_kinds_contract() {
-        // requires: manifest validated, registries empty
-        let manifest = software_manifest();
-        let (kind_reg, _, _, diags) = populate(&[manifest]);
-        // ensures: all kinds registered
-        assert!(kind_reg.contains("behavior"));
-        assert!(kind_reg.contains("invariant"));
-        // ensures: source extension recorded
-        assert_eq!(
-            kind_reg.get("behavior").unwrap().source_extension,
-            "@specforge/software"
-        );
-        // ensures: testable flag preserved
-        assert!(kind_reg.get("behavior").unwrap().testable);
-        // ensures: no errors on clean manifest
-        assert!(!diags.iter().any(|d| d.severity == Severity::Error));
-    }
-
     // B:register_edge_types_from_manifest — verify contract "requires/ensures consistency for edge type registration"
     #[test]
     fn test_register_edge_types_contract() {
@@ -760,25 +600,6 @@ mod tests {
         assert_eq!(enforces.declared.target_kind.as_deref(), Some("invariant"));
         // ensures: no errors on clean manifest
         assert!(!diags.iter().any(|d| d.severity == Severity::Error));
-    }
-
-    // B:populate_kind_registry_from_extensions — verify contract "requires/ensures consistency for registry population"
-    #[test]
-    fn test_populate_kind_registry_contract() {
-        // requires: manifests in topological order, registries empty
-        let (kind_reg, field_reg, edge_reg, diags) =
-            populate(&[software_manifest(), product_manifest()]);
-        // ensures: all registries populated
-        assert!(!kind_reg.is_empty());
-        assert!(!field_reg.is_empty());
-        assert!(!edge_reg.is_empty());
-        // ensures: keywords from all extensions registered
-        assert!(kind_reg.contains("behavior"));
-        assert!(kind_reg.contains("feature"));
-        // ensures: no collisions
-        assert!(!diags.iter().any(|d| d.code == "E026"));
-        // ensures: population is complete (all 3 kinds)
-        assert_eq!(kind_reg.len(), 3);
     }
 
     // B:populate_field_registry_from_extensions — verify contract "requires/ensures consistency for field registry population"

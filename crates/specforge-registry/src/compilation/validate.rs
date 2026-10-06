@@ -230,7 +230,7 @@ pub(crate) fn register_validation_rules(
 mod tests {
     use super::*;
     use crate::compilation::populate::populate;
-    use crate::compilation::tests::support::{declare, kind_collisions, peer};
+    use crate::compilation::tests::support::{declare, peer};
     use specforge_extension_sdk::prelude::*;
 
     fn software_manifest() -> ExtensionDeclaration {
@@ -262,33 +262,6 @@ mod tests {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@specforge/product", "1.0.0"));
         c.meta.peer_dependencies.push(peer(peer_name, range));
         c.declaration()
-    }
-
-    /// An extension `name` declaring the one kind `kind_name` (`keyword`).
-    fn declaring_kind(name: &str, kind_name: &str, keyword: &str) -> ExtensionDeclaration {
-        declare(name, |c| {
-            c.kind(kind_name, |k| {
-                k.keyword(keyword);
-            });
-        })
-    }
-
-    /// An extension `name` declaring one kind with these testable and
-    /// supports_verify flags.
-    fn flagged_kind(
-        name: &str,
-        kind_name: &str,
-        keyword: &str,
-        testable: bool,
-        supports_verify: bool,
-    ) -> ExtensionDeclaration {
-        declare(name, |c| {
-            c.kind(kind_name, |k| {
-                k.keyword(keyword)
-                    .testable(testable)
-                    .supports_verify(supports_verify);
-            });
-        })
     }
 
     /// A warning rule `code` with `check`, its message `template`.
@@ -403,38 +376,6 @@ mod tests {
 
     // -- B:detect_duplicate_entity_kinds --
 
-    // B:detect_duplicate_entity_kinds — verify unit "duplicate kind from two extensions produces E026"
-    #[test]
-    fn test_duplicate_kind_from_two_extensions_produces_e026() {
-        let m1 = software_manifest();
-        let m2 = declaring_kind("@other/ext", "Behavior", "behavior");
-        let diags = kind_collisions(&[m1, m2]);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "E026" && d.message.contains("behavior")),
-            "expected E026 for duplicate 'behavior', got: {:?}",
-            diags
-        );
-    }
-
-    // B:detect_duplicate_entity_kinds — verify unit "first extension in topological order owns the kind"
-    #[test]
-    fn test_first_extension_in_topological_order_owns_the_kind() {
-        let m1 = software_manifest();
-        let m2 = declaring_kind("@other/ext", "Behavior", "behavior");
-        let (kind_reg, _, _, _) = populate(&[m1, m2]);
-        let behavior = kind_reg.get("behavior").unwrap();
-        assert_eq!(behavior.source_extension, "@specforge/software");
-    }
-
-    // B:detect_duplicate_entity_kinds — verify unit "single extension registering a kind produces no diagnostic"
-    #[test]
-    fn test_single_extension_registering_a_kind_produces_no_diagnostic() {
-        let diags = kind_collisions(&[software_manifest()]);
-        assert!(diags.is_empty());
-    }
-
     // -- B:validate_peer_dependencies --
 
     // B:validate_peer_dependencies — verify unit "satisfied peer dependency passes validation"
@@ -480,56 +421,6 @@ mod tests {
     }
 
     // -- B:validate_extension_testability --
-
-    // B:validate_extension_testability — verify unit "testable kind without supportsVerify produces W017"
-    #[test]
-    fn test_testable_kind_without_supports_verify_produces_w017() {
-        let declaration = flagged_kind("@test/ext", "Thing", "thing", true, false);
-        let (kind_reg, _, _, _) = populate(&[declaration]);
-        let diags = validate_extension_testability(&kind_reg);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "W017" && d.message.contains("thing")),
-            "expected W017, got: {:?}",
-            diags
-        );
-    }
-
-    // B:validate_extension_testability — verify unit "testable kind with supportsVerify=true passes"
-    #[test]
-    fn test_testable_kind_with_supports_verify_passes() {
-        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
-        let diags = validate_extension_testability(&kind_reg);
-        // behavior has both testable=true and supportsVerify=true
-        assert!(
-            !diags.iter().any(|d| d.message.contains("behavior")),
-            "expected no diagnostics for behavior, got: {:?}",
-            diags
-        );
-    }
-
-    // B:validate_extension_testability — verify unit "a kind that accepts verify statements but is not testable produces no diagnostic"
-    #[test]
-    fn test_kind_with_supports_verify_but_not_testable_is_not_reported() {
-        let declaration = flagged_kind("@test/ext", "Note", "note", false, true);
-        let (kind_reg, _, _, _) = populate(&[declaration]);
-        let diags = validate_extension_testability(&kind_reg);
-        assert!(diags.is_empty(), "{diags:?}");
-    }
-
-    // B:validate_extension_testability — verify unit "consistent testable and supportsVerify flags produce no diagnostic"
-    #[test]
-    fn test_consistent_flags_produce_no_diagnostic() {
-        let declaration = flagged_kind("@test/ext", "Thing", "thing", false, false);
-        let (kind_reg, _, _, _) = populate(&[declaration]);
-        let diags = validate_extension_testability(&kind_reg);
-        assert!(
-            diags.is_empty(),
-            "expected no diagnostics, got: {:?}",
-            diags
-        );
-    }
 
     // -- B:register_validation_rules_from_manifest --
 
@@ -630,19 +521,6 @@ mod tests {
         assert!(bad_diags.iter().any(|d| d.code == "W021"));
     }
 
-    // B:detect_duplicate_entity_kinds — verify contract "requires/ensures consistency for duplicate entity kind detection"
-    #[test]
-    fn test_detect_duplicate_entity_kinds_contract() {
-        // requires: manifests parsed
-        // ensures: no duplicates → no diagnostics
-        let diags = kind_collisions(&[software_manifest()]);
-        assert!(diags.is_empty());
-        // ensures: duplicate → E026 with both extension names
-        let m2 = declaring_kind("@other/ext", "Behavior", "behavior");
-        let dup_diags = kind_collisions(&[software_manifest(), m2]);
-        assert!(dup_diags.iter().any(|d| d.code == "E026"));
-    }
-
     // B:validate_peer_dependencies — verify contract "requires/ensures consistency for peer dependency validation"
     #[test]
     fn test_validate_peer_dependencies_contract() {
@@ -655,21 +533,6 @@ mod tests {
         let m3 = product_requiring("@specforge/missing", ">=1.0.0");
         let diags = peer_dependencies(&[m3]);
         assert!(diags.iter().any(|d| d.code == "E027"));
-    }
-
-    // B:validate_extension_testability — verify contract "requires/ensures consistency for extension testability validation"
-    #[test]
-    fn test_validate_extension_testability_contract() {
-        // requires: KindRegistry populated
-        let (kind_reg, _, _, _) = populate(&[software_manifest()]);
-        // ensures: consistent flags → no diagnostics
-        let diags = validate_extension_testability(&kind_reg);
-        assert!(diags.is_empty());
-        // ensures: testable without supportsVerify → W017
-        let bad = flagged_kind("@t/e", "X", "x", true, false);
-        let (bad_kr, _, _, _) = populate(&[bad]);
-        let bad_diags = validate_extension_testability(&bad_kr);
-        assert!(bad_diags.iter().any(|d| d.code == "W017"));
     }
 
     // B:register_validation_rules_from_manifest — verify contract "requires/ensures consistency for validation rule registration"

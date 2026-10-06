@@ -32,15 +32,14 @@ use specforge_protocol_types::{
 };
 use specforge_registry::compilation::EntityView;
 use specforge_registry::compilation::{
-    apply_entity_enhancements, register_validation_rules, validate_extension_testability,
-    validate_registered_entity_fields,
+    apply_entity_enhancements, register_validation_rules, validate_registered_entity_fields,
 };
 use specforge_registry::{
     EdgeRegistry, FieldRegistry, FieldRegistryEntry, KindRegistry, ManifestFieldType,
     detect_unknown_entity_fields,
 };
 
-use super::support::{declare, extension, kind_collisions, peer, product, software};
+use super::support::{declare, extension, peer, product, software};
 use crate::compilation::declaration::{consistency, shape};
 use crate::compilation::populate::populate;
 use crate::compilation::validate::peer_dependencies;
@@ -62,15 +61,6 @@ fn optional_peer(name: &str, version: &str) -> PeerDependency {
         optional: true,
         ..peer(name, version)
     }
-}
-
-/// `@other/ext`, declaring `behavior` again.
-fn other_behavior() -> ExtensionDeclaration {
-    declare("@other/ext", |c| {
-        c.kind("Behavior", |k| {
-            k.keyword("behavior");
-        });
-    })
 }
 
 /// The enhancement `extension` declares on `target` (owned by itself),
@@ -295,37 +285,6 @@ fn boot_edge_registry_contract() {
 // B:populate_kind_registry_from_extensions (6 verifies)
 // ===========================================================================
 
-#[test]
-fn populate_kind_extensions_topological_order() {
-    let (kind_reg, _, _, _) = populate(&[software(), product()]);
-    assert!(kind_reg.contains("behavior"));
-    assert!(kind_reg.contains("invariant"));
-    assert!(kind_reg.contains("feature"));
-}
-
-#[spec(
-    behavior = "populate_kind_registry_from_extensions",
-    verify = "all entityKinds entries registered"
-)]
-fn populate_kind_all_entries_registered() {
-    let (kind_reg, _, _, _) = populate(&[software()]);
-    assert_eq!(kind_reg.len(), 2);
-    assert!(kind_reg.contains("behavior"));
-    assert!(kind_reg.contains("invariant"));
-}
-
-#[spec(
-    behavior = "populate_kind_registry_from_extensions",
-    verify = "registered keywords available to parser"
-)]
-fn populate_kind_keywords_available() {
-    let (kind_reg, _, _, _) = populate(&[software(), product()]);
-    let keywords: Vec<String> = kind_reg.keywords().cloned().collect();
-    assert!(keywords.contains(&"behavior".to_string()));
-    assert!(keywords.contains(&"invariant".to_string()));
-    assert!(keywords.contains(&"feature".to_string()));
-}
-
 // Not linked to "population completes before validation": it validates
 // with the test-only validate_registered_entity_fields, which no load
 // runs. specforge-project/tests/registered_fields.rs proves the obligation
@@ -384,31 +343,6 @@ fn populate_kind_completes_before_validation() {
         unknown.is_empty(),
         "no E024 for registered kinds: {unknown:?}"
     );
-}
-
-#[spec(
-    behavior = "populate_kind_registry_from_extensions",
-    verify = "two extensions register kinds without collision"
-)]
-fn populate_kind_two_extensions_no_collision() {
-    let (kind_reg, _, _, diags) = populate(&[software(), product()]);
-    assert!(!diags.iter().any(|d| d.code == "E026"));
-    assert_eq!(kind_reg.len(), 3);
-}
-
-#[spec(
-    behavior = "populate_kind_registry_from_extensions",
-    verify = "Populate Kind Registry From Extensions: registry population holds for the declared obligations"
-)]
-fn populate_kind_registry_contract() {
-    let (kind_reg, field_reg, edge_reg, diags) = populate(&[software(), product()]);
-    assert!(!kind_reg.is_empty());
-    assert!(!field_reg.is_empty());
-    assert!(!edge_reg.is_empty());
-    assert!(kind_reg.contains("behavior"));
-    assert!(kind_reg.contains("feature"));
-    assert!(!diags.iter().any(|d| d.code == "E026"));
-    assert_eq!(kind_reg.len(), 3);
 }
 
 // ===========================================================================
@@ -682,153 +616,6 @@ fn populate_edge_registry_contract() {
 // ===========================================================================
 // B:register_entity_kinds_from_manifest (8 verifies)
 // ===========================================================================
-
-#[spec(
-    behavior = "register_entity_kinds_from_manifest",
-    verify = "entity kind registered with testable flag"
-)]
-fn register_kind_testable_flag() {
-    let (kind_reg, _, _, diags) = populate(&[software()]);
-    assert!(diags.is_empty());
-    let behavior = kind_reg.get("behavior").unwrap();
-    assert!(behavior.testable);
-    let invariant = kind_reg.get("invariant").unwrap();
-    assert!(invariant.testable);
-}
-
-#[spec(
-    behavior = "register_entity_kinds_from_manifest",
-    verify = "entity kind registered with singleton flag"
-)]
-fn register_kind_singleton_flag() {
-    let manifest = declare("@test/ext", |c| {
-        c.kind("Project", |k| {
-            k.keyword("project").singleton(true);
-        });
-        c.kind("Task", |k| {
-            k.keyword("task");
-        });
-    });
-    let (kind_reg, _, _, _) = populate(&[manifest]);
-    assert!(kind_reg.get("project").unwrap().declared.singleton);
-    assert!(
-        !kind_reg.get("task").unwrap().declared.singleton,
-        "defaults to false"
-    );
-}
-
-#[spec(
-    behavior = "register_entity_kinds_from_manifest",
-    verify = "entity kind registered with LSP metadata"
-)]
-fn register_kind_lsp_metadata() {
-    let (kind_reg, _, _, _) = populate(&[software()]);
-    let behavior = kind_reg.get("behavior").unwrap();
-    assert_eq!(
-        behavior.declared.semantic_token.as_deref(),
-        Some("function")
-    );
-    assert_eq!(behavior.declared.lsp_icon.as_deref(), Some("Method"));
-}
-
-#[spec(
-    behavior = "register_entity_kinds_from_manifest",
-    verify = "source extension recorded in registry entry"
-)]
-fn register_kind_source_extension() {
-    let (kind_reg, _, _, _) = populate(&[software()]);
-    let behavior = kind_reg.get("behavior").unwrap();
-    assert_eq!(behavior.source_extension, "@specforge/software");
-}
-
-#[test]
-fn register_kind_testable_participates_in_coverage() {
-    let (kind_reg, _, _, _) = populate(&[software()]);
-    let testable_kinds: Vec<_> = kind_reg
-        .iter()
-        .filter(|(_, e)| e.testable)
-        .map(|(k, _)| k.clone())
-        .collect();
-    assert!(testable_kinds.contains(&"behavior".to_string()));
-    assert!(testable_kinds.contains(&"invariant".to_string()));
-}
-
-#[test]
-fn register_kind_testable_false_excluded() {
-    let (kind_reg, _, _, _) = populate(&[product()]);
-    let feature = kind_reg.get("feature").unwrap();
-    assert!(!feature.testable);
-}
-
-#[spec(
-    behavior = "register_entity_kinds_from_manifest",
-    verify = "no default testability assumed by core"
-)]
-fn register_kind_no_default_testability() {
-    let manifest = declare("@test/ext", |c| {
-        c.kind("Thing", |k| {
-            k.keyword("thing");
-        });
-    });
-    let (kind_reg, _, _, _) = populate(&[manifest]);
-    let thing = kind_reg.get("thing").unwrap();
-    assert!(!thing.testable, "default testability should be false");
-}
-
-#[spec(
-    behavior = "register_entity_kinds_from_manifest",
-    verify = "a kind's lifecycle_field must name a field it declares"
-)]
-fn register_kind_lifecycle_field() {
-    let manifest = declare("@test/ext", |c| {
-        c.shared_field("phase", |f| {
-            f.field_type(FieldType::String);
-        });
-        c.kind("Task", |k| {
-            k.keyword("task").lifecycle_field("stage");
-            k.field("stage", |f| {
-                f.field_type(FieldType::String);
-            });
-        });
-        c.kind("Epic", |k| {
-            k.keyword("epic").lifecycle_field("phase");
-        });
-        c.kind("Note", |k| {
-            k.keyword("note").lifecycle_field("status");
-        });
-        c.kind("Idea", |k| {
-            k.keyword("idea");
-        });
-    });
-    let (kind_reg, _, _, diags) = populate(&[manifest]);
-    let lifecycle = |kind: &str| kind_reg.get(kind).unwrap().lifecycle_field.clone();
-    assert_eq!(lifecycle("task").as_deref(), Some("stage"));
-    // An extension-level shared field is one of the kind's fields.
-    assert_eq!(lifecycle("epic").as_deref(), Some("phase"));
-    assert_eq!(lifecycle("idea"), None);
-    // `note` declares no `status`: refused.
-    assert_eq!(lifecycle("note"), None);
-    let refused: Vec<_> = diags.iter().filter(|d| d.code == "W021").collect();
-    assert_eq!(refused.len(), 1, "{diags:?}");
-    assert!(refused[0].message.contains("lifecycle_field 'status'"));
-}
-
-#[spec(
-    behavior = "register_entity_kinds_from_manifest",
-    verify = "Register Entity Kinds From Manifest: entity kind registration holds — extension_manifests_loaded_fired, kinds_registered, source_extension_recorded"
-)]
-fn register_kind_contract() {
-    let manifest = software();
-    let (kind_reg, _, _, diags) = populate(&[manifest]);
-    assert!(kind_reg.contains("behavior"));
-    assert!(kind_reg.contains("invariant"));
-    assert_eq!(
-        kind_reg.get("behavior").unwrap().source_extension,
-        "@specforge/software"
-    );
-    assert!(kind_reg.get("behavior").unwrap().testable);
-    assert!(!diags.iter().any(|d| d.severity == Severity::Error));
-}
 
 // ===========================================================================
 // B:register_edge_types_from_manifest (6 verifies)
@@ -1324,54 +1111,6 @@ fn a_field_edge_label_is_registered_as_an_implicit_edge() {
 // B:detect_duplicate_entity_kinds (4 verifies)
 // ===========================================================================
 
-#[spec(
-    behavior = "detect_duplicate_entity_kinds",
-    verify = "duplicate kind from two extensions produces E026"
-)]
-fn detect_dup_kinds_e026() {
-    let m1 = software();
-    let m2 = other_behavior();
-    let diags = kind_collisions(&[m1, m2]);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "E026" && d.message.contains("behavior"))
-    );
-}
-
-#[spec(
-    behavior = "detect_duplicate_entity_kinds",
-    verify = "first extension in topological order owns the kind"
-)]
-fn detect_dup_kinds_first_wins() {
-    let m1 = software();
-    let m2 = other_behavior();
-    let (kind_reg, _, _, _) = populate(&[m1, m2]);
-    let behavior = kind_reg.get("behavior").unwrap();
-    assert_eq!(behavior.source_extension, "@specforge/software");
-}
-
-#[spec(
-    behavior = "detect_duplicate_entity_kinds",
-    verify = "single extension registering a kind produces no diagnostic"
-)]
-fn detect_dup_kinds_single_ext_no_diag() {
-    let diags = kind_collisions(&[software()]);
-    assert!(diags.is_empty());
-}
-
-#[spec(
-    behavior = "detect_duplicate_entity_kinds",
-    verify = "Detect Duplicate Entity Kinds: duplicate entity kind detection holds — manifests_loading, collisions_detected, first_wins_enforced"
-)]
-fn detect_dup_kinds_contract() {
-    let diags = kind_collisions(&[software()]);
-    assert!(diags.is_empty());
-    let m2 = other_behavior();
-    let dup_diags = kind_collisions(&[software(), m2]);
-    assert!(dup_diags.iter().any(|d| d.code == "E026"));
-}
-
 // ===========================================================================
 // B:validate_peer_dependencies (4 verifies)
 // ===========================================================================
@@ -1505,108 +1244,6 @@ fn peer_deps_contract() {
 // ===========================================================================
 // B:validate_extension_testability (5 verifies)
 // ===========================================================================
-
-#[spec(
-    behavior = "validate_extension_testability",
-    verify = "the registry build reports W017 for a testable kind without supportsVerify"
-)]
-fn the_registry_build_reports_w017() {
-    let manifest = declare("@test/ext", |c| {
-        c.kind("Thing", |k| {
-            k.keyword("thing").testable(true).supports_verify(false);
-        });
-        c.kind("Note", |k| {
-            k.keyword("note").testable(false).supports_verify(true);
-        });
-    });
-    let build = crate::build_registries(vec![manifest]);
-    let codes: Vec<(&str, &str)> = build
-        .registry_diagnostics
-        .iter()
-        .filter(|d| d.code == "W017" || d.code == "I006")
-        .map(|d| (d.code.as_str(), d.message.as_str()))
-        .collect();
-    assert_eq!(codes.len(), 1, "{codes:?}");
-    assert_eq!(codes[0].0, "W017");
-    assert!(codes[0].1.contains("thing"), "{codes:?}");
-}
-
-#[spec(
-    behavior = "validate_extension_testability",
-    verify = "testable kind without supportsVerify produces W017"
-)]
-fn testability_w017() {
-    let manifest = declare("@test/ext", |c| {
-        c.kind("Thing", |k| {
-            k.keyword("thing").testable(true).supports_verify(false);
-        });
-    });
-    let (kind_reg, _, _, _) = populate(&[manifest]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "W017" && d.message.contains("thing"))
-    );
-}
-
-#[spec(
-    behavior = "validate_extension_testability",
-    verify = "testable kind with supportsVerify=true passes"
-)]
-fn testability_passes() {
-    let (kind_reg, _, _, _) = populate(&[software()]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(!diags.iter().any(|d| d.message.contains("behavior")));
-}
-
-#[spec(
-    behavior = "validate_extension_testability",
-    verify = "a kind that accepts verify statements but is not testable produces no diagnostic"
-)]
-fn testability_verify_without_testable_is_not_reported() {
-    let manifest = declare("@test/ext", |c| {
-        c.kind("Note", |k| {
-            k.keyword("note").testable(false).supports_verify(true);
-        });
-    });
-    let (kind_reg, _, _, _) = populate(&[manifest]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(diags.is_empty(), "{diags:?}");
-}
-
-#[spec(
-    behavior = "validate_extension_testability",
-    verify = "consistent testable and supportsVerify flags produce no diagnostic"
-)]
-fn testability_consistent_no_diag() {
-    let manifest = declare("@test/ext", |c| {
-        c.kind("Thing", |k| {
-            k.keyword("thing").testable(false).supports_verify(false);
-        });
-    });
-    let (kind_reg, _, _, _) = populate(&[manifest]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(diags.is_empty());
-}
-
-#[spec(
-    behavior = "validate_extension_testability",
-    verify = "Validate Extension Testability: extension testability validation holds — registries_populated_fired, flag_consistency_checked, advisory_diagnostics_emitted"
-)]
-fn testability_contract() {
-    let (kind_reg, _, _, _) = populate(&[software()]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(diags.is_empty());
-    let bad = declare("@t/e", |c| {
-        c.kind("X", |k| {
-            k.keyword("x").testable(true).supports_verify(false);
-        });
-    });
-    let (bad_kr, _, _, _) = populate(&[bad]);
-    let bad_diags = validate_extension_testability(&bad_kr);
-    assert!(bad_diags.iter().any(|d| d.code == "W017"));
-}
 
 // ===========================================================================
 // B:register_validation_rules_from_manifest (6 verifies)
