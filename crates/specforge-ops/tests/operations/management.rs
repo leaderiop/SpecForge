@@ -41,6 +41,8 @@ fn project() -> Project {
         .to_string(),
     )
     .unwrap();
+    // The compile read the lock as it is at this root.
+    project.env.lock = specforge_wasm::LockState::at(root);
     project
 }
 

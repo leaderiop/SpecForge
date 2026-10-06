@@ -231,7 +231,7 @@ pub(crate) fn environment_inputs(
         .collect();
     EnvironmentInputs {
         config: root.join("specforge.json"),
-        lock: root.join("specforge.lock"),
+        lock: specforge_wasm::lock_path(root),
         modules,
         check_inputs: if check_passes {
             vec![root.join(BUILD_CACHE_FILE)]

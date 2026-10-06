@@ -663,6 +663,8 @@ behavior run_doctor_check "Run Doctor Check" {
     file:<path> for a .wasm file entry of specforge.json. Run in a
     directory without specforge.json, doctor MUST report a warning finding
     config_missing naming the directory; the run stays healthy. A
+    specforge.lock that exists but cannot be read (E033) MUST be reported
+    as an error finding. A
     remediation that names a command MUST name one the user can run as
     written. A finding whose diagnostic offers no
     suggestion of its own MUST quote the catalogue's explanation of its
@@ -680,6 +682,7 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "a finding without its own suggestion quotes the catalogued explanation"
   verify unit "doctor gives each extension the source the extensions listing gives it"
   verify unit "doctor in a directory without specforge.json reports config_missing as a warning"
+  verify unit "a lock file that cannot be read is an error finding naming E033"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
 }
 

@@ -466,7 +466,7 @@ behavior management_operations_over_the_project_view "Management Operations over
     project_compiled "A compiled project or a project session supplies the project view"
   }
   ensures {
-    one_project_read "Each operation reads the config, the enabled entries, the loaded declarations and the reported diagnostics of the compile behind its view, never specforge.json again"
+    one_project_read "Each operation reads the config, the enabled entries, the lock, the loaded declarations and the reported diagnostics of the compile behind its view, never specforge.json or specforge.lock again"
     root_for_disk    "Whatever an operation reads or writes on disk is at the view's root; without a root it refuses with no_project, except the listings and doctor"
   }
   contract   """
@@ -475,17 +475,20 @@ behavior management_operations_over_the_project_view "Management Operations over
     over the project view and a request, shared by the CLI and MCP; a
     surface builds the view from the project it holds, maps its arguments
     and renders the outcome. An operation MUST read the project's config,
-    what each specforge.json entry enabled, the loaded declarations and
-    what the surface reports for the project from the view, never by
-    reading specforge.json again. specforge.lock, the installed binaries,
-    the source files and the recorded test report MUST be read and written
-    at the view's root. Without a root, remove, collect and inference
+    what each specforge.json entry enabled, the specforge.lock the compile
+    read (absent, read, or unreadable with its E033 problem), the loaded
+    declarations and what the surface reports for the project from the
+    view, never by reading specforge.json or specforge.lock again. The
+    installed binaries, the source files and the recorded test report MUST
+    be read and written at the view's root; specforge.lock is written
+    there, at the one path the environment reads it from. Without a root, remove, collect and inference
     progress and gaps MUST refuse with no_project; the listings list what
     the view enabled and loaded, and doctor skips the installation checks.
   """
   verify unit "an operation that reads or writes the project on disk refuses a view without a root"
   verify unit "the extensions listing reads the config entries from the view, never specforge.json again"
   verify unit "doctor reads the diagnostics its view reports"
+  verify unit "list, doctor and remove read the lock the compile read, once"
   verify unit "collect maps test results to the entities of its view"
   verify contract "Management Operations over the Project View: management operations hold — project_compiled, one_project_read, root_for_disk"
 }

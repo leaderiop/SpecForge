@@ -1759,6 +1759,46 @@ fn doctor_without_specforge_json_says_so() {
     assert!(human.contains("No issues found."), "{human}");
 }
 
+// A specforge.lock that is there and cannot be read: the environment read
+// it once, and doctor reports it as an error finding naming E033.
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "a lock file that cannot be read is an error finding naming E033"
+)]
+fn doctor_reports_a_corrupt_lock_as_an_error_finding() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
+    fs::write(dir.path().join("specforge.lock"), "not valid json {{{").unwrap();
+
+    let (report, code) = doctor_json(dir.path());
+
+    assert_eq!(code, 1, "{report}");
+    let findings = project_findings(&report);
+    assert_eq!(findings.len(), 1, "{report}");
+    assert_eq!(findings[0]["code"], "lock_unreadable", "{report}");
+    assert_eq!(findings[0]["status"], "error", "{report}");
+    assert!(
+        findings[0]["check"]
+            .as_str()
+            .unwrap()
+            .contains("corrupt lock file at"),
+        "{report}"
+    );
+    assert_eq!(report["extensions_checked"], 0, "{report}");
+
+    let (human, code) = doctor_human(dir.path());
+    assert_eq!(code, 1, "{human}");
+    assert!(
+        human.contains("[ERROR] [lock_unreadable] corrupt lock file at"),
+        "{human}"
+    );
+    assert!(human.contains("[E033]"), "{human}");
+}
+
 /// `specforge.json` texts that are there and can't be used: not JSON, not
 /// an object, an `extensions` value that is not an array.
 const UNUSABLE_CONFIGS: [&str; 3] = [

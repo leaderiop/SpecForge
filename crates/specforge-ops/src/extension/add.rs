@@ -6,8 +6,7 @@ use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::codes;
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::{
-    ExtensionSpecifier, install_extension, parse_extension_specifier, read_lock_file,
-    write_lock_file,
+    ExtensionSpecifier, LockState, install_extension, parse_extension_specifier, write_lock_file,
 };
 use std::path::{Path, PathBuf};
 
@@ -237,7 +236,7 @@ fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOu
         });
     }
     let sha256 = specforge_wasm::hex_sha256(&wasm);
-    let mut lock = read_lock_file(&lock_path(req.root)).unwrap_or_default();
+    let mut lock = LockState::at(req.root).file().cloned().unwrap_or_default();
     if let Some(present) = already_present(req.root, &lock, declared.name(), |e| {
         e.wasm_hash == sha256 && e.source.starts_with("local:")
     }) {
@@ -259,7 +258,7 @@ fn add_from_registry(
     let origin = Origin::Installed {
         source: "registry".to_string(),
     };
-    let mut lock = read_lock_file(&lock_path(req.root)).unwrap_or_default();
+    let mut lock = LockState::at(req.root).file().cloned().unwrap_or_default();
     if let Some(present) = already_present(req.root, &lock, name, |e| {
         e.version == version && e.source == "registry"
     }) {

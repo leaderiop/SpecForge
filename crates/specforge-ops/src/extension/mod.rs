@@ -116,10 +116,7 @@ pub fn required_builtin_peers(name: &str) -> Vec<&'static str> {
         .collect()
 }
 
-/// `specforge.lock` at the project root.
-pub(crate) fn lock_path(root: &Path) -> PathBuf {
-    root.join("specforge.lock")
-}
+pub(crate) use specforge_wasm::lock_path;
 
 /// `.specforge/extensions` at the project root.
 pub(crate) fn extensions_dir(root: &Path) -> PathBuf {

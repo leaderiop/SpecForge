@@ -7,7 +7,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `.spec` file is read: config, spec root, registries, rules, surfaces, and load diagnostics
   (`specforge_project::Environment`). A `specforge.json` that is there and can't be used is the
   default config (for the unusable file or key), with each reason kept (`config_problems`) and
-  reported as the error E069.
+  reported as the error E069. It also holds what `specforge.lock` held when it was read
+  (`lock`: absent, read, or unreadable), once, for every operation over the project.
 - **Compiled project**: an environment plus the resolved sources and the built graph. Its
   diagnostics are, by definition, what `specforge check` reports under the default policy
   (`specforge_project::CompiledProject`).
@@ -99,7 +100,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Management operation**: an operation about a project's setup and tooling rather than its
   graph: the extensions and providers listings, doctor, remove, collect, inference progress and
   gaps. Like a read view it takes the project view and a request and returns a typed outcome; unlike
-  one it also reads what the view does not own (`specforge.lock`, installed binaries, source files),
+  one it also reads what the view does not own (installed binaries, source files),
   and remove and collect write, at the view's root only. `add`, `update`, `init` and `migrate` are
   operations but not over a view: they run before or instead of a compile (ADR 0015).
 - **Recorded test report**: `<root>/specforge-report.json`, what `specforge collect` last wrote. The

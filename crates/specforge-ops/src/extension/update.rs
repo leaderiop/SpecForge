@@ -14,7 +14,7 @@ use super::{Origin, Trust, check_diamonds, extensions_dir, lock_path};
 use crate::registry::{NO_REGISTRY, Registry};
 use crate::{OpError, OpErrorKind};
 use specforge_common::{Code, codes};
-use specforge_wasm::{LockFile, installed_wasm_path, read_lock_file, write_lock_file};
+use specforge_wasm::{LockFile, LockState, installed_wasm_path, write_lock_file};
 use std::path::Path;
 
 /// The code `update` reports when the project has no lock file.
@@ -137,13 +137,23 @@ pub struct BatchUpdateCompleted {
 /// registry and none is configured.
 pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutcome, OpError> {
     let lock_file = lock_path(req.root);
-    let lock = read_lock_file(&lock_file).map_err(|_| {
-        OpError::coded(
-            OpErrorKind::PreconditionFailed,
-            NO_LOCK,
-            "no lock file found. Run `specforge add` first.",
-        )
-    })?;
+    let lock = match LockState::at(req.root) {
+        LockState::Read(lock) => lock,
+        LockState::Absent => {
+            return Err(OpError::coded(
+                OpErrorKind::PreconditionFailed,
+                NO_LOCK,
+                "no lock file found. Run `specforge add` first.",
+            ));
+        }
+        LockState::Unreadable(problem) => {
+            return Err(OpError::coded(
+                OpErrorKind::PreconditionFailed,
+                NO_LOCK,
+                format!("{}. Run `specforge add` first.", problem.message),
+            ));
+        }
+    };
 
     // Plan: resolve and check every newer package against the lock as it
     // will be, before anything is written.
@@ -535,7 +545,7 @@ mod tests {
                 skipped_count: 0,
             }
         );
-        let lock = read_lock_file(&lock_path(dir.path())).unwrap();
+        let lock = specforge_wasm::read_lock_file(&lock_path(dir.path())).unwrap();
         assert_eq!(lock.entries[0].version, "0.1.0");
         assert_eq!(lock.entries[0].wasm_hash, hex_sha256(&greet()));
         assert_eq!(lock.entries[0].source, "registry");
@@ -564,7 +574,10 @@ mod tests {
             }
         );
         assert_eq!(
-            read_lock_file(&lock_path(dir.path())).unwrap().entries[0].version,
+            specforge_wasm::read_lock_file(&lock_path(dir.path()))
+                .unwrap()
+                .entries[0]
+                .version,
             "0.0.9"
         );
     }

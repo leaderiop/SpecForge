@@ -259,6 +259,44 @@ fn validate_and_doctor_report_an_unusable_config() {
     assert_eq!(findings, [("E069", "error")], "{report}");
 }
 
+// A lock file that is there and cannot be read: the served project's
+// environment reads it (and reloads when it changes), and doctor lists it
+// as an error finding naming E033.
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "a lock file that cannot be read is an error finding naming E033"
+)]
+fn doctor_reports_a_corrupt_lock_as_an_error_finding() {
+    let (mut server, root) =
+        server_over(json!({"name": "t", "version": "0.1.0", "extensions": []}));
+    assert_eq!(
+        project_findings(&answer(&call_tool(
+            &mut server,
+            "specforge.doctor",
+            json!({})
+        ))),
+        Vec::<Value>::new()
+    );
+
+    std::fs::write(root.path().join("specforge.lock"), "not valid json {{{").unwrap();
+
+    let report = answer(&call_tool(&mut server, "specforge.doctor", json!({})));
+    let findings = project_findings(&report);
+    assert_eq!(findings.len(), 1, "{report}");
+    assert_eq!(findings[0]["code"], "lock_unreadable", "{report}");
+    assert_eq!(findings[0]["status"], "error", "{report}");
+    assert!(
+        findings[0]["check"]
+            .as_str()
+            .unwrap()
+            .contains("corrupt lock file at"),
+        "{report}"
+    );
+    // The listing reads the same lock: it knows nothing is locked.
+    let listed = answer(&call_tool(&mut server, "specforge.extensions", json!({})));
+    assert_eq!(listed["lock_file_entries"], json!([]), "{listed}");
+}
+
 #[specforge_test(
     behavior = "run_doctor_check",
     verify = "doctor in a directory without specforge.json reports config_missing as a warning"

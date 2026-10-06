@@ -48,7 +48,7 @@ use specforge_registry::{
     RegistryBuild, build_registries, load_provider_configurations, register_provider_schemes,
 };
 use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
-use specforge_wasm::WasmRuntime;
+use specforge_wasm::{LockState, WasmRuntime};
 
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
 pub use compile::EnabledExtension;
@@ -74,6 +74,11 @@ pub struct Environment {
     /// [`Self::from_declarations`] and [`Self::with_registries`] (no file
     /// was read).
     pub config_found: bool,
+    /// What `specforge.lock` held when the environment was read (absent,
+    /// read, or unreadable with its problem): one read per environment,
+    /// which every operation over the project reads instead of the disk.
+    /// A changed lock reloads the environment ([`EnvironmentInputs`]).
+    pub lock: LockState,
     /// What each `specforge.json` `extensions` entry enables, in order, as
     /// the runtime loaded it (a `.wasm` file entry by the name its
     /// component declares).
@@ -104,6 +109,7 @@ impl Environment {
             config: ProjectConfig::default(),
             config_problems: Vec::new(),
             config_found: false,
+            lock: LockState::Absent,
             enabled: Vec::new(),
             spec_root: PathBuf::new(),
             registries: RegistryBuild::default(),
@@ -172,6 +178,7 @@ impl Environment {
             config,
             config_problems: read.problems,
             config_found: read.found,
+            lock: LockState::at(root),
             enabled,
             spec_root,
             registries,

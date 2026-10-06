@@ -22,6 +22,7 @@ use specforge_project::coverage::{
 use specforge_project::snapshot::EntitySnapshot;
 use specforge_project::{CompiledProject, Environment, ProjectSession};
 use specforge_registry::RegistryBuild;
+use specforge_wasm::LockState;
 
 use crate::schema_cache::SchemaCache;
 use crate::{OpError, OpErrorKind};
@@ -136,6 +137,18 @@ impl<'a> ProjectView<'a> {
     /// memory ([`Self::project_root`] refuses instead).
     pub fn root(&self) -> Option<&'a Path> {
         self.root
+    }
+
+    /// What `specforge.lock` held when the compile read the environment:
+    /// the one read every operation uses (`list`, `doctor`, `remove`).
+    /// Absent without a root: a graph built in memory has no project on
+    /// disk to have locked anything.
+    pub fn lock(&self) -> &'a LockState {
+        static NO_LOCK: LockState = LockState::Absent;
+        match self.root {
+            Some(_) => &self.env.lock,
+            None => &NO_LOCK,
+        }
     }
 
     /// This view over the same project at another root (a test of what a
@@ -347,8 +360,9 @@ pub(crate) mod testing {
             }
         }
 
-        /// `<dir>/specforge.lock` locks each `(name, version, source)`.
-        pub fn lock(self, entries: &[(&str, &str, &str)]) -> Self {
+        /// `<dir>/specforge.lock` locks each `(name, version, source)`; the
+        /// compile read it.
+        pub fn lock(mut self, entries: &[(&str, &str, &str)]) -> Self {
             let lock = specforge_wasm::LockFile {
                 lockfile_version: 1,
                 entries: entries
@@ -363,8 +377,9 @@ pub(crate) mod testing {
                     })
                     .collect(),
             };
-            specforge_wasm::write_lock_file(&lock, &self.dir.path().join("specforge.lock"))
+            specforge_wasm::write_lock_file(&lock, &specforge_wasm::lock_path(self.dir.path()))
                 .unwrap();
+            self.env.lock = LockState::Read(lock);
             self
         }
 
