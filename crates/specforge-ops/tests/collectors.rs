@@ -143,7 +143,7 @@ fn collect_maps_results_to_the_views_entities() {
         ]}"#,
     )
     .unwrap();
-    let recorded = specforge_project::coverage::RecordedCoverage::default();
+    let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
     let view = ProjectView::new(&graph, &env, Some(dir.path()), &recorded);
 
     let reports = [report];

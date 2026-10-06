@@ -32,7 +32,12 @@ build reads it:
 - the coverage view, plan validation, stats and the verify-stub fix read its standings.
 
 Operations reach it through the project view (`ProjectView::entities`), seeded into the per-compile memo
-that already holds the coverage.
+that already holds the coverage. The memo is bound to its snapshot when it is made (`RecordedCoverage::of`
+with the snapshot the checks read, or `RecordedCoverage::over(graph, env)` for a graph assembled
+elsewhere, which takes it with `Environment::entity_snapshot`): it is never asked for a snapshot with
+inputs of its own, so no caller can score a graph with another's registries or spec root. A session
+whose update skipped the checks makes its memo over its own graph on first use; the LSP's stand-in
+graph carries the snapshot its session held for that graph.
 
 ### Placement
 
@@ -80,6 +85,12 @@ beside it (`FieldRecord::items`, never on the wire).
 It **owes** obligations when a rule applies and nothing exempts it; it **counts** toward coverage when
 testable and owing or declaring; it is **exempt** (the coverage view's word) when testable and neither.
 
+- The counting formula is `Standing::counts`, the host's one statement of it. The pass's entity (the
+  `coverage` extension's input, which that crate scores without the host) has its own,
+  `Entity::counts_toward_coverage`; a test pins them equal over every combination. Every other
+  reader (inspect included) borrows the snapshot's `Standing`; none re-derives it. They are not one
+  function because `specforge-coverage` is an input of two builtin blobs, so sharing one would
+  re-vendor them.
 - The pass input's and the coverage rule's `exempt` is "owes none".
 - The verify stub is offered to an entity that declares none and either owes obligations or is of a
   testable kind nothing exempts. It fixes the rule that reports it, if any.

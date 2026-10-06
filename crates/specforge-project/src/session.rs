@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use specforge_common::{Diagnostic, codes, discover_spec_files, load_project_config};
 use specforge_graph::{Graph, build_graph_with_config};
@@ -94,8 +94,10 @@ pub struct ProjectSession {
     snapshot: DiskSnapshot,
     /// The current graph's entity snapshot, the recorded test report and
     /// the coverage of the graph against it: a fresh memo after every update
-    /// and reload, seeded with the snapshot the checks read.
-    recorded: RecordedCoverage,
+    /// and reload. A check seeds it with the snapshot it read; after an
+    /// update that skipped the checks it is made over the graph on first use
+    /// ([`Self::recorded`], the one place).
+    recorded: OnceLock<RecordedCoverage>,
 }
 
 /// A project whose environment is loaded and whose sources are not read yet
@@ -155,7 +157,7 @@ impl OpeningProject {
             verify_incremental: false,
             origin: Origin::Disk,
             snapshot,
-            recorded: RecordedCoverage::default(),
+            recorded: OnceLock::new(),
         };
         session.check_diagnostics = session.checked();
         session
@@ -176,7 +178,7 @@ impl ProjectSession {
             verify_incremental: false,
             origin: Origin::None,
             snapshot: DiskSnapshot::default(),
-            recorded: RecordedCoverage::default(),
+            recorded: OnceLock::new(),
         }
     }
 
@@ -260,7 +262,7 @@ impl ProjectSession {
             }
         };
         let result = self.build.rebuild(changes);
-        self.recorded = RecordedCoverage::default();
+        self.recorded = OnceLock::new();
         self.import_diagnostics = self.resolve_imports();
         self.check_diagnostics = match mode {
             CheckMode::SyntaxOnlyIfParseErrorsIn(path)
@@ -497,18 +499,15 @@ impl ProjectSession {
     /// The recorded test report and the coverage of the current graph
     /// against it, memoized until the next update or reload.
     pub fn recorded(&self) -> &RecordedCoverage {
-        &self.recorded
+        self.recorded
+            .get_or_init(|| RecordedCoverage::over(self.build.graph(), &self.env))
     }
 
     /// The current graph's entity snapshot (ADR 0019): the one its last
     /// check read, or, when the last update skipped the checks, one taken
     /// on first use.
     pub fn entities(&self) -> &EntitySnapshot {
-        self.recorded.entities(
-            self.build.graph(),
-            &self.env.registries,
-            &self.env.spec_root,
-        )
+        self.recorded().entities()
     }
 
     /// The environment, shared: it stays valid after the session reloads.
@@ -598,7 +597,7 @@ impl ProjectSession {
 
     /// Run every check again on the current graph: a check input changed.
     fn recheck(&mut self) -> Update {
-        self.recorded = RecordedCoverage::default();
+        self.recorded = OnceLock::new();
         self.check_diagnostics = self.checked();
         Update {
             kind: UpdateKind::Checks,
@@ -625,11 +624,7 @@ impl ProjectSession {
 
     /// A snapshot of the current graph, taken now (ADR 0019).
     fn snapshot_now(&self) -> Arc<EntitySnapshot> {
-        Arc::new(EntitySnapshot::of(
-            self.build.graph(),
-            &self.env.registries,
-            &self.env.spec_root,
-        ))
+        Arc::new(self.env.entity_snapshot(self.build.graph()))
     }
 
     /// Run every check on the current graph over `entities`, its snapshot:
@@ -638,7 +633,7 @@ impl ProjectSession {
         let diagnostics =
             self.env
                 .run_checks(self.build.graph(), &entities, self.runtime.as_deref());
-        self.recorded = RecordedCoverage::of(entities);
+        self.recorded = OnceLock::from(RecordedCoverage::of(entities));
         diagnostics
     }
 

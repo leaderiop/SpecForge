@@ -15,7 +15,7 @@
 
 use serde::Serialize;
 use specforge_common::{Code, Diagnostic, DiagnosticData, Severity, codes};
-use specforge_wasm::{DoctorStatus, read_lock_file, run_doctor_check};
+use specforge_wasm::{DoctorStatus, run_doctor_check};
 use std::collections::{BTreeMap, HashMap};
 
 use crate::extension::Origin;
@@ -41,6 +41,10 @@ pub const CONFIG_CODES: [Code; 1] = [codes::E069];
 
 /// The finding code of a project root without `specforge.json`.
 pub const CONFIG_MISSING: &str = "config_missing";
+
+/// The finding code of a `specforge.lock` that exists but cannot be read
+/// (its check names the diagnostic, E033).
+pub const LOCK_UNREADABLE: &str = "lock_unreadable";
 
 /// Everything `specforge doctor` reports about a project.
 #[derive(Debug, Clone, Serialize)]
@@ -191,12 +195,10 @@ pub fn diagnose(view: &ProjectView) -> DoctorReport {
 
 /// [`diagnose`] with the z3 probe supplied, so tests do not depend on PATH.
 pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
-    let declarations = view.registries.declarations();
+    let declarations = view.registries().declarations();
     let diagnostics = view.reported();
-    let lock = view
-        .root
-        .and_then(|root| read_lock_file(&root.join("specforge.lock")).ok());
-    let lock_entries = lock.as_ref().map(|l| l.entries.as_slice()).unwrap_or(&[]);
+    let lock = view.lock().file();
+    let lock_entries = view.lock().entries();
 
     // Extensions: loaded declarations first (load order), then lock entries
     // that did not load. Each is named by the listing's source rule: the
@@ -207,7 +209,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
         .map(|d| ExtensionHealth {
             name: d.name().to_string(),
             version: d.version().to_string(),
-            source: Origin::of(d.name(), &view.env.enabled, lock.as_ref()).source(),
+            source: Origin::of(d.name(), &view.env().enabled, lock).source(),
             enhancement_count: d.enhancements.len(),
         })
         .collect();
@@ -261,8 +263,8 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
             remediation: remediation(diag, || format!("run `specforge explain {}`", diag.code)),
         });
     }
-    if let Some(root) = view.root
-        && !view.env.config_found
+    if let Some(root) = view.root()
+        && !view.env().config_found
     {
         findings.push(Finding {
             check: format!("specforge.json at {}", root.display()),
@@ -271,6 +273,18 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
             remediation: "run `specforge init` here, or pass --path to the project root; without \
                           specforge.json the project has the default config and no extension"
                 .into(),
+        });
+    }
+
+    // A lock file that cannot be used: nothing is known to be installed.
+    if let Some(problem) = view.lock().problem() {
+        findings.push(Finding {
+            check: format!("{} [{}]", problem.message, problem.code),
+            status: FindingStatus::Error,
+            code: LOCK_UNREADABLE.into(),
+            remediation: remediation(problem, || {
+                format!("run `specforge explain {}`", problem.code)
+            }),
         });
     }
 
@@ -284,8 +298,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
         Some(specforge_wasm::hex_sha256(&bytes))
     };
     let statuses = lock
-        .as_ref()
-        .zip(view.root)
+        .zip(view.root())
         .map(|(l, root)| {
             run_doctor_check(
                 l,

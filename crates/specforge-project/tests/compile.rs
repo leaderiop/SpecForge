@@ -835,6 +835,35 @@ fn an_unusable_config_is_e069_then_i002_naming_it() {
     );
 }
 
+/// The environment reads `specforge.lock` once, at its root: no file is
+/// absent, a lock is read as written, a file that cannot be parsed is
+/// unreadable with its E033 problem (and no extension is locked).
+#[test]
+fn the_environment_reads_the_lock_once_at_its_root() {
+    use specforge_wasm::{LockFile, LockState};
+    let dir = TempDir::new().unwrap();
+    fs::write(dir.path().join("specforge.json"), "{}").unwrap();
+    let runtime = specforge_component::project_runtime(dir.path());
+    let load = || specforge_project::Environment::load(dir.path(), Some(&runtime));
+
+    assert_eq!(load().lock, LockState::Absent);
+
+    let lock = LockFile::default();
+    specforge_wasm::write_lock_file(&lock, &specforge_wasm::lock_path(dir.path())).unwrap();
+    assert_eq!(load().lock, LockState::Read(lock));
+
+    // What changed on disk after the load is not what the environment holds.
+    let env = load();
+    fs::write(specforge_wasm::lock_path(dir.path()), "not valid json {{{").unwrap();
+    assert!(matches!(env.lock, LockState::Read(_)));
+    let reloaded = load();
+    assert_eq!(
+        reloaded.lock.problem().map(|p| p.code.as_str()),
+        Some("E033")
+    );
+    assert!(reloaded.lock.entries().is_empty());
+}
+
 /// A non-string `extensions` item is one E069 (it is ignored); the other
 /// entries load, so there is no I002.
 #[specforge_test(

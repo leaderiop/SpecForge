@@ -48,7 +48,7 @@ use specforge_registry::{
     RegistryBuild, build_registries, load_provider_configurations, register_provider_schemes,
 };
 use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_config};
-use specforge_wasm::WasmRuntime;
+use specforge_wasm::{LockState, WasmRuntime};
 
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
 pub use compile::EnabledExtension;
@@ -74,6 +74,11 @@ pub struct Environment {
     /// [`Self::from_declarations`] and [`Self::with_registries`] (no file
     /// was read).
     pub config_found: bool,
+    /// What `specforge.lock` held when the environment was read (absent,
+    /// read, or unreadable with its problem): one read per environment,
+    /// which every operation over the project reads instead of the disk.
+    /// A changed lock reloads the environment ([`EnvironmentInputs`]).
+    pub lock: LockState,
     /// What each `specforge.json` `extensions` entry enables, in order, as
     /// the runtime loaded it (a `.wasm` file entry by the name its
     /// component declares).
@@ -104,6 +109,7 @@ impl Environment {
             config: ProjectConfig::default(),
             config_problems: Vec::new(),
             config_found: false,
+            lock: LockState::Absent,
             enabled: Vec::new(),
             spec_root: PathBuf::new(),
             registries: RegistryBuild::default(),
@@ -172,6 +178,7 @@ impl Environment {
             config,
             config_problems: read.problems,
             config_found: read.found,
+            lock: LockState::at(root),
             enabled,
             spec_root,
             registries,
@@ -187,6 +194,14 @@ impl Environment {
             known_provider_schemes: self.provider_schemes.clone(),
             ..compile::graph_config(&self.registries)
         }
+    }
+
+    /// The entity snapshot of `graph`, built in this environment: its
+    /// registries decide each entity's standing and its spec root resolves
+    /// the relative paths the rules read. The one place a snapshot is
+    /// taken from an environment.
+    pub fn entity_snapshot(&self, graph: &Graph) -> EntitySnapshot {
+        EntitySnapshot::of(graph, &self.registries, &self.spec_root)
     }
 
     /// What the checks on a built graph need from this environment, with
@@ -379,7 +394,7 @@ impl CompiledProject {
         let resolved = env.resolve();
         let (graph, graph_diagnostics) =
             build_graph_with_config(&source_files(&resolved), &env.graph_config());
-        let entities = Arc::new(EntitySnapshot::of(&graph, &env.registries, &env.spec_root));
+        let entities = Arc::new(env.entity_snapshot(&graph));
         let check_diagnostics = env.run_checks(&graph, &entities, runtime);
         CompiledProject {
             env,

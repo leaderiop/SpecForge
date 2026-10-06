@@ -99,7 +99,7 @@ pub fn schema(view: &ProjectView, request: &SchemaRequest) -> Result<SchemaOutco
         schema.edge_types.retain(|edge| touches(edge, kind));
     }
     let validation_rules = request.validation_rules.then(|| {
-        view.registries
+        view.registries()
             .declarations()
             .iter()
             .flat_map(|declaration| {

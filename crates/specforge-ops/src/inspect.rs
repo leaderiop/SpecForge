@@ -7,6 +7,7 @@ use specforge_common::Diagnostic;
 use specforge_graph::Node;
 use specforge_parser::VerifyStatement;
 use specforge_project::coverage::{ReportError, Status, Verdict};
+use specforge_project::snapshot::Standing;
 use specforge_registry::KindRegistryEntry;
 
 use crate::OpError;
@@ -28,8 +29,10 @@ pub struct EntityFacts<'v> {
     /// behavior's `contract`), borrowed from the node's field; `None` when
     /// its kind declares none.
     pub headline: Option<&'v str>,
-    /// How the coverage rule counts it. Independent of the recorded report.
-    pub standing: Standing,
+    /// How the coverage rule counts it: its standing in the view's entity
+    /// snapshot (ADR 0019), `testable`, `obligated()`, `exempt()`.
+    /// Independent of the recorded report.
+    pub standing: &'v Standing,
     /// Its `verify` statements, in declaration order.
     pub obligations: &'v [VerifyStatement],
     /// The references to it and the ones it makes (ADR 0016 D2), in graph
@@ -43,28 +46,6 @@ pub struct EntityFacts<'v> {
     /// what their data names, else the innermost block holding their
     /// span), in the order they are reported.
     pub diagnostics: Vec<Diagnostic>,
-}
-
-/// How the coverage rule counts an entity (ADR 0004 D2-b, D2-d).
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct Standing {
-    /// Its kind is testable (its extension's declaration says so).
-    pub testable: bool,
-    /// Its kind must declare obligations: a `no_verify_statements` rule
-    /// (W004) applies to it (one without a target kind applies to every
-    /// kind).
-    pub obligated: bool,
-    /// Testable, but it owes no obligations and declares none, so it does
-    /// not count toward coverage (a union, an `abstract` entity, a
-    /// governance entity of a kind no W004 rule targets).
-    pub exempt: bool,
-}
-
-impl Standing {
-    /// It counts toward coverage.
-    pub fn counts(&self) -> bool {
-        self.testable && !self.exempt
-    }
 }
 
 /// An entity's coverage: its verdict, and whether a recorded report was
@@ -90,8 +71,14 @@ impl EntityCoverage {
 /// reports about it (MCP: its call target's; the LSP: what it published).
 /// An entity the graph lacks is `navigate::NOT_FOUND`.
 pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFacts<'v>, OpError> {
-    let graph = view.graph;
+    let graph = view.graph();
     let node = graph.node(entity_id).ok_or_else(|| not_found(entity_id))?;
+    // The snapshot is built over the same graph: a node it lacks is not one
+    // this view can state facts about.
+    let standing = view
+        .entities()
+        .standing(entity_id)
+        .ok_or_else(|| not_found(entity_id))?;
     let coverage = view.recorded().map(|recorded| EntityCoverage {
         verdict: recorded
             .coverage
@@ -102,9 +89,9 @@ pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFact
     });
     Ok(EntityFacts {
         node,
-        kind: view.registries.kinds.get(node.kind.raw.as_str()),
-        headline: specforge_emitter::context::headline_statement(node, &view.registries.fields),
-        standing: standing(view, entity_id),
+        kind: view.registries().kinds.get(node.kind.raw.as_str()),
+        headline: specforge_emitter::context::headline_statement(node, &view.registries().fields),
+        standing,
         obligations: specforge_graph::obligations(node),
         references: References::of(view, entity_id),
         coverage,
@@ -120,17 +107,4 @@ pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFact
 /// `"<kind> <text>"`.
 pub fn obligation_text(statement: &VerifyStatement) -> String {
     format!("{} {}", statement.kind, statement.description)
-}
-
-/// How the coverage rule counts the entity `id`: its standing in the
-/// view's entity snapshot (ADR 0019), the one the coverage view, stats and
-/// the checks read. It never depends on the recorded report.
-fn standing(view: &ProjectView, id: &str) -> Standing {
-    view.entities()
-        .standing(id)
-        .map_or(Standing::default(), |standing| Standing {
-            testable: standing.testable,
-            obligated: standing.obligated(),
-            exempt: standing.exempt(),
-        })
 }

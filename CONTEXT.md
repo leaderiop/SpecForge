@@ -7,9 +7,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `.spec` file is read: config, spec root, registries, rules, surfaces, and load diagnostics
   (`specforge_project::Environment`). A `specforge.json` that is there and can't be used is the
   default config (for the unusable file or key), with each reason kept (`config_problems`) and
-  reported as the error E069. A session opens in two steps (`ProjectSession::begin_open`, then
-  `OpeningProject::finish`), so an editor answers what needs only the environment (keyword
-  completion) while the sources are still being read.
+  reported as the error E069. It also holds what `specforge.lock` held when it was read
+  (`lock`: absent, read, or unreadable), once, for every operation over the project. A session
+  opens in two steps (`ProjectSession::begin_open`, then `OpeningProject::finish`), so an editor
+  answers what needs only the environment (keyword completion) while the sources are still being
+  read.
 - **Compiled project**: an environment plus the resolved sources and the built graph. Its
   diagnostics are, by definition, what `specforge check` reports under the default policy
   (`specforge_project::CompiledProject`).
@@ -95,15 +97,17 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   model and outline diagrams, the versioned schema, and inspect. Each returns a typed outcome; the
   CLI, MCP and the LSP only render it.
 - **Entity facts**: what inspect returns for one entity: its node and kind entry, headline
-  statement, standing (testable, obligated, exempt), obligations, references in both directions,
+  statement, standing (the snapshot's own, borrowed), obligations, references in both directions,
   coverage, and the reported diagnostics about it (`specforge_ops::inspect::EntityFacts`). MCP
   `specforge.inspect` renders it as JSON and the LSP hover as markdown, so the two cannot disagree.
 - **Management operation**: an operation about a project's setup and tooling rather than its
   graph: the extensions and providers listings, doctor, remove, collect, inference progress and
   gaps. Like a read view it takes the project view and a request and returns a typed outcome; unlike
-  one it also reads what the view does not own (`specforge.lock`, installed binaries, source files),
+  one it also reads what the view does not own (installed binaries, source files),
   and remove and collect write, at the view's root only. `add`, `update`, `init` and `migrate` are
-  operations but not over a view: they run before or instead of a compile (ADR 0015).
+  operations but not over a view: they run before or instead of a compile (ADR 0015); `add` and
+  `update` read `specforge.json` through the compile's own reader and refuse an unusable one with
+  the refusal `remove` gives.
 - **Recorded test report**: `<root>/specforge-report.json`, what `specforge collect` last wrote. The
   project view reads it once per compile and per content
   (`specforge_project::coverage::RecordedCoverage`).

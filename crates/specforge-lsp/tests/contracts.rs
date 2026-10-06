@@ -822,8 +822,8 @@ fn provide_semantic_tokens_contract() {
         registries
     };
     let graph = Graph::new();
-    let recorded = specforge_project::coverage::RecordedCoverage::default();
     let env = specforge_project::Environment::with_registries(registries);
+    let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
     let view = specforge_ops::view::ProjectView::new(&graph, &env, None, &recorded);
     let tokens = specforge_lsp::Document::new("file:///t.spec".into(), source.into()).tokens(&view);
 
@@ -988,13 +988,13 @@ fn code_action_create_entity_stub_contract() {
     let text = "behavior login \"L\" {\n  invariants [missing_inv]\n}\n";
     let state = buffers(&[("/p/auth.spec", text)]);
     let diagnostics = state.session().unwrap().diagnostics();
-    let recorded = specforge_project::coverage::RecordedCoverage::default();
     let fixes_with = |target_kind: Option<&str>| {
         let env = specforge_project::Environment::with_registries({
             let mut build = specforge_registry::RegistryBuild::default();
             build.fields = invariants_field(target_kind);
             build
         });
+        let recorded = specforge_project::coverage::RecordedCoverage::over(state.graph(), &env);
         let view = specforge_ops::view::ProjectView::new(state.graph(), &env, None, &recorded);
         let nav = specforge_ops::navigate::Navigator::new(view, |_: &str| Some(text.to_string()));
         nav.fixes(&diagnostics, &specforge_ops::navigate::FixQuery::default())
@@ -1069,7 +1069,7 @@ fn code_actions_for_missing_verify_contract() {
         build.kinds = verifiable(&["behavior"], &[]);
         build
     });
-    let recorded = specforge_project::coverage::RecordedCoverage::default();
+    let recorded = specforge_project::coverage::RecordedCoverage::over(state.graph(), &env);
     let view = specforge_ops::view::ProjectView::new(state.graph(), &env, None, &recorded);
     let nav = specforge_ops::navigate::Navigator::new(view, |_: &str| Some(text.to_string()));
     let fixes = nav.fixes(&[], &specforge_ops::navigate::FixQuery::default());

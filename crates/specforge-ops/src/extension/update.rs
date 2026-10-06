@@ -14,7 +14,7 @@ use super::{Origin, Trust, check_diamonds, extensions_dir, lock_path};
 use crate::registry::{NO_REGISTRY, Registry};
 use crate::{OpError, OpErrorKind};
 use specforge_common::{Code, codes};
-use specforge_wasm::{LockFile, installed_wasm_path, read_lock_file, write_lock_file};
+use specforge_wasm::{LockFile, LockState, installed_wasm_path, write_lock_file};
 use std::path::Path;
 
 /// The code `update` reports when the project has no lock file.
@@ -132,18 +132,32 @@ pub struct BatchUpdateCompleted {
 
 /// Update the extensions `req` names in the project at `req.root`.
 ///
-/// Fails outright (nothing asked, nothing written) with E033 when the
+/// Fails outright (nothing asked, nothing written) with `config_invalid`
+/// when `specforge.json` cannot be used, with E033 when the
 /// project has no lock file, and with E063 when a registry install needs a
 /// registry and none is configured.
 pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutcome, OpError> {
+    // A project whose specforge.json cannot be used is refused before
+    // anything is read or written, as `add` and `remove` refuse it.
+    crate::config::usable(req.root)?;
     let lock_file = lock_path(req.root);
-    let lock = read_lock_file(&lock_file).map_err(|_| {
-        OpError::coded(
-            OpErrorKind::PreconditionFailed,
-            NO_LOCK,
-            "no lock file found. Run `specforge add` first.",
-        )
-    })?;
+    let lock = match LockState::at(req.root) {
+        LockState::Read(lock) => lock,
+        LockState::Absent => {
+            return Err(OpError::coded(
+                OpErrorKind::PreconditionFailed,
+                NO_LOCK,
+                "no lock file found. Run `specforge add` first.",
+            ));
+        }
+        LockState::Unreadable(problem) => {
+            return Err(OpError::coded(
+                OpErrorKind::PreconditionFailed,
+                NO_LOCK,
+                format!("{}. Run `specforge add` first.", problem.message),
+            ));
+        }
+    };
 
     // Plan: resolve and check every newer package against the lock as it
     // will be, before anything is written.
@@ -535,7 +549,7 @@ mod tests {
                 skipped_count: 0,
             }
         );
-        let lock = read_lock_file(&lock_path(dir.path())).unwrap();
+        let lock = specforge_wasm::read_lock_file(&lock_path(dir.path())).unwrap();
         assert_eq!(lock.entries[0].version, "0.1.0");
         assert_eq!(lock.entries[0].wasm_hash, hex_sha256(&greet()));
         assert_eq!(lock.entries[0].source, "registry");
@@ -564,7 +578,10 @@ mod tests {
             }
         );
         assert_eq!(
-            read_lock_file(&lock_path(dir.path())).unwrap().entries[0].version,
+            specforge_wasm::read_lock_file(&lock_path(dir.path()))
+                .unwrap()
+                .entries[0]
+                .version,
             "0.0.9"
         );
     }
@@ -819,5 +836,34 @@ mod tests {
         assert!(!err.is(crate::registry::METADATA_MISMATCH), "{err:?}");
         assert!(err.code.starts_with("R-RES"), "{err:?}");
         assert!(err.message.contains("@acme/x"), "{err:?}");
+    }
+
+    #[specforge_test(
+        behavior = "management_operations_over_the_project_view",
+        verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
+    )]
+    fn an_unusable_config_is_refused_before_the_lock_is_read() {
+        use crate::config::testing::{UNUSABLE, files_under};
+
+        for config in UNUSABLE {
+            // With a lock and without one: the config is refused first.
+            for locked in [true, false] {
+                let dir = if locked {
+                    project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])])
+                } else {
+                    tempfile::tempdir().unwrap()
+                };
+                std::fs::write(dir.path().join("specforge.json"), config).unwrap();
+                let before = files_under(dir.path());
+                let read = specforge_common::read_project_config(dir.path());
+                let refused = crate::config::refusal(&read.problems[0]);
+
+                let unconfigured = crate::registry::Unconfigured("update");
+                let error = update(&request(dir.path(), false), &unconfigured).unwrap_err();
+
+                assert_eq!(error, refused, "{config}, locked: {locked}");
+                assert_eq!(files_under(dir.path()), before, "{config}");
+            }
+        }
     }
 }

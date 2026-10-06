@@ -26,7 +26,7 @@ pub fn items(
     insert_replace: bool,
     view: &ProjectView,
 ) -> Vec<CompletionItem> {
-    let registries = view.registries;
+    let registries = view.registries();
     let mut items = match *site {
         CompletionSite::Keywords { prefix } => keywords(prefix, view),
         CompletionSite::Fields { kind, prefix } => {
@@ -119,7 +119,7 @@ fn starts_with(label: &str, prefix: &str) -> bool {
 /// scaffolding its required fields. `define` is a reserved word whose
 /// blocks register nothing (W143, ADR 0005): never suggested.
 fn keywords(prefix: &str, view: &ProjectView) -> Vec<CompletionItem> {
-    let kinds = &view.registries.kinds;
+    let kinds = &view.registries().kinds;
     let mut keywords: Vec<String> = kinds.keywords().cloned().collect();
     keywords.push("use".into());
     keywords.sort();
@@ -131,7 +131,7 @@ fn keywords(prefix: &str, view: &ProjectView) -> Vec<CompletionItem> {
             let (detail, snippet) = match kinds.get(&keyword) {
                 Some(entry) => (
                     Some(entry.source_extension.clone()),
-                    Some(keyword_snippet(&keyword, &view.registries.fields)),
+                    Some(keyword_snippet(&keyword, &view.registries().fields)),
                 ),
                 None => (None, None),
             };
@@ -194,7 +194,7 @@ fn entity_ids(view: &ProjectView, prefix: &str, kind: Option<&str>) -> Vec<Compl
         kinds: &kinds,
         ..EntityQuery::new(prefix, MatchScope::Names)
     };
-    find_entities(view.graph, &query)
+    find_entities(view.graph(), &query)
         .into_iter()
         .enumerate()
         .map(|(rank, found)| {

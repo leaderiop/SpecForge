@@ -133,11 +133,13 @@ drifted: 94bbdeb3 gave `list` and `remove` the `enabled` entries and not `doctor
 
 ### The view, completed
 
-`ProjectView` also borrows the **Environment** it was compiled in (`env`: the config, what each
-`extensions` entry enabled, the spec root; `registries` is `&env.registries`) and says **what its
+`ProjectView` also borrows the **Environment** it was compiled in (`env()`: the config, what each
+`extensions` entry enabled, the spec root, the registry build; `registries()` is its one accessor,
+the view keeps no copy) and says **what its
 surface reports** for the project (`reported()`): a `CompiledProject`'s diagnostics, a session's
 plus MCP's I017 notices (`also_reporting`), or a listed slice (`reporting`, for graphs built in
-memory). `ProjectView::new` takes `&Environment` (`Environment::with_registries` for a bare build).
+memory). The view's fields are private: `graph()`, `env()`, `registries()` and `root()` are the
+way in. `ProjectView::new` takes `&Environment` (`Environment::with_registries` for a bare build).
 `project_root()` is the root for an operation that reads or writes the project on disk, `no_project`
 without one.
 
@@ -173,7 +175,9 @@ runtime)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compil
 - **M7. One presenter per listing** (`ExtensionEntry::to_json`, `ProviderListing::to_json`); doctor
   keeps two published shapes (ADR 0004 D1-c).
 - **M8. `add`, `update`, `init` and `migrate` are not view operations**: they run before or instead
-  of a compile, and `add`/`update` reach the `Registry` port.
+  of a compile, and `add`/`update` reach the `Registry` port. `add` and `update` read the config
+  through `config::usable`/`config::required` (`read_project_config`, the function the compile reads
+  it with) and the lock through `LockState::at` (M10), never a reader of their own (see M11).
 - **M9. A `specforge.json` not used as written is E069, an error.** The Environment keeps every way
   the file is not used as written (`config_problems`: unreadable, not JSON, not an object, a key of
   the wrong type, a non-string `extensions` or `exclude` item) and
@@ -183,13 +187,33 @@ runtime)`. `stats::stats(&view)` reads `reported()` (D7 amended). The CLI compil
   what was reported"), as E028 is for one extension that does not load: a project whose config
   loads nothing must not pass `check`. Doctor reports it as an error, and reports a missing
   `specforge.json` as the warning finding `config_missing`.
+- **M10. `specforge.lock` is read once, by the Environment.** `Environment::lock` is a typed
+  `specforge_wasm::LockState` (`Absent`, `Read`, or `Unreadable` with its E033 problem), read at
+  `Environment::load` and reloaded when the file changes (it is an environment input); the view's
+  `lock()` hands it to `list`, `doctor` and `remove` (none without a root), so they read what the
+  compile read, not the disk again. It is a typed result, not a diagnostic: a corrupt lock does not
+  fail `check` (it did not before), and `doctor` lists it as the error finding `lock_unreadable`
+  naming E033. `specforge_wasm::lock_path` is the one definition of where the lock lives, used by the
+  Environment, the extension loader and the root-based `add` and `update` (M8), which read it with
+  the same `LockState::at`.
+
+- **M11. One refusal for an unusable `specforge.json`.** `add`, `update` and `remove` refuse a
+  config that `ConfigProblem::blocks_edits` names with `config::refusal`: code `config_invalid`
+  (kind `schema_mismatch`), the problem's text, which is E069's reason, as the message; before they
+  install, write or delete anything, dry runs included. `remove` builds it from the compile's
+  problems (M5); `add` and `update`, which run without a compile (M8), from `read_project_config`.
+  `config::edit_extensions`, the one writer, refuses through the same function, so a config that
+  changed after the compile is refused too. A missing `specforge.json` is `config_not_found` for
+  `add` (hint: `specforge init`) and not refused by `update`, which only reads the lock. `add` used
+  to refuse with E032 ("extension install or uninstall failed"), a code about something else.
 
 ### Consequences
 
 - `specforge doctor` and `specforge.doctor` report a `.wasm` file entry's source as
   `file:<path>`, and an extension of unknown origin as `unknown`, not `builtin`.
 - `specforge remove` and `specforge.remove_extension` with an unreadable `specforge.json` change
-  nothing (they used to uninstall first).
+  nothing (they used to uninstall first); `specforge add`, `specforge.add_extension` and `specforge
+  update` refuse it the same way (`config_invalid`, not E032).
 - A `specforge.json` that is there and not used as written is the error E069 on every surface
   (`check`, watch, the LSP, MCP validate and doctor), and I002 says the file could not be read when
   nothing loaded; `check` fails on it where it passed, and so does `specforge doctor`.
@@ -216,7 +240,8 @@ prompt, read the same headline, edges and obligations.
 
 - **I1. Inspect is a read view**: `specforge_ops::inspect::inspect(view, entity_id) ->
   Result<EntityFacts, OpError>`. `EntityFacts` borrows the node and its kind's registry entry and
-  carries the headline statement, the standing (testable, obligated, exempt), the obligations, the
+  carries the headline statement, the standing (the entity snapshot's `snapshot::Standing`,
+  borrowed: `testable`, `obligated()`, `exempt()`; inspect keeps no standing type of its own), the obligations, the
   references (`navigate::References`, one per edge, in edge order, with the peer's kind and the
   field), the coverage (`Result<EntityCoverage, ReportError>`) and the diagnostics the view reports
   about it (`navigate::is_about`). MCP inspect, the context prompt and the hover only render it.

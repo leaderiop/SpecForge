@@ -235,7 +235,7 @@ pub(crate) fn entities_view(call: &Call<'_>, uri: &str) -> ReadOutcome {
             .unwrap_or_default(),
     )?;
     let rows =
-        crate::tools::list::entities(call.view().graph, Some(&kind), &Map::new(), 0, usize::MAX);
+        crate::tools::list::entities(call.view().graph(), Some(&kind), &Map::new(), 0, usize::MAX);
     let text = serde_json::to_string(&Value::Array(rows))
         .map_err(|error| Box::new(McpError::new(ErrorCode::InternalError, error.to_string())))?;
     Ok(ResourceText::json(text))

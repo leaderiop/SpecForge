@@ -22,6 +22,7 @@ use specforge_project::coverage::{
 use specforge_project::snapshot::EntitySnapshot;
 use specforge_project::{CompiledProject, Environment, ProjectSession};
 use specforge_registry::RegistryBuild;
+use specforge_wasm::LockState;
 
 use crate::schema_cache::SchemaCache;
 use crate::{OpError, OpErrorKind};
@@ -37,16 +38,9 @@ use crate::{OpError, OpErrorKind};
 /// disk refuses with `no_project` ([`Self::project_root`]).
 #[derive(Clone, Copy)]
 pub struct ProjectView<'a> {
-    pub graph: &'a Graph,
-    /// What `specforge.json` and the loaded extensions gave the compile:
-    /// the config, what each `extensions` entry enabled, the spec root,
-    /// the registry build. Operations read the config here, never from
-    /// disk again.
-    pub env: &'a Environment,
-    /// `&env.registries`: kinds, fields, edges, rules, the extension
-    /// declarations and their ordered passes.
-    pub registries: &'a RegistryBuild,
-    pub root: Option<&'a Path>,
+    graph: &'a Graph,
+    env: &'a Environment,
+    root: Option<&'a Path>,
     /// The memo of the graph's entity snapshot, the recorded report and the
     /// coverage, owned by whoever owns `graph`.
     recorded: &'a RecordedCoverage,
@@ -71,8 +65,8 @@ enum Reported<'a> {
 
 impl<'a> ProjectView<'a> {
     /// The view of `graph`, compiled in `env`, rooted at `root`. `recorded`
-    /// must belong to the owner of `graph` (`RecordedCoverage::default()`
-    /// for a graph assembled in a test). It reports nothing until
+    /// must belong to the owner of `graph` (`RecordedCoverage::over(graph,
+    /// env)` for a graph assembled in a test). It reports nothing until
     /// [`Self::reporting`].
     pub fn new(
         graph: &'a Graph,
@@ -83,7 +77,6 @@ impl<'a> ProjectView<'a> {
         ProjectView {
             graph,
             env,
-            registries: &env.registries,
             root,
             recorded,
             reported: Reported::Listed(&[]),
@@ -118,6 +111,51 @@ impl<'a> ProjectView<'a> {
                 session.recorded(),
             )
         }
+    }
+
+    /// The project's graph.
+    pub fn graph(&self) -> &'a Graph {
+        self.graph
+    }
+
+    /// What `specforge.json` and the loaded extensions gave the compile:
+    /// the config, what each `extensions` entry enabled, the spec root,
+    /// the registry build. Operations read them here, never from disk
+    /// again.
+    pub fn env(&self) -> &'a Environment {
+        self.env
+    }
+
+    /// The registry build of the environment: kinds, fields, edges, rules,
+    /// the extension declarations and their ordered passes. The one way to
+    /// reach it (`env().registries` is the same value).
+    pub fn registries(&self) -> &'a RegistryBuild {
+        &self.env.registries
+    }
+
+    /// The root the project was compiled from; `None` for a graph built in
+    /// memory ([`Self::project_root`] refuses instead).
+    pub fn root(&self) -> Option<&'a Path> {
+        self.root
+    }
+
+    /// What `specforge.lock` held when the compile read the environment:
+    /// the one read every operation uses (`list`, `doctor`, `remove`).
+    /// Absent without a root: a graph built in memory has no project on
+    /// disk to have locked anything.
+    pub fn lock(&self) -> &'a LockState {
+        static NO_LOCK: LockState = LockState::Absent;
+        match self.root {
+            Some(_) => &self.env.lock,
+            None => &NO_LOCK,
+        }
+    }
+
+    /// This view over the same project at another root (a test of what a
+    /// view reads at its root, never in an ancestor).
+    #[cfg(test)]
+    pub(crate) fn rooted_at(self, root: Option<&'a Path>) -> Self {
+        ProjectView { root, ..self }
     }
 
     /// This view, reporting `diagnostics` in place of its owner's (a graph
@@ -180,25 +218,21 @@ impl<'a> ProjectView<'a> {
     /// from it ([`Self::coverage`]), read together: one read of the report
     /// file for a view that needs both.
     pub fn recorded(&self) -> Result<Recorded, ReportError> {
-        // The snapshot first, so an unseeded memo takes it with the
-        // environment's spec root.
-        self.entities();
-        self.recorded.at(self.root, self.graph, self.registries)
+        self.recorded.at(self.root)
     }
 
     /// The graph's entity snapshot (ADR 0019): every entity with what it
-    /// writes and its standing, the one the project's checks read. A view
-    /// whose owner seeded none (a graph assembled in a test, the LSP's
-    /// stand-in) takes one on first use, with the environment's spec root.
+    /// writes and its standing, the one the project's checks read. It is
+    /// the one the view's memo was made with: its owner's, so the view
+    /// cannot read another graph's.
     pub fn entities(&self) -> &'a EntitySnapshot {
-        self.recorded
-            .entities(self.graph, self.registries, &self.env.spec_root)
+        self.recorded.entities()
     }
 
     /// The Graph Protocol schema the loaded extensions produce, unversioned
     /// (what the model diagram renders).
     pub fn schema(&self) -> GraphProtocolSchema {
-        let registries = self.registries;
+        let registries = self.registries();
         generate_schema(
             &registries.kinds,
             &registries.edges,
@@ -239,7 +273,9 @@ pub(crate) mod testing {
         pub dir: TempDir,
         pub graph: Graph,
         pub env: Environment,
-        pub recorded: RecordedCoverage,
+        /// Made over the graph and environment as they are at the first
+        /// view ([`Self::recorded`]).
+        recorded: std::sync::OnceLock<RecordedCoverage>,
         pub reported: Vec<Diagnostic>,
     }
 
@@ -259,9 +295,15 @@ pub(crate) mod testing {
                 dir,
                 graph: Graph::new(),
                 env,
-                recorded: RecordedCoverage::default(),
+                recorded: std::sync::OnceLock::new(),
                 reported: Vec::new(),
             }
+        }
+
+        /// The coverage memo of the graph and environment the test built.
+        fn recorded(&self) -> &RecordedCoverage {
+            self.recorded
+                .get_or_init(|| RecordedCoverage::over(&self.graph, &self.env))
         }
 
         /// The compile read `config` as `specforge.json` (not written to
@@ -322,8 +364,9 @@ pub(crate) mod testing {
             }
         }
 
-        /// `<dir>/specforge.lock` locks each `(name, version, source)`.
-        pub fn lock(self, entries: &[(&str, &str, &str)]) -> Self {
+        /// `<dir>/specforge.lock` locks each `(name, version, source)`; the
+        /// compile read it.
+        pub fn lock(mut self, entries: &[(&str, &str, &str)]) -> Self {
             let lock = specforge_wasm::LockFile {
                 lockfile_version: 1,
                 entries: entries
@@ -338,8 +381,9 @@ pub(crate) mod testing {
                     })
                     .collect(),
             };
-            specforge_wasm::write_lock_file(&lock, &self.dir.path().join("specforge.lock"))
+            specforge_wasm::write_lock_file(&lock, &specforge_wasm::lock_path(self.dir.path()))
                 .unwrap();
+            self.env.lock = LockState::Read(lock);
             self
         }
 
@@ -370,14 +414,15 @@ pub(crate) mod testing {
                 &self.graph,
                 &self.env,
                 Some(self.dir.path()),
-                &self.recorded,
+                self.recorded(),
             )
             .reporting(&self.reported)
         }
 
         /// The same project without a root.
         pub fn rootless_view(&self) -> ProjectView<'_> {
-            ProjectView::new(&self.graph, &self.env, None, &self.recorded).reporting(&self.reported)
+            ProjectView::new(&self.graph, &self.env, None, self.recorded())
+                .reporting(&self.reported)
         }
     }
 }
@@ -410,7 +455,7 @@ mod tests {
         let graph = Graph::new();
         let mut env = Environment::with_registries(RegistryBuild::default());
         env.spec_root = dir.path().join("spec");
-        let recorded = RecordedCoverage::default();
+        let recorded = RecordedCoverage::over(&graph, &env);
         let view = ProjectView::new(&graph, &env, None, &recorded);
         assert!(view.entities().is_empty());
         assert!(std::ptr::eq(view.entities(), view.entities()));
@@ -435,18 +480,18 @@ mod tests {
         let graph = Graph::new();
         let env = Environment::with_registries(RegistryBuild::default());
 
-        let recorded = RecordedCoverage::default();
+        let recorded = RecordedCoverage::over(&graph, &env);
         let at_sub = ProjectView::new(&graph, &env, Some(&sub), &recorded);
         assert!(at_sub.test_report().unwrap().is_none());
         assert!(at_sub.coverage().unwrap().summary.test_results.is_none());
 
-        let recorded = RecordedCoverage::default();
+        let recorded = RecordedCoverage::over(&graph, &env);
         let at_root = ProjectView::new(&graph, &env, Some(project), &recorded);
         let error = at_root.test_report().unwrap_err();
         assert_eq!(error.diagnostic().code, "E045");
         assert!(at_root.coverage().is_err());
 
-        let recorded = RecordedCoverage::default();
+        let recorded = RecordedCoverage::over(&graph, &env);
         let rootless = ProjectView::new(&graph, &env, None, &recorded);
         assert!(rootless.test_report().unwrap().is_none());
     }
@@ -467,13 +512,14 @@ mod tests {
         let compiled = CompiledProject::compile(dir.path(), None);
         let of = ProjectView::of(&compiled);
         assert_eq!(of.reported(), compiled.diagnostics());
-        assert_eq!(of.root, Some(dir.path()));
-        assert!(std::ptr::eq(of.registries, &of.env.registries));
+        assert_eq!(of.root(), Some(dir.path()));
+        // One registry build: the environment's, reached through one accessor.
+        assert!(std::ptr::eq(of.registries(), &compiled.env.registries));
 
         // A view built in memory reports nothing until it is told what.
         let graph = Graph::new();
         let env = Environment::with_registries(RegistryBuild::default());
-        let recorded = RecordedCoverage::default();
+        let recorded = RecordedCoverage::over(&graph, &env);
         let bare = ProjectView::new(&graph, &env, None, &recorded);
         assert!(bare.reported().is_empty());
         let warning = [Diagnostic::untyped("W002", Severity::Warning, "unused")];

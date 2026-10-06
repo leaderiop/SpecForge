@@ -34,7 +34,7 @@ pub fn project_runtime(path: &Path) -> ComponentRuntime {
         .expect("failed to load builtin extensions");
 
     // Installed extensions load from the lock file (ADR 0004 D3-b).
-    let lock = specforge_wasm::read_lock_file(&path.join("specforge.lock")).ok();
+    let lock = specforge_wasm::LockState::at(path);
     for ext in &config.extensions {
         let ExtensionEntry::Named(name) = ExtensionEntry::parse(ext) else {
             continue;
@@ -42,7 +42,7 @@ pub fn project_runtime(path: &Path) -> ComponentRuntime {
         if builtins::is_builtin(name) {
             continue;
         }
-        if let Err(diagnostic) = load_installed(&runtime, path, name, lock.as_ref()) {
+        if let Err(diagnostic) = load_installed(&runtime, path, name, lock.file()) {
             runtime.record_load_failure(name, diagnostic);
         }
     }

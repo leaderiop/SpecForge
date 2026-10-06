@@ -32,7 +32,7 @@ pub struct Args {
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let view = call.view();
     let kinds: Vec<&str> = args.kinds.iter().map(String::as_str).collect();
-    let unknown_kinds = super::unknown_kind_diagnostics(call.state, &kinds);
+    let unknown_kinds = super::unknown_kind_diagnostics(&view, &kinds);
     let query = EntityQuery {
         text: &args.query,
         scope: MatchScope::NamesAndText,
@@ -41,7 +41,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         referencing: args.references.as_deref(),
         limit: Some(args.limit.unwrap_or(20) as usize),
     };
-    let results: Vec<Value> = find_entities(view.graph, &query)
+    let results: Vec<Value> = find_entities(view.graph(), &query)
         .iter()
         .map(|m| {
             let mut result = json!({

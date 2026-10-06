@@ -335,8 +335,11 @@ impl Standing {
     }
 
     /// It counts toward coverage: testable, and it owes obligations or
-    /// declares some (`specforge_coverage::Entity::counts_toward_coverage`
-    /// of its adapter, pinned by a test).
+    /// declares some. The one place the host states the rule;
+    /// `specforge_coverage::Entity::counts_toward_coverage` is its twin for
+    /// the pass's entity (the `coverage` extension's input), pinned equal by
+    /// `standing_counts_as_the_coverage_rule_does`. Every other reader
+    /// (inspect, the coverage view, stats) asks the snapshot's standing.
     pub fn counts(&self) -> bool {
         self.testable && (self.owes_obligations() || self.declared > 0)
     }

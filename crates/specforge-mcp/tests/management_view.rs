@@ -193,6 +193,64 @@ fn remove_extension_with_an_unreadable_config_changes_nothing() {
     assert_eq!(files_under(root.path()), before);
 }
 
+// One refusal for an unusable specforge.json: add_extension and
+// remove_extension (MCP has no update tool) answer the same schema_mismatch
+// with the reason E069 gives, and change nothing.
+#[specforge_test(
+    behavior = "management_operations_over_the_project_view",
+    verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
+)]
+fn add_and_remove_extension_refuse_an_unusable_config_alike() {
+    for config in [
+        r#"{ "extensions": ["@specforge/product",  }"#,
+        "[1,2]",
+        r#"{"extensions": "@specforge/product"}"#,
+    ] {
+        let (mut server, root) = server_over_text(config);
+        let before = files_under(root.path());
+        let validated = answer(&call_tool(&mut server, "specforge.validate", json!({})));
+        let reason = validated[0]["message"].as_str().unwrap().to_string();
+
+        let mut refusals = Vec::new();
+        for (tool, arguments) in [
+            (
+                "specforge.add_extension",
+                json!({"specifier": "@specforge/product"}),
+            ),
+            (
+                "specforge.add_extension",
+                json!({"specifier": "@specforge/product", "dry_run": true}),
+            ),
+            (
+                "specforge.remove_extension",
+                json!({"name": "@specforge/product"}),
+            ),
+        ] {
+            let resp = call_tool(&mut server, tool, arguments.clone());
+
+            let error = mcp_error(&resp);
+            assert_eq!(
+                error["code"], "schema_mismatch",
+                "{config}: {tool}: {error}"
+            );
+            assert!(
+                reason.contains(error["message"].as_str().unwrap()),
+                "{config}: {tool}: E069 says `{reason}`, the refusal `{error}`"
+            );
+            assert_eq!(
+                files_under(root.path()),
+                before,
+                "{config}: {tool} {arguments} wrote"
+            );
+            refusals.push(error["message"].clone());
+        }
+        assert!(
+            refusals.windows(2).all(|pair| pair[0] == pair[1]),
+            "{refusals:?}"
+        );
+    }
+}
+
 #[specforge_test(
     behavior = "provide_mcp_infer_progress_tool",
     verify = "graceful handling when specforge-infer.json is missing"
@@ -257,6 +315,44 @@ fn validate_and_doctor_report_an_unusable_config() {
         .map(|f| (f["code"].as_str().unwrap(), f["status"].as_str().unwrap()))
         .collect();
     assert_eq!(findings, [("E069", "error")], "{report}");
+}
+
+// A lock file that is there and cannot be read: the served project's
+// environment reads it (and reloads when it changes), and doctor lists it
+// as an error finding naming E033.
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "a lock file that cannot be read is an error finding naming E033"
+)]
+fn doctor_reports_a_corrupt_lock_as_an_error_finding() {
+    let (mut server, root) =
+        server_over(json!({"name": "t", "version": "0.1.0", "extensions": []}));
+    assert_eq!(
+        project_findings(&answer(&call_tool(
+            &mut server,
+            "specforge.doctor",
+            json!({})
+        ))),
+        Vec::<Value>::new()
+    );
+
+    std::fs::write(root.path().join("specforge.lock"), "not valid json {{{").unwrap();
+
+    let report = answer(&call_tool(&mut server, "specforge.doctor", json!({})));
+    let findings = project_findings(&report);
+    assert_eq!(findings.len(), 1, "{report}");
+    assert_eq!(findings[0]["code"], "lock_unreadable", "{report}");
+    assert_eq!(findings[0]["status"], "error", "{report}");
+    assert!(
+        findings[0]["check"]
+            .as_str()
+            .unwrap()
+            .contains("corrupt lock file at"),
+        "{report}"
+    );
+    // The listing reads the same lock: it knows nothing is locked.
+    let listed = answer(&call_tool(&mut server, "specforge.extensions", json!({})));
+    assert_eq!(listed["lock_file_entries"], json!([]), "{listed}");
 }
 
 #[specforge_test(

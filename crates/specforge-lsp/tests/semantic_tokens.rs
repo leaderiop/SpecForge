@@ -12,8 +12,8 @@ use crate::registries::registries;
 
 /// The semantic tokens of `text` over `registries` and `graph`.
 fn tokens_over(text: &str, registries: RegistryBuild, graph: &Graph) -> Vec<SemanticToken> {
-    let recorded = RecordedCoverage::default();
     let env = specforge_project::Environment::with_registries(registries);
+    let recorded = RecordedCoverage::over(graph, &env);
     let view = ProjectView::new(graph, &env, None, &recorded);
     Document::new("file:///test.spec".into(), text.into()).tokens(&view)
 }
@@ -655,7 +655,7 @@ fn tokens_agree_with_the_grammar() {
     let project = specforge_project::CompiledProject::compile(&root, Some(&runtime));
     let view = ProjectView::of(&project);
     let declared: Vec<&str> = view
-        .registries
+        .registries()
         .kinds
         .iter()
         .filter_map(|(_, entry)| entry.declared.semantic_token.as_deref())

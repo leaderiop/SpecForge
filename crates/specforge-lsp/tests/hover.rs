@@ -48,7 +48,7 @@ fn edge(source: &str, target: &str, label: &str) -> Edge {
 /// `None` for an entity the graph lacks.
 pub fn entity_hover(graph: &Graph, registries: RegistryBuild, id: &str) -> Option<String> {
     let env = Environment::with_registries(registries);
-    let recorded = RecordedCoverage::default();
+    let recorded = RecordedCoverage::over(graph, &env);
     let view = ProjectView::new(graph, &env, None, &recorded);
     let facts = specforge_ops::inspect::inspect(&view, id).ok()?;
     Some(specforge_lsp::hover::entity(&facts, &[], false))
@@ -116,7 +116,7 @@ fn hover_shows_testability_from_the_standing() {
         ])
     };
     let env = Environment::with_registries(declared());
-    let recorded = RecordedCoverage::default();
+    let recorded = RecordedCoverage::over(&g, &env);
     let view = ProjectView::new(&g, &env, None, &recorded);
     for (id, testable) in [("login", true), ("auth", false)] {
         let facts = specforge_ops::inspect::inspect(&view, id).unwrap();
@@ -275,11 +275,13 @@ impl OnDisk {
     fn new(source: &str, registries: RegistryBuild) -> Self {
         let (graph, _) =
             specforge_graph::build_graph(&[specforge_parser::parse(source, "main.spec")]);
+        let env = Environment::with_registries(registries);
+        let recorded = RecordedCoverage::over(&graph, &env);
         OnDisk {
             dir: tempfile::TempDir::new().unwrap(),
             graph,
-            env: Environment::with_registries(registries),
-            recorded: RecordedCoverage::default(),
+            env,
+            recorded,
         }
     }
 
@@ -393,7 +395,7 @@ fn hover_shows_each_coverage_case() {
         // The line agrees with the read view MCP inspect renders.
         let facts = specforge_ops::inspect::inspect(&project.view(), id).unwrap();
         if let Some(expected) = expected
-            && !facts.standing.exempt
+            && !facts.standing.exempt()
         {
             let status =
                 specforge_ops::coverage::STATUS.name_of(facts.coverage.as_ref().unwrap().status());
@@ -495,7 +497,7 @@ fn hover_lists_the_diagnostics_not_already_shown() {
     );
     let reported = vec![cycle.clone(), third_party];
     let env = Environment::empty();
-    let recorded = RecordedCoverage::default();
+    let recorded = RecordedCoverage::over(&g, &env);
     let view = ProjectView::new(&g, &env, None, &recorded).reporting(&reported);
     let facts = specforge_ops::inspect::inspect(&view, "beta").unwrap();
 

@@ -41,6 +41,8 @@ fn project() -> Project {
         .to_string(),
     )
     .unwrap();
+    // The compile read the lock as it is at this root.
+    project.env.lock = specforge_wasm::LockState::at(root);
     project
 }
 
@@ -90,7 +92,7 @@ fn management_operations_read_the_project_from_their_view() {
 
     // ... and a view without one: the listings and doctor answer from what
     // the view enabled and loaded; the others refuse with no_project.
-    let recorded = RecordedCoverage::default();
+    let recorded = RecordedCoverage::over(&project.graph, &project.env);
     let rootless = ProjectView::new(&project.graph, &project.env, None, &recorded).reporting(&e028);
     let listing = extension::list(&rootless);
     assert!(listing.locked.is_empty());

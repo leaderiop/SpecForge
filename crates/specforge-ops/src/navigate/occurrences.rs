@@ -172,7 +172,7 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
     pub fn references(&self, id: &str, query: ReferenceQuery) -> Result<Vec<Occurrence>, OpError> {
         let node = self.node(id)?;
         let mut occurrences: Vec<Occurrence> =
-            reference_edges(self.view.graph, id, query.direction)
+            reference_edges(self.view.graph(), id, query.direction)
                 .flat_map(|(holder, edge)| self.edge_occurrences(holder, edge))
                 .collect();
         if query.include_declaration {
@@ -199,7 +199,7 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
     /// just past a token's end counts): what prepareRename and a precise
     /// "go to" read. Only tokens as written answer.
     pub fn occurrence_at(&self, file: &str, line: usize, col: usize) -> Option<Occurrence> {
-        let graph = self.view.graph;
+        let graph = self.view.graph();
         let at = SourceSpan {
             file: Sym::new(file),
             start_line: line,
@@ -282,7 +282,7 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
     /// the holder's field values written as type syntax, or in its method
     /// signatures (what `link_derived_references` read them from).
     fn derived_references(&self, text: &SourceText, holder: &Node, edge: &Edge) -> Vec<SourceSpan> {
-        let registries = self.view.registries;
+        let registries = self.view.registries();
         let kind = holder.kind.raw.as_str();
         let derived = registries
             .fields

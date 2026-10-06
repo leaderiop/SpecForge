@@ -300,7 +300,7 @@ fn the_view_versions_against_its_root_cache() {
     let env = specforge_project::Environment::with_registries(
         specforge_registry::RegistryBuild::default(),
     );
-    let recorded = specforge_project::coverage::RecordedCoverage::default();
+    let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
     let view_at = |root| ProjectView::new(&graph, &env, Some(root), &recorded);
 
     // The project's cache holds an older schema at 1.2.3 with a kind the

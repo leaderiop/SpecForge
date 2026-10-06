@@ -1691,6 +1691,71 @@ fn removing_a_builtin_with_an_unreadable_config_is_config_invalid() {
     );
 }
 
+// One refusal for an unusable specforge.json: add, update and remove all
+// answer config_invalid with the reason E069 gives, and change nothing.
+#[specforge_test(
+    behavior = "management_operations_over_the_project_view",
+    verify = "add, update and remove refuse an unusable specforge.json with one refusal, before they write"
+)]
+fn add_update_and_remove_refuse_an_unusable_config_alike() {
+    for config in UNUSABLE_CONFIGS {
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("specforge.json"), config).unwrap();
+        // A lock, so `update` has something it could touch.
+        fs::write(
+            dir.path().join("specforge.lock"),
+            r#"{"lockfile_version":1,"entries":[{"name":"@acme/x","version":"1.0.0","source":"registry","wasm_hash":"h"}]}"#,
+        )
+        .unwrap();
+        let before = crate::written::files_under(dir.path());
+        // What the compile reports as E069 for it.
+        let check = specforge_cmd()
+            .args(["check", "--format", "json"])
+            .arg(dir.path())
+            .output()
+            .unwrap();
+        let found: Vec<serde_json::Value> = serde_json::from_slice(&check.stdout).unwrap();
+        let reason = found[0]["message"].as_str().unwrap().to_string();
+
+        let mut refusals = Vec::new();
+        for args in [
+            vec!["add", "@specforge/product"],
+            vec!["update"],
+            vec!["remove", "@acme/x"],
+        ] {
+            let output = specforge_cmd()
+                .args(&args)
+                .args(["--format", "json", "--path"])
+                .arg(dir.path())
+                .output()
+                .unwrap();
+
+            assert_eq!(
+                output.status.code(),
+                Some(1),
+                "{config}: {args:?}: {output:?}"
+            );
+            let json: serde_json::Value = serde_json::from_slice(&output.stdout)
+                .unwrap_or_else(|e| panic!("{args:?}: not JSON ({e}): {output:?}"));
+            assert_eq!(json["code"], "config_invalid", "{config}: {args:?}: {json}");
+            assert!(
+                reason.contains(json["error"].as_str().unwrap()),
+                "{config}: {args:?}: E069 says `{reason}`, the refusal `{json}`"
+            );
+            assert_eq!(
+                crate::written::files_under(dir.path()),
+                before,
+                "{config}: {args:?} wrote"
+            );
+            refusals.push(json);
+        }
+        assert!(
+            refusals.windows(2).all(|pair| pair[0] == pair[1]),
+            "{refusals:?}"
+        );
+    }
+}
+
 #[specforge_test(
     behavior = "list_installed_extensions",
     verify = "list includes entity counts and entity types"
@@ -1757,6 +1822,46 @@ fn doctor_without_specforge_json_says_so() {
         "{human}"
     );
     assert!(human.contains("No issues found."), "{human}");
+}
+
+// A specforge.lock that is there and cannot be read: the environment read
+// it once, and doctor reports it as an error finding naming E033.
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "a lock file that cannot be read is an error finding naming E033"
+)]
+fn doctor_reports_a_corrupt_lock_as_an_error_finding() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
+    fs::write(dir.path().join("specforge.lock"), "not valid json {{{").unwrap();
+
+    let (report, code) = doctor_json(dir.path());
+
+    assert_eq!(code, 1, "{report}");
+    let findings = project_findings(&report);
+    assert_eq!(findings.len(), 1, "{report}");
+    assert_eq!(findings[0]["code"], "lock_unreadable", "{report}");
+    assert_eq!(findings[0]["status"], "error", "{report}");
+    assert!(
+        findings[0]["check"]
+            .as_str()
+            .unwrap()
+            .contains("corrupt lock file at"),
+        "{report}"
+    );
+    assert_eq!(report["extensions_checked"], 0, "{report}");
+
+    let (human, code) = doctor_human(dir.path());
+    assert_eq!(code, 1, "{human}");
+    assert!(
+        human.contains("[ERROR] [lock_unreadable] corrupt lock file at"),
+        "{human}"
+    );
+    assert!(human.contains("[E033]"), "{human}");
 }
 
 /// `specforge.json` texts that are there and can't be used: not JSON, not

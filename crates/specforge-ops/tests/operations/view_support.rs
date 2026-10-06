@@ -95,7 +95,8 @@ pub struct Project {
     pub dir: TempDir,
     pub graph: Graph,
     pub env: Environment,
-    pub recorded: RecordedCoverage,
+    /// Made over the graph and environment as they are at the first view.
+    recorded: std::sync::OnceLock<RecordedCoverage>,
 }
 
 impl Project {
@@ -111,7 +112,7 @@ impl Project {
             dir: TempDir::new().unwrap(),
             graph,
             env: Environment::with_registries(registries),
-            recorded: RecordedCoverage::default(),
+            recorded: std::sync::OnceLock::new(),
         }
     }
 
@@ -120,7 +121,8 @@ impl Project {
             &self.graph,
             &self.env,
             Some(self.dir.path()),
-            &self.recorded,
+            self.recorded
+                .get_or_init(|| RecordedCoverage::over(&self.graph, &self.env)),
         )
     }
 

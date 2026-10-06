@@ -90,7 +90,7 @@ pub fn progress(view: &ProjectView) -> Result<Progress, OpError> {
     let root = view.project_root()?;
     Ok(progress_under(
         root,
-        view.registries.declarations(),
+        view.registries().declarations(),
         &manifest(root)?,
     ))
 }
@@ -98,7 +98,7 @@ pub fn progress(view: &ProjectView) -> Result<Progress, OpError> {
 /// [`progress`], counting from scratch when `specforge-infer.json` cannot
 /// be read, and nothing without a root: what the infer prompt plans from.
 pub fn progress_or_fresh(view: &ProjectView) -> Progress {
-    let Some(root) = view.root else {
+    let Some(root) = view.root() else {
         return Progress {
             summary: InferenceManifest::default().compute_summary(0),
             unanalyzed: Vec::new(),
@@ -108,7 +108,7 @@ pub fn progress_or_fresh(view: &ProjectView) -> Progress {
     };
     progress_under(
         root,
-        view.registries.declarations(),
+        view.registries().declarations(),
         &manifest(root).unwrap_or_default(),
     )
 }
@@ -139,11 +139,11 @@ fn progress_under(
 /// Without a root: `no_project`.
 pub fn gaps(view: &ProjectView, runtime: &dyn WasmRuntime) -> Result<Gaps, OpError> {
     let root = view.project_root()?;
-    let declarations = view.registries.declarations();
+    let declarations = view.registries().declarations();
     let files = source_files(root, declarations, &manifest(root)?);
     let scanned = crate::scan::scan_source_files(runtime, declarations, root, &files);
     let entity_ids: Vec<&str> = view
-        .graph
+        .graph()
         .nodes()
         .into_iter()
         .map(|n| n.id.raw.as_str())

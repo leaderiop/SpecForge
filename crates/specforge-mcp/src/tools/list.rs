@@ -28,7 +28,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     let kind = args.kind.as_deref().filter(|k| !k.is_empty());
     let wanted = args.where_fields.unwrap_or_default();
     let entities = entities(
-        call.view().graph,
+        call.view().graph(),
         kind,
         &wanted,
         args.offset.unwrap_or(0),

@@ -26,7 +26,7 @@ impl PromptArgs for Args {
 
 pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
     let view = call.view();
-    let graph = view.graph;
+    let graph = view.graph();
     let entity_id = args.entity_id.as_str();
     // The inspect read view, without the reported diagnostics (the prompt
     // shows none) and whatever its coverage (a report that cannot be read

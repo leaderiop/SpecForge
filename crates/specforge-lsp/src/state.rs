@@ -22,9 +22,6 @@ pub struct LspState {
     /// recompile can tell whether the client's semantic tokens went stale.
     last_token_signature: u64,
     shutdown: bool,
-    /// The recorded-coverage memo of the stand-in graph readers see while
-    /// the session is out for an update (it records nothing: no root).
-    stand_in_recorded: RecordedCoverage,
     /// The format configurations the editor was told override its settings
     /// (once per session and configuration, ADR 0021 D1).
     format_notices: HashSet<String>,
@@ -46,6 +43,10 @@ struct StandIn {
     /// The text the graph's spans are positions in
     /// ([`ProjectSession::source_texts`]).
     texts: HashMap<String, Arc<str>>,
+    /// The recorded-coverage memo of this stand-in graph (it records
+    /// nothing: no root), seeded with the snapshot the session held for
+    /// that graph, so no stand-in reads the memo of another.
+    recorded: RecordedCoverage,
 }
 
 impl Default for LspState {
@@ -64,7 +65,6 @@ impl LspState {
             anchor: None,
             last_token_signature: 0,
             shutdown: false,
-            stand_in_recorded: RecordedCoverage::default(),
             format_notices: HashSet::new(),
         };
         state.last_token_signature = state.token_signature();
@@ -249,12 +249,9 @@ impl LspState {
     pub fn view(&self) -> ProjectView<'_> {
         match &self.project {
             Project::Held(session) => ProjectView::of_session(session, session.root()),
-            Project::Out(stand_in) => ProjectView::new(
-                &stand_in.graph,
-                &stand_in.env,
-                None,
-                &self.stand_in_recorded,
-            ),
+            Project::Out(stand_in) => {
+                ProjectView::new(&stand_in.graph, &stand_in.env, None, &stand_in.recorded)
+            }
         }
     }
 
@@ -283,6 +280,7 @@ impl LspState {
                 graph: session.graph().clone(),
                 env: session.shared_environment(),
                 texts: session.source_texts(),
+                recorded: RecordedCoverage::of(Arc::clone(session.recorded().entities())),
             })),
             Project::Out(_) => return None,
         };
@@ -298,10 +296,13 @@ impl LspState {
     /// its sources are read. Nothing when the session is held.
     pub fn show_environment(&mut self, environment: Arc<Environment>) {
         if let Project::Out(stand_in) = &mut self.project {
+            let graph = Graph::new();
+            let recorded = RecordedCoverage::over(&graph, &environment);
             **stand_in = StandIn {
-                graph: Graph::new(),
+                graph,
                 env: environment,
                 texts: HashMap::new(),
+                recorded,
             };
         }
     }

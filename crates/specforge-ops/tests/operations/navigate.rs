@@ -1007,9 +1007,9 @@ fn the_verify_stub_uses_the_kinds_first_allowed_verify_kind() {
         build.kinds = verifiable(&["invariant"], &["property", "unit"]);
         build
     };
-    let recorded = RecordedCoverage::default();
-    let fixes = with_registries(&p, &Environment::with_registries(registries), &recorded)
-        .fixes(&[], &FixQuery::default());
+    let env = Environment::with_registries(registries);
+    let recorded = RecordedCoverage::over(&p.project.graph, &env);
+    let fixes = with_registries(&p, &env, &recorded).fixes(&[], &FixQuery::default());
     assert_eq!(
         titles(&fixes),
         ["Add verify stub for unique_ids"],
@@ -1165,14 +1165,14 @@ fn invariants_field(target_kind: Option<&str>) -> FieldRegistry {
 fn no_stub_without_a_target_kind() {
     let p = compile(TESTING, &[("auth.spec", DANGLING)]);
     let diagnostics = p.project.diagnostics();
-    let recorded = RecordedCoverage::default();
     let untargeted = {
         let mut build = RegistryBuild::default();
         build.fields = invariants_field(None);
         build
     };
-    let fixes = with_registries(&p, &Environment::with_registries(untargeted), &recorded)
-        .fixes(&diagnostics, &FixQuery::default());
+    let env = Environment::with_registries(untargeted);
+    let recorded = RecordedCoverage::over(&p.project.graph, &env);
+    let fixes = with_registries(&p, &env, &recorded).fixes(&diagnostics, &FixQuery::default());
     assert!(
         fixes.iter().all(|f| f.source != FixSource::CreateStub),
         "{:?}",
@@ -1620,7 +1620,7 @@ fn an_outgoing_reference_to_a_missing_entity_has_no_peer_kind() {
         label: "uses".into(),
     });
     let env = Environment::empty();
-    let recorded = RecordedCoverage::default();
+    let recorded = RecordedCoverage::over(&graph, &env);
     let view = ProjectView::new(&graph, &env, None, &recorded);
     let references = References::of(&view, "a");
     assert_eq!(

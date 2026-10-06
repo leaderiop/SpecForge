@@ -74,7 +74,7 @@ pub fn plan<F: Fn(&str) -> Option<String>>(
     new_id: &str,
 ) -> Result<RenamePlan, OpError> {
     validate_id(new_id)?;
-    let graph = nav.view().graph;
+    let graph = nav.view().graph();
     if graph.node(old_id).is_none() {
         return Err(OpError::new(
             OpErrorKind::EntityNotFound,

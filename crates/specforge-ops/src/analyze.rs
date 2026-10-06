@@ -235,15 +235,15 @@ fn analyze_via(
         return Err(AnalyzeError::MinNeedsTestResults);
     }
 
-    let orphans = find_orphans(view.graph, report.as_deref());
+    let orphans = find_orphans(view.graph(), report.as_deref());
 
-    let registries = view.registries;
+    let registries = view.registries();
     let base = AnalysisContext {
-        graph: view.graph,
+        graph: view.graph(),
         kind_registry: &registries.kinds,
         field_registry: &registries.fields,
         entities: view.entities(),
-        project_root: view.root,
+        project_root: view.root(),
         test_results: report.as_deref(),
         proved_claims: None,
     };
@@ -275,7 +275,7 @@ fn analyze_via(
             });
         }
     }
-    if view.root.is_some()
+    if view.root().is_some()
         && let Some(runtime) = runtime
     {
         // Declared `after` constraints order a single extension's passes;
@@ -375,10 +375,10 @@ fn select(view: &ProjectView, requested: &str) -> Result<Selection, AnalyzeError
 
 /// `<extension>:<pass>` of every analyze-phase pass the extensions declare.
 fn declared_pass_names(view: &ProjectView) -> Vec<String> {
-    if view.root.is_none() {
+    if view.root().is_none() {
         return Vec::new();
     }
-    view.registries
+    view.registries()
         .passes
         .iter()
         .filter(|p| !p.is_check_phase())
@@ -439,7 +439,7 @@ mod tests {
     struct Project {
         graph: Graph,
         env: specforge_project::Environment,
-        recorded: coverage::RecordedCoverage,
+        recorded: std::sync::OnceLock<coverage::RecordedCoverage>,
         dir: tempfile::TempDir,
     }
 
@@ -467,7 +467,7 @@ mod tests {
             Self {
                 graph: Graph::new(),
                 env: specforge_project::Environment::with_registries(registries),
-                recorded: coverage::RecordedCoverage::default(),
+                recorded: std::sync::OnceLock::new(),
                 dir,
             }
         }
@@ -477,7 +477,8 @@ mod tests {
                 &self.graph,
                 &self.env,
                 Some(self.dir.path()),
-                &self.recorded,
+                self.recorded
+                    .get_or_init(|| coverage::RecordedCoverage::over(&self.graph, &self.env)),
             )
         }
 
@@ -604,8 +605,7 @@ mod tests {
     #[test]
     fn extension_passes_are_skipped_without_a_root() {
         let project = Project::new();
-        let mut view = project.view();
-        view.root = None;
+        let view = project.view().rooted_at(None);
         let outcome = analyze(
             &view,
             Some(&scanning_extension()),
@@ -663,8 +663,7 @@ mod tests {
         std::fs::write(project.dir.path().join("specforge-report.json"), "{}").unwrap();
         let sub = project.dir.path().join("sub");
         std::fs::create_dir(&sub).unwrap();
-        let mut view = project.view();
-        view.root = Some(&sub);
+        let view = project.view().rooted_at(Some(&sub));
         let min = AnalyzeOptions {
             min: Some(50.0),
             ..Default::default()

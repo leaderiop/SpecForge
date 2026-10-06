@@ -2,7 +2,8 @@ use crate::OutputFormat;
 use serde_json::json;
 use specforge_common::codes;
 use specforge_ops::doctor::{
-    BinaryIssue, CONFIG_CODES, CONFIG_MISSING, DoctorReport, FindingStatus, diagnose,
+    BinaryIssue, CONFIG_CODES, CONFIG_MISSING, DoctorReport, FindingStatus, LOCK_UNREADABLE,
+    diagnose,
 };
 use specforge_ops::view::ProjectView;
 use specforge_registry_client::credential_health::{
@@ -65,6 +66,21 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
                 FindingStatus::Ok => "ok",
             };
             line!("  [{tag}] [{}] {}", finding.code, finding.check);
+            line!("    fix: {}", finding.remediation);
+        }
+        line!();
+    }
+
+    // The lock file, when it exists and cannot be read (E033).
+    let lock: Vec<_> = report
+        .findings
+        .iter()
+        .filter(|f| f.code == LOCK_UNREADABLE)
+        .collect();
+    if !lock.is_empty() {
+        line!("Lock file:");
+        for finding in lock {
+            line!("  [ERROR] [{}] {}", finding.code, finding.check);
             line!("    fix: {}", finding.remediation);
         }
         line!();
@@ -260,7 +276,7 @@ mod tests {
 
         let graph = specforge_graph::Graph::new();
         let env = specforge_project::Environment::with_registries(Default::default());
-        let recorded = specforge_project::coverage::RecordedCoverage::default();
+        let recorded = specforge_project::coverage::RecordedCoverage::over(&graph, &env);
         let view =
             ProjectView::new(&graph, &env, Some(dir.path()), &recorded).reporting(&diagnostics);
         let report = specforge_ops::doctor::diagnose_with(&view, true);

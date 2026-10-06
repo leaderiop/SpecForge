@@ -319,7 +319,7 @@ fn an_empty_list_or_block_is_written() {
 fn testable_total(compiled: &CompiledProject, root: &Path) -> usize {
     compiled
         .recorded()
-        .at(Some(root), &compiled.graph, &compiled.env.registries)
+        .at(Some(root))
         .unwrap()
         .coverage
         .summary
@@ -410,15 +410,9 @@ fn the_checks_passes_and_coverage_of_one_compile_read_one_snapshot() {
 
     // The coverage memo holds the compile's snapshot, and the coverage is
     // computed from it: no second walk.
-    let registries = &compiled.env.registries;
     let memo = compiled.recorded();
-    assert!(std::ptr::eq(
-        entities,
-        &**memo.entities(&compiled.graph, registries, Path::new(""))
-    ));
-    let recorded = memo
-        .at(Some(dir.path()), &compiled.graph, registries)
-        .unwrap();
+    assert!(std::ptr::eq(entities, &**memo.entities()));
+    let recorded = memo.at(Some(dir.path())).unwrap();
     assert!(std::ptr::eq(entities, recorded.coverage.entities()));
 
     // The check pass received the snapshot's adapter, entity by entity.

@@ -48,7 +48,7 @@ pub struct Stats {
 /// notices). A recorded report that cannot be read is the error.
 pub fn stats(view: &ProjectView) -> Result<Stats, ReportError> {
     let coverage = view.coverage()?;
-    Ok(tally(view.graph, &coverage.summary, &view.reported()))
+    Ok(tally(view.graph(), &coverage.summary, &view.reported()))
 }
 
 fn tally(graph: &Graph, coverage: &Summary, diagnostics: &[Diagnostic]) -> Stats {

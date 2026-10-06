@@ -6,11 +6,11 @@
 //! exports, the MCP coverage, inspect, review and trace views) reads it
 //! here, so they cannot disagree.
 
+use crate::Environment;
 use crate::snapshot::{EntitySnapshot, Standing};
 use serde::Deserialize;
 use specforge_common::{Diagnostic, codes};
 use specforge_graph::Graph;
-use specforge_registry::RegistryBuild;
 use std::collections::BTreeMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
@@ -260,14 +260,16 @@ impl ProjectCoverage {
 /// the coverage computed from both, memoized. Owned by whoever owns the
 /// graph it scores (a [`crate::CompiledProject`], a
 /// [`crate::ProjectSession`], which starts a fresh one on every update and
-/// reload), so "once per compile" holds by construction. The owner seeds
-/// it with the snapshot its checks read ([`Self::of`]); a memo nobody
-/// seeded (a graph assembled in a test, the LSP's stand-in) takes one on
-/// first use. Within one, the report is keyed on its path and content, so
-/// a rewritten report is read again.
-#[derive(Debug, Default)]
+/// reload), so "once per compile" holds by construction. The memo is bound
+/// to its snapshot when it is made: seeded with the one the owner's checks
+/// read ([`Self::of`]), or with one taken from the graph and environment it
+/// is made over ([`Self::over`]). Nothing asks it for a snapshot with
+/// inputs of its own, so it cannot score a graph other than its owner's.
+/// Within one, the report is keyed on its path and content, so a rewritten
+/// report is read again.
+#[derive(Debug)]
 pub struct RecordedCoverage {
-    entities: OnceLock<Arc<EntitySnapshot>>,
+    entities: Arc<EntitySnapshot>,
     memo: Mutex<Option<Arc<Memo>>>,
 }
 
@@ -292,22 +294,21 @@ impl RecordedCoverage {
     /// A memo seeded with the snapshot its owner's checks read.
     pub fn of(entities: Arc<EntitySnapshot>) -> Self {
         RecordedCoverage {
-            entities: OnceLock::from(entities),
+            entities,
             memo: Mutex::default(),
         }
     }
 
-    /// The entity snapshot of `graph`: the seeded one, or one taken now
-    /// from `graph` and `registries` (the memo's owner's), its relative
-    /// paths resolving against `spec_root`.
-    pub fn entities(
-        &self,
-        graph: &Graph,
-        registries: &RegistryBuild,
-        spec_root: &Path,
-    ) -> &Arc<EntitySnapshot> {
-        self.entities
-            .get_or_init(|| Arc::new(EntitySnapshot::of(graph, registries, spec_root)))
+    /// A memo over `graph`, built in `env` (a graph assembled in a test, a
+    /// session's graph after an update that skipped the checks): its
+    /// snapshot is taken now, with `env`'s registries and spec root.
+    pub fn over(graph: &Graph, env: &Environment) -> Self {
+        Self::of(Arc::new(env.entity_snapshot(graph)))
+    }
+
+    /// The entity snapshot of the graph this memo scores.
+    pub fn entities(&self) -> &Arc<EntitySnapshot> {
+        &self.entities
     }
 
     /// `<root>/specforge-report.json` ([`REPORT_FILE`]): `Ok(None)` without
@@ -318,21 +319,18 @@ impl RecordedCoverage {
         Ok(self.memo(root)?.report.clone())
     }
 
-    /// The recorded report at `root` and the coverage of `graph`'s entity
-    /// snapshot against it, computed once per report content. `graph` and
-    /// `registries` are those of the memo's owner; an unseeded memo takes
-    /// its snapshot with `root` as the spec root.
-    pub fn at(
-        &self,
-        root: Option<&Path>,
-        graph: &Graph,
-        registries: &RegistryBuild,
-    ) -> Result<Recorded, ReportError> {
+    /// The recorded report at `root` and the coverage of the memo's entity
+    /// snapshot against it, computed once per report content.
+    pub fn at(&self, root: Option<&Path>) -> Result<Recorded, ReportError> {
         let memo = self.memo(root)?;
-        let entities = self.entities(graph, registries, root.unwrap_or(Path::new("")));
         let coverage = memo
             .coverage
-            .get_or_init(|| Arc::new(ProjectCoverage::compute(entities, memo.report.as_deref())))
+            .get_or_init(|| {
+                Arc::new(ProjectCoverage::compute(
+                    &self.entities,
+                    memo.report.as_deref(),
+                ))
+            })
             .clone();
         Ok(Recorded {
             report: memo.report.clone(),
@@ -384,8 +382,8 @@ mod tests {
     use specforge_protocol_types::{
         ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
     };
-    use specforge_registry::KindRegistryEntry;
     use specforge_registry::rules::{Registries, Rules};
+    use specforge_registry::{KindRegistryEntry, RegistryBuild};
     use specforge_test_macros::test as specforge_test;
 
     fn kind(name: &str, testable: bool, supports_verify: bool) -> KindRegistryEntry {
@@ -479,7 +477,7 @@ mod tests {
         let project = Scored::new();
         let entities = project.entities();
         let recorded = RecordedCoverage::of(Arc::clone(&entities));
-        let at = || recorded.at(Some(dir.path()), &project.graph, &project.registries);
+        let at = || recorded.at(Some(dir.path()));
 
         // No report: nothing recorded, nothing proven.
         let none = at().unwrap();
@@ -514,18 +512,19 @@ mod tests {
         assert!(matches!(at(), Err(ReportError::Malformed { .. })));
 
         // Without a root there is no report to read.
-        let rootless = recorded
-            .at(None, &project.graph, &project.registries)
-            .unwrap();
+        let rootless = recorded.at(None).unwrap();
         assert!(rootless.report.is_none());
 
-        // A memo nobody seeded takes its snapshot once, on first use.
-        let unseeded = RecordedCoverage::default();
-        let first = unseeded
-            .at(None, &project.graph, &project.registries)
-            .unwrap();
-        let taken = unseeded.entities(&project.graph, &project.registries, Path::new(""));
-        assert!(std::ptr::eq(first.coverage.entities(), &**taken));
+        // A memo is made with its snapshot and hands that one out: its
+        // coverage scores it, not one taken later from other inputs.
+        let mut env = Environment::empty();
+        env.spec_root = dir.path().join("spec");
+        let over = RecordedCoverage::over(&project.graph, &env);
+        assert_eq!(over.entities().spec_root(), env.spec_root);
+        assert!(std::ptr::eq(
+            over.at(None).unwrap().coverage.entities(),
+            &**over.entities()
+        ));
     }
 
     #[specforge_test(

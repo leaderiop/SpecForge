@@ -780,8 +780,8 @@ E069: Unusable specforge.json
 The project root has a `specforge.json` that isn't used as written. When it
 can't be read, isn't valid JSON, isn't a JSON object, or its `extensions` value
 isn't an array, the compile uses the default config: no extension loads and only
-structure is checked (I002 says so), and `specforge add` and `specforge remove`
-refuse to edit the file (config_invalid) without changing anything. When a key
+structure is checked (I002 says so), and `specforge add`, `specforge update` and
+`specforge remove` refuse (config_invalid) without changing anything. When a key
 has the wrong type (`name`, `version` or `spec_root` not a string, `exclude` not
 an array), that key's default is used; when an item of `extensions` or `exclude`
 isn't a string, that item is ignored; the rest of the file is used. Each problem

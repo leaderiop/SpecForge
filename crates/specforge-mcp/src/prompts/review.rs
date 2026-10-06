@@ -39,7 +39,7 @@ impl PromptArgs for Args {
 
 pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
     let view = call.view();
-    let graph = view.graph;
+    let graph = view.graph();
     let entity_filter = args.entity_id.as_deref();
 
     // The entity and its neighbors up to `depth` hops, or the whole graph.

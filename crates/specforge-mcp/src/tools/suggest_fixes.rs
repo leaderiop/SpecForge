@@ -20,7 +20,7 @@ pub struct Args {
 /// text stays on the diagnostic (validate, inspect).
 pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     if let Some(entity_id) = args.entity_id.as_deref()
-        && call.view().graph.node(entity_id).is_none()
+        && call.view().graph().node(entity_id).is_none()
     {
         return Err(crate::tool::entity_not_found(entity_id).into());
     }

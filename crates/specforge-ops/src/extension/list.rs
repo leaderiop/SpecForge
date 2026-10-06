@@ -3,14 +3,13 @@
 //! operations"). Both read the config the compile read, from the view's
 //! environment, never `specforge.json` again.
 
-use super::{Origin, lock_path};
+use super::Origin;
 use crate::view::ProjectView;
 use serde_json::{Value, json};
 use specforge_common::{Diagnostic, ExtensionEntry as Entry};
 use specforge_registry::{
     ProviderStatus, load_provider_configurations, register_provider_schemes_with_status,
 };
-use specforge_wasm::{LockFile, read_lock_file};
 use std::collections::BTreeSet;
 
 /// Whether an extension listed is part of the compiled project.
@@ -89,12 +88,13 @@ pub struct ExtensionListing {
 /// locked at its root, or loaded, sorted by name, with the entity kinds
 /// each registered (from the kind registry), how many of the graph's
 /// entities use them, and its rule count; the lock's entries; the kinds
-/// its graph uses. Without a root no lock is read.
+/// its graph uses. The lock is the view's ([`ProjectView::lock`]): none
+/// without a root.
 pub fn list(view: &ProjectView) -> ExtensionListing {
-    let enabled = &view.env.enabled;
-    let entries = &view.env.config.extensions;
-    let loaded = view.registries.declarations();
-    let kinds = &view.registries.kinds;
+    let enabled = &view.env().enabled;
+    let entries = &view.env().config.extensions;
+    let loaded = view.registries().declarations();
+    let kinds = &view.registries().kinds;
     // The version a legacy `name@version` entry names.
     let configured_version = |name: &str| {
         entries.iter().find_map(|e| {
@@ -103,10 +103,8 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
                 .then(|| e[name.len() + 1..].to_string())
         })
     };
-    let lock: Option<LockFile> = view
-        .root
-        .and_then(|root| read_lock_file(&lock_path(root)).ok());
-    let lock_entries = lock.as_ref().map_or(&[][..], |lock| &lock.entries);
+    let lock = view.lock().file();
+    let lock_entries = view.lock().entries();
     let enabled_names: Vec<&str> = enabled.iter().map(|e| e.name.as_str()).collect();
 
     let mut names: Vec<String> = enabled_names
@@ -135,7 +133,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
                 .collect();
             entity_kinds.sort();
             let entity_count = view
-                .graph
+                .graph()
                 .nodes()
                 .iter()
                 .filter(|n| entity_kinds.iter().any(|k| k == n.kind.raw.as_str()))
@@ -146,7 +144,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
                     .or_else(|| locked.map(|e| e.version.clone()))
                     .or_else(|| configured_version(&name)),
                 validation_rules: declaration.map_or(0, |d| d.validation_rules.len()),
-                origin: Origin::of(&name, enabled, lock.as_ref()),
+                origin: Origin::of(&name, enabled, lock),
                 name,
                 status,
                 entity_kinds,
@@ -165,7 +163,7 @@ pub fn list(view: &ProjectView) -> ExtensionListing {
             })
             .collect(),
         kinds_in_graph: view
-            .graph
+            .graph()
             .nodes()
             .iter()
             .map(|n| n.kind.raw.to_string())
@@ -221,10 +219,10 @@ impl ProviderListing {
 /// the scheme registry built from the loaded declarations, and the
 /// diagnostics loading and registering them produced (W118, E057).
 pub fn providers(view: &ProjectView) -> ProviderListing {
-    let config = view.env.config.raw.clone().unwrap_or(Value::Null);
+    let config = view.env().config.raw.clone().unwrap_or(Value::Null);
     let (configs, mut diagnostics) = load_provider_configurations(&config);
     let (_, statuses, registration) =
-        register_provider_schemes_with_status(&configs, view.registries.declarations());
+        register_provider_schemes_with_status(&configs, view.registries().declarations());
     diagnostics.extend(registration);
     let providers = configs
         .into_iter()
@@ -273,6 +271,26 @@ mod tests {
             Origin::Installed {
                 source: "unknown".into()
             }
+        );
+    }
+
+    #[specforge_test(
+        behavior = "management_operations_over_the_project_view",
+        verify = "list, doctor and remove read the lock the compile read, once"
+    )]
+    fn the_listing_reads_the_lock_the_compile_read_not_the_disk() {
+        let fixture = Fixture::new().lock(&[("@acme/locked", "1.0.0", "registry")]);
+        // The file changed after the compile read it.
+        std::fs::remove_file(specforge_wasm::lock_path(fixture.dir.path())).unwrap();
+
+        let listing = list(&fixture.view());
+
+        assert_eq!(
+            listing.locked,
+            [LockedExtension {
+                name: "@acme/locked".into(),
+                version: "1.0.0".into()
+            }]
         );
     }
 
