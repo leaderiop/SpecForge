@@ -1582,3 +1582,29 @@ fn a_resource_template_a_core_resource_serves_is_not_served() {
     read_resource(&mut server, "specforge://graph/ext/1");
     assert!(ext.calls().is_empty(), "{:?}", ext.calls());
 }
+
+#[test]
+fn a_declared_short_name_names_the_commands_tools() {
+    // `@acme/widgets` declares the short name `w`: its command `list_all`
+    // is the tool `specforge.w.list_all`, as it is `specforge w list-all`.
+    let declaration = specforge_protocol_types::ExtensionDeclaration {
+        handshake: specforge_protocol_types::HandshakeResponse {
+            name: "@acme/widgets".into(),
+            version: "1.0.0".into(),
+            ext_short: Some("w".into()),
+            ..Default::default()
+        },
+        surfaces: serde_json::from_value(json!({"commands": [{"id": "list_all",
+            "title": "List", "description": "List all", "export": "cmd__list_all"}]}))
+        .unwrap(),
+        ..Default::default()
+    };
+    let registries = specforge_registry::build_registries(vec![declaration]);
+    let table = specforge_mcp::surface_table::ExtensionSurfaceTable::build(
+        &registries,
+        specforge_mcp::tools::CORE_TOOLS,
+        specforge_mcp::resources::CORE_RESOURCES,
+    );
+    let names: Vec<&str> = table.tools().iter().map(|t| t.name.as_str()).collect();
+    assert_eq!(names, ["specforge.w.list_all"]);
+}

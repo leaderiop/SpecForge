@@ -997,15 +997,39 @@ mod tests {
         verify = "auto-promoted tool name follows specforge.{ext}.{cmd} pattern"
     )]
     fn a_command_is_named_by_its_extension_short_name_and_dashed_id() {
-        let commands = ExtensionCommands::build(&build_of(&[(
-            "@specforge/product",
-            None,
-            &["milestone_completion"],
-        )]));
-        let [routed] = commands.all() else {
-            panic!("one command: {commands:?}")
-        };
-        assert_eq!(routed.cli_name(), "milestone-completion");
-        assert_eq!(routed.tool_name(), "specforge.product.milestone_completion");
+        // The short name is the declared one (the SDK's `short`, on the wire
+        // `ext_short`), else the name's last segment.
+        let commands = ExtensionCommands::build(&build_of(&[
+            ("@specforge/product", None, &["milestone_completion"]),
+            ("@acme/widgets", Some("w"), &["list_all"]),
+        ]));
+        let named: Vec<(&str, String, String)> = commands
+            .all()
+            .iter()
+            .map(|c| (c.short(), c.cli_name(), c.tool_name()))
+            .collect();
+        assert_eq!(
+            named,
+            [
+                (
+                    "product",
+                    "milestone-completion".to_string(),
+                    "specforge.product.milestone_completion".to_string()
+                ),
+                (
+                    "w",
+                    "list-all".to_string(),
+                    "specforge.w.list_all".to_string()
+                ),
+            ]
+        );
+        // `specforge w list-all` routes to it; `specforge widgets` routes
+        // nothing.
+        assert_eq!(commands.shorts(), ["product", "w"]);
+        assert_eq!(
+            commands.of("w").map(|c| c.id()).collect::<Vec<_>>(),
+            ["list_all"]
+        );
+        assert_eq!(commands.of("widgets").count(), 0);
     }
 }
