@@ -122,10 +122,8 @@ fn place_at_subjects<F: Fn(&str) -> Option<String>>(
             .map(|d| d.name)
             .unwrap_or_else(|_| node.source_span.clone())
     };
-    let placed = specforge_common::Diagnostic {
-        span: Some(name(first)),
-        ..diagnostic.clone()
-    };
+    let mut placed = diagnostic.clone();
+    placed.span = Some(name(first));
     let related = others
         .iter()
         .map(|node| DiagnosticRelatedInformation {
@@ -146,7 +144,7 @@ fn docs_href(code: &str, origin: Option<&str>) -> Option<Url> {
 }
 
 /// The code of a define block (ADR 0005): the block registers nothing.
-const DEFINE_BLOCK: &str = "W143";
+const DEFINE_BLOCK: specforge_common::Code = specforge_common::codes::W143;
 
 /// A diagnostic as the client receives it; `range_of` converts its span.
 pub(crate) fn diagnostic_to_lsp(
@@ -175,7 +173,9 @@ pub(crate) fn diagnostic_to_lsp(
         },
         // A define block is inert code: editors fade it (as for inactive
         // code) instead of only underlining it.
-        tags: (diag.code == DEFINE_BLOCK).then(|| vec![DiagnosticTag::UNNECESSARY]),
+        tags: diag
+            .is(DEFINE_BLOCK)
+            .then(|| vec![DiagnosticTag::UNNECESSARY]),
         // The typed payload, as the diagnostics JSON presents it: a client
         // echoes it back in a code-action request's context.
         data: diag

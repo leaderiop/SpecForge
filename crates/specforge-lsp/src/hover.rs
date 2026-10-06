@@ -265,7 +265,8 @@ fn coverage_line(facts: &EntityFacts, rebuilding: bool) -> Option<String> {
         Ok(coverage) => coverage,
         Err(error) => {
             return Some(format!(
-                "the recorded test report cannot be read (E045): {error}"
+                "the recorded test report cannot be read ({}): {error}",
+                specforge_common::codes::E045
             ));
         }
     };
