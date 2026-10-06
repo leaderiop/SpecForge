@@ -737,9 +737,20 @@ fn a_verify_stub_is_offered_for_an_entity_without_obligations() {
     assert_eq!(stubs[0].subject, Some(Sym::new("first")));
 }
 
-#[test]
-fn pin_a_union_type_gets_a_verify_stub_attributed_to_w004() {
-    // pin (01-T0): today's behaviour; flipped by 01-T4
+/// The verify stubs of `fixes`: each one's subject and the code it fixes.
+fn stubs(fixes: Vec<Fix>) -> Vec<(String, Option<String>)> {
+    fixes
+        .into_iter()
+        .filter(|f| f.source == FixSource::AddVerifyStub)
+        .map(|f| (f.subject.unwrap().to_string(), f.diagnostic_code))
+        .collect()
+}
+
+#[specforge_test(
+    behavior = "code_actions_for_missing_verify",
+    verify = "no verify stub is offered for an entity a union body or an exempting flag exempts"
+)]
+fn no_verify_stub_for_an_entity_its_structure_exempts() {
     let p = compile(
         TESTING,
         &[(
@@ -747,17 +758,11 @@ fn pin_a_union_type_gets_a_verify_stub_attributed_to_w004() {
             "type Status = open | done\n\ntype Plain \"Plain\" {\n  id string\n}\n",
         )],
     );
-    let stubs: Vec<(String, Option<String>)> = fixes_of(&p, &FixQuery::default())
-        .into_iter()
-        .filter(|f| f.source == FixSource::AddVerifyStub)
-        .map(|f| (f.subject.unwrap().to_string(), f.diagnostic_code))
-        .collect();
+    // W004 exempts the union, so its stub would fix nothing (and, with no
+    // block to hold it, break the file).
     assert_eq!(
-        stubs,
-        [
-            ("Status".to_string(), Some("W004".to_string())),
-            ("Plain".to_string(), Some("W004".to_string())),
-        ]
+        stubs(fixes_of(&p, &FixQuery::default())),
+        [("Plain".to_string(), Some("W004".to_string()))]
     );
     let w004: Vec<String> = p
         .project
@@ -768,6 +773,116 @@ fn pin_a_union_type_gets_a_verify_stub_attributed_to_w004() {
         .collect();
     assert_eq!(w004.len(), 1, "{w004:?}");
     assert!(w004[0].contains("'Plain'"), "{w004:?}");
+}
+
+#[specforge_test(
+    behavior = "code_actions_for_missing_verify",
+    verify = "a verify stub fixes the diagnostic that reports its entity, or none when nothing reports it"
+)]
+fn a_verify_stub_is_attributed_to_the_rule_that_reports_its_entity() {
+    let extensions = [
+        "@specforge/software",
+        "@specforge/testing",
+        "@specforge/governance",
+    ];
+    let p = compile(
+        &extensions,
+        &[(
+            "a.spec",
+            "behavior first \"First\" {\n  contract \"c\"\n}\n\n\
+             failure_mode crash \"Crash\" {\n  cause \"c\"\n}\n",
+        )],
+    );
+    // `first` is reported (W004); a failure mode is testable but no rule
+    // obliges its kind, so its stub fixes no diagnostic.
+    let reported: Vec<String> = p
+        .project
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code == "W004")
+        .map(|d| d.message)
+        .collect();
+    assert_eq!(reported.len(), 1, "{reported:?}");
+    assert_eq!(
+        stubs(fixes_of(&p, &FixQuery::default())),
+        [
+            ("first".to_string(), Some("W004".to_string())),
+            ("crash".to_string(), None),
+        ]
+    );
+}
+
+/// The §3 probe's kinds and one rule: `item` (testable, accepts verify,
+/// `abstract` exempts), `note` (accepts verify), `memo` (accepts none)
+/// and `P300`, an obligation rule with no target kind.
+fn untargeted_rule() -> specforge_extension_sdk::prelude::ContributionsBuilder {
+    use specforge_extension_sdk::prelude::*;
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@pin/untargeted", "0.1.0"));
+    c.kind("item", |k| {
+        k.testable(true).supports_verify(true).open_fields(true);
+        k.field("abstract", |f| {
+            f.field_type(FieldType::Bool).exempts_obligations();
+        });
+    });
+    c.kind("note", |k| {
+        k.supports_verify(true).open_fields(true);
+    });
+    c.kind("memo", |k| {
+        k.open_fields(true);
+    });
+    c.rule("P300", |r| {
+        r.check(CheckKind::NoVerifyStatements)
+            .field("verify")
+            .message_template("{kind} '{id}' declares no verify obligations");
+    });
+    c
+}
+
+#[specforge_test(
+    behavior = "snapshot_entities_once",
+    verify = "a rule without a target kind applies to every kind, for the rule, the standing and the verify stub alike"
+)]
+fn an_untargeted_obligation_rule_stubs_every_kind_that_accepts_verify() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        serde_json::json!({"name": "p", "extensions": ["@pin/untargeted"]}).to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("a.spec"),
+        "item alpha \"Alpha\" {\n  verify unit \"works\"\n}\n\nitem beta \"Beta\" {\n}\n\n\
+         note gamma \"Gamma\" {\n}\n\nitem delta \"Delta\" {\n  abstract true\n}\n\n\
+         memo epsilon \"Epsilon\" {\n}\n",
+    )
+    .unwrap();
+    let runtime = specforge_wasm::testing::InProcessRuntime::new().with(untargeted_rule);
+    let project = CompiledProject::compile(dir.path(), Some(&runtime));
+    let reported: Vec<String> = project
+        .diagnostics()
+        .into_iter()
+        .filter(|d| d.code == "P300")
+        .map(|d| d.message)
+        .collect();
+    assert_eq!(
+        reported,
+        [
+            "item 'beta' declares no verify obligations",
+            "note 'gamma' declares no verify obligations",
+        ]
+    );
+    // The stubs fix exactly what the rule reports: not delta (its flag
+    // exempts it), not epsilon (its kind accepts no verify).
+    let navigator = Navigator::new(ProjectView::of(&project), |file| {
+        std::fs::read_to_string(dir.path().join(file)).ok()
+    });
+    assert_eq!(
+        stubs(navigator.fixes(&project.diagnostics(), &FixQuery::default())),
+        [
+            ("beta".to_string(), Some("P300".to_string())),
+            ("gamma".to_string(), Some("P300".to_string())),
+        ]
+    );
 }
 
 #[specforge_test(

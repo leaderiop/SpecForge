@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 
 use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym};
 use specforge_graph::Node;
+use specforge_project::coverage::exemption;
 use specforge_registry::validation_engine::obliging_rule;
 
 use super::text::{SourceText, TokenKind};
@@ -45,8 +46,10 @@ pub enum FixSource {
     /// An unresolved reference to an id no entity has, in a field that
     /// targets a kind: a stub of that kind at the end of the file.
     CreateStub,
-    /// A kind that supports verify statements, an entity of it with none:
-    /// a verify stub in its block.
+    /// An entity that declares no verify statements and wants some: it
+    /// owes obligations (a `no_verify_statements` rule applies to its kind)
+    /// or its kind is testable, and neither a union body nor an exempting
+    /// flag exempts it (ADR 0019). A verify stub in its block.
     AddVerifyStub,
 }
 
@@ -57,8 +60,9 @@ pub struct Fix {
     pub kind: FixKind,
     pub source: FixSource,
     /// The code of the diagnostic it fixes: the diagnostic's own, or, for
-    /// a verify stub, the code of the rule that reports an entity without
-    /// verify statements, when the project has one for the kind.
+    /// a verify stub, the code of the rule that reports its entity (the
+    /// `no_verify_statements` rule that obliges its kind), and none when
+    /// no rule reports it.
     pub diagnostic_code: Option<String>,
     /// The entity it is about.
     pub subject: Option<Sym>,
@@ -221,16 +225,27 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
         })
     }
 
-    /// An entity of a kind that supports verify statements, with none: a
-    /// stub of the kind's first allowed verify kind (`unit` when it names
-    /// none), inserted before the block's closing brace.
+    /// An entity of a kind that supports verify statements, with none, that
+    /// wants some (ADR 0019): it owes obligations, or its kind is testable,
+    /// and nothing exempts it. A union body or an exempting flag is offered
+    /// none: a stub there is no obligation it owes (a union has no block to
+    /// hold one). The stub is of the kind's first allowed verify kind
+    /// (`unit` when it names none), inserted before the block's closing
+    /// brace; it fixes the rule that obliges the entity's kind, if any.
     fn verify_stub(&self, node: &Node) -> Option<Fix> {
         let registries = self.view.registries;
+        let kind_name = node.kind.raw.as_str();
         let kind = registries
             .kinds
-            .get(node.kind.raw.as_str())
+            .get(kind_name)
             .filter(|entry| entry.supports_verify)?;
-        if !specforge_graph::obligations(node).is_empty() {
+        if !specforge_graph::obligations(node).is_empty()
+            || exemption(node, &registries.kinds, &registries.fields).is_some()
+        {
+            return None;
+        }
+        let rule = obliging_rule(&registries.rules, kind_name);
+        if rule.is_none() && !kind.testable {
             return None;
         }
         let verify_kind = kind
@@ -274,10 +289,9 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
                 new_text: stub,
             },
         };
-        // The rule that reports an entity of this kind without verify
-        // statements, when the project has one.
-        let code =
-            obliging_rule(&registries.rules, node.kind.raw.as_str()).map(|rule| rule.code.clone());
+        // The rule that reports it, if any: the one that obliges its kind
+        // (nothing exempts it here).
+        let code = rule.map(|rule| rule.code.clone());
         Some(Fix {
             title: format!("Add verify stub for {}", node.id.raw),
             kind: FixKind::QuickFix,
