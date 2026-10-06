@@ -714,3 +714,45 @@ fn removing_a_wasm_file_no_entry_names_is_not_found() {
         json!(["@specforge/software", "greet.wasm"])
     );
 }
+
+// ── plan 05 pins: the management operations before they take the project view ──
+
+// pins R1; flipped by 05-T4: doctor never got the `enabled` list, so a
+// declaration without a lock entry is "builtin", whatever loaded it.
+#[test]
+fn doctor_lists_a_wasm_file_entry_as_builtin_today() {
+    let dir = greet_file_project();
+    enable(dir.path(), json!(["@specforge/software", "greet.wasm"]));
+
+    let (_, report) = doctor(dir.path());
+
+    let greet = report["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["name"] == "@sdk/greet")
+        .unwrap_or_else(|| panic!("@sdk/greet not listed: {report}"));
+    assert_eq!(greet["source"], "builtin", "{report}");
+}
+
+// pins R2; flipped by 05-T6: remove uninstalls the binary and empties the
+// lock, and only then finds specforge.json unreadable.
+#[test]
+fn remove_with_an_unreadable_config_uninstalls_before_it_fails() {
+    let dir = greeting_project();
+    add_local_greet(dir.path());
+    assert!(dir.path().join(".specforge/extensions/@sdk/greet").exists());
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{ "extensions": ["@sdk/greet",  }"#,
+    )
+    .unwrap();
+
+    let (ok, output) = remove(dir.path(), "@sdk/greet", &[]);
+
+    assert!(!ok, "{output}");
+    assert_eq!(output["code"], "config_invalid", "{output}");
+    let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
+    assert!(!lock.contains("@sdk/greet"), "{lock}");
+    assert!(!dir.path().join(".specforge/extensions/@sdk/greet").exists());
+}

@@ -1661,3 +1661,117 @@ fn extensions_list_each_extensions_kinds_and_entities() {
         "{text}"
     );
 }
+
+// ===============================================================
+// Plan 05 pins: the management operations before they take the
+// project view
+// ===============================================================
+
+#[test]
+fn removing_a_builtin_with_an_unreadable_config_is_config_invalid() {
+    let dir = TempDir::new().unwrap();
+    let config = r#"{ "extensions": ["@specforge/product",  }"#;
+    fs::write(dir.path().join("specforge.json"), config).unwrap();
+
+    let output = specforge_cmd()
+        .args(["remove", "@specforge/product", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1), "{output:?}");
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["code"], "config_invalid", "{json}");
+    assert_eq!(
+        fs::read_to_string(dir.path().join("specforge.json")).unwrap(),
+        config
+    );
+}
+
+#[specforge_test(
+    behavior = "list_installed_extensions",
+    verify = "list includes entity counts and entity types"
+)]
+fn a_legacy_entry_that_did_not_load_is_listed_with_its_written_version() {
+    let dir = TempDir::new().unwrap();
+    write_config_with_extensions(dir.path(), &["@specforge/product", "@acme/missing@1.2.0"]);
+
+    let output = specforge_cmd()
+        .args(["extensions", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let missing = json["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["name"] == "@acme/missing")
+        .unwrap_or_else(|| panic!("@acme/missing not listed: {json}"));
+    assert_eq!(missing["version"], "1.2.0", "{missing}");
+    assert_eq!(missing["status"], "not_loaded", "{missing}");
+    assert_eq!(missing["source"], "unknown", "{missing}");
+}
+
+/// Doctor's findings, without the z3 probe's (it depends on PATH).
+fn project_findings(report: &serde_json::Value) -> Vec<serde_json::Value> {
+    report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] != "z3_missing")
+        .cloned()
+        .collect()
+}
+
+// Pins today's answer; flipped by 05-T5 (panel D5: `config_missing`).
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor --json produces valid JSON output"
+)]
+fn doctor_in_a_directory_without_a_project_is_healthy() {
+    let dir = TempDir::new().unwrap();
+
+    let (report, code) = doctor_json(dir.path());
+
+    assert_eq!(code, 0, "{report}");
+    assert_eq!(report["status"], "healthy", "{report}");
+    assert_eq!(report["extensions"], serde_json::json!([]), "{report}");
+    assert_eq!(report["extensions_checked"], 0, "{report}");
+    assert_eq!(project_findings(&report), Vec::<serde_json::Value>::new());
+}
+
+/// `specforge.json` texts that are there and can't be used: not JSON, not
+/// an object, an `extensions` value that is not an array.
+const UNUSABLE_CONFIGS: [&str; 3] = [
+    r#"{ "extensions": ["@specforge/product",  }"#,
+    "[1,2]",
+    r#"{"extensions": "@specforge/product"}"#,
+];
+
+// pins R3; flipped by 05-T5: an unusable specforge.json compiles silently
+// as "no extensions configured".
+#[test]
+fn an_unparsable_config_compiles_as_no_extensions_configured_today() {
+    for config in UNUSABLE_CONFIGS {
+        let dir = TempDir::new().unwrap();
+        fs::write(dir.path().join("specforge.json"), config).unwrap();
+        fs::write(dir.path().join("main.spec"), "feature f \"F\" {\n}\n").unwrap();
+
+        let output = specforge_cmd()
+            .args(["check", "--format", "json"])
+            .arg(dir.path())
+            .output()
+            .unwrap();
+
+        assert_eq!(output.status.code(), Some(0), "{config}: {output:?}");
+        let found: Vec<serde_json::Value> = serde_json::from_slice(&output.stdout).unwrap();
+        let codes: Vec<&str> = found.iter().map(|d| d["code"].as_str().unwrap()).collect();
+        assert_eq!(codes, ["I002"], "{config}: {found:?}");
+        assert_eq!(
+            found[0]["message"], "no extensions configured — operating in structural-only mode",
+            "{config}"
+        );
+    }
+}
