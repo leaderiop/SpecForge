@@ -42,6 +42,10 @@ expression: mcp_snap
     "files_failed": 0,
     "files_migrated": 1,
     "files_skipped": 1,
+    "files_written": [
+      "spec/old.spec",
+      "spec/old.spec.bak"
+    ],
     "from_version": "0.1",
     "hook_failures": [],
     "hooks_invoked": [],

@@ -81,6 +81,14 @@ event mcp_initialized "MCP Initialized" {
 }
 
 event mcp_mutation_completed "MCP Mutation Completed" {
+  // files_changed: the files the call created, rewrote or removed, as its
+  // operation recorded them where it wrote — a failed call's partial writes
+  // included, a migration's backups included, each file a removal deleted
+  // named on its own. The reply names the same files in files_written
+  // (relative to the project root), so a client sees what the event
+  // counts. entities_affected: the entities the call changed (the renamed
+  // one, the ones a removal orphans, the ones an inference step produced).
+  // A preview (dry_run, check, diff) is no mutation and emits nothing.
   channel "mcp.mutation_completed"
   payload {
     toolName          string
@@ -90,6 +98,9 @@ event mcp_mutation_completed "MCP Mutation Completed" {
     timestamp         timestamp
   }
   verify integration "emits mcp_mutation_completed with structured outcome after each mutation tool"
+  verify integration "files_changed is the number of files the call wrote, for every mutation tool"
+  verify integration "a mutation that fails after writing reports the files it wrote"
+  verify integration "a mutation's reply lists in files_written the files files_changed counts"
 }
 
 // ── MCP Subscription Lifecycle Events ────────────────────────

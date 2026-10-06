@@ -191,18 +191,19 @@ fn every_listed_tool_has_a_spec_category_and_a_source() {
     verify = "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
 )]
 fn core_tool_annotations_follow_what_each_tool_does() {
-    use specforge_mcp::tool::{Access, Category};
+    use specforge_mcp::tool::{Access, Category, Handler};
     let (_server, tools) = tools_with_an_extension();
     for spec in specforge_mcp::tools::CORE_TOOLS {
         // One definition: a mutation is exactly a tool with a mutation
-        // effect, and it writes.
+        // handler (it says what it wrote), and it writes.
+        let mutation = matches!(spec.handler, Handler::Mutation(_));
         assert_eq!(
-            spec.mutation.is_some(),
+            mutation,
             spec.category == Category::Mutation,
             "{}",
             spec.name
         );
-        if spec.mutation.is_some() {
+        if mutation {
             assert_ne!(spec.access, Access::ReadOnly, "{}", spec.name);
         }
         let listed = tools.iter().find(|t| t["name"] == spec.name).unwrap();

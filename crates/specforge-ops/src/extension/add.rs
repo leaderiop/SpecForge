@@ -1,8 +1,8 @@
 //! `specforge add` and `specforge.add_extension`.
 
 use super::{Origin, builtin_name, check_diamonds, extensions_dir, lock_path};
-use crate::OpError;
 use crate::registry::Registry;
+use crate::{OpError, Writes};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::{
     ExtensionSpecifier, install_extension, parse_extension_specifier, read_lock_file,
@@ -109,6 +109,20 @@ pub enum AddOutcome {
     },
 }
 
+/// What an add did, and what it changed on disk.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Added {
+    pub outcome: AddOutcome,
+    /// The files the add changed: `specforge.json` when an entry was added,
+    /// and for an install the module and `specforge.lock` when their bytes
+    /// changed. Nothing for a dry run or an extension already present. A
+    /// trust pin the registry adapter keeps for the user is not one.
+    pub writes: Writes,
+    /// How many extensions `specforge.json` enables after the add (`0`
+    /// without one): `extension_added`'s `totalExtensions`.
+    pub extensions_enabled: usize,
+}
+
 /// Add an extension to the project at `req.root`.
 ///
 /// - A builtin is enabled in `specforge.json`, after the builtins it
@@ -122,22 +136,40 @@ pub enum AddOutcome {
 ///
 /// An installed extension is enabled by its bare name, which the runtime
 /// loads from the lock (ADR 0004 D3-b).
-pub fn add(req: &AddRequest, registry: &dyn Registry) -> Result<AddOutcome, OpError> {
+///
+/// An install that fails after placing its module (the lock or the config
+/// could not be written) leaves it in place and says so in the error's
+/// [`OpError::writes`].
+pub fn add(req: &AddRequest, registry: &dyn Registry) -> Result<Added, OpError> {
     // The project must exist, with a config the writer can edit, before
     // anything is installed into it.
     crate::config::edit_extensions(req.root, |_| false).map_err(config_error)?;
-    match &req.source {
-        Source::Builtin(name) => add_builtin(req, name),
-        Source::Local(path) => add_local(req, path),
-        Source::Registry { name, range } => add_from_registry(req, registry, name, range),
+    let mut writes = Writes::none();
+    let outcome = match &req.source {
+        Source::Builtin(name) => add_builtin(req, name, &mut writes),
+        Source::Local(path) => add_local(req, path, &mut writes),
+        Source::Registry { name, range } => {
+            add_from_registry(req, registry, name, range, &mut writes)
+        }
         Source::Git { url } => Err(OpError::new(
             "E064",
             format!("git source '{url}' not yet supported"),
         )),
-    }
+    }?;
+    Ok(Added {
+        outcome,
+        writes,
+        extensions_enabled: specforge_common::load_project_config(req.root)
+            .extensions
+            .len(),
+    })
 }
 
-fn add_builtin(req: &AddRequest, name: &'static str) -> Result<AddOutcome, OpError> {
+fn add_builtin(
+    req: &AddRequest,
+    name: &'static str,
+    writes: &mut Writes,
+) -> Result<AddOutcome, OpError> {
     let enabled = super::enabled_builtins(req.root);
     if req.dry_run {
         return Ok(AddOutcome::Planned {
@@ -155,12 +187,18 @@ fn add_builtin(req: &AddRequest, name: &'static str) -> Result<AddOutcome, OpErr
         super::required_builtin_peers(name)
     };
     let mut peers_enabled = Vec::new();
+    let config = req.root.join(crate::config::CONFIG_FILE);
     for peer in peers {
-        if crate::config::add_extension(req.root, peer, peer).map_err(config_error)? {
+        let added = crate::config::add_extension(req.root, peer, peer)
+            .map_err(|e| config_error(e).with_writes(writes.clone()))?;
+        writes.record_if(added, &config);
+        if added {
             peers_enabled.push(peer);
         }
     }
-    let changed = crate::config::add_extension(req.root, name, name).map_err(config_error)?;
+    let changed = crate::config::add_extension(req.root, name, name)
+        .map_err(|e| config_error(e).with_writes(writes.clone()))?;
+    writes.record_if(changed, &config);
     Ok(AddOutcome::Builtin {
         name,
         changed,
@@ -177,7 +215,7 @@ fn config_error(e: OpError) -> OpError {
     OpError::new("E032", message)
 }
 
-fn add_local(req: &AddRequest, path: &Path) -> Result<AddOutcome, OpError> {
+fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOutcome, OpError> {
     let wasm = std::fs::read(path).map_err(|e| {
         let message = if path.exists() {
             format!("cannot read {}: {e}", path.display())
@@ -205,7 +243,7 @@ fn add_local(req: &AddRequest, path: &Path) -> Result<AddOutcome, OpError> {
         return Ok(present);
     }
     install(
-        req.root, &mut lock, &declared, &wasm, &sha256, None, &origin,
+        req.root, &mut lock, &declared, &wasm, &sha256, None, &origin, writes,
     )
 }
 
@@ -214,6 +252,7 @@ fn add_from_registry(
     registry: &dyn Registry,
     name: &str,
     range: &str,
+    writes: &mut Writes,
 ) -> Result<AddOutcome, OpError> {
     let version = registry.resolve_version(name, range)?;
     let origin = Origin::Installed {
@@ -248,6 +287,7 @@ fn add_from_registry(
         &checked.package.sha256,
         checked.package.key_id,
         &origin,
+        writes,
     )
 }
 
@@ -411,7 +451,13 @@ fn already_present(
 }
 
 /// Place the binary, lock it as `origin` with its declared version and
-/// peers, and enable it by its bare name.
+/// peers, and enable it by its bare name, recording in `writes` each file
+/// whose bytes changed. A failure after the module is placed returns what
+/// was written with the error.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the install's inputs, each read once; `writes` is the outcome's"
+)]
 fn install(
     root: &Path,
     lock: &mut specforge_wasm::LockFile,
@@ -420,7 +466,10 @@ fn install(
     sha256: &str,
     key_id: Option<String>,
     origin: &Origin,
+    writes: &mut Writes,
 ) -> Result<AddOutcome, OpError> {
+    let module = specforge_wasm::installed_wasm_path(&extensions_dir(root), declared.name());
+    let module_before = std::fs::read(&module).ok();
     let result = place(
         root,
         lock,
@@ -430,8 +479,14 @@ fn install(
         key_id.as_deref(),
         origin,
     )?;
-    write_lock_file(lock, &lock_path(root)).map_err(OpError::from)?;
-    crate::config::add_extension(root, declared.name(), declared.name()).map_err(config_error)?;
+    writes.record_if(module_before.as_deref() != Some(wasm), module);
+    let lock_file = lock_path(root);
+    let lock_before = std::fs::read(&lock_file).ok();
+    write_lock_file(lock, &lock_file).map_err(|e| OpError::from(e).with_writes(writes.clone()))?;
+    writes.record_if(std::fs::read(&lock_file).ok() != lock_before, lock_file);
+    let enabled = crate::config::add_extension(root, declared.name(), declared.name())
+        .map_err(|e| config_error(e).with_writes(writes.clone()))?;
+    writes.record_if(enabled, root.join(crate::config::CONFIG_FILE));
     Ok(AddOutcome::Installed {
         name: result.name,
         version: result.version,

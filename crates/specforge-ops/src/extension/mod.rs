@@ -7,7 +7,7 @@ mod list;
 mod remove;
 mod update;
 
-pub use add::{AddOutcome, AddRequest, Source, Trust, add, declared, parse};
+pub use add::{AddOutcome, AddRequest, Added, Source, Trust, add, declared, parse};
 pub use diamond::check_diamonds;
 pub use list::{
     ExtensionEntry, ExtensionListing, LockedExtension, ProviderEntry, ProviderListing, Status,

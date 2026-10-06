@@ -2893,3 +2893,56 @@ fn validation_runs_after_core_and_hooks() {
         "validation after hooks complete: no changes → no diags"
     );
 }
+
+use crate::written::{changed_since, files_under, files_written};
+
+#[specforge_test(
+    behavior = "migrate_spec_files_in_place",
+    verify = "migrate --format json lists each migrated file and its backup in files_written"
+)]
+fn migrate_json_lists_each_file_and_its_backup() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    let old = "// specforge-format: 0.1\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n";
+    write_spec(root, "a.spec", old);
+    write_spec(root, "b.spec", &old.replace("foo", "bar"));
+    let migrate = |extra: &[&str]| -> serde_json::Value {
+        let output = Command::cargo_bin("specforge")
+            .unwrap()
+            .args([
+                "migrate",
+                "--path",
+                root.to_str().unwrap(),
+                "--format",
+                "json",
+            ])
+            .args(extra)
+            .output()
+            .unwrap();
+        serde_json::from_slice(&output.stdout)
+            .unwrap_or_else(|e| panic!("not JSON ({e}): {output:?}"))
+    };
+
+    // A dry run writes nothing and lists nothing.
+    let before = files_under(root);
+    let preview = migrate(&["--dry-run"]);
+    assert!(preview.get("files_written").is_none(), "{preview}");
+    assert_eq!(changed_since(root, &before), Vec::<String>::new());
+
+    let migrated = migrate(&[]);
+    let written = [
+        "spec/a.spec",
+        "spec/a.spec.bak",
+        "spec/b.spec",
+        "spec/b.spec.bak",
+    ];
+    assert_eq!(files_written(&migrated), written);
+    assert_eq!(changed_since(root, &before), written);
+
+    // --rollback restores each file from its backup: those are listed.
+    let before = files_under(root);
+    let restored = migrate(&["--rollback"]);
+    assert_eq!(files_written(&restored), ["spec/a.spec", "spec/b.spec"]);
+    assert_eq!(changed_since(root, &before), files_written(&restored));
+}

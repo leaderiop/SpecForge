@@ -960,7 +960,7 @@ fn init_contract() {
     // tool_invoked_emitted.
     let initialized = events(&server, "project_initialized");
     assert_eq!(initialized.len(), 1, "{initialized:?}");
-    assert_eq!(initialized[0]["name"], "contractproject");
+    assert_eq!(initialized[0]["projectName"], "contractproject");
     assert!(invoked(&server, "specforge.init"));
 }
 
@@ -1027,23 +1027,6 @@ fn server_with_product() -> (Served, std::path::PathBuf) {
     );
     assert!(resp["result"].is_object(), "install failed: {resp}");
     (server, root)
-}
-
-/// Every file under `root` with its content.
-fn files_under(root: &Path) -> std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> {
-    fn walk(dir: &Path, out: &mut std::collections::BTreeMap<std::path::PathBuf, Vec<u8>>) {
-        for entry in std::fs::read_dir(dir).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                walk(&path, out);
-            } else {
-                out.insert(path.clone(), std::fs::read(&path).unwrap());
-            }
-        }
-    }
-    let mut out = std::collections::BTreeMap::new();
-    walk(root, &mut out);
-    out
 }
 
 fn config_extensions(root: &Path) -> Vec<String> {
@@ -1568,7 +1551,9 @@ fn add_extension_contract() {
     // extension_added_emitted, tool_invoked_emitted
     let added = events(&server, "extension_added");
     assert_eq!(added.len(), 1, "{added:?}");
-    assert_eq!(added[0]["extension"], GREET);
+    assert_eq!(added[0]["extensionSpecifier"], specifier);
+    assert_eq!(added[0]["wasDuplicate"], false);
+    assert_eq!(added[0]["totalExtensions"], 1);
     assert!(invoked(&server, "specforge.add_extension"));
 }
 
@@ -1662,7 +1647,8 @@ fn migrate_contract() {
     assert_eq!(migrate(&mut server, json!({}))["migrated"], false);
 
     // mutation_completed_emitted, tool_invoked_emitted
-    // The migration rewrote one file; the second run changed nothing.
+    // The migration rewrote one file and backed it up; the second run
+    // changed nothing.
     let migration = |files_changed: usize| {
         json!({
             "toolName": "specforge.migrate",
@@ -1673,7 +1659,7 @@ fn migrate_contract() {
     };
     assert_eq!(
         events(&server, "mcp_mutation_completed"),
-        [migration(1), migration(0)]
+        [migration(2), migration(0)]
     );
     assert!(invoked(&server, "specforge.migrate"));
 }

@@ -84,9 +84,9 @@ entry declares a `TargetSpec`: its reach (`Unscoped`, `Served`, `AnyProject`, `W
 `resolve` turns the call's `path` and that spec into one `CallTarget` (`Served`, `Other`, `New`,
 `Unscoped`, `NoProject`), and handlers read their project through `Call::project()` as a
 `ProjectRef` (root, spec root, environment, graph, runtime, `view()`, `diagnostics()`), unable to
-tell the served session from a project compiled for the call. `Call::wrote` brings the target up to
-date after a handler writes it. The dispatcher no longer reloads after mutations; a successful
-mutation of the served project brings it up to date with exactly what changed.
+tell the served session from a project compiled for the call. A mutation's handler returns what it
+wrote (ADR 0022); `mutation::refresh`, called by the dispatcher alone, brings the target up to date
+after any call that wrote files, succeeded or not, with exactly what changed.
 
 ## Consequences
 

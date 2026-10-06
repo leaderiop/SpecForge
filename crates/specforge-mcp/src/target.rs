@@ -208,11 +208,10 @@ pub fn no_project() -> McpError {
     )
 }
 
-/// One call: the state, its target, and what the handler wrote.
+/// One call: the state and its target.
 pub struct Call<'s> {
     pub state: &'s mut McpState,
     target: CallTarget,
-    wrote: bool,
     /// The runtime of a served project built in memory, which has none of
     /// its own: the host's, else one built for its root on first use.
     in_memory_runtime: OnceCell<SharedRuntime>,
@@ -224,7 +223,6 @@ impl<'s> Call<'s> {
         Call {
             state,
             target,
-            wrote: false,
             in_memory_runtime: OnceCell::new(),
         }
     }
@@ -325,24 +323,29 @@ impl<'s> Call<'s> {
         }
     }
 
-    /// The handler wrote its target's files: bring the target up to date
-    /// now and return what `specforge check` reports for it. The served
-    /// project is brought up to date with disk (a project built in memory
-    /// is replaced by the project on disk at its root); another project is
-    /// compiled again; the server keeps serving its own.
-    pub fn wrote(&mut self) -> Vec<Diagnostic> {
-        self.wrote = true;
+    /// The call wrote its target's files: bring the target up to date now
+    /// and return what `specforge check` reports for it. Called only by
+    /// [`crate::mutation::refresh`] (ADR 0022). The served project is
+    /// brought up to date with disk; a served project built in memory is
+    /// replaced by the project on disk at its root when the tool writes
+    /// project files (`reach` [`Reach::WritesAnyProject`]); another project
+    /// is compiled again (the server keeps serving its own); the directory
+    /// `init` created is served when nothing is (ADR 0014 D5).
+    pub(crate) fn bring_up_to_date(&mut self, reach: Reach) -> Vec<Diagnostic> {
         match &mut self.target {
             CallTarget::Served => {
-                match (self.state.session().origin(), self.state.project_root()) {
-                    (Origin::Disk, _) => {
+                let in_memory_root = match (self.state.session().origin(), reach) {
+                    (Origin::Disk, _) => None,
+                    (_, Reach::WritesAnyProject) => {
+                        self.state.project_root().map(Path::to_path_buf)
+                    }
+                    _ => None,
+                };
+                match in_memory_root {
+                    Some(root) => self.state.serve(&root),
+                    None => {
                         self.state.ensure_fresh();
                     }
-                    (_, Some(root)) => {
-                        let root = root.to_path_buf();
-                        self.state.serve(&root);
-                    }
-                    (_, None) => {}
                 }
                 self.state.diagnostics()
             }
@@ -350,13 +353,15 @@ impl<'s> Call<'s> {
                 other.recompile();
                 other.project.diagnostics()
             }
-            CallTarget::New(_) | CallTarget::Unscoped | CallTarget::NoProject => Vec::new(),
+            CallTarget::New(dir) => {
+                if self.state.project_root().is_none() {
+                    let dir = dir.clone();
+                    self.state.serve(&dir);
+                }
+                Vec::new()
+            }
+            CallTarget::Unscoped | CallTarget::NoProject => Vec::new(),
         }
-    }
-
-    /// Whether the handler reported writing its target ([`Self::wrote`]).
-    pub fn has_written(&self) -> bool {
-        self.wrote
     }
 }
 

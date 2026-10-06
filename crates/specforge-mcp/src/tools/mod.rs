@@ -25,11 +25,12 @@ mod validate;
 
 use serde_json::{Value, json};
 
+use crate::mutation::{self, Mutated};
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
 use crate::surface_table::{ToolEntry, ToolKind};
-use crate::target::{self, Call, CallTarget, Reach, TargetSpec};
-use crate::tool::{Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
+use crate::target::{self, Call, TargetSpec};
+use crate::tool::{ErrorCode, Handler, McpError, ToolOutcome, ToolSpec, envelope};
 pub use table::CORE_TOOLS;
 
 /// The navigator over what the call reads (`specforge_ops::navigate`):
@@ -250,69 +251,46 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
     }
     state.push_event("mcp_tool_invoked", event);
 
-    let mutation = spec
-        .and_then(|spec| spec.mutation)
-        .filter(|mutation| (mutation.writes)(&arguments));
-
     // The project the call acts on, resolved (and brought up to date)
     // before the handler runs: handlers never pick a root or reload.
     let target_spec = spec.map_or(TargetSpec::SERVED, |spec| spec.target);
-    let mut outcome = match target::resolve(state, target_spec, &arguments) {
-        Err(refused) => ToolOutcome::from(McpError::from(refused)),
-        Ok(target) => {
-            let mut call = Call::new(state, target);
-            let outcome = match (spec, &extension) {
-                (Some(spec), _) => (spec.call)(&mut call, arguments),
-                (None, Some(entry)) => {
-                    let (outcome, dispatched) = extension_tool(&mut call, entry, arguments);
-                    if let Some((event, params)) = dispatched {
-                        call.state.push_event(event, params);
-                    }
-                    outcome
+    let outcome = match (spec.map(|spec| spec.handler), &extension) {
+        // A mutation says what it wrote; `mutation::refresh` brings the
+        // target up to date with it (inside the call), `mutation::report`
+        // records its events and names the files in its reply.
+        (Some(Handler::Mutation(handler)), _) => {
+            let (mutated, root) = match target::resolve(state, target_spec, &arguments) {
+                Err(refused) => (Mutated::refused(McpError::from(refused)), None),
+                Ok(target) => {
+                    let mut call = Call::new(state, target);
+                    let mut mutated = handler(&mut call, arguments);
+                    let root = mutation::refresh(&mut call, target_spec.reach, &mut mutated);
+                    (mutated, root)
                 }
-                (None, None) => unreachable!("an unknown tool was refused above"),
             };
-            // A mutation that wrote the served project's files leaves the
-            // server serving what is on disk: brought up to date (exactly
-            // what changed), or, for a project built in memory, the project
-            // on disk at its root, when the tool writes project files.
-            // Another project was the call's alone; the served one is
-            // untouched.
-            if mutation.is_some()
-                && outcome.succeeded()
-                && !call.has_written()
-                && matches!(call.target(), CallTarget::Served)
-            {
-                if target_spec.reach == Reach::WritesAnyProject {
-                    call.wrote();
-                } else {
-                    call.state.ensure_fresh();
-                }
-            }
-            outcome
+            mutation::report(state, name, root.as_deref(), mutated.from_tool(name))
         }
-    }
-    .from_tool(name);
-    for (event, params) in outcome.take_events() {
-        state.push_event(event, params);
-    }
-
-    if let Some(mutation) = mutation {
-        // Every call that meant to write reports what its structured
-        // result says it changed: nothing, when it failed.
-        let effect = outcome
-            .success_payload()
-            .map_or_else(Effect::default, |payload| (mutation.effect)(payload));
-        state.push_event(
-            "mcp_mutation_completed",
-            json!({
-                "toolName": name,
-                "files_changed": effect.files_changed,
-                "entities_affected": effect.entities_affected,
-                "success": outcome.succeeded(),
-            }),
-        );
-    }
+        (Some(Handler::Tool(handler)), _) => {
+            match target::resolve(state, target_spec, &arguments) {
+                Err(refused) => ToolOutcome::from(McpError::from(refused)),
+                Ok(target) => handler(&mut Call::new(state, target), arguments),
+            }
+            .from_tool(name)
+        }
+        (None, Some(entry)) => match target::resolve(state, target_spec, &arguments) {
+            Err(refused) => ToolOutcome::from(McpError::from(refused)),
+            Ok(target) => {
+                let mut call = Call::new(state, target);
+                let (outcome, dispatched) = extension_tool(&mut call, entry, arguments);
+                if let Some((event, params)) = dispatched {
+                    call.state.push_event(event, params);
+                }
+                outcome
+            }
+        }
+        .from_tool(name),
+        (None, None) => unreachable!("an unknown tool was refused above"),
+    };
 
     // A tool with an outputSchema: a core one, or an extension's that
     // declares one.

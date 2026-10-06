@@ -20,3 +20,4 @@ mod stats;
 mod trace;
 mod trace_support;
 mod view_support;
+mod writes;

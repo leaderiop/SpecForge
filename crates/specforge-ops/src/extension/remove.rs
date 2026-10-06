@@ -1,8 +1,8 @@
 //! `specforge remove` and `specforge.remove_extension`.
 
 use super::{NOT_FOUND, Origin, builtin_name, extensions_dir, lock_path};
-use crate::OpError;
 use crate::view::ProjectView;
+use crate::{OpError, Writes};
 use specforge_common::ExtensionEntry;
 use specforge_graph::Graph;
 use specforge_project::EnabledExtension;
@@ -45,7 +45,13 @@ pub struct RemoveOutcome {
     /// One per entity whose kind only the removed extension defines: those
     /// entities fail E024 on the next compile.
     pub orphan_warnings: Vec<String>,
+    /// The IDs of the entities `orphan_warnings` describes, sorted.
+    pub orphaned: Vec<String>,
     pub dry_run: bool,
+    /// The files the removal changed: `specforge.json` when an entry was
+    /// dropped, and for an uninstall `specforge.lock` and each file deleted
+    /// under the extension's directory. Nothing for a dry run.
+    pub writes: Writes,
 }
 
 /// Remove `name` from the project the view was compiled from: a locked
@@ -64,7 +70,8 @@ pub struct RemoveOutcome {
 /// `config_invalid`, without reading the file again. `specforge.json` is
 /// written first, then the lock and the binary: a failure between the two
 /// leaves an installed extension that is no longer enabled, which a second
-/// `remove` finishes. Without a root: `no_project`.
+/// `remove` finishes, and the error names what was written
+/// ([`OpError::writes`]). Without a root: `no_project`.
 pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, OpError> {
     let root = view.project_root()?;
     if let Some(problem) = view
@@ -175,12 +182,15 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
 
     refuse_if_required(req, req.name, lock.as_ref())?;
 
-    let outcome = RemoveOutcome {
+    let (orphan_warnings, orphaned) = orphans(req.graph, req.kinds, req.name);
+    let mut outcome = RemoveOutcome {
         name: req.name.to_string(),
         version,
-        orphan_warnings: orphan_warnings(req.graph, req.kinds, req.name),
+        orphan_warnings,
+        orphaned,
         dry_run: req.dry_run,
         origin,
+        writes: Writes::none(),
     };
     if req.dry_run {
         return Ok(outcome);
@@ -188,18 +198,46 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
 
     // specforge.json first. A project without specforge.json (an install
     // only the lock knows) has no entry to drop.
-    if let Err(e) = crate::config::remove_extension(req.root, req.name)
-        && e.code != "config_not_found"
-    {
-        return Err(e);
+    let writes = &mut outcome.writes;
+    match crate::config::remove_extension(req.root, req.name) {
+        Ok(dropped) => writes.record_if(dropped, req.root.join(crate::config::CONFIG_FILE)),
+        Err(e) if e.code == "config_not_found" => {}
+        Err(e) => return Err(e),
     }
     if let (Origin::Installed { .. }, Some(mut lock)) = (&outcome.origin, lock) {
         // Dependents are checked above, over the loaded declarations and the lock.
+        let dir = extensions_dir(req.root).join(req.name);
+        let installed = files_in(&dir);
         uninstall_extension(req.name, &extensions_dir(req.root), &mut lock)
-            .map_err(OpError::from)?;
-        write_lock_file(&lock, &lock_path(req.root)).map_err(OpError::from)?;
+            .map_err(|e| OpError::from(e).with_writes(writes.clone()))?;
+        for file in installed {
+            writes.record(file);
+        }
+        write_lock_file(&lock, &lock_path(req.root))
+            .map_err(|e| OpError::from(e).with_writes(writes.clone()))?;
+        writes.record(lock_path(req.root));
     }
     Ok(outcome)
+}
+
+/// Every file under `dir` (none when it does not exist): what deleting it
+/// deletes.
+fn files_in(dir: &Path) -> Vec<std::path::PathBuf> {
+    let mut files = Vec::new();
+    let mut dirs = vec![dir.to_path_buf()];
+    while let Some(dir) = dirs.pop() {
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
+        for path in entries.flatten().map(|entry| entry.path()) {
+            if path.is_dir() {
+                dirs.push(path);
+            } else {
+                files.push(path);
+            }
+        }
+    }
+    files
 }
 
 /// Remove the `.wasm` file entry `file`: only its `specforge.json` entry
@@ -211,17 +249,23 @@ fn remove_file(req: &Removing, file: &EnabledExtension) -> Result<RemoveOutcome,
         let lock = read_lock_file(&lock_path(req.root)).ok();
         refuse_if_required(req, &file.name, lock.as_ref())?;
     }
-    let outcome = RemoveOutcome {
+    let (orphan_warnings, orphaned) = orphans(req.graph, req.kinds, &file.name);
+    let mut outcome = RemoveOutcome {
         name: file.name.clone(),
         version: declaration.map(|d| d.version().to_string()),
-        orphan_warnings: orphan_warnings(req.graph, req.kinds, &file.name),
+        orphan_warnings,
+        orphaned,
         dry_run: req.dry_run,
         origin: Origin::File {
             path: file.file.clone().unwrap_or_default(),
         },
+        writes: Writes::none(),
     };
     if !req.dry_run {
-        crate::config::remove_entry(req.root, &file.entry)?;
+        let dropped = crate::config::remove_entry(req.root, &file.entry)?;
+        outcome
+            .writes
+            .record_if(dropped, req.root.join(crate::config::CONFIG_FILE));
     }
     Ok(outcome)
 }
@@ -274,9 +318,10 @@ fn dependents(name: &str, loaded: &[ExtensionDeclaration], lock: Option<&LockFil
     out
 }
 
-/// One warning per entity whose kind only `extension` defines.
-fn orphan_warnings(graph: &Graph, kinds: &KindRegistry, extension: &str) -> Vec<String> {
-    let mut warnings: Vec<String> = graph
+/// The entities whose kind only `extension` defines: one warning for each,
+/// sorted, and their IDs, sorted.
+fn orphans(graph: &Graph, kinds: &KindRegistry, extension: &str) -> (Vec<String>, Vec<String>) {
+    let orphaned: Vec<_> = graph
         .nodes()
         .into_iter()
         .filter(|node| {
@@ -284,6 +329,9 @@ fn orphan_warnings(graph: &Graph, kinds: &KindRegistry, extension: &str) -> Vec<
                 .get(node.kind.raw.as_str())
                 .is_some_and(|kind| kind.source_extension == extension)
         })
+        .collect();
+    let mut warnings: Vec<String> = orphaned
+        .iter()
         .map(|node| {
             format!(
                 "{} '{}' uses a kind only {extension} defines",
@@ -292,7 +340,12 @@ fn orphan_warnings(graph: &Graph, kinds: &KindRegistry, extension: &str) -> Vec<
         })
         .collect();
     warnings.sort();
-    warnings
+    let mut ids: Vec<String> = orphaned
+        .iter()
+        .map(|node| node.id.raw.to_string())
+        .collect();
+    ids.sort();
+    (warnings, ids)
 }
 
 #[cfg(test)]

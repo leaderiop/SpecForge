@@ -7,6 +7,7 @@ use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
 
 use crate::fake_extension::{self, FakeExtension};
+use crate::support::files_under;
 use crate::tool_errors::mcp_error;
 
 const GREET: &str = "@sdk/greet";
@@ -162,23 +163,6 @@ fn stats_and_validate_count_the_served_projects_surface_conflicts() {
         .map(|d| d["code"].as_str().unwrap())
         .collect();
     assert!(codes.contains(&"I017"), "{validated}");
-}
-
-/// Every file under `root` with its bytes.
-fn files_under(root: &std::path::Path) -> std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> {
-    let mut files = std::collections::BTreeMap::new();
-    let mut dirs = vec![root.to_path_buf()];
-    while let Some(dir) = dirs.pop() {
-        for entry in std::fs::read_dir(&dir).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                dirs.push(path);
-            } else {
-                files.insert(path.clone(), std::fs::read(&path).unwrap());
-            }
-        }
-    }
-    files
 }
 
 // R2 (plan 05): remove_extension with an unreadable specforge.json refuses

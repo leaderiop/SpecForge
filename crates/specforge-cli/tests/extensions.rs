@@ -1824,3 +1824,96 @@ fn an_unusable_config_fails_check_with_e069() {
         "{found:?}"
     );
 }
+
+use crate::written::{changed_since, files_under, files_written};
+
+/// `specforge <args> --path <dir> --format json`: its JSON output.
+fn json_of(args: &[&str], dir: &std::path::Path) -> serde_json::Value {
+    let output = specforge_cmd()
+        .args(args)
+        .arg("--path")
+        .arg(dir)
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{args:?}: {output:?}");
+    serde_json::from_slice(&output.stdout).unwrap()
+}
+
+/// A project enabling nothing, and the greet blob beside it (outside it).
+fn empty_project() -> (TempDir, TempDir, String) {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
+    )
+    .unwrap();
+    let blobs = TempDir::new().unwrap();
+    let wasm = blobs.path().join("greet.wasm");
+    fs::write(&wasm, crate::registry::greet_wasm()).unwrap();
+    let wasm = wasm.to_str().unwrap().to_string();
+    (dir, blobs, wasm)
+}
+
+#[specforge_test(
+    behavior = "add_extension_to_existing_project",
+    verify = "add --format json lists the files it wrote in files_written"
+)]
+fn add_json_lists_the_files_it_wrote() {
+    let (dir, _blobs, wasm) = empty_project();
+    let root = dir.path();
+
+    let before = files_under(root);
+    let builtin = json_of(&["add", "@specforge/product"], root);
+    assert_eq!(files_written(&builtin), ["specforge.json"]);
+    assert_eq!(changed_since(root, &before), files_written(&builtin));
+
+    let before = files_under(root);
+    let installed = json_of(&["add", &wasm], root);
+    assert_eq!(
+        files_written(&installed),
+        [
+            ".specforge/extensions/@sdk/greet/extension.wasm",
+            "specforge.json",
+            "specforge.lock"
+        ]
+    );
+    assert_eq!(changed_since(root, &before), files_written(&installed));
+
+    // Already there: nothing written.
+    let before = files_under(root);
+    let again = json_of(&["add", &wasm], root);
+    assert_eq!(again["already_present"], true, "{again}");
+    assert_eq!(files_written(&again), Vec::<String>::new());
+    assert_eq!(changed_since(root, &before), Vec::<String>::new());
+    let enabled = json_of(&["add", "@specforge/product"], root);
+    assert_eq!(files_written(&enabled), Vec::<String>::new());
+}
+
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "remove --format json lists the files it wrote in files_written"
+)]
+fn remove_json_lists_the_files_it_wrote() {
+    let (dir, _blobs, wasm) = empty_project();
+    let root = dir.path();
+    json_of(&["add", "@specforge/product"], root);
+    json_of(&["add", &wasm], root);
+
+    let before = files_under(root);
+    let installed = json_of(&["remove", "@sdk/greet"], root);
+    assert_eq!(
+        files_written(&installed),
+        [
+            ".specforge/extensions/@sdk/greet/extension.wasm",
+            "specforge.json",
+            "specforge.lock"
+        ]
+    );
+    assert_eq!(changed_since(root, &before), files_written(&installed));
+
+    let before = files_under(root);
+    let builtin = json_of(&["remove", "@specforge/product"], root);
+    assert_eq!(files_written(&builtin), ["specforge.json"]);
+    assert_eq!(changed_since(root, &before), files_written(&builtin));
+}

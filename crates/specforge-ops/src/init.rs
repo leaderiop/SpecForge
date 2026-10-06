@@ -7,8 +7,8 @@
 //! a configured registry, which a project that doesn't exist yet can't
 //! have, so it is added afterwards with `specforge add`.
 
-use crate::OpError;
 use crate::extension::{self, Source};
+use crate::{OpError, Writes};
 use serde_json::{Value, json};
 use specforge_common::validate_project_name;
 use std::path::{Path, PathBuf};
@@ -69,6 +69,9 @@ pub struct Outcome {
     pub name: String,
     pub version: String,
     pub extensions: Vec<String>,
+    /// The files init wrote: `specforge.json`, the starter, `.gitignore`
+    /// when it lacked an entry, and each local install's module and lock.
+    pub writes: Writes,
 }
 
 /// Validate `req` and build what init writes, writing nothing.
@@ -156,7 +159,7 @@ pub fn plan(req: &Request) -> Result<Plan, OpError> {
 
 /// Write `plan` into `dir`: `specforge.json`, the starter file, the
 /// `.gitignore` entries, and each local install. A failed install removes
-/// what init wrote.
+/// what init wrote (and its error reports nothing written).
 pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
     let write_error = |what: &str, e: std::io::Error| {
         OpError::new("init_write_failed", format!("cannot write {what}: {e}"))
@@ -168,15 +171,19 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
     let gitignore_path = dir.join(".gitignore");
     let gitignore_before = std::fs::read_to_string(&gitignore_path).ok();
 
-    let written = (|| {
+    let mut writes = Writes::none();
+    let written = (|| -> Result<(), OpError> {
         crate::config::write(dir, &plan.config)?;
-        append_gitignore(&gitignore_path, gitignore_before.as_deref().unwrap_or(""))
+        writes.record(dir.join(crate::config::CONFIG_FILE));
+        let appended = append_gitignore(&gitignore_path, gitignore_before.as_deref().unwrap_or(""))
             .map_err(|e| write_error(".gitignore", e))?;
+        writes.record_if(appended, &gitignore_path);
         std::fs::write(dir.join(STARTER_FILE), &plan.starter)
             .map_err(|e| write_error(STARTER_FILE, e))?;
+        writes.record(dir.join(STARTER_FILE));
         let registry = crate::registry::Unconfigured("init");
         for wasm in &plan.installs {
-            extension::add(
+            let added = extension::add(
                 &extension::AddRequest {
                     root: dir,
                     source: Source::Local(wasm.clone()),
@@ -186,11 +193,12 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
                 },
                 &registry,
             )?;
+            writes.merge(added.writes);
         }
         Ok(())
     })();
 
-    if let Err(error) = written {
+    if let Err(mut error) = written {
         // Leave the directory as it was.
         let _ = std::fs::remove_file(dir.join(crate::config::CONFIG_FILE));
         let _ = std::fs::remove_file(dir.join(STARTER_FILE));
@@ -210,6 +218,8 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
         if created_dir {
             let _ = std::fs::remove_dir(dir);
         }
+        // What was written is removed again.
+        error.writes = Writes::none();
         return Err(error);
     }
 
@@ -220,6 +230,7 @@ pub fn apply(dir: &Path, plan: &Plan) -> Result<Outcome, OpError> {
         name: plan.name.clone(),
         version: plan.version.clone(),
         extensions: plan.extensions.clone(),
+        writes,
     })
 }
 
@@ -321,13 +332,13 @@ spec "{project_name}" {{
 
 /// Append the missing [`GITIGNORE`] entries to `path`, whose text is
 /// `existing`.
-fn append_gitignore(path: &Path, existing: &str) -> std::io::Result<()> {
+fn append_gitignore(path: &Path, existing: &str) -> std::io::Result<bool> {
     let missing: Vec<&str> = GITIGNORE
         .into_iter()
         .filter(|entry| !existing.lines().any(|l| l.trim() == *entry))
         .collect();
     if missing.is_empty() {
-        return Ok(());
+        return Ok(false);
     }
     let mut text = existing.to_string();
     if !text.is_empty() && !text.ends_with('\n') {
@@ -337,7 +348,7 @@ fn append_gitignore(path: &Path, existing: &str) -> std::io::Result<()> {
         text.push_str(entry);
         text.push('\n');
     }
-    std::fs::write(path, text)
+    std::fs::write(path, text).map(|()| true)
 }
 
 /// `path`, absolute and canonical through its nearest existing ancestor.
