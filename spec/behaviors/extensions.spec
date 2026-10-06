@@ -451,6 +451,7 @@ behavior management_operations_over_the_project_view "Management Operations over
   """
   verify unit "an operation that reads or writes the project on disk refuses a view without a root"
   verify unit "the extensions listing reads the config entries from the view, never specforge.json again"
+  verify unit "doctor reads the diagnostics its view reports"
 }
 
 // Called imperatively by validate_provider_refs (which consumes provider_schemes_registered).

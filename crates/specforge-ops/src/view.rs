@@ -326,6 +326,12 @@ pub(crate) mod testing {
             self
         }
 
+        /// The project's surface reports `diagnostics`.
+        pub fn reporting(mut self, diagnostics: Vec<Diagnostic>) -> Self {
+            self.reported = diagnostics;
+            self
+        }
+
         /// The view rooted at the temp directory, reporting what the
         /// fixture reports.
         pub fn view(&self) -> ProjectView<'_> {

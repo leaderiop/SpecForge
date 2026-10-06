@@ -717,10 +717,13 @@ fn removing_a_wasm_file_no_entry_names_is_not_found() {
 
 // ── plan 05 pins: the management operations before they take the project view ──
 
-// pins R1; flipped by 05-T4: doctor never got the `enabled` list, so a
-// declaration without a lock entry is "builtin", whatever loaded it.
-#[test]
-fn doctor_lists_a_wasm_file_entry_as_builtin_today() {
+// R1 (plan 05): doctor names a `.wasm` file entry by its file, as the
+// extensions listing does (it called it "builtin" before 05-T4).
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor gives each extension the source the extensions listing gives it"
+)]
+fn doctor_lists_a_wasm_file_entry_with_its_file_source() {
     let dir = greet_file_project();
     enable(dir.path(), json!(["@specforge/software", "greet.wasm"]));
 
@@ -732,7 +735,23 @@ fn doctor_lists_a_wasm_file_entry_as_builtin_today() {
         .iter()
         .find(|e| e["name"] == "@sdk/greet")
         .unwrap_or_else(|| panic!("@sdk/greet not listed: {report}"));
-    assert_eq!(greet["source"], "builtin", "{report}");
+    assert_eq!(greet["source"], "file:greet.wasm", "{report}");
+
+    let out = specforge()
+        .args(["extensions", "--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let listed: Value = serde_json::from_slice(&out.stdout).unwrap();
+    for extension in report["extensions"].as_array().unwrap() {
+        let entry = listed["extensions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["name"] == extension["name"])
+            .unwrap_or_else(|| panic!("{} not listed: {listed}", extension["name"]));
+        assert_eq!(entry["source"], extension["source"], "{extension}");
+    }
 }
 
 // pins R2; flipped by 05-T6: remove uninstalls the binary and empties the

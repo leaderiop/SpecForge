@@ -613,11 +613,7 @@ pub(crate) fn doctor_op(call: &mut Call<'_>, _args: DoctorArgs) -> Handled {
     // The same report `specforge doctor` prints, as the spec's
     // McpDoctorReport plus its sections. Credential health is the user's,
     // not the project's: only the CLI reports it.
-    let report = specforge_ops::doctor::diagnose(
-        project.root,
-        project.env.registries.declarations(),
-        &project.diagnostics(),
-    );
+    let report = specforge_ops::doctor::diagnose(&project.view());
     Ok(ok(json!({
         "extensions_ok": report.extensions_ok(),
         "conflicts": report.conflict_messages(),

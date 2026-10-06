@@ -1,6 +1,7 @@
 use crate::OutputFormat;
 use serde_json::json;
 use specforge_ops::doctor::{BinaryIssue, DoctorReport, FindingStatus, diagnose};
+use specforge_ops::view::ProjectView;
 use specforge_registry_client::credential_health::{
     CredentialHealth, CredentialLevel, user_credential_health,
 };
@@ -10,8 +11,8 @@ use std::path::Path;
 /// their enhancements, conflicts, shadowed keywords, installed binaries)
 /// plus registry credential health. Exit 1 on any error-level finding.
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
-    let ctx = crate::pipeline::compile(path);
-    let report = diagnose(path, &ctx.declarations, &ctx.diagnostics);
+    let (project, _runtime) = crate::pipeline::compile_project(path);
+    let report = diagnose(&ProjectView::of(&project));
     let credentials = user_credential_health();
     let healthy = !report.has_errors();
 
@@ -233,7 +234,12 @@ mod tests {
             conflict("W001", Severity::Warning, "an unrelated warning", None),
         ];
 
-        let report = specforge_ops::doctor::diagnose_with(dir.path(), &[], &diagnostics, true);
+        let graph = specforge_graph::Graph::new();
+        let env = specforge_project::Environment::with_registries(Default::default());
+        let recorded = specforge_project::coverage::RecordedCoverage::default();
+        let view =
+            ProjectView::new(&graph, &env, Some(dir.path()), &recorded).reporting(&diagnostics);
+        let report = specforge_ops::doctor::diagnose_with(&view, true);
 
         let codes: Vec<&str> = report.conflicts.iter().map(|c| c.code.as_str()).collect();
         assert_eq!(codes, ["E026", "W018"]);

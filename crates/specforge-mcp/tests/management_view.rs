@@ -244,3 +244,46 @@ fn validate_over_an_unparsable_config_reports_only_i002_today() {
     let report = answer(&call_tool(&mut server, "specforge.doctor", json!({})));
     assert_eq!(project_findings(&report), Vec::<Value>::new(), "{report}");
 }
+
+#[specforge_test(
+    behavior = "run_doctor_check",
+    verify = "doctor gives each extension the source the extensions listing gives it"
+)]
+fn doctor_names_a_wasm_file_entry_by_its_file() {
+    let dir = tempfile::TempDir::new().unwrap();
+    std::fs::copy(greet_blob(), dir.path().join("greet.wasm")).unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        json!({"name": "p", "version": "0.1.0",
+            "extensions": ["@specforge/software", "greet.wasm"]})
+        .to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("main.spec"),
+        "greeting hello \"Hello\" {\n  style warm\n}\n",
+    )
+    .unwrap();
+    let mut server = McpServer::new();
+    let req = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
+        "params": {"projectRoot": dir.path().to_str().unwrap()}});
+    server.handle_message(&req.to_string());
+
+    let report = answer(&call_tool(&mut server, "specforge.doctor", json!({})));
+    let listed = answer(&call_tool(&mut server, "specforge.extensions", json!({})));
+
+    let source_in = |doc: &Value, name: &str| {
+        doc["extensions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["name"] == name)
+            .unwrap_or_else(|| panic!("{name} not listed: {doc}"))["source"]
+            .clone()
+    };
+    assert_eq!(source_in(&report, GREET), "file:greet.wasm", "{report}");
+    for extension in report["extensions"].as_array().unwrap() {
+        let name = extension["name"].as_str().unwrap();
+        assert_eq!(source_in(&listed, name), extension["source"], "{name}");
+    }
+}
