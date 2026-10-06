@@ -288,7 +288,7 @@ pub fn optional_choice<T: Copy + PartialEq>(
 
 /// A table's refusal as the tool's `invalid_input` result on `key`.
 fn refused(error: specforge_ops::OpError, key: &str) -> ToolOutcome {
-    crate::operations::op_error(error).with_argument(key).into()
+    crate::tool::McpError::from(error).with_argument(key).into()
 }
 
 /// A list of strings, its other items skipped; anything but a list reads

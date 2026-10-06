@@ -4,7 +4,7 @@
 //! file always comes out in one style (pretty-printed, trailing newline)
 //! and an extension entry is matched by its exact name, never a prefix.
 
-use crate::OpError;
+use crate::{OpError, OpErrorKind};
 use serde_json::Value;
 use std::path::Path;
 
@@ -22,9 +22,10 @@ pub fn entry_name(entry: &str) -> &str {
 pub fn write(root: &Path, config: &Value) -> Result<(), OpError> {
     let path = root.join(CONFIG_FILE);
     let text = serde_json::to_string_pretty(config)
-        .map_err(|e| OpError::new("config_invalid", e.to_string()))?;
+        .map_err(|e| OpError::new(OpErrorKind::SchemaMismatch, "config_invalid", e.to_string()))?;
     std::fs::write(&path, text + "\n").map_err(|e| {
         OpError::new(
+            OpErrorKind::of_io(&e),
             "config_write_failed",
             format!("failed to write {}: {e}", path.display()),
         )
@@ -41,6 +42,7 @@ pub fn edit_extensions(
     let path = root.join(CONFIG_FILE);
     let content = std::fs::read_to_string(&path).map_err(|_| {
         OpError::new(
+            OpErrorKind::FileNotFound,
             "config_not_found",
             format!("no {CONFIG_FILE} in {}", root.display()),
         )
@@ -48,12 +50,14 @@ pub fn edit_extensions(
     })?;
     let mut config: Value = serde_json::from_str(&content).map_err(|e| {
         OpError::new(
+            OpErrorKind::SchemaMismatch,
             "config_invalid",
             format!("{} is not valid JSON: {e}", path.display()),
         )
     })?;
     let object = config.as_object_mut().ok_or_else(|| {
         OpError::new(
+            OpErrorKind::SchemaMismatch,
             "config_invalid",
             format!("{} must be a JSON object", path.display()),
         )
@@ -64,6 +68,7 @@ pub fn edit_extensions(
         .as_array_mut()
         .ok_or_else(|| {
             OpError::new(
+                OpErrorKind::SchemaMismatch,
                 "config_invalid",
                 format!("\"extensions\" in {} must be an array", path.display()),
             )

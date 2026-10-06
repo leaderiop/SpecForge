@@ -23,8 +23,8 @@ use specforge_project::snapshot::EntitySnapshot;
 use specforge_project::{CompiledProject, Environment, ProjectSession};
 use specforge_registry::RegistryBuild;
 
-use crate::OpError;
 use crate::schema_cache::SchemaCache;
+use crate::{OpError, OpErrorKind};
 
 /// The compiled project as one surface sees it, borrowed: what every
 /// operation over a project reads (CONTEXT.md "Project view", ADR 0015).
@@ -156,6 +156,7 @@ impl<'a> ProjectView<'a> {
     pub fn project_root(&self) -> Result<&'a Path, OpError> {
         self.root.ok_or_else(|| {
             OpError::new(
+                OpErrorKind::PreconditionFailed,
                 "no_project",
                 "this operation needs the project on disk, and this project has none",
             )

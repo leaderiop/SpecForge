@@ -35,7 +35,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         Ok(outcome) => {
             ToolOutcome::ok(serde_json::to_value(&outcome).expect("a schema serializes"))
         }
-        Err(error) => crate::operations::op_error(error)
+        Err(error) => crate::tool::McpError::from(error)
             .with_argument("kind")
             .into(),
     }

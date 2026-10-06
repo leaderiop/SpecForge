@@ -175,7 +175,11 @@ fn no_subscriptions_survive_shutdown() {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
 
-    specforge_mcp::subscriptions::subscribe(server.state_mut(), "c1", "specforge/graphChanged");
+    specforge_mcp::subscriptions::subscribe(
+        server.state_mut(),
+        "c1",
+        specforge_mcp::subscriptions::Watched::Graph,
+    );
     assert!(!server.state().subscriptions.is_empty());
 
     call(&mut server, "shutdown", json!({}));

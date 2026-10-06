@@ -1,7 +1,44 @@
 use serde_json::Value;
 
+use crate::prompts::Prompts;
 use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::resources::Resources;
 use crate::state::McpState;
+use crate::surface_call::serve;
+use crate::tools::Tools;
+
+/// The methods that need a session: every request but the lifecycle's. The
+/// router refuses them once, before `initialize` (-32600), so no handler
+/// guards itself.
+#[derive(Clone, Copy)]
+enum SessionMethod {
+    ListTools,
+    ListResources,
+    ListResourceTemplates,
+    ListPrompts,
+    CallTool,
+    ReadResource,
+    SubscribeResource,
+    UnsubscribeResource,
+    GetPrompt,
+}
+
+impl SessionMethod {
+    fn named(method: &str) -> Option<Self> {
+        Some(match method {
+            "tools/list" => Self::ListTools,
+            "resources/list" => Self::ListResources,
+            "resources/templates/list" => Self::ListResourceTemplates,
+            "prompts/list" => Self::ListPrompts,
+            "tools/call" => Self::CallTool,
+            "resources/read" => Self::ReadResource,
+            "resources/subscribe" => Self::SubscribeResource,
+            "resources/unsubscribe" => Self::UnsubscribeResource,
+            "prompts/get" => Self::GetPrompt,
+            _ => return None,
+        })
+    }
+}
 
 pub fn route(
     state: &mut McpState,
@@ -15,36 +52,6 @@ pub fn route(
         "shutdown" => crate::lifecycle::handle_shutdown(state, id),
         "ping" => JsonRpcResponse::success(id, serde_json::json!({})),
 
-        // Listing: an environment change on disk changes the extension
-        // tools, resources and prompts listed.
-        "tools/list" => {
-            fresh(state);
-            crate::registry::handle_list_tools(state, id)
-        }
-        "resources/list" => {
-            fresh(state);
-            crate::registry::handle_list_resources(state, id)
-        }
-        "resources/templates/list" => crate::registry::handle_list_resource_templates(state, id),
-        "prompts/list" => {
-            fresh(state);
-            crate::registry::handle_list_prompts(state, id)
-        }
-
-        // Resources: the read's target brings the project up to date.
-        "resources/read" => crate::resources::handle_resource_read(state, params, id),
-
-        "resources/subscribe" => crate::resources::handle_resource_subscribe(state, params, id),
-        "resources/unsubscribe" => crate::resources::handle_resource_unsubscribe(state, params, id),
-
-        // Tools
-        // Tools: each call's target (its entry's reach and freshness)
-        // brings the project it acts on up to date.
-        "tools/call" => crate::tools::handle_tool_call(state, params, id),
-
-        // Prompts: as tools.
-        "prompts/get" => crate::prompts::handle_prompt_get(state, params, id),
-
         // Notifications (no response for notifications — id is None)
         "notifications/initialized" => {
             // Client acknowledges initialization, no-op
@@ -55,18 +62,60 @@ pub fn route(
             crate::lifecycle::handle_cancel(state, params, id)
         }
 
-        _ => JsonRpcResponse::error(
-            id,
-            error_codes::METHOD_NOT_FOUND,
-            format!("Method not found: {}", method),
-        ),
+        // An unknown method is -32601 whether or not the session is
+        // initialized; a known one that needs a session is refused before
+        // `initialize`.
+        _ => match SessionMethod::named(method) {
+            None => JsonRpcResponse::error(
+                id,
+                error_codes::METHOD_NOT_FOUND,
+                format!("Method not found: {}", method),
+            ),
+            Some(_) if !state.is_initialized() => {
+                JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized")
+            }
+            Some(session) => session_method(state, session, params, id),
+        },
     }
 }
 
-/// Every request that reads the project first brings it up to date with
-/// disk (`mcp_served_project_consistency`), once initialized.
-fn fresh(state: &mut McpState) {
-    if state.is_initialized() {
-        state.ensure_fresh();
+/// A request of an initialized session.
+fn session_method(
+    state: &mut McpState,
+    method: SessionMethod,
+    params: Value,
+    id: Option<Value>,
+) -> JsonRpcResponse {
+    match method {
+        // Listing: an environment change on disk changes the extension
+        // tools, resources and prompts listed.
+        SessionMethod::ListTools => {
+            state.ensure_fresh();
+            crate::registry::handle_list_tools(state, id)
+        }
+        SessionMethod::ListResources => {
+            state.ensure_fresh();
+            crate::registry::handle_list_resources(state, id)
+        }
+        SessionMethod::ListResourceTemplates => {
+            crate::registry::handle_list_resource_templates(state, id)
+        }
+        SessionMethod::ListPrompts => {
+            state.ensure_fresh();
+            crate::registry::handle_list_prompts(state, id)
+        }
+
+        // Calls and reads: the target of each brings the project up to
+        // date.
+        SessionMethod::ReadResource => serve::<Resources>(state, params, id),
+        SessionMethod::CallTool => serve::<Tools>(state, params, id),
+        SessionMethod::GetPrompt => serve::<Prompts>(state, params, id),
+
+        SessionMethod::SubscribeResource => {
+            crate::resources::handle_resource_subscribe(state, params, id)
+        }
+        SessionMethod::UnsubscribeResource => {
+            crate::resources::handle_resource_unsubscribe(state, params, id)
+        }
     }
 }

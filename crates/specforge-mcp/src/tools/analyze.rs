@@ -15,14 +15,6 @@ pub struct Args {
     strict: Option<bool>,
     #[serde(default, deserialize_with = "lenient")]
     test_results: Option<String>,
-    /// Read by the call's target (`Freshness::FreshUnlessCached`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target applies use_cached")]
-    use_cached: Option<bool>,
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
 }
 
 /// `specforge.analyze` — run the analysis passes (coverage, contracts) plus
@@ -58,7 +50,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
             ToolOutcome::invalid_input("pass", e.to_string())
         }
         Err(AnalyzeError::UnusableReport(e)) => {
-            let mut error = crate::operations::op_error(e);
+            let mut error = crate::tool::McpError::from(e);
             error.tool = Some("specforge.analyze".to_string());
             error.into()
         }

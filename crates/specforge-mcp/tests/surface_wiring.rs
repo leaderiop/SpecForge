@@ -998,11 +998,12 @@ fn an_extension_resource_is_found_by_its_uri_template() {
         "specforge://ext/cmds/summary/more",
     ] {
         let resp = read_resource(&mut server, other);
-        assert_eq!(resp["error"]["code"], -32602, "{resp}");
+        assert_eq!(resp["error"]["code"], -32002, "{resp}");
         assert_eq!(
             resp["error"]["message"],
             format!("Unknown resource URI: {other}")
         );
+        assert_eq!(resp["error"]["data"], json!({ "uri": other }), "{resp}");
     }
     assert_eq!(ext.calls().len(), 1, "{:?}", ext.calls());
 }
@@ -1469,10 +1470,15 @@ fn a_resource_outside_specforge_ext_is_read_through_its_export() {
     assert_eq!(dispatched, [&json!("acme://doc/{id}")]);
     // Another scheme's URI no template names is still unknown.
     let resp = read_resource(&mut server, "acme://other/1");
-    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    assert_eq!(resp["error"]["code"], -32002, "{resp}");
     assert_eq!(
         resp["error"]["message"],
         "Unknown resource URI: acme://other/1"
+    );
+    assert_eq!(
+        resp["error"]["data"],
+        json!({ "uri": "acme://other/1" }),
+        "{resp}"
     );
 }
 

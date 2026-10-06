@@ -42,6 +42,7 @@ pub fn run(
         .cloned()
     else {
         let error = specforge_ops::OpError::new(
+            specforge_ops::OpErrorKind::PreconditionFailed,
             specforge_ops::registry::NO_REGISTRY,
             format!("no registry '{alias}' configured, and none is the default"),
         )

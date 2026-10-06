@@ -9,8 +9,8 @@
 //! `specforge_ops_registry::HttpRegistry`, which only the surfaces that
 //! reach a registry (the CLI, MCP) link (ADR 0010).
 
-use crate::OpError;
 use crate::extension::Trust;
+use crate::{OpError, OpErrorKind};
 use specforge_protocol_types::ExtensionDeclaration;
 
 /// The diagnostic a registry operation reports when no registry is
@@ -33,6 +33,7 @@ pub const CONFIGURE_HINT: &str = "add a \"registries\" array to specforge.json, 
 /// E063 for `operation`.
 pub fn no_registry(operation: &str) -> OpError {
     OpError::new(
+        OpErrorKind::PreconditionFailed,
         NO_REGISTRY,
         format!(
             "no registry configured: `{operation}` needs one, and SpecForge has no built-in registry"

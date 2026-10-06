@@ -84,7 +84,10 @@ impl OutputFormat {
 
     /// Report a failure with diagnostic `code`, as [`Self::print_op_error`].
     fn print_error(self, message: &str, code: &str) {
-        self.print_op_error(&specforge_ops::OpError::new(code.to_string(), message));
+        self.print_op_error(&specforge_ops::OpError::diagnostic(
+            code.to_string(),
+            message,
+        ));
     }
 
     /// Report an operation's failure: `{"error", "code", "suggestion"}` on

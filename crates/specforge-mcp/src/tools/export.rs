@@ -43,6 +43,6 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
 
     match export::export(&call.view(), &request) {
         Ok(json_str) => ToolOutcome::text(json_str),
-        Err(err) => crate::operations::op_error(err).into(),
+        Err(err) => crate::tool::McpError::from(err).into(),
     }
 }

@@ -91,6 +91,9 @@ Changed answers are marked *(amended)*.
   arguments whose listing derives from the type, and one envelope. A prompt failure is a JSON-RPC
   error (-32602 for client input, -32603 server-side) whose `data` is the McpError, which gains
   `prompt`. Every prompt result is two user messages, instruction then JSON payload.
+- **D4-e** *(2026-10, ADR 0024)* Tools, resources and prompts run through one request pipeline
+  (`specforge_mcp::surface_call`); a resource read refuses like a prompt (JSON-RPC error, McpError in
+  `data`), both under one code rule; core resources are `specforge export` over the call's view.
 
 ## Registry build (plan 05)
 

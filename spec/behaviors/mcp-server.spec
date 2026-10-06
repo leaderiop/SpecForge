@@ -169,7 +169,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "core tools are annotated: read-only tools readOnlyHint, writing tools how they write"
   verify unit "an extension tool is listed once across recompiles"
   verify unit "an extension tool's declared output_schema is listed as its outputSchema"
-  verify unit "every tool that reads path or use_cached declares it in its target"
+  verify unit "a tool's path and use_cached are declared once, by its target"
   verify unit "every listed extension tool is the one dispatched under its name, listed once"
 }
 
@@ -301,6 +301,7 @@ behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
   """
   verify unit "specforge://context resource returns token-optimized format"
   verify unit "resource refreshes after recompilation"
+  verify unit "the context resource is the context export of the same request"
   verify contract "Expose Context as MCP Resource: context MCP resource holds — validation_complete_fired, context_format_returned, resource_read_emitted"
 }
 
@@ -333,6 +334,7 @@ behavior expose_brief_as_mcp_resource "Expose Brief as MCP Resource" {
   """
   verify unit "specforge://brief resource returns minimal IDs and edges format"
   verify unit "resource refreshes after recompilation"
+  verify unit "the brief resource is the brief export of the same request"
   verify contract "Expose Brief as MCP Resource: brief MCP resource holds — validation_complete_fired, brief_format_returned, resource_read_emitted"
 }
 
@@ -389,13 +391,19 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
   contract   """
     In MCP server mode, the system MUST register a specforge://graph/{entity_id}
     resource template that returns a single entity and its immediate neighbors as
-    a subgraph. The resource MUST include the target node, all directly connected
+    a subgraph: the scoped graph export at depth 1 (specforge export --format
+    graph --scope <entity_id>), which references the published schema with a
+    schema_ref. The resource MUST include the target node, all directly connected
     nodes, and the edges between them. If the entity_id does not exist, the
-    resource MUST return a 404 error. The resource MUST refresh after recompilation.
+    read MUST fail as not found (-32002 in a handshake session, -32602 in a
+    2026-07-28 request) whose data is an entity_not_found McpError carrying
+    E003 and the uri (the 404 case); a malformed entity_id is invalid input
+    (the 400 case). The resource MUST refresh after recompilation.
   """
   verify unit "specforge://graph/{entity_id} returns entity and its neighbors"
   verify unit "non-existent entity_id returns 404 error"
   verify unit "malformed entity_id returns 400 error"
+  verify unit "the entity resource is the scoped graph export with its schema_ref"
   verify unit "resource refreshes after recompilation"
   verify contract "Expose Per-Entity MCP Resource: per-entity MCP resource holds — validation_complete_fired, subgraph_returned, resource_read_emitted"
 }
@@ -433,8 +441,11 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
     send a specforge/graphChanged notification to all subscribed MCP
     clients. The notification payload MUST include the GraphDelta describing
     added, removed, and modified nodes and edges. Clients MUST be able to
-    subscribe and unsubscribe from delta notifications. If no clients are
-    subscribed, the notification MUST be suppressed.
+    subscribe and unsubscribe from delta notifications. resources/subscribe to
+    a URI the server does not serve is refused as resources/read refuses it
+    (not found: -32002, Unknown resource URI); resources/unsubscribe never
+    fails. If no clients are subscribed, the notification MUST be
+    suppressed.
   """
   verify unit "graph_changed notification sent after incremental rebuild"
   verify unit "notification includes GraphDelta payload"
@@ -443,6 +454,7 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
   verify unit "unsubscribed clients do not receive notifications"
   verify unit "no notification when no clients subscribed"
   verify unit "clients can subscribe and unsubscribe from delta notifications"
+  verify unit "resources/subscribe to a URI the server does not serve is refused as not found, as resources/read refuses it"
   verify contract "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
 }
 
@@ -511,8 +523,14 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
     -32603 (Internal error). An unknown tool is -32602 too. A tool that
     detects invalid arguments is not a malformed request: it returns an
     isError result carrying an McpError, not -32602 (MCP 2025-11-25,
-    SEP-1303). prompts/get has no isError result: a prompt that cannot
-    render answers -32602 or -32603 with its McpError as the error's data.
+    SEP-1303). prompts/get and resources/read have no isError result: a
+    prompt that cannot render, or a resource that cannot be read, answers
+    -32602 (input the client can fix, an argument it named included) or
+    -32603 with its McpError as the error's data. A resource that does not
+    exist is -32002 in a handshake session (the MCP 2025-xx revisions) and
+    -32602 in a 2026-07-28 request, with data naming its uri.
+    Every method that needs a session refuses before initialize with -32600;
+    an unknown method is -32601 whether or not the session is initialized.
     A handler that panics is a server fault: the request gets
     -32603 and the server keeps serving. The error response MUST NOT crash
     the server or leak internal state (stack traces, file paths, memory
@@ -527,6 +545,9 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   verify unit "error response does not leak internal state"
   verify unit "server remains operational after protocol error"
   verify unit "returns -32600 for invalid request"
+  verify unit "each request method that needs a session refuses before initialize with -32600"
+  verify unit "a refusal naming an argument is -32602 for a prompt or a resource read"
+  verify unit "a resource that does not exist is -32002 in a handshake session and -32602 in a 2026-07-28 request, its data naming the uri"
   verify unit "returns -32603 for internal error"
   verify unit "truly unknown tool returns -32602 Invalid params (MCP spec example)"
   verify contract "Handle MCP Protocol Error: MCP protocol error handling holds — mcp_protocol_available, standard_error_returned, no_state_leaked, server_operational, error_handled_emitted"
@@ -648,6 +669,7 @@ behavior listen_for_mcp_resource_updates "Listen for MCP Resource Updates" {
   verify unit "subscriptions/listen is acknowledged first with the resources honoured"
   verify unit "a recompile that changes a listened resource sends resources/updated with the subscription id"
   verify unit "a listen stream receives no notification type it did not ask for"
+  verify unit "both eras decide what a change touches by one rule"
   verify unit "cancelling the listen request ends the stream"
 }
 

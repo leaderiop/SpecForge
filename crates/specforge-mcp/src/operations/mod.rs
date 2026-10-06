@@ -14,12 +14,13 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
-use specforge_common::{Diagnostic, find_project_root};
+use specforge_common::find_project_root;
 
 use crate::args::{lenient, strings};
 use crate::mutation::{Mutated, MutationEvent, MutationHandled, Written};
 use crate::target::{Call, CallTarget};
-use crate::tool::{ErrorCode, Handled, McpError, ToolOutcome, is_diagnostic_code};
+use crate::tool::{ErrorCode, Handled, McpError, ToolOutcome};
+use specforge_ops::OpErrorKind;
 
 // ── shared helpers ──────────────────────────────────────────────────────────
 
@@ -32,51 +33,10 @@ fn fail(code: ErrorCode, message: impl Into<String>) -> ToolOutcome {
     ToolOutcome::error(code, message)
 }
 
-/// An operation's failure as an `McpError`. A diagnostic code (`E027`)
-/// rides in `diagnostic`, with its suggestion; a slug (`extension_not_found`)
-/// picks the error code, and its suggestion and the operation's own data
-/// ride in `data`.
-pub(crate) fn op_error(error: specforge_ops::OpError) -> McpError {
-    let code = match error.code.as_ref() {
-        "extension_not_found" => ErrorCode::ExtensionNotFound,
-        "config_not_found" => ErrorCode::FileNotFound,
-        "config_invalid" | "invalid_schema_version" => ErrorCode::SchemaMismatch,
-        specforge_ops::infer::MANIFEST_INVALID => ErrorCode::SchemaMismatch,
-        "unknown_format" | "invalid_input" | "unknown_kind" => ErrorCode::InvalidInput,
-        "extension_conflict" | "project_exists" => ErrorCode::Conflict,
-        "invalid_name" => ErrorCode::InvalidInput,
-        code => ErrorCode::for_diagnostic(code),
-    };
-    let mut mcp_error = McpError::new(code, error.message.clone());
-    let mut data = error.data.unwrap_or_else(|| json!({}));
-    if is_diagnostic_code(&error.code) {
-        let mut diagnostic = Diagnostic::error(error.code.as_ref(), error.message);
-        if let Some(suggestion) = error.suggestion {
-            diagnostic = diagnostic.with_suggestion(suggestion);
-        }
-        mcp_error = mcp_error.with_diagnostic(&diagnostic);
-    } else if let Some(suggestion) = error.suggestion {
-        data["suggestion"] = Value::from(suggestion);
-    }
-    if data.as_object().is_some_and(|d| !d.is_empty()) {
-        mcp_error = mcp_error.with_data(data);
-    }
-    mcp_error
-}
-
-/// [`op_error`] as the tool's result.
-fn err_op(error: specforge_ops::OpError) -> ToolOutcome {
-    op_error(error).into()
-}
-
 // ── format ──────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
 pub struct FormatArgs {
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
     #[serde(default, deserialize_with = "strings")]
     paths: Vec<String>,
     #[serde(default, deserialize_with = "lenient")]
@@ -189,10 +149,6 @@ pub struct RenameArgs {
     new_name: String,
     #[serde(default, deserialize_with = "lenient")]
     dry_run: Option<bool>,
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
 }
 
 pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandled {
@@ -209,24 +165,19 @@ pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandle
     let refused = |outcome: ToolOutcome| Ok(Mutated::refused_unless_preview(dry_run, outcome));
     let plan = match planned {
         Ok(plan) => plan,
-        Err(e) if e.code == rename::INVALID_ID => {
-            return refused(ToolOutcome::invalid_input("new_name", e.message));
-        }
-        Err(e) if e.code == rename::NOT_FOUND => {
+        // The operation decided what kind of failure it is, and which
+        // entity it is about; an invalid new ID is the argument's fault.
+        Err(e) => {
+            let argument = (e.kind == OpErrorKind::InvalidInput).then_some("new_name");
+            let error = McpError::from(e);
             return refused(
-                McpError::new(ErrorCode::EntityNotFound, e.message)
-                    .with_entity(entity_id)
-                    .into(),
+                match argument {
+                    Some(argument) => error.with_argument(argument),
+                    None => error,
+                }
+                .into(),
             );
         }
-        Err(e) if e.code == rename::TAKEN => {
-            return refused(
-                McpError::new(ErrorCode::Conflict, e.message)
-                    .with_entity(entity_id)
-                    .into(),
-            );
-        }
-        Err(e) => return refused(fail(ErrorCode::InternalError, e.message)),
     };
 
     let edit_json: Vec<serde_json::Value> = plan
@@ -255,7 +206,7 @@ pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandle
     // A failed write restores what it wrote: nothing is left written.
     let writes = match rename::apply(&plan, &spec_root) {
         Ok(writes) => writes,
-        Err(e) => return refused(fail(ErrorCode::InternalError, e.message)),
+        Err(e) => return refused(McpError::from(e).into()),
     };
     // The reply's `diagnostics` are what `specforge check` reports for the
     // project as it is on disk now, edits made since the last call
@@ -272,7 +223,6 @@ pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandle
 
 #[derive(Debug, Deserialize)]
 pub struct InitArgs {
-    path: String,
     #[serde(default, deserialize_with = "lenient")]
     name: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
@@ -284,10 +234,11 @@ pub struct InitArgs {
 pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> Mutated {
     use specforge_ops::init;
 
-    // The directory the target names (as given: init creates it).
-    let path = call
-        .new_project_dir()
-        .map_or_else(|| PathBuf::from(&args.path), Path::to_path_buf);
+    // The directory the target names (as given: init creates it); the
+    // target refuses a call that names none.
+    let Some(path) = call.new_project_dir().map(Path::to_path_buf) else {
+        return Mutated::refused(McpError::from(crate::target::TargetError::PathRequired));
+    };
     let extensions = &args.extensions;
     let served = call.state.session().root().map(Path::to_path_buf);
 
@@ -331,10 +282,6 @@ pub struct AddArgs {
     dry_run: Option<bool>,
     #[serde(default, deserialize_with = "lenient")]
     allow_unsigned: Option<bool>,
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
 }
 
 /// `specforge.add_extension`: the shared add, its reply, the files it
@@ -464,10 +411,6 @@ pub struct RemoveArgs {
     force: Option<bool>,
     #[serde(default, deserialize_with = "lenient")]
     dry_run: Option<bool>,
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
 }
 
 pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> MutationHandled {
@@ -502,12 +445,7 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Muta
                 )
             }
             // A removal that failed after editing specforge.json reports it.
-            Err(mut error) => {
-                if error.code == specforge_ops::extension::NOT_FOUND {
-                    error.data = Some(json!({"extension": name}));
-                }
-                Mutated::refused_after(dry_run, error)
-            }
+            Err(error) => Mutated::refused_after(dry_run, error),
         },
     )
 }
@@ -522,10 +460,6 @@ pub struct MigrateArgs {
     target_version: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     no_backup: Option<bool>,
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
 }
 
 pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHandled {
@@ -651,12 +585,7 @@ pub(crate) fn providers_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> H
 // ── doctor ──────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
-pub struct DoctorArgs {
-    /// Read by the call's target (`Freshness::FreshUnlessCached`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target applies use_cached")]
-    use_cached: Option<bool>,
-}
+pub struct DoctorArgs {}
 
 pub(crate) fn doctor_op(call: &mut Call<'_>, _args: DoctorArgs) -> Handled {
     // The target brought the project up to date with disk unless the
@@ -689,10 +618,6 @@ pub struct CollectArgs {
     runner: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     run: Option<bool>,
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
 }
 
 pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
@@ -721,17 +646,15 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
     Ok(
         match collect::collect(&project.view(), project.runtime.as_ref(), request) {
             Ok(outcome) => ok(outcome.to_json()),
-            Err(e) if e.code == "E059" => McpError::from_diagnostic(&Diagnostic::error(
-                e.code,
-                format!(
-                    "the test command isn't approved for this project; run `specforge collect` \
-                 in a terminal once to approve it ({})",
-                    e.message
-                ),
-            ))
-            .into(),
-            Err(e) => {
-                McpError::from_diagnostic(&Diagnostic::error(e.code.as_ref(), e.message)).into()
+            Err(mut e) => {
+                if e.code == "E059" {
+                    e.message = format!(
+                        "the test command isn't approved for this project; run `specforge collect` \
+                         in a terminal once to approve it ({})",
+                        e.message
+                    );
+                }
+                McpError::from(e).into()
             }
         },
     )
@@ -757,7 +680,7 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
     let format = match FORMAT.parse(&args.format) {
         Ok(format) => format,
         Err(error) => {
-            let mut refusal = op_error(error).with_argument("format");
+            let mut refusal = McpError::from(error).with_argument("format");
             let mut data = refusal.data.take().unwrap_or_else(|| json!({}));
             data["available_renderers"] = json!(FORMAT.accepted().collect::<Vec<_>>());
             return refusal.with_data(data).into();
@@ -781,7 +704,7 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
     };
     let output = match specforge_ops::export::export(&call.view(), &request) {
         Ok(text) => text,
-        Err(e) => return err_op(e),
+        Err(e) => return McpError::from(e).into(),
     };
 
     // With out_dir the rendering lands on disk; without it, inline.
