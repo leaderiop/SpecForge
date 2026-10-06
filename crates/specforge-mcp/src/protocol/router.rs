@@ -1,7 +1,11 @@
 use serde_json::Value;
 
+use crate::prompts::Prompts;
 use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::resources::Resources;
 use crate::state::McpState;
+use crate::surface_call::serve;
+use crate::tools::Tools;
 
 /// The methods that need a session: every request but the lifecycle's. The
 /// router refuses them once, before `initialize` (-32600), so no handler
@@ -103,9 +107,9 @@ fn session_method(
 
         // Calls and reads: the target of each brings the project up to
         // date.
-        SessionMethod::ReadResource => crate::resources::handle_resource_read(state, params, id),
-        SessionMethod::CallTool => crate::tools::handle_tool_call(state, params, id),
-        SessionMethod::GetPrompt => crate::prompts::handle_prompt_get(state, params, id),
+        SessionMethod::ReadResource => serve::<Resources>(state, params, id),
+        SessionMethod::CallTool => serve::<Tools>(state, params, id),
+        SessionMethod::GetPrompt => serve::<Prompts>(state, params, id),
 
         SessionMethod::SubscribeResource => {
             crate::resources::handle_resource_subscribe(state, params, id)

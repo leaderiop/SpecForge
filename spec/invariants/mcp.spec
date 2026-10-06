@@ -61,6 +61,9 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
     extension module. Subscribed clients learn what changed. A call whose
     path names another project acts on that project only, compiled for the
     call, and the server keeps serving its own without reloading it. A call
+    that names a tool, a resource or a prompt looks it up in the project as
+    it is on disk: an extension enabled since the last request is found by
+    the next one. A call
     whose path names a project while none is served serves that project.
     With no project served, a read that names a file or an entity is the
     no-project refusal (precondition_failed), never not-found; a read of the
@@ -71,6 +74,7 @@ invariant mcp_served_project_consistency "MCP Served Project Consistency" {
   verify unit "a tool call serves files written since the last call, without watch"
   verify unit "a resource read serves files written since the last call, without watch"
   verify unit "a prompt reads the project as it is on disk"
+  verify unit "an extension tool enabled on disk since the last request is callable by name"
   verify unit "a mutation on another project does not reload the served one"
   verify unit "a path while no project is served serves that project, for every tool that takes a path"
   verify unit "a path inside the served project names the served project"

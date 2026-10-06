@@ -2,10 +2,10 @@
 //!
 //! A mutation handler returns [`Mutated`]: its reply and, unless it only
 //! previewed, a [`Written`] built from its operation's typed outcome. The
-//! dispatcher then calls [`refresh`] (inside the call, while it holds the
-//! target) and [`report`]: nothing else in the crate brings a target up to
-//! date after a write, records a mutation's events or tells the client
-//! which files the call wrote.
+//! tools adapter of the request pipeline then calls [`refresh`] (inside the
+//! call, while it holds the target) and [`report`]: nothing else in the
+//! crate brings a target up to date after a write, names a mutation's
+//! events or tells the client which files the call wrote.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 use specforge_ops::{OpError, Writes};
 
-use crate::state::McpState;
+use crate::surface_call::Event;
 use crate::target::Call;
 use crate::tool::{IntoOutcome, McpError, ToolOutcome};
 
@@ -253,35 +253,35 @@ pub(crate) fn refresh(call: &mut Call<'_>, mutated: &mut Mutated) -> Option<Path
         .map(Path::to_path_buf)
 }
 
-/// Record what the completed mutation produced, then return its reply: the
-/// domain event when it succeeded, then `mcp_mutation_completed`
-/// (`files_changed` = the files written, `entities_affected` = the
-/// entities changed, `success`), and the reply's `files_written` (the same
-/// files, named from `root`; on a refusal, in its `data`). A preview
-/// records nothing and is returned as it is.
+/// What the completed mutation produced, and its reply: the events to
+/// record, the domain event when it succeeded, then `mcp_mutation_completed`
+/// (`files_changed` = the files written, `entities_affected` = the entities
+/// changed, `success`); and the reply's `files_written` (the same files,
+/// named from `root`; on a refusal, in its `data`). A preview records
+/// nothing and is returned as it is.
 pub(crate) fn report(
-    state: &mut McpState,
     tool: &str,
     root: Option<&Path>,
     mutated: Mutated,
-) -> ToolOutcome {
+) -> (ToolOutcome, Vec<Event>) {
     let Mutated { outcome, written } = mutated;
     let Some(written) = written else {
-        return outcome;
+        return (outcome, Vec::new());
     };
     let success = outcome.succeeded();
+    let mut events = Vec::new();
     if success && let Some(event) = &written.event {
-        state.push_event(event.name(), event.params());
+        events.push((event.name().to_string(), event.params()));
     }
-    state.push_event(
-        "mcp_mutation_completed",
+    events.push((
+        "mcp_mutation_completed".to_string(),
         json!({
             "toolName": tool,
             "files_changed": written.files.len(),
             "entities_affected": written.entities.len(),
             "success": success,
         }),
-    );
+    ));
     let files: Vec<String> = match root {
         Some(root) => written.files.names_under(root),
         None => written
@@ -290,7 +290,10 @@ pub(crate) fn report(
             .map(|path| path.display().to_string())
             .collect(),
     };
-    outcome.with_field(FILES_WRITTEN, Value::from(files))
+    (
+        outcome.with_field(FILES_WRITTEN, Value::from(files)),
+        events,
+    )
 }
 
 #[cfg(test)]
@@ -298,20 +301,12 @@ mod tests {
     use super::*;
     use crate::tool::ErrorCode;
 
-    fn served() -> McpState {
-        McpState::new()
-    }
-
-    fn completed(state: &McpState) -> Vec<Value> {
-        state
-            .events
+    /// The `mcp_mutation_completed` payloads among `events`.
+    fn completed(events: &[Event]) -> Vec<Value> {
+        events
             .iter()
-            .filter(|e| e.name == "mcp_mutation_completed")
-            .map(|e| {
-                let mut params = e.params.clone();
-                params.as_object_mut().unwrap().remove("timestamp");
-                params
-            })
+            .filter(|(name, _)| name == "mcp_mutation_completed")
+            .map(|(_, params)| params.clone())
             .collect()
     }
 
@@ -328,20 +323,17 @@ mod tests {
 
     #[test]
     fn a_preview_reports_nothing() {
-        let mut state = served();
-        let outcome = report(
-            &mut state,
+        let (outcome, events) = report(
             "specforge.rename",
             Some(Path::new("/p")),
             Mutated::preview(ToolOutcome::ok(json!({"dry_run": true}))),
         );
-        assert!(state.events.is_empty());
+        assert!(events.is_empty());
         assert_eq!(payload(&outcome), json!({"dry_run": true}));
     }
 
     #[test]
     fn a_failed_call_reports_its_writes_and_no_domain_event() {
-        let mut state = served();
         let failure = McpError::new(ErrorCode::InternalError, "failed to write /p/a.spec");
         let written = Written::files(Writes::from_iter(["/p/b.spec"])).with_event(
             MutationEvent::ExtensionAdded {
@@ -351,16 +343,15 @@ mod tests {
             },
         );
 
-        let outcome = report(
-            &mut state,
+        let (outcome, events) = report(
             "specforge.format",
             Some(Path::new("/p")),
             Mutated::wrote(failure, written),
         );
 
-        assert!(!state.events.iter().any(|e| e.name == "extension_added"));
+        assert!(!events.iter().any(|(name, _)| name == "extension_added"));
         assert_eq!(
-            completed(&state),
+            completed(&events),
             [
                 json!({"toolName": "specforge.format", "files_changed": 1, "entities_affected": 0, "success": false})
             ]
@@ -373,7 +364,6 @@ mod tests {
 
     #[test]
     fn the_domain_event_precedes_the_mutation_event() {
-        let mut state = served();
         let written = Written::files(Writes::from_iter(["/p/specforge.json"])).with_event(
             MutationEvent::ExtensionAdded {
                 specifier: "@x/y".into(),
@@ -382,14 +372,13 @@ mod tests {
             },
         );
 
-        let outcome = report(
-            &mut state,
+        let (outcome, events) = report(
             "specforge.add_extension",
             Some(Path::new("/p")),
             Mutated::wrote(ToolOutcome::ok(json!({"installed": true})), written),
         );
 
-        let names: Vec<&str> = state.events.iter().map(|e| e.name.as_str()).collect();
+        let names: Vec<&str> = events.iter().map(|(name, _)| name.as_str()).collect();
         assert_eq!(names, ["extension_added", "mcp_mutation_completed"]);
         assert_eq!(
             payload(&outcome),
@@ -423,16 +412,14 @@ mod tests {
 
     #[test]
     fn a_mutation_that_wrote_nothing_lists_no_file() {
-        let mut state = served();
-        let outcome = report(
-            &mut state,
+        let (outcome, events) = report(
             "specforge.migrate",
             Some(Path::new("/p")),
             Mutated::wrote(ToolOutcome::ok(json!({})), Written::nothing()),
         );
         assert_eq!(payload(&outcome), json!({"files_written": []}));
         assert_eq!(
-            completed(&state),
+            completed(&events),
             [
                 json!({"toolName": "specforge.migrate", "files_changed": 0, "entities_affected": 0, "success": true})
             ]

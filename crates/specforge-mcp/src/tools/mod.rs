@@ -26,10 +26,11 @@ mod validate;
 use serde_json::{Value, json};
 
 use crate::mutation::{self, Mutated};
-use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
+use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
 use crate::surface_table::{ToolEntry, ToolKind};
-use crate::target::{self, Call, TargetSpec};
+use crate::target::{self, Call, CallTarget, TargetSpec};
 use crate::tool::{ErrorCode, Handler, McpError, ToolOutcome, ToolSpec, envelope};
 pub use table::CORE_TOOLS;
 
@@ -184,118 +185,142 @@ pub fn core_tool(name: &str) -> Option<&'static ToolSpec> {
     CORE_TOOLS.iter().find(|t| t.name == name)
 }
 
-pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
-    // A request that fails CallToolRequest's own schema is malformed: a
-    // protocol error (ADR 0004 D4-a).
-    let name = match params.get("name").and_then(|v| v.as_str()) {
-        Some(n) => n,
-        None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Missing required parameter: name",
-            );
-        }
-    };
-    let arguments = match params.get("arguments") {
-        None | Some(Value::Null) => Value::Object(Default::default()),
-        Some(object @ Value::Object(_)) => object.clone(),
-        Some(_) => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Invalid params: arguments must be an object",
-            );
-        }
-    };
+/// `tools/call`: the core tool table, then the extension surface table (ADR
+/// 0017 D7). The request pipeline's tools adapter
+/// ([`crate::surface_call`]).
+pub(crate) struct Tools;
 
-    // So is an unknown or disabled tool: it is not an invocation.
-    let spec = core_tool(name);
-    let extension = match spec {
-        Some(_) => None,
-        None => match state.surfaces().tool(name) {
-            Some(entry) => Some(entry.clone()),
-            None => {
-                // MCP spec (tools/call): an unrecognized tool is an Invalid
-                // params protocol error, as its "Unknown tool" example shows.
-                return JsonRpcResponse::error(
-                    id,
-                    error_codes::INVALID_PARAMS,
-                    format!("Unknown tool: {name}"),
-                );
-            }
-        },
-    };
+impl Surface for Tools {
+    const NAMED_BY: &'static str = "name";
+    const TAKES_ARGUMENTS: bool = true;
+    const EXTENDED: bool = true;
+    // MCP spec (tools/call): an unrecognized tool is an Invalid params
+    // protocol error, as its "Unknown tool" example shows.
+    const UNKNOWN: &'static str = "Unknown tool";
 
-    // The category it is listed with: no second lookup.
-    let category = match (spec, &extension) {
-        (Some(spec), _) => spec.category.as_str(),
-        (None, Some(entry)) => entry.category.as_str(),
-        (None, None) => unreachable!("an unknown tool was refused above"),
-    };
-    let mut event = json!({
-        "toolName": name,
-        "category": category,
-        "params": arguments.to_string(),
-    });
-    if let Some(entity_id) = arguments.get("entity_id").and_then(Value::as_str) {
-        event["entityId"] = Value::from(entity_id);
+    type Core = &'static ToolSpec;
+    type Extension = ToolEntry;
+    type Outcome = ToolOutcome;
+
+    fn core(name: &str) -> Option<&'static ToolSpec> {
+        core_tool(name)
     }
-    state.push_event("mcp_tool_invoked", event);
 
-    // The project the call acts on, resolved (and brought up to date)
-    // before the handler runs: handlers never pick a root or reload.
-    let target_spec = spec.map_or(TargetSpec::SERVED, |spec| spec.target);
-    let outcome = match (spec.map(|spec| spec.handler), &extension) {
-        // A mutation says what it wrote; `mutation::refresh` brings the
-        // target up to date with it (inside the call), `mutation::report`
-        // records its events and names the files in its reply.
-        (Some(Handler::Mutation(handler)), _) => {
-            let (mutated, root) = match target::resolve(state, target_spec, &arguments) {
-                Err(refused) => (Mutated::refused(McpError::from(refused)), None),
-                Ok(target) => {
-                    let mut call = Call::new(state, target);
-                    let mut mutated = handler(&mut call, arguments);
-                    let root = mutation::refresh(&mut call, &mut mutated);
-                    (mutated, root)
-                }
-            };
-            mutation::report(state, name, root.as_deref(), mutated.from_tool(name))
+    fn extension(state: &McpState, name: &str) -> Option<ToolEntry> {
+        state.surfaces().tool(name).cloned()
+    }
+
+    fn target(found: &Found<&'static ToolSpec, ToolEntry>) -> TargetSpec {
+        match found {
+            Found::Core(spec) => spec.target,
+            Found::Extension(_) => TargetSpec::SERVED,
         }
-        (Some(Handler::Tool(handler)), _) => {
-            match target::resolve(state, target_spec, &arguments) {
-                Err(refused) => ToolOutcome::from(McpError::from(refused)),
-                Ok(target) => {
-                    let mut call = Call::new(state, target);
-                    let outcome = handler(&mut call, arguments);
-                    target::without_project_outcome(call.target(), outcome)
+    }
+
+    fn invoked(
+        found: &Found<&'static ToolSpec, ToolEntry>,
+        invocation: &Invocation,
+    ) -> Option<Event> {
+        // The category it is listed with: no second lookup.
+        let category = match found {
+            Found::Core(spec) => spec.category.as_str(),
+            Found::Extension(entry) => entry.category.as_str(),
+        };
+        let mut event = json!({
+            "toolName": invocation.name,
+            "category": category,
+            "params": invocation.arguments.to_string(),
+        });
+        if let Some(entity_id) = invocation
+            .arguments
+            .get("entity_id")
+            .and_then(Value::as_str)
+        {
+            event["entityId"] = Value::from(entity_id);
+        }
+        Some(("mcp_tool_invoked".to_string(), event))
+    }
+
+    fn run(
+        call: &mut Call<'_>,
+        found: &Found<&'static ToolSpec, ToolEntry>,
+        invocation: &Invocation,
+    ) -> Ran<ToolOutcome> {
+        let arguments = invocation.arguments.clone();
+        match found {
+            // A mutation says what it wrote; `mutation::refresh` brings the
+            // target up to date with it (inside the call), `mutation::report`
+            // names its events and the files in its reply.
+            Found::Core(ToolSpec {
+                handler: Handler::Mutation(handler),
+                ..
+            }) => {
+                let mut mutated = handler(call, arguments);
+                let root = mutation::refresh(call, &mut mutated);
+                let (outcome, events) =
+                    mutation::report(&invocation.name, root.as_deref(), mutated);
+                Ran { outcome, events }
+            }
+            Found::Core(ToolSpec {
+                handler: Handler::Tool(handler),
+                ..
+            }) => Ran::of(handler(call, arguments)),
+            Found::Extension(entry) => {
+                let (outcome, dispatched) = extension_tool(call, entry, arguments);
+                Ran {
+                    outcome,
+                    events: dispatched
+                        .map(|(name, params)| (name.to_string(), params))
+                        .into_iter()
+                        .collect(),
                 }
             }
-            .from_tool(name)
         }
-        (None, Some(entry)) => match target::resolve(state, target_spec, &arguments) {
-            Err(refused) => ToolOutcome::from(McpError::from(refused)),
-            Ok(target) => {
-                let mut call = Call::new(state, target);
-                let (outcome, dispatched) = extension_tool(&mut call, entry, arguments);
-                if let Some((event, params)) = dispatched {
-                    call.state.push_event(event, params);
-                }
-                target::without_project_outcome(call.target(), outcome)
-            }
-        }
-        .from_tool(name),
-        (None, None) => unreachable!("an unknown tool was refused above"),
-    };
+    }
 
-    // A tool with an outputSchema: a core one, or an extension's that
-    // declares one.
-    let typed = match (spec, &extension) {
-        (Some(spec), _) => spec.output.is_some(),
-        (None, Some(entry)) => entry.output_schema().is_some(),
-        (None, None) => false,
-    };
-    envelope(outcome, id, state.sends_structured_content(), typed)
+    fn refused(found: &Found<&'static ToolSpec, ToolEntry>, error: McpError) -> Ran<ToolOutcome> {
+        match found {
+            // A refused mutation is a failed one: it wrote nothing, and says so.
+            Found::Core(spec) if matches!(spec.handler, Handler::Mutation(_)) => {
+                let (outcome, events) = mutation::report(spec.name, None, Mutated::refused(error));
+                Ran { outcome, events }
+            }
+            _ => Ran::of(error.into()),
+        }
+    }
+
+    fn without_project(target: &CallTarget, outcome: ToolOutcome) -> ToolOutcome {
+        target::without_project_outcome(target, outcome)
+    }
+
+    fn completed(
+        _: &Found<&'static ToolSpec, ToolEntry>,
+        _: &Invocation,
+        _: &ToolOutcome,
+    ) -> Option<Event> {
+        None
+    }
+
+    fn envelope(
+        state: &McpState,
+        found: &Found<&'static ToolSpec, ToolEntry>,
+        invocation: &Invocation,
+        outcome: ToolOutcome,
+        id: Option<Value>,
+    ) -> JsonRpcResponse {
+        // A tool with an outputSchema: a core one, or an extension's that
+        // declares one.
+        let typed = match found {
+            Found::Core(spec) => spec.output.is_some(),
+            Found::Extension(entry) => entry.output_schema().is_some(),
+        };
+        envelope(
+            outcome.from_tool(&invocation.name),
+            id,
+            state.sends_structured_content(),
+            typed,
+        )
+    }
 }
 
 /// A dispatch event: its name and payload.

@@ -6,48 +6,141 @@ mod entity;
 mod graph;
 mod schema;
 
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::surface_call::{Event, Found, Invocation, Ran, Surface};
 use crate::surface_table::ResourceEntry;
-use crate::target::{self, Call, TargetSpec};
+use crate::target::{self, Call, CallTarget, TargetSpec};
 use crate::types::McpResourceDescriptor;
 
-/// The one text content a resource read returns.
-pub(crate) struct ResourceText {
-    pub uri: String,
-    pub mime_type: String,
-    pub text: String,
-    /// The event the read records beside `mcp_resource_read`: an extension
-    /// resource's `surface_mcp_resource_dispatched`.
-    pub dispatched: Option<Value>,
-}
+/// `resources/read`: the core resources (matched first), then the extension
+/// resource whose template names the URI (ADR 0017 D9). The request
+/// pipeline's resources adapter ([`crate::surface_call`]).
+pub(crate) struct Resources;
 
-impl ResourceText {
-    pub fn json(uri: impl Into<String>, text: impl Into<String>) -> Self {
-        Self {
-            uri: uri.into(),
-            mime_type: "application/json".into(),
-            text: text.into(),
-            dispatched: None,
+impl Surface for Resources {
+    const NAMED_BY: &'static str = "uri";
+    const TAKES_ARGUMENTS: bool = false;
+    const EXTENDED: bool = true;
+    const UNKNOWN: &'static str = "Unknown resource URI";
+
+    type Core = &'static ResourceSpec;
+    type Extension = ResourceEntry;
+    type Outcome = ReadOutcome;
+
+    fn core(uri: &str) -> Option<&'static ResourceSpec> {
+        CORE_RESOURCES.iter().find(|r| r.matches(uri))
+    }
+
+    fn extension(state: &McpState, uri: &str) -> Option<ResourceEntry> {
+        state.surfaces().resource(uri).cloned()
+    }
+
+    fn target(found: &Found<&'static ResourceSpec, ResourceEntry>) -> TargetSpec {
+        match found {
+            Found::Core(spec) => spec.target,
+            Found::Extension(_) => TargetSpec::SERVED,
         }
     }
 
-    /// The `resources/read` result: the only place that builds `contents`.
-    fn into_result(self) -> Value {
-        serde_json::json!({
-            "contents": [{
-                "uri": self.uri,
-                "mimeType": self.mime_type,
-                "text": self.text,
-            }]
-        })
+    fn invoked(_: &Found<&'static ResourceSpec, ResourceEntry>, _: &Invocation) -> Option<Event> {
+        None
+    }
+
+    fn run(
+        call: &mut Call<'_>,
+        found: &Found<&'static ResourceSpec, ResourceEntry>,
+        invocation: &Invocation,
+    ) -> Ran<ReadOutcome> {
+        match found {
+            Found::Core(spec) => Ran::of((spec.read)(call, &invocation.name)),
+            Found::Extension(entry) => extension_resource(call, entry, &invocation.name),
+        }
+    }
+
+    fn refused(
+        _: &Found<&'static ResourceSpec, ResourceEntry>,
+        error: crate::tool::McpError,
+    ) -> Ran<ReadOutcome> {
+        Ran::of(Err(invalid_params(error.message)))
+    }
+
+    fn without_project(target: &CallTarget, outcome: ReadOutcome) -> ReadOutcome {
+        outcome.map_err(|refused| without_project(target, refused))
+    }
+
+    fn completed(
+        _: &Found<&'static ResourceSpec, ResourceEntry>,
+        invocation: &Invocation,
+        outcome: &ReadOutcome,
+    ) -> Option<Event> {
+        // A read that returned content: its format is its MIME type.
+        let text = outcome.as_ref().ok()?;
+        Some((
+            "mcp_resource_read".to_string(),
+            json!({"resourceUri": invocation.name, "format": text.mime_type}),
+        ))
+    }
+
+    fn envelope(
+        _: &McpState,
+        found: &Found<&'static ResourceSpec, ResourceEntry>,
+        invocation: &Invocation,
+        outcome: ReadOutcome,
+        id: Option<Value>,
+    ) -> JsonRpcResponse {
+        // A core resource answers under its URI without the query it was
+        // read with; an extension's, under the URI read.
+        let uri = match found {
+            Found::Core(_) => split_query(&invocation.name).0,
+            Found::Extension(_) => invocation.name.as_str(),
+        };
+        resource_envelope(outcome, uri, id)
+    }
+}
+
+/// What a resource read returned: its MIME type and text. The URI is the one
+/// the envelope writes.
+pub(crate) struct ResourceText {
+    pub mime_type: String,
+    pub text: String,
+}
+
+impl ResourceText {
+    pub fn json(text: impl Into<String>) -> Self {
+        Self {
+            mime_type: "application/json".into(),
+            text: text.into(),
+        }
     }
 }
 
 /// What a resource read produced, or why it was refused.
 pub(crate) type ReadOutcome = Result<ResourceText, JsonRpcError>;
+
+/// The `resources/read` reply: the only place that builds `contents`. Its
+/// `uri` is the one given.
+pub(crate) fn resource_envelope(
+    outcome: ReadOutcome,
+    uri: &str,
+    id: Option<Value>,
+) -> JsonRpcResponse {
+    match outcome {
+        Ok(text) => JsonRpcResponse::success(
+            id,
+            json!({
+                "contents": [{
+                    "uri": uri,
+                    "mimeType": text.mime_type,
+                    "text": text.text,
+                }]
+            }),
+        ),
+        Err(error) => JsonRpcResponse::from_error(id, error),
+    }
+}
 
 pub(crate) fn invalid_params(message: impl Into<String>) -> JsonRpcError {
     JsonRpcError::new(error_codes::INVALID_PARAMS, message)
@@ -66,7 +159,7 @@ pub(crate) fn entity_not_found(message: impl Into<String>, entity_id: &str) -> J
 /// not found is the no-project refusal, an internal error (-32603) whose
 /// `data` is its `McpError`, as the refusal of a resource that needs a
 /// project is. Any other refusal is returned as it is.
-fn without_project(target: &target::CallTarget, error: JsonRpcError) -> JsonRpcError {
+fn without_project(target: &CallTarget, error: JsonRpcError) -> JsonRpcError {
     let named = error
         .data
         .as_ref()
@@ -81,53 +174,6 @@ fn without_project(target: &target::CallTarget, error: JsonRpcError) -> JsonRpcE
         return error;
     }
     JsonRpcError::new(refused.code.rpc_code(), refused.message.clone()).with_data(refused.to_json())
-}
-
-pub fn handle_resource_read(
-    state: &mut McpState,
-    params: Value,
-    id: Option<Value>,
-) -> JsonRpcResponse {
-    let uri = match params.get("uri").and_then(|v| v.as_str()) {
-        Some(u) => u.to_string(),
-        None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Missing required parameter: uri",
-            );
-        }
-    };
-
-    // The project the read serves, brought up to date with disk first.
-    let spec = CORE_RESOURCES
-        .iter()
-        .find(|r| r.matches(&uri))
-        .map_or(TargetSpec::SERVED, |r| r.target);
-    let target = match target::resolve(state, spec, &Value::Null) {
-        Ok(target) => target,
-        Err(refused) => {
-            let refused = crate::tool::McpError::from(refused);
-            return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, refused.message);
-        }
-    };
-    let call = Call::new(state, target);
-    let read = read(&call, &uri).map_err(|refused| without_project(call.target(), refused));
-    drop(call);
-    match read {
-        Ok(mut content) => {
-            if let Some(dispatched) = content.dispatched.take() {
-                state.push_event("surface_mcp_resource_dispatched", dispatched);
-            }
-            // A read that returned content: its format is its MIME type.
-            state.push_event(
-                "mcp_resource_read",
-                serde_json::json!({"resourceUri": uri, "format": content.mime_type}),
-            );
-            JsonRpcResponse::success(id, content.into_result())
-        }
-        Err(error) => JsonRpcResponse::from_error(id, error),
-    }
 }
 
 /// One core resource: everything the server lists and reads about it.
@@ -245,19 +291,6 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
     },
 ];
 
-/// The resource `uri` names, read: a core one (matched first), else the
-/// extension resource whose template names it, whatever its scheme (the
-/// table serves no template a core resource already serves).
-fn read(call: &Call<'_>, uri: &str) -> ReadOutcome {
-    if let Some(resource) = CORE_RESOURCES.iter().find(|r| r.matches(uri)) {
-        return (resource.read)(call, uri);
-    }
-    match call.state.surfaces().resource(uri) {
-        Some(entry) => extension_resource(call, entry, uri),
-        None => Err(invalid_params(format!("Unknown resource URI: {uri}"))),
-    }
-}
-
 /// Whether `uri` names a resource the server serves: a core one, or one an
 /// extension contributes.
 pub(crate) fn is_served(state: &McpState, uri: &str) -> bool {
@@ -270,11 +303,16 @@ pub(crate) fn is_served(state: &McpState, uri: &str) -> bool {
 /// an export the guest does not route) is a server-side fault of the
 /// extension: an internal error (-32603) whose `data` is the `McpError`
 /// carrying the E028 diagnostic (D6, `mcp_structured_error_responses`).
-fn extension_resource(call: &Call<'_>, entry: &ResourceEntry, uri: &str) -> ReadOutcome {
+fn extension_resource(call: &Call<'_>, entry: &ResourceEntry, uri: &str) -> Ran<ReadOutcome> {
     // The project the resource reads, in the runtime it was compiled in.
-    let project = call
-        .project()
-        .map_err(|refused| invalid_params(refused.message.clone()).with_data(refused.to_json()))?;
+    let project = match call.project() {
+        Ok(project) => project,
+        Err(refused) => {
+            return Ran::of(Err(
+                invalid_params(refused.message.clone()).with_data(refused.to_json())
+            ));
+        }
+    };
     let runtime = project.runtime;
     let started = std::time::Instant::now();
     match specforge_wasm::ExtensionCalls::new(runtime.as_ref()).read_mcp_resource(
@@ -286,23 +324,30 @@ fn extension_resource(call: &Call<'_>, entry: &ResourceEntry, uri: &str) -> Read
         // resource; a failed call (a trap, or an answer that is not the
         // content and its MIME type) is the read's error, and no dispatch is
         // recorded.
-        Ok(read) => Ok(ResourceText {
-            dispatched: Some(serde_json::json!({
-                "extensionName": entry.extension,
-                "uriTemplate": entry.uri_template,
-                "mimeType": read.mime_type,
-                "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
-            })),
-            text: read.content,
-            uri: uri.to_string(),
-            mime_type: read.mime_type,
-        }),
+        Ok(read) => Ran {
+            events: vec![(
+                "surface_mcp_resource_dispatched".to_string(),
+                json!({
+                    "extensionName": entry.extension,
+                    "uriTemplate": entry.uri_template,
+                    "mimeType": read.mime_type,
+                    "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                }),
+            )],
+            outcome: Ok(ResourceText {
+                text: read.content,
+                mime_type: read.mime_type,
+            }),
+        },
         Err(error) => {
             let diagnostic = error.diagnostic();
-            Err(
-                JsonRpcError::new(error_codes::INTERNAL_ERROR, diagnostic.message.clone())
-                    .with_data(crate::tool::McpError::from_diagnostic(&diagnostic).to_json()),
+            Ran::of(Err(JsonRpcError::new(
+                error_codes::INTERNAL_ERROR,
+                diagnostic.message.clone(),
             )
+            .with_data(
+                crate::tool::McpError::from_diagnostic(&diagnostic).to_json(),
+            )))
         }
     }
 }

@@ -18,8 +18,5 @@ pub fn read(state: &McpState, kind: &str) -> ReadOutcome {
         .collect();
 
     let text = serde_json::to_string(&entities).unwrap();
-    Ok(ResourceText::json(
-        format!("specforge://entities/{}", kind),
-        text,
-    ))
+    Ok(ResourceText::json(text))
 }

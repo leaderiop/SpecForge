@@ -28,10 +28,7 @@ pub fn read(state: &McpState, entity_id: &str) -> ReadOutcome {
     };
 
     match emit(state.graph(), &options) {
-        Ok(json_str) => {
-            let uri = format!("specforge://graph/{}", entity_id);
-            Ok(ResourceText::json(uri, json_str))
-        }
+        Ok(json_str) => Ok(ResourceText::json(json_str)),
         Err(_) => Err(entity_not_found(
             format!("Entity not found: {entity_id}"),
             entity_id,

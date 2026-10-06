@@ -35,7 +35,7 @@ pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
     );
 
     match json_str {
-        Ok(payload) => Ok(ResourceText::json(base, payload)),
+        Ok(payload) => Ok(ResourceText::json(payload)),
         Err(EmitterError::EntityNotFound(message)) => {
             Err(entity_not_found(message, parsed.root.unwrap_or_default()))
         }

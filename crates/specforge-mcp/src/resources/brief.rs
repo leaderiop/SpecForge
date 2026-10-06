@@ -9,7 +9,7 @@ use crate::state::McpState;
 /// budgets the payload. Scoped exports reference the published schema
 /// (`schema_ref`) instead of embedding it (C6-07).
 pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
-    let (base, query) = crate::resources::split_query(uri);
+    let (_, query) = crate::resources::split_query(uri);
     let parsed = crate::resources::parse_query(query);
 
     let json_str = emit(
@@ -28,7 +28,7 @@ pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
     );
 
     match json_str {
-        Ok(payload) => Ok(ResourceText::json(base, payload)),
+        Ok(payload) => Ok(ResourceText::json(payload)),
         Err(EmitterError::EntityNotFound(message)) => {
             Err(entity_not_found(message, parsed.root.unwrap_or_default()))
         }

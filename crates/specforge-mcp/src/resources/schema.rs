@@ -13,5 +13,5 @@ pub fn read(view: &ProjectView) -> ReadOutcome {
             format!("schema serialization failed: {err}"),
         )
     })?;
-    Ok(ResourceText::json("specforge://schema", schema_json))
+    Ok(ResourceText::json(schema_json))
 }

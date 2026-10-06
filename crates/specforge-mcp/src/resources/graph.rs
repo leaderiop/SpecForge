@@ -12,7 +12,7 @@ use crate::resources::{ReadOutcome, ResourceText, entity_not_found, invalid_para
 /// function (ADR 0004 D3-a): the full graph embeds the schema, a scoped one
 /// references it (`schema_ref`), and a budgeted one leaves it out.
 pub fn read(view: &ProjectView, uri: &str) -> ReadOutcome {
-    let (base, query) = crate::resources::split_query(uri);
+    let (_, query) = crate::resources::split_query(uri);
     let parsed = crate::resources::parse_query(query);
 
     let request = Request {
@@ -27,7 +27,7 @@ pub fn read(view: &ProjectView, uri: &str) -> ReadOutcome {
         Ok(payload) => {
             let contents: Value =
                 serde_json::from_str(&payload).expect("graph emit always produces JSON");
-            Ok(ResourceText::json(base, contents.to_string()))
+            Ok(ResourceText::json(contents.to_string()))
         }
         // The export's message leads with its diagnostic code, as a
         // resource refusal always did; a scope the graph has no entity

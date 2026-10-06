@@ -270,29 +270,33 @@ fn subscribe_accepts_an_unserved_uri() {
 
 // --- P10: an extension enabled on disk ---
 
-#[test]
-fn an_extension_enabled_on_disk_is_unknown_until_a_refresh() {
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "an extension tool enabled on disk since the last request is callable by name"
+)]
+fn an_extension_enabled_on_disk_is_callable_by_the_next_request() {
     let mut server = served();
     let features =
         |server: &mut McpServer| call_tool(server, "specforge.product.features", json!({}));
     let unknown = features(&mut server);
     assert_eq!(unknown["error"]["code"], -32602, "{unknown}");
+    assert_eq!(
+        unknown["error"]["message"],
+        "Unknown tool: specforge.product.features"
+    );
 
+    // The very next request after the edit finds the tool: the lookup of an
+    // extension name brings the served project up to date first.
     server.write("specforge.json", &config(&[SOFTWARE, PRODUCT]));
-    // PIN: flipped by T4: the first call after the edit succeeds.
-    for _ in 0..2 {
-        let still_unknown = features(&mut server);
-        assert_eq!(still_unknown["error"]["code"], -32602, "{still_unknown}");
-        assert_eq!(
-            still_unknown["error"]["message"],
-            "Unknown tool: specforge.product.features"
-        );
-    }
-    let stats = call_tool(&mut server, "specforge.stats", json!({}));
-    assert!(stats["error"].is_null(), "{stats}");
     let known = features(&mut server);
     assert!(known["error"].is_null(), "{known}");
     assert_eq!(known["result"]["isError"], false, "{known}");
+    assert_eq!(tool_json(&known)["has_more"], false, "{known}");
+
+    // And an extension taken off the list is unknown at once.
+    server.write("specforge.json", &config(&[SOFTWARE]));
+    let gone = features(&mut server);
+    assert_eq!(gone["error"]["code"], -32602, "{gone}");
 }
 
 // --- P11, P12: the scope query ---
