@@ -32,7 +32,7 @@ fn handshake_request_json_field_names() {
 
 #[test]
 fn protocol_version_constant() {
-    assert_eq!(PROTOCOL_VERSION, "1.0.0");
+    assert_eq!(PROTOCOL_VERSION, "1.1.0");
 }
 
 #[test]

@@ -299,12 +299,17 @@ pub struct PassInput {
 }
 
 /// One entity in the snapshot handed to a compiler pass: its id, kind,
-/// stringified fields, edge counts and span, and how the coverage rule sees
-/// it.
+/// field texts, edge counts and span, and how the coverage rule sees it.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PassEntity {
     pub id: String,
     pub kind: String,
+    /// Every field the entity writes, by name, as its field text (ADR 0019,
+    /// protocol 1.1.0): scalars as written; lists of strings or references
+    /// and mixed lists joined by `", "`; variant lists and type unions by
+    /// `" | "`; expressions by `", "`; verify statements by `"; "`; a
+    /// block's keys by `", "`. A written empty list or block is `""`, never
+    /// absent. A name written twice keeps its last text.
     #[serde(default)]
     pub fields: BTreeMap<String, String>,
     #[serde(default)]
@@ -317,9 +322,10 @@ pub struct PassEntity {
     /// `testable` flag), so coverage counts it.
     #[serde(default)]
     pub testable: bool,
-    /// The entity owes no obligations of its own (ADR 0004, D2-b): its kind
-    /// need not declare any, or it sets a field that exempts it. Decided by
-    /// the host from the registries.
+    /// The entity owes no obligations of its own (ADR 0004, D2-b): no
+    /// `no_verify_statements` rule applies to its kind, or a union body or
+    /// a field that exempts it does. Decided by the host's one obligation
+    /// rule (ADR 0019).
     #[serde(default)]
     pub exempt: bool,
     /// One entry per `verify` statement, in order: its kind, or `""` for a

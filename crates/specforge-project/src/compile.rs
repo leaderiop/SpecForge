@@ -2,6 +2,7 @@
 //! come from: core validation, the registry checks, the extensions'
 //! declarative rules and their Wasm `check: "custom"` rules.
 
+use crate::snapshot::field_text;
 use specforge_common::{Diagnostic, ExtensionEntry, Severity, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph};
 use specforge_protocol_types::ExtensionDeclaration;
@@ -332,61 +333,16 @@ pub fn build_validation_entities(
             let incoming_kinds = by_kind(&mut incoming_edges.iter().map(|e| e.source.as_str()));
             let outgoing_kinds = by_kind(&mut outgoing_edges.iter().map(|e| e.target.as_str()));
 
+            // Every written field, by its field text (ADR 0019): a name
+            // written twice keeps its last text.
             let mut fields = HashMap::new();
             let mut verify_kinds: Vec<String> = Vec::new();
             let mut verify_texts: Vec<String> = Vec::new();
             for entry in node.fields.entries() {
-                match &entry.value {
-                    specforge_parser::FieldValue::String(s) => {
-                        fields.insert(entry.key.to_string(), s.clone());
-                    }
-                    specforge_parser::FieldValue::Identifier(s) => {
-                        fields.insert(entry.key.to_string(), s.clone());
-                    }
-                    specforge_parser::FieldValue::StringList(list) => {
-                        fields.insert(entry.key.to_string(), list.join(", "));
-                    }
-                    specforge_parser::FieldValue::ReferenceList(refs) => {
-                        fields.insert(
-                            entry.key.to_string(),
-                            refs.iter()
-                                .map(|r| r.as_str())
-                                .collect::<Vec<_>>()
-                                .join(", "),
-                        );
-                    }
-                    specforge_parser::FieldValue::Integer(n) => {
-                        fields.insert(entry.key.to_string(), n.to_string());
-                    }
-                    specforge_parser::FieldValue::Boolean(b) => {
-                        fields.insert(entry.key.to_string(), b.to_string());
-                    }
-                    specforge_parser::FieldValue::Date(d) => {
-                        fields.insert(entry.key.to_string(), d.clone());
-                    }
-                    specforge_parser::FieldValue::VerifyList(stmts) => {
-                        if !stmts.is_empty() {
-                            let descriptions: Vec<&str> =
-                                stmts.iter().map(|s| s.description.as_str()).collect();
-                            fields.insert(entry.key.to_string(), descriptions.join("; "));
-                            verify_kinds = stmts.iter().map(|s| s.kind.clone()).collect();
-                            verify_texts = stmts.iter().map(|s| s.description.clone()).collect();
-                        }
-                    }
-                    specforge_parser::FieldValue::VariantList(variants) if !variants.is_empty() => {
-                        fields.insert(entry.key.to_string(), variants.join(" | "));
-                    }
-                    specforge_parser::FieldValue::Block(block) => {
-                        // Contract blocks (requires/ensures/maintains): surface
-                        // the clause item names so extension passes can see the
-                        // block's presence and contents.
-                        let items: Vec<String> =
-                            block.entries().iter().map(|e| e.key.to_string()).collect();
-                        if !items.is_empty() {
-                            fields.insert(entry.key.to_string(), items.join(", "));
-                        }
-                    }
-                    _ => {}
+                fields.insert(entry.key.to_string(), field_text(&entry.value));
+                if let specforge_parser::FieldValue::VerifyList(stmts) = &entry.value {
+                    verify_kinds = stmts.iter().map(|s| s.kind.clone()).collect();
+                    verify_texts = stmts.iter().map(|s| s.description.clone()).collect();
                 }
             }
 
@@ -466,35 +422,10 @@ const PRIMITIVE_TYPES: &[&str] = &[
     "String",
 ];
 
-/// Stringify a field value the way [`build_validation_entities`] does:
-/// scalars as strings, reference lists as the declared IDs (comma-joined).
+/// A field value as a custom validator receives it: its field text
+/// (ADR 0019), always a string.
 fn stringify_field_value(value: &specforge_parser::FieldValue) -> serde_json::Value {
-    use specforge_parser::FieldValue;
-    match value {
-        FieldValue::String(s) => serde_json::Value::String(s.clone()),
-        FieldValue::Identifier(s) => serde_json::Value::String(s.clone()),
-        FieldValue::StringList(list) => serde_json::Value::String(list.join(", ")),
-        FieldValue::ReferenceList(refs) => serde_json::Value::String(
-            refs.iter()
-                .map(|r| r.as_str())
-                .collect::<Vec<_>>()
-                .join(", "),
-        ),
-        FieldValue::Integer(n) => serde_json::Value::String(n.to_string()),
-        FieldValue::Boolean(b) => serde_json::Value::String(b.to_string()),
-        FieldValue::Date(d) => serde_json::Value::String(d.clone()),
-        FieldValue::VerifyList(stmts) => {
-            let descriptions: Vec<&str> = stmts.iter().map(|s| s.description.as_str()).collect();
-            serde_json::Value::String(descriptions.join("; "))
-        }
-        FieldValue::Block(block) => {
-            // Contract blocks: surface the clause item names (same as
-            // build_validation_entities).
-            let items: Vec<String> = block.entries().iter().map(|e| e.key.to_string()).collect();
-            serde_json::Value::String(items.join(", "))
-        }
-        _ => serde_json::Value::Null,
-    }
+    serde_json::Value::String(field_text(value))
 }
 
 impl<'a> WasmCustomRules<'a> {

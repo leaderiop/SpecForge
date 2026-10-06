@@ -34,9 +34,13 @@ pub use declaration::{
 };
 pub use vocabulary::{CheckKind, ConstraintKind, FieldType};
 
-/// Protocol version for the extension wire format (semver).
-/// Extensions with the same major version are considered compatible.
-pub const PROTOCOL_VERSION: &str = "1.0.0";
+/// Protocol version for the extension wire format (semver). The host loads
+/// every guest of its major version. The minor moves when a payload's
+/// values change meaning or an optional field is added; the major moves
+/// only when an older guest could no longer be decoded or answered.
+/// `docs/extension-protocol.md` ("Protocol versions") lists what each
+/// version guarantees; 1.1.0 is the field-text rule of ADR 0019.
+pub const PROTOCOL_VERSION: &str = "1.1.0";
 
 /// All supported describe categories that the host can request.
 pub const SUPPORTED_CATEGORIES: &[&str] = &[
@@ -740,9 +744,9 @@ pub struct ValidatorContext {
 pub struct ValidatorEntity {
     pub id: String,
     pub kind: String,
-    /// Fields in declaration order; `value` is the stringified field value
-    /// (scalars as strings, reference lists as the declared IDs —
-    /// comma-joined string or array of strings).
+    /// Every field the entity writes, in declaration order (a name written
+    /// twice appears twice); `value` is the field's text (ADR 0019,
+    /// protocol 1.1.0), always a JSON string.
     pub fields: Vec<ValidatorField>,
     /// Declared methods (populated for entity kinds that have them, e.g.
     /// ports).
@@ -753,7 +757,12 @@ pub struct ValidatorEntity {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ValidatorField {
     pub key: String,
-    /// Stringified field value (see [`ValidatorEntity::fields`]).
+    /// The field's text, always a JSON string (ADR 0019, protocol 1.1.0):
+    /// scalars as written; lists of strings or references and mixed lists
+    /// joined by `", "`; variant lists and type unions by `" | "`;
+    /// expressions by `", "`; verify statements by `"; "`; a block's keys by
+    /// `", "`; an empty list or block `""`. Under protocol 1.0.0 a variant
+    /// list, mixed list, expression or type union was `null`.
     pub value: serde_json::Value,
     /// Annotation names applied to the field, without the `@`.
     #[serde(default)]

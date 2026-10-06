@@ -165,6 +165,59 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   verify contract "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"
 }
 
+behavior snapshot_entities_once "Snapshot the Entities Once per Compile" {
+  features   [declarative_validation_rules]
+  invariants [
+    zero_domain_knowledge_core,
+    declarative_validation_determinism,
+    testable_entity_classification,
+  ]
+  category   command
+  types      [PassEntity, ValidatorContext, Diagnostic]
+  consumes   [graph_built]
+  requires {
+    graph_and_registries "the graph is built and the registry build it was built with is available"
+  }
+  ensures {
+    one_text_per_field "every field an entity writes has one text, the same for every reader"
+    one_standing       "every entity has one standing: its kind testable or not, owing obligations or not, counting toward coverage or not"
+    built_once         "the checks, the check passes and the coverage of one compile read one snapshot"
+  }
+  contract   """
+    After the graph is built, the compiler MUST take one snapshot of its
+    entities, read with the registry build. Every check after the build
+    (the registry checks, the extensions' declarative and custom rules,
+    the check-phase passes) and the coverage of that compile MUST read
+    it. A session MUST take a new one with every update.
+
+    Field text: every field an entity writes has exactly one text, which
+    declarative rules match, custom validators receive as the field's
+    value (always a string) and compiler passes receive in `fields`. A
+    string, identifier or date is its text as written; an integer or a
+    boolean its literal; a list of strings or references its items
+    joined by ", "; a variant list or a type union its members joined by
+    " | "; a mixed list its items' texts joined by ", "; an expression
+    group its expressions joined by ", "; verify statements their texts
+    joined by "; "; a block its keys joined by ", ". An empty list or
+    block is written and its text is empty. No written field is left
+    out and no value is null. A name written twice has the last one's
+    value.
+
+    Standing: an entity's kind is testable when its extension says so.
+    It owes obligations of its own when a no_verify_statements rule
+    applies to its kind (a rule without a target kind applies to every
+    kind) and neither a union body, nor a set field whose registry entry
+    exempts obligations, nor its kind accepting no verify statements
+    exempts it. It counts toward coverage when its
+    kind is testable and it owes obligations or declares some. The
+    rules, the pass input's `exempt` (it owes none), the coverage rule,
+    stats and the verify-stub fix all read this one standing.
+  """
+  verify unit "every field an entity writes has one text, the same for declarative rules, custom validators and compiler passes"
+  verify unit "a variant list or type union is its members joined by ' | ', a mixed list or expression group its items joined by ', '"
+  verify unit "an empty list or block is written, with empty text, never left out or null"
+}
+
 // -- Field Validation --------------------------------------------------------
 
 behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {

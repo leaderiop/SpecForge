@@ -444,7 +444,8 @@ c.rule("W009", |r| {
 ```
 
 A custom rule without `validate` panics when the extension is built, so a rule
-that would never fire cannot ship.
+that would never fire cannot ship. Each `context.entity.fields` entry's
+`value` is the field's text, always a string ([Field text](#field-text)).
 
 ### Commands and their args
 
@@ -546,14 +547,48 @@ and `specforge check` exits 1 on its errors. Check passes run in their
 after/before order; a trap or malformed answer is E028. Any other phase, or
 none, runs the pass only under `specforge analyze`, which skips check passes.
 
-A pass receives `PassInput`: `entities` (each with its fields, edge counts,
-span, `testable`, and `exempt`: it owes no obligations of its own, decided by
-the host), `edges`, `test_results` and `proved_claims` (always absent for a
+A pass receives `PassInput`: `entities` (each with its field texts by name
+([Field text](#field-text)), edge counts, span, `testable`, and `exempt`: it
+owes no obligations of its own, decided by the host's one obligation rule), `edges`, `test_results` and `proved_claims` (always absent for a
 check pass), and `previous`: when
 `specforge-cache.json` exists, the statuses of the build that wrote it
 (`previous.statuses["<id>"].kind` / `.status`), else `None`. Give a
 diagnostic the entity it is about with `PassDiagnostic::with_entity(id)`: with
 no span of its own, the host attaches that entity's.
+
+### Field text
+
+Every field an entity writes has exactly one text, the same for a declarative
+rule (what `field_value_constraint` matches and `{value}` interpolates), a
+custom rule (`ValidatorField.value`, always a JSON string) and a compiler pass
+(`PassEntity.fields`) ([ADR 0019](adr/0019-one-entity-snapshot-per-compile.md)):
+
+| Field value | Text |
+|---|---|
+| string, identifier, date | as written |
+| integer, boolean | its literal (`42`, `true`) |
+| list of strings or references | items joined by `", "` |
+| mixed list (`[1, true]`) | items' texts joined by `", "` |
+| variant list (`values [low, high]`), type union (`string \| string[]`) | members joined by `" \| "` |
+| expression group (`expr { a < 10ms, b > 5 }`) | each expression's display form, joined by `", "` |
+| verify statements | their texts joined by `"; "` |
+| block (`ensures { done "…" }`) | its keys joined by `", "` |
+
+A written empty list or block is present with the text `""`, so
+`missing_required_field` does not fire on it and `non_empty` does. No written
+field is left out and no value is `null`. A name written twice: a pass and a
+declarative rule see its last text; a custom rule's `fields` lists every entry
+in order.
+
+A joined list cannot be split back when an item itself contains the joiner:
+`["a, b", "c"]` is `"a, b, c"`. A rule that must tell items apart needs a
+structured value, which would come beside the text (ADR 0019, "What would
+reopen this").
+
+This is protocol `1.1.0`; under `1.0.0` a validator received `null` for variant
+lists, mixed lists, expressions and type unions, and a pass did not receive
+them or empty variant lists and blocks. See the version table in
+[extension-protocol.md](extension-protocol.md#protocol-versions).
 
 ### Scanners and the migration hook
 

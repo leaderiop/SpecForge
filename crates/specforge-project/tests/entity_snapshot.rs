@@ -5,7 +5,6 @@
 //! `@pin/snapshot` declares, in process, the rules that echo what each
 //! reader saw (plan 01 §3, Appendix A).
 
-use std::collections::BTreeSet;
 use std::fs;
 use std::path::Path;
 
@@ -184,46 +183,130 @@ fn pass_entity(runtime: &InProcessRuntime, id: &str) -> Value {
         .clone()
 }
 
-fn keys(entity: &Value) -> BTreeSet<String> {
-    entity["fields"]
-        .as_object()
-        .unwrap()
-        .keys()
-        .cloned()
-        .collect()
-}
+/// `alpha`'s fields as §3.1 expects every reader to see them.
+const ALPHA: &[(&str, &str)] = &[
+    ("values", "low | high"),
+    ("mix", "1, true"),
+    ("ensures", "done"),
+    ("empty_block", ""),
+    ("tags", ""),
+    ("doc", "doc.md"),
+    ("metric", "latency < 10ms, load > 5"),
+    ("shape", "string | string[]"),
+    ("verify", "alpha works"),
+];
 
-#[test]
-fn pin_validators_see_null_where_rules_see_text() {
-    // pin (01-T0): today's behaviour; flipped by 01-T2
+#[specforge_test_macros::test(
+    behavior = "snapshot_entities_once",
+    verify = "every field an entity writes has one text, the same for declarative rules, custom validators and compiler passes"
+)]
+fn every_field_an_entity_writes_has_one_text() {
     let dir = project();
     let runtime = runtime();
     let (_, diagnostics) = compile(dir.path(), &runtime);
 
-    let alpha = validator_fields(&runtime, "alpha");
-    for key in ["values", "mix", "metric", "shape"] {
-        assert_eq!(alpha[key], Value::Null, "{key}");
+    let expected: serde_json::Map<String, Value> = ALPHA
+        .iter()
+        .map(|(key, text)| (key.to_string(), Value::from(*text)))
+        .collect();
+    // The custom validator and the pass see the same texts, key by key.
+    assert_eq!(validator_fields(&runtime, "alpha"), expected);
+    assert_eq!(
+        pass_entity(&runtime, "alpha")["fields"],
+        Value::Object(expected)
+    );
+    let beta = serde_json::Map::from_iter([("values".to_string(), Value::from(""))]);
+    assert_eq!(validator_fields(&runtime, "beta"), beta);
+    assert_eq!(pass_entity(&runtime, "beta")["fields"], Value::Object(beta));
+
+    // And so does every declarative rule: one P2xx per written field.
+    let mut rules: Vec<String> = FIELDS
+        .iter()
+        .enumerate()
+        .filter_map(|(i, field)| {
+            let text = ALPHA.iter().find(|(key, _)| key == field)?.1;
+            Some(format!(
+                "P2{i:02} declarative rule sees alpha.{field} = '{text}'"
+            ))
+        })
+        .collect();
+    rules.push("P200 declarative rule sees beta.values = ''".to_string());
+    let mut seen = reported(&diagnostics, "P2");
+    seen.sort();
+    rules.sort();
+    assert_eq!(seen, rules);
+}
+
+/// `item`, with rules reading the written-but-empty `values` and
+/// `requires`: `non_empty` (E100, E101) and `missing_required_field`
+/// (E102, E103), and a custom validator (E104).
+fn empty_values_extension() -> ContributionsBuilder {
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@pin/empty", "0.1.0"));
+    c.kind("item", |k| {
+        k.description("probe").open_fields(true);
+    });
+    for (code, field) in [("E100", "values"), ("E101", "requires")] {
+        c.rule(code, |r| {
+            r.check(CheckKind::FieldValueConstraint)
+                .target_kind("item")
+                .field(field)
+                .message_template("{id}.{field} is empty")
+                .constraint(|k| {
+                    k.kind(ConstraintKind::NonEmpty);
+                });
+        });
     }
-    assert_eq!(alpha["empty_block"], "");
-    assert_eq!(alpha["ensures"], "done");
-    assert_eq!(validator_fields(&runtime, "beta")["values"], Value::Null);
+    for (code, field) in [("E102", "values"), ("E103", "requires")] {
+        c.rule(code, |r| {
+            r.check(CheckKind::MissingRequiredField)
+                .target_kind("item")
+                .field(field)
+                .message_template("{id} does not write {field}");
+        });
+    }
+    c.rule("E104", |r| {
+        r.check(CheckKind::Custom)
+            .target_kind("item")
+            .wasm_function("validate__empty")
+            .message_template("unused")
+            .validate(|_| ValidatorVerdict::Pass);
+    });
+    c
+}
 
-    assert_eq!(
-        reported(&diagnostics, "P2"),
-        [
-            "P200 declarative rule sees alpha.values = 'low | high'",
-            "P202 declarative rule sees alpha.ensures = 'done'",
-            "P205 declarative rule sees alpha.tags = ''",
-        ]
-    );
+#[specforge_test_macros::test(
+    behavior = "snapshot_entities_once",
+    verify = "an empty list or block is written, with empty text, never left out or null"
+)]
+fn an_empty_list_or_block_is_written() {
+    let dir = TempDir::new().unwrap();
+    let config = json!({ "name": "empty", "version": "0.1.0", "extensions": ["@pin/empty"] });
+    fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    fs::write(
+        dir.path().join("a.spec"),
+        "item zeta \"Zeta\" {\n  values []\n  requires {\n  }\n}\n",
+    )
+    .unwrap();
+    let runtime = InProcessRuntime::new().with(empty_values_extension);
+    let (_, diagnostics) = compile(dir.path(), &runtime);
 
+    // Written, so present (no E102/E103), and empty (E100/E101 fire).
     assert_eq!(
-        keys(&pass_entity(&runtime, "alpha")),
-        ["doc", "ensures", "tags", "values", "verify"]
-            .map(String::from)
-            .into()
+        reported(&diagnostics, "E10"),
+        ["E100 zeta.values is empty", "E101 zeta.requires is empty"]
     );
-    assert!(keys(&pass_entity(&runtime, "beta")).is_empty());
+    let call = runtime
+        .calls()
+        .into_iter()
+        .find(|c| c.export == "validate__empty" && c.input["entity"]["id"] == "zeta")
+        .expect("the validator saw zeta");
+    assert_eq!(
+        call.input["entity"]["fields"],
+        json!([
+            {"key": "values", "value": "", "annotations": []},
+            {"key": "requires", "value": "", "annotations": []},
+        ])
+    );
 }
 
 #[test]

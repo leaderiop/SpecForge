@@ -30,6 +30,7 @@ mod inputs;
 pub mod passes;
 mod policy;
 mod session;
+pub mod snapshot;
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
