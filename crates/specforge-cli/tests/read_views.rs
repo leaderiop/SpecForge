@@ -336,6 +336,14 @@ fn schema_today() {
         "cli_publish_context",
         &cli_json(&["schema", s(root), "--publish", "--format", "context"]),
     );
+    snap(
+        "cli_publish_kind_behavior",
+        &cli_json(&["schema", s(root), "--publish", "--kind", "behavior"]),
+    );
+    snap(
+        "cli_format_without_publish",
+        &cli_json(&["schema", s(root), "--format", "brief"]),
+    );
     let nosuch = cli(&["schema", s(root), "--kind", "nosuch"]);
     insta::assert_snapshot!(
         "schema_rv1_cli_kind_nosuch",
