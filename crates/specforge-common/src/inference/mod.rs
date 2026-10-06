@@ -165,18 +165,16 @@ pub fn compute_inference_diagnostics(
 
     let (stale, _deleted) = detect_stale_entries(project_root, manifest);
     for path in &stale {
-        diagnostics.push(crate::Diagnostic {
-            code: "I200".to_string(),
-            message: format!(
-                "Source file '{}' has changed since it was analyzed — inferred entities may be stale",
-                path
-            ),
-            severity: crate::Severity::Info,
-            span: None,
-            suggestion: Some("Re-analyze this file to update inferred entities".to_string()),
-            data: None,
-            origin: None,
-        });
+        diagnostics.push(
+            crate::Diagnostic::new(
+                crate::codes::I200,
+                format!(
+                    "Source file '{}' has changed since it was analyzed — inferred entities may be stale",
+                    path
+                ),
+            )
+            .with_suggestion("Re-analyze this file to update inferred entities".to_string()),
+        );
     }
 
     for entry in &manifest.source_index {
@@ -193,22 +191,23 @@ pub fn compute_inference_diagnostics(
         };
         let density = entry.entities_produced.len() as f64 / line_count as f64;
         if density > density_threshold {
-            diagnostics.push(crate::Diagnostic {
-                code: "I202".to_string(),
-                message: format!(
-                    "High inference density in '{}': {} entities from {} lines ({:.1} entities/100 lines, threshold: {:.1})",
-                    entry.path,
-                    entry.entities_produced.len(),
-                    line_count,
-                    density * 100.0,
-                    density_threshold * 100.0,
+            diagnostics.push(
+                crate::Diagnostic::new(
+                    crate::codes::I202,
+                    format!(
+                        "High inference density in '{}': {} entities from {} lines ({:.1} entities/100 lines, threshold: {:.1})",
+                        entry.path,
+                        entry.entities_produced.len(),
+                        line_count,
+                        density * 100.0,
+                        density_threshold * 100.0,
+                    ),
+                )
+                .with_suggestion(
+                    "Consider whether some inferred entities should be merged or removed"
+                        .to_string(),
                 ),
-                severity: crate::Severity::Info,
-                span: None,
-                suggestion: Some("Consider whether some inferred entities should be merged or removed".to_string()),
-                data: None,
-                origin: None,
-            });
+            );
         }
     }
 

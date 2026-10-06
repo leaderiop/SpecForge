@@ -1,5 +1,5 @@
 use serde::Serialize;
-use specforge_common::{SourceSpan, Sym};
+use specforge_common::{SourceSpan, Sym, codes};
 
 use crate::expr::SpannedExpr;
 
@@ -228,6 +228,6 @@ pub struct ParseError {
 
 impl From<&ParseError> for specforge_common::Diagnostic {
     fn from(err: &ParseError) -> Self {
-        specforge_common::Diagnostic::error("E001", &err.message).with_span(err.span.clone())
+        specforge_common::Diagnostic::new(codes::E001, &err.message).with_span(err.span.clone())
     }
 }

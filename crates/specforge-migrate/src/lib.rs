@@ -1,6 +1,6 @@
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use specforge_common::{Diagnostic, Severity, find_project_root, load_project_config};
+use specforge_common::{Diagnostic, Severity, codes, find_project_root, load_project_config};
 use specforge_emitter::schema::{GraphProtocolSchema, SchemaMigration, diff_schemas};
 use specforge_formatter::unified_diff;
 use std::fmt;
@@ -139,48 +139,40 @@ pub fn detect_format_version(content: &str) -> (FormatVersion, Vec<Diagnostic>) 
         match FormatVersion::from_str(version_str) {
             Ok(v) => {
                 if v > MAX_SUPPORTED_VERSION {
-                    diagnostics.push(Diagnostic {
-                        code: "E019".to_string(),
-                        severity: Severity::Error,
-                        message: format!(
-                            "unsupported format version {v} (max supported: {MAX_SUPPORTED_VERSION})"
-                        ),
-                        span: None,
-                        suggestion: Some(format!(
+                    diagnostics.push(
+                        Diagnostic::new(
+                            codes::E019,
+                            format!(
+                                "unsupported format version {v} (max supported: {MAX_SUPPORTED_VERSION})"
+                            ),
+                        )
+                        .with_suggestion(format!(
                             "Use a format version between {MIN_SUPPORTED_VERSION} and {MAX_SUPPORTED_VERSION}."
                         )),
-                        data: None,
-                        origin: None,
-                    });
+                    );
                 } else if v < MIN_SUPPORTED_VERSION {
-                    diagnostics.push(Diagnostic {
-                        code: "I007".to_string(),
-                        severity: Severity::Info,
-                        message: format!(
-                            "format version {v} is older than current ({CURRENT_FORMAT_VERSION}); migration available"
-                        ),
-                        span: None,
-                        suggestion: Some("Run `specforge migrate` to upgrade.".to_string()),
-                        data: None,
-                        origin: None,
-                    });
+                    diagnostics.push(
+                        Diagnostic::new(
+                            codes::I007,
+                            format!(
+                                "format version {v} is older than current ({CURRENT_FORMAT_VERSION}); migration available"
+                            ),
+                        )
+                        .with_suggestion("Run `specforge migrate` to upgrade.".to_string()),
+                    );
                 }
                 return (v, diagnostics);
             }
             Err(_) => {
-                diagnostics.push(Diagnostic {
-                    code: "E019".to_string(),
-                    severity: Severity::Error,
-                    message: format!(
-                        "invalid format version header: '{version_str}'"
-                    ),
-                    span: None,
-                    suggestion: Some(format!(
+                diagnostics.push(
+                    Diagnostic::new(
+                        codes::E019,
+                        format!("invalid format version header: '{version_str}'"),
+                    )
+                    .with_suggestion(format!(
                         "Expected `// specforge-format: MAJOR.MINOR` (e.g., `// specforge-format: {CURRENT_FORMAT_VERSION}`)."
                     )),
-                    data: None,
-                    origin: None,
-                });
+                );
                 return (MIN_SUPPORTED_VERSION, diagnostics);
             }
         }
@@ -253,17 +245,15 @@ pub fn check_schema_compatibility(
 
     for change in &migration.changes {
         if change.is_breaking() {
-            diagnostics.push(Diagnostic {
-                code: "W053".to_string(),
-                severity: Severity::Warning,
-                message: format!("breaking schema change after migration: {change:?}"),
-                span: None,
-                suggestion: Some(
+            diagnostics.push(
+                Diagnostic::new(
+                    codes::W053,
+                    format!("breaking schema change after migration: {change:?}"),
+                )
+                .with_suggestion(
                     "Review the migration to ensure backward compatibility.".to_string(),
                 ),
-                data: None,
-                origin: None,
-            });
+            );
         }
     }
 
@@ -288,27 +278,17 @@ pub fn compare_graphs(
         post_nodes.iter().map(|n| n.id.raw.as_str()).collect();
 
     for id in pre_ids.difference(&post_ids) {
-        diagnostics.push(Diagnostic {
-            code: "W054".to_string(),
-            severity: Severity::Warning,
-            message: format!("entity '{id}' present before migration but missing after"),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        });
+        diagnostics.push(Diagnostic::new(
+            codes::W054,
+            format!("entity '{id}' present before migration but missing after"),
+        ));
     }
 
     for id in post_ids.difference(&pre_ids) {
-        diagnostics.push(Diagnostic {
-            code: "W054".to_string(),
-            severity: Severity::Warning,
-            message: format!("entity '{id}' appeared after migration but was not present before"),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        });
+        diagnostics.push(Diagnostic::new(
+            codes::W054,
+            format!("entity '{id}' appeared after migration but was not present before"),
+        ));
     }
 
     // Check edges
@@ -324,33 +304,23 @@ pub fn compare_graphs(
         .collect();
 
     for edge in pre_edges.difference(&post_edges) {
-        diagnostics.push(Diagnostic {
-            code: "W054".to_string(),
-            severity: Severity::Warning,
-            message: format!(
+        diagnostics.push(Diagnostic::new(
+            codes::W054,
+            format!(
                 "edge {}-[{}]->{} present before migration but missing after",
                 edge.0, edge.2, edge.1
             ),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        });
+        ));
     }
 
     for edge in post_edges.difference(&pre_edges) {
-        diagnostics.push(Diagnostic {
-            code: "W054".to_string(),
-            severity: Severity::Warning,
-            message: format!(
+        diagnostics.push(Diagnostic::new(
+            codes::W054,
+            format!(
                 "edge {}-[{}]->{} appeared after migration but was not present before",
                 edge.0, edge.2, edge.1
             ),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        });
+        ));
     }
 
     // Field values of entities present on both sides, compared as the
@@ -366,18 +336,13 @@ pub fn compare_graphs(
         let keys: std::collections::BTreeSet<&String> = before.keys().chain(after.keys()).collect();
         for key in keys {
             if before.get(key) != after.get(key) {
-                diagnostics.push(Diagnostic {
-                    code: "W054".to_string(),
-                    severity: Severity::Warning,
-                    message: format!(
+                diagnostics.push(Diagnostic::new(
+                    codes::W054,
+                    format!(
                         "field '{key}' of entity '{}' changed during migration",
                         pre_node.id.raw.as_str()
                     ),
-                    span: None,
-                    suggestion: None,
-                    data: None,
-                    origin: None,
-                });
+                ));
             }
         }
     }

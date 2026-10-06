@@ -1,4 +1,4 @@
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, codes};
 use specforge_graph::Graph;
 
 // Only check orphan status for `ref` entities. `spec` is the project root
@@ -13,8 +13,8 @@ pub fn detect_orphan_structural_nodes(graph: &Graph, diagnostics: &mut Vec<Diagn
         let incoming = graph.edges_to(node.id.raw.as_str());
         if incoming.is_empty() {
             diagnostics.push(
-                Diagnostic::warning(
-                    "W012",
+                Diagnostic::new(
+                    codes::W012,
                     format!(
                         "unreferenced {} '{}' has no incoming edges",
                         node.kind.raw, node.id.raw

@@ -31,15 +31,7 @@ pub fn format_source(source: &str, config: &FormatConfig) -> FormatResult {
         None => {
             return FormatResult {
                 formatted: source.to_string(),
-                diagnostics: vec![Diagnostic {
-                    code: "E001".into(),
-                    severity: specforge_common::Severity::Error,
-                    message: "Failed to parse source".into(),
-                    span: None,
-                    suggestion: None,
-                    data: None,
-                    origin: None,
-                }],
+                diagnostics: vec![Diagnostic::new(codes::E001, "Failed to parse source")],
             };
         }
     };
@@ -170,8 +162,8 @@ pub fn format_range(
 /// the end of its last (1-based lines and columns, end exclusive; the file
 /// is left for the caller, who knows the document).
 fn kept_region(first: usize, last: usize, last_line_len: usize) -> Diagnostic {
-    Diagnostic::warning(
-        "W142",
+    Diagnostic::new(
+        codes::W142,
         format!(
             "Parse error at lines {}-{}, error region preserved verbatim",
             first + 1,
