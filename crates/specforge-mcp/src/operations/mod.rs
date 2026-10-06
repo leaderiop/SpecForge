@@ -649,11 +649,7 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
     // project up to date, or compiled the project `path` names for this
     // call, in the runtime it collects with.
     let project = call.project()?;
-    let runtime = project.runtime;
-    let known = collect::KnownEntities::from_graph(project.graph);
-
     let request = Request {
-        root: project.root,
         runner,
         mode: if run {
             // The server owns stdio: the runner's output is discarded.
@@ -661,18 +657,13 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
         } else {
             Mode::NoRun
         },
+        // The server never prompts: a command runs only if the user already
+        // approved it for this project with `specforge collect` in a terminal.
+        consent: Consent::Approved,
+        announce: &mut |_, _| {},
     };
     Ok(
-        match collect::collect(
-            &request,
-            project.env.registries.declarations(),
-            runtime.as_ref(),
-            &known,
-            // The server never prompts: a command runs only if the user already
-            // approved it for this project with `specforge collect` in a terminal.
-            Consent::Approved,
-            &mut |_, _| {},
-        ) {
+        match collect::collect(&project.view(), project.runtime.as_ref(), request) {
             Ok(outcome) => ok(outcome.to_json()),
             Err(e) if e.code == "E059" => McpError::from_diagnostic(&Diagnostic::error(
                 e.code,
