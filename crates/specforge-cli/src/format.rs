@@ -28,14 +28,12 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
         print_config_warnings(&config_diags);
         return run_stdin(&config);
     }
-    if format::targets(&request).is_empty() {
-        print_config_warnings(&format::config(&request).1);
+    let outcome = format::run(&request);
+    print_config_warnings(&outcome.config_diagnostics);
+    if outcome.found_nothing() {
         eprintln!("No .spec files found");
         return 0;
     }
-
-    let outcome = format::run(&request);
-    print_config_warnings(&outcome.config_diagnostics);
     for (file, error) in &outcome.unreadable {
         eprintln!("error: failed to read {}: {error}", file.display());
     }

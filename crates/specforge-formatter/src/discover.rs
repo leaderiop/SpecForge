@@ -83,21 +83,6 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "discover_format_targets",
-        verify = "files matching format.exclude globs are excluded"
-    )]
-    fn test_exclude_globs_filter_files() {
-        let tmp = TempDir::new().unwrap();
-        let root = tmp.path();
-        create_file(root, "a.spec");
-        create_file(root, "vendor/b.spec");
-
-        let targets = discover_targets(root, &[], &["**/vendor/**".to_string()]);
-        assert_eq!(targets.len(), 1);
-        assert!(targets[0].ends_with("a.spec"));
-    }
-
-    #[specforge_test_macros::test(
-        behavior = "discover_format_targets",
         verify = "explicit file paths format only those files"
     )]
     fn test_explicit_paths_format_only_those() {

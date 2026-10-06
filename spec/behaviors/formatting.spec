@@ -490,20 +490,26 @@ behavior discover_format_targets "Discover Format Targets" {
   }
   ensures {
     all_spec_files_discovered "all .spec files under spec_root are discovered when no explicit paths are given"
-    exclusions_applied        "files matching format.exclude globs are excluded from the target set"
+    exclusions_applied        "files the project's exclude entries leave out are not discovered"
     non_spec_skipped          "non-.spec files are skipped without error"
   }
   contract   """
     When specforge format is invoked without explicit file paths, the
     system MUST discover all .spec files under the spec_root defined in
-    specforge.json. When explicit paths are provided, only those paths
-    MUST be formatted. Directories provided as arguments MUST be
-    recursively searched for .spec files. Non-.spec files MUST be
-    skipped without error. If specforge.json defines a format.exclude
-    glob list, matching files MUST be excluded from discovery.
+    specforge.json (the project root when unset): the files a compile
+    reads. Files the project's exclude entries leave out MUST NOT be
+    discovered; a file named explicitly is formatted all the same. A
+    directory named explicitly that holds specforge.json MUST be read as
+    that project's sources; walking any other named directory MUST take a
+    nested project's sources where it reaches that project's
+    specforge.json, never the rest of its files. When explicit paths are
+    provided, only those paths MUST be formatted. Directories provided as
+    arguments MUST be recursively searched for .spec files. Non-.spec
+    files MUST be skipped without error.
   """
   verify unit "no arguments formats all .spec files under spec_root"
-  verify unit "files matching format.exclude globs are excluded"
+  verify unit "files the project's exclude entries leave out are not formatted"
+  verify unit "a named directory that is a project formats that project's sources"
   verify unit "explicit file paths format only those files"
   verify unit "directory argument recursively discovers .spec files"
   verify unit "non-.spec files are skipped with no error"

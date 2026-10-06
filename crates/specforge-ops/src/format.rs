@@ -7,11 +7,12 @@
 //! present what happened: the CLI prints it, MCP returns it, the LSP turns
 //! it into edits.
 
-use specforge_common::{Diagnostic, Sym, codes, find_project_root};
+use specforge_common::{
+    Diagnostic, ProjectConfig, SKIP_DIRS, Sym, codes, find_project_root, load_project_config,
+};
 use specforge_formatter::config::{find_config_path, read_config_file};
 use specforge_formatter::{
-    FormatConfig, TextEdit, compute_edits, discover_targets, format_range, format_source,
-    load_config,
+    FormatConfig, TextEdit, compute_edits, format_range, format_source, load_config,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -252,8 +253,12 @@ pub struct Request<'a> {
     pub root: &'a Path,
     /// Where `.specforgefmt.toml` discovery starts, walking up to `root`.
     pub config_dir: &'a Path,
-    /// Files or directories to format; empty means every `.spec` file under
-    /// the project's `spec/` directory (or the root, without one).
+    /// Files or directories to format; empty means the project's sources
+    /// (`ProjectConfig::spec_files`). A named file is always formatted. A
+    /// named directory holding `specforge.json` is that project's sources;
+    /// any other named directory is walked as discovery walks, taking a
+    /// nested project's sources where the walk reaches its `specforge.json`,
+    /// without the files their project's `exclude` entries leave out (D3).
     pub paths: &'a [PathBuf],
     pub mode: Mode,
 }
@@ -294,6 +299,11 @@ impl Outcome {
     pub fn write_failures(&self) -> impl Iterator<Item = &FileChange> {
         self.changes.iter().filter(|c| c.write_error.is_some())
     }
+
+    /// No target at all (nothing found, nothing failed).
+    pub fn found_nothing(&self) -> bool {
+        self.checked == 0 && self.unreadable.is_empty()
+    }
 }
 
 /// The project root `path` is in, else `path` itself.
@@ -306,15 +316,119 @@ pub fn config(request: &Request) -> (FormatConfig, Vec<Diagnostic>) {
     load_config(request.config_dir, request.root)
 }
 
-/// The files `request` formats.
-pub fn targets(request: &Request) -> Vec<PathBuf> {
-    let spec_dir = request.root.join("spec");
-    let search_root = if spec_dir.exists() {
-        spec_dir
+/// The files a run from `root` over `paths` formats, de-duplicated, in
+/// discovery order (ADR 0021 D3):
+///
+/// - no paths: the project's sources ([`ProjectConfig::spec_files`]);
+/// - a named `.spec` file: that file, even if excluded (the user named it);
+///   any other named file is skipped;
+/// - a named directory holding `specforge.json`: that project's sources;
+/// - any other named directory: its `.spec` files as discovery walks them,
+///   taking a nested project's sources where the walk reaches its
+///   `specforge.json`, without the files their project's `exclude` entries
+///   leave out.
+fn targets(root: &Path, paths: &[PathBuf]) -> Vec<PathBuf> {
+    let mut projects = Projects::default();
+    let found: Vec<PathBuf> = if paths.is_empty() {
+        projects.config(root).spec_files(root)
     } else {
-        request.root.to_path_buf()
+        let mut found = Vec::new();
+        for path in paths {
+            if path.is_dir() {
+                found.extend(projects.walk(path));
+            } else if path.extension().is_some_and(|ext| ext == "spec") {
+                found.push(path.clone());
+            }
+        }
+        found
     };
-    discover_targets(&search_root, request.paths, &[])
+    let mut seen = std::collections::HashSet::new();
+    found
+        .into_iter()
+        .filter(|path| seen.insert(path.clone()))
+        .collect()
+}
+
+/// The `specforge.json` of each project a run reaches, read once.
+#[derive(Default)]
+struct Projects {
+    configs: HashMap<PathBuf, ProjectConfig>,
+    roots: HashMap<PathBuf, Option<PathBuf>>,
+}
+
+impl Projects {
+    /// The configuration of the project at `root`.
+    fn config(&mut self, root: &Path) -> &ProjectConfig {
+        self.configs
+            .entry(root.to_path_buf())
+            .or_insert_with(|| load_project_config(root))
+    }
+
+    /// The `.spec` files of a named directory (see [`targets`]), sorted.
+    fn walk(&mut self, dir: &Path) -> Vec<PathBuf> {
+        if is_project(dir) {
+            return self.config(dir).spec_files(dir);
+        }
+        let mut nested = Vec::new();
+        let mut files = Vec::new();
+        let walker = walkdir::WalkDir::new(dir)
+            .follow_links(false)
+            .into_iter()
+            .filter_entry(|entry| {
+                if entry.depth() == 0 || !entry.file_type().is_dir() {
+                    return true;
+                }
+                if entry
+                    .file_name()
+                    .to_str()
+                    .is_some_and(|name| SKIP_DIRS.contains(&name))
+                {
+                    return false;
+                }
+                if is_project(entry.path()) {
+                    nested.push(entry.path().to_path_buf());
+                    return false;
+                }
+                true
+            });
+        for entry in walker.filter_map(Result::ok) {
+            let path = entry.path();
+            if entry.file_type().is_file()
+                && path.extension().is_some_and(|ext| ext == "spec")
+                && !self.excluded(path)
+            {
+                files.push(path.to_path_buf());
+            }
+        }
+        for project in nested {
+            files.extend(self.config(&project).spec_files(&project));
+        }
+        files.sort();
+        files
+    }
+
+    /// Whether the project `file` belongs to leaves it out (`exclude`, or
+    /// a skipped directory under its spec root).
+    fn excluded(&mut self, file: &Path) -> bool {
+        let Ok(file) = file.canonicalize() else {
+            return false;
+        };
+        let dir = directory_of(&file);
+        let root = self
+            .roots
+            .entry(dir.clone())
+            .or_insert_with(|| find_project_root(&dir))
+            .clone();
+        root.is_some_and(|root| {
+            let config = self.config(&root);
+            config.excludes(&config.spec_root_in(&root), &file)
+        })
+    }
+}
+
+/// Whether `dir` is a project's root (holds `specforge.json`).
+fn is_project(dir: &Path) -> bool {
+    dir.join("specforge.json").is_file()
 }
 
 /// Format every target of `request`.
@@ -324,7 +438,7 @@ pub fn run(request: &Request) -> Outcome {
         config_diagnostics,
         ..Outcome::default()
     };
-    for target in targets(request) {
+    for target in targets(request.root, request.paths) {
         let source = match std::fs::read_to_string(&target) {
             Ok(source) => source,
             Err(e) => {
@@ -437,38 +551,230 @@ mod tests {
             .replace('\\', "/")
     }
 
-    /// Pin (plan 03): today's behaviour; flipped by T6.
-    #[test]
-    fn targets_ignore_the_configured_spec_root() {
+    /// A check run from `root` over `paths` (relative to it).
+    fn check_paths(root: &Path, paths: &[&str]) -> Outcome {
+        let paths: Vec<PathBuf> = paths.iter().map(|p| root.join(p)).collect();
+        run(&Request {
+            root,
+            config_dir: root,
+            paths: &paths,
+            mode: Mode::Check,
+        })
+    }
+
+    /// The changed files of `outcome`, relative to `root`.
+    fn changed_in(root: &Path, outcome: &Outcome) -> Vec<String> {
+        outcome
+            .changes
+            .iter()
+            .map(|c| relative(root, &c.path))
+            .collect()
+    }
+
+    #[specforge_test(
+        behavior = "discover_format_targets",
+        verify = "no arguments formats all .spec files under spec_root"
+    )]
+    fn targets_are_the_files_under_spec_root() {
+        let dir = project_with(
+            r#"{"spec_root": "specs"}"#,
+            &[
+                ("specs/a.spec", MESSY),
+                ("specs/sub/b.spec", MESSY),
+                ("fixtures/fx.spec", MESSY),
+            ],
+        );
+        assert_eq!(changed(dir.path()), ["specs/a.spec", "specs/sub/b.spec"]);
+
+        // A spec/ directory beside the spec root is no source either.
+        std::fs::create_dir(dir.path().join("spec")).unwrap();
+        std::fs::write(dir.path().join("spec/old.spec"), MESSY).unwrap();
+        assert_eq!(changed(dir.path()), ["specs/a.spec", "specs/sub/b.spec"]);
+
+        // Without spec_root, every source under the root, as check reads them.
+        std::fs::write(dir.path().join("specforge.json"), "{}").unwrap();
+        assert_eq!(
+            changed(dir.path()),
+            [
+                "fixtures/fx.spec",
+                "spec/old.spec",
+                "specs/a.spec",
+                "specs/sub/b.spec"
+            ]
+        );
+    }
+
+    #[specforge_test(
+        behavior = "discover_format_targets",
+        verify = "files the project's exclude entries leave out are not formatted"
+    )]
+    fn excluded_files_are_not_formatted() {
+        let dir = project_with(
+            r#"{"spec_root": "spec", "exclude": ["drafts"]}"#,
+            &[("spec/a.spec", MESSY), ("spec/drafts/d.spec", MESSY)],
+        );
+
+        assert_eq!(changed(dir.path()), ["spec/a.spec"]);
+        // A file named explicitly is formatted all the same.
+        let named = check_paths(dir.path(), &["spec/drafts/d.spec"]);
+        assert_eq!(changed_in(dir.path(), &named), ["spec/drafts/d.spec"]);
+    }
+
+    #[specforge_test(
+        behavior = "discover_format_targets",
+        verify = "explicit file paths format only those files"
+    )]
+    fn explicit_files_format_only_those() {
+        let dir = project();
+
+        let outcome = check_paths(dir.path(), &["spec/a.spec"]);
+
+        assert_eq!(outcome.checked, 1);
+        assert_eq!(changed_in(dir.path(), &outcome), ["spec/a.spec"]);
+    }
+
+    #[specforge_test(
+        behavior = "discover_format_targets",
+        verify = "directory argument recursively discovers .spec files"
+    )]
+    fn a_directory_argument_is_walked() {
+        let dir = project_with(
+            r#"{"exclude": ["drafts"]}"#,
+            &[
+                ("spec/sub/a.spec", MESSY),
+                ("spec/sub/deep/b.spec", MESSY),
+                ("spec/sub/drafts/d.spec", MESSY),
+                ("spec/sub/target/t.spec", MESSY),
+                ("spec/other.spec", MESSY),
+            ],
+        );
+
+        let outcome = check_paths(dir.path(), &["spec/sub"]);
+
+        assert_eq!(
+            changed_in(dir.path(), &outcome),
+            ["spec/sub/a.spec", "spec/sub/deep/b.spec"]
+        );
+    }
+
+    #[specforge_test(
+        behavior = "discover_format_targets",
+        verify = "non-.spec files are skipped with no error"
+    )]
+    fn non_spec_files_are_skipped() {
+        let dir = project_with("{}", &[("notes.md", "# notes"), ("a.spec", MESSY)]);
+
+        let outcome = check_paths(dir.path(), &["notes.md", "a.spec"]);
+
+        assert_eq!(outcome.checked, 1);
+        assert!(outcome.unreadable.is_empty());
+    }
+
+    #[specforge_test(
+        behavior = "discover_format_targets",
+        verify = "a named directory that is a project formats that project's sources"
+    )]
+    fn a_named_project_directory_formats_its_sources() {
         let dir = project_with(
             r#"{"spec_root": "specs"}"#,
             &[("specs/a.spec", MESSY), ("fixtures/fx.spec", MESSY)],
         );
-        // No spec/ directory: the whole root is searched, fixtures too.
-        let changes = changed(dir.path());
-        assert!(changes.contains(&"fixtures/fx.spec".into()), "{changes:?}");
 
-        // With a spec/ directory only it is searched: the configured spec
-        // root is never looked at.
-        std::fs::create_dir(dir.path().join("spec")).unwrap();
-        std::fs::write(dir.path().join("spec/old.spec"), MESSY).unwrap();
-        let changes = changed(dir.path());
-        assert!(!changes.contains(&"specs/a.spec".into()), "{changes:?}");
+        let named = check_paths(dir.path(), &[""]);
+
+        assert_eq!(changed_in(dir.path(), &named), ["specs/a.spec"]);
+        assert_eq!(changed(dir.path()), ["specs/a.spec"]);
     }
 
-    /// Pin (plan 03): today's behaviour; flipped by T6.
-    #[test]
-    fn targets_ignore_the_project_exclude() {
+    #[specforge_test(
+        behavior = "discover_format_targets",
+        verify = "a named directory that is a project formats that project's sources"
+    )]
+    fn a_walk_takes_a_nested_projects_sources() {
         let dir = project_with(
-            r#"{"exclude": ["drafts"]}"#,
-            &[("spec/drafts/d.spec", MESSY)],
+            "{}",
+            &[
+                ("examples/p/specforge.json", r#"{"spec_root": "spec"}"#),
+                ("examples/p/spec/a.spec", MESSY),
+                ("examples/p/fixtures/f.spec", MESSY),
+                ("examples/loose.spec", MESSY),
+            ],
         );
 
-        let changes = changed(dir.path());
-        assert!(
-            changes.contains(&"spec/drafts/d.spec".into()),
-            "{changes:?}"
+        let outcome = check_paths(dir.path(), &["examples"]);
+
+        assert_eq!(
+            changed_in(dir.path(), &outcome),
+            ["examples/loose.spec", "examples/p/spec/a.spec"]
         );
+    }
+
+    #[specforge_test(
+        behavior = "discover_format_targets",
+        verify = "Discover Format Targets: format target discovery holds — project_root_available, filesystem_accessible, all_spec_files_discovered, exclusions_applied, non_spec_skipped"
+    )]
+    fn discover_contract() {
+        // project_root_available, filesystem_accessible: a project on disk.
+        let dir = project_with(
+            r#"{"spec_root": "spec", "exclude": ["vendor"]}"#,
+            &[
+                ("spec/a.spec", MESSY),
+                ("spec/sub/b.spec", MESSY),
+                ("spec/vendor/v.spec", MESSY),
+                ("spec/c.txt", "not a spec"),
+            ],
+        );
+        let root = dir.path();
+
+        // all_spec_files_discovered, exclusions_applied.
+        assert_eq!(
+            targets(root, &[]),
+            [root.join("spec/a.spec"), root.join("spec/sub/b.spec")]
+        );
+        // non_spec_skipped: named, a non-.spec file is no target and no failure.
+        let outcome = check_paths(root, &["spec/a.spec", "spec/c.txt"]);
+        assert_eq!(outcome.checked, 1);
+        assert!(outcome.unreadable.is_empty());
+    }
+
+    /// The paths the CI gate formats (`.github/workflows/ci.yml`:
+    /// `specforge format --check spec integrations/rust/spec
+    /// examples/todo-app examples/shop`), and the source directory each
+    /// one's files must lie in.
+    const CI_GATE: [(&str, &str); 4] = [
+        ("spec", "spec"),
+        ("integrations/rust/spec", "integrations/rust/spec"),
+        ("examples/todo-app", "examples/todo-app/spec"),
+        ("examples/shop", "examples/shop/spec"),
+    ];
+
+    #[test]
+    fn the_ci_gate_paths_reach_only_their_sources() {
+        let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let workspace = workspace.canonicalize().unwrap();
+        let paths: Vec<PathBuf> = CI_GATE.iter().map(|(p, _)| workspace.join(p)).collect();
+
+        let found = targets(&workspace, &paths);
+
+        let sources: Vec<PathBuf> = CI_GATE
+            .iter()
+            .flat_map(|(_, dir)| specforge_common::discover_spec_files(&workspace.join(dir), &[]))
+            .collect();
+        for target in &found {
+            assert!(
+                sources.contains(target),
+                "{} is no source",
+                target.display()
+            );
+        }
+        assert_eq!(found.len(), sources.len());
+        let outcome = run(&Request {
+            root: &workspace,
+            config_dir: &workspace,
+            paths: &paths,
+            mode: Mode::Check,
+        });
+        assert_eq!(outcome.checked, sources.len());
     }
 
     /// Pin (plan 03): today's behaviour; flipped by T7.
