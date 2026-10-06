@@ -5,10 +5,11 @@
 use serde_json::{Value, json};
 
 use super::*;
-use crate::args::{NoArgs, fields};
+use crate::args::{NoArgs, choice_schema, fields, names_schema, required_choice_schema};
 use crate::operations;
 use crate::target::{Freshness, Reach, TargetSpec};
 use crate::tool::{Access, Category, Effect, MutationSpec, ToolSpec, writes_unless_dry_run};
+use specforge_ops::{export as ops_export, model as ops_model};
 
 /// A handler reading its typed arguments: refused when they don't parse.
 /// It returns an outcome, or `Handled` to use `?`.
@@ -53,7 +54,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                     "entity_id": { "type": "string", "description": "Entity ID to query" },
                     "depth": { "type": "integer", "description": "Number of hops (default 1)", "default": 1 },
                     "kinds": { "type": "array", "items": { "type": "string" }, "description": "Filter by entity kinds" },
-                    "format": { "type": "string", "description": "Output detail level (default \"graph\")", "default": "graph" },
+                    "format": choice_schema(&ops_export::AGENT_FORMAT, "Output detail level"),
                     "include_coverage": { "type": "boolean", "description": "Include coverage metadata in the response", "default": false }
                 },
                 "required": ["entity_id"]
@@ -77,9 +78,9 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "type": "object",
                 "properties": {
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" },
-                    "severity_filter": { "type": "string", "enum": ["error", "warning", "info"], "description": "Only report diagnostics of this severity, after strict promotion (case-insensitive). The verdict in _meta[\"specforge/check\"] still counts everything reported" },
+                    "severity_filter": names_schema(specforge_ops::check::SEVERITY_NAMES, "Only report diagnostics of this severity, after strict promotion (case-insensitive). The verdict in _meta[\"specforge/check\"] still counts everything reported"),
                     "strict": { "type": "boolean", "description": "Promote warnings to errors, before severity_filter applies", "default": false },
-                    "lint": { "type": "array", "items": { "type": "string", "enum": ["inferred", "pedantic"] }, "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)" },
+                    "lint": { "type": "array", "items": names_schema(specforge_project::LINT_PROFILE_NAMES, "A lint profile"), "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)" },
                     "use_cached": { "type": "boolean", "description": "Report cached diagnostics from the last compile instead of recompiling", "default": false }
                 }
             })
@@ -99,7 +100,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "pass": { "type": "string", "description": "Analysis pass to run (all, coverage, contracts)" },
+                    "pass": { "type": "string", "description": "Analysis pass to run: all, coverage, contracts, or a pass an extension declares (`<extension>:<pass>`)", "default": specforge_ops::analyze::EVERY_PASS },
                     "strict": { "type": "boolean", "description": "Promote warnings to errors" },
                     "test_results": { "type": "string", "description": "Path to a specforge-report.json for proof-level verdicts" },
                     "use_cached": { "type": "boolean", "description": "Analyze the last compiled graph instead of recompiling (a server with no graph compiles anyway)", "default": false },
@@ -124,7 +125,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "format": { "type": "string", "enum": ["graph", "context", "brief"], "default": "graph" },
+                    "format": choice_schema(&ops_export::AGENT_FORMAT, "Export format"),
                     "scope": { "type": "string", "description": "Scope to entity subgraph" },
                     "max_tokens": { "type": "integer", "description": "Optional token budget; truncates the export to the most central entities that fit" },
                     "with_schema": { "type": "boolean", "description": "Embed the Graph Protocol schema in a context, brief or budgeted graph export (a full graph export embeds it already); under max_tokens it counts toward the budget" },
@@ -280,8 +281,8 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "type": "object",
                 "properties": {
                     "kind": { "type": "string", "description": "Filter schema to a specific entity kind" },
-                    "include_edges": { "type": "boolean", "description": "Include edge type definitions", "default": true },
-                    "include_validation_rules": { "type": "boolean", "description": "Include the validation rules loaded extensions declare", "default": false }
+                    "include_edges": { "type": "boolean", "description": "Include edge type definitions", "default": specforge_ops::schema::SchemaRequest::default().edges },
+                    "include_validation_rules": { "type": "boolean", "description": "Include the validation rules loaded extensions declare", "default": specforge_ops::schema::SchemaRequest::default().validation_rules }
                 }
             })
         },
@@ -302,21 +303,9 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "format": {
-                        "type": "string",
-                        "enum": ["markdown", "mermaid", "dot", "json", "dbml"],
-                        "description": "Output format (default: markdown)"
-                    },
-                    "group_by": {
-                        "type": "string",
-                        "enum": ["extension", "none"],
-                        "description": "Group entities by extension or list flat (default: extension)"
-                    },
-                    "fields": {
-                        "type": "string",
-                        "enum": ["none", "keys", "all"],
-                        "description": "Field detail level (default: keys)"
-                    },
+                    "format": choice_schema(&ops_model::MODEL_FORMAT, "Output format"),
+                    "group_by": choice_schema(&ops_model::GROUP_BY, "How to group entities"),
+                    "fields": choice_schema(&ops_model::MODEL_FIELDS, "Field detail level"),
                     "extension": {
                         "type": "string",
                         "description": "Filter to a single extension"
@@ -352,21 +341,9 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "format": {
-                        "type": "string",
-                        "enum": ["markdown", "mermaid", "dot", "json"],
-                        "description": "Output format (default: json). JSON recommended for programmatic consumption."
-                    },
-                    "fields": {
-                        "type": "string",
-                        "enum": ["none", "keys", "all"],
-                        "description": "Detail level: none (counts only), keys (names + rule codes), all (full field attribution). Default: keys"
-                    },
-                    "deps": {
-                        "type": "string",
-                        "enum": ["direct", "effective", "full"],
-                        "description": "Dependency visibility: direct (declared only), effective (direct + used transitive), full (all transitive). Default: direct"
-                    }
+                    "format": choice_schema(&ops_model::OUTLINE_FORMAT, "Output format; json is meant for programs"),
+                    "fields": choice_schema(&ops_model::OUTLINE_FIELDS, "Detail level"),
+                    "deps": choice_schema(&ops_model::DEPS, "Dependency visibility")
                 }
             })
         },
@@ -387,7 +364,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "properties": {
                     "entity_id": { "type": "string", "description": "Filter to specific entity" },
                     "kind": { "type": "string", "description": "Filter by entity kind" },
-                    "status_filter": { "type": "string", "enum": ["covered", "partial", "uncovered"], "description": "Only entities with this coverage status" }
+                    "status_filter": choice_schema(&specforge_ops::coverage::STATUS, "Only entities with this coverage status")
                 }
             })
         },
@@ -496,7 +473,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "type": "object",
                 "properties": {
                     "entity_id": { "type": "string", "description": "Entity ID" },
-                    "direction": { "type": "string", "enum": ["incoming", "outgoing", "both"], "default": "incoming", "description": "incoming: other entities' references to it; outgoing: its own references to others; both" },
+                    "direction": choice_schema(&specforge_ops::navigate::DIRECTION, "Which references"),
                     "include_declaration": { "type": "boolean", "default": false, "description": "Also return the entity's own declaration (its name)" }
                 },
                 "required": ["entity_id"]
@@ -898,7 +875,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "format": { "type": "string", "enum": ["json", "dot", "context", "brief"], "description": "Renderer to use" },
+                    "format": required_choice_schema(&ops_export::FORMAT, "Renderer to use"),
                     "out_dir": { "type": "string", "description": "Directory to write the rendering into (returned inline when omitted)" },
                     "scope": { "type": "string", "description": "Scope to entity" }
                 },

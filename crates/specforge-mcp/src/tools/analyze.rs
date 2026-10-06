@@ -38,7 +38,9 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     // Without `test_results`, use what `specforge collect` last recorded at
     // the project root, as the CLI does.
     let options = AnalyzeOptions {
-        pass: args.pass.unwrap_or_else(|| "all".to_string()),
+        pass: args
+            .pass
+            .unwrap_or_else(|| specforge_ops::analyze::EVERY_PASS.to_string()),
         strict: args.strict.unwrap_or(false),
         report: match args.test_results {
             Some(named) => ReportSource::File(PathBuf::from(named)),

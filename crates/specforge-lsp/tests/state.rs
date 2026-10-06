@@ -1,4 +1,4 @@
-use crate::contracts::wire::{Session, codes};
+use crate::session::{Session, codes};
 use serde_json::json;
 use specforge_test_macros::test as spec;
 
@@ -103,9 +103,13 @@ fn did_change_applies_edits() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///a.spec", "hello world\n");
 
-    state.apply_change("file:///a.spec", 0, 6, 0, 11, "rust");
+    state.apply_change(
+        "file:///a.spec",
+        Some(crate::lsp_range(0, 6, 0, 11)),
+        "rust",
+    );
     assert_eq!(
-        state.document("file:///a.spec").unwrap().content(),
+        state.document("file:///a.spec").unwrap().text(),
         "hello rust\n"
     );
 }

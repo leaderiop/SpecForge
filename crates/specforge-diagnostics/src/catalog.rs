@@ -241,6 +241,9 @@ catalog! {
     E068: Error core,
         "Coverage gate without the coverage pass",
         "`specforge analyze --min N` gates on proof coverage, which the `coverage` pass of `@specforge/testing` computes, but that pass didn't run: the extension isn't enabled, or `--pass` selected a different pass. Enable it with `specforge add @specforge/testing`, and run the `coverage` (or `all`) pass. The run exits 2.";
+    E069: Error core,
+        "Unusable specforge.json",
+        "The project root has a `specforge.json` that isn't used as written. When it can't be read, isn't valid JSON, isn't a JSON object, or its `extensions` value isn't an array, the compile uses the default config: no extension loads and only structure is checked (I002 says so), and `specforge add` and `specforge remove` refuse to edit the file (config_invalid) without changing anything. When a key has the wrong type (`name`, `version` or `spec_root` not a string, `exclude` not an array), that key's default is used; when an item of `extensions` or `exclude` isn't a string, that item is ignored; the rest of the file is used. Each problem is one E069, and `check` fails on it, so a broken config can't pass a CI that checks nothing. Fix the file: the message names the JSON error's line and column, or the key and the item. A missing `specforge.json` is not this: it is a project with the default config (`specforge doctor` says so).";
     I002: Info core,
         "Structural-only mode",
         "Emitted when no extensions are installed, or when every installed extension failed to load, so the compiler falls back to structural-only validation. Install an extension (for example `specforge add @specforge/software`) to enable kind-specific checks.";

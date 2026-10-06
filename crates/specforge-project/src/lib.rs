@@ -14,9 +14,6 @@
 //!   applies changes as an update, an environment reload or a re-check
 //!   (watch, the LSP and MCP each hold one). After any sequence of updates
 //!   its diagnostics are the set a fresh compile reports.
-//!
-//! [`CompilationContext`] is the flat view older callers read; it is built
-//! from a compiled project with [`CompiledProject::into_context`].
 
 mod build_cache;
 mod check_passes;
@@ -40,7 +37,9 @@ use std::path::{Path, PathBuf};
 use compile::{GraphChecks, check_graph, load_extensions, probe_custom_rules};
 use coverage::RecordedCoverage;
 use snapshot::EntitySnapshot;
-use specforge_common::{Diagnostic, ProjectConfig, is_discovered, load_project_config};
+use specforge_common::{
+    ConfigProblem, Diagnostic, ProjectConfig, Severity, is_discovered, read_project_config,
+};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
 use specforge_protocol_types::ExtensionDeclaration;
@@ -51,7 +50,7 @@ use specforge_resolver::{ResolveConfig, ResolvedProject, resolve_project_with_co
 use specforge_wasm::WasmRuntime;
 
 pub use build_cache::{BUILD_CACHE_FILE, BUILD_CACHE_FORMAT, BuildCache, CachedStatus};
-pub use compile::{CompilationContext, EnabledExtension};
+pub use compile::EnabledExtension;
 pub use delta::{EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange, compute_graph_delta};
 pub use inputs::{Changes, EnvironmentInputs, InputRole, Origin, UpdateKind, source_key};
 pub use policy::{
@@ -65,6 +64,15 @@ pub struct Environment {
     /// The project root (where `specforge.json` lives).
     pub root: PathBuf,
     pub config: ProjectConfig,
+    /// How `specforge.json` is not used as written, in file order: each is
+    /// reported as E069, first. With one that
+    /// [`loads_nothing`](ConfigProblem::loads_nothing), the compile loaded
+    /// no extension.
+    pub config_problems: Vec<ConfigProblem>,
+    /// `specforge.json` exists at the root. `false` for [`Self::empty`],
+    /// [`Self::from_declarations`] and [`Self::with_registries`] (no file
+    /// was read).
+    pub config_found: bool,
     /// What each `specforge.json` `extensions` entry enables, in order, as
     /// the runtime loaded it (a `.wasm` file entry by the name its
     /// component declares).
@@ -78,9 +86,9 @@ pub struct Environment {
     /// The ref schemes the configured providers registered (ADR 0004
     /// D3-c): with any registered, a ref with another scheme is I005.
     pub provider_schemes: HashSet<String>,
-    /// Extension loading diagnostics: the runtime's load failures
-    /// (E028/E033) in load order, then the declarations' unknown keys
-    /// (W138).
+    /// Extension loading diagnostics: one E069 per config problem, the
+    /// runtime's load failures (E028/E033) in load order, then the
+    /// declarations' unknown keys (W138).
     pub load_diagnostics: Vec<Diagnostic>,
     /// After the registry build: provider registration (W118/E057), then
     /// I002 when no extension loaded.
@@ -93,6 +101,8 @@ impl Environment {
         Environment {
             root: PathBuf::new(),
             config: ProjectConfig::default(),
+            config_problems: Vec::new(),
+            config_found: false,
             enabled: Vec::new(),
             spec_root: PathBuf::new(),
             registries: RegistryBuild::default(),
@@ -112,16 +122,31 @@ impl Environment {
         }
     }
 
+    /// An environment of exactly `registries` and no project: the default
+    /// config, nothing enabled, no spec root (tests, a graph built in
+    /// memory).
+    pub fn with_registries(registries: RegistryBuild) -> Self {
+        Environment {
+            registries,
+            ..Environment::empty()
+        }
+    }
+
     /// Read the project's config and load its extensions through `runtime`
     /// (none without one), then build the registries from them.
     pub fn load(root: &Path, runtime: Option<&dyn WasmRuntime>) -> Self {
-        let config = load_project_config(root);
+        let read = read_project_config(root);
+        let config = read.config;
         let enabled = config
             .extensions
             .iter()
             .map(|entry| EnabledExtension::of(entry, runtime))
             .collect();
-        let mut load_diagnostics = Vec::new();
+        let mut load_diagnostics: Vec<Diagnostic> = read
+            .problems
+            .iter()
+            .map(config_problem_diagnostic)
+            .collect();
         let declarations = match runtime {
             Some(runtime) => load_extensions(&config.extensions, runtime, &mut load_diagnostics),
             None => Vec::new(),
@@ -136,7 +161,7 @@ impl Environment {
         let mut setup_diagnostics = Vec::new();
         let provider_schemes = register_providers(&config, &registries, &mut setup_diagnostics);
         if registries.declarations().is_empty() {
-            setup_diagnostics.push(structural_only_notice(&config.extensions));
+            setup_diagnostics.push(structural_only_notice(&config.extensions, &read.problems));
         }
         let spec_root = match &config.spec_root {
             Some(spec_root) => root.join(spec_root),
@@ -145,6 +170,8 @@ impl Environment {
         Environment {
             root: root.to_path_buf(),
             config,
+            config_problems: read.problems,
+            config_found: read.found,
             enabled,
             spec_root,
             registries,
@@ -194,8 +221,9 @@ impl Environment {
         diagnostics
     }
 
-    /// The diagnostics reported before any source, in this order: the
-    /// runtime's load failures (E028/E033), unknown declaration keys
+    /// The diagnostics reported before any source, in this order: why
+    /// `specforge.json` is not used as written (E069), the runtime's load
+    /// failures (E028/E033), unknown declaration keys
     /// (W138), the declarations' own (E030, W021, E027, W145), provider
     /// registration (W118/E057), I002, then the registry build's.
     pub fn diagnostics(&self) -> impl Iterator<Item = &Diagnostic> {
@@ -261,11 +289,37 @@ fn register_providers(
     schemes.entries.into_iter().map(|e| e.scheme).collect()
 }
 
+/// E069: one way `specforge.json` is not used as written. An error: a
+/// config that loads nothing must not pass `check`.
+fn config_problem_diagnostic(problem: &ConfigProblem) -> Diagnostic {
+    let message = if problem.loads_nothing() {
+        format!("specforge.json can't be used: {problem}; no extension is loaded")
+    } else {
+        format!("specforge.json: {problem}; it is ignored")
+    };
+    Diagnostic {
+        code: "E069".to_string(),
+        severity: Severity::Error,
+        message,
+        span: None,
+        suggestion: Some(
+            "fix specforge.json; `specforge explain E069` says what it must be".to_string(),
+        ),
+        data: None,
+    }
+}
+
 /// I002: no extension loaded, so the compile checks structure only (no
-/// kind, field or rule checks). Reported after the load errors (E028) that
-/// caused it, if any.
-fn structural_only_notice(configured: &[String]) -> Diagnostic {
-    let (message, suggestion) = if configured.is_empty() {
+/// kind, field or rule checks). Reported after the errors that caused it,
+/// if any: the config problems (E069) that left nothing to load, or the
+/// load errors (E028).
+fn structural_only_notice(configured: &[String], problems: &[ConfigProblem]) -> Diagnostic {
+    let (message, suggestion) = if problems.iter().any(ConfigProblem::loads_nothing) {
+        (
+            "specforge.json could not be read — operating in structural-only mode".to_string(),
+            "fix specforge.json (E069 above)".to_string(),
+        )
+    } else if configured.is_empty() {
         (
             "no extensions configured — operating in structural-only mode".to_string(),
             "enable kind-specific checks with: specforge add @specforge/software".to_string(),
@@ -282,7 +336,7 @@ fn structural_only_notice(configured: &[String]) -> Diagnostic {
     };
     Diagnostic {
         code: "I002".to_string(),
-        severity: specforge_common::Severity::Info,
+        severity: Severity::Info,
         message,
         span: None,
         suggestion: Some(suggestion),
@@ -374,34 +428,5 @@ impl CompiledProject {
     /// graph against it, memoized for this compile.
     pub fn recorded(&self) -> &RecordedCoverage {
         &self.recorded
-    }
-
-    /// The flat view older callers read.
-    pub fn into_context(self) -> CompilationContext {
-        let diagnostics = self.diagnostics();
-        let CompiledProject {
-            env,
-            resolved,
-            graph,
-            ..
-        } = self;
-        let registries = env.registries;
-        let declarations = registries.declarations().to_vec();
-        CompilationContext {
-            graph,
-            extension_info: registries
-                .extension_info()
-                .map(|(name, version)| (name.to_string(), version.to_string()))
-                .collect(),
-            kind_registry: registries.kinds,
-            field_registry: registries.fields,
-            edge_registry: registries.edges,
-            diagnostics,
-            resolved,
-            extension_rules: registries.rules,
-            declarations,
-            passes: registries.passes,
-            spec_root: env.spec_root,
-        }
     }
 }

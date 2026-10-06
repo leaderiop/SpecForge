@@ -3,43 +3,21 @@
 //! declarative rules and their Wasm `check: "custom"` rules.
 
 use crate::snapshot::EntitySnapshot;
-use specforge_common::{Diagnostic, ExtensionEntry, Severity, load_project_config};
-use specforge_graph::{Graph, GraphConfig, build_graph};
+use specforge_common::{Diagnostic, ExtensionEntry, Severity};
+use specforge_graph::{Graph, GraphConfig};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
-    DeclaredPass, EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild,
+    RegistryBuild,
     compilation::{
         detect_identifier_length_violations, detect_mistyped_references,
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
     },
     validation_engine::{ValidationRulePattern, execute_pattern},
 };
-use specforge_resolver::{ResolvedProject, resolve_project};
 use specforge_validator::{ValidatorConfig, validate_with_config};
 use specforge_wasm::WasmRuntime;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-
-/// The flat view of a compiled project that older callers read
-/// ([`crate::CompiledProject::into_context`] builds it).
-pub struct CompilationContext {
-    pub graph: Graph,
-    pub kind_registry: KindRegistry,
-    pub field_registry: FieldRegistry,
-    pub edge_registry: EdgeRegistry,
-    /// What `specforge check` reports, in its order.
-    pub diagnostics: Vec<Diagnostic>,
-    pub resolved: ResolvedProject,
-    /// The validation rules with the extension that owns each (empty for
-    /// host-generated ones), for re-running them on a rebuilt graph.
-    pub extension_rules: Vec<(ValidationRulePattern, String)>,
-    pub extension_info: Vec<(String, String)>,
-    /// The loaded declarations, in load order.
-    pub declarations: Vec<ExtensionDeclaration>,
-    /// The extensions' passes, in the order they run.
-    pub passes: Vec<DeclaredPass>,
-    pub spec_root: std::path::PathBuf,
-}
 
 /// The graph build's inputs, from a registry build. Every surface that
 /// builds a graph (`check`, watch, the LSP) takes its `GraphConfig` from
@@ -142,39 +120,6 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
     diagnostics.extend(extension_diags);
 
     diagnostics
-}
-
-/// Lightweight compilation: resolve + build graph + core validation only.
-/// No extension manifests, no registry validation, no conditional rules.
-/// `specforge_project::CompiledProject::compile` is the full pipeline.
-pub fn compile_simple(path: &Path) -> CompilationContext {
-    let config = load_project_config(path);
-    let spec_root = match &config.spec_root {
-        Some(sr) => path.join(sr),
-        None => path.to_path_buf(),
-    };
-    let resolved = resolve_project(&spec_root);
-    let spec_files: Vec<_> = resolved.files.iter().map(|f| f.spec_file.clone()).collect();
-    let (graph, build_diagnostics) = build_graph(&spec_files);
-    let validation_diagnostics = validate_with_config(&graph, &ValidatorConfig::default());
-
-    let mut diagnostics = resolved.diagnostics.clone();
-    diagnostics.extend(build_diagnostics);
-    diagnostics.extend(validation_diagnostics);
-
-    CompilationContext {
-        graph,
-        kind_registry: KindRegistry::new(),
-        field_registry: FieldRegistry::new(),
-        edge_registry: EdgeRegistry::new(),
-        diagnostics,
-        resolved,
-        extension_rules: Vec::new(),
-        extension_info: Vec::new(),
-        declarations: Vec::new(),
-        passes: Vec::new(),
-        spec_root,
-    }
 }
 
 /// What one `specforge.json` `extensions` entry enables, as the runtime

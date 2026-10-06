@@ -15,9 +15,11 @@
 
 use serde::Serialize;
 use specforge_common::{Diagnostic, DiagnosticData, Severity};
-use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::{DoctorStatus, read_lock_file, run_doctor_check};
 use std::collections::{BTreeMap, HashMap};
+
+use crate::extension::Origin;
+use crate::view::ProjectView;
 use std::path::Path;
 
 /// Diagnostic codes that mean two contributions collide.
@@ -32,6 +34,13 @@ pub const SHADOWING_CODES: [&str; 2] = ["E013", "E026"];
 /// or its protocol load failed) and E033 (its installed binary no longer
 /// matches the lock file's hash).
 pub const LOAD_FAILURE_CODES: [&str; 2] = ["E028", "E033"];
+
+/// Codes that mean `specforge.json` is not used as written: E069 (it can't
+/// be read, isn't a JSON object, or has a mistyped key or item).
+pub const CONFIG_CODES: [&str; 1] = ["E069"];
+
+/// The finding code of a project root without `specforge.json`.
+pub const CONFIG_MISSING: &str = "config_missing";
 
 /// Everything `specforge doctor` reports about a project.
 #[derive(Debug, Clone, Serialize)]
@@ -63,7 +72,9 @@ pub struct DoctorReport {
 pub struct ExtensionHealth {
     pub name: String,
     pub version: String,
-    /// `builtin` for extensions shipped in the binary, else the lock entry's source.
+    /// Where it comes from, as the extensions listing names it: `builtin`,
+    /// the lock entry's source, `file:<path>` for a `.wasm` file entry, or
+    /// `unknown`.
     pub source: String,
     pub enhancement_count: usize,
 }
@@ -170,37 +181,33 @@ impl DoctorReport {
     }
 }
 
-/// Build the report for the project at `project_root` from a compile's
-/// loaded `declarations` and `diagnostics`.
-pub fn diagnose(
-    project_root: &Path,
-    declarations: &[ExtensionDeclaration],
-    diagnostics: &[Diagnostic],
-) -> DoctorReport {
-    diagnose_with(project_root, declarations, diagnostics, z3_on_path())
+/// The health report of the project the view was compiled from: its
+/// loaded declarations, the diagnostics its surface reports, and, with a
+/// root, its lock and installed binaries. Without a root the installation
+/// checks are skipped (`extensions_checked: 0`).
+pub fn diagnose(view: &ProjectView) -> DoctorReport {
+    diagnose_with(view, z3_on_path())
 }
 
 /// [`diagnose`] with the z3 probe supplied, so tests do not depend on PATH.
-pub fn diagnose_with(
-    project_root: &Path,
-    declarations: &[ExtensionDeclaration],
-    diagnostics: &[Diagnostic],
-    z3_available: bool,
-) -> DoctorReport {
-    let lock = read_lock_file(&project_root.join("specforge.lock")).ok();
+pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
+    let declarations = view.registries.declarations();
+    let diagnostics = view.reported();
+    let lock = view
+        .root
+        .and_then(|root| read_lock_file(&root.join("specforge.lock")).ok());
     let lock_entries = lock.as_ref().map(|l| l.entries.as_slice()).unwrap_or(&[]);
 
     // Extensions: loaded declarations first (load order), then lock entries
-    // that did not load. A declaration without a lock entry is a builtin.
+    // that did not load. Each is named by the listing's source rule: the
+    // .wasm file an entry names, the lock entry's source, a builtin, else
+    // unknown.
     let mut extensions: Vec<ExtensionHealth> = declarations
         .iter()
         .map(|d| ExtensionHealth {
             name: d.name().to_string(),
             version: d.version().to_string(),
-            source: lock_entries
-                .iter()
-                .find(|e| e.name == d.name())
-                .map_or_else(|| "builtin".to_string(), |e| e.source.clone()),
+            source: Origin::of(d.name(), &view.env.enabled, lock.as_ref()).source(),
             enhancement_count: d.enhancements.len(),
         })
         .collect();
@@ -236,6 +243,37 @@ pub fn diagnose_with(
 
     let mut findings = Vec::new();
 
+    // The config itself: a `specforge.json` the compile could not use as
+    // written (E069, an error: `check` fails on it, so doctor does too),
+    // or none at the project root (a warning: the default config is a
+    // valid project, but rarely the one meant).
+    for diag in diagnostics
+        .iter()
+        .filter(|d| CONFIG_CODES.contains(&d.code.as_str()))
+    {
+        findings.push(Finding {
+            check: diag.message.clone(),
+            status: match diag.severity {
+                Severity::Error => FindingStatus::Error,
+                _ => FindingStatus::Warn,
+            },
+            code: diag.code.clone(),
+            remediation: remediation(diag, || format!("run `specforge explain {}`", diag.code)),
+        });
+    }
+    if let Some(root) = view.root
+        && !view.env.config_found
+    {
+        findings.push(Finding {
+            check: format!("specforge.json at {}", root.display()),
+            status: FindingStatus::Warn,
+            code: CONFIG_MISSING.into(),
+            remediation: "run `specforge init` here, or pass --path to the project root; without \
+                          specforge.json the project has the default config and no extension"
+                .into(),
+        });
+    }
+
     // Installed binaries against the lock file.
     let installed_versions: HashMap<String, String> = lock_entries
         .iter()
@@ -247,10 +285,11 @@ pub fn diagnose_with(
     };
     let statuses = lock
         .as_ref()
-        .map(|l| {
+        .zip(view.root)
+        .map(|(l, root)| {
             run_doctor_check(
                 l,
-                &project_root.join(".specforge").join("extensions"),
+                &root.join(".specforge").join("extensions"),
                 compute_hash,
                 &installed_versions,
             )
@@ -375,7 +414,7 @@ pub fn diagnose_with(
     // Extensions the compile could not load: `check` fails on them, so
     // doctor does too.
     let mut load_failures = Vec::new();
-    for diag in diagnostics {
+    for diag in &diagnostics {
         if !LOAD_FAILURE_CODES.contains(&diag.code.as_str()) {
             continue;
         }
@@ -399,7 +438,7 @@ pub fn diagnose_with(
     // Conflicts and shadowed keywords the compile reported.
     let mut conflicts = Vec::new();
     let mut shadowed = Vec::new();
-    for diag in diagnostics {
+    for diag in &diagnostics {
         let conflict = CONFLICT_CODES.contains(&diag.code.as_str());
         let shadowing = SHADOWING_CODES.contains(&diag.code.as_str());
         if !conflict && !shadowing {
@@ -489,6 +528,7 @@ fn remediation(diag: &Diagnostic, fallback: impl FnOnce() -> String) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::view::testing::Fixture;
     use specforge_test_macros::test as specforge_test;
 
     fn diag(code: &str, message: &str, suggestion: Option<&str>) -> Diagnostic {
@@ -504,7 +544,6 @@ mod tests {
 
     #[test]
     fn a_kind_registered_twice_is_a_shadowed_construct() {
-        let dir = tempfile::TempDir::new().unwrap();
         // What the registry build reports for a kind two extensions declare,
         // worded so that no quoted word of it is the keyword: only the data
         // names it.
@@ -518,7 +557,8 @@ mod tests {
         }));
         let diagnostics = [e026];
 
-        let report = diagnose_with(dir.path(), &[], &diagnostics, true);
+        let fixture = Fixture::new().reporting(diagnostics.to_vec());
+        let report = diagnose_with(&fixture.view(), true);
 
         assert_eq!(report.shadowed.len(), 1);
         assert_eq!(report.shadowed[0].keyword, "memo");
@@ -532,13 +572,13 @@ mod tests {
 
     #[test]
     fn a_non_shadowing_conflict_is_listed_but_not_shadowed() {
-        let dir = tempfile::TempDir::new().unwrap();
         let diagnostics = [
             diag("W018", "edge type 'uses' declared twice", None),
             diag("W001", "unrelated", None),
         ];
 
-        let report = diagnose_with(dir.path(), &[], &diagnostics, true);
+        let fixture = Fixture::new().reporting(diagnostics.to_vec());
+        let report = diagnose_with(&fixture.view(), true);
 
         assert_eq!(report.conflicts.len(), 1);
         assert!(report.shadowed.is_empty());
@@ -557,7 +597,6 @@ mod tests {
         verify = "a finding without its own suggestion quotes the catalogued explanation"
     )]
     fn a_finding_without_a_suggestion_quotes_the_catalogue() {
-        let dir = tempfile::TempDir::new().unwrap();
         let diagnostics = [
             // No suggestion: the explanation of E028 is quoted.
             diag("E028", "extension '@acme/x' is not installed", None),
@@ -569,7 +608,8 @@ mod tests {
             ),
         ];
 
-        let report = diagnose_with(dir.path(), &[], &diagnostics, true);
+        let fixture = Fixture::new().reporting(diagnostics.to_vec());
+        let report = diagnose_with(&fixture.view(), true);
 
         let remedies: Vec<&str> = report
             .load_failures
@@ -594,7 +634,6 @@ mod tests {
 
     #[test]
     fn an_entity_id_that_is_a_kind_keyword_is_shadowed_but_not_a_conflict() {
-        let dir = tempfile::TempDir::new().unwrap();
         let mut e013 = diag(
             "E013",
             "entity ID 'behavior' collides with a reserved keyword at project.spec",
@@ -605,7 +644,8 @@ mod tests {
         }));
         let diagnostics = [e013];
 
-        let report = diagnose_with(dir.path(), &[], &diagnostics, true);
+        let fixture = Fixture::new().reporting(diagnostics.to_vec());
+        let report = diagnose_with(&fixture.view(), true);
 
         assert!(report.conflicts.is_empty());
         assert_eq!(report.shadowed[0].keyword, "behavior");
@@ -615,11 +655,178 @@ mod tests {
 
     #[test]
     fn a_missing_z3_is_a_warning_not_an_error() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let report = diagnose_with(dir.path(), &[], &[], false);
+        let fixture = Fixture::new();
+        let report = diagnose_with(&fixture.view(), false);
         assert_eq!(report.findings.len(), 1);
         assert_eq!(report.findings[0].code, "z3_missing");
         assert!(!report.has_errors());
         assert_eq!(report.cache_status, CacheStatus::Ok);
+    }
+
+    #[specforge_test(
+        behavior = "management_operations_over_the_project_view",
+        verify = "doctor reads the diagnostics its view reports"
+    )]
+    fn doctor_reads_the_diagnostics_its_view_reports() {
+        let e028 = diag("E028", "extension '@acme/x' is not installed", None);
+        let failing = Fixture::new().reporting(vec![e028]);
+        let report = diagnose_with(&failing.view(), true);
+        let failures: Vec<&str> = report
+            .load_failures
+            .iter()
+            .map(|f| f.code.as_str())
+            .collect();
+        assert_eq!(failures, ["E028"]);
+        assert!(report.has_errors());
+
+        let clean = Fixture::new();
+        let report = diagnose_with(&clean.view(), true);
+        assert!(report.load_failures.is_empty());
+        assert!(!report.has_errors());
+    }
+
+    #[test]
+    fn a_rootless_view_skips_the_installation_checks() {
+        let fixture = Fixture::new()
+            .declarations(vec![Fixture::declaration("@acme/loaded", "2.0.0")])
+            .lock(&[("@acme/locked", "1.0.0", "registry")]);
+
+        let report = diagnose_with(&fixture.rootless_view(), true);
+
+        assert_eq!(report.extensions_checked, 0);
+        assert_eq!(report.cache_status, CacheStatus::Ok);
+        let names: Vec<&str> = report.extensions.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(names, ["@acme/loaded"], "no lock is read without a root");
+
+        // Rooted, the lock is read and its binary checked (missing here).
+        let report = diagnose_with(&fixture.view(), true);
+        assert_eq!(report.extensions_checked, 1);
+        assert_eq!(report.cache_status, CacheStatus::Stale);
+    }
+
+    #[specforge_test(
+        behavior = "run_doctor_check",
+        verify = "doctor gives each extension the source the extensions listing gives it"
+    )]
+    fn doctor_names_each_extension_by_the_listings_source() {
+        let fixture = Fixture::new()
+            .config(&["@specforge/product", "greet.wasm", "@acme/stray"])
+            .enabled(vec![
+                specforge_project::EnabledExtension::of("@specforge/product", None),
+                specforge_project::EnabledExtension {
+                    entry: "greet.wasm".into(),
+                    name: "@sdk/greet".into(),
+                    file: Some("greet.wasm".into()),
+                },
+            ])
+            .declarations(vec![
+                Fixture::declaration("@specforge/product", "1.0.0"),
+                Fixture::declaration("@sdk/greet", "0.1.0"),
+                Fixture::declaration("@acme/stray", "3.0.0"),
+            ]);
+        let view = fixture.view();
+
+        let report = diagnose_with(&view, true);
+
+        let sources: Vec<(&str, &str)> = report
+            .extensions
+            .iter()
+            .map(|e| (e.name.as_str(), e.source.as_str()))
+            .collect();
+        assert_eq!(
+            sources,
+            [
+                ("@specforge/product", "builtin"),
+                ("@sdk/greet", "file:greet.wasm"),
+                ("@acme/stray", "unknown"),
+            ]
+        );
+        for extension in &report.extensions {
+            let listed = crate::extension::list(&view)
+                .extensions
+                .into_iter()
+                .find(|e| e.name == extension.name)
+                .unwrap();
+            assert_eq!(
+                listed.origin.source(),
+                extension.source,
+                "{}",
+                extension.name
+            );
+        }
+    }
+
+    fn finding_codes(report: &DoctorReport) -> Vec<(&str, FindingStatus)> {
+        report
+            .findings
+            .iter()
+            .map(|f| (f.code.as_str(), f.status))
+            .collect()
+    }
+
+    #[specforge_test(
+        behavior = "run_doctor_check",
+        verify = "doctor in a directory without specforge.json reports config_missing as a warning"
+    )]
+    fn doctor_without_specforge_json_says_so() {
+        let fixture = Fixture::new().without_config_file();
+
+        let report = diagnose_with(&fixture.view(), true);
+
+        assert_eq!(
+            finding_codes(&report),
+            [(CONFIG_MISSING, FindingStatus::Warn)]
+        );
+        assert!(!report.has_errors(), "a warning: doctor stays healthy");
+        assert!(
+            report.findings[0]
+                .check
+                .contains(&fixture.dir.path().display().to_string()),
+            "{:?}",
+            report.findings[0]
+        );
+        assert!(report.findings[0].remediation.contains("specforge init"));
+
+        // A project with specforge.json gets no such finding.
+        let found = Fixture::new();
+        assert!(finding_codes(&diagnose_with(&found.view(), true)).is_empty());
+    }
+
+    #[specforge_test(
+        behavior = "run_doctor_check",
+        verify = "doctor in a directory without specforge.json reports config_missing as a warning"
+    )]
+    fn a_rootless_view_has_no_config_missing_finding() {
+        let fixture = Fixture::new().without_config_file();
+
+        let report = diagnose_with(&fixture.rootless_view(), true);
+
+        assert!(finding_codes(&report).is_empty(), "{:?}", report.findings);
+    }
+
+    #[specforge_test(
+        behavior = "provide_mcp_doctor_tool",
+        verify = "specforge.doctor reports an unusable specforge.json (E069) as a finding"
+    )]
+    fn an_unusable_config_is_an_error_finding() {
+        let e069 = diag(
+            "E069",
+            "specforge.json can't be used: ./specforge.json is not valid JSON: expected value at line 1 column 41; no extension is loaded",
+            Some("fix specforge.json; `specforge explain E069` says what it must be"),
+        );
+        let fixture = Fixture::new().reporting(vec![e069]);
+
+        let report = diagnose_with(&fixture.view(), true);
+
+        assert_eq!(finding_codes(&report), [("E069", FindingStatus::Error)]);
+        assert!(report.has_errors());
+        assert_eq!(
+            report.findings[0].remediation,
+            "fix specforge.json; `specforge explain E069` says what it must be"
+        );
+        assert!(
+            report.load_failures.is_empty(),
+            "E069 is about the config, not an extension"
+        );
     }
 }

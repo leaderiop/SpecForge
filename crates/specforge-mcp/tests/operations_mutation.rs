@@ -1,99 +1,36 @@
+use crate::support::*;
 use serde_json::{Value, json};
-use specforge_common::SourceSpan;
-use specforge_graph::{Edge, Graph, Node};
 use specforge_mcp::McpServer;
-use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test::prelude::*;
 use std::path::Path;
 
-// Leak a per-test temp project: process exits make cleanup unnecessary, and
-// a real project root is required now that ops perform real work.
-fn attach_project(state: &mut specforge_mcp::state::McpState) {
-    let dir = tempfile::TempDir::new().unwrap();
-    let config = json!({"name":"t","version":"0.1.0","extensions":[]});
-    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    std::fs::write(
-        dir.path().join("test.spec"),
-        "behavior alpha \"Alpha\" {\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n",
-    )
-    .unwrap();
-    let root = dir.path().to_path_buf();
-    std::mem::forget(dir); // outlives the test
-    crate::support::serve_in_memory_at(state, &root);
+/// test.spec: the behavior `alpha` on lines 1–2, the feature `beta` that
+/// has it on lines 10–12.
+const TEST_SPEC: &str = concat!(
+    "behavior alpha \"Alpha\" {\n",
+    "}\n",
+    "\n\n\n\n\n\n\n",
+    "feature beta \"Beta\" {\n",
+    "    behaviors [alpha]\n",
+    "}\n",
+);
+
+/// The project the mutation tools act on: test.spec, nothing else.
+fn project() -> TestProject {
+    TestProject::new().file("test.spec", TEST_SPEC)
 }
 
-fn test_server() -> McpServer {
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
-
-    let state = server.state_mut();
-    let mut graph = Graph::new();
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "alpha".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Alpha".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "test.spec".into(),
-            start_line: 1,
-            start_col: 0,
-            end_line: 5,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-    graph.add_node(Node {
-        id: EntityId { raw: "beta".into() },
-        kind: EntityKind {
-            raw: "feature".into(),
-        },
-        title: Some("Beta".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "test.spec".into(),
-            start_line: 10,
-            start_col: 0,
-            end_line: 15,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-    graph.add_edge(Edge {
-        source: "beta".into(),
-        target: "alpha".into(),
-        label: "behaviors".into(),
-    });
-    state.serve_graph(graph, Vec::new());
-    attach_project(state);
-
-    server
+/// [`project`] served with `@test/ext`'s software kinds: what is on disk
+/// is what is served, before and after a mutation writes.
+fn test_server() -> Served {
+    project().serve(&[TestExtension::software()])
 }
 
-fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
-    specforge_registry::KindRegistryEntry {
-        kind_name: kind.into(),
-        source_extension: "@test/ext".into(),
-        testable,
-        supports_verify: testable,
-        allowed_verify_kinds: Vec::new(),
-        lifecycle_field: None,
-        ..Default::default()
-    }
-}
-
-fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
-    let req = json!({
-        "jsonrpc": "2.0", "id": 1,
-        "method": "tools/call",
-        "params": { "name": tool_name, "arguments": args }
-    });
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
+/// [`project`] enabling no extension, served with the project's own
+/// component runtime: an extension a call installs loads as it would
+/// under `specforge mcp <root>`.
+fn components_server() -> Served {
+    project().serve_components()
 }
 
 /// Fresh project directory for specforge.init (refuses existing projects).
@@ -101,51 +38,25 @@ fn fresh_project_dir() -> tempfile::TempDir {
     tempfile::TempDir::new().unwrap()
 }
 
-/// The params of every `name` event the server emitted, oldest first,
-/// each without its `timestamp`.
-fn events_named(server: &McpServer, name: &str) -> Vec<Value> {
-    server
-        .state()
-        .events
-        .iter()
-        .filter(|e| e.name == name)
-        .map(|e| {
-            let mut params = e.params.clone();
-            let stamp = params.as_object_mut().unwrap().remove("timestamp");
-            assert!(stamp.is_some_and(|s| s.is_string()), "{name}: {}", e.params);
-            params
-        })
-        .collect()
-}
-
 fn invoked(server: &McpServer, tool: &str) -> bool {
-    events_named(server, "mcp_tool_invoked")
+    events(server, "mcp_tool_invoked")
         .iter()
         .any(|p| p["toolName"] == tool && p["category"] == "mutation")
-}
-
-fn tool_text(resp: &Value) -> String {
-    resp["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap()
-        .to_string()
 }
 
 // --- specforge.format ---
 
 const UNFORMATTED: &str = "behavior messy \"Messy\" {\ncontract \"The system MUST work\"\n}\n";
 
-/// `test_server` whose project holds two unformatted files, a.spec and b.spec.
-fn server_with_unformatted() -> (McpServer, std::path::PathBuf) {
-    let server = test_server();
-    let root = server
-        .state()
-        .project_root()
-        .map(std::path::Path::to_path_buf)
-        .unwrap();
-    std::fs::write(root.join("test.spec"), "").unwrap();
-    std::fs::write(root.join("a.spec"), UNFORMATTED).unwrap();
-    std::fs::write(root.join("b.spec"), UNFORMATTED.replace("messy", "other")).unwrap();
+/// A project whose spec files are two unformatted ones, a.spec and b.spec
+/// (test.spec empty), and its root.
+fn server_with_unformatted() -> (Served, std::path::PathBuf) {
+    let server = project()
+        .file("test.spec", "")
+        .file("a.spec", UNFORMATTED)
+        .file("b.spec", &UNFORMATTED.replace("messy", "other"))
+        .serve(&[TestExtension::software()]);
+    let root = server.root().to_path_buf();
     (server, root)
 }
 
@@ -347,23 +258,14 @@ behavior login \"Log in\" {
 ";
 
 /// A compiled project where `login` references the invariant `token_unique`.
-fn server_with_token_project() -> (McpServer, std::path::PathBuf) {
-    let dir = tempfile::TempDir::new().unwrap();
-    let root = dir.path().to_path_buf();
-    std::mem::forget(dir); // outlives the test
-    std::fs::write(
-        root.join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":["@specforge/software"]}"#,
-    )
-    .unwrap();
-    std::fs::create_dir_all(root.join("spec")).unwrap();
-    std::fs::write(root.join("spec/tokens.spec"), TOKENS_SPEC).unwrap();
-    std::fs::write(root.join("spec/login.spec"), LOGIN_SPEC).unwrap();
-    let mut server = McpServer::new();
-    let init = json!({"jsonrpc":"2.0","id":1,"method":"initialize",
-        "params":{"projectRoot": root.to_str().unwrap()}});
-    server.handle_message(&init.to_string());
+fn server_with_token_project() -> (Served, std::path::PathBuf) {
+    let server = TestProject::new()
+        .enabling(&["@specforge/software"])
+        .file("spec/tokens.spec", TOKENS_SPEC)
+        .file("spec/login.spec", LOGIN_SPEC)
+        .serve_components();
     assert!(server.state().graph().node("token_unique").is_some());
+    let root = server.root().to_path_buf();
     (server, root)
 }
 
@@ -701,7 +603,7 @@ fn rename_contract() {
     assert!(server.state().graph().node("token_distinct").is_some());
     // Two files rewritten, one entity renamed.
     assert_eq!(
-        events_named(&server, "mcp_mutation_completed"),
+        events(&server, "mcp_mutation_completed"),
         [json!({
             "toolName": "specforge.rename",
             "files_changed": 2,
@@ -980,7 +882,7 @@ fn init_contract() {
 
     // project_initialized_emitted (once: only for the created project),
     // tool_invoked_emitted.
-    let initialized = events_named(&server, "project_initialized");
+    let initialized = events(&server, "project_initialized");
     assert_eq!(initialized.len(), 1, "{initialized:?}");
     assert_eq!(initialized[0]["name"], "contractproject");
     assert!(invoked(&server, "specforge.init"));
@@ -990,14 +892,11 @@ fn init_contract() {
 
 #[test]
 fn add_extension_returns_result() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let mut server = test_server();
-    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
-    )
-    .unwrap();
+    // A project that enables nothing, served with its own component
+    // runtime, so an installed extension loads.
+    let mut server = TestProject::new().serve_components();
+    let dir = server.root().to_path_buf();
+    assert!(dir.join("specforge.json").is_file());
     let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -1020,7 +919,7 @@ fn add_extension_returns_result() {
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(parsed["installed"], true);
     // Local installs derive the name from the file stem (same as the CLI).
-    let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
+    let lock = std::fs::read_to_string(dir.as_path().join("specforge.lock")).unwrap();
     assert!(lock.contains("@sdk/greet"));
 }
 
@@ -1041,14 +940,10 @@ fn greet_blob() -> std::path::PathBuf {
 
 const GREET: &str = "@sdk/greet";
 
-/// `test_server` with the product blob installed in its project.
-fn server_with_product() -> (McpServer, std::path::PathBuf) {
-    let mut server = test_server();
-    let root = server
-        .state()
-        .project_root()
-        .map(std::path::Path::to_path_buf)
-        .unwrap();
+/// [`components_server`] with the product blob installed in its project.
+fn server_with_product() -> (Served, std::path::PathBuf) {
+    let mut server = components_server();
+    let root = server.root().to_path_buf();
     let resp = call_tool(
         &mut server,
         "specforge.add_extension",
@@ -1092,12 +987,8 @@ fn config_extensions(root: &Path) -> Vec<String> {
     verify = "dry_run returns preview without modifying files"
 )]
 fn add_extension_dry_run_writes_nothing() {
-    let mut server = test_server();
-    let root = server
-        .state()
-        .project_root()
-        .map(std::path::Path::to_path_buf)
-        .unwrap();
+    let mut server = components_server();
+    let root = server.root().to_path_buf();
     let before = files_under(&root);
 
     let resp = call_tool(
@@ -1216,16 +1107,12 @@ fn remove_extension_dry_run_writes_nothing() {
 )]
 fn remove_extension_warns_about_orphaned_entities() {
     let (mut server, root) = server_with_product();
-    // The compiled project: `beta` is a feature, a kind only the product
-    // extension defines; `alpha` is a behavior from elsewhere.
-    let mut feature = kind_entry("feature", false);
-    feature.source_extension = GREET.into();
-    server.state_mut().edit_environment(|env| {
-        env.registries.kinds.register(feature);
-    });
-    server.state_mut().edit_environment(|env| {
-        env.registries.kinds.register(kind_entry("behavior", true));
-    });
+    // `hello` is a greeting, a kind only the product extension declares;
+    // test.spec's `alpha` and `beta` are of kinds it does not.
+    server.write(
+        "greet.spec",
+        "greeting hello \"Hello\" {\n  style warm\n}\n",
+    );
 
     let resp = call_tool(
         &mut server,
@@ -1238,7 +1125,7 @@ fn remove_extension_warns_about_orphaned_entities() {
     assert_eq!(warnings.len(), 1, "{parsed}");
     let warning = warnings[0].as_str().unwrap();
     assert!(
-        warning.contains("'beta'") && warning.contains("feature"),
+        warning.contains("'hello'") && warning.contains("greeting"),
         "{warning}"
     );
     assert_eq!(parsed["success"], true, "removal still proceeds");
@@ -1307,14 +1194,11 @@ fn migrate_returns_result() {
 
 #[test]
 fn add_extension_already_installed_placeholder() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let mut server = test_server();
-    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
-    )
-    .unwrap();
+    // A project that enables nothing, served with its own component
+    // runtime, so an installed extension loads.
+    let mut server = TestProject::new().serve_components();
+    let dir = server.root().to_path_buf();
+    assert!(dir.join("specforge.json").is_file());
     let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -1337,7 +1221,7 @@ fn add_extension_already_installed_placeholder() {
     );
     let still_ok = second["result"].is_object();
     assert!(still_ok);
-    let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
+    let lock = std::fs::read_to_string(dir.as_path().join("specforge.lock")).unwrap();
     assert!(lock.contains("@sdk/greet"));
 }
 
@@ -1462,14 +1346,11 @@ fn migrate_post_validation() {
 
 #[test]
 fn add_extension_dry_run() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let mut server = test_server();
-    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
-    )
-    .unwrap();
+    // A project that enables nothing, served with its own component
+    // runtime, so an installed extension loads.
+    let mut server = TestProject::new().serve_components();
+    let dir = server.root().to_path_buf();
+    assert!(dir.join("specforge.json").is_file());
     let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -1489,14 +1370,11 @@ fn add_extension_dry_run() {
 
 #[test]
 fn remove_extension_dry_run() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let mut server = test_server();
-    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
-    )
-    .unwrap();
+    // A project that enables nothing, served with its own component
+    // runtime, so an installed extension loads.
+    let mut server = TestProject::new().serve_components();
+    let dir = server.root().to_path_buf();
+    assert!(dir.join("specforge.json").is_file());
     let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -1540,7 +1418,7 @@ fn format_contract() {
         "{check}"
     );
     assert_eq!(files_under(&root), before);
-    assert!(events_named(&server, "mcp_mutation_completed").is_empty());
+    assert!(events(&server, "mcp_mutation_completed").is_empty());
 
     // files_formatted
     let parsed = format_result(&mut server, json!({}));
@@ -1554,7 +1432,7 @@ fn format_contract() {
 
     // mutation_completed_emitted, tool_invoked_emitted
     assert_eq!(
-        events_named(&server, "mcp_mutation_completed"),
+        events(&server, "mcp_mutation_completed"),
         [json!({
             "toolName": "specforge.format",
             "files_changed": 2,
@@ -1571,13 +1449,10 @@ fn format_contract() {
     verify = "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
 )]
 fn add_extension_contract() {
-    // filesystem_available: a project on disk.
-    let mut server = test_server();
-    let root = server
-        .state()
-        .project_root()
-        .map(std::path::Path::to_path_buf)
-        .unwrap();
+    // filesystem_available: a project on disk, served with its own
+    // component runtime so the installed module loads.
+    let mut server = components_server();
+    let root = server.root().to_path_buf();
     let before = files_under(&root);
     let specifier = json!(greet_blob().to_str().unwrap());
 
@@ -1590,7 +1465,7 @@ fn add_extension_contract() {
     let preview: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert_eq!(preview["installed"], false, "{preview}");
     assert_eq!(files_under(&root), before);
-    assert!(events_named(&server, "extension_added").is_empty());
+    assert!(events(&server, "extension_added").is_empty());
 
     // extension_installed: in specforge.json and the lock.
     let resp = call_tool(
@@ -1615,7 +1490,7 @@ fn add_extension_contract() {
     );
 
     // extension_added_emitted, tool_invoked_emitted
-    let added = events_named(&server, "extension_added");
+    let added = events(&server, "extension_added");
     assert_eq!(added.len(), 1, "{added:?}");
     assert_eq!(added[0]["extension"], GREET);
     assert!(invoked(&server, "specforge.add_extension"));
@@ -1623,14 +1498,11 @@ fn add_extension_contract() {
 
 #[test]
 fn remove_extension_contract() {
-    let dir = tempfile::TempDir::new().unwrap();
-    let mut server = test_server();
-    crate::support::serve_in_memory_at(server.state_mut(), dir.path());
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        r#"{"name":"t","version":"0.1.0","extensions":[]}"#,
-    )
-    .unwrap();
+    // A project that enables nothing, served with its own component
+    // runtime, so an installed extension loads.
+    let mut server = TestProject::new().serve_components();
+    let dir = server.root().to_path_buf();
+    assert!(dir.join("specforge.json").is_file());
     let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -1724,25 +1596,21 @@ fn migrate_contract() {
         })
     };
     assert_eq!(
-        events_named(&server, "mcp_mutation_completed"),
+        events(&server, "mcp_mutation_completed"),
         [migration(1), migration(0)]
     );
     assert!(invoked(&server, "specforge.migrate"));
 }
 
-/// `test_server` whose project also holds `old.spec`, in format 0.9.
-fn server_with_old_spec() -> (McpServer, std::path::PathBuf) {
-    let server = test_server();
-    let root = server
-        .state()
-        .project_root()
-        .map(std::path::Path::to_path_buf)
-        .unwrap();
-    std::fs::write(
-        root.join("old.spec"),
-        "// specforge-format: 0.9\nbehavior gamma \"Gamma\" {\n}\n",
-    )
-    .unwrap();
+/// [`test_server`] whose project also holds `old.spec`, in format 0.9.
+fn server_with_old_spec() -> (Served, std::path::PathBuf) {
+    let server = project()
+        .file(
+            "old.spec",
+            "// specforge-format: 0.9\nbehavior gamma \"Gamma\" {\n}\n",
+        )
+        .serve(&[TestExtension::software()]);
+    let root = server.root().to_path_buf();
     (server, root)
 }
 

@@ -63,7 +63,18 @@ behavior load_extension_manifests "Load Extension Manifests" {
     environment both read an entry by; a name written before = MUST be the
     declared one. A file that does not exist, does not load as a component,
     declares another name than the one written, or declares an extension
-    another entry already loads MUST produce E028 naming the entry. This behavior orchestrates: for each extension, it loads its
+    another entry already loads MUST produce E028 naming the entry. A
+    specforge.json that is there and is not used as written MUST produce
+    the error E069 naming why, one per problem, before any other
+    diagnostic. When the file is not readable, not JSON or not a JSON
+    object, or its extensions value is not an array, the compile loads no
+    extension, and the I002 that follows MUST say that specforge.json
+    could not be read, not that no extensions are configured. A key of the
+    wrong type (name, version or spec_root not a string, exclude not an
+    array) is replaced by its default, and an extensions or exclude item
+    that is not a string is ignored; the rest of the file is used. A
+    missing specforge.json is the default config and produces no E069.
+    This behavior orchestrates: for each extension, it loads its
     binary and reads its declaration once. Once all declarations are loaded
     and the extension_manifests_loaded event is produced, the registry build
     (build_registries_from_declarations) validates them and populates the
@@ -80,6 +91,9 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify unit "a declaration declares entity types and validations"
   verify integration "two extensions loaded and registries populated without collision"
   verify unit "unloadable extension binary produces diagnostic instead of crash"
+  verify unit "E069 names why specforge.json can't be used"
+  verify unit "E069 names a mistyped key or a non-string item, and the rest of specforge.json is used"
+  verify integration "a specforge.json that is there and can't be used produces E069 first and an I002 that names it"
   verify contract "Load Extension Manifests: extension manifest loading holds — all_files_parsed, extensions_config_available, all_extensions_attempted, loaded_manifests_available, failed_extensions_diagnosed, loaded_event_fired, extension_isolation"
 }
 
@@ -341,7 +355,10 @@ behavior remove_extension "Remove Extension" {
     more than one specforge.json entry enables MUST be refused as
     ambiguous (extension_conflict), naming the entries and changing
     nothing; a name no entry, lock entry or builtin matches is
-    extension_not_found.
+    extension_not_found. Every refusal MUST be decided before anything is
+    written, and a specforge.json the compile could not read refuses every
+    removal (config_invalid), changing nothing; specforge.json is written
+    before specforge.lock and the binary.
     Removing an extension that another loaded or installed extension
     requires as a non-optional peer MUST fail with E027 naming the
     dependents, unless --force is given. The CLI and the MCP
@@ -367,6 +384,7 @@ behavior remove_extension "Remove Extension" {
   verify integration "a .wasm file entry is removed by the name it declares or by its entry as written, leaving its file in place"
   verify integration "a name more than one specforge.json entry enables is refused as ambiguous, naming the entries"
   verify integration "removing a .wasm file entry another extension requires fails with E027 unless --force"
+  verify integration "a removal with an unreadable specforge.json is config_invalid and changes nothing"
 }
 
 // Read-only query. (produces [] declared below; no event of its own.)
@@ -432,6 +450,42 @@ behavior list_configured_providers "List Configured Providers" {
   verify unit "output order is deterministic"
   verify integration "the CLI and the MCP providers tool list the same entries"
   verify contract "List Configured Providers: provider listing holds — scheme_registry_ready, all_providers_listed, schemes_and_kinds_included, aliases_shown_separately, output_deterministic"
+}
+
+// The management operations are operations over the project view, as the
+// read views are (ADR 0015, "Management operations").
+behavior management_operations_over_the_project_view "Management Operations over the Project View" {
+  features   [extension_management, mcp_project_management_tools]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   command
+  types      [ExtensionDeclaration, Diagnostic]
+  ports      [CompilerApi, McpProtocol, FileSystem]
+  requires {
+    project_compiled "A compiled project or a project session supplies the project view"
+  }
+  ensures {
+    one_project_read "Each operation reads the config, the enabled entries, the loaded declarations and the reported diagnostics of the compile behind its view, never specforge.json again"
+    root_for_disk    "Whatever an operation reads or writes on disk is at the view's root; without a root it refuses with no_project, except the listings and doctor"
+  }
+  contract   """
+    The extensions listing, the providers listing, doctor, remove,
+    collect, and inference progress and gaps MUST each be one operation
+    over the project view and a request, shared by the CLI and MCP; a
+    surface builds the view from the project it holds, maps its arguments
+    and renders the outcome. An operation MUST read the project's config,
+    what each specforge.json entry enabled, the loaded declarations and
+    what the surface reports for the project from the view, never by
+    reading specforge.json again. specforge.lock, the installed binaries,
+    the source files and the recorded test report MUST be read and written
+    at the view's root. Without a root, remove, collect and inference
+    progress and gaps MUST refuse with no_project; the listings list what
+    the view enabled and loaded, and doctor skips the installation checks.
+  """
+  verify unit "an operation that reads or writes the project on disk refuses a view without a root"
+  verify unit "the extensions listing reads the config entries from the view, never specforge.json again"
+  verify unit "doctor reads the diagnostics its view reports"
+  verify unit "collect maps test results to the entities of its view"
+  verify contract "Management Operations over the Project View: management operations hold — project_compiled, one_project_read, root_for_disk"
 }
 
 // Called imperatively by validate_provider_refs (which consumes provider_schemes_registered).

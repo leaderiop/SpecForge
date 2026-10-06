@@ -8,7 +8,7 @@
 use specforge_project::coverage::{ReportError, Status, Summary, Verdict};
 use specforge_project::snapshot::{EntityRecord, Standing};
 
-use crate::OpError;
+use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
 
 /// Which rows to list.
@@ -114,40 +114,33 @@ pub fn row(view: &ProjectView, entity_id: &str) -> Result<Option<CoverageRow>, R
         .map(|((record, standing), verdict)| CoverageRow::of(record, standing, verdict)))
 }
 
-/// Every status, in the order a listing names them.
-const STATUSES: [Status; 3] = [Status::Covered, Status::Partial, Status::Uncovered];
-
-/// A coverage status as the results spell it (`covered`, `partial`,
-/// `uncovered`), as it serializes.
-pub fn status_name(status: Status) -> &'static str {
-    match status {
-        Status::Covered => "covered",
-        Status::Partial => "partial",
-        Status::Uncovered => "uncovered",
-    }
-}
-
-/// A coverage status by name ([`status_name`]); any other is
-/// `invalid_input`, naming the closest one.
-pub fn parse_status(name: &str) -> Result<Status, OpError> {
-    if let Some(status) = STATUSES.into_iter().find(|s| status_name(*s) == name) {
-        return Ok(status);
-    }
-    let names = STATUSES.map(status_name);
-    let error = OpError::new(
-        "invalid_input",
-        format!(
-            "unknown coverage status '{name}' (expected one of: {})",
-            names.join(", ")
-        ),
-    );
-    Err(
-        match specforge_common::suggest::find_close_match(name, names) {
-            Some(close) => error.with_suggestion(format!("did you mean '{close}'?")),
-            None => error,
+/// `specforge.coverage`'s `status_filter`: a coverage status as the
+/// results spell it (its serialized form). A filter, so no default.
+pub const STATUS: OptionTable<Status> = OptionTable {
+    argument: "coverage status",
+    code: "invalid_input",
+    choices: &[
+        Choice {
+            name: "covered",
+            aliases: &[],
+            help: "every obligation proven",
+            value: Status::Covered,
         },
-    )
-}
+        Choice {
+            name: "partial",
+            aliases: &[],
+            help: "some obligations proven",
+            value: Status::Partial,
+        },
+        Choice {
+            name: "uncovered",
+            aliases: &[],
+            help: "none proven",
+            value: Status::Uncovered,
+        },
+    ],
+    default: None,
+};
 
 #[cfg(test)]
 mod tests {
@@ -155,16 +148,21 @@ mod tests {
 
     #[test]
     fn status_names_parse_and_others_are_refused_with_the_closest() {
-        for status in STATUSES {
-            assert_eq!(parse_status(status_name(status)), Ok(status));
+        for status in [Status::Covered, Status::Partial, Status::Uncovered] {
+            assert_eq!(STATUS.parse(STATUS.name_of(status)), Ok(status));
             assert_eq!(
                 serde_json::to_value(status).unwrap(),
-                status_name(status),
+                STATUS.name_of(status),
                 "the name is the serialized form"
             );
         }
-        let error = parse_status("coverd").unwrap_err();
+        assert_eq!(STATUS.parse_optional(None), Ok(None), "a filter");
+        let error = STATUS.parse("coverd").unwrap_err();
         assert_eq!(error.code, "invalid_input");
+        assert_eq!(
+            error.message,
+            "Unknown coverage status: coverd. Expected: covered, partial, uncovered"
+        );
         assert_eq!(error.suggestion.as_deref(), Some("did you mean 'covered'?"));
     }
 }

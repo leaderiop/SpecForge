@@ -1,26 +1,28 @@
+use crate::document::LineIndex;
 use specforge_graph::Graph;
 use specforge_parser::FieldValue;
 use specforge_registry::{FieldRegistry, KindRegistry};
 use std::collections::BTreeMap;
+use tower_lsp::lsp_types::Position;
 
-/// Markdown for the published diagnostics whose range holds the position
-/// (`line` and `character` zero-based, UTF-16): each code with the
-/// catalogue's title, the message, the catalogue's explanation and the
-/// docs link; a code the catalogue doesn't have shows its code and message
-/// only. `None` when no diagnostic covers the position.
+/// Markdown for the published diagnostics whose range holds `position`
+/// (in the document `index` indexes): each code with the catalogue's
+/// title, the message, the catalogue's explanation and the docs link; a
+/// code the catalogue doesn't have shows its code and message only. `None`
+/// when no diagnostic covers the position.
 pub fn diagnostic_hover(
     diagnostics: &[specforge_common::Diagnostic],
-    content: &str,
-    line: u32,
-    character: u32,
+    index: &LineIndex,
+    position: Position,
 ) -> Option<String> {
-    let at = (line, character);
+    let at = (position.line, position.character);
     let sections: Vec<String> = diagnostics
         .iter()
         .filter(|diag| {
             diag.span.as_ref().is_some_and(|span| {
-                let range = crate::source_span_to_lsp_range_with_text(span, content);
-                (range.start_line, range.start_col) <= at && at <= (range.end_line, range.end_col)
+                let range = index.range(span);
+                (range.start.line, range.start.character) <= at
+                    && at <= (range.end.line, range.end.character)
             })
         })
         .map(|diag| match specforge_diagnostics::lookup(&diag.code) {

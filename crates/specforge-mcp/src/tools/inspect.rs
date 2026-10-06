@@ -74,7 +74,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         .as_ref()
         .map_or(!obligations.is_empty(), |row| row.declared());
     let testable = row.as_ref().is_some_and(|row| row.testable);
-    let coverage_status = specforge_ops::coverage::status_name(
+    let coverage_status = specforge_ops::coverage::STATUS.name_of(
         row.as_ref()
             .map_or(specforge_project::coverage::Status::Uncovered, |row| {
                 row.status()
@@ -89,7 +89,9 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
 
     // The diagnostics about the entity: those its data names it in, else
     // those inside its block (ADR 0016); never by reading the message.
-    let entity_diagnostics: Vec<Value> = super::reported(call)
+    let entity_diagnostics: Vec<Value> = call
+        .view()
+        .reported()
         .iter()
         .filter(|d| specforge_ops::navigate::is_about(view.graph, d, entity_id))
         .map(|d| {

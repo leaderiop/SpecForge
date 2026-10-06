@@ -1,7 +1,7 @@
 use serde::Deserialize;
-use specforge_ops::export::{self, Format, Schema};
+use specforge_ops::export::{self, Schema};
 
-use crate::args::lenient;
+use crate::args::{choice, lenient};
 use crate::target::Call;
 use crate::tool::ToolOutcome;
 
@@ -23,13 +23,10 @@ pub struct Args {
 /// same function and schema policy (ADR 0004 D3-a). `with_schema` and
 /// `no_schema` are the CLI's `--with-schema` and `--no-schema`.
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
-    let format = args.format.as_deref().unwrap_or("graph");
     // The tool serves the agent formats; dot is `specforge.render`'s.
-    let format = match format.parse::<Format>() {
-        Ok(Format::Dot) | Err(_) => {
-            return ToolOutcome::invalid_input("format", format!("Unknown format: {format}"));
-        }
+    let format = match choice(&export::AGENT_FORMAT, "format", args.format.as_deref()) {
         Ok(format) => format,
+        Err(refused) => return refused,
     };
     let schema = match (args.no_schema == Some(true), args.with_schema == Some(true)) {
         (true, _) => Schema::Without,

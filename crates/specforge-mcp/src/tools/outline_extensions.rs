@@ -1,8 +1,7 @@
 use serde::Deserialize;
-use specforge_emitter::outline::{DependencyDepth, OutlineDetail, OutlineFormat, OutlineOptions};
+use specforge_ops::model::{self, OutlineOptions};
 
-use super::model::parse;
-use crate::args::lenient;
+use crate::args::{choice, lenient};
 use crate::target::Call;
 use crate::tool::ToolOutcome;
 
@@ -20,17 +19,17 @@ pub struct Args {
 /// project.
 pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
     match options(&args) {
-        Ok(options) => ToolOutcome::text(specforge_ops::model::outline(&call.view(), &options)),
+        Ok(options) => ToolOutcome::text(model::outline(&call.view(), &options)),
         Err(refused) => refused,
     }
 }
 
-/// The outline options the arguments name (defaults: json, key fields,
-/// direct dependencies).
+/// The outline options the arguments name; an absent one is its table's
+/// default, as `specforge outline` reads it (ADR 0027).
 fn options(args: &Args) -> Result<OutlineOptions, ToolOutcome> {
     Ok(OutlineOptions {
-        format: parse::<OutlineFormat>("format", args.format.as_deref().unwrap_or("json"))?,
-        detail: parse::<OutlineDetail>("fields", args.fields.as_deref().unwrap_or("keys"))?,
-        deps: parse::<DependencyDepth>("deps", args.deps.as_deref().unwrap_or("direct"))?,
+        format: choice(&model::OUTLINE_FORMAT, "format", args.format.as_deref())?,
+        detail: choice(&model::OUTLINE_FIELDS, "fields", args.fields.as_deref())?,
+        deps: choice(&model::DEPS, "deps", args.deps.as_deref())?,
     })
 }

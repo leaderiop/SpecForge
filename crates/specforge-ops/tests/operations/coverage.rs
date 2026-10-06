@@ -114,11 +114,7 @@ fn coverage_rows_and_stats_read_one_standing() {
         );
     }
     // Stats count the same entities.
-    let stats = specforge_ops::stats::stats(
-        &view,
-        &specforge_ops::stats::StatsRequest { diagnostics: &[] },
-    )
-    .unwrap();
+    let stats = specforge_ops::stats::stats(&view).unwrap();
     assert_eq!(stats.testable_count, counted);
 }
 

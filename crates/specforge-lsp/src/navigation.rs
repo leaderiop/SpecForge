@@ -17,7 +17,9 @@ use tower_lsp::lsp_types::{
 
 use crate::LspState;
 use crate::backend::file_path_to_uri;
-use crate::document::utf16_col_to_byte_offset;
+use crate::document::LineIndex;
+use std::cell::RefCell;
+use std::sync::Arc;
 
 /// The navigator over the session: open buffers first, then disk.
 pub fn navigator(state: &LspState) -> Navigator<'_, impl Fn(&str) -> Option<String> + '_> {
@@ -29,7 +31,7 @@ pub(crate) fn file_content(state: &LspState, key: &str) -> Option<String> {
     let path = state.file_path(key);
     let uri = file_path_to_uri(&path.to_string_lossy());
     if let Some(doc) = state.document(uri.as_str()) {
-        return Some(doc.content().to_string());
+        return Some(doc.text().to_string());
     }
     std::fs::read_to_string(path).ok()
 }
@@ -39,81 +41,85 @@ pub(crate) fn uri_of(state: &LspState, key: &str) -> Url {
     file_path_to_uri(&state.file_path(key).to_string_lossy())
 }
 
-/// The location of a span of a session file.
-pub(crate) fn location(state: &LspState, span: &SourceSpan) -> Location {
-    Location {
-        uri: uri_of(state, span.file.as_str()),
-        range: range(state, span),
-    }
+/// Spans of session files as LSP ranges and locations: each file's line
+/// index built once per request, from its open document, else from disk.
+/// A file that cannot be read keeps its byte columns (the only place a
+/// span is not converted, and the reason is that there is no text).
+pub(crate) struct Ranges<'s> {
+    state: &'s LspState,
+    indexes: RefCell<HashMap<Sym, Option<Arc<LineIndex>>>>,
 }
 
-/// The LSP range of a span: byte columns convert to UTF-16 against the
-/// file's own text, so non-ASCII prefixes cannot shift editor ranges; a
-/// file that cannot be read keeps its byte columns.
-pub(crate) fn range(state: &LspState, span: &SourceSpan) -> Range {
-    let lsp = match file_content(state, span.file.as_str()) {
-        Some(content) => crate::source_span_to_lsp_range_with_text(span, &content),
-        None => crate::source_span_to_lsp_range(span),
-    };
-    Range {
-        start: Position {
-            line: lsp.start_line,
-            character: lsp.start_col,
-        },
-        end: Position {
-            line: lsp.end_line,
-            character: lsp.end_col,
-        },
+impl<'s> Ranges<'s> {
+    pub(crate) fn new(state: &'s LspState) -> Self {
+        Ranges {
+            state,
+            indexes: RefCell::new(HashMap::new()),
+        }
     }
-}
 
-/// An LSP position (0-based line, UTF-16 column) in `content` as
-/// navigation's (1-based line, 1-based byte column); `None` past the end
-/// of the document.
-pub(crate) fn byte_position(content: &str, position: Position) -> Option<(usize, usize)> {
-    let line = content.split('\n').nth(position.line as usize)?;
-    if position.character as usize > line.chars().map(char::len_utf16).sum::<usize>() {
-        return None;
-    }
-    let col = utf16_col_to_byte_offset(line, position.character as usize);
-    Some((position.line as usize + 1, col + 1))
-}
-
-/// An LSP range of `content` (the document `file`) as a span, its ends
-/// clamped to the text: what a code action request's range covers.
-pub(crate) fn span_of_range(content: &str, file: &str, range: Range) -> SourceSpan {
-    let clamp = |position: Position| {
-        let lines: Vec<&str> = content.split('\n').collect();
-        let line = (position.line as usize).min(lines.len().saturating_sub(1));
-        let text = lines.get(line).copied().unwrap_or("");
-        let width: usize = text.chars().map(char::len_utf16).sum();
-        let character = if (position.line as usize) < lines.len() {
-            (position.character as usize).min(width)
-        } else {
-            width
+    /// The line index of a session file: its open document's, else one
+    /// built from the file on disk (once per request); `None` when it
+    /// cannot be read.
+    pub(crate) fn index_of(&self, file: &str) -> Option<Arc<LineIndex>> {
+        let key = Sym::new(file);
+        if let Some(index) = self.indexes.borrow().get(&key) {
+            return index.clone();
+        }
+        let path = self.state.file_path(file);
+        let uri = file_path_to_uri(&path.to_string_lossy());
+        let index = match self.state.document(uri.as_str()) {
+            Some(doc) => Some(Arc::clone(doc.index())),
+            None => std::fs::read_to_string(path)
+                .ok()
+                .map(|text| Arc::new(LineIndex::new(&text))),
         };
-        (line + 1, utf16_col_to_byte_offset(text, character) + 1)
-    };
-    let (start_line, start_col) = clamp(range.start);
-    let (end_line, end_col) = clamp(range.end);
-    SourceSpan {
-        file: Sym::new(file),
-        start_line,
-        start_col,
-        end_line,
-        end_col,
+        self.indexes.borrow_mut().insert(key, index.clone());
+        index
+    }
+
+    /// The LSP range of a span: byte columns convert to UTF-16 against the
+    /// file's own text, so non-ASCII prefixes cannot shift editor ranges;
+    /// a file that cannot be read keeps its byte columns.
+    pub(crate) fn range(&self, span: &SourceSpan) -> Range {
+        match self.index_of(span.file.as_str()) {
+            Some(index) => index.range(span),
+            None => {
+                let at = |line: usize, col: usize| Position {
+                    line: line.saturating_sub(1) as u32,
+                    character: col.saturating_sub(1) as u32,
+                };
+                Range {
+                    start: at(span.start_line, span.start_col),
+                    end: at(span.end_line, span.end_col),
+                }
+            }
+        }
+    }
+
+    /// The location of a span of a session file.
+    pub(crate) fn location(&self, span: &SourceSpan) -> Location {
+        Location {
+            uri: uri_of(self.state, span.file.as_str()),
+            range: self.range(span),
+        }
+    }
+
+    /// The state the spans are read against.
+    pub(crate) fn state(&self) -> &'s LspState {
+        self.state
     }
 }
 
 /// A fix as the code action that applies it.
-pub(crate) fn fix_to_code_action(state: &LspState, fix: Fix) -> CodeAction {
+pub(crate) fn fix_to_code_action(ranges: &Ranges, fix: Fix) -> CodeAction {
     let mut changes: HashMap<Url, Vec<TextEdit>> = HashMap::new();
     for edit in &fix.edits {
         changes
-            .entry(uri_of(state, edit.span.file.as_str()))
+            .entry(uri_of(ranges.state(), edit.span.file.as_str()))
             .or_default()
             .push(TextEdit {
-                range: range(state, &edit.span),
+                range: ranges.range(&edit.span),
                 new_text: edit.new_text.clone(),
             });
     }
@@ -135,11 +141,11 @@ pub(crate) fn fix_to_code_action(state: &LspState, fix: Fix) -> CodeAction {
 /// each selecting its name) when `hierarchical`, else flat (a method's
 /// container is its entity).
 pub(crate) fn outline_to_document_symbols(
-    state: &LspState,
+    ranges: &Ranges,
     entries: Vec<OutlineEntry>,
     hierarchical: bool,
 ) -> DocumentSymbolResponse {
-    let kinds = state.kind_registry();
+    let kinds = ranges.state().kind_registry();
     if hierarchical {
         #[allow(deprecated)]
         let symbols = entries
@@ -155,8 +161,8 @@ pub(crate) fn outline_to_document_symbols(
                         kind: SymbolKind::METHOD,
                         tags: None,
                         deprecated: None,
-                        range: range(state, &method.block),
-                        selection_range: range(state, &method.name_span),
+                        range: ranges.range(&method.block),
+                        selection_range: ranges.range(&method.name_span),
                         children: None,
                     })
                     .collect();
@@ -169,8 +175,8 @@ pub(crate) fn outline_to_document_symbols(
                     kind: symbol_kind_from_entity(kind, kinds),
                     tags: None,
                     deprecated: None,
-                    range: range(state, &entry.block),
-                    selection_range: range(state, &entry.name),
+                    range: ranges.range(&entry.block),
+                    selection_range: ranges.range(&entry.name),
                     children: (!children.is_empty()).then_some(children),
                 }
             })
@@ -181,7 +187,7 @@ pub(crate) fn outline_to_document_symbols(
     for entry in entries {
         #[allow(deprecated)]
         symbols.push(SymbolInformation {
-            location: location(state, &entry.block),
+            location: ranges.location(&entry.block),
             name: entry.id.to_string(),
             kind: symbol_kind_from_entity(entry.kind.as_str(), kinds),
             tags: None,
@@ -191,7 +197,7 @@ pub(crate) fn outline_to_document_symbols(
         for method in &entry.children {
             #[allow(deprecated)]
             symbols.push(SymbolInformation {
-                location: location(state, &method.block),
+                location: ranges.location(&method.block),
                 name: method.name.clone(),
                 kind: SymbolKind::METHOD,
                 tags: None,

@@ -1,4 +1,4 @@
-use crate::DocumentBuffer;
+use crate::document::Document;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
@@ -16,7 +16,7 @@ use std::sync::Arc;
 /// `specforge watch` holds: environment, graph, per-file parses and
 /// diagnostics), and the diagnostics last published per URI.
 pub struct LspState {
-    documents: HashMap<String, DocumentBuffer>,
+    documents: HashMap<String, Document>,
     diagnostics: HashMap<String, Vec<Diagnostic>>,
     project: Project,
     /// Where diagnostics without a span were last published.
@@ -66,7 +66,9 @@ impl LspState {
 
     /// A digest of everything in the graph and registries that semantic
     /// tokens depend on beyond a document's own text: each entity's ID,
-    /// kind and title, and each kind's `semantic_token` classification.
+    /// kind and title, each kind's `semantic_token` classification, and
+    /// each field's declared type (which values are references, enum
+    /// members or booleans).
     /// Spans are left out, so an edit that only moves text (whitespace)
     /// keeps the signature.
     pub fn token_signature(&self) -> u64 {
@@ -84,6 +86,13 @@ impl LspState {
             .collect();
         kinds.sort();
         kinds.hash(&mut hasher);
+        let mut fields: Vec<(&str, &str, String)> = self
+            .field_registry()
+            .iter()
+            .map(|(kind, field, entry)| (kind, field, format!("{:?}", entry.field_type)))
+            .collect();
+        fields.sort();
+        fields.hash(&mut hasher);
         hasher.finish()
     }
 
@@ -102,7 +111,7 @@ impl LspState {
         }
         self.documents.insert(
             uri.to_string(),
-            DocumentBuffer::new(uri.to_string(), content.to_string()),
+            Document::new(uri.to_string(), content.to_string()),
         );
     }
 
@@ -115,11 +124,11 @@ impl LspState {
         self.documents.contains_key(uri)
     }
 
-    pub fn document(&self, uri: &str) -> Option<&DocumentBuffer> {
+    pub fn document(&self, uri: &str) -> Option<&Document> {
         self.documents.get(uri)
     }
 
-    pub fn document_mut(&mut self, uri: &str) -> Option<&mut DocumentBuffer> {
+    pub fn document_mut(&mut self, uri: &str) -> Option<&mut Document> {
         self.documents.get_mut(uri)
     }
 
@@ -129,17 +138,16 @@ impl LspState {
         uris
     }
 
+    /// Apply one content change to an open document: `range` (UTF-16
+    /// positions) replaced by `new_text`, the whole text when `None`.
     pub fn apply_change(
         &mut self,
         uri: &str,
-        start_line: usize,
-        start_col: usize,
-        end_line: usize,
-        end_col: usize,
+        range: Option<tower_lsp::lsp_types::Range>,
         new_text: &str,
     ) {
         if let Some(doc) = self.documents.get_mut(uri) {
-            doc.apply_change(start_line, start_col, end_line, end_col, new_text);
+            doc.apply_change(range, new_text);
         }
     }
 
@@ -187,7 +195,7 @@ impl LspState {
         match &self.project {
             Project::Held(session) => ProjectView::of_session(session, session.root()),
             Project::Out { graph, env } => {
-                ProjectView::new(graph, &env.registries, None, &self.stand_in_recorded)
+                ProjectView::new(graph, env, None, &self.stand_in_recorded)
             }
         }
     }
@@ -296,5 +304,22 @@ impl LspState {
 
     pub fn set_anchor(&mut self, uri: Option<String>) {
         self.anchor = uri;
+    }
+
+    /// Keep what `publication` sends: each file's placed diagnostics (code
+    /// actions read them back; an empty list forgets the file), and where
+    /// diagnostics about no entity went, when any did.
+    pub fn record(&mut self, publication: &crate::publish::Publication) {
+        if let Some(anchor) = &publication.anchor {
+            self.anchor = Some(anchor.to_string());
+        }
+        for (uri, file) in &publication.files {
+            if file.placed.is_empty() {
+                self.diagnostics.remove(uri.as_str());
+            } else {
+                self.diagnostics
+                    .insert(uri.to_string(), file.placed.clone());
+            }
+        }
     }
 }

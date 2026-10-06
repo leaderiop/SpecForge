@@ -50,14 +50,17 @@ behavior provide_mcp_query_tool "Provide MCP Query Tool" {
     Unknown kind values in the kind[] array MUST be silently filtered out
     and an I-level diagnostic MUST be included in the response metadata
     listing the unrecognized kinds. When format is specified, the output
-    MUST use that serialization format. If entityId does not exist, the
-    tool MUST return an error response.
+    MUST use that serialization format. An unknown format MUST be an
+    invalid-input error on format naming the expected formats (graph,
+    context, brief). If entityId does not exist, the tool MUST return an
+    error response.
   """
   verify unit "specforge.query tool returns subgraph for valid entityId"
   verify unit "depth parameter limits traversal depth"
   verify unit "kind filter restricts returned node types"
   verify unit "format parameter changes output serialization"
   verify unit "non-existent entityId returns error response"
+  verify unit "an unknown format is an invalid-input error naming the expected formats"
   verify unit "include_coverage parameter includes coverage status in response"
   verify contract "Provide MCP Query Tool: MCP query tool holds — graph_available, subgraph_returned, unknown_kinds_reported, tool_invoked_emitted"
   verify unit "unknown tool returns error"

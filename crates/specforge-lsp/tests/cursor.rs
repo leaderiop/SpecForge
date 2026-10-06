@@ -1,0 +1,197 @@
+//! What the document module reads at a position (`Document::at`): the
+//! word, the place, the entity, field and `use` statement around it.
+
+use specforge_lsp::{Cursor, Document, EntityAt, Place};
+use specforge_test_macros::test as spec;
+use tower_lsp::lsp_types::Position;
+
+/// The document of `text`.
+fn doc(text: &str) -> Document {
+    Document::new("file:///test.spec".into(), text.into())
+}
+
+/// The cursor at (`line`, UTF-16 `character`) of `doc`, which must exist.
+fn at(doc: &Document, line: u32, character: u32) -> Cursor<'_> {
+    doc.at(Position::new(line, character))
+        .unwrap_or_else(|| panic!("no position {line}:{character}"))
+}
+
+/// The (line, character) of the `nth` occurrence of `needle` in `text`,
+/// plus `offset` characters (ASCII text).
+fn find(text: &str, needle: &str, nth: usize, offset: u32) -> (u32, u32) {
+    let at = text
+        .match_indices(needle)
+        .nth(nth)
+        .unwrap_or_else(|| panic!("no {needle:?} #{nth}"))
+        .0;
+    let before = &text[..at];
+    let line = before.matches('\n').count() as u32;
+    let column = before.rsplit('\n').next().unwrap_or("").len() as u32;
+    (line, column + offset)
+}
+
+#[spec(
+    invariant = "lsp_utf16_positions",
+    verify = "the word under a cursor is found by its UTF-16 column"
+)]
+fn the_word_is_found_by_its_utf16_column() {
+    // `contract ` = 9 units/bytes, 🚀 = 2 units/4 bytes, ` ` = 1 unit/byte,
+    // `alpha_beta` spans units 12..22 (bytes 14..24).
+    let doc = doc("contract 🚀 alpha_beta\n");
+    let word = |character| at(&doc, 0, character).word().map(|w| w.text);
+
+    // Column 12 (the word's start in UTF-16 units) is byte 14, not byte
+    // 12 (inside the emoji).
+    assert_eq!(word(12), Some("alpha_beta"));
+    let found = at(&doc, 0, 15).word().unwrap();
+    assert_eq!(found.prefix, "alp");
+    assert_eq!(
+        (found.range.start, found.range.end),
+        (Position::new(0, 12), Position::new(0, 22))
+    );
+    // Just past the word's end still names it.
+    assert_eq!(word(22), Some("alpha_beta"));
+    // A column inside the emoji's surrogate pair resolves to the emoji's
+    // start: a word of its own to the lexer, which never splits one.
+    assert_eq!(word(10), Some("🚀"));
+    // A column beyond the line's UTF-16 length is no position at all.
+    assert!(doc.at(Position::new(0, 23)).is_none());
+}
+
+#[test]
+fn place_tells_code_from_strings_and_comments() {
+    let text = concat!(
+        "behavior a \"A b\" { // note\n",
+        "  description \"\"\"\n",
+        "    long text\n",
+        "  \"\"\"\n",
+        "  contract \"open\n",
+        "}\n",
+    );
+    let doc = doc(text);
+    let place = |(line, character): (u32, u32)| at(&doc, line, character).place();
+    assert_eq!(place(find(text, "behavior", 0, 2)), Place::Code);
+    assert_eq!(place(find(text, "A b", 0, 1)), Place::String);
+    assert_eq!(
+        place(find(text, "\"A b\"", 0, 0)),
+        Place::Code,
+        "before the quote"
+    );
+    assert_eq!(
+        place(find(text, "\"A b\"", 0, 5)),
+        Place::Code,
+        "after the closing quote"
+    );
+    assert_eq!(place(find(text, "note", 0, 2)), Place::Comment);
+    assert_eq!(
+        place(find(text, "note", 0, 4)),
+        Place::Comment,
+        "a comment's line end"
+    );
+    assert_eq!(place(find(text, "long", 0, 1)), Place::String);
+    assert_eq!(
+        place(find(text, "open", 0, 4)),
+        Place::String,
+        "an unclosed string runs to its line's end"
+    );
+    assert_eq!(place(find(text, "}", 0, 0)), Place::Code);
+}
+
+#[test]
+fn the_entity_and_field_around_a_cursor() {
+    let text = concat!(
+        "behavior login \"Login\" {\n",
+        "  requires {\n",
+        "    ready \"x\"\n",
+        "  }\n",
+        "  invariants [a, b]\n",
+        "  contract \"c\"\n",
+        "}\n",
+        "type t \"T\" { name string kind string }\n",
+        "behavior half \"Half\" {\n",
+        "  refs [\n",
+        "behavior next \"Next\" {\n",
+        "  \n",
+        "}\n",
+        "define widget {\n",
+        "  x \"y\"\n",
+        "}\n",
+        "\n",
+    );
+    let doc = doc(text);
+    let entity = |(line, character): (u32, u32)| at(&doc, line, character).entity();
+    let field = |(line, character): (u32, u32)| at(&doc, line, character).field();
+    let login = Some(EntityAt {
+        kind: "behavior",
+        id: Some("login"),
+    });
+
+    // The header line.
+    assert_eq!(entity(find(text, "behavior", 0, 2)), login);
+    assert_eq!(entity(find(text, "login", 0, 1)), login);
+    assert_eq!(field(find(text, "login", 0, 1)), None);
+    // The body, and a nested block: still the entity; no field of its own
+    // body inside the block.
+    assert_eq!(entity(find(text, "requires", 0, 1)), login);
+    assert_eq!(field(find(text, "requires", 0, 3)), Some("requires"));
+    assert_eq!(entity(find(text, "ready", 0, 1)), login);
+    assert_eq!(field(find(text, "ready", 0, 1)), None);
+    // After the nested block, the fields of the body.
+    assert_eq!(field(find(text, "invariants", 0, 3)), Some("invariants"));
+    assert_eq!(field(find(text, "[a", 0, 1)), Some("invariants"));
+    assert_eq!(field(find(text, "b]", 0, 1)), Some("invariants"));
+    assert_eq!(field(find(text, "\"c\"", 0, 1)), Some("contract"));
+    // A one-line body.
+    let t = Some(EntityAt {
+        kind: "type",
+        id: Some("t"),
+    });
+    assert_eq!(entity(find(text, "kind string", 0, 1)), t);
+    assert_eq!(field(find(text, "kind string", 0, 1)), Some("kind"));
+    assert_eq!(field(find(text, "string }", 0, 1)), Some("kind"));
+    // An unclosed list and body, then a new block at column 1: the new
+    // block is not part of the half-typed one.
+    let next = Some(EntityAt {
+        kind: "behavior",
+        id: Some("next"),
+    });
+    assert_eq!(entity(find(text, "next", 0, 1)), next);
+    assert_eq!(entity((11, 2)), next);
+    assert_eq!(field((11, 2)), None);
+    // A define block declares nothing.
+    assert_eq!(entity(find(text, "x \"y\"", 0, 0)), None);
+    // The top level.
+    assert_eq!(entity((16, 0)), None);
+}
+
+#[spec(
+    behavior = "complete_field_names",
+    verify = "a bracket inside a string opens no reference list"
+)]
+fn a_bracket_in_a_string_opens_no_list() {
+    let text = "behavior alpha \"Alpha\" {\n  contract \"see [docs\"\n  \n}\n";
+    let doc = doc(text);
+    let cursor = at(&doc, 2, 2);
+    assert_eq!(cursor.field(), None);
+    assert_eq!(cursor.entity().map(|e| e.kind), Some("behavior"));
+}
+
+#[test]
+fn a_use_statement_is_an_import_anywhere_on_it() {
+    let text = concat!(
+        "use \"types/core\"\n",
+        "pub use { token, other as alias } from \"types/more\"\n",
+        "use * as all from \"types/all\"\n",
+        "behavior b \"B\" {}\n",
+    );
+    let doc = doc(text);
+    let import = |(line, character): (u32, u32)| at(&doc, line, character).import();
+    assert_eq!(import((0, 0)), Some("types/core"));
+    assert_eq!(import(find(text, "types/core", 0, 3)), Some("types/core"));
+    assert_eq!(import((1, 0)), Some("types/more"), "pub");
+    assert_eq!(import(find(text, "token", 0, 2)), Some("types/more"));
+    assert_eq!(import(find(text, "alias", 0, 2)), Some("types/more"));
+    assert_eq!(import(find(text, "from", 0, 1)), Some("types/more"));
+    assert_eq!(import(find(text, "all", 0, 1)), Some("types/all"));
+    assert_eq!(import((3, 2)), None);
+}

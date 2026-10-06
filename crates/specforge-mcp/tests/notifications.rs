@@ -1,91 +1,88 @@
+use crate::support::*;
+use serde_json::json;
 use specforge_common::{Diagnostic, Severity, SourceSpan};
 use specforge_graph::{Graph, Node};
+use specforge_mcp::McpServer;
 use specforge_mcp::notifications::{
     DIAGNOSTICS_CHANNEL, GRAPH_CHANNEL, compute_diagnostics_delta, compute_graph_delta,
-    enqueue_compile_notifications, format_diagnostics_notification, format_graph_notification,
+    format_diagnostics_notification, format_graph_notification, pending_notifications,
 };
-use specforge_mcp::state::McpState;
-use specforge_mcp::subscriptions;
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, parse_expression};
 use specforge_test::prelude::*;
+
+/// A feature naming `ghost`, which no entity declares: the compile reports
+/// E003.
+const BROKEN: &str = "feature broken \"Broken\" {\n    behaviors [ghost]\n}\n";
+
+/// A server over a project of `files`, `@test/ext` declaring the software
+/// kinds.
+fn served(files: &[(&str, &str)]) -> Served {
+    files
+        .iter()
+        .fold(TestProject::new(), |project, (path, text)| {
+            project.file(path, text)
+        })
+        .serve(&[TestExtension::software()])
+}
+
+/// Subscribe the default client to `uri`'s delta notifications.
+fn subscribe(server: &mut McpServer, uri: &str) {
+    let reply = call(server, "resources/subscribe", json!({"uri": uri}));
+    assert_eq!(reply["result"], json!({}), "{reply}");
+}
+
+/// Any request: it brings the served project up to date with disk, and
+/// the update's notifications are queued for the subscribers.
+fn any_request(server: &mut McpServer) {
+    let reply = call_tool(server, "specforge.stats", json!({}));
+    assert!(reply["error"].is_null(), "{reply}");
+}
 
 /// B:notify_graph_delta_via_mcp — verify unit "enqueue delivers one
 /// notification per subscribed channel and suppresses empty channels"
 #[test]
 fn enqueue_delivers_graph_and_diagnostics_to_subscribers() {
-    let mut state = McpState::new();
-    subscriptions::subscribe(&mut state, "c1", GRAPH_CHANNEL);
-    subscriptions::subscribe(&mut state, "c1", DIAGNOSTICS_CHANNEL);
+    let mut server = served(&[]);
+    subscribe(&mut server, "specforge://graph");
+    subscribe(&mut server, "specforge://diagnostics");
 
-    let previous = Graph::new();
-    let mut current = Graph::new();
-    current.add_node(node("alpha"));
-    state.serve_graph(current, Vec::new());
-    crate::support::report(
-        &mut state,
-        vec![Diagnostic {
-            code: "V001".into(),
-            severity: Severity::Error,
-            message: "boom".into(),
-            span: None,
-            suggestion: None,
-            data: None,
-        }],
-    );
+    // One file adds an entity and a diagnostic.
+    server.write("broken.spec", BROKEN);
+    any_request(&mut server);
 
-    let delta = compute_graph_delta(&previous, state.graph());
-    enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &[]);
-
-    assert_eq!(
-        state.notification_outbox.len(),
-        2,
-        "one notification per subscribed channel"
-    );
-    assert_eq!(state.notification_outbox[0]["method"], GRAPH_CHANNEL);
-    assert_eq!(state.notification_outbox[1]["method"], DIAGNOSTICS_CHANNEL);
+    let outbox = &server.state().notification_outbox;
+    assert_eq!(outbox.len(), 2, "one notification per subscribed channel");
+    assert_eq!(outbox[0]["method"], GRAPH_CHANNEL);
+    assert_eq!(outbox[1]["method"], DIAGNOSTICS_CHANNEL);
 
     // Draining empties the outbox (the captured client sink).
-    let drained = specforge_mcp::notifications::pending_notifications(&mut state);
+    let drained = pending_notifications(server.state_mut());
     assert_eq!(drained.len(), 2);
-    assert!(state.notification_outbox.is_empty());
+    assert!(server.state().notification_outbox.is_empty());
 }
 
 /// B:notify_graph_delta_via_mcp — verify unit "enqueue suppresses
 /// channels without subscribers and unchanged graphs"
 #[test]
 fn enqueue_suppresses_unsubscribed_and_unchanged() {
-    let mut state = McpState::new();
+    let mut server = served(&[]);
     // Only the diagnostics channel is subscribed.
-    subscriptions::subscribe(&mut state, "c1", DIAGNOSTICS_CHANNEL);
-
-    let mut graph = Graph::new();
-    graph.add_node(node("alpha"));
-    state.serve_graph(graph, Vec::new());
+    subscribe(&mut server, "specforge://diagnostics");
 
     // Graph changed but nobody subscribes; diagnostics unchanged anyway.
-    let delta = compute_graph_delta(&Graph::new(), state.graph());
-    enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &[]);
+    server.write("alpha.spec", "behavior alpha \"Alpha\" {\n}\n");
+    any_request(&mut server);
     assert!(
-        state.notification_outbox.is_empty(),
+        server.state().notification_outbox.is_empty(),
         "graph delta must be suppressed without subscribers"
     );
 
     // Diagnostics changed and the channel is subscribed.
-    crate::support::report(
-        &mut state,
-        vec![Diagnostic {
-            code: "V001".into(),
-            severity: Severity::Error,
-            message: "boom".into(),
-            span: None,
-            suggestion: None,
-            data: None,
-        }],
-    );
-    let delta = compute_graph_delta(&Graph::new(), state.graph());
-    enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &[]);
-    assert_eq!(state.notification_outbox.len(), 1);
-    assert_eq!(state.notification_outbox[0]["method"], DIAGNOSTICS_CHANNEL);
+    server.write("broken.spec", BROKEN);
+    any_request(&mut server);
+    let outbox = &server.state().notification_outbox;
+    assert_eq!(outbox.len(), 1);
+    assert_eq!(outbox[0]["method"], DIAGNOSTICS_CHANNEL);
 }
 
 fn span() -> SourceSpan {
@@ -283,22 +280,23 @@ fn diagnostics_no_notification_when_unchanged() {
     assert!(delta.removed.is_empty());
 
     // A subscribed client gets nothing when a compile leaves the
-    // diagnostics as they were ...
-    let mut state = McpState::new();
-    subscriptions::subscribe(&mut state, "c1", DIAGNOSTICS_CHANNEL);
-    crate::support::report(&mut state, diags.clone());
-    let delta = compute_graph_delta(&Graph::new(), state.graph());
-    enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &diags);
+    // diagnostics as they were (an entity added, broken.spec's E003 kept)
+    // ...
+    let mut server = served(&[("broken.spec", BROKEN)]);
+    subscribe(&mut server, "specforge://diagnostics");
+    server.write("gamma.spec", "behavior gamma \"Gamma\" {\n}\n");
+    any_request(&mut server);
     assert!(
-        state.notification_outbox.is_empty(),
+        server.state().notification_outbox.is_empty(),
         "{:?}",
-        state.notification_outbox
+        server.state().notification_outbox
     );
     // ... and one notification when they change.
-    let delta = compute_graph_delta(&Graph::new(), state.graph());
-    enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &[]);
-    assert_eq!(state.notification_outbox.len(), 1);
-    assert_eq!(state.notification_outbox[0]["method"], DIAGNOSTICS_CHANNEL);
+    server.remove("broken.spec");
+    any_request(&mut server);
+    let outbox = &server.state().notification_outbox;
+    assert_eq!(outbox.len(), 1);
+    assert_eq!(outbox[0]["method"], DIAGNOSTICS_CHANNEL);
 }
 
 #[test]

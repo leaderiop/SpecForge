@@ -4,7 +4,7 @@
 use specforge_common::SourceSpan;
 use specforge_ops::navigate::{Direction, Navigator, Occurrence, Precision, ReferenceQuery, Role};
 use specforge_ops::view::ProjectView;
-use specforge_project::CompiledProject;
+use specforge_project::{CompiledProject, Environment};
 use specforge_test::prelude::*;
 use tempfile::TempDir;
 
@@ -345,6 +345,32 @@ fn strings_comments_and_verify_texts_are_not_occurrences() {
             "a.spec 5:15-5:28 login->session_limit invariants",
         ]
     );
+}
+
+/// A ref and a behavior listing it (plan 06's R1 fixture).
+const REFS: &str = concat!(
+    "ref gh.issue:42 \"Support Wasm\"\n",
+    "\n",
+    "behavior issue \"Issue tracking\" {\n",
+    "  contract \"tracks issues\"\n",
+    "}\n",
+    "\n",
+    "behavior login \"Login\" {\n",
+    "  contract \"see [docs\"\n",
+    "  refs [gh.issue:42]\n",
+    "}\n",
+);
+
+#[specforge_test(
+    behavior = "go_to_definition",
+    verify = "the definition's selection is the entity's name token"
+)]
+fn a_refs_definition_selects_its_scheme_id() {
+    // A scheme ref ID is one token (the grammar's `scheme_ref_id`).
+    let p = compile(SOFTWARE, &[("main.spec", REFS)]);
+    let definition = p.navigator().definition("gh.issue:42").unwrap();
+    assert_eq!(definition.precision, Precision::Token);
+    assert_eq!(at(&definition.name), "main.spec 1:5-1:16");
 }
 
 #[test]
@@ -924,12 +950,12 @@ fn the_verify_stub_lands_inside_the_block() {
 /// A view of `p`'s graph with `registries` instead of its extensions'.
 fn with_registries<'a>(
     p: &'a Compiled,
-    registries: &'a RegistryBuild,
+    env: &'a Environment,
     recorded: &'a RecordedCoverage,
 ) -> Navigator<'a, impl Fn(&str) -> Option<String> + 'a> {
     let spec_root = &p.project.env.spec_root;
     Navigator::new(
-        ProjectView::new(&p.project.graph, registries, None, recorded),
+        ProjectView::new(&p.project.graph, env, None, recorded),
         move |file| std::fs::read_to_string(spec_root.join(file)).ok(),
     )
 }
@@ -969,7 +995,8 @@ fn the_verify_stub_uses_the_kinds_first_allowed_verify_kind() {
         build
     };
     let recorded = RecordedCoverage::default();
-    let fixes = with_registries(&p, &registries, &recorded).fixes(&[], &FixQuery::default());
+    let fixes = with_registries(&p, &Environment::with_registries(registries), &recorded)
+        .fixes(&[], &FixQuery::default());
     assert_eq!(
         titles(&fixes),
         ["Add verify stub for unique_ids"],
@@ -1131,8 +1158,8 @@ fn no_stub_without_a_target_kind() {
         build.fields = invariants_field(None);
         build
     };
-    let fixes =
-        with_registries(&p, &untargeted, &recorded).fixes(&diagnostics, &FixQuery::default());
+    let fixes = with_registries(&p, &Environment::with_registries(untargeted), &recorded)
+        .fixes(&diagnostics, &FixQuery::default());
     assert!(
         fixes.iter().all(|f| f.source != FixSource::CreateStub),
         "{:?}",
@@ -1143,7 +1170,8 @@ fn no_stub_without_a_target_kind() {
         build.fields = invariants_field(Some("invariant"));
         build
     };
-    let fixes = with_registries(&p, &targeted, &recorded).fixes(&diagnostics, &FixQuery::default());
+    let fixes = with_registries(&p, &Environment::with_registries(targeted), &recorded)
+        .fixes(&diagnostics, &FixQuery::default());
     assert!(fixes.iter().any(|f| f.source == FixSource::CreateStub));
 }
 

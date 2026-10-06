@@ -303,9 +303,6 @@ fn stats_today_through_the_registries() {
         specforge_common::Diagnostic::error("E001", "err"),
         specforge_common::Diagnostic::warning("W002", "warn"),
     ];
-    let request = specforge_ops::stats::StatsRequest {
-        diagnostics: &diagnostics,
-    };
-    let stats = specforge_ops::stats::stats(&project.view(), &request).unwrap();
+    let stats = specforge_ops::stats::stats(&project.view().reporting(&diagnostics)).unwrap();
     assert_eq!(debug_body(&stats), STATS_TODAY);
 }

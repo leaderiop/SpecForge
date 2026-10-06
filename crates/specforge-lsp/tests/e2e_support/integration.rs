@@ -4,7 +4,7 @@ use tempfile::TempDir;
 #[tokio::test]
 async fn e2e_full_workflow_open_edit_hover_rename() {
     let text = "behavior user_login \"Login\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
 
     // 1. Hover works on initial state
     let resp = client.hover(&uri, 0, 12).await;
@@ -50,7 +50,7 @@ async fn e2e_graph_serves_all_features() {
         "  types [token]\n",
         "}\n",
     );
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
 
     // Hover
     let resp = client.hover(&uri, 0, 6).await;
@@ -75,7 +75,7 @@ async fn e2e_graph_serves_all_features() {
 
 #[tokio::test]
 async fn e2e_diagnostics_latency() {
-    let mut client = start_server(None).await;
+    let mut client = Session::launch(None, json!({})).await.0;
     let uri = "file:///test/latency.spec";
 
     let start = std::time::Instant::now();
@@ -108,7 +108,7 @@ async fn e2e_multiple_files_cross_reference() {
     .unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
     client
         .wait_for_notification("window/logMessage", 5000)
         .await;
@@ -174,7 +174,7 @@ async fn e2e_workspace_index_builds_edges_immediately() {
     std::fs::write(&file_a, "behavior login \"Login\" {\n  types [token]\n}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
     client
         .wait_for_notification("window/logMessage", 5000)
         .await;
@@ -217,7 +217,7 @@ async fn e2e_delete_file_publishes_broken_reference_diagnostics() {
     .unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
     client
         .wait_for_notification("window/logMessage", 5000)
         .await;
@@ -239,7 +239,7 @@ async fn e2e_delete_file_publishes_broken_reference_diagnostics() {
     // Delete file B
     std::fs::remove_file(&file_b).unwrap();
     client
-        .send_notification(
+        .notify(
             "workspace/didChangeWatchedFiles",
             json!({
                 "changes": [{
@@ -292,7 +292,7 @@ async fn e2e_cross_file_diagnostic_on_correct_uri() {
     .unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
     client
         .wait_for_notification("window/logMessage", 5000)
         .await;
@@ -433,20 +433,7 @@ async fn e2e_cross_file_references_no_stale_e001_after_indexing() {
     .unwrap();
 
     // Start server but do NOT wait for indexing to complete
-    let (client_to_server, server_stdin) = tokio::io::duplex(1024 * 64);
-    let (server_stdout, server_to_client) = tokio::io::duplex(1024 * 64);
-    let (service, socket) = tower_lsp::LspService::new(specforge_lsp::backend::Backend::new);
-    let server_task = tokio::spawn(async move {
-        tower_lsp::Server::new(server_stdin, server_stdout, socket)
-            .serve(service)
-            .await;
-    });
-    let mut client = LspClient {
-        writer: client_to_server,
-        reader: server_to_client,
-        next_id: Arc::new(Mutex::new(1)),
-        server_task,
-    };
+    let mut client = Session::spawn();
 
     let root = dir.path().to_str().unwrap();
     client.initialize(Some(root)).await;
@@ -575,7 +562,7 @@ async fn e2e_cross_file_references_no_false_e001() {
     .unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
 
     // Wait for indexing to complete (logMessage is sent after index_workspace finishes)
     client
@@ -635,7 +622,7 @@ async fn e2e_syntax_only_fast_path_on_broken_file() {
     // Parses cleanly but references an undeclared entity: full passes would
     // add W022 (mistyped reference) on top of pipeline diagnostics.
     let text = "behavior login \"Login\" {\n  types [widget]\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     client
         .wait_for_notification("textDocument/publishDiagnostics", 5000)
         .await;

@@ -406,7 +406,8 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
     no required parameters. The tool MUST check project health: extension
     conflicts, stale Wasm cache entries, extensions that fail to load (E028,
     E033), missing specforge.json fields, version mismatches, and orphan
-    entities. The response MUST include detected issues and deterministic
+    entities. A specforge.json the server could not use (E069) MUST be a
+    finding. The response MUST include detected issues and deterministic
     resolution steps. Like specforge.validate, the tool MUST bring the
     project up to date with disk before checking it, so it sees edits made
     outside the server; with use_cached (optional boolean, default false) it
@@ -417,6 +418,7 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
   verify unit "response provides deterministic resolution steps"
   verify unit "specforge.doctor reports an extension that fails to load (E028, E033) as an error"
   verify unit "specforge.doctor compiles the project afresh unless use_cached is set"
+  verify unit "specforge.doctor reports an unusable specforge.json (E069) as a finding"
   verify contract "Provide MCP Doctor Tool: MCP doctor tool holds — compiler_api_available, health_checked, resolution_steps_provided, tool_invoked_emitted"
 }
 
@@ -480,8 +482,10 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
     invoke the matching registered renderer and write output files to out_dir;
     without out_dir it MUST return the rendering inline instead.
     The renderers are the core graph engine's export formats (see P7
-    justification in features/output.spec): json (the full graph, as
-    `specforge export --format graph` writes it), dot, context and brief.
+    justification in features/output.spec), named as `specforge export
+    --format` names them: graph (also accepted as json; the full graph, as
+    `specforge export --format graph` writes it, in graph.json), dot,
+    context and brief. The result's format is the renderer's name.
     Extension renderer contributions are not dispatched by this tool.
     Renderers produce graph diagnostic artifacts: JSON serializations, DOT
     visualizations, traceability matrices, validation summaries. They MUST NOT
@@ -495,5 +499,6 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
   verify unit "specforge.render writes output files to out_dir"
   verify unit "registered renderer invoked for matching format"
   verify unit "unrecognized format returns error listing available renderers"
+  verify unit "graph and its alias json select the full graph renderer"
   verify contract "Provide MCP Render Tool: MCP render tool holds — graph_available, filesystem_available, files_written, files_listed, tool_invoked_emitted"
 }

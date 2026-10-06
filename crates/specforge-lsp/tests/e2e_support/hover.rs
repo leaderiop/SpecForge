@@ -3,7 +3,7 @@ use super::*;
 #[tokio::test]
 async fn e2e_hover_returns_markdown() {
     let text = "behavior user_login \"User Login\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Hover on "user_login" (line 0, col 12)
     let resp = client.hover(&uri, 0, 12).await;
     let result = &resp["result"];
@@ -26,7 +26,7 @@ async fn e2e_hover_includes_reference_count() {
         "  types [token]\n",
         "}\n",
     );
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Hover on "token" at line 0
     let resp = client.hover(&uri, 0, 6).await;
     let result = &resp["result"];
@@ -43,7 +43,7 @@ async fn e2e_hover_includes_reference_count() {
 #[tokio::test]
 async fn e2e_hover_on_empty_returns_null() {
     let text = "behavior foo \"Foo\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Past end of file
     let resp = client.hover(&uri, 5, 0).await;
     let result = &resp["result"];
@@ -53,7 +53,7 @@ async fn e2e_hover_on_empty_returns_null() {
 #[tokio::test]
 async fn e2e_hover_on_non_entity_word() {
     let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Hover on "test" inside the string value (line 1, col 13) — not an entity ID or field name
     let resp = client.hover(&uri, 1, 13).await;
     let result = &resp["result"];
@@ -69,7 +69,7 @@ async fn e2e_hover_on_non_entity_word() {
 #[tokio::test]
 async fn e2e_hover_explains_the_diagnostic_under_the_cursor() {
     let text = "behavior login \"Login\" {\n  types [ghost]\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // On "ghost", the unresolved reference.
     let resp = client.hover(&uri, 1, 11).await;
     let value = resp["result"]["contents"]["value"]

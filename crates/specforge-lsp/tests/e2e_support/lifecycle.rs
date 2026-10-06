@@ -3,20 +3,7 @@ use tempfile::TempDir;
 
 #[tokio::test]
 async fn e2e_initialize_returns_all_capabilities() {
-    let (client_to_server, server_stdin) = tokio::io::duplex(1024 * 64);
-    let (server_stdout, server_to_client) = tokio::io::duplex(1024 * 64);
-    let (service, socket) = LspService::new(Backend::new);
-    let server_task = tokio::spawn(async move {
-        Server::new(server_stdin, server_stdout, socket)
-            .serve(service)
-            .await;
-    });
-    let mut client = LspClient {
-        writer: client_to_server,
-        reader: server_to_client,
-        next_id: Arc::new(Mutex::new(1)),
-        server_task,
-    };
+    let mut client = Session::spawn();
 
     let resp = client.initialize(None).await;
     let caps = &resp["result"]["capabilities"];
@@ -34,7 +21,8 @@ async fn e2e_initialize_returns_all_capabilities() {
     let trigger_strs: Vec<&str> = triggers.iter().map(|v| v.as_str().unwrap()).collect();
     assert!(trigger_strs.contains(&" "));
     assert!(trigger_strs.contains(&"["));
-    assert!(trigger_strs.contains(&"\""));
+    // Nothing completes inside a string: `"` triggers nothing (ADR 0023).
+    assert!(!trigger_strs.contains(&"\""));
 
     // renameProvider with prepareProvider
     assert_eq!(caps["renameProvider"]["prepareProvider"], true);
@@ -70,20 +58,7 @@ async fn e2e_initialize_returns_all_capabilities() {
 
 #[tokio::test]
 async fn e2e_initialize_semantic_legend() {
-    let (client_to_server, server_stdin) = tokio::io::duplex(1024 * 64);
-    let (server_stdout, server_to_client) = tokio::io::duplex(1024 * 64);
-    let (service, socket) = LspService::new(Backend::new);
-    let server_task = tokio::spawn(async move {
-        Server::new(server_stdin, server_stdout, socket)
-            .serve(service)
-            .await;
-    });
-    let mut client = LspClient {
-        writer: client_to_server,
-        reader: server_to_client,
-        next_id: Arc::new(Mutex::new(1)),
-        server_task,
-    };
+    let mut client = Session::spawn();
 
     let resp = client.initialize(None).await;
     let legend = &resp["result"]["capabilities"]["semanticTokensProvider"]["legend"];
@@ -106,7 +81,7 @@ async fn e2e_initialize_semantic_legend() {
 async fn e2e_initialize_registers_file_watchers() {
     let dir = TempDir::new().unwrap();
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
 
     // After initialized(), server should send client/registerCapability
     // for workspace/didChangeWatchedFiles with *.spec glob pattern.
@@ -136,7 +111,7 @@ async fn e2e_workspace_indexing_logs_count() {
     std::fs::write(dir.path().join("b.spec"), "behavior beta \"Beta\" {}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
 
     // After initialized(), the server should log an indexing message
     let notif = client
@@ -155,7 +130,7 @@ async fn e2e_workspace_indexing_logs_count() {
 
 #[tokio::test]
 async fn e2e_shutdown_releases_state() {
-    let mut client = start_server(None).await;
+    let mut client = Session::launch(None, json!({})).await.0;
     // Drain the logMessage notification from initialized()
     client
         .wait_for_notification("window/logMessage", 2000)
@@ -170,8 +145,7 @@ async fn e2e_shutdown_releases_state() {
 
 #[tokio::test]
 async fn e2e_requests_after_shutdown_fail() {
-    let (mut client, uri) =
-        start_server_with_doc(None, "test.spec", "behavior foo \"Foo\" {}\n").await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", "behavior foo \"Foo\" {}\n").await;
     client.shutdown().await;
     let resp = client.hover(&uri, 0, 10).await;
     // After shutdown, hover should return null result
@@ -181,8 +155,7 @@ async fn e2e_requests_after_shutdown_fail() {
 
 #[tokio::test]
 async fn e2e_did_open_registers_document() {
-    let (mut client, uri) =
-        start_server_with_doc(None, "test.spec", "behavior foo \"Foo\" {}\n").await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", "behavior foo \"Foo\" {}\n").await;
     // If the document was registered, hover on the entity ID should return info
     let resp = client.hover(&uri, 0, 10).await;
     let result = &resp["result"];
@@ -196,7 +169,7 @@ async fn e2e_did_open_registers_document() {
 
 #[tokio::test]
 async fn e2e_did_open_publishes_empty_diagnostics() {
-    let mut client = start_server(None).await;
+    let mut client = Session::launch(None, json!({})).await.0;
     let uri = "file:///test/clean.spec";
     client
         .did_open(
@@ -216,7 +189,7 @@ async fn e2e_did_open_publishes_empty_diagnostics() {
 
 #[tokio::test]
 async fn e2e_did_open_parse_error_publishes_e001() {
-    let mut client = start_server(None).await;
+    let mut client = Session::launch(None, json!({})).await.0;
     let uri = "file:///test/broken.spec";
     client.did_open(uri, "specforge", "behavior {").await;
     let notif = client
@@ -236,7 +209,7 @@ async fn e2e_did_open_parse_error_publishes_e001() {
 
 #[tokio::test]
 async fn e2e_resolver_diagnostic_e003_unresolved_reference() {
-    let mut client = start_server(None).await;
+    let mut client = Session::launch(None, json!({})).await.0;
     let uri = "file:///test/resolve.spec";
     // Reference to 'nonexistent' which is not defined anywhere
     client
@@ -282,7 +255,7 @@ async fn e2e_resolver_diagnostic_e003_unresolved_reference() {
 
 #[tokio::test]
 async fn e2e_validator_warnings_appear_in_editor() {
-    let mut client = start_server(None).await;
+    let mut client = Session::launch(None, json!({})).await.0;
     let uri = "file:///test/validate.spec";
     // 'ref' entity with no incoming refs triggers W012 orphan warning from validator
     // ref uses scheme.kind:id syntax per the grammar
@@ -313,7 +286,7 @@ async fn e2e_external_file_change_triggers_recompilation() {
     std::fs::write(dir.path().join("a.spec"), "behavior alpha \"Alpha\" {}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
     // Drain logMessage from indexing
     client
         .wait_for_notification("window/logMessage", 5000)
@@ -336,7 +309,7 @@ async fn e2e_external_file_change_triggers_recompilation() {
         .unwrap()
         .to_string();
     client
-        .send_notification(
+        .notify(
             "workspace/didChangeWatchedFiles",
             json!({
                 "changes": [{
@@ -367,7 +340,7 @@ async fn e2e_new_spec_file_creation_detected() {
     std::fs::write(dir.path().join("a.spec"), "behavior alpha \"Alpha\" {}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
     client
         .wait_for_notification("window/logMessage", 5000)
         .await;
@@ -379,7 +352,7 @@ async fn e2e_new_spec_file_creation_detected() {
         .unwrap()
         .to_string();
     client
-        .send_notification(
+        .notify(
             "workspace/didChangeWatchedFiles",
             json!({
                 "changes": [{
@@ -409,7 +382,7 @@ async fn e2e_deleted_spec_file_removes_entities() {
     std::fs::write(dir.path().join("b.spec"), "behavior beta \"Beta\" {}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
     client
         .wait_for_notification("window/logMessage", 5000)
         .await;
@@ -432,7 +405,7 @@ async fn e2e_deleted_spec_file_removes_entities() {
         .unwrap()
         .to_string();
     client
-        .send_notification(
+        .notify(
             "workspace/didChangeWatchedFiles",
             json!({
                 "changes": [{
@@ -461,8 +434,7 @@ async fn e2e_deleted_spec_file_removes_entities() {
 
 #[tokio::test]
 async fn e2e_did_close_clears_tracking() {
-    let (mut client, uri) =
-        start_server_with_doc(None, "test.spec", "behavior foo \"Foo\" {}\n").await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", "behavior foo \"Foo\" {}\n").await;
     client.did_close(&uri).await;
     // Small delay to let close propagate
     tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
@@ -481,7 +453,7 @@ async fn e2e_did_close_clears_tracking() {
 #[tokio::test]
 async fn e2e_requests_after_shutdown_are_invalid() {
     let text = "behavior alpha \"Alpha\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
 
     let resp = client.shutdown().await;
     assert!(resp["error"].is_null(), "{resp}");
@@ -491,7 +463,7 @@ async fn e2e_requests_after_shutdown_are_invalid() {
 }
 
 /// Top-level keyword completions: the kinds the loaded extensions declare.
-async fn top_level_keywords(client: &mut LspClient, uri: &str) -> Vec<String> {
+async fn top_level_keywords(client: &mut Session, uri: &str) -> Vec<String> {
     let resp = client.completion(uri, 0, 0).await;
     resp["result"]
         .as_array()
@@ -511,7 +483,7 @@ async fn top_level_keywords(client: &mut LspClient, uri: &str) -> Vec<String> {
 async fn e2e_removing_every_extension_clears_the_kinds() {
     let text = "behavior login \"Login\" {\n  contract \"logs in\"\n}\n";
     let (mut client, uri, dir) =
-        start_server_with_extensions(&["@specforge/software"], "main.spec", text).await;
+        Session::with_extensions(&["@specforge/software"], "main.spec", text).await;
     let before = top_level_keywords(&mut client, &uri).await;
     assert!(before.iter().any(|k| k == "behavior"), "{before:?}");
 
@@ -522,7 +494,7 @@ async fn e2e_removing_every_extension_clears_the_kinds() {
         .unwrap()
         .to_string();
     client
-        .send_notification(
+        .notify(
             "workspace/didChangeWatchedFiles",
             json!({"changes": [{"uri": config_uri, "type": 2}]}),
         )
@@ -547,7 +519,7 @@ async fn e2e_removing_every_extension_clears_the_kinds() {
 }
 
 /// Wait for a `window/logMessage` whose message contains `needle`.
-async fn wait_for_log(client: &mut LspClient, needle: &str, timeout_ms: u64) -> Option<String> {
+async fn wait_for_log(client: &mut Session, needle: &str, timeout_ms: u64) -> Option<String> {
     let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_millis(timeout_ms);
     loop {
         let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
@@ -579,7 +551,9 @@ async fn e2e_a_lock_change_reloads_the_environment() {
         "behavior alpha \"Alpha\" {}\n",
     )
     .unwrap();
-    let mut client = start_server(Some(dir.path().to_str().unwrap())).await;
+    let mut client = Session::launch(Some(dir.path().to_str().unwrap()), json!({}))
+        .await
+        .0;
     wait_for_log(&mut client, "indexed", 10_000)
         .await
         .expect("the project is indexed");
@@ -595,7 +569,7 @@ async fn e2e_a_lock_change_reloads_the_environment() {
         .unwrap()
         .to_string();
     client
-        .send_notification(
+        .notify(
             "workspace/didChangeWatchedFiles",
             json!({"changes": [{"uri": lock_uri, "type": 1}]}),
         )
@@ -637,7 +611,7 @@ async fn e2e_registered_watchers_cover_the_environment_inputs() {
     std::fs::create_dir_all(dir.path().join("spec")).unwrap();
     std::fs::write(dir.path().join("spec/main.spec"), "").unwrap();
     let root = dir.path().to_str().unwrap();
-    let mut client = start_server(Some(root)).await;
+    let mut client = Session::launch(Some(root), json!({})).await.0;
 
     // The static watchers first, then, once the project is open, the ones
     // it is built from.

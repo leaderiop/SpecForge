@@ -1,81 +1,17 @@
+use crate::support::*;
 use serde_json::{Value, json};
-use specforge_common::SourceSpan;
-use specforge_graph::{Edge, Graph, Node};
 use specforge_mcp::McpServer;
-use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
 use specforge_test::prelude::*;
 
-fn span() -> SourceSpan {
-    SourceSpan {
-        file: "test.spec".into(),
-        start_line: 1,
-        start_col: 0,
-        end_line: 5,
-        end_col: 0,
-    }
-}
-
-fn test_server() -> McpServer {
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
-
-    let state = server.state_mut();
-    let mut graph = Graph::new();
-    let mut fields = FieldMap::new();
-    fields.push("contract".into(), FieldValue::String("MUST work".into()));
-    fields.push(
-        "verify".into(),
-        FieldValue::VerifyList(vec![VerifyStatement {
-            kind: "unit".into(),
-            description: "works".into(),
-        }]),
-    );
-
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "alpha".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Alpha".into()),
-        fields,
-        source_span: span(),
-        methods: Vec::new(),
-    });
-    graph.add_node(Node {
-        id: EntityId { raw: "beta".into() },
-        kind: EntityKind {
-            raw: "feature".into(),
-        },
-        title: Some("Beta".into()),
-        fields: FieldMap::new(),
-        source_span: span(),
-        methods: Vec::new(),
-    });
-    graph.add_edge(Edge {
-        source: "beta".into(),
-        target: "alpha".into(),
-        label: "behaviors".into(),
-    });
-    state.serve_graph(graph, Vec::new());
-
-    server
-}
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc":"2.0","id":1,"method":method,"params":params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-fn call_tool(server: &mut McpServer, name: &str, args: Value) -> Value {
-    call(
-        server,
-        "tools/call",
-        json!({"name": name, "arguments": args}),
-    )
+/// A server over a project holding `alpha`, a behavior with one
+/// obligation, and `beta`, the feature that has it (test.spec).
+fn test_server() -> Served {
+    TestProject::new()
+        .file(
+            "test.spec",
+            "behavior alpha \"Alpha\" {\n    contract \"MUST work\"\n    verify unit \"works\"\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n",
+        )
+        .serve(&[TestExtension::software()])
 }
 
 // I:mcp_structured_error_responses — verify property "error response includes error code and message fields"

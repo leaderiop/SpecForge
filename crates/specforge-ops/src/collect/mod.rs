@@ -15,6 +15,7 @@
 mod convention;
 
 use crate::OpError;
+use crate::view::ProjectView;
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, Severity};
 use specforge_project::coverage::{ReportedEntity, ReportedTest, TestReport};
@@ -444,7 +445,7 @@ pub struct KnownEntities(BTreeMap<String, Vec<String>>);
 
 impl KnownEntities {
     /// Every entity of the compiled graph.
-    pub fn from_graph(graph: &specforge_graph::Graph) -> Self {
+    pub(crate) fn from_graph(graph: &specforge_graph::Graph) -> Self {
         graph
             .nodes()
             .iter()
@@ -579,12 +580,16 @@ pub enum Mode<'a> {
     Reports(&'a [PathBuf]),
 }
 
-/// A `collect` request.
+/// A `collect` request: what to collect, and who decides and hears about
+/// a command that runs.
 pub struct Request<'a> {
-    pub root: &'a Path,
     /// Collector name or extension; detected from project files when absent.
     pub runner: Option<&'a str>,
     pub mode: Mode<'a>,
+    /// Who decides whether a collector's command may run.
+    pub consent: Consent<'a>,
+    /// Told just before a collector's command runs.
+    pub announce: &'a mut dyn FnMut(&Collector, &[String]),
 }
 
 /// Who decides whether a collector's command may run (ADR 0002: consent is
@@ -672,23 +677,29 @@ impl Outcome {
     }
 }
 
-/// Collect test results for the project: select collectors, run or read
-/// each one's report, map it through the extension and merge the answer
-/// into `specforge-report.json`. `consent` decides whether a collector's
-/// command may run; `announce` is told just before it runs.
+/// Collect test results for the project the view was compiled from:
+/// select collectors among its declarations', run (in `runtime`) or read
+/// each one's report, map it through the extension to the view's entities
+/// and merge the answer into `<root>/specforge-report.json`. The request's
+/// `consent` decides whether a collector's command may run; its `announce`
+/// is told just before it runs. Without a root: `no_project`.
 pub fn collect(
-    request: &Request,
-    declarations: &[ExtensionDeclaration],
+    view: &ProjectView,
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
-    known: &KnownEntities,
-    mut consent: Consent,
-    announce: &mut dyn FnMut(&Collector, &[String]),
+    request: Request,
 ) -> Result<Outcome, OpError> {
-    let root = request.root;
-    let available = collectors(declarations);
-    let parse_only = !matches!(request.mode, Mode::Run(_));
-    let selected = select(&available, request.runner, root)?;
-    if let Mode::Reports(_) = request.mode
+    let root = view.project_root()?;
+    let Request {
+        runner,
+        mode,
+        mut consent,
+        announce,
+    } = request;
+    let known = &KnownEntities::from_graph(view.graph);
+    let available = collectors(view.registries.declarations());
+    let parse_only = !matches!(mode, Mode::Run(_));
+    let selected = select(&available, runner, root)?;
+    if let Mode::Reports(_) = mode
         && selected.len() > 1
     {
         let names: Vec<&str> = selected.iter().map(|c| c.name.as_str()).collect();
@@ -713,7 +724,7 @@ pub fn collect(
         let mut exit_code = None;
         let mut since = None;
         let mut stdout = None;
-        if let Mode::Run(output) = request.mode {
+        if let Mode::Run(output) = mode {
             if !consent.allows(&store, collector, &argv, root, &mut unsaved_approvals) {
                 return Err(fail(
                     "E059",
@@ -729,13 +740,13 @@ pub fn collect(
             exit_code = ran.exit_code;
             since = Some(ran.started);
             stdout = ran.stdout.as_deref().and_then(read_capture);
-        } else if let Mode::NoRun = request.mode
+        } else if let Mode::NoRun = mode
             && capturing
         {
             stdout = read_capture(&capture_path(collector, &report_at));
         }
 
-        let files = match request.mode {
+        let files = match mode {
             Mode::Reports(paths) => paths
                 .iter()
                 .map(|p| read_report(p, root, None))
@@ -745,7 +756,7 @@ pub fn collect(
         }
         .map_err(|m| fail("E045", m))?;
         if files.is_empty() && stdout.as_deref().is_none_or(str::is_empty) {
-            let message = match request.mode {
+            let message = match mode {
                 Mode::Run(_) => format!(
                     "{} produced no report at {} (did the tests build?)",
                     collector.name,
@@ -1198,5 +1209,29 @@ mod tests {
         );
         assert_eq!(stats.skipped, 1);
         assert!(!report.results.contains_key("a"));
+    }
+
+    #[test]
+    fn collect_without_a_root_is_no_project() {
+        let fixture = crate::view::testing::Fixture::new();
+        let runtime = specforge_wasm::testing::InProcessRuntime::new();
+
+        let error = collect(
+            &fixture.rootless_view(),
+            &runtime,
+            Request {
+                runner: None,
+                mode: Mode::NoRun,
+                consent: Consent::Approved,
+                announce: &mut |_, _| {},
+            },
+        )
+        .unwrap_err();
+
+        assert_eq!(error.code, "no_project");
+        assert!(
+            !fixture.dir.path().join("specforge-report.json").exists(),
+            "nothing is written"
+        );
     }
 }

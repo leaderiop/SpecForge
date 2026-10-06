@@ -1,24 +1,22 @@
 //! `specforge model`/`specforge.model` and `specforge outline`/
 //! `specforge.outline_extensions`: the logical data model and the extension
 //! architecture diagrams, each one operation over the project view (ADR
-//! 0015). Argument names parse here ([`Named`]), so both surfaces accept
-//! and refuse the same values with the same messages.
-
-use std::str::FromStr;
+//! 0015). Each enumerated argument is an option table here (ADR 0027), so
+//! both surfaces list, accept, default and refuse the same names.
 
 use specforge_common::Diagnostic;
 use specforge_emitter::GraphProtocolSchema;
-use specforge_emitter::model::{
-    FieldLevel, GroupBy, ModelFormat, ModelIntermediate_from_schema, ModelOptions, filter_entities,
-    filter_fields,
-};
-use specforge_emitter::outline::{
-    DependencyDepth, OutlineDetail, OutlineFormat, OutlineIntermediate_from_declarations,
-    OutlineOptions,
-};
+use specforge_emitter::model::{ModelIntermediate_from_schema, filter_entities, filter_fields};
+use specforge_emitter::outline::OutlineIntermediate_from_declarations;
 use specforge_protocol_types::ExtensionDeclaration;
 
-use crate::OpError;
+// The value types, so surfaces name ops rather than the emitter.
+pub use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions};
+pub use specforge_emitter::outline::{
+    DependencyDepth, OutlineDetail, OutlineFormat, OutlineOptions,
+};
+
+use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
 
 /// A rendered model diagram and what rendering it reported.
@@ -62,127 +60,104 @@ pub fn outline(view: &ProjectView, options: &OutlineOptions) -> String {
     specforge_emitter::outline::render(&outline, options)
 }
 
-/// A value named by an argument (`"mermaid"`, `"keys"`, ...), parsed with
-/// `str::parse`: `Named<ModelFormat>`, `Named<GroupBy>`, `Named<FieldLevel>`,
-/// `Named<OutlineFormat>`, `Named<OutlineDetail>`, `Named<DependencyDepth>`.
-/// Any other name is an error listing the accepted ones (`unknown_format`
-/// for a format, `invalid_input` otherwise).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Named<T>(pub T);
-
-/// `impl FromStr for Named<$type>`: `$argument` names the argument in the
-/// refusal, `$code` is its code, then each accepted name and its value.
-macro_rules! named {
-    ($type:ty, $argument:literal, $code:literal, [$(($name:literal, $value:expr)),+ $(,)?]) => {
-        impl FromStr for Named<$type> {
-            type Err = OpError;
-
-            fn from_str(name: &str) -> Result<Self, OpError> {
-                match name {
-                    $($name => Ok(Named($value)),)+
-                    other => Err(OpError::new(
-                        $code,
-                        format!(
-                            concat!("Unknown ", $argument, ": {}. Expected: {}"),
-                            other,
-                            [$($name),+].join(", ")
-                        ),
-                    )),
-                }
-            }
-        }
-    };
-}
-
-named!(
-    ModelFormat,
-    "format",
-    "unknown_format",
-    [
-        ("markdown", ModelFormat::Markdown),
-        ("mermaid", ModelFormat::Mermaid),
-        ("dot", ModelFormat::Dot),
-        ("json", ModelFormat::Json),
-        ("dbml", ModelFormat::Dbml),
-    ]
-);
-named!(
-    GroupBy,
-    "group_by",
-    "invalid_input",
-    [("extension", GroupBy::Extension), ("none", GroupBy::None),]
-);
-named!(
-    FieldLevel,
-    "fields",
-    "invalid_input",
-    [
-        ("none", FieldLevel::None),
-        ("keys", FieldLevel::Keys),
-        ("all", FieldLevel::All),
-    ]
-);
-named!(
-    OutlineFormat,
-    "format",
-    "unknown_format",
-    [
-        ("markdown", OutlineFormat::Markdown),
-        ("mermaid", OutlineFormat::Mermaid),
-        ("dot", OutlineFormat::Dot),
-        ("json", OutlineFormat::Json),
-    ]
-);
-named!(
-    OutlineDetail,
-    "fields",
-    "invalid_input",
-    [
-        ("none", OutlineDetail::None),
-        ("keys", OutlineDetail::Keys),
-        ("all", OutlineDetail::All),
-    ]
-);
-named!(
-    DependencyDepth,
-    "deps",
-    "invalid_input",
-    [
-        ("direct", DependencyDepth::Direct),
-        ("effective", DependencyDepth::Effective),
-        ("full", DependencyDepth::Full),
-    ]
-);
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn names_parse_and_others_list_the_accepted_ones() {
-        assert_eq!(
-            "dbml".parse::<Named<ModelFormat>>(),
-            Ok(Named(ModelFormat::Dbml))
-        );
-        assert_eq!(
-            "full".parse::<Named<DependencyDepth>>(),
-            Ok(Named(DependencyDepth::Full))
-        );
-        let error = "svg".parse::<Named<ModelFormat>>().unwrap_err();
-        assert_eq!(error.code, "unknown_format");
-        assert_eq!(
-            error.message,
-            "Unknown format: svg. Expected: markdown, mermaid, dot, json, dbml"
-        );
-        let error = "both".parse::<Named<GroupBy>>().unwrap_err();
-        assert_eq!(error.code, "invalid_input");
-        assert_eq!(
-            error.message,
-            "Unknown group_by: both. Expected: extension, none"
-        );
-        assert_eq!(
-            "x".parse::<Named<DependencyDepth>>().unwrap_err().message,
-            "Unknown deps: x. Expected: direct, effective, full"
-        );
+/// A choice whose name says what it selects.
+const fn plain<T>(name: &'static str, value: T) -> Choice<T> {
+    Choice {
+        name,
+        aliases: &[],
+        help: "",
+        value,
     }
 }
+
+/// A choice with a one-line help.
+const fn helped<T>(name: &'static str, help: &'static str, value: T) -> Choice<T> {
+    Choice {
+        name,
+        aliases: &[],
+        help,
+        value,
+    }
+}
+
+/// `specforge model --format`, `specforge.model`'s `format`.
+pub const MODEL_FORMAT: OptionTable<ModelFormat> = OptionTable {
+    argument: "format",
+    code: "unknown_format",
+    choices: &[
+        plain("markdown", ModelFormat::Markdown),
+        helped("mermaid", "ER diagram", ModelFormat::Mermaid),
+        helped("dot", "Graphviz", ModelFormat::Dot),
+        plain("json", ModelFormat::Json),
+        helped("dbml", "dbdiagram.io", ModelFormat::Dbml),
+    ],
+    default: Some(ModelFormat::Markdown),
+};
+
+/// `specforge model --group-by`, `specforge.model`'s `group_by`.
+pub const GROUP_BY: OptionTable<GroupBy> = OptionTable {
+    argument: "group_by",
+    code: "invalid_input",
+    choices: &[
+        helped(
+            "extension",
+            "under a header per extension",
+            GroupBy::Extension,
+        ),
+        helped("none", "one flat list", GroupBy::None),
+    ],
+    default: Some(GroupBy::Extension),
+};
+
+/// `specforge model --fields`, `specforge.model`'s `fields`.
+pub const MODEL_FIELDS: OptionTable<FieldLevel> = OptionTable {
+    argument: "fields",
+    code: "invalid_input",
+    choices: &[
+        plain("none", FieldLevel::None),
+        helped("keys", "key fields", FieldLevel::Keys),
+        plain("all", FieldLevel::All),
+    ],
+    default: Some(FieldLevel::Keys),
+};
+
+/// `specforge outline --format`, `specforge.outline_extensions`' `format`.
+pub const OUTLINE_FORMAT: OptionTable<OutlineFormat> = OptionTable {
+    argument: "format",
+    code: "unknown_format",
+    choices: &[
+        plain("markdown", OutlineFormat::Markdown),
+        helped("mermaid", "flowchart", OutlineFormat::Mermaid),
+        helped("dot", "Graphviz", OutlineFormat::Dot),
+        plain("json", OutlineFormat::Json),
+    ],
+    default: Some(OutlineFormat::Markdown),
+};
+
+/// `specforge outline --fields`, `specforge.outline_extensions`' `fields`.
+pub const OUTLINE_FIELDS: OptionTable<OutlineDetail> = OptionTable {
+    argument: "fields",
+    code: "invalid_input",
+    choices: &[
+        helped("none", "counts only", OutlineDetail::None),
+        helped("keys", "names and rule codes", OutlineDetail::Keys),
+        helped("all", "full field attribution", OutlineDetail::All),
+    ],
+    default: Some(OutlineDetail::Keys),
+};
+
+/// `specforge outline --deps`, `specforge.outline_extensions`' `deps`.
+pub const DEPS: OptionTable<DependencyDepth> = OptionTable {
+    argument: "deps",
+    code: "invalid_input",
+    choices: &[
+        helped("direct", "declared only", DependencyDepth::Direct),
+        helped(
+            "effective",
+            "direct and used transitive",
+            DependencyDepth::Effective,
+        ),
+        helped("full", "all transitive", DependencyDepth::Full),
+    ],
+    default: Some(DependencyDepth::Direct),
+};

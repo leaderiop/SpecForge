@@ -3,21 +3,33 @@ source: crates/specforge-cli/tests/read_views.rs
 expression: "normalized(&schema_digest(value), root)"
 ---
 {
-  "fields": [
-    "category",
-    "consumes",
-    "contract",
-    "description",
-    "diagnostic",
-    "features",
-    "invariants",
-    "ports",
-    "produces",
-    "refs",
-    "severity",
-    "status",
-    "types"
+  "edge_types": [
+    "BehaviorConsumesEvent",
+    "BehaviorEnforcesInvariant",
+    "BehaviorImplementsFeature",
+    "BehaviorProducesEvent",
+    "BehaviorReferencesType",
+    "BehaviorUsesPort",
+    "ExternalRef",
+    "MilestoneIncludesBehavior",
+    "References"
   ],
-  "name": "behavior",
-  "testable": true
+  "entity_kinds": [
+    "behavior"
+  ],
+  "extensions": [
+    {
+      "name": "@specforge/software",
+      "version": "1.0.0"
+    },
+    {
+      "name": "@specforge/testing",
+      "version": "1.0.0"
+    }
+  ],
+  "schema_version": {
+    "major": 1,
+    "minor": 0,
+    "patch": 0
+  }
 }

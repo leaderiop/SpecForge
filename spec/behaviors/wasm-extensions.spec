@@ -646,8 +646,13 @@ behavior run_doctor_check "Run Doctor Check" {
     and additional checks (shadowed fields, unknown target entities,
     edge label conflicts). An enabled extension that fails to load (E028:
     not installed; E033: its binary no longer matches the lock) MUST be
-    reported as an error. A remediation that names a command MUST name
-    one the user can run as written. A finding whose diagnostic offers no
+    reported as an error. Each listed extension MUST carry the source the
+    extensions listing gives it: builtin, the lock entry's source, or
+    file:<path> for a .wasm file entry of specforge.json. Run in a
+    directory without specforge.json, doctor MUST report a warning finding
+    config_missing naming the directory; the run stays healthy. A
+    remediation that names a command MUST name one the user can run as
+    written. A finding whose diagnostic offers no
     suggestion of its own MUST quote the catalogue's explanation of its
     code. The --json flag MUST produce machine-readable JSON
     output for CI integration.
@@ -661,6 +666,8 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor reports an extension that fails to load (E028, E033) as an error"
   verify unit "a peer whose installed version doctor cannot compare is remedied with a runnable command"
   verify unit "a finding without its own suggestion quotes the catalogued explanation"
+  verify unit "doctor gives each extension the source the extensions listing gives it"
+  verify unit "doctor in a directory without specforge.json reports config_missing as a warning"
   verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
 }
 
