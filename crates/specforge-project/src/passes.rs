@@ -70,11 +70,10 @@ pub fn pass_input(input: &AnalysisContext) -> PassInput {
         .entities(input.graph)
         .into_iter()
         .map(|(e, rule)| PassEntity {
-            id: e.id,
-            kind: e.kind,
-            fields: e.fields.into_iter().collect(),
-            incoming_edge_count: e.incoming_edge_count,
-            outgoing_edge_count: e.outgoing_edge_count,
+            // A name written twice keeps its last text.
+            fields: e.fields.into_iter().map(|f| (f.key, f.text)).collect(),
+            incoming_edge_count: e.incoming.total,
+            outgoing_edge_count: e.outgoing.total,
             span: Some(PassSpan {
                 file: e.span.file.as_str().to_string(),
                 start_line: e.span.start_line,
@@ -84,8 +83,10 @@ pub fn pass_input(input: &AnalysisContext) -> PassInput {
             }),
             testable: rule.testable,
             exempt: rule.exempt,
-            verify_kinds: e.verify_kinds,
-            verify_texts: e.verify_texts,
+            verify_kinds: rule.verify_kinds,
+            verify_texts: rule.verify_texts,
+            id: e.id,
+            kind: e.kind,
         })
         .collect();
     let edges = input

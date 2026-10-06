@@ -6,15 +6,13 @@
 //! exports, the MCP coverage, inspect, review and trace views) reads it
 //! here, so they cannot disagree.
 
-use crate::compile::build_validation_entities;
+use crate::snapshot::entity_records;
 use serde::Deserialize;
 use specforge_common::Diagnostic;
 use specforge_graph::{FieldValue, Graph, Node};
 use specforge_parser::UNION_VARIANTS_FIELD;
-use specforge_registry::entity::Exemption;
-use specforge_registry::validation_engine::{
-    ValidationEntity, ValidationRulePattern, obliging_rule,
-};
+use specforge_registry::entity::{Direction, EntityRecord, Exemption};
+use specforge_registry::validation_engine::{ValidationRulePattern, obliging_rule};
 use specforge_registry::{FieldRegistry, KindRegistry, RegistryBuild};
 use std::collections::{BTreeMap, BTreeSet};
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -263,9 +261,9 @@ impl<'a> CoverageRegistries<'a> {
 
     /// The rule's view of every entity in `graph`, alongside the snapshot
     /// it was taken from (what the extension passes receive).
-    pub fn entities(&self, graph: &Graph) -> Vec<(ValidationEntity, specforge_coverage::Entity)> {
+    pub fn entities(&self, graph: &Graph) -> Vec<(EntityRecord, specforge_coverage::Entity)> {
         let testable = testable_kinds(self.kinds);
-        build_validation_entities(graph, self.kinds, self.fields)
+        entity_records(graph, self.kinds, self.fields)
             .into_iter()
             .map(|e| {
                 let entity = rule_entity(
@@ -284,7 +282,7 @@ impl<'a> CoverageRegistries<'a> {
 /// per-entity view and the pass cannot disagree. `obligated`: its kind must
 /// declare obligations (a `no_verify_statements` rule applies to it).
 pub fn rule_entity(
-    entity: &ValidationEntity,
+    entity: &EntityRecord,
     testable: bool,
     obligated: bool,
 ) -> specforge_coverage::Entity {
@@ -293,12 +291,12 @@ pub fn rule_entity(
         kind: entity.kind.clone(),
         testable,
         exempt: entity.exemption.is_some() || !obligated,
-        verify_kinds: entity.verify_kinds.clone(),
-        verify_texts: entity.verify_texts.clone(),
+        verify_kinds: entity.obligations.iter().map(|o| o.kind.clone()).collect(),
+        verify_texts: entity.obligations.iter().map(|o| o.text.clone()).collect(),
         // The host grades no kind by risk (ADR 0009, B): the testing
         // pass reads risk for the kind it grades.
         risk: None,
-        referenced: entity.incoming_edge_count > 0,
+        referenced: entity.edges(Direction::Incoming, None) > 0,
     }
 }
 
@@ -587,14 +585,17 @@ mod tests {
 
     /// The ids W004 reports on `source` (rules on `behavior` and `type`).
     fn w004_ids(source: &str, fields: &FieldRegistry) -> Vec<String> {
-        let entities = build_validation_entities(&graph_of(source), &KindRegistry::new(), fields);
+        let entities = entity_records(&graph_of(source), &KindRegistry::new(), fields);
         let mut ids: Vec<String> = ["behavior", "type"]
             .into_iter()
             .flat_map(|kind| {
                 specforge_registry::validation_engine::execute_pattern(
                     &w004(kind),
-                    &entities,
-                    Path::new(""),
+                    &specforge_registry::entity::RuleInput {
+                        entities: &entities,
+                        edges: &[],
+                        spec_root: Path::new(""),
+                    },
                     None,
                 )
             })
@@ -707,11 +708,10 @@ mod tests {
         untargeted.target_kind = None;
         assert_eq!(owes(&[(untargeted, String::new())]), ["Plain", "open"]);
         // What exempts each, decided once.
-        let exemptions: Vec<(String, Option<Exemption>)> =
-            build_validation_entities(&graph, &kinds, &fields)
-                .into_iter()
-                .map(|e| (e.id, e.exemption))
-                .collect();
+        let exemptions: Vec<(String, Option<Exemption>)> = entity_records(&graph, &kinds, &fields)
+            .into_iter()
+            .map(|e| (e.id, e.exemption))
+            .collect();
         assert_eq!(
             exemptions,
             [

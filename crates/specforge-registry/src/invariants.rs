@@ -235,7 +235,7 @@ mod tests {
         // Step 3: Validation (after all registries are populated)
         // detect_unknown uses the fully populated registry
         let unknown_diags = compilation::detect_unknown_entity_kinds(
-            &[compilation::EntityView::new(
+            &[crate::entity::EntityRecord::new(
                 "behavior",
                 "b1",
                 &dummy_span(),

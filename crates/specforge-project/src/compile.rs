@@ -9,10 +9,11 @@ use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
     DeclaredPass, EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild,
     compilation::{
-        EntityView, detect_identifier_length_violations, detect_mistyped_references,
+        detect_identifier_length_violations, detect_mistyped_references,
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
     },
-    validation_engine::{ValidationEntity, ValidationRulePattern, execute_pattern},
+    entity::RuleInput,
+    validation_engine::{ValidationRulePattern, execute_pattern},
 };
 use specforge_resolver::{ResolvedProject, resolve_project};
 use specforge_validator::{ValidatorConfig, validate_with_config};
@@ -99,7 +100,7 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
 
     // Unknown kinds, identifiers and fields, against the registries.
     if !kind_reg.is_empty() {
-        let views = entity_views(graph);
+        let views = crate::snapshot::entity_records(graph, kind_reg, field_reg);
         diagnostics.extend(detect_unknown_entity_kinds(&views, kind_reg, None));
 
         // E013 / E014: the documented identifier contract, now enforced —
@@ -143,31 +144,6 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
     diagnostics.extend(extension_diags);
 
     diagnostics
-}
-
-/// Every node of the graph as the registry checks see it.
-fn entity_views(graph: &Graph) -> Vec<EntityView<'_>> {
-    graph
-        .nodes()
-        .iter()
-        .map(|n| EntityView {
-            kind: n.kind.raw.as_str(),
-            id: n.id.raw.as_str(),
-            span: &n.source_span,
-            fields: n.fields.entries().iter().map(|e| e.key.as_str()).collect(),
-            references: n
-                .fields
-                .entries()
-                .iter()
-                .filter_map(|e| match &e.value {
-                    specforge_parser::FieldValue::ReferenceList(refs) => {
-                        Some((e.key.as_str(), refs.iter().map(|r| r.id.as_str()).collect()))
-                    }
-                    _ => None,
-                })
-                .collect(),
-        })
-        .collect()
 }
 
 /// Lightweight compilation: resolve + build graph + core validation only.
@@ -299,70 +275,6 @@ pub fn load_extensions(
     }
     diagnostics.extend(warnings);
     declarations
-}
-
-/// Convert all graph nodes into `ValidationEntity` structs for the validation engine.
-/// Shared by CLI (`compile.rs`) and LSP (`backend.rs`).
-///
-/// `kind_registry` and `field_registry` decide what exempts an entity from
-/// obligations ([`ValidationEntity::exemption`], see
-/// [`crate::coverage::exemption`]).
-pub fn build_validation_entities(
-    graph: &Graph,
-    kind_registry: &KindRegistry,
-    field_registry: &FieldRegistry,
-) -> Vec<ValidationEntity> {
-    // Sorted by id: rule diagnostics must emit in a stable order
-    // (R-6 / hardening-plan D1 class).
-    let mut nodes: Vec<_> = graph.nodes();
-    nodes.sort_by_key(|n| n.id.raw);
-    nodes
-        .into_iter()
-        .map(|node| {
-            let incoming_edges = graph.edges_to(node.id.raw.as_str());
-            let outgoing_edges = graph.edges_from(node.id.raw.as_str());
-            let (incoming, outgoing) = (incoming_edges.len(), outgoing_edges.len());
-            let by_kind = |ids: &mut dyn Iterator<Item = &str>| {
-                let mut counts = std::collections::BTreeMap::new();
-                for kind in ids
-                    .filter_map(|id| graph.node(id))
-                    .map(|n| n.kind.raw.to_string())
-                {
-                    *counts.entry(kind).or_insert(0) += 1;
-                }
-                counts
-            };
-            let incoming_kinds = by_kind(&mut incoming_edges.iter().map(|e| e.source.as_str()));
-            let outgoing_kinds = by_kind(&mut outgoing_edges.iter().map(|e| e.target.as_str()));
-
-            // Every written field, by its field text (ADR 0019): a name
-            // written twice keeps its last text.
-            let mut fields = HashMap::new();
-            let mut verify_kinds: Vec<String> = Vec::new();
-            let mut verify_texts: Vec<String> = Vec::new();
-            for entry in node.fields.entries() {
-                fields.insert(entry.key.to_string(), field_text(&entry.value));
-                if let specforge_parser::FieldValue::VerifyList(stmts) = &entry.value {
-                    verify_kinds = stmts.iter().map(|s| s.kind.clone()).collect();
-                    verify_texts = stmts.iter().map(|s| s.description.clone()).collect();
-                }
-            }
-
-            ValidationEntity {
-                id: node.id.raw.to_string(),
-                kind: node.kind.raw.to_string(),
-                fields,
-                incoming_edge_count: incoming,
-                outgoing_edge_count: outgoing,
-                span: node.source_span.clone(),
-                verify_kinds,
-                verify_texts,
-                outgoing_kinds,
-                incoming_kinds,
-                exemption: crate::coverage::exemption(node, kind_registry, field_registry),
-            }
-        })
-        .collect()
 }
 
 /// Wasm dispatch for extensions' `check: "custom"` rules.
@@ -623,7 +535,13 @@ fn run_extension_validation(
         return Vec::new();
     }
 
-    let entities = build_validation_entities(graph, kinds, fields);
+    let entities = crate::snapshot::entity_records(graph, kinds, fields);
+    let edges = crate::snapshot::edge_records(graph);
+    let input = RuleInput {
+        entities: &entities,
+        edges: &edges,
+        spec_root,
+    };
     let declared_types = declared_type_ids(graph, kinds);
 
     if std::env::var("SPECFORGE_DEBUG_RULES").is_ok() {
@@ -656,8 +574,7 @@ fn run_extension_validation(
             });
             let diags = execute_pattern(
                 pattern,
-                &entities,
-                spec_root,
+                &input,
                 verdicts.as_ref().map(|v| {
                     v as &dyn specforge_registry::validation_engine::WasmValidationRuntime
                 }),

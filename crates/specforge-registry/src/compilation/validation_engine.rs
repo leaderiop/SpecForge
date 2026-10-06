@@ -1,8 +1,7 @@
-use crate::entity::Exemption;
+use crate::entity::{Direction, RuleInput};
 use specforge_common::{Diagnostic, Severity};
 use specforge_protocol_types::ConstraintKind;
 use specforge_protocol_types::{ValidationRuleDescriptor, ValidationSeverity};
-use std::path::Path;
 
 /// Parsed and validated rule pattern, ready for execution.
 #[derive(Debug, Clone)]
@@ -38,7 +37,7 @@ impl ValidationRulePattern {
 /// first `no_verify_statements` rule, in code order, that applies to it
 /// ([`ValidationRulePattern::applies_to`]). A kind that accepts no `verify`
 /// statements may have one; its entities are exempt instead
-/// ([`Exemption::NoVerify`]).
+/// ([`crate::entity::Exemption::NoVerify`]).
 pub fn obliging_rule<'r>(
     rules: &'r [(ValidationRulePattern, String)],
     kind: &str,
@@ -372,96 +371,35 @@ pub fn interpolate_template(
     result
 }
 
-/// A simple entity representation for validation.
-///
-/// Serialized as the input payload of extension-owned compiler passes
-/// (`__pass_<name>` wasm exports).
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct ValidationEntity {
-    pub id: String,
-    pub kind: String,
-    pub fields: std::collections::HashMap<String, String>,
-    pub incoming_edge_count: usize,
-    pub outgoing_edge_count: usize,
-    pub span: specforge_common::SourceSpan,
-    /// Kinds of the entity's verify statements (unit/integration/property/...),
-    /// used by [`ValidationPatternKind::VerifyKindAllowlist`].
-    #[serde(default)]
-    pub verify_kinds: Vec<String>,
-    /// The verify statements' texts, parallel to `verify_kinds`.
-    #[serde(default)]
-    pub verify_texts: Vec<String>,
-    /// Outgoing edges by the kind of the entity they reach, for edge-scoped
-    /// rules ([`ValidationRulePattern::edge_peer_kind`]).
-    #[serde(skip)]
-    pub outgoing_kinds: std::collections::BTreeMap<String, usize>,
-    /// Incoming edges by the kind of the entity they come from.
-    #[serde(skip)]
-    pub incoming_kinds: std::collections::BTreeMap<String, usize>,
-    /// What exempts the entity from obligations of its own, if anything: a
-    /// union type, which has no body to hold them, an entity marked
-    /// `abstract true` through a field its kind's registry entry declares,
-    /// or a kind that accepts no `verify` statements. The host decides it
-    /// from the entity's structure and the registries, never from a
-    /// field's name alone, so a struct member named `abstract` or
-    /// `gherkin` exempts nothing.
-    #[serde(skip)]
-    pub exemption: Option<Exemption>,
-}
-
-impl ValidationEntity {
-    /// It owes no `verify` statements of its own: anything exempts it.
-    pub fn exempts_statements(&self) -> bool {
-        self.exemption.is_some()
-    }
-
-    /// It owes no obligations declared in another field: a union body or
-    /// an exempting flag exempts it ([`Exemption::exempts_fields`]).
-    pub fn exempts_fields(&self) -> bool {
-        self.exemption
-            .as_ref()
-            .is_some_and(Exemption::exempts_fields)
-    }
-
-    /// Edges out of (`outgoing`) or into this entity, only those to or from
-    /// `peer_kind` when it is set.
-    fn edge_count(&self, outgoing: bool, peer_kind: Option<&str>) -> usize {
-        let (total, by_kind) = if outgoing {
-            (self.outgoing_edge_count, &self.outgoing_kinds)
-        } else {
-            (self.incoming_edge_count, &self.incoming_kinds)
-        };
-        match peer_kind {
-            Some(kind) => by_kind.get(kind).copied().unwrap_or(0),
-            None => total,
-        }
-    }
-}
-
-/// Execute a single validation pattern against a set of entities.
-/// `spec_root` is what a relative path in a `file_exists` field resolves
-/// against (core validation's `file_reference` root), never the working
-/// directory.
+/// Execute one rule over `input`'s records, in the order given (ADR 0019).
+/// A relative path in a `file_exists` field resolves against
+/// `input.spec_root` (core validation's `file_reference` root), never the
+/// working directory.
 pub fn execute_pattern(
     pattern: &ValidationRulePattern,
-    entities: &[ValidationEntity],
-    spec_root: &Path,
+    input: &RuleInput,
     wasm: Option<&dyn WasmValidationRuntime>,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
+    let spec_root = input.spec_root;
 
-    for entity in entities.iter().filter(|e| pattern.applies_to(&e.kind)) {
+    for entity in input
+        .entities
+        .iter()
+        .filter(|e| pattern.applies_to(&e.kind))
+    {
         let mut violation_field: Option<String> = None;
         let mut violation_value: Option<String> = None;
         let violated = match pattern.check {
             ValidationPatternKind::NoIncomingEdges => {
-                entity.edge_count(false, pattern.edge_peer_kind.as_deref()) == 0
+                entity.edges(Direction::Incoming, pattern.edge_peer_kind.as_deref()) == 0
             }
             ValidationPatternKind::NoOutgoingEdges => {
-                entity.edge_count(true, pattern.edge_peer_kind.as_deref()) == 0
+                entity.edges(Direction::Outgoing, pattern.edge_peer_kind.as_deref()) == 0
             }
             ValidationPatternKind::NoEdges => {
-                entity.incoming_edge_count == 0 && entity.outgoing_edge_count == 0
+                entity.edges(Direction::Incoming, None) == 0
+                    && entity.edges(Direction::Outgoing, None) == 0
             }
             ValidationPatternKind::MissingFieldWhenFlagSet => {
                 if let Some(ref field_name) = pattern.field {
@@ -472,7 +410,7 @@ pub fn execute_pattern(
                     if field_name == VERIFY_FIELD && entity.exempts_statements() {
                         false
                     } else {
-                        !entity.fields.contains_key(field_name)
+                        !entity.writes(field_name)
                     }
                 } else {
                     false
@@ -481,10 +419,12 @@ pub fn execute_pattern(
             ValidationPatternKind::FieldValueConstraint => {
                 if let (Some(field_name), Some(constraint)) = (&pattern.field, &pattern.constraint)
                 {
-                    if let Some(value) = entity.fields.get(field_name) {
+                    if let Some(value) = entity.field(field_name) {
                         match constraint.kind {
                             Some(ConstraintKind::NonEmpty) => value.is_empty(),
-                            Some(ConstraintKind::OneOf) => !constraint.values.contains(value),
+                            Some(ConstraintKind::OneOf) => {
+                                !constraint.values.iter().any(|allowed| allowed == value)
+                            }
                             Some(ConstraintKind::Matches) => {
                                 // The regex was compiled once at parse time; a
                                 // malformed pattern is rejected at load time with
@@ -508,7 +448,7 @@ pub fn execute_pattern(
                 if let Some(ref field_name) = pattern.field {
                     // A relative path is the spec root's; an absolute one
                     // is checked as written (`join` keeps it).
-                    if let Some(path) = entity.fields.get(field_name) {
+                    if let Some(path) = entity.field(field_name) {
                         !spec_root.join(path).exists()
                     } else {
                         false
@@ -529,12 +469,13 @@ pub fn execute_pattern(
                     (&pattern.field, &pattern.constraint)
                 {
                     if let Some(condition_field) = &constraint.pattern {
-                        if let Some(condition_value) = entity.fields.get(condition_field) {
+                        if let Some(condition_value) = entity.field(condition_field) {
                             // Check if the condition value matches one of the trigger values
-                            let condition_met = constraint.values.contains(condition_value);
+                            let condition_met =
+                                constraint.values.iter().any(|v| v == condition_value);
                             if condition_met {
                                 // Condition met — required field must be present and non-empty
-                                match entity.fields.get(required_field) {
+                                match entity.field(required_field) {
                                     None => true,            // field missing => violation
                                     Some(v) => v.is_empty(), // empty => violation
                                 }
@@ -553,7 +494,7 @@ pub fn execute_pattern(
             }
             ValidationPatternKind::MissingRequiredField => {
                 if let Some(ref field_name) = pattern.field {
-                    !entity.fields.contains_key(field_name)
+                    !entity.writes(field_name)
                 } else {
                     false
                 }
@@ -565,8 +506,9 @@ pub fn execute_pattern(
                     .map(|c| c.values.clone())
                     .unwrap_or_default();
                 let offender = entity
-                    .verify_kinds
+                    .obligations
                     .iter()
+                    .map(|o| &o.kind)
                     .filter(|k| !k.is_empty()) // bare `verify "..."` has no kind
                     .find(|k| !allowlist.contains(k))
                     .cloned();
@@ -587,8 +529,8 @@ pub fn execute_pattern(
                 // no `verify` statements owe those (`exemption`, which the
                 // host sets from structure and the registries).
                 match pattern.field.as_deref().unwrap_or(VERIFY_FIELD) {
-                    VERIFY_FIELD => !entity.exempts_statements() && entity.verify_texts.is_empty(),
-                    field => !entity.exempts_fields() && !entity.fields.contains_key(field),
+                    VERIFY_FIELD => !entity.exempts_statements() && entity.obligations.is_empty(),
+                    field => !entity.exempts_fields() && !entity.writes(field),
                 }
             }
             ValidationPatternKind::Custom => {
@@ -615,10 +557,7 @@ pub fn execute_pattern(
 
         if violated {
             let default_field = pattern.field.as_deref();
-            let default_value = entity
-                .fields
-                .get(pattern.field.as_deref().unwrap_or(""))
-                .map(|s| s.as_str());
+            let default_value = entity.field(pattern.field.as_deref().unwrap_or(""));
             let (field, value) = match (&violation_field, &violation_value) {
                 (Some(f), Some(v)) => (Some(f.as_str()), Some(v.as_str())),
                 (Some(f), None) => (Some(f.as_str()), default_value),
@@ -662,6 +601,17 @@ pub fn execute_pattern(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entity::{EntityRecord, Exemption};
+    use std::path::Path;
+
+    /// The rules' input over `entities`, with no edges and no spec root.
+    fn rules_over(entities: &[EntityRecord]) -> RuleInput<'_> {
+        RuleInput {
+            entities,
+            edges: &[],
+            spec_root: Path::new(""),
+        }
+    }
     use specforge_common::Sym;
     use specforge_protocol_types::FieldConstraintDescriptor;
 
@@ -697,20 +647,11 @@ mod tests {
         }
     }
 
-    fn make_entity(id: &str, kind: &str, incoming: usize, outgoing: usize) -> ValidationEntity {
-        ValidationEntity {
-            id: id.to_string(),
-            kind: kind.to_string(),
-            fields: std::collections::HashMap::new(),
-            incoming_edge_count: incoming,
-            outgoing_edge_count: outgoing,
-            span: span(),
-            verify_kinds: Vec::new(),
-            verify_texts: Vec::new(),
-            outgoing_kinds: Default::default(),
-            incoming_kinds: Default::default(),
-            exemption: None,
-        }
+    fn make_entity(id: &str, kind: &str, incoming: usize, outgoing: usize) -> EntityRecord {
+        let mut entity = EntityRecord::new(kind, id, &span());
+        entity.incoming.total = incoming;
+        entity.outgoing.total = outgoing;
+        entity
     }
 
     fn allowlist_rule(code: &str, target: &str, allowed: &[&str]) -> ValidationRulePattern {
@@ -734,17 +675,17 @@ mod tests {
         }
     }
 
-    fn entity_with_verify_kinds(id: &str, kind: &str, kinds: &[&str]) -> ValidationEntity {
-        let mut e = make_entity(id, kind, 1, 1);
-        e.verify_kinds = kinds.iter().map(|s| s.to_string()).collect();
-        e
+    fn entity_with_verify_kinds(id: &str, kind: &str, kinds: &[&str]) -> EntityRecord {
+        kinds
+            .iter()
+            .fold(make_entity(id, kind, 1, 1), |e, k| e.with_obligation(k, ""))
     }
 
     #[test]
     fn verify_kind_allowlist_flags_offending_kind() {
         let rule = allowlist_rule("W009", "invariant", &["property", "unit"]);
         let e = entity_with_verify_kinds("inv", "invariant", &["load"]);
-        let diags = execute_pattern(&rule, &[e], Path::new(""), None);
+        let diags = execute_pattern(&rule, &rules_over(&[e]), None);
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("load"), "{}", diags[0].message);
         assert!(
@@ -759,10 +700,10 @@ mod tests {
         let rule = allowlist_rule("W009", "invariant", &["property", "unit", "mutation"]);
         // every kind allowed
         let ok = entity_with_verify_kinds("inv", "invariant", &["unit", "mutation"]);
-        assert!(execute_pattern(&rule, &[ok], Path::new(""), None).is_empty());
+        assert!(execute_pattern(&rule, &rules_over(&[ok]), None).is_empty());
         // a bare `verify "..."` (empty kind) is exempt
         let bare = entity_with_verify_kinds("inv2", "invariant", &[""]);
-        assert!(execute_pattern(&rule, &[bare], Path::new(""), None).is_empty());
+        assert!(execute_pattern(&rule, &rules_over(&[bare]), None).is_empty());
     }
 
     fn w004_rule() -> ValidationRulePattern {
@@ -788,14 +729,13 @@ mod tests {
         let rule = w004_rule();
         let unverified = make_entity("b1", "behavior", 1, 1);
         assert_eq!(
-            execute_pattern(&rule, &[unverified], Path::new(""), None).len(),
+            execute_pattern(&rule, &rules_over(&[unverified]), None).len(),
             1
         );
 
         let mut verified = make_entity("b2", "behavior", 1, 1);
-        verified.verify_kinds = vec!["unit".into()];
-        verified.verify_texts = vec!["it works".into()];
-        assert!(execute_pattern(&rule, &[verified], Path::new(""), None).is_empty());
+        verified = verified.with_obligation("unit", "it works");
+        assert!(execute_pattern(&rule, &rules_over(&[verified]), None).is_empty());
 
         // Members named like a statement or an exemption are fields: none
         // of them stands in for an obligation or exempts the entity.
@@ -806,9 +746,9 @@ mod tests {
             ("variants", "open | done"),
         ] {
             let mut named = make_entity("b3", "behavior", 1, 1);
-            named.fields.insert(name.to_string(), value.to_string());
+            named = named.with_field(name, value);
             assert_eq!(
-                execute_pattern(&rule, &[named], Path::new(""), None).len(),
+                execute_pattern(&rule, &rules_over(&[named]), None).len(),
                 1,
                 "a field named {name} exempts nothing"
             );
@@ -816,7 +756,7 @@ mod tests {
 
         let mut exempt = make_entity("b4", "behavior", 1, 1);
         exempt.exemption = Some(Exemption::Union);
-        assert!(execute_pattern(&rule, &[exempt], Path::new(""), None).is_empty());
+        assert!(execute_pattern(&rule, &rules_over(&[exempt]), None).is_empty());
     }
 
     // -- B:parse_validation_rule_pattern --
@@ -906,7 +846,7 @@ mod tests {
             make_entity("b1", "behavior", 0, 2), // orphan
             make_entity("b2", "behavior", 1, 0), // not orphan
         ];
-        let diags = execute_pattern(&pattern, &entities, Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&entities), None);
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("b1"));
     }
@@ -921,7 +861,7 @@ mod tests {
             make_entity("b1", "behavior", 1, 0), // leaf
             make_entity("b2", "behavior", 1, 3), // not leaf
         ];
-        let diags = execute_pattern(&pattern, &entities, Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&entities), None);
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("b1"));
     }
@@ -938,11 +878,10 @@ mod tests {
         // b1 has no "contract" field → violation
         let mut e2 = make_entity("b2", "behavior", 1, 0);
 
-        e2.fields
-            .insert("contract".to_string(), "some text".to_string());
+        e2 = e2.with_field("contract", "some text");
         // b2 has "contract" → ok
 
-        let diags = execute_pattern(&pattern, &[e1, e2], Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&[e1, e2]), None);
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("b1"));
     }
@@ -972,12 +911,11 @@ mod tests {
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
 
         let mut e1 = make_entity("b1", "behavior", 1, 0);
-        e1.fields
-            .insert("status".to_string(), "invalid_status".to_string());
+        e1 = e1.with_field("status", "invalid_status");
         let mut e2 = make_entity("b2", "behavior", 1, 0);
-        e2.fields.insert("status".to_string(), "active".to_string());
+        e2 = e2.with_field("status", "active");
 
-        let diags = execute_pattern(&pattern, &[e1, e2], Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&[e1, e2]), None);
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("b1"));
     }
@@ -1003,9 +941,9 @@ mod tests {
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
 
         let mut e1 = make_entity("r1", "release", 1, 0);
-        e1.fields.insert("version".to_string(), "1.0.0".to_string());
+        e1 = e1.with_field("version", "1.0.0");
 
-        let diags = execute_pattern(&pattern, &[e1], Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&[e1]), None);
         assert!(
             diags.is_empty(),
             "a valid semver value must satisfy the matches constraint, got: {:?}",
@@ -1034,9 +972,9 @@ mod tests {
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
 
         let mut e1 = make_entity("r1", "release", 1, 0);
-        e1.fields.insert("version".to_string(), "v1.2".to_string());
+        e1 = e1.with_field("version", "v1.2");
 
-        let diags = execute_pattern(&pattern, &[e1], Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&[e1]), None);
         assert_eq!(diags.len(), 1, "a non-semver value must be flagged");
         assert!(diags[0].message.contains("r1"));
     }
@@ -1067,16 +1005,16 @@ mod tests {
             "a matches constraint must carry a compiled regex after parsing"
         );
 
-        let entities: Vec<ValidationEntity> = (0..50)
+        let entities: Vec<EntityRecord> = (0..50)
             .map(|i| {
                 let mut e = make_entity(&format!("r{i}"), "release", 1, 0);
                 let version = if i % 2 == 0 { "v1" } else { "bad" };
-                e.fields.insert("version".to_string(), version.to_string());
+                e = e.with_field("version", version);
                 e
             })
             .collect();
 
-        let diags = execute_pattern(&pattern, &entities, Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&entities), None);
         assert_eq!(
             diags.len(),
             25,
@@ -1275,10 +1213,9 @@ mod tests {
         // Contains a valid semver as a substring but has trailing junk — the old
         // substring check would have wrongly accepted this.
         let mut e1 = make_entity("r1", "release", 1, 0);
-        e1.fields
-            .insert("version".to_string(), "1.0.0-not valid".to_string());
+        e1 = e1.with_field("version", "1.0.0-not valid");
 
-        let diags = execute_pattern(&pattern, &[e1], Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&[e1]), None);
         assert_eq!(diags.len(), 1, "anchored regex must reject trailing junk");
     }
 
@@ -1292,8 +1229,7 @@ mod tests {
         assert_eq!(pattern.check, ValidationPatternKind::CycleDetection);
         let diags = execute_pattern(
             &pattern,
-            &[make_entity("b1", "behavior", 1, 1)],
-            Path::new(""),
+            &rules_over(&[make_entity("b1", "behavior", 1, 1)]),
             None,
         );
         assert!(
@@ -1319,12 +1255,9 @@ mod tests {
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
 
         let mut entity = make_entity("b1", "behavior", 1, 0);
-        entity.fields.insert(
-            "gherkin".to_string(),
-            "/nonexistent/file.feature".to_string(),
-        );
+        entity = entity.with_field("gherkin", "/nonexistent/file.feature");
 
-        let diags = execute_pattern(&pattern, &[entity], Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&[entity]), None);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "E101");
     }
@@ -1365,7 +1298,7 @@ mod tests {
             make_entity("bad_name", "behavior", 1, 0),
             make_entity("good_name", "behavior", 1, 0),
         ];
-        let diags = execute_pattern(&pattern, &entities, Path::new(""), Some(&NamingValidator));
+        let diags = execute_pattern(&pattern, &rules_over(&entities), Some(&NamingValidator));
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("bad_name"));
     }
@@ -1386,7 +1319,7 @@ mod tests {
         };
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
         let entities = vec![make_entity("b1", "behavior", 0, 1)];
-        let diags = execute_pattern(&pattern, &entities, Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&entities), None);
         assert_eq!(diags[0].code, "E999");
         assert_eq!(diags[0].severity, Severity::Error);
     }
@@ -1402,7 +1335,7 @@ mod tests {
             make_entity("b2", "behavior", 2, 0),
             make_entity("f1", "feature", 0, 0), // different kind, skipped by target_kind
         ];
-        let diags = execute_pattern(&pattern, &entities, Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&entities), None);
         // Only behavior with 0 incoming edges diagnosed
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("b1"));
@@ -1455,8 +1388,7 @@ mod tests {
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
         let diags = execute_pattern(
             &pattern,
-            &[make_entity("b1", "behavior", 0, 0)],
-            Path::new(""),
+            &rules_over(&[make_entity("b1", "behavior", 0, 0)]),
             None,
         );
         assert_eq!(diags[0].code, "E999");
@@ -1484,8 +1416,7 @@ mod tests {
             let pattern = parse_rule_pattern(&rule, "@test").unwrap();
             let diags = execute_pattern(
                 &pattern,
-                &[make_entity("b1", "behavior", 0, 0)],
-                Path::new(""),
+                &rules_over(&[make_entity("b1", "behavior", 0, 0)]),
                 None,
             );
             assert_eq!(
@@ -1509,8 +1440,7 @@ mod tests {
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
         let diags = execute_pattern(
             &pattern,
-            &[make_entity("b1", "behavior", 0, 0)],
-            Path::new(""),
+            &rules_over(&[make_entity("b1", "behavior", 0, 0)]),
             None,
         );
         assert_eq!(diags[0].code, "W100");
@@ -1669,7 +1599,7 @@ mod tests {
             make_entity("bad", "behavior", 1, 0),
             make_entity("good", "behavior", 1, 0),
         ];
-        let diags = execute_pattern(&pattern, &entities, Path::new(""), Some(&FailRuntime));
+        let diags = execute_pattern(&pattern, &rules_over(&entities), Some(&FailRuntime));
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("bad"));
     }
@@ -1702,8 +1632,7 @@ mod tests {
         };
         let diags = execute_pattern(
             &pattern,
-            &[make_entity("b1", "behavior", 1, 0)],
-            Path::new(""),
+            &rules_over(&[make_entity("b1", "behavior", 1, 0)]),
             Some(&AlwaysFail),
         );
         assert_eq!(diags[0].code, "E201");
@@ -1772,11 +1701,9 @@ mod tests {
 
         // Entity has status=deferred but no reason field
         let mut entity = make_entity("my_feature", "feature", 1, 0);
-        entity
-            .fields
-            .insert("status".to_string(), "deferred".to_string());
+        entity = entity.with_field("status", "deferred");
 
-        let diags = execute_pattern(&pattern, &[entity], Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&[entity]), None);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "I059");
         assert!(diags[0].message.contains("my_feature"));
@@ -1804,11 +1731,9 @@ mod tests {
 
         // Entity has status=active (not deferred), no reason field
         let mut entity = make_entity("my_feature", "feature", 1, 0);
-        entity
-            .fields
-            .insert("status".to_string(), "active".to_string());
+        entity = entity.with_field("status", "active");
 
-        let diags = execute_pattern(&pattern, &[entity], Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&[entity]), None);
         assert!(
             diags.is_empty(),
             "should not fire when condition value doesn't match"
@@ -1837,14 +1762,10 @@ mod tests {
 
         // Entity has status=deferred AND reason field
         let mut entity = make_entity("my_feature", "feature", 1, 0);
-        entity
-            .fields
-            .insert("status".to_string(), "deferred".to_string());
-        entity
-            .fields
-            .insert("reason".to_string(), "Waiting for upstream".to_string());
+        entity = entity.with_field("status", "deferred");
+        entity = entity.with_field("reason", "Waiting for upstream");
 
-        let diags = execute_pattern(&pattern, &[entity], Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&[entity]), None);
         assert!(
             diags.is_empty(),
             "should not fire when required field is present"
@@ -1874,7 +1795,7 @@ mod tests {
         // Entity has no status field at all
         let entity = make_entity("my_feature", "feature", 1, 0);
 
-        let diags = execute_pattern(&pattern, &[entity], Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&[entity]), None);
         assert!(
             diags.is_empty(),
             "should not fire when condition field is absent"
@@ -1904,7 +1825,7 @@ mod tests {
         let pattern = parse_rule_pattern(&rule, "@specforge/software").unwrap();
 
         let entity = make_entity("my_beh", "behavior", 1, 0);
-        let diags = execute_pattern(&pattern, &[entity], Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&[entity]), None);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "E006");
         assert_eq!(diags[0].severity, Severity::Error);
@@ -1921,10 +1842,8 @@ mod tests {
         let pattern = parse_rule_pattern(&rule, "@specforge/software").unwrap();
 
         let mut entity = make_entity("my_beh", "behavior", 1, 0);
-        entity
-            .fields
-            .insert("contract".to_string(), "Handles user login".to_string());
-        let diags = execute_pattern(&pattern, &[entity], Path::new(""), None);
+        entity = entity.with_field("contract", "Handles user login");
+        let diags = execute_pattern(&pattern, &rules_over(&[entity]), None);
         assert!(diags.is_empty());
     }
 
@@ -1940,7 +1859,7 @@ mod tests {
         let beh = make_entity("my_beh", "behavior", 1, 0);
         // event without contract → skip (different kind)
         let evt = make_entity("my_evt", "event", 1, 0);
-        let diags = execute_pattern(&pattern, &[beh, evt], Path::new(""), None);
+        let diags = execute_pattern(&pattern, &rules_over(&[beh, evt]), None);
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("my_beh"));
     }
@@ -1974,10 +1893,10 @@ mod tests {
             make_entity("e", "event", 0, 0),
         ];
         assert_eq!(
-            execute_pattern(&targeted, &entities, Path::new(""), None).len(),
+            execute_pattern(&targeted, &rules_over(&entities), None).len(),
             1
         );
-        let diagnostics = execute_pattern(&untargeted, &entities, Path::new(""), None);
+        let diagnostics = execute_pattern(&untargeted, &rules_over(&entities), None);
         assert_eq!(diagnostics.len(), 2);
         assert!(
             diagnostics
@@ -2019,28 +1938,22 @@ mod tests {
         // Statement obligations: exempt.
         let statements = obligation_rule("P300", None, "verify");
         assert!(
-            execute_pattern(
-                &statements,
-                std::slice::from_ref(&memo),
-                Path::new(""),
-                None
-            )
-            .is_empty()
+            execute_pattern(&statements, &rules_over(std::slice::from_ref(&memo)), None).is_empty()
         );
         let mut flagged = obligation_rule("P301", None, "verify");
         flagged.check = ValidationPatternKind::MissingFieldWhenFlagSet;
         assert!(
-            execute_pattern(&flagged, std::slice::from_ref(&memo), Path::new(""), None).is_empty()
+            execute_pattern(&flagged, &rules_over(std::slice::from_ref(&memo)), None).is_empty()
         );
         // An obligation declared in another field: not exempt.
         let gherkin = obligation_rule("P302", None, "gherkin");
         assert_eq!(
-            execute_pattern(&gherkin, std::slice::from_ref(&memo), Path::new(""), None).len(),
+            execute_pattern(&gherkin, &rules_over(std::slice::from_ref(&memo)), None).len(),
             1
         );
         // A union body exempts from both.
         let mut union = make_entity("u", "memo", 0, 0);
         union.exemption = Some(Exemption::Union);
-        assert!(execute_pattern(&gherkin, &[union], Path::new(""), None).is_empty());
+        assert!(execute_pattern(&gherkin, &rules_over(&[union]), None).is_empty());
     }
 }
