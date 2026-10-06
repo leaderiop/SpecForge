@@ -1,3 +1,4 @@
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_common::SourceSpan;
 use specforge_graph::{Graph, Node};
@@ -23,49 +24,9 @@ fn attach_project(state: &mut specforge_mcp::state::McpState) {
     crate::support::serve_in_memory_at(state, &root);
 }
 
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-fn call_tool(server: &mut McpServer, name: &str, args: Value) -> Value {
-    call(
-        server,
-        "tools/call",
-        json!({"name": name, "arguments": args}),
-    )
-}
-
-/// The params of every `event_name` event, oldest first, each without its
-/// `timestamp` once that is checked to be an RFC 3339 time.
-fn event_params(server: &McpServer, event_name: &str) -> Vec<Value> {
-    server
-        .state()
-        .events
-        .iter()
-        .filter(|e| e.name == event_name)
-        .map(|e| {
-            let mut params = e.params.clone();
-            if event_name != "mcp_initialized" {
-                let stamp = params
-                    .as_object_mut()
-                    .and_then(|o| o.remove("timestamp"))
-                    .unwrap_or_else(|| panic!("{event_name} has no timestamp: {}", e.params));
-                let stamp = stamp.as_str().unwrap_or_default();
-                assert!(
-                    chrono::DateTime::parse_from_rfc3339(stamp).is_ok(),
-                    "{event_name} timestamp is not RFC 3339: {stamp}"
-                );
-            }
-            params
-        })
-        .collect()
-}
-
 /// The params of the one `event_name` event.
 fn only_event(server: &McpServer, event_name: &str) -> Value {
-    let params = event_params(server, event_name);
+    let params = events(server, event_name);
     assert_eq!(params.len(), 1, "{event_name}: {params:?}");
     params.into_iter().next().unwrap()
 }
@@ -172,7 +133,7 @@ fn event_mcp_protocol_error_handled() {
     call(&mut server, "initialize", json!({}));
     call(&mut server, "no/such/method", json!({}));
     call(&mut server, "tools/call", json!({}));
-    let errors: Vec<(i64, String)> = event_params(&server, "mcp_protocol_error_handled")
+    let errors: Vec<(i64, String)> = events(&server, "mcp_protocol_error_handled")
         .iter()
         .map(|p| {
             (
@@ -184,7 +145,7 @@ fn event_mcp_protocol_error_handled() {
     let codes: Vec<i64> = errors.iter().map(|(c, _)| *c).collect();
     assert_eq!(codes, vec![-32700, -32600, -32601, -32602], "{errors:?}");
     assert!(errors.iter().all(|(_, m)| !m.is_empty()), "{errors:?}");
-    let events = event_params(&server, "mcp_protocol_error_handled");
+    let events = events(&server, "mcp_protocol_error_handled");
     // A parse error names no method; a routed one names its method.
     assert_eq!(
         events[0],
@@ -215,7 +176,7 @@ fn event_mcp_request_cancelled() {
         .to_string(),
     );
     call(&mut server, "$/cancelRequest", json!({"id": 42}));
-    let events = event_params(&server, "mcp_request_cancelled");
+    let events = events(&server, "mcp_request_cancelled");
     // Requests run one at a time, so none is in progress when a cancel
     // arrives; the id is named as a string.
     assert_eq!(
@@ -237,7 +198,7 @@ fn event_mcp_discovery_invoked() {
     call(&mut server, "tools/list", json!({}));
     call(&mut server, "prompts/list", json!({}));
     call(&mut server, "resources/list", json!({}));
-    let discoveries: Vec<(String, u64)> = event_params(&server, "mcp_discovery_invoked")
+    let discoveries: Vec<(String, u64)> = events(&server, "mcp_discovery_invoked")
         .iter()
         .map(|p| {
             (
@@ -280,7 +241,7 @@ fn event_mcp_resource_read() {
         json!({"uri": "specforge://nowhere"}),
     );
     assert_eq!(
-        event_params(&server, "mcp_resource_read"),
+        events(&server, "mcp_resource_read"),
         vec![
             json!({"resourceUri": "specforge://graph", "format": "application/json"}),
             json!({"resourceUri": "specforge://diagnostics", "format": "application/json"}),
@@ -307,7 +268,7 @@ fn event_mcp_tool_invoked() {
     call_tool(&mut server, "specforge.infer_progress", json!({}));
     // An unknown tool is a protocol error, not an invocation.
     call_tool(&mut server, "specforge.nothing", json!({}));
-    let events = event_params(&server, "mcp_tool_invoked");
+    let events = events(&server, "mcp_tool_invoked");
     assert_eq!(
         events,
         vec![
@@ -368,7 +329,7 @@ fn event_mcp_prompt_invoked() {
         json!({"name": "specforge://prompts/explore", "arguments": {"kind": "behavior"}}),
     );
     assert_eq!(
-        event_params(&server, "mcp_prompt_invoked")[1],
+        events(&server, "mcp_prompt_invoked")[1],
         json!({"promptName": "specforge://prompts/explore", "kind": "behavior"})
     );
 }
@@ -448,7 +409,7 @@ fn event_mcp_mutation_completed() {
 
     // A read-only tool completes no mutation.
     call_tool(&mut server, "specforge.stats", json!({}));
-    assert_eq!(event_params(&server, "mcp_mutation_completed").len(), 1);
+    assert_eq!(events(&server, "mcp_mutation_completed").len(), 1);
 }
 
 // E:mcp_subscription_created — verify integration "emits mcp_subscription_created when a client subscribes to delta notifications"

@@ -2,26 +2,13 @@
 //! (architecture plan 01): a call's optional `path` and its tool's target
 //! decide it before the handler runs.
 
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-fn call_tool(server: &mut McpServer, name: &str, arguments: Value) -> Value {
-    call(
-        server,
-        "tools/call",
-        json!({"name": name, "arguments": arguments}),
-    )
-}
 
 fn initialize(server: &mut McpServer, root: &Path) {
     let resp = call(
@@ -56,14 +43,6 @@ fn write_config(root: &Path, extensions: &[&str]) {
 
 fn canonical(path: &Path) -> PathBuf {
     fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
-}
-
-/// The text of a tool result's first block.
-fn tool_text(resp: &Value) -> String {
-    resp["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap_or_else(|| panic!("no text block: {resp}"))
-        .to_string()
 }
 
 /// The diagnostic codes a `specforge.validate` result reports.

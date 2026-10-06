@@ -1,3 +1,4 @@
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_common::SourceSpan;
 use specforge_graph::{Edge, Graph, Node};
@@ -148,16 +149,6 @@ fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEnt
     }
 }
 
-fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
-    let req = json!({
-        "jsonrpc": "2.0", "id": 1,
-        "method": "tools/call",
-        "params": { "name": tool_name, "arguments": args }
-    });
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
 /// The node ids of a graph-shaped payload, sorted.
 fn node_ids(parsed: &Value) -> Vec<String> {
     let mut ids: Vec<String> = parsed["nodes"]
@@ -177,13 +168,6 @@ fn node<'a>(parsed: &'a Value, id: &str) -> &'a Value {
         .iter()
         .find(|n| n["id"] == id)
         .unwrap_or_else(|| panic!("no {id} in {parsed}"))
-}
-
-fn tool_text(resp: &Value) -> String {
-    resp["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap()
-        .to_string()
 }
 
 // --- specforge.query ---

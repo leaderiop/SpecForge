@@ -1,3 +1,4 @@
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_common::SourceSpan;
 use specforge_graph::{Edge, Graph, Node};
@@ -62,20 +63,6 @@ fn test_server() -> McpServer {
     state.serve_graph(graph, Vec::new());
 
     server
-}
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc":"2.0","id":1,"method":method,"params":params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-fn call_tool(server: &mut McpServer, name: &str, args: Value) -> Value {
-    call(
-        server,
-        "tools/call",
-        json!({"name": name, "arguments": args}),
-    )
 }
 
 // I:mcp_structured_error_responses — verify property "error response includes error code and message fields"

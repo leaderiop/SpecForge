@@ -1,3 +1,4 @@
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_common::SourceSpan;
 use specforge_graph::{Edge, Graph, Node};
@@ -76,12 +77,6 @@ fn test_server() -> McpServer {
     server
 }
 
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc":"2.0","id":1,"method":method,"params":params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
 /// Adds `gamma`, a node with no edges, outside every entity's subgraph.
 fn add_unconnected_gamma(server: &mut McpServer) {
     server.state_mut().edit_graph(|graph| {
@@ -109,17 +104,6 @@ fn node_ids(parsed: &Value) -> Vec<&str> {
         .collect();
     ids.sort_unstable();
     ids
-}
-
-fn read_resource(server: &mut McpServer, uri: &str) -> Value {
-    call(server, "resources/read", json!({"uri": uri}))
-}
-
-fn resource_text(resp: &Value) -> String {
-    resp["result"]["contents"][0]["text"]
-        .as_str()
-        .unwrap()
-        .to_string()
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "returns full graph as JSON"

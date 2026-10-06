@@ -1,3 +1,4 @@
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_common::SourceSpan;
 use specforge_graph::{Edge, Graph, Node};
@@ -74,16 +75,6 @@ fn test_server() -> McpServer {
     server
 }
 
-fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
-    let req = json!({
-        "jsonrpc": "2.0", "id": 1,
-        "method": "tools/call",
-        "params": { "name": tool_name, "arguments": args }
-    });
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
 /// Adds a node with no fields at `file`:`line`:`col`.
 fn add_node_at(server: &mut McpServer, id: &str, file: &str, line: usize, col: usize) {
     server.state_mut().edit_graph(|graph| {
@@ -126,13 +117,6 @@ fn server_with_unordered_file() -> McpServer {
     add_node_at(&mut server, "early", "order.spec", 5, 0);
     add_node_at(&mut server, "middle", "order.spec", 12, 0);
     server
-}
-
-fn tool_text(resp: &Value) -> String {
-    resp["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap()
-        .to_string()
 }
 
 /// A server serving a project of `files` with `@specforge/software`,

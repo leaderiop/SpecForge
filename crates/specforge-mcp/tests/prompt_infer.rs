@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_common::{InferenceConfig, ProjectConfig, SourceSpan, Sym};
 use specforge_extension_sdk::prelude::*;
@@ -14,17 +15,7 @@ use specforge_test::prelude::*;
 
 /// The infer prompt's reply for `arguments`.
 fn infer(server: &mut McpServer, arguments: Value) -> Value {
-    let request = json!({"jsonrpc": "2.0", "id": 1, "method": "prompts/get",
-        "params": {"name": "specforge://prompts/infer", "arguments": arguments}});
-    serde_json::from_str(&server.handle_message(&request.to_string()).unwrap()).unwrap()
-}
-
-/// The payload of a rendered prompt: its second user message's JSON.
-fn payload(reply: &Value) -> Value {
-    let text = reply["result"]["messages"][1]["content"]["text"]
-        .as_str()
-        .unwrap_or_else(|| panic!("the prompt renders: {reply}"));
-    serde_json::from_str(text).unwrap()
+    get_prompt(server, "specforge://prompts/infer", arguments)
 }
 
 /// An initialized server serving the test extension, which declares
@@ -97,7 +88,7 @@ fn plan_state_with_sources(count: usize) -> (McpServer, tempfile::TempDir) {
 }
 
 fn plan_payload(server: &mut McpServer, arguments: Value) -> Value {
-    payload(&infer(server, arguments))
+    prompt_payload(&infer(server, arguments))
 }
 
 fn test_declaration(kind_name: &str, guide: Option<&str>) -> ExtensionDeclaration {
@@ -118,7 +109,7 @@ fn test_declaration(kind_name: &str, guide: Option<&str>) -> ExtensionDeclaratio
 fn overview_returns_installed_extensions() {
     let mut state = make_state_with_kind("behavior", Some("Look for public functions"));
     let resp = infer(&mut state, json!({}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     assert_eq!(content["installed_extensions"][0], "@specforge/test");
 }
 
@@ -126,7 +117,7 @@ fn overview_returns_installed_extensions() {
 fn overview_includes_inference_guide_from_extension() {
     let mut state = make_state_with_kind("behavior", Some("Look for public functions"));
     let resp = infer(&mut state, json!({}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
     assert!(guide.contains("Look for public functions"));
 }
@@ -155,7 +146,7 @@ fn overview_appends_project_override() {
     )];
     serve(&mut state, declarations, config);
     let resp = infer(&mut state, json!({}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
     assert!(guide.contains("Look for public functions"));
     assert!(guide.contains("Project-specific"));
@@ -170,7 +161,7 @@ fn kind_scope_returns_existing_ids() {
         graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
     });
     let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let ids = content["existing_entity_ids"].as_array().unwrap();
     assert!(ids.contains(&Value::from("my_behavior")));
 }
@@ -179,7 +170,7 @@ fn kind_scope_returns_existing_ids() {
 fn kind_scope_includes_example() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "kind:behavior"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let example = content["example"].as_str().unwrap();
     assert!(example.contains("behavior example_behavior"));
 }
@@ -191,7 +182,7 @@ fn kind_scope_is_case_insensitive() {
         graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
     });
     let resp = infer(&mut state, json!({"scope": "kind:Behavior"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let ids = content["existing_entity_ids"].as_array().unwrap();
     assert!(ids.contains(&Value::from("my_behavior")));
 }
@@ -200,7 +191,7 @@ fn kind_scope_is_case_insensitive() {
 fn unknown_scope_prefix_returns_overview() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "unknown:value"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     assert!(content.get("installed_extensions").is_some());
 }
 
@@ -247,7 +238,7 @@ fn empty_file_scope_returns_error() {
 fn overview_with_no_inference_guide() {
     let mut state = make_state_with_kind("behavior", None);
     let resp = infer(&mut state, json!({}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
     assert_eq!(guide, "");
 }
@@ -259,7 +250,7 @@ fn plan_scope_returns_kind_priorities() {
         graph.add_node(make_node("my_behavior", "behavior", "test.spec"));
     });
     let resp = infer(&mut state, json!({"scope": "plan"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let priorities = content["plan"]["kind_priorities"].as_array().unwrap();
     assert!(!priorities.is_empty());
     assert_eq!(priorities[0]["kind"], "behavior");
@@ -273,7 +264,7 @@ fn plan_scope_respects_target_directory() {
         &mut state,
         json!({"scope": "plan", "target_spec_directory": "specs/"}),
     );
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     assert_eq!(content["plan"]["target_spec_directory"], "specs/");
 }
 
@@ -281,7 +272,7 @@ fn plan_scope_respects_target_directory() {
 fn plan_scope_includes_progress() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "plan"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     assert!(content["plan"]["progress"]["files_total"].is_number());
 }
 
@@ -301,7 +292,7 @@ fn workflow_scope_returns_protocol() {
 fn workflow_scope_lists_tools_and_kinds() {
     let mut state = make_state_with_kind("behavior", Some("guide text"));
     let resp = infer(&mut state, json!({"scope": "workflow"}));
-    let content: Value = payload(&resp);
+    let content: Value = prompt_payload(&resp);
     let tools = content["tools"].as_array().unwrap();
     assert!(tools.contains(&Value::from("specforge.infer_session")));
     assert!(tools.contains(&Value::from("specforge.infer_progress")));
@@ -363,7 +354,7 @@ fn file_scope_lists_the_entities_anchored_to_the_file() {
     .unwrap();
     crate::support::serve_in_memory_at(state.state_mut(), dir.path());
 
-    let content = payload(&infer(&mut state, json!({"scope": "file:src/auth.rs"})));
+    let content = prompt_payload(&infer(&mut state, json!({"scope": "file:src/auth.rs"})));
     assert_eq!(content["match_mode"], "exact");
     let refs = content["existing_entities_referencing_file"]
         .as_array()
@@ -375,7 +366,7 @@ fn file_scope_lists_the_entities_anchored_to_the_file() {
     assert_eq!(refs[0]["symbol_name"], "login");
 
     // A directory lists the files under it; a substring is no match.
-    let content = payload(&infer(&mut state, json!({"scope": "file:src"})));
+    let content = prompt_payload(&infer(&mut state, json!({"scope": "file:src"})));
     assert_eq!(content["match_mode"], "directory");
     assert_eq!(
         content["existing_entities_referencing_file"]
@@ -383,7 +374,7 @@ fn file_scope_lists_the_entities_anchored_to_the_file() {
             .map(Vec::len),
         Some(2)
     );
-    let content = payload(&infer(&mut state, json!({"scope": "file:e.rs"})));
+    let content = prompt_payload(&infer(&mut state, json!({"scope": "file:e.rs"})));
     assert_eq!(content["match_mode"], "none");
 }
 
@@ -425,14 +416,11 @@ fn anchored_project() -> (McpServer, tempfile::TempDir) {
 
 /// `specforge.find_spec_for_source`'s structured result for `file_path`.
 fn find_spec_for_source(server: &mut McpServer, file_path: &str) -> Value {
-    let request = json!({"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-        "params": {"name": "specforge.find_spec_for_source", "arguments": {"file_path": file_path}}});
-    let reply: Value =
-        serde_json::from_str(&server.handle_message(&request.to_string()).unwrap()).unwrap();
-    let text = reply["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap_or_else(|| panic!("{reply}"));
-    serde_json::from_str(text).unwrap()
+    tool(
+        server,
+        "specforge.find_spec_for_source",
+        json!({"file_path": file_path}),
+    )
 }
 
 fn entity_ids(entities: &Value) -> Vec<String> {
@@ -457,7 +445,7 @@ fn infer_file_scope_agrees_with_find_spec_for_source() {
         "src",
         "login.rs",
     ] {
-        let infer = payload(&infer(
+        let infer = prompt_payload(&infer(
             &mut server,
             json!({"scope": format!("file:{spelling}")}),
         ));
@@ -484,7 +472,7 @@ fn infer_file_scope_lists_nothing_for_an_unanchored_file() {
     let (mut server, _dir) = anchored_project();
     // main.spec declares alpha, but a spec file anchors no source.
     for file in ["src/other.rs", "main.spec", "spec/main.spec"] {
-        let infer = payload(&infer(
+        let infer = prompt_payload(&infer(
             &mut server,
             json!({"scope": format!("file:{file}")}),
         ));

@@ -1,3 +1,4 @@
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_common::SourceSpan;
 use specforge_graph::{Edge, Graph, Node};
@@ -113,23 +114,6 @@ fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEnt
     }
 }
 
-fn call_prompt(server: &mut McpServer, name: &str, args: Value) -> Value {
-    let req = json!({
-        "jsonrpc": "2.0", "id": 1,
-        "method": "prompts/get",
-        "params": { "name": name, "arguments": args }
-    });
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-fn prompt_text(resp: &Value) -> String {
-    // The instruction is the first user message, the JSON payload the second.
-    let messages = resp["result"]["messages"].as_array().unwrap();
-    let last = messages.last().unwrap();
-    last["content"]["text"].as_str().unwrap().to_string()
-}
-
 // --- specforge://prompts/context ---
 
 // B:provide_mcp_context_prompt — verify unit "returns entity context with instructional framing"
@@ -139,7 +123,7 @@ fn prompt_text(resp: &Value) -> String {
 )]
 fn context_prompt_returns_context() {
     let mut server = test_server();
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/context",
         json!({"entity_id": "alpha"}),
@@ -188,7 +172,7 @@ fn context_prompt_returns_context() {
 )]
 fn context_prompt_unknown_entity() {
     let mut server = test_server();
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/context",
         json!({"entity_id": "nonexistent"}),
@@ -203,7 +187,7 @@ fn context_prompt_unknown_entity() {
 )]
 fn context_prompt_includes_edges() {
     let mut server = test_server();
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/context",
         json!({"entity_id": "alpha"}),
@@ -218,7 +202,7 @@ fn context_prompt_includes_edges() {
 // --- specforge://prompts/review ---
 
 fn review(server: &mut McpServer, args: Value) -> Value {
-    let resp = call_prompt(server, "specforge://prompts/review", args);
+    let resp = get_prompt(server, "specforge://prompts/review", args);
     serde_json::from_str(&prompt_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
 }
 
@@ -315,7 +299,7 @@ fn review_depth_bounds_the_neighborhood() {
     let zero = review(&mut server, json!({"entity_id": "delta", "depth": 0}));
     assert_eq!(reviewed_ids(&zero), ["delta"]);
 
-    let unknown = call_prompt(
+    let unknown = get_prompt(
         &mut server,
         "specforge://prompts/review",
         json!({"entity_id": "no_such_entity"}),
@@ -346,7 +330,7 @@ fn review_of_a_graph_without_testable_entities_is_empty() {
 #[test]
 fn trace_prompt_for_an_entity_lists_its_chain() {
     let mut server = test_server();
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/trace",
         json!({"entity_id": "alpha"}),
@@ -360,7 +344,7 @@ fn trace_prompt_for_an_entity_lists_its_chain() {
 #[test]
 fn trace_prompt_identifies_unverified() {
     let mut server = test_server();
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/trace",
         json!({"entity_id": "alpha"}),
@@ -415,7 +399,7 @@ fn trace_entity_mode_reports_the_chains_missing_links() {
             label: "refines".into(),
         });
     });
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/trace",
         json!({"entity_id": "alpha"}),
@@ -448,7 +432,7 @@ fn trace_entity_mode_reports_the_chains_missing_links() {
 #[test]
 fn trace_prompt_unknown_entity() {
     let mut server = test_server();
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/trace",
         json!({"entity_id": "nonexistent"}),
@@ -459,7 +443,7 @@ fn trace_prompt_unknown_entity() {
 /// The trace prompt's result for `plan`, passed as a JSON string the way
 /// MCP prompt arguments arrive.
 fn trace_plan(server: &mut McpServer, plan: Value) -> Value {
-    let resp = call_prompt(
+    let resp = get_prompt(
         server,
         "specforge://prompts/trace",
         json!({"plan": plan.to_string()}),
@@ -564,7 +548,7 @@ fn trace_prompt_lists_the_entities_a_plan_affects() {
 fn trace_prompt_rejects_a_malformed_plan() {
     let mut server = test_server();
     let error = |server: &mut McpServer, plan: &str| {
-        let resp = call_prompt(server, "specforge://prompts/trace", json!({"plan": plan}));
+        let resp = get_prompt(server, "specforge://prompts/trace", json!({"plan": plan}));
         resp["error"]["message"]
             .as_str()
             .unwrap_or_else(|| panic!("no error for {plan}: {resp}"))
@@ -589,7 +573,7 @@ fn trace_prompt_rejects_a_malformed_plan() {
 )]
 fn explore_prompt_returns_data() {
     let mut server = test_server();
-    let resp = call_prompt(&mut server, "specforge://prompts/explore", json!({}));
+    let resp = get_prompt(&mut server, "specforge://prompts/explore", json!({}));
     let text = prompt_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     // Starting points rank by out-degree minus in-degree: beta (1 out) is the
@@ -607,7 +591,7 @@ fn explore_prompt_returns_data() {
 )]
 fn explore_prompt_identifies_orphans() {
     let mut server = test_server();
-    let resp = call_prompt(&mut server, "specforge://prompts/explore", json!({}));
+    let resp = get_prompt(&mut server, "specforge://prompts/explore", json!({}));
     let text = prompt_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     let orphans = parsed["orphan_nodes"].as_array().unwrap();
@@ -621,7 +605,7 @@ fn explore_prompt_identifies_orphans() {
 )]
 fn explore_prompt_kind_filter() {
     let mut server = test_server();
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/explore",
         json!({"kind": "behavior"}),
@@ -690,7 +674,7 @@ fn unknown_prompt_returns_error() {
 #[test]
 fn prompt_not_initialized() {
     let mut server = McpServer::new();
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/context",
         json!({"entity_id": "alpha"}),
@@ -734,7 +718,7 @@ fn context_zero_extensions() {
     });
     state.serve_graph(graph, Vec::new());
 
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/context",
         json!({"entity_id": "minimal"}),
@@ -757,7 +741,7 @@ fn context_zero_extensions() {
 )]
 fn explore_entity_id_focus() {
     let mut server = test_server();
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/explore",
         json!({"entity_id": "alpha"}),
@@ -775,7 +759,7 @@ fn explore_entity_id_focus() {
 )]
 fn explore_high_connectivity() {
     let mut server = test_server();
-    let resp = call_prompt(&mut server, "specforge://prompts/explore", json!({}));
+    let resp = get_prompt(&mut server, "specforge://prompts/explore", json!({}));
     let text = prompt_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     let high_conn = parsed["high_connectivity"].as_array().unwrap();
@@ -804,7 +788,7 @@ fn explore_high_connectivity() {
 fn context_includes_contract() {
     let mut server = test_server();
     crate::support::declare_headline_fields(&mut server, "behavior");
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/context",
         json!({"entity_id": "alpha"}),
@@ -846,7 +830,7 @@ fn context_includes_every_field() {
             methods: Vec::new(),
         });
     });
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/context",
         json!({"entity_id": "unique_ids"}),
@@ -871,7 +855,7 @@ fn review_coverage_matches_the_coverage_tool() {
     )
     .unwrap();
     crate::support::serve_in_memory_at(server.state_mut(), project.path());
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/review",
         json!({"entity_id": "alpha"}),
@@ -955,7 +939,7 @@ fn listed_required_arguments_are_exactly_the_unrenderable_omissions() {
             "{prompt}: the full set is every listed argument"
         );
 
-        let rendered = call_prompt(&mut server, &prompt, full.clone());
+        let rendered = get_prompt(&mut server, &prompt, full.clone());
         assert!(
             rendered["error"].is_null(),
             "{prompt} renders with every argument: {rendered}"
@@ -964,7 +948,7 @@ fn listed_required_arguments_are_exactly_the_unrenderable_omissions() {
         for (argument, required) in &arguments {
             let mut without = full.clone();
             without.as_object_mut().unwrap().remove(argument);
-            let resp = call_prompt(&mut server, &prompt, without);
+            let resp = get_prompt(&mut server, &prompt, without);
             let missing = resp["error"]["message"]
                 .as_str()
                 .is_some_and(|m| m.starts_with("Missing required parameter"));
@@ -1010,7 +994,7 @@ fn every_prompt_refusal_carries_an_mcp_error() {
         ("infer", json!({"scope": "plan", "cursor": "-1"})),
     ] {
         let prompt = format!("specforge://prompts/{name}");
-        let resp = call_prompt(&mut server, &prompt, args.clone());
+        let resp = get_prompt(&mut server, &prompt, args.clone());
         let error = &resp["error"];
         let data = &error["data"];
         assert!(data["code"].is_string(), "{name} {args}: {resp}");
@@ -1025,7 +1009,7 @@ fn every_prompt_refusal_carries_an_mcp_error() {
         assert_eq!(error["code"], expected, "{resp}");
     }
     // An unknown entity is the tools' entity_not_found, its E003 in diagnostic.
-    let resp = call_prompt(
+    let resp = get_prompt(
         &mut server,
         "specforge://prompts/context",
         json!({"entity_id": "ghost"}),
@@ -1042,7 +1026,7 @@ fn every_prompt_refusal_carries_an_mcp_error() {
 )]
 fn missing_required_prompt_argument_names_it() {
     let mut server = test_server();
-    let resp = call_prompt(&mut server, "specforge://prompts/context", json!({}));
+    let resp = get_prompt(&mut server, "specforge://prompts/context", json!({}));
     assert_eq!(resp["error"]["code"], -32602, "{resp}");
     assert_eq!(
         resp["error"]["message"],
@@ -1061,7 +1045,7 @@ fn missing_required_prompt_argument_names_it() {
 fn prompt_arguments_must_be_an_object() {
     let mut server = test_server();
     for arguments in [json!("x"), json!(["entity_id"]), json!(3)] {
-        let resp = call_prompt(
+        let resp = get_prompt(
             &mut server,
             "specforge://prompts/context",
             arguments.clone(),
@@ -1112,7 +1096,7 @@ fn review_reads_depth_from_a_string() {
 fn infer_plan_reads_cursor_from_a_string() {
     let mut server = test_server();
     let plan = |server: &mut McpServer, cursor: Value| {
-        let resp = call_prompt(
+        let resp = get_prompt(
             server,
             "specforge://prompts/infer",
             json!({"scope": "plan", "cursor": cursor}),
@@ -1137,12 +1121,12 @@ fn unknown_prompt_records_no_invocation() {
             .filter(|e| e.name == "mcp_prompt_invoked")
             .count()
     };
-    let resp = call_prompt(&mut server, "specforge://prompts/nope", json!({}));
+    let resp = get_prompt(&mut server, "specforge://prompts/nope", json!({}));
     assert_eq!(resp["error"]["code"], -32602, "{resp}");
     assert_eq!(invoked(&server), 0);
     // A known prompt refused for its arguments is still an invocation, as a
     // tool's is.
-    call_prompt(&mut server, "specforge://prompts/context", json!({}));
+    get_prompt(&mut server, "specforge://prompts/context", json!({}));
     assert_eq!(invoked(&server), 1);
 }
 
@@ -1183,7 +1167,7 @@ fn every_prompt_renders_an_instruction_then_a_json_payload() {
         .map(|(name, _)| name)
         .collect();
     for (prompt, arguments) in cases {
-        let resp = call_prompt(&mut server, prompt, arguments.clone());
+        let resp = get_prompt(&mut server, prompt, arguments.clone());
         let result = &resp["result"];
         assert!(
             result["description"].is_string(),
@@ -1263,7 +1247,7 @@ fn explore_and_review_share_one_neighbourhood() {
     let mut server = chain_server();
     for depth in [0, 1, 2, 3] {
         let depth = depth.to_string();
-        let explore = call_prompt(
+        let explore = get_prompt(
             &mut server,
             EXPLORE,
             json!({"entity_id": "a", "depth": depth}),
@@ -1280,7 +1264,7 @@ fn explore_and_review_share_one_neighbourhood() {
         assert_eq!(explored, reviewed, "depth {depth}");
     }
     // Unbounded by default: the whole component, nearest first.
-    let all = call_prompt(&mut server, EXPLORE, json!({"entity_id": "a"}));
+    let all = get_prompt(&mut server, EXPLORE, json!({"entity_id": "a"}));
     assert_eq!(explored_ids(&all), ["b", "c", "d"]);
 }
 
@@ -1290,7 +1274,7 @@ fn explore_and_review_share_one_neighbourhood() {
 )]
 fn explore_unknown_entity_is_an_error() {
     let mut server = test_server();
-    let resp = call_prompt(&mut server, EXPLORE, json!({"entity_id": "ghost"}));
+    let resp = get_prompt(&mut server, EXPLORE, json!({"entity_id": "ghost"}));
     assert_eq!(resp["error"]["code"], -32602, "{resp}");
     let data = &resp["error"]["data"];
     assert_eq!(data["code"], "entity_not_found");

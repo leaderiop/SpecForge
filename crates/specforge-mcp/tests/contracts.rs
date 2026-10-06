@@ -1,3 +1,4 @@
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_common::{Diagnostic, Severity, SourceSpan};
 use specforge_graph::{Edge, Graph, Node};
@@ -147,96 +148,6 @@ fn test_server() -> McpServer {
     attach_project(state);
 
     server
-}
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc":"2.0","id":1,"method":method,"params":params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-fn call_tool(server: &mut McpServer, name: &str, args: Value) -> Value {
-    call(
-        server,
-        "tools/call",
-        json!({"name": name, "arguments": args}),
-    )
-}
-
-/// A tool call's JSON payload (the text of its first content item).
-fn tool_json(resp: &Value) -> Value {
-    let text = resp["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap_or_else(|| panic!("no tool result text in {resp}"));
-    serde_json::from_str(text).unwrap_or_else(|e| panic!("tool text is not JSON ({e}): {text}"))
-}
-
-/// Call a tool and parse its JSON payload.
-fn tool(server: &mut McpServer, name: &str, args: Value) -> Value {
-    tool_json(&call_tool(server, name, args))
-}
-
-/// A prompt's structured payload: the second user message's JSON text.
-fn prompt(server: &mut McpServer, name: &str, args: Value) -> Value {
-    let resp = call(
-        server,
-        "prompts/get",
-        json!({"name": name, "arguments": args}),
-    );
-    let text = resp["result"]["messages"][1]["content"]["text"]
-        .as_str()
-        .unwrap_or_else(|| panic!("no prompt payload in {resp}"));
-    serde_json::from_str(text).unwrap()
-}
-
-/// A resource read's first content item, with its text parsed as JSON.
-fn resource(server: &mut McpServer, uri: &str) -> (Value, Value) {
-    let resp = call(server, "resources/read", json!({"uri": uri}));
-    let content = resp["result"]["contents"][0].clone();
-    let text = content["text"]
-        .as_str()
-        .unwrap_or_else(|| panic!("no resource text in {resp}"));
-    let parsed = serde_json::from_str(text).unwrap();
-    (content, parsed)
-}
-
-/// The params of every recorded event called `name`, oldest first, each
-/// without the `timestamp` every event but `mcp_initialized` carries.
-fn events(server: &McpServer, name: &str) -> Vec<Value> {
-    server
-        .state()
-        .events
-        .iter()
-        .filter(|e| e.name == name)
-        .map(|e| {
-            let mut params = e.params.clone();
-            if name != "mcp_initialized" {
-                let stamp = params.as_object_mut().unwrap().remove("timestamp");
-                assert!(
-                    stamp.as_ref().is_some_and(Value::is_string),
-                    "{name}: {}",
-                    e.params
-                );
-            }
-            params
-        })
-        .collect()
-}
-
-fn assert_tool_invoked(server: &McpServer, tool: &str) {
-    let invoked = events(server, "mcp_tool_invoked");
-    assert!(
-        invoked.iter().any(|p| p["toolName"] == tool),
-        "no mcp_tool_invoked for {tool}: {invoked:?}"
-    );
-}
-
-fn assert_prompt_invoked(server: &McpServer, prompt: &str) {
-    let invoked = events(server, "mcp_prompt_invoked");
-    assert!(
-        invoked.iter().any(|p| p["promptName"] == prompt),
-        "no mcp_prompt_invoked for {prompt}: {invoked:?}"
-    );
 }
 
 fn assert_resource_read(server: &McpServer, uri: &str) {
@@ -1162,11 +1073,11 @@ fn contract_context_prompt() {
         ));
     });
 
-    let context = prompt(
+    let context = prompt_payload(&get_prompt(
         &mut server,
         "specforge://prompts/context",
         json!({"entity_id": "alpha", "structural_constraints": ["gamma"]}),
-    );
+    ));
     // context_returned: contract, related entities, verify declarations.
     assert_eq!(context["entity_id"], "alpha");
     assert_eq!(context["kind"], "behavior");
@@ -1182,11 +1093,11 @@ fn contract_context_prompt() {
     assert_eq!(hint["fields"]["guarantee"], "never negative");
 
     // As an MCP prompt argument string, the list is comma-separated.
-    let context = prompt(
+    let context = prompt_payload(&get_prompt(
         &mut server,
         "specforge://prompts/context",
         json!({"entity_id": "alpha", "structural_constraints": "gamma, beta"}),
-    );
+    ));
     assert_eq!(context["structural_constraints"], json!(["gamma", "beta"]));
 
     assert_prompt_invoked(&server, "specforge://prompts/context");
@@ -1226,11 +1137,11 @@ fn contract_review_prompt() {
         graph.add_edge(edge("gamma", "delta", "depends_on"));
     });
 
-    let review = prompt(
+    let review = prompt_payload(&get_prompt(
         &mut server,
         "specforge://prompts/review",
         json!({"entity_id": "beta", "depth": 1}),
-    );
+    ));
     assert_eq!(review["entity_id"], "beta");
 
     // coverage_analysis_returned: the testable entities within one hop.
@@ -1273,11 +1184,11 @@ fn contract_trace_prompt() {
     let mut server = test_server();
 
     // affected_entities_listed: the plan's entry and what its chain reaches.
-    let trace = prompt(
+    let trace = prompt_payload(&get_prompt(
         &mut server,
         "specforge://prompts/trace",
         json!({"plan": {"entries": [{"entity_id": "alpha"}, {"entity_id": "ghost"}]}}),
-    );
+    ));
     assert_eq!(trace["affected_entities"], json!(["alpha", "beta"]));
     // alpha counts toward coverage and is not proven; beta, a feature, is
     // not testable (kind_entry("feature", false)).
@@ -1294,11 +1205,11 @@ fn contract_trace_prompt() {
         "{ghost}"
     );
     // Deterministic: the same plan yields the same gaps.
-    let again = prompt(
+    let again = prompt_payload(&get_prompt(
         &mut server,
         "specforge://prompts/trace",
         json!({"plan": {"entries": [{"entity_id": "alpha"}, {"entity_id": "ghost"}]}}),
-    );
+    ));
     assert_eq!(again, trace);
 
     assert_prompt_invoked(&server, "specforge://prompts/trace");
@@ -1333,18 +1244,22 @@ fn contract_explore_prompt() {
     });
 
     // exploration_returned: starting points, hubs and orphans.
-    let explore = prompt(&mut server, "specforge://prompts/explore", json!({}));
+    let explore = prompt_payload(&get_prompt(
+        &mut server,
+        "specforge://prompts/explore",
+        json!({}),
+    ));
     assert_eq!(explore["high_connectivity"][0], "beta");
     assert_eq!(explore["orphan_nodes"], json!(["delta"]));
     assert_eq!(explore["starting_points"][0], "beta");
     assert_eq!(explore["relationship_paths"], json!([]));
 
     // bfs_from_entity: paths from alpha, nearest first.
-    let from_alpha = prompt(
+    let from_alpha = prompt_payload(&get_prompt(
         &mut server,
         "specforge://prompts/explore",
         json!({"entity_id": "alpha"}),
-    );
+    ));
     assert_eq!(
         from_alpha["relationship_paths"],
         json!([
@@ -1353,11 +1268,11 @@ fn contract_explore_prompt() {
         ])
     );
     // A kind filter keeps the paths that end at that kind.
-    let invariants = prompt(
+    let invariants = prompt_payload(&get_prompt(
         &mut server,
         "specforge://prompts/explore",
         json!({"entity_id": "alpha", "kind": "invariant"}),
-    );
+    ));
     let ends: Vec<&str> = invariants["relationship_paths"]
         .as_array()
         .unwrap()

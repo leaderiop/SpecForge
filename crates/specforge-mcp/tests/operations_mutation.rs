@@ -1,3 +1,4 @@
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_common::SourceSpan;
 use specforge_graph::{Edge, Graph, Node};
@@ -86,49 +87,15 @@ fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEnt
     }
 }
 
-fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
-    let req = json!({
-        "jsonrpc": "2.0", "id": 1,
-        "method": "tools/call",
-        "params": { "name": tool_name, "arguments": args }
-    });
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
 /// Fresh project directory for specforge.init (refuses existing projects).
 fn fresh_project_dir() -> tempfile::TempDir {
     tempfile::TempDir::new().unwrap()
 }
 
-/// The params of every `name` event the server emitted, oldest first,
-/// each without its `timestamp`.
-fn events_named(server: &McpServer, name: &str) -> Vec<Value> {
-    server
-        .state()
-        .events
-        .iter()
-        .filter(|e| e.name == name)
-        .map(|e| {
-            let mut params = e.params.clone();
-            let stamp = params.as_object_mut().unwrap().remove("timestamp");
-            assert!(stamp.is_some_and(|s| s.is_string()), "{name}: {}", e.params);
-            params
-        })
-        .collect()
-}
-
 fn invoked(server: &McpServer, tool: &str) -> bool {
-    events_named(server, "mcp_tool_invoked")
+    events(server, "mcp_tool_invoked")
         .iter()
         .any(|p| p["toolName"] == tool && p["category"] == "mutation")
-}
-
-fn tool_text(resp: &Value) -> String {
-    resp["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap()
-        .to_string()
 }
 
 // --- specforge.format ---
@@ -701,7 +668,7 @@ fn rename_contract() {
     assert!(server.state().graph().node("token_distinct").is_some());
     // Two files rewritten, one entity renamed.
     assert_eq!(
-        events_named(&server, "mcp_mutation_completed"),
+        events(&server, "mcp_mutation_completed"),
         [json!({
             "toolName": "specforge.rename",
             "files_changed": 2,
@@ -980,7 +947,7 @@ fn init_contract() {
 
     // project_initialized_emitted (once: only for the created project),
     // tool_invoked_emitted.
-    let initialized = events_named(&server, "project_initialized");
+    let initialized = events(&server, "project_initialized");
     assert_eq!(initialized.len(), 1, "{initialized:?}");
     assert_eq!(initialized[0]["name"], "contractproject");
     assert!(invoked(&server, "specforge.init"));
@@ -1540,7 +1507,7 @@ fn format_contract() {
         "{check}"
     );
     assert_eq!(files_under(&root), before);
-    assert!(events_named(&server, "mcp_mutation_completed").is_empty());
+    assert!(events(&server, "mcp_mutation_completed").is_empty());
 
     // files_formatted
     let parsed = format_result(&mut server, json!({}));
@@ -1554,7 +1521,7 @@ fn format_contract() {
 
     // mutation_completed_emitted, tool_invoked_emitted
     assert_eq!(
-        events_named(&server, "mcp_mutation_completed"),
+        events(&server, "mcp_mutation_completed"),
         [json!({
             "toolName": "specforge.format",
             "files_changed": 2,
@@ -1590,7 +1557,7 @@ fn add_extension_contract() {
     let preview: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
     assert_eq!(preview["installed"], false, "{preview}");
     assert_eq!(files_under(&root), before);
-    assert!(events_named(&server, "extension_added").is_empty());
+    assert!(events(&server, "extension_added").is_empty());
 
     // extension_installed: in specforge.json and the lock.
     let resp = call_tool(
@@ -1615,7 +1582,7 @@ fn add_extension_contract() {
     );
 
     // extension_added_emitted, tool_invoked_emitted
-    let added = events_named(&server, "extension_added");
+    let added = events(&server, "extension_added");
     assert_eq!(added.len(), 1, "{added:?}");
     assert_eq!(added[0]["extension"], GREET);
     assert!(invoked(&server, "specforge.add_extension"));
@@ -1724,7 +1691,7 @@ fn migrate_contract() {
         })
     };
     assert_eq!(
-        events_named(&server, "mcp_mutation_completed"),
+        events(&server, "mcp_mutation_completed"),
         [migration(1), migration(0)]
     );
     assert!(invoked(&server, "specforge.migrate"));

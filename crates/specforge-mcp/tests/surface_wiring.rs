@@ -13,31 +13,7 @@ use std::fs;
 use tempfile::TempDir;
 
 use crate::fake_extension::{self, EXT, FakeExtension};
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
-    call(
-        server,
-        "tools/call",
-        json!({"name": tool_name, "arguments": args}),
-    )
-}
-
-fn tool_text(resp: &Value) -> String {
-    resp["result"]["content"][0]["text"]
-        .as_str()
-        .unwrap()
-        .to_string()
-}
-
-fn read_resource(server: &mut McpServer, uri: &str) -> Value {
-    call(server, "resources/read", json!({"uri": uri}))
-}
+use crate::support::*;
 
 fn span() -> SourceSpan {
     SourceSpan {

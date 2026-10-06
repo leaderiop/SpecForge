@@ -10,10 +10,6 @@
 pub mod extension;
 mod legacy;
 pub mod project;
-#[allow(
-    dead_code,
-    reason = "the one request-helper set; every test file uses it from plan 10-T2 on"
-)]
 pub mod rpc;
 
 #[allow(
