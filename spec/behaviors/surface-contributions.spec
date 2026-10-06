@@ -297,7 +297,7 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
   ensures {
     uri_matched                             "Requested URI is matched against registered URI templates"
     fs_write_denied                         "MCP resources have no fs_write access (no capability at all), whatever their sandbox override asks for"
-    traps_as_mcp_errors                     "Wasm traps are caught and returned as structured MCP error responses"
+    traps_as_mcp_errors                     "Wasm traps are caught and returned as an internal error whose data is an McpError with the E028 diagnostic"
     content_returned                        "Resource content and mime_type are returned to the MCP client"
     surface_mcp_resource_dispatched_emitted "surface_mcp_resource_dispatched event is emitted after resource read completes"
   }
@@ -310,10 +310,16 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
     granted no capability, whatever its sandbox override asks for
     (surface_sandbox_ceiling). The export receives only the URI, not
     the graph: a resource serves content that needs no project data
-    (graph queries are commands, served as tools). Wasm traps MUST be
-    caught and returned as structured MCP error responses, and so is an
-    answer that is not the resource's content and MIME type
-    (McpResourceContent): it is never served as raw bytes. The resource
+    (graph queries are commands, served as tools). A read whose export
+    trapped, or that the guest does not route, MUST be a JSON-RPC
+    internal error (-32603) whose data is an McpError carrying the
+    diagnostic (E028) in diagnostic.code, never only in the message; so
+    is an answer that is not the resource's content and MIME type
+    (McpResourceContent), an ExtensionError (E028) like a trap: it is
+    never served as raw bytes. The URI is matched against the registered
+    templates after the core resources, whatever its scheme; a template a
+    core resource already serves is not served, and is reported with
+    I017. The resource
     content and mime_type MUST be returned to the MCP client. The MCP
     server records each read whose export returned as a
     surface_mcp_resource_dispatched event.
@@ -324,6 +330,8 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
   verify unit "Wasm trap returned as structured MCP error"
   verify unit "resource content and mime_type returned to client"
   verify unit "a resource whose answer is not its content and mime type is a structured MCP error"
+  verify unit "an extension resource template outside specforge://ext/ is read through its export"
+  verify unit "an extension resource template a core resource serves is not listed, with I017"
   verify integration "a returned resource read is recorded as a surface_mcp_resource_dispatched event"
   verify contract "Dispatch Surface MCP Resource: surface MCP resource dispatch holds — resource_registered, uri_matched, fs_write_denied, traps_as_mcp_errors, content_returned, surface_mcp_resource_dispatched_emitted"
 }

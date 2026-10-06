@@ -10,6 +10,7 @@ use serde_json::Value;
 
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::surface_table::ResourceEntry;
 use crate::target::{self, Call, TargetSpec};
 use crate::types::McpResourceDescriptor;
 
@@ -218,34 +219,36 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
     },
 ];
 
+/// The resource `uri` names, read: a core one (matched first), else the
+/// extension resource whose template names it, whatever its scheme (the
+/// table serves no template a core resource already serves).
 fn read(call: &Call<'_>, uri: &str) -> ReadOutcome {
     if let Some(resource) = CORE_RESOURCES.iter().find(|r| r.matches(uri)) {
         return (resource.read)(call, uri);
     }
-    if uri.starts_with("specforge://ext/") {
-        return extension_resource(call, uri);
+    match call.state.surfaces().resource(uri) {
+        Some(entry) => extension_resource(call, entry, uri),
+        None => Err(invalid_params(format!("Unknown resource URI: {uri}"))),
     }
-    Err(invalid_params(format!("Unknown resource URI: {uri}")))
 }
 
 /// Whether `uri` names a resource the server serves: a core one, or one an
 /// extension contributes.
 pub(crate) fn is_served(state: &McpState, uri: &str) -> bool {
-    CORE_RESOURCES.iter().any(|r| r.matches(uri))
-        || (uri.starts_with("specforge://ext/") && state.surfaces().resource(uri).is_some())
+    CORE_RESOURCES.iter().any(|r| r.matches(uri)) || state.surfaces().resource(uri).is_some()
 }
 
-/// An extension-contributed resource, read through the Wasm runtime
-/// (WASM-only migration, Phase 4).
-fn extension_resource(call: &Call<'_>, uri: &str) -> ReadOutcome {
-    let state: &McpState = call.state;
-    let Some(entry) = state.surfaces().resource(uri) else {
-        return Err(invalid_params(format!("Unknown resource URI: {uri}")));
-    };
+/// The resource adapter: an extension resource read through its `mcp__`
+/// export, over the `WasmRuntime` seam the call's project was compiled in.
+/// A failed read (a trap, an answer that is not its content and MIME type,
+/// an export the guest does not route) is a server-side fault of the
+/// extension: an internal error (-32603) whose `data` is the `McpError`
+/// carrying the E028 diagnostic (D6, `mcp_structured_error_responses`).
+fn extension_resource(call: &Call<'_>, entry: &ResourceEntry, uri: &str) -> ReadOutcome {
     // The project the resource reads, in the runtime it was compiled in.
     let project = call
         .project()
-        .map_err(|refused| invalid_params(refused.message))?;
+        .map_err(|refused| invalid_params(refused.message.clone()).with_data(refused.to_json()))?;
     let runtime = project.runtime;
     let started = std::time::Instant::now();
     match specforge_wasm::ExtensionCalls::new(runtime.as_ref()).read_mcp_resource(
@@ -269,8 +272,11 @@ fn extension_resource(call: &Call<'_>, uri: &str) -> ReadOutcome {
             mime_type: read.mime_type,
         }),
         Err(error) => {
-            let diag = error.diagnostic();
-            Err(invalid_params(format!("{}: {}", diag.code, diag.message)))
+            let diagnostic = error.diagnostic();
+            Err(
+                JsonRpcError::new(error_codes::INTERNAL_ERROR, diagnostic.message.clone())
+                    .with_data(crate::tool::McpError::from_diagnostic(&diagnostic).to_json()),
+            )
         }
     }
 }

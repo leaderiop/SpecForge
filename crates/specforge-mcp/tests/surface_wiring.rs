@@ -1097,19 +1097,18 @@ fn a_trapping_extension_resource_is_a_structured_error() {
     // No output for mcp__summary: the guest routes no such export.
     let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
     let resp = read_resource(&mut server, SUMMARY);
-    let error = resp["error"]
-        .as_object()
-        .unwrap_or_else(|| panic!("{resp}"));
-    let mut keys: Vec<&str> = error.keys().map(String::as_str).collect();
-    keys.sort_unstable();
-    assert_eq!(keys, ["code", "message"], "{resp}");
-    assert_eq!(error["code"], -32602, "{resp}");
+    let error = &resp["error"];
+    // An internal error: the extension's fault, not the client's params.
+    assert_eq!(error["code"], -32603, "{resp}");
+    let message = "MCP resource mcp__summary() of '@test/cmds' trapped: guest_error: unknown export 'mcp__summary'";
     assert!(
-        error["message"].as_str().unwrap().starts_with(
-            "E028: MCP resource mcp__summary() of '@test/cmds' trapped: guest_error: unknown export 'mcp__summary'"
-        ),
+        error["message"].as_str().unwrap().starts_with(message),
         "{resp}"
     );
+    // The diagnostic is in the McpError, never only in the message.
+    assert_eq!(error["data"]["code"], "internal_error", "{resp}");
+    assert_eq!(error["data"]["diagnostic"]["code"], "E028", "{resp}");
+    assert_eq!(error["data"]["message"], error["message"], "{resp}");
     assert!(call(&mut server, "ping", json!({}))["result"].is_object());
 }
 
@@ -1129,11 +1128,15 @@ fn a_resource_answering_no_content_is_a_structured_error() {
         );
         let resp = read_resource(&mut server, SUMMARY);
         assert!(resp["result"].is_null(), "{answer}: {resp}");
-        assert_eq!(resp["error"]["code"], -32602, "{resp}");
+        assert_eq!(resp["error"]["code"], -32603, "{resp}");
         assert!(
             resp["error"]["message"].as_str().unwrap().starts_with(
-                "E028: MCP resource mcp__summary() of '@test/cmds' answered output that is not a McpResourceContent: "
+                "MCP resource mcp__summary() of '@test/cmds' answered output that is not a McpResourceContent: "
             ),
+            "{resp}"
+        );
+        assert_eq!(
+            resp["error"]["data"]["diagnostic"]["code"], "E028",
             "{resp}"
         );
     }
@@ -1495,29 +1498,87 @@ fn every_listed_extension_tool_is_the_one_dispatched() {
     }
 }
 
-#[test]
-fn pinned_resources_outside_ext_are_unreadable_and_core_ones_shadow() {
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "an extension resource template outside specforge://ext/ is read through its export"
+)]
+fn a_resource_outside_specforge_ext_is_read_through_its_export() {
     let (mut server, ext, _dir) = fake_extension::initialized(
         FakeExtension::new()
             .with_resource(acme_resource())
-            .with_resource(core_shadowed_resource())
             .with_output(
                 "mcp__doc",
                 json!({"content": "doc 1", "mime_type": "text/plain"}),
             ),
     );
     let resp = read_resource(&mut server, "acme://doc/1");
+    let content = &resp["result"]["contents"][0];
+    assert_eq!(content["uri"], "acme://doc/1", "{resp}");
+    assert_eq!(content["mimeType"], "text/plain", "{resp}");
+    assert_eq!(content["text"], "doc 1", "{resp}");
+    assert_eq!(
+        ext.calls(),
+        [(
+            EXT.to_string(),
+            "mcp__doc".to_string(),
+            json!({"uri": "acme://doc/1"})
+        )]
+    );
+    let dispatched: Vec<&Value> = server
+        .state()
+        .events
+        .iter()
+        .filter(|e| e.name == "surface_mcp_resource_dispatched")
+        .map(|e| &e.params["uriTemplate"])
+        .collect();
+    assert_eq!(dispatched, [&json!("acme://doc/{id}")]);
+    // Another scheme's URI no template names is still unknown.
+    let resp = read_resource(&mut server, "acme://other/1");
     assert_eq!(resp["error"]["code"], -32602, "{resp}");
     assert_eq!(
         resp["error"]["message"],
-        "Unknown resource URI: acme://doc/1"
+        "Unknown resource URI: acme://other/1"
     );
-    // The core entity resource answers a URI the extension's template names.
-    let resp = read_resource(&mut server, "specforge://graph/ext/1");
-    assert!(resp["error"].is_object(), "{resp}");
-    assert_ne!(
-        resp["error"]["message"],
-        "Unknown resource URI: specforge://graph/ext/1"
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_mcp_resource",
+    verify = "an extension resource template a core resource serves is not listed, with I017"
+)]
+fn a_resource_template_a_core_resource_serves_is_not_served() {
+    let (mut server, ext, _dir) = fake_extension::initialized(
+        FakeExtension::new()
+            .with_resource(core_shadowed_resource())
+            .with_output(
+                "mcp__graph_ext",
+                json!({"content": "{}", "mime_type": "application/json"}),
+            ),
     );
+    let templates = call(&mut server, "resources/templates/list", json!({}));
+    let listed: Vec<&str> = templates["result"]["resourceTemplates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["uriTemplate"].as_str().unwrap())
+        .collect();
+    assert!(
+        !listed.contains(&"specforge://graph/ext/{id}"),
+        "{listed:?}"
+    );
+    let i017: Vec<String> = server
+        .state()
+        .diagnostics()
+        .iter()
+        .filter(|d| d.code == "I017" && d.message.starts_with("MCP resource"))
+        .map(|d| d.message.clone())
+        .collect();
+    assert_eq!(
+        i017,
+        [
+            "MCP resource 'graph-ext' (specforge://graph/ext/{id}) of '@test/cmds' not served: the core resource 'specforge://graph/{entity_id}' serves its URIs"
+        ]
+    );
+    // Its URIs are the core entity resource's: the export never runs.
+    read_resource(&mut server, "specforge://graph/ext/1");
     assert!(ext.calls().is_empty(), "{:?}", ext.calls());
 }
