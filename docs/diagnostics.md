@@ -1888,13 +1888,13 @@ Level: warning
 ```
 W021: Undeclared target kind or edge label
 
-A field or edge type references a `target_kind` or edge label that isn't
-declared — either in the extension's own manifest when it declares no peer
-dependencies, or in the compiler's global kind/edge registry once all extensions
-are loaded. Declare the missing kind or edge label, or add the appropriate peer
-dependency. The same code reports a declaration the registry refuses: a
-`derived_from` that derives nothing, a `proof_role` other than `bound` or
-`claim`, or a `lifecycle_field` that is not one of the kind's fields.
+A field, edge type or validation rule references a `target_kind` or edge label
+that isn't declared — either in the extension's own manifest when it declares
+no peer dependencies, or in the compiler's global kind/edge registry once all
+extensions are loaded. Declare the missing kind or edge label, or add the
+appropriate peer dependency. The same code reports a declaration the registry
+refuses: a `derived_from` that derives nothing, a `proof_role` other than
+`bound` or `claim`, or a `lifecycle_field` that is not one of the kind's fields.
 
 Owner: core
 Level: warning

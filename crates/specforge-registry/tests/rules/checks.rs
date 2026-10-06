@@ -658,6 +658,27 @@ fn a_rule_for_an_unloaded_kind_reports_nothing() {
     assert_eq!(check(&built, &orphans).len(), 2);
 }
 
+#[spec(
+    behavior = "registry_build_rules",
+    verify = "a rule whose edge type no loaded extension declares reports nothing"
+)]
+fn a_rule_whose_edge_type_no_loaded_extension_declares_reports_nothing() {
+    let mut edge_rule = rule("X005", "no_outgoing_edges");
+    edge_rule.edge_type = Some("NoSuchEdge".to_string());
+    let mut cycle_rule = rule("X003", "cycle_detection");
+    cycle_rule.edge_type = Some("NoSuchEdge".to_string());
+    let built = rules(vec![edge_rule, cycle_rule]);
+
+    // Inert: not registered, so no entity is reported, edges or not.
+    assert!(built.rules.is_empty());
+    assert!(built.diagnostics.is_empty(), "{:?}", built.diagnostics);
+    let entities = [
+        entity("b1", "behavior", 0, 0),
+        entity("b2", "behavior", 0, 0).with_edges(Direction::Outgoing, "event", 1),
+    ];
+    assert!(check(&built, &entities).is_empty());
+}
+
 #[test]
 fn an_sdk_declared_rule_runs_as_declared() {
     let declaration = declare("@test/sdk", |c| {

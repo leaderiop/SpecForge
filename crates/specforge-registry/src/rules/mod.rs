@@ -79,6 +79,8 @@ pub struct Rule {
 #[derive(Debug, Clone, Default)]
 struct Declared {
     edge_type: Option<String>,
+    /// For an edge or cycle rule: the fields that write its edge type.
+    edge_fields: Vec<String>,
     constraint: Option<DeclaredConstraint>,
     wasm_function: Option<String>,
 }
@@ -128,14 +130,15 @@ impl Rule {
     /// The rule as the registry build snapshot lists it: the descriptor's
     /// keys (`code`, `severity`, `message_template`, `check`, `target_kind`,
     /// `edge_type`, `edge_peer_kind`, `field`, `constraint`,
-    /// `wasm_function`).
+    /// `wasm_function`), plus `edge_fields` for an edge or cycle rule with
+    /// an edge type: the fields that write it.
     pub fn describe(&self) -> serde_json::Value {
         let edge_peer_kind = match &self.check {
             Check::NoIncomingEdges(EdgeScope::Peer(kind))
             | Check::NoOutgoingEdges(EdgeScope::Peer(kind)) => Some(kind.as_str()),
             _ => None,
         };
-        serde_json::json!({
+        let mut described = serde_json::json!({
             "code": self.code,
             "severity": format!("{:?}", self.severity),
             "message_template": self.template,
@@ -150,7 +153,15 @@ impl Rule {
                 "values": c.values,
             })),
             "wasm_function": self.declared.wasm_function,
-        })
+        });
+        let edge_rule = matches!(
+            self.check,
+            Check::NoIncomingEdges(_) | Check::NoOutgoingEdges(_) | Check::Cycle { .. }
+        );
+        if edge_rule && self.declared.edge_type.is_some() {
+            described["edge_fields"] = serde_json::json!(self.declared.edge_fields);
+        }
+        described
     }
 }
 

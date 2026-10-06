@@ -199,9 +199,11 @@ fn a_cycle_rule_without_a_target_kind_checks_every_entity() {
     );
 }
 
-// PIN: flipped by T5 (an undeclared edge type makes the rule inert).
-#[test]
-fn an_edge_rule_naming_an_undeclared_edge_type_counts_every_edge() {
+#[spec(
+    behavior = "registry_build_rules",
+    verify = "a rule whose edge type no loaded extension declares reports nothing"
+)]
+fn an_edge_rule_naming_an_undeclared_edge_type_reports_nothing() {
     let diagnostics = check(
         NODES,
         json!([{
@@ -211,15 +213,16 @@ fn an_edge_rule_naming_an_undeclared_edge_type_counts_every_edge() {
         }]),
     );
 
-    assert_eq!(
-        messages(&diagnostics, "X005"),
-        ["X005 'gamma' has no NoSuchEdge edge"]
-    );
+    // Not even gamma, which has no edge at all: the rule is inert.
+    assert!(messages(&diagnostics, "X005").is_empty(), "{diagnostics:?}");
+    assert_eq!(naming(&diagnostics, "W021", "'X005'").len(), 1);
 }
 
-// PIN: flipped by T5 (W021 for the undeclared edge type; the rule stays inert).
-#[test]
-fn a_cycle_rule_naming_an_undeclared_edge_type_is_inert_without_w021() {
+#[spec(
+    behavior = "registry_build_declaration_consistency",
+    verify = "a rule's edge type that neither its extension nor its peers declare produces W021"
+)]
+fn a_cycle_rule_naming_an_undeclared_edge_type_is_inert_and_w021() {
     let diagnostics = check(
         NODES,
         json!([{
@@ -230,9 +233,11 @@ fn a_cycle_rule_naming_an_undeclared_edge_type_is_inert_without_w021() {
     );
 
     assert!(messages(&diagnostics, "X003").is_empty(), "{diagnostics:?}");
-    assert!(
-        naming(&diagnostics, "W021", "X003").is_empty(),
-        "{diagnostics:?}"
+    assert_eq!(
+        messages(&diagnostics, "W021"),
+        [
+            "extension '@pin/rules': rule 'X003' references edge type 'NoSuchEdge' not declared among its edges or its peers' edges"
+        ]
     );
 }
 

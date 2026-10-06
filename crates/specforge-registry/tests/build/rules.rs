@@ -136,15 +136,15 @@ fn the_extensions_rules_are_ordered_by_code() {
 
 #[spec(
     behavior = "registry_build_rules",
-    verify = "the build keeps a rule whose target kind or edge type no loaded extension declares, and reports nothing for it"
+    verify = "the build keeps a rule whose target kind no loaded extension declares, and drops one whose edge type no loaded extension declares"
 )]
-fn the_build_keeps_a_rule_whose_targets_no_extension_declares() {
+fn the_build_keeps_a_rule_whose_target_kind_no_extension_declares() {
     let ghostly = declare("@t/e", |c| {
         c.rule("W101", |r| {
             r.severity(ValidationSeverity::Warning)
                 .message_template("orphan {id}")
                 .check(CheckKind::NoIncomingEdges)
-                .target_kind("ghost")
+                .target_kind("behavior")
                 .edge_type("GhostEdge");
         });
         c.rule("W102", |r| {
@@ -156,13 +156,20 @@ fn the_build_keeps_a_rule_whose_targets_no_extension_declares() {
     });
     let build = build([software(), ghostly]);
 
-    assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
-    assert_eq!(rule_codes(&build), [("W101", "@t/e"), ("W102", "@t/e")]);
-    let w101 = nth(&build, 0);
-    assert_eq!(w101.target_kind(), Some("ghost"));
-    assert_eq!(w101.describe()["edge_type"], "GhostEdge");
-    assert!(w101.describe()["edge_peer_kind"].is_null());
-    assert_eq!(nth(&build, 1).target_kind(), Some("nonexistent_kind"));
+    // W102 is kept (inert: no entity has its kind); W101 is dropped, and
+    // its extension is told about the edge type (W021).
+    assert_eq!(rule_codes(&build), [("W102", "@t/e")]);
+    assert_eq!(nth(&build, 0).target_kind(), Some("nonexistent_kind"));
+    let w021: Vec<&str> = coded(&build, "W021")
+        .iter()
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(
+        w021,
+        [
+            "extension '@t/e': rule 'W101' references edge type 'GhostEdge' not declared among its edges or its peers' edges"
+        ]
+    );
 }
 
 #[spec(

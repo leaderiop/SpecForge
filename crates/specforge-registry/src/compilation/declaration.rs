@@ -101,7 +101,9 @@ fn derived_from_problem(field: &FieldDescriptor, source: &str) -> Option<&'stati
 /// W021: the kind exists, but the dependency is undeclared. While a named
 /// peer is not loaded its kinds are unknown, so any kind is let through.
 /// Every edge label a field maps to must be one of its own edges, and a
-/// `derived_from` must derive something.
+/// `derived_from` must derive something. A validation rule's edge type
+/// must be one of its own edges or a loaded peer's (anything goes while a
+/// named peer is not loaded).
 pub(crate) fn consistency(
     declaration: &ExtensionDeclaration,
     loaded: &[ExtensionDeclaration],
@@ -125,6 +127,11 @@ pub(crate) fn consistency(
         .collect();
     let own_edge_labels: HashSet<&str> =
         declaration.edges.iter().map(|e| e.label.as_str()).collect();
+    let peer_edge_labels: HashSet<&str> = loaded
+        .iter()
+        .filter(|d| peer_deps.contains(d.name()))
+        .flat_map(|d| d.edges.iter().map(|e| e.label.as_str()))
+        .collect();
 
     // Why `kind` does not resolve, or None when it does.
     let unresolved = |kind: &str| -> Option<String> {
@@ -195,6 +202,19 @@ pub(crate) fn consistency(
                     name, edge.label, role, kind, why
                 )));
             }
+        }
+    }
+
+    for rule in &declaration.validation_rules {
+        if let Some(edge_type) = &rule.edge_type
+            && peers_known
+            && !own_edge_labels.contains(edge_type.as_str())
+            && !peer_edge_labels.contains(edge_type.as_str())
+        {
+            diagnostics.push(warn(format!(
+                "extension '{}': rule '{}' references edge type '{}' not declared among its edges or its peers' edges",
+                name, rule.code, edge_type
+            )));
         }
     }
 

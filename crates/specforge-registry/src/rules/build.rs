@@ -211,6 +211,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
         check,
         declared: Declared {
             edge_type: r.edge_type.clone(),
+            edge_fields: Vec::new(),
             constraint: r.constraint.as_ref().map(|c| DeclaredConstraint {
                 kind: ConstraintKind::parse(&c.kind),
                 pattern: c.pattern.clone(),
@@ -234,8 +235,9 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
 /// a `no_outgoing_edges` rule on `BehaviorImplementsFeature` asks whether a
 /// behavior implements a feature, not whether it references anything. When
 /// no loaded extension declares that kind, the edge can't exist in the
-/// project and the rule is dropped. A cycle rule follows the fields that
-/// write its edge type.
+/// project and the rule is dropped. A cycle rule follows every field that
+/// writes its edge type. An edge or cycle rule whose edge type no loaded
+/// extension declares is dropped (inert).
 #[allow(clippy::result_large_err)]
 fn resolve(mut rule: Rule, registries: Registries<'_>) -> Result<Option<Rule>, Diagnostic> {
     let reads_statements = matches!(
@@ -261,20 +263,37 @@ fn resolve(mut rule: Rule, registries: Registries<'_>) -> Result<Option<Rule>, D
             ),
         ));
     }
-    let edge_type = rule.declared.edge_type.clone();
+    let edge_rule = matches!(
+        rule.check,
+        Check::NoIncomingEdges(_) | Check::NoOutgoingEdges(_) | Check::Cycle { .. }
+    );
+    let Some(edge_type) = rule.declared.edge_type.clone().filter(|_| edge_rule) else {
+        return Ok(Some(rule));
+    };
+    // An edge type resolves through the edge registry only, never as a
+    // field name: one no loaded extension declares belongs to an optional
+    // peer that is not installed, and the rule is inert (W021 tells the
+    // author when neither the extension nor its peers declare it).
+    let Some(edge) = registries.edges.get(&edge_type) else {
+        return Ok(None);
+    };
+    // The fields an edge of this type is written as (its graph labels).
+    let writing: Vec<String> = registries
+        .fields
+        .iter()
+        .filter(|(_, _, entry)| entry.declared.edge.as_deref() == Some(&edge_type))
+        .map(|(_, field, _)| field.to_string())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
+    rule.declared.edge_fields = writing.clone();
     match &mut rule.check {
         Check::NoIncomingEdges(scope) | Check::NoOutgoingEdges(scope) => {
-            let incoming = matches!(rule.check_kind, CheckKind::NoIncomingEdges);
-            let peer = edge_type
-                .as_deref()
-                .and_then(|label| registries.edges.get(label))
-                .and_then(|edge| {
-                    if incoming {
-                        edge.declared.source_kind.clone()
-                    } else {
-                        edge.declared.target_kind.clone()
-                    }
-                });
+            let peer = if rule.check_kind == CheckKind::NoIncomingEdges {
+                edge.declared.source_kind.clone()
+            } else {
+                edge.declared.target_kind.clone()
+            };
             if let Some(peer) = peer {
                 if !registries.kinds.contains(&peer) {
                     return Ok(None);
@@ -282,22 +301,7 @@ fn resolve(mut rule: Rule, registries: Registries<'_>) -> Result<Option<Rule>, D
                 *scope = EdgeScope::Peer(peer);
             }
         }
-        Check::Cycle { labels } => {
-            if let Some(edge_type) = edge_type {
-                let writing: BTreeSet<String> = registries
-                    .fields
-                    .iter()
-                    .filter(|(_, _, entry)| entry.declared.edge.as_deref() == Some(&edge_type))
-                    .map(|(_, field, _)| field.to_string())
-                    .collect();
-                *labels = if writing.is_empty() {
-                    // The raw label, as if a field wrote it.
-                    vec![edge_type]
-                } else {
-                    writing.into_iter().collect()
-                };
-            }
-        }
+        Check::Cycle { labels } => *labels = writing,
         _ => {}
     }
     Ok(Some(rule))

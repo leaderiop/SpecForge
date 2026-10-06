@@ -5,6 +5,7 @@
 
 use specforge_common::Severity;
 use specforge_extension_sdk::prelude::*;
+use specforge_protocol_types::{EdgeTypeDescriptor, ExtensionDeclaration};
 use specforge_test_macros::test as spec;
 
 use crate::support::{
@@ -321,4 +322,65 @@ fn declaration_consistency_holds() {
     );
     assert!(build.kinds.contains("task") && build.kinds.contains("person"));
     assert!(build.fields.contains("task", "robot"));
+}
+
+/// An extension `name` with `peers`, declaring one `no_incoming_edges` rule
+/// `code` on `behavior` scoped to `edge_type`.
+fn edge_rule(name: &str, peers: &[&str], code: &str, edge_type: &str) -> ExtensionDeclaration {
+    let mut c = extension(name);
+    for p in peers {
+        c.meta.peer_dependencies.push(peer(p, ">=1.0.0"));
+    }
+    c.rule(code, |r| {
+        r.severity(ValidationSeverity::Warning)
+            .message_template("{id}")
+            .check(CheckKind::NoIncomingEdges)
+            .target_kind("behavior")
+            .edge_type(edge_type);
+    });
+    c.declaration()
+}
+
+#[spec(
+    behavior = "registry_build_declaration_consistency",
+    verify = "a rule's edge type that neither its extension nor its peers declare produces W021"
+)]
+fn a_rules_edge_type_nobody_it_knows_declares_is_w021() {
+    // software's own edge, used by an extension that does not peer on it.
+    let stranger = edge_rule("@test/stranger", &[], "X100", "enforces");
+    // A peer's edge, and the extension's own.
+    let peering = edge_rule(
+        "@test/peering",
+        &["@specforge/software"],
+        "X101",
+        "enforces",
+    );
+    let mut own = edge_rule("@test/own", &[], "X102", "links");
+    own.edges.push(EdgeTypeDescriptor {
+        label: "links".to_string(),
+        ..Default::default()
+    });
+    // While a named peer is not loaded, its edges are unknown: anything goes.
+    let waiting = edge_rule("@test/waiting", &["@test/absent"], "X103", "Whatever");
+
+    let build = build([software(), stranger, peering, own, waiting]);
+
+    let w021: Vec<&str> = coded(&build, "W021")
+        .iter()
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(
+        w021,
+        [
+            "extension '@test/stranger': rule 'X100' references edge type 'enforces' not declared among its edges or its peers' edges"
+        ]
+    );
+    // Only a warning, among the declaration diagnostics.
+    assert!(
+        build
+            .declaration_diagnostics
+            .iter()
+            .any(|d| d.code == "W021")
+    );
+    assert_eq!(coded(&build, "W021")[0].severity, Severity::Warning);
 }

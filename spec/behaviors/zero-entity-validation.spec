@@ -80,7 +80,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
     value predicate (non-empty, matches regex, or is one of an allowed set).
     cycle_detection MUST report each entity of the target kind (every
     entity when no target kind is set) that sits on a cycle of the edge
-    type's edges.
+    type's edges, following every field that writes that edge type.
     file_exists MUST check that file-reference fields point to existing
     files, a relative path resolved against the spec root (never the
     working directory). A rule without a target kind applies to entities
@@ -95,6 +95,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "field_value_constraint rejects invalid field value"
   verify unit "cycle_detection finds cycles in edge type"
   verify unit "a cycle_detection rule without a target_kind reports every entity on a cycle of its edge type"
+  verify unit "cycle_detection follows every field that writes its edge type"
   verify unit "file_exists reports missing file-reference field targets"
   verify unit "file_exists resolves a relative path against the spec root, never the working directory"
   verify unit "custom pattern dispatches to registered Wasm function"

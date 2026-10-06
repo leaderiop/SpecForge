@@ -508,20 +508,25 @@ behavior registry_build_rules "Registry Build Collects Rules" {
     code keep load order. A rule that does not parse is W112
     (parse_validation_rule_pattern). A code two extensions declare MUST
     produce a W023 warning naming the code and both extensions; both rules
-    are kept. The build does not diagnose a rule's target kind or edge
-    type: a rule whose target kind or edge type no loaded extension
-    declares reports nothing when rules run, since it belongs to an
-    optional peer that is not installed (an edge rule whose edge type's
-    far-end kind no extension declares is dropped). A declaration that
-    references a kind no declared peer provides is W021
-    (registry_build_declaration_consistency). After the extensions' rules,
+    are kept. A rule's target kind and edge type are resolved against the
+    loaded registries: a rule whose target kind or edge type no loaded
+    extension declares reports nothing when rules run, since it belongs to
+    an optional peer that is not installed (an edge rule whose edge type's
+    far-end kind no extension declares is dropped too). An edge type is
+    resolved through the edge registry only, never read as a field name. A
+    rule naming an edge type that neither its extension nor its loaded
+    peers declare is the extension author's mistake, reported as W021 when
+    the extensions load, as is a field or edge type that references an
+    undeclared kind (registry_build_declaration_consistency). After the
+    extensions' rules,
     the rule set MUST contain a host-generated E006 rule, owned by no
     extension, for every field registered as required.
   """
   verify unit "every declared rule is in the build's rules with the extension that declared it"
   verify unit "the extensions' rules are ordered by code"
   verify unit "a rule code two extensions declare is W023 and both rules are kept"
-  verify unit "the build keeps a rule whose target kind or edge type no loaded extension declares, and reports nothing for it"
+  verify unit "the build keeps a rule whose target kind no loaded extension declares, and drops one whose edge type no loaded extension declares"
+  verify unit "a rule whose edge type no loaded extension declares reports nothing"
   verify unit "a rule targeting a kind no loaded extension declares reports nothing"
   verify unit "extensions produce E006 rules for required fields"
   verify unit "E006 covers all required fields from builtin extensions"
@@ -557,6 +562,9 @@ behavior registry_build_declaration_consistency "Registry Build Checks Declarati
     kind exists but the dependency is undeclared). While a named peer is
     not loaded its kinds are unknown, so any target is let through. A
     field's edge label MUST name an edge type the declaration declares. A
+    validation rule's edge_type MUST name an edge type the declaration or
+    one of its loaded peers declares (anything goes while a named peer is
+    not loaded). A
     field's derived_from MUST name type_expressions or method_signatures
     and sit on a reference or reference_list field with a target_kind.
     Every violation is a W021 warning among the build's declaration
@@ -570,6 +578,7 @@ behavior registry_build_declaration_consistency "Registry Build Checks Declarati
   verify unit "a target_kind only a non-peer extension declares is a W021 warning naming that extension"
   verify unit "an edge label the extension declares no edge type for is a W021 warning"
   verify unit "a derived_from the host can't apply produces a W021 warning"
+  verify unit "a rule's edge type that neither its extension nor its peers declare produces W021"
   verify unit "cross-validation uses no domain-specific logic"
   verify integration "a declaration's W021 does not fail the compile, and its kinds still register"
   verify contract "Registry Build Checks Declaration Consistency: declaration consistency holds — declarations_in_load_order, peers_loaded, references_resolved, authoring_errors_diagnosed, compile_not_failed"
