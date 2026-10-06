@@ -6,6 +6,7 @@ use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{DerivedFrom, Edge, Node};
 use specforge_parser::FieldValue;
 
+use super::references::reference_edges;
 use super::text::SourceText;
 use super::{Navigator, contains};
 use crate::OpError;
@@ -171,18 +172,10 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
     /// The occurrences of `id`, sorted by (file, line, column).
     pub fn references(&self, id: &str, query: ReferenceQuery) -> Result<Vec<Occurrence>, OpError> {
         let node = self.node(id)?;
-        let graph = self.view.graph;
-        let mut occurrences = Vec::new();
-        if matches!(query.direction, Direction::Incoming | Direction::Both) {
-            for edge in graph.edges_to(id) {
-                occurrences.extend(self.edge_occurrences(edge));
-            }
-        }
-        if matches!(query.direction, Direction::Outgoing | Direction::Both) {
-            for edge in graph.edges_from(id) {
-                occurrences.extend(self.edge_occurrences(edge));
-            }
-        }
+        let mut occurrences: Vec<Occurrence> =
+            reference_edges(self.view.graph, id, query.direction)
+                .flat_map(|(holder, edge)| self.edge_occurrences(holder, edge))
+                .collect();
         if query.include_declaration {
             occurrences.push(self.declaration(node));
         }
@@ -223,7 +216,7 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
             let declaration = self.declaration(holder);
             let mut candidates = vec![declaration];
             for edge in graph.edges_from(holder.id.raw.as_str()) {
-                candidates.extend(self.edge_occurrences(edge));
+                candidates.extend(self.edge_occurrences(holder, edge));
             }
             let hit = candidates
                 .into_iter()
@@ -241,11 +234,8 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
     /// method signatures). Without any, the target's tokens in the
     /// holder's block. A token the text does not spell, or no token at
     /// all, is one occurrence at the holder's block, with
-    /// [`Precision::Entity`].
-    pub(crate) fn edge_occurrences(&self, edge: &Edge) -> Vec<Occurrence> {
-        let Some(holder) = self.view.graph.node(edge.source.as_str()) else {
-            return Vec::new();
-        };
+    /// [`Precision::Entity`]. `holder` is the edge's source.
+    pub(crate) fn edge_occurrences(&self, holder: &Node, edge: &Edge) -> Vec<Occurrence> {
         let target = edge.target.as_str();
         let block = &holder.source_span;
         let occurrence = |span: SourceSpan, precision: Precision| Occurrence {
