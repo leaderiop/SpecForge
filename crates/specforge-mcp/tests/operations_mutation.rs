@@ -183,8 +183,9 @@ fn format_writes_every_file_it_can_and_names_the_ones_it_cannot() {
     let resp = call_tool(&mut server, "specforge.format", json!({}));
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
 
+    // The OS refused: permission denied, not a generic internal failure.
     let error = crate::tool_errors::mcp_error(&resp);
-    assert_eq!(error["code"], "internal_error", "{error}");
+    assert_eq!(error["code"], "permission_denied", "{error}");
     let parsed = &error["data"];
     let failed = parsed["failed_files"].as_array().unwrap();
     assert_eq!(failed.len(), 1, "{parsed}");
@@ -274,8 +275,9 @@ fn format_fails_on_an_unreadable_file_and_names_it() {
     let resp = call_tool(&mut server, "specforge.format", json!({"check": true}));
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
 
+    // The OS refused: permission denied, not a generic internal failure.
     let error = crate::tool_errors::mcp_error(&resp);
-    assert_eq!(error["code"], "internal_error", "{error}");
+    assert_eq!(error["code"], "permission_denied", "{error}");
     let data = &error["data"];
     let failed = data["failed_files"].as_array().unwrap();
     assert_eq!(failed.len(), 1, "{data}");
@@ -293,6 +295,31 @@ fn format_fails_on_an_unreadable_file_and_names_it() {
     assert_eq!(data["all_clean"], false, "{data}");
     // test.spec and a.spec were still checked.
     assert_eq!(data["total_checked"], 2, "{data}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "a file that does not exist fails the call as file_not_found, naming it"
+)]
+fn format_fails_on_a_missing_file_as_not_found() {
+    let (mut server, _root) = server_with_canonical_and(("b.spec", CANONICAL));
+
+    let resp = call_tool(
+        &mut server,
+        "specforge.format",
+        json!({"check": true, "paths": ["nope.spec"]}),
+    );
+
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "file_not_found", "{error}");
+    let failures = error["data"]["failures"].as_array().unwrap();
+    assert_eq!(failures.len(), 1, "{error}");
+    assert_eq!(failures[0]["operation"], "read", "{error}");
+    assert_eq!(failures[0]["code"], "file_not_found", "{error}");
+    assert!(
+        failures[0]["file"].as_str().unwrap().ends_with("nope.spec"),
+        "{error}"
+    );
 }
 
 // --- specforge.rename ---

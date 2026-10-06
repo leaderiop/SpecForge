@@ -59,7 +59,10 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
     return FormatDiff entries for each changed file. The tool MUST run the
     same format operation as specforge format. A file that cannot be read or
     written MUST NOT stop the others from being formatted: the result MUST
-    name it, and the call MUST be reported as failed. all_clean MUST be true
+    name it, and the call MUST be reported as failed, with the kind of
+    failure the OS gave (permission_denied for a file it refused, file_not_found
+    for one that does not exist, internal_error for another cause or for
+    failures of different kinds). all_clean MUST be true
     only when every file was read and is in canonical form; a region left
     unformatted (W142) MUST be returned among the diagnostics, with its file
     and line. Diagnostics from loading the format configuration
@@ -71,6 +74,7 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
   verify unit "paths filter restricts to specified files"
   verify unit "a file that cannot be written does not stop the others, and the failed call names it"
   verify unit "a file that cannot be read fails the call, is named, and does not stop the others"
+  verify unit "a file that does not exist fails the call as file_not_found, naming it"
   verify unit "a file with a region left unformatted is not reported clean, and its W142 is returned"
   verify unit "format configuration diagnostics are returned in the result"
   verify contract "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"

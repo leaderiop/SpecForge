@@ -345,7 +345,7 @@ fn a_format_that_fails_on_one_file_reports_what_it_wrote() {
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
 
     let error = crate::tool_errors::mcp_error(&reply);
-    assert_eq!(error["code"], "internal_error", "{error}");
+    assert_eq!(error["code"], "permission_denied", "{error}");
     assert_eq!(changed, names(&["b.spec"]));
     assert_eq!(
         last_completed(&server),

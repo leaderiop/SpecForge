@@ -32,8 +32,10 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
     for d in &outcome.diagnostics {
         print_diagnostic(d);
     }
+    // A failed file is reported as every operation's failure is
+    // (`error[CODE]: …`), its code and kind the OS-given ones.
     for failure in &outcome.failures {
-        eprintln!("error: {failure}");
+        crate::OutputFormat::Human.print_op_error(&failure.to_op_error());
     }
 
     for change in &outcome.changes {

@@ -15,6 +15,8 @@ use specforge_formatter::{FormatConfig, TextEdit, compute_edits, format_range, f
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use crate::{OpError, OpErrorKind};
+
 /// Where a document's text belongs, which decides its format configuration.
 #[derive(Debug, Clone, Copy)]
 pub enum Place<'a> {
@@ -287,14 +289,50 @@ pub struct FileChange {
     pub written: bool,
 }
 
-/// A file the run could not read or write; the others were still done.
+/// A file the run could not read or write; the others were still done. It
+/// carries what kind of failure the OS reported ([`OpErrorKind::of_io`]):
+/// a surface answers a locked file as permission denied and a missing one
+/// as not found, never as a generic internal failure.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Failure {
-    Read { path: PathBuf, error: String },
-    Write { path: PathBuf, error: String },
+    Read {
+        path: PathBuf,
+        kind: OpErrorKind,
+        error: String,
+    },
+    Write {
+        path: PathBuf,
+        kind: OpErrorKind,
+        error: String,
+    },
 }
 
+/// The code of a [`Failure::Read`] as an [`OpError`]: the file could not be
+/// read.
+pub const UNREADABLE: &str = crate::rename::UNREADABLE;
+/// The code of a [`Failure::Write`] as an [`OpError`]: the file could not be
+/// written.
+pub const UNWRITABLE: &str = "file_unwritable";
+
 impl Failure {
+    /// A read of `path` failed with `error`.
+    fn read(path: PathBuf, error: &std::io::Error) -> Self {
+        Failure::Read {
+            path,
+            kind: OpErrorKind::of_io(error),
+            error: error.to_string(),
+        }
+    }
+
+    /// A write of `path` failed with `error`.
+    fn write(path: PathBuf, error: &std::io::Error) -> Self {
+        Failure::Write {
+            path,
+            kind: OpErrorKind::of_io(error),
+            error: error.to_string(),
+        }
+    }
+
     /// The file that failed.
     pub fn path(&self) -> &Path {
         match self {
@@ -302,7 +340,16 @@ impl Failure {
         }
     }
 
-    /// Why it failed.
+    /// What kind of failure it is: [`OpErrorKind::PermissionDenied`] when
+    /// the OS refused, [`OpErrorKind::FileNotFound`] for a missing file,
+    /// else [`OpErrorKind::Internal`].
+    pub fn kind(&self) -> OpErrorKind {
+        match self {
+            Failure::Read { kind, .. } | Failure::Write { kind, .. } => *kind,
+        }
+    }
+
+    /// Why it failed, as the OS said it.
     pub fn error(&self) -> &str {
         match self {
             Failure::Read { error, .. } | Failure::Write { error, .. } => error,
@@ -315,6 +362,18 @@ impl Failure {
             Failure::Read { .. } => "read",
             Failure::Write { .. } => "write",
         }
+    }
+
+    /// The failure as every operation reports one: its kind, its own code
+    /// ([`UNREADABLE`], [`UNWRITABLE`]) and the message [`Display`] gives.
+    ///
+    /// [`Display`]: std::fmt::Display
+    pub fn to_op_error(&self) -> OpError {
+        let code = match self {
+            Failure::Read { .. } => UNREADABLE,
+            Failure::Write { .. } => UNWRITABLE,
+        };
+        OpError::new(self.kind(), code, self.to_string())
     }
 }
 
@@ -362,6 +421,18 @@ impl Outcome {
     /// No file failed.
     pub fn succeeded(&self) -> bool {
         self.failures.is_empty()
+    }
+
+    /// What kind of failure the run is, when files failed: the kind they
+    /// all share (every file locked is permission denied), else
+    /// [`OpErrorKind::Internal`]. `None` when no file failed.
+    pub fn failure_kind(&self) -> Option<OpErrorKind> {
+        let (first, rest) = self.failures.split_first()?;
+        Some(if rest.iter().all(|f| f.kind() == first.kind()) {
+            first.kind()
+        } else {
+            OpErrorKind::Internal
+        })
     }
 
     /// No region was left unformatted (no W142).
@@ -512,10 +583,7 @@ pub fn run(request: &Request) -> Outcome {
         let source = match std::fs::read_to_string(&target) {
             Ok(source) => source,
             Err(e) => {
-                outcome.failures.push(Failure::Read {
-                    path: target,
-                    error: e.to_string(),
-                });
+                outcome.failures.push(Failure::read(target, &e));
                 continue;
             }
         };
@@ -534,10 +602,7 @@ pub fn run(request: &Request) -> Outcome {
             Mode::Write => match std::fs::write(&target, &formatted) {
                 Ok(()) => true,
                 Err(e) => {
-                    outcome.failures.push(Failure::Write {
-                        path: target.clone(),
-                        error: e.to_string(),
-                    });
+                    outcome.failures.push(Failure::write(target.clone(), &e));
                     false
                 }
             },
@@ -636,6 +701,15 @@ mod tests {
         assert!(!outcome.succeeded() && !outcome.clean());
         assert!(!outcome.found_nothing());
         assert!(matches!(&outcome.failures[0], Failure::Read { path, .. } if path == &missing[0]));
+        // A missing file is not found, and the run says so.
+        assert_eq!(outcome.failures[0].kind(), OpErrorKind::FileNotFound);
+        assert_eq!(outcome.failure_kind(), Some(OpErrorKind::FileNotFound));
+        let error = outcome.failures[0].to_op_error();
+        assert_eq!(
+            (error.kind, &*error.code),
+            (OpErrorKind::FileNotFound, UNREADABLE)
+        );
+        assert!(error.message.starts_with("failed to read "), "{error:?}");
     }
 
     #[cfg(unix)]
@@ -653,8 +727,54 @@ mod tests {
         assert!(!change.written);
         assert_eq!(outcome.failures.len(), 1, "{:?}", outcome.failures);
         assert!(matches!(&outcome.failures[0], Failure::Write { path, .. } if path == &locked));
+        // A file the OS refused to write is permission denied.
+        assert_eq!(outcome.failures[0].kind(), OpErrorKind::PermissionDenied);
+        assert_eq!(outcome.failure_kind(), Some(OpErrorKind::PermissionDenied));
+        assert_eq!(&*outcome.failures[0].to_op_error().code, UNWRITABLE);
         let written: Vec<&Path> = outcome.written().collect();
         assert_eq!(written, [dir.path().join("spec/b.spec").as_path()]);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_locked_or_missing_file_fails_with_the_kind_the_os_gave() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = project();
+        let locked = dir.path().join("spec/a.spec");
+        let missing = dir.path().join("spec/missing.spec");
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+        let named = [locked.clone(), missing.clone()];
+        let outcome = run(&Request {
+            root: dir.path(),
+            paths: &named,
+            mode: Mode::Check,
+        });
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        let kinds: Vec<(&Path, OpErrorKind)> = outcome
+            .failures
+            .iter()
+            .map(|f| (f.path(), f.kind()))
+            .collect();
+        assert_eq!(
+            kinds,
+            [
+                (locked.as_path(), OpErrorKind::PermissionDenied),
+                (missing.as_path(), OpErrorKind::FileNotFound),
+            ]
+        );
+        // Failures of different kinds are an internal failure of the run;
+        // one kind is that kind.
+        assert_eq!(outcome.failure_kind(), Some(OpErrorKind::Internal));
+        let only_locked = Outcome {
+            failures: outcome.failures[..1].to_vec(),
+            ..Outcome::default()
+        };
+        assert_eq!(
+            only_locked.failure_kind(),
+            Some(OpErrorKind::PermissionDenied)
+        );
+        assert_eq!(Outcome::default().failure_kind(), None);
     }
 
     #[test]

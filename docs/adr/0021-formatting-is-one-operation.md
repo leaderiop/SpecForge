@@ -62,7 +62,12 @@ rules live in ops and `specforge-common`.
   replaced are deleted; the rules' obligations are proven through `format_source`. String literals are
   kept byte-for-byte, and the spec says so instead of promising to re-indent them.
 - **D7. No diagnostic for an unreadable file.** It is a typed `Failure` of the run, not a fact about
-  spec content; W149 was reserved for it and is released.
+  spec content; W149 was reserved for it and is released. The `Failure` carries the kind of the OS
+  error (`OpErrorKind::of_io`, ADR 0024 D7), not its text alone: MCP answers a run whose files all
+  failed alike with that kind (`permission_denied` for a locked file, `file_not_found` for a missing
+  one), else `internal_error`, and lists each file's own code in `data.failures`; the CLI prints each
+  failure as every operation's failure (`error[file_unreadable]: failed to read …`,
+  `error[file_unwritable]: …`).
 
 ## Consequences
 
