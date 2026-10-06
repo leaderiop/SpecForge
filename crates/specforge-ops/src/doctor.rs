@@ -535,15 +535,9 @@ mod tests {
     use specforge_test_macros::test as specforge_test;
 
     fn diag(code: &str, message: &str, suggestion: Option<&str>) -> Diagnostic {
-        Diagnostic {
-            code: code.into(),
-            severity: Severity::Error,
-            message: message.into(),
-            span: None,
-            suggestion: suggestion.map(String::from),
-            data: None,
-            origin: None,
-        }
+        let mut diagnostic = Diagnostic::untyped(code, Severity::Error, message);
+        diagnostic.suggestion = suggestion.map(String::from);
+        diagnostic
     }
 
     #[test]

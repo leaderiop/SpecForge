@@ -228,15 +228,9 @@ mod tests {
         message: &str,
         suggestion: Option<&str>,
     ) -> Diagnostic {
-        Diagnostic {
-            code: code.into(),
-            severity,
-            message: message.into(),
-            span: None,
-            suggestion: suggestion.map(String::from),
-            data: None,
-            origin: None,
-        }
+        let mut diagnostic = Diagnostic::untyped(code, severity, message);
+        diagnostic.suggestion = suggestion.map(String::from);
+        diagnostic
     }
 
     // No shipped builtin set produces an extension conflict (all nine

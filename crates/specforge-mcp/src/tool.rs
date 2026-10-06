@@ -7,7 +7,7 @@
 //! to the dispatcher typed (ADR 0022), never read back from the reply.
 
 use serde_json::{Value, json};
-use specforge_common::{Diagnostic, codes};
+use specforge_common::{Diagnostic, Severity, codes};
 
 use crate::mutation::Mutated;
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
@@ -302,7 +302,9 @@ impl McpError {
     /// (`"E003: unresolved entity 'x' …"`): the code moves to `diagnostic`.
     pub fn from_coded_message(fallback: ErrorCode, message: &str) -> Self {
         match split_code(message) {
-            Some((code, rest)) => Self::from_diagnostic(&Diagnostic::error(code, rest)),
+            Some((code, rest)) => {
+                Self::from_diagnostic(&Diagnostic::untyped(code, Severity::Error, rest))
+            }
             None => Self::new(fallback, message),
         }
     }
@@ -388,7 +390,8 @@ impl From<OpError> for McpError {
         let mut mcp_error = McpError::new(error.kind.into(), error.message.clone());
         let mut data = error.data.map_or_else(|| json!({}), |data| *data);
         if is_diagnostic_code(&error.code) {
-            let mut diagnostic = Diagnostic::error(error.code.as_ref(), error.message);
+            let mut diagnostic =
+                Diagnostic::untyped(error.code.as_ref(), Severity::Error, error.message);
             if let Some(suggestion) = error.suggestion {
                 diagnostic = diagnostic.with_suggestion(suggestion);
             }

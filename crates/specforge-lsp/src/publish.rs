@@ -191,7 +191,11 @@ mod docs_link_tests {
     use super::*;
 
     fn href(code: &str) -> Option<String> {
-        let diag = specforge_common::Diagnostic::error(code, "message");
+        let diag = specforge_common::Diagnostic::untyped(
+            code,
+            specforge_common::Severity::Error,
+            "message",
+        );
         diagnostic_to_lsp(&diag, |_| Range::default())
             .code_description
             .map(|d| d.href.to_string())

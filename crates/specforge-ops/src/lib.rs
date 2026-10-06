@@ -303,7 +303,7 @@ mod tests {
         let left: Vec<&std::path::Path> = error.writes.paths().collect();
         assert_eq!(left, [std::path::Path::new(module)]);
         // From a diagnostic: nothing written.
-        let from: OpError = specforge_common::Diagnostic::error("E032", "x").into();
+        let from: OpError = specforge_common::Diagnostic::new(codes::E032, "x").into();
         assert!(from.writes.is_empty());
     }
 }

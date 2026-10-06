@@ -192,24 +192,8 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
     // Ensures: all stat fields populated correctly
     let graph = build_graph();
     let diagnostics = vec![
-        Diagnostic {
-            code: "E001".into(),
-            severity: Severity::Error,
-            message: "err".into(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
-        Diagnostic {
-            code: "W002".into(),
-            severity: Severity::Warning,
-            message: "warn".into(),
-            span: None,
-            suggestion: None,
-            data: None,
-            origin: None,
-        },
+        Diagnostic::new(specforge_common::codes::E001, "err"),
+        Diagnostic::untyped("W002", Severity::Warning, "warn"),
     ];
 
     // One testable behavior without a verify, and a verified feature: the

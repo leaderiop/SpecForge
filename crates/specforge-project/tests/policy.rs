@@ -3,7 +3,7 @@ use specforge_project::{DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, Unkno
 use specforge_test::prelude::*;
 
 fn warning() -> Diagnostic {
-    Diagnostic::warning("W002", "unused entity")
+    Diagnostic::untyped("W002", Severity::Warning, "unused entity")
 }
 
 /// Strict is one rule for every surface: the policy promotes warnings to
@@ -68,7 +68,7 @@ fn lint_profiles_are_a_closed_set() {
     let root = tempfile::TempDir::new().unwrap();
     let reported = vec![
         warning(),
-        Diagnostic::info("I067", "module 'm' contains no features"),
+        Diagnostic::untyped("I067", Severity::Info, "module 'm' contains no features"),
     ];
     let pedantic = DiagnosticPolicy {
         strict: false,
