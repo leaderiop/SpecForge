@@ -33,7 +33,7 @@ A `feature` has no `effort` field. Set `effort` to one of xs, s, m, l, xl.
 
 ---
 
-Class **feature** `signin` — Sign in
+**feature** `signin` — Sign in
 
 A user-facing capability that solves a specific problem
 *@specforge/product*

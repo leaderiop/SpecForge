@@ -13,7 +13,7 @@ A `property` entity is not referenced by any `behavior`, so it may be unused. Re
 
 ---
 
-Property **property** `no_lost_login` — A login is never lost
+**property** `no_lost_login` — A login is never lost
 
 A temporal property assertion (safety, liveness, fairness)
 *@specforge/formal* · `verify`

@@ -13,7 +13,7 @@ A `type` entity has no incoming references from any `behavior`, `port`, or other
 
 ---
 
-Struct **type** `Payload` — Payload
+**type** `Payload` — Payload
 
 A data structure or domain model definition
 *@specforge/software* · `testable` · `verify`

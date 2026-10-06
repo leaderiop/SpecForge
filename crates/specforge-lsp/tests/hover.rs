@@ -100,8 +100,11 @@ fn hover_shows_the_kind_and_its_extension() {
     g.add_node(node("login", "behavior", Some("User Login")));
     let mut behavior = kind("behavior", "@specforge/software", true);
     behavior.declared.description = Some("A testable unit of system functionality".into());
+    // A SymbolKind name, for document symbols: never printed in the hover.
+    behavior.declared.lsp_icon = Some("Method".into());
 
     let text = entity_hover(&g, declaring(vec![behavior]), "login").unwrap();
+    assert!(text.starts_with("**"), "editor-neutral header:\n{text}");
     let header = text.split("\n\n---\n\n").next().unwrap();
     assert_eq!(
         header,

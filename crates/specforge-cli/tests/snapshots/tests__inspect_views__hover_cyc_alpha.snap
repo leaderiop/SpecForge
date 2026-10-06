@@ -43,7 +43,7 @@ An entity is missing a field marked `required: true` for its kind in the field r
 
 ---
 
-Method **behavior** `alpha` — A
+**behavior** `alpha` — A
 
 A testable unit of system functionality with a defined contract
 *@specforge/software*

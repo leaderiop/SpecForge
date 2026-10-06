@@ -77,13 +77,11 @@ pub fn entity(facts: &EntityFacts, shown: &[&Diagnostic], rebuilding: bool) -> S
         .map(|t| format!(" — {t}"))
         .unwrap_or_default();
 
-    // Section 1: Header + description + extension badges
-    let icon = facts
-        .kind
-        .and_then(|entry| entry.declared.lsp_icon.clone())
-        .map(|i| format!("{i} "))
-        .unwrap_or_default();
-    let mut header_section = format!("{icon}**{}** `{}`{}", node.kind.raw, node.id.raw, title);
+    // Section 1: Header + description + extension badges. The header
+    // carries no editor markup: the icon a kind declares (a SymbolKind name)
+    // reaches editors through document and workspace symbols, and a client
+    // adds its own icon (ADR 0015, I4).
+    let mut header_section = format!("**{}** `{}`{}", node.kind.raw, node.id.raw, title);
     if let Some(entry) = facts.kind {
         if let Some(ref desc) = entry.declared.description {
             header_section.push_str(&format!("\n\n{}", desc));

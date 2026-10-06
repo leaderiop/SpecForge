@@ -13,7 +13,7 @@ A `behavior` entity has no `category` field, which agents rely on for task routi
 
 ---
 
-Class **feature** `signin` — Sign in
+**feature** `signin` — Sign in
 
 A user-facing capability that solves a specific problem
 *@specforge/product*

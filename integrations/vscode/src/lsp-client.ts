@@ -37,50 +37,104 @@ const kindIcons: Record<string, string> = {
 };
 
 /**
- * Entity header format: an optional server-provided codicon (the registry's
- * `lsp_icon`, authoritative — C4-11) followed by `**kind** \`entity_id\``.
+ * Entity header format: `**kind** \`entity_id\``. The server's hover is
+ * editor-neutral markdown; the header is the first line that matches, after
+ * any diagnostic sections the cursor's position adds above it.
  */
-const entityHeaderRegex = /^(\$?\(([^)]+)\)\s)?\*\*(\w+)\*\*\s+`([^`]+)`/;
+const entityHeaderRegex = /^\*\*(\w+)\*\*\s+`([^`]+)`/;
 
-function enhanceHover(hover: vscode.Hover): vscode.Hover {
+/**
+ * The codicon of each `vscode.SymbolKind` (every SymbolKind has a
+ * `symbol-*` codicon), for kinds outside `kindIcons`: the server reports a
+ * kind's declared `lsp_icon` as the SymbolKind of its workspace symbols.
+ */
+const symbolKindIcons: Record<vscode.SymbolKind, string> = {
+  [vscode.SymbolKind.File]: "$(symbol-file)",
+  [vscode.SymbolKind.Module]: "$(symbol-module)",
+  [vscode.SymbolKind.Namespace]: "$(symbol-namespace)",
+  [vscode.SymbolKind.Package]: "$(symbol-package)",
+  [vscode.SymbolKind.Class]: "$(symbol-class)",
+  [vscode.SymbolKind.Method]: "$(symbol-method)",
+  [vscode.SymbolKind.Property]: "$(symbol-property)",
+  [vscode.SymbolKind.Field]: "$(symbol-field)",
+  [vscode.SymbolKind.Constructor]: "$(symbol-constructor)",
+  [vscode.SymbolKind.Enum]: "$(symbol-enum)",
+  [vscode.SymbolKind.Interface]: "$(symbol-interface)",
+  [vscode.SymbolKind.Function]: "$(symbol-function)",
+  [vscode.SymbolKind.Variable]: "$(symbol-variable)",
+  [vscode.SymbolKind.Constant]: "$(symbol-constant)",
+  [vscode.SymbolKind.String]: "$(symbol-string)",
+  [vscode.SymbolKind.Number]: "$(symbol-number)",
+  [vscode.SymbolKind.Boolean]: "$(symbol-boolean)",
+  [vscode.SymbolKind.Array]: "$(symbol-array)",
+  [vscode.SymbolKind.Object]: "$(symbol-object)",
+  [vscode.SymbolKind.Key]: "$(symbol-key)",
+  [vscode.SymbolKind.Null]: "$(symbol-null)",
+  [vscode.SymbolKind.EnumMember]: "$(symbol-enum-member)",
+  [vscode.SymbolKind.Struct]: "$(symbol-struct)",
+  [vscode.SymbolKind.Event]: "$(symbol-event)",
+  [vscode.SymbolKind.Operator]: "$(symbol-operator)",
+  [vscode.SymbolKind.TypeParameter]: "$(symbol-type-parameter)",
+};
+
+/**
+ * The icon of an entity of `kind`: the static map for the shipped kinds;
+ * otherwise the codicon of the SymbolKind the server reports for the
+ * entity's workspace symbol (the symbol named `id` whose container is
+ * `kind`). `undefined` when there is none.
+ */
+async function iconOf(kind: string, id: string): Promise<string | undefined> {
+  const known = kindIcons[kind];
+  if (known) {
+    return known;
+  }
+  try {
+    const symbols = await vscode.commands.executeCommand<
+      vscode.SymbolInformation[] | undefined
+    >("vscode.executeWorkspaceSymbolProvider", id);
+    const symbol = symbols?.find(
+      (s) => s.name === id && s.containerName === kind
+    );
+    return symbol ? symbolKindIcons[symbol.kind] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function enhanceHover(hover: vscode.Hover): Promise<vscode.Hover> {
+  // `Hover.contents` is a list; only a MarkdownString (what our LSP
+  // returns) is enhanced.
   const contents = hover.contents;
-
-  // Only handle MarkdownString (what our LSP returns)
-  if (!(contents instanceof vscode.MarkdownString)) {
+  const index = contents.findIndex((c) => c instanceof vscode.MarkdownString);
+  if (index < 0) {
     return hover;
   }
+  const markdown = contents[index] as vscode.MarkdownString;
 
-  let md = contents.value;
+  // Find the entity header on any line: diagnostics under the cursor come
+  // first. Capture groups: 1 = kind, 2 = entity id.
+  const lines = markdown.value.split("\n");
+  const at = lines.findIndex((l) => entityHeaderRegex.test(l));
+  const headerMatch = at >= 0 ? lines[at].match(entityHeaderRegex) : null;
 
-  // Detect if this is an entity hover by checking the first line.
-  // Capture groups: 1 = whole codicon prefix, 2 = icon name,
-  // 3 = kind, 4 = entity id.
-  const firstLine = md.split("\n")[0];
-  const headerMatch = firstLine.match(entityHeaderRegex);
-  const isEntityHover = headerMatch !== null;
-
-  // C4-11: the server prepends the KindRegistry's `lsp_icon` when the kind
-  // declares one — that is authoritative. The static map below is only a
-  // fallback for kinds the registry does not style.
-  if (isEntityHover) {
-    const serverIcon = headerMatch[1];
-    if (!serverIcon) {
-      const kind = headerMatch[3];
-      const fallback = kindIcons[kind];
-      if (fallback) {
-        md = `${fallback} ${md}`;
-      }
+  if (headerMatch) {
+    const icon = await iconOf(headerMatch[1], headerMatch[2]);
+    if (icon) {
+      lines[at] = `${icon} ${lines[at]}`;
     }
   }
+  let md = lines.join("\n");
 
   // Add codicons to section headers
+  md = md.replace(/\*\*Coverage\*\*/g, "$(beaker) **Coverage**");
   md = md.replace(/\*\*Refers to\*\*/g, "$(link) **Refers to**");
   md = md.replace(/\*\*Referenced by\*\*/g, "$(references) **Referenced by**");
   md = md.replace(/\*\*Fields\*\*/g, "$(symbol-field) **Fields**");
+  md = md.replace(/\*\*Diagnostics\*\*/g, "$(warning) **Diagnostics**");
 
   // Add command link at the bottom (only for entity hovers)
-  if (isEntityHover) {
-    const entityId = headerMatch[4];
+  if (headerMatch) {
+    const entityId = headerMatch[2];
     const args = encodeURIComponent(JSON.stringify(entityId));
     md += `\n\n---\n\n[$(graph-line) Show in Graph](command:specforge.focusInGraph?${args})`;
   }
@@ -89,7 +143,9 @@ function enhanceHover(hover: vscode.Hover): vscode.Hover {
   enhanced.isTrusted = true;
   enhanced.supportThemeIcons = true;
 
-  return new vscode.Hover(enhanced, hover.range);
+  const parts = [...contents];
+  parts[index] = enhanced;
+  return new vscode.Hover(parts, hover.range);
 }
 
 function resolveBinaryPath(): string | undefined {
@@ -190,7 +246,7 @@ export async function startClient(
         if (!result) {
           return result;
         }
-        return enhanceHover(result);
+        return await enhanceHover(result);
       },
     },
   };

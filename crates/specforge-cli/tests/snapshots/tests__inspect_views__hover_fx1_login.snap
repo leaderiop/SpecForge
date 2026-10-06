@@ -13,7 +13,7 @@ A `behavior` entity has no `category` field, which agents rely on for task routi
 
 ---
 
-Method **behavior** `login` — Log in
+**behavior** `login` — Log in
 
 A testable unit of system functionality with a defined contract
 *@specforge/software* · `testable` · `verify`

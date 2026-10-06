@@ -33,7 +33,7 @@ An entity is missing a field marked `required: true` for its kind in the field r
 
 ---
 
-Method **behavior** `beta` — B
+**behavior** `beta` — B
 
 A testable unit of system functionality with a defined contract
 *@specforge/software*
