@@ -126,9 +126,11 @@ fn place_at_subjects<F: Fn(&str) -> Option<String>>(
     placed.span = Some(name(first));
     let related = others
         .iter()
-        .map(|node| DiagnosticRelatedInformation {
-            location: ranges.location(&name(node)),
-            message: format!("also about '{}'", node.id.raw),
+        .filter_map(|node| {
+            Some(DiagnosticRelatedInformation {
+                location: ranges.location(&name(node))?,
+                message: format!("also about '{}'", node.id.raw),
+            })
         })
         .collect();
     Some((placed, related))
@@ -144,11 +146,14 @@ fn docs_href(code: &str, origin: Option<&str>) -> Option<Url> {
 }
 
 /// A diagnostic as the client receives it; `range_of` converts its span.
+/// One whose span cannot be converted (its file's text is unknown) stays on
+/// its file at the start, as one with no span does: never at columns read
+/// from another text.
 pub(crate) fn diagnostic_to_lsp(
     diag: &specforge_common::Diagnostic,
-    range_of: impl Fn(&SourceSpan) -> Range,
+    range_of: impl Fn(&SourceSpan) -> Option<Range>,
 ) -> Diagnostic {
-    let range = diag.span.as_ref().map(range_of).unwrap_or_default();
+    let range = diag.span.as_ref().and_then(range_of).unwrap_or_default();
     Diagnostic {
         range,
         code: Some(NumberOrString::String(diag.code.clone())),
@@ -193,7 +198,7 @@ mod docs_link_tests {
             specforge_common::Severity::Error,
             "message",
         );
-        diagnostic_to_lsp(&diag, |_| Range::default())
+        diagnostic_to_lsp(&diag, |_| Some(Range::default()))
             .code_description
             .map(|d| d.href.to_string())
     }

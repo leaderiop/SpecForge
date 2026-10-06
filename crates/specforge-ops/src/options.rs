@@ -23,15 +23,15 @@ pub struct Choice<T: 'static> {
     pub value: T,
 }
 
-/// An enumerated argument: the names it accepts, the value it takes when
-/// absent, and how an unknown name is refused.
+/// An enumerated argument: the names it accepts and the value it takes when
+/// absent. An unknown name is refused as [`OpErrorKind::InvalidInput`], the
+/// one failure kind of a name outside a closed set, reported under that
+/// kind's own name (`invalid_input`): a table has no error vocabulary of its
+/// own.
 #[derive(Debug, Clone, Copy)]
 pub struct OptionTable<T: 'static> {
     /// The argument as a refusal names it: `Unknown {argument}: …`.
     pub argument: &'static str,
-    /// The refusal's code: `unknown_format` for a format, `invalid_input`
-    /// otherwise (both are MCP `invalid_input`).
-    pub code: &'static str,
     /// Every accepted value, in the order surfaces list them.
     pub choices: &'static [Choice<T>],
     /// The value an absent argument takes, on every surface; `None` when
@@ -42,8 +42,8 @@ pub struct OptionTable<T: 'static> {
 impl<T: Copy + PartialEq + 'static> OptionTable<T> {
     /// The value `name` names: a choice's name or one of its aliases,
     /// exactly. Any other name is `Unknown {argument}: {name}. Expected:
-    /// {names}` with this table's code and, when one is close, `did you
-    /// mean '{closest}'?` as its suggestion.
+    /// {names}` ([`Self::refusal`]) and, when one is close, `did you mean
+    /// '{closest}'?` as its suggestion.
     pub fn parse(&self, name: &str) -> Result<T, OpError> {
         if let Some(choice) = self
             .choices
@@ -52,21 +52,28 @@ impl<T: Copy + PartialEq + 'static> OptionTable<T> {
         {
             return Ok(choice.value);
         }
+        let error = self.refusal(name);
+        Err(
+            match specforge_common::suggest::find_close_match(name, self.names()) {
+                Some(close) => error.with_suggestion(format!("did you mean '{close}'?")),
+                None => error,
+            },
+        )
+    }
+
+    /// The refusal of `name`: `Unknown {argument}: {name}. Expected:
+    /// {names}`, the names [`Self::names`] lists (never an alias), also
+    /// what a surface offers as the available choices.
+    pub fn refusal(&self, name: &str) -> OpError {
         let names: Vec<&str> = self.names().collect();
-        let error = OpError::new(
+        OpError::new(
             OpErrorKind::InvalidInput,
-            self.code,
+            OpErrorKind::InvalidInput.as_str(),
             format!(
                 "Unknown {}: {name}. Expected: {}",
                 self.argument,
                 names.join(", ")
             ),
-        );
-        Err(
-            match specforge_common::suggest::find_close_match(name, names) {
-                Some(close) => error.with_suggestion(format!("did you mean '{close}'?")),
-                None => error,
-            },
         )
     }
 
@@ -141,7 +148,6 @@ mod tests {
 
     const SHADE: OptionTable<Shade> = OptionTable {
         argument: "shade",
-        code: "invalid_input",
         choices: &[
             Choice {
                 name: "light",
@@ -170,6 +176,8 @@ mod tests {
         );
         assert_eq!(SHADE.default_name(), Some("light"));
         let error = SHADE.parse("drak").unwrap_err();
+        assert_eq!(error.kind, OpErrorKind::InvalidInput);
+        assert_eq!(error.code, "invalid_input");
         assert_eq!(error.message, "Unknown shade: drak. Expected: light, dark");
         assert_eq!(error.suggestion.as_deref(), Some("did you mean 'dark'?"));
     }

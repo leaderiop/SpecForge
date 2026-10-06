@@ -123,7 +123,9 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandle
     }
 
     // Every other file was still formatted, and what was written is
-    // reported; the call failed for these (read or write).
+    // reported; the call failed for these (read or write), with the kind
+    // the files share (permission denied for locked files, not found for
+    // missing ones), else an internal failure.
     let reasons: Vec<String> = outcome.failures.iter().map(ToString::to_string).collect();
     result["message"] = Value::from(reasons.join("; "));
     result["failed_files"] = Value::from(
@@ -133,11 +135,24 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> MutationHandle
             .map(|f| shown(f.path()))
             .collect::<Vec<_>>(),
     );
+    result["failures"] = Value::from(
+        outcome
+            .failures
+            .iter()
+            .map(|f| {
+                json!({
+                    "file": shown(f.path()),
+                    "operation": f.verb(),
+                    "code": ErrorCode::from(f.kind()).as_str(),
+                    "message": f.to_string(),
+                })
+            })
+            .collect::<Vec<_>>(),
+    );
     let message = result["message"].as_str().unwrap_or_default().to_string();
+    let code = ErrorCode::from(outcome.failure_kind().unwrap_or(OpErrorKind::Internal));
     Ok(written(
-        McpError::new(ErrorCode::InternalError, message)
-            .with_data(result)
-            .into(),
+        McpError::new(code, message).with_data(result).into(),
     ))
 }
 
@@ -676,13 +691,15 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
     use specforge_ops::export::{FORMAT, Format};
 
     // The renderers are the export formats, named as `specforge export
-    // --format` names them (ADR 0027 D8); `json` is `graph`'s alias.
+    // --format` names them (ADR 0027 D8); `json` is `graph`'s alias, which
+    // is accepted and never listed: the refusal's "Expected:" and
+    // `available_renderers` are the one list the table names.
     let format = match FORMAT.parse(&args.format) {
         Ok(format) => format,
         Err(error) => {
             let mut refusal = McpError::from(error).with_argument("format");
             let mut data = refusal.data.take().unwrap_or_else(|| json!({}));
-            data["available_renderers"] = json!(FORMAT.accepted().collect::<Vec<_>>());
+            data["available_renderers"] = json!(FORMAT.names().collect::<Vec<_>>());
             return refusal.with_data(data).into();
         }
     };

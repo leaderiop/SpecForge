@@ -66,11 +66,20 @@ invariant lsp_utf16_positions "LSP UTF-16 Positions" {
     code units, as the Language Server Protocol requires, so non-ASCII text
     before the cursor never shifts the word, range or edit it resolves to.
     One line index per text converts byte offsets and UTF-16 positions,
-    both ways; nothing else in the LSP converts them (ADR 0023).
+    both ways; nothing else in the LSP converts them (ADR 0023). A span of
+    the graph or of a diagnostic is a position in the text the project was
+    compiled from, so it converts against that text, never against the
+    buffer typed since nor the disk now; a file the compile holds no text
+    of has no range (its location, symbol or edit is left out, a fix or a
+    rename that would need it is refused whole), never byte columns passed
+    off as UTF-16.
   """
   risk      medium
   verify unit "the line index converts byte columns to UTF-16 and back on every line"
   verify unit "the word under a cursor is found by its UTF-16 column"
+  verify unit "a span converts against the text the project was compiled from, not the buffer typed since"
+  verify unit "a span of a file the compile holds no text of has no range, never byte columns"
+  verify unit "a fix is offered whole or not at all: never over a buffer typed since, nor a file with no compiled text"
 }
 
 invariant cursor_names_one_entity "One Entity Under the Cursor" {

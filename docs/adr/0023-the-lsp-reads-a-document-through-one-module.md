@@ -22,7 +22,12 @@ lexeme), numbers, strings, comments and punctuation, without a parse, so half-ty
 checks it against tree-sitter on every spec file of the repository. Navigation's `SourceText` and the
 LSP's document read text through it; neither scans text itself. A regular string ends at its line's end
 (the grammar lets it run on; the repository has none), so an unclosed quote never swallows a document
-being typed.
+being typed. The lexer mirrors the grammar by hand (one deliberate divergence, above), and the parser
+crate's third reader of the language, `expr::tokenize` (the expression sub-language the prove pass
+reads: lowercase identifiers, alphabetic units, `<=`/`==`/`!=` as one token, character columns, errors),
+is not built on it: a tokenizer over these lexemes would re-read each lexeme character by character to
+split and reject it. A test pins what they share on the repository's expressions (same tokens, and
+`parse_expression` reads an `expr { }` group's text as the grammar did).
 
 **D2. One document module in the LSP.** `specforge_lsp::document::Document` owns an open buffer, its
 version, its `LineIndex` and its syntax (lexemes with roles, and the entity bodies, blocks and lists they
@@ -31,8 +36,14 @@ the LSP, not in ops: UTF-16 is the protocol's unit and no MCP tool asks about a 
 "editor-only navigation need").
 
 **D3. One line index.** `LineIndex` is the only conversion between byte offsets and UTF-16 positions,
-both ways; spans of closed files convert through a per-request cache of their indexes. A file that cannot
-be read keeps its byte columns, in that one place.
+both ways. A span of the graph or of a diagnostic is a position in the text the project was compiled
+from (`ProjectSession::source_text`, the text the compile parsed: the resolver keeps it, ADR 0018 D5), so
+it converts against that text through a per-request cache of indexes, reusing an open document's own index
+when the document is that text; never against the buffer typed since, nor the disk now. Navigation reads
+the same text. A file the compile holds no text of has no range: its location or symbol is left out, a
+diagnostic stays at its file's start as one without a span does, a code action with such an edit, or over
+a buffer typed since the compile, is not offered, and a rename over a stale buffer is refused as
+`ContentModified` (-32801). There is no byte-column fallback.
 
 **D4. Structure from the text, identity from navigation.** The graph lags the buffer while the user
 types, and loses a block the parser rejects, so where the cursor is (entity body, field, list, string,
@@ -53,7 +64,10 @@ body, the kind's allowed verify kinds after `verify`, entity IDs in a reference 
 single-reference field's value, an enum field's declared values, `true`/`false` for a boolean field,
 nothing in strings, comments, nested blocks, define blocks and other values. Every item carries an
 edit over the word under the cursor (the lexer's word, a scheme ref ID whole), an insert/replace edit
-when the client supports one, so the client's own word rules never decide what is replaced.
+when the client supports one, so the client's own word rules never decide what is replaced. Keywords and
+fields come from the environment's registries alone, so opening a project loads its environment first
+(`ProjectSession::begin_open`) and shows it to readers before the sources are read (`OpeningProject::finish`):
+completion lists the kinds while the workspace is still being indexed, not only `use`.
 
 ## Consequences
 

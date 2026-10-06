@@ -223,7 +223,7 @@ fn serve_schema_contract() {
 fn json_schema_refuses_dot() {
     let project = project();
     let error = json_schema(&project.view(), Format::Dot).unwrap_err();
-    assert_eq!(error.code, "unknown_format");
+    assert_eq!(error.code, "invalid_input");
     assert_eq!(
         error.message,
         "Unknown format: dot. Expected: graph, context, brief"

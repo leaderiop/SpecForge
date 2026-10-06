@@ -792,7 +792,7 @@ fn render_unknown_format_lists_the_available_renderers() {
     );
     assert_eq!(
         error["data"]["available_renderers"],
-        json!(["graph", "context", "brief", "dot", "json"]),
+        json!(["graph", "context", "brief", "dot"]),
         "{resp}"
     );
 }

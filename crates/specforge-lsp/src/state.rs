@@ -36,10 +36,16 @@ enum Project {
     /// The session is being updated off the async runtime: readers keep
     /// its last complete graph and the environment it was built with, so
     /// they never see a half-applied update.
-    Out {
-        graph: Graph,
-        env: Arc<Environment>,
-    },
+    Out(Box<StandIn>),
+}
+
+/// What readers see while the session is out for an update.
+struct StandIn {
+    graph: Graph,
+    env: Arc<Environment>,
+    /// The text the graph's spans are positions in
+    /// ([`ProjectSession::source_texts`]).
+    texts: HashMap<String, Arc<str>>,
 }
 
 impl Default for LspState {
@@ -193,7 +199,38 @@ impl LspState {
     pub fn graph(&self) -> &Graph {
         match &self.project {
             Project::Held(session) => session.graph(),
-            Project::Out { graph, .. } => graph,
+            Project::Out(stand_in) => &stand_in.graph,
+        }
+    }
+
+    /// The text the project was last compiled from for session file `key`:
+    /// what a span of the graph or of a diagnostic is a position in. It is
+    /// the open buffer as it was when the compile ran, or the file as the
+    /// compile read it; never the buffer now (an edit waiting to be
+    /// compiled moves every position after it) nor the disk now. `None`
+    /// for a file the compile does not hold.
+    pub fn compiled_text(&self, key: &str) -> Option<Arc<str>> {
+        match &self.project {
+            Project::Held(session) => session.source_text(key),
+            Project::Out(stand_in) => stand_in.texts.get(key).cloned(),
+        }
+    }
+
+    /// Whether the text the editor has for session file `key` (its open
+    /// buffer, else the file on disk) is the text the project was compiled
+    /// from. False when the editor has typed since (the compile is still to
+    /// come), when a closed file changed or went away on disk (the watcher's
+    /// event is still to come), and when the compile holds no text of the
+    /// file. An edit computed from the compile applies only when it holds.
+    pub fn is_compiled(&self, key: &str) -> bool {
+        let Some(compiled) = self.compiled_text(key) else {
+            return false;
+        };
+        let path = self.file_path(key);
+        let uri = crate::backend::file_path_to_uri(&path.to_string_lossy());
+        match self.document(uri.as_str()) {
+            Some(doc) => doc.text() == &*compiled,
+            None => std::fs::read_to_string(path).is_ok_and(|disk| disk == *compiled),
         }
     }
 
@@ -201,7 +238,7 @@ impl LspState {
     pub fn environment(&self) -> &Environment {
         match &self.project {
             Project::Held(session) => session.environment(),
-            Project::Out { env, .. } => env,
+            Project::Out(stand_in) => &stand_in.env,
         }
     }
 
@@ -212,9 +249,12 @@ impl LspState {
     pub fn view(&self) -> ProjectView<'_> {
         match &self.project {
             Project::Held(session) => ProjectView::of_session(session, session.root()),
-            Project::Out { graph, env } => {
-                ProjectView::new(graph, env, None, &self.stand_in_recorded)
-            }
+            Project::Out(stand_in) => ProjectView::new(
+                &stand_in.graph,
+                &stand_in.env,
+                None,
+                &self.stand_in_recorded,
+            ),
         }
     }
 
@@ -222,7 +262,7 @@ impl LspState {
     pub fn session(&self) -> Option<&ProjectSession> {
         match &self.project {
             Project::Held(session) => Some(session),
-            Project::Out { .. } => None,
+            Project::Out(_) => None,
         }
     }
 
@@ -230,7 +270,7 @@ impl LspState {
     pub fn session_mut(&mut self) -> Option<&mut ProjectSession> {
         match &mut self.project {
             Project::Held(session) => Some(session),
-            Project::Out { .. } => None,
+            Project::Out(_) => None,
         }
     }
 
@@ -239,15 +279,30 @@ impl LspState {
     /// environment. `None` when it is already out.
     pub fn take_session(&mut self) -> Option<ProjectSession> {
         let stand_in = match &self.project {
-            Project::Held(session) => Project::Out {
+            Project::Held(session) => Project::Out(Box::new(StandIn {
                 graph: session.graph().clone(),
                 env: session.shared_environment(),
-            },
-            Project::Out { .. } => return None,
+                texts: session.source_texts(),
+            })),
+            Project::Out(_) => return None,
         };
         match std::mem::replace(&mut self.project, stand_in) {
             Project::Held(session) => Some(*session),
-            Project::Out { .. } => None,
+            Project::Out(_) => None,
+        }
+    }
+
+    /// While the session is out for a project's first open: let readers see
+    /// its loaded `environment` (no graph yet), so what needs only the
+    /// environment (the kinds a keyword completion offers) is served before
+    /// its sources are read. Nothing when the session is held.
+    pub fn show_environment(&mut self, environment: Arc<Environment>) {
+        if let Project::Out(stand_in) = &mut self.project {
+            **stand_in = StandIn {
+                graph: Graph::new(),
+                env: environment,
+                texts: HashMap::new(),
+            };
         }
     }
 

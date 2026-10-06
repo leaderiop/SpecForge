@@ -57,7 +57,7 @@ pub use inputs::{Changes, EnvironmentInputs, InputRole, Origin, UpdateKind, sour
 pub use policy::{
     DiagnosticPolicy, LINT_PROFILE_NAMES, LintProfile, UnknownLintProfile, apply_policy,
 };
-pub use session::{CheckMode, ProjectSession, SharedRuntime, SourceChange, Update};
+pub use session::{CheckMode, OpeningProject, ProjectSession, SharedRuntime, SourceChange, Update};
 
 /// Everything derived from `specforge.json` and the loaded extensions,
 /// before any `.spec` file is read.

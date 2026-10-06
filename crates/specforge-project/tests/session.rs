@@ -815,6 +815,44 @@ fn buffer_edits_leave_what_a_fresh_compile_builds() {
     assert_matches_a_fresh_compile(&session, root);
 }
 
+/// A span of the graph is a position in the text the build parsed, which
+/// the session keeps: the file as read by the cold build, the buffer as
+/// given by an update (whatever the disk says now), gone with the file.
+#[test]
+fn the_session_keeps_the_text_each_file_was_built_from() {
+    let dir = three_files();
+    let root = dir.path();
+    let mut session = ProjectSession::open(root);
+    let on_disk = fs::read_to_string(root.join("a.spec")).unwrap();
+    assert_eq!(session.source_text("a.spec").as_deref(), Some(&*on_disk));
+    assert_eq!(session.source_text("nope.spec"), None);
+    assert_eq!(session.source_texts().len(), session.file_count());
+
+    // A buffer the disk does not hold yet: the build, and so the text, is
+    // the buffer's.
+    let buffer = behavior("beta", "  invariants [alpha]\n");
+    session.update(SourceChange::Buffer {
+        path: "a.spec",
+        text: Some(&buffer),
+    });
+    assert_eq!(session.source_text("a.spec").as_deref(), Some(&*buffer));
+    assert_eq!(
+        fs::read_to_string(root.join("a.spec")).unwrap(),
+        on_disk,
+        "the disk is untouched"
+    );
+    // The copy a reader keeps while the session is out for an update.
+    let kept = session.source_texts();
+    assert_eq!(kept.get("a.spec").map(|t| &**t), Some(&*buffer));
+
+    session.update(SourceChange::Buffer {
+        path: "a.spec",
+        text: None,
+    });
+    assert_eq!(session.source_text("a.spec"), None);
+    assert!(kept.contains_key("a.spec"), "a kept copy does not change");
+}
+
 #[specforge_test(
     behavior = "rebuild_affected_subgraph",
     verify = "debug --verify-incremental performs cold rebuild comparison"

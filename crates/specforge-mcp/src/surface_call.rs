@@ -5,7 +5,9 @@
 //! invocation, resolve the call target, run the handler, record what it
 //! reported, and answer with the kind's envelope. Each request kind is one
 //! [`Surface`] adapter; no other code builds the reply of these three
-//! methods. The router guards initialization.
+//! methods; it also owns the one freshness decision of the extension
+//! surface table (a lookup, a listing, a subscription). The router guards
+//! initialization.
 
 use serde_json::Value;
 
@@ -207,16 +209,42 @@ pub(crate) fn serve<S: Surface>(
 /// The entry `name` names: a core one; else, for a kind extensions
 /// contribute, the extension surface table's, the served project brought up
 /// to date first, so an extension enabled on disk since the last request is
-/// found (ADR 0014 D12, ADR 0024 D2).
-fn find<S: Surface>(state: &mut McpState, name: &str) -> Option<Found<S::Core, S::Extension>> {
+/// found (ADR 0014 D12, ADR 0024 D2). The lookup `resources/subscribe` and
+/// `subscriptions/listen` make too, so a resource is "served" by one rule.
+pub(crate) fn find<S: Surface>(
+    state: &mut McpState,
+    name: &str,
+) -> Option<Found<S::Core, S::Extension>> {
     if let Some(core) = S::core(name) {
         return Some(Found::Core(core));
     }
     if !S::EXTENDED {
         return None;
     }
+    bring_surface_up_to_date(state);
+    S::extension(state, name).map(Found::Extension)
+}
+
+/// Run a listing (`tools/list`, `resources/list`, `resources/templates/list`,
+/// `prompts/list`) of kind `S`: for a kind extensions contribute to, the
+/// served project is brought up to date first, so the listing names exactly
+/// what a call dispatches under that name (ADR 0024 D2).
+pub(crate) fn listed<S: Surface, R>(
+    state: &mut McpState,
+    list: impl FnOnce(&mut McpState) -> R,
+) -> R {
+    if S::EXTENDED {
+        bring_surface_up_to_date(state);
+    }
+    list(state)
+}
+
+/// The one freshness decision of the extension surface table: a served
+/// project is brought up to date with disk before the table is read, and
+/// nothing is loaded when nothing is served. Every read of the table (a
+/// lookup, a listing, a subscription) goes through [`find`] or [`listed`].
+fn bring_surface_up_to_date(state: &mut McpState) {
     if state.project_root().is_some() {
         state.ensure_fresh();
     }
-    S::extension(state, name).map(Found::Extension)
 }

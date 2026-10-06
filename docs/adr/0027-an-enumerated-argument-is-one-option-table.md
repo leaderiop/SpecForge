@@ -15,8 +15,10 @@ outline's default was markdown on the CLI and json on MCP, said only in a descri
 ## Decision
 
 - **D1. One table per argument, in ops, beside its operation.** `specforge_ops::options::OptionTable<T>`
-  holds the listed names in order, the aliases each accepts, a one-line help per name, the default,
-  and the refusal's code. The tables: `export::{FORMAT, AGENT_FORMAT}`, `model::{MODEL_FORMAT,
+  holds the listed names in order, the aliases each accepts, a one-line help per name and the default.
+  It has no error vocabulary of its own: an unknown name is `OpErrorKind::InvalidInput`, reported under
+  that kind's name (`invalid_input`; the table used to carry a `code`, `unknown_format` for formats, a
+  second spelling of the same failure). The tables: `export::{FORMAT, AGENT_FORMAT}`, `model::{MODEL_FORMAT,
   GROUP_BY, MODEL_FIELDS, OUTLINE_FORMAT, OUTLINE_FIELDS, DEPS}`, `coverage::STATUS`,
   `navigate::DIRECTION`. The value types stay where they are (the emitter's formats, ADR 0007); ops
   re-exports them so surfaces name ops.
@@ -30,7 +32,9 @@ outline's default was markdown on the CLI and json on MCP, said only in a descri
   argument takes on the CLI and over MCP, and what both advertise. The outline's format, which was
   markdown on the CLI and json over MCP, is markdown on both, as the model's always was.
 - **D4. Aliases are accepted everywhere and listed only where a client validates**: clap accepts
-  them without listing them; MCP's `enum` lists them after the names; refusals list names only.
+  them without listing them; MCP's `enum` lists them after the names; refusals list names only, and
+  everything a refusal offers is that one list (`OptionTable::refusal`: the message's "Expected:" and
+  `specforge.render`'s `available_renderers` are both `names()`).
   `json` is the one alias, of the `graph` export (and so of render's and the published schema's
   format).
 - **D5. One refusal**: `Unknown <argument>: <name>. Expected: <names>`, with `did you mean

@@ -717,6 +717,9 @@ mod tests {
             (OpErrorKind::Internal, ErrorCode::InternalError),
         ] {
             assert_eq!(ErrorCode::from(kind), code, "{kind:?}");
+            // One vocabulary: the name an operation reports a kind under is
+            // the name MCP sends for it.
+            assert_eq!(code.as_str(), kind.as_str(), "{kind:?}");
         }
     }
 

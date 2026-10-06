@@ -378,6 +378,81 @@ fn an_extension_enabled_on_disk_is_callable_by_the_next_request() {
     assert_eq!(gone["error"]["code"], -32602, "{gone}");
 }
 
+/// A server over a project that enables no extension, its runtime serving
+/// `@test/cmds` (declaring a tool, a plain resource and a templated one),
+/// then `specforge.json` edited on disk to enable it: what the very next
+/// request of each kind sees is the one freshness decision of ADR 0024.
+fn extension_enabled_after_serving()
+-> (Served, std::sync::Arc<crate::fake_extension::FakeExtension>) {
+    use crate::fake_extension::{EXT, FakeExtension};
+    let ext = std::sync::Arc::new(FakeExtension::new().with_resource(json!({
+        "uri_template": "specforge://ext/cmds/{id}",
+        "name": "cmds-by-id",
+        "export": "mcp__by_id",
+        "mime_type": "application/json"
+    })));
+    let server = TestProject::new()
+        .enabling(&[])
+        .file("main.spec", "")
+        .serve_in(ext.runtime() as std::sync::Arc<dyn specforge_wasm::runtime::WasmRuntime>);
+    server.write("specforge.json", &config(&[EXT]));
+    (server, ext)
+}
+
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "an extension enabled on disk since the last request is listed by the next listing of every kind"
+)]
+fn a_listing_brings_the_served_project_up_to_date() {
+    let names = |reply: &Value, list: &str, key: &str| -> Vec<String> {
+        reply["result"][list]
+            .as_array()
+            .unwrap_or_else(|| panic!("{reply}"))
+            .iter()
+            .map(|entry| entry[key].as_str().unwrap().to_string())
+            .collect()
+    };
+    for (method, list, key, listed) in [
+        ("tools/list", "tools", "name", "specforge.cmds.check"),
+        (
+            "resources/list",
+            "resources",
+            "uri",
+            "specforge://ext/cmds/summary",
+        ),
+        (
+            "resources/templates/list",
+            "resourceTemplates",
+            "uriTemplate",
+            "specforge://ext/cmds/{id}",
+        ),
+    ] {
+        let (mut server, _ext) = extension_enabled_after_serving();
+        let reply = call(&mut server, method, json!({}));
+        assert!(
+            names(&reply, list, key).iter().any(|name| name == listed),
+            "{method} names {listed} once it is enabled on disk: {reply}"
+        );
+    }
+}
+
+#[specforge_test(
+    invariant = "mcp_served_project_consistency",
+    verify = "a subscription to an extension resource enabled on disk since the last request is accepted"
+)]
+fn a_subscription_finds_an_extension_resource_enabled_on_disk() {
+    let (mut server, _ext) = extension_enabled_after_serving();
+    let uri = "specforge://ext/cmds/summary";
+    let reply = call(&mut server, "resources/subscribe", json!({"uri": uri}));
+    assert_eq!(reply["result"], json!({}), "{reply}");
+    assert_eq!(subscribers(server.state(), Watched::of(uri)), ["default"]);
+
+    // Taken off the list again, the same lookup refuses it as `read` does.
+    server.write("specforge.json", &config(&[]));
+    let unsubscribed = call(&mut server, "resources/subscribe", json!({"uri": uri}));
+    assert_eq!(unsubscribed["error"]["code"], -32002, "{unsubscribed}");
+}
+
 // --- P11, P12: the scope query ---
 
 #[specforge_test(

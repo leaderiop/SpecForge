@@ -387,11 +387,15 @@ behavior rename_entity_id "Rename Entity ID" {
     with an error saying why. The edits are exactly the entity's
     declaration name and its references, as find-references returns them;
     text in strings, comments and verify statements that mentions the ID
-    is not a reference and is not edited.
+    is not a reference and is not edited. The edits are positions in the
+    text the project was compiled from: a rename over a file whose text (an
+    open buffer, else the file on disk) is no longer that text MUST be
+    refused as ContentModified (-32801), never applied from stale positions.
   """
   verify unit "rename updates declaration and all references"
   verify unit "rename leaves strings, comments and verify texts alone"
   verify unit "rename is atomic — all or nothing"
+  verify unit "rename is refused as content modified when a file it edits changed since the compile"
   verify unit "rename across multiple files"
   verify unit "rename rejects new name that duplicates existing entity ID"
   verify unit "rename to an illegal entity ID is refused with why"
@@ -742,9 +746,13 @@ behavior complete_keywords "Complete Keywords" {
     detail string MUST show the source extension name for each keyword.
     After verify in an entity's body, the verify kinds the entity's kind
     allows (its allowed_verify_kinds) MUST be suggested, and nothing when
-    the kind takes no verify statements.
+    the kind takes no verify statements. The registered kinds come from the
+    environment (CONTEXT: Environment), which is loaded before any .spec
+    file is read, so keyword completion MUST name them as soon as the
+    environment is loaded, while the workspace is still being indexed.
   """
   verify unit "keyword completion includes all registered kinds"
+  verify unit "keyword completion answers with the registered kinds as soon as the environment is loaded, before indexing ends"
   verify unit "use is always suggested and define never is"
   verify unit "verify suggests the kinds the entity's kind allows"
   verify unit "no keyword suggestions inside entity blocks"

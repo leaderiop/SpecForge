@@ -7,7 +7,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   `.spec` file is read: config, spec root, registries, rules, surfaces, and load diagnostics
   (`specforge_project::Environment`). A `specforge.json` that is there and can't be used is the
   default config (for the unusable file or key), with each reason kept (`config_problems`) and
-  reported as the error E069.
+  reported as the error E069. A session opens in two steps (`ProjectSession::begin_open`, then
+  `OpeningProject::finish`), so an editor answers what needs only the environment (keyword
+  completion) while the sources are still being read.
 - **Compiled project**: an environment plus the resolved sources and the built graph. Its
   diagnostics are, by definition, what `specforge check` reports under the default policy
   (`specforge_project::CompiledProject`).
@@ -224,8 +226,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   only on request (`specforge_ops::navigate`).
 - **Navigation**: where an entity is declared, its references, entity lookup and ranking, which
   entities a diagnostic is about, and the fixes a diagnostic's data names. The LSP and MCP answer
-  from one module (`specforge_ops::navigate`) in source spans. The LSP converts them to UTF-16
-  ranges through each text's line index, MCP renders them as JSON (ADR 0016, ADR 0023).
+  from one module (`specforge_ops::navigate`) in source spans. A span is a position in the text the
+  project was compiled from (`ProjectSession::source_text`), not in the buffer typed since nor the disk
+  now. The LSP converts spans to UTF-16 ranges through that text's line index (a file the compile holds
+  no text of has no range), MCP renders them as JSON (ADR 0016, ADR 0023).
 - **Cursor**: what the LSP knows about a position in an open document, read from the document's lexemes
   (`specforge_parser::lex`) and their block structure, never from the graph: the word under it, whether
   it is in code, a string or a comment, the entity block, field and reference list around it, and the

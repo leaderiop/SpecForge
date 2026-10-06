@@ -614,7 +614,10 @@ fn check_exits_one_on_an_unreadable_file() {
     fs::set_permissions(&locked, fs::Permissions::from_mode(0o644)).unwrap();
 
     assert_eq!(code, Some(1), "{stderr}");
-    assert!(stderr.contains("error: failed to read"), "{stderr}");
+    assert!(
+        stderr.contains("error[file_unreadable]: failed to read"),
+        "{stderr}"
+    );
     assert!(stderr.contains("locked.spec"), "{stderr}");
 }
 

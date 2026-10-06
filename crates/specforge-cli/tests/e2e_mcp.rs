@@ -2840,8 +2840,8 @@ fn mcp_tool_render_invalid_format() {
     let error = tool_error(resp);
     assert_eq!(error["code"], "invalid_input", "{error}");
     // The message names the bad format and lists the renderers by their
-    // export names; `data` carries every accepted name, the `json` alias
-    // of `graph` included.
+    // export names; `data` carries the same list (the `json` alias of
+    // `graph` is accepted, never listed).
     let message = error["message"].as_str().expect("message");
     assert!(
         message.starts_with("Unknown format: xyz. Expected: "),
@@ -2857,7 +2857,12 @@ fn mcp_tool_render_invalid_format() {
         assert!(available.contains(&core), "{core} listed: {available:?}");
         assert!(message.contains(core), "{core} named in: {message}");
     }
-    assert!(available.contains(&"json"), "{available:?}");
+    assert!(!available.contains(&"json"), "{available:?}");
+    // One list, in the message and in the data.
+    assert_eq!(
+        message.trim_start_matches("Unknown format: xyz. Expected: "),
+        available.join(", ")
+    );
 }
 
 // ============================================================

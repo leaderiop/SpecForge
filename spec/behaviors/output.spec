@@ -260,13 +260,17 @@ behavior name_enumerated_options_once "Name Enumerated Options Once" {
     Every surface MUST answer an absent argument with the table's default;
     no surface declares another. An unknown name MUST be refused as
     "Unknown <argument>: <name>. Expected: <names>", with the closest name
-    as a suggestion; the CLI refuses it before compiling (exit 2), MCP as
-    invalid_input on the argument. A set the project decides (analysis
+    as a suggestion, as the one failure kind invalid_input (a table has no
+    error code of its own); the CLI refuses it before compiling (exit 2), MCP
+    as invalid_input on the argument. Whatever a refusal offers as the
+    available choices (specforge.render's available_renderers) is the list
+    the message names: the table's names, never an alias. A set the project decides (analysis
     passes, entity kinds) is not a table: the operation checks the name
     against the project, and both surfaces relay its refusal.
   """
   verify unit "a table parses its names and aliases and refuses any other naming the expected names"
   verify unit "each enumerated MCP argument advertises the table's names and default"
+  verify unit "a refusal's available choices are the names its message lists, an alias never among them"
   verify integration "the CLI and MCP accept the same names for each enumerated argument"
   verify integration "the analysis passes the CLI accepts are the project's"
 }

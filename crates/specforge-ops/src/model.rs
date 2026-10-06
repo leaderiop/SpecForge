@@ -83,7 +83,6 @@ const fn helped<T>(name: &'static str, help: &'static str, value: T) -> Choice<T
 /// `specforge model --format`, `specforge.model`'s `format`.
 pub const MODEL_FORMAT: OptionTable<ModelFormat> = OptionTable {
     argument: "format",
-    code: "unknown_format",
     choices: &[
         plain("markdown", ModelFormat::Markdown),
         helped("mermaid", "ER diagram", ModelFormat::Mermaid),
@@ -97,7 +96,6 @@ pub const MODEL_FORMAT: OptionTable<ModelFormat> = OptionTable {
 /// `specforge model --group-by`, `specforge.model`'s `group_by`.
 pub const GROUP_BY: OptionTable<GroupBy> = OptionTable {
     argument: "group_by",
-    code: "invalid_input",
     choices: &[
         helped(
             "extension",
@@ -112,7 +110,6 @@ pub const GROUP_BY: OptionTable<GroupBy> = OptionTable {
 /// `specforge model --fields`, `specforge.model`'s `fields`.
 pub const MODEL_FIELDS: OptionTable<FieldLevel> = OptionTable {
     argument: "fields",
-    code: "invalid_input",
     choices: &[
         plain("none", FieldLevel::None),
         helped("keys", "key fields", FieldLevel::Keys),
@@ -124,7 +121,6 @@ pub const MODEL_FIELDS: OptionTable<FieldLevel> = OptionTable {
 /// `specforge outline --format`, `specforge.outline_extensions`' `format`.
 pub const OUTLINE_FORMAT: OptionTable<OutlineFormat> = OptionTable {
     argument: "format",
-    code: "unknown_format",
     choices: &[
         plain("markdown", OutlineFormat::Markdown),
         helped("mermaid", "flowchart", OutlineFormat::Mermaid),
@@ -137,7 +133,6 @@ pub const OUTLINE_FORMAT: OptionTable<OutlineFormat> = OptionTable {
 /// `specforge outline --fields`, `specforge.outline_extensions`' `fields`.
 pub const OUTLINE_FIELDS: OptionTable<OutlineDetail> = OptionTable {
     argument: "fields",
-    code: "invalid_input",
     choices: &[
         helped("none", "counts only", OutlineDetail::None),
         helped("keys", "names and rule codes", OutlineDetail::Keys),
@@ -149,7 +144,6 @@ pub const OUTLINE_FIELDS: OptionTable<OutlineDetail> = OptionTable {
 /// `specforge outline --deps`, `specforge.outline_extensions`' `deps`.
 pub const DEPS: OptionTable<DependencyDepth> = OptionTable {
     argument: "deps",
-    code: "invalid_input",
     choices: &[
         helped("direct", "declared only", DependencyDepth::Direct),
         helped(

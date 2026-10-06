@@ -39,7 +39,6 @@ pub enum Direction {
 /// `specforge.find_references`' `direction` (ADR 0027).
 pub const DIRECTION: OptionTable<Direction> = OptionTable {
     argument: "direction",
-    code: "invalid_input",
     choices: &[
         Choice {
             name: "incoming",
