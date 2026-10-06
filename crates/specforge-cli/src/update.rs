@@ -48,7 +48,7 @@ pub fn run(
             .collect();
         match format {
             OutputFormat::Json => {
-                let mut output = OutputFormat::op_error_json(first);
+                let mut output = OutputFormat::op_error_json(first, None);
                 output["failed"] = json!(failed);
                 output["updated"] = json!([]);
                 output["batch_update_completed"] = completed;

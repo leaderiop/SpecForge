@@ -16,8 +16,9 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
     };
     let outcome = match extension::remove(&ProjectView::of(&project), &request) {
         Ok(outcome) => outcome,
+        // A removal that failed after editing specforge.json names it.
         Err(error) => {
-            format.print_op_error(&error);
+            format.print_op_error_in(&error, Some(path));
             return 1;
         }
     };
@@ -27,6 +28,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
             let mut output = json!({
                 "removed": outcome.name,
                 "orphan_warnings": outcome.orphan_warnings,
+                "files_written": outcome.writes.names_under(path),
             });
             match &outcome.origin {
                 Origin::Builtin => output["source"] = json!("builtin"),

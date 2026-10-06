@@ -49,7 +49,9 @@ behavior scaffold_new_project "Scaffold New Project" {
     full init-check-export cycle MUST complete in under 60 seconds on commodity hardware, enforcing
     Principle 8 (seconds to value). In interactive mode, the project name
     MUST default to the directory name and prompt the user for confirmation
-    or override.
+    or override. The command lists every file it wrote (.gitignore when it
+    changed it, the config, the starter file, and each installed module and
+    lock), in its human output and as files_written in its JSON output.
   """
   verify unit "scaffold creates valid specforge.json"
   verify unit "scaffold includes $schema field in generated config"
@@ -59,6 +61,7 @@ behavior scaffold_new_project "Scaffold New Project" {
   verify integration "scaffold in non-empty directory preserves existing files"
   verify integration "scaffolded project passes init-check-export cycle"
   verify unit "init adds the generated report files to .gitignore without duplicating entries"
+  verify integration "init lists every file it wrote, in its human and JSON output"
   verify contract "Scaffold New Project: new project scaffolding holds — filesystem_available, no_existing_project, valid_config_created, schema_field_included, project_initialized_emitted"
 }
 
@@ -262,9 +265,12 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     a diagnostic naming the unresolvable extension. A registry specifier
     with no registry configured in specforge.json MUST make no network call
     and MUST fail with E063, whose suggestion names the registries key.
+    Its JSON output lists the files it wrote as files_written (empty when
+    the extension was already enabled).
   """
   verify unit "with no registry configured, add makes no network call and reports how to configure one"
   verify unit "add extension appends to extensions list"
+  verify integration "add --format json lists the files it wrote in files_written"
   verify unit "add enables a builtin's required peers but not its optional ones"
   verify unit "add duplicate extension is a no-op with info message"
   verify unit "add extension with no specforge.json rejects with error and exit code 1"

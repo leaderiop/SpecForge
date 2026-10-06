@@ -28,6 +28,11 @@ expression: cli_snap
   },
   "ok": true,
   "payload": {
+    "files_written": [
+      ".specforge/extensions/@sdk/greet/extension.wasm",
+      "specforge.json",
+      "specforge.lock"
+    ],
     "orphan_warnings": [],
     "removed": "@sdk/greet",
     "version": "0.1.0"

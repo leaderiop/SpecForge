@@ -65,13 +65,21 @@ impl OutputFormat {
     }
 
     /// An operation's failure as the JSON document every command prints:
-    /// `{"error", "code", "suggestion"}`.
-    fn op_error_json(error: &specforge_ops::OpError) -> serde_json::Value {
-        serde_json::json!({
+    /// `{"error", "code", "suggestion"}`, and `files_written` when the
+    /// operation left files changed before it failed ([`OpError::writes`],
+    /// named from `root` when given).
+    ///
+    /// [`OpError::writes`]: specforge_ops::OpError::writes
+    fn op_error_json(error: &specforge_ops::OpError, root: Option<&Path>) -> serde_json::Value {
+        let mut output = serde_json::json!({
             "error": error.message,
             "code": error.code,
             "suggestion": error.suggestion,
-        })
+        });
+        if !error.writes.is_empty() {
+            output["files_written"] = serde_json::json!(files_written(&error.writes, root));
+        }
+        output
     }
 
     /// Report a failure with diagnostic `code`, as [`Self::print_op_error`].
@@ -82,9 +90,16 @@ impl OutputFormat {
     /// Report an operation's failure: `{"error", "code", "suggestion"}` on
     /// stdout as JSON, or `error[CODE]: …` and a hint on stderr.
     fn print_op_error(self, error: &specforge_ops::OpError) {
+        self.print_op_error_in(error, None);
+    }
+
+    /// [`Self::print_op_error`] for an operation on the project at `root`:
+    /// the files it left written before it failed are named from it (in
+    /// JSON `files_written`, in human output one `wrote` line each).
+    fn print_op_error_in(self, error: &specforge_ops::OpError, root: Option<&Path>) {
         match self {
             OutputFormat::Json => {
-                let output = Self::op_error_json(error);
+                let output = Self::op_error_json(error, root);
                 println!("{}", serde_json::to_string_pretty(&output).unwrap());
             }
             OutputFormat::Human => {
@@ -92,8 +107,23 @@ impl OutputFormat {
                 if let Some(suggestion) = &error.suggestion {
                     eprintln!("  hint: {suggestion}");
                 }
+                for file in files_written(&error.writes, root) {
+                    eprintln!("  wrote: {file}");
+                }
             }
         }
+    }
+}
+
+/// The files `writes` names, as a command lists them: relative to `root`
+/// (absolute outside it), sorted.
+fn files_written(writes: &specforge_ops::Writes, root: Option<&Path>) -> Vec<String> {
+    match root {
+        Some(root) => writes.names_under(root),
+        None => writes
+            .paths()
+            .map(|path| path.display().to_string())
+            .collect(),
     }
 }
 
