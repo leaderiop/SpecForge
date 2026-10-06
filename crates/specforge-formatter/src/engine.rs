@@ -2091,13 +2091,13 @@ mod tests {
         );
     }
 
-    // --- Gap coverage: lsp_respect_editor_config ---
+    // --- Configured indentation (the width and tabs an editor asks for outside a project) ---
 
     #[specforge_test_macros::test(
-        behavior = "lsp_respect_editor_config",
-        verify = "editor tab size used when no config file exists"
+        behavior = "apply_format_rules",
+        verify = "indentation rules normalize to configured indent style"
     )]
-    fn test_editor_tab_size_used_when_no_config_file() {
+    fn a_configured_width_sets_the_indent() {
         // When no .specforgefmt.toml exists, the FormatConfig should use defaults
         // which correspond to what the editor would provide
         let config_4 = FormatConfig {
@@ -2136,10 +2136,10 @@ mod tests {
     }
 
     #[specforge_test_macros::test(
-        behavior = "lsp_respect_editor_config",
-        verify = "editor tab size used when no config file exists"
+        behavior = "apply_format_rules",
+        verify = "indentation rules normalize to configured indent style"
     )]
-    fn test_editor_insert_spaces_false_produces_tabs() {
+    fn use_tabs_indents_with_tabs() {
         let config = FormatConfig {
             indent_width: 2,
             use_tabs: true,
