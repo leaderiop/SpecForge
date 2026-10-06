@@ -1667,7 +1667,10 @@ fn extensions_list_each_extensions_kinds_and_entities() {
 // project view
 // ===============================================================
 
-#[test]
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "a removal with an unreadable specforge.json is config_invalid and changes nothing"
+)]
 fn removing_a_builtin_with_an_unreadable_config_is_config_invalid() {
     let dir = TempDir::new().unwrap();
     let config = r#"{ "extensions": ["@specforge/product",  }"#;

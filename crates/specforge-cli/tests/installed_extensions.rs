@@ -754,23 +754,51 @@ fn doctor_lists_a_wasm_file_entry_with_its_file_source() {
     }
 }
 
-// pins R2; flipped by 05-T6: remove uninstalls the binary and empties the
-// lock, and only then finds specforge.json unreadable.
-#[test]
-fn remove_with_an_unreadable_config_uninstalls_before_it_fails() {
+// R2 (plan 05): a removal with an unreadable specforge.json refuses before
+// it writes anything (it used to uninstall the binary and empty the lock
+// first). Fixed, the same removal finishes cleanly.
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "a removal with an unreadable specforge.json is config_invalid and changes nothing"
+)]
+fn a_removal_with_an_unreadable_config_changes_nothing() {
     let dir = greeting_project();
     add_local_greet(dir.path());
-    assert!(dir.path().join(".specforge/extensions/@sdk/greet").exists());
-    std::fs::write(
-        dir.path().join("specforge.json"),
-        r#"{ "extensions": ["@sdk/greet",  }"#,
-    )
-    .unwrap();
+    let binary = dir
+        .path()
+        .join(".specforge/extensions/@sdk/greet/extension.wasm");
+    assert!(binary.is_file(), "{}", binary.display());
+    let broken = r#"{ "extensions": ["@sdk/greet",  }"#;
+    std::fs::write(dir.path().join("specforge.json"), broken).unwrap();
+    let lock_before = std::fs::read(dir.path().join("specforge.lock")).unwrap();
+    let binary_before = std::fs::read(&binary).unwrap();
 
     let (ok, output) = remove(dir.path(), "@sdk/greet", &[]);
 
     assert!(!ok, "{output}");
     assert_eq!(output["code"], "config_invalid", "{output}");
+    assert!(
+        output["error"]
+            .as_str()
+            .unwrap()
+            .contains("is not valid JSON: expected value at line 1 column"),
+        "{output}"
+    );
+    assert_eq!(
+        std::fs::read(dir.path().join("specforge.lock")).unwrap(),
+        lock_before
+    );
+    assert_eq!(std::fs::read(&binary).unwrap(), binary_before);
+    assert_eq!(
+        std::fs::read_to_string(dir.path().join("specforge.json")).unwrap(),
+        broken
+    );
+
+    // The config fixed, remove finishes: specforge.json, lock and binary.
+    enable(dir.path(), json!(["@specforge/software", "@sdk/greet"]));
+    let (ok, output) = remove(dir.path(), "@sdk/greet", &[]);
+    assert!(ok, "{output}");
+    assert_eq!(enabled(dir.path()), json!(["@specforge/software"]));
     let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
     assert!(!lock.contains("@sdk/greet"), "{lock}");
     assert!(!dir.path().join(".specforge/extensions/@sdk/greet").exists());

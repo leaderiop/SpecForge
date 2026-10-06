@@ -164,16 +164,38 @@ fn stats_and_validate_count_the_served_projects_surface_conflicts() {
     assert!(codes.contains(&"I017"), "{validated}");
 }
 
-// pins R2; flipped by 05-T6: remove_extension uninstalls the binary and
-// empties the lock, and only then finds specforge.json unreadable.
-#[test]
-fn remove_extension_with_an_unreadable_config_uninstalls_before_it_fails() {
+/// Every file under `root` with its bytes.
+fn files_under(root: &std::path::Path) -> std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> {
+    let mut files = std::collections::BTreeMap::new();
+    let mut dirs = vec![root.to_path_buf()];
+    while let Some(dir) = dirs.pop() {
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                dirs.push(path);
+            } else {
+                files.insert(path.clone(), std::fs::read(&path).unwrap());
+            }
+        }
+    }
+    files
+}
+
+// R2 (plan 05): remove_extension with an unreadable specforge.json refuses
+// before it writes anything (it used to uninstall the binary and empty the
+// lock first).
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "a removal with an unreadable specforge.json is config_invalid and changes nothing"
+)]
+fn remove_extension_with_an_unreadable_config_changes_nothing() {
     let (mut server, root) = server_with_greet_installed();
     std::fs::write(
         root.join("specforge.json"),
         r#"{ "extensions": ["@sdk/greet",  }"#,
     )
     .unwrap();
+    let before = files_under(&root);
 
     let resp = call_tool(
         &mut server,
@@ -183,8 +205,14 @@ fn remove_extension_with_an_unreadable_config_uninstalls_before_it_fails() {
 
     let error = mcp_error(&resp);
     assert_eq!(error["code"], "schema_mismatch", "{error}");
-    let lock = std::fs::read_to_string(root.join("specforge.lock")).unwrap();
-    assert!(!lock.contains(GREET), "{lock}");
+    assert!(
+        error["message"]
+            .as_str()
+            .unwrap()
+            .contains("is not valid JSON"),
+        "{error}"
+    );
+    assert_eq!(files_under(&root), before);
 }
 
 #[specforge_test(

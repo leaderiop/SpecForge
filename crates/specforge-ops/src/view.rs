@@ -334,6 +334,14 @@ pub(crate) mod testing {
             self
         }
 
+        /// The compile could not use `specforge.json` as written, for
+        /// `problems` (what the surface reports for them is the test's to
+        /// set).
+        pub fn config_problems(mut self, problems: Vec<specforge_common::ConfigProblem>) -> Self {
+            self.env.config_problems = problems;
+            self
+        }
+
         /// The project's surface reports `diagnostics`.
         pub fn reporting(mut self, diagnostics: Vec<Diagnostic>) -> Self {
             self.reported = diagnostics;

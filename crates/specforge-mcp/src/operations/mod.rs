@@ -435,40 +435,36 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Hand
     let force = args.force.unwrap_or(false);
     let dry_run = args.dry_run.unwrap_or(false);
 
-    // The shared operation, over what the call's project loaded: its
+    // The shared operation, over the view of the call's project: its
     // dependents and its orphaned entities, the served project's or those
     // of the project `path` names.
-    let project = call.project()?;
     let request = specforge_ops::extension::RemoveRequest {
-        root: project.root,
         name: &name,
         force,
         dry_run,
-        enabled: &project.env.enabled,
-        loaded: project.env.registries.declarations(),
-        kinds: &project.env.registries.kinds,
-        graph: project.graph,
     };
-    Ok(match specforge_ops::extension::remove(&request) {
-        Ok(outcome) => {
-            let mut result = json!({
-                "removed_extension": outcome.name,
-                "success": true,
-                "version": outcome.version,
-                "orphan_warnings": outcome.orphan_warnings,
-            });
-            if outcome.dry_run {
-                result["dry_run"] = Value::from(true);
+    Ok(
+        match specforge_ops::extension::remove(&call.project()?.view(), &request) {
+            Ok(outcome) => {
+                let mut result = json!({
+                    "removed_extension": outcome.name,
+                    "success": true,
+                    "version": outcome.version,
+                    "orphan_warnings": outcome.orphan_warnings,
+                });
+                if outcome.dry_run {
+                    result["dry_run"] = Value::from(true);
+                }
+                ok(result)
             }
-            ok(result)
-        }
-        Err(mut error) => {
-            if error.code == specforge_ops::extension::NOT_FOUND {
-                error.data = Some(json!({"extension": name}));
+            Err(mut error) => {
+                if error.code == specforge_ops::extension::NOT_FOUND {
+                    error.data = Some(json!({"extension": name}));
+                }
+                err_op(error)
             }
-            err_op(error)
-        }
-    })
+        },
+    )
 }
 
 // ── migrate ─────────────────────────────────────────────────────────────────

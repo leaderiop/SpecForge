@@ -341,7 +341,10 @@ behavior remove_extension "Remove Extension" {
     more than one specforge.json entry enables MUST be refused as
     ambiguous (extension_conflict), naming the entries and changing
     nothing; a name no entry, lock entry or builtin matches is
-    extension_not_found.
+    extension_not_found. Every refusal MUST be decided before anything is
+    written, and a specforge.json the compile could not read refuses every
+    removal (config_invalid), changing nothing; specforge.json is written
+    before specforge.lock and the binary.
     Removing an extension that another loaded or installed extension
     requires as a non-optional peer MUST fail with E027 naming the
     dependents, unless --force is given. The CLI and the MCP
@@ -367,6 +370,7 @@ behavior remove_extension "Remove Extension" {
   verify integration "a .wasm file entry is removed by the name it declares or by its entry as written, leaving its file in place"
   verify integration "a name more than one specforge.json entry enables is refused as ambiguous, naming the entries"
   verify integration "removing a .wasm file entry another extension requires fails with E027 unless --force"
+  verify integration "a removal with an unreadable specforge.json is config_invalid and changes nothing"
 }
 
 // Read-only query. (produces [] declared below; no event of its own.)
