@@ -31,6 +31,7 @@ behavior format_spec_files "Format Spec Files" {
     unchanged_files_preserved "files already in canonical format are not rewritten"
     format_complete_emitted   "format_complete event is produced after successful formatting"
     summary_printed           "names of changed files and a summary count are printed"
+    exit_code_reported        "exit code is 1 when a file cannot be read or written, or has a region left unformatted; 0 otherwise"
   }
   contract   """
     When specforge format is invoked with file paths or a project directory,
@@ -38,11 +39,15 @@ behavior format_spec_files "Format Spec Files" {
     apply formatting rules, and write the formatted output back to disk.
     Files that are already correctly formatted MUST NOT be rewritten.
     The command MUST print the names of changed files and a summary count.
+    A file that cannot be read or written, or that has a region left
+    unformatted (format_with_parse_errors), MUST make the command exit with
+    code 1; every other file is still formatted and written.
   """
   verify unit "files matching the canonical format are not rewritten"
   verify unit "changed files are printed to stdout"
   verify unit "summary count reflects actual changes"
   verify integration "formatting all files in spec/ directory succeeds"
+  verify unit "a region left unformatted makes the run exit 1, the rest of the file still written"
   verify contract "Format Spec Files: spec file formatting holds — spec_files_available, format_config_loaded, formatted_output_written, unchanged_files_preserved, format_complete_emitted, summary_printed"
 }
 
@@ -97,18 +102,22 @@ behavior check_formatting "Check Formatting Without Modifying Files" {
   }
   ensures {
     no_files_written          "no files are written to disk in check mode"
-    exit_code_correct         "exit code is 0 when all files are formatted, 1 when any would change"
+    exit_code_correct         "exit code is 0 when every file is read and in canonical form; 1 when any would change, cannot be read, or has a region left unformatted"
     unformatted_paths_printed "file paths of unformatted files are printed to stdout"
   }
   contract   """
     When specforge format --check is invoked, the system MUST compare
     what would be formatted against existing files on disk. If any file
     would change, the command MUST exit with code 1 and print the file
-    paths. The system MUST NOT write any files in check mode.
+    paths. The system MUST NOT write any files in check mode. A file that
+    cannot be read, or that has a region left unformatted
+    (format_with_parse_errors), MUST also make the check exit with code 1.
   """
   verify unit "already formatted files exit with code 0"
   verify unit "unformatted files exit with code 1"
   verify unit "check mode writes no files to disk"
+  verify unit "a file that cannot be read makes the check fail"
+  verify unit "a region left unformatted makes the check fail"
   verify contract "Check Formatting Without Modifying Files: formatting check holds — spec_files_available, format_config_loaded, no_files_written, exit_code_correct, unformatted_paths_printed"
 }
 
@@ -176,9 +185,12 @@ behavior format_from_stdin "Format from Standard Input" {
     guarantees (idempotency, consistency, comment preservation) apply as
     for file-based formatting. In stdin mode, the format_complete event
     MUST set filesChecked=1 and filesChanged to 0 (input already canonical)
-    or 1 (formatting applied).
+    or 1 (formatting applied). When the input has a region left
+    unformatted, the formatted text MUST still be printed and the command
+    MUST exit with code 1.
   """
   verify unit "stdin content is formatted and written to stdout"
+  verify unit "stdin with a region left unformatted prints the formatted text and exits 1"
   verify unit "stdin mode does not read or write files"
   verify property "stdin formatting is idempotent"
   verify property "stdin formatting converges to canonical form"
@@ -208,7 +220,9 @@ behavior load_format_config "Load Format Configuration" {
     project root MUST NOT be discovered. If .specforgefmt.toml is found,
     it MUST be parsed and validated. Invalid values MUST produce
     diagnostics and fall back to defaults. If no config file is found
-    within the project root boundary, defaults MUST be used.
+    within the project root boundary, defaults MUST be used. The walk
+    stops at the file's own project root, the nearest directory holding
+    specforge.json, whichever project the run started in.
   """
   verify unit "config file in project root is loaded"
   verify unit "config file in parent directory is discovered"
@@ -216,6 +230,8 @@ behavior load_format_config "Load Format Configuration" {
   verify unit "config outside project root is not discovered"
   verify unit "invalid indent_width produces diagnostic and uses default"
   verify unit "missing config file uses defaults"
+  verify unit "a file's configuration does not depend on where format runs"
+  verify unit "a file is formatted with the configuration of its own project"
   verify contract "Load Format Configuration: format config loading holds — project_root_available, filesystem_accessible, config_resolved, walk_bounded, invalid_values_diagnosed"
 }
 
@@ -259,7 +275,8 @@ behavior apply_format_rules "Apply Format Rules" {
     The formatting rule engine MUST walk the CST and emit formatting
     decisions for each whitespace region: keep, replace, insert, or remove.
     Rules cover indentation, spacing, alignment, wrapping, blank lines,
-    comments, imports, and string formatting. Statements keep their source
+    comments and imports. String literals, triple-quoted ones included, are
+    kept byte-for-byte: their text is a field's value. Statements keep their source
     order; only runs of imports are sorted. Field keys align to the longest
     key plus one; annotations of single-line values align in one column;
     `verify [kind] "..."` statements are single-spaced. A list that does
@@ -283,7 +300,7 @@ behavior apply_format_rules "Apply Format Rules" {
   verify unit "import sorting produces alphabetical order"
   verify unit "blank line rules enforce exactly one between blocks"
   verify unit "comment rules normalize spacing around inline comments"
-  verify unit "string rules normalize multiline string literal indentation"
+  verify unit "multiline string literals are kept byte-for-byte"
   verify property "two files differing only in whitespace produce identical output after formatting"
   verify contract "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
 }
@@ -340,7 +357,10 @@ behavior lsp_format_document "LSP Format Document" {
     When the LSP server receives a textDocument/formatting request,
     it MUST format the full document using the formatting engine and
     return a list of TextEdit operations. The result MUST be identical
-    to running specforge format on the same file. TextEdit coordinates
+    to running specforge format on the same file.
+    The configuration is the one specforge format uses for that file: the
+    .specforgefmt.toml nearest the document's directory within its project,
+    else the defaults (see lsp_respect_editor_config). TextEdit coordinates
     use 0-indexed lines and columns (LSP standard). TextEdit operations
     in a response MUST NOT overlap. When the document contains parse
     errors, the server MUST format well-formed regions and leave error
@@ -394,6 +414,7 @@ behavior lsp_format_range "LSP Format Range" {
   verify unit "range is expanded to block boundaries"
   verify unit "range formatting matches full formatting for affected blocks"
   verify integration "parse errors within range are left unchanged per format_with_parse_errors"
+  verify unit "a region left unformatted is reported at its document lines"
   verify performance "formats range within 20ms for ranges under 200 lines"
   verify contract "LSP Format Range: LSP range formatting holds — document_open, format_config_loaded, range_expanded, textedit_list_returned, full_format_parity, format_complete_emitted"
 }
@@ -408,16 +429,26 @@ behavior lsp_respect_editor_config "LSP Respect Editor Config" {
     lsp_initialized_fired "LSP server has been initialized and editor settings are available"
   }
   ensures {
-    config_precedence_enforced ".specforgefmt.toml takes precedence over editor settings when it exists"
-    editor_fallback_applied    "editor-level tab size and insert-spaces are used when no config file exists"
+    config_precedence_enforced "inside a project, the project's format configuration (its .specforgefmt.toml, else the defaults) is used and editor settings are ignored"
+    editor_fallback_applied    "outside any project, editor-level tab size and insert-spaces are used"
   }
   contract   """
-    When no .specforgefmt.toml exists, the LSP formatting MUST respect
-    editor-level settings for tab size and insert-spaces. When a
-    .specforgefmt.toml exists, it MUST take precedence over editor settings.
+    Inside a project (an ancestor directory holds specforge.json), LSP
+    formatting MUST use the configuration specforge format uses for the
+    file: the nearest .specforgefmt.toml, else the defaults. Editor settings
+    MUST NOT change it, so a file the editor formats passes
+    specforge format --check. Outside any project (an unsaved buffer, a file
+    with no specforge.json above it), LSP formatting MUST use the editor's
+    tab size and insert-spaces. When it ignores editor settings that differ
+    from the project's configuration, the server MUST say so once per
+    session and configuration, as a log message naming the configuration
+    it used.
   """
-  verify unit "editor tab size used when no config file exists"
+  verify unit "editor settings are used for a document outside any project"
   verify unit "config file takes precedence over editor settings"
+  verify unit "a project without a config file formats with the defaults, not the editor's settings"
+  verify integration "the editor formats a project file as specforge format --check expects"
+  verify integration "the editor is told once when the project's configuration overrides its settings"
   verify contract "LSP Respect Editor Config: editor config respect holds — lsp_initialized_fired, config_precedence_enforced, editor_fallback_applied"
 }
 
@@ -455,6 +486,8 @@ behavior format_with_parse_errors "Format Files with Parse Errors" {
     original whitespace within an error region MUST be preserved byte-for-byte.
     A diagnostic MUST be emitted listing each file that could not be fully
     formatted due to parse errors, including the line range of each error region.
+    The diagnostic MUST span the region it kept, from its first line's start
+    to its last line's end.
   """
   verify unit "file with syntax error is partially formatted without crash"
   verify unit "well-formed blocks in a file with errors are still formatted"
@@ -478,20 +511,26 @@ behavior discover_format_targets "Discover Format Targets" {
   }
   ensures {
     all_spec_files_discovered "all .spec files under spec_root are discovered when no explicit paths are given"
-    exclusions_applied        "files matching format.exclude globs are excluded from the target set"
+    exclusions_applied        "files the project's exclude entries leave out are not discovered"
     non_spec_skipped          "non-.spec files are skipped without error"
   }
   contract   """
     When specforge format is invoked without explicit file paths, the
     system MUST discover all .spec files under the spec_root defined in
-    specforge.json. When explicit paths are provided, only those paths
-    MUST be formatted. Directories provided as arguments MUST be
-    recursively searched for .spec files. Non-.spec files MUST be
-    skipped without error. If specforge.json defines a format.exclude
-    glob list, matching files MUST be excluded from discovery.
+    specforge.json (the project root when unset): the files a compile
+    reads. Files the project's exclude entries leave out MUST NOT be
+    discovered; a file named explicitly is formatted all the same. A
+    directory named explicitly that holds specforge.json MUST be read as
+    that project's sources; walking any other named directory MUST take a
+    nested project's sources where it reaches that project's
+    specforge.json, never the rest of its files. When explicit paths are
+    provided, only those paths MUST be formatted. Directories provided as
+    arguments MUST be recursively searched for .spec files. Non-.spec
+    files MUST be skipped without error.
   """
   verify unit "no arguments formats all .spec files under spec_root"
-  verify unit "files matching format.exclude globs are excluded"
+  verify unit "files the project's exclude entries leave out are not formatted"
+  verify unit "a named directory that is a project formats that project's sources"
   verify unit "explicit file paths format only those files"
   verify unit "directory argument recursively discovers .spec files"
   verify unit "non-.spec files are skipped with no error"

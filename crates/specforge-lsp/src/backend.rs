@@ -24,7 +24,7 @@ use specforge_ops::navigate::{
     Direction, EntityQuery, FixQuery, MatchScope, ReferenceQuery, find_entities, outline,
 };
 
-use crate::formatting::{EditorOptions, format_document, format_document_range};
+use specforge_ops::format;
 
 pub struct Backend {
     client: Client,
@@ -1075,81 +1075,99 @@ impl LanguageServer for Backend {
     }
 
     async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
-        let uri = params.text_document.uri;
-
-        let state = self.state.read().await;
-        let Some(doc) = state.document(uri.as_str()) else {
-            return Ok(None);
-        };
-        let content = doc.text();
-
-        let editor_opts = EditorOptions {
-            tab_size: params.options.tab_size as usize,
-            insert_spaces: params.options.insert_spaces,
-        };
-
-        let (edits, diags) = format_document(content, None, None, Some(&editor_opts));
-
-        if !diags.is_empty() {
-            // A publish replaces the document's list: the formatter's
-            // diagnostics go alongside the compile ones, not in their place.
-            let lsp_diags: Vec<Diagnostic> = state
-                .diagnostics(uri.as_str())
-                .iter()
-                .chain(&diags)
-                .map(|d| diagnostic_to_lsp(d, |span| doc.index().range(span)))
-                .collect();
-            let version = state.document(uri.as_str()).and_then(|d| d.version());
-            self.client
-                .publish_diagnostics(uri.clone(), lsp_diags, version)
-                .await;
-        }
-
-        Ok(Some(formatter_edits_to_lsp(edits, doc.index())))
+        self.format(&params.text_document.uri, &params.options, None)
+            .await
     }
 
     async fn range_formatting(
         &self,
         params: DocumentRangeFormattingParams,
     ) -> Result<Option<Vec<TextEdit>>> {
-        let uri = params.text_document.uri;
-        let range = params.range;
-
-        let state = self.state.read().await;
-        let Some(doc) = state.document(uri.as_str()) else {
-            return Ok(None);
+        let lines = format::Lines {
+            first: params.range.start.line as usize,
+            last: params.range.end.line as usize,
         };
-        let content = doc.text();
-
-        let editor_opts = EditorOptions {
-            tab_size: params.options.tab_size as usize,
-            insert_spaces: params.options.insert_spaces,
-        };
-
-        let (edits, diags) = format_document_range(
-            content,
-            range.start.line as usize,
-            range.end.line as usize,
-            None,
-            None,
-            Some(&editor_opts),
-        );
-
-        if !diags.is_empty() {
-            // A publish replaces the document's list: the formatter's
-            // diagnostics go alongside the compile ones, not in their place.
-            let lsp_diags: Vec<Diagnostic> = state
-                .diagnostics(uri.as_str())
-                .iter()
-                .chain(&diags)
-                .map(|d| diagnostic_to_lsp(d, |span| doc.index().range(span)))
-                .collect();
-            let version = state.document(uri.as_str()).and_then(|d| d.version());
-            self.client
-                .publish_diagnostics(uri.clone(), lsp_diags, version)
-                .await;
-        }
-
-        Ok(Some(formatter_edits_to_lsp(edits, doc.index())))
+        self.format(&params.text_document.uri, &params.options, Some(lines))
+            .await
     }
+}
+
+impl Backend {
+    /// Format an open document as `specforge format` formats its file
+    /// (ADR 0021), and publish what formatting reported alongside the
+    /// compile's diagnostics. Inside a project the project's configuration
+    /// wins over `options`; the editor is told so once per configuration.
+    async fn format(
+        &self,
+        uri: &Url,
+        options: &FormattingOptions,
+        lines: Option<format::Lines>,
+    ) -> Result<Option<Vec<TextEdit>>> {
+        let editor = format::EditorOptions {
+            tab_size: options.tab_size as usize,
+            insert_spaces: options.insert_spaces,
+        };
+        let (edits, notice) = {
+            let state = self.state.read().await;
+            let Some(doc) = state.document(uri.as_str()) else {
+                return Ok(None);
+            };
+            let file = uri.to_file_path().ok();
+            let place = file
+                .as_deref()
+                .map_or(format::Place::Detached, format::Place::File);
+            let formatted = format::document(place, doc.text(), lines, Some(editor));
+            if !formatted.diagnostics.is_empty() {
+                // A publish replaces the document's list: the formatter's
+                // diagnostics go alongside the compile ones, not in their
+                // place.
+                let lsp_diags: Vec<Diagnostic> = state
+                    .diagnostics(uri.as_str())
+                    .iter()
+                    .chain(&formatted.diagnostics)
+                    .map(|d| diagnostic_to_lsp(d, |span| doc.index().range(span)))
+                    .collect();
+                self.client
+                    .publish_diagnostics(uri.clone(), lsp_diags, doc.version())
+                    .await;
+            }
+            let notice = overridden_editor_options(&formatted, editor);
+            (
+                formatter_edits_to_lsp(formatted.edits(), doc.index()),
+                notice,
+            )
+        };
+        if let Some((configuration, message)) = notice
+            && self.state.write().await.first_format_notice(&configuration)
+        {
+            self.client.log_message(MessageType::INFO, message).await;
+        }
+        Ok(Some(edits))
+    }
+}
+
+/// When a project's configuration formatted `formatted` and the editor's
+/// `editor` settings differ from it: the configuration (its key for the
+/// once-per-session notice) and the message telling the editor so.
+fn overridden_editor_options(
+    formatted: &format::FormattedDocument,
+    editor: format::EditorOptions,
+) -> Option<(String, String)> {
+    let configuration = match &formatted.config_source {
+        format::ConfigSource::File(path) => path.display().to_string(),
+        format::ConfigSource::Defaults => "the defaults".to_string(),
+        format::ConfigSource::Editor => return None,
+    };
+    let config = &formatted.config;
+    let same = editor.insert_spaces != config.use_tabs
+        && (config.use_tabs || editor.tab_size == config.indent_width);
+    if same {
+        return None;
+    }
+    let indent = if config.use_tabs { "tabs" } else { "spaces" };
+    let message = format!(
+        "formatting with {configuration} (indent {}, {indent}); the editor's tabSize {} / insertSpaces {} apply only outside a project",
+        config.indent_width, editor.tab_size, editor.insert_spaces
+    );
+    Some((configuration, message))
 }

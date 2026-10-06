@@ -57,6 +57,27 @@ fn vscode_manifest_names_the_workspace_repository() {
     );
 }
 
+/// The VS Code extension types `.spec` files with the formatter's default
+/// indentation (ADR 0021 D1), so typing indents as `specforge format` will
+/// in a project without `.specforgefmt.toml`.
+#[test]
+fn vscode_manifest_indents_spec_files_as_the_formatter_does() {
+    let raw = std::fs::read_to_string(repo_root().join("integrations/vscode/package.json"))
+        .expect("integrations/vscode/package.json");
+    let manifest: serde_json::Value = serde_json::from_str(&raw).expect("valid package.json");
+    let defaults = &manifest["contributes"]["configurationDefaults"]["[specforge]"];
+    let formatter = specforge_formatter::FormatConfig::default();
+
+    assert_eq!(
+        defaults["editor.tabSize"].as_u64(),
+        Some(formatter.indent_width as u64)
+    );
+    assert_eq!(
+        defaults["editor.insertSpaces"].as_bool(),
+        Some(!formatter.use_tabs)
+    );
+}
+
 /// One CLI invocation found in the VS Code extension's sources: the argv
 /// elements, each either a string literal (`Some`) or something computed at
 /// runtime (`None`, or a template literal kept as its literal prefix).

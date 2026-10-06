@@ -163,10 +163,7 @@ impl Environment {
         if registries.declarations().is_empty() {
             setup_diagnostics.push(structural_only_notice(&config.extensions, &read.problems));
         }
-        let spec_root = match &config.spec_root {
-            Some(spec_root) => root.join(spec_root),
-            None => root.to_path_buf(),
-        };
+        let spec_root = config.spec_root_in(root);
         Environment {
             root: root.to_path_buf(),
             config,

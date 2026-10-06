@@ -103,6 +103,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_coverage::Verdict`).
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
   independent of surface. The CLI and MCP are adapters over it (`specforge-ops`).
+- **Project sources**: the `.spec` files under the spec root (`spec_root`, else the project root) that
+  discovery keeps — no skipped directory, no `exclude` entry. What a compile reads, and what format
+  and migrate rewrite (`specforge_common::ProjectConfig::spec_files`).
+- **Format configuration**: how one `.spec` document is laid out: inside a project, the nearest
+  `.specforgefmt.toml` from the document's directory up to its own project root, else the defaults;
+  outside any project, the editor's tab settings. `specforge format`, MCP `specforge.format` and the
+  LSP all format through `specforge_ops::format::document` (ADR 0021).
 - **Option table**: one enumerated argument an operation takes — its listed names in order, the
   aliases it also accepts, a one-line help per name, and its default — beside that operation
   (`specforge_ops::options::OptionTable`; `export::FORMAT`, `model::MODEL_FORMAT`, …). The CLI's

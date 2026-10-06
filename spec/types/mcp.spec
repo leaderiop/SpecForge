@@ -289,9 +289,13 @@ type McpInitResult {
 type McpFormatResult {
   changed_files string[]
   total_checked integer
+  /// True only when every file was read and is in canonical form: no change,
+  /// no failure, no region left unformatted.
   all_clean     boolean
   diffs         FormatDiff[] @optional
+  /// The files the call could not read or write (the call failed).
   failed_files  string[]     @optional
+  /// W141 per configuration file used, W142 per region kept verbatim.
   diagnostics   Diagnostic[] @optional
   verify unit "McpFormatResult schema is valid"
 }

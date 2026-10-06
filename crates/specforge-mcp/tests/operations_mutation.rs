@@ -219,6 +219,82 @@ fn format_returns_the_config_diagnostics() {
     );
 }
 
+/// UNFORMATTED in canonical form.
+const CANONICAL: &str = "behavior messy \"Messy\" {\n  contract \"The system MUST work\"\n}\n";
+
+/// A project whose spec files are a canonical a.spec and `extra` (path,
+/// text), test.spec empty, and its root.
+fn server_with_canonical_and(extra: (&str, &str)) -> (Served, std::path::PathBuf) {
+    let server = project()
+        .file("test.spec", "")
+        .file("a.spec", CANONICAL)
+        .file(extra.0, extra.1)
+        .serve(&[TestExtension::software()]);
+    let root = server.root().to_path_buf();
+    (server, root)
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "a file with a region left unformatted is not reported clean, and its W142 is returned"
+)]
+fn format_does_not_report_a_parse_error_file_clean() {
+    let broken = "behavior login \"Login\" {\n  contract \"ok\"\n}\n\n}}}\n";
+    let (mut server, _root) = server_with_canonical_and(("broken.spec", broken));
+
+    let parsed = format_result(&mut server, json!({"check": true}));
+
+    assert_eq!(parsed["all_clean"], false, "{parsed}");
+    assert_eq!(parsed["changed_files"], json!([]), "{parsed}");
+    let diagnostics = parsed["diagnostics"].as_array().unwrap();
+    assert_eq!(diagnostics.len(), 1, "{parsed}");
+    assert_eq!(diagnostics[0]["code"], "W142", "{parsed}");
+    assert!(
+        diagnostics[0]["file"]
+            .as_str()
+            .unwrap()
+            .ends_with("broken.spec"),
+        "{parsed}"
+    );
+    assert_eq!(diagnostics[0]["line"], 5, "{parsed}");
+}
+
+#[cfg(unix)]
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "a file that cannot be read fails the call, is named, and does not stop the others"
+)]
+fn format_fails_on_an_unreadable_file_and_names_it() {
+    use std::os::unix::fs::PermissionsExt;
+    let other = CANONICAL.replace("messy", "other");
+    let (mut server, root) = server_with_canonical_and(("locked.spec", &other));
+    let locked = root.join("locked.spec");
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o000)).unwrap();
+
+    let resp = call_tool(&mut server, "specforge.format", json!({"check": true}));
+    std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "internal_error", "{error}");
+    let data = &error["data"];
+    let failed = data["failed_files"].as_array().unwrap();
+    assert_eq!(failed.len(), 1, "{data}");
+    assert!(
+        failed[0].as_str().unwrap().ends_with("locked.spec"),
+        "{data}"
+    );
+    assert!(
+        data["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("failed to read"),
+        "{data}"
+    );
+    assert_eq!(data["all_clean"], false, "{data}");
+    // test.spec and a.spec were still checked.
+    assert_eq!(data["total_checked"], 2, "{data}");
+}
+
 // --- specforge.rename ---
 
 // B:provide_mcp_rename_tool — verify unit "unknown entity returns error"
