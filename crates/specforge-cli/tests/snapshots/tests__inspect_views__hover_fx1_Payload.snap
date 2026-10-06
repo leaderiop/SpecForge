@@ -20,6 +20,10 @@ A data structure or domain model definition
 
 ---
 
+**Coverage** · `covered` · 1/1 obligations proven · 1 test
+
+---
+
 **Fields**
 - `verify` = `string`
 - `verify` = unit: Payload schema is valid

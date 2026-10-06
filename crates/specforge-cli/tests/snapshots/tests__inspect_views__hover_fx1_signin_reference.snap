@@ -28,3 +28,10 @@ A user-facing capability that solves a specific problem
 **Fields**
 - `problem` = "Users cannot reach their data"
 - `solution` = "Let them log in"
+
+---
+
+**Diagnostics** *(3)*
+- [**I048**](https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#i048) feature 'signin' has no acceptance criteria
+- [**I080**](https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#i080) feature 'signin' has no owner
+- [**I081**](https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#i081) feature 'signin' has no effort estimate

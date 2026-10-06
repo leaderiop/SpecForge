@@ -18,6 +18,12 @@ Method **behavior** `login` — Log in
 A testable unit of system functionality with a defined contract
 *@specforge/software* · `testable` · `verify`
 
+> The system MUST let a known user log in
+
+---
+
+**Coverage** · `covered` · 1/1 obligations proven · 1 test
+
 ---
 
 **Refers to** *(1)*
@@ -26,6 +32,5 @@ A testable unit of system functionality with a defined contract
 ---
 
 **Fields**
-- `contract` = "The system MUST let a known user log in"
 - `features` = [signin]
 - `verify` = unit: a known user logs in

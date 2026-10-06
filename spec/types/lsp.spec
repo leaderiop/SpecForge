@@ -23,10 +23,17 @@ type HoverContent {
   entity_kind              string
   title                    string
   source_extension         string
-  testable                 boolean @optional
-  summary                  string  @optional
+  testable                 boolean      @optional
+  /// The statement the entity's extension declares headline and normative.
+  summary                  string       @optional
+  /// As specforge.inspect's coverage_status; absent for a kind that is not
+  /// testable and an entity that declares no obligations.
+  coverage_status          string       @optional
+  exempt                   boolean      @optional
   incoming_reference_count integer
   outgoing_reference_count integer
+  /// The diagnostics about the entity not already shown for the cursor.
+  diagnostics              Diagnostic[] @optional
   verify unit "HoverContent schema is valid"
 }
 

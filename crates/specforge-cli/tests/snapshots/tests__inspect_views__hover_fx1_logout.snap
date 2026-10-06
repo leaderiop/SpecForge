@@ -38,7 +38,8 @@ Method **behavior** `logout` — Log out
 A testable unit of system functionality with a defined contract
 *@specforge/software* · `testable` · `verify`
 
+> The system MUST end the session on logout
+
 ---
 
-**Fields**
-- `contract` = "The system MUST end the session on logout"
+**Coverage** · `uncovered` · 0/0 obligations proven · 1 test

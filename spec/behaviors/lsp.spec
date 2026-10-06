@@ -238,7 +238,8 @@ behavior hover_information "Hover Information" {
     When a user hovers over an entity ID, the LSP MUST delegate to
     provide_extension_entity_hover (behaviors/zero-entity-lsp.spec) for
     all extension-aware hover content: entity kind, title, source extension,
-    testability, reference counts, and first string field summary.
+    testability, headline summary, coverage, reference counts, field values
+    and the diagnostics about the entity.
     This behavior is responsible only for dispatching the hover request
     and returning the formatted result. The hover content MUST be
     formatted as markdown. Field help (the field's declared type and

@@ -57,12 +57,19 @@ pub fn diagnostics(shown: &[&Diagnostic]) -> Option<String> {
 
 /// Markdown for an entity's facts:
 /// - its kind, ID and title; its kind's description, declaring extension
-///   and badges (`testable` is the standing inspect reports);
+///   and badges (`testable` is the standing inspect reports); the
+///   statement its extension declares headline, quoted whole;
+/// - **Coverage**: its coverage, or why it does not count, or that the
+///   recorded report cannot be read; while the project rebuilds
+///   (`rebuilding`), that coverage is unavailable. None for an entity of a
+///   kind that is not testable and that declares no obligations;
 /// - **Refers to**: its references, grouped by field;
 /// - **Referenced by**: the references to it, grouped by the referencing
 ///   kind and field;
-/// - **Fields**: its field values.
-pub fn entity(facts: &EntityFacts) -> String {
+/// - **Fields**: its field values but the headline;
+/// - **Diagnostics**: the diagnostics about it that are not among those
+///   `shown` for the cursor, each code linked to its catalogue entry.
+pub fn entity(facts: &EntityFacts, shown: &[&Diagnostic], rebuilding: bool) -> String {
     let node = facts.node;
     let title = node
         .title
@@ -93,10 +100,18 @@ pub fn entity(facts: &EntityFacts) -> String {
         }
         header_section.push_str(&format!("\n{}", ext_line));
     }
+    if let Some(headline) = facts.headline {
+        header_section.push_str(&format!("\n\n{}", quoted(headline)));
+    }
 
     let mut sections: Vec<String> = vec![header_section];
 
-    // Section 2: its references (Refers to), by field
+    // Section 2: its coverage
+    if let Some(line) = coverage_line(facts, rebuilding) {
+        sections.push(format!("**Coverage** · {line}"));
+    }
+
+    // Section 3: its references (Refers to), by field
     let outgoing = &facts.references.outgoing;
     if !outgoing.is_empty() {
         let mut by_field: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
@@ -113,7 +128,7 @@ pub fn entity(facts: &EntityFacts) -> String {
         sections.push(section);
     }
 
-    // Section 3: the references to it (Referenced by), by kind and field
+    // Section 4: the references to it (Referenced by), by kind and field
     let incoming = &facts.references.incoming;
     if !incoming.is_empty() {
         let mut by_kind_field: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
@@ -136,19 +151,134 @@ pub fn entity(facts: &EntityFacts) -> String {
         sections.push(section);
     }
 
-    // Section 4: Fields
+    // Section 5: Fields, but the headline, which the summary quotes
     let fields: Vec<String> = node
         .fields
         .entries()
         .iter()
         .filter(|entry| entry.key.as_str() != "title")
+        .filter(|entry| !is_headline(&entry.value, facts.headline))
         .map(|entry| format!("- `{}` = {}", entry.key, format_field_value(&entry.value)))
         .collect();
     if !fields.is_empty() {
         sections.push(format!("**Fields**\n{}", fields.join("\n")));
     }
 
+    // Section 6: the diagnostics about it the cursor's do not already show
+    let listed: Vec<String> = facts
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| !shown.contains(diagnostic))
+        .map(|diagnostic| {
+            let code = match specforge_diagnostics::docs_href(&diagnostic.code) {
+                Some(href) => format!("[**{}**]({href})", diagnostic.code),
+                None => format!("**{}**", diagnostic.code),
+            };
+            format!("- {code} {}", diagnostic.message)
+        })
+        .collect();
+    if !listed.is_empty() {
+        sections.push(format!(
+            "**Diagnostics** *({})*\n{}",
+            listed.len(),
+            listed.join("\n")
+        ));
+    }
+
     sections.join("\n\n---\n\n")
+}
+
+/// Whether `value` is the headline statement: the very string the read
+/// view borrowed from the node, not merely an equal one.
+fn is_headline(value: &FieldValue, headline: Option<&str>) -> bool {
+    match (value, headline) {
+        (FieldValue::String(s), Some(headline)) => std::ptr::eq(s.as_str(), headline),
+        _ => false,
+    }
+}
+
+/// `text` as a markdown quote, whole: its blank edge lines trimmed, its
+/// common leading whitespace removed, every line prefixed `> `.
+fn quoted(text: &str) -> String {
+    let lines: Vec<&str> = text.lines().collect();
+    let first = lines.iter().position(|l| !l.trim().is_empty());
+    let last = lines.iter().rposition(|l| !l.trim().is_empty());
+    let (Some(first), Some(last)) = (first, last) else {
+        return ">".to_string();
+    };
+    let lines = &lines[first..=last];
+    let indent = lines
+        .iter()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| l.len() - l.trim_start().len())
+        .min()
+        .unwrap_or(0);
+    lines
+        .iter()
+        .map(|l| {
+            let line = l.get(indent..).unwrap_or_else(|| l.trim_start()).trim_end();
+            if line.is_empty() {
+                ">".to_string()
+            } else {
+                format!("> {line}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// The Coverage line after `**Coverage** · `: as `specforge.inspect`
+/// reports the entity's coverage. `None` for an entity whose kind is not
+/// testable and that declares no obligations.
+fn coverage_line(facts: &EntityFacts, rebuilding: bool) -> Option<String> {
+    let standing = facts.standing;
+    let declares = match &facts.coverage {
+        Ok(coverage) => coverage.declared(),
+        Err(_) => !facts.obligations.is_empty(),
+    };
+    if !standing.testable && !declares {
+        return None;
+    }
+    // The stand-in view has no root: it cannot read the recorded report,
+    // and saying there is none would be false (panel D12).
+    if rebuilding {
+        return Some("unavailable while the project rebuilds".to_string());
+    }
+    if standing.exempt {
+        return Some(if standing.obligated {
+            "exempt: it owes none (a union or an exempting field)".to_string()
+        } else {
+            "exempt: its kind need not declare obligations".to_string()
+        });
+    }
+    let coverage = match &facts.coverage {
+        Ok(coverage) => coverage,
+        Err(error) => {
+            return Some(format!(
+                "the recorded test report cannot be read (E045): {error}"
+            ));
+        }
+    };
+    let verdict = &coverage.verdict;
+    let mut line = format!(
+        "`{}` · {}/{} obligations proven",
+        specforge_ops::coverage::STATUS.name_of(coverage.status()),
+        verdict.proven,
+        verdict.obligations
+    );
+    if coverage.recorded {
+        let plural = if verdict.tests == 1 { "" } else { "s" };
+        line.push_str(&format!(" · {} test{plural}", verdict.tests));
+        if verdict.failing > 0 {
+            line.push_str(&format!(" · {} failing", verdict.failing));
+        }
+    } else {
+        line.push_str(" · no test report recorded");
+    }
+    if !standing.testable {
+        line.push_str(" · its kind is not testable, so it does not count");
+    }
+    Some(line)
 }
 
 /// Returns markdown-formatted hover content for a field name within an entity block.

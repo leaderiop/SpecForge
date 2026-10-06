@@ -250,7 +250,7 @@ fn graph_update_serves_all_features() {
         facts.node,
         state.graph().node("login").unwrap()
     ));
-    let hover = specforge_lsp::hover::entity(&facts);
+    let hover = specforge_lsp::hover::entity(&facts, &[], false);
     assert!(
         hover.contains("`login`"),
         "hover must use shared graph: {hover}"

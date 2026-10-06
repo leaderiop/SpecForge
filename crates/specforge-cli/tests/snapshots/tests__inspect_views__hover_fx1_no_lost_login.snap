@@ -20,6 +20,10 @@ A temporal property assertion (safety, liveness, fairness)
 
 ---
 
+**Coverage** · `uncovered` · 0/1 obligations proven · 0 tests · its kind is not testable, so it does not count
+
+---
+
 **Fields**
 - `property_type` = `safety`
 - `expression` = "once logged in, a session stays until logout"

@@ -788,6 +788,9 @@ impl LanguageServer for Backend {
 
         // What the cursor names: the entity's facts (the inspect read view,
         // reporting what was published), or a field's help.
+        // While the session is out for an update, the view is a stand-in
+        // that cannot read the recorded report.
+        let rebuilding = state.session().is_none();
         let published: Vec<specforge_common::Diagnostic> =
             state.published_diagnostics().cloned().collect();
         let nav = navigator(&state);
@@ -800,7 +803,7 @@ impl LanguageServer for Backend {
                     id.as_str(),
                 )
                 .ok()
-                .map(|facts| crate::hover::entity(&facts)),
+                .map(|facts| crate::hover::entity(&facts, &shown, rebuilding)),
                 Target::Field { kind, field } => {
                     hover_field_info(&field, &kind, state.field_registry())
                 }

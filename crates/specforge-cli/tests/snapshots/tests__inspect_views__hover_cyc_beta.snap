@@ -52,3 +52,8 @@ A testable unit of system functionality with a defined contract
 
 **Fields**
 - `depends_on` = [alpha]
+
+---
+
+**Diagnostics** *(1)*
+- [**W061**](https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#w061) reference cycle detected: alpha -> beta -> alpha

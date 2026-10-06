@@ -70,7 +70,7 @@ pub fn entity_hover(graph: &Graph, registries: RegistryBuild, id: &str) -> Optio
     let recorded = RecordedCoverage::default();
     let view = ProjectView::new(graph, &env, None, &recorded);
     let facts = specforge_ops::inspect::inspect(&view, id).ok()?;
-    Some(specforge_lsp::hover::entity(&facts))
+    Some(specforge_lsp::hover::entity(&facts, &[], false))
 }
 
 /// [`entity_hover`] with no extension loaded.
@@ -102,8 +102,9 @@ fn hover_shows_the_kind_and_its_extension() {
     behavior.declared.description = Some("A testable unit of system functionality".into());
 
     let text = entity_hover(&g, declaring(vec![behavior]), "login").unwrap();
+    let header = text.split("\n\n---\n\n").next().unwrap();
     assert_eq!(
-        text,
+        header,
         "**behavior** `login` — User Login\n\n\
          A testable unit of system functionality\n\
          *@specforge/software* · `testable` · `verify`"
@@ -130,7 +131,7 @@ fn hover_shows_testability_from_the_standing() {
     for (id, testable) in [("login", true), ("auth", false)] {
         let facts = specforge_ops::inspect::inspect(&view, id).unwrap();
         assert_eq!(facts.standing.testable, testable, "{id}");
-        let text = specforge_lsp::hover::entity(&facts);
+        let text = specforge_lsp::hover::entity(&facts, &[], false);
         assert_eq!(text.contains("`testable`"), testable, "{id}:\n{text}");
     }
     assert!(
@@ -267,6 +268,295 @@ fn hover_shows_field_values() {
         !text.contains("Fields"),
         "should not show Fields when entity has none:\n{text}"
     );
+}
+
+// -- headline, coverage and the entity's diagnostics ------------------------
+
+/// The W004 rule requiring `kind`'s entities to declare obligations.
+fn obligations_rule(
+    kind: &str,
+) -> (
+    specforge_registry::validation_engine::ValidationRulePattern,
+    String,
+) {
+    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
+    (
+        ValidationRulePattern {
+            code: "W004".into(),
+            severity: specforge_common::Severity::Warning,
+            message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
+            check: ValidationPatternKind::NoVerifyStatements,
+            target_kind: Some(kind.to_string()),
+            edge_type: None,
+            edge_peer_kind: None,
+            field: Some("verify".into()),
+            constraint: None,
+            wasm_function: None,
+        },
+        "@t/soft".into(),
+    )
+}
+
+/// A project on disk: `source` compiled with `registries`, rooted at a
+/// temp directory where a test report can be recorded.
+struct OnDisk {
+    dir: tempfile::TempDir,
+    graph: Graph,
+    env: Environment,
+    recorded: RecordedCoverage,
+}
+
+impl OnDisk {
+    fn new(source: &str, registries: RegistryBuild) -> Self {
+        let (graph, _) =
+            specforge_graph::build_graph(&[specforge_parser::parse(source, "main.spec")]);
+        OnDisk {
+            dir: tempfile::TempDir::new().unwrap(),
+            graph,
+            env: Environment::with_registries(registries),
+            recorded: RecordedCoverage::default(),
+        }
+    }
+
+    fn report(&self, report: &str) {
+        std::fs::write(self.dir.path().join("specforge-report.json"), report).unwrap();
+    }
+
+    fn view(&self) -> ProjectView<'_> {
+        ProjectView::new(
+            &self.graph,
+            &self.env,
+            Some(self.dir.path()),
+            &self.recorded,
+        )
+    }
+
+    /// The hover of `id`, nothing shown for the cursor.
+    fn hover(&self, id: &str, rebuilding: bool) -> String {
+        let facts = specforge_ops::inspect::inspect(&self.view(), id).unwrap();
+        specforge_lsp::hover::entity(&facts, &[], rebuilding)
+    }
+
+    /// The hover's Coverage line of `id`, if it has one.
+    fn coverage(&self, id: &str, rebuilding: bool) -> Option<String> {
+        self.hover(id, rebuilding)
+            .split("\n\n---\n\n")
+            .find(|section| section.starts_with("**Coverage**"))
+            .map(str::to_string)
+    }
+}
+
+/// `behavior` (obligated) with a headline `contract`, `type` (obligated),
+/// `constraint` (testable, no rule) and `note` (not testable).
+fn coverage_registries() -> RegistryBuild {
+    use specforge_registry::{FieldDescriptor, FieldRegistryEntry, ManifestFieldType};
+    let mut build = declaring(vec![
+        kind("behavior", "@t/soft", true),
+        kind("type", "@t/soft", true),
+        kind("constraint", "@t/gov", true),
+        kind("note", "@t/doc", false),
+    ]);
+    build.rules.push(obligations_rule("behavior"));
+    build.rules.push(obligations_rule("type"));
+    build.fields.register(FieldRegistryEntry {
+        kind_name: "behavior".into(),
+        field_type: ManifestFieldType::String,
+        source_extension: "@t/soft".into(),
+        proof_role: None,
+        declared: FieldDescriptor {
+            name: "contract".into(),
+            headline: true,
+            normative: true,
+            ..Default::default()
+        },
+    });
+    build
+}
+
+const COVERAGE: &str = "\
+behavior done \"Done\" {\n  verify unit \"first\"\n}\n\
+behavior half \"Half\" {\n  verify unit \"first\"\n  verify unit \"second\"\n}\n\
+type U = a | b\n\
+constraint free \"Free\" {\n}\n\
+note doc \"Doc\" {\n  verify unit \"read\"\n}\n\
+note plain \"Plain\" {\n}\n";
+
+#[spec(
+    behavior = "provide_extension_entity_hover",
+    verify = "hover shows the entity's coverage as specforge.inspect reports it"
+)]
+fn hover_shows_each_coverage_case() {
+    let project = OnDisk::new(COVERAGE, coverage_registries());
+    let line = |id: &str| project.coverage(id, false);
+
+    // No report recorded.
+    assert_eq!(
+        line("done").as_deref(),
+        Some("**Coverage** · `uncovered` · 0/1 obligations proven · no test report recorded")
+    );
+
+    project.report(
+        r#"{"results": {
+            "done": {"tests": [{"name": "t", "status": "pass", "verify": "first"}]},
+            "half": {"tests": [
+                {"name": "t1", "status": "pass", "verify": "first"},
+                {"name": "t2", "status": "fail", "verify": "second"}]},
+            "doc": {"tests": []}
+        }}"#,
+    );
+    let rows = [
+        (
+            "done",
+            Some("**Coverage** · `covered` · 1/1 obligations proven · 1 test"),
+        ),
+        (
+            "half",
+            Some("**Coverage** · `partial` · 1/2 obligations proven · 2 tests · 1 failing"),
+        ),
+        (
+            "U",
+            Some("**Coverage** · exempt: it owes none (a union or an exempting field)"),
+        ),
+        (
+            "free",
+            Some("**Coverage** · exempt: its kind need not declare obligations"),
+        ),
+        (
+            "doc",
+            Some(
+                "**Coverage** · `uncovered` · 0/1 obligations proven · 0 tests · \
+                 its kind is not testable, so it does not count",
+            ),
+        ),
+        ("plain", None),
+    ];
+    for (id, expected) in rows {
+        assert_eq!(line(id).as_deref(), expected, "{id}");
+        // The line agrees with the read view MCP inspect renders.
+        let facts = specforge_ops::inspect::inspect(&project.view(), id).unwrap();
+        if let Some(expected) = expected
+            && !facts.standing.exempt
+        {
+            let status =
+                specforge_ops::coverage::STATUS.name_of(facts.coverage.as_ref().unwrap().status());
+            assert!(expected.contains(&format!("`{status}`")), "{id}");
+        }
+    }
+
+    // A report that cannot be read is shown, not a failed hover.
+    project.report("{not json");
+    let unreadable = line("done").unwrap();
+    assert!(
+        unreadable.starts_with("**Coverage** · the recorded test report cannot be read (E045): "),
+        "{unreadable}"
+    );
+    assert_eq!(
+        line("U").as_deref(),
+        Some("**Coverage** · exempt: it owes none (a union or an exempting field)"),
+        "the standing does not depend on the report"
+    );
+}
+
+#[spec(
+    behavior = "provide_extension_entity_hover",
+    verify = "hover never states a coverage fact it cannot read: while the project rebuilds it says so"
+)]
+fn hover_says_coverage_is_unavailable_while_the_project_rebuilds() {
+    let project = OnDisk::new(COVERAGE, coverage_registries());
+    project.report(
+        r#"{"results": {"done": {"tests": [{"name": "t", "status": "pass", "verify": "first"}]}}}"#,
+    );
+    for id in ["done", "U", "doc"] {
+        assert_eq!(
+            project.coverage(id, true).as_deref(),
+            Some("**Coverage** · unavailable while the project rebuilds"),
+            "{id}"
+        );
+    }
+    assert_eq!(project.coverage("plain", true), None);
+    // The standing badges stay.
+    assert!(project.hover("done", true).contains("`testable`"));
+}
+
+#[spec(
+    behavior = "provide_extension_entity_hover",
+    verify = "hover shows the headline statement as its summary"
+)]
+fn hover_quotes_the_headline_and_fields_skip_it() {
+    let source = "\
+behavior one \"One\" {\n  contract \"The system MUST do one thing\"\n  verify unit \"it does\"\n}\n\
+behavior three \"Three\" {\n  contract \"\"\"\n    The system MUST do a\n      and then b\n    and c\n  \"\"\"\n}\n\
+note doc \"Doc\" {\n  verify unit \"read\"\n}\n";
+    let project = OnDisk::new(source, coverage_registries());
+
+    let one = project.hover("one", false);
+    let header = one.split("\n\n---\n\n").next().unwrap();
+    assert!(
+        header.ends_with("\n\n> The system MUST do one thing"),
+        "{header}"
+    );
+    assert!(!one.contains("`contract` ="), "Fields skips it:\n{one}");
+    assert!(one.contains("- `verify` = unit: it does"), "{one}");
+
+    let three = project.hover("three", false);
+    let header = three.split("\n\n---\n\n").next().unwrap();
+    assert!(
+        header.ends_with("\n\n> The system MUST do a\n>   and then b\n> and c"),
+        "a multi-line headline is quoted whole, dedented:\n{header}"
+    );
+    assert!(!three.contains("`contract` ="), "{three}");
+
+    // A kind with no headline has no summary.
+    let doc = project.hover("doc", false);
+    assert!(!doc.contains("\n> "), "{doc}");
+}
+
+#[spec(
+    behavior = "provide_extension_entity_hover",
+    verify = "hover lists the entity's diagnostics the cursor's do not already show"
+)]
+fn hover_lists_the_diagnostics_not_already_shown() {
+    use specforge_common::{Diagnostic, DiagnosticData};
+    let mut g = Graph::new();
+    g.add_node(node("alpha", "behavior", Some("A")));
+    g.add_node(node("beta", "behavior", Some("B")));
+    g.add_edge(edge("alpha", "beta", "depends_on"));
+    g.add_edge(edge("beta", "alpha", "depends_on"));
+    // Spanless: about the entities its data names.
+    let cycle = Diagnostic::warning("W061", "reference cycle detected: alpha -> beta -> alpha")
+        .with_data(DiagnosticData::ReferenceCycle {
+            path: vec!["alpha".into(), "beta".into(), "alpha".into()],
+        });
+    let third_party =
+        Diagnostic::warning("X900", "acme says no").with_data(DiagnosticData::Subject {
+            entity: "beta".into(),
+        });
+    let reported = vec![cycle.clone(), third_party];
+    let env = Environment::empty();
+    let recorded = RecordedCoverage::default();
+    let view = ProjectView::new(&g, &env, None, &recorded).reporting(&reported);
+    let facts = specforge_ops::inspect::inspect(&view, "beta").unwrap();
+
+    let text = specforge_lsp::hover::entity(&facts, &[], false);
+    assert!(
+        text.ends_with(
+            "**Diagnostics** *(2)*\n\
+             - [**W061**](https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#w061) \
+             reference cycle detected: alpha -> beta -> alpha\n\
+             - **X900** acme says no"
+        ),
+        "{text}"
+    );
+
+    // What the cursor already shows is not listed again.
+    let text = specforge_lsp::hover::entity(&facts, &[&cycle], false);
+    assert!(
+        text.ends_with("**Diagnostics** *(1)*\n- **X900** acme says no"),
+        "{text}"
+    );
+    let all = [&reported[0], &reported[1]];
+    let text = specforge_lsp::hover::entity(&facts, &all, false);
+    assert!(!text.contains("**Diagnostics**"), "{text}");
 }
 
 // -- hover_field_info (description) -------------------------------------------
