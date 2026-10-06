@@ -8,7 +8,6 @@ use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use specforge_common::{Diagnostic, find_project_root};
-use specforge_wasm::read_lock_file;
 
 use crate::args::{lenient, strings};
 use crate::target::{Call, CallTarget};
@@ -572,80 +571,29 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> Handled {
 // ── extensions ──────────────────────────────────────────────────────────────
 
 pub(crate) fn extensions_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> Handled {
-    use specforge_ops::extension;
-
-    let project = call.project()?;
-    let root = project.root;
-    // The shared listing, over what the project compiled.
-    let entries = extension::list(
-        root,
-        &project.env.enabled,
-        project.env.registries.declarations(),
-        &project.env.registries.kinds,
-        project.graph,
-    );
-    let listed: Vec<Value> = entries
+    // The shared listing, over the project view: what the project
+    // compiled, its lock and the kinds its graph uses.
+    let listing = specforge_ops::extension::list(&call.project()?.view());
+    let extensions: Vec<Value> = listing.extensions.iter().map(|e| e.to_json()).collect();
+    let lock_entries: Vec<Value> = listing
+        .locked
         .iter()
-        .map(|e| {
-            json!({
-                "name": e.name,
-                "version": e.version,
-                "source": e.origin.source(),
-                "status": e.status.as_str(),
-                "entity_kinds": e.entity_kinds,
-                "entity_count": e.entity_count,
-                "validation_rules": e.validation_rules,
-            })
-        })
+        .map(|e| json!({ "name": e.name, "version": e.version }))
         .collect();
-
-    let lock_entries: Vec<Value> = read_lock_file(&root.join("specforge.lock"))
-        .map(|l| {
-            l.entries
-                .iter()
-                .map(|e| json!({ "name": e.name, "version": e.version }))
-                .collect()
-        })
-        .unwrap_or_default();
-    let kinds: std::collections::BTreeSet<String> = project
-        .graph
-        .nodes()
-        .iter()
-        .map(|n| n.kind.raw.to_string())
-        .collect();
-
     Ok(ok(json!({
-        "extensions": listed,
+        "extensions": extensions,
         "lock_file_entries": lock_entries,
-        "entity_kinds_in_graph": kinds,
+        "entity_kinds_in_graph": listing.kinds_in_graph,
     })))
 }
 
 // ── providers ───────────────────────────────────────────────────────────────
 
 pub(crate) fn providers_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> Handled {
-    let project = call.project()?;
     // The providers specforge.json configures, as the scheme registry built
     // from the loaded extensions sees them: the listing the CLI prints.
-    let (providers, diagnostics) =
-        specforge_ops::extension::providers(project.root, project.env.registries.declarations());
-    let listed: Vec<Value> = providers
-        .iter()
-        .map(|p| {
-            json!({
-                "scheme": p.scheme,
-                "alias": p.alias,
-                "extension": p.extension,
-                "status": p.status.as_str(),
-            })
-        })
-        .collect();
-    let count = listed.len();
-    Ok(ok(json!({
-        "providers": listed,
-        "count": count,
-        "diagnostics": specforge_common::diagnostics_json(&diagnostics),
-    })))
+    let listing = specforge_ops::extension::providers(&call.project()?.view());
+    Ok(ok(listing.to_json()))
 }
 
 // ── doctor ──────────────────────────────────────────────────────────────────

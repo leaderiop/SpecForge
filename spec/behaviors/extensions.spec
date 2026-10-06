@@ -450,6 +450,7 @@ behavior management_operations_over_the_project_view "Management Operations over
     the view enabled and loaded, and doctor skips the installation checks.
   """
   verify unit "an operation that reads or writes the project on disk refuses a view without a root"
+  verify unit "the extensions listing reads the config entries from the view, never specforge.json again"
 }
 
 // Called imperatively by validate_provider_refs (which consumes provider_schemes_registered).

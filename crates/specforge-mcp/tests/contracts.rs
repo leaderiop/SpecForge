@@ -2999,6 +2999,9 @@ fn contract_providers() {
     );
     github.raw_category("providers", json!([]));
     server.state_mut().edit_environment(|env| {
+        // The project is served in memory: its environment reads the
+        // config written above, as a compile of the project on disk does.
+        env.config = specforge_common::load_project_config(&root);
         let mut declarations = env.registries.declarations().to_vec();
         declarations.push(github.declaration());
         let built = specforge_project::Environment::from_declarations(declarations);

@@ -247,6 +247,85 @@ pub(crate) mod testing {
             }
         }
 
+        /// The compile read `config` as `specforge.json` (not written to
+        /// disk): its `extensions` entries, each enabling what its text
+        /// names ([`EnabledExtension::of`] with no runtime).
+        pub fn config_json(mut self, config: serde_json::Value) -> Self {
+            let entries: Vec<String> = config["extensions"]
+                .as_array()
+                .map(|entries| {
+                    entries
+                        .iter()
+                        .filter_map(|e| e.as_str().map(str::to_string))
+                        .collect()
+                })
+                .unwrap_or_default();
+            self.env.enabled = entries
+                .iter()
+                .map(|e| specforge_project::EnabledExtension::of(e, None))
+                .collect();
+            self.env.config.extensions = entries;
+            self.env.config.raw = Some(config);
+            self
+        }
+
+        /// [`Self::config_json`] of a config enabling `entries`.
+        pub fn config(self, entries: &[&str]) -> Self {
+            self.config_json(serde_json::json!({ "extensions": entries }))
+        }
+
+        /// What the compile read each entry as enabling, in place of what
+        /// the config's entries name.
+        pub fn enabled(mut self, enabled: Vec<specforge_project::EnabledExtension>) -> Self {
+            self.env.enabled = enabled;
+            self
+        }
+
+        /// The compile loaded `declarations`, in this order.
+        pub fn declarations(
+            mut self,
+            declarations: Vec<specforge_protocol_types::ExtensionDeclaration>,
+        ) -> Self {
+            self.env.registries = specforge_registry::build_registries(declarations);
+            self
+        }
+
+        /// An extension `name` at `version` that contributes nothing.
+        pub fn declaration(
+            name: &str,
+            version: &str,
+        ) -> specforge_protocol_types::ExtensionDeclaration {
+            specforge_protocol_types::ExtensionDeclaration {
+                handshake: specforge_protocol_types::HandshakeResponse {
+                    name: name.into(),
+                    version: version.into(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }
+        }
+
+        /// `<dir>/specforge.lock` locks each `(name, version, source)`.
+        pub fn lock(self, entries: &[(&str, &str, &str)]) -> Self {
+            let lock = specforge_wasm::LockFile {
+                lockfile_version: 1,
+                entries: entries
+                    .iter()
+                    .map(|(name, version, source)| specforge_wasm::LockFileEntry {
+                        name: name.to_string(),
+                        version: version.to_string(),
+                        source: source.to_string(),
+                        wasm_hash: format!("hash-{name}"),
+                        key_id: None,
+                        peer_dependencies: Vec::new(),
+                    })
+                    .collect(),
+            };
+            specforge_wasm::write_lock_file(&lock, &self.dir.path().join("specforge.lock"))
+                .unwrap();
+            self
+        }
+
         /// The view rooted at the temp directory, reporting what the
         /// fixture reports.
         pub fn view(&self) -> ProjectView<'_> {

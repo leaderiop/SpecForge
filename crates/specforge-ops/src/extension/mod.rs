@@ -9,7 +9,10 @@ mod update;
 
 pub use add::{AddOutcome, AddRequest, Source, Trust, add, declared, parse};
 pub use diamond::check_diamonds;
-pub use list::{ExtensionEntry, ProviderEntry, Status, list, providers};
+pub use list::{
+    ExtensionEntry, ExtensionListing, LockedExtension, ProviderEntry, ProviderListing, Status,
+    list, providers,
+};
 pub use remove::{RemoveOutcome, RemoveRequest, remove};
 pub use update::{
     BatchUpdateCompleted, ExtensionUpdate, NO_LOCK, UpdateOutcome, UpdateRequest, UpdateStatus,
@@ -17,6 +20,8 @@ pub use update::{
 };
 
 use specforge_component::builtins::BUILTIN_EXTENSIONS;
+use specforge_project::EnabledExtension;
+use specforge_wasm::LockFile;
 use std::path::{Path, PathBuf};
 
 /// The code an operation reports for an extension the project doesn't
@@ -37,6 +42,31 @@ pub enum Origin {
 }
 
 impl Origin {
+    /// Where `name` comes from in a project: the `.wasm` file an
+    /// `extensions` entry names (over a lock entry), the lock entry's
+    /// source, a builtin, else `Installed { source: "unknown" }`. The one
+    /// rule `list` and `doctor` name sources by.
+    pub fn of(name: &str, enabled: &[EnabledExtension], lock: Option<&LockFile>) -> Origin {
+        if let Some(path) = enabled
+            .iter()
+            .find(|e| e.name == name)
+            .and_then(|e| e.file.clone())
+        {
+            return Origin::File { path };
+        }
+        if let Some(entry) = lock.and_then(|lock| lock.entries.iter().find(|e| e.name == name)) {
+            return Origin::Installed {
+                source: entry.source.clone(),
+            };
+        }
+        match builtin_name(name) {
+            Some(_) => Origin::Builtin,
+            None => Origin::Installed {
+                source: "unknown".to_string(),
+            },
+        }
+    }
+
     /// What the listings call it: `builtin`, the lock entry's source, or
     /// `file:<path>`.
     pub fn source(&self) -> String {
