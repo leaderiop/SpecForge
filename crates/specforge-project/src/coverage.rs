@@ -1,20 +1,17 @@
-//! The host's coverage vocabulary: which kinds are testable, what an
-//! entity's obligations are, and how the recorded test report is read.
+//! The host's coverage: how the recorded test report is read and how the
+//! entity snapshot's standings (ADR 0019) score against it.
 //!
 //! Every surface that asks "does this entity count toward coverage" or
 //! "what does it promise to prove" (stats, plan validation, the context
 //! exports, the MCP coverage, inspect, review and trace views) reads it
 //! here, so they cannot disagree.
 
-use crate::snapshot::entity_records;
+use crate::snapshot::EntitySnapshot;
 use serde::Deserialize;
 use specforge_common::Diagnostic;
-use specforge_graph::{FieldValue, Graph, Node};
-use specforge_parser::UNION_VARIANTS_FIELD;
-use specforge_registry::entity::{Direction, EntityRecord, Exemption};
-use specforge_registry::validation_engine::{ValidationRulePattern, obliging_rule};
-use specforge_registry::{FieldRegistry, KindRegistry, RegistryBuild};
-use std::collections::{BTreeMap, BTreeSet};
+use specforge_graph::Graph;
+use specforge_registry::RegistryBuild;
+use std::collections::BTreeMap;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -82,16 +79,6 @@ impl From<&TestReport> for specforge_protocol_types::PassTestResults {
                 .collect(),
         }
     }
-}
-
-/// The kinds that count toward coverage: those an extension's manifest
-/// declares `testable`. Nothing is testable by default, and accepting
-/// `verify` statements (`supports_verify`) does not make a kind testable.
-pub fn testable_kinds(reg: &KindRegistry) -> BTreeSet<&str> {
-    reg.iter()
-        .filter(|(_, kind)| kind.testable)
-        .map(|(name, _)| name.as_str())
-        .collect()
 }
 
 /// Why a test report could not be used.
@@ -179,127 +166,6 @@ fn parse_report(path: &Path, bytes: &[u8]) -> Result<TestReport, ReportError> {
     })
 }
 
-/// What exempts an entity from obligations of its own, whatever it declares
-/// (ADR 0004, D2-b; ADR 0019), in this order: a union (`type X = A | B`,
-/// which has no body to hold them); a set field its kind's registry entry
-/// declares `exempts_obligations` (as `@specforge/formal` declares
-/// `abstract true`); a kind that accepts no `verify` statements
-/// (`supports_verify` unset), which has nowhere to declare them. Decided
-/// from the entity's structure and the registries, never from field names:
-/// a struct member that only happens to be named `abstract` exempts
-/// nothing. A kind no extension declares is not known to refuse `verify`,
-/// so it is not exempt for that.
-pub fn exemption(node: &Node, kinds: &KindRegistry, fields: &FieldRegistry) -> Option<Exemption> {
-    let kind = node.kind.raw.as_str();
-    let entries = node.fields.entries();
-    // The union syntax is structural: its body is the variant list, under
-    // the parser's own key (a user's `values [a, b]` is a variant list too,
-    // and exempts nothing).
-    let union = entries.iter().any(|entry| {
-        matches!(&entry.value, FieldValue::VariantList(variants)
-            if entry.key.as_str() == UNION_VARIANTS_FIELD && !variants.is_empty())
-    });
-    if union {
-        return Some(Exemption::Union);
-    }
-    let flag = entries.iter().find(|entry| {
-        is_set(&entry.value)
-            && fields
-                .get(kind, entry.key.as_str())
-                .is_some_and(|f| f.declared.exempts_obligations)
-    });
-    if let Some(entry) = flag {
-        return Some(Exemption::Flag {
-            field: entry.key.to_string(),
-        });
-    }
-    kinds
-        .get(kind)
-        .is_some_and(|entry| !entry.supports_verify)
-        .then_some(Exemption::NoVerify)
-}
-
-/// A field value that turns an exempting flag on: `true`, or any value
-/// that is not empty.
-fn is_set(value: &FieldValue) -> bool {
-    match value {
-        FieldValue::Boolean(b) => *b,
-        FieldValue::String(s) | FieldValue::Identifier(s) => !s.is_empty(),
-        FieldValue::StringList(list) => !list.is_empty(),
-        FieldValue::ReferenceList(refs) => !refs.is_empty(),
-        _ => false,
-    }
-}
-
-/// Whether entities of `kind` must declare obligations: a
-/// `no_verify_statements` rule (W004) applies to it, its target kind's or
-/// every kind's when it names none ([`obliging_rule`]). A testable kind no
-/// such rule applies to (a governance `constraint` or `failure_mode`) need
-/// not declare any, so its entities that declare none are exempt.
-fn obliges(rules: &[(ValidationRulePattern, String)], kind: &str) -> bool {
-    obliging_rule(rules, kind).is_some()
-}
-
-/// What decides how the coverage rule sees each entity: which kinds are
-/// testable, which must declare obligations, and which fields exempt.
-#[derive(Clone, Copy)]
-pub struct CoverageRegistries<'a> {
-    pub kinds: &'a KindRegistry,
-    pub fields: &'a FieldRegistry,
-    pub rules: &'a [(ValidationRulePattern, String)],
-}
-
-impl<'a> CoverageRegistries<'a> {
-    /// The registries of a registry build.
-    pub fn of(build: &'a RegistryBuild) -> Self {
-        CoverageRegistries {
-            kinds: &build.kinds,
-            fields: &build.fields,
-            rules: &build.rules,
-        }
-    }
-
-    /// The rule's view of every entity in `graph`, alongside the snapshot
-    /// it was taken from (what the extension passes receive).
-    pub fn entities(&self, graph: &Graph) -> Vec<(EntityRecord, specforge_coverage::Entity)> {
-        let testable = testable_kinds(self.kinds);
-        entity_records(graph, self.kinds, self.fields)
-            .into_iter()
-            .map(|e| {
-                let entity = rule_entity(
-                    &e,
-                    testable.contains(e.kind.as_str()),
-                    obliges(self.rules, &e.kind),
-                );
-                (e, entity)
-            })
-            .collect()
-    }
-}
-
-/// An entity as the coverage rule (`specforge-coverage`) sees it: the same
-/// facts the host hands the `@specforge/testing:coverage` pass, so a
-/// per-entity view and the pass cannot disagree. `obligated`: its kind must
-/// declare obligations (a `no_verify_statements` rule applies to it).
-pub fn rule_entity(
-    entity: &EntityRecord,
-    testable: bool,
-    obligated: bool,
-) -> specforge_coverage::Entity {
-    specforge_coverage::Entity {
-        id: entity.id.clone(),
-        kind: entity.kind.clone(),
-        testable,
-        exempt: entity.exemption.is_some() || !obligated,
-        verify_kinds: entity.obligations.iter().map(|o| o.kind.clone()).collect(),
-        verify_texts: entity.obligations.iter().map(|o| o.text.clone()).collect(),
-        // The host grades no kind by risk (ADR 0009, B): the testing
-        // pass reads risk for the kind it grades.
-        risk: None,
-        referenced: entity.edges(Direction::Incoming, None) > 0,
-    }
-}
-
 /// A report's recorded tests, per entity id, as the rule reads them.
 pub fn recorded_tests(report: &TestReport) -> specforge_coverage::TestResults {
     specforge_coverage::TestResults {
@@ -335,6 +201,8 @@ pub fn recorded_tests(report: &TestReport) -> specforge_coverage::TestResults {
 /// A002; the risk grading is `@specforge/testing`'s.
 #[derive(Debug, Clone, Default)]
 pub struct ProjectCoverage {
+    /// The snapshot it was computed from.
+    entities: Arc<EntitySnapshot>,
     /// Per entity id, for every entity in the graph.
     pub verdicts: BTreeMap<String, Verdict>,
     /// How the rule counts each entity of the graph, per entity id.
@@ -345,26 +213,14 @@ pub struct ProjectCoverage {
 }
 
 impl ProjectCoverage {
-    /// Score `graph` against its recorded tests (`None` without a report).
-    /// Callers read it through a [`RecordedCoverage`], which computes it
-    /// once per compile and report content.
-    pub(crate) fn compute(
-        graph: &Graph,
-        registries: CoverageRegistries<'_>,
-        report: Option<&TestReport>,
-    ) -> Self {
-        let entities: Vec<specforge_coverage::Entity> = registries
-            .entities(graph)
-            .into_iter()
-            .map(|(_, entity)| entity)
-            .collect();
-        Self::assess(&entities, report)
-    }
-
-    fn assess(entities: &[specforge_coverage::Entity], report: Option<&TestReport>) -> Self {
+    /// Score the snapshot's entities against their recorded tests (`None`
+    /// without a report). Callers read it through a [`RecordedCoverage`],
+    /// which computes it once per compile and report content.
+    pub(crate) fn compute(entities: &Arc<EntitySnapshot>, report: Option<&TestReport>) -> Self {
+        let rule_entities = entities.coverage_entities();
         let results = report.map(recorded_tests);
-        let assessment = specforge_coverage::assess(entities, results.as_ref(), None, None);
-        let standings = entities
+        let assessment = specforge_coverage::assess(&rule_entities, results.as_ref(), None, None);
+        let standings = rule_entities
             .iter()
             .map(|entity| {
                 let standing = Standing {
@@ -376,10 +232,16 @@ impl ProjectCoverage {
             })
             .collect();
         ProjectCoverage {
+            entities: Arc::clone(entities),
             verdicts: assessment.verdicts,
             standings,
             summary: assessment.summary,
         }
+    }
+
+    /// The entity snapshot it was computed from.
+    pub fn entities(&self) -> &EntitySnapshot {
+        &self.entities
     }
 
     /// The entity's verdict, if the graph has it.
@@ -424,14 +286,18 @@ impl Standing {
     }
 }
 
-/// The recorded test report at a root and the coverage computed from it,
-/// memoized. Owned by whoever owns the graph it scores (a
-/// [`crate::CompiledProject`], a [`crate::ProjectSession`], which starts a
-/// fresh one on every update and reload), so "once per compile" holds by
-/// construction; within one, the memo is keyed on the report's path and
-/// content, so a rewritten report is read again.
+/// The entity snapshot of a graph, the recorded test report at a root and
+/// the coverage computed from both, memoized. Owned by whoever owns the
+/// graph it scores (a [`crate::CompiledProject`], a
+/// [`crate::ProjectSession`], which starts a fresh one on every update and
+/// reload), so "once per compile" holds by construction. The owner seeds
+/// it with the snapshot its checks read ([`Self::of`]); a memo nobody
+/// seeded (a graph assembled in a test, the LSP's stand-in) takes one on
+/// first use. Within one, the report is keyed on its path and content, so
+/// a rewritten report is read again.
 #[derive(Debug, Default)]
 pub struct RecordedCoverage {
+    entities: OnceLock<Arc<EntitySnapshot>>,
     memo: Mutex<Option<Arc<Memo>>>,
 }
 
@@ -453,6 +319,27 @@ pub struct Recorded {
 }
 
 impl RecordedCoverage {
+    /// A memo seeded with the snapshot its owner's checks read.
+    pub fn of(entities: Arc<EntitySnapshot>) -> Self {
+        RecordedCoverage {
+            entities: OnceLock::from(entities),
+            memo: Mutex::default(),
+        }
+    }
+
+    /// The entity snapshot of `graph`: the seeded one, or one taken now
+    /// from `graph` and `registries` (the memo's owner's), its relative
+    /// paths resolving against `spec_root`.
+    pub fn entities(
+        &self,
+        graph: &Graph,
+        registries: &RegistryBuild,
+        spec_root: &Path,
+    ) -> &Arc<EntitySnapshot> {
+        self.entities
+            .get_or_init(|| Arc::new(EntitySnapshot::of(graph, registries, spec_root)))
+    }
+
     /// `<root>/specforge-report.json` ([`REPORT_FILE`]): `Ok(None)` without
     /// a root or a file, an error when it is there but unusable. Read again
     /// only when its bytes changed since the last call; an error is never
@@ -461,25 +348,21 @@ impl RecordedCoverage {
         Ok(self.memo(root)?.report.clone())
     }
 
-    /// The recorded report at `root` and the coverage of `graph` against
-    /// it, computed once per report content. `graph` and `registries` are
-    /// those of the memo's owner.
+    /// The recorded report at `root` and the coverage of `graph`'s entity
+    /// snapshot against it, computed once per report content. `graph` and
+    /// `registries` are those of the memo's owner; an unseeded memo takes
+    /// its snapshot with `root` as the spec root.
     pub fn at(
         &self,
         root: Option<&Path>,
         graph: &Graph,
-        registries: CoverageRegistries<'_>,
+        registries: &RegistryBuild,
     ) -> Result<Recorded, ReportError> {
         let memo = self.memo(root)?;
+        let entities = self.entities(graph, registries, root.unwrap_or(Path::new("")));
         let coverage = memo
             .coverage
-            .get_or_init(|| {
-                Arc::new(ProjectCoverage::compute(
-                    graph,
-                    registries,
-                    memo.report.as_deref(),
-                ))
-            })
+            .get_or_init(|| Arc::new(ProjectCoverage::compute(entities, memo.report.as_deref())))
             .clone();
         Ok(Recorded {
             report: memo.report.clone(),
@@ -529,7 +412,7 @@ impl RecordedCoverage {
 mod tests {
     use super::*;
     use specforge_registry::KindRegistryEntry;
-    use specforge_registry::validation_engine::ValidationPatternKind;
+    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
     use specforge_test_macros::test as specforge_test;
 
     fn kind(name: &str, testable: bool, supports_verify: bool) -> KindRegistryEntry {
@@ -550,24 +433,6 @@ mod tests {
         graph
     }
 
-    /// The field registry of a project whose `behavior` kind declares the
-    /// `abstract` flag (as @specforge/formal does).
-    fn abstract_behaviors() -> FieldRegistry {
-        let mut fields = FieldRegistry::new();
-        fields.register(specforge_registry::FieldRegistryEntry {
-            kind_name: "behavior".into(),
-            field_type: specforge_registry::ManifestFieldType::Bool,
-            source_extension: "@test/formal".into(),
-            proof_role: None,
-            declared: specforge_protocol_types::FieldDescriptor {
-                name: "abstract".into(),
-                exempts_obligations: true,
-                ..Default::default()
-            },
-        });
-        fields
-    }
-
     fn w004(kind: &str) -> ValidationRulePattern {
         ValidationRulePattern {
             code: "W004".into(),
@@ -583,182 +448,34 @@ mod tests {
         }
     }
 
-    /// The ids W004 reports on `source` (rules on `behavior` and `type`).
-    fn w004_ids(source: &str, fields: &FieldRegistry) -> Vec<String> {
-        let entities = entity_records(&graph_of(source), &KindRegistry::new(), fields);
-        let mut ids: Vec<String> = ["behavior", "type"]
-            .into_iter()
-            .flat_map(|kind| {
-                specforge_registry::validation_engine::execute_pattern(
-                    &w004(kind),
-                    &specforge_registry::entity::RuleInput {
-                        entities: &entities,
-                        edges: &[],
-                        spec_root: Path::new(""),
-                    },
-                    None,
-                )
-            })
-            .map(|d| d.message.split('\'').nth(1).unwrap().to_string())
-            .collect();
-        ids.sort();
-        ids
-    }
-
-    #[specforge_test(
-        behavior = "te_validate_unverified_testable",
-        verify = "a union type never produces W004"
-    )]
-    fn a_union_type_owes_no_obligations() {
-        let ids = w004_ids(
-            "type Status = active | inactive\n\ntype Plain \"Plain\" {\n  id string\n}\n",
-            &FieldRegistry::new(),
-        );
-        assert_eq!(ids, ["Plain"]);
-    }
-
-    #[test]
-    fn an_enum_values_list_is_not_a_union() {
-        let ids = w004_ids(
-            "type Priority \"Priority\" {\n  values [high, low]\n}\n",
-            &FieldRegistry::new(),
-        );
-        assert_eq!(ids, ["Priority"]);
-    }
-
-    #[specforge_test(
-        behavior = "te_validate_unverified_testable",
-        verify = "an abstract entity never produces W004"
-    )]
-    fn an_abstract_entity_owes_no_obligations_when_its_kind_declares_the_flag() {
-        let source = "behavior base \"Base\" {\n  contract \"The system MUST work\"\n  abstract true\n}\n\n\
-                      behavior concrete \"Concrete\" {\n  contract \"The system MUST work\"\n  abstract false\n}\n";
-        assert_eq!(w004_ids(source, &abstract_behaviors()), ["concrete"]);
-        // Without a registry entry declaring it, `abstract` is just a name.
-        assert_eq!(
-            w004_ids(source, &FieldRegistry::new()),
-            ["base", "concrete"]
-        );
-    }
-
-    #[specforge_test(
-        invariant = "testable_entity_classification",
-        verify = "no default testability assumed by core"
-    )]
-    fn no_kind_is_testable_unless_an_extension_says_so() {
-        assert!(testable_kinds(&KindRegistry::new()).is_empty());
-
-        let mut reg = KindRegistry::new();
-        reg.register(kind("behavior", false, false));
-        assert!(testable_kinds(&reg).is_empty());
-    }
-
-    #[specforge_test(
-        invariant = "testable_entity_classification",
-        verify = "testable=false entity excluded from coverage"
-    )]
-    fn only_kinds_declared_testable_count() {
-        let mut reg = KindRegistry::new();
-        reg.register(kind("behavior", true, true));
-        reg.register(kind("type", true, true));
-        // Accepts verify statements but does not count toward coverage.
-        reg.register(kind("property", false, true));
-        reg.register(kind("feature", false, false));
-        assert_eq!(
-            testable_kinds(&reg).into_iter().collect::<Vec<_>>(),
-            ["behavior", "type"]
-        );
-    }
-
-    #[specforge_test(
-        behavior = "snapshot_entities_once",
-        verify = "an entity owes obligations when a no_verify_statements rule applies to its kind and neither a union body nor an exempting flag exempts it"
-    )]
-    fn an_entity_owes_obligations_when_a_rule_applies_and_nothing_exempts_it() {
-        let mut kinds = KindRegistry::new();
-        kinds.register(kind("behavior", true, true));
-        kinds.register(kind("type", true, true));
-        kinds.register(kind("memo", false, false));
-        let fields = abstract_behaviors();
-        let graph = graph_of(
-            "behavior open \"Open\" {\n}\n\nbehavior base \"Base\" {\n  abstract true\n}\n\n\
-             type Status = active | inactive\n\ntype Plain \"Plain\" {\n  id string\n}\n\n\
-             memo note \"Note\" {\n}\n",
-        );
-        let owes = |rules: &[(ValidationRulePattern, String)]| -> Vec<String> {
-            let registries = CoverageRegistries {
-                kinds: &kinds,
-                fields: &fields,
-                rules,
-            };
-            registries
-                .entities(&graph)
-                .into_iter()
-                .filter(|(_, entity)| !entity.exempt)
-                .map(|(e, _)| e.id)
-                .collect()
-        };
-        // No rule: nobody owes anything.
-        assert!(owes(&[]).is_empty());
-        // A rule on `behavior`: its entities owe, unless a flag exempts.
-        assert_eq!(owes(&[(w004("behavior"), String::new())]), ["open"]);
-        // A rule without a target kind applies to every kind; a union body,
-        // a flag and a kind without `verify` still exempt.
-        let mut untargeted = w004("behavior");
-        untargeted.target_kind = None;
-        assert_eq!(owes(&[(untargeted, String::new())]), ["Plain", "open"]);
-        // What exempts each, decided once.
-        let exemptions: Vec<(String, Option<Exemption>)> = entity_records(&graph, &kinds, &fields)
-            .into_iter()
-            .map(|e| (e.id, e.exemption))
-            .collect();
-        assert_eq!(
-            exemptions,
-            [
-                ("Plain".to_string(), None),
-                ("Status".to_string(), Some(Exemption::Union)),
-                (
-                    "base".to_string(),
-                    Some(Exemption::Flag {
-                        field: "abstract".to_string()
-                    })
-                ),
-                ("note".to_string(), Some(Exemption::NoVerify)),
-                ("open".to_string(), None),
-            ]
-        );
-    }
-
     /// A project whose `behavior` kind is testable and must declare
     /// obligations, with `login` (one obligation) and `logout` (none).
     struct Scored {
         graph: Graph,
-        kinds: KindRegistry,
-        fields: FieldRegistry,
-        rules: Vec<(ValidationRulePattern, String)>,
+        registries: RegistryBuild,
     }
 
     impl Scored {
         fn new() -> Self {
-            let mut kinds = KindRegistry::new();
-            kinds.register(kind("behavior", true, true));
+            let mut registries = RegistryBuild::default();
+            registries.kinds.register(kind("behavior", true, true));
+            registries.rules = vec![(w004("behavior"), String::new())];
             Scored {
                 graph: graph_of(
                     "behavior login \"Login\" {\n  verify unit \"logs in\"\n}\n\n\
                      behavior logout \"Logout\" {\n}\n",
                 ),
-                kinds,
-                fields: FieldRegistry::new(),
-                rules: vec![(w004("behavior"), String::new())],
+                registries,
             }
         }
 
-        fn registries(&self) -> CoverageRegistries<'_> {
-            CoverageRegistries {
-                kinds: &self.kinds,
-                fields: &self.fields,
-                rules: &self.rules,
-            }
+        /// The snapshot its compile would seed the memo with.
+        fn entities(&self) -> Arc<EntitySnapshot> {
+            Arc::new(EntitySnapshot::of(
+                &self.graph,
+                &self.registries,
+                Path::new(""),
+            ))
         }
     }
 
@@ -776,12 +493,15 @@ mod tests {
     fn recorded_coverage_is_memoized_per_report_content() {
         let dir = tempfile::tempdir().unwrap();
         let project = Scored::new();
-        let recorded = RecordedCoverage::default();
-        let at = || recorded.at(Some(dir.path()), &project.graph, project.registries());
+        let entities = project.entities();
+        let recorded = RecordedCoverage::of(Arc::clone(&entities));
+        let at = || recorded.at(Some(dir.path()), &project.graph, &project.registries);
 
         // No report: nothing recorded, nothing proven.
         let none = at().unwrap();
         assert!(none.report.is_none());
+        // The coverage scores the seeded snapshot, not one of its own.
+        assert!(std::ptr::eq(none.coverage.entities(), &*entities));
         assert!(!none.coverage.verdict("login").unwrap().is_proven());
 
         std::fs::write(dir.path().join(REPORT_FILE), report("pass")).unwrap();
@@ -811,9 +531,17 @@ mod tests {
 
         // Without a root there is no report to read.
         let rootless = recorded
-            .at(None, &project.graph, project.registries())
+            .at(None, &project.graph, &project.registries)
             .unwrap();
         assert!(rootless.report.is_none());
+
+        // A memo nobody seeded takes its snapshot once, on first use.
+        let unseeded = RecordedCoverage::default();
+        let first = unseeded
+            .at(None, &project.graph, &project.registries)
+            .unwrap();
+        let taken = unseeded.entities(&project.graph, &project.registries, Path::new(""));
+        assert!(std::ptr::eq(first.coverage.entities(), &**taken));
     }
 
     #[specforge_test(
@@ -823,7 +551,7 @@ mod tests {
     fn every_entity_has_a_standing_and_unverified_reads_it() {
         let project = Scored::new();
         let tests: TestReport = serde_json::from_str(&report("pass")).unwrap();
-        let coverage = ProjectCoverage::compute(&project.graph, project.registries(), Some(&tests));
+        let coverage = ProjectCoverage::compute(&project.entities(), Some(&tests));
         let login = coverage.standing("login").unwrap();
         assert!(login.testable && login.counts && !login.exempt());
         assert!(!coverage.is_unverified("login"), "proven");

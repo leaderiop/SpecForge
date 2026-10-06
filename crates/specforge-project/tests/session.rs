@@ -1585,7 +1585,6 @@ fn measure_ensure_fresh_on_a_thousand_files() {
     verify = "coverage is computed once per compile and report content, and again after the report changes"
 )]
 fn an_update_starts_a_fresh_coverage_memo() {
-    use specforge_project::coverage::CoverageRegistries;
     let dir = project(
         CONFIG,
         &[(
@@ -1601,7 +1600,7 @@ fn an_update_starts_a_fresh_coverage_memo() {
             .at(
                 Some(root),
                 session.graph(),
-                CoverageRegistries::of(&session.environment().registries),
+                &session.environment().registries,
             )
             .unwrap()
             .coverage
@@ -1629,4 +1628,90 @@ fn an_update_starts_a_fresh_coverage_memo() {
     );
     assert!(session.ensure_fresh().is_some());
     assert!(coverage(&session).standing("c").is_some());
+}
+
+/// `item` (testable, accepts verify), `P300` obliging it, and a check pass
+/// `echo` that reports nothing, so its inputs are read from the runtime.
+fn obliging_items() -> specforge_extension_sdk::prelude::ContributionsBuilder {
+    use specforge_extension_sdk::prelude::*;
+    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@pin/items", "0.1.0"));
+    c.kind("item", |k| {
+        k.testable(true).supports_verify(true).open_fields(true);
+    });
+    c.rule("P300", |r| {
+        r.check(CheckKind::NoVerifyStatements)
+            .target_kind("item")
+            .field("verify")
+            .message_template("{kind} '{id}' declares no verify obligations");
+    });
+    c.pass("echo", |p| {
+        p.phase("check")
+            .run(|_: &PassInput| Vec::<PassDiagnostic>::new());
+    });
+    c
+}
+
+#[specforge_test(
+    behavior = "snapshot_entities_once",
+    verify = "a session's snapshot follows every update"
+)]
+fn a_sessions_snapshot_follows_every_update() {
+    use specforge_wasm::testing::InProcessRuntime;
+    use std::sync::Arc;
+
+    let dir = project(
+        r#"{"name":"s","version":"0.1.0","extensions":["@pin/items"]}"#,
+        &[("a.spec", "item gizmo \"Gizmo\" {\n}\n")],
+    );
+    let root = dir.path();
+    let runtime = Arc::new(InProcessRuntime::new().with(obliging_items));
+    let mut session = ProjectSession::open_with_runtime(root, Some(runtime.clone()));
+    let last_pass_input = || {
+        runtime
+            .calls()
+            .into_iter()
+            .rev()
+            .find(|c| c.export == "__pass_echo")
+            .expect("the echo pass ran")
+            .input
+    };
+    let standing = session.entities().standing("gizmo").unwrap().clone();
+    assert_eq!(standing.declared, 0);
+    assert_eq!(standing.reported_by(), Some("P300"));
+    assert_eq!(
+        last_pass_input()["entities"][0]["verify_texts"],
+        serde_json::json!([])
+    );
+
+    // The update adds an obligation: the snapshot, the coverage and the
+    // check pass all see it.
+    write(
+        root,
+        "a.spec",
+        "item gizmo \"Gizmo\" {\n  verify unit \"x\"\n}\n",
+    );
+    session.update(SourceChange::Disk(&changed(&["a.spec"])));
+    let standing = session.entities().standing("gizmo").unwrap();
+    assert_eq!(standing.declared, 1);
+    assert!(standing.counts() && standing.reported_by().is_none());
+    let coverage = session
+        .recorded()
+        .at(
+            Some(root),
+            session.graph(),
+            &session.environment().registries,
+        )
+        .unwrap()
+        .coverage;
+    assert!(std::ptr::eq(session.entities(), coverage.entities()));
+    assert_eq!(coverage.verdict("gizmo").unwrap().obligations, 1);
+    assert_eq!(coverage.summary.testable_total, 1);
+    assert_eq!(
+        last_pass_input()["entities"][0]["verify_texts"],
+        serde_json::json!(["x"])
+    );
+    assert!(
+        !session.diagnostics().iter().any(|d| d.code == "P300"),
+        "the rule read the same snapshot"
+    );
 }

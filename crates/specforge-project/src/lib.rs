@@ -32,11 +32,14 @@ mod policy;
 mod session;
 pub mod snapshot;
 
+use std::sync::Arc;
+
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 use compile::{GraphChecks, check_graph, load_extensions, probe_custom_rules};
 use coverage::RecordedCoverage;
+use snapshot::EntitySnapshot;
 use specforge_common::{Diagnostic, ProjectConfig, is_discovered, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph_with_config};
 use specforge_parser::SpecFile;
@@ -159,24 +162,34 @@ impl Environment {
         }
     }
 
-    /// What the checks on a built graph need from this environment.
-    pub fn checks<'a>(&'a self, runtime: Option<&'a dyn WasmRuntime>) -> GraphChecks<'a> {
+    /// What the checks on a built graph need from this environment, with
+    /// the graph's entity snapshot.
+    pub fn checks<'a>(
+        &'a self,
+        entities: &'a EntitySnapshot,
+        runtime: Option<&'a dyn WasmRuntime>,
+    ) -> GraphChecks<'a> {
         GraphChecks {
             spec_root: &self.spec_root,
-            kind_registry: &self.registries.kinds,
-            field_registry: &self.registries.fields,
-            rules: &self.registries.rules,
+            registries: &self.registries,
+            entities,
             runtime,
         }
     }
 
-    /// Every check a compile runs on a built graph: the graph checks
-    /// (core validation, the registry checks, the extensions' rules), then
-    /// the check-phase passes.
-    pub fn run_checks(&self, graph: &Graph, runtime: Option<&dyn WasmRuntime>) -> Vec<Diagnostic> {
-        let mut diagnostics = check_graph(graph, &self.checks(runtime));
+    /// Every check a compile runs on a built graph, over its entity
+    /// snapshot `entities`: the graph checks (core validation, the
+    /// registry checks, the extensions' rules), then the check-phase
+    /// passes.
+    pub fn run_checks(
+        &self,
+        graph: &Graph,
+        entities: &EntitySnapshot,
+        runtime: Option<&dyn WasmRuntime>,
+    ) -> Vec<Diagnostic> {
+        let mut diagnostics = check_graph(graph, &self.checks(entities, runtime));
         if let Some(runtime) = runtime {
-            diagnostics.extend(check_passes::run(self, graph, runtime));
+            diagnostics.extend(check_passes::run(self, graph, entities, runtime));
         }
         diagnostics
     }
@@ -309,8 +322,11 @@ pub struct CompiledProject {
     /// What the checks on the built graph reported: core validation, the
     /// registry checks, the extensions' rules, then the check-phase passes.
     pub check_diagnostics: Vec<Diagnostic>,
+    /// The graph's entity snapshot: what its checks read (ADR 0019).
+    entities: Arc<EntitySnapshot>,
     /// The recorded test report at the root and the coverage of the graph
-    /// against it, memoized for the life of this compile.
+    /// against it, memoized for the life of this compile, seeded with
+    /// `entities`.
     recorded: RecordedCoverage,
 }
 
@@ -322,15 +338,22 @@ impl CompiledProject {
         let resolved = env.resolve();
         let (graph, graph_diagnostics) =
             build_graph_with_config(&source_files(&resolved), &env.graph_config());
-        let check_diagnostics = env.run_checks(&graph, runtime);
+        let entities = Arc::new(EntitySnapshot::of(&graph, &env.registries, &env.spec_root));
+        let check_diagnostics = env.run_checks(&graph, &entities, runtime);
         CompiledProject {
             env,
             resolved,
             graph,
             graph_diagnostics,
             check_diagnostics,
-            recorded: RecordedCoverage::default(),
+            recorded: RecordedCoverage::of(Arc::clone(&entities)),
+            entities,
         }
+    }
+
+    /// The graph's entity snapshot, the one its checks read.
+    pub fn entities(&self) -> &EntitySnapshot {
+        &self.entities
     }
 
     /// Exactly what `specforge check` reports, in its order: the

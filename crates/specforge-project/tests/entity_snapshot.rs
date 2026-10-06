@@ -319,11 +319,7 @@ fn an_empty_list_or_block_is_written() {
 fn testable_total(compiled: &CompiledProject, root: &Path) -> usize {
     compiled
         .recorded()
-        .at(
-            Some(root),
-            &compiled.graph,
-            specforge_project::coverage::CoverageRegistries::of(&compiled.env.registries),
-        )
+        .at(Some(root), &compiled.graph, &compiled.env.registries)
         .unwrap()
         .coverage
         .summary
@@ -400,4 +396,58 @@ fn file_exists_resolves_against_the_spec_root() {
         reported(&diagnostics, "P4"),
         ["P400 alpha: file 'doc.md' does not exist"]
     );
+}
+
+#[specforge_test_macros::test(
+    behavior = "snapshot_entities_once",
+    verify = "the checks, the check passes and the coverage of one compile read one snapshot"
+)]
+fn the_checks_passes_and_coverage_of_one_compile_read_one_snapshot() {
+    let dir = project();
+    let runtime = runtime();
+    let (compiled, _) = compile(dir.path(), &runtime);
+    let entities = compiled.entities();
+
+    // The coverage memo holds the compile's snapshot, and the coverage is
+    // computed from it: no second walk.
+    let registries = &compiled.env.registries;
+    let memo = compiled.recorded();
+    assert!(std::ptr::eq(
+        entities,
+        &**memo.entities(&compiled.graph, registries, Path::new(""))
+    ));
+    let recorded = memo
+        .at(Some(dir.path()), &compiled.graph, registries)
+        .unwrap();
+    assert!(std::ptr::eq(entities, recorded.coverage.entities()));
+
+    // The check pass received the snapshot's adapter, entity by entity.
+    let pass_input = runtime
+        .calls()
+        .into_iter()
+        .find(|c| c.export == "__pass_echo")
+        .expect("the echo pass ran")
+        .input;
+    assert_eq!(
+        pass_input["entities"],
+        serde_json::to_value(entities.pass_entities()).unwrap()
+    );
+    assert_eq!(
+        pass_input["edges"],
+        serde_json::to_value(entities.pass_edges()).unwrap()
+    );
+
+    // And each custom validator call its context.
+    let mut validated = 0;
+    for call in runtime
+        .calls()
+        .into_iter()
+        .filter(|c| c.export == "validate__echo" && c.input["entity"]["id"] != "__probe__")
+    {
+        let id = call.input["entity"]["id"].as_str().unwrap().to_string();
+        let context = entities.validator_context(&id).expect("a snapshot entity");
+        assert_eq!(call.input, serde_json::to_value(context).unwrap(), "{id}");
+        validated += 1;
+    }
+    assert_eq!(validated, 3, "alpha, beta and delta are items");
 }

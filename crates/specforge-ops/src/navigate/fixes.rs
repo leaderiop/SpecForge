@@ -6,7 +6,6 @@ use std::collections::BTreeSet;
 
 use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym};
 use specforge_graph::Node;
-use specforge_project::coverage::exemption;
 use specforge_registry::validation_engine::obliging_rule;
 
 use super::text::{SourceText, TokenKind};
@@ -239,9 +238,12 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
             .kinds
             .get(kind_name)
             .filter(|entry| entry.supports_verify)?;
-        if !specforge_graph::obligations(node).is_empty()
-            || exemption(node, &registries.kinds, &registries.fields).is_some()
-        {
+        let exempt = self
+            .view
+            .entities()
+            .get(node.id.raw.as_str())
+            .is_some_and(|(record, _)| record.exemption.is_some());
+        if !specforge_graph::obligations(node).is_empty() || exempt {
             return None;
         }
         let rule = obliging_rule(&registries.rules, kind_name);
