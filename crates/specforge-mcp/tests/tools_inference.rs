@@ -1,29 +1,20 @@
 use crate::support::*;
 use serde_json::{Value, json};
-use specforge_extension_sdk::ExtensionDeclaration;
 use specforge_extension_sdk::prelude::*;
-use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
-use tempfile::TempDir;
 
-fn init_server(project_dir: &std::path::Path) -> McpServer {
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
-    crate::support::serve_in_memory_at(server.state_mut(), project_dir);
-    server.state_mut().edit_environment(|env| {
-        let built = specforge_project::Environment::from_declarations(vec![
-            rust_declaration(),
-            typescript_declaration(),
-        ]);
-        env.registries = built.registries;
-    });
-    server
+/// An initialized server over `project`, which enables the rust and
+/// typescript analyzers, in that order, both served in process: their
+/// scanners find nothing.
+fn init_server(project: TestProject) -> Served {
+    project.serve(&[
+        TestExtension::named("@specforge/rust").declaring(rust),
+        TestExtension::named("@specforge/typescript").declaring(typescript),
+    ])
 }
 
 /// The rust analyzer, declared as the builtin declares it.
-fn rust_declaration() -> ExtensionDeclaration {
-    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@specforge/rust", "1.0.0"));
+fn rust(c: &mut ContributionsBuilder) {
     c.analyzer("rust", |a| {
         a.file_extensions(&[".rs"])
             .excluded_dirs(&["target"])
@@ -32,12 +23,10 @@ fn rust_declaration() -> ExtensionDeclaration {
                 language: None,
             });
     });
-    c.declaration()
 }
 
 /// The typescript analyzer, declared as the builtin declares it.
-fn typescript_declaration() -> ExtensionDeclaration {
-    let mut c = ContributionsBuilder::new(ExtensionMeta::new("@specforge/typescript", "1.0.0"));
+fn typescript(c: &mut ContributionsBuilder) {
     c.analyzer("typescript", |a| {
         a.file_extensions(&[".ts", ".tsx", ".js", ".jsx"])
             .excluded_dirs(&["node_modules", "dist"])
@@ -46,7 +35,6 @@ fn typescript_declaration() -> ExtensionDeclaration {
                 language: None,
             });
     });
-    c.declaration()
 }
 
 fn setup_project_with_sources(dir: &std::path::Path) {
@@ -60,8 +48,8 @@ fn setup_project_with_sources(dir: &std::path::Path) {
 
 #[test]
 fn infer_progress_returns_summary_for_empty_project() {
-    let tmp = TempDir::new().unwrap();
-    let mut server = init_server(tmp.path());
+    let tmp = TestProject::new();
+    let mut server = init_server(tmp);
 
     let resp = call_tool(&mut server, "specforge.infer_progress", json!({}));
     let text = tool_text(&resp);
@@ -74,8 +62,8 @@ fn infer_progress_returns_summary_for_empty_project() {
 
 #[test]
 fn infer_progress_discovers_source_files() {
-    let tmp = TempDir::new().unwrap();
-    setup_project_with_sources(tmp.path());
+    let tmp = TestProject::new();
+    setup_project_with_sources(tmp.root());
 
     // Write a manifest with source_roots pointing to src/
     let manifest = json!({
@@ -84,12 +72,12 @@ fn infer_progress_discovers_source_files() {
         "source_index": []
     });
     std::fs::write(
-        tmp.path().join("specforge-infer.json"),
+        tmp.root().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
     )
     .unwrap();
 
-    let mut server = init_server(tmp.path());
+    let mut server = init_server(tmp);
     let resp = call_tool(&mut server, "specforge.infer_progress", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -102,8 +90,8 @@ fn infer_progress_discovers_source_files() {
 
 #[test]
 fn infer_progress_shows_analyzed_file() {
-    let tmp = TempDir::new().unwrap();
-    setup_project_with_sources(tmp.path());
+    let tmp = TestProject::new();
+    setup_project_with_sources(tmp.root());
 
     let manifest = json!({
         "version": 1,
@@ -116,12 +104,12 @@ fn infer_progress_shows_analyzed_file() {
         }]
     });
     std::fs::write(
-        tmp.path().join("specforge-infer.json"),
+        tmp.root().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
     )
     .unwrap();
 
-    let mut server = init_server(tmp.path());
+    let mut server = init_server(tmp);
     let resp = call_tool(&mut server, "specforge.infer_progress", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -138,15 +126,15 @@ fn infer_progress_shows_analyzed_file() {
 
 #[test]
 fn infer_session_start_creates_active_session() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TestProject::new();
     let manifest = json!({ "version": 1, "source_roots": ["src"] });
     std::fs::write(
-        tmp.path().join("specforge-infer.json"),
+        tmp.root().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
     )
     .unwrap();
 
-    let mut server = init_server(tmp.path());
+    let mut server = init_server(tmp);
     let resp = call_tool(
         &mut server,
         "specforge.infer_session",
@@ -164,15 +152,15 @@ fn infer_session_start_creates_active_session() {
 
 #[test]
 fn infer_session_rejects_second_active() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TestProject::new();
     let manifest = json!({ "version": 1, "source_roots": ["src"] });
     std::fs::write(
-        tmp.path().join("specforge-infer.json"),
+        tmp.root().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
     )
     .unwrap();
 
-    let mut server = init_server(tmp.path());
+    let mut server = init_server(tmp);
 
     // First session succeeds
     let resp1 = call_tool(
@@ -204,19 +192,19 @@ fn infer_session_rejects_second_active() {
 
 #[test]
 fn infer_session_mark_analyzed_records_entry() {
-    let tmp = TempDir::new().unwrap();
-    let src = tmp.path().join("src");
+    let tmp = TestProject::new();
+    let src = tmp.root().join("src");
     std::fs::create_dir_all(&src).unwrap();
     std::fs::write(src.join("main.rs"), "fn main() {}").unwrap();
 
     let manifest = json!({ "version": 1, "source_roots": ["src"] });
     std::fs::write(
-        tmp.path().join("specforge-infer.json"),
+        tmp.root().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
     )
     .unwrap();
 
-    let mut server = init_server(tmp.path());
+    let mut server = init_server(tmp);
 
     let resp = call_tool(
         &mut server,
@@ -243,15 +231,15 @@ fn infer_session_mark_analyzed_records_entry() {
 
 #[test]
 fn infer_session_end_completes_session() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TestProject::new();
     let manifest = json!({ "version": 1, "source_roots": ["src"] });
     std::fs::write(
-        tmp.path().join("specforge-infer.json"),
+        tmp.root().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
     )
     .unwrap();
 
-    let mut server = init_server(tmp.path());
+    let mut server = init_server(tmp);
 
     // Start session
     let start_resp = call_tool(
@@ -294,15 +282,15 @@ fn infer_session_end_completes_session() {
 
 #[test]
 fn infer_session_end_rejects_unknown_session() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TestProject::new();
     let manifest = json!({ "version": 1, "source_roots": ["src"] });
     std::fs::write(
-        tmp.path().join("specforge-infer.json"),
+        tmp.root().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
     )
     .unwrap();
 
-    let mut server = init_server(tmp.path());
+    let mut server = init_server(tmp);
 
     let resp = call_tool(
         &mut server,
@@ -319,15 +307,15 @@ fn infer_session_end_rejects_unknown_session() {
 
 #[test]
 fn infer_session_missing_action_returns_error() {
-    let tmp = TempDir::new().unwrap();
+    let tmp = TestProject::new();
     let manifest = json!({ "version": 1, "source_roots": ["src"] });
     std::fs::write(
-        tmp.path().join("specforge-infer.json"),
+        tmp.root().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
     )
     .unwrap();
 
-    let mut server = init_server(tmp.path());
+    let mut server = init_server(tmp);
 
     let resp = call_tool(&mut server, "specforge.infer_session", json!({}));
     let error = crate::tool_errors::mcp_error(&resp);
@@ -337,20 +325,20 @@ fn infer_session_missing_action_returns_error() {
 
 #[test]
 fn infer_session_full_lifecycle() {
-    let tmp = TempDir::new().unwrap();
-    let src = tmp.path().join("src");
+    let tmp = TestProject::new();
+    let src = tmp.root().join("src");
     std::fs::create_dir_all(&src).unwrap();
     std::fs::write(src.join("main.rs"), "fn main() {}").unwrap();
     std::fs::write(src.join("lib.rs"), "pub fn hello() {}").unwrap();
 
     let manifest = json!({ "version": 1, "source_roots": ["src"] });
     std::fs::write(
-        tmp.path().join("specforge-infer.json"),
+        tmp.root().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
     )
     .unwrap();
 
-    let mut server = init_server(tmp.path());
+    let mut server = init_server(tmp);
 
     // Check initial progress
     let p0 = call_tool(&mut server, "specforge.infer_progress", json!({}));
@@ -425,8 +413,8 @@ fn infer_session_full_lifecycle() {
 
 #[test]
 fn infer_progress_discovers_both_rust_and_typescript() {
-    let tmp = TempDir::new().unwrap();
-    let src = tmp.path().join("src");
+    let tmp = TestProject::new();
+    let src = tmp.root().join("src");
     std::fs::create_dir_all(&src).unwrap();
     std::fs::write(src.join("lib.rs"), "pub fn hello() {}").unwrap();
     std::fs::write(src.join("app.ts"), "export function handleRequest() {}").unwrap();
@@ -434,12 +422,12 @@ fn infer_progress_discovers_both_rust_and_typescript() {
 
     let manifest = json!({ "version": 1, "source_roots": ["src"] });
     std::fs::write(
-        tmp.path().join("specforge-infer.json"),
+        tmp.root().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
     )
     .unwrap();
 
-    let mut server = init_server(tmp.path());
+    let mut server = init_server(tmp);
     let resp = call_tool(&mut server, "specforge.infer_progress", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -477,8 +465,8 @@ fn recorded_sessions(root: &std::path::Path) -> Vec<Value> {
     verify = "start assigns unique session ID"
 )]
 fn infer_session_ids_are_unique_uuids() {
-    let tmp = TempDir::new().unwrap();
-    let mut server = init_server(tmp.path());
+    let tmp = TestProject::new();
+    let mut server = init_server(tmp);
     let mut ids = Vec::new();
     for _ in 0..2 {
         let started = call_tool(
@@ -506,10 +494,10 @@ fn infer_session_ids_are_unique_uuids() {
     verify = "end sets ended_at timestamp"
 )]
 fn infer_session_timestamps_are_rfc_3339() {
-    let tmp = TempDir::new().unwrap();
-    std::fs::create_dir_all(tmp.path().join("src")).unwrap();
-    std::fs::write(tmp.path().join("src/lib.rs"), "pub fn f() {}\n").unwrap();
-    let mut server = init_server(tmp.path());
+    let tmp = TestProject::new();
+    std::fs::create_dir_all(tmp.root().join("src")).unwrap();
+    std::fs::write(tmp.root().join("src/lib.rs"), "pub fn f() {}\n").unwrap();
+    let mut server = init_server(tmp);
     let started = call_tool(
         &mut server,
         "specforge.infer_session",
@@ -527,8 +515,8 @@ fn infer_session_timestamps_are_rfc_3339() {
         json!({"action": "end", "session_id": id}),
     );
 
-    let session = recorded_sessions(tmp.path()).pop().unwrap();
-    let text = std::fs::read_to_string(tmp.path().join("specforge-infer.json")).unwrap();
+    let session = recorded_sessions(server.root()).pop().unwrap();
+    let text = std::fs::read_to_string(server.root().join("specforge-infer.json")).unwrap();
     let manifest: Value = serde_json::from_str(&text).unwrap();
     let analyzed_at = &manifest["source_index"][0]["analyzed_at"];
     for stamp in [&session["started_at"], &session["ended_at"], analyzed_at] {

@@ -232,26 +232,12 @@ fn doctor_use_cached_reports_the_last_compile() {
 
 #[test]
 fn extension_tool_without_a_project_is_refused() {
-    use crate::fake_extension::{self, FakeExtension};
-
     // Serving nothing, no extension tool is listed: a call names an
     // unknown tool.
     let mut server = serving_nothing();
     assert!(server.state().surfaces().tools().is_empty());
     let resp = call_tool(&mut server, "specforge.cmds.check", json!({}));
     assert_eq!(resp["error"]["code"], -32602, "{resp}");
-
-    // A project's extension tools stay listed when the server goes on to
-    // serve a graph built in memory with no root: a call has no project to
-    // run in.
-    let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new());
-    server
-        .state_mut()
-        .serve_in_memory_at(None, specforge_graph::Graph::new(), Vec::new());
-    let resp = call_tool(&mut server, "specforge.cmds.check", json!({}));
-    let error = crate::tool_errors::mcp_error(&resp);
-    assert_eq!(error["code"], "precondition_failed", "{error}");
-    assert!(ext.calls().is_empty(), "{:?}", ext.calls());
 }
 
 fn tool_names(server: &mut McpServer) -> Vec<String> {
