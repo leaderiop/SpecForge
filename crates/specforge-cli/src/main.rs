@@ -206,17 +206,18 @@ enum Commands {
         #[arg(default_value = ".")]
         path: PathBuf,
 
-        /// Filter output to a single entity kind
-        #[arg(long)]
+        /// That entity kind and the edge types that can start or end at it
+        #[arg(long, conflicts_with = "publish")]
         kind: Option<String>,
 
         /// Publish as standalone JSON Schema (draft 2020-12)
         #[arg(long)]
         publish: bool,
 
-        /// Export format the published schema should describe
+        /// Export format the published schema describes
         #[arg(
             long,
+            requires = "publish",
             value_parser = options::choice(&specforge_ops::export::AGENT_FORMAT),
             default_value = specforge_ops::export::AGENT_FORMAT.default_name()
         )]
@@ -770,7 +771,14 @@ fn main() {
             kind,
             publish,
             format,
-        } => export::run_schema(&path, kind.as_deref(), publish, format),
+        } => export::run_schema(
+            &path,
+            &specforge_ops::schema::SchemaRequest {
+                kind: kind.as_deref(),
+                ..specforge_ops::schema::SchemaRequest::default()
+            },
+            publish.then_some(format),
+        ),
         Commands::Model {
             path,
             format,

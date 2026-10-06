@@ -218,6 +218,7 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify integration "specforge stats and specforge.stats report the same numbers"
   verify integration "specforge trace and specforge.trace return the same chain for an entity"
   verify integration "specforge schema and specforge.schema carry the same version"
+  verify integration "specforge schema --kind and specforge.schema with a kind return the same document"
   verify integration "specforge outline and specforge.outline_extensions render the same text"
   verify contract "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
 }

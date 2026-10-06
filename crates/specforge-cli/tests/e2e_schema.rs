@@ -93,6 +93,32 @@ fn schema_command_outputs_valid_json() {
     }
 }
 
+#[specforge_test(
+    behavior = "publish_schema_specification",
+    verify = "--kind with --publish, and --format without it, are refused"
+)]
+fn publish_refuses_kind_and_format_needs_publish() {
+    let dir = software_project();
+    let run = |args: &[&str]| specforge_cmd().args(args).arg(dir.path()).output().unwrap();
+
+    let kind = run(&["schema", "--publish", "--kind", "behavior"]);
+    assert_eq!(kind.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&kind.stderr);
+    assert!(stderr.contains("--kind"), "{stderr}");
+
+    let format = run(&["schema", "--format", "brief"]);
+    assert_eq!(format.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&format.stderr);
+    assert!(stderr.contains("--publish"), "{stderr}");
+
+    // `json` is `graph`'s alias; plain `schema` runs with the default
+    // `--format` (a default does not trigger `requires`).
+    let json = run_json(&["schema", "--publish", "--format", "json"], dir.path());
+    let graph = run_json(&["schema", "--publish", "--format", "graph"], dir.path());
+    assert_eq!(json, graph);
+    run_json(&["schema"], dir.path());
+}
+
 #[test]
 fn schema_kind_filter_returns_single_kind() {
     // Note: with GraphProtocolSchema::empty(), entity_kinds is empty.

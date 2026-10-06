@@ -11,6 +11,7 @@ mod navigate;
 mod options;
 mod plan;
 mod scan;
+mod schema;
 mod schema_cache;
 mod stats;
 mod trace;

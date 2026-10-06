@@ -946,31 +946,6 @@ pub fn emit_brief_scoped_with_schema(
 }
 
 // ---------------------------------------------------------------------------
-// Slice 8: Serve Schema
-// ---------------------------------------------------------------------------
-
-pub fn emit_schema(schema: &GraphProtocolSchema) -> Result<String, EmitterError> {
-    serde_json::to_string_pretty(schema)
-        .map_err(|e| EmitterError::SerializationError(e.to_string()))
-}
-
-pub fn emit_schema_for_kind(
-    schema: &GraphProtocolSchema,
-    kind: &str,
-) -> Result<String, EmitterError> {
-    schema
-        .entity_kinds
-        .iter()
-        .find(|k| k.name == kind)
-        .map(|k| {
-            serde_json::to_string_pretty(k)
-                .map_err(|e| EmitterError::SerializationError(e.to_string()))
-        })
-        .transpose()?
-        .ok_or_else(|| EmitterError::EntityNotFound(format!("unknown entity kind: '{}'", kind)))
-}
-
-// ---------------------------------------------------------------------------
 // Slice 9: Publish JSON Schema
 // ---------------------------------------------------------------------------
 

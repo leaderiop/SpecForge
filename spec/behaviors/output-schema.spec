@@ -162,13 +162,15 @@ behavior serve_schema_resource "Serve Schema Resource" {
   }
   ensures {
     full_schema_output     "specforge schema outputs the complete GraphProtocolSchema as JSON"
-    kind_filter_supported  "Optional --kind filter restricts output to a single entity kind"
+    kind_filter_supported  "Optional --kind filter restricts the schema to that entity kind and the edge types that can start or end at it"
     mcp_resource_available "In MCP server mode, schema is available as specforge://schema resource"
   }
   contract   """
     When specforge schema is invoked, the system MUST output the
     GraphProtocolSchema as JSON to stdout. An optional --kind filter MUST
-    restrict output to a single entity kind's schema. In MCP server mode,
+    restrict the schema to that entity kind and the edge types that can
+    start or end at it: the document the specforge.schema tool returns for
+    the same kind. In MCP server mode,
     the schema MUST be available as the specforge://schema resource for
     agent introspection. The schema MUST always reflect the current
     compilation state.
@@ -435,6 +437,10 @@ behavior publish_schema_specification "Publish Schema Specification" {
     The published schema MUST be usable by any JSON Schema validator to
     validate Graph Protocol exports. The schema MUST include a $schema
     meta-reference identifying the JSON Schema draft version used.
+    The published schema describes the export format --format names
+    (graph, context or brief; json is graph). --format applies only with
+    --publish, and --kind cannot be combined with --publish: either is
+    refused as a usage error (exit 2).
   """
   verify unit "published schema is valid JSON Schema"
   verify unit "published schema describes all registered entity kinds"
@@ -443,6 +449,7 @@ behavior publish_schema_specification "Publish Schema Specification" {
   verify unit "published schema validates known-good export"
   verify unit "published schema requires the Graph Protocol top-level properties"
   verify unit "published context schema admits declared headline and normative fields"
+  verify unit "--kind with --publish, and --format without it, are refused"
   verify contract "Publish Schema Specification: schema specification publication holds — schema_version_computed_fired, validation_complete_fired, valid_json_schema_produced, all_kinds_described, third_party_usable, render_complete_emitted"
   verify unit "description includes version"
 }

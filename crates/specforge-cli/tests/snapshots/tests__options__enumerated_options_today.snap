@@ -3,7 +3,7 @@ source: crates/specforge-cli/tests/options.rs
 expression: "sections.join(\"\\n\")"
 ---
 ## schema publish format
-cli -h: --format <FORMAT> Export format the published schema should describe [default: graph] [possible values: graph, context, brief]
+cli -h: --format <FORMAT> Export format the published schema describes [default: graph] [possible values: graph, context, brief]
 default: cli=graph = json
 graph                        cli=0   mcp=-
 context                      cli=0   mcp=-

@@ -1,10 +1,17 @@
 //! `specforge schema` and `specforge.schema`: the versioned Graph Protocol
-//! schema, one operation over the project view (ADR 0015).
+//! schema, one operation over the project view (ADR 0015). Both surfaces
+//! answer one document for one request: the outcome serializes itself
+//! (ADR 0027's round, ADR 0015 D8 as amended). `specforge schema
+//! --publish` is [`json_schema`].
 
+use serde::{Serialize, Serializer};
 use serde_json::Value;
-use specforge_emitter::{GraphProtocolSchema, SchemaEdgeType};
+use specforge_emitter::{
+    GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo, SchemaVersion,
+};
 
 use crate::OpError;
+use crate::export::{self, AGENT_FORMAT, FORMAT};
 use crate::view::ProjectView;
 
 /// What part of the schema to return.
@@ -39,21 +46,45 @@ pub struct SchemaOutcome {
     pub validation_rules: Option<Vec<Value>>,
 }
 
-impl SchemaOutcome {
-    /// The schema as JSON: without `edge_types` when edges were not asked
-    /// for, with `validation_rules` when they were.
-    pub fn to_json(&self) -> Value {
-        let mut doc = serde_json::to_value(&self.schema).expect("a schema serializes");
-        if let Some(object) = doc.as_object_mut() {
-            if !self.edges {
-                object.remove("edge_types");
-            }
-            if let Some(rules) = &self.validation_rules {
-                object.insert("validation_rules".into(), Value::Array(rules.clone()));
-            }
+/// The schema as one document: its keys in `GraphProtocolSchema` order
+/// (`schema_version`, `extensions`, `entity_kinds`), then `edge_types` when
+/// edges were asked for and `validation_rules` when they were. Unfiltered,
+/// it is the schema's own serialization.
+impl Serialize for SchemaOutcome {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        #[derive(Serialize)]
+        struct Document<'a> {
+            schema_version: &'a SchemaVersion,
+            extensions: &'a [SchemaExtensionInfo],
+            entity_kinds: &'a [SchemaEntityKind],
+            #[serde(skip_serializing_if = "Option::is_none")]
+            edge_types: Option<&'a [SchemaEdgeType]>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            validation_rules: Option<&'a [Value]>,
         }
-        doc
+        Document {
+            schema_version: &self.schema.schema_version,
+            extensions: &self.schema.extensions,
+            entity_kinds: &self.schema.entity_kinds,
+            edge_types: self.edges.then_some(self.schema.edge_types.as_slice()),
+            validation_rules: self.validation_rules.as_deref(),
+        }
+        .serialize(serializer)
     }
+}
+
+/// The standalone JSON Schema (draft 2020-12) a `format` export of the
+/// view's project conforms to, built from the versioned schema (`specforge
+/// schema --publish`). `dot` has none: refused as [`AGENT_FORMAT`] refuses
+/// it.
+pub fn json_schema(view: &ProjectView, format: export::Format) -> Result<String, OpError> {
+    if !AGENT_FORMAT.admits(format) {
+        return Err(AGENT_FORMAT
+            .parse(FORMAT.name_of(format))
+            .expect_err("a format the agent table does not admit is refused"));
+    }
+    specforge_emitter::publish_json_schema_format(&view.versioned_schema(), format.emit_format())
+        .map_err(|error| OpError::new("export_failed", error.to_string()))
 }
 
 /// The view's versioned schema, as `request` selects it. A kind no loaded

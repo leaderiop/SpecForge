@@ -336,14 +336,26 @@ fn schema_today() {
         "cli_publish_context",
         &cli_json(&["schema", s(root), "--publish", "--format", "context"]),
     );
-    snap(
-        "cli_publish_kind_behavior",
-        &cli_json(&["schema", s(root), "--publish", "--kind", "behavior"]),
-    );
-    snap(
-        "cli_format_without_publish",
-        &cli_json(&["schema", s(root), "--format", "brief"]),
-    );
+    for (name, args) in [
+        (
+            "cli_publish_kind_behavior",
+            ["schema", s(root), "--publish", "--kind", "behavior"].as_slice(),
+        ),
+        (
+            "cli_format_without_publish",
+            ["schema", s(root), "--format", "brief"].as_slice(),
+        ),
+    ] {
+        let refused = cli(args);
+        insta::assert_snapshot!(
+            format!("schema_rv1_{name}"),
+            format!(
+                "exit: {:?}\nstderr:\n{}",
+                refused.code,
+                normalized_text(&refused.stderr, root)
+            )
+        );
+    }
     let nosuch = cli(&["schema", s(root), "--kind", "nosuch"]);
     insta::assert_snapshot!(
         "schema_rv1_cli_kind_nosuch",
@@ -490,6 +502,41 @@ fn cli_and_mcp_outline_render_the_same_text() {
     let run = cli(&["outline", s(root)]);
     assert_eq!(run.code, Some(0), "{}", run.stderr);
     assert_eq!(run.stdout, defaults[0], "outline with no arguments");
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_views_over_the_project_view",
+    verify = "specforge schema --kind and specforge.schema with a kind return the same document"
+)]
+fn cli_and_mcp_schema_kind_are_one_document() {
+    let tmp = rv1();
+    let root = tmp.path();
+    let mcp = mcp_calls(
+        root,
+        &[json!({"name": "specforge.schema", "arguments": {"kind": "behavior"}})],
+    );
+    let answered = cli_json(&["schema", s(root), "--kind", "behavior"]);
+    assert_eq!(answered, mcp[0]);
+    assert_eq!(
+        answered["entity_kinds"][0]["name"], "behavior",
+        "{answered}"
+    );
+    assert!(
+        answered["edge_types"]
+            .as_array()
+            .is_some_and(|edges| !edges.is_empty()),
+        "the edge types that touch the kind: {answered}"
+    );
+
+    // Unfiltered, the CLI prints the schema itself, in its own key order.
+    let printed = cli(&["schema", s(root)]);
+    assert_eq!(printed.code, Some(0), "{}", printed.stderr);
+    let schema: specforge_emitter::GraphProtocolSchema =
+        serde_json::from_str(&printed.stdout).unwrap();
+    assert_eq!(
+        printed.stdout.trim_end(),
+        serde_json::to_string_pretty(&schema).unwrap()
+    );
 }
 
 /// `rv1` with a `specforge-report.json` that does not parse.

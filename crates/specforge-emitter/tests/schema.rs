@@ -7,8 +7,8 @@ use specforge_emitter::schema::{
 use specforge_emitter::{
     EmitFormat, GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo,
     SchemaField, SchemaMigration, SchemaMigrationChange, SchemaVersion, SchemaVersionError,
-    compute_schema_version, diff_schemas, diff_schemas_optional, emit_schema, emit_schema_for_kind,
-    generate_schema, negotiate_version, publish_json_schema_format,
+    compute_schema_version, diff_schemas, diff_schemas_optional, generate_schema,
+    negotiate_version, publish_json_schema_format,
 };
 use specforge_graph::{Edge, FieldValue, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
@@ -821,80 +821,6 @@ fn schema_version_error_display() {
 }
 
 // ===========================================================================
-// Slice 8: Serve Schema
-// ===========================================================================
-
-// B:serve_schema_resource — verify unit "full schema serializes to JSON"
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "specforge schema outputs full schema as JSON"
-)]
-fn emit_schema_full() {
-    let schema = sample_schema();
-    let json = emit_schema(&schema).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-
-    // Every part of the fixture is in the output.
-    assert_eq!(
-        parsed["schema_version"],
-        serde_json::json!({ "major": 1, "minor": 2, "patch": 3 })
-    );
-    assert_eq!(
-        parsed["extensions"],
-        serde_json::json!([{ "name": "@specforge/software", "version": "1.0.0" }])
-    );
-    let kinds: Vec<&str> = parsed["entity_kinds"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|k| k["name"].as_str().unwrap())
-        .collect();
-    assert_eq!(kinds, vec!["behavior", "feature"]);
-    let behavior = &parsed["entity_kinds"][0];
-    assert_eq!(behavior["source_extension"], "@specforge/software");
-    assert_eq!(behavior["testable"], true);
-    assert_eq!(behavior["fields"][0]["name"], "contract");
-    assert_eq!(behavior["fields"][0]["field_type"], "string");
-    assert_eq!(parsed["entity_kinds"][1]["fields"], serde_json::json!([]));
-    assert_eq!(parsed["edge_types"].as_array().unwrap().len(), 1);
-    let edge = &parsed["edge_types"][0];
-    assert_eq!(edge["label"], "implements");
-    assert_eq!(edge["source_kinds"], serde_json::json!(["behavior"]));
-    assert_eq!(edge["target_kinds"], serde_json::json!(["feature"]));
-
-    // And nothing is lost: it reads back as the same schema.
-    let back: GraphProtocolSchema = serde_json::from_str(&json).unwrap();
-    assert_eq!(back, schema);
-}
-
-// B:serve_schema_resource — verify unit "filter by kind returns single kind"
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "--kind filter restricts to single entity kind"
-)]
-fn emit_schema_for_kind_single() {
-    let schema = sample_schema();
-    let json = emit_schema_for_kind(&schema, "behavior").unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(parsed["name"], "behavior");
-    assert!(parsed["fields"].is_array());
-}
-
-// B:serve_schema_resource — verify unit "missing kind returns error"
-#[specforge_test(behavior = "serve_schema_resource", verify = "missing kind error")]
-fn emit_schema_for_kind_missing() {
-    let schema = sample_schema();
-    let result = emit_schema_for_kind(&schema, "nonexistent");
-    assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("unknown entity kind")
-    );
-}
-
-// ===========================================================================
 // Slice 9: Publish JSON Schema
 // ===========================================================================
 
@@ -1412,7 +1338,7 @@ fn schema_reflects_current_state() {
             &ctx.field_registry,
             &ctx.extension_info,
         );
-        serde_json::from_str(&emit_schema(&schema).unwrap()).unwrap()
+        serde_json::to_value(&schema).unwrap()
     }
     fn configure(dir: &std::path::Path, extensions: &[&str]) {
         let config = serde_json::json!({
@@ -1705,28 +1631,6 @@ fn compute_version_contract() {
     assert_eq!(v, SchemaVersion::new(1, 3, 0));
 }
 
-// B:serve_schema_resource — verify contract "requires/ensures consistency for schema resource serving"
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "Serve Schema Resource: schema resource serving holds — validation_complete_fired, full_schema_output, kind_filter_supported, mcp_resource_available"
-)]
-fn serve_schema_contract() {
-    let schema = sample_schema();
-
-    // ensures: full_schema_output
-    let json = emit_schema(&schema).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed["entity_kinds"].is_array());
-
-    // ensures: kind_filter_supported
-    let filtered = emit_schema_for_kind(&schema, "behavior").unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&filtered).unwrap();
-    assert_eq!(parsed["name"], "behavior");
-
-    // error for unknown kind
-    assert!(emit_schema_for_kind(&schema, "nonexistent").is_err());
-}
-
 // B:publish_schema_specification — verify contract "requires/ensures consistency for schema specification publication"
 #[specforge_test(
     behavior = "publish_schema_specification",
@@ -1750,21 +1654,6 @@ fn publish_schema_contract() {
     // ensures: third_party_usable
     assert!(parsed["properties"].is_object());
     assert!(parsed["required"].is_array());
-}
-
-// ===========================================================================
-// Gap coverage: MCP resource (specforge://schema)
-// ===========================================================================
-
-#[test]
-fn mcp_schema_resource_returns_graph_protocol_schema() {
-    let schema = GraphProtocolSchema::empty();
-    let json = emit_schema(&schema).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed["schema_version"].is_object());
-    assert!(parsed["entity_kinds"].is_array());
-    assert!(parsed["edge_types"].is_array());
-    assert!(parsed["extensions"].is_array());
 }
 
 // ===========================================================================

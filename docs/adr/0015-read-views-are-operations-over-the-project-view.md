@@ -83,8 +83,11 @@ outcome; MCP has one coverage-row presenter (`tools::coverage::row_json`) and on
   project's diagnostics plus its surface-registration conflicts (`StatsRequest.diagnostics`).
 - **D8. An unknown schema kind is refused on both surfaces**: `unknown_kind` naming the closest
   kind; the CLI keeps its message (exit 1) and adds a help line, MCP answers `invalid_input` on
-  `kind`. The CLI's `--kind` still prints the kind's entry alone; the operation returns the filtered
-  schema MCP serves.
+  `kind`. ~~The CLI's `--kind` still prints the kind's entry alone; the operation returns the filtered
+  schema MCP serves.~~ Amended by [ADR 0027](0027-an-enumerated-argument-is-one-option-table.md)'s round
+  (architecture plan 2026-10-06 12, D4): `specforge schema --kind` prints the operation's outcome, the
+  document `specforge.schema` returns (the kind and the edge types that touch it), and `--publish`
+  goes through `ops::schema::json_schema`; `--kind` cannot be combined with `--publish`.
 - **D9. Model warnings are W146 on both surfaces**: CLI stderr `warning[W146]: model: …`, MCP the
   tool result's diagnostics. A registry-built schema only carries known field types, but the model
   accepts any Graph Protocol schema, and a catalogued code reaches `explain` and the docs.

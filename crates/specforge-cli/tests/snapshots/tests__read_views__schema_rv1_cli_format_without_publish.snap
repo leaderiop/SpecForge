@@ -1,45 +1,12 @@
 ---
 source: crates/specforge-cli/tests/read_views.rs
-expression: "normalized(&schema_digest(value), root)"
+expression: "format!(\"exit: {:?}\\nstderr:\\n{}\", refused.code,\nnormalized_text(&refused.stderr, root))"
 ---
-{
-  "edge_types": [
-    "BehaviorConsumesEvent",
-    "BehaviorEnforcesInvariant",
-    "BehaviorImplementsFeature",
-    "BehaviorProducesEvent",
-    "BehaviorReferencesType",
-    "BehaviorUsesPort",
-    "EventCarriesPayloadType",
-    "ExternalRef",
-    "MilestoneIncludesBehavior",
-    "ModuleConsumesPort",
-    "ModuleDefinesPort",
-    "PortReferencesType",
-    "References",
-    "TypeComposesType",
-    "TypeExtendsType"
-  ],
-  "entity_kinds": [
-    "behavior",
-    "event",
-    "invariant",
-    "port",
-    "type"
-  ],
-  "extensions": [
-    {
-      "name": "@specforge/software",
-      "version": "1.0.0"
-    },
-    {
-      "name": "@specforge/testing",
-      "version": "1.0.0"
-    }
-  ],
-  "schema_version": {
-    "major": 1,
-    "minor": 0,
-    "patch": 0
-  }
-}
+exit: Some(2)
+stderr:
+error: the following required arguments were not provided:
+  --publish
+
+Usage: specforge schema --publish --format <FORMAT> <PATH>
+
+For more information, try '--help'.

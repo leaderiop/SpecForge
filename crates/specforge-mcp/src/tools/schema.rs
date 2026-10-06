@@ -28,7 +28,9 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
         validation_rules: args.include_validation_rules.unwrap_or(false),
     };
     match specforge_ops::schema::schema(&call.view(), &request) {
-        Ok(outcome) => ToolOutcome::ok(outcome.to_json()),
+        Ok(outcome) => {
+            ToolOutcome::ok(serde_json::to_value(&outcome).expect("a schema serializes"))
+        }
         Err(error) => crate::operations::op_error(error)
             .with_argument("kind")
             .into(),

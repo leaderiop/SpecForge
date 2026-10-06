@@ -113,24 +113,3 @@ fn budget_strategy_error_returns_other() {
         }
     }
 }
-
-// M2: emit_schema_for_kind with unknown kind returns EmitterError::EntityNotFound
-#[test]
-fn schema_for_unknown_kind_returns_entity_not_found() {
-    use specforge_emitter::{emit_schema_for_kind, generate_schema};
-    use specforge_registry::{EdgeRegistry, FieldRegistry, KindRegistry};
-
-    let kind_reg = KindRegistry::default();
-    let edge_reg = EdgeRegistry::default();
-    let field_reg = FieldRegistry::default();
-    let ext_info: Vec<(String, String)> = vec![];
-
-    let schema = generate_schema(&kind_reg, &edge_reg, &field_reg, &ext_info);
-    let result = emit_schema_for_kind(&schema, "nonexistent");
-    let err = result.unwrap_err();
-    assert!(
-        matches!(err, EmitterError::EntityNotFound(_)),
-        "expected EntityNotFound, got: {:?}",
-        err
-    );
-}
