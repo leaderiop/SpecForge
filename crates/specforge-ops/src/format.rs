@@ -249,6 +249,18 @@ pub enum Mode {
     Check,
 }
 
+impl Mode {
+    /// The one reading of the surfaces' flags: check and diff only report,
+    /// unless `write` says otherwise (MCP's `write`; the CLI has none).
+    pub fn of_flags(check: bool, diff: bool, write: Option<bool>) -> Mode {
+        if write.unwrap_or(!check && !diff) {
+            Mode::Write
+        } else {
+            Mode::Check
+        }
+    }
+}
+
 pub struct Request<'a> {
     /// The project the run starts in (where `specforge.json` lives): its
     /// sources are the default targets, and paths are shown relative to it.
@@ -271,14 +283,51 @@ pub struct FileChange {
     pub path: PathBuf,
     pub before: String,
     pub after: String,
-    /// Why writing it failed, in write mode.
-    pub write_error: Option<String>,
+    /// The formatted text is on disk now (write mode, and the write worked).
+    pub written: bool,
 }
 
-impl FileChange {
-    /// Whether the formatted text is on disk now.
-    pub fn written(&self, mode: Mode) -> bool {
-        mode == Mode::Write && self.write_error.is_none()
+/// A file the run could not read or write; the others were still done.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Failure {
+    Read { path: PathBuf, error: String },
+    Write { path: PathBuf, error: String },
+}
+
+impl Failure {
+    /// The file that failed.
+    pub fn path(&self) -> &Path {
+        match self {
+            Failure::Read { path, .. } | Failure::Write { path, .. } => path,
+        }
+    }
+
+    /// Why it failed.
+    pub fn error(&self) -> &str {
+        match self {
+            Failure::Read { error, .. } | Failure::Write { error, .. } => error,
+        }
+    }
+
+    /// What failed: `read` or `write`.
+    pub fn verb(&self) -> &'static str {
+        match self {
+            Failure::Read { .. } => "read",
+            Failure::Write { .. } => "write",
+        }
+    }
+}
+
+impl std::fmt::Display for Failure {
+    /// `failed to read <path>: <error>` (or `write`).
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "failed to {} {}: {}",
+            self.verb(),
+            self.path().display(),
+            self.error()
+        )
     }
 }
 
@@ -288,23 +337,41 @@ pub struct Outcome {
     pub checked: usize,
     /// Files whose formatting differs, in discovery order.
     pub changes: Vec<FileChange>,
-    /// Files that couldn't be read, with why.
-    pub unreadable: Vec<(PathBuf, String)>,
-    /// What loading `.specforgefmt.toml` reported.
-    pub config_diagnostics: Vec<Diagnostic>,
-    /// What formatting each file reported (parse errors kept verbatim).
-    pub file_diagnostics: Vec<(PathBuf, Diagnostic)>,
+    /// Files that could not be read or written, in discovery order.
+    pub failures: Vec<Failure>,
+    /// Everything formatting reported: W141 once per configuration file
+    /// used, W142 per region kept verbatim (spanned at its file and lines).
+    pub diagnostics: Vec<Diagnostic>,
 }
 
 impl Outcome {
-    /// The changed files whose write failed.
-    pub fn write_failures(&self) -> impl Iterator<Item = &FileChange> {
-        self.changes.iter().filter(|c| c.write_error.is_some())
+    /// The files this run wrote (ADR 0022's `Written.files` reads them).
+    pub fn written(&self) -> impl Iterator<Item = &Path> {
+        self.changes
+            .iter()
+            .filter(|c| c.written)
+            .map(|c| c.path.as_path())
+    }
+
+    /// No file failed.
+    pub fn succeeded(&self) -> bool {
+        self.failures.is_empty()
+    }
+
+    /// No region was left unformatted (no W142).
+    pub fn complete(&self) -> bool {
+        !self.diagnostics.iter().any(|d| d.is(codes::W142))
+    }
+
+    /// Every target was read and is in canonical form: no change, no
+    /// failure, no region left unformatted (W142).
+    pub fn clean(&self) -> bool {
+        self.succeeded() && self.complete() && self.changes.is_empty()
     }
 
     /// No target at all (nothing found, nothing failed).
     pub fn found_nothing(&self) -> bool {
-        self.checked == 0 && self.unreadable.is_empty()
+        self.checked == 0 && self.failures.is_empty()
     }
 }
 
@@ -439,7 +506,10 @@ pub fn run(request: &Request) -> Outcome {
         let source = match std::fs::read_to_string(&target) {
             Ok(source) => source,
             Err(e) => {
-                outcome.unreadable.push((target, e.to_string()));
+                outcome.failures.push(Failure::Read {
+                    path: target,
+                    error: e.to_string(),
+                });
                 continue;
             }
         };
@@ -450,27 +520,28 @@ pub fn run(request: &Request) -> Outcome {
             diagnostics,
             ..
         } = format_text(resolved, &source, None, Some(&target));
-        for d in diagnostics {
-            if d.is(codes::W142) {
-                outcome.file_diagnostics.push((target.clone(), d));
-            } else {
-                outcome.config_diagnostics.push(d);
-            }
-        }
+        outcome.diagnostics.extend(diagnostics);
         if formatted == source {
             continue;
         }
-        let write_error = match request.mode {
-            Mode::Write => std::fs::write(&target, &formatted)
-                .err()
-                .map(|e| e.to_string()),
-            Mode::Check => None,
+        let written = match request.mode {
+            Mode::Write => match std::fs::write(&target, &formatted) {
+                Ok(()) => true,
+                Err(e) => {
+                    outcome.failures.push(Failure::Write {
+                        path: target.clone(),
+                        error: e.to_string(),
+                    });
+                    false
+                }
+            },
+            Mode::Check => false,
         };
         outcome.changes.push(FileChange {
             path: target,
             before: source,
             after: formatted,
-            write_error,
+            written,
         });
     }
     outcome
@@ -507,7 +578,7 @@ mod tests {
 
         assert_eq!(outcome.checked, 2);
         assert_eq!(outcome.changes.len(), 2);
-        assert!(outcome.changes.iter().all(|c| !c.written(Mode::Check)));
+        assert!(outcome.changes.iter().all(|c| !c.written));
         assert_eq!(
             std::fs::read_to_string(dir.path().join("spec/a.spec")).unwrap(),
             MESSY
@@ -521,9 +592,86 @@ mod tests {
         let first = run(&request(dir.path(), Mode::Write));
         let second = run(&request(dir.path(), Mode::Write));
 
-        assert!(first.changes.iter().all(|c| c.written(Mode::Write)));
+        assert!(first.changes.iter().all(|c| c.written));
+        assert_eq!(first.written().count(), 2);
         assert_eq!(second.checked, 2);
         assert!(second.changes.is_empty());
+        assert!(second.clean());
+    }
+
+    #[test]
+    fn clean_needs_every_file_read_and_canonical() {
+        let canonical = "behavior messy \"Messy\" {\n  contract \"The system MUST work\"\n}\n";
+        // Canonical: clean.
+        let dir = project_with("{}", &[("spec/a.spec", canonical)]);
+        let outcome = run(&request(dir.path(), Mode::Check));
+        assert!(outcome.clean() && outcome.complete() && outcome.succeeded());
+
+        // A change: not clean, though complete and succeeded.
+        let dir = project_with("{}", &[("spec/a.spec", MESSY)]);
+        let outcome = run(&request(dir.path(), Mode::Check));
+        assert!(!outcome.clean() && outcome.complete() && outcome.succeeded());
+
+        // A region left unformatted: not complete, so not clean.
+        let broken = format!("{canonical}\n}}}}}}\n");
+        let dir = project_with("{}", &[("spec/a.spec", &broken)]);
+        let outcome = run(&request(dir.path(), Mode::Check));
+        assert!(outcome.changes.is_empty(), "{:?}", outcome.changes);
+        assert!(!outcome.complete() && !outcome.clean() && outcome.succeeded());
+
+        // A file that cannot be read: a failure, so not clean.
+        let dir = project_with("{}", &[("spec/a.spec", canonical)]);
+        let missing = [dir.path().join("spec/missing.spec")];
+        let outcome = run(&Request {
+            root: dir.path(),
+            paths: &missing,
+            mode: Mode::Check,
+        });
+        assert!(!outcome.succeeded() && !outcome.clean());
+        assert!(!outcome.found_nothing());
+        assert!(matches!(&outcome.failures[0], Failure::Read { path, .. } if path == &missing[0]));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn written_lists_only_files_on_disk() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = project();
+        let locked = dir.path().join("spec/a.spec");
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o444)).unwrap();
+
+        let outcome = run(&request(dir.path(), Mode::Write));
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
+
+        let change = outcome.changes.iter().find(|c| c.path == locked).unwrap();
+        assert!(!change.written);
+        assert_eq!(outcome.failures.len(), 1, "{:?}", outcome.failures);
+        assert!(matches!(&outcome.failures[0], Failure::Write { path, .. } if path == &locked));
+        let written: Vec<&Path> = outcome.written().collect();
+        assert_eq!(written, [dir.path().join("spec/b.spec").as_path()]);
+    }
+
+    #[test]
+    fn mode_reads_the_flags_once() {
+        use Mode::{Check, Write};
+        let flags = [
+            // (check, diff, write) → mode
+            ((false, false, None), Write),
+            ((true, false, None), Check),
+            ((false, true, None), Check),
+            ((true, true, None), Check),
+            ((false, false, Some(false)), Check),
+            ((true, false, Some(true)), Write),
+            ((false, true, Some(true)), Write),
+            ((false, false, Some(true)), Write),
+        ];
+        for ((check, diff, write), mode) in flags {
+            assert_eq!(
+                Mode::of_flags(check, diff, write),
+                mode,
+                "{check} {diff} {write:?}"
+            );
+        }
     }
 
     /// Write `files` (path, text) under a fresh directory holding
@@ -671,7 +819,7 @@ mod tests {
         let outcome = check_paths(dir.path(), &["notes.md", "a.spec"]);
 
         assert_eq!(outcome.checked, 1);
-        assert!(outcome.unreadable.is_empty());
+        assert!(outcome.failures.is_empty());
     }
 
     #[specforge_test(
@@ -738,7 +886,7 @@ mod tests {
         // non_spec_skipped: named, a non-.spec file is no target and no failure.
         let outcome = check_paths(root, &["spec/a.spec", "spec/c.txt"]);
         assert_eq!(outcome.checked, 1);
-        assert!(outcome.unreadable.is_empty());
+        assert!(outcome.failures.is_empty());
     }
 
     /// The paths the CI gate formats (`.github/workflows/ci.yml`:
@@ -821,7 +969,7 @@ mod tests {
 
         assert_eq!(outcome.checked, 2);
         let w141: Vec<_> = outcome
-            .config_diagnostics
+            .diagnostics
             .iter()
             .filter(|d| d.is(codes::W141))
             .collect();

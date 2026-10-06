@@ -31,6 +31,7 @@ behavior format_spec_files "Format Spec Files" {
     unchanged_files_preserved "files already in canonical format are not rewritten"
     format_complete_emitted   "format_complete event is produced after successful formatting"
     summary_printed           "names of changed files and a summary count are printed"
+    exit_code_reported        "exit code is 1 when a file cannot be read or written, or has a region left unformatted; 0 otherwise"
   }
   contract   """
     When specforge format is invoked with file paths or a project directory,
@@ -38,11 +39,15 @@ behavior format_spec_files "Format Spec Files" {
     apply formatting rules, and write the formatted output back to disk.
     Files that are already correctly formatted MUST NOT be rewritten.
     The command MUST print the names of changed files and a summary count.
+    A file that cannot be read or written, or that has a region left
+    unformatted (format_with_parse_errors), MUST make the command exit with
+    code 1; every other file is still formatted and written.
   """
   verify unit "files matching the canonical format are not rewritten"
   verify unit "changed files are printed to stdout"
   verify unit "summary count reflects actual changes"
   verify integration "formatting all files in spec/ directory succeeds"
+  verify unit "a region left unformatted makes the run exit 1, the rest of the file still written"
   verify contract "Format Spec Files: spec file formatting holds — spec_files_available, format_config_loaded, formatted_output_written, unchanged_files_preserved, format_complete_emitted, summary_printed"
 }
 
@@ -97,18 +102,22 @@ behavior check_formatting "Check Formatting Without Modifying Files" {
   }
   ensures {
     no_files_written          "no files are written to disk in check mode"
-    exit_code_correct         "exit code is 0 when all files are formatted, 1 when any would change"
+    exit_code_correct         "exit code is 0 when every file is read and in canonical form; 1 when any would change, cannot be read, or has a region left unformatted"
     unformatted_paths_printed "file paths of unformatted files are printed to stdout"
   }
   contract   """
     When specforge format --check is invoked, the system MUST compare
     what would be formatted against existing files on disk. If any file
     would change, the command MUST exit with code 1 and print the file
-    paths. The system MUST NOT write any files in check mode.
+    paths. The system MUST NOT write any files in check mode. A file that
+    cannot be read, or that has a region left unformatted
+    (format_with_parse_errors), MUST also make the check exit with code 1.
   """
   verify unit "already formatted files exit with code 0"
   verify unit "unformatted files exit with code 1"
   verify unit "check mode writes no files to disk"
+  verify unit "a file that cannot be read makes the check fail"
+  verify unit "a region left unformatted makes the check fail"
   verify contract "Check Formatting Without Modifying Files: formatting check holds — spec_files_available, format_config_loaded, no_files_written, exit_code_correct, unformatted_paths_printed"
 }
 
@@ -176,9 +185,12 @@ behavior format_from_stdin "Format from Standard Input" {
     guarantees (idempotency, consistency, comment preservation) apply as
     for file-based formatting. In stdin mode, the format_complete event
     MUST set filesChecked=1 and filesChanged to 0 (input already canonical)
-    or 1 (formatting applied).
+    or 1 (formatting applied). When the input has a region left
+    unformatted, the formatted text MUST still be printed and the command
+    MUST exit with code 1.
   """
   verify unit "stdin content is formatted and written to stdout"
+  verify unit "stdin with a region left unformatted prints the formatted text and exits 1"
   verify unit "stdin mode does not read or write files"
   verify property "stdin formatting is idempotent"
   verify property "stdin formatting converges to canonical form"

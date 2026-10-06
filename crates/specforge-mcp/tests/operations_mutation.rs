@@ -234,22 +234,37 @@ fn server_with_canonical_and(extra: (&str, &str)) -> (Served, std::path::PathBuf
     (server, root)
 }
 
-/// Pin (plan 03): today's behaviour; flipped by T8.
-#[test]
-fn format_reports_a_parse_error_file_clean() {
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "a file with a region left unformatted is not reported clean, and its W142 is returned"
+)]
+fn format_does_not_report_a_parse_error_file_clean() {
     let broken = "behavior login \"Login\" {\n  contract \"ok\"\n}\n\n}}}\n";
     let (mut server, _root) = server_with_canonical_and(("broken.spec", broken));
 
     let parsed = format_result(&mut server, json!({"check": true}));
 
-    assert_eq!(parsed["all_clean"], true, "{parsed}");
-    assert_eq!(parsed["diagnostics"], json!([]), "{parsed}");
+    assert_eq!(parsed["all_clean"], false, "{parsed}");
+    assert_eq!(parsed["changed_files"], json!([]), "{parsed}");
+    let diagnostics = parsed["diagnostics"].as_array().unwrap();
+    assert_eq!(diagnostics.len(), 1, "{parsed}");
+    assert_eq!(diagnostics[0]["code"], "W142", "{parsed}");
+    assert!(
+        diagnostics[0]["file"]
+            .as_str()
+            .unwrap()
+            .ends_with("broken.spec"),
+        "{parsed}"
+    );
+    assert_eq!(diagnostics[0]["line"], 5, "{parsed}");
 }
 
-/// Pin (plan 03): today's behaviour; flipped by T8.
 #[cfg(unix)]
-#[test]
-fn format_skips_an_unreadable_file_silently() {
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "a file that cannot be read fails the call, is named, and does not stop the others"
+)]
+fn format_fails_on_an_unreadable_file_and_names_it() {
     use std::os::unix::fs::PermissionsExt;
     let other = CANONICAL.replace("messy", "other");
     let (mut server, root) = server_with_canonical_and(("locked.spec", &other));
@@ -259,11 +274,25 @@ fn format_skips_an_unreadable_file_silently() {
     let resp = call_tool(&mut server, "specforge.format", json!({"check": true}));
     std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o644)).unwrap();
 
-    let parsed: Value =
-        serde_json::from_str(&tool_text(&resp)).unwrap_or_else(|_| panic!("{resp}"));
-    assert_eq!(parsed["all_clean"], true, "{parsed}");
-    // test.spec and a.spec: the locked file is not counted.
-    assert_eq!(parsed["total_checked"], 2, "{parsed}");
+    let error = crate::tool_errors::mcp_error(&resp);
+    assert_eq!(error["code"], "internal_error", "{error}");
+    let data = &error["data"];
+    let failed = data["failed_files"].as_array().unwrap();
+    assert_eq!(failed.len(), 1, "{data}");
+    assert!(
+        failed[0].as_str().unwrap().ends_with("locked.spec"),
+        "{data}"
+    );
+    assert!(
+        data["message"]
+            .as_str()
+            .unwrap()
+            .starts_with("failed to read"),
+        "{data}"
+    );
+    assert_eq!(data["all_clean"], false, "{data}");
+    // test.spec and a.spec were still checked.
+    assert_eq!(data["total_checked"], 2, "{data}");
 }
 
 // --- specforge.rename ---

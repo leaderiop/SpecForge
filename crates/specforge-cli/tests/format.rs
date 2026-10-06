@@ -349,7 +349,7 @@ fn format_integration_all_spec_files_in_directory() {
     .unwrap();
     fs::write(
         root.join("spec").join("main.spec"),
-        "use behaviors/auth\nuse types/core\n",
+        "use \"behaviors/auth\"\nuse \"types/core\"\n",
     )
     .unwrap();
 
@@ -580,7 +580,7 @@ fn check_from_a_subdirectory_agrees_with_the_root() {
     );
 }
 
-// --- Pins (plan 03) ---
+// --- Unreadable files and regions left unformatted ---
 
 /// `specforge format --check --path <root>`: exit code and stderr.
 fn check_in(root: &std::path::Path) -> (Option<i32>, String) {
@@ -595,10 +595,12 @@ fn check_in(root: &std::path::Path) -> (Option<i32>, String) {
     )
 }
 
-/// Pin (plan 03): today's behaviour; flipped by T8.
 #[cfg(unix)]
-#[test]
-fn check_exits_zero_on_an_unreadable_file() {
+#[specforge_test(
+    behavior = "check_formatting",
+    verify = "a file that cannot be read makes the check fail"
+)]
+fn check_exits_one_on_an_unreadable_file() {
     use std::os::unix::fs::PermissionsExt;
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -611,23 +613,94 @@ fn check_exits_zero_on_an_unreadable_file() {
     let (code, stderr) = check_in(root);
     fs::set_permissions(&locked, fs::Permissions::from_mode(0o644)).unwrap();
 
-    assert_eq!(code, Some(0), "{stderr}");
-    assert!(stderr.contains("failed to read"), "{stderr}");
+    assert_eq!(code, Some(1), "{stderr}");
+    assert!(stderr.contains("error: failed to read"), "{stderr}");
+    assert!(stderr.contains("locked.spec"), "{stderr}");
 }
 
-/// Pin (plan 03): today's behaviour; flipped by T8.
-#[test]
-fn check_exits_zero_on_a_parse_error() {
-    let tmp = TempDir::new().unwrap();
-    let root = tmp.path();
+/// A project whose only file is canonical, then a stray `}}}`.
+fn project_with_a_kept_region(root: &std::path::Path) -> std::path::PathBuf {
     setup_project(root);
     write_spec(root, "broken.spec", &format!("{CANONICAL_FOO}\n}}}}}}\n"));
+    root.join("spec/broken.spec")
+}
 
-    let (code, stderr) = check_in(root);
+#[specforge_test(
+    behavior = "check_formatting",
+    verify = "a region left unformatted makes the check fail"
+)]
+fn check_exits_one_on_a_region_left_unformatted() {
+    let tmp = TempDir::new().unwrap();
+    project_with_a_kept_region(tmp.path());
 
-    assert_eq!(code, Some(0), "{stderr}");
+    let (code, stderr) = check_in(tmp.path());
+
+    assert_eq!(code, Some(1), "{stderr}");
     assert!(
-        stderr.contains("error region preserved verbatim"),
+        stderr.contains("broken.spec: Parse error at lines 5-5, error region preserved verbatim"),
         "{stderr}"
+    );
+}
+
+#[specforge_test(
+    behavior = "check_formatting",
+    verify = "a region left unformatted makes the check fail"
+)]
+fn diff_exits_one_on_a_region_left_unformatted() {
+    let tmp = TempDir::new().unwrap();
+    project_with_a_kept_region(tmp.path());
+
+    Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["format", "--diff", "--path", tmp.path().to_str().unwrap()])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("error region preserved verbatim"));
+}
+
+#[specforge_test(
+    behavior = "format_spec_files",
+    verify = "a region left unformatted makes the run exit 1, the rest of the file still written"
+)]
+fn write_exits_one_on_a_region_left_unformatted() {
+    let tmp = TempDir::new().unwrap();
+    let file = project_with_a_kept_region(tmp.path());
+    let misindented = CANONICAL_FOO.replace("  contract", "      contract");
+    fs::write(&file, format!("{misindented}\n}}}}}}\n")).unwrap();
+
+    Command::cargo_bin("specforge")
+        .unwrap()
+        .args(["format", "--path", tmp.path().to_str().unwrap()])
+        .assert()
+        .code(1);
+
+    assert_eq!(
+        fs::read_to_string(&file).unwrap(),
+        format!("{CANONICAL_FOO}\n}}}}}}\n"),
+        "the well-formed block is rewritten, the region kept"
+    );
+}
+
+#[specforge_test(
+    behavior = "format_from_stdin",
+    verify = "stdin with a region left unformatted prints the formatted text and exits 1"
+)]
+fn stdin_exits_one_on_a_region_left_unformatted() {
+    let tmp = TempDir::new().unwrap();
+    setup_project(tmp.path());
+    let misindented = CANONICAL_FOO.replace("  contract", "      contract");
+
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .current_dir(tmp.path())
+        .args(["format", "--stdin"])
+        .write_stdin(format!("{misindented}\n}}}}}}\n"))
+        .output()
+        .unwrap();
+
+    assert_eq!(output.status.code(), Some(1));
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        format!("{CANONICAL_FOO}\n}}}}}}\n")
     );
 }

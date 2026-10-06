@@ -93,12 +93,23 @@ pub struct FormatArgs {
     write: Option<bool>,
 }
 
+impl FormatArgs {
+    /// Whether the call writes or only reports: `specforge format`'s one
+    /// reading of check, diff and write.
+    pub(crate) fn mode(&self) -> specforge_ops::format::Mode {
+        specforge_ops::format::Mode::of_flags(
+            self.check.unwrap_or(false),
+            self.diff.unwrap_or(false),
+            self.write,
+        )
+    }
+}
+
 pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> Handled {
     use specforge_ops::format::{self, Mode, Request};
 
-    let check = args.check.unwrap_or(false);
     let diff = args.diff.unwrap_or(false);
-    let write = args.write.unwrap_or(!check && !diff);
+    let mode = args.mode();
 
     // The project the call formats: the served one, or the one `path`
     // names; its config decides what is formatted.
@@ -113,7 +124,6 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> Handled {
     // The run `specforge format` makes. Relative paths name files under
     // the project root.
     let explicit: Vec<PathBuf> = args.paths.iter().map(|p| project_root.join(p)).collect();
-    let mode = if write { Mode::Write } else { Mode::Check };
     let outcome = format::run(&Request {
         root: &project_root,
         paths: &explicit,
@@ -122,13 +132,12 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> Handled {
 
     let shown = |path: &std::path::Path| path.display().to_string();
     let changed_files: Vec<String> = outcome.changes.iter().map(|c| shown(&c.path)).collect();
-    let failed_files: Vec<String> = outcome.write_failures().map(|c| shown(&c.path)).collect();
     let mut result = json!({
         "changed_files": changed_files,
         "total_checked": outcome.checked,
-        "all_clean": outcome.changes.is_empty(),
-        "check_only": !write,
-        "diagnostics": specforge_common::diagnostics_json(&outcome.config_diagnostics),
+        "all_clean": outcome.clean(),
+        "check_only": mode == Mode::Check,
+        "diagnostics": specforge_common::diagnostics_json(&outcome.diagnostics),
     });
     if diff {
         let diffs: Vec<Value> = outcome
@@ -148,26 +157,24 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> Handled {
             .collect();
         result["diffs"] = Value::from(diffs);
     }
-    if failed_files.is_empty() {
+    if outcome.succeeded() {
         return Ok(ok(result));
     }
 
-    // Every other file was still formatted; the call failed for these.
-    let reasons: Vec<String> = outcome
-        .write_failures()
-        .map(|c| {
-            format!(
-                "failed to write {}: {}",
-                shown(&c.path),
-                c.write_error.as_deref().unwrap_or_default()
-            )
-        })
-        .collect();
+    // Every other file was still formatted; the call failed for these
+    // (read or write).
+    let reasons: Vec<String> = outcome.failures.iter().map(ToString::to_string).collect();
     result["message"] = Value::from(reasons.join("; "));
-    result["failed_files"] = Value::from(failed_files);
+    result["failed_files"] = Value::from(
+        outcome
+            .failures
+            .iter()
+            .map(|f| shown(f.path()))
+            .collect::<Vec<_>>(),
+    );
     // What was written is on disk: the project is brought up to date with
     // it, as a successful run's is.
-    if outcome.changes.iter().any(|c| c.written(mode)) {
+    if outcome.written().next().is_some() {
         call.wrote();
     }
     let message = result["message"].as_str().unwrap_or_default().to_string();
