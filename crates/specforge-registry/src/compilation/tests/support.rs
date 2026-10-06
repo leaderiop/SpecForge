@@ -1,5 +1,6 @@
-//! Declarations the registry's tests build from, with the SDK's builders,
-//! as an extension declares itself.
+//! Declarations the registry's engine tests build from, with the SDK's
+//! builders, as an extension declares itself, and the one way they reach
+//! the registries: `registries`, which is `build_registries`.
 
 use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;
@@ -17,15 +18,6 @@ pub(crate) fn declare(
     let mut c = extension(name);
     f(&mut c);
     c.declaration()
-}
-
-/// A required peer dependency on `name` in `version`.
-pub(crate) fn peer(name: &str, version: &str) -> PeerDependency {
-    PeerDependency {
-        name: name.to_string(),
-        version: version.to_string(),
-        optional: false,
-    }
 }
 
 /// `@specforge/software`: the testable `behavior` (enforcing `invariant`s
@@ -62,4 +54,9 @@ pub(crate) fn software() -> ExtensionDeclaration {
                 .edge_style("dashed");
         });
     })
+}
+
+/// The registry build of `declarations`, in this load order.
+pub(crate) fn registries(declarations: &[ExtensionDeclaration]) -> crate::RegistryBuild {
+    crate::build_registries(declarations.to_vec())
 }

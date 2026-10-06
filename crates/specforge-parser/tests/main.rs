@@ -5,3 +5,4 @@ mod guide_spec_blocks;
 mod methods_test;
 mod parse_test;
 mod snapshot_tests;
+mod structural_keywords;

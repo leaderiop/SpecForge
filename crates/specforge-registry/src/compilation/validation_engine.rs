@@ -1448,8 +1448,9 @@ mod tests {
         assert_eq!(diags[0].severity, Severity::Warning);
     }
 
-    // -- B:register_extension_validation_rules --
-    // These are tested in validate.rs (register_validation_rules). Adding cross-refs.
+    // -- Rule collection --
+    // The build's rule set is tested through build_registries
+    // (tests/build/rules.rs); these test the parsing step under it.
 
     // verify unit "rules from multiple extensions are collected"
     #[test]
@@ -1469,14 +1470,12 @@ mod tests {
         assert_eq!(patterns.len(), 2);
     }
 
-    // verify unit "duplicate codes across extensions produce warning"
-    // (Already tested in validate.rs::test_duplicate_codes_across_extensions_produce_warning)
-    // This test verifies at the validation_engine level.
+    // Duplicate codes across extensions (W023) are the build's
+    // (tests/build/rules.rs); parsing keeps both rules.
     #[test]
     fn test_duplicate_codes_warning_in_engine() {
-        // Duplicate codes are detected by register_validation_rules in validate.rs,
-        // not in parse_all_rule_patterns. This is by design — parsing accepts all,
-        // deduplication is a separate concern.
+        // Duplicate codes are reported by the build (W023, duplicate_rule_codes),
+        // not by parse_all_rule_patterns: parsing accepts all.
         let rules = vec![
             (
                 "@ext/a".to_string(),
@@ -1488,7 +1487,7 @@ mod tests {
             ),
         ];
         let (patterns, _) = parse_all_rule_patterns(&rules);
-        // Both are parsed — duplicate detection is in validate.rs
+        // Both are parsed: the build reports the duplicate.
         assert_eq!(patterns.len(), 2);
     }
 

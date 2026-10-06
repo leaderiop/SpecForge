@@ -2,9 +2,6 @@
 //! and the one way they reach the registries: `build`, which is
 //! `build_registries`. No test names a step.
 
-// The tests that read each helper move here ticket by ticket (plan 08).
-#![allow(dead_code)]
-
 use specforge_common::{Diagnostic, SourceSpan, Sym};
 use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;

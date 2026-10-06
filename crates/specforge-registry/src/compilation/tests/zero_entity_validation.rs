@@ -11,9 +11,9 @@
 use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::{FieldConstraintDescriptor, ValidationRuleDescriptor};
+use specforge_registry::RegistryBuild;
 use specforge_registry::compilation::EntityView;
-use specforge_registry::compilation::populate::populate;
-use specforge_registry::compilation::tests::support::software;
+use specforge_registry::compilation::tests::support::{registries, software};
 use specforge_registry::validation_engine::{
     CustomVerdict, ValidationEntity, ValidationPatternKind, ValidationRulePattern,
     WasmValidationRuntime, execute_pattern, interpolate_template, parse_all_rule_patterns,
@@ -691,7 +691,11 @@ fn custom_pattern_failure_emits_configured_diagnostic() {
     verify = "unregistered field name produces W020"
 )]
 fn unregistered_field_name_produces_w020() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     let entities =
         vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["unknown_field"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
@@ -709,7 +713,11 @@ fn unregistered_field_name_produces_w020() {
     verify = "W020 includes field name, entity kind, and source span"
 )]
 fn w020_includes_field_name_entity_kind_and_source_span() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     let s = SourceSpan {
         file: Sym::new("my.spec"),
         start_line: 5,
@@ -739,7 +747,11 @@ fn w020_includes_field_name_entity_kind_and_source_span() {
     verify = "expression is checked like any other field (W020 where undeclared)"
 )]
 fn expression_is_checked_like_any_other_field() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     // software's invariant and behavior declare no `expression`; without an
     // extension that declares it (formal enhances invariant), it is W020.
     let entities = vec![
@@ -783,7 +795,11 @@ fn expression_is_checked_like_any_other_field() {
     verify = "registered field name does not produce W020"
 )]
 fn registered_field_name_does_not_produce_w020() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     let entities =
         vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["contract"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
@@ -797,7 +813,11 @@ fn registered_field_name_does_not_produce_w020() {
     verify = "structural fields (title, verify) not checked against FieldRegistry"
 )]
 fn structural_fields_not_checked_against_field_registry() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     let entities =
         vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["title", "verify"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
@@ -811,7 +831,11 @@ fn structural_fields_not_checked_against_field_registry() {
     verify = "verify on a kind no extension made testable produces W020"
 )]
 fn verify_on_non_testable_kind_produces_w020() {
-    let (mut kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: mut kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     kind_reg.get_mut("behavior").unwrap().supports_verify = false;
     let entities =
         vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["title", "verify"])];
@@ -834,7 +858,11 @@ fn verify_on_non_testable_kind_produces_w020() {
     verify = "field validation skipped when entity kind is unregistered"
 )]
 fn field_validation_skipped_when_entity_kind_is_unregistered() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     let entities = vec![
         EntityView::new("nonexistent_kind", "x1", pinned(span())).with_fields(&["some_field"]),
     ];
@@ -852,7 +880,11 @@ fn field_validation_skipped_when_entity_kind_is_unregistered() {
     verify = "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, unknown_fields_diagnosed, cascading_avoided"
 )]
 fn detect_unknown_entity_fields_contract() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     // ensures: unknown field → W020
     let e1 =
         vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["unknown_field"])];

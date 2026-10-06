@@ -1,7 +1,9 @@
 //! Registry compilation: the loaded declarations in, everything the
 //! compiler derives from them out (ADR 0012). [`build_registries`] is
-//! the one entry point and owns the step order; the checks a built graph
-//! runs take [`EntityView`]s. The steps themselves are private.
+//! the one entry point: it owns the step order, and it is what every
+//! test calls. The steps (declaration checks, populate, rules) are
+//! private and free to change. The checks a built graph runs take
+//! [`EntityView`]s.
 
 mod build;
 mod declaration;
@@ -24,5 +26,6 @@ pub use provider::{
     load_provider_configurations, register_provider_schemes, register_provider_schemes_with_status,
 };
 
+// The rule engine's tests, until plan 02 moves them to tests/.
 #[cfg(test)]
 mod tests;
