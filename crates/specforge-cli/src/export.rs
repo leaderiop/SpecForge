@@ -5,7 +5,6 @@ use specforge_ops::view::ProjectView;
 use std::path::Path;
 
 use crate::pipeline;
-use crate::{ExportFormat, SchemaFormat};
 
 /// Export the project compiled at `path` to stdout. Before it writes, the
 /// schema the extensions produce is compared with the one the previous
@@ -17,7 +16,7 @@ use crate::{ExportFormat, SchemaFormat};
 /// is written whatever the comparison finds.
 pub fn run(
     path: &Path,
-    format: ExportFormat,
+    format: export::Format,
     scope: Option<&str>,
     schema: export::Schema,
     schema_version: Option<&str>,
@@ -35,12 +34,6 @@ pub fn run(
         eprintln!("{}", render_plain(diagnostic));
     }
 
-    let format = match format {
-        ExportFormat::Graph => export::Format::Graph,
-        ExportFormat::Brief => export::Format::Brief,
-        ExportFormat::Context => export::Format::Context,
-        ExportFormat::Dot => export::Format::Dot,
-    };
     let request = export::Request {
         format: Some(format),
         scope,
@@ -96,19 +89,14 @@ pub(crate) fn render_op_error(error: &specforge_ops::OpError) -> String {
 /// `path`, versioned as the next export would be (the cache is only
 /// read). `--kind` prints that kind's entry; an unknown kind is refused
 /// with the closest one (exit 1).
-pub fn run_schema(path: &Path, kind: Option<&str>, publish: bool, format: SchemaFormat) -> i32 {
+pub fn run_schema(path: &Path, kind: Option<&str>, publish: bool, format: export::Format) -> i32 {
     let (project, _runtime) = pipeline::compile_project(path);
     let view = ProjectView::of(&project);
 
     if publish {
-        let emit_format = match format {
-            SchemaFormat::Context => specforge_emitter::EmitFormat::Context,
-            SchemaFormat::Brief => specforge_emitter::EmitFormat::Brief,
-            SchemaFormat::Graph => specforge_emitter::EmitFormat::Json,
-        };
         let output = match specforge_emitter::publish_json_schema_format(
             &view.versioned_schema(),
-            emit_format,
+            format.emit_format(),
         ) {
             Ok(out) => out,
             Err(err) => {

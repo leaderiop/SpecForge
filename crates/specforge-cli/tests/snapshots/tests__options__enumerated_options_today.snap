@@ -3,27 +3,27 @@ source: crates/specforge-cli/tests/options.rs
 expression: "sections.join(\"\\n\")"
 ---
 ## export format
-cli -h: --format <FORMAT> Output format: graph, brief, context, or dot [default: graph] [possible values: graph, brief, context, dot]
+cli -h: --format <FORMAT> Output format [default: graph] [possible values: graph, context, brief, dot]
 mcp schema: enum ["graph","context","brief"] default "graph"
-default: cli=graph mcp=graph = json
+default: cli=graph = json mcp=graph = json
 graph                        cli=0   mcp=ok
 context                      cli=0   mcp=ok
 brief                        cli=0   mcp=ok
 dot                          cli=0   mcp=refused: invalid_input: Unknown format: dot. Expected: graph, context, brief
-json                         cli=2   mcp=ok
+json                         cli=0   mcp=ok
 yaml                         cli=2   mcp=refused: invalid_input: Unknown format: yaml. Expected: graph, context, brief
 
 ## schema publish format
 cli -h: --format <FORMAT> Export format the published schema should describe [default: graph] [possible values: graph, context, brief]
-default: cli=graph
+default: cli=graph = json
 graph                        cli=0   mcp=-
 context                      cli=0   mcp=-
 brief                        cli=0   mcp=-
 dot                          cli=2   mcp=-
-json                         cli=2   mcp=-
+json                         cli=0   mcp=-
 
 ## model format
-cli -h: --format <FORMAT> Output format: markdown (default), mermaid, dot, json, dbml [default: markdown] [possible values: markdown, mermaid, dot, json, dbml]
+cli -h: --format <FORMAT> Output format [default: markdown] [possible values: markdown, mermaid, dot, json, dbml]
 mcp schema: enum ["markdown","mermaid","dot","json","dbml"] default null
 default: cli=markdown mcp=markdown
 markdown                     cli=0   mcp=ok
@@ -34,7 +34,7 @@ dbml                         cli=0   mcp=ok
 svg                          cli=2   mcp=refused: invalid_input: Unknown format: svg. Expected: markdown, mermaid, dot, json, dbml
 
 ## model group_by
-cli -h: --group-by <GROUP_BY> Group entities by: extension (default), none [default: extension] [possible values: extension, none]
+cli -h: --group-by <GROUP_BY> How to group entities [default: extension] [possible values: extension, none]
 mcp schema: enum ["extension","none"] default null
 default: cli=extension mcp=extension
 extension                    cli=0   mcp=ok
@@ -42,7 +42,7 @@ none                         cli=0   mcp=ok
 flat                         cli=2   mcp=refused: invalid_input: Unknown group_by: flat. Expected: extension, none
 
 ## model fields
-cli -h: --fields <FIELDS> Field detail level: none, keys (default), all [default: keys] [possible values: none, keys, all]
+cli -h: --fields <FIELDS> Field detail level [default: keys] [possible values: none, keys, all]
 mcp schema: enum ["none","keys","all"] default null
 default: cli=keys mcp=keys
 none                         cli=0   mcp=ok
@@ -51,7 +51,7 @@ all                          cli=0   mcp=ok
 some                         cli=2   mcp=refused: invalid_input: Unknown fields: some. Expected: none, keys, all
 
 ## outline format
-cli -h: --format <FORMAT> Output format: markdown (default), mermaid, dot, json [default: markdown] [possible values: markdown, mermaid, dot, json]
+cli -h: --format <FORMAT> Output format [default: markdown] [possible values: markdown, mermaid, dot, json]
 mcp schema: enum ["markdown","mermaid","dot","json"] default null
 default: cli=markdown mcp=markdown
 markdown                     cli=0   mcp=ok
@@ -61,7 +61,7 @@ json                         cli=0   mcp=ok
 svg                          cli=2   mcp=refused: invalid_input: Unknown format: svg. Expected: markdown, mermaid, dot, json
 
 ## outline fields
-cli -h: --fields <FIELDS> Detail level: none (overview only), keys (default), all (full field attribution) [default: keys] [possible values: none, keys, all]
+cli -h: --fields <FIELDS> Detail level [default: keys] [possible values: none, keys, all]
 mcp schema: enum ["none","keys","all"] default null
 default: cli=keys mcp=keys
 none                         cli=0   mcp=ok
@@ -69,7 +69,7 @@ keys                         cli=0   mcp=ok
 all                          cli=0   mcp=ok
 
 ## outline deps
-cli -h: --deps <DEPS> Dependency visibility: direct (declared only), effective (direct + used transitive), full (all transitive) [default: direct] [possible values: direct, effective, full]
+cli -h: --deps <DEPS> Dependency visibility [default: direct] [possible values: direct, effective, full]
 mcp schema: enum ["direct","effective","full"] default null
 default: cli=direct = effective mcp=direct = effective
 direct                       cli=0   mcp=ok
