@@ -127,7 +127,7 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Navigation**: where an entity is declared, its references, entity lookup and ranking, which
   entities a diagnostic is about, and the fixes a diagnostic's data names. The LSP and MCP answer
   from one module (`specforge_ops::navigate`) in source spans. The LSP converts them to UTF-16
-  ranges, MCP renders them as JSON (ADR 0016).
+  ranges through each text's line index, MCP renders them as JSON (ADR 0016, ADR 0023).
 - **Proof role**: what a field's value is to the prove pass, declared by its extension
   (`proof_role`): a **bound** the solver assumes (bounds must be consistent, E046) or a **claim**
   that must follow from the bounds (W139 when not; an entailed claim is a proved claim). A field

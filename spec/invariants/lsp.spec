@@ -65,7 +65,10 @@ invariant lsp_utf16_positions "LSP UTF-16 Positions" {
     Every position the LSP receives or returns MUST count columns in UTF-16
     code units, as the Language Server Protocol requires, so non-ASCII text
     before the cursor never shifts the word, range or edit it resolves to.
+    One line index per text converts byte offsets and UTF-16 positions,
+    both ways; nothing else in the LSP converts them (ADR 0023).
   """
   risk      medium
+  verify unit "the line index converts byte columns to UTF-16 and back on every line"
   verify unit "word_at_position extracts words using utf16 columns"
 }

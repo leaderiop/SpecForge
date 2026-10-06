@@ -72,7 +72,11 @@ fn diagnostics_appear_within_latency_budget() {
     let start = Instant::now();
 
     // Simulate the diagnostic pipeline: apply change + set diagnostics
-    state.apply_change("file:///a.spec", 1, 7, 1, 18, "also_missing");
+    state.apply_change(
+        "file:///a.spec",
+        Some(crate::lsp_range(1, 7, 1, 18)),
+        "also_missing",
+    );
     state.set_diagnostics(
         "file:///a.spec",
         vec![Diagnostic {

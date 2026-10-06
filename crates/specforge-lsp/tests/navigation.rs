@@ -6,7 +6,7 @@ use specforge_common::{SourceSpan, Sym};
 use specforge_test_macros::test as spec;
 use std::fs;
 
-// -- source_span_to_lsp_range (1-based → 0-based conversion) -----------------
+// -- LineIndex::range (1-based → 0-based conversion) --------------------------
 
 #[spec(
     behavior = "go_to_definition",
@@ -21,12 +21,11 @@ fn source_span_converts_1based_to_0based() {
         end_line: 5,
         end_col: 2,
     };
-    let lsp = specforge_lsp::source_span_to_lsp_range(&span);
+    let text = "a\nb\nline three\nd\n}}\n";
+    let lsp = specforge_lsp::LineIndex::new(text).range(&span);
     // LSP protocol uses 0-based
-    assert_eq!(lsp.start_line, 2);
-    assert_eq!(lsp.start_col, 0);
-    assert_eq!(lsp.end_line, 4);
-    assert_eq!(lsp.end_col, 1);
+    assert_eq!((lsp.start.line, lsp.start.character), (2, 0));
+    assert_eq!((lsp.end.line, lsp.end.character), (4, 1));
 }
 
 #[spec(
@@ -42,9 +41,9 @@ fn source_span_zero_saturates() {
         end_line: 0,
         end_col: 0,
     };
-    let lsp = specforge_lsp::source_span_to_lsp_range(&span);
-    assert_eq!(lsp.start_line, 0);
-    assert_eq!(lsp.start_col, 0);
+    let lsp = specforge_lsp::LineIndex::new("type token {}\n").range(&span);
+    assert_eq!((lsp.start.line, lsp.start.character), (0, 0));
+    assert_eq!((lsp.end.line, lsp.end.character), (0, 0));
 }
 
 // -- goto_import_definition ---------------------------------------------------

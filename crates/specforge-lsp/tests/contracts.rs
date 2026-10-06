@@ -934,23 +934,23 @@ fn go_to_definition_contract() {
 fn incremental_document_sync_contract() {
     // Requires: LSP initialized with INCREMENTAL sync, document open
     // Ensures: buffer consistent after partial update; only changed range applied
-    let mut buf = specforge_lsp::DocumentBuffer::new(
+    let mut buf = specforge_lsp::Document::new(
         "file:///test.spec".into(),
         "behavior foo \"Foo\" {\n  contract \"old\"\n}\n".into(),
     );
 
     // Apply partial change: only replace "old" with "new"
-    buf.apply_change(1, 12, 1, 15, "new");
+    buf.apply_change(Some(crate::lsp_range(1, 12, 1, 15)), "new");
     assert_eq!(
-        buf.content(),
+        buf.text(),
         "behavior foo \"Foo\" {\n  contract \"new\"\n}\n",
         "buffer must reflect incremental change"
     );
 
     // Apply another partial change at a different location
-    buf.apply_change(0, 9, 0, 12, "bar");
+    buf.apply_change(Some(crate::lsp_range(0, 9, 0, 12)), "bar");
     assert_eq!(
-        buf.content(),
+        buf.text(),
         "behavior bar \"Foo\" {\n  contract \"new\"\n}\n",
         "buffer must reflect second incremental change"
     );

@@ -1,7 +1,9 @@
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
+use specforge_lsp::LineIndex;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test_macros::test as spec;
+use tower_lsp::lsp_types::Position;
 
 fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
     Node {
@@ -502,7 +504,12 @@ fn hovering_a_diagnostic_shows_the_catalogue_entry() {
         15,
     )];
 
-    let md = specforge_lsp::diagnostic_hover(&diagnostics, content, 1, 11).unwrap();
+    let md = specforge_lsp::diagnostic_hover(
+        &diagnostics,
+        &LineIndex::new(content),
+        Position::new(1, 11),
+    )
+    .unwrap();
     assert_eq!(
         md,
         "**E003** · Unresolved reference\n\nunresolved reference 'ghost'\n\n\
@@ -513,7 +520,11 @@ fn hovering_a_diagnostic_shows_the_catalogue_entry() {
     );
     // Outside the range, nothing.
     assert_eq!(
-        specforge_lsp::diagnostic_hover(&diagnostics, content, 0, 3),
+        specforge_lsp::diagnostic_hover(
+            &diagnostics,
+            &LineIndex::new(content),
+            Position::new(0, 3)
+        ),
         None
     );
 }
@@ -527,7 +538,12 @@ fn an_uncatalogued_diagnostic_hover_shows_code_and_message() {
     // E901 is a third-party extension's code.
     let diagnostics = [diagnostic_at("E901", "acme says no", 2, 10, 15)];
     assert_eq!(
-        specforge_lsp::diagnostic_hover(&diagnostics, content, 1, 12).as_deref(),
+        specforge_lsp::diagnostic_hover(
+            &diagnostics,
+            &LineIndex::new(content),
+            Position::new(1, 12)
+        )
+        .as_deref(),
         Some("**E901**\n\nacme says no")
     );
 }

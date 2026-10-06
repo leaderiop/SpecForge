@@ -10,23 +10,21 @@ use tower_lsp::{Client, LanguageServer};
 
 use specforge_project::{CheckMode, ProjectSession, SourceChange, UpdateKind};
 
+use crate::document::{Document, LineIndex};
 use crate::navigation::{
-    byte_position, file_content, fix_to_code_action, location, navigator,
-    outline_to_document_symbols, range, span_of_range, symbol_kind_from_entity, uri_of,
+    Ranges, fix_to_code_action, navigator, outline_to_document_symbols, symbol_kind_from_entity,
+    uri_of,
 };
 use crate::{
     LspState, classify_tokens, complete_keywords, cursor_context, goto_import_definition,
     hover_field_info, hover_info_with_registries, server_capabilities, server_info,
-    source_span_to_lsp_range, source_span_to_lsp_range_with_text,
 };
+use specforge_common::{SourceSpan, Sym};
 use specforge_ops::navigate::{
     Direction, EntityQuery, FixQuery, MatchScope, ReferenceQuery, find_entities, outline,
 };
 
 use crate::formatting::{EditorOptions, format_document, format_document_range};
-
-use crate::document::utf16_col_to_byte_offset;
-use crate::{byte_col_to_utf16, utf16_len};
 
 pub struct Backend {
     client: Client,
@@ -199,7 +197,7 @@ impl Backend {
             let buffer = |uri: &str| {
                 let doc = st.document(uri)?;
                 let url = Url::parse(uri).ok()?;
-                Some((uri_to_file_path(&url), doc.content().to_string()))
+                Some((uri_to_file_path(&url), doc.text().to_string()))
             };
             let (buffers, edited): (Vec<(String, String)>, Option<Url>) = match &change {
                 Change::Buffer(uri) => (
@@ -365,12 +363,13 @@ impl Backend {
                 .or_else(|| st.open_uris().first().and_then(|uri| Url::parse(uri).ok()));
             let diagnostics = st.session().map(|s| s.diagnostics()).unwrap_or_default();
             let nav = navigator(&st);
+            let ranges = Ranges::new(&st);
             for diagnostic in &diagnostics {
                 let mut related = Vec::new();
                 let placed;
                 let diagnostic = match &diagnostic.span {
                     Some(_) => diagnostic,
-                    None => match place_at_subjects(&st, &nav, diagnostic) {
+                    None => match place_at_subjects(&ranges, &nav, diagnostic) {
                         Some((at, others)) => {
                             related = others;
                             placed = at;
@@ -386,11 +385,7 @@ impl Backend {
                         None => continue,
                     },
                 };
-                let text = diagnostic
-                    .span
-                    .as_ref()
-                    .and_then(|s| file_content(&st, s.file.as_str()));
-                let mut lsp = diagnostic_to_lsp(diagnostic, text.as_deref());
+                let mut lsp = diagnostic_to_lsp(diagnostic, |span| ranges.range(span));
                 if !related.is_empty() {
                     lsp.related_information = Some(related);
                 }
@@ -437,14 +432,14 @@ impl Backend {
 /// and the related information pointing at each other's name. `None`
 /// when its data names no entity the graph holds.
 fn place_at_subjects<F: Fn(&str) -> Option<String>>(
-    state: &LspState,
+    ranges: &Ranges,
     nav: &specforge_ops::navigate::Navigator<'_, F>,
     diagnostic: &specforge_common::Diagnostic,
 ) -> Option<(
     specforge_common::Diagnostic,
     Vec<DiagnosticRelatedInformation>,
 )> {
-    let subjects = specforge_ops::navigate::subjects(state.graph(), diagnostic);
+    let subjects = specforge_ops::navigate::subjects(ranges.state().graph(), diagnostic);
     let (first, others) = subjects.split_first()?;
     let name = |node: &specforge_graph::Node| {
         nav.definition(node.id.raw.as_str())
@@ -458,7 +453,7 @@ fn place_at_subjects<F: Fn(&str) -> Option<String>>(
     let related = others
         .iter()
         .map(|node| DiagnosticRelatedInformation {
-            location: location(state, &name(node)),
+            location: ranges.location(&name(node)),
             message: format!("also about '{}'", node.id.raw),
         })
         .collect();
@@ -468,27 +463,6 @@ fn place_at_subjects<F: Fn(&str) -> Option<String>>(
 /// The session file key of a document.
 fn key_of(state: &LspState, uri: &Url) -> String {
     state.source_key(&uri_to_file_path(uri))
-}
-
-pub fn source_span_to_location(span: &specforge_common::SourceSpan) -> Location {
-    Location {
-        uri: file_path_to_uri(span.file.as_str()),
-        range: source_span_to_range(span),
-    }
-}
-
-pub fn source_span_to_range(span: &specforge_common::SourceSpan) -> Range {
-    let lsp = source_span_to_lsp_range(span);
-    Range {
-        start: Position {
-            line: lsp.start_line,
-            character: lsp.start_col,
-        },
-        end: Position {
-            line: lsp.end_line,
-            character: lsp.end_col,
-        },
-    }
 }
 
 pub fn file_path_to_uri(path: &str) -> Url {
@@ -509,27 +483,12 @@ fn docs_href(code: &str) -> Option<Url> {
     specforge_diagnostics::docs_href(code).and_then(|href| Url::parse(&href).ok())
 }
 
-fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic, content: Option<&str>) -> Diagnostic {
-    let range = diag
-        .span
-        .as_ref()
-        .map(|span| match content {
-            Some(text) => {
-                let lsp = source_span_to_lsp_range_with_text(span, text);
-                Range {
-                    start: Position {
-                        line: lsp.start_line,
-                        character: lsp.start_col,
-                    },
-                    end: Position {
-                        line: lsp.end_line,
-                        character: lsp.end_col,
-                    },
-                }
-            }
-            None => source_span_to_range(span),
-        })
-        .unwrap_or_default();
+/// A diagnostic as the client receives it; `range_of` converts its span.
+fn diagnostic_to_lsp(
+    diag: &specforge_common::Diagnostic,
+    range_of: impl Fn(&SourceSpan) -> Range,
+) -> Diagnostic {
+    let range = diag.span.as_ref().map(range_of).unwrap_or_default();
     Diagnostic {
         range,
         code: Some(NumberOrString::String(diag.code.clone())),
@@ -561,27 +520,30 @@ fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic, content: Option<&str>)
 
 /// Extract the word at a given cursor position from document content.
 pub fn word_at_position(content: &str, line: usize, col: usize) -> Option<String> {
-    let target_line = content.lines().nth(line)?;
-    // `col` arrives as UTF-16 code units (LSP `character`); convert it to a
-    // byte offset within the line before scanning.
-    if col > target_line.chars().map(char::len_utf16).sum::<usize>() {
-        return None;
-    }
-    let col = utf16_col_to_byte_offset(target_line, col);
-    let bytes = target_line.as_bytes();
+    let index = LineIndex::new(content);
+    let (start, end) = word_span(content, &index, line, col)?;
+    Some(content[start..end].to_string())
+}
+
+/// The byte range of the ASCII word under a cursor (UTF-16 `col`).
+fn word_span(content: &str, index: &LineIndex, line: usize, col: usize) -> Option<(usize, usize)> {
+    let offset = index.offset(Position {
+        line: line as u32,
+        character: col as u32,
+    })?;
+    let line_start = index.line_start(line)?;
+    let line_end = index.line_end(line)?;
+    let bytes = content.as_bytes();
     let is_id_char = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
-    let mut start = col;
-    while start > 0 && is_id_char(bytes[start - 1]) {
+    let mut start = offset;
+    while start > line_start && is_id_char(bytes[start - 1]) {
         start -= 1;
     }
-    let mut end = col;
-    while end < bytes.len() && is_id_char(bytes[end]) {
+    let mut end = offset;
+    while end < line_end && is_id_char(bytes[end]) {
         end += 1;
     }
-    if start == end {
-        return None;
-    }
-    Some(target_line[start..end].to_string())
+    (start != end).then_some((start, end))
 }
 
 /// The entity a cursor names: the occurrence (declaration or reference)
@@ -589,46 +551,35 @@ pub fn word_at_position(content: &str, line: usize, col: usize) -> Option<String
 /// that id. With the range of what names it in the document.
 fn entity_at(
     state: &LspState,
+    ranges: &Ranges,
     uri: &Url,
-    content: &str,
+    doc: &Document,
     position: Position,
 ) -> Option<(String, Range)> {
     let nav = navigator(state);
-    let (line, col) = byte_position(content, position)?;
+    let (line, col) = doc.index().source_position(position)?;
     if let Some(occurrence) = nav.occurrence_at(&key_of(state, uri), line, col) {
         return Some((
             occurrence.target.to_string(),
-            range(state, &occurrence.span),
+            ranges.range(&occurrence.span),
         ));
     }
-    let (word, start, end) =
-        word_bounds(content, position.line as usize, position.character as usize)?;
-    state.graph().node(&word)?;
-    let at = |character| Position {
-        line: position.line,
-        character,
-    };
+    let index = doc.index();
+    let (start, end) = word_span(
+        doc.text(),
+        index,
+        position.line as usize,
+        position.character as usize,
+    )?;
+    let word = &doc.text()[start..end];
+    state.graph().node(word)?;
     Some((
-        word,
+        word.to_string(),
         Range {
-            start: at(start),
-            end: at(end),
+            start: index.position(start),
+            end: index.position(end),
         },
     ))
-}
-
-/// The word under a cursor (UTF-16 `col`) and its UTF-16 start and end.
-fn word_bounds(content: &str, line: usize, col: usize) -> Option<(String, u32, u32)> {
-    let word = word_at_position(content, line, col)?;
-    let text = content.lines().nth(line)?;
-    let byte = utf16_col_to_byte_offset(text, col);
-    let bytes = text.as_bytes();
-    let mut start = byte;
-    while start > 0 && (bytes[start - 1].is_ascii_alphanumeric() || bytes[start - 1] == b'_') {
-        start -= 1;
-    }
-    let utf16 = |b: usize| byte_col_to_utf16(text, b) as u32;
-    Some((word.clone(), utf16(start), utf16(start + word.len())))
 }
 
 /// If the line is a `use` import statement, returns the import path portion.
@@ -651,31 +602,18 @@ pub fn import_path_on_line(line: &str) -> Option<&str> {
     if path.is_empty() { None } else { Some(path) }
 }
 
+/// Formatter edits (0-based lines, byte columns of the formatted
+/// document) as LSP edits.
 fn formatter_edits_to_lsp(
     edits: Vec<specforge_formatter::TextEdit>,
-    source: &str,
+    index: &LineIndex,
 ) -> Vec<TextEdit> {
-    // Formatter edit columns are byte offsets into `source`; LSP expects
-    // UTF-16 code units. Convert per line using the formatted document text.
-    let line_texts: Vec<&str> = source.lines().collect();
-    let utf16 = |line: usize, byte_col: usize| -> u32 {
-        line_texts
-            .get(line)
-            .map(|l| byte_col_to_utf16(l, byte_col) as u32)
-            .unwrap_or(0)
-    };
     edits
         .into_iter()
         .map(|e| TextEdit {
             range: Range {
-                start: Position {
-                    line: e.start_line as u32,
-                    character: utf16(e.start_line, e.start_col),
-                },
-                end: Position {
-                    line: e.end_line as u32,
-                    character: utf16(e.end_line, e.end_col),
-                },
+                start: index.position_at(e.start_line, e.start_col),
+                end: index.position_at(e.end_line, e.end_col),
             },
             new_text: e.new_text,
         })
@@ -950,19 +888,7 @@ impl LanguageServer for Backend {
         {
             let mut state = self.state.write().await;
             for change in &params.content_changes {
-                if let Some(range) = change.range {
-                    state.apply_change(
-                        uri.as_str(),
-                        range.start.line as usize,
-                        range.start.character as usize,
-                        range.end.line as usize,
-                        range.end.character as usize,
-                        &change.text,
-                    );
-                } else {
-                    state.close_document(uri.as_str());
-                    state.open_document(uri.as_str(), &change.text);
-                }
+                state.apply_change(uri.as_str(), change.range, &change.text);
             }
             if let Some(doc) = state.document_mut(uri.as_str()) {
                 doc.set_version(params.text_document.version);
@@ -1046,19 +972,15 @@ impl LanguageServer for Backend {
         let pos = params.text_document_position_params.position;
 
         let state = self.state.read().await;
-        let content = match state.document(uri.as_str()) {
-            Some(doc) => doc.content().to_string(),
-            None => return Ok(None),
+        let Some(doc) = state.document(uri.as_str()) else {
+            return Ok(None);
         };
+        let content = doc.text();
 
         // A diagnostic under the cursor comes first: what it means and how
         // to fix it, from the catalogue.
-        let diagnostic_md = crate::hover::diagnostic_hover(
-            state.diagnostics(uri.as_str()),
-            &content,
-            pos.line,
-            pos.character,
-        );
+        let diagnostic_md =
+            crate::hover::diagnostic_hover(state.diagnostics(uri.as_str()), doc.index(), pos);
         let markdown = |md: String| {
             Some(Hover {
                 contents: HoverContents::Markup(MarkupContent {
@@ -1069,7 +991,7 @@ impl LanguageServer for Backend {
             })
         };
 
-        let word = match word_at_position(&content, pos.line as usize, pos.character as usize) {
+        let word = match word_at_position(content, pos.line as usize, pos.character as usize) {
             Some(w) => w,
             None => return Ok(diagnostic_md.and_then(markdown)),
         };
@@ -1090,7 +1012,7 @@ impl LanguageServer for Backend {
             // Fallback: try field hover if word is not an entity ID
             if !field_reg.is_empty() {
                 let entity_kind =
-                    crate::completion::enclosing_entity_kind(&content, pos.line as usize)?;
+                    crate::completion::enclosing_entity_kind(content, pos.line as usize)?;
                 hover_field_info(&word, &entity_kind, field_reg)
             } else {
                 None
@@ -1109,7 +1031,7 @@ impl LanguageServer for Backend {
 
         let state = self.state.read().await;
         let content = match state.document(uri.as_str()) {
-            Some(doc) => doc.content().to_string(),
+            Some(doc) => doc.text().to_string(),
             None => return Ok(None),
         };
 
@@ -1228,12 +1150,13 @@ impl LanguageServer for Backend {
         let pos = params.text_document_position_params.position;
 
         let state = self.state.read().await;
-        let content = match state.document(uri.as_str()) {
-            Some(doc) => doc.content().to_string(),
-            None => return Ok(None),
+        let Some(doc) = state.document(uri.as_str()) else {
+            return Ok(None);
         };
+        let ranges = Ranges::new(&state);
 
-        if let Some(import_path) = content
+        if let Some(import_path) = doc
+            .text()
             .lines()
             .nth(pos.line as usize)
             .and_then(import_path_on_line)
@@ -1245,10 +1168,10 @@ impl LanguageServer for Backend {
                 state.spec_root(),
                 &state.environment().resolve_config(),
             );
-            return Ok(span.map(|s| GotoDefinitionResponse::Scalar(location(&state, &s))));
+            return Ok(span.map(|s| GotoDefinitionResponse::Scalar(ranges.location(&s))));
         }
 
-        let Some((id, origin)) = entity_at(&state, &uri, &content, pos) else {
+        let Some((id, origin)) = entity_at(&state, &ranges, &uri, doc, pos) else {
             return Ok(None);
         };
         let Ok(definition) = navigator(&state).definition(&id) else {
@@ -1258,14 +1181,13 @@ impl LanguageServer for Backend {
             return Ok(Some(GotoDefinitionResponse::Link(vec![LocationLink {
                 origin_selection_range: Some(origin),
                 target_uri: uri_of(&state, definition.block.file.as_str()),
-                target_range: range(&state, &definition.block),
-                target_selection_range: range(&state, &definition.name),
+                target_range: ranges.range(&definition.block),
+                target_selection_range: ranges.range(&definition.name),
             }])));
         }
-        Ok(Some(GotoDefinitionResponse::Scalar(location(
-            &state,
-            &definition.name,
-        ))))
+        Ok(Some(GotoDefinitionResponse::Scalar(
+            ranges.location(&definition.name),
+        )))
     }
 
     /// The references to the entity under the cursor: incoming, its
@@ -1275,11 +1197,11 @@ impl LanguageServer for Backend {
         let pos = params.text_document_position.position;
 
         let state = self.state.read().await;
-        let content = match state.document(uri.as_str()) {
-            Some(doc) => doc.content().to_string(),
-            None => return Ok(None),
+        let Some(doc) = state.document(uri.as_str()) else {
+            return Ok(None);
         };
-        let Some((id, _)) = entity_at(&state, &uri, &content, pos) else {
+        let ranges = Ranges::new(&state);
+        let Some((id, _)) = entity_at(&state, &ranges, &uri, doc, pos) else {
             return Ok(None);
         };
         let query = ReferenceQuery {
@@ -1291,7 +1213,7 @@ impl LanguageServer for Backend {
             return Ok(None);
         }
         Ok(Some(
-            refs.iter().map(|o| location(&state, &o.span)).collect(),
+            refs.iter().map(|o| ranges.location(&o.span)).collect(),
         ))
     }
 
@@ -1303,18 +1225,18 @@ impl LanguageServer for Backend {
         let pos = params.position;
 
         let state = self.state.read().await;
-        let content = match state.document(uri.as_str()) {
-            Some(doc) => doc.content().to_string(),
-            None => return Ok(None),
+        let Some(doc) = state.document(uri.as_str()) else {
+            return Ok(None);
         };
 
         // The token as written under the cursor, declaration or
         // reference; nothing else renames.
-        let Some((line, col)) = byte_position(&content, pos) else {
+        let Some((line, col)) = doc.index().source_position(pos) else {
             return Ok(None);
         };
+        let ranges = Ranges::new(&state);
         let occurrence = navigator(&state).occurrence_at(&key_of(&state, &uri), line, col);
-        Ok(occurrence.map(|o| PrepareRenameResponse::Range(range(&state, &o.span))))
+        Ok(occurrence.map(|o| PrepareRenameResponse::Range(ranges.range(&o.span))))
     }
 
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
@@ -1323,12 +1245,12 @@ impl LanguageServer for Backend {
         let new_name = params.new_name;
 
         let state = self.state.read().await;
-        let content = match state.document(uri.as_str()) {
-            Some(doc) => doc.content().to_string(),
-            None => return Ok(None),
+        let Some(doc) = state.document(uri.as_str()) else {
+            return Ok(None);
         };
+        let ranges = Ranges::new(&state);
 
-        let Some((id, _)) = entity_at(&state, &uri, &content, pos) else {
+        let Some((id, _)) = entity_at(&state, &ranges, &uri, doc, pos) else {
             return Ok(None);
         };
 
@@ -1346,23 +1268,16 @@ impl LanguageServer for Backend {
             std::collections::HashMap::new();
         for edit in edits {
             let file_uri = uri_of(&state, &edit.file);
-            let line_idx = edit.line.saturating_sub(1); // 1-indexed -> 0-indexed
-            let line_text = file_content(&state, &edit.file)
-                .and_then(|text| text.lines().nth(line_idx).map(str::to_string))
-                .unwrap_or_default();
-            let start = byte_col_to_utf16(&line_text, edit.start_col) as u32;
-            let end = byte_col_to_utf16(&line_text, edit.end_col) as u32;
+            // A 1-based line and byte columns of the file's text.
+            let span = SourceSpan {
+                file: Sym::new(&edit.file),
+                start_line: edit.line,
+                start_col: edit.start_col + 1,
+                end_line: edit.line,
+                end_col: edit.end_col + 1,
+            };
             changes.entry(file_uri).or_default().push(TextEdit {
-                range: Range {
-                    start: Position {
-                        line: line_idx as u32,
-                        character: start,
-                    },
-                    end: Position {
-                        line: line_idx as u32,
-                        character: end,
-                    },
-                },
+                range: ranges.range(&span),
                 new_text: new_name.clone(),
             });
         }
@@ -1381,8 +1296,10 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
         let state = self.state.read().await;
         let file = key_of(&state, &uri);
-        let within =
-            file_content(&state, &file).map(|content| span_of_range(&content, &file, params.range));
+        let ranges = Ranges::new(&state);
+        let within = ranges
+            .index_of(&file)
+            .map(|index| index.span(Sym::new(&file), params.range));
         let query = FixQuery {
             file: Some(&file),
             within: within.as_ref(),
@@ -1395,7 +1312,7 @@ impl LanguageServer for Backend {
         Ok(Some(
             fixes
                 .into_iter()
-                .map(|fix| CodeActionOrCommand::CodeAction(fix_to_code_action(&state, fix)))
+                .map(|fix| CodeActionOrCommand::CodeAction(fix_to_code_action(&ranges, fix)))
                 .collect(),
         ))
     }
@@ -1417,7 +1334,7 @@ impl LanguageServer for Backend {
         }
         let hierarchical = self.hierarchical_symbols.load(Ordering::Relaxed);
         Ok(Some(outline_to_document_symbols(
-            &state,
+            &Ranges::new(&state),
             entries,
             hierarchical,
         )))
@@ -1437,13 +1354,14 @@ impl LanguageServer for Backend {
         }
 
         let kind_reg = state.kind_registry();
+        let ranges = Ranges::new(&state);
         #[allow(deprecated)]
         let lsp_symbols: Vec<SymbolInformation> = found
             .into_iter()
             .map(|m| SymbolInformation {
                 // Graph byte columns convert to UTF-16 against the file
                 // text when the file is readable; byte passthrough otherwise.
-                location: location(&state, &m.node.source_span),
+                location: ranges.location(&m.node.source_span),
                 name: m.node.id.raw.to_string(),
                 kind: symbol_kind_from_entity(m.node.kind.raw.as_str(), kind_reg),
                 tags: None,
@@ -1462,9 +1380,8 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
 
         let state = self.state.read().await;
-        let content = match state.document(uri.as_str()) {
-            Some(doc) => doc.content().to_string(),
-            None => return Ok(None),
+        let Some(doc) = state.document(uri.as_str()) else {
+            return Ok(None);
         };
 
         let kind_keywords: Vec<String> = state.kind_registry().keywords().cloned().collect();
@@ -1477,15 +1394,17 @@ impl LanguageServer for Backend {
             .map(|(i, t)| (t.as_str(), i as u32))
             .collect();
 
-        let tokens = classify_tokens(&content, state.kind_registry());
+        let tokens = classify_tokens(doc.text(), state.kind_registry());
 
         // Classification works in byte columns; LSP semantic tokens are
-        // UTF-16. Convert per token against its own line, then delta-encode.
-        let line_texts: Vec<&str> = content.lines().collect();
+        // UTF-16: the document's index converts them, then delta-encode.
+        let index = doc.index();
         let utf16 = |tok: &crate::SemanticToken| -> (u32, u32) {
-            let line_text = line_texts.get(tok.line).copied().unwrap_or("");
-            let start = byte_col_to_utf16(line_text, tok.col) as u32;
-            (start, utf16_len(&tok.text) as u32)
+            let start = index.position_at(tok.line, tok.col).character;
+            let end = index
+                .position_at(tok.line, tok.col + tok.text.len())
+                .character;
+            (start, end - start)
         };
 
         let mut data = Vec::new();
@@ -1524,17 +1443,17 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
 
         let state = self.state.read().await;
-        let content = match state.document(uri.as_str()) {
-            Some(doc) => doc.content().to_string(),
-            None => return Ok(None),
+        let Some(doc) = state.document(uri.as_str()) else {
+            return Ok(None);
         };
+        let content = doc.text();
 
         let editor_opts = EditorOptions {
             tab_size: params.options.tab_size as usize,
             insert_spaces: params.options.insert_spaces,
         };
 
-        let (edits, diags) = format_document(&content, None, None, Some(&editor_opts));
+        let (edits, diags) = format_document(content, None, None, Some(&editor_opts));
 
         if !diags.is_empty() {
             // A publish replaces the document's list: the formatter's
@@ -1543,7 +1462,7 @@ impl LanguageServer for Backend {
                 .diagnostics(uri.as_str())
                 .iter()
                 .chain(&diags)
-                .map(|d| diagnostic_to_lsp(d, Some(&content)))
+                .map(|d| diagnostic_to_lsp(d, |span| doc.index().range(span)))
                 .collect();
             let version = state.document(uri.as_str()).and_then(|d| d.version());
             self.client
@@ -1551,7 +1470,7 @@ impl LanguageServer for Backend {
                 .await;
         }
 
-        Ok(Some(formatter_edits_to_lsp(edits, &content)))
+        Ok(Some(formatter_edits_to_lsp(edits, doc.index())))
     }
 
     async fn range_formatting(
@@ -1562,10 +1481,10 @@ impl LanguageServer for Backend {
         let range = params.range;
 
         let state = self.state.read().await;
-        let content = match state.document(uri.as_str()) {
-            Some(doc) => doc.content().to_string(),
-            None => return Ok(None),
+        let Some(doc) = state.document(uri.as_str()) else {
+            return Ok(None);
         };
+        let content = doc.text();
 
         let editor_opts = EditorOptions {
             tab_size: params.options.tab_size as usize,
@@ -1573,7 +1492,7 @@ impl LanguageServer for Backend {
         };
 
         let (edits, diags) = format_document_range(
-            &content,
+            content,
             range.start.line as usize,
             range.end.line as usize,
             None,
@@ -1588,7 +1507,7 @@ impl LanguageServer for Backend {
                 .diagnostics(uri.as_str())
                 .iter()
                 .chain(&diags)
-                .map(|d| diagnostic_to_lsp(d, Some(&content)))
+                .map(|d| diagnostic_to_lsp(d, |span| doc.index().range(span)))
                 .collect();
             let version = state.document(uri.as_str()).and_then(|d| d.version());
             self.client
@@ -1596,7 +1515,7 @@ impl LanguageServer for Backend {
                 .await;
         }
 
-        Ok(Some(formatter_edits_to_lsp(edits, &content)))
+        Ok(Some(formatter_edits_to_lsp(edits, doc.index())))
     }
 }
 
@@ -1606,7 +1525,7 @@ mod docs_link_tests {
 
     fn href(code: &str) -> Option<String> {
         let diag = specforge_common::Diagnostic::error(code, "message");
-        diagnostic_to_lsp(&diag, None)
+        diagnostic_to_lsp(&diag, |_| Range::default())
             .code_description
             .map(|d| d.href.to_string())
     }

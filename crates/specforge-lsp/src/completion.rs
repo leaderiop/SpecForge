@@ -1,4 +1,6 @@
+use crate::document::LineIndex;
 use specforge_registry::FieldRegistry;
+use tower_lsp::lsp_types::Position;
 
 /// Context about the cursor position within a .spec file.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -29,23 +31,13 @@ pub fn cursor_context(content: &str, line: usize, col: usize) -> Option<CursorCo
     let mut bracket_line: Option<usize> = None;
 
     // First check the current line up to cursor position. `col` arrives as an
-    // LSP UTF-16 code-unit offset; the slice needs a byte offset. Convert by
-    // walking the line's chars, clamping past-end.
+    // LSP UTF-16 code-unit offset; the slice needs a byte offset, clamped
+    // to the line.
     let current_line = lines[line];
-    let mut scan_end = current_line.len();
-    let mut units_left = col;
-    for (idx, ch) in current_line.char_indices() {
-        if units_left == 0 {
-            scan_end = idx;
-            break;
-        }
-        units_left = units_left.saturating_sub(ch.len_utf16());
-        scan_end = idx + ch.len_utf8();
-    }
-    if units_left > 0 {
-        // Cursor past end of line: clamp to the whole line.
-        scan_end = current_line.len();
-    }
+    let scan_end = LineIndex::new(current_line).offset_clamped(Position {
+        line: 0,
+        character: col as u32,
+    });
     for ch in current_line[..scan_end].chars().rev() {
         match ch {
             ']' => bracket_depth += 1,
@@ -152,7 +144,10 @@ pub fn enclosing_block(content: &str, line: usize, col: usize) -> Option<(String
     let mut kind: Option<String> = None;
     for (index, text) in content.lines().enumerate().take(line + 1) {
         let end = if index == line {
-            crate::document::utf16_col_to_byte_offset(text, col)
+            LineIndex::new(text).offset_clamped(Position {
+                line: 0,
+                character: col as u32,
+            })
         } else {
             text.len()
         };

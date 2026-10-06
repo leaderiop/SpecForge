@@ -1,4 +1,4 @@
-use crate::DocumentBuffer;
+use crate::document::Document;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 use specforge_ops::view::ProjectView;
@@ -16,7 +16,7 @@ use std::sync::Arc;
 /// `specforge watch` holds: environment, graph, per-file parses and
 /// diagnostics), and the diagnostics last published per URI.
 pub struct LspState {
-    documents: HashMap<String, DocumentBuffer>,
+    documents: HashMap<String, Document>,
     diagnostics: HashMap<String, Vec<Diagnostic>>,
     project: Project,
     /// Where diagnostics without a span were last published.
@@ -102,7 +102,7 @@ impl LspState {
         }
         self.documents.insert(
             uri.to_string(),
-            DocumentBuffer::new(uri.to_string(), content.to_string()),
+            Document::new(uri.to_string(), content.to_string()),
         );
     }
 
@@ -115,11 +115,11 @@ impl LspState {
         self.documents.contains_key(uri)
     }
 
-    pub fn document(&self, uri: &str) -> Option<&DocumentBuffer> {
+    pub fn document(&self, uri: &str) -> Option<&Document> {
         self.documents.get(uri)
     }
 
-    pub fn document_mut(&mut self, uri: &str) -> Option<&mut DocumentBuffer> {
+    pub fn document_mut(&mut self, uri: &str) -> Option<&mut Document> {
         self.documents.get_mut(uri)
     }
 
@@ -129,17 +129,16 @@ impl LspState {
         uris
     }
 
+    /// Apply one content change to an open document: `range` (UTF-16
+    /// positions) replaced by `new_text`, the whole text when `None`.
     pub fn apply_change(
         &mut self,
         uri: &str,
-        start_line: usize,
-        start_col: usize,
-        end_line: usize,
-        end_col: usize,
+        range: Option<tower_lsp::lsp_types::Range>,
         new_text: &str,
     ) {
         if let Some(doc) = self.documents.get_mut(uri) {
-            doc.apply_change(start_line, start_col, end_line, end_col, new_text);
+            doc.apply_change(range, new_text);
         }
     }
 
