@@ -12,18 +12,10 @@ mod legacy;
 pub mod project;
 pub mod rpc;
 
-#[allow(
-    unused_imports,
-    reason = "the migrated test files import them from plan 10-T3 on"
-)]
-pub use extension::{EXT, TestExtension};
+pub use extension::TestExtension;
 pub use legacy::{
     declare_headline_fields, declare_reference, obligate, obligations_rule, report, report_also,
     serve_in_memory_at, update_of,
 };
-#[allow(
-    unused_imports,
-    reason = "the migrated test files import them from plan 10-T3 on"
-)]
 pub use project::{Served, TestProject};
 pub use rpc::*;

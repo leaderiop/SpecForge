@@ -4,10 +4,7 @@
 //! Also tests dynamic kind-based tools and resources generated from the graph.
 
 use serde_json::{Value, json};
-use specforge_common::SourceSpan;
-use specforge_graph::{Graph, Node};
 use specforge_mcp::McpServer;
-use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
 use specforge_test::prelude::*;
 use std::fs;
 use tempfile::TempDir;
@@ -15,58 +12,20 @@ use tempfile::TempDir;
 use crate::fake_extension::{self, EXT, FakeExtension};
 use crate::support::*;
 
-fn span() -> SourceSpan {
-    SourceSpan {
-        file: "test.spec".into(),
-        start_line: 1,
-        start_col: 0,
-        end_line: 5,
-        end_col: 0,
-    }
-}
-
-/// Create a server with a graph containing multiple entity kinds for dynamic tool/resource tests.
-fn init_server_with_kinds() -> McpServer {
-    let mut server = McpServer::new();
-    call(&mut server, "initialize", json!({}));
-
-    let state = server.state_mut();
-    let mut graph = Graph::new();
-
-    // Add features
-    for (id, title) in [("feat_auth", "Authentication"), ("feat_search", "Search")] {
-        let mut fields = FieldMap::new();
-        fields.push("status".into(), FieldValue::Identifier("planned".into()));
-        graph.add_node(Node {
-            id: EntityId { raw: id.into() },
-            kind: EntityKind {
-                raw: "feature".into(),
-            },
-            title: Some(title.into()),
-            fields,
-            source_span: span(),
-            methods: Vec::new(),
-        });
-    }
-
-    // Add behaviors
-    let mut fields = FieldMap::new();
-    fields.push("contract".into(), FieldValue::String("MUST login".into()));
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "login_behavior".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Login".into()),
-        fields,
-        source_span: span(),
-        methods: Vec::new(),
-    });
-
-    state.serve_graph(graph, Vec::new());
-    server
+/// A server over a project with entities of several kinds, for the
+/// dynamic kind-based tools and resources: two planned features and one
+/// behavior, `@test/ext` declaring their kinds and `feature`'s `status`.
+fn init_server_with_kinds() -> Served {
+    TestProject::new()
+        .file(
+            "test.spec",
+            concat!(
+                "feature feat_auth \"Authentication\" {\n    status planned\n}\n",
+                "feature feat_search \"Search\" {\n    status planned\n}\n",
+                "behavior login_behavior \"Login\" {\n    contract \"MUST login\"\n}\n",
+            ),
+        )
+        .serve(&[TestExtension::software().string_field("feature", "status")])
 }
 
 /// A server over a project whose one extension declares an MCP tool
