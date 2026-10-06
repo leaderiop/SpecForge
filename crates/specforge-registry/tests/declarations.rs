@@ -230,8 +230,8 @@ fn declaration_diagnostics_come_in_a_fixed_order() {
 /// What a field or kind declares reaches its registry entry whole: the
 /// entries embed the descriptor, so nothing declared is dropped on the way.
 #[specforge_test_macros::test(
-    behavior = "populate_field_registry_from_extensions",
-    verify = "a field's declared default value reaches the field registry"
+    behavior = "registry_build_fields",
+    verify = "a field's declared descriptor reaches its registry entry whole"
 )]
 fn a_declared_default_value_reaches_the_field_registry() {
     let mut c = ContributionsBuilder::new(ExtensionMeta::new("@acme/tickets", "1.0.0"));
@@ -241,7 +241,11 @@ fn a_declared_default_value_reaches_the_field_registry() {
             .field("status", |f| {
                 f.field_type(FieldType::Enum)
                     .enum_values(&["open", "closed"])
-                    .default_value("open");
+                    .default_value("open")
+                    .description("Where the ticket stands");
+            })
+            .field("summary", |f| {
+                f.field_type(FieldType::String);
             });
     });
     c.edge("blocks", |e| {
@@ -253,6 +257,13 @@ fn a_declared_default_value_reaches_the_field_registry() {
     let status = build.fields.get("ticket", "status").expect("registered");
     assert_eq!(status.declared.default_value.as_deref(), Some("open"));
     assert_eq!(status.declared.enum_values, ["open", "closed"]);
+    assert_eq!(
+        status.declared.description.as_deref(),
+        Some("Where the ticket stands")
+    );
+    let summary = build.fields.get("ticket", "summary").expect("registered");
+    assert_eq!(summary.declared.description, None);
+    assert_eq!(summary.declared.default_value, None);
     let ticket = build.kinds.get("ticket").expect("registered");
     assert_eq!(ticket.declared.incremental, Some(true));
     assert_eq!(

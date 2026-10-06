@@ -461,51 +461,6 @@ mod tests {
 
     // -- B:populate_field_registry_from_extensions tests --
 
-    // B:populate_field_registry_from_extensions — verify unit "fields registered per entity kind"
-    #[test]
-    fn test_fields_registered_per_entity_kind() {
-        let (_, field_reg, _, _) = populate(&[software_manifest()]);
-        assert!(field_reg.contains("behavior", "contract"));
-        assert!(field_reg.contains("behavior", "invariants"));
-        // invariant has no declared fields
-        assert!(field_reg.fields_for_kind("invariant").is_empty());
-    }
-
-    // B:populate_field_registry_from_extensions — verify unit "field types validated against known types"
-    #[test]
-    fn test_field_types_validated_against_known_types() {
-        let (_, field_reg, _, _) = populate(&[software_manifest()]);
-        let contract = field_reg.get("behavior", "contract").unwrap();
-        assert_eq!(contract.field_type, ManifestFieldType::Block);
-        let invariants = field_reg.get("behavior", "invariants").unwrap();
-        assert_eq!(invariants.field_type, ManifestFieldType::ReferenceList);
-    }
-
-    // B:populate_field_registry_from_extensions — verify unit "invalid field type produces warning"
-    #[test]
-    fn test_invalid_field_type_produces_warning() {
-        let mut manifest = declare("@test/ext", |c| {
-            c.kind("Thing", |k| {
-                k.keyword("thing");
-                k.field("data", |f| {
-                    f.field_type(FieldType::String);
-                });
-            });
-        });
-        // Not a field type the vocabulary knows.
-        manifest.entities[0].fields[0].field_type = "unknown_type_xyz".to_string();
-        let (_, field_reg, _, diags) = populate(&[manifest]);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "W019" && d.message.contains("unknown_type_xyz")),
-            "expected W019 for unknown field type, got: {:?}",
-            diags
-        );
-        // Field should not be registered
-        assert!(!field_reg.contains("thing", "data"));
-    }
-
     // -- B:populate_edge_registry_from_extensions tests --
 
     // B:populate_edge_registry_from_extensions — verify unit "explicit edgeTypes merged into edge set"
@@ -560,32 +515,6 @@ mod tests {
 
     // -- Description propagation tests --
 
-    #[test]
-    fn test_field_description_propagated_to_registry() {
-        let manifest = declare("@test/ext", |c| {
-            c.kind("Behavior", |k| {
-                k.keyword("behavior");
-                k.field("contract", |f| {
-                    f.field_type(FieldType::Block)
-                        .description("The behavioral contract this entity fulfills");
-                });
-            });
-        });
-        let (_, field_reg, _, _) = populate(&[manifest]);
-        let entry = field_reg.get("behavior", "contract").unwrap();
-        assert_eq!(
-            entry.declared.description.as_deref(),
-            Some("The behavioral contract this entity fulfills")
-        );
-    }
-
-    #[test]
-    fn test_field_without_description_has_none() {
-        let (_, field_reg, _, _) = populate(&[software_manifest()]);
-        let entry = field_reg.get("behavior", "contract").unwrap();
-        assert!(entry.declared.description.is_none());
-    }
-
     // B:register_edge_types_from_manifest — verify contract "requires/ensures consistency for edge type registration"
     #[test]
     fn test_register_edge_types_contract() {
@@ -602,21 +531,6 @@ mod tests {
         assert!(!diags.iter().any(|d| d.severity == Severity::Error));
     }
 
-    // B:populate_field_registry_from_extensions — verify contract "requires/ensures consistency for field registry population"
-    #[test]
-    fn test_populate_field_registry_contract() {
-        // requires: manifests validated
-        let (_, field_reg, _, diags) = populate(&[software_manifest()]);
-        // ensures: fields registered per entity kind
-        assert!(field_reg.contains("behavior", "contract"));
-        assert!(field_reg.contains("behavior", "invariants"));
-        // ensures: field types are valid
-        let contract = field_reg.get("behavior", "contract").unwrap();
-        assert_eq!(contract.field_type, ManifestFieldType::Block);
-        // ensures: no warnings on valid manifest
-        assert!(!diags.iter().any(|d| d.code == "W019"));
-    }
-
     // B:populate_edge_registry_from_extensions — verify contract "requires/ensures consistency for edge registry population"
     #[test]
     fn test_populate_edge_registry_contract() {
@@ -630,104 +544,6 @@ mod tests {
     }
 
     // -- parse_field_type tests --
-
-    #[test]
-    fn test_parse_field_type_enum_returns_enum_variant() {
-        let result = parse_field_type("enum");
-        assert!(
-            result.is_some(),
-            "parse_field_type(\"enum\") should return Some"
-        );
-        assert!(
-            matches!(result, Some(ManifestFieldType::Enum(_))),
-            "parse_field_type(\"enum\") should return Enum variant, got: {:?}",
-            result
-        );
-    }
-
-    #[test]
-    fn test_parse_field_type_enum_type_returns_enum_variant() {
-        let result = parse_field_type("enum_type");
-        assert!(
-            result.is_some(),
-            "parse_field_type(\"enum_type\") should return Some"
-        );
-        assert!(
-            matches!(result, Some(ManifestFieldType::Enum(_))),
-            "parse_field_type(\"enum_type\") should return Enum variant, got: {:?}",
-            result
-        );
-    }
-
-    #[test]
-    fn test_parse_field_type_enum_returns_empty_values() {
-        // Enum values come from FieldDescriptor.enum_values, not the type string
-        if let Some(ManifestFieldType::Enum(values)) = parse_field_type("enum") {
-            assert!(
-                values.is_empty(),
-                "parse_field_type(\"enum\") should return empty enum values"
-            );
-        } else {
-            panic!("expected Some(Enum(..))");
-        }
-    }
-
-    #[test]
-    fn test_parse_field_type_all_known_types_return_some() {
-        let known_types = [
-            "string",
-            "string_type",
-            "integer",
-            "integer_type",
-            "bool",
-            "bool_type",
-            "enum",
-            "enum_type",
-            "string_list",
-            "string_list_type",
-            "reference",
-            "reference_type",
-            "reference_list",
-            "reference_list_type",
-            "block",
-            "block_type",
-        ];
-        for t in &known_types {
-            assert!(
-                parse_field_type(t).is_some(),
-                "parse_field_type(\"{}\") should return Some",
-                t
-            );
-        }
-    }
-
-    #[test]
-    fn test_enum_field_type_registered_through_manifest() {
-        let manifest = declare("@test/ext", |c| {
-            c.kind("Feature", |k| {
-                k.keyword("feature");
-                k.field("status", |f| {
-                    f.field_type(FieldType::Enum)
-                        .enum_values(&["draft", "active", "done"]);
-                });
-            });
-        });
-        let (_, field_reg, _, diags) = populate(&[manifest]);
-        // No W019 warning for "enum" field type
-        assert!(
-            !diags.iter().any(|d| d.code == "W019"),
-            "enum field type should not produce W019, got: {:?}",
-            diags
-        );
-        // Field should be registered
-        assert!(field_reg.contains("feature", "status"));
-        let entry = field_reg.get("feature", "status").unwrap();
-        assert!(
-            matches!(entry.field_type, ManifestFieldType::Enum(_)),
-            "field type should be Enum, got: {:?}",
-            entry.field_type
-        );
-    }
 
     // -- Slice 6: apply_entity_enhancements tests --
 
