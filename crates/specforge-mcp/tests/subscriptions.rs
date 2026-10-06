@@ -1,4 +1,5 @@
-use serde_json::{Value, json};
+use crate::support::*;
+use serde_json::json;
 use specforge_mcp::McpServer;
 use specforge_mcp::subscriptions;
 use specforge_test::prelude::*;
@@ -91,11 +92,6 @@ fn shutdown_clears_subscriptions() {
 }
 
 // ---- C9-01: subscribe → recompile → notification loop ----
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc":"2.0","id":1,"method":method,"params":params});
-    serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap()
-}
 
 /// Real mini project so the routed refresh path performs an honest recompile.
 fn project() -> TempDir {

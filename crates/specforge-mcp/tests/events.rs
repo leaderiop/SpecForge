@@ -1,80 +1,26 @@
+use crate::support::*;
 use serde_json::{Value, json};
-use specforge_common::SourceSpan;
-use specforge_graph::{Graph, Node};
 use specforge_mcp::McpServer;
 use specforge_mcp::notifications::pending_notifications;
 use specforge_mcp::subscriptions;
-use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test::prelude::*;
-
-// Leak a per-test temp project: process exits make cleanup unnecessary, and
-// a real project root is required now that ops perform real work.
-fn attach_project(state: &mut specforge_mcp::state::McpState) {
-    let dir = tempfile::TempDir::new().unwrap();
-    let config = json!({"name":"t","version":"0.1.0","extensions":[]});
-    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    std::fs::write(
-        dir.path().join("test.spec"),
-        "behavior alpha \"Alpha\" {\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n",
-    )
-    .unwrap();
-    let root = dir.path().to_path_buf();
-    std::mem::forget(dir); // outlives the test
-    crate::support::serve_in_memory_at(state, &root);
-}
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
-
-fn call_tool(server: &mut McpServer, name: &str, args: Value) -> Value {
-    call(
-        server,
-        "tools/call",
-        json!({"name": name, "arguments": args}),
-    )
-}
-
-/// The params of every `event_name` event, oldest first, each without its
-/// `timestamp` once that is checked to be an RFC 3339 time.
-fn event_params(server: &McpServer, event_name: &str) -> Vec<Value> {
-    server
-        .state()
-        .events
-        .iter()
-        .filter(|e| e.name == event_name)
-        .map(|e| {
-            let mut params = e.params.clone();
-            if event_name != "mcp_initialized" {
-                let stamp = params
-                    .as_object_mut()
-                    .and_then(|o| o.remove("timestamp"))
-                    .unwrap_or_else(|| panic!("{event_name} has no timestamp: {}", e.params));
-                let stamp = stamp.as_str().unwrap_or_default();
-                assert!(
-                    chrono::DateTime::parse_from_rfc3339(stamp).is_ok(),
-                    "{event_name} timestamp is not RFC 3339: {stamp}"
-                );
-            }
-            params
-        })
-        .collect()
-}
 
 /// The params of the one `event_name` event.
 fn only_event(server: &McpServer, event_name: &str) -> Value {
-    let params = event_params(server, event_name);
+    let params = events(server, event_name);
     assert_eq!(params.len(), 1, "{event_name}: {params:?}");
     params.into_iter().next().unwrap()
 }
 
-fn init_server() -> McpServer {
-    let mut server = McpServer::new();
-    call(&mut server, "initialize", json!({}));
-    attach_project(server.state_mut());
-    server
+/// A server initialized over a project holding the behavior `alpha` and
+/// the feature `beta` that has it, `@test/ext` declaring their kinds.
+fn init_server() -> Served {
+    TestProject::new()
+        .file(
+            "test.spec",
+            "behavior alpha \"Alpha\" {\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n",
+        )
+        .serve(&[TestExtension::software()])
 }
 
 // E:mcp_initialized — verify integration "mcp initialization emits event with tool counts"
@@ -84,15 +30,15 @@ fn init_server() -> McpServer {
 )]
 fn event_mcp_initialized() {
     let mut server = init_server();
-    // The core surface: 34 tools, 8 resources, 5 prompts; no project, so
-    // no extension and nothing contributed.
+    // The core surface: 34 tools, 8 resources, 5 prompts; the project's one
+    // extension, @test/ext, declares kinds and contributes no surface.
     assert_eq!(
         only_event(&server, "mcp_initialized"),
         json!({
             "tools_registered": 34,
             "resources_registered": 8,
             "prompts_registered": 5,
-            "extensions_loaded": 0,
+            "extensions_loaded": 1,
             "surface_tools_registered": 0,
             "surface_resources_registered": 0,
             "auto_promoted_tools": 0,
@@ -133,12 +79,13 @@ fn event_mcp_server_shutdown() {
         .notification_outbox
         .push(json!({"jsonrpc": "2.0", "method": "specforge/graphChanged", "params": {}}));
     call(&mut server, "shutdown", json!({}));
+    // The served project's runtime goes with its session.
     assert_eq!(
         only_event(&server, "mcp_server_shutdown"),
         json!({
             "pending_notifications_flushed": 1,
             "subscriptions_released": 2,
-            "wasm_engines_released": 0,
+            "wasm_engines_released": 1,
         })
     );
 }
@@ -172,7 +119,7 @@ fn event_mcp_protocol_error_handled() {
     call(&mut server, "initialize", json!({}));
     call(&mut server, "no/such/method", json!({}));
     call(&mut server, "tools/call", json!({}));
-    let errors: Vec<(i64, String)> = event_params(&server, "mcp_protocol_error_handled")
+    let errors: Vec<(i64, String)> = events(&server, "mcp_protocol_error_handled")
         .iter()
         .map(|p| {
             (
@@ -184,7 +131,7 @@ fn event_mcp_protocol_error_handled() {
     let codes: Vec<i64> = errors.iter().map(|(c, _)| *c).collect();
     assert_eq!(codes, vec![-32700, -32600, -32601, -32602], "{errors:?}");
     assert!(errors.iter().all(|(_, m)| !m.is_empty()), "{errors:?}");
-    let events = event_params(&server, "mcp_protocol_error_handled");
+    let events = events(&server, "mcp_protocol_error_handled");
     // A parse error names no method; a routed one names its method.
     assert_eq!(
         events[0],
@@ -215,7 +162,7 @@ fn event_mcp_request_cancelled() {
         .to_string(),
     );
     call(&mut server, "$/cancelRequest", json!({"id": 42}));
-    let events = event_params(&server, "mcp_request_cancelled");
+    let events = events(&server, "mcp_request_cancelled");
     // Requests run one at a time, so none is in progress when a cancel
     // arrives; the id is named as a string.
     assert_eq!(
@@ -237,7 +184,7 @@ fn event_mcp_discovery_invoked() {
     call(&mut server, "tools/list", json!({}));
     call(&mut server, "prompts/list", json!({}));
     call(&mut server, "resources/list", json!({}));
-    let discoveries: Vec<(String, u64)> = event_params(&server, "mcp_discovery_invoked")
+    let discoveries: Vec<(String, u64)> = events(&server, "mcp_discovery_invoked")
         .iter()
         .map(|p| {
             (
@@ -280,7 +227,7 @@ fn event_mcp_resource_read() {
         json!({"uri": "specforge://nowhere"}),
     );
     assert_eq!(
-        event_params(&server, "mcp_resource_read"),
+        events(&server, "mcp_resource_read"),
         vec![
             json!({"resourceUri": "specforge://graph", "format": "application/json"}),
             json!({"resourceUri": "specforge://diagnostics", "format": "application/json"}),
@@ -307,7 +254,7 @@ fn event_mcp_tool_invoked() {
     call_tool(&mut server, "specforge.infer_progress", json!({}));
     // An unknown tool is a protocol error, not an invocation.
     call_tool(&mut server, "specforge.nothing", json!({}));
-    let events = event_params(&server, "mcp_tool_invoked");
+    let events = events(&server, "mcp_tool_invoked");
     assert_eq!(
         events,
         vec![
@@ -328,30 +275,8 @@ fn event_mcp_tool_invoked() {
     verify = "emits mcp_prompt_invoked with correct promptName and arguments"
 )]
 fn event_mcp_prompt_invoked() {
+    // The project declares the behavior `alpha`.
     let mut server = init_server();
-
-    let state = server.state_mut();
-    let mut graph = Graph::new();
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "alpha".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Alpha".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "test.spec".into(),
-            start_line: 1,
-            start_col: 0,
-            end_line: 3,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-    state.serve_graph(graph, Vec::new());
-    attach_project(state);
 
     call(
         &mut server,
@@ -368,7 +293,7 @@ fn event_mcp_prompt_invoked() {
         json!({"name": "specforge://prompts/explore", "arguments": {"kind": "behavior"}}),
     );
     assert_eq!(
-        event_params(&server, "mcp_prompt_invoked")[1],
+        events(&server, "mcp_prompt_invoked")[1],
         json!({"promptName": "specforge://prompts/explore", "kind": "behavior"})
     );
 }
@@ -379,21 +304,14 @@ fn event_mcp_prompt_invoked() {
     verify = "emits mcp_delta_notified with correct notification type and delta summary"
 )]
 fn event_mcp_delta_notified() {
+    // A project on disk, served; then a file written beside its own: the
+    // routed read brings the project up to date and notifies.
     let mut server = init_server();
-    // A real project on disk, served; then a file written beside its own:
-    // the routed read brings the project up to date and notifies.
-    let root = server
-        .state()
-        .project_root()
-        .map(std::path::Path::to_path_buf)
-        .unwrap();
-    server.state_mut().serve(&root);
     subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
-    std::fs::write(
-        root.join("more.spec"),
+    server.write(
+        "more.spec",
         "behavior gamma \"Gamma\" {\n}\nbehavior delta \"Delta\" {\n}\n",
-    )
-    .unwrap();
+    );
 
     call(
         &mut server,
@@ -423,14 +341,9 @@ fn event_mcp_delta_notified() {
 )]
 fn event_mcp_mutation_completed() {
     let mut server = init_server();
-    let root = server
-        .state()
-        .project_root()
-        .map(std::path::Path::to_path_buf)
-        .unwrap();
     // Two unformatted files: the formatter rewrites both.
-    std::fs::write(root.join("a.spec"), "behavior a   \"A\" {\n}\n").unwrap();
-    std::fs::write(root.join("b.spec"), "behavior b   \"B\" {\n}\n").unwrap();
+    server.write("a.spec", "behavior a   \"A\" {\n}\n");
+    server.write("b.spec", "behavior b   \"B\" {\n}\n");
     let resp = call_tool(&mut server, "specforge.format", json!({}));
     let result: Value =
         serde_json::from_str(resp["result"]["content"][0]["text"].as_str().unwrap()).unwrap();
@@ -448,7 +361,7 @@ fn event_mcp_mutation_completed() {
 
     // A read-only tool completes no mutation.
     call_tool(&mut server, "specforge.stats", json!({}));
-    assert_eq!(event_params(&server, "mcp_mutation_completed").len(), 1);
+    assert_eq!(events(&server, "mcp_mutation_completed").len(), 1);
 }
 
 // E:mcp_subscription_created — verify integration "emits mcp_subscription_created when a client subscribes to delta notifications"

@@ -1,14 +1,9 @@
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
 use std::fs;
 use tempfile::TempDir;
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
-    let resp = server.handle_message(&req.to_string()).unwrap();
-    serde_json::from_str(&resp).unwrap()
-}
 
 fn init_server() -> McpServer {
     let mut server = McpServer::new();

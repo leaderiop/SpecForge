@@ -2,19 +2,13 @@
 //! on the wire: JSON-RPC batches (2025-03-26 only), `structuredContent`
 //! (2025-06-18 on), and resource templates.
 
+use crate::support::*;
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
 
 fn request(id: u64, method: &str, params: Value) -> Value {
     json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params})
-}
-
-fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
-    let resp = server
-        .handle_message(&request(1, method, params).to_string())
-        .unwrap();
-    serde_json::from_str(&resp).unwrap()
 }
 
 /// A server initialized with `version` as the client's protocol version
