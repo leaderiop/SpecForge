@@ -75,7 +75,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_ops::check`). `specforge check` and MCP `specforge.validate` are its adapters; watch and
   the LSP report a compile's diagnostics without a policy (ADR 0018).
 - **Diagnostic policy**: lint profiles (a closed set: `inferred`, `pedantic`) and strict promotion
-  (`specforge_project::DiagnosticPolicy`).
+  (`specforge_project::DiagnosticPolicy`). It is the only thing that changes a diagnostic's severity
+  after the diagnostic is built.
 - **Extension command**: a CLI command an extension declares in its surfaces (with the SDK, together
   with its handler: `ContributionsBuilder::command`), answered by its `cmd__` export over the graph
   the host passes (`specforge_protocol_types::CommandInput`: args, project root, graph, the
@@ -113,10 +114,16 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Stateless request**: an MCP request whose `_meta` names its protocol version (MCP 2026-07-28),
   answered on its own without `initialize`; every other request follows the revision `initialize`
   negotiated (`specforge_mcp::modern`).
-- **Diagnostic catalog**: the one registry of diagnostic codes: each code's title, owner, level and
-  explanation (`specforge_diagnostics::CATALOG`). `specforge explain`, MCP `specforge.explain`,
-  diagnostics JSON titles, doctor and the LSP hover all read it; `docs/diagnostics.md` is generated
-  from it.
+- **Diagnostic catalog**: the one table of diagnostic codes (`specforge_diagnostics`'s `catalog!`):
+  each code's title, owner, level and explanation. It generates `CATALOG`, which `specforge explain`,
+  MCP `specforge.explain`, diagnostics JSON titles, doctor and the LSP hover read and from which
+  `docs/diagnostics.md` is generated, and a **code constant** for every core code.
+- **Code constant**: a core diagnostic code as a typed value, `specforge_diagnostics::codes::W112`
+  (`Code`, at a fixed level; `GradedCode` for an `A###` finding whose pass sets the severity). Its
+  level is the catalog's: a table entry whose `E`/`W`/`I`/`A` prefix contradicts its level does not
+  compile. The host builds a diagnostic from one (`specforge_common::Diagnostic::new`, or
+  `Diagnostic::graded` with the pass's severity), so its severity is the code's catalog level. Codes
+  an extension reports cross the protocol as text and have no constant (`Diagnostic::untyped`).
 - **Diagnostic data**: a diagnostic's optional typed payload, the values its message names
   (`specforge_common::DiagnosticData`, e.g. an E003's unresolved target, a W061's cycle, the entity
   an extension pass named). Consumers that act on a diagnostic (the LSP's quick fixes, MCP's

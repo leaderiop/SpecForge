@@ -4,6 +4,7 @@
 mod contracts;
 mod coverage;
 mod determinism;
+mod diagnostics_json;
 mod errors;
 mod extension_calls;
 mod model;
