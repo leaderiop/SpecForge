@@ -395,6 +395,7 @@ behavior lsp_format_range "LSP Format Range" {
   verify unit "range is expanded to block boundaries"
   verify unit "range formatting matches full formatting for affected blocks"
   verify integration "parse errors within range are left unchanged per format_with_parse_errors"
+  verify unit "a region left unformatted is reported at its document lines"
   verify performance "formats range within 20ms for ranges under 200 lines"
   verify contract "LSP Format Range: LSP range formatting holds — document_open, format_config_loaded, range_expanded, textedit_list_returned, full_format_parity, format_complete_emitted"
 }
@@ -456,6 +457,8 @@ behavior format_with_parse_errors "Format Files with Parse Errors" {
     original whitespace within an error region MUST be preserved byte-for-byte.
     A diagnostic MUST be emitted listing each file that could not be fully
     formatted due to parse errors, including the line range of each error region.
+    The diagnostic MUST span the region it kept, from its first line's start
+    to its last line's end.
   """
   verify unit "file with syntax error is partially formatted without crash"
   verify unit "well-formed blocks in a file with errors are still formatted"
