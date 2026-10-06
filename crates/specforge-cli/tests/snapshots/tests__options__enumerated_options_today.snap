@@ -48,11 +48,11 @@ both                         cli=-   mcp=ok
 sideways                     cli=-   mcp=refused: invalid_input: unknown direction 'sideways': expected "incoming", "outgoing" or "both"
 
 ## analyze pass
-cli -h: [PASS] Analysis pass to run (all, coverage, contracts) [possible values: all, coverage, contracts]
-mcp schema: enum null default null
+cli -h: [PASS] Analysis pass to run: all (default), coverage, contracts, or a pass an extension declares (`<extension>:<pass>`)
+mcp schema: enum null default "all"
 default: cli=all mcp=all
 all                          cli=0   mcp=ok
 coverage                     cli=0   mcp=ok
 contracts                    cli=0   mcp=ok
-@specforge/testing:coverage  cli=2   mcp=ok
+@specforge/testing:coverage  cli=0   mcp=ok
 nosuch                       cli=2   mcp=refused: invalid_input: Unknown analysis pass 'nosuch' (available: all, coverage, contracts, @specforge/testing:coverage)

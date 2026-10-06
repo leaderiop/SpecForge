@@ -54,24 +54,6 @@ enum OutputFormat {
     Json,
 }
 
-/// Static analysis passes for `specforge analyze --pass`.
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-enum AnalysisPass {
-    All,
-    Coverage,
-    Contracts,
-}
-
-impl AnalysisPass {
-    /// The pass name used to select and order built-in/extension passes.
-    fn name(self) -> &'static str {
-        match self {
-            AnalysisPass::All => "all",
-            AnalysisPass::Coverage => "coverage",
-            AnalysisPass::Contracts => "contracts",
-        }
-    }
-}
 impl OutputFormat {
     /// Report diagnostics that don't stop the command (the registry
     /// configuration's E067/W140/I003): `severity[CODE]: message` on
@@ -457,8 +439,9 @@ enum Commands {
     },
     /// Run static analysis passes over the compiled project
     Analyze {
-        /// Analysis pass to run (all, coverage, contracts)
-        pass: Option<AnalysisPass>,
+        /// Analysis pass to run: all (default), coverage, contracts, or a pass
+        /// an extension declares (`<extension>:<pass>`)
+        pass: Option<String>,
 
         /// Project directory (defaults to current directory)
         #[arg(long)]

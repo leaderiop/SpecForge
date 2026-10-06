@@ -41,6 +41,10 @@ pub enum ReportSource {
 
 pub use crate::prove::ProveOptions;
 
+/// The pass name that runs every pass: what an absent pass means on every
+/// surface (`specforge analyze`, `specforge.analyze`).
+pub const EVERY_PASS: &str = "all";
+
 /// What to run. `Default` is a plain `analyze all`.
 #[derive(Debug, Clone)]
 pub struct AnalyzeOptions {
@@ -56,7 +60,7 @@ pub struct AnalyzeOptions {
 impl Default for AnalyzeOptions {
     fn default() -> Self {
         Self {
-            pass: "all".to_string(),
+            pass: EVERY_PASS.to_string(),
             strict: false,
             report: ReportSource::default(),
             min: None,
@@ -346,8 +350,8 @@ fn select(view: &ProjectView, requested: &str) -> Result<Selection, AnalyzeError
         builtins,
         extension: extension.to_string(),
     };
-    if requested == "all" {
-        return Ok(one(PASS_NAMES.to_vec(), "all"));
+    if requested == EVERY_PASS {
+        return Ok(one(PASS_NAMES.to_vec(), EVERY_PASS));
     }
     // Coverage is an extension pass (ADR 0002).
     if requested == "coverage" {
@@ -360,7 +364,7 @@ fn select(view: &ProjectView, requested: &str) -> Result<Selection, AnalyzeError
     if declared.iter().any(|n| n == requested) {
         return Ok(one(Vec::new(), requested));
     }
-    let mut available: Vec<String> = ["all", "coverage"].map(String::from).to_vec();
+    let mut available: Vec<String> = [EVERY_PASS, "coverage"].map(String::from).to_vec();
     available.extend(PASS_NAMES.iter().map(|n| n.to_string()));
     available.extend(declared);
     Err(AnalyzeError::UnknownPass {

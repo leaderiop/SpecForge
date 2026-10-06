@@ -258,6 +258,7 @@ behavior name_enumerated_options_once "Name Enumerated Options Once" {
   verify unit "a table parses its names and aliases and refuses any other naming the expected names"
   verify unit "each enumerated MCP argument advertises the table's names and default"
   verify integration "the CLI and MCP accept the same names for each enumerated argument"
+  verify integration "the analysis passes the CLI accepts are the project's"
 }
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {

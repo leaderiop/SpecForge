@@ -100,7 +100,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "pass": { "type": "string", "description": "Analysis pass to run (all, coverage, contracts)" },
+                    "pass": { "type": "string", "description": "Analysis pass to run: all, coverage, contracts, or a pass an extension declares (`<extension>:<pass>`)", "default": specforge_ops::analyze::EVERY_PASS },
                     "strict": { "type": "boolean", "description": "Promote warnings to errors" },
                     "test_results": { "type": "string", "description": "Path to a specforge-report.json for proof-level verdicts" },
                     "use_cached": { "type": "boolean", "description": "Analyze the last compiled graph instead of recompiling (a server with no graph compiles anyway)", "default": false },
