@@ -605,7 +605,7 @@ mod declared_in_process {
     }
 
     #[specforge_test_macros::test(
-        behavior = "validate_manifest_v2_schema",
+        behavior = "load_extension_declaration",
         verify = "an unsupported protocol major version fails the load"
     )]
     fn an_unsupported_protocol_major_fails_the_load() {
@@ -631,8 +631,8 @@ mod declared_in_process {
     }
 
     #[specforge_test_macros::test(
-        behavior = "validate_manifest_v2_schema",
-        verify = "an unknown describe key produces a warning"
+        behavior = "load_extension_declaration",
+        verify = "a describe item key the protocol does not define produces W138"
     )]
     fn an_unknown_describe_key_produces_a_warning() {
         let typo = || {

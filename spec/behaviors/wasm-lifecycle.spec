@@ -66,10 +66,10 @@ behavior initialize_wasm_extension "Initialize Wasm Extension" {
     initialize() export. The initialize() call allows the extension to
     perform runtime setup (e.g., validating its own configuration).
     Entity kinds, edge types, and validation rules are registered
-    declaratively from the manifest — NOT via host function calls
-    during initialize(). See register_entity_kinds_from_manifest,
-    register_edge_types_from_manifest, and
-    register_validation_rules_from_manifest in behaviors/zero-entity-core.spec.
+    declaratively from the extension's declaration — NOT via host
+    function calls during initialize(). See registry_build_kinds,
+    registry_build_edges and registry_build_rules in
+    behaviors/zero-entity-registries.spec.
 
     TIMING GUARANTEE: Entity kinds, edge types, and validation rules
     MUST be registered into KindRegistry and FieldRegistry BEFORE the
@@ -280,13 +280,14 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   ensures {
     manifest_validated_emitted "manifest_validated event is emitted on successful validation"
     invalid_manifest_diagnosed "declarations with missing required fields, or a handshake of another protocol major, produce a hard error"
-    schema_validated           "the declaration is validated via validate_manifest_v2_schema"
+    schema_validated           "the declaration is validated by the registry build (build_registries_from_declarations)"
   }
   contract   """
     This is the single entry point for validating what an extension
     declares. The compiler MUST call this behavior once per loaded
     declaration (no sidecar manifest file is read). It delegates to
-    validate_manifest_v2_schema for the declaration's validation. The
+    the registry build (build_registries_from_declarations) for the
+    declaration's validation. The
     entities, if present, MUST be valid entity kind descriptors.
     Declarations missing required fields MUST produce a hard error. A
     handshake whose protocol major version differs from the host's MUST

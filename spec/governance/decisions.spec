@@ -546,7 +546,7 @@ decision verify_gherkin_as_core_grammar "Verify/Gherkin as Core Grammar" {
     verify and gherkin REMAIN as core grammar constructs. They are NOT
     domain-specific — they are traceability primitives. The grammar parses
     them structurally (verify <kind> <string>, gherkin { ... }). The set
-    of valid verify kinds is extension-defined (register_verify_kinds_from_manifest),
+    of valid verify kinds is extension-defined (registry_build_kinds),
     not hardcoded. Gherkin support is gated by the supportsGherkin flag in
     extension manifests. The core grammar provides the syntax; extensions
     provide the semantics. This is a deliberate P5 exception to P2.

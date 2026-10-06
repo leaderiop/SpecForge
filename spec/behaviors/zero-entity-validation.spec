@@ -13,7 +13,7 @@ use "types/zero-entity-core"
 
 // -- Declarative Validation --------------------------------------------------
 
-// No consumes — synchronous helper called by register_validation_rules_from_manifest
+// No consumes — synchronous helper the registry build runs (registry_build_rules)
 behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   features   [declarative_validation_rules]
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
@@ -113,46 +113,6 @@ behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
   verify unit "diagnostic code matches pattern code"
   verify unit "diagnostic severity matches pattern severity"
   verify contract "Emit Diagnostic From Pattern: pattern diagnostic emission holds — violation_detected, pattern_configured, diagnostic_emitted, template_interpolated"
-}
-
-behavior register_extension_validation_rules "Register Extension Validation Rules" {
-  features   [declarative_validation_rules]
-  invariants [
-    zero_domain_knowledge_core,
-    declarative_validation_determinism,
-    registry_population_before_validation,
-  ]
-  category   command
-  types      [ValidationRulePattern, ExtensionDeclaration]
-  consumes   [extension_manifests_loaded]
-  requires {
-    extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
-    individual_rules_parsed          "Per-extension validation rules already parsed by register_validation_rules_from_manifest"
-  }
-  ensures {
-    unified_rule_set_produced    "Single validation rule set aggregated from all installed extensions"
-    deterministic_order_enforced "Rules sorted by code for deterministic execution order"
-    duplicate_codes_warned       "Duplicate diagnostic codes across extensions produce warnings"
-  }
-  contract   """
-    During extension loading, the compiler MUST collect all validationRules
-    from all installed extensions into a single validation rule set. This
-    behavior operates at the cross-extension level — it aggregates rules
-    already parsed by register_validation_rules_from_manifest into the
-    final rule set used by execute_validation_pattern. Duplicate diagnostic
-    codes across extensions MUST produce a warning listing both extensions.
-    Rules MUST be sorted by code for deterministic execution order.
-    Collection MUST complete before any declarative validation begins.
-    The rule set MUST also contain a generated E006 rule for every
-    field registered as required, so required fields are enforced without
-    each extension declaring its own rule.
-  """
-  verify unit "rules from multiple extensions are collected"
-  verify unit "duplicate codes across extensions produce warning"
-  verify unit "rules sorted by code for deterministic order"
-  verify unit "extensions produce E006 rules for required fields"
-  verify unit "E006 covers all required fields from builtin extensions"
-  verify contract "Register Extension Validation Rules: cross-extension rule aggregation holds — extension_manifests_loaded_fired, individual_rules_parsed, unified_rule_set_produced, deterministic_order_enforced, duplicate_codes_warned"
 }
 
 behavior register_custom_validation_patterns "Register Custom Validation Patterns" {
@@ -294,110 +254,4 @@ behavior check_field_value_types "Check Field Value Types" {
   verify unit "an enum value suggests the closest declared value"
   verify unit "an export with a coerced string_list validates against the published schema"
   verify contract "Check Field Value Types: declared field types hold — registries_populated_fired, single_values_listed, mismatches_diagnosed, undeclared_untouched"
-}
-
-// Registry-level collision detection during manifest loading: inter-extension
-// kind collisions (E026).
-behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
-  features   [entity_kind_conflict_prevention]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
-  category   validation
-  types      [ExtensionDeclaration, EntityKindDescriptor, KindRegistryEntry, Diagnostic]
-  requires {
-    manifests_loading "Extension manifests are being loaded and entity kinds are being registered into KindRegistry"
-  }
-  ensures {
-    collisions_detected "E026 diagnostic emitted when two extensions register the same entity kind keyword"
-    first_wins_enforced "First extension in topological order owns the kind on collision"
-  }
-  contract   """
-    When two extensions register the same entity kind keyword, the compiler
-    MUST detect the collision during registry population. The first extension
-    in topological order MUST own the kind. The second registration MUST
-    produce an E026 diagnostic naming both extensions.
-  """
-  verify unit "duplicate kind from two extensions produces E026"
-  verify unit "first extension in topological order owns the kind"
-  verify unit "single extension registering a kind produces no diagnostic"
-  verify contract "Detect Duplicate Entity Kinds: duplicate entity kind detection holds — manifests_loading, collisions_detected, first_wins_enforced"
-}
-
-behavior validate_peer_dependencies "Validate Peer Dependencies" {
-  features   [wasm_extension_runtime]
-  invariants [zero_domain_knowledge_core, registry_population_before_validation]
-  category   validation
-  types      [ExtensionDeclaration, PeerDependency, ExtensionError]
-  produces   [extension_loading_failed]
-  requires {
-    manifests_available "All declared extension manifests have been loaded and their peer_dependencies fields are accessible"
-  }
-  ensures {
-    dependencies_validated "Every peer dependency checked against installed extensions for semver compatibility"
-    unsatisfied_blocked    "Unsatisfied peer dependencies produce hard error diagnostics that fail the check"
-    loading_failed_emitted "extension_loading_failed event emitted for extensions with unmet dependencies"
-  }
-  contract   """
-    During extension loading, once every extension is loaded, the compiler
-    MUST validate that every required peer dependency declared in an
-    extension's manifest is satisfied by an installed extension at a
-    compatible semver version. An optional peer that is not installed is
-    not an error; an optional peer that is installed MUST satisfy its
-    range. Unsatisfied peer dependencies MUST produce a hard error
-    diagnostic (E027) naming the missing extension and required version
-    range, which fails the check. The extension's kinds are still
-    registered, so its entities are checked rather than each reported as
-    an unknown kind (E024).
-  """
-  verify unit "satisfied peer dependency passes validation"
-  verify unit "missing peer dependency produces hard error"
-  verify unit "incompatible version produces hard error with required range"
-  verify unit "missing optional peer dependency passes validation"
-  verify unit "installed optional peer outside its range produces hard error"
-  verify integration "specforge check reports a missing required peer dependency"
-  verify contract "Validate Peer Dependencies: peer dependency validation holds — manifests_available, dependencies_validated, unsatisfied_blocked, loading_failed_emitted"
-}
-
-// Moved from behaviors/validation.spec — belongs with zero-entity core validation
-behavior validate_extension_testability "Validate Extension Testability" {
-  features   [extension_manifest]
-  invariants [testable_entity_classification, zero_domain_knowledge_core]
-  category   validation
-  types      [Diagnostic, KindRegistryEntry]
-  consumes   [registries_populated]
-  requires {
-    registries_populated_fired "registries_populated event has fired, confirming all entity kinds are registered with their flags"
-  }
-  ensures {
-    flag_consistency_checked     "Every KindRegistryEntry's testable and supportsVerify flags checked for consistency"
-    advisory_diagnostics_emitted "W017 emitted for a testable kind that can't declare obligations"
-  }
-  contract   """
-    This behavior checks boolean flag consistency generically across all
-    extension-declared entity kinds. The validator MUST detect inconsistencies
-    between an extension manifest's testable and supportsVerify flags
-    for each entity kind.
-
-    An entity kind marked testable=true MUST have supportsVerify=true.
-    If not, the validator MUST produce a W017 warning — testability
-    requires a mechanism for declaring test intent.
-
-    An entity kind with supportsVerify=true but testable=false is a
-    deliberate combination (a formal property accepts verify statements
-    without counting toward coverage) and produces no diagnostic.
-
-    These checks compare boolean flags from the same KindRegistry entry —
-    the core does not interpret what "testable" means semantically, it only
-    checks that the flags are not contradictory. This is a post-registration
-    manifest lint pass, not a domain-semantic check. It runs after
-    register_entity_kinds_from_manifest completes (during the
-    registries_populated → validation_complete window): the registry
-    build runs it, so check, the LSP, watch and MCP all report W017. The
-    diagnostic is advisory — it does not block compilation.
-  """
-  verify unit "testable kind without supportsVerify produces W017"
-  verify unit "testable kind with supportsVerify=true passes"
-  verify unit "a kind that accepts verify statements but is not testable produces no diagnostic"
-  verify unit "the registry build reports W017 for a testable kind without supportsVerify"
-  verify unit "consistent testable and supportsVerify flags produce no diagnostic"
-  verify contract "Validate Extension Testability: extension testability validation holds — registries_populated_fired, flag_consistency_checked, advisory_diagnostics_emitted"
 }

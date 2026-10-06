@@ -122,6 +122,7 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
   types      [ExtensionDeclaration, RegistryBuild]
+  produces   [registries_populated]
   contract   """
     The registry build MUST take the loaded declarations, in load order,
     and own everything derived from them: identity and shape (E030: an empty
@@ -150,7 +151,7 @@ behavior build_registries_from_declarations "Build Registries From Declarations"
 }
 
 // register_extension_entity_types is a thin delegation wrapper that calls
-// register_entity_kinds_from_manifest (behaviors/zero-entity-core.spec)
+// registry_build_kinds (behaviors/zero-entity-registries.spec)
 // for each loaded extension. The detailed registration semantics — including
 // KindRegistry population, field registry setup, and edge type registration —
 // are defined in the zero-entity-core behaviors.
@@ -173,9 +174,9 @@ behavior register_extension_entity_types "Register Extension Entity Types" {
   }
   contract   """
     After loading manifests, the compiler MUST register each extension's
-    entity types by delegating to register_entity_kinds_from_manifest
-    for kind registration, populate_field_registry_from_extensions for
-    field registration, and populate_edge_registry_from_extensions for
+    entity types by delegating to registry_build_kinds
+    for kind registration, registry_build_fields for
+    field registration, and registry_build_edges for
     edge types. When resolving references, the KindRegistry MUST be
     consulted to determine which extension owns each entity type and
     whether soft resolution applies for cross-extension references.
@@ -186,7 +187,7 @@ behavior register_extension_entity_types "Register Extension Entity Types" {
     MUST include the unresolved kind name and a suggested extension
     when one can be inferred from the kind prefix.
   """
-  verify unit "delegates to register_entity_kinds_from_manifest per extension"
+  verify unit "delegates to registry_build_kinds per extension"
   verify unit "unregistered type triggers soft resolution"
   verify unit "KindRegistry records source extension for each kind"
   verify unit "I004 message includes unresolved kind name and suggested extension"

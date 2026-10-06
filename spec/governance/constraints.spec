@@ -230,7 +230,7 @@ constraint extension_validation_correctness "Extension Validation Correctness" {
     validation engine executes ValidationRulePattern entries from extension
     manifests without knowledge of domain-specific entity types
   """
-  constrains  [execute_validation_pattern, validate_extension_testability]
+  constrains  [execute_validation_pattern, registry_build_kinds]
   protects    [reference_resolution_completeness]
   verify unit "extension checks activate only when extension is installed"
   verify unit "uninstalled extension rules do not fire"
