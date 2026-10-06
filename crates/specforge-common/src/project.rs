@@ -116,6 +116,31 @@ pub struct ProjectConfig {
     pub raw: Option<serde_json::Value>,
 }
 
+impl ProjectConfig {
+    /// Where this project's `.spec` files are discovered: `spec_root`, relative
+    /// to `root`, or `root` itself when unset.
+    pub fn spec_root_in(&self, root: &Path) -> PathBuf {
+        match &self.spec_root {
+            Some(spec_root) => root.join(spec_root),
+            None => root.to_path_buf(),
+        }
+    }
+
+    /// The project's sources: every `.spec` file under the spec root that
+    /// discovery keeps (no skipped directory, no `exclude` entry), sorted —
+    /// the files a compile reads, and what format and migrate rewrite.
+    pub fn spec_files(&self, root: &Path) -> Vec<PathBuf> {
+        crate::discover_spec_files(&self.spec_root_in(root), &self.exclude)
+    }
+
+    /// Whether `path`, a `.spec` file under `spec_root`, is left out by an
+    /// `exclude` entry or a skipped directory (false outside `spec_root`).
+    pub fn excludes(&self, spec_root: &Path, path: &Path) -> bool {
+        path.strip_prefix(spec_root)
+            .is_ok_and(|relative| !crate::is_discovered(&relative.to_string_lossy(), &self.exclude))
+    }
+}
+
 /// Project-level inference hints that override/append to extension defaults.
 #[derive(Debug, Clone, Default)]
 pub struct InferenceConfig {
@@ -428,6 +453,52 @@ pub fn validate_project_name(name: &str) -> Result<(), &'static str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spec_root_in_defaults_to_the_root() {
+        let root = Path::new("/p");
+        let unset = ProjectConfig::default();
+        let set = ProjectConfig {
+            spec_root: Some("specs".into()),
+            ..ProjectConfig::default()
+        };
+
+        assert_eq!(unset.spec_root_in(root), root);
+        assert_eq!(set.spec_root_in(root), root.join("specs"));
+    }
+
+    #[test]
+    fn spec_files_keep_only_the_sources() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        for file in [
+            "specs/a.spec",
+            "specs/sub/b.spec",
+            "specs/drafts/d.spec",
+            "specs/target/t.spec",
+            "specs/notes.md",
+            "fixtures/fx.spec",
+        ] {
+            std::fs::create_dir_all(root.join(file).parent().unwrap()).unwrap();
+            std::fs::write(root.join(file), "").unwrap();
+        }
+        let config = ProjectConfig {
+            spec_root: Some("specs".into()),
+            exclude: vec!["drafts".into()],
+            ..ProjectConfig::default()
+        };
+        let spec_root = config.spec_root_in(root);
+
+        assert_eq!(
+            config.spec_files(root),
+            [root.join("specs/a.spec"), root.join("specs/sub/b.spec")]
+        );
+        assert!(config.excludes(&spec_root, &root.join("specs/drafts/d.spec")));
+        assert!(config.excludes(&spec_root, &root.join("specs/target/t.spec")));
+        assert!(!config.excludes(&spec_root, &root.join("specs/a.spec")));
+        // Outside the spec root nothing is excluded: it is no source at all.
+        assert!(!config.excludes(&spec_root, &root.join("fixtures/fx.spec")));
+    }
 
     #[test]
     fn an_entry_names_an_extension_or_a_wasm_file() {

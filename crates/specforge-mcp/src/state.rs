@@ -310,9 +310,11 @@ impl McpState {
     ) {
         self.edit_environment(|env| {
             let root = root.unwrap_or_default();
-            env.spec_root = match (&env.config.spec_root, root.as_os_str().is_empty()) {
-                (Some(spec_root), false) => root.join(spec_root),
-                _ => root.clone(),
+            // No root, no spec root under it.
+            env.spec_root = if root.as_os_str().is_empty() {
+                root.clone()
+            } else {
+                env.config.spec_root_in(&root)
             };
             env.root = root;
         });
