@@ -55,7 +55,8 @@ fn init_includes_server_info() {
 )]
 #[tokio::test]
 async fn init_zero_extensions() {
-    use crate::contracts::{STANDARD_TOKEN_TYPES, legend_of, project_with, wire::Session};
+    use crate::contracts::{STANDARD_TOKEN_TYPES, legend_of, project_with};
+    use crate::session::Session;
     use std::time::Duration;
 
     let bare = project_with(&[]);
@@ -79,7 +80,7 @@ async fn init_zero_extensions() {
     assert_eq!(caps["renameProvider"]["prepareProvider"], true);
     assert_eq!(
         caps["completionProvider"]["triggerCharacters"],
-        serde_json::json!([" ", "[", "\""])
+        serde_json::json!([" ", "["])
     );
     // ...and nothing else: the legend is the standard LSP list, no entity
     // kind of any extension among it.

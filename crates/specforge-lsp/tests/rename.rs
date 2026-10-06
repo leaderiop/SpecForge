@@ -56,7 +56,7 @@ fn rename_updates_all_sites() {
 )]
 #[tokio::test]
 async fn rename_is_atomic() {
-    use crate::contracts::wire::{Session, uri_of};
+    use crate::session::{Session, uri_of};
     use serde_json::json;
 
     let dir = tempfile::TempDir::new().unwrap();
@@ -107,7 +107,7 @@ async fn rename_is_atomic() {
 )]
 #[tokio::test]
 async fn rename_to_an_illegal_id_is_refused_with_why() {
-    use crate::contracts::wire::{Session, uri_of};
+    use crate::session::{Session, uri_of};
     use serde_json::json;
 
     let dir = tempfile::TempDir::new().unwrap();

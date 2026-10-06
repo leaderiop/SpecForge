@@ -52,14 +52,12 @@ pub fn server_capabilities(registered_kinds: &[&str]) -> ServerCapabilities {
         supports_semantic_tokens: true,
         supports_document_formatting: true,
         supports_document_range_formatting: true,
-        semantic_token_types: crate::semantic_tokens::TOKEN_TYPES
+        semantic_token_types: crate::TOKEN_TYPES.iter().map(|s| s.to_string()).collect(),
+        semantic_token_modifiers: crate::TOKEN_MODIFIERS
             .iter()
             .map(|s| s.to_string())
             .collect(),
-        semantic_token_modifiers: crate::semantic_tokens::TOKEN_MODIFIERS
-            .iter()
-            .map(|s| s.to_string())
-            .collect(),
-        completion_trigger_characters: vec![" ".into(), "[".into(), "\"".into()],
+        // Nothing completes inside a string, so `"` triggers nothing.
+        completion_trigger_characters: vec![" ".into(), "[".into()],
     }
 }

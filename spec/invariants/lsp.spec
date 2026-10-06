@@ -65,7 +65,31 @@ invariant lsp_utf16_positions "LSP UTF-16 Positions" {
     Every position the LSP receives or returns MUST count columns in UTF-16
     code units, as the Language Server Protocol requires, so non-ASCII text
     before the cursor never shifts the word, range or edit it resolves to.
+    One line index per text converts byte offsets and UTF-16 positions,
+    both ways; nothing else in the LSP converts them (ADR 0023).
   """
   risk      medium
-  verify unit "word_at_position extracts words using utf16 columns"
+  verify unit "the line index converts byte columns to UTF-16 and back on every line"
+  verify unit "the word under a cursor is found by its UTF-16 column"
+}
+
+invariant cursor_names_one_entity "One Entity Under the Cursor" {
+  guarantee """
+    Every LSP request about the entity under a cursor (hover,
+    go-to-definition, references, rename) MUST resolve the same entity: the
+    declaration or reference token under the cursor as navigation reads it,
+    else an identifier at a reference position (an entity header's name, a
+    value or list item in the entity's own body of a field not typed as
+    enum, boolean, integer, string, string list or block, a use binding's
+    imported name) that names an entity. A word in a string or a comment, a kind keyword, a field name
+    and a value of a non-reference field name no entity; a scheme ref ID
+    (gh.issue:42) is one token. The structure around the
+    cursor is read from the document's text, never from the graph, which
+    lags the text while the user types (ADR 0023).
+  """
+  risk      medium
+  verify unit "hover and go-to-definition resolve the same entity on every token of a document"
+  verify unit "a word in a string or comment names no entity"
+  verify unit "a scheme ref ID under the cursor names its ref"
+  verify unit "a value of a field typed as no reference names no entity"
 }

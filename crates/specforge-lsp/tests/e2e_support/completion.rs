@@ -8,7 +8,7 @@ async fn e2e_completion_entity_ids() {
         "  types [tok]\n",
         "}\n",
     );
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Completion inside ref list at "tok" (line 2, col 11)
     let resp = client.completion(&uri, 2, 11).await;
     let result = &resp["result"];
@@ -28,7 +28,7 @@ async fn e2e_completion_entity_ids() {
 #[tokio::test]
 async fn e2e_completion_entity_with_title() {
     let text = "type token \"Auth Token\" {}\nbehavior b \"B\" {\n  types [tok]\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     let resp = client.completion(&uri, 2, 11).await;
     let items = resp["result"].as_array().unwrap();
     let token_item = items.iter().find(|i| i["label"] == "token");
@@ -48,7 +48,7 @@ async fn e2e_completion_entity_with_title() {
 async fn e2e_completion_keywords_at_top_level() {
     let text = "behavior foo \"Foo\" {}\n";
     let (mut client, uri, _dir) =
-        start_server_with_extensions(&["@specforge/software"], "test.spec", text).await;
+        Session::with_extensions(&["@specforge/software"], "test.spec", text).await;
     // Completion at column 0 (top level, line start)
     let resp = client.completion(&uri, 1, 0).await;
     let result = &resp["result"];
@@ -68,7 +68,7 @@ async fn e2e_completion_keywords_at_top_level() {
 #[tokio::test]
 async fn e2e_completion_no_keywords_inside_block() {
     let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
     // Completion inside entity body (line 1, col 5) — character >= 2
     let resp = client.completion(&uri, 1, 5).await;
     let result = &resp["result"];
@@ -87,7 +87,7 @@ async fn e2e_completion_no_keywords_inside_block() {
 
 /// Completion items at (line, col) of `text`, with software enabled.
 async fn items_at(text: &str, line: u32, col: u32) -> Vec<Value> {
-    let (mut client, uri, _dir) = start_server_with_extensions(
+    let (mut client, uri, _dir) = Session::with_extensions(
         &["@specforge/software", "@specforge/testing"],
         "test.spec",
         text,
@@ -181,4 +181,68 @@ async fn e2e_keyword_snippet_scaffolds_required_fields() {
     // contract is required on a behavior.
     assert!(snippet.contains("\n  contract "), "{snippet}");
     assert_eq!(behavior["detail"], "@specforge/software", "{behavior}");
+}
+
+#[spec(
+    behavior = "autocomplete_entity_ids",
+    verify = "a single-reference field's value suggests the IDs of its target kind"
+)]
+#[tokio::test]
+async fn a_single_reference_value_completes_ids() {
+    // `extends` is a single reference of a type, to another type.
+    let text = concat!(
+        "type base \"Base\" {}\n",
+        "behavior login \"Login\" {\n  contract \"x\"\n}\n",
+        "type child \"Child\" {\n  extends \n}\n",
+    );
+    let items = items_at(text, 5, 10).await;
+    let names = labels(&items);
+    assert!(names.contains(&"base"), "{names:?}");
+    assert!(!names.contains(&"login"), "only types: {names:?}");
+    assert!(items.iter().all(|i| i["kind"] == 18), "{items:?}");
+}
+
+/// The completion items at `refs [gh.is|]` for a client declaring (or
+/// not) insert-and-replace support.
+async fn scheme_ref_items(insert_replace: bool) -> Vec<Value> {
+    let text = concat!(
+        "ref gh.issue:42 \"Support Wasm\"\n",
+        "\n",
+        "behavior login \"Login\" {\n",
+        "  contract \"x\"\n",
+        "  refs [gh.is]\n",
+        "}\n",
+    );
+    let capabilities = json!({
+        "textDocument": {"completion": {"completionItem": {"insertReplaceSupport": insert_replace}}}
+    });
+    let (mut client, uri, _dir, _) =
+        Session::with_extensions_as(&["@specforge/software"], "test.spec", text, capabilities)
+            .await;
+    let resp = client.completion(&uri, 4, 13).await;
+    resp["result"].as_array().cloned().unwrap_or_default()
+}
+
+#[spec(
+    behavior = "autocomplete_entity_ids",
+    verify = "accepting an ID replaces the word under the cursor, a scheme ref ID whole"
+)]
+#[tokio::test]
+async fn completion_replaces_the_whole_scheme_ref_id() {
+    let range = |line, start, end| json!({"start": {"line": line, "character": start}, "end": {"line": line, "character": end}});
+    let items = scheme_ref_items(true).await;
+    let item = items
+        .iter()
+        .find(|i| i["label"] == "gh.issue:42")
+        .unwrap_or_else(|| panic!("no ref in {items:?}"));
+    // `  refs [gh.is]`: the word starts at `g`, column 8, the cursor is at 13.
+    assert_eq!(item["textEdit"]["insert"], range(4, 8, 13), "{item}");
+    assert_eq!(item["textEdit"]["replace"], range(4, 8, 13), "{item}");
+    assert_eq!(item["textEdit"]["newText"], "gh.issue:42", "{item}");
+    assert_eq!(item["filterText"], "gh.issue:42", "{item}");
+
+    let items = scheme_ref_items(false).await;
+    let item = items.iter().find(|i| i["label"] == "gh.issue:42").unwrap();
+    assert_eq!(item["textEdit"]["range"], range(4, 8, 13), "{item}");
+    assert_eq!(item["textEdit"]["newText"], "gh.issue:42", "{item}");
 }

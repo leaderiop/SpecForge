@@ -142,7 +142,12 @@ behavior handle_text_document_change "Handle Text Document Change" {
 behavior go_to_definition "Go-to-Definition" {
   features   [go_to_definition_and_references]
   category   query
-  invariants [reference_resolution_completeness, lsp_response_latency, zero_domain_knowledge_core]
+  invariants [
+    reference_resolution_completeness,
+    lsp_response_latency,
+    zero_domain_knowledge_core,
+    cursor_names_one_entity,
+  ]
   types      [EntityId, SourceSpan]
   ports      [LspProtocol]
   requires {
@@ -156,20 +161,28 @@ behavior go_to_definition "Go-to-Definition" {
     When a user Ctrl+clicks on an entity ID in a .spec file, the LSP
     MUST navigate to the declaration site of that entity. The declaration
     site MUST include the file path, line, and column of the entity's
-    block header.
+    block header. On a use statement, the cursor on a binding's imported
+    name that names an entity goes to that entity; anywhere else on the
+    statement, to the imported file.
   """
   verify unit "go-to-def navigates to entity declaration"
   verify unit "go-to-def on non-existent ID returns no result"
   verify integration "go-to-def works across files"
   verify unit "source spans convert from 1-based to 0-based for LSP"
   verify unit "the definition's selection is the entity's name token"
+  verify unit "a use binding's imported name goes to the entity it names"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
 }
 
 behavior find_all_references "Find All References" {
   features   [go_to_definition_and_references]
   category   query
-  invariants [reference_resolution_completeness, lsp_response_latency, zero_domain_knowledge_core]
+  invariants [
+    reference_resolution_completeness,
+    lsp_response_latency,
+    zero_domain_knowledge_core,
+    cursor_names_one_entity,
+  ]
   types      [EntityId, SourceSpan]
   ports      [LspProtocol]
   requires {
@@ -201,7 +214,12 @@ behavior find_all_references "Find All References" {
 behavior hover_information "Hover Information" {
   features   [hover_and_autocomplete]
   category   query
-  invariants [zero_domain_knowledge_core, reference_resolution_completeness, lsp_response_latency]
+  invariants [
+    zero_domain_knowledge_core,
+    reference_resolution_completeness,
+    lsp_response_latency,
+    cursor_names_one_entity,
+  ]
   types      [EntityId, Node, KindRegistryEntry, FieldRegistryEntry, HoverContent]
   ports      [LspProtocol]
   requires {
@@ -223,10 +241,13 @@ behavior hover_information "Hover Information" {
     testability, reference counts, and first string field summary.
     This behavior is responsible only for dispatching the hover request
     and returning the formatted result. The hover content MUST be
-    formatted as markdown.
+    formatted as markdown. Field help (the field's declared type and
+    description) answers when the cursor is on a field's name in an
+    entity's own body, nowhere else.
   """
   verify unit "hover delegates to provide_extension_entity_hover"
   verify unit "hover returns markdown-formatted content"
+  verify unit "field help answers only on a field's name"
   verify contract "Hover Information: hover information holds — graph_available, kind_registry_available, hover_delegated, markdown_produced"
 }
 
@@ -283,19 +304,35 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
     extension-declared field metadata, not a compiler requirement.
     Suggestions are ranked by the shared ranking over IDs and titles
     (exact, prefix, substring, then within the fuzzy threshold), as
-    workspace symbols and MCP specforge.search rank.
+    workspace symbols and MCP specforge.search rank. The value of a
+    single-reference field is completed the same way, filtered by the
+    field's target_kind. Entity IDs are suggested only in a reference
+    list, never in a string list, whose items are strings: there only the
+    scheme ref IDs of refs are suggested, which the core links to their
+    ref from any list. Each suggestion MUST carry an edit over the word
+    under the cursor (a scheme ref ID whole), an insert-and-replace edit
+    when the client supports one, so accepting it replaces exactly that
+    word.
   """
   verify unit "autocomplete suggests matching IDs"
   verify unit "suggestions include entity titles and kinds"
   verify unit "suggestions filtered by target_kind when FieldRegistry has constraint"
   verify unit "all IDs suggested when no target_kind constraint exists"
+  verify unit "a single-reference field's value suggests the IDs of its target kind"
+  verify unit "a string list's items suggest no entity IDs but scheme ref IDs"
+  verify integration "accepting an ID replaces the word under the cursor, a scheme ref ID whole"
   verify contract "Autocomplete Entity IDs: entity ID autocomplete holds — graph_available, field_registry_available, matching_ids_suggested, target_kind_filtering_applied"
 }
 
 behavior prepare_rename "Prepare Rename" {
   features   [rename_refactoring]
   category   query
-  invariants [entity_id_uniqueness, lsp_response_latency, zero_domain_knowledge_core]
+  invariants [
+    entity_id_uniqueness,
+    lsp_response_latency,
+    zero_domain_knowledge_core,
+    cursor_names_one_entity,
+  ]
   types      [EntityId, SourceSpan]
   ports      [LspProtocol]
   requires {
@@ -325,6 +362,7 @@ behavior rename_entity_id "Rename Entity ID" {
     lsp_response_latency,
     rename_atomicity,
     zero_domain_knowledge_core,
+    cursor_names_one_entity,
   ]
   category   mutation
   types      [EntityId, TextEdit, WorkspaceEditResult]
@@ -387,13 +425,22 @@ behavior emit_live_diagnostics "Live Diagnostics" {
     within 100ms of the user stopping typing. A diagnostic without a span
     that is about entities (its data names them, as a reference cycle's
     does) MUST be published at the first one's name, with related
-    information at each other's.
+    information at each other's. Each publish sends every file that has
+    diagnostics, and an empty list to each file that had some and has none
+    now. A diagnostic without a span about no entity is published on the
+    document being edited, else on the last one such a diagnostic went on
+    while it is open, else on the first open document. W143 (a define
+    block, which registers nothing) MUST be published with the Unnecessary
+    tag, so editors fade the block.
   """
   verify unit "diagnostics update after file change"
   verify unit "code actions act on the diagnostics last published for the document"
-  verify unit "only changed file diagnostics are refreshed"
+  verify unit "a publish clears the files whose diagnostics are gone"
   verify integration "diagnostics appear within 100ms"
   verify unit "a spanless diagnostic about entities is published at the first one's name"
+  verify unit "a diagnostic is published on the file its span names"
+  verify unit "a diagnostic about no entity is published on the edited document"
+  verify unit "a define block's W143 is published as unnecessary code"
   verify contract "Live Diagnostics: live diagnostics holds — lsp_initialized_fired, graph_available, diagnostics_pushed, latency_enforced"
 }
 
@@ -582,12 +629,20 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
     incremental pipeline. The LSP does not subscribe to watch-mode graph
     deltas: it recompiles on its own document changes, and after a
     recompile whose graph differs from the previous one in anything that
-    affects tokens (an entity ID, kind or title, or the KindRegistry's
-    semantic_token classification) it MUST send
+    affects tokens (an entity ID, kind or title, the KindRegistry's
+    semantic_token classification, or a field's declared type) it MUST send
     workspace/semanticTokens/refresh so the client re-requests tokens. It
     MUST send the refresh only to a client that declared
     workspace.semanticTokens.refreshSupport at initialize, and MUST NOT
     send it after a recompile that changed nothing token-relevant.
+    Classification reads the document's lexemes and their block structure:
+    strings and comments hold no other token, a comment after code on its
+    line is a comment, the fields after a nested block are classified like
+    the ones before it, and a define block's name is not a declaration
+    (define blocks register nothing, ADR 0005). A reference is classified
+    as the token type of the kind of the entity it names (an unresolved one
+    as variable), with the reference modifier; an enum field's value is an
+    enumMember and a boolean field's value a keyword.
   """
   verify unit "entity ID declaration uses its kind's semantic_token from the KindRegistry"
   verify unit "structural keywords are classified as keyword"
@@ -608,6 +663,12 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   verify integration "a recompile that changes the graph asks the client to refresh semantic tokens"
   verify integration "a recompile that changes nothing token-relevant sends no semantic token refresh"
   verify integration "no semantic token refresh is sent to a client without refreshSupport"
+  verify unit "every field of an entity body is classified, after a nested block too"
+  verify unit "a comment after code on its line is classified as comment"
+  verify unit "a define block's name is not a declaration"
+  verify unit "classification agrees with the grammar on every spec file of the repository"
+  verify unit "a reference is classified as the kind of the entity it names"
+  verify unit "an enum field's value is an enumMember and a boolean field's value a keyword"
 }
 
 behavior complete_field_names "Complete Field Names" {
@@ -630,11 +691,21 @@ behavior complete_field_names "Complete Field Names" {
     and suggest them as completions. Suggestions MUST be filtered to
     fields registered for the entity kind by its extension manifest.
     Field types from the registry MUST inform the completion snippet
-    (e.g., reference fields offer bracket-list scaffolding).
+    (e.g., reference fields offer bracket-list scaffolding). The cursor is
+    in an entity body when the document's lexemes put it there: brackets,
+    braces and quotes inside strings and comments do not count. Inside a
+    string, a comment or a nested block nothing is suggested. A field's
+    value is completed from its declared type: an enum field's declared
+    values, true and false for a boolean field; a string, integer or
+    string-list field's value completes nothing.
   """
   verify unit "field name completion uses FieldRegistry for entity kind"
   verify unit "suggestions are filtered by entity kind"
   verify unit "no field name suggestions outside entity blocks"
+  verify unit "a bracket inside a string opens no reference list"
+  verify unit "nothing is suggested inside a string, a comment or a nested block"
+  verify unit "an enum field's value suggests its declared values"
+  verify unit "a boolean field's value suggests true and false"
   verify contract "Complete Field Names: field name completion holds — field_registry_available, cursor_inside_entity, fields_suggested, snippets_informed"
 }
 
@@ -650,20 +721,25 @@ behavior complete_keywords "Complete Keywords" {
   }
   ensures {
     keywords_delegated           "keyword completion delegates to complete_extension_defined_keywords for extension-aware results"
-    structural_keywords_included "use and define are always included in suggestions regardless of extensions"
+    structural_keywords_included "use is always included in suggestions regardless of extensions; define never is"
   }
   contract   """
     When a user types at the top level of a .spec file (outside any entity
     block), the LSP MUST delegate to complete_extension_defined_keywords
     (behaviors/zero-entity-lsp.spec) for extension-aware keyword completions.
-    Structural keywords (use, define) MUST always be included in addition
-    to extension-defined keywords. Each suggestion SHOULD include a snippet
-    template for block scaffolding based on the kind's field definitions
-    from the FieldRegistry. The detail string MUST show the source extension
-    name for each keyword.
+    The structural keyword use MUST always be included in addition to
+    extension-defined keywords; define MUST NOT be suggested: it is a
+    reserved word whose blocks register nothing (W143, ADR 0005). Each
+    suggestion SHOULD include a snippet template for block scaffolding
+    based on the kind's field definitions from the FieldRegistry. The
+    detail string MUST show the source extension name for each keyword.
+    After verify in an entity's body, the verify kinds the entity's kind
+    allows (its allowed_verify_kinds) MUST be suggested, and nothing when
+    the kind takes no verify statements.
   """
   verify unit "keyword completion includes all registered kinds"
-  verify unit "structural keywords always included"
+  verify unit "use is always suggested and define never is"
+  verify unit "verify suggests the kinds the entity's kind allows"
   verify unit "no keyword suggestions inside entity blocks"
   verify unit "snippet templates based on kind field definitions"
   verify contract "Complete Keywords: keyword completion holds — kind_registry_available, cursor_at_top_level, keywords_delegated, structural_keywords_included"
