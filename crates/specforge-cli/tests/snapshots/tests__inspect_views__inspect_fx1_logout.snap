@@ -1,0 +1,49 @@
+---
+source: crates/specforge-cli/tests/inspect_views.rs
+assertion_line: 104
+expression: "normalized(result, root)"
+---
+{
+  "contract": "The system MUST end the session on logout",
+  "coverage_status": "uncovered",
+  "declared": false,
+  "diagnostics": [
+    {
+      "code": "W001",
+      "message": "behavior 'logout' does not implement any feature",
+      "severity": "Warning",
+      "suggestion": null
+    },
+    {
+      "code": "W004",
+      "message": "behavior 'logout' is testable but declares no verify obligations",
+      "severity": "Warning",
+      "suggestion": null
+    },
+    {
+      "code": "W006",
+      "message": "behavior 'logout' has no category — agents use category for task routing",
+      "severity": "Warning",
+      "suggestion": null
+    }
+  ],
+  "entity_id": "logout",
+  "fields": {
+    "contract": "The system MUST end the session on logout"
+  },
+  "kind": "behavior",
+  "reference_count": 0,
+  "referenced_by": [],
+  "references": [],
+  "refers_to": [],
+  "source_span": {
+    "end_col": 2,
+    "end_line": 9,
+    "file": "main.spec",
+    "start_col": 1,
+    "start_line": 7
+  },
+  "testable": true,
+  "title": "Log out",
+  "verify_declarations": null
+}

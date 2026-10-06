@@ -1,0 +1,54 @@
+---
+source: crates/specforge-cli/tests/inspect_views.rs
+assertion_line: 104
+expression: "normalized(result, root)"
+---
+{
+  "contract": null,
+  "coverage_status": "uncovered",
+  "declared": false,
+  "diagnostics": [
+    {
+      "code": "I048",
+      "message": "feature 'signin' has no acceptance criteria",
+      "severity": "Info",
+      "suggestion": null
+    },
+    {
+      "code": "I080",
+      "message": "feature 'signin' has no owner",
+      "severity": "Info",
+      "suggestion": null
+    },
+    {
+      "code": "I081",
+      "message": "feature 'signin' has no effort estimate",
+      "severity": "Info",
+      "suggestion": null
+    }
+  ],
+  "entity_id": "signin",
+  "fields": {
+    "problem": "Users cannot reach their data",
+    "solution": "Let them log in"
+  },
+  "kind": "feature",
+  "reference_count": 1,
+  "referenced_by": [
+    "login"
+  ],
+  "references": [
+    "login"
+  ],
+  "refers_to": [],
+  "source_span": {
+    "end_col": 2,
+    "end_line": 26,
+    "file": "main.spec",
+    "start_col": 1,
+    "start_line": 23
+  },
+  "testable": false,
+  "title": "Sign in",
+  "verify_declarations": null
+}

@@ -1,0 +1,26 @@
+---
+source: crates/specforge-cli/tests/inspect_views.rs
+assertion_line: 139
+expression: markdown
+---
+**W123** · Orphan property
+
+property 'no_lost_login' is not referenced by any behavior — it may be unused
+
+A `property` entity is not referenced by any `behavior`, so it may be unused. Reference the property from a behavior's `verify` block, or remove it if it is no longer needed.
+
+[Documentation](https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#w123)
+
+---
+
+Property **property** `no_lost_login` — A login is never lost
+
+A temporal property assertion (safety, liveness, fairness)
+*@specforge/formal* · `verify`
+
+---
+
+**Fields**
+- `property_type` = `safety`
+- `expression` = "once logged in, a session stays until logout"
+- `verify` = unit: no login is lost

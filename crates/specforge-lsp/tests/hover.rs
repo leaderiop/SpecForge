@@ -507,3 +507,20 @@ fn an_uncatalogued_diagnostic_hover_shows_code_and_message() {
         Some("**E901**\n\nacme says no")
     );
 }
+
+// -- characterization (architecture plan 07, T0) ------------------------------
+
+/// Pins today's crash: a field value longer than 120 bytes whose byte 120
+/// falls inside a character panics the hover. T1 flips it.
+#[test]
+#[should_panic(expected = "is not a char boundary")]
+fn a_field_cut_inside_a_character_panics_today() {
+    use specforge_parser::FieldValue;
+    let mut g = Graph::new();
+    let mut long = node("long_one", "behavior", Some("Long"));
+    let value = format!("{}é{}", "a".repeat(119), "b".repeat(20));
+    long.fields
+        .push(Sym::new("contract"), FieldValue::String(value));
+    g.add_node(long);
+    let _ = specforge_lsp::hover_info(&g, "long_one");
+}

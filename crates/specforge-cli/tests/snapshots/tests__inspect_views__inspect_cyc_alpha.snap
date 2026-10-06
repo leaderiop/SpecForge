@@ -1,0 +1,64 @@
+---
+source: crates/specforge-cli/tests/inspect_views.rs
+assertion_line: 111
+expression: "normalized(&result, root)"
+---
+{
+  "contract": null,
+  "coverage_status": "uncovered",
+  "declared": false,
+  "diagnostics": [
+    {
+      "code": "W061",
+      "message": "reference cycle detected: alpha -> beta -> alpha",
+      "severity": "Warning",
+      "suggestion": "break the cycle by removing or inverting one reference"
+    },
+    {
+      "code": "W020",
+      "message": "unrecognized field 'depends_on' on entity 'alpha' of kind 'behavior' at a.spec",
+      "severity": "Warning",
+      "suggestion": null
+    },
+    {
+      "code": "W006",
+      "message": "behavior 'alpha' has no category — agents use category for task routing",
+      "severity": "Warning",
+      "suggestion": null
+    },
+    {
+      "code": "E006",
+      "message": "behavior 'alpha' is missing required field 'contract'",
+      "severity": "Error",
+      "suggestion": null
+    }
+  ],
+  "entity_id": "alpha",
+  "fields": {
+    "depends_on": [
+      "beta"
+    ]
+  },
+  "kind": "behavior",
+  "reference_count": 2,
+  "referenced_by": [
+    "beta"
+  ],
+  "references": [
+    "beta",
+    "beta"
+  ],
+  "refers_to": [
+    "beta"
+  ],
+  "source_span": {
+    "end_col": 2,
+    "end_line": 3,
+    "file": "a.spec",
+    "start_col": 1,
+    "start_line": 1
+  },
+  "testable": false,
+  "title": "A",
+  "verify_declarations": null
+}

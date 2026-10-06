@@ -1,0 +1,40 @@
+---
+source: crates/specforge-cli/tests/inspect_views.rs
+assertion_line: 104
+expression: "normalized(result, root)"
+---
+{
+  "contract": null,
+  "coverage_status": "uncovered",
+  "declared": false,
+  "diagnostics": [
+    {
+      "code": "W002",
+      "message": "type 'Status' is not referenced by any behavior, port, or type",
+      "severity": "Warning",
+      "suggestion": null
+    }
+  ],
+  "entity_id": "Status",
+  "fields": {
+    "variants": [
+      "active",
+      "inactive"
+    ]
+  },
+  "kind": "type",
+  "reference_count": 0,
+  "referenced_by": [],
+  "references": [],
+  "refers_to": [],
+  "source_span": {
+    "end_col": 32,
+    "end_line": 16,
+    "file": "main.spec",
+    "start_col": 1,
+    "start_line": 16
+  },
+  "testable": true,
+  "title": null,
+  "verify_declarations": null
+}
