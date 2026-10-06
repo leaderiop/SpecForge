@@ -32,171 +32,102 @@ impl FormatConfig {
 
 /// Load format configuration by walking from `file_dir` up to `project_root`.
 ///
-/// The walk stops at `project_root` and does NOT continue beyond it.
-/// If `.specforgefmt.toml` is found, it is parsed and validated.
-/// Invalid values produce diagnostics and fall back to defaults.
-/// If no config file is found, defaults are returned.
+/// The walk stops at `project_root` and does NOT continue beyond it. The
+/// `.specforgefmt.toml` it finds ([`find_config_path`]) is read once
+/// ([`read_config_file`]); without one, the defaults apply.
 pub fn load_config(file_dir: &Path, project_root: &Path) -> (FormatConfig, Vec<Diagnostic>) {
-    let mut diagnostics = Vec::new();
-
-    // Canonicalize paths for reliable comparison
-    let project_root = match project_root.canonicalize() {
-        Ok(p) => p,
-        Err(_) => {
-            return (FormatConfig::default(), diagnostics);
-        }
-    };
-    let file_dir = match file_dir.canonicalize() {
-        Ok(p) => p,
-        Err(_) => {
-            return (FormatConfig::default(), diagnostics);
-        }
-    };
-
-    // Walk from file_dir up to project_root (inclusive)
-    let mut current = file_dir;
-    loop {
-        let config_path = current.join(".specforgefmt.toml");
-        if config_path.exists() {
-            return parse_config_file(&config_path, &mut diagnostics);
-        }
-        if current == project_root {
-            break;
-        }
-        if !current.pop() {
-            break;
-        }
-        // Stop if we've gone above the project root
-        if !current.starts_with(&project_root) && current != project_root {
-            break;
-        }
-    }
-
-    (FormatConfig::default(), diagnostics)
+    find_config_path(file_dir, project_root).map_or_else(
+        || (FormatConfig::default(), Vec::new()),
+        |path| read_config_file(&path),
+    )
 }
 
-fn parse_config_file(
-    path: &Path,
-    diagnostics: &mut Vec<Diagnostic>,
-) -> (FormatConfig, Vec<Diagnostic>) {
+/// Read and validate the `.specforgefmt.toml` at `path`. A file that can't
+/// be read or parsed, and every invalid value, is a W141 naming the file;
+/// what is invalid falls back to its default.
+pub fn read_config_file(path: &Path) -> (FormatConfig, Vec<Diagnostic>) {
+    let invalid = |message: String| Diagnostic::warning("W141", message);
     let content = match std::fs::read_to_string(path) {
-        Ok(c) => c,
+        Ok(content) => content,
         Err(e) => {
-            diagnostics.push(Diagnostic {
-                code: "W141".into(),
-                severity: specforge_common::Severity::Warning,
-                message: format!("Failed to read config file {}: {}", path.display(), e),
-                span: None,
-                suggestion: None,
-                data: None,
-            });
-            return (FormatConfig::default(), std::mem::take(diagnostics));
+            let message = format!("Failed to read config file {}: {e}", path.display());
+            return (FormatConfig::default(), vec![invalid(message)]);
         }
     };
-
     let table: toml::Table = match content.parse() {
-        Ok(t) => t,
+        Ok(table) => table,
         Err(e) => {
-            diagnostics.push(Diagnostic {
-                code: "W141".into(),
-                severity: specforge_common::Severity::Warning,
-                message: format!("Invalid TOML in {}: {}", path.display(), e),
-                span: None,
-                suggestion: None,
-                data: None,
-            });
-            return (FormatConfig::default(), std::mem::take(diagnostics));
+            let message = format!("Invalid TOML in {}: {e}", path.display());
+            return (FormatConfig::default(), vec![invalid(message)]);
         }
     };
 
     let mut config = FormatConfig::default();
+    let mut diagnostics = Vec::new();
 
     if let Some(val) = table.get("indent_width") {
         match val.as_integer() {
             Some(n) if (1..=16).contains(&n) => config.indent_width = n as usize,
-            _ => {
-                diagnostics.push(Diagnostic {
-                    code: "W141".into(),
-                    severity: specforge_common::Severity::Warning,
-                    message: format!(
-                        "Invalid indent_width in {}: expected integer 1-16, using default {}",
-                        path.display(),
-                        config.indent_width
-                    ),
-                    span: None,
-                    suggestion: Some("indent_width must be an integer between 1 and 16".into()),
-                    data: None,
-                });
-            }
+            _ => diagnostics.push(
+                invalid(format!(
+                    "Invalid indent_width in {}: expected integer 1-16, using default {}",
+                    path.display(),
+                    config.indent_width
+                ))
+                .with_suggestion("indent_width must be an integer between 1 and 16"),
+            ),
         }
     }
 
     if let Some(val) = table.get("use_tabs") {
         match val.as_bool() {
             Some(b) => config.use_tabs = b,
-            None => {
-                diagnostics.push(Diagnostic {
-                    code: "W141".into(),
-                    severity: specforge_common::Severity::Warning,
-                    message: format!(
-                        "Invalid use_tabs in {}: expected boolean, using default {}",
-                        path.display(),
-                        config.use_tabs
-                    ),
-                    span: None,
-                    suggestion: Some("use_tabs must be true or false".into()),
-                    data: None,
-                });
-            }
+            None => diagnostics.push(
+                invalid(format!(
+                    "Invalid use_tabs in {}: expected boolean, using default {}",
+                    path.display(),
+                    config.use_tabs
+                ))
+                .with_suggestion("use_tabs must be true or false"),
+            ),
         }
     }
 
     if let Some(val) = table.get("max_width") {
         match val.as_integer() {
             Some(n) if (40..=200).contains(&n) => config.max_width = n as usize,
-            _ => {
-                diagnostics.push(Diagnostic {
-                    code: "W141".into(),
-                    severity: specforge_common::Severity::Warning,
-                    message: format!(
-                        "Invalid max_width in {}: expected integer 40-200, using default {}",
-                        path.display(),
-                        config.max_width
-                    ),
-                    span: None,
-                    suggestion: Some("max_width must be an integer between 40 and 200".into()),
-                    data: None,
-                });
-            }
+            _ => diagnostics.push(
+                invalid(format!(
+                    "Invalid max_width in {}: expected integer 40-200, using default {}",
+                    path.display(),
+                    config.max_width
+                ))
+                .with_suggestion("max_width must be an integer between 40 and 200"),
+            ),
         }
     }
 
-    (config, std::mem::take(diagnostics))
+    (config, diagnostics)
 }
 
 /// Find the `.specforgefmt.toml` config file path, if it exists, walking from
-/// `file_dir` up to `project_root`.
+/// `file_dir` up to `project_root` (inclusive, never beyond it).
 pub fn find_config_path(file_dir: &Path, project_root: &Path) -> Option<PathBuf> {
     let project_root = project_root.canonicalize().ok()?;
     let mut current = file_dir.canonicalize().ok()?;
+    if !current.starts_with(&project_root) {
+        return None;
+    }
 
     loop {
         let config_path = current.join(".specforgefmt.toml");
         if config_path.exists() {
             return Some(config_path);
         }
-        if current == project_root {
-            break;
-        }
-        if !current.pop() {
-            break;
-        }
-        if !current.starts_with(&project_root) && current != project_root {
-            break;
+        if current == project_root || !current.pop() {
+            return None;
         }
     }
-
-    None
 }
 
 #[cfg(test)]
@@ -310,6 +241,28 @@ mod tests {
         let (config, diags) = load_config(root, root);
         assert!(diags.is_empty());
         assert_eq!(config, FormatConfig::default());
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "load_format_config",
+        verify = "invalid indent_width produces diagnostic and uses default"
+    )]
+    fn read_config_file_reports_an_invalid_value() {
+        let tmp = TempDir::new().unwrap();
+        let path = tmp.path().join(".specforgefmt.toml");
+        std::fs::write(&path, "indent_width = 99\nuse_tabs = true\n").unwrap();
+
+        let (config, diags) = read_config_file(&path);
+
+        assert_eq!(config.indent_width, 2, "the default replaces 99");
+        assert!(config.use_tabs, "a valid value still applies");
+        assert_eq!(diags.len(), 1, "{diags:?}");
+        assert_eq!(diags[0].code, "W141");
+        assert!(diags[0].message.contains("indent_width"), "{diags:?}");
+        assert!(
+            diags[0].message.contains(&path.display().to_string()),
+            "the message names the file: {diags:?}"
+        );
     }
 
     #[specforge_test_macros::test(

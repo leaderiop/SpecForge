@@ -6,9 +6,7 @@
 use specforge_common::Diagnostic;
 use specforge_graph::Node;
 use specforge_parser::VerifyStatement;
-use specforge_project::coverage::{
-    CoverageRegistries, ProjectCoverage, ReportError, Status, Verdict, obligated_kinds,
-};
+use specforge_project::coverage::{ReportError, Status, Verdict};
 use specforge_registry::KindRegistryEntry;
 
 use crate::OpError;
@@ -48,12 +46,13 @@ pub struct EntityFacts<'v> {
 }
 
 /// How the coverage rule counts an entity (ADR 0004 D2-b, D2-d).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct Standing {
     /// Its kind is testable (its extension's declaration says so).
     pub testable: bool,
     /// Its kind must declare obligations: a `no_verify_statements` rule
-    /// (W004) targets it.
+    /// (W004) applies to it (one without a target kind applies to every
+    /// kind).
     pub obligated: bool,
     /// Testable, but it owes no obligations and declares none, so it does
     /// not count toward coverage (a union, an `abstract` entity, a
@@ -93,13 +92,7 @@ impl EntityCoverage {
 pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFacts<'v>, OpError> {
     let graph = view.graph;
     let node = graph.node(entity_id).ok_or_else(|| not_found(entity_id))?;
-    let recorded = view.recorded();
-    let standing = standing(
-        view,
-        node,
-        recorded.as_ref().ok().map(|r| r.coverage.as_ref()),
-    );
-    let coverage = recorded.map(|recorded| EntityCoverage {
+    let coverage = view.recorded().map(|recorded| EntityCoverage {
         verdict: recorded
             .coverage
             .verdict(entity_id)
@@ -111,7 +104,7 @@ pub fn inspect<'v>(view: &ProjectView<'v>, entity_id: &str) -> Result<EntityFact
         node,
         kind: view.registries.kinds.get(node.kind.raw.as_str()),
         headline: specforge_emitter::context::headline_statement(node, &view.registries.fields),
-        standing,
+        standing: standing(view, entity_id),
         obligations: specforge_graph::obligations(node),
         references: References::of(view, entity_id),
         coverage,
@@ -129,34 +122,15 @@ pub fn obligation_text(statement: &VerifyStatement) -> String {
     format!("{} {}", statement.kind, statement.description)
 }
 
-/// How the coverage rule counts `node`: the one place inspect decides it.
-/// `coverage` is the view's (`None` when the recorded report cannot be
-/// read: the standing is then the rule's without a report, as it never
-/// depends on one).
-///
-/// Cross-plan (01): once the entity snapshot lands, the body is
-/// `view.entities().standing(id)` mapped to this type (`testable`,
-/// `obligated()`, `exempt()`), and `without_report` and `obligated_kinds`
-/// are no longer read here.
-fn standing(view: &ProjectView, node: &Node, coverage: Option<&ProjectCoverage>) -> Standing {
-    let id = node.id.raw.as_str();
-    let fallback;
-    let coverage = match coverage {
-        Some(coverage) => coverage,
-        None => {
-            fallback = ProjectCoverage::without_report(
-                view.graph,
-                CoverageRegistries::of(view.registries),
-            );
-            &fallback
-        }
-    };
-    let (testable, counts) = coverage
+/// How the coverage rule counts the entity `id`: its standing in the
+/// view's entity snapshot (ADR 0019), the one the coverage view, stats and
+/// the checks read. It never depends on the recorded report.
+fn standing(view: &ProjectView, id: &str) -> Standing {
+    view.entities()
         .standing(id)
-        .map_or((false, false), |s| (s.testable, s.counts));
-    Standing {
-        testable,
-        obligated: obligated_kinds(&view.registries.rules).contains(node.kind.raw.as_str()),
-        exempt: testable && !counts,
-    }
+        .map_or(Standing::default(), |standing| Standing {
+            testable: standing.testable,
+            obligated: standing.obligated(),
+            exempt: standing.exempt(),
+        })
 }

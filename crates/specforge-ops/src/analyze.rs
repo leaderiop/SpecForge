@@ -242,7 +242,7 @@ fn analyze_via(
         graph: view.graph,
         kind_registry: &registries.kinds,
         field_registry: &registries.fields,
-        rules: &registries.rules,
+        entities: view.entities(),
         project_root: view.root,
         test_results: report.as_deref(),
         proved_claims: None,

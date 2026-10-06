@@ -466,9 +466,13 @@ behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
     no_code_generated     "no test source files or application code are generated"
   }
   contract   """
-    The LSP SHOULD offer code actions on entities whose kind has
-    testable=true in the KindRegistry but no verify declarations or
-    linked test files. The code actions offered for a request are those
+    The LSP SHOULD offer code actions on entities that declare no verify
+    statements and either owe obligations (a no_verify_statements rule
+    applies to their kind) or are of a testable kind; an entity a union
+    body or an exempting flag exempts is offered none, since a stub there
+    is not an obligation it owes (a union has no block to hold one). A
+    stub fixes the diagnostic of the rule that reports its entity, and
+    none when no rule reports it. The code actions offered for a request are those
     whose diagnostic, or whose entity, overlaps the requested range. The code action MUST add verify stub declarations
     to the entity block in the .spec file, using verify kinds from the
     entity kind's allowed_verify_kinds in the KindRegistry (not hardcoded
@@ -489,6 +493,8 @@ behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
   verify unit "code action kind is QuickFix"
   verify unit "no test source files or application code generated"
   verify unit "code actions are those whose diagnostic or entity overlaps the requested range"
+  verify unit "no verify stub is offered for an entity a union body or an exempting flag exempts"
+  verify unit "a verify stub fixes the diagnostic that reports its entity, or none when nothing reports it"
   verify contract "Code Actions for Missing Verify: missing verify code actions holds — kind_registry_available, graph_available, quickfix_offered, verify_stubs_produced, no_code_generated"
 }
 

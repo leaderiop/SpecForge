@@ -160,3 +160,56 @@ fn handshake_with_all_fields_round_trips() {
         Some(5000)
     );
 }
+
+/// A guest whose handshake answers `protocol_version`, whatever the SDK it
+/// is served with would say.
+fn guest_answering(protocol_version: &str) -> specforge_wasm::testing::InProcessRuntime {
+    use specforge_extension_sdk::prelude::*;
+    let handshake = serde_json::to_vec(&HandshakeResponse {
+        protocol_version: protocol_version.to_string(),
+        name: "@test/older".to_string(),
+        version: "0.1.0".to_string(),
+        ..Default::default()
+    })
+    .unwrap();
+    specforge_wasm::testing::InProcessRuntime::new()
+        .with(|| {
+            let mut c = ContributionsBuilder::new(ExtensionMeta::new("@test/older", "0.1.0"));
+            c.kind("thing", |k| {
+                k.testable(true);
+            });
+            c
+        })
+        .answer_raw(
+            "@test/older",
+            "__handshake",
+            specforge_wasm::WasmCallResult::Ok(handshake),
+        )
+}
+
+#[specforge_test_macros::test(
+    behavior = "validate_extension_manifest",
+    verify = "a handshake whose protocol major differs from the host's produces E028"
+)]
+fn an_older_minor_protocol_still_loads() {
+    use specforge_protocol_types::{PROTOCOL_VERSION, ProtocolError};
+    use specforge_wasm::protocol::load_declaration;
+
+    assert_eq!(PROTOCOL_VERSION, "1.1.0");
+    // A guest built with the 1.0 SDK loads under a 1.1 host: only the
+    // major is checked.
+    let loaded = load_declaration(&guest_answering("1.0.0"), "@test/older")
+        .expect("a 1.0.0 guest loads under a 1.1.0 host");
+    assert_eq!(loaded.declaration.name(), "@test/older");
+    // Another major still does not.
+    match load_declaration(&guest_answering("2.0.0"), "@test/older").unwrap_err() {
+        ProtocolError::IncompatibleVersion {
+            host_version,
+            extension_version,
+        } => {
+            assert_eq!(host_version, "1.1.0");
+            assert_eq!(extension_version, "2.0.0");
+        }
+        other => panic!("expected IncompatibleVersion, got {other:?}"),
+    }
+}

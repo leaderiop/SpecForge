@@ -37,6 +37,31 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   declarations (`specforge_registry::build_registries`). Its outcomes are the `registry_build_*`
   behaviors. Tests and every caller reach it only through `build_registries`; its steps are
   private.
+- **Entity snapshot**: every entity of one built graph as every check after the build reads it, taken
+  once per compile and per session check (`specforge_project::snapshot::EntitySnapshot`, ADR 0019).
+  Each entity's record holds:
+  - what it writes, as field text;
+  - its references, obligations and methods;
+  - its edge counts by peer kind;
+  - what exempts it, if anything (a union body, an exempting flag, a kind that accepts no `verify`).
+
+  The registry checks and the rules read the records (`specforge_registry::entity::EntityRecord`).
+  The pass input, a custom validator's context and the coverage rule's entities are adapters over it.
+  Never read a graph node to answer what an entity says or owes.
+- **Field text**: the one string a field value is to a rule, a custom validator and a compiler pass
+  (ADR 0019): scalars as written; lists of strings or references and mixed lists joined by `", "`;
+  variant lists and type unions by `" | "`; expressions by `", "`; verify statements by `"; "`; a
+  block's keys by `", "`. An empty value is `""`. Every written field has one, and none is null.
+- **Standing**: how the obligation rule sees an entity (`specforge_project::snapshot::Standing`):
+  - whether its kind is testable;
+  - which `no_verify_statements` rule requires its kind to declare obligations (a rule without a
+    target kind applies to every kind);
+  - what exempts it (a union body, an exempting flag, a kind that accepts no `verify` statements);
+  - how many obligations it declares.
+
+  It **owes** obligations when a rule applies and nothing exempts it. It **counts** toward coverage
+  when testable and owing or declaring. It is **exempt** when testable and neither. W004, the pass
+  input's `exempt`, the coverage rule, stats, plan validation and the verify-stub fix read it.
 - **Package registry client**: what talks to a package registry: search, resolve and publish over
   HTTP, credentials in the OS keyring, publisher trust and package signing
   (`specforge-registry-client`). Not the Registry build, which is pure and needs none of it.
@@ -46,7 +71,8 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 - **Project view**: the compiled project as one surface sees it, borrowed: the graph, the
   environment it was compiled in (config, what each `extensions` entry enabled, the registry build:
   kinds, fields, edges, rules, the extension declarations and their ordered passes), the root it was
-  compiled from, and what the surface reports for it (`specforge_ops::view::ProjectView`). It owns
+  compiled from, and what the surface reports for it; its entity snapshot, through the per-compile
+  memo (`ProjectView::entities`) (`specforge_ops::view::ProjectView`). It owns
   the project's recorded test report and its versioned schema, both read at that root and never an
   ancestor's. The CLI builds one from its compiled project (`ProjectView::of`); MCP from its call
   target (`ProjectRef::view`: the project session with its I017 notices, or another project
@@ -68,9 +94,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   project view reads it once per compile and per content
   (`specforge_project::coverage::RecordedCoverage`).
 - **Obligation**: one `verify` statement on an entity. **Proven** when a passing test names its
-  exact text, or a formal claim discharges it.
+  exact text, or a formal claim discharges it. Who owes obligations is the entity's standing.
 - **Unverified**: an entity that counts toward coverage and is not proven
-  (`ProjectCoverage::is_unverified`).
+  (its standing counts and its verdict is not proven; `ProjectCoverage::is_unverified`).
 - **Missing link**: an expected edge, from the registries, that a traced entity lacks
   (`MissingLink`). The only gap a trace reports.
 - **Plan gap**: how an agent plan falls short of the graph: an unresolved entry, a missing entry for
@@ -81,6 +107,13 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_coverage::Verdict`).
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
   independent of surface. The CLI and MCP are adapters over it (`specforge-ops`).
+- **Project sources**: the `.spec` files under the spec root (`spec_root`, else the project root) that
+  discovery keeps — no skipped directory, no `exclude` entry. What a compile reads, and what format
+  and migrate rewrite (`specforge_common::ProjectConfig::spec_files`).
+- **Format configuration**: how one `.spec` document is laid out: inside a project, the nearest
+  `.specforgefmt.toml` from the document's directory up to its own project root, else the defaults;
+  outside any project, the editor's tab settings. `specforge format`, MCP `specforge.format` and the
+  LSP all format through `specforge_ops::format::document` (ADR 0021).
 - **Option table**: one enumerated argument an operation takes — its listed names in order, the
   aliases it also accepts, a one-line help per name, and its default — beside that operation
   (`specforge_ops::options::OptionTable`; `export::FORMAT`, `model::MODEL_FORMAT`, …). The CLI's

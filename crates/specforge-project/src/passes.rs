@@ -8,26 +8,22 @@
 
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_protocol_types::{
-    PassEdge, PassEntity, PassInput, PassOutput, PassSpan, PassTestResults,
-};
+use specforge_protocol_types::{PassInput, PassOutput, PassTestResults};
 use specforge_registry::{FieldRegistry, KindRegistry};
 use specforge_wasm::{CallError, ExtensionCalls, Operation};
 use std::path::Path;
 
 use crate::coverage::TestReport;
+use crate::snapshot::EntitySnapshot;
 
 /// Everything a pass may inspect. Built once per analysis invocation.
 pub struct AnalysisContext<'a> {
     pub graph: &'a Graph,
     pub kind_registry: &'a KindRegistry,
     pub field_registry: &'a FieldRegistry,
-    /// The extensions' validation rules: which kinds must declare
-    /// obligations (W004), so the coverage pass knows who is exempt.
-    pub rules: &'a [(
-        specforge_registry::validation_engine::ValidationRulePattern,
-        String,
-    )],
+    /// The graph's entity snapshot (ADR 0019): what the passes receive,
+    /// each entity with its standing (who is exempt).
+    pub entities: &'a EntitySnapshot,
     /// Project root as given to the tool, when known.
     pub project_root: Option<&'a Path>,
     /// Parsed `--test-results` report, when provided; forwarded to extension
@@ -54,69 +50,34 @@ pub struct ExtensionPassReport {
 }
 
 /// The input every `__pass_<name>` export receives (the protocol's
-/// `PassInput`): the entity snapshot, the resolved edges, and the test
-/// results and proved claims when the caller has them. Each entity carries
-/// how the coverage rule sees it: `testable` is its kind's flag (a kind
-/// that merely accepts `verify` statements, a formal `property`, does not
-/// count), and `exempt` says it owes no obligations of its own (ADR 0004,
-/// D2-b), decided here from the registries.
+/// `PassInput`): the entity snapshot's adapters (its entities and edges,
+/// ADR 0019), and the test results and proved claims when the caller has
+/// them. Each entity carries how the coverage rule sees it: `testable` is
+/// its kind's flag (a kind that merely accepts `verify` statements, a
+/// formal `property`, does not count), and `exempt` says it owes no
+/// obligations of its own (ADR 0004, D2-b), its standing's.
 pub fn pass_input(input: &AnalysisContext) -> PassInput {
-    let registries = crate::coverage::CoverageRegistries {
-        kinds: input.kind_registry,
-        fields: input.field_registry,
-        rules: input.rules,
-    };
-    let entities = registries
-        .entities(input.graph)
-        .into_iter()
-        .map(|(e, rule)| PassEntity {
-            id: e.id,
-            kind: e.kind,
-            fields: e.fields.into_iter().collect(),
-            incoming_edge_count: e.incoming_edge_count,
-            outgoing_edge_count: e.outgoing_edge_count,
-            span: Some(PassSpan {
-                file: e.span.file.as_str().to_string(),
-                start_line: e.span.start_line,
-                start_col: e.span.start_col,
-                end_line: e.span.end_line,
-                end_col: e.span.end_col,
-            }),
-            testable: rule.testable,
-            exempt: rule.exempt,
-            verify_kinds: e.verify_kinds,
-            verify_texts: e.verify_texts,
-        })
-        .collect();
-    let edges = input
-        .graph
-        .edges()
-        .iter()
-        .map(|e| PassEdge {
-            source: e.source.as_str().to_string(),
-            target: e.target.as_str().to_string(),
-            label: e.label.as_str().to_string(),
-        })
-        .collect();
-    let proved_claims = input.proved_claims.map(|claims| {
-        let mut ids: Vec<String> = claims.iter().cloned().collect();
-        ids.sort();
-        ids
-    });
     PassInput {
-        entities,
-        edges,
+        entities: input.entities.pass_entities(),
+        edges: input.entities.pass_edges(),
         test_results: input.test_results.map(PassTestResults::from),
-        proved_claims,
+        proved_claims: input.proved_claims.map(sorted_ids),
         previous: None,
     }
 }
 
+/// The ids of `claims`, sorted.
+fn sorted_ids(claims: &std::collections::HashSet<String>) -> Vec<String> {
+    let mut ids: Vec<String> = claims.iter().cloned().collect();
+    ids.sort();
+    ids
+}
+
 /// The host diagnostics of a pass's answer: in canonical order, a
-/// span-less one naming an entity of `graph` given that entity's span.
-pub fn pass_findings(output: PassOutput, graph: &Graph) -> Vec<Diagnostic> {
+/// span-less one naming an entity of `entities` given that entity's span.
+pub fn pass_findings(output: PassOutput, entities: &EntitySnapshot) -> Vec<Diagnostic> {
     specforge_wasm::pass_diagnostics(output, |id| {
-        graph.node(id).map(|node| node.source_span.clone())
+        entities.get(id).map(|(record, _)| record.span.clone())
     })
 }
 
@@ -168,7 +129,7 @@ pub fn run_extension_passes(
             Ok(output) => {
                 let extra = output.summary.clone();
                 summary.extend(extra);
-                pass_findings(output, input.graph)
+                pass_findings(output, input.entities)
             }
             Err(error) => {
                 summary.insert("failed".into(), true.into());

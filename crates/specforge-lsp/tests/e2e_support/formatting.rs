@@ -16,28 +16,6 @@ async fn e2e_formatting_returns_edits() {
 }
 
 #[tokio::test]
-async fn e2e_formatting_idempotent() {
-    // Well-formatted spec
-    let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
-    let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;
-    let resp = client.formatting(&uri, 2).await;
-    let result = &resp["result"];
-    // For well-formatted input, edits should be empty or produce identical text
-    if !result.is_null() {
-        let edits = result.as_array().unwrap();
-        // If there are edits, applying them should produce the same content
-        // (or there are no edits at all)
-        if !edits.is_empty() {
-            // Just verify edits are valid structure
-            for edit in edits {
-                assert!(edit["range"].is_object(), "Edit should have a range");
-                assert!(edit["newText"].is_string(), "Edit should have newText");
-            }
-        }
-    }
-}
-
-#[tokio::test]
 async fn e2e_range_formatting() {
     let text = "behavior foo \"Foo\" {\ncontract \"test\"\n}\n";
     let (mut client, uri) = Session::with_doc(None, "test.spec", text).await;

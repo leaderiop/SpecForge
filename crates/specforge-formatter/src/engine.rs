@@ -1,6 +1,5 @@
 use crate::config::FormatConfig;
-use crate::rules;
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, SourceSpan, Sym, codes};
 use tree_sitter::{Node, Parser};
 
 /// Result of formatting a source string.
@@ -52,19 +51,10 @@ pub fn format_source(source: &str, config: &FormatConfig) -> FormatResult {
 
     let mut diagnostics = Vec::new();
     if has_errors {
-        for (start_row, end_row) in &error_regions {
-            diagnostics.push(Diagnostic {
-                code: "W142".into(),
-                severity: specforge_common::Severity::Warning,
-                message: format!(
-                    "Parse error at lines {}-{}, error region preserved verbatim",
-                    start_row + 1,
-                    end_row + 1,
-                ),
-                span: None,
-                suggestion: None,
-                data: None,
-            });
+        let lines: Vec<&str> = source.lines().collect();
+        for &(start_row, end_row) in &error_regions {
+            let last_line_len = lines.get(end_row).map_or(0, |line| line.len());
+            diagnostics.push(kept_region(start_row, end_row, last_line_len));
         }
     }
 
@@ -105,6 +95,26 @@ pub fn format_range(
     let (expanded_start, expanded_end) = expand_to_block_boundaries(root, start_line, end_line);
 
     let lines: Vec<&str> = source.lines().collect();
+    // Blank lines at either end of the range lie between blocks: they stay
+    // as they are (formatted alone, the range would lose them).
+    let is_blank = |row: usize| lines[row].trim().is_empty();
+    let mut expanded_start = expanded_start;
+    let mut expanded_end = expanded_end.min(lines.len().saturating_sub(1));
+    while expanded_start <= expanded_end && expanded_start < lines.len() && is_blank(expanded_start)
+    {
+        expanded_start += 1;
+    }
+    while expanded_end > expanded_start && is_blank(expanded_end) {
+        expanded_end -= 1;
+    }
+    if expanded_start > expanded_end || expanded_start >= lines.len() {
+        // Nothing but blank lines (or nothing at all) to format.
+        return FormatResult {
+            formatted: source.to_string(),
+            diagnostics: vec![],
+        };
+    }
+
     let mut result_lines: Vec<String> = Vec::new();
 
     // Copy lines before the range
@@ -113,7 +123,7 @@ pub fn format_range(
     }
 
     // Format the range
-    let range_source: String = lines[expanded_start..=expanded_end.min(lines.len() - 1)].join("\n");
+    let range_source: String = lines[expanded_start..=expanded_end].join("\n");
     let range_result = format_source(&range_source, config);
 
     for line in range_result.formatted.lines() {
@@ -133,10 +143,47 @@ pub fn format_range(
         formatted
     };
 
+    // The range was formatted as its own source: its regions are reported
+    // at their lines in the whole document.
+    let diagnostics = range_result
+        .diagnostics
+        .into_iter()
+        .map(|d| match &d.span {
+            Some(span) if d.is(codes::W142) => kept_region(
+                span.start_line - 1 + expanded_start,
+                span.end_line - 1 + expanded_start,
+                span.end_col - 1,
+            ),
+            _ => d,
+        })
+        .collect();
+
     FormatResult {
         formatted,
-        diagnostics: range_result.diagnostics,
+        diagnostics,
     }
+}
+
+/// W142 for a region kept verbatim, rows `first..=last` (0-based), the last
+/// `last_line_len` bytes long: spanned from the start of its first line to
+/// the end of its last (1-based lines and columns, end exclusive; the file
+/// is left for the caller, who knows the document).
+fn kept_region(first: usize, last: usize, last_line_len: usize) -> Diagnostic {
+    Diagnostic::warning(
+        "W142",
+        format!(
+            "Parse error at lines {}-{}, error region preserved verbatim",
+            first + 1,
+            last + 1,
+        ),
+    )
+    .with_span(SourceSpan {
+        file: Sym::new(""),
+        start_line: first + 1,
+        start_col: 1,
+        end_line: last + 1,
+        end_col: last_line_len + 1,
+    })
 }
 
 /// Compute minimal TextEdit operations to transform `original` into `formatted`.
@@ -459,7 +506,27 @@ fn collapse_whitespace(text: &str) -> String {
 /// `//text`. Anything else is kept as written (`///`, `//!`, indentation
 /// after `//`).
 fn comment_text(node: Node, source: &str) -> String {
-    rules::normalize_comment(node_text(node, source).trim_end())
+    normalize_comment(node_text(node, source).trim_end())
+}
+
+/// Normalize comment spacing: `//text` gets one space after `//`, and
+/// trailing whitespace goes. Everything else is the author's: `///` and
+/// `//!` stay, and so does indentation after `//` (nested bullets, tables).
+fn normalize_comment(line: &str) -> String {
+    let line = line.trim_end();
+    let trimmed = line.trim_start();
+    let leading_ws = &line[..line.len() - trimmed.len()];
+    match trimmed.strip_prefix("//") {
+        Some(rest)
+            if rest
+                .chars()
+                .next()
+                .is_some_and(|c| !c.is_whitespace() && c != '/' && c != '!') =>
+        {
+            format!("{leading_ws}// {rest}")
+        }
+        _ => line.to_string(),
+    }
 }
 
 /// Format one top-level block.
@@ -983,13 +1050,63 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "apply_format_rules",
-        verify = "string rules normalize multiline string literal indentation"
+        verify = "comment rules normalize spacing around inline comments"
     )]
-    fn test_string_multiline_normalization() {
-        let input = "behavior foo \"Foo\" {\n  contract \"\"\"\n      First line\n      Second line\n  \"\"\"\n}\n";
+    fn test_normalize_comment_spacing() {
+        assert_eq!(normalize_comment("//comment"), "// comment");
+        assert_eq!(normalize_comment("// already good  "), "// already good");
+        assert_eq!(normalize_comment("//"), "//");
+        // The author's layout inside a comment is kept verbatim.
+        assert_eq!(
+            normalize_comment("//   - nested bullet"),
+            "//   - nested bullet"
+        );
+        assert_eq!(normalize_comment("  //  indented"), "  //  indented");
+        assert_eq!(normalize_comment("/// doc"), "/// doc");
+        assert_eq!(normalize_comment("//! inner"), "//! inner");
+        // Through the engine: a comment inside a block.
+        let result = fmt("behavior a \"A\" {\n  //x\n  contract \"c\"\n}\n");
+        assert!(result.contains("  // x"), "got: {result}");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "indentation rules normalize to configured indent style"
+    )]
+    fn indent_follows_the_configured_width_and_tabs() {
+        let input = "behavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n";
+        let four = FormatConfig {
+            indent_width: 4,
+            ..FormatConfig::default()
+        };
+        let tabs = FormatConfig {
+            use_tabs: true,
+            ..FormatConfig::default()
+        };
+
+        assert!(
+            fmt_with(input, &four).contains("\n    contract"),
+            "{}",
+            fmt_with(input, &four)
+        );
+        assert!(
+            fmt_with(input, &tabs).contains("\n\tcontract"),
+            "{}",
+            fmt_with(input, &tabs)
+        );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "multiline string literals are kept byte-for-byte"
+    )]
+    fn multiline_strings_are_kept_byte_for_byte() {
+        let input = "behavior foo \"Foo\" {\n  contract \"\"\"\n      First line\n        Second line\n  \"\"\"\n}\n";
         let result = fmt(input);
-        assert!(result.contains("First line"), "got: {result}");
-        assert!(result.contains("Second line"), "got: {result}");
+        assert!(
+            result.contains("contract \"\"\"\n      First line\n        Second line\n  \"\"\""),
+            "got: {result}"
+        );
     }
 
     // --- Slice 5: Idempotency ---
@@ -1082,12 +1199,62 @@ mod tests {
     fn test_parse_error_diagnostics() {
         let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n{{{broken\n";
         let result = format_source(input, &FormatConfig::default());
-        let has_error_diag = result.diagnostics.iter().any(|d| d.code == "W142");
+        let w142: Vec<_> = result
+            .diagnostics
+            .iter()
+            .filter(|d| d.code == "W142")
+            .collect();
+        assert_eq!(w142.len(), 1, "{:?}", result.diagnostics);
         assert!(
-            has_error_diag,
-            "should have W142 diagnostic: {:?}",
-            result.diagnostics
+            w142[0].message.starts_with("Parse error at lines 4-4,"),
+            "{}",
+            w142[0].message
         );
+        let span = w142[0].span.as_ref().expect("a spanned W142");
+        assert_eq!((span.start_line, span.start_col), (4, 1));
+        assert_eq!((span.end_line, span.end_col), (4, "{{{broken".len() + 1));
+
+        // A region over two lines ends at its last line's end.
+        let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\nbehavior bar \"Bar\" {\n  contract \"x\" ]]\n  more ((\n";
+        let result = format_source(input, &FormatConfig::default());
+        let span = result
+            .diagnostics
+            .iter()
+            .find(|d| d.code == "W142")
+            .and_then(|d| d.span.clone())
+            .expect("a spanned W142");
+        assert!(span.end_line > span.start_line, "{span:?}");
+        let last = input.lines().nth(span.end_line - 1).unwrap();
+        assert_eq!(span.end_col, last.len() + 1, "{span:?}");
+    }
+
+    /// Three blocks, then a stray `}}}` on line 13 (0-based 12).
+    const RANGE_WITH_A_KEPT_REGION: &str = "behavior a \"A\" {\n  contract \"a\"\n}\n\nbehavior b \"B\" {\n  contract \"b\"\n}\n\nbehavior c \"C\" {\n      contract \"c\"\n}\n\n}}}\n";
+
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_range",
+        verify = "a region left unformatted is reported at its document lines"
+    )]
+    fn range_reports_a_kept_region_at_its_document_lines() {
+        let result = format_range(RANGE_WITH_A_KEPT_REGION, 8, 12, &FormatConfig::default());
+
+        let w142: Vec<_> = result
+            .diagnostics
+            .iter()
+            .filter(|d| d.code == "W142")
+            .collect();
+        assert_eq!(w142.len(), 1, "{:?}", result.diagnostics);
+        assert!(
+            w142[0].message.starts_with("Parse error at lines 13-13,"),
+            "{}",
+            w142[0].message
+        );
+        let span = w142[0].span.as_ref().expect("a spanned W142");
+        assert_eq!(span.start_line, 13);
+        assert_eq!(span.start_col, 1);
+        assert_eq!(span.end_line, 13);
+        // `}}}` is 3 bytes: the span covers the whole line, end exclusive.
+        assert_eq!(span.end_col, 4);
     }
 
     // --- Slice 10: compute_edits ---
@@ -1525,6 +1692,24 @@ mod tests {
         );
     }
 
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_range",
+        verify = "range formatting matches full formatting for affected blocks"
+    )]
+    fn a_range_keeps_the_blank_lines_around_it() {
+        let source = "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n      contract \"b\"\n}\n";
+        // The range starts on the blank line between the blocks.
+        let range = format_range(source, 3, 6, &FormatConfig::default());
+
+        assert_eq!(
+            range.formatted,
+            "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n  contract \"b\"\n}\n"
+        );
+        // A range of blank lines only changes nothing.
+        let blank = format_range(source, 3, 3, &FormatConfig::default());
+        assert_eq!(blank.formatted, source);
+    }
+
     // --- Performance tests ---
 
     #[specforge_test_macros::test(
@@ -1906,13 +2091,13 @@ mod tests {
         );
     }
 
-    // --- Gap coverage: lsp_respect_editor_config ---
+    // --- Configured indentation (the width and tabs an editor asks for outside a project) ---
 
     #[specforge_test_macros::test(
-        behavior = "lsp_respect_editor_config",
-        verify = "editor tab size used when no config file exists"
+        behavior = "apply_format_rules",
+        verify = "indentation rules normalize to configured indent style"
     )]
-    fn test_editor_tab_size_used_when_no_config_file() {
+    fn a_configured_width_sets_the_indent() {
         // When no .specforgefmt.toml exists, the FormatConfig should use defaults
         // which correspond to what the editor would provide
         let config_4 = FormatConfig {
@@ -1951,10 +2136,10 @@ mod tests {
     }
 
     #[specforge_test_macros::test(
-        behavior = "lsp_respect_editor_config",
-        verify = "editor tab size used when no config file exists"
+        behavior = "apply_format_rules",
+        verify = "indentation rules normalize to configured indent style"
     )]
-    fn test_editor_insert_spaces_false_produces_tabs() {
+    fn use_tabs_indents_with_tabs() {
         let config = FormatConfig {
             indent_width: 2,
             use_tabs: true,

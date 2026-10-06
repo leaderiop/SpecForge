@@ -17,8 +17,9 @@ use specforge_common::Diagnostic;
 use specforge_emitter::{GraphProtocolSchema, generate_schema};
 use specforge_graph::Graph;
 use specforge_project::coverage::{
-    CoverageRegistries, ProjectCoverage, Recorded, RecordedCoverage, ReportError, TestReport,
+    ProjectCoverage, Recorded, RecordedCoverage, ReportError, TestReport,
 };
+use specforge_project::snapshot::EntitySnapshot;
 use specforge_project::{CompiledProject, Environment, ProjectSession};
 use specforge_registry::RegistryBuild;
 
@@ -46,8 +47,8 @@ pub struct ProjectView<'a> {
     /// declarations and their ordered passes.
     pub registries: &'a RegistryBuild,
     pub root: Option<&'a Path>,
-    /// The memo of the recorded report and the coverage, owned by whoever
-    /// owns `graph`.
+    /// The memo of the graph's entity snapshot, the recorded report and the
+    /// coverage, owned by whoever owns `graph`.
     recorded: &'a RecordedCoverage,
     /// Where what the surface reports for the project comes from.
     reported: Reported<'a>,
@@ -168,8 +169,8 @@ impl<'a> ProjectView<'a> {
         self.recorded.report(self.root)
     }
 
-    /// The coverage rule over the graph and the recorded report, computed
-    /// once per compile and report content.
+    /// The coverage rule over the graph's entity snapshot and the recorded
+    /// report, computed once per compile and report content.
     pub fn coverage(&self) -> Result<Arc<ProjectCoverage>, ReportError> {
         self.recorded().map(|recorded| recorded.coverage)
     }
@@ -178,11 +179,19 @@ impl<'a> ProjectView<'a> {
     /// from it ([`Self::coverage`]), read together: one read of the report
     /// file for a view that needs both.
     pub fn recorded(&self) -> Result<Recorded, ReportError> {
-        self.recorded.at(
-            self.root,
-            self.graph,
-            CoverageRegistries::of(self.registries),
-        )
+        // The snapshot first, so an unseeded memo takes it with the
+        // environment's spec root.
+        self.entities();
+        self.recorded.at(self.root, self.graph, self.registries)
+    }
+
+    /// The graph's entity snapshot (ADR 0019): every entity with what it
+    /// writes and its standing, the one the project's checks read. A view
+    /// whose owner seeded none (a graph assembled in a test, the LSP's
+    /// stand-in) takes one on first use, with the environment's spec root.
+    pub fn entities(&self) -> &'a EntitySnapshot {
+        self.recorded
+            .entities(self.graph, self.registries, &self.env.spec_root)
     }
 
     /// The Graph Protocol schema the loaded extensions produce, unversioned
@@ -376,6 +385,39 @@ pub(crate) mod testing {
 mod tests {
     use super::*;
     use specforge_test_macros::test as specforge_test;
+
+    #[specforge_test(
+        behavior = "snapshot_entities_once",
+        verify = "the checks, the check passes and the coverage of one compile read one snapshot"
+    )]
+    fn a_view_reads_the_snapshot_its_compile_took() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("specforge.json"), r#"{"name": "v"}"#).unwrap();
+        std::fs::write(dir.path().join("a.spec"), "behavior a \"A\" {\n}\n").unwrap();
+        let compiled = CompiledProject::compile(dir.path(), None);
+        let view = ProjectView::of(&compiled);
+        assert!(std::ptr::eq(view.entities(), compiled.entities()));
+        assert!(std::ptr::eq(
+            view.coverage().unwrap().entities(),
+            compiled.entities()
+        ));
+        assert_eq!(view.entities().kind_of("a"), Some("behavior"));
+
+        // A graph assembled without a compile: the view takes one, once,
+        // with the environment's spec root.
+        let graph = Graph::new();
+        let mut env = Environment::with_registries(RegistryBuild::default());
+        env.spec_root = dir.path().join("spec");
+        let recorded = RecordedCoverage::default();
+        let view = ProjectView::new(&graph, &env, None, &recorded);
+        assert!(view.entities().is_empty());
+        assert!(std::ptr::eq(view.entities(), view.entities()));
+        assert_eq!(view.entities().spec_root(), env.spec_root);
+        assert!(std::ptr::eq(
+            view.coverage().unwrap().entities(),
+            view.entities()
+        ));
+    }
 
     #[specforge_test(
         behavior = "read_views_over_the_project_view",

@@ -43,7 +43,8 @@ behavior te_validate_unverified_testable "W004: Unverified Testable Entities" {
     entity's structure and the registry, never from a field's name: a
     struct member named `verify`, `abstract` or `gherkin` neither
     declares an obligation nor exempts the entity. What W004 exempts is
-    exempt from A001, stats and the coverage gate too.
+    exempt from A001, stats, the coverage gate and the verify-stub code
+    action too.
   """
   ensures {
     unverified_detected "testable entity with no verify produces W004"

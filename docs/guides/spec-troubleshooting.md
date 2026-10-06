@@ -127,7 +127,11 @@ diagnostic catalog).
 
 ## Formatter on broken files
 
-`specforge format` preserves unparsable regions verbatim instead of failing:
+`specforge format` preserves unparsable regions verbatim instead of giving up:
 the formatter tracks error regions from the parser's recovery and only
 rewrites text it could parse. You can run it on a file with syntax errors —
 the broken part comes out unchanged, the valid parts come out formatted.
+
+`specforge format` exits 1 for such a file (W142 names the lines it kept), in every mode, as it
+does for a file it cannot read; it still formats and writes the rest of the file. A check passes only
+when every file is read and in canonical form.

@@ -34,11 +34,12 @@ fn count(payload: &Value, key: &str) -> usize {
     payload[key].as_array().map_or(0, Vec::len)
 }
 
-/// Whether a format call writes: check and diff modes only report, unless
-/// `write` says otherwise.
+/// Whether a format call writes: what `specforge.format` decides from the
+/// same typed arguments (`FormatArgs::mode`).
 fn format_writes(args: &Value) -> bool {
-    let flag = |key: &str| args.get(key).and_then(Value::as_bool);
-    flag("write").unwrap_or(!flag("check").unwrap_or(false) && !flag("diff").unwrap_or(false))
+    crate::args::parse::<operations::FormatArgs>(args.clone()).map_or(true, |args| {
+        args.mode() == specforge_ops::format::Mode::Write
+    })
 }
 
 pub static CORE_TOOLS: &[ToolSpec] = &[
@@ -1048,6 +1049,31 @@ mod tests {
     /// The arguments a tool's schema declares.
     fn declares(tool: &crate::tool::ToolSpec, argument: &str) -> bool {
         (tool.schema)()["properties"].get(argument).is_some()
+    }
+
+    #[test]
+    fn format_writes_agrees_with_the_handler() {
+        use specforge_ops::format::Mode;
+        let flag = [None, Some(true), Some(false)];
+        for check in flag {
+            for diff in flag {
+                for write in flag {
+                    let mut args = serde_json::json!({});
+                    for (key, value) in [("check", check), ("diff", diff), ("write", write)] {
+                        if let Some(value) = value {
+                            args[key] = value.into();
+                        }
+                    }
+                    let parsed: crate::operations::FormatArgs =
+                        serde_json::from_value(args.clone()).unwrap();
+                    assert_eq!(
+                        super::format_writes(&args),
+                        parsed.mode() == Mode::Write,
+                        "{args}"
+                    );
+                }
+            }
+        }
     }
 
     #[specforge_test_macros::test(

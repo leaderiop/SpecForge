@@ -196,12 +196,11 @@ type PassInput {
 }
 
 // One entity of the snapshot. testable: its kind's flag; exempt: it owes
-// no obligations of its own (ADR 0004, D2-b), decided by the host from the
-// registries.
+// no obligations of its own (ADR 0004, D2-b): decided by the host's one obligation rule (ADR 0019).
 type PassEntity {
   id                  string
   kind                string
-  // Its fields, stringified, by name.
+  // Every field it writes, by name, as its field text (ADR 0019); a name written twice keeps its last text.
   fields              object
   incoming_edge_count integer
   outgoing_edge_count integer
@@ -243,6 +242,7 @@ type PassOutput {
 // What a custom rule's wasm_function receives for one entity: the entity,
 // the resolution of its references, the declared types and the host's
 // primitive types.
+// The entity's field values are their field texts (ADR 0019), always strings.
 type ValidatorContext {
   entity         object
   referenced     object[]

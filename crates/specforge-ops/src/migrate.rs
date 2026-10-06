@@ -373,6 +373,46 @@ mod tests {
         assert_eq!(parse_target(None).unwrap(), CURRENT_FORMAT_VERSION);
     }
 
+    #[specforge_test(
+        behavior = "migrate_spec_files_in_place",
+        verify = "only the project's sources are migrated: under spec_root, without excluded files"
+    )]
+    fn migrate_reads_the_project_sources() {
+        let dir = tempfile::TempDir::new().unwrap();
+        let root = dir.path();
+        std::fs::write(
+            root.join("specforge.json"),
+            r#"{"spec_root": "specs", "exclude": ["drafts"]}"#,
+        )
+        .unwrap();
+        for file in [
+            "specs/a.spec",
+            "specs/drafts/d.spec",
+            "spec/old.spec",
+            "fixtures/fx.spec",
+        ] {
+            std::fs::create_dir_all(root.join(file).parent().unwrap()).unwrap();
+            std::fs::write(root.join(file), OLD).unwrap();
+        }
+
+        let summary = migrate_project(root, &CURRENT_FORMAT_VERSION, true, true);
+
+        let visited: Vec<&str> = summary
+            .results
+            .iter()
+            .map(|r| r.file_path.as_str())
+            .collect();
+        assert_eq!(visited.len(), 1, "{visited:?}");
+        assert!(visited[0].ends_with("specs/a.spec"), "{visited:?}");
+        // Rollback looks at the same files (none has a backup: a dry run).
+        let rollback = rollback(root);
+        assert_eq!(rollback.skipped_count, 1, "{rollback:?}");
+        assert!(
+            rollback.results[0].file_path.ends_with("specs/a.spec"),
+            "{rollback:?}"
+        );
+    }
+
     /// `@acme/x`, served in process, declaring its migration hook
     /// `migrate_acme` with its handler, or no hook; the runtime records
     /// every export the host calls.

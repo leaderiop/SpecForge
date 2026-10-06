@@ -14,6 +14,7 @@ use crate::delta::{GraphDelta, compute_graph_delta};
 use crate::freshness::DiskSnapshot;
 use crate::incremental::IncrementalBuild;
 use crate::inputs::{Changes, InputRole, Origin, UpdateKind, canonical, environment_inputs};
+use crate::snapshot::EntitySnapshot;
 use crate::{Environment, sources_in_path_order};
 
 /// The runtime a session runs its project's extensions in (every
@@ -90,8 +91,9 @@ pub struct ProjectSession {
     /// What the session last built from, as it was when read: what
     /// [`Self::stale`] compares with disk.
     snapshot: DiskSnapshot,
-    /// The recorded test report and the coverage of the current graph
-    /// against it: a fresh memo after every update and reload.
+    /// The current graph's entity snapshot, the recorded test report and
+    /// the coverage of the graph against it: a fresh memo after every update
+    /// and reload, seeded with the snapshot the checks read.
     recorded: RecordedCoverage,
 }
 
@@ -461,6 +463,17 @@ impl ProjectSession {
         &self.recorded
     }
 
+    /// The current graph's entity snapshot (ADR 0019): the one its last
+    /// check read, or, when the last update skipped the checks, one taken
+    /// on first use.
+    pub fn entities(&self) -> &EntitySnapshot {
+        self.recorded.entities(
+            self.build.graph(),
+            &self.env.registries,
+            &self.env.spec_root,
+        )
+    }
+
     /// The environment, shared: it stays valid after the session reloads.
     pub fn shared_environment(&self) -> Arc<Environment> {
         Arc::clone(&self.env)
@@ -573,9 +586,20 @@ impl ProjectSession {
         .diagnostics
     }
 
-    fn check(&self) -> Vec<Diagnostic> {
-        self.env
-            .run_checks(self.build.graph(), self.runtime.as_deref())
+    /// Run every check on the current graph, over a snapshot of it taken
+    /// now (ADR 0019): the coverage memo starts again from that snapshot.
+    fn check(&mut self) -> Vec<Diagnostic> {
+        let graph = self.build.graph();
+        let entities = Arc::new(EntitySnapshot::of(
+            graph,
+            &self.env.registries,
+            &self.env.spec_root,
+        ));
+        let diagnostics = self
+            .env
+            .run_checks(graph, &entities, self.runtime.as_deref());
+        self.recorded = RecordedCoverage::of(entities);
+        diagnostics
     }
 
     /// [`Self::check`], the check inputs stamped first.

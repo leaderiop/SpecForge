@@ -272,7 +272,8 @@ Design notes, so your passes age well:
   clocks. This is what makes them testable without a Wasm runtime and safe to
   reorder.
 - **Prefer structural checks.** The v1 pass ABI hands you an entity snapshot
-  (id, kind, stringified fields, edge counts) plus the resolved edge list —
+  (id, kind, [field texts](../extension-sdk.md#field-text), edge counts)
+  plus the resolved edge list —
   checks that reason about *structure* (symmetry, presence, cycles, coverage)
   are its sweet spot. Semantic verification (SMT-backed `analyze --prove`) is
   a separate, future rung of the formality ladder.

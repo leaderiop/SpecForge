@@ -48,7 +48,7 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 
 ```json
 {
-  "host_version": "1.0.0",
+  "host_version": "1.1.0",
   "supported_categories": ["entities", "edges", "fields", "shared_fields", "enhancements", "validation_rules", "surfaces", "grammars", "body_parsers", "collectors", "passes", "feature_flags", "analyzers"]
 }
 ```
@@ -57,7 +57,7 @@ The handshake is the first call the host makes after loading a Wasm binary. It e
 
 ```json
 {
-  "protocol_version": "1.0.0",
+  "protocol_version": "1.1.0",
   "name": "@specforge/software",
   "version": "1.0.0",
   "contribution_flags": {
@@ -598,6 +598,26 @@ The host-function surface is versioned alongside the wire protocol (`protocol_ve
 | Protocol Version | Functions Available |
 |-----------------|-------------------|
 | `1.0.0` | `host_query_graph`, `host_emit_diagnostic`, `host_read_file`, `host_emit_file`, `host_http_get`, `host_add_graph_node`, `host_add_graph_edge` |
+| `1.1.0` | the same as `1.0.0` |
+
+### Protocol Versions
+
+The protocol version is semver (`specforge_protocol_types::PROTOCOL_VERSION`). The host loads every
+guest of its major version, whatever minor it was built with, and sends its own version as
+`host_version` in every handshake request. A guest built with the SDK declares the SDK's version in
+its handshake and its registry manifest.
+
+The minor moves when a payload's values change meaning or an optional field is added: every older
+peer still decodes every payload. The major moves only when an older guest could no longer be decoded
+or answered.
+
+| Version | What it guarantees |
+|---------|--------------------|
+| `1.0.0` | The baseline: the handshake, describe and operate payloads of this document. |
+| `1.1.0` | Field text (ADR 0019): every field an entity writes has one text, the same in a pass's `PassEntity.fields`, a validator's `ValidatorField.value` and what declarative rules match (see "Field text" in `extension-sdk.md`). A written field is present even when empty (`""`). A validator's field `value` is always a string (a variant list, mixed list, expression or type union was `null`). `PassEntity.exempt` follows the host's one obligation rule: a `no_verify_statements` rule without a target kind obliges every kind that accepts `verify` statements (an entity of a kind that accepts none is exempt). |
+
+A host of `1.0.x` still loads a `1.1.0` guest and hands it the `1.0.0` values; a guest that needs the
+`1.1.0` values can read `host_version` in its handshake request.
 
 ### Sandbox Policy
 

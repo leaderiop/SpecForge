@@ -1,10 +1,10 @@
 use serde::Serialize;
 use sha2::{Digest, Sha256};
-use specforge_common::{Diagnostic, Severity, find_project_root};
+use specforge_common::{Diagnostic, Severity, find_project_root, load_project_config};
 use specforge_emitter::schema::{GraphProtocolSchema, SchemaMigration, diff_schemas};
-use specforge_formatter::{discover_targets, unified_diff};
+use specforge_formatter::unified_diff;
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 // ---------------------------------------------------------------------------
@@ -605,16 +605,8 @@ pub fn migrate_file(
 
 /// Run rollback: restore `.spec.bak` files to their originals.
 pub fn run_rollback(path: &Path) -> RollbackSummary {
-    let project_root = find_project_root(path).unwrap_or_else(|| path.to_path_buf());
-    let spec_root = project_root.join("spec");
-    let search_root = if spec_root.exists() {
-        &spec_root
-    } else {
-        &project_root
-    };
-
-    // Discover .spec files, then check for .bak counterparts
-    let targets = discover_targets(search_root, &[], &[]);
+    // The project's sources, then their .bak counterparts.
+    let targets = project_sources(path);
 
     let mut results = Vec::new();
     let mut restored = 0;
@@ -703,21 +695,22 @@ pub fn run_rollback(path: &Path) -> RollbackSummary {
     }
 }
 
-/// Discover spec files and run migration on all of them.
+/// The sources of the project `path` is in (else of `path` itself): the
+/// files a compile reads, under `spec_root` without what `exclude` leaves
+/// out (ADR 0021 D3).
+fn project_sources(path: &Path) -> Vec<PathBuf> {
+    let project_root = find_project_root(path).unwrap_or_else(|| path.to_path_buf());
+    load_project_config(&project_root).spec_files(&project_root)
+}
+
+/// Migrate every source of the project `path` is in.
 pub fn migrate_project(
     path: &Path,
     target_version: &FormatVersion,
     dry_run: bool,
     no_backup: bool,
 ) -> MigrationSummary {
-    let project_root = find_project_root(path).unwrap_or_else(|| path.to_path_buf());
-    let spec_root = project_root.join("spec");
-    let search_root = if spec_root.exists() {
-        &spec_root
-    } else {
-        &project_root
-    };
-    let targets = discover_targets(search_root, &[], &[]);
+    let targets = project_sources(path);
 
     let mut results = Vec::new();
     let mut backups = Vec::new();

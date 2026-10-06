@@ -86,6 +86,39 @@ fn the_view_lists_what_counts_toward_coverage() {
 }
 
 #[specforge_test(
+    behavior = "read_views_over_the_project_view",
+    verify = "an entity is unverified when it counts toward coverage and is not proven"
+)]
+fn coverage_rows_and_stats_read_one_standing() {
+    let project = project();
+    let view = project.view();
+    let outcome = coverage(&view, &CoverageQuery::default()).unwrap();
+    let entities = view.entities();
+    // Every listed row is its entity's standing, and only those that count
+    // are listed.
+    for row in &outcome.rows {
+        let standing = entities.standing(&row.entity_id).unwrap();
+        assert_eq!(row.testable, standing.testable, "{}", row.entity_id);
+        assert_eq!(row.exempt, standing.exempt(), "{}", row.entity_id);
+        assert!(standing.counts(), "{}", row.entity_id);
+    }
+    let counted = entities.iter().filter(|(_, s)| s.counts()).count();
+    assert_eq!(outcome.rows.len(), counted);
+    assert_eq!(outcome.rows.len(), outcome.summary.testable_total);
+    // A row named by id is its standing too, counted or not.
+    for (record, standing) in entities.iter() {
+        let row = row(&view, &record.id).unwrap().unwrap();
+        assert_eq!(
+            (row.testable, row.exempt),
+            (standing.testable, standing.exempt())
+        );
+    }
+    // Stats count the same entities.
+    let stats = specforge_ops::stats::stats(&view).unwrap();
+    assert_eq!(stats.testable_count, counted);
+}
+
+#[specforge_test(
     behavior = "provide_mcp_coverage_tool",
     verify = "an exempt entity named by entity_id is returned with exempt true"
 )]
@@ -121,17 +154,22 @@ fn unverified_is_counted_and_not_proven() {
     let project = project();
     let view = project.view();
     let coverage = view.coverage().unwrap();
-    let unverified: Vec<&str> = coverage
-        .standings
-        .keys()
-        .map(String::as_str)
+    let ids: Vec<&str> = coverage
+        .entities()
+        .records()
+        .iter()
+        .map(|record| record.id.as_str())
+        .collect();
+    let unverified: Vec<&str> = ids
+        .iter()
+        .copied()
         .filter(|id| coverage.is_unverified(id))
         .collect();
     // login is proven; the feature is not testable (though its test
     // passes); the union, the abstract behavior and the bare constraint
     // owe nothing.
     assert_eq!(unverified, ["logout", "uptime"]);
-    for id in coverage.standings.keys() {
+    for id in ids {
         let row = row(&view, id).unwrap().unwrap();
         assert_eq!(row.unverified(), coverage.is_unverified(id), "{id}");
     }

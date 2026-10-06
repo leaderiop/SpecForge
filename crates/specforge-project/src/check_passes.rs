@@ -3,6 +3,7 @@
 //! what they report is the compile's (behavior `run_check_phase_passes`).
 
 use crate::passes::{AnalysisContext, pass_findings, pass_input};
+use crate::snapshot::EntitySnapshot;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 use specforge_protocol_types::PassBuildCache;
@@ -11,11 +12,16 @@ use specforge_wasm::{CallError, ExtensionCalls, Operation, WasmRuntime};
 use crate::Environment;
 use crate::build_cache::BuildCache;
 
-/// Run `env`'s check passes over `graph`, handing them the build cache as
-/// `previous` when the project has one (W144 when it is invalid). A pass
-/// that fails (it traps, or answers output that does not parse) is E028;
-/// the others still run.
-pub(crate) fn run(env: &Environment, graph: &Graph, runtime: &dyn WasmRuntime) -> Vec<Diagnostic> {
+/// Run `env`'s check passes over `graph` (its entity snapshot is
+/// `entities`), handing them the build cache as `previous` when the
+/// project has one (W144 when it is invalid). A pass that fails (it traps,
+/// or answers output that does not parse) is E028; the others still run.
+pub(crate) fn run(
+    env: &Environment,
+    graph: &Graph,
+    entities: &EntitySnapshot,
+    runtime: &dyn WasmRuntime,
+) -> Vec<Diagnostic> {
     if env.registries.check_passes().next().is_none() {
         return Vec::new();
     }
@@ -34,7 +40,7 @@ pub(crate) fn run(env: &Environment, graph: &Graph, runtime: &dyn WasmRuntime) -
         graph,
         kind_registry: &registries.kinds,
         field_registry: &registries.fields,
-        rules: &registries.rules,
+        entities,
         project_root: Some(&env.root),
         // A compile has no test results and no proof.
         test_results: None,
@@ -55,7 +61,7 @@ pub(crate) fn run(env: &Environment, graph: &Graph, runtime: &dyn WasmRuntime) -
             )),
         };
         match answer {
-            Ok(output) => diagnostics.extend(pass_findings(output, graph)),
+            Ok(output) => diagnostics.extend(pass_findings(output, entities)),
             Err(error) => diagnostics.push(error.diagnostic()),
         }
     }
