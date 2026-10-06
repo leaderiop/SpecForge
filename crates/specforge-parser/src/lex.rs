@@ -6,6 +6,26 @@
 //! One divergence: a `"…"` string ends at its line's end (the grammar lets
 //! it run on, no spec in the repository writes one), so an unclosed quote
 //! never swallows the rest of a document being typed.
+//!
+//! This is the second reader of the language's text beside the grammar, and
+//! `expr::tokenize` is a third that is not built on it. `tokenize` reads the
+//! expression sub-language (`latency < 100ms`, an `expr { }` group, or a prose
+//! line the prove pass reads), whose lexical rules are not the host's:
+//! identifiers are `[a-z_][a-z0-9_]*` (here any ASCII letter and any non-ASCII
+//! byte), a number's unit is alphabetic only and a trailing `.` belongs to the
+//! number (`1.`, `1.ms`; here `.digits` only, then any word byte), `<=`, `>=`,
+//! `==` and `!=` are one token (here two puncts), columns count characters
+//! (here bytes), and any character that is no token is an error with a
+//! position (here there are no errors). A tokenizer over these lexemes would
+//! re-read every `Ident`, `Number`, `RefId`, string and comment lexeme
+//! character by character to split and reject it, which is the old tokenizer
+//! behind a layer, and would change the error position of an input such as
+//! `Foo`, `abcÉ`, `10ms2` or `a.b:c`. So the two stay apart, and a test
+//! (`expr::tests::the_tokenizer_agrees_with_the_lexer_and_the_grammar_on_the_corpus`)
+//! pins what they share: on every expression of the repository's spec, the
+//! tokens `tokenize` cuts are the lexemes `lex` cuts (the four two-character
+//! operators joined), and what `parse_expression` reads from an `expr { }`
+//! group's text is what the grammar read.
 
 /// What a lexeme is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

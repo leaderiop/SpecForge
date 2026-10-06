@@ -22,7 +22,12 @@ lexeme), numbers, strings, comments and punctuation, without a parse, so half-ty
 checks it against tree-sitter on every spec file of the repository. Navigation's `SourceText` and the
 LSP's document read text through it; neither scans text itself. A regular string ends at its line's end
 (the grammar lets it run on; the repository has none), so an unclosed quote never swallows a document
-being typed.
+being typed. The lexer mirrors the grammar by hand (one deliberate divergence, above), and the parser
+crate's third reader of the language, `expr::tokenize` (the expression sub-language the prove pass
+reads: lowercase identifiers, alphabetic units, `<=`/`==`/`!=` as one token, character columns, errors),
+is not built on it: a tokenizer over these lexemes would re-read each lexeme character by character to
+split and reject it. A test pins what they share on the repository's expressions (same tokens, and
+`parse_expression` reads an `expr { }` group's text as the grammar did).
 
 **D2. One document module in the LSP.** `specforge_lsp::document::Document` owns an open buffer, its
 version, its `LineIndex` and its syntax (lexemes with roles, and the entity bodies, blocks and lists they

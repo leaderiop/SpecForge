@@ -332,9 +332,14 @@ behavior lex_spec_text "Lex Spec Text" {
     numbers, strings, comments and punctuation, without a parse. Navigation
     and the LSP read text through it and through no scanner of their own
     (ADR 0023). A regular string ends at its line's end, so an unclosed
-    quote never swallows the rest of a document being typed.
+    quote never swallows the rest of a document being typed. The expression
+    tokenizer of the prove pass (parse_expression) reads a sub-language with
+    lexical rules of its own and is not built on the lexer; it MUST cut the
+    expressions of the repository's spec into the same tokens (the
+    two-character operators joined) and read an expr group as the grammar did.
   """
   verify unit "the lexer agrees with the grammar on every spec file of the repository"
+  verify unit "the expression tokenizer, the lexer and the grammar agree on every expression of the repository's spec"
   verify unit "a scheme ref ID is one lexeme"
   verify unit "strings and comments are lexemes of their own and hold no others"
 }
