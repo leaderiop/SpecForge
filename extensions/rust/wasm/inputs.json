@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_rust.wasm",
-  "artifact_sha256": "a064fa1d7601f95fb93e5404a07a3c30bd80015f412e12ff70bbf76386d7116e",
+  "artifact_sha256": "0310adc4b3fa6372d8c72c1780d8e687abb345099b1c70757fcc83ef1cc472ea",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",

@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_cargo_test.wasm",
-  "artifact_sha256": "67956678db6b13659a461e28855e5a47079b92807b54097a631ed45ae04511c8",
+  "artifact_sha256": "96f99dd708710c6b2d345ce4cad8678d743b94d55a1502f093e493dca702d6cb",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "f445cf417114d7d1896a3fbd9d2348d9bedf3ac7c437748f18f7bfda2217efc2",
