@@ -5,10 +5,11 @@
 use serde_json::{Value, json};
 
 use super::*;
-use crate::args::{NoArgs, fields};
+use crate::args::{NoArgs, choice_schema, fields};
 use crate::operations;
 use crate::target::{Freshness, Reach, TargetSpec};
 use crate::tool::{Access, Category, Effect, MutationSpec, ToolSpec, writes_unless_dry_run};
+use specforge_ops::{export as ops_export, model as ops_model};
 
 /// A handler reading its typed arguments: refused when they don't parse.
 /// It returns an outcome, or `Handled` to use `?`.
@@ -124,7 +125,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "format": { "type": "string", "enum": ["graph", "context", "brief"], "default": "graph" },
+                    "format": choice_schema(&ops_export::AGENT_FORMAT, "Export format"),
                     "scope": { "type": "string", "description": "Scope to entity subgraph" },
                     "max_tokens": { "type": "integer", "description": "Optional token budget; truncates the export to the most central entities that fit" },
                     "with_schema": { "type": "boolean", "description": "Embed the Graph Protocol schema in a context, brief or budgeted graph export (a full graph export embeds it already); under max_tokens it counts toward the budget" },
@@ -302,21 +303,9 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "format": {
-                        "type": "string",
-                        "enum": ["markdown", "mermaid", "dot", "json", "dbml"],
-                        "description": "Output format (default: markdown)"
-                    },
-                    "group_by": {
-                        "type": "string",
-                        "enum": ["extension", "none"],
-                        "description": "Group entities by extension or list flat (default: extension)"
-                    },
-                    "fields": {
-                        "type": "string",
-                        "enum": ["none", "keys", "all"],
-                        "description": "Field detail level (default: keys)"
-                    },
+                    "format": choice_schema(&ops_model::MODEL_FORMAT, "Output format"),
+                    "group_by": choice_schema(&ops_model::GROUP_BY, "How to group entities"),
+                    "fields": choice_schema(&ops_model::MODEL_FIELDS, "Field detail level"),
                     "extension": {
                         "type": "string",
                         "description": "Filter to a single extension"
@@ -352,21 +341,9 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "format": {
-                        "type": "string",
-                        "enum": ["markdown", "mermaid", "dot", "json"],
-                        "description": "Output format (default: markdown); json is meant for programs"
-                    },
-                    "fields": {
-                        "type": "string",
-                        "enum": ["none", "keys", "all"],
-                        "description": "Detail level: none (counts only), keys (names + rule codes), all (full field attribution). Default: keys"
-                    },
-                    "deps": {
-                        "type": "string",
-                        "enum": ["direct", "effective", "full"],
-                        "description": "Dependency visibility: direct (declared only), effective (direct + used transitive), full (all transitive). Default: direct"
-                    }
+                    "format": choice_schema(&ops_model::OUTLINE_FORMAT, "Output format; json is meant for programs"),
+                    "fields": choice_schema(&ops_model::OUTLINE_FIELDS, "Detail level"),
+                    "deps": choice_schema(&ops_model::DEPS, "Dependency visibility")
                 }
             })
         },

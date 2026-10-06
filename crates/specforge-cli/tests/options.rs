@@ -3,9 +3,11 @@
 //! argument selects, and what each surface advertises (the CLI's `-h`
 //! line, the MCP input schema's `enum` and `default`).
 //!
-//! `enumerated_options_today` pins what the surfaces answer today, drifts
-//! included, as one insta snapshot over a scratch copy of
-//! `fixtures/read_views/rv1`. It proves no spec obligation (it pins current
+//! Each probe runs over a scratch copy of `fixtures/read_views/rv1`.
+//! `cli_and_mcp_accept_the_same_names` holds the arguments both surfaces
+//! read from an option table (ADR 0027) to it. `enumerated_options_today`
+//! pins what the surfaces answer for the other probes, drifts included, as
+//! one insta snapshot. It proves no spec obligation (it pins current
 //! behaviour, bugs included), so it carries no `specforge_test` link; a
 //! change that alters what it pins re-blesses the snapshot in the same
 //! commit, where the diff shows it.
@@ -15,6 +17,11 @@ use std::path::Path;
 
 use assert_cmd::Command;
 use serde_json::{Value, json};
+use specforge_ops::export::{AGENT_FORMAT, FORMAT};
+use specforge_ops::model::{
+    DEPS, GROUP_BY, MODEL_FIELDS, MODEL_FORMAT, OUTLINE_FIELDS, OUTLINE_FORMAT,
+};
+use specforge_ops::options::OptionTable;
 use tempfile::TempDir;
 
 use crate::coverage_corpus::{copy_tree, mcp_calls};
@@ -104,7 +111,7 @@ const PROBES: &[Probe] = &[
             "fields",
             no_arguments,
         )),
-        names: &["none", "keys", "all"],
+        names: &["none", "keys", "all", "most"],
     },
     Probe {
         label: "outline deps",
@@ -285,25 +292,37 @@ fn defaults<T: PartialEq>(absent: &T, outputs: &[(&str, T)]) -> String {
     }
 }
 
-/// One probe's section of the snapshot.
-fn probe(probe: &Probe) -> String {
+/// What each surface answered for one probe.
+struct Probed {
+    probe: &'static Probe,
+    root: TempDir,
+    help: Option<String>,
+    advertised: Option<String>,
+    /// The CLI run with the argument absent, then one per name.
+    cli: Option<(Run, Vec<Run>)>,
+    /// The MCP result with the argument absent, then one per name.
+    mcp: Option<(Value, Vec<Value>)>,
+}
+
+/// Run `probe` on each surface it has, over its own copy of rv1.
+fn run_probe(probe: &'static Probe) -> Probed {
     let tmp = rv1();
     let root = tmp.path();
-    let mut section = format!("## {}\n", probe.label);
-
-    let cli_runs = probe.cli.map(|line| {
-        writeln!(section, "cli -h: {}", help_line(line)).unwrap();
+    let help = probe.cli.map(help_line);
+    let cli = probe.cli.map(|line| {
         let absent = cli(&command_line(line, root, None));
-        let runs: Vec<(&str, Run)> = probe
+        let runs = probe
             .names
             .iter()
-            .map(|name| (*name, cli(&command_line(line, root, Some(name)))))
+            .map(|name| cli(&command_line(line, root, Some(name))))
             .collect();
         (absent, runs)
     });
-
-    let mcp_results = probe.mcp.as_ref().map(|McpProbe(tool, argument, base)| {
-        writeln!(section, "mcp schema: {}", advertised(tool, argument)).unwrap();
+    let advertised = probe
+        .mcp
+        .as_ref()
+        .map(|McpProbe(tool, argument, _)| advertised(tool, argument));
+    let mcp = probe.mcp.as_ref().map(|McpProbe(tool, argument, base)| {
         let mut calls = vec![json!({"name": tool, "arguments": base()})];
         for name in probe.names {
             let mut arguments = base();
@@ -312,48 +331,176 @@ fn probe(probe: &Probe) -> String {
         }
         let mut results = mcp_calls(root, &calls).into_iter();
         let absent = results.next().unwrap();
-        let named: Vec<(&str, Value)> = probe.names.iter().copied().zip(results).collect();
-        (absent, named)
+        (absent, results.collect())
     });
+    Probed {
+        probe,
+        root: tmp,
+        help,
+        advertised,
+        cli,
+        mcp,
+    }
+}
+
+/// Every probe whose label `wanted` selects, run in parallel.
+fn run_probes(wanted: impl Fn(&str) -> bool) -> Vec<Probed> {
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = PROBES
+            .iter()
+            .filter(|p| wanted(p.label))
+            .map(|p| scope.spawn(move || run_probe(p)))
+            .collect();
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    })
+}
+
+/// One probe's section of the snapshot.
+fn render(probed: &Probed) -> String {
+    let probe = probed.probe;
+    let root = probed.root.path();
+    let mut section = format!("## {}\n", probe.label);
+    if let Some(help) = &probed.help {
+        writeln!(section, "cli -h: {help}").unwrap();
+    }
+    if let Some(advertised) = &probed.advertised {
+        writeln!(section, "mcp schema: {advertised}").unwrap();
+    }
 
     let mut default_line = String::from("default:");
-    if let Some((absent, runs)) = &cli_runs {
-        let stdouts: Vec<(&str, (Option<i32>, &str))> = runs
+    if let Some((absent, runs)) = &probed.cli {
+        let stdouts: Vec<(&str, (Option<i32>, &str))> = probe
+            .names
             .iter()
+            .zip(runs)
             .map(|(name, run)| (*name, (run.code, run.stdout.as_str())))
             .collect();
         let absent = (absent.code, absent.stdout.as_str());
         write!(default_line, " cli={}", defaults(&absent, &stdouts)).unwrap();
     }
-    if let Some((absent, named)) = &mcp_results {
-        write!(default_line, " mcp={}", defaults(absent, named)).unwrap();
+    if let Some((absent, results)) = &probed.mcp {
+        let named: Vec<(&str, Value)> = probe
+            .names
+            .iter()
+            .copied()
+            .zip(results.iter().cloned())
+            .collect();
+        write!(default_line, " mcp={}", defaults(absent, &named)).unwrap();
     }
     section.push_str(&default_line);
     section.push('\n');
 
     for (i, name) in probe.names.iter().enumerate() {
-        let cli = cli_runs
+        let cli = probed
+            .cli
             .as_ref()
-            .map_or("-".to_string(), |(_, runs)| match runs[i].1.code {
+            .map_or("-".to_string(), |(_, runs)| match runs[i].code {
                 Some(code) => code.to_string(),
                 None => "signal".to_string(),
             });
-        let mcp = mcp_results
-            .as_ref()
-            .map_or("-".to_string(), |(_, named)| mcp_outcome(&named[i].1, root));
+        let mcp = probed.mcp.as_ref().map_or("-".to_string(), |(_, results)| {
+            mcp_outcome(&results[i], root)
+        });
         writeln!(section, "{name:<28} cli={cli:<3} mcp={mcp}").unwrap();
     }
     section
 }
 
+/// The names a table accepts and its default's name.
+struct Names {
+    accepted: Vec<&'static str>,
+    default: Option<&'static str>,
+}
+
+fn names<T: Copy + PartialEq>(table: &OptionTable<T>) -> Names {
+    Names {
+        accepted: table.accepted().collect(),
+        default: table.default_name(),
+    }
+}
+
+/// The probes both surfaces answer from an option table: the probe's
+/// label, the table the CLI parses with, the table MCP parses with.
+/// `specforge export` takes every export format; `specforge.export` the
+/// agent formats (dot is `specforge.render`'s).
+fn paired() -> Vec<(&'static str, Names, Names)> {
+    vec![
+        ("export format", names(&FORMAT), names(&AGENT_FORMAT)),
+        ("model format", names(&MODEL_FORMAT), names(&MODEL_FORMAT)),
+        ("model group_by", names(&GROUP_BY), names(&GROUP_BY)),
+        ("model fields", names(&MODEL_FIELDS), names(&MODEL_FIELDS)),
+        (
+            "outline format",
+            names(&OUTLINE_FORMAT),
+            names(&OUTLINE_FORMAT),
+        ),
+        (
+            "outline fields",
+            names(&OUTLINE_FIELDS),
+            names(&OUTLINE_FIELDS),
+        ),
+        ("outline deps", names(&DEPS), names(&DEPS)),
+    ]
+}
+
 #[test]
 fn enumerated_options_today() {
-    let sections: Vec<String> = std::thread::scope(|scope| {
-        let handles: Vec<_> = PROBES
-            .iter()
-            .map(|p| scope.spawn(move || probe(p)))
-            .collect();
-        handles.into_iter().map(|h| h.join().unwrap()).collect()
-    });
+    let linked: Vec<&str> = paired().iter().map(|(label, _, _)| *label).collect();
+    let sections: Vec<String> = run_probes(|label| !linked.contains(&label))
+        .iter()
+        .map(render)
+        .collect();
     insta::assert_snapshot!("enumerated_options_today", sections.join("\n"));
+}
+
+#[specforge_test_macros::test(
+    behavior = "name_enumerated_options_once",
+    verify = "the CLI and MCP accept the same names for each enumerated argument"
+)]
+fn cli_and_mcp_accept_the_same_names() {
+    let paired = paired();
+    let probed = run_probes(|label| paired.iter().any(|(l, _, _)| *l == label));
+    assert_eq!(probed.len(), paired.len());
+    for (label, cli_table, mcp_table) in &paired {
+        let probed = probed.iter().find(|p| p.probe.label == *label).unwrap();
+        let probe = probed.probe;
+        let (cli_absent, cli_runs) = probed.cli.as_ref().unwrap();
+        let (mcp_absent, mcp_results) = probed.mcp.as_ref().unwrap();
+        for name in cli_table.accepted.iter().chain(&mcp_table.accepted) {
+            assert!(probe.names.contains(name), "{label}: {name} is not probed");
+        }
+
+        // A name is accepted exactly where the surface's table accepts it,
+        // so a name both tables list is accepted on both.
+        for (i, name) in probe.names.iter().enumerate() {
+            let cli_accepts = cli_runs[i].code == Some(0);
+            let mcp_accepts = mcp_results[i].get("isError").is_none();
+            assert_eq!(
+                cli_accepts,
+                cli_table.accepted.contains(name),
+                "{label}: CLI on {name} (exit {:?})",
+                cli_runs[i].code
+            );
+            assert_eq!(
+                mcp_accepts,
+                mcp_table.accepted.contains(name),
+                "{label}: MCP on {name}: {}",
+                mcp_results[i]
+            );
+        }
+
+        // One default, the table's, on both surfaces.
+        assert_eq!(cli_table.default, mcp_table.default, "{label}");
+        let default = cli_table.default.unwrap();
+        let at = probe.names.iter().position(|n| *n == default).unwrap();
+        assert_eq!(cli_absent.code, Some(0), "{label}");
+        assert_eq!(
+            cli_absent.stdout, cli_runs[at].stdout,
+            "{label}: the CLI's absent argument is {default}"
+        );
+        assert_eq!(
+            mcp_absent, &mcp_results[at],
+            "{label}: MCP's absent argument is {default}"
+        );
+    }
 }

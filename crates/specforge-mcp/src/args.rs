@@ -207,6 +207,46 @@ pub fn lenient<'de, D: Deserializer<'de>, T: DeserializeOwned>(
     Ok(serde_json::from_value(Value::deserialize(deserializer)?).ok())
 }
 
+/// An enumerated argument's input schema (ADR 0027): `type` string, `enum`
+/// every name the table accepts (listed names, then aliases, so a
+/// validating client may send an alias), `default` the table's (none for a
+/// filter), `description` followed by each choice and its help
+/// (`Output format: markdown; mermaid: ER diagram; …`).
+pub fn choice_schema<T: Copy + PartialEq>(table: &OptionTable<T>, description: &str) -> Value {
+    let mut schema = required_choice_schema(table, description);
+    if let Some(default) = table.default_name() {
+        schema["default"] = Value::from(default);
+    }
+    schema
+}
+
+/// [`choice_schema`] of a required argument: no `default`.
+pub fn required_choice_schema<T: Copy + PartialEq>(
+    table: &OptionTable<T>,
+    description: &str,
+) -> Value {
+    let choices: Vec<String> = table
+        .choices
+        .iter()
+        .map(|choice| {
+            let mut text = choice.name.to_string();
+            if !choice.aliases.is_empty() {
+                text.push_str(&format!(" (also {})", choice.aliases.join(", ")));
+            }
+            if !choice.help.is_empty() {
+                text.push_str(": ");
+                text.push_str(choice.help);
+            }
+            text
+        })
+        .collect();
+    serde_json::json!({
+        "type": "string",
+        "enum": table.accepted().collect::<Vec<_>>(),
+        "description": format!("{description}: {}", choices.join("; ")),
+    })
+}
+
 /// An enumerated argument as a handler reads it: absent is the table's
 /// default; an unknown name is the table's refusal, `invalid_input` on
 /// `key` (ADR 0027).

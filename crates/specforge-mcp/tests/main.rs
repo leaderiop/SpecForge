@@ -8,6 +8,7 @@ mod lifecycle;
 mod notifications;
 mod operations_mgmt;
 mod operations_mutation;
+mod option_tables;
 mod prompt_golden;
 mod prompt_infer;
 mod prompts;
