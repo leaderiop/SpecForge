@@ -207,15 +207,26 @@ fn a_tool_path_refusal_is_file_not_found() {
 
 // --- P7, P8: an operation's failure code ---
 
-#[test]
-fn a_budget_too_small_is_an_internal_error() {
+#[specforge_test(
+    behavior = "provide_mcp_export_tool",
+    verify = "a token budget too small for the export is invalid_input carrying E062"
+)]
+fn a_budget_too_small_is_invalid_input() {
     let mut server = served();
     let reply = call_tool(&mut server, "specforge.export", json!({"max_tokens": 1}));
     let error = tool_error(&reply);
-    // PIN: flipped by T2 (the tool: invalid_input) and T5 (the resource's data).
-    assert_eq!(error["code"], "internal_error", "{error}");
+    assert_eq!(error["code"], "invalid_input", "{error}");
     assert_eq!(error["diagnostic"]["code"], "E062", "{error}");
+    assert!(
+        !error["message"].as_str().unwrap().starts_with("E062"),
+        "the code is in `diagnostic`: {error}"
+    );
+}
 
+#[test]
+fn a_budget_too_small_for_a_resource_is_a_bare_message() {
+    let mut server = served();
+    // PIN: flipped by T5: the resource's refusal carries its McpError.
     let error = read_error(&mut server, "specforge://graph?max_tokens=1");
     assert_eq!(error["code"], -32602, "{error}");
     assert!(
@@ -225,18 +236,21 @@ fn a_budget_too_small_is_an_internal_error() {
     assert!(error.get("data").is_none(), "{error}");
 }
 
-#[test]
-fn an_unknown_scope_keeps_its_code_in_the_message() {
+#[specforge_test(
+    invariant = "mcp_structured_error_responses",
+    verify = "an operation's failure kind decides its McpError code, never its code text"
+)]
+fn an_unknown_scope_is_entity_not_found_with_its_code_in_diagnostic() {
     let mut server = served();
     let reply = call_tool(&mut server, "specforge.export", json!({"scope": "ghost"}));
     let error = tool_error(&reply);
     assert_eq!(error["code"], "entity_not_found", "{error}");
-    // PIN: flipped by T2: the code is in `diagnostic`, not repeated in the message.
-    assert!(
-        error["message"].as_str().unwrap().starts_with("E003: "),
-        "{error}"
-    );
+    assert_eq!(error["entity_id"], "ghost", "{error}");
     assert_eq!(error["diagnostic"]["code"], "E003", "{error}");
+    assert!(
+        !error["message"].as_str().unwrap().starts_with("E003"),
+        "the code is in `diagnostic`, not repeated in the message: {error}"
+    );
 }
 
 // --- P9: subscribe ---

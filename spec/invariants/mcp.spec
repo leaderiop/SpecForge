@@ -10,7 +10,8 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
     free-form text. A failed tool call is an isError result whose content is
     an McpError; a diagnostic code behind the failure is in its diagnostic,
     not only in the message. A failed prompts/get, which has no isError
-    result, is a JSON-RPC error whose data is its McpError.
+    result, is a JSON-RPC error whose data is its McpError. An operation's
+    failure kind decides the McpError code.
   """
   risk      medium
   verify unit "error response includes error code and message fields"
@@ -21,6 +22,7 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
   verify unit "a diagnostic code behind a failed tool call is in its McpError diagnostic"
   verify unit "a failed prompts/get carries its McpError as the error's data"
   verify unit "a path that does not exist is a file_not_found error on path"
+  verify unit "an operation's failure kind decides its McpError code, never its code text"
 }
 
 invariant mcp_subscription_cleanup "MCP Subscription Cleanup" {

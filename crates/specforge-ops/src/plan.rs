@@ -8,8 +8,8 @@ use std::collections::{HashMap, HashSet};
 
 use specforge_emitter::SCHEMA_VERSION;
 
-use crate::OpError;
 use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind};
 
 /// How a plan falls short of the graph.
 #[derive(Debug, Clone, PartialEq)]
@@ -51,7 +51,9 @@ impl std::error::Error for PlanError {}
 impl From<PlanError> for OpError {
     fn from(error: PlanError) -> Self {
         match error {
-            PlanError::NotAPlan(why) => OpError::new("invalid_input", why),
+            PlanError::NotAPlan(why) => {
+                OpError::new(OpErrorKind::InvalidInput, "invalid_input", why)
+            }
             PlanError::Report(error) => error.diagnostic().into(),
         }
     }

@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use specforge_common::{Diagnostic, Severity};
 use specforge_protocol_types::ExtensionDeclaration;
 
-use crate::OpError;
+use crate::{OpError, OpErrorKind};
 
 /// The diagnostic for an extension that can't be found or read.
 const UNREADABLE: &str = "E040";
@@ -34,6 +34,7 @@ pub fn binary_at(path: &Path) -> Result<PathBuf, OpError> {
             return Ok(path.to_path_buf());
         }
         return Err(OpError::new(
+            OpErrorKind::PreconditionFailed,
             UNREADABLE,
             format!("no extension binary at {}", path.display()),
         )
@@ -42,6 +43,7 @@ pub fn binary_at(path: &Path) -> Result<PathBuf, OpError> {
     let release = path.join("target/wasm32-wasip2/release");
     let not_built = || {
         OpError::new(
+            OpErrorKind::PreconditionFailed,
             UNREADABLE,
             format!(
                 "no built component in {}: build the extension first",
@@ -66,6 +68,7 @@ pub fn binary_at(path: &Path) -> Result<PathBuf, OpError> {
         0 => Err(not_built()),
         1 => Ok(built.remove(0)),
         _ => Err(OpError::new(
+            OpErrorKind::PreconditionFailed,
             UNREADABLE,
             format!(
                 "{} holds several components ({}): name the one to publish",
@@ -108,7 +111,7 @@ pub fn declare(wasm: &[u8]) -> Result<(ExtensionDeclaration, Vec<Diagnostic>), O
     const CANDIDATE: &str = "__candidate";
     let runtime = specforge_component::ComponentRuntime::new();
     let invalid = |why: String| {
-        OpError::new("E028", format!("not a loadable SpecForge extension: {why}"))
+        OpError::diagnostic("E028", format!("not a loadable SpecForge extension: {why}"))
             .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
     };
     runtime
@@ -176,7 +179,7 @@ fn refuse_errors(
         .iter()
         .map(|d| format!("{}: {}", d.code, d.message))
         .collect();
-    Err(OpError::new(
+    Err(OpError::diagnostic(
         first.code.clone(),
         format!(
             "{}@{} can't be published: its declaration has errors ({})",

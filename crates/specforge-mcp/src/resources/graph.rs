@@ -29,11 +29,20 @@ pub fn read(view: &ProjectView, uri: &str) -> ReadOutcome {
                 serde_json::from_str(&payload).expect("graph emit always produces JSON");
             Ok(ResourceText::json(base, contents.to_string()))
         }
-        // A scope the graph has no entity for: E003, naming the root.
-        Err(err) if err.code == "E003" => Err(entity_not_found(
-            err.message,
-            parsed.root.unwrap_or_default(),
-        )),
-        Err(err) => Err(invalid_params(err.message)),
+        // The export's message leads with its diagnostic code, as a
+        // resource refusal always did; a scope the graph has no entity
+        // for (E003) names the root.
+        Err(err) => {
+            let message = if crate::tool::is_diagnostic_code(&err.code) {
+                format!("{}: {}", err.code, err.message)
+            } else {
+                err.message
+            };
+            if err.code == "E003" {
+                Err(entity_not_found(message, parsed.root.unwrap_or_default()))
+            } else {
+                Err(invalid_params(message))
+            }
+        }
     }
 }

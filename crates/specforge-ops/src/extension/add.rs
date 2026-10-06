@@ -2,7 +2,7 @@
 
 use super::{Origin, builtin_name, check_diamonds, extensions_dir, lock_path};
 use crate::registry::Registry;
-use crate::{OpError, Writes};
+use crate::{OpError, OpErrorKind, Writes};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_wasm::{
     ExtensionSpecifier, install_extension, parse_extension_specifier, read_lock_file,
@@ -151,7 +151,7 @@ pub fn add(req: &AddRequest, registry: &dyn Registry) -> Result<Added, OpError> 
         Source::Registry { name, range } => {
             add_from_registry(req, registry, name, range, &mut writes)
         }
-        Source::Git { url } => Err(OpError::new(
+        Source::Git { url } => Err(OpError::diagnostic(
             "E064",
             format!("git source '{url}' not yet supported"),
         )),
@@ -212,7 +212,7 @@ fn config_error(e: OpError) -> OpError {
         Some(hint) => format!("{} — {hint}", e.message),
         None => e.message.clone(),
     };
-    OpError::new("E032", message)
+    OpError::diagnostic("E032", message)
 }
 
 fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOutcome, OpError> {
@@ -222,7 +222,7 @@ fn add_local(req: &AddRequest, path: &Path, writes: &mut Writes) -> Result<AddOu
         } else {
             format!("file not found: {}", path.display())
         };
-        OpError::new("E054", message)
+        OpError::diagnostic("E054", message)
     })?;
     let declared = Declared::of(&wasm)?;
     let origin = Origin::Installed {
@@ -321,7 +321,7 @@ pub(super) fn fetch_checked(
     })?;
     let declared = Declared::of(&package.wasm)?;
     if declared.name() != package.name || declared.version() != package.version {
-        return Err(OpError::new(
+        return Err(OpError::diagnostic(
             "E028",
             format!(
                 "registry package {}@{} declares itself {}@{}",
@@ -334,6 +334,7 @@ pub(super) fn fetch_checked(
     }
     if let Some(category) = first_difference(&package.declaration, &declared.declaration) {
         return Err(OpError::new(
+            OpErrorKind::SchemaMismatch,
             crate::registry::METADATA_MISMATCH,
             format!(
                 "registry package {}@{} declares another {category} than the binary it serves",
@@ -350,7 +351,7 @@ pub(super) fn fetch_checked(
 /// it.
 pub fn declared(path: &Path) -> Result<(String, String), OpError> {
     let wasm = std::fs::read(path).map_err(|e| {
-        OpError::new(
+        OpError::diagnostic(
             "E054",
             if path.exists() {
                 format!("cannot read {}: {e}", path.display())
@@ -388,7 +389,7 @@ impl Declared {
         const CANDIDATE: &str = "__candidate";
         let runtime = specforge_component::ComponentRuntime::new();
         let invalid = |why: String| {
-            OpError::new("E028", format!("not a loadable SpecForge extension: {why}"))
+            OpError::diagnostic("E028", format!("not a loadable SpecForge extension: {why}"))
                 .with_suggestion("build it with specforge-extension-sdk for wasm32-wasip2")
         };
         runtime
@@ -399,6 +400,7 @@ impl Declared {
             .declaration;
         if super::builtin_name(declaration.name()).is_some() {
             return Err(OpError::new(
+                OpErrorKind::Conflict,
                 "extension_conflict",
                 format!(
                     "the extension declares the name of the builtin '{}'",

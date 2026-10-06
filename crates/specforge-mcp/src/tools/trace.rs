@@ -38,7 +38,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
                 format!("trace serialization failed: {e}"),
             ),
         },
-        Err(error) => crate::operations::op_error(error.into())
+        Err(error) => crate::tool::McpError::from(specforge_ops::OpError::from(error))
             .with_entity(entity_id)
             .into(),
     }

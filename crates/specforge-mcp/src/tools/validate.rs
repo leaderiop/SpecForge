@@ -64,10 +64,12 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
 /// Why validate could not run: an argument it cannot use (`invalid_input`
 /// naming it, with the closest valid name), or no project root.
 fn refused(error: CheckError, argument: &str) -> ToolOutcome {
-    match error {
-        CheckError::NoProjectRoot => ToolOutcome::no_project(error.to_string()),
-        error => crate::operations::op_error(error.into())
-            .with_argument(argument)
-            .into(),
+    let error = specforge_ops::OpError::from(error);
+    let argument = (error.kind == specforge_ops::OpErrorKind::InvalidInput).then_some(argument);
+    let refused = crate::tool::McpError::from(error);
+    match argument {
+        Some(argument) => refused.with_argument(argument),
+        None => refused,
     }
+    .into()
 }

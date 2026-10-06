@@ -6,8 +6,8 @@
 //! with `specforge-infer.json`'s index; gaps scans those files for public
 //! items and keeps the ones no graph entity names.
 
-use crate::OpError;
 use crate::view::ProjectView;
+use crate::{OpError, OpErrorKind};
 use serde_json::{Value, json};
 use specforge_common::AnalyzerConfig;
 use specforge_common::inference::{
@@ -54,12 +54,12 @@ pub struct Gaps {
 /// The inference manifest at `root`: an empty one when there is none.
 fn manifest(root: &Path) -> Result<InferenceManifest, OpError> {
     inference::load_inference_manifest(root).map_err(|message| {
-        let code = if message.starts_with("failed to read") {
-            MANIFEST_UNREADABLE
+        let (kind, code) = if message.starts_with("failed to read") {
+            (OpErrorKind::Internal, MANIFEST_UNREADABLE)
         } else {
-            MANIFEST_INVALID
+            (OpErrorKind::SchemaMismatch, MANIFEST_INVALID)
         };
-        OpError::new(code, message)
+        OpError::new(kind, code, message)
     })
 }
 

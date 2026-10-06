@@ -170,6 +170,7 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
   verify unit "specforge.export tool returns graph in requested format"
   verify unit "scope parameter restricts to subgraph"
   verify unit "max_tokens truncates output to fit token budget"
+  verify unit "a token budget too small for the export is invalid_input carrying E062"
   verify unit "all three formats (context, brief, graph) supported"
   verify contract "Provide MCP Export Tool: MCP export tool holds — graph_available, format_produced, token_budget_enforced, tool_invoked_emitted"
   verify unit "unknown format returns error"

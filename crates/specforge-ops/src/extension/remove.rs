@@ -2,7 +2,7 @@
 
 use super::{NOT_FOUND, Origin, builtin_name, extensions_dir, lock_path};
 use crate::view::ProjectView;
-use crate::{OpError, Writes};
+use crate::{OpError, OpErrorKind, Writes};
 use specforge_common::ExtensionEntry;
 use specforge_graph::Graph;
 use specforge_project::EnabledExtension;
@@ -80,7 +80,11 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
         .iter()
         .find(|problem| problem.blocks_edits())
     {
-        return Err(OpError::new("config_invalid", problem.to_string()));
+        return Err(OpError::new(
+            OpErrorKind::SchemaMismatch,
+            "config_invalid",
+            problem.to_string(),
+        ));
     }
     let req = &Removing {
         root,
@@ -120,7 +124,8 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
                 .map(|e| e.entry.as_str())
                 .collect();
             let quoted: Vec<String> = entries.iter().map(|e| format!("'{e}'")).collect();
-            let mut error = OpError::new(
+            let error = OpError::new(
+                OpErrorKind::Conflict,
                 "extension_conflict",
                 format!(
                     "'{}' is enabled by {} specforge.json entries: {}",
@@ -132,8 +137,9 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
             .with_suggestion(
                 "remove one entry by its text as specforge.json writes it, or edit specforge.json",
             );
-            error.data = Some(serde_json::json!({"extension": req.name, "entries": entries}));
-            return Err(error);
+            return Err(
+                error.with_data(serde_json::json!({"extension": req.name, "entries": entries}))
+            );
         }
     }
     if ExtensionEntry::parse(req.name)
@@ -141,13 +147,15 @@ pub fn remove(view: &ProjectView, req: &RemoveRequest) -> Result<RemoveOutcome, 
         .is_some()
     {
         return Err(OpError::new(
+            OpErrorKind::ExtensionNotFound,
             NOT_FOUND,
             format!(
                 "extension '{}' is not enabled: no specforge.json entry names that file",
                 req.name
             ),
         )
-        .with_suggestion("`specforge extensions` lists what the project enables"));
+        .with_suggestion("`specforge extensions` lists what the project enables")
+        .with_data(serde_json::json!({ "extension": req.name })));
     }
 
     let lock = read_lock_file(&lock_path(req.root)).ok();
@@ -277,7 +285,7 @@ fn refuse_if_required(req: &Removing, name: &str, lock: Option<&LockFile>) -> Re
     if dependents.is_empty() || req.force {
         return Ok(());
     }
-    Err(OpError::new(
+    Err(OpError::diagnostic(
         "E027",
         format!(
             "cannot uninstall '{}': required by {}",
@@ -293,7 +301,8 @@ fn not_installed(name: &str, why: Option<&str>) -> OpError {
     if let Some(why) = why {
         message.push_str(&format!(" ({why})"));
     }
-    OpError::new(NOT_FOUND, message)
+    OpError::new(OpErrorKind::ExtensionNotFound, NOT_FOUND, message)
+        .with_data(serde_json::json!({ "extension": name }))
 }
 
 /// The extensions that require `name` as a non-optional peer: loaded ones

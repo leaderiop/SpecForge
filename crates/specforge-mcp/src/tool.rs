@@ -13,6 +13,7 @@ use crate::mutation::Mutated;
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::target::{Call, TargetSpec};
 use crate::types::McpToolDescriptor;
+use specforge_ops::{OpError, OpErrorKind};
 
 /// A tool's role: the spec's `McpToolCategory`. Where a tool comes from is
 /// its `source`, a separate field (ADR 0004 D4-b).
@@ -193,17 +194,28 @@ impl ErrorCode {
         }
     }
 
-    /// The code a failure reported with diagnostic `code` carries.
+    /// The code a failure reported with diagnostic `code` carries: the
+    /// kind operations give it ([`OpErrorKind::of_diagnostic`]).
     pub fn for_diagnostic(code: &str) -> Self {
-        match code {
-            "E003" => ErrorCode::EntityNotFound,
-            "E019" | "E054" | "E064" => ErrorCode::InvalidInput,
-            "E027" => ErrorCode::Conflict,
-            "E045" => ErrorCode::SchemaMismatch,
-            "E058" | "E063" => ErrorCode::PreconditionFailed,
-            "E059" => ErrorCode::PermissionDenied,
-            "R004" => ErrorCode::Timeout,
-            _ => ErrorCode::InternalError,
+        OpErrorKind::of_diagnostic(code).into()
+    }
+}
+
+/// The code an operation's failure kind is reported as: total, one arm per
+/// kind (ADR 0024 D15).
+impl From<OpErrorKind> for ErrorCode {
+    fn from(kind: OpErrorKind) -> Self {
+        match kind {
+            OpErrorKind::InvalidInput => ErrorCode::InvalidInput,
+            OpErrorKind::EntityNotFound => ErrorCode::EntityNotFound,
+            OpErrorKind::FileNotFound => ErrorCode::FileNotFound,
+            OpErrorKind::ExtensionNotFound => ErrorCode::ExtensionNotFound,
+            OpErrorKind::Conflict => ErrorCode::Conflict,
+            OpErrorKind::SchemaMismatch => ErrorCode::SchemaMismatch,
+            OpErrorKind::PreconditionFailed => ErrorCode::PreconditionFailed,
+            OpErrorKind::PermissionDenied => ErrorCode::PermissionDenied,
+            OpErrorKind::Timeout => ErrorCode::Timeout,
+            OpErrorKind::Internal => ErrorCode::InternalError,
         }
     }
 }
@@ -315,6 +327,33 @@ impl McpError {
             }
         }
         error
+    }
+}
+
+/// An operation's failure as an `McpError`: its kind picks the code. A
+/// diagnostic code (`E027`) rides in `diagnostic`, with its suggestion; a
+/// slug's suggestion and the operation's own data ride in `data`; the
+/// entity the failure is about is `entity_id`.
+impl From<OpError> for McpError {
+    fn from(error: OpError) -> Self {
+        let mut mcp_error = McpError::new(error.kind.into(), error.message.clone());
+        let mut data = error.data.map_or_else(|| json!({}), |data| *data);
+        if is_diagnostic_code(&error.code) {
+            let mut diagnostic = Diagnostic::error(error.code.as_ref(), error.message);
+            if let Some(suggestion) = error.suggestion {
+                diagnostic = diagnostic.with_suggestion(suggestion);
+            }
+            mcp_error = mcp_error.with_diagnostic(&diagnostic);
+        } else if let Some(suggestion) = error.suggestion {
+            data["suggestion"] = Value::from(suggestion);
+        }
+        if data.as_object().is_some_and(|d| !d.is_empty()) {
+            mcp_error = mcp_error.with_data(data);
+        }
+        match error.entity {
+            Some(entity) => mcp_error.with_entity(entity),
+            None => mcp_error,
+        }
     }
 }
 
@@ -604,6 +643,49 @@ mod tests {
         ErrorCode::Conflict,
         ErrorCode::PreconditionFailed,
     ];
+
+    #[test]
+    fn every_operation_kind_has_an_error_code() {
+        for (kind, code) in [
+            (OpErrorKind::InvalidInput, ErrorCode::InvalidInput),
+            (OpErrorKind::EntityNotFound, ErrorCode::EntityNotFound),
+            (OpErrorKind::FileNotFound, ErrorCode::FileNotFound),
+            (OpErrorKind::ExtensionNotFound, ErrorCode::ExtensionNotFound),
+            (OpErrorKind::Conflict, ErrorCode::Conflict),
+            (OpErrorKind::SchemaMismatch, ErrorCode::SchemaMismatch),
+            (
+                OpErrorKind::PreconditionFailed,
+                ErrorCode::PreconditionFailed,
+            ),
+            (OpErrorKind::PermissionDenied, ErrorCode::PermissionDenied),
+            (OpErrorKind::Timeout, ErrorCode::Timeout),
+            (OpErrorKind::Internal, ErrorCode::InternalError),
+        ] {
+            assert_eq!(ErrorCode::from(kind), code, "{kind:?}");
+        }
+    }
+
+    #[test]
+    fn an_operation_failure_is_an_mcp_error_by_its_kind() {
+        let error: McpError = OpError::new(OpErrorKind::Conflict, "entity_exists", "taken")
+            .with_entity("alpha")
+            .with_suggestion("pick another")
+            .into();
+        let json = error.to_json();
+        assert_eq!(json["code"], "conflict");
+        assert_eq!(json["entity_id"], "alpha");
+        assert_eq!(json["data"]["suggestion"], "pick another");
+        assert!(json.get("diagnostic").is_none(), "{json}");
+
+        let error: McpError = OpError::diagnostic("E062", "the budget is too small")
+            .with_suggestion("raise it")
+            .into();
+        let json = error.to_json();
+        assert_eq!(json["code"], "invalid_input");
+        assert_eq!(json["diagnostic"]["code"], "E062");
+        assert_eq!(json["diagnostic"]["suggestion"], "raise it");
+        assert_eq!(json["message"], "the budget is too small");
+    }
 
     #[test]
     fn every_error_code_has_a_json_rpc_code() {

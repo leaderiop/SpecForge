@@ -11,8 +11,8 @@
 
 use super::add::{Checked, fetch_checked, place};
 use super::{Origin, Trust, check_diamonds, extensions_dir, lock_path};
-use crate::OpError;
 use crate::registry::{NO_REGISTRY, Registry};
+use crate::{OpError, OpErrorKind};
 use specforge_wasm::{LockFile, installed_wasm_path, read_lock_file, write_lock_file};
 use std::path::Path;
 
@@ -136,8 +136,13 @@ pub struct BatchUpdateCompleted {
 /// registry and none is configured.
 pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutcome, OpError> {
     let lock_file = lock_path(req.root);
-    let lock = read_lock_file(&lock_file)
-        .map_err(|_| OpError::new(NO_LOCK, "no lock file found. Run `specforge add` first."))?;
+    let lock = read_lock_file(&lock_file).map_err(|_| {
+        OpError::new(
+            OpErrorKind::PreconditionFailed,
+            NO_LOCK,
+            "no lock file found. Run `specforge add` first.",
+        )
+    })?;
 
     // Plan: resolve and check every newer package against the lock as it
     // will be, before anything is written.
@@ -189,10 +194,12 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
     // An update must also leave the extensions that require it satisfied.
     for (dependent, peer) in broken_dependents(&staged, &planned, registry) {
         if let Some(e) = extensions.iter_mut().find(|e| e.name == peer.0) {
-            e.status = UpdateStatus::Failed(OpError::new(
+            let failed = OpError::new(
+                peer.1.kind,
                 peer.1.code.clone(),
                 format!("updating {} breaks {dependent}: {}", peer.0, peer.1.message),
-            ));
+            );
+            e.status = UpdateStatus::Failed(failed);
         }
     }
 
@@ -403,7 +410,9 @@ mod tests {
                 .filter(|v| req.matches(v))
                 .max()
                 .map(|v| v.to_string())
-                .ok_or_else(|| OpError::new("R-RES-004", format!("no {name} matches {range}")))
+                .ok_or_else(|| {
+                    OpError::diagnostic("R-RES-004", format!("no {name} matches {range}"))
+                })
         }
 
         /// Serves unsigned packages; the tests allow them.
@@ -418,7 +427,9 @@ mod tests {
                 .served
                 .iter()
                 .find(|(n, v, _)| *n == name && *v == version)
-                .ok_or_else(|| OpError::new("R-RES-001", format!("{name}@{version} not served")))?;
+                .ok_or_else(|| {
+                    OpError::diagnostic("R-RES-001", format!("{name}@{version} not served"))
+                })?;
             let declaration = self
                 .declared
                 .iter()

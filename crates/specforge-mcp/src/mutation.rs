@@ -184,7 +184,7 @@ impl Mutated {
     /// for a preview, a failed preview.
     pub fn refused_after(preview: bool, mut error: OpError) -> Self {
         let files = std::mem::take(&mut error.writes);
-        let outcome = ToolOutcome::from(crate::operations::op_error(error));
+        let outcome = ToolOutcome::from(McpError::from(error));
         if preview {
             Self::preview(outcome)
         } else {

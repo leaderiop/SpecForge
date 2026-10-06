@@ -58,7 +58,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
             ToolOutcome::invalid_input("pass", e.to_string())
         }
         Err(AnalyzeError::UnusableReport(e)) => {
-            let mut error = crate::operations::op_error(e);
+            let mut error = crate::tool::McpError::from(e);
             error.tool = Some("specforge.analyze".to_string());
             error.into()
         }

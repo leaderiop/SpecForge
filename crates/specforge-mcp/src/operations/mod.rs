@@ -19,7 +19,8 @@ use specforge_common::{Diagnostic, find_project_root};
 use crate::args::{lenient, strings};
 use crate::mutation::{Mutated, MutationEvent, MutationHandled, Written};
 use crate::target::{Call, CallTarget};
-use crate::tool::{ErrorCode, Handled, McpError, ToolOutcome, is_diagnostic_code};
+use crate::tool::{ErrorCode, Handled, McpError, ToolOutcome};
+use specforge_ops::OpErrorKind;
 
 // ── shared helpers ──────────────────────────────────────────────────────────
 
@@ -30,43 +31,6 @@ fn ok(result: Value) -> ToolOutcome {
 /// A failure with `code` and `message`.
 fn fail(code: ErrorCode, message: impl Into<String>) -> ToolOutcome {
     ToolOutcome::error(code, message)
-}
-
-/// An operation's failure as an `McpError`. A diagnostic code (`E027`)
-/// rides in `diagnostic`, with its suggestion; a slug (`extension_not_found`)
-/// picks the error code, and its suggestion and the operation's own data
-/// ride in `data`.
-pub(crate) fn op_error(error: specforge_ops::OpError) -> McpError {
-    let code = match error.code.as_ref() {
-        "extension_not_found" => ErrorCode::ExtensionNotFound,
-        "config_not_found" => ErrorCode::FileNotFound,
-        "config_invalid" | "invalid_schema_version" => ErrorCode::SchemaMismatch,
-        specforge_ops::infer::MANIFEST_INVALID => ErrorCode::SchemaMismatch,
-        "unknown_format" | "invalid_input" | "unknown_kind" => ErrorCode::InvalidInput,
-        "extension_conflict" | "project_exists" => ErrorCode::Conflict,
-        "invalid_name" => ErrorCode::InvalidInput,
-        code => ErrorCode::for_diagnostic(code),
-    };
-    let mut mcp_error = McpError::new(code, error.message.clone());
-    let mut data = error.data.unwrap_or_else(|| json!({}));
-    if is_diagnostic_code(&error.code) {
-        let mut diagnostic = Diagnostic::error(error.code.as_ref(), error.message);
-        if let Some(suggestion) = error.suggestion {
-            diagnostic = diagnostic.with_suggestion(suggestion);
-        }
-        mcp_error = mcp_error.with_diagnostic(&diagnostic);
-    } else if let Some(suggestion) = error.suggestion {
-        data["suggestion"] = Value::from(suggestion);
-    }
-    if data.as_object().is_some_and(|d| !d.is_empty()) {
-        mcp_error = mcp_error.with_data(data);
-    }
-    mcp_error
-}
-
-/// [`op_error`] as the tool's result.
-fn err_op(error: specforge_ops::OpError) -> ToolOutcome {
-    op_error(error).into()
 }
 
 // ── format ──────────────────────────────────────────────────────────────────
@@ -209,24 +173,19 @@ pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandle
     let refused = |outcome: ToolOutcome| Ok(Mutated::refused_unless_preview(dry_run, outcome));
     let plan = match planned {
         Ok(plan) => plan,
-        Err(e) if e.code == rename::INVALID_ID => {
-            return refused(ToolOutcome::invalid_input("new_name", e.message));
-        }
-        Err(e) if e.code == rename::NOT_FOUND => {
+        // The operation decided what kind of failure it is, and which
+        // entity it is about; an invalid new ID is the argument's fault.
+        Err(e) => {
+            let argument = (e.kind == OpErrorKind::InvalidInput).then_some("new_name");
+            let error = McpError::from(e);
             return refused(
-                McpError::new(ErrorCode::EntityNotFound, e.message)
-                    .with_entity(entity_id)
-                    .into(),
+                match argument {
+                    Some(argument) => error.with_argument(argument),
+                    None => error,
+                }
+                .into(),
             );
         }
-        Err(e) if e.code == rename::TAKEN => {
-            return refused(
-                McpError::new(ErrorCode::Conflict, e.message)
-                    .with_entity(entity_id)
-                    .into(),
-            );
-        }
-        Err(e) => return refused(fail(ErrorCode::InternalError, e.message)),
     };
 
     let edit_json: Vec<serde_json::Value> = plan
@@ -255,7 +214,7 @@ pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandle
     // A failed write restores what it wrote: nothing is left written.
     let writes = match rename::apply(&plan, &spec_root) {
         Ok(writes) => writes,
-        Err(e) => return refused(fail(ErrorCode::InternalError, e.message)),
+        Err(e) => return refused(McpError::from(e).into()),
     };
     // The reply's `diagnostics` are what `specforge check` reports for the
     // project as it is on disk now, edits made since the last call
@@ -502,12 +461,7 @@ pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> Muta
                 )
             }
             // A removal that failed after editing specforge.json reports it.
-            Err(mut error) => {
-                if error.code == specforge_ops::extension::NOT_FOUND {
-                    error.data = Some(json!({"extension": name}));
-                }
-                Mutated::refused_after(dry_run, error)
-            }
+            Err(error) => Mutated::refused_after(dry_run, error),
         },
     )
 }
@@ -757,7 +711,7 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
     let format = match FORMAT.parse(&args.format) {
         Ok(format) => format,
         Err(error) => {
-            let mut refusal = op_error(error).with_argument("format");
+            let mut refusal = McpError::from(error).with_argument("format");
             let mut data = refusal.data.take().unwrap_or_else(|| json!({}));
             data["available_renderers"] = json!(FORMAT.accepted().collect::<Vec<_>>());
             return refusal.with_data(data).into();
@@ -781,7 +735,7 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
     };
     let output = match specforge_ops::export::export(&call.view(), &request) {
         Ok(text) => text,
-        Err(e) => return err_op(e),
+        Err(e) => return McpError::from(e).into(),
     };
 
     // With out_dir the rendering lands on disk; without it, inline.
