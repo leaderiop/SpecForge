@@ -28,31 +28,32 @@ pub fn render(call: &Call<'_>, args: Args) -> PromptOutcome {
     let view = call.view();
     let graph = view.graph;
     let entity_id = args.entity_id.as_str();
-    let node = graph
-        .node(entity_id)
-        .ok_or_else(|| entity_not_found(entity_id))?;
+    // The inspect read view, without the reported diagnostics (the prompt
+    // shows none) and whatever its coverage (a report that cannot be read
+    // does not fail the prompt).
+    let facts = specforge_ops::inspect::inspect(&view.reporting(&[]), entity_id)
+        .map_err(|_| entity_not_found(entity_id))?;
+    let node = facts.node;
 
     // The statement the extension declares (headline and normative), e.g.
     // a behavior's `contract`; empty for a kind that declares none.
-    let contract_text =
-        specforge_emitter::context::headline_statement(node, &view.registries.fields)
-            .unwrap_or_default();
-
-    let upstream: Vec<String> = graph
-        .edges_to(entity_id)
+    let contract_text = facts.headline.unwrap_or_default();
+    let upstream: Vec<&str> = facts
+        .references
+        .incoming
         .iter()
-        .map(|e| e.source.to_string())
+        .map(|r| r.peer.as_str())
         .collect();
-
-    let downstream: Vec<String> = graph
-        .edges_from(entity_id)
+    let downstream: Vec<&str> = facts
+        .references
+        .outgoing
         .iter()
-        .map(|e| e.target.to_string())
+        .map(|r| r.peer.as_str())
         .collect();
-
-    let verify_expectations: Vec<String> = specforge_graph::obligations(node)
+    let verify_expectations: Vec<String> = facts
+        .obligations
         .iter()
-        .map(|s| format!("{} {}", s.kind, s.description))
+        .map(specforge_ops::inspect::obligation_text)
         .collect();
 
     // Structural constraints: entities the caller wants in the context even

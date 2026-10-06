@@ -601,13 +601,13 @@ fn hover_information_contract() {
     let mut g = Graph::new();
     g.add_node(node("user_login", "behavior", Some("User Login")));
 
-    let hover = specforge_lsp::hover_info(&g, "user_login");
+    let hover = crate::hover::plain_hover(&g, "user_login");
     let text = hover.expect("existing entity must produce hover");
     assert!(text.contains("behavior"), "hover must include kind");
     assert!(text.contains("user_login"), "hover must include id");
     assert!(text.contains("User Login"), "hover must include title");
 
-    let missing = specforge_lsp::hover_info(&g, "nonexistent");
+    let missing = crate::hover::plain_hover(&g, "nonexistent");
     assert!(missing.is_none(), "missing entity must return None");
 }
 

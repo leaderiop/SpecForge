@@ -195,13 +195,16 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   ensures {
     one_report_rule        "The recorded test report and the schema cache are the view root's, never an ancestor's"
     one_coverage_per_state "Coverage is computed once per compile and per recorded report content"
-    surfaces_agree         "The CLI and MCP report the same numbers, chains, schema version and diagrams for one project"
+    surfaces_agree         "The CLI, MCP and the LSP hover report the same numbers, chains, schema version, diagrams and entity facts for one project"
   }
   contract   """
     Stats, trace (one entity or every entity), the coverage view, the
-    model and outline diagrams and the versioned Graph Protocol schema
-    MUST each be one operation over the project view, shared by the CLI
-    and MCP; a surface maps its arguments and renders the outcome. The
+    model and outline diagrams, the versioned Graph Protocol schema and
+    inspect (one entity's facts: its kind, standing, headline, references,
+    coverage and the diagnostics about it) MUST each be one operation over
+    the project view, shared by the surfaces that show them (the CLI, MCP,
+    and for inspect the LSP hover); a surface maps its arguments and renders
+    the outcome. The
     view's root is the root the project was compiled from: its recorded
     test report is <root>/specforge-report.json and its schema cache
     <root>/.specforge/schema-cache.json, and no view looks in an ancestor
@@ -218,11 +221,14 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify unit "the schema cache is the view root's, never an ancestor's"
   verify unit "coverage is computed once per compile and report content, and again after the report changes"
   verify unit "an entity is unverified when it counts toward coverage and is not proven"
+  verify unit "inspect reports an entity's standing as the coverage view counts it"
+  verify unit "a report that cannot be read is the coverage's error, and the standing still holds"
   verify integration "specforge stats and specforge.stats report the same numbers"
   verify integration "specforge trace and specforge.trace return the same chain for an entity"
   verify integration "specforge schema and specforge.schema carry the same version"
   verify integration "specforge schema --kind and specforge.schema with a kind return the same document"
   verify integration "specforge outline and specforge.outline_extensions render the same text"
+  verify integration "specforge.inspect and the LSP hover report the same facts for an entity"
   verify contract "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
 }
 
