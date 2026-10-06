@@ -4008,6 +4008,7 @@ expression: "digest(&load(&runtime, &[name]))"
       "message_template": "{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low",
       "owner": "@specforge/product",
       "severity": "Warning",
+      "target_extension": "@specforge/governance",
       "target_kind": "constraint",
       "wasm_function": null
     },

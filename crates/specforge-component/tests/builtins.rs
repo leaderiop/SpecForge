@@ -104,12 +104,7 @@ fn builtin_handshakes_survive_sdk_migration() {
             &[("@specforge/software", true), ("@specforge/product", true)][..],
             false,
         ),
-        // Its W078 targets governance's `constraint` (plan 02 T11).
-        (
-            "@specforge/product",
-            &[("@specforge/governance", true)][..],
-            false,
-        ),
+        ("@specforge/product", &[][..], false),
     ];
 
     for (name, peers, has_sandbox) in expectations {

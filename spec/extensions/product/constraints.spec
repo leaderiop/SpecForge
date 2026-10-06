@@ -629,7 +629,7 @@ constraint product_cross_extension_integration_correctness "Cross-Extension Inte
   verify integration "product queries identical with and without software extension"
   verify integration "entity enhancement adds fields without changing query results"
   verify unit "20-edge-type allowlist rejects BehaviorImplementsFeature edge"
-  verify contract "product manifest declares only an optional peer, on @specforge/governance"
+  verify contract "product manifest peer_dependencies is empty"
 }
 
 constraint product_status_transition_correctness "Product Status Transition Correctness" {

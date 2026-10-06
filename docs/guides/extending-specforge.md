@@ -197,8 +197,10 @@ The host checks each rule's shape when your extension loads (and in
   read). It is registered without it, so remove the property or pick the check
   that reads it.
 - **W021** — the rule's `target_kind` or `edge_type` is neither your
-  extension's nor a declared peer's; declare the peer (optional if your
-  extension works without it).
+  extension's, a declared peer's nor its `target_extension`'s. A rule on
+  another extension's kind that yours works without says so with
+  `r.target_extension("@their/ext")`: while that extension is not loaded the
+  rule is inert and silent; loaded without the kind, it is W021.
 - **W148** — at check time, a `custom` rule's function failed on some entities
   (a trap, or an answer that is not a verdict), so they were not checked. One
   per rule per check; its data lists every entity with its error.

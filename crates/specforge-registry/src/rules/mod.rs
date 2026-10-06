@@ -81,6 +81,8 @@ struct Declared {
     edge_type: Option<String>,
     /// For an edge or cycle rule: the fields that write its edge type.
     edge_fields: Vec<String>,
+    /// The extension whose kind or edge type the rule names, as declared.
+    target_extension: Option<String>,
     constraint: Option<DeclaredConstraint>,
     wasm_function: Option<String>,
 }
@@ -131,7 +133,8 @@ impl Rule {
     /// keys (`code`, `severity`, `message_template`, `check`, `target_kind`,
     /// `edge_type`, `edge_peer_kind`, `field`, `constraint`,
     /// `wasm_function`), plus `edge_fields` for an edge or cycle rule with
-    /// an edge type: the fields that write it.
+    /// an edge type (the fields that write it) and `target_extension` when
+    /// the rule declares one.
     pub fn describe(&self) -> serde_json::Value {
         let edge_peer_kind = match &self.check {
             Check::NoIncomingEdges(EdgeScope::Peer(kind))
@@ -160,6 +163,9 @@ impl Rule {
         );
         if edge_rule && self.declared.edge_type.is_some() {
             described["edge_fields"] = serde_json::json!(self.declared.edge_fields);
+        }
+        if let Some(extension) = &self.declared.target_extension {
+            described["target_extension"] = serde_json::json!(extension);
         }
         described
     }

@@ -1,5 +1,6 @@
 ---
 source: crates/specforge-project/tests/registry_build_snapshot.rs
+assertion_line: 243
 expression: "digest(&load(&runtime, &all))"
 ---
 {

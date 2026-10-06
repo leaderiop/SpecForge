@@ -646,29 +646,19 @@ fn mermaid_differentiates_required_and_enhancement_edges() {
 // ==========================================================================
 
 #[test]
-fn product_depends_on_nothing_it_needs() {
+fn product_is_standalone_root_with_zero_deps() {
     let manifests = load_all_manifests();
     let outline = OutlineIntermediate_from_declarations(&manifests);
 
-    // Product's one direct dependency is its optional peer governance (its
-    // W078 checks governance's `constraint`); everything it depends on is
-    // optional, so it still works alone.
-    let direct: Vec<_> = outline
+    let product_deps: Vec<_> = outline
         .dependencies
         .iter()
-        .filter(|d| d.from == "@specforge/product" && d.kind == DependencyKind::Direct)
-        .map(|d| (d.to.as_str(), d.optional))
-        .collect();
-    assert_eq!(direct, [("@specforge/governance", true)]);
-    let required: Vec<_> = outline
-        .dependencies
-        .iter()
-        .filter(|d| d.from == "@specforge/product" && !d.optional)
-        .map(|d| &d.to)
+        .filter(|d| d.from == "@specforge/product")
         .collect();
     assert!(
-        required.is_empty(),
-        "product requires nothing: {required:?}"
+        product_deps.is_empty(),
+        "product is the root — zero deps, got: {:?}",
+        product_deps.iter().map(|d| &d.to).collect::<Vec<_>>()
     );
 }
 
@@ -762,26 +752,20 @@ fn formal_to_product_transitive_computed() {
 }
 
 #[test]
-fn only_optional_dependencies_run_both_ways() {
+fn no_reverse_dependencies_in_dag() {
     let manifests = load_all_manifests();
     let outline = OutlineIntermediate_from_declarations(&manifests);
 
-    // Required dependencies form a DAG; two extensions depend on each other
-    // only through optional peers (product and governance peer on each
-    // other, each working without the other).
     for dep in &outline.dependencies {
-        if let Some(reverse) = outline
+        let has_reverse = outline
             .dependencies
             .iter()
-            .find(|d| d.from == dep.to && d.to == dep.from)
-        {
-            assert!(
-                dep.optional && reverse.optional,
-                "required reverse dependency: {} <-> {}",
-                dep.from,
-                dep.to
-            );
-        }
+            .any(|d| d.from == dep.to && d.to == dep.from);
+        assert!(
+            !has_reverse,
+            "reverse dependency: {} <-> {}",
+            dep.from, dep.to
+        );
     }
 }
 
@@ -886,7 +870,7 @@ fn mermaid_renders_required_dep_as_solid_arrow() {
 }
 
 #[test]
-fn the_optional_dependencies_are_the_optional_peers_and_their_chains() {
+fn only_the_product_links_and_governance_software_are_optional() {
     let manifests = load_all_manifests();
     let outline = OutlineIntermediate_from_declarations(&manifests);
 
@@ -900,13 +884,9 @@ fn the_optional_dependencies_are_the_optional_peers_and_their_chains() {
     assert_eq!(
         optional_deps,
         vec![
-            ("@specforge/formal", "@specforge/governance"),
             ("@specforge/formal", "@specforge/product"),
             ("@specforge/governance", "@specforge/product"),
             ("@specforge/governance", "@specforge/software"),
-            ("@specforge/product", "@specforge/governance"),
-            ("@specforge/product", "@specforge/software"),
-            ("@specforge/software", "@specforge/governance"),
             ("@specforge/software", "@specforge/product"),
         ]
     );
@@ -939,13 +919,9 @@ fn json_dependencies_include_optional_field() {
     assert_eq!(
         optional_deps,
         vec![
-            "@specforge/formal -> @specforge/governance",
             "@specforge/formal -> @specforge/product",
             "@specforge/governance -> @specforge/product",
             "@specforge/governance -> @specforge/software",
-            "@specforge/product -> @specforge/governance",
-            "@specforge/product -> @specforge/software",
-            "@specforge/software -> @specforge/governance",
             "@specforge/software -> @specforge/product",
         ]
     );

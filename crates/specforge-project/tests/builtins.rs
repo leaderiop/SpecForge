@@ -473,3 +473,59 @@ fn the_builtin_extensions_rules_register_cleanly() {
         .collect();
     assert!(unworkable.is_empty(), "{unworkable:?}");
 }
+
+#[specforge_test_macros::test(
+    behavior = "registry_build_declaration_consistency",
+    verify = "a rule's target_extension, loaded, must declare its target kind and edge type; not loaded, the rule is inert and costs no W021"
+)]
+fn product_alone_is_clean_and_names_governance_for_w078() {
+    let product = load_via_protocol("@specforge/product");
+    // W078 on `constraint` names governance; product has no peers.
+    assert!(product.peers().is_empty());
+    let w078: Vec<_> = product
+        .validation_rules
+        .iter()
+        .filter(|r| r.code == "W078" && r.target_kind.as_deref() == Some("constraint"))
+        .collect();
+    assert_eq!(w078.len(), 1);
+    assert_eq!(
+        w078[0].target_extension.as_deref(),
+        Some("@specforge/governance")
+    );
+
+    // Alone: no W021 (governance absent: that rule is inert), and the field
+    // checks still run, so a typo'd kind in product would still be W021.
+    let alone = specforge_registry::build_registries(vec![product.clone()]);
+    assert!(
+        alone
+            .declaration_diagnostics
+            .iter()
+            .all(|d| d.code != "W021"),
+        "{:?}",
+        alone.declaration_diagnostics
+    );
+    let mut typo = product.clone();
+    typo.entities[0].fields[0].target_kind = Some("featur".to_string());
+    let broken = specforge_registry::build_registries(vec![typo]);
+    assert_eq!(
+        broken
+            .declaration_diagnostics
+            .iter()
+            .filter(|d| d.code == "W021")
+            .count(),
+        1
+    );
+
+    // With governance: it declares `constraint`, so nothing is wrong either.
+    let both = specforge_registry::build_registries(vec![
+        load_via_protocol("@specforge/governance"),
+        product,
+    ]);
+    assert!(
+        both.declaration_diagnostics
+            .iter()
+            .all(|d| d.code != "W021"),
+        "{:?}",
+        both.declaration_diagnostics
+    );
+}

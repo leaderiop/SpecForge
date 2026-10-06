@@ -304,6 +304,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
         declared: Declared {
             edge_type: r.edge_type.clone(),
             edge_fields: Vec::new(),
+            target_extension: r.target_extension.clone(),
             constraint: r.constraint.as_ref().map(|c| DeclaredConstraint {
                 kind: ConstraintKind::parse(&c.kind),
                 pattern: c.pattern.clone(),

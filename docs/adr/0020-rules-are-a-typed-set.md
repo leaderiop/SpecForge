@@ -57,8 +57,13 @@ registered without it; `field` is never W147, because every check's message read
 
 A cycle rule without a target kind checks every entity. An edge type resolves through the edge
 registry only: undeclared, the rule is inert, and W021 tells the author when neither the extension
-nor its loaded peers declare it; the same holds for a rule's target kind (`@specforge/product`
-declares `@specforge/governance` as an optional peer for its W078 on `constraint`). A cycle follows
+nor its loaded peers declare it; the same holds for a rule's target kind. A rule on the kind of an
+extension its author works without names it in the descriptor's optional `target_extension`
+(protocol 1.1.0; `@specforge/product`'s W078 on governance's `constraint` does): while that extension
+is not loaded the rule alone is inert and silent, loaded without the kind or edge type it is W021.
+A peer dependency is not the tool for that: peers order extension loading and pin versions, and a
+mutual optional pair is a needless cycle (`topological_sort_extensions` now ignores optional edges
+that would close one, and E027 is only for cycles among required peers). A cycle follows
 every field that writes the edge type. A rule that reads `verify` statements on a declared kind that
 accepts none is W112. The files `file_exists` rules read (against the spec root, ADR 0019; each item
 of a list field) are a session's check inputs. W148 carries every failed entity as data.

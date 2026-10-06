@@ -244,6 +244,7 @@ type ValidationRulePattern {
   field            string          @optional
   constraint       FieldConstraint @optional
   wasm_function    string          @optional
+  target_extension string          @optional
   verify unit "ValidationRulePattern schema is valid"
 }
 

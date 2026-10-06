@@ -102,9 +102,12 @@ fn derived_from_problem(field: &FieldDescriptor, source: &str) -> Option<&'stati
 /// peer is not loaded its kinds are unknown, so any kind is let through.
 /// Every edge label a field maps to must be one of its own edges, and a
 /// `derived_from` must derive something. A validation rule's target kind
-/// resolves as a field's does, and its edge type must be one of its own
-/// edges or a loaded peer's (anything goes while a named peer is not
-/// loaded).
+/// and edge type resolve against the extension's own, then its loaded
+/// peers', then its `target_extension`'s: that extension not loaded makes
+/// the rule inert (no W021); loaded without the kind or edge type, W021.
+/// With no `target_extension` a rule resolves as a field does (anything
+/// goes while a named peer is not loaded), and a kind only a non-peer
+/// declares is W021 suggesting `target_extension`.
 pub(crate) fn consistency(
     declaration: &ExtensionDeclaration,
     loaded: &[ExtensionDeclaration],
@@ -207,23 +210,57 @@ pub(crate) fn consistency(
     }
 
     for rule in &declaration.validation_rules {
-        if let Some(target) = &rule.target_kind
-            && let Some(why) = unresolved(target)
-        {
-            diagnostics.push(warn(format!(
-                "extension '{}': rule '{}' references target_kind '{}' {}",
-                name, rule.code, target, why
-            )));
+        // The extension the rule says its kind or edge type belongs to,
+        // when it is loaded.
+        let target_extension = rule.target_extension.as_deref();
+        let loaded_target = target_extension.and_then(|n| loaded.iter().find(|d| d.name() == n));
+        if let Some(target) = &rule.target_kind {
+            let problem = match (target_extension, loaded_target) {
+                _ if own_kinds.contains(target.as_str())
+                    || peer_kinds.contains(target.as_str()) =>
+                {
+                    None
+                }
+                // Not loaded: the rule is inert, and nothing is wrong.
+                (Some(_), None) => None,
+                (Some(extension), Some(declared)) => {
+                    (!declared.entities.iter().any(|k| keyword(k) == target))
+                        .then(|| format!("not declared by '{extension}', its target_extension"))
+                }
+                (None, _) => unresolved(target).map(|why| {
+                    if why.starts_with("declared by") {
+                        format!("{why}; name it as the rule's target_extension")
+                    } else {
+                        why
+                    }
+                }),
+            };
+            if let Some(why) = problem {
+                diagnostics.push(warn(format!(
+                    "extension '{}': rule '{}' references target_kind '{}' {}",
+                    name, rule.code, target, why
+                )));
+            }
         }
         if let Some(edge_type) = &rule.edge_type
-            && peers_known
             && !own_edge_labels.contains(edge_type.as_str())
             && !peer_edge_labels.contains(edge_type.as_str())
         {
-            diagnostics.push(warn(format!(
-                "extension '{}': rule '{}' references edge type '{}' not declared among its edges or its peers' edges",
-                name, rule.code, edge_type
-            )));
+            let why = match (target_extension, loaded_target) {
+                (Some(_), None) => None,
+                (Some(extension), Some(declared)) => {
+                    (!declared.edges.iter().any(|e| e.label == *edge_type))
+                        .then(|| format!("not declared by '{extension}', its target_extension"))
+                }
+                (None, _) => peers_known
+                    .then(|| "not declared among its edges or its peers' edges".to_string()),
+            };
+            if let Some(why) = why {
+                diagnostics.push(warn(format!(
+                    "extension '{}': rule '{}' references edge type '{}' {}",
+                    name, rule.code, edge_type, why
+                )));
+            }
         }
     }
 

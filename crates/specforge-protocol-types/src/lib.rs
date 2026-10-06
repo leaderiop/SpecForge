@@ -449,6 +449,13 @@ pub struct ValidationRuleDescriptor {
     pub constraint: Option<FieldConstraintDescriptor>,
     #[serde(default)]
     pub wasm_function: Option<String>,
+    /// The extension, other than the declaring one or its peers, whose
+    /// kinds or edge types this rule's `target_kind` and `edge_type` name
+    /// (protocol 1.1.0). While it is not loaded the rule is inert and costs
+    /// no W021; loaded, a kind or edge type it does not declare is W021.
+    /// Absent: the kind belongs to the extension itself or a declared peer.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_extension: Option<String>,
 }
 
 // ── Surface Descriptors ──

@@ -30,15 +30,6 @@ impl Contributions for Product {
         // Diagrams (`model`, `outline`) draw the extension in this colour.
         c.theme_color("#2ecc71");
         c.starter_template(include_str!("starter.spec"));
-        c.meta.peer_dependencies.push(PeerDependency {
-            name: "@specforge/governance".to_string(),
-            version: "^1.0".to_string(),
-            // Only W078 targets a governance kind (constraint): product
-            // works without governance. Peers are only checked, never used
-            // to order loading, so governance's optional peer on product
-            // and this one are a safe pair.
-            optional: true,
-        });
 
         declaration::declare(c);
         commands::declare(c);

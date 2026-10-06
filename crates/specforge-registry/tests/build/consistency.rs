@@ -424,10 +424,111 @@ fn a_rules_target_kind_nobody_it_knows_declares_is_w021() {
     assert_eq!(
         w021,
         [
-            "extension '@test/stranger': rule 'X200' references target_kind 'behavior' declared by '@specforge/software', which is not a peer dependency",
+            "extension '@test/stranger': rule 'X200' references target_kind 'behavior' declared by '@specforge/software', which is not a peer dependency; name it as the rule's target_extension",
             "extension '@test/nobody': rule 'X200' references target_kind 'ghost' not declared by this extension",
         ]
     );
     // The rules stay registered (inert where no entity has their kind).
     assert_eq!(build.rules.len(), 4);
+}
+
+/// An extension `name` (no peers) with one rule `X300` on `target_kind` /
+/// `edge_type`, naming `target_extension` when given, and one field of its
+/// own that references a kind nobody declares (to see its field checks run).
+fn naming(
+    name: &str,
+    target_extension: Option<&str>,
+    target_kind: &str,
+    edge_type: Option<&str>,
+) -> ExtensionDeclaration {
+    let mut c = extension(name);
+    c.kind("Own", |k| {
+        k.keyword("own");
+        k.field("link", |f| {
+            f.field_type(FieldType::Reference).target_kind("nowhere");
+        });
+    });
+    c.rule("X300", |r| {
+        r.severity(ValidationSeverity::Warning)
+            .message_template("{id}")
+            .check(CheckKind::NoOutgoingEdges)
+            .target_kind(target_kind);
+        if let Some(extension) = target_extension {
+            r.target_extension(extension);
+        }
+        if let Some(edge_type) = edge_type {
+            r.edge_type(edge_type);
+        }
+    });
+    c.declaration()
+}
+
+#[spec(
+    behavior = "registry_build_declaration_consistency",
+    verify = "a rule's target_extension, loaded, must declare its target kind and edge type; not loaded, the rule is inert and costs no W021"
+)]
+fn a_rules_target_extension_resolves_its_kind_and_edge_type() {
+    let w021 = |build: &specforge_registry::RegistryBuild| -> Vec<String> {
+        coded(build, "W021")
+            .iter()
+            .map(|d| d.message.clone())
+            .collect()
+    };
+    let field_w021 = "extension '@test/own': field 'link' on kind 'own' references target_kind 'nowhere' not declared by this extension";
+
+    // Loaded and declaring the kind and the edge: nothing but the field's.
+    let build_loaded = build([
+        software(),
+        naming(
+            "@test/own",
+            Some("@specforge/software"),
+            "behavior",
+            Some("enforces"),
+        ),
+    ]);
+    assert_eq!(w021(&build_loaded), [field_w021]);
+    assert_eq!(
+        build_loaded.rules.iter().next().unwrap().describe()["target_extension"],
+        "@specforge/software"
+    );
+
+    // Not loaded: that rule alone is inert and silent; the extension's own
+    // field is still checked.
+    let build_absent = build([naming(
+        "@test/own",
+        Some("@specforge/software"),
+        "behavior",
+        Some("enforces"),
+    )]);
+    assert_eq!(w021(&build_absent), [field_w021]);
+    assert!(build_absent.rules.is_empty(), "the edge type is unknown");
+
+    // Loaded without the kind or the edge type: W021 for each.
+    let build_without = build([
+        software(),
+        naming(
+            "@test/own",
+            Some("@specforge/software"),
+            "ghost",
+            Some("nope"),
+        ),
+    ]);
+    assert_eq!(
+        w021(&build_without),
+        [
+            field_w021.to_string(),
+            "extension '@test/own': rule 'X300' references target_kind 'ghost' not declared by '@specforge/software', its target_extension".to_string(),
+            "extension '@test/own': rule 'X300' references edge type 'nope' not declared by '@specforge/software', its target_extension".to_string(),
+        ]
+    );
+
+    // Unset, the kind of a non-peer: W021 naming the owner and suggesting it.
+    let build_unset = build([software(), naming("@test/own", None, "behavior", None)]);
+    assert_eq!(
+        w021(&build_unset),
+        [
+            field_w021.to_string(),
+            "extension '@test/own': rule 'X300' references target_kind 'behavior' declared by '@specforge/software', which is not a peer dependency; name it as the rule's target_extension".to_string(),
+        ]
+    );
 }

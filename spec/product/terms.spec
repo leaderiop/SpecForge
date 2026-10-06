@@ -103,7 +103,7 @@ term t_entity_enhancement "Entity Enhancement" {
 
 term peer_dependency "Peer Dependency" {
   definition "A declaration in an extension's manifest that it requires another extension to be installed for certain features to work. Peer dependencies enable cross-extension edges and entity enhancements while keeping each extension independently installable."
-  context    "Example: @specforge/software declares an optional peer_dependency on @specforge/product for its BehaviorImplementsFeature edges (behavior->feature); without product those references are I004 hints. A required peer is enabled with its dependent by `specforge add`. The product extension's only peer dependency is an optional one on @specforge/governance (for its W078 on constraint) — it is fully standalone."
+  context    "Example: @specforge/software declares an optional peer_dependency on @specforge/product for its BehaviorImplementsFeature edges (behavior->feature); without product those references are I004 hints. A required peer is enabled with its dependent by `specforge add`. The product extension has no peer dependencies — it is fully standalone."
   aliases    ["extension_dependency", "peer_dep"]
   see_also   [cross_extension_coexistence]
   tags       ["extension", "architecture"]
