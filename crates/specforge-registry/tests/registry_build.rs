@@ -220,3 +220,76 @@ fn no_manifests_build_empty_registries() {
     assert!(build.registry_diagnostics.is_empty());
     assert!(build.surface_diagnostics.is_empty());
 }
+
+/// An extension `name` whose one rule `code` reports at `severity`; the
+/// rule's kind and edge are its own, so nothing else about it warns.
+fn one_rule(name: &str, code: &str, severity: ValidationSeverity) -> ExtensionDeclaration {
+    let mut c = extension(name, "1.0.0");
+    c.kind("Thing", |k| {
+        k.keyword("thing");
+    });
+    c.edge("uses", |e| {
+        e.source_kind("thing").target_kind("thing");
+    });
+    c.rule(code, |r| {
+        r.severity(severity)
+            .message_template("thing '{id}' uses nothing")
+            .check(CheckKind::NoOutgoingEdges)
+            .target_kind("thing")
+            .edge_type("uses");
+    });
+    c.declaration()
+}
+
+/// The rule `code` as registered: its severity and declaring extension.
+fn registered(
+    build: &specforge_registry::RegistryBuild,
+    code: &str,
+) -> Vec<(specforge_common::Severity, String)> {
+    build
+        .rules
+        .iter()
+        .filter(|(rule, _)| rule.code == code)
+        .map(|(rule, origin)| (rule.severity, origin.clone()))
+        .collect()
+}
+
+// pin: flipped by plan 11 T7 (a third-party rule may not use a core code:
+// W150 naming E001 and core, and the rule is still registered).
+#[test]
+fn a_rule_with_a_core_code_registers_silently() {
+    let build = build_registries(vec![one_rule(
+        "@acme/squat",
+        "E001",
+        ValidationSeverity::Info,
+    )]);
+
+    assert_eq!(
+        registered(&build, "E001"),
+        [(specforge_common::Severity::Info, "@acme/squat".to_string())]
+    );
+    assert!(
+        build.registry_diagnostics.is_empty(),
+        "today nothing checks an extension's rule code: {:?}",
+        build.registry_diagnostics
+    );
+}
+
+#[test]
+fn third_party_rule_codes_in_their_range_register_silently() {
+    let build = build_registries(vec![one_rule(
+        "@acme/x",
+        "W950",
+        ValidationSeverity::Warning,
+    )]);
+
+    assert_eq!(
+        registered(&build, "W950"),
+        [(specforge_common::Severity::Warning, "@acme/x".to_string())]
+    );
+    assert!(
+        build.registry_diagnostics.is_empty(),
+        "{:?}",
+        build.registry_diagnostics
+    );
+}

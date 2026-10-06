@@ -539,3 +539,27 @@ fn the_pass_input_carries_each_entitys_exemption() {
         ]
     );
 }
+
+// pin: flipped by plan 11 T7 (the finding is kept, and one W150 is added
+// because a third-party pass may not report a core code).
+#[test]
+fn a_pass_finding_with_a_core_code_passes_through() {
+    let output = PassOutput {
+        diagnostics: vec![PassDiagnostic::new("E001", PassSeverity::Info, "x")],
+        summary: Default::default(),
+    };
+
+    let findings = specforge_project::passes::pass_findings(output, &specforge_graph::Graph::new());
+
+    assert_eq!(
+        findings,
+        [Diagnostic {
+            code: "E001".to_string(),
+            severity: Severity::Info,
+            message: "x".to_string(),
+            span: None,
+            suggestion: None,
+            data: None,
+        }]
+    );
+}
