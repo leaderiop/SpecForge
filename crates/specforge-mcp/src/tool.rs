@@ -113,7 +113,8 @@ pub struct ToolSpec {
     /// result is a JSON object.
     pub output: Option<fn() -> Value>,
     /// The fields of the handler's `Args` struct ([`crate::args::fields`]):
-    /// the arguments it reads.
+    /// the arguments it reads, beside the ones its target reads
+    /// ([`Self::reads`]).
     pub fields: fn() -> &'static [&'static str],
     /// Which project it acts on, and whether that project is brought up
     /// to date first: resolved into the call's target before the handler.
@@ -124,12 +125,41 @@ pub struct ToolSpec {
 }
 
 impl ToolSpec {
+    /// The input schema `tools/list` lists: [`Self::schema`] with the
+    /// target's properties merged in and its required arguments added.
+    pub fn input_schema(&self) -> Value {
+        let mut schema = (self.schema)();
+        if let Some(properties) = schema.get_mut("properties").and_then(Value::as_object_mut) {
+            properties.extend(self.target.properties());
+        }
+        let required = self.target.required();
+        if !required.is_empty() {
+            let listed = schema
+                .as_object_mut()
+                .map(|schema| schema.entry("required").or_insert_with(|| json!([])));
+            if let Some(Value::Array(listed)) = listed {
+                listed.extend(required.iter().map(|name| Value::from(*name)));
+            }
+        }
+        schema
+    }
+
+    /// Every argument the call reads: the handler's `Args` fields, then the
+    /// target's ([`TargetSpec::fields`]).
+    pub fn reads(&self) -> Vec<&'static str> {
+        (self.fields)()
+            .iter()
+            .chain(self.target.fields())
+            .copied()
+            .collect()
+    }
+
     /// The tool as `tools/list` describes it.
     pub fn descriptor(&self) -> McpToolDescriptor {
         McpToolDescriptor {
             name: self.name.into(),
             description: self.description.into(),
-            input_schema: (self.schema)(),
+            input_schema: self.input_schema(),
             output_schema: self.output.map(|schema| schema()),
             category: Some(self.category.as_str().into()),
             source: Some(CORE_SOURCE.into()),

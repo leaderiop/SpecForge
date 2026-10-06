@@ -7,20 +7,12 @@ use specforge_ops::check::{CheckError, CheckOptions, check, parse_lint_profiles,
 
 #[derive(Debug, Deserialize)]
 pub struct Args {
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     severity_filter: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     strict: Option<bool>,
     #[serde(default, deserialize_with = "strings")]
     lint: Vec<String>,
-    /// Read by the call's target (`Freshness::FreshUnlessCached`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target applies use_cached")]
-    use_cached: Option<bool>,
 }
 
 /// The `_meta` key of validate's verdict: `{ok, errors, warnings, infos,

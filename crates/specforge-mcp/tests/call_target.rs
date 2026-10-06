@@ -433,7 +433,7 @@ fn a_path_while_nothing_is_served_serves_it_for_every_tool() {
     covered.sort_unstable();
     let mut with_path: Vec<&str> = specforge_mcp::tools::CORE_TOOLS
         .iter()
-        .filter(|tool| (tool.schema)()["properties"].get("path").is_some())
+        .filter(|tool| tool.input_schema()["properties"].get("path").is_some())
         .map(|tool| tool.name)
         .collect();
     with_path.sort_unstable();

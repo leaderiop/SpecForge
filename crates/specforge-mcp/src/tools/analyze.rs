@@ -15,14 +15,6 @@ pub struct Args {
     strict: Option<bool>,
     #[serde(default, deserialize_with = "lenient")]
     test_results: Option<String>,
-    /// Read by the call's target (`Freshness::FreshUnlessCached`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target applies use_cached")]
-    use_cached: Option<bool>,
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
 }
 
 /// `specforge.analyze` — run the analysis passes (coverage, contracts) plus

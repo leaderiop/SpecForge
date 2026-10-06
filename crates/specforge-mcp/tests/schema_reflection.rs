@@ -18,8 +18,8 @@ use std::collections::{BTreeMap, BTreeSet};
 fn each_core_tool_schema_advertises_exactly_what_its_handler_reads() {
     let mut drift = Vec::new();
     for tool in specforge_mcp::tools::CORE_TOOLS {
-        let read: BTreeSet<&str> = (tool.fields)().iter().copied().collect();
-        let schema = (tool.schema)();
+        let read: BTreeSet<&str> = tool.reads().into_iter().collect();
+        let schema = tool.input_schema();
         let advertised: BTreeSet<&str> = schema
             .get("properties")
             .and_then(|p| p.as_object())

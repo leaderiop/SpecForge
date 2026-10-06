@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
-use specforge_common::{Diagnostic, find_project_root};
+use specforge_common::find_project_root;
 
 use crate::args::{lenient, strings};
 use crate::mutation::{Mutated, MutationEvent, MutationHandled, Written};
@@ -37,10 +37,6 @@ fn fail(code: ErrorCode, message: impl Into<String>) -> ToolOutcome {
 
 #[derive(Debug, Deserialize)]
 pub struct FormatArgs {
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
     #[serde(default, deserialize_with = "strings")]
     paths: Vec<String>,
     #[serde(default, deserialize_with = "lenient")]
@@ -153,10 +149,6 @@ pub struct RenameArgs {
     new_name: String,
     #[serde(default, deserialize_with = "lenient")]
     dry_run: Option<bool>,
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
 }
 
 pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandled {
@@ -231,7 +223,6 @@ pub(crate) fn rename_op(call: &mut Call<'_>, args: RenameArgs) -> MutationHandle
 
 #[derive(Debug, Deserialize)]
 pub struct InitArgs {
-    path: String,
     #[serde(default, deserialize_with = "lenient")]
     name: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
@@ -243,10 +234,11 @@ pub struct InitArgs {
 pub(crate) fn init_op(call: &mut Call<'_>, args: InitArgs) -> Mutated {
     use specforge_ops::init;
 
-    // The directory the target names (as given: init creates it).
-    let path = call
-        .new_project_dir()
-        .map_or_else(|| PathBuf::from(&args.path), Path::to_path_buf);
+    // The directory the target names (as given: init creates it); the
+    // target refuses a call that names none.
+    let Some(path) = call.new_project_dir().map(Path::to_path_buf) else {
+        return Mutated::refused(McpError::from(crate::target::TargetError::PathRequired));
+    };
     let extensions = &args.extensions;
     let served = call.state.session().root().map(Path::to_path_buf);
 
@@ -290,10 +282,6 @@ pub struct AddArgs {
     dry_run: Option<bool>,
     #[serde(default, deserialize_with = "lenient")]
     allow_unsigned: Option<bool>,
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
 }
 
 /// `specforge.add_extension`: the shared add, its reply, the files it
@@ -423,10 +411,6 @@ pub struct RemoveArgs {
     force: Option<bool>,
     #[serde(default, deserialize_with = "lenient")]
     dry_run: Option<bool>,
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
 }
 
 pub(crate) fn remove_extension_op(call: &mut Call<'_>, args: RemoveArgs) -> MutationHandled {
@@ -476,10 +460,6 @@ pub struct MigrateArgs {
     target_version: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     no_backup: Option<bool>,
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
 }
 
 pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> MutationHandled {
@@ -605,12 +585,7 @@ pub(crate) fn providers_op(call: &mut Call<'_>, _args: crate::args::NoArgs) -> H
 // ── doctor ──────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
-pub struct DoctorArgs {
-    /// Read by the call's target (`Freshness::FreshUnlessCached`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target applies use_cached")]
-    use_cached: Option<bool>,
-}
+pub struct DoctorArgs {}
 
 pub(crate) fn doctor_op(call: &mut Call<'_>, _args: DoctorArgs) -> Handled {
     // The target brought the project up to date with disk unless the
@@ -643,10 +618,6 @@ pub struct CollectArgs {
     runner: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
     run: Option<bool>,
-    /// Read by the call's target (`target::resolve`), not here.
-    #[serde(default, deserialize_with = "lenient")]
-    #[allow(dead_code, reason = "the call target resolves path")]
-    path: Option<String>,
 }
 
 pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
@@ -675,17 +646,15 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
     Ok(
         match collect::collect(&project.view(), project.runtime.as_ref(), request) {
             Ok(outcome) => ok(outcome.to_json()),
-            Err(e) if e.code == "E059" => McpError::from_diagnostic(&Diagnostic::error(
-                e.code,
-                format!(
-                    "the test command isn't approved for this project; run `specforge collect` \
-                 in a terminal once to approve it ({})",
-                    e.message
-                ),
-            ))
-            .into(),
-            Err(e) => {
-                McpError::from_diagnostic(&Diagnostic::error(e.code.as_ref(), e.message)).into()
+            Err(mut e) => {
+                if e.code == "E059" {
+                    e.message = format!(
+                        "the test command isn't approved for this project; run `specforge collect` \
+                         in a terminal once to approve it ({})",
+                        e.message
+                    );
+                }
+                McpError::from(e).into()
             }
         },
     )

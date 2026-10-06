@@ -62,6 +62,70 @@ impl TargetSpec {
 
     /// No project at all.
     pub const UNSCOPED: TargetSpec = TargetSpec::new(Reach::Unscoped, Freshness::Fresh);
+
+    /// Whether the call names its project by a `path` argument.
+    fn takes_path(self) -> bool {
+        matches!(
+            self.reach,
+            Reach::AnyProject | Reach::WritesAnyProject | Reach::NewProject
+        )
+    }
+
+    /// Whether the call may ask for the last compile with `use_cached`.
+    fn takes_use_cached(self) -> bool {
+        self.freshness == Freshness::FreshUnlessCached
+    }
+
+    /// The input-schema properties the target reads from a call: `path` for
+    /// a reach that names a project by it (`AnyProject`, `WritesAnyProject`:
+    /// "Project root path (uses initialized root if omitted)"; `NewProject`:
+    /// "Directory for the new project, outside the current one"), and
+    /// `use_cached` for `FreshUnlessCached`. A tool's listed schema is its
+    /// own properties plus these ([`ToolSpec::input_schema`]); its handler
+    /// never reads them.
+    pub fn properties(self) -> serde_json::Map<String, Value> {
+        let mut properties = serde_json::Map::new();
+        if self.takes_path() {
+            let description = match self.reach {
+                Reach::NewProject => "Directory for the new project, outside the current one",
+                _ => "Project root path (uses initialized root if omitted)",
+            };
+            properties.insert(
+                "path".into(),
+                serde_json::json!({ "type": "string", "description": description }),
+            );
+        }
+        if self.takes_use_cached() {
+            properties.insert(
+                "use_cached".into(),
+                serde_json::json!({
+                    "type": "boolean",
+                    "description": "Use the last compile instead of bringing the project up to date with disk; with no project served, the path is compiled anyway",
+                    "default": false,
+                }),
+            );
+        }
+        properties
+    }
+
+    /// The arguments a call cannot be made without: `["path"]` for
+    /// `NewProject`, refused by [`resolve`] before the handler runs.
+    pub fn required(self) -> &'static [&'static str] {
+        match self.reach {
+            Reach::NewProject => &["path"],
+            _ => &[],
+        }
+    }
+
+    /// The names [`Self::properties`] declares, for the schema drift test.
+    pub fn fields(self) -> &'static [&'static str] {
+        match (self.takes_path(), self.takes_use_cached()) {
+            (true, true) => &["path", "use_cached"],
+            (true, false) => &["path"],
+            (false, true) => &["use_cached"],
+            (false, false) => &[],
+        }
+    }
 }
 
 /// The project a call acts on, resolved before its handler runs.
@@ -171,6 +235,9 @@ pub enum TargetError {
     /// `init` was asked to create a project inside the served one:
     /// `conflict`.
     InsideServed { dir: PathBuf, served: PathBuf },
+    /// `init` was called without the `path` it creates: `invalid_input`
+    /// "Missing required parameter: path" on argument `path`.
+    PathRequired,
 }
 
 impl From<TargetError> for McpError {
@@ -186,6 +253,10 @@ impl From<TargetError> for McpError {
                 "this tool acts on the project the server serves; path cannot name another project",
             )
             .with_argument("path"),
+            TargetError::PathRequired => {
+                McpError::new(ErrorCode::InvalidInput, "Missing required parameter: path")
+                    .with_argument("path")
+            }
             TargetError::InsideServed { dir, served } => McpError::new(
                 ErrorCode::Conflict,
                 format!(
@@ -419,8 +490,7 @@ pub fn resolve(
         Reach::Unscoped => Ok(CallTarget::Unscoped),
         Reach::NewProject => {
             let Some(path) = path else {
-                // The handler refuses the missing argument.
-                return Ok(CallTarget::Unscoped);
+                return Err(TargetError::PathRequired);
             };
             let dir = PathBuf::from(path);
             if let Some(root) = state.project_root() {
@@ -483,4 +553,63 @@ fn absolute(path: &Path) -> PathBuf {
     let mut absolute = std::fs::canonicalize(&existing).unwrap_or(existing);
     absolute.extend(rest.into_iter().rev());
     absolute
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[specforge_test_macros::test(
+        behavior = "list_mcp_tools",
+        verify = "a tool's path and use_cached are declared once, by its target"
+    )]
+    fn target_arguments_follow_reach_and_freshness() {
+        let names =
+            |spec: TargetSpec| -> Vec<String> { spec.properties().keys().cloned().collect() };
+        for reach in [
+            Reach::Unscoped,
+            Reach::Served,
+            Reach::AnyProject,
+            Reach::WritesAnyProject,
+            Reach::NewProject,
+        ] {
+            for freshness in [Freshness::Fresh, Freshness::FreshUnlessCached] {
+                let spec = TargetSpec::new(reach, freshness);
+                let takes_path = matches!(
+                    reach,
+                    Reach::AnyProject | Reach::WritesAnyProject | Reach::NewProject
+                );
+                let takes_cached = freshness == Freshness::FreshUnlessCached;
+                let mut declared = names(spec);
+                declared.sort();
+                let mut fields: Vec<&str> = spec.fields().to_vec();
+                fields.sort();
+                assert_eq!(declared, fields, "{reach:?} {freshness:?}");
+                assert_eq!(declared.iter().any(|n| n == "path"), takes_path);
+                assert_eq!(declared.iter().any(|n| n == "use_cached"), takes_cached);
+                assert_eq!(
+                    spec.required(),
+                    if reach == Reach::NewProject {
+                        &["path"][..]
+                    } else {
+                        &[][..]
+                    }
+                );
+            }
+        }
+        // `path` reads differently where the call creates its project.
+        let described = |reach| {
+            TargetSpec::new(reach, Freshness::Fresh).properties()["path"]["description"]
+                .as_str()
+                .map(str::to_string)
+        };
+        assert_eq!(
+            described(Reach::NewProject).as_deref(),
+            Some("Directory for the new project, outside the current one")
+        );
+        assert_eq!(
+            described(Reach::AnyProject).as_deref(),
+            Some("Project root path (uses initialized root if omitted)")
+        );
+    }
 }
