@@ -5,7 +5,9 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
 
 - **Environment**: everything derived from `specforge.json` and the loaded extensions before any
   `.spec` file is read: config, spec root, registries, rules, surfaces, and load diagnostics
-  (`specforge_project::Environment`).
+  (`specforge_project::Environment`). A `specforge.json` that is there and can't be used is the
+  default config (for the unusable file or key), with each reason kept (`config_problems`) and
+  reported as the error E069.
 - **Compiled project**: an environment plus the resolved sources and the built graph. Its
   diagnostics are, by definition, what `specforge check` reports under the default policy
   (`specforge_project::CompiledProject`).
@@ -39,17 +41,23 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   Operations reach it only through the `Registry` port; its adapter (`specforge-ops-registry`)
   is linked by the CLI and MCP, never the LSP (ADR 0010). Publish derives the stored declaration
   from the binary; `add` checks the binary declares what was published (ADR 0012).
-- **Project view**: the read-only slice of a compiled project every operation reads: the graph, the
-  registry build (kinds, fields, edges, rules, the extension declarations and their ordered
-  passes) and the root the project was compiled from, borrowed (`specforge_ops::view::ProjectView`).
-  It owns the project's recorded test report and its
-  versioned schema, both read at that root and never an ancestor's. The CLI builds one from its
-  compiled project (`ProjectView::of`); MCP from its call target (`ProjectRef::view`: the project
-  session, or another project compiled for one call); the LSP from its session
-  (`ProjectView::of_session`) (ADR 0015).
+- **Project view**: the compiled project as one surface sees it, borrowed: the graph, the
+  environment it was compiled in (config, what each `extensions` entry enabled, the registry build:
+  kinds, fields, edges, rules, the extension declarations and their ordered passes), the root it was
+  compiled from, and what the surface reports for it (`specforge_ops::view::ProjectView`). It owns
+  the project's recorded test report and its versioned schema, both read at that root and never an
+  ancestor's. The CLI builds one from its compiled project (`ProjectView::of`); MCP from its call
+  target (`ProjectRef::view`: the project session with its I017 notices, or another project
+  compiled for one call); the LSP from its session (`ProjectView::of_session`) (ADR 0015).
 - **Read view**: an operation that only reads the project view: stats, trace, the coverage view, the
   model and outline diagrams, the versioned schema. Each returns a typed outcome; the CLI and MCP
   only render it.
+- **Management operation**: an operation about a project's setup and tooling rather than its
+  graph: the extensions and providers listings, doctor, remove, collect, inference progress and
+  gaps. Like a read view it takes the project view and a request and returns a typed outcome; unlike
+  one it also reads what the view does not own (`specforge.lock`, installed binaries, source files),
+  and remove and collect write, at the view's root only. `add`, `update`, `init` and `migrate` are
+  operations but not over a view: they run before or instead of a compile (ADR 0015).
 - **Recorded test report**: `<root>/specforge-report.json`, what `specforge collect` last wrote. The
   project view reads it once per compile and per content
   (`specforge_project::coverage::RecordedCoverage`).
