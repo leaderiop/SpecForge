@@ -6,7 +6,7 @@
 //! exports, the MCP coverage, inspect, review and trace views) reads it
 //! here, so they cannot disagree.
 
-use crate::snapshot::EntitySnapshot;
+use crate::snapshot::{EntitySnapshot, Standing};
 use serde::Deserialize;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
@@ -205,8 +205,6 @@ pub struct ProjectCoverage {
     entities: Arc<EntitySnapshot>,
     /// Per entity id, for every entity in the graph.
     pub verdicts: BTreeMap<String, Verdict>,
-    /// How the rule counts each entity of the graph, per entity id.
-    pub standings: BTreeMap<String, Standing>,
     /// The summary the `coverage` pass reports for the same inputs, less
     /// what its risk grading adds (the risk tallies and enforcement counts).
     pub summary: Summary,
@@ -220,26 +218,15 @@ impl ProjectCoverage {
         let rule_entities = entities.coverage_entities();
         let results = report.map(recorded_tests);
         let assessment = specforge_coverage::assess(&rule_entities, results.as_ref(), None, None);
-        let standings = rule_entities
-            .iter()
-            .map(|entity| {
-                let standing = Standing {
-                    kind: entity.kind.clone(),
-                    testable: entity.testable,
-                    counts: entity.counts_toward_coverage(),
-                };
-                (entity.id.clone(), standing)
-            })
-            .collect();
         ProjectCoverage {
             entities: Arc::clone(entities),
             verdicts: assessment.verdicts,
-            standings,
             summary: assessment.summary,
         }
     }
 
-    /// The entity snapshot it was computed from.
+    /// The entity snapshot it was computed from: every entity with its
+    /// standing, in id order.
     pub fn entities(&self) -> &EntitySnapshot {
         &self.entities
     }
@@ -254,35 +241,18 @@ impl ProjectCoverage {
         self.verdict(id).map_or(Status::Uncovered, Verdict::status)
     }
 
-    /// How the rule counts the entity, if the graph has it.
+    /// How the obligation rule sees the entity (its snapshot standing), if
+    /// the graph has it.
     pub fn standing(&self, id: &str) -> Option<&Standing> {
-        self.standings.get(id)
+        self.entities.standing(id)
     }
 
     /// Whether the entity counts toward coverage (ADR 0004 D2-b) and is not
     /// proven (D2-a): the one definition of "unverified". An entity the
     /// graph doesn't have is not.
     pub fn is_unverified(&self, id: &str) -> bool {
-        self.standing(id).is_some_and(|standing| standing.counts)
+        self.standing(id).is_some_and(Standing::counts)
             && !self.verdict(id).is_some_and(Verdict::is_proven)
-    }
-}
-
-/// How the coverage rule counts one entity.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Standing {
-    pub kind: String,
-    /// Its kind is testable (an extension's manifest says so).
-    pub testable: bool,
-    /// It counts toward coverage: testable, and not an entity W004 exempts
-    /// that declares no obligations.
-    pub counts: bool,
-}
-
-impl Standing {
-    /// A testable-kind entity that owes no obligations and declares none.
-    pub fn exempt(&self) -> bool {
-        self.testable && !self.counts
     }
 }
 
@@ -553,7 +523,7 @@ mod tests {
         let tests: TestReport = serde_json::from_str(&report("pass")).unwrap();
         let coverage = ProjectCoverage::compute(&project.entities(), Some(&tests));
         let login = coverage.standing("login").unwrap();
-        assert!(login.testable && login.counts && !login.exempt());
+        assert!(login.testable && login.counts() && !login.exempt());
         assert!(!coverage.is_unverified("login"), "proven");
         assert!(
             coverage.is_unverified("logout"),

@@ -6,7 +6,6 @@ use std::collections::BTreeSet;
 
 use specforge_common::{Diagnostic, DiagnosticData, SourceSpan, Sym};
 use specforge_graph::Node;
-use specforge_registry::validation_engine::obliging_rule;
 
 use super::text::{SourceText, TokenKind};
 use super::{Navigator, is_about, overlaps};
@@ -233,21 +232,12 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
     /// brace; it fixes the rule that obliges the entity's kind, if any.
     fn verify_stub(&self, node: &Node) -> Option<Fix> {
         let registries = self.view.registries;
-        let kind_name = node.kind.raw.as_str();
         let kind = registries
             .kinds
-            .get(kind_name)
+            .get(node.kind.raw.as_str())
             .filter(|entry| entry.supports_verify)?;
-        let exempt = self
-            .view
-            .entities()
-            .get(node.id.raw.as_str())
-            .is_some_and(|(record, _)| record.exemption.is_some());
-        if !specforge_graph::obligations(node).is_empty() || exempt {
-            return None;
-        }
-        let rule = obliging_rule(&registries.rules, kind_name);
-        if rule.is_none() && !kind.testable {
+        let standing = self.view.entities().standing(node.id.raw.as_str())?;
+        if !standing.wants_obligations() {
             return None;
         }
         let verify_kind = kind
@@ -291,9 +281,8 @@ impl<F: Fn(&str) -> Option<String>> Navigator<'_, F> {
                 new_text: stub,
             },
         };
-        // The rule that reports it, if any: the one that obliges its kind
-        // (nothing exempts it here).
-        let code = rule.map(|rule| rule.code.clone());
+        // The rule that reports it, if any.
+        let code = standing.reported_by().map(str::to_string);
         Some(Fix {
             title: format!("Add verify stub for {}", node.id.raw),
             kind: FixKind::QuickFix,

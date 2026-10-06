@@ -1607,7 +1607,7 @@ fn an_update_starts_a_fresh_coverage_memo() {
     };
     let first = coverage(&session);
     assert!(std::sync::Arc::ptr_eq(&first, &coverage(&session)));
-    assert!(first.standing("a").unwrap().counts);
+    assert!(first.standing("a").unwrap().counts());
 
     // A source update: the memo scores the new graph.
     write(
