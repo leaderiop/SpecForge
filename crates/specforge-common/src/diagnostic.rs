@@ -1,4 +1,5 @@
 use crate::SourceSpan;
+use specforge_diagnostics::{Code, GradedCode, Level};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum Severity {
@@ -7,9 +8,28 @@ pub enum Severity {
     Info,
 }
 
+impl Severity {
+    /// The severity a diagnostic of `code` has: its catalogued level.
+    pub const fn of(code: Code) -> Severity {
+        match code.level() {
+            Level::Error => Severity::Error,
+            Level::Warning => Severity::Warning,
+            Level::Info => Severity::Info,
+            // `Code::catalogued` refuses it: a pass-graded code is a
+            // `GradedCode`.
+            Level::SetByPass => panic!("a Code never has a level set by its pass"),
+        }
+    }
+}
+
+/// A compiler message. Built from a code ([`Diagnostic::new`],
+/// [`Diagnostic::graded`]), or, where a code arrives as text,
+/// [`Diagnostic::untyped`].
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Diagnostic {
     pub code: String,
+    /// The code's catalogued level when built; a diagnostic policy may
+    /// raise it afterwards (strict promotion), and nothing else changes it.
     pub severity: Severity,
     pub message: String,
     pub span: Option<SourceSpan>,
@@ -99,6 +119,41 @@ impl std::fmt::Display for Diagnostic {
 }
 
 impl Diagnostic {
+    /// A diagnostic of a core code, at the code's catalogued level:
+    /// `Diagnostic::new(codes::W112, message)` is a warning.
+    pub fn new(code: Code, message: impl Into<String>) -> Self {
+        Self::untyped(code.id(), Severity::of(code), message)
+    }
+
+    /// An analyze finding (`A###`) at the severity its pass grades it.
+    pub fn graded(code: GradedCode, severity: Severity, message: impl Into<String>) -> Self {
+        Self::untyped(code.id(), severity, message)
+    }
+
+    /// A diagnostic whose code arrives as text: an extension's rule or pass
+    /// code, an `OpError` turned back into a diagnostic, or a test's
+    /// fixture. Host source names its own codes through `codes::*` and
+    /// builds with [`Diagnostic::new`] or [`Diagnostic::graded`] instead.
+    pub fn untyped(
+        code: impl Into<String>,
+        severity: Severity,
+        message: impl Into<String>,
+    ) -> Self {
+        Self {
+            code: code.into(),
+            severity,
+            message: message.into(),
+            span: None,
+            suggestion: None,
+            data: None,
+        }
+    }
+
+    /// Whether this diagnostic is of `code`.
+    pub fn is(&self, code: Code) -> bool {
+        code.matches(&self.code)
+    }
+
     pub fn error(code: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
             code: code.into(),
