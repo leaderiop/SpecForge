@@ -11,26 +11,6 @@ brief                        cli=0   mcp=-
 dot                          cli=2   mcp=-
 json                         cli=0   mcp=-
 
-## render format
-mcp schema: enum ["json","dot","context","brief"] default null (required)
-default: mcp=json
-json                         cli=-   mcp=ok
-graph                        cli=-   mcp=refused: invalid_input: Unrecognized renderer format: graph (available: json, dot, context, brief) (available_renderers: ["json","dot","context","brief"])
-dot                          cli=-   mcp=ok
-context                      cli=-   mcp=ok
-brief                        cli=-   mcp=ok
-yaml                         cli=-   mcp=refused: invalid_input: Unrecognized renderer format: yaml (available: json, dot, context, brief) (available_renderers: ["json","dot","context","brief"])
-
-## query format
-mcp schema: enum null default "graph"
-default: mcp=graph = json = dot = yaml
-graph                        cli=-   mcp=ok
-context                      cli=-   mcp=ok
-brief                        cli=-   mcp=ok
-json                         cli=-   mcp=ok
-dot                          cli=-   mcp=ok
-yaml                         cli=-   mcp=ok
-
 ## coverage status_filter
 mcp schema: enum ["covered","partial","uncovered"] default null
 default: mcp=uncovered

@@ -443,9 +443,14 @@ fn paired() -> Vec<(&'static str, Names, Names)> {
     ]
 }
 
+/// MCP-only probes a linked test holds to their option table
+/// (`specforge-mcp`'s `tests/option_tables.rs`).
+const LINKED_ELSEWHERE: [&str; 2] = ["render format", "query format"];
+
 #[test]
 fn enumerated_options_today() {
-    let linked: Vec<&str> = paired().iter().map(|(label, _, _)| *label).collect();
+    let mut linked: Vec<&str> = paired().iter().map(|(label, _, _)| *label).collect();
+    linked.extend(LINKED_ELSEWHERE);
     let sections: Vec<String> = run_probes(|label| !linked.contains(&label))
         .iter()
         .map(render)

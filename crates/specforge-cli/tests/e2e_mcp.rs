@@ -2577,7 +2577,8 @@ fn mcp_tool_render_returns_output() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    assert_eq!(content["format"], "json");
+    // `json` is the graph renderer's alias; the result names the renderer.
+    assert_eq!(content["format"], "graph");
     assert!(
         content["output"].is_string(),
         "render should return the rendered output"
@@ -2825,11 +2826,12 @@ fn mcp_tool_render_invalid_format() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     let error = tool_error(resp);
     assert_eq!(error["code"], "invalid_input", "{error}");
-    // The message names the bad format and lists the renderers available,
-    // including the core json and dot renderers; `data` carries the list.
+    // The message names the bad format and lists the renderers by their
+    // export names; `data` carries every accepted name, the `json` alias
+    // of `graph` included.
     let message = error["message"].as_str().expect("message");
     assert!(
-        message.starts_with("Unrecognized renderer format: xyz (available: "),
+        message.starts_with("Unknown format: xyz. Expected: "),
         "{message}"
     );
     let available: Vec<&str> = error["data"]["available_renderers"]
@@ -2838,10 +2840,11 @@ fn mcp_tool_render_invalid_format() {
         .iter()
         .map(|r| r.as_str().unwrap())
         .collect();
-    for core in ["json", "dot"] {
+    for core in ["graph", "dot"] {
         assert!(available.contains(&core), "{core} listed: {available:?}");
         assert!(message.contains(core), "{core} named in: {message}");
     }
+    assert!(available.contains(&"json"), "{available:?}");
 }
 
 // ============================================================

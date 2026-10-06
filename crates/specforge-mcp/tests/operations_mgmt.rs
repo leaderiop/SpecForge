@@ -815,7 +815,8 @@ fn render_uses_the_renderer_the_format_names() {
         &mut server,
         json!({"format": "json", "out_dir": out.path().to_str().unwrap()}),
     );
-    assert_eq!(parsed["format"], "json");
+    // `json` is the graph renderer's alias; the result names the renderer.
+    assert_eq!(parsed["format"], "graph");
     let graph: Value =
         serde_json::from_str(&std::fs::read_to_string(out.path().join("graph.json")).unwrap())
             .unwrap();
@@ -854,14 +855,14 @@ fn render_unknown_format_lists_the_available_renderers() {
 
     let error = crate::tool_errors::mcp_error(&resp);
     assert_eq!(error["code"], "invalid_input", "{error}");
-    let message = error["message"].as_str().unwrap();
-    assert!(
-        message.contains("Unrecognized renderer format: yaml"),
-        "{message}"
+    assert_eq!(error["argument"], "format", "{error}");
+    assert_eq!(
+        error["message"],
+        "Unknown format: yaml. Expected: graph, context, brief, dot"
     );
     assert_eq!(
         error["data"]["available_renderers"],
-        json!(["json", "dot", "context", "brief"]),
+        json!(["graph", "context", "brief", "dot", "json"]),
         "{resp}"
     );
 }

@@ -5,7 +5,7 @@
 use serde_json::{Value, json};
 
 use super::*;
-use crate::args::{NoArgs, choice_schema, fields};
+use crate::args::{NoArgs, choice_schema, fields, required_choice_schema};
 use crate::operations;
 use crate::target::{Freshness, Reach, TargetSpec};
 use crate::tool::{Access, Category, Effect, MutationSpec, ToolSpec, writes_unless_dry_run};
@@ -54,7 +54,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                     "entity_id": { "type": "string", "description": "Entity ID to query" },
                     "depth": { "type": "integer", "description": "Number of hops (default 1)", "default": 1 },
                     "kinds": { "type": "array", "items": { "type": "string" }, "description": "Filter by entity kinds" },
-                    "format": { "type": "string", "description": "Output detail level (default \"graph\")", "default": "graph" },
+                    "format": choice_schema(&ops_export::AGENT_FORMAT, "Output detail level"),
                     "include_coverage": { "type": "boolean", "description": "Include coverage metadata in the response", "default": false }
                 },
                 "required": ["entity_id"]
@@ -875,7 +875,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
             json!({
                 "type": "object",
                 "properties": {
-                    "format": { "type": "string", "enum": ["json", "dot", "context", "brief"], "description": "Renderer to use" },
+                    "format": required_choice_schema(&ops_export::FORMAT, "Renderer to use"),
                     "out_dir": { "type": "string", "description": "Directory to write the rendering into (returned inline when omitted)" },
                     "scope": { "type": "string", "description": "Scope to entity" }
                 },
