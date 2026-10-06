@@ -1,6 +1,7 @@
 //! Graph export: the one function behind `specforge export`, the MCP
-//! `specforge.export` tool, `specforge.render` and the `specforge://graph`
-//! resource (ADR 0004 D3-a).
+//! `specforge.export` tool, `specforge.render` and the `specforge://graph`,
+//! `context` and `brief` resources with their scoped forms and
+//! `specforge://graph/{entity_id}` (ADR 0004 D3-a, ADR 0024 D4).
 //!
 //! Every caller gets the same Graph Protocol document for the same request,
 //! under the CLI's schema policy: a full `graph` export embeds the schema

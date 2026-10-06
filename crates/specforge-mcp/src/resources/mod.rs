@@ -1,10 +1,5 @@
-mod brief;
-mod context;
-mod diagnostics;
-mod entities_by_kind;
-mod entity;
-mod graph;
 mod schema;
+mod views;
 
 use serde_json::{Value, json};
 
@@ -15,6 +10,7 @@ use crate::surface_table::ResourceEntry;
 use crate::target::{Call, TargetSpec};
 use crate::tool::{ErrorCode, McpError};
 use crate::types::McpResourceDescriptor;
+use specforge_ops::export::Format;
 
 /// `resources/read`: the core resources (matched first), then the extension
 /// resource whose template names the URI (ADR 0017 D9). The request
@@ -91,7 +87,7 @@ impl Surface for Resources {
 
     fn envelope(
         state: &McpState,
-        found: &Found<&'static ResourceSpec, ResourceEntry>,
+        _: &Found<&'static ResourceSpec, ResourceEntry>,
         invocation: &Invocation,
         mut outcome: ReadOutcome,
         id: Option<Value>,
@@ -100,13 +96,13 @@ impl Surface for Resources {
         if let Err(refusal) = &mut outcome {
             refusal.uri.get_or_insert_with(|| invocation.name.clone());
         }
-        // A core resource answers under its URI without the query it was
-        // read with; an extension's, under the URI read.
-        let uri = match found {
-            Found::Core(_) => split_query(&invocation.name).0,
-            Found::Extension(_) => invocation.name.as_str(),
-        };
-        resource_envelope(outcome, uri, state.resource_not_found_code(), id)
+        // A read answers under the URI the client read: its own cache key.
+        resource_envelope(
+            outcome,
+            &invocation.name,
+            state.resource_not_found_code(),
+            id,
+        )
     }
 }
 
@@ -170,36 +166,6 @@ pub(crate) fn unknown_resource(not_found: i64, uri: &str) -> JsonRpcError {
         .with_data(json!({ "uri": uri }))
 }
 
-/// A read the client cannot make as it asked: `invalid_input`.
-pub(crate) fn invalid_input(message: impl Into<String>) -> Box<McpError> {
-    Box::new(McpError::new(ErrorCode::InvalidInput, message))
-}
-
-/// A read that names an entity the graph does not have: `entity_not_found`
-/// about `entity_id`, its E003 in `diagnostic`. `message` leads with the
-/// code, as the emitter words it (`E003: unresolved scope entity …`).
-pub(crate) fn entity_not_found(message: &str, entity_id: &str) -> Box<McpError> {
-    Box::new(
-        McpError::from_coded_message(ErrorCode::EntityNotFound, message).with_entity(entity_id),
-    )
-}
-
-/// An emitter failure of a read scoped to `scope`.
-pub(crate) fn emitter_refusal(
-    error: specforge_emitter::EmitterError,
-    scope: Option<&str>,
-) -> Box<McpError> {
-    match error {
-        specforge_emitter::EmitterError::EntityNotFound(message) => {
-            entity_not_found(&message, scope.unwrap_or_default())
-        }
-        other => Box::new(McpError::from_coded_message(
-            ErrorCode::InvalidInput,
-            &other.to_string(),
-        )),
-    }
-}
-
 /// One core resource: everything the server lists and reads about it.
 pub struct ResourceSpec {
     /// Its URI, or an RFC 6570 template (`specforge://graph/{entity_id}`).
@@ -226,8 +192,9 @@ impl ResourceSpec {
     }
 
     /// Whether `uri` names this resource: a template's prefix and what
-    /// stands for its placeholder (the reader refuses an empty one), or the URI itself with an optional query string
-    /// (C9-06: `?root=&depth=&kinds=&max_tokens=`).
+    /// stands for its placeholder (the reader refuses an empty one), or the
+    /// URI itself with an optional query string (which the reader reads, or
+    /// refuses: [`views::ViewQuery`]).
     pub fn matches(&self, uri: &str) -> bool {
         match self.uri.split_once('{') {
             Some((prefix, _)) => uri.starts_with(prefix),
@@ -241,12 +208,6 @@ impl ResourceSpec {
     }
 }
 
-/// The value of the placeholder ending a templated resource URI: what
-/// follows `prefix`.
-fn after<'a>(uri: &'a str, prefix: &str) -> &'a str {
-    uri.strip_prefix(prefix).unwrap_or_default()
-}
-
 /// The core resources, in listing order.
 pub static CORE_RESOURCES: &[ResourceSpec] = &[
     ResourceSpec {
@@ -255,7 +216,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         description: "Full spec graph in JSON format",
         mime_type: "application/json",
         target: TargetSpec::SERVED,
-        read: |call, uri| graph::read(&call.view(), uri),
+        read: |call, uri| views::export_view(call, uri, Format::Graph, None),
     },
     ResourceSpec {
         uri: "specforge://schema",
@@ -263,7 +224,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         description: "Graph schema definition",
         mime_type: "application/json",
         target: TargetSpec::SERVED,
-        read: |call, _| schema::read(&call.view()),
+        read: |call, uri| views::schema_view(call, uri),
     },
     ResourceSpec {
         uri: "specforge://context",
@@ -271,7 +232,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         description: "Context-optimized graph (contract, status, verify fields)",
         mime_type: "application/json",
         target: TargetSpec::SERVED,
-        read: |call, uri| context::read(call.state, uri),
+        read: |call, uri| views::export_view(call, uri, Format::Context, None),
     },
     ResourceSpec {
         uri: "specforge://context/{entity_id}",
@@ -279,7 +240,9 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         description: "Context-optimized subgraph rooted at an entity",
         mime_type: "application/json",
         target: TargetSpec::SERVED,
-        read: |call, uri| context::read(call.state, uri),
+        read: |call, uri| {
+            views::export_view(call, uri, Format::Context, Some("specforge://context/"))
+        },
     },
     ResourceSpec {
         uri: "specforge://brief",
@@ -287,7 +250,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         description: "Brief graph (id, kind, title, edges only)",
         mime_type: "application/json",
         target: TargetSpec::SERVED,
-        read: |call, uri| brief::read(call.state, uri),
+        read: |call, uri| views::export_view(call, uri, Format::Brief, None),
     },
     ResourceSpec {
         uri: "specforge://diagnostics",
@@ -295,7 +258,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         description: "Current compilation diagnostics",
         mime_type: "application/json",
         target: TargetSpec::SERVED,
-        read: |call, _| diagnostics::read(call.state),
+        read: |call, uri| views::diagnostics_view(call, uri),
     },
     ResourceSpec {
         uri: "specforge://graph/{entity_id}",
@@ -303,7 +266,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         description: "Subgraph rooted at a specific entity",
         mime_type: "application/json",
         target: TargetSpec::SERVED,
-        read: |call, uri| entity::read(call.state, after(uri, "specforge://graph/")),
+        read: |call, uri| views::entity_view(call, uri),
     },
     ResourceSpec {
         uri: "specforge://entities/{kind}",
@@ -311,7 +274,7 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
         description: "All entities of a specific kind (e.g. feature, behavior)",
         mime_type: "application/json",
         target: TargetSpec::SERVED,
-        read: |call, uri| entities_by_kind::read(call.state, after(uri, "specforge://entities/")),
+        read: |call, uri| views::entities_view(call, uri),
     },
 ];
 
@@ -418,48 +381,4 @@ pub fn handle_resource_unsubscribe(
         .unwrap_or(DEFAULT_SUBSCRIBER);
     crate::subscriptions::unsubscribe(state, client, notification_channel(uri));
     JsonRpcResponse::success(id, serde_json::json!({}))
-}
-
-/// Split a resource URI into its path and query components.
-pub(crate) fn split_query(uri: &str) -> (&str, &str) {
-    uri.split_once('?').unwrap_or((uri, ""))
-}
-
-/// Query parameters shared by the graph/context/brief resources (C9-06).
-#[derive(Default)]
-pub(crate) struct ResourceQuery<'a> {
-    /// Scope emission to the subgraph rooted at this entity id.
-    pub root: Option<&'a str>,
-    /// Maximum traversal depth from the scoped root.
-    pub depth: Option<usize>,
-    /// Only include nodes of these kinds.
-    pub kinds: Vec<&'a str>,
-    /// Token budget for the emitted payload.
-    pub max_tokens: Option<usize>,
-}
-
-/// Parse `root`/`depth`/`kinds`/`max_tokens` out of a resource query string.
-/// Unknown keys and malformed values are ignored so partial queries still
-/// serve.
-pub(crate) fn parse_query(query: &str) -> ResourceQuery<'_> {
-    let mut parsed = ResourceQuery::default();
-    for kv in query.split('&') {
-        let Some((key, value)) = kv.split_once('=') else {
-            continue;
-        };
-        match key {
-            "root" => parsed.root = Some(value),
-            "depth" => parsed.depth = value.parse().ok(),
-            "kinds" => {
-                parsed.kinds = value
-                    .split(',')
-                    .map(str::trim)
-                    .filter(|k| !k.is_empty())
-                    .collect();
-            }
-            "max_tokens" => parsed.max_tokens = value.parse().ok(),
-            _ => {}
-        }
-    }
-    parsed
 }

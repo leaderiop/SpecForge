@@ -391,7 +391,9 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
   contract   """
     In MCP server mode, the system MUST register a specforge://graph/{entity_id}
     resource template that returns a single entity and its immediate neighbors as
-    a subgraph. The resource MUST include the target node, all directly connected
+    a subgraph: the scoped graph export at depth 1 (specforge export --format
+    graph --scope <entity_id>), which references the published schema with a
+    schema_ref. The resource MUST include the target node, all directly connected
     nodes, and the edges between them. If the entity_id does not exist, the
     read MUST fail as not found (-32002 in a handshake session, -32602 in a
     2026-07-28 request) whose data is an entity_not_found McpError carrying
@@ -401,6 +403,7 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
   verify unit "specforge://graph/{entity_id} returns entity and its neighbors"
   verify unit "non-existent entity_id returns 404 error"
   verify unit "malformed entity_id returns 400 error"
+  verify unit "the entity resource is the scoped graph export with its schema_ref"
   verify unit "resource refreshes after recompilation"
   verify contract "Expose Per-Entity MCP Resource: per-entity MCP resource holds — validation_complete_fired, subgraph_returned, resource_read_emitted"
 }

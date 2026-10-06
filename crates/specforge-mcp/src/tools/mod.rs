@@ -10,7 +10,7 @@ mod infer_gaps;
 mod infer_progress;
 mod infer_session;
 mod inspect;
-mod list;
+pub(crate) mod list;
 mod model;
 mod outline;
 mod outline_extensions;

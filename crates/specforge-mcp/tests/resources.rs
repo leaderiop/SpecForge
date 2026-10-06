@@ -284,7 +284,10 @@ fn entity_resource_error_for_unknown() {
     let resp = read_resource(&mut server, "specforge://graph/nonexistent");
     // Not found, as a handshake session says it (MCP 2025-11-25).
     assert_eq!(resp["error"]["code"], -32002);
-    assert_eq!(resp["error"]["message"], "Entity not found: nonexistent");
+    assert_eq!(
+        resp["error"]["message"],
+        "unresolved scope entity 'nonexistent' — entity not found in graph"
+    );
     let data = &resp["error"]["data"];
     assert_eq!(data["code"], "entity_not_found", "{resp}");
     assert_eq!(data["entity_id"], "nonexistent", "{resp}");
@@ -575,7 +578,7 @@ fn graph_resource_root_scopes_with_schema_ref() {
     )))
     .unwrap();
     assert_eq!(node_ids(&unscoped), vec!["alpha", "beta", "gamma"]);
-    let resp = read_resource(&mut server, "specforge://graph?root=alpha");
+    let resp = read_resource(&mut server, "specforge://graph?scope=alpha");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     let ids: Vec<&str> = parsed["nodes"]
@@ -642,6 +645,31 @@ fn graph_resource_max_tokens_budgets() {
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert!(parsed.get("schema").is_none(), "{parsed}");
     assert!(specforge_emitter::estimate_tokens(&text) <= 200, "{text}");
+}
+
+// `root` is what the resource has always read: it stays an alias of `scope`.
+#[specforge_test(
+    behavior = "serve_graph_resource",
+    verify = "root is accepted as an alias of the scope query parameter"
+)]
+fn root_is_an_alias_of_scope() {
+    let mut server = test_server();
+    add_unconnected_gamma(&server);
+    let by_scope = read_resource(&mut server, "specforge://graph?scope=alpha");
+    let by_root = read_resource(&mut server, "specforge://graph?root=alpha");
+    assert_eq!(resource_text(&by_root), resource_text(&by_scope));
+    let parsed: Value = serde_json::from_str(&resource_text(&by_root)).unwrap();
+    assert_eq!(node_ids(&parsed), vec!["alpha", "beta"]);
+    // The context and brief resources read it the same way.
+    for resource in ["context", "brief"] {
+        let by_scope = read_resource(&mut server, &format!("specforge://{resource}?scope=alpha"));
+        let by_root = read_resource(&mut server, &format!("specforge://{resource}?root=alpha"));
+        assert_eq!(
+            resource_text(&by_root),
+            resource_text(&by_scope),
+            "{resource}"
+        );
+    }
 }
 
 // B:expose_context_as_mcp_resource — verify unit "context entity template scopes to the subgraph"

@@ -97,30 +97,40 @@ fn a_resource_read_ignores_a_path_param() {
     assert!(graph["nodes"].as_array().is_some_and(|n| n.len() >= 2));
 }
 
-// --- P2: graph/{id} and graph?root= name one subgraph ---
+// --- P2: graph/{id} and graph?scope= name one subgraph ---
 
-#[test]
-fn the_entity_resource_is_a_1_0_document() {
+#[specforge_test(
+    behavior = "expose_entity_as_mcp_resource",
+    verify = "the entity resource is the scoped graph export with its schema_ref"
+)]
+fn the_entity_resource_is_the_scoped_graph_export() {
     let mut server = served();
-    let (_, entity) = resource(&mut server, "specforge://graph/alpha");
-    // PIN: flipped by T6: a 2.0 document with its schema_ref.
-    assert_eq!(entity["format_version"], "1.0");
-    assert!(entity.get("schema_ref").is_none(), "{entity}");
+    let (content, entity) = resource(&mut server, "specforge://graph/alpha");
+    assert_eq!(entity["format_version"], "2.0");
+    assert!(entity["schema_ref"].is_object(), "{entity}");
+    assert_eq!(content["uri"], "specforge://graph/alpha");
 
-    let (_, scoped) = resource(&mut server, "specforge://graph?root=alpha&depth=1");
-    assert_eq!(scoped["format_version"], "2.0");
-    assert!(scoped["schema_ref"].is_object(), "{scoped}");
-    let ids = |graph: &Value| -> Vec<String> {
-        let mut ids: Vec<String> = graph["nodes"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|n| n["id"].as_str().unwrap().to_string())
-            .collect();
-        ids.sort();
-        ids
+    // The same document, byte for byte, as the scoped read at depth 1 and as
+    // `specforge export --format graph --scope alpha --depth 1`.
+    let by_query = resource_text(&read_resource(
+        &mut server,
+        "specforge://graph?scope=alpha&depth=1",
+    ));
+    let by_entity = resource_text(&read_resource(&mut server, "specforge://graph/alpha"));
+    assert_eq!(by_entity, by_query);
+    let root = server.root().to_path_buf();
+    let request = Request {
+        format: Some(Format::Graph),
+        scope: Some("alpha"),
+        depth: Some(1),
+        ..Request::default()
     };
-    assert_eq!(ids(&entity), ids(&scoped));
+    assert_eq!(by_entity, exported(&root, &request));
+
+    // The entity's own query is read, as `--depth` is: one that cannot be is
+    // refused, not ignored.
+    let error = read_error(&mut server, "specforge://graph/alpha?depth=wide");
+    assert_eq!(error["data"]["argument"], "depth", "{error}");
 }
 
 // --- P3: a core resource's refusal ---
@@ -153,9 +163,12 @@ fn a_failed_resource_read_carries_its_mcp_error() {
             "the code is in `diagnostic`: {error}"
         );
     }
-    // PIN: flipped by T6: the export's message for the entity resource too.
+    // The entity resource says it as the export does.
     let error = read_error(&mut server, "specforge://graph/ghost");
-    assert_eq!(error["message"], "Entity not found: ghost");
+    assert_eq!(
+        error["message"],
+        "unresolved scope entity 'ghost' — entity not found in graph"
+    );
 }
 
 #[specforge_test(
@@ -334,25 +347,40 @@ fn an_extension_enabled_on_disk_is_callable_by_the_next_request() {
 
 // --- P11, P12: the scope query ---
 
-#[test]
-fn scope_is_ignored_and_root_scopes() {
+#[specforge_test(
+    behavior = "serve_graph_resource",
+    verify = "scope query parameter restricts to subgraph"
+)]
+fn scope_restricts_the_graph_to_a_subgraph() {
     let mut server = served();
     let nodes = |graph: &Value| graph["nodes"].as_array().unwrap().len();
     let (_, whole) = resource(&mut server, "specforge://graph");
-    // PIN: flipped by T6: `scope` scopes, `root` stays its alias.
+    assert!(
+        whole.get("schema").is_some(),
+        "the full graph embeds its schema"
+    );
     let (_, by_scope) = resource(&mut server, "specforge://graph?scope=alpha");
-    assert_eq!(nodes(&by_scope), nodes(&whole));
-    assert!(by_scope.get("schema").is_some(), "the schema is embedded");
+    assert!(nodes(&by_scope) < nodes(&whole));
+    assert!(by_scope["schema_ref"].is_object(), "{by_scope}");
+    // `root` stays its alias.
     let (_, by_root) = resource(&mut server, "specforge://graph?root=alpha");
-    assert!(nodes(&by_root) < nodes(&whole));
+    assert_eq!(by_root, by_scope);
 }
 
 #[test]
-fn a_scoped_read_names_the_unscoped_uri() {
+fn a_read_names_the_uri_the_client_read() {
     let mut server = served();
-    let (content, _) = resource(&mut server, "specforge://graph?root=alpha");
-    // PIN: flipped by T6: the URI the client read.
-    assert_eq!(content["uri"], "specforge://graph");
+    for uri in [
+        "specforge://graph",
+        "specforge://graph?root=alpha",
+        "specforge://graph/alpha",
+        "specforge://context/alpha?kinds=behavior",
+        "specforge://entities/behavior",
+        "specforge://diagnostics",
+    ] {
+        let (content, _) = resource(&mut server, uri);
+        assert_eq!(content["uri"], uri);
+    }
 }
 
 // --- P13, P14: the graph views are the exports ---
@@ -408,8 +436,11 @@ fn the_brief_resource_is_its_export() {
     }
 }
 
-#[test]
-fn the_graph_resource_is_the_export_json() {
+#[specforge_test(
+    behavior = "expose_graph_as_mcp_resource",
+    verify = "specforge://graph resource returns full Graph Protocol JSON"
+)]
+fn the_graph_resource_is_the_export_text() {
     let mut server = served();
     let root = server.root().to_path_buf();
     let request = Request {
@@ -418,13 +449,69 @@ fn the_graph_resource_is_the_export_json() {
     };
     let exported = exported(&root, &request);
     let text = resource_text(&read_resource(&mut server, "specforge://graph"));
-    let (read, written): (Value, Value) = (
-        serde_json::from_str(&text).unwrap(),
-        serde_json::from_str(&exported).unwrap(),
-    );
-    assert_eq!(read, written);
-    // PIN: flipped by T6: the export's text as written.
-    assert_ne!(text, exported, "the resource re-serializes its keys");
+    // Byte for byte what `specforge export --format graph` writes: a
+    // client that hashes the text has one hash across the CLI and MCP.
+    assert_eq!(text, exported);
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_entities_by_kind",
+    verify = "the entities resource lists what specforge.list lists for the kind"
+)]
+fn the_entities_resource_lists_what_list_lists() {
+    let mut server = served();
+    // `zeta` is declared before `alpha`: both answer them sorted by id.
+    let (_, resource_rows) = resource(&mut server, "specforge://entities/behavior");
+    let listed = tool(&mut server, "specforge.list", json!({"kind": "behavior"}));
+    assert_eq!(resource_rows, listed);
+    let ids: Vec<&str> = listed
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| row["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["alpha", "zeta"]);
+    let (_, none) = resource(&mut server, "specforge://entities/nothing");
+    assert_eq!(none, json!([]));
+}
+
+#[specforge_test(
+    behavior = "serve_graph_resource",
+    verify = "an unknown query key, a repeated key or a malformed value is invalid_input naming the key"
+)]
+fn a_query_the_resource_cannot_read_is_refused_naming_its_key() {
+    let mut server = served();
+    for (uri, key) in [
+        ("specforge://graph?scop=alpha", "scop"),
+        ("specforge://graph?depth=two", "depth"),
+        ("specforge://graph?depth=1&depth=2", "depth"),
+        ("specforge://graph?scope=alpha&root=alpha", "root"),
+        ("specforge://graph?max_tokens=-1", "max_tokens"),
+        ("specforge://graph?kinds=behavior,", "kinds"),
+        ("specforge://graph?scope=", "scope"),
+        ("specforge://graph?depth", "depth"),
+        ("specforge://context/alpha?root=zeta", "root"),
+        ("specforge://context/alpha?scope=zeta", "scope"),
+        ("specforge://brief?kind=behavior", "kind"),
+        ("specforge://schema?scope=alpha", "scope"),
+        ("specforge://diagnostics?verbose=1", "verbose"),
+        ("specforge://entities/behavior?limit=1", "limit"),
+    ] {
+        let error = read_error(&mut server, uri);
+        assert_eq!(error["code"], -32602, "{uri}: {error}");
+        assert_eq!(error["data"]["code"], "invalid_input", "{uri}: {error}");
+        assert_eq!(error["data"]["argument"], key, "{uri}: {error}");
+        assert_eq!(error["data"]["uri"], uri, "{uri}: {error}");
+    }
+    // A percent-escape is decoded: two kinds, not one unknown kind.
+    let (_, graph) = resource(&mut server, "specforge://graph?kinds=behavior%2Cfeature");
+    assert_eq!(graph["nodes"].as_array().unwrap().len(), 2);
+    let (_, escaped) = resource(&mut server, "specforge://graph?sc%6Fpe=alpha");
+    let (_, scoped) = resource(&mut server, "specforge://graph?scope=alpha");
+    assert_eq!(escaped, scoped);
+    // An escape that is no UTF-8 is refused, naming the key.
+    let error = read_error(&mut server, "specforge://graph?scope=%ff");
+    assert_eq!(error["data"]["argument"], "scope", "{error}");
 }
 
 // --- P15, P16: the request's own schema ---
