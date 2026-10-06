@@ -364,9 +364,11 @@ fn an_untargeted_obligation_rule_obliges_every_kind_after_the_move() {
     assert!(!alpha.exempt);
 }
 
-// PIN: flipped by T8 (W147 for the constraint kind; the rule still fires).
-#[test]
-fn a_conditional_rule_with_a_matches_constraint_reads_pattern_as_a_field() {
+#[spec(
+    behavior = "parse_validation_rule_pattern",
+    verify = "a conditional_field_required constraint of another kind produces W147 and is read as when_field_equals"
+)]
+fn a_conditional_rule_with_a_matches_constraint_is_w147_and_reads_pattern_as_a_field() {
     let diagnostics = check(
         "node alpha \"Alpha\" {\n  status \"deferred\"\n}\n\n\
          node beta \"Beta\" {\n  status \"deferred\"\n  reason \"later\"\n}\n",
@@ -385,5 +387,11 @@ fn a_conditional_rule_with_a_matches_constraint_reads_pattern_as_a_field() {
     assert!(
         naming(&diagnostics, "W112", "I905").is_empty(),
         "{diagnostics:?}"
+    );
+    assert_eq!(
+        messages(&diagnostics, "W147"),
+        [
+            "extension '@pin/rules': rule 'I905': constraint kind 'matches' is not read by check 'conditional_field_required' (it reads when_field_equals) — read as when_field_equals"
+        ]
     );
 }

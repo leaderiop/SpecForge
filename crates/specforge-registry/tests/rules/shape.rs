@@ -136,20 +136,32 @@ fn a_rule_keeps_its_declared_head() {
 
 #[spec(
     behavior = "parse_validation_rule_pattern",
-    verify = "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned"
+    verify = "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned, ignored_warned"
 )]
 fn parse_validation_rule_pattern_contract() {
     // requires: manifest rules available
+    let mut ignoring = rule("W300", "no_edges");
+    ignoring.wasm_function = Some("validate".to_string());
     let built = rules(vec![
         rule("W100", "no_incoming_edges"),
         rule("W200", "invalid_kind"),
+        ignoring,
     ]);
-    // ensures: valid patterns parsed
-    assert_eq!(built.codes(), ["W100"]);
+    // ensures: valid patterns parsed (the one ignoring a property too)
+    assert_eq!(built.codes(), ["W100", "W300"]);
     // ensures: unrecognized warned, naming the extension
     let w112 = built.coded("W112");
     assert_eq!(w112.len(), 1);
     assert!(w112[0].message.contains("'@test'"), "{}", w112[0].message);
+    // ensures: ignored warned, and the rule registered without it
+    let w147 = built.coded("W147");
+    assert_eq!(w147.len(), 1);
+    assert!(
+        w147[0].message.contains("wasm_function"),
+        "{}",
+        w147[0].message
+    );
+    assert!(built.rules.iter().nth(1).unwrap().describe()["wasm_function"].is_null());
 }
 
 // C14: a malformed regex is rejected when the rule is built and never runs.
@@ -364,4 +376,198 @@ fn a_rule_reading_verify_statements_on_a_kind_without_verify_is_w112() {
         ]
     );
     assert_eq!(built.codes(), ["W010", "W011", "W012"]);
+}
+
+/// (check, edge_type, constraint, wasm_function, the properties W147 names)
+type UnreadCase = (
+    &'static str,
+    Option<&'static str>,
+    Option<specforge_protocol_types::FieldConstraintDescriptor>,
+    Option<&'static str>,
+    &'static [&'static str],
+);
+
+#[spec(
+    behavior = "parse_validation_rule_pattern",
+    verify = "a property its check does not read produces W147 and the rule is registered without it"
+)]
+fn a_property_its_check_does_not_read_is_w147() {
+    // (check, edge_type, constraint, wasm_function, the properties W147 names)
+    let edge = Some("enforces");
+    let any = || Some(constraint("one_of", None, &["x"]));
+    let cases: Vec<UnreadCase> = vec![
+        (
+            "no_incoming_edges",
+            None,
+            any(),
+            Some("f"),
+            &["constraint", "wasm_function"],
+        ),
+        ("no_outgoing_edges", None, any(), None, &["constraint"]),
+        (
+            "no_edges",
+            edge,
+            any(),
+            Some("f"),
+            &["edge_type", "constraint", "wasm_function"],
+        ),
+        (
+            "missing_field_when_flag_set",
+            edge,
+            any(),
+            Some("f"),
+            &["edge_type", "constraint", "wasm_function"],
+        ),
+        ("missing_required_field", edge, None, None, &["edge_type"]),
+        ("file_exists", None, any(), None, &["constraint"]),
+        (
+            "field_value_constraint",
+            edge,
+            any(),
+            Some("f"),
+            &["edge_type", "wasm_function"],
+        ),
+        (
+            "field_value_constraint",
+            None,
+            Some(constraint("non_empty", Some("x"), &["a"])),
+            None,
+            &["constraint.pattern", "constraint.values"],
+        ),
+        (
+            "field_value_constraint",
+            None,
+            Some(constraint("one_of", Some("x"), &["a"])),
+            None,
+            &["constraint.pattern"],
+        ),
+        (
+            "field_value_constraint",
+            None,
+            Some(constraint("matches", Some("^x$"), &["a"])),
+            None,
+            &["constraint.values"],
+        ),
+        (
+            "conditional_field_required",
+            edge,
+            Some(constraint("when_field_equals", Some("status"), &["a"])),
+            Some("f"),
+            &["edge_type", "wasm_function"],
+        ),
+        (
+            "cycle_detection",
+            edge,
+            any(),
+            Some("f"),
+            &["constraint", "wasm_function"],
+        ),
+        (
+            "verify_kind_allowlist",
+            edge,
+            Some(constraint("one_of", Some("x"), &["unit"])),
+            Some("f"),
+            &["edge_type", "wasm_function", "constraint.pattern"],
+        ),
+        (
+            "no_verify_statements",
+            edge,
+            any(),
+            Some("f"),
+            &["edge_type", "constraint", "wasm_function"],
+        ),
+        (
+            "custom",
+            edge,
+            any(),
+            Some("f"),
+            &["edge_type", "constraint"],
+        ),
+    ];
+    for (check, edge_type, declared_constraint, function, ignored) in cases {
+        let mut declared = rule("W500", check);
+        declared.field = Some("status".to_string());
+        declared.edge_type = edge_type.map(str::to_string);
+        declared.constraint = declared_constraint;
+        declared.wasm_function = function.map(str::to_string);
+
+        // `@test` declares the edge type, so an edge rule resolves.
+        let mut declaration = crate::support::declare("@test", |c| {
+            c.edge("enforces", |e| {
+                e.description("e");
+            });
+        });
+        declaration.validation_rules = vec![declared];
+        let built = super::rules_of(vec![declaration]);
+
+        assert!(
+            built.coded("W112").is_empty(),
+            "{check}: {:?}",
+            built.diagnostics
+        );
+        let messages: Vec<&str> = built
+            .coded("W147")
+            .iter()
+            .map(|d| d.message.as_str())
+            .collect();
+        let expected: Vec<String> = ignored
+            .iter()
+            .map(|property| {
+                format!(
+                    "extension '@test': rule 'W500': {property} is not read by check '{check}' — the rule was registered without it"
+                )
+            })
+            .collect();
+        assert_eq!(messages, expected, "{check}");
+        // Registered, without what it ignores; `field` is always kept.
+        let described = built.rules.iter().next().expect(check).describe();
+        assert_eq!(described["field"], "status", "{check}");
+        for property in ignored {
+            let gone = match *property {
+                "constraint.pattern" => described["constraint"]["pattern"].is_null(),
+                "constraint.values" => described["constraint"]["values"] == serde_json::json!([]),
+                property => described[property].is_null(),
+            };
+            assert!(gone, "{check}: {property} in {described}");
+        }
+    }
+}
+
+#[spec(
+    behavior = "parse_validation_rule_pattern",
+    verify = "a conditional_field_required constraint of another kind produces W147 and is read as when_field_equals"
+)]
+fn a_conditional_constraint_of_another_kind_is_w147_and_read_as_when_field_equals() {
+    let mut declared = rule("I905", "conditional_field_required");
+    declared.field = Some("reason".to_string());
+    declared.message_template = "{id} is deferred with no reason".to_string();
+    declared.constraint = Some(constraint("matches", Some("status"), &["deferred"]));
+
+    let built = one(declared);
+
+    assert_eq!(
+        built.coded("W147")[0].message,
+        "extension '@test': rule 'I905': constraint kind 'matches' is not read by check 'conditional_field_required' (it reads when_field_equals) — read as when_field_equals"
+    );
+    let registered = built.rules.iter().next().unwrap();
+    assert_eq!(
+        registered.describe()["constraint"]["kind"],
+        "when_field_equals"
+    );
+    // It fires as before: `pattern` names the condition field.
+    let deferred = entity("a", "behavior", 0, 0).with_field("status", "deferred");
+    assert_eq!(
+        super::messages(&super::check(&built, &[deferred])),
+        ["a is deferred with no reason"]
+    );
+
+    // An allowlist reads one_of; any other kind is read as one_of.
+    let mut allowlist = rule("W009", "verify_kind_allowlist");
+    allowlist.constraint = Some(constraint("non_empty", None, &["unit"]));
+    let built = one(allowlist);
+    assert_eq!(
+        built.coded("W147")[0].message,
+        "extension '@test': rule 'W009': constraint kind 'non_empty' is not read by check 'verify_kind_allowlist' (it reads one_of) — read as one_of"
+    );
+    assert_eq!(built.codes(), ["W009"]);
 }

@@ -20,7 +20,7 @@ use specforge_registry::rules::{NoVerdicts, Rules};
 use crate::support::{build, declare};
 
 /// What the build made of some declared rules: the rule set and the
-/// diagnostics its rules step reported (W112, then W023).
+/// diagnostics its rules step reported (W112 and W147, then W023).
 pub struct Built {
     pub rules: Rules,
     pub diagnostics: Vec<Diagnostic>,
@@ -39,14 +39,14 @@ impl Built {
 }
 
 /// The rule set of `declarations`: the build's rules, and its rules step's
-/// diagnostics (W112 and W023, the only ones of those codes the build
+/// diagnostics (W112, W147 and W023, the only ones of those codes the build
 /// reports).
 pub fn rules_of(declarations: Vec<ExtensionDeclaration>) -> Built {
     let build = build(declarations);
     let diagnostics = build
         .registry_diagnostics
         .iter()
-        .filter(|d| d.code == "W112" || d.code == "W023")
+        .filter(|d| ["W112", "W147", "W023"].contains(&d.code.as_str()))
         .cloned()
         .collect();
     Built {

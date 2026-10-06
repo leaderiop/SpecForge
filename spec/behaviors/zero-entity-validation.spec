@@ -25,6 +25,7 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   ensures {
     patterns_parsed     "Each validationRules entry parsed into a well-formed ValidationRulePattern"
     unrecognized_warned "Unrecognized pattern kinds produce warning diagnostics with extension name"
+    ignored_warned      "Properties a check does not read produce W147; the rule is registered without them"
   }
   contract   """
     When the registry build reads an extension declaration's validation
@@ -38,7 +39,11 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
     constraint, edge type or wasm_function its check requires and lacks, an
     empty values list, a regex that does not compile — or a rule that reads
     verify statements on a declared kind that accepts none — MUST produce
-    W112 with the extension name and MUST NOT be registered.
+    W112 with the extension name and MUST NOT be registered. A property its
+    check does not read (an edge_type on a field check, a constraint on an
+    edge check, a wasm_function on a declarative check, a constraint kind
+    or a pattern or values its check does not read) MUST produce W147, and
+    the rule MUST be registered without it.
   """
   verify unit "parses no_incoming_edges pattern from manifest"
   verify unit "parses missing_field_when_flag_set pattern from manifest"
@@ -48,7 +53,9 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   verify unit "a cycle_detection rule without an edge_type produces W112 and is not registered"
   verify unit "a verify_kind_allowlist rule without values produces W112 and is not registered"
   verify unit "a rule that reads verify statements on a kind that accepts none produces W112 and is not registered"
-  verify contract "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned"
+  verify unit "a property its check does not read produces W147 and the rule is registered without it"
+  verify unit "a conditional_field_required constraint of another kind produces W147 and is read as when_field_equals"
+  verify contract "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned, ignored_warned"
 }
 
 behavior execute_validation_pattern "Execute Validation Pattern" {
@@ -96,6 +103,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "cycle_detection finds cycles in edge type"
   verify unit "a cycle_detection rule without a target_kind reports every entity on a cycle of its edge type"
   verify unit "cycle_detection follows every field that writes its edge type"
+  verify unit "the builtin extensions' rules register with no W112 or W147"
   verify unit "file_exists reports missing file-reference field targets"
   verify unit "file_exists resolves a relative path against the spec root, never the working directory"
   verify unit "file_exists checks each item of a list field as its own path"

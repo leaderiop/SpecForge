@@ -2679,6 +2679,23 @@ Owner: core
 Level: warning
 ```
 
+## W147
+
+```
+W147: Validation rule property ignored
+
+An extension-declared validation rule sets a property its check does not read
+— an `edge_type` on a field check, a `constraint` on an edge check, a
+`wasm_function` on a declarative check, a constraint kind, `pattern` or `values`
+its check does not read. The rule is registered without it, so it does not do
+what its author meant. Remove the property, or use the check that reads it
+(`conditional_field_required` reads `constraint.pattern` as the condition
+field's name, `field_value_constraint` with `matches` as a regex).
+
+Owner: core
+Level: warning
+```
+
 ## Retired codes
 
 These codes are no longer emitted, and are never reused for another meaning.

@@ -439,3 +439,36 @@ fn product_lifecycle_kinds_declare_status() {
         assert_eq!(field, expected, "{kind}'s lifecycle field");
     }
 }
+
+/// The nine builtin extensions loaded together, as a project enabling all
+/// of them does: their rules register with no W112 or W147, the custom
+/// ones' functions answer the load probe.
+#[specforge_test_macros::test(
+    behavior = "execute_validation_pattern",
+    verify = "the builtin extensions' rules register with no W112 or W147"
+)]
+fn the_builtin_extensions_rules_register_cleanly() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let names: Vec<&str> = specforge_component::builtins::BUILTIN_EXTENSIONS
+        .iter()
+        .map(|(name, _)| *name)
+        .collect();
+    assert_eq!(names.len(), 9, "{names:?}");
+    let config = serde_json::json!({ "name": "all", "version": "0.1.0", "extensions": names });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    let runtime = specforge_component::project_runtime(dir.path());
+
+    let env = specforge_project::Environment::load(dir.path(), Some(&runtime));
+
+    assert_eq!(env.registries.declarations().len(), 9);
+    assert!(
+        env.registries.rules.len() > 80,
+        "{}",
+        env.registries.rules.len()
+    );
+    let unworkable: Vec<&Diagnostic> = env
+        .diagnostics()
+        .filter(|d| d.code == "W112" || d.code == "W147")
+        .collect();
+    assert!(unworkable.is_empty(), "{unworkable:?}");
+}

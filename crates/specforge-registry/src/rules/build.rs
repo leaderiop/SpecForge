@@ -27,8 +27,15 @@ pub(super) fn build(
         for descriptor in &declaration.validation_rules {
             // Plan 11-T7: the check that an extension may report this code
             // (`check_extension_code`, W150) runs here, per declared rule.
-            match shape(descriptor, extension).and_then(|rule| resolve(rule, registries)) {
-                Ok(rule) => rules.extend(rule),
+            let built = shape(descriptor, extension).and_then(|mut rule| {
+                let unread = ignore_unread(descriptor, &mut rule);
+                Ok((resolve(rule, registries)?, unread))
+            });
+            match built {
+                Ok((rule, unread)) => {
+                    diagnostics.extend(unread);
+                    rules.extend(rule);
+                }
                 Err(w112) => diagnostics.push(w112),
             }
         }
@@ -50,6 +57,91 @@ fn cannot_fire(extension: &str, code: &str, why: &str) -> Diagnostic {
             "extension '{extension}': rule '{code}': {why} — the rule can never fire and was not registered"
         ),
     )
+}
+
+/// W147 for each property `descriptor` sets that `rule`'s check does not
+/// read, which `rule` is then registered without: an `edge_type` on a
+/// check that counts no edges, a `constraint` on one that reads none, a
+/// `wasm_function` on a declarative check, a constraint `pattern` or
+/// `values` its check does not read, or a constraint kind other than the
+/// one its check reads (read as that one). `field` is never one: every
+/// check's message reads it.
+fn ignore_unread(descriptor: &ValidationRuleDescriptor, rule: &mut Rule) -> Vec<Diagnostic> {
+    let check = rule.check_kind;
+    let head = format!("extension '{}': rule '{}'", rule.origin.name(), rule.code);
+    let unread = |property: &str| {
+        Diagnostic::warning(
+            "W147",
+            format!(
+                "{head}: {property} is not read by check '{check}' — the rule was registered without it"
+            ),
+        )
+    };
+    let mut diagnostics = Vec::new();
+    let declared = &mut rule.declared;
+
+    let reads_edge_type = matches!(
+        check,
+        CheckKind::NoIncomingEdges | CheckKind::NoOutgoingEdges | CheckKind::CycleDetection
+    );
+    let reads_constraint = matches!(
+        check,
+        CheckKind::FieldValueConstraint
+            | CheckKind::ConditionalFieldRequired
+            | CheckKind::VerifyKindAllowlist
+    );
+    if !reads_edge_type && declared.edge_type.take().is_some() {
+        diagnostics.push(unread("edge_type"));
+    }
+    if !reads_constraint && declared.constraint.take().is_some() {
+        diagnostics.push(unread("constraint"));
+    }
+    if check != CheckKind::Custom && declared.wasm_function.take().is_some() {
+        diagnostics.push(unread("wasm_function"));
+    }
+
+    let Some(constraint) = declared.constraint.as_mut() else {
+        return diagnostics;
+    };
+    // The constraint kind the check reads, when it reads only one.
+    let expected = match check {
+        CheckKind::ConditionalFieldRequired => Some(ConstraintKind::WhenFieldEquals),
+        CheckKind::VerifyKindAllowlist => Some(ConstraintKind::OneOf),
+        _ => None,
+    };
+    if let Some(expected) = expected
+        && constraint.kind != Some(expected)
+    {
+        let written = descriptor
+            .constraint
+            .as_ref()
+            .map(|c| c.kind.as_str())
+            .unwrap_or_default();
+        diagnostics.push(Diagnostic::warning(
+            "W147",
+            format!(
+                "{head}: constraint kind '{written}' is not read by check '{check}' (it reads {expected}) — read as {expected}"
+            ),
+        ));
+        constraint.kind = Some(expected);
+    }
+    // `pattern` and `values` as the (now expected) constraint kind reads them.
+    let (reads_pattern, reads_values) = match (check, constraint.kind) {
+        (CheckKind::FieldValueConstraint, Some(ConstraintKind::NonEmpty)) => (false, false),
+        (CheckKind::FieldValueConstraint, Some(ConstraintKind::OneOf)) => (false, true),
+        (CheckKind::FieldValueConstraint, Some(ConstraintKind::Matches)) => (true, false),
+        (CheckKind::ConditionalFieldRequired, _) => (true, true),
+        (CheckKind::VerifyKindAllowlist, _) => (false, true),
+        _ => (true, true),
+    };
+    if !reads_pattern && constraint.pattern.take().is_some() {
+        diagnostics.push(unread("constraint.pattern"));
+    }
+    if !reads_values && !constraint.values.is_empty() {
+        constraint.values.clear();
+        diagnostics.push(unread("constraint.values"));
+    }
+    diagnostics
 }
 
 /// The rule `descriptor` declares, with the check its kind names and the
