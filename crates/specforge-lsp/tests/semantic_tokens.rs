@@ -417,3 +417,39 @@ fn token_modifiers_constant_complete() {
     assert!(mods.contains(&"declaration"));
     assert!(mods.contains(&"reference"));
 }
+
+/// An entity body with a nested block before two more fields, the last
+/// one followed by a comment.
+const AFTER_A_NESTED_BLOCK: &str = concat!(
+    "behavior gamma \"Gamma\" {\n",
+    "  requires {\n",
+    "    ready \"it is ready\"\n",
+    "  }\n",
+    "  contract \"after the block\"\n",
+    "  features [] // trailing comment\n",
+    "}\n",
+);
+
+// Flipped by 06-T5.
+#[test]
+fn pin_fields_after_a_nested_block_are_unclassified() {
+    let tokens =
+        specforge_lsp::classify_tokens(AFTER_A_NESTED_BLOCK, &kinds(&[("behavior", None)]));
+    assert!(
+        tokens.iter().all(|t| t.line != 4 && t.line != 5),
+        "{tokens:?}"
+    );
+}
+
+// Flipped by 06-T5.
+#[test]
+fn pin_a_trailing_comment_is_unclassified() {
+    let tokens =
+        specforge_lsp::classify_tokens(AFTER_A_NESTED_BLOCK, &kinds(&[("behavior", None)]));
+    assert!(
+        !tokens
+            .iter()
+            .any(|t| t.line == 5 && t.token_type == "comment"),
+        "{tokens:?}"
+    );
+}

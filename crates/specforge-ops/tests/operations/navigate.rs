@@ -347,6 +347,29 @@ fn strings_comments_and_verify_texts_are_not_occurrences() {
     );
 }
 
+/// A ref and a behavior listing it (plan 06's R1 fixture).
+const REFS: &str = concat!(
+    "ref gh.issue:42 \"Support Wasm\"\n",
+    "\n",
+    "behavior issue \"Issue tracking\" {\n",
+    "  contract \"tracks issues\"\n",
+    "}\n",
+    "\n",
+    "behavior login \"Login\" {\n",
+    "  contract \"see [docs\"\n",
+    "  refs [gh.issue:42]\n",
+    "}\n",
+);
+
+// Flipped by 06-T1.
+#[test]
+fn pin_a_ref_definition_is_its_block() {
+    let p = compile(SOFTWARE, &[("main.spec", REFS)]);
+    let definition = p.navigator().definition("gh.issue:42").unwrap();
+    assert_eq!(definition.precision, Precision::Entity);
+    assert_eq!(at(&definition.name), "main.spec 1:1-1:31");
+}
+
 #[test]
 fn a_stale_text_gives_entity_precision() {
     let p = nav();

@@ -2,6 +2,8 @@
 mod code_actions;
 #[path = "e2e_support/completion.rs"]
 mod completion;
+#[path = "e2e_support/cursor.rs"]
+mod cursor;
 #[path = "e2e_support/editing.rs"]
 mod editing;
 #[path = "e2e_support/formatting.rs"]
