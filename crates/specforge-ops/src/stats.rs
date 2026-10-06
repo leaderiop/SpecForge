@@ -11,14 +11,6 @@ use std::collections::{BTreeMap, HashSet};
 use crate::check::Counts;
 use crate::view::ProjectView;
 
-/// What a surface asks stats for.
-#[derive(Debug, Clone, Copy)]
-pub struct StatsRequest<'r> {
-    /// What this surface reports for the project: the CLI what `specforge
-    /// check` reports, MCP that plus its surface registration conflicts.
-    pub diagnostics: &'r [Diagnostic],
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct Stats {
     pub total_entities: usize,
@@ -50,11 +42,13 @@ pub struct Stats {
 /// the coverage rule's over the view's recorded report, so stats and
 /// `analyze coverage` report the same numbers: testable entities are those
 /// that count toward coverage (the entities W004 exempts that declare
-/// nothing are left out). A recorded report that cannot be read is the
-/// error.
-pub fn stats(view: &ProjectView, request: &StatsRequest) -> Result<Stats, ReportError> {
+/// nothing are left out). The diagnostic counts are of what the view's
+/// surface reports for the project ([`ProjectView::reported`]: the CLI what
+/// `specforge check` reports, MCP that plus its surface registration
+/// notices). A recorded report that cannot be read is the error.
+pub fn stats(view: &ProjectView) -> Result<Stats, ReportError> {
     let coverage = view.coverage()?;
-    Ok(tally(view.graph, &coverage.summary, request.diagnostics))
+    Ok(tally(view.graph, &coverage.summary, &view.reported()))
 }
 
 fn tally(graph: &Graph, coverage: &Summary, diagnostics: &[Diagnostic]) -> Stats {

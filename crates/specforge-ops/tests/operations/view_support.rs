@@ -5,7 +5,7 @@
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 use specforge_ops::plan::PlanOutcome;
-use specforge_ops::stats::{Stats, StatsRequest};
+use specforge_ops::stats::Stats;
 use specforge_ops::trace::{Target, TraceChain};
 use specforge_ops::view::ProjectView;
 use specforge_project::Environment;
@@ -136,7 +136,7 @@ impl Project {
 /// declare obligations, with no recorded report, reporting `diagnostics`.
 pub fn stats_of(graph: &Graph, testable: &[&str], diagnostics: &[Diagnostic]) -> Stats {
     let project = Project::of_graph(graph.clone(), registries(testable, &[]));
-    specforge_ops::stats::stats(&project.view(), &StatsRequest { diagnostics }).unwrap()
+    specforge_ops::stats::stats(&project.view().reporting(diagnostics)).unwrap()
 }
 
 /// `plan` checked against `graph`, whose `testable` kinds are testable and
