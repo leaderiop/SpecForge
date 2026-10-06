@@ -24,6 +24,7 @@ pub(crate) mod trace;
 mod validate;
 
 use serde_json::{Value, json};
+use specforge_common::codes;
 
 use crate::mutation::{self, Mutated};
 use crate::protocol::JsonRpcResponse;
@@ -92,7 +93,7 @@ pub(crate) fn unknown_kind_diagnostics(
         }
         reported.push(kind);
         let mut diag =
-            specforge_common::Diagnostic::info("I020", format!("unknown entity kind '{kind}'"));
+            specforge_common::Diagnostic::new(codes::I020, format!("unknown entity kind '{kind}'"));
         if let Some(close) = specforge_common::find_close_match(kind, known.iter().copied()) {
             diag = diag.with_suggestion(format!("did you mean '{close}'?"));
         }

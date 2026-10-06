@@ -7,7 +7,7 @@
 //! to the dispatcher typed (ADR 0022), never read back from the reply.
 
 use serde_json::{Value, json};
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, codes};
 
 use crate::mutation::Mutated;
 use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
@@ -412,7 +412,10 @@ impl From<OpError> for McpError {
 pub fn entity_not_found(entity_id: &str) -> McpError {
     McpError::from_coded_message(
         ErrorCode::EntityNotFound,
-        &format!("E003: unresolved entity '{entity_id}' — not found in graph"),
+        &format!(
+            "{}: unresolved entity '{entity_id}' — not found in graph",
+            codes::E003
+        ),
     )
     .with_entity(entity_id)
 }
@@ -726,7 +729,7 @@ mod tests {
         assert_eq!(json["data"]["suggestion"], "pick another");
         assert!(json.get("diagnostic").is_none(), "{json}");
 
-        let error: McpError = OpError::diagnostic("E062", "the budget is too small")
+        let error: McpError = OpError::diagnostic(codes::E062, "the budget is too small")
             .with_suggestion("raise it")
             .into();
         let json = error.to_json();

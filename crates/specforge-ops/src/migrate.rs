@@ -6,7 +6,7 @@
 //! hook fails, or the graph's structure changed, the migrated files are
 //! restored from their backups.
 
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{Diagnostic, Severity, codes};
 use specforge_migrate::{
     CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MIN_SUPPORTED_VERSION,
     MigrationSummary, RollbackSummary, check_schema_compatibility, compare_graphs, migrate_project,
@@ -31,15 +31,16 @@ pub fn parse_target(raw: Option<&str>) -> Result<FormatVersion, OpError> {
     );
     match raw.parse::<FormatVersion>() {
         Ok(version) if version > MAX_SUPPORTED_VERSION => Err(OpError::diagnostic(
-            "E019",
+            codes::E019,
             format!("unsupported target version {raw} (max supported: {MAX_SUPPORTED_VERSION})"),
         )
         .with_suggestion(supported)),
         Ok(version) => Ok(version),
-        Err(e) => Err(
-            OpError::diagnostic("E019", format!("invalid target version '{raw}': {e}"))
-                .with_suggestion(supported),
-        ),
+        Err(e) => Err(OpError::diagnostic(
+            codes::E019,
+            format!("invalid target version '{raw}': {e}"),
+        )
+        .with_suggestion(supported)),
     }
 }
 

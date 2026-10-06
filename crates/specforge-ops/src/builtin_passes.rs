@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, Severity, codes};
 use specforge_parser::FieldValue;
 use specforge_project::passes::{AnalysisContext, Finding};
 use specforge_registry::ManifestFieldType;
@@ -87,8 +87,9 @@ pub fn pass_contracts(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value
         } else {
             unconstrained += 1;
             findings.push(
-                Diagnostic::info(
-                    "A010",
+                Diagnostic::graded(
+                    codes::A010,
+                    Severity::Info,
                     format!(
                         "{} '{}' declares no contract obligations",
                         node.kind.raw, node.id.raw

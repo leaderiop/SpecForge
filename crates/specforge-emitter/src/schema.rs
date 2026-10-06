@@ -7,6 +7,7 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use specforge_diagnostics::codes;
 use specforge_graph::Graph;
 use specforge_registry::{EdgeRegistry, FieldRegistry, KindRegistry, ManifestFieldType};
 
@@ -304,7 +305,7 @@ pub struct SchemaVersionError {
 
 impl fmt::Display for SchemaVersionError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "E027: {}", self.reason)
+        write!(f, "{}: {}", codes::E027, self.reason)
     }
 }
 

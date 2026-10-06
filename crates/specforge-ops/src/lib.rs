@@ -41,6 +41,8 @@ mod writes;
 
 pub use writes::Writes;
 
+use specforge_common::{Code, codes};
+use specforge_diagnostics::Level;
 use std::borrow::Cow;
 
 /// What kind of failure an operation reports: the closed set every surface
@@ -87,17 +89,29 @@ impl OpErrorKind {
     /// E059 permission, R004 timeout, else internal). MCP's
     /// `ErrorCode::for_diagnostic` reads it.
     pub fn of_diagnostic(code: &str) -> Self {
-        match code {
-            "E003" => Self::EntityNotFound,
-            "E019" | "E054" | "E062" | "E064" | "R-RES-004" => Self::InvalidInput,
-            "R-RES-001" => Self::ExtensionNotFound,
-            "E027" | "R-RES-006" => Self::Conflict,
-            "E045" | "E067" | "R-TRUST-004" | "R-OPS-004" => Self::SchemaMismatch,
-            "E058" | "E063" => Self::PreconditionFailed,
-            "E059" => Self::PermissionDenied,
-            "R004" => Self::Timeout,
-            _ => Self::Internal,
-        }
+        const KINDS: &[(Code, OpErrorKind)] = &[
+            (codes::E003, OpErrorKind::EntityNotFound),
+            (codes::E019, OpErrorKind::InvalidInput),
+            (codes::E054, OpErrorKind::InvalidInput),
+            (codes::E062, OpErrorKind::InvalidInput),
+            (codes::E064, OpErrorKind::InvalidInput),
+            (codes::R_RES_004, OpErrorKind::InvalidInput),
+            (codes::R_RES_001, OpErrorKind::ExtensionNotFound),
+            (codes::E027, OpErrorKind::Conflict),
+            (codes::R_RES_006, OpErrorKind::Conflict),
+            (codes::E045, OpErrorKind::SchemaMismatch),
+            (codes::E067, OpErrorKind::SchemaMismatch),
+            (codes::R_TRUST_004, OpErrorKind::SchemaMismatch),
+            (codes::R_OPS_004, OpErrorKind::SchemaMismatch),
+            (codes::E058, OpErrorKind::PreconditionFailed),
+            (codes::E063, OpErrorKind::PreconditionFailed),
+            (codes::E059, OpErrorKind::PermissionDenied),
+            (codes::R004, OpErrorKind::Timeout),
+        ];
+        KINDS
+            .iter()
+            .find(|(candidate, _)| candidate.matches(code))
+            .map_or(Self::Internal, |&(_, kind)| kind)
     }
 
     /// The kind of a failed file operation: `PermissionDenied` when the OS
@@ -136,6 +150,10 @@ pub struct OpError {
 }
 
 impl OpError {
+    /// A failure the operation names itself: `code` is its own identifier
+    /// (`export_failed`, `unknown_format`), not a catalogued diagnostic
+    /// code. A catalogued code goes through [`OpError::diagnostic`] or
+    /// [`OpError::coded`], so its constant carries it.
     pub fn new(
         kind: OpErrorKind,
         code: impl Into<Cow<'static, str>>,
@@ -152,11 +170,26 @@ impl OpError {
         }
     }
 
-    /// A failure reported as diagnostic `code`, its kind
+    /// A failure reported as the catalogued diagnostic `code`, its kind
     /// [`OpErrorKind::of_diagnostic`]'s.
-    pub fn diagnostic(code: impl Into<Cow<'static, str>>, message: impl Into<String>) -> Self {
-        let code = code.into();
-        Self::new(OpErrorKind::of_diagnostic(&code), code, message)
+    pub fn diagnostic(code: Code, message: impl Into<String>) -> Self {
+        Self::coded(OpErrorKind::of_diagnostic(code.id()), code, message)
+    }
+
+    /// A failure reported as the catalogued diagnostic `code`, of an
+    /// explicit `kind` (where it is not the code's usual one). It is
+    /// printed as `error[CODE]`, so the code is an error's.
+    pub fn coded(kind: OpErrorKind, code: Code, message: impl Into<String>) -> Self {
+        debug_assert!(
+            code.level() == Level::Error,
+            "{code} is not an error code, but an OpError is printed as error[CODE]"
+        );
+        Self::new(kind, code.id(), message)
+    }
+
+    /// Whether this failure is reported as diagnostic `code`.
+    pub fn is(&self, code: Code) -> bool {
+        code.matches(&self.code)
     }
 
     /// The same error, having left `writes` changed on disk.
@@ -194,7 +227,8 @@ impl std::error::Error for OpError {}
 /// A diagnostic's code stays data; its message and suggestion carry over.
 impl From<specforge_common::Diagnostic> for OpError {
     fn from(diagnostic: specforge_common::Diagnostic) -> Self {
-        let mut error = Self::diagnostic(Cow::Owned(diagnostic.code), diagnostic.message);
+        let kind = OpErrorKind::of_diagnostic(&diagnostic.code);
+        let mut error = Self::new(kind, Cow::Owned(diagnostic.code), diagnostic.message);
         error.suggestion = diagnostic.suggestion;
         error
     }
@@ -207,26 +241,33 @@ mod tests {
     #[test]
     fn failure_kinds_of_diagnostic_codes() {
         for (code, kind) in [
-            ("E003", OpErrorKind::EntityNotFound),
-            ("E019", OpErrorKind::InvalidInput),
-            ("E027", OpErrorKind::Conflict),
-            ("E045", OpErrorKind::SchemaMismatch),
-            ("E058", OpErrorKind::PreconditionFailed),
-            ("E059", OpErrorKind::PermissionDenied),
-            ("E062", OpErrorKind::InvalidInput),
-            ("E063", OpErrorKind::PreconditionFailed),
-            ("E067", OpErrorKind::SchemaMismatch),
-            ("R-RES-001", OpErrorKind::ExtensionNotFound),
-            ("R-RES-004", OpErrorKind::InvalidInput),
-            ("R-RES-006", OpErrorKind::Conflict),
-            ("R-TRUST-004", OpErrorKind::SchemaMismatch),
-            ("R-OPS-004", OpErrorKind::SchemaMismatch),
-            ("R004", OpErrorKind::Timeout),
-            ("E999", OpErrorKind::Internal),
-            ("not_a_code", OpErrorKind::Internal),
+            (codes::E003, OpErrorKind::EntityNotFound),
+            (codes::E019, OpErrorKind::InvalidInput),
+            (codes::E027, OpErrorKind::Conflict),
+            (codes::E045, OpErrorKind::SchemaMismatch),
+            (codes::E058, OpErrorKind::PreconditionFailed),
+            (codes::E059, OpErrorKind::PermissionDenied),
+            (codes::E062, OpErrorKind::InvalidInput),
+            (codes::E063, OpErrorKind::PreconditionFailed),
+            (codes::E067, OpErrorKind::SchemaMismatch),
+            (codes::R_RES_001, OpErrorKind::ExtensionNotFound),
+            (codes::R_RES_004, OpErrorKind::InvalidInput),
+            (codes::R_RES_006, OpErrorKind::Conflict),
+            (codes::R_TRUST_004, OpErrorKind::SchemaMismatch),
+            (codes::R_OPS_004, OpErrorKind::SchemaMismatch),
+            (codes::R004, OpErrorKind::Timeout),
+            (codes::E001, OpErrorKind::Internal),
         ] {
-            assert_eq!(OpErrorKind::of_diagnostic(code), kind, "{code}");
+            assert_eq!(OpErrorKind::of_diagnostic(code.id()), kind, "{code}");
             assert_eq!(OpError::diagnostic(code, "x").kind, kind, "{code}");
+        }
+        // A code the table does not know, or text that is no code at all.
+        for text in ["E999", "not_a_code"] {
+            assert_eq!(
+                OpErrorKind::of_diagnostic(text),
+                OpErrorKind::Internal,
+                "{text}"
+            );
         }
     }
 
@@ -255,7 +296,7 @@ mod tests {
 
     #[test]
     fn an_error_carries_the_writes_it_left() {
-        let error = OpError::diagnostic("E032", "failed to write specforge.lock");
+        let error = OpError::diagnostic(codes::E032, "failed to write specforge.lock");
         assert!(error.writes.is_empty());
         let module = "/p/.specforge/extensions/@sdk/greet/extension.wasm";
         let error = error.with_writes(Writes::from_iter([module]));

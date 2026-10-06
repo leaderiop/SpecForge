@@ -1,5 +1,6 @@
 use serde::Serialize;
 use serde_json::Value;
+use specforge_diagnostics::{Code, codes};
 use specforge_graph::{Graph, Node};
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -8,7 +9,7 @@ use crate::json::{JsonEdge, SCHEMA_VERSION, field_map_to_json, sorted_edges};
 use crate::schema::{GraphProtocolSchema, SchemaAttachment, SchemaRefBlock};
 
 /// The diagnostic a budget too small for any export fails with.
-const BUDGET_TOO_SMALL: &str = "E062";
+const BUDGET_TOO_SMALL: Code = codes::E062;
 
 /// What wraps the entities of a graph export: `format_version`,
 /// `schema_version`, and for a V2 export the schema, embedded or referenced.

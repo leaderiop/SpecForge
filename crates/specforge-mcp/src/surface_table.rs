@@ -19,7 +19,7 @@
 //! adapters, over the `WasmRuntime` seam.
 
 use serde_json::Value;
-use specforge_common::Diagnostic;
+use specforge_common::{Code, Diagnostic, codes};
 use specforge_ops::command::{ExtensionCommand, ExtensionCommands};
 use specforge_registry::RegistryBuild;
 
@@ -29,7 +29,7 @@ use crate::types::{McpResourceDescriptor, McpToolDescriptor};
 
 /// The code reporting an extension contribution MCP does not serve under
 /// its name.
-const NOT_SERVED: &str = "I017";
+const NOT_SERVED: Code = codes::I017;
 
 /// What MCP serves from the served project's extensions.
 #[derive(Debug, Clone, Default)]
@@ -334,6 +334,6 @@ impl ExtensionSurfaceTable {
     }
 
     fn not_served(&mut self, message: String) {
-        self.diagnostics.push(Diagnostic::info(NOT_SERVED, message));
+        self.diagnostics.push(Diagnostic::new(NOT_SERVED, message));
     }
 }

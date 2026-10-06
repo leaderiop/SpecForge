@@ -1,3 +1,4 @@
+use specforge_diagnostics::codes;
 use specforge_graph::Graph;
 use specforge_registry::{FieldRegistry, KindRegistry};
 
@@ -79,7 +80,8 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
         }
         .ok_or_else(|| {
             EmitterError::EntityNotFound(format!(
-                "E003: unresolved scope entity '{}' — entity not found in graph",
+                "{}: unresolved scope entity '{}' — entity not found in graph",
+                codes::E003,
                 scope_id
             ))
         })?;

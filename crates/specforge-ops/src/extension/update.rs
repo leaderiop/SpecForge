@@ -13,11 +13,12 @@ use super::add::{Checked, fetch_checked, place};
 use super::{Origin, Trust, check_diamonds, extensions_dir, lock_path};
 use crate::registry::{NO_REGISTRY, Registry};
 use crate::{OpError, OpErrorKind};
+use specforge_common::{Code, codes};
 use specforge_wasm::{LockFile, installed_wasm_path, read_lock_file, write_lock_file};
 use std::path::Path;
 
 /// The code `update` reports when the project has no lock file.
-pub const NO_LOCK: &str = "E033";
+pub const NO_LOCK: Code = codes::E033;
 
 /// What to update, and how.
 #[derive(Debug, Clone)]
@@ -137,7 +138,7 @@ pub struct BatchUpdateCompleted {
 pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutcome, OpError> {
     let lock_file = lock_path(req.root);
     let lock = read_lock_file(&lock_file).map_err(|_| {
-        OpError::new(
+        OpError::coded(
             OpErrorKind::PreconditionFailed,
             NO_LOCK,
             "no lock file found. Run `specforge add` first.",
@@ -181,7 +182,7 @@ pub fn update(req: &UpdateRequest, registry: &dyn Registry) -> Result<UpdateOutc
                     planned.push((entry.name.clone(), checked));
                     status
                 }
-                Err(error) if error.code == NO_REGISTRY => return Err(error),
+                Err(error) if error.is(NO_REGISTRY) => return Err(error),
                 Err(error) => UpdateStatus::Failed(error),
             }
         };
@@ -411,7 +412,7 @@ mod tests {
                 .max()
                 .map(|v| v.to_string())
                 .ok_or_else(|| {
-                    OpError::diagnostic("R-RES-004", format!("no {name} matches {range}"))
+                    OpError::diagnostic(codes::R_RES_004, format!("no {name} matches {range}"))
                 })
         }
 
@@ -428,7 +429,7 @@ mod tests {
                 .iter()
                 .find(|(n, v, _)| *n == name && *v == version)
                 .ok_or_else(|| {
-                    OpError::diagnostic("R-RES-001", format!("{name}@{version} not served"))
+                    OpError::diagnostic(codes::R_RES_001, format!("{name}@{version} not served"))
                 })?;
             let declaration = self
                 .declared
@@ -692,12 +693,12 @@ mod tests {
     fn no_lock_and_no_registry_fail_outright() {
         let empty = tempfile::tempdir().unwrap();
         let error = update(&request(empty.path(), false), &FakeRegistry::new()).unwrap_err();
-        assert_eq!(error.code, NO_LOCK);
+        assert!(error.is(NO_LOCK), "{error:?}");
 
         let dir = project(vec![entry("@sdk/greet", "0.0.9", "registry", &[])]);
         let unconfigured = crate::registry::Unconfigured("update");
         let error = update(&request(dir.path(), false), &unconfigured).unwrap_err();
-        assert_eq!(error.code, NO_REGISTRY);
+        assert!(error.is(NO_REGISTRY), "{error:?}");
     }
 
     /// A project enabling nothing yet, with `lock` locked.
@@ -769,7 +770,7 @@ mod tests {
                 .serve("@sdk/greet", "0.1.0", greet())
                 .declare("@sdk/greet", "0.1.0", published);
             let err = add_greet(dir.path(), &registry).unwrap_err();
-            assert_eq!(err.code, crate::registry::METADATA_MISMATCH, "{err:?}");
+            assert!(err.is(crate::registry::METADATA_MISMATCH), "{err:?}");
             assert!(err.message.contains("@sdk/greet@0.1.0"), "{err:?}");
             assert!(
                 !installed_wasm_path(&extensions_dir(dir.path()), "@sdk/greet").exists(),
@@ -815,7 +816,7 @@ mod tests {
                 with_peer(declaration_of(&greet()), "@acme/x", "^2"),
             );
         let err = add_greet(dir.path(), &registry).unwrap_err();
-        assert_ne!(err.code, crate::registry::METADATA_MISMATCH, "{err:?}");
+        assert!(!err.is(crate::registry::METADATA_MISMATCH), "{err:?}");
         assert!(err.code.starts_with("R-RES"), "{err:?}");
         assert!(err.message.contains("@acme/x"), "{err:?}");
     }

@@ -1,5 +1,6 @@
 use crate::OutputFormat;
 use serde_json::json;
+use specforge_common::codes;
 use specforge_ops::doctor::{
     BinaryIssue, CONFIG_CODES, CONFIG_MISSING, DoctorReport, FindingStatus, diagnose,
 };
@@ -51,7 +52,9 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
     let config: Vec<_> = report
         .findings
         .iter()
-        .filter(|f| CONFIG_CODES.contains(&f.code.as_str()) || f.code == CONFIG_MISSING)
+        .filter(|f| {
+            CONFIG_CODES.iter().any(|code| code.matches(&f.code)) || f.code == CONFIG_MISSING
+        })
         .collect();
     if !config.is_empty() {
         line!("Configuration:");
@@ -175,7 +178,10 @@ fn render_human(report: &DoctorReport, credentials: &CredentialHealth) -> String
     }
     if !report.z3_available {
         line!();
-        line!("[WARN] z3 not on PATH — `specforge analyze --prove` skips SMT checks (W098)");
+        line!(
+            "[WARN] z3 not on PATH — `specforge analyze --prove` skips SMT checks ({})",
+            codes::W098
+        );
     }
 
     let errors = report

@@ -3,6 +3,7 @@
 
 use serde::Serialize;
 use serde_json::Value;
+use specforge_common::codes;
 use specforge_project::coverage::{ProjectCoverage, ReportError};
 use std::collections::{HashMap, HashSet};
 
@@ -142,7 +143,8 @@ fn validate(view: &ProjectView, entries: &[Value], coverage: &ProjectCoverage) -
                 validated_entries.push(id.to_string());
             } else {
                 let message = format!(
-                    "E003: unresolved entity '{}' in plan — not found in graph",
+                    "{}: unresolved entity '{}' in plan — not found in graph",
+                    codes::E003,
                     id
                 );
                 gaps.push(PlanGap {

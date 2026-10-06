@@ -3,7 +3,7 @@
 use super::{NOT_FOUND, Origin, builtin_name, extensions_dir, lock_path};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind, Writes};
-use specforge_common::ExtensionEntry;
+use specforge_common::{ExtensionEntry, codes};
 use specforge_graph::Graph;
 use specforge_project::EnabledExtension;
 use specforge_protocol_types::ExtensionDeclaration;
@@ -286,7 +286,7 @@ fn refuse_if_required(req: &Removing, name: &str, lock: Option<&LockFile>) -> Re
         return Ok(());
     }
     Err(OpError::diagnostic(
-        "E027",
+        codes::E027,
         format!(
             "cannot uninstall '{}': required by {}",
             name,

@@ -2868,6 +2868,7 @@ dependencies = [
  "sha2",
  "specforge-common",
  "specforge-component",
+ "specforge-diagnostics",
  "specforge-graph",
  "specforge-parser",
  "specforge-project",

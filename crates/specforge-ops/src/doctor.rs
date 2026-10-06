@@ -14,7 +14,7 @@
 //! (`McpDoctorReport`) is about the project, does not.
 
 use serde::Serialize;
-use specforge_common::{Diagnostic, DiagnosticData, Severity};
+use specforge_common::{Code, Diagnostic, DiagnosticData, Severity, codes};
 use specforge_wasm::{DoctorStatus, read_lock_file, run_doctor_check};
 use std::collections::{BTreeMap, HashMap};
 
@@ -23,21 +23,21 @@ use crate::view::ProjectView;
 use std::path::Path;
 
 /// Diagnostic codes that mean two contributions collide.
-pub const CONFLICT_CODES: [&str; 3] = ["E026", "E057", "W018"];
+pub const CONFLICT_CODES: [Code; 3] = [codes::E026, codes::E057, codes::W018];
 
 /// Codes that mean a name shadows a grammar-level construct: E013 (a project
 /// entity ID is a structural keyword or an extension's kind keyword) and E026
 /// (a kind keyword is registered twice, which is also a conflict).
-pub const SHADOWING_CODES: [&str; 2] = ["E013", "E026"];
+pub const SHADOWING_CODES: [Code; 2] = [codes::E013, codes::E026];
 
 /// Codes that mean an enabled extension did not load: E028 (not installed,
 /// or its protocol load failed) and E033 (its installed binary no longer
 /// matches the lock file's hash).
-pub const LOAD_FAILURE_CODES: [&str; 2] = ["E028", "E033"];
+pub const LOAD_FAILURE_CODES: [Code; 2] = [codes::E028, codes::E033];
 
 /// Codes that mean `specforge.json` is not used as written: E069 (it can't
 /// be read, isn't a JSON object, or has a mistyped key or item).
-pub const CONFIG_CODES: [&str; 1] = ["E069"];
+pub const CONFIG_CODES: [Code; 1] = [codes::E069];
 
 /// The finding code of a project root without `specforge.json`.
 pub const CONFIG_MISSING: &str = "config_missing";
@@ -249,7 +249,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
     // valid project, but rarely the one meant).
     for diag in diagnostics
         .iter()
-        .filter(|d| CONFIG_CODES.contains(&d.code.as_str()))
+        .filter(|d| CONFIG_CODES.iter().any(|code| d.is(*code)))
     {
         findings.push(Finding {
             check: diag.message.clone(),
@@ -415,7 +415,7 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
     // doctor does too.
     let mut load_failures = Vec::new();
     for diag in &diagnostics {
-        if !LOAD_FAILURE_CODES.contains(&diag.code.as_str()) {
+        if !LOAD_FAILURE_CODES.iter().any(|code| diag.is(*code)) {
             continue;
         }
         let suggestion = remediation(diag, || format!("run `specforge explain {}`", diag.code));
@@ -439,8 +439,8 @@ pub fn diagnose_with(view: &ProjectView, z3_available: bool) -> DoctorReport {
     let mut conflicts = Vec::new();
     let mut shadowed = Vec::new();
     for diag in &diagnostics {
-        let conflict = CONFLICT_CODES.contains(&diag.code.as_str());
-        let shadowing = SHADOWING_CODES.contains(&diag.code.as_str());
+        let conflict = CONFLICT_CODES.iter().any(|code| diag.is(*code));
+        let shadowing = SHADOWING_CODES.iter().any(|code| diag.is(*code));
         if !conflict && !shadowing {
             continue;
         }

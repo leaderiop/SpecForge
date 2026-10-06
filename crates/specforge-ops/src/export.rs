@@ -12,6 +12,7 @@
 use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
 use crate::{OpError, OpErrorKind};
+use specforge_common::{Code, codes};
 use specforge_emitter::{
     EmitFormat, EmitOptions, EmitterError, GraphProtocolSchema, SchemaVersion, emit,
 };
@@ -161,10 +162,10 @@ pub fn export(view: &ProjectView, request: &Request) -> Result<String, OpError> 
 fn failure(error: EmitterError, scope: Option<&str>) -> OpError {
     match error {
         EmitterError::EntityNotFound(message) => {
-            let error = OpError::new(
+            let error = OpError::coded(
                 OpErrorKind::EntityNotFound,
-                "E003",
-                without_code(&message, "E003"),
+                codes::E003,
+                without_code(&message, codes::E003),
             );
             match scope {
                 Some(scope) => error.with_entity(scope),
@@ -172,8 +173,8 @@ fn failure(error: EmitterError, scope: Option<&str>) -> OpError {
             }
         }
         EmitterError::Other(message) | EmitterError::InvalidScope(message) => {
-            if let Some(rest) = message.strip_prefix("E062: ") {
-                OpError::new(OpErrorKind::InvalidInput, "E062", rest)
+            if let Some(rest) = message.strip_prefix(&format!("{}: ", codes::E062)) {
+                OpError::coded(OpErrorKind::InvalidInput, codes::E062, rest)
             } else {
                 OpError::new(OpErrorKind::InvalidInput, "export_failed", message)
             }
@@ -185,9 +186,9 @@ fn failure(error: EmitterError, scope: Option<&str>) -> OpError {
 }
 
 /// `message` without the `"{code}: "` it leads with.
-fn without_code(message: &str, code: &str) -> String {
+fn without_code(message: &str, code: Code) -> String {
     message
-        .strip_prefix(code)
+        .strip_prefix(code.id())
         .and_then(|rest| rest.strip_prefix(": "))
         .unwrap_or(message)
         .to_string()
@@ -212,10 +213,10 @@ fn negotiated(
     let max = schema.schema_version.clone();
     let min = SchemaVersion::new(max.major, 0, 0);
     specforge_emitter::negotiate_version(&requested, &min, &max).map_err(|e| {
-        OpError::new(
+        OpError::coded(
             OpErrorKind::Conflict,
-            "E027",
-            without_code(&e.to_string(), "E027"),
+            codes::E027,
+            without_code(&e.to_string(), codes::E027),
         )
     })?;
     schema.schema_version = requested;
@@ -283,11 +284,14 @@ mod tests {
     #[test]
     fn a_message_loses_the_code_it_leads_with() {
         assert_eq!(
-            without_code("E003: no such entity", "E003"),
+            without_code("E003: no such entity", codes::E003),
             "no such entity"
         );
-        assert_eq!(without_code("no such entity", "E003"), "no such entity");
-        assert_eq!(without_code("E0031: odd", "E003"), "E0031: odd");
+        assert_eq!(
+            without_code("no such entity", codes::E003),
+            "no such entity"
+        );
+        assert_eq!(without_code("E0031: odd", codes::E003), "E0031: odd");
     }
 
     #[test]

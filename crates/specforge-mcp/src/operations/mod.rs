@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
-use specforge_common::find_project_root;
+use specforge_common::{codes, find_project_root};
 
 use crate::args::{lenient, strings};
 use crate::mutation::{Mutated, MutationEvent, MutationHandled, Written};
@@ -647,7 +647,7 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
         match collect::collect(&project.view(), project.runtime.as_ref(), request) {
             Ok(outcome) => ok(outcome.to_json()),
             Err(mut e) => {
-                if e.code == "E059" {
+                if e.is(codes::E059) {
                     e.message = format!(
                         "the test command isn't approved for this project; run `specforge collect` \
                          in a terminal once to approve it ({})",
