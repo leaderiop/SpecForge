@@ -321,11 +321,12 @@ fn a_stand_in_reads_the_snapshot_of_its_own_graph() {
         None,
     ));
 
+    let first_snapshot = std::sync::Arc::clone(state.session().unwrap().recorded().entities());
     let session = state.take_session().expect("the session is held");
     let first = state.view().entities().kind_of("a").map(str::to_string);
     assert_eq!(first.as_deref(), Some("behavior"));
     assert!(state.view().entities().kind_of("b").is_none());
-    let first_snapshot = state.view().entities() as *const _;
+    assert!(std::ptr::eq(state.view().entities(), &*first_snapshot));
     state.set_session(session);
 
     // The graph changes while the session is held; the next stand-in is of
@@ -339,7 +340,7 @@ fn a_stand_in_reads_the_snapshot_of_its_own_graph() {
     let session = state.take_session().expect("the session is held");
     let view = state.view();
     assert_eq!(view.entities().kind_of("b"), Some("behavior"));
-    assert!(!std::ptr::eq(view.entities(), first_snapshot));
+    assert!(!std::ptr::eq(view.entities(), &*first_snapshot));
     // It is the snapshot the session holds for that graph.
     assert!(std::ptr::eq(view.entities(), session.entities()));
 }

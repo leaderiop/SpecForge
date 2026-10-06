@@ -1653,7 +1653,7 @@ fn an_update_that_skips_the_checks_still_scores_its_own_graph() {
     );
     let root = dir.path();
     let mut session = ProjectSession::open(root);
-    let before = session.entities() as *const _;
+    let before = std::sync::Arc::clone(session.recorded().entities());
     assert!(session.entities().kind_of("a").is_some());
 
     // The file now has a parse error: the checks are skipped, and nothing
@@ -1665,7 +1665,7 @@ fn an_update_that_skips_the_checks_still_scores_its_own_graph() {
         CheckMode::SyntaxOnlyIfParseErrorsIn("b.spec"),
     );
     let entities = session.entities();
-    assert!(!std::ptr::eq(entities, before), "a fresh memo per update");
+    assert!(!std::ptr::eq(entities, &*before), "a fresh memo per update");
     assert_eq!(entities.spec_root(), session.environment().spec_root);
     assert!(std::ptr::eq(entities, session.entities()), "taken once");
     for node in session.graph().nodes() {
