@@ -1,8 +1,8 @@
-//! Pins of how extension validation rules behave through a real load and
-//! compile, before the typed rule set (plan 02). Each test declares its
-//! rules raw (`raw_category`), so rules the SDK's builders would refuse can
-//! be written, on the kind `node` of an in-process extension. A pin that
-//! encodes a bug says which ticket flips it.
+//! Extension validation rules through a real load and compile (the rule
+//! set, ADR 0020). Each test declares its rules raw (`raw_category`), so
+//! rules the SDK's builders would refuse can be written, on the kind `node`
+//! of an in-process extension. A pin that still encodes a bug says which
+//! ticket of plan 02 flips it.
 
 use std::fs;
 use std::path::Path;
@@ -11,6 +11,7 @@ use serde_json::{Value, json};
 use specforge_common::Diagnostic;
 use specforge_extension_sdk::prelude::*;
 use specforge_project::CompiledProject;
+use specforge_test_macros::test as spec;
 use specforge_wasm::testing::InProcessRuntime;
 use tempfile::TempDir;
 
@@ -150,9 +151,11 @@ fn cycle(code: &str) -> Value {
     })
 }
 
-// PIN: flipped by T4 (W112: a cycle rule needs an edge type).
-#[test]
-fn a_cycle_rule_without_edge_type_is_silent() {
+#[spec(
+    behavior = "parse_validation_rule_pattern",
+    verify = "a cycle_detection rule without an edge_type produces W112 and is not registered"
+)]
+fn a_cycle_rule_without_an_edge_type_is_w112() {
     let diagnostics = check(
         NODES,
         json!([
@@ -169,15 +172,19 @@ fn a_cycle_rule_without_edge_type_is_silent() {
         ["X001 cycle through 'alpha'", "X001 cycle through 'beta'"]
     );
     assert!(messages(&diagnostics, "X002").is_empty(), "{diagnostics:?}");
-    assert!(
-        naming(&diagnostics, "W112", "X002").is_empty(),
-        "{diagnostics:?}"
+    assert_eq!(
+        messages(&diagnostics, "W112"),
+        [
+            "extension '@pin/rules': rule 'X002': check 'cycle_detection' requires an edge_type but none is set — the rule can never fire and was not registered"
+        ]
     );
 }
 
-// PIN: flipped by T4 (an untargeted cycle rule checks every entity).
-#[test]
-fn a_cycle_rule_without_target_kind_reports_nothing() {
+#[spec(
+    behavior = "execute_validation_pattern",
+    verify = "a cycle_detection rule without a target_kind reports every entity on a cycle of its edge type"
+)]
+fn a_cycle_rule_without_a_target_kind_checks_every_entity() {
     let diagnostics = check(
         NODES,
         json!([{
@@ -186,10 +193,9 @@ fn a_cycle_rule_without_target_kind_reports_nothing() {
         }]),
     );
 
-    assert!(messages(&diagnostics, "X008").is_empty(), "{diagnostics:?}");
-    assert!(
-        diagnostics.iter().any(|d| d.code == "W061"),
-        "alpha and beta are a cycle: {diagnostics:?}"
+    assert_eq!(
+        messages(&diagnostics, "X008"),
+        ["X008 cycle through 'alpha'", "X008 cycle through 'beta'"]
     );
 }
 

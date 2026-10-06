@@ -609,7 +609,7 @@ catalog! {
         "A behavior's `refines` field names a target behavior that is not marked `abstract true`. Add `abstract true` to the target behavior, or point `refines` at a behavior that is actually abstract.";
     W112: Warning core,
         "Validation rule cannot fire",
-        "An extension-declared validation rule cannot work as declared: its `check` kind is unrecognized, it is missing a field or constraint its check needs, its values list is empty, its `matches` regex does not compile, or its `wasm_function` is absent or failed a probe call. Fix or remove the rule in the extension's manifest.";
+        "An extension-declared validation rule cannot work as declared: its `check` kind is unrecognized, it is missing a field or constraint its check needs (a `cycle_detection` rule needs an `edge_type`, a `verify_kind_allowlist` rule a constraint with values; a rule that reads `verify` statements needs a target kind that accepts them), its values list is empty, its `matches` regex does not compile, or its `wasm_function` is absent or failed a probe call. Fix or remove the rule in the extension's manifest.";
     W113: Warning core,
         "Circular file import",
         "Two or more `.spec` files import each other, forming a cycle in the import graph. Break the cycle by removing one of the `use` imports or extracting the shared entities into a separate file.";

@@ -2377,10 +2377,12 @@ Level: warning
 W112: Validation rule cannot fire
 
 An extension-declared validation rule cannot work as declared: its `check` kind
-is unrecognized, it is missing a field or constraint its check needs, its values
-list is empty, its `matches` regex does not compile, or its `wasm_function` is
-absent or failed a probe call. Fix or remove the rule in the extension's
-manifest.
+is unrecognized, it is missing a field or constraint its check needs (a
+`cycle_detection` rule needs an `edge_type`, a `verify_kind_allowlist` rule a
+constraint with values; a rule that reads `verify` statements needs a target
+kind that accepts them), its values list is empty, its `matches` regex does not
+compile, or its `wasm_function` is absent or failed a probe call. Fix or remove
+the rule in the extension's manifest.
 
 Owner: core
 Level: warning

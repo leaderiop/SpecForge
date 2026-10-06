@@ -273,12 +273,13 @@ fn interpolate(
     result
 }
 
-/// A cycle rule over `input`: each entity it applies to that sits on a
-/// cycle of the edges labelled one of `labels` between such entities, by
-/// id.
+/// A cycle rule over `input`: each entity it applies to (every entity when
+/// it names no target kind) that sits on a cycle of the edges labelled one
+/// of `labels` between such entities, by id. `{kind}` is the member's own
+/// kind; `{field}` and `{value}` default to the rule's field, as for every
+/// check.
 fn cycles(rule: &Rule, labels: &[String], input: &RuleInput<'_>) -> Vec<Diagnostic> {
-    // PIN (plan 02 T4): a cycle rule without a target kind reports nothing.
-    if rule.target.is_none() || labels.is_empty() {
+    if labels.is_empty() {
         return Vec::new();
     }
     let members: BTreeMap<&str, &EntityRecord> = input
@@ -308,10 +309,7 @@ fn cycles(rule: &Rule, labels: &[String], input: &RuleInput<'_>) -> Vec<Diagnost
     on_cycle
         .iter()
         .filter_map(|id| members.get(id.as_str()))
-        .map(|record| {
-            let message = interpolate(&rule.template, &record.id, &record.kind, None, None, None);
-            diagnostic(rule, message, record)
-        })
+        .map(|record| report(rule, record, Violation::default()))
         .collect()
 }
 

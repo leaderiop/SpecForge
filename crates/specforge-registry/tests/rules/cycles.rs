@@ -153,21 +153,65 @@ fn a_cycle_rule_on_an_edge_type_no_field_writes_follows_the_raw_label() {
     );
 }
 
-// PIN (T4): a cycle rule without an edge type registers and reports
-// nothing; without a target kind it reports nothing either.
-#[test]
-fn a_cycle_rule_missing_its_edge_type_or_target_kind_reports_nothing() {
-    let built = modules(vec![
-        cycle_rule("E009", Some("module"), None),
-        cycle_rule("E010", None, Some("ModuleDependsOn")),
-    ]);
+#[spec(
+    behavior = "parse_validation_rule_pattern",
+    verify = "a cycle_detection rule without an edge_type produces W112 and is not registered"
+)]
+fn a_cycle_rule_without_an_edge_type_is_w112() {
+    let built = modules(vec![cycle_rule("E009", Some("module"), None)]);
+    assert!(built.rules.is_empty());
+    let w112 = built.coded("W112");
+    assert_eq!(w112.len(), 1, "{:?}", built.diagnostics);
+    assert_eq!(
+        w112[0].message,
+        "extension '@test': rule 'E009': check 'cycle_detection' requires an edge_type but none is set — the rule can never fire and was not registered"
+    );
+}
+
+#[spec(
+    behavior = "execute_validation_pattern",
+    verify = "a cycle_detection rule without a target_kind reports every entity on a cycle of its edge type"
+)]
+fn an_untargeted_cycle_rule_reports_every_entity_on_a_cycle() {
+    let built = modules(vec![cycle_rule("E010", None, Some("ModuleDependsOn"))]);
     assert!(built.diagnostics.is_empty(), "{:?}", built.diagnostics);
-    assert_eq!(built.codes(), ["E009", "E010"]);
     let (entities, edges) = project();
-    assert!(
-        built
-            .rules
-            .check(&with_edges(&entities, &edges), &NoVerdicts)
-            .is_empty()
+
+    let diagnostics = built
+        .rules
+        .check(&with_edges(&entities, &edges), &NoVerdicts);
+
+    // Every kind's entities: the `other` entity closes a loop with c; each
+    // message names the member's own kind.
+    assert_eq!(
+        messages(&diagnostics),
+        [
+            "module 'a' is on a dependency cycle",
+            "module 'b' is on a dependency cycle",
+            "module 'c' is on a dependency cycle",
+            "other 'o' is on a dependency cycle",
+        ]
+    );
+}
+
+#[test]
+fn a_cycle_rules_field_reads_as_the_default_field_and_value() {
+    let mut declared = cycle_rule("E011", Some("module"), Some("ModuleDependsOn"));
+    declared.field = Some("owner".to_string());
+    declared.message_template = "{id} ({field}: {value}) is on a cycle".to_string();
+    let built = modules(vec![declared]);
+    let (mut entities, edges) = project();
+    entities[0] = entities[0].clone().with_field("owner", "team-a");
+
+    let diagnostics = built
+        .rules
+        .check(&with_edges(&entities, &edges), &NoVerdicts);
+
+    assert_eq!(
+        messages(&diagnostics),
+        [
+            "a (owner: team-a) is on a cycle",
+            "b (owner: {value}) is on a cycle"
+        ]
     );
 }

@@ -73,12 +73,22 @@ fn misconfigured_one_of_with_empty_values_produces_warning() {
     verify = "all required fields validated on each rule"
 )]
 fn field_requiring_check_without_field_produces_warning() {
-    for check in [
-        "missing_field_when_flag_set",
-        "missing_required_field",
-        "file_exists",
+    for (check, declared_constraint) in [
+        ("missing_field_when_flag_set", None),
+        ("missing_required_field", None),
+        ("file_exists", None),
+        (
+            "field_value_constraint",
+            Some(constraint("one_of", None, &["draft"])),
+        ),
+        (
+            "conditional_field_required",
+            Some(constraint("when_field_equals", Some("status"), &["draft"])),
+        ),
     ] {
-        let built = one(rule("W108", check));
+        let mut declared = rule("W108", check);
+        declared.constraint = declared_constraint;
+        let built = one(declared);
         assert!(built.rules.is_empty(), "{check}");
         assert_eq!(
             built.coded("W112")[0].message,
@@ -282,4 +292,76 @@ fn a_custom_rule_is_registered_with_its_wasm_function() {
     assert_eq!(rule.check_kind(), CheckKind::Custom);
     assert_eq!(rule.describe()["wasm_function"], "validate_custom");
     assert_eq!(rule.origin().name(), "@test");
+}
+
+#[spec(
+    behavior = "parse_validation_rule_pattern",
+    verify = "a verify_kind_allowlist rule without values produces W112 and is not registered"
+)]
+fn a_verify_kind_allowlist_without_values_is_w112() {
+    for declared_constraint in [None, Some(constraint("one_of", None, &[]))] {
+        let mut declared = rule("W009", "verify_kind_allowlist");
+        declared.constraint = declared_constraint;
+        let built = one(declared);
+        assert!(built.rules.is_empty());
+        assert_eq!(
+            built.coded("W112")[0].message,
+            "extension '@test': rule 'W009': verify_kind_allowlist requires a constraint with values — every verify kind would be flagged — the rule can never fire and was not registered"
+        );
+    }
+}
+
+#[spec(
+    behavior = "parse_validation_rule_pattern",
+    verify = "a rule that reads verify statements on a kind that accepts none produces W112 and is not registered"
+)]
+fn a_rule_reading_verify_statements_on_a_kind_without_verify_is_w112() {
+    use crate::support::declare;
+
+    // `memo` accepts no verify statements; `note` does.
+    let kinds = |rules: Vec<ValidationRuleDescriptor>| {
+        let mut declaration = declare("@test", |c| {
+            c.kind("memo", |k| {
+                k.description("m");
+            });
+            c.kind("note", |k| {
+                k.description("n").supports_verify(true);
+            });
+        });
+        declaration.validation_rules = rules;
+        super::rules_of(vec![declaration])
+    };
+    let on = |code: &str, check: &str, target: &str, field: Option<&str>| {
+        let mut declared = rule(code, check);
+        declared.target_kind = Some(target.to_string());
+        declared.field = field.map(str::to_string);
+        declared.constraint =
+            (check == "verify_kind_allowlist").then(|| constraint("one_of", None, &["unit"]));
+        declared
+    };
+
+    let built = kinds(vec![
+        on("W004", "no_verify_statements", "memo", Some("verify")),
+        on("W009", "verify_kind_allowlist", "memo", None),
+        // Obligations declared in another field: memo can write it.
+        on("W010", "no_verify_statements", "memo", Some("gherkin")),
+        // A kind that accepts verify statements.
+        on("W011", "no_verify_statements", "note", None),
+        // A kind no loaded extension declares: inert, not W112.
+        on("W012", "no_verify_statements", "ghost", None),
+    ]);
+
+    let messages: Vec<&str> = built
+        .coded("W112")
+        .iter()
+        .map(|d| d.message.as_str())
+        .collect();
+    assert_eq!(
+        messages,
+        [
+            "extension '@test': rule 'W004': check 'no_verify_statements' reads verify statements, which kind 'memo' does not accept — the rule can never fire and was not registered",
+            "extension '@test': rule 'W009': check 'verify_kind_allowlist' reads verify statements, which kind 'memo' does not accept — the rule can never fire and was not registered",
+        ]
+    );
+    assert_eq!(built.codes(), ["W010", "W011", "W012"]);
 }

@@ -185,7 +185,9 @@ fn sdk_constraint_kinds_load_for_the_checks_that_read_them() {
     }
     let build = move || {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@you/constraints", "0.1.0"));
+        // `thing` accepts verify statements: the allowlist reads them.
         c.kind("thing", |k| {
+            k.supports_verify(true);
             k.field("status", |f| {
                 f.field_type(FieldType::String);
             });

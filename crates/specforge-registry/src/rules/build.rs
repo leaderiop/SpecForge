@@ -27,8 +27,8 @@ pub(super) fn build(
         for descriptor in &declaration.validation_rules {
             // Plan 11-T7: the check that an extension may report this code
             // (`check_extension_code`, W150) runs here, per declared rule.
-            match shape(descriptor, extension) {
-                Ok(rule) => rules.extend(resolve(rule, registries)),
+            match shape(descriptor, extension).and_then(|rule| resolve(rule, registries)) {
+                Ok(rule) => rules.extend(rule),
                 Err(w112) => diagnostics.push(w112),
             }
         }
@@ -136,8 +136,7 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
                 }
             };
             Check::FieldValue {
-                // PIN (plan 02 T4): without a field it reads no text and never fires.
-                field: r.field.clone().unwrap_or_default(),
+                field: requires_field()?,
                 constraint,
             }
         }
@@ -158,20 +157,29 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
                 ));
             }
             Check::ConditionalFieldRequired {
-                // PIN (plan 02 T4): without a field it reads no text and never fires.
-                field: r.field.clone().unwrap_or_default(),
+                field: requires_field()?,
                 when_field,
                 equals: c.values.clone(),
             }
         }
-        // Resolved against the field registry by `resolve`.
+        // Resolved against the field registry by `resolve`. Every edge
+        // already makes a reference cycle (W061): without an edge type the
+        // rule has nothing of its own to check.
+        CheckKind::CycleDetection if r.edge_type.is_none() => {
+            return Err(fail(
+                "check 'cycle_detection' requires an edge_type but none is set",
+            ));
+        }
         CheckKind::CycleDetection => Check::Cycle { labels: Vec::new() },
-        CheckKind::VerifyKindAllowlist => Check::VerifyKindAllowlist {
-            allowed: r
-                .constraint
-                .as_ref()
-                .map(|c| c.values.clone())
-                .unwrap_or_default(),
+        CheckKind::VerifyKindAllowlist => match r.constraint.as_ref() {
+            Some(c) if !c.values.is_empty() => Check::VerifyKindAllowlist {
+                allowed: c.values.clone(),
+            },
+            _ => {
+                return Err(fail(
+                    "verify_kind_allowlist requires a constraint with values — every verify kind would be flagged",
+                ));
+            }
         },
         CheckKind::NoVerifyStatements => Check::NoVerifyStatements {
             obligations: match r.field.as_deref().unwrap_or(VERIFY_FIELD) {
@@ -213,8 +221,13 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
     })
 }
 
-/// `rule` with its edge type resolved against the registries; `None` when
-/// it cannot apply to this project.
+/// `rule` resolved against the registries; `None` when it cannot apply to
+/// this project, W112 when it can never fire.
+///
+/// A rule that reads `verify` statements (an allowlist, or an obligation
+/// rule whose obligations are statements) on a declared kind that accepts
+/// none can neither be satisfied nor violated: W112. On a kind no loaded
+/// extension declares it is inert instead.
 ///
 /// An edge rule (`no_*_edges` with an edge type) counts only edges to the
 /// edge type's target kind (from its source kind for `no_incoming_edges`):
@@ -223,7 +236,31 @@ fn shape(descriptor: &ValidationRuleDescriptor, extension: &str) -> Result<Rule,
 /// no loaded extension declares that kind, the edge can't exist in the
 /// project and the rule is dropped. A cycle rule follows the fields that
 /// write its edge type.
-fn resolve(mut rule: Rule, registries: Registries<'_>) -> Option<Rule> {
+#[allow(clippy::result_large_err)]
+fn resolve(mut rule: Rule, registries: Registries<'_>) -> Result<Option<Rule>, Diagnostic> {
+    let reads_statements = matches!(
+        rule.check,
+        Check::VerifyKindAllowlist { .. }
+            | Check::NoVerifyStatements {
+                obligations: Obligations::Statements
+            }
+    );
+    if reads_statements
+        && let Some(kind) = rule.target.as_deref()
+        && registries
+            .kinds
+            .get(kind)
+            .is_some_and(|entry| !entry.supports_verify)
+    {
+        return Err(cannot_fire(
+            rule.origin.name(),
+            &rule.code,
+            &format!(
+                "check '{}' reads verify statements, which kind '{kind}' does not accept",
+                rule.check_kind
+            ),
+        ));
+    }
     let edge_type = rule.declared.edge_type.clone();
     match &mut rule.check {
         Check::NoIncomingEdges(scope) | Check::NoOutgoingEdges(scope) => {
@@ -240,7 +277,7 @@ fn resolve(mut rule: Rule, registries: Registries<'_>) -> Option<Rule> {
                 });
             if let Some(peer) = peer {
                 if !registries.kinds.contains(&peer) {
-                    return None;
+                    return Ok(None);
                 }
                 *scope = EdgeScope::Peer(peer);
             }
@@ -263,7 +300,7 @@ fn resolve(mut rule: Rule, registries: Registries<'_>) -> Option<Rule> {
         }
         _ => {}
     }
-    Some(rule)
+    Ok(Some(rule))
 }
 
 /// One E006 rule per `required` field, owned by the host, by (kind, field).

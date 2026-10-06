@@ -27,18 +27,27 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
     unrecognized_warned "Unrecognized pattern kinds produce warning diagnostics with extension name"
   }
   contract   """
-    When the compiler reads a extension manifest's validationRules array,
-    it MUST parse each entry into a ValidationRulePattern. The check
-    field MUST be one of the recognized pattern kinds: no_incoming_edges,
-    no_outgoing_edges, missing_field_when_flag_set, field_value_constraint,
-    cycle_detection, file_exists. Unrecognized pattern kinds MUST produce
-    a warning diagnostic with the extension name and invalid kind.
+    When the registry build reads an extension declaration's validation
+    rules, it MUST turn each into a typed rule whose check carries exactly
+    what that check reads. The check MUST be one of the extension
+    vocabulary's kinds: no_incoming_edges, no_outgoing_edges, no_edges,
+    missing_field_when_flag_set, missing_required_field,
+    conditional_field_required, field_value_constraint, cycle_detection,
+    file_exists, verify_kind_allowlist, no_verify_statements, custom.
+    A rule that cannot work as declared — an unrecognized check, a field,
+    constraint, edge type or wasm_function its check requires and lacks, an
+    empty values list, a regex that does not compile — or a rule that reads
+    verify statements on a declared kind that accepts none — MUST produce
+    W112 with the extension name and MUST NOT be registered.
   """
   verify unit "parses no_incoming_edges pattern from manifest"
   verify unit "parses missing_field_when_flag_set pattern from manifest"
   verify unit "unrecognized pattern kind produces warning"
   verify unit "all required fields validated on each rule"
   verify unit "parses field_value_constraint pattern from manifest"
+  verify unit "a cycle_detection rule without an edge_type produces W112 and is not registered"
+  verify unit "a verify_kind_allowlist rule without values produces W112 and is not registered"
+  verify unit "a rule that reads verify statements on a kind that accepts none produces W112 and is not registered"
   verify contract "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned"
 }
 
@@ -69,7 +78,9 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
     entities whose kind has the specified flag set to true have the specified field. field_value_constraint MUST
     check that a named field on entities of the target kind satisfies a
     value predicate (non-empty, matches regex, or is one of an allowed set).
-    cycle_detection MUST check for cycles among the specified edge type.
+    cycle_detection MUST report each entity of the target kind (every
+    entity when no target kind is set) that sits on a cycle of the edge
+    type's edges.
     file_exists MUST check that file-reference fields point to existing
     files, a relative path resolved against the spec root (never the
     working directory). A rule without a target kind applies to entities
@@ -83,6 +94,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "missing_field_when_flag_set detects missing specified field on flagged entity"
   verify unit "field_value_constraint rejects invalid field value"
   verify unit "cycle_detection finds cycles in edge type"
+  verify unit "a cycle_detection rule without a target_kind reports every entity on a cycle of its edge type"
   verify unit "file_exists reports missing file-reference field targets"
   verify unit "file_exists resolves a relative path against the spec root, never the working directory"
   verify unit "custom pattern dispatches to registered Wasm function"
