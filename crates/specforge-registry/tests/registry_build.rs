@@ -178,8 +178,8 @@ fn surface_conflicts_land_in_their_own_bucket() {
 /// Two extensions declaring one rule code: the build warns (W023), after
 /// the rule-parse diagnostics, and keeps both rules.
 #[spec(
-    behavior = "register_extension_validation_rules",
-    verify = "duplicate codes across extensions produce warning"
+    behavior = "registry_build_rules",
+    verify = "a rule code two extensions declare is W023 and both rules are kept"
 )]
 fn a_rule_code_declared_by_two_extensions_warns() {
     let rule = |name: &str| {

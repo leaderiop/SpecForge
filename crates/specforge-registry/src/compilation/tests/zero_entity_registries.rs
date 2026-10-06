@@ -24,13 +24,12 @@ use specforge_test_macros::test as spec;
 
 use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_extension_sdk::{
-    CheckKind, ContributionsBuilder, EnhancementBuilder, ExtensionMeta, FieldType, PeerDependency,
-    ValidationSeverity,
+    ContributionsBuilder, EnhancementBuilder, ExtensionMeta, FieldType, PeerDependency,
 };
 use specforge_protocol_types::{EntityEnhancementDescriptor, ExtensionDeclaration};
 use specforge_registry::compilation::EntityView;
 use specforge_registry::compilation::{
-    apply_entity_enhancements, register_validation_rules, validate_registered_entity_fields,
+    apply_entity_enhancements, validate_registered_entity_fields,
 };
 use specforge_registry::{
     EdgeRegistry, FieldRegistry, FieldRegistryEntry, KindRegistry, ManifestFieldType,
@@ -72,19 +71,6 @@ fn enhancement(
         c.enhance(target, extension, f);
     });
     (extension.to_string(), declaration.enhancements[0].clone())
-}
-
-/// An extension declaring warning rules `(code, message, check)`.
-fn rules(name: &str, declared: &[(&str, &str, CheckKind)]) -> ExtensionDeclaration {
-    declare(name, |c| {
-        for (code, message, check) in declared {
-            c.rule(code, |r| {
-                r.severity(ValidationSeverity::Warning)
-                    .message_template(message)
-                    .check(*check);
-            });
-        }
-    })
 }
 
 #[allow(dead_code)]
@@ -863,47 +849,6 @@ fn peer_deps_contract() {
 // B:register_validation_rules_from_manifest (6 verifies)
 // ===========================================================================
 
-#[spec(
-    behavior = "register_validation_rules_from_manifest",
-    verify = "validation rule registered from manifest"
-)]
-fn validation_rule_registered() {
-    let manifest = declare("@test/ext", |c| {
-        c.rule("W100", |r| {
-            r.severity(ValidationSeverity::Warning)
-                .message_template("orphan {kind} '{id}'")
-                .check(CheckKind::NoIncomingEdges)
-                .target_kind("behavior");
-        });
-    });
-    let (rules, diags) = register_validation_rules(&[manifest]);
-    assert!(diags.is_empty());
-    assert_eq!(rules.len(), 1);
-    assert_eq!(rules[0].code, "W100");
-    assert_eq!(rules[0].check, "no_incoming_edges");
-}
-
-#[spec(
-    behavior = "register_validation_rules_from_manifest",
-    verify = "target_kind validation deferred to post-registration phase"
-)]
-fn validation_rule_target_kind_deferred() {
-    let manifest = declare("@test/ext", |c| {
-        c.rule("W100", |r| {
-            r.severity(ValidationSeverity::Warning)
-                .message_template("test")
-                .check(CheckKind::NoIncomingEdges)
-                .target_kind("nonexistent_kind");
-        });
-    });
-    let (rules, diags) = register_validation_rules(&[manifest]);
-    assert!(
-        diags.is_empty(),
-        "rule registration should not validate target_kind"
-    );
-    assert_eq!(rules.len(), 1);
-}
-
 #[test]
 fn validation_rule_target_kind_validated_post_registration() {
     let (kind_reg, field_reg, edge_reg, _) = populate(&[software()]);
@@ -944,49 +889,6 @@ fn validation_rule_invalid_ref_warning() {
 // ===========================================================================
 // B:register_extension_validation_rules (3 verifies — from spec)
 // ===========================================================================
-
-// Unlinked: the compile runs rules in manifest order; only this helper sorts.
-#[test]
-fn ext_validation_rules_sorted() {
-    let m1 = rules(
-        "@ext/a",
-        &[
-            ("W300", "third", CheckKind::NoIncomingEdges),
-            ("W100", "first", CheckKind::NoIncomingEdges),
-        ],
-    );
-    let m2 = rules("@ext/b", &[("W200", "second", CheckKind::NoOutgoingEdges)]);
-    let (rules, _) = register_validation_rules(&[m1, m2]);
-    let codes: Vec<&str> = rules.iter().map(|r| r.code.as_str()).collect();
-    assert_eq!(codes, vec!["W100", "W200", "W300"]);
-}
-
-#[spec(
-    behavior = "register_extension_validation_rules",
-    verify = "rules from multiple extensions are collected"
-)]
-fn ext_validation_rules_multiple_extensions() {
-    let m1 = rules("@ext/a", &[("W100", "a rule", CheckKind::NoIncomingEdges)]);
-    let m2 = rules("@ext/b", &[("W200", "b rule", CheckKind::NoOutgoingEdges)]);
-    let (rules, diags) = register_validation_rules(&[m1, m2]);
-    assert_eq!(rules.len(), 2);
-    assert!(diags.is_empty());
-}
-
-#[spec(
-    behavior = "register_extension_validation_rules",
-    verify = "duplicate codes across extensions produce warning"
-)]
-fn ext_validation_rules_duplicate_codes() {
-    let m1 = rules("@ext/a", &[("W100", "a", CheckKind::NoIncomingEdges)]);
-    let m2 = rules("@ext/b", &[("W100", "b", CheckKind::NoIncomingEdges)]);
-    let (_, diags) = register_validation_rules(&[m1, m2]);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "W023" && d.message.contains("W100"))
-    );
-}
 
 // ===========================================================================
 // B:register_entity_enhancements (5 verifies)

@@ -5,3 +5,4 @@ mod edges;
 mod fields;
 mod kinds;
 mod pin;
+mod rules;

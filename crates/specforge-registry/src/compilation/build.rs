@@ -15,9 +15,7 @@ use specforge_protocol_types::{CompilerPassDescriptor, ExtensionDeclaration};
 use super::declaration::{consistency, order_passes, shape};
 use super::detection::generate_required_field_rules;
 use super::populate::{keyword, populate};
-use super::validate::{
-    peer_dependencies, register_validation_rules, validate_extension_testability,
-};
+use super::validate::{duplicate_rule_codes, peer_dependencies, validate_extension_testability};
 use super::validation_engine::{
     ValidationRulePattern, parse_all_rule_patterns, resolve_edge_rules,
 };
@@ -173,7 +171,7 @@ pub fn build_registries(mut declarations: Vec<ExtensionDeclaration>) -> Registry
     let (mut rules, rule_diagnostics) = parse_all_rule_patterns(&rule_inputs);
     registry_diagnostics.extend(rule_diagnostics);
     // W023: two extensions declaring the same rule code.
-    registry_diagnostics.extend(register_validation_rules(&declarations).1);
+    registry_diagnostics.extend(duplicate_rule_codes(&declarations));
     resolve_edge_rules(&mut rules, &edges, &kinds);
     // Required fields (`required: true`) get host-generated, declarative
     // E006 rules: originless, so never dispatched to an extension.

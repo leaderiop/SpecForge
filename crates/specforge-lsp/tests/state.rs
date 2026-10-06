@@ -140,7 +140,7 @@ fn state_starts_with_empty_registries() {
 }
 
 #[spec(
-    behavior = "register_extension_validation_rules",
+    behavior = "registry_build_rules",
     verify = "extensions produce E006 rules for required fields"
 )]
 fn extensions_produce_e006_rules() {
@@ -162,7 +162,7 @@ fn extensions_produce_e006_rules() {
 }
 
 #[spec(
-    behavior = "register_extension_validation_rules",
+    behavior = "registry_build_rules",
     verify = "E006 covers all required fields from builtin extensions"
 )]
 fn e006_covers_all_required_fields() {

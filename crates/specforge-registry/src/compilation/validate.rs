@@ -1,7 +1,8 @@
 #[cfg(test)]
 use crate::{EdgeRegistry, FieldRegistry, KindRegistry};
 use specforge_common::{Diagnostic, Severity};
-use specforge_protocol_types::{ExtensionDeclaration, ValidationRuleDescriptor};
+use specforge_protocol_types::ExtensionDeclaration;
+use std::collections::HashMap;
 
 /// Cross-validate registered entity fields: check target_kind and edge label references
 /// resolve to registered entries. Test-only: the registry build reports W021 on load
@@ -185,45 +186,36 @@ pub(crate) fn validate_extension_testability(kind_reg: &crate::KindRegistry) -> 
     diagnostics
 }
 
-/// Every declared validation rule, sorted by code, and W023 for a code a
-/// later extension declares again.
-pub(crate) fn register_validation_rules(
-    declarations: &[ExtensionDeclaration],
-) -> (Vec<ValidationRuleDescriptor>, Vec<Diagnostic>) {
-    let mut all_rules = Vec::new();
+/// W023: a validation rule code a later extension declares again, once
+/// per repeat, naming the code, that extension and the first one. A code
+/// one extension repeats is not reported. The build keeps every rule.
+pub(crate) fn duplicate_rule_codes(declarations: &[ExtensionDeclaration]) -> Vec<Diagnostic> {
+    let mut first: HashMap<&str, &str> = HashMap::new();
     let mut diagnostics = Vec::new();
-    let mut seen_codes: std::collections::HashMap<String, String> =
-        std::collections::HashMap::new();
-
     for declaration in declarations {
         for rule in &declaration.validation_rules {
-            if let Some(first_ext) = seen_codes.get(&rule.code) {
-                if first_ext != declaration.name() {
-                    diagnostics.push(Diagnostic {
-                        code: "W023".to_string(),
-                        severity: Severity::Warning,
-                        message: format!(
-                            "validation rule code '{}' from '{}' duplicates code from '{}'",
-                            rule.code,
-                            declaration.name(),
-                            first_ext
-                        ),
-                        span: None,
-                        suggestion: None,
-                        data: None,
-                    });
+            match first.get(rule.code.as_str()) {
+                None => {
+                    first.insert(&rule.code, declaration.name());
                 }
-            } else {
-                seen_codes.insert(rule.code.clone(), declaration.name().to_string());
+                Some(owner) if *owner != declaration.name() => diagnostics.push(Diagnostic {
+                    code: "W023".to_string(),
+                    severity: Severity::Warning,
+                    message: format!(
+                        "validation rule code '{}' from '{}' duplicates code from '{}'",
+                        rule.code,
+                        declaration.name(),
+                        owner
+                    ),
+                    span: None,
+                    suggestion: None,
+                    data: None,
+                }),
+                Some(_) => {}
             }
-            all_rules.push(rule.clone());
         }
     }
-
-    // Sort by code for deterministic execution order
-    all_rules.sort_by(|a, b| a.code.cmp(&b.code));
-
-    (all_rules, diagnostics)
+    diagnostics
 }
 
 #[cfg(test)]
@@ -262,15 +254,6 @@ mod tests {
         let mut c = ContributionsBuilder::new(ExtensionMeta::new("@specforge/product", "1.0.0"));
         c.meta.peer_dependencies.push(peer(peer_name, range));
         c.declaration()
-    }
-
-    /// A warning rule `code` with `check`, its message `template`.
-    fn rule(c: &mut ContributionsBuilder, code: &str, template: &str, check: CheckKind) {
-        c.rule(code, |r| {
-            r.check(check)
-                .severity(ValidationSeverity::Warning)
-                .message_template(template);
-        });
     }
 
     // -- B:validate_registered_entity_fields --
@@ -424,80 +407,6 @@ mod tests {
 
     // -- B:register_validation_rules_from_manifest --
 
-    // B:register_validation_rules_from_manifest — verify unit "validation rule registered from manifest"
-    #[test]
-    fn test_validation_rule_registered_from_manifest() {
-        let declaration = declare("@test/ext", |c| {
-            c.rule("W100", |r| {
-                r.check(CheckKind::NoIncomingEdges)
-                    .severity(ValidationSeverity::Warning)
-                    .message_template("orphan {kind} '{id}'")
-                    .target_kind("behavior");
-            });
-        });
-        let (rules, diags) = register_validation_rules(&[declaration]);
-        assert!(diags.is_empty());
-        assert_eq!(rules.len(), 1);
-        assert_eq!(rules[0].code, "W100");
-        assert_eq!(rules[0].check, "no_incoming_edges");
-    }
-
-    // B:register_validation_rules_from_manifest — verify unit "target_kind validation deferred to post-registration phase"
-    #[test]
-    fn test_target_kind_validation_deferred_to_post_registration() {
-        // register_validation_rules does not validate target_kind — that's
-        // done by validate_registered_entity_fields after all registries populated
-        let declaration = declare("@test/ext", |c| {
-            c.rule("W100", |r| {
-                r.check(CheckKind::NoIncomingEdges)
-                    .severity(ValidationSeverity::Warning)
-                    .message_template("test")
-                    .target_kind("nonexistent_kind");
-            });
-        });
-        let (rules, diags) = register_validation_rules(&[declaration]);
-        assert!(
-            diags.is_empty(),
-            "rule registration should not validate target_kind"
-        );
-        assert_eq!(rules.len(), 1);
-    }
-
-    // B:register_extension_validation_rules — verify unit "rules sorted by code for deterministic order"
-    // B:register_extension_validation_rules — verify unit "rules from multiple extensions are collected"
-    #[test]
-    fn test_rules_sorted_by_code_for_deterministic_order() {
-        let m1 = declare("@ext/a", |c| {
-            rule(c, "W300", "third", CheckKind::NoIncomingEdges);
-            rule(c, "W100", "first", CheckKind::NoIncomingEdges);
-        });
-        let m2 = declare("@ext/b", |c| {
-            rule(c, "W200", "second", CheckKind::NoOutgoingEdges);
-        });
-        let (rules, _) = register_validation_rules(&[m1, m2]);
-        let codes: Vec<&str> = rules.iter().map(|r| r.code.as_str()).collect();
-        assert_eq!(codes, vec!["W100", "W200", "W300"]);
-    }
-
-    // B:register_extension_validation_rules — verify unit "duplicate codes across extensions produce warning"
-    #[test]
-    fn test_duplicate_codes_across_extensions_produce_warning() {
-        let m1 = declare("@ext/a", |c| {
-            rule(c, "W100", "a", CheckKind::NoIncomingEdges);
-        });
-        let m2 = declare("@ext/b", |c| {
-            rule(c, "W100", "b", CheckKind::NoIncomingEdges);
-        });
-        let (_, diags) = register_validation_rules(&[m1, m2]);
-        assert!(
-            diags
-                .iter()
-                .any(|d| d.code == "W023" && d.message.contains("W100")),
-            "expected W023 for duplicate code, got: {:?}",
-            diags
-        );
-    }
-
     // B:validate_registered_entity_fields — verify contract "requires/ensures consistency for field cross-validation"
     #[test]
     fn test_validate_registered_entity_fields_contract() {
@@ -533,22 +442,6 @@ mod tests {
         let m3 = product_requiring("@specforge/missing", ">=1.0.0");
         let diags = peer_dependencies(&[m3]);
         assert!(diags.iter().any(|d| d.code == "E027"));
-    }
-
-    // B:register_validation_rules_from_manifest — verify contract "requires/ensures consistency for validation rule registration"
-    // B:register_extension_validation_rules — verify contract "requires/ensures consistency for cross-extension rule aggregation"
-    #[test]
-    fn test_register_validation_rules_contract() {
-        // requires: manifests parsed
-        let m = declare("@t/e", |c| {
-            rule(c, "W100", "test", CheckKind::NoIncomingEdges);
-        });
-        let (rules, diags) = register_validation_rules(&[m]);
-        // ensures: rules registered
-        assert_eq!(rules.len(), 1);
-        assert_eq!(rules[0].code, "W100");
-        // ensures: no duplicate warnings for single extension
-        assert!(diags.is_empty());
     }
 
     // -- B:validate_peer_dependencies (semver range matching) --

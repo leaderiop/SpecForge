@@ -30,4 +30,4 @@ mod tests;
 #[cfg(test)]
 pub(crate) use populate::apply_entity_enhancements;
 #[cfg(test)]
-pub(crate) use validate::{register_validation_rules, validate_registered_entity_fields};
+pub(crate) use validate::validate_registered_entity_fields;

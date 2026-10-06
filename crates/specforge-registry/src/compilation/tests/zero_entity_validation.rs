@@ -6,7 +6,7 @@
 //! - parse_validation_rule_pattern (5)
 //! - emit_diagnostic_from_pattern (5)
 //! - register_custom_validation_patterns (2; the rest in specforge-project)
-//! - register_extension_validation_rules (4)
+//! - registry_build_rules (1; the rest through the build, tests/build/rules.rs)
 //! - validate_peer_dependencies (4)
 
 use specforge_common::{Severity, SourceSpan, Sym};
@@ -16,8 +16,8 @@ use specforge_protocol_types::{
 };
 use specforge_registry::compilation::EntityView;
 use specforge_registry::compilation::populate::populate;
-use specforge_registry::compilation::tests::support::{declare, extension, peer, software};
-use specforge_registry::compilation::validate::{peer_dependencies, register_validation_rules};
+use specforge_registry::compilation::tests::support::{extension, peer, software};
+use specforge_registry::compilation::validate::peer_dependencies;
 use specforge_registry::validation_engine::{
     CustomVerdict, ValidationEntity, ValidationPatternKind, ValidationRulePattern,
     WasmValidationRuntime, execute_pattern, interpolate_template, parse_all_rule_patterns,
@@ -76,20 +76,6 @@ fn make_entity(id: &str, kind: &str, incoming: usize, outgoing: usize) -> Valida
         incoming_kinds: Default::default(),
         obligation_exempt: false,
     }
-}
-
-/// `name` (version 1.0.0), declaring the given rules (code, message
-/// template, check), each a warning.
-fn with_rules(name: &str, rules: &[(&str, &str, CheckKind)]) -> ExtensionDeclaration {
-    declare(name, |c| {
-        for (code, message, check) in rules {
-            c.rule(code, |r| {
-                r.severity(ValidationSeverity::Warning)
-                    .message_template(message)
-                    .check(*check);
-            });
-        }
-    })
 }
 
 /// `@specforge/product`, declaring no kinds, whose peer is `name` >=1.0.0.
@@ -624,104 +610,6 @@ fn emit_diagnostic_from_pattern_contract() {
 }
 
 // ============================================================================
-// B:register_extension_validation_rules (4 verifies)
-// ============================================================================
-
-#[specforge_test(
-    behavior = "register_extension_validation_rules",
-    verify = "rules from multiple extensions are collected"
-)]
-fn rules_from_multiple_extensions_are_collected() {
-    let m1 = with_rules("@ext/a", &[("W100", "first", CheckKind::NoIncomingEdges)]);
-    let m2 = with_rules("@ext/b", &[("W200", "second", CheckKind::NoOutgoingEdges)]);
-    let (rules, diags) = register_validation_rules(&[m1, m2]);
-    assert!(diags.is_empty());
-    assert_eq!(rules.len(), 2);
-}
-
-#[specforge_test(
-    behavior = "register_extension_validation_rules",
-    verify = "duplicate codes across extensions produce warning"
-)]
-fn duplicate_codes_across_extensions_produce_warning() {
-    let m1 = with_rules("@ext/a", &[("W100", "a", CheckKind::NoIncomingEdges)]);
-    let m2 = with_rules("@ext/b", &[("W100", "b", CheckKind::NoIncomingEdges)]);
-    let (_, diags) = register_validation_rules(&[m1, m2]);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "W023" && d.message.contains("W100")),
-        "expected W023 for duplicate code, got: {:?}",
-        diags
-    );
-}
-
-// Unlinked: the compile runs rules in manifest order; only this helper sorts.
-#[test]
-fn rules_sorted_by_code_for_deterministic_order() {
-    let m1 = with_rules(
-        "@ext/a",
-        &[
-            ("W300", "third", CheckKind::NoIncomingEdges),
-            ("W100", "first", CheckKind::NoIncomingEdges),
-        ],
-    );
-    let m2 = with_rules("@ext/b", &[("W200", "second", CheckKind::NoOutgoingEdges)]);
-    let (rules, _) = register_validation_rules(&[m1, m2]);
-    let codes: Vec<&str> = rules.iter().map(|r| r.code.as_str()).collect();
-    assert_eq!(codes, vec!["W100", "W200", "W300"]);
-}
-
-// Unlinked: its deterministic_order_enforced part holds for this helper only.
-#[test]
-fn register_extension_validation_rules_contract() {
-    // requires: each extension's rules are parsed, out of code order, and
-    // both extensions declare W100.
-    let a = with_rules(
-        "@ext/a",
-        &[
-            ("W300", "a300", CheckKind::NoIncomingEdges),
-            ("W100", "a100", CheckKind::NoIncomingEdges),
-        ],
-    );
-    let b = with_rules(
-        "@ext/b",
-        &[
-            ("W200", "b200", CheckKind::NoOutgoingEdges),
-            ("W100", "b100", CheckKind::NoOutgoingEdges),
-        ],
-    );
-    let (rules, diags) = register_validation_rules(&[a.clone(), b.clone()]);
-
-    // unified_rule_set_produced + deterministic_order_enforced: one set holding
-    // all four rules, sorted by code.
-    let set: Vec<(&str, &str)> = rules
-        .iter()
-        .map(|r| (r.code.as_str(), r.message_template.as_str()))
-        .collect();
-    assert_eq!(
-        set,
-        [
-            ("W100", "a100"),
-            ("W100", "b100"),
-            ("W200", "b200"),
-            ("W300", "a300")
-        ]
-    );
-    let (swapped, _) = register_validation_rules(&[b, a]);
-    let codes: Vec<&str> = swapped.iter().map(|r| r.code.as_str()).collect();
-    assert_eq!(codes, ["W100", "W100", "W200", "W300"]);
-
-    // duplicate_codes_warned: one warning naming the code and both extensions.
-    assert_eq!(diags.len(), 1, "{diags:?}");
-    assert_eq!(diags[0].code, "W023");
-    assert_eq!(diags[0].severity, Severity::Warning);
-    for part in ["'W100'", "'@ext/a'", "'@ext/b'"] {
-        assert!(diags[0].message.contains(part), "{}", diags[0].message);
-    }
-}
-
-// ============================================================================
 // B:register_custom_validation_patterns (2 of 5 verifies; the load-time
 // registration and wasm_function resolution go through Environment::load in
 // crates/specforge-project/tests/custom_rules.rs)
@@ -1068,13 +956,13 @@ fn validate_peer_dependencies_contract() {
 }
 
 // ============================================================================
-// B:register_validation_rules_from_manifest
+// B:registry_build_rules (the rule the build keeps, run)
 // ============================================================================
 
 // A rule for a `ghost` kind no loaded extension declares: it runs over the
 // project's behaviors and reports nothing.
 #[specforge_test(
-    behavior = "register_validation_rules_from_manifest",
+    behavior = "registry_build_rules",
     verify = "a rule targeting a kind no loaded extension declares reports nothing"
 )]
 fn a_rule_for_an_unloaded_kind_reports_nothing() {
@@ -1093,37 +981,6 @@ fn a_rule_for_an_unloaded_kind_reports_nothing() {
     rule.target_kind = Some("behavior".to_string());
     let (patterns, _) = parse_all_rule_patterns(&[("@test".to_string(), vec![rule])]);
     assert_eq!(execute_pattern(&patterns[0].0, &orphans, None).len(), 2);
-}
-
-#[specforge_test(
-    behavior = "register_validation_rules_from_manifest",
-    verify = "Register Validation Rules From Manifest: validation rule registration holds — extension_manifests_loaded_fired, rules_registered, unloaded_targets_inert"
-)]
-fn validation_rule_registration_contract() {
-    // extension_manifests_loaded_fired: rules come from parsed manifests.
-    let manifest = declare("@t/e", |c| {
-        c.rule("W101", |r| {
-            r.severity(ValidationSeverity::Warning)
-                .message_template("orphan {id}")
-                .check(CheckKind::NoIncomingEdges)
-                .target_kind("ghost")
-                .edge_type("GhostEdge");
-        });
-    });
-
-    // rules_registered: stored with the raw target_kind and edge_type
-    // strings, although neither is declared by any extension.
-    let (rules, diags) = register_validation_rules(&[manifest]);
-    assert!(diags.is_empty(), "{diags:?}");
-    assert_eq!(rules.len(), 1);
-    assert_eq!(rules[0].code, "W101");
-    assert_eq!(rules[0].target_kind.as_deref(), Some("ghost"));
-    assert_eq!(rules[0].edge_type.as_deref(), Some("GhostEdge"));
-
-    // unloaded_targets_inert: run against the project, it reports nothing.
-    let (patterns, _) = parse_all_rule_patterns(&[("@t/e".to_string(), rules)]);
-    let project = vec![make_entity("b1", "behavior", 0, 0)];
-    assert!(execute_pattern(&patterns[0].0, &project, None).is_empty());
 }
 
 /// A custom rule's failing verdict, with no field or value to name.
