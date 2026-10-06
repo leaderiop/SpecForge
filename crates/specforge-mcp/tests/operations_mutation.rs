@@ -1029,23 +1029,6 @@ fn server_with_product() -> (Served, std::path::PathBuf) {
     (server, root)
 }
 
-/// Every file under `root` with its content.
-fn files_under(root: &Path) -> std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> {
-    fn walk(dir: &Path, out: &mut std::collections::BTreeMap<std::path::PathBuf, Vec<u8>>) {
-        for entry in std::fs::read_dir(dir).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                walk(&path, out);
-            } else {
-                out.insert(path.clone(), std::fs::read(&path).unwrap());
-            }
-        }
-    }
-    let mut out = std::collections::BTreeMap::new();
-    walk(root, &mut out);
-    out
-}
-
 fn config_extensions(root: &Path) -> Vec<String> {
     let config: Value =
         serde_json::from_str(&std::fs::read_to_string(root.join("specforge.json")).unwrap())
