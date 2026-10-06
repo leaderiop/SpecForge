@@ -5,7 +5,7 @@
 use serde_json::{Value, json};
 
 use super::*;
-use crate::args::{NoArgs, choice_schema, fields, required_choice_schema};
+use crate::args::{NoArgs, choice_schema, fields, names_schema, required_choice_schema};
 use crate::operations;
 use crate::target::{Freshness, Reach, TargetSpec};
 use crate::tool::{Access, Category, Effect, MutationSpec, ToolSpec, writes_unless_dry_run};
@@ -78,9 +78,9 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "type": "object",
                 "properties": {
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" },
-                    "severity_filter": { "type": "string", "enum": ["error", "warning", "info"], "description": "Only report diagnostics of this severity, after strict promotion (case-insensitive). The verdict in _meta[\"specforge/check\"] still counts everything reported" },
+                    "severity_filter": names_schema(specforge_ops::check::SEVERITY_NAMES, "Only report diagnostics of this severity, after strict promotion (case-insensitive). The verdict in _meta[\"specforge/check\"] still counts everything reported"),
                     "strict": { "type": "boolean", "description": "Promote warnings to errors, before severity_filter applies", "default": false },
-                    "lint": { "type": "array", "items": { "type": "string", "enum": ["inferred", "pedantic"] }, "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)" },
+                    "lint": { "type": "array", "items": names_schema(specforge_project::LINT_PROFILE_NAMES, "A lint profile"), "description": "Extra lint profiles, as `specforge check --lint` takes (inferred: I200/I202 from specforge-infer.json; pedantic is the default and adds nothing)" },
                     "use_cached": { "type": "boolean", "description": "Report cached diagnostics from the last compile instead of recompiling", "default": false }
                 }
             })
@@ -364,7 +364,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "properties": {
                     "entity_id": { "type": "string", "description": "Filter to specific entity" },
                     "kind": { "type": "string", "description": "Filter by entity kind" },
-                    "status_filter": { "type": "string", "enum": ["covered", "partial", "uncovered"], "description": "Only entities with this coverage status" }
+                    "status_filter": choice_schema(&specforge_ops::coverage::STATUS, "Only entities with this coverage status")
                 }
             })
         },
@@ -473,7 +473,7 @@ pub static CORE_TOOLS: &[ToolSpec] = &[
                 "type": "object",
                 "properties": {
                     "entity_id": { "type": "string", "description": "Entity ID" },
-                    "direction": { "type": "string", "enum": ["incoming", "outgoing", "both"], "default": "incoming", "description": "incoming: other entities' references to it; outgoing: its own references to others; both" },
+                    "direction": choice_schema(&specforge_ops::navigate::DIRECTION, "Which references"),
                     "include_declaration": { "type": "boolean", "default": false, "description": "Also return the entity's own declaration (its name)" }
                 },
                 "required": ["entity_id"]

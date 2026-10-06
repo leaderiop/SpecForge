@@ -11,22 +11,6 @@ brief                        cli=0   mcp=-
 dot                          cli=2   mcp=-
 json                         cli=0   mcp=-
 
-## coverage status_filter
-mcp schema: enum ["covered","partial","uncovered"] default null
-default: mcp=uncovered
-covered                      cli=-   mcp=ok
-partial                      cli=-   mcp=ok
-uncovered                    cli=-   mcp=ok
-coverd                       cli=-   mcp=refused: invalid_input: unknown coverage status 'coverd' (expected one of: covered, partial, uncovered) (suggestion: did you mean 'covered'?)
-
-## find_references direction
-mcp schema: enum ["incoming","outgoing","both"] default "incoming"
-default: mcp=incoming
-incoming                     cli=-   mcp=ok
-outgoing                     cli=-   mcp=ok
-both                         cli=-   mcp=ok
-sideways                     cli=-   mcp=refused: invalid_input: unknown direction 'sideways': expected "incoming", "outgoing" or "both"
-
 ## analyze pass
 cli -h: [PASS] Analysis pass to run: all (default), coverage, contracts, or a pass an extension declares (`<extension>:<pass>`)
 mcp schema: enum null default "all"

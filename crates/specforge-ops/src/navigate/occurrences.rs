@@ -9,6 +9,7 @@ use specforge_parser::FieldValue;
 use super::text::{SourceText, Token, TokenKind};
 use super::{Navigator, contains};
 use crate::OpError;
+use crate::options::{Choice, OptionTable};
 
 /// Where an entity is declared: its whole block, and its name token.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -33,25 +34,32 @@ pub enum Direction {
     Both,
 }
 
-impl Direction {
-    /// The direction a surface names (`incoming`, `outgoing`, `both`).
-    pub fn parse(name: &str) -> Option<Self> {
-        match name {
-            "incoming" => Some(Self::Incoming),
-            "outgoing" => Some(Self::Outgoing),
-            "both" => Some(Self::Both),
-            _ => None,
-        }
-    }
-
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Incoming => "incoming",
-            Self::Outgoing => "outgoing",
-            Self::Both => "both",
-        }
-    }
-}
+/// `specforge.find_references`' `direction` (ADR 0027).
+pub const DIRECTION: OptionTable<Direction> = OptionTable {
+    argument: "direction",
+    code: "invalid_input",
+    choices: &[
+        Choice {
+            name: "incoming",
+            aliases: &[],
+            help: "other entities' references to it",
+            value: Direction::Incoming,
+        },
+        Choice {
+            name: "outgoing",
+            aliases: &[],
+            help: "its own references to other entities",
+            value: Direction::Outgoing,
+        },
+        Choice {
+            name: "both",
+            aliases: &[],
+            help: "",
+            value: Direction::Both,
+        },
+    ],
+    default: Some(Direction::Incoming),
+};
 
 /// A references question: which direction, and whether the entity's own
 /// declaration is among the answers.

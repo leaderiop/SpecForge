@@ -35,7 +35,9 @@ pub use find::{
     within_fuzzy_threshold,
 };
 pub use fixes::{Fix, FixKind, FixQuery, FixSource, TextEdit};
-pub use occurrences::{Definition, Direction, Occurrence, Precision, ReferenceQuery, Role};
+pub use occurrences::{
+    DIRECTION, Definition, Direction, Occurrence, Precision, ReferenceQuery, Role,
+};
 
 use text::SourceText;
 

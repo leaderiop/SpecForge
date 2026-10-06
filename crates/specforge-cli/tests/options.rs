@@ -443,9 +443,14 @@ fn paired() -> Vec<(&'static str, Names, Names)> {
     ]
 }
 
-/// MCP-only probes a linked test holds to their option table
-/// (`specforge-mcp`'s `tests/option_tables.rs`).
-const LINKED_ELSEWHERE: [&str; 2] = ["render format", "query format"];
+/// MCP-only probes `specforge-mcp`'s `tests/option_tables.rs` holds to
+/// their option table.
+const LINKED_ELSEWHERE: [&str; 4] = [
+    "render format",
+    "query format",
+    "coverage status_filter",
+    "find_references direction",
+];
 
 #[test]
 fn enumerated_options_today() {

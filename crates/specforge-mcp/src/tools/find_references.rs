@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
-use specforge_ops::navigate::{Direction, Occurrence, ReferenceQuery};
+use specforge_ops::navigate::{DIRECTION, Occurrence, ReferenceQuery};
 
-use crate::args::lenient;
+use crate::args::{choice, lenient};
 use crate::target::Call;
 use crate::tool::{Handled, ToolOutcome};
 
@@ -19,19 +19,9 @@ pub struct Args {
 /// declaration only when asked for.
 pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
     let entity_id = args.entity_id.as_str();
-    let direction = match args.direction.as_deref() {
-        None => Direction::Incoming,
-        Some(name) => match Direction::parse(name) {
-            Some(direction) => direction,
-            None => {
-                return Ok(ToolOutcome::invalid_input(
-                    "direction",
-                    format!(
-                        "unknown direction '{name}': expected \"incoming\", \"outgoing\" or \"both\""
-                    ),
-                ));
-            }
-        },
+    let direction = match choice(&DIRECTION, "direction", args.direction.as_deref()) {
+        Ok(direction) => direction,
+        Err(refused) => return Ok(refused),
     };
     let query = ReferenceQuery {
         direction,
@@ -42,7 +32,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
         .map_err(|_| crate::tool::entity_not_found(entity_id))?;
     Ok(ToolOutcome::ok(json!({
         "entity_id": entity_id,
-        "direction": direction.as_str(),
+        "direction": DIRECTION.name_of(direction),
         "locations": occurrences.iter().map(location).collect::<Vec<Value>>(),
     })))
 }

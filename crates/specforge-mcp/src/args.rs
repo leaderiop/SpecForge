@@ -247,6 +247,17 @@ pub fn required_choice_schema<T: Copy + PartialEq>(
     })
 }
 
+/// The input schema of a name list that is not an option table (severity
+/// and lint profiles, ADR 0018: their typed `CheckError` refusals stay):
+/// `type` string, `enum` the names.
+pub fn names_schema(names: &[&str], description: &str) -> Value {
+    serde_json::json!({
+        "type": "string",
+        "enum": names,
+        "description": description,
+    })
+}
+
 /// An enumerated argument as a handler reads it: absent is the table's
 /// default; an unknown name is the table's refusal, `invalid_input` on
 /// `key` (ADR 0027).

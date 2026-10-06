@@ -6,10 +6,12 @@
 
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
+use specforge_ops::coverage::STATUS;
 use specforge_ops::export::{AGENT_FORMAT, FORMAT};
 use specforge_ops::model::{
     DEPS, GROUP_BY, MODEL_FIELDS, MODEL_FORMAT, OUTLINE_FIELDS, OUTLINE_FORMAT,
 };
+use specforge_ops::navigate::DIRECTION;
 use specforge_ops::options::OptionTable;
 
 /// What a table says an input-schema property must hold.
@@ -59,7 +61,84 @@ fn enumerated() -> Vec<Advertised> {
         advertised("specforge.outline_extensions", "format", &OUTLINE_FORMAT),
         advertised("specforge.outline_extensions", "fields", &OUTLINE_FIELDS),
         advertised("specforge.outline_extensions", "deps", &DEPS),
+        advertised("specforge.coverage", "status_filter", &STATUS),
+        advertised("specforge.find_references", "direction", &DIRECTION),
     ]
+}
+
+/// The name lists that are not option tables (ADR 0018's severity and
+/// lint profiles): the tool and the argument (`lint`'s items) they list.
+fn name_lists() -> Vec<(&'static str, &'static str, &'static [&'static str])> {
+    vec![
+        (
+            "specforge.validate",
+            "severity_filter",
+            specforge_ops::check::SEVERITY_NAMES,
+        ),
+        (
+            "specforge.validate",
+            "lint",
+            specforge_project::LINT_PROFILE_NAMES,
+        ),
+    ]
+}
+
+/// Input `enum`s that are a tool's own protocol, not an argument any
+/// operation reads: the inference session's state machine.
+const STATE_MACHINES: [(&str, &str); 2] = [
+    ("specforge.infer_session", "action"),
+    ("specforge.infer_session", "status"),
+];
+
+/// The listed names of a property's `enum` (an array's items' for a list).
+fn listed(property: &Value) -> Option<Vec<&str>> {
+    let names = property
+        .get("enum")
+        .or_else(|| property["items"].get("enum"))?;
+    Some(
+        names
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|name| name.as_str().unwrap())
+            .collect(),
+    )
+}
+
+#[test]
+fn every_input_enum_comes_from_a_table_or_a_name_list() {
+    let tables = enumerated();
+    let lists = name_lists();
+    for (tool, argument, names) in &lists {
+        assert_eq!(
+            listed(&property(tool, argument)).as_deref(),
+            Some(*names),
+            "{tool}.{argument}"
+        );
+    }
+    for spec in specforge_mcp::tools::CORE_TOOLS {
+        let schema = (spec.schema)();
+        let Some(properties) = schema["properties"].as_object() else {
+            continue;
+        };
+        for (argument, property) in properties {
+            if listed(property).is_none() {
+                continue;
+            }
+            let known = tables
+                .iter()
+                .any(|t| t.tool == spec.name && t.argument == argument)
+                || lists
+                    .iter()
+                    .any(|(tool, a, _)| *tool == spec.name && a == argument)
+                || STATE_MACHINES.contains(&(spec.name, argument.as_str()));
+            assert!(
+                known,
+                "{}.{argument} lists names no option table or name list holds",
+                spec.name
+            );
+        }
+    }
 }
 
 /// The input schema property `argument` of core tool `tool`.
@@ -208,4 +287,43 @@ fn query_refuses_an_unknown_format() {
     ));
     assert_eq!(graph, json);
     assert_eq!(graph["nodes"][0]["id"], "alpha", "{graph}");
+}
+
+#[test]
+fn coverage_and_find_references_refuse_with_the_table_wording() {
+    let mut server = served();
+    let coverage = call(
+        &mut server,
+        "specforge.coverage",
+        json!({"status_filter": "coverd"}),
+    );
+    let error = crate::tool_errors::mcp_error(&coverage);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "status_filter", "{error}");
+    assert_eq!(
+        error["message"],
+        "Unknown coverage status: coverd. Expected: covered, partial, uncovered"
+    );
+    assert_eq!(error["data"]["suggestion"], "did you mean 'covered'?");
+
+    let references = call(
+        &mut server,
+        "specforge.find_references",
+        json!({"entity_id": "alpha", "direction": "sideways"}),
+    );
+    let error = crate::tool_errors::mcp_error(&references);
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert_eq!(error["argument"], "direction", "{error}");
+    assert_eq!(
+        error["message"],
+        "Unknown direction: sideways. Expected: incoming, outgoing, both"
+    );
+
+    // Absent, the direction is the table's default, echoed by name.
+    let answered = content(&call(
+        &mut server,
+        "specforge.find_references",
+        json!({"entity_id": "alpha"}),
+    ));
+    assert_eq!(answered["direction"], "incoming", "{answered}");
 }

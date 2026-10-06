@@ -67,7 +67,7 @@ pub fn call(call: &mut Call<'_>, args: Args) -> ToolOutcome {
                     let Some(verdict) = coverage.verdict(node_id) else {
                         continue;
                     };
-                    let status = specforge_ops::coverage::status_name(verdict.status());
+                    let status = specforge_ops::coverage::STATUS.name_of(verdict.status());
                     node.as_object_mut()
                         .unwrap()
                         .insert("coverage_status".into(), Value::from(status));
