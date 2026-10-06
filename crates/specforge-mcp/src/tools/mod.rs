@@ -185,10 +185,6 @@ pub fn core_tool(name: &str) -> Option<&'static ToolSpec> {
 }
 
 pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
-    if !state.is_initialized() {
-        return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized");
-    }
-
     // A request that fails CallToolRequest's own schema is malformed: a
     // protocol error (ADR 0004 D4-a).
     let name = match params.get("name").and_then(|v| v.as_str()) {

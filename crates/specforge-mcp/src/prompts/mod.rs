@@ -34,10 +34,6 @@ pub fn handle_prompt_get(
     params: Value,
     id: Option<Value>,
 ) -> JsonRpcResponse {
-    if !state.is_initialized() {
-        return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized");
-    }
-
     // A request that fails GetPromptRequest's own schema is malformed: a
     // protocol error, as for tools/call.
     let Some(name) = params.get("name").and_then(Value::as_str) else {

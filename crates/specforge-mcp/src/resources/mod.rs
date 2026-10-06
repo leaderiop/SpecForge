@@ -88,10 +88,6 @@ pub fn handle_resource_read(
     params: Value,
     id: Option<Value>,
 ) -> JsonRpcResponse {
-    if !state.is_initialized() {
-        return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized");
-    }
-
     let uri = match params.get("uri").and_then(|v| v.as_str()) {
         Some(u) => u.to_string(),
         None => {
@@ -330,9 +326,6 @@ pub fn handle_resource_subscribe(
     params: Value,
     id: Option<Value>,
 ) -> JsonRpcResponse {
-    if !state.is_initialized() {
-        return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized");
-    }
     let Some(uri) = params.get("uri").and_then(|v| v.as_str()) else {
         return JsonRpcResponse::error(
             id,
@@ -354,9 +347,6 @@ pub fn handle_resource_unsubscribe(
     params: Value,
     id: Option<Value>,
 ) -> JsonRpcResponse {
-    if !state.is_initialized() {
-        return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized");
-    }
     let Some(uri) = params.get("uri").and_then(|v| v.as_str()) else {
         return JsonRpcResponse::error(
             id,

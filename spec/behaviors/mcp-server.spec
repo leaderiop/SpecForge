@@ -515,6 +515,8 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
     isError result carrying an McpError, not -32602 (MCP 2025-11-25,
     SEP-1303). prompts/get has no isError result: a prompt that cannot
     render answers -32602 or -32603 with its McpError as the error's data.
+    Every method that needs a session refuses before initialize with -32600;
+    an unknown method is -32601 whether or not the session is initialized.
     A handler that panics is a server fault: the request gets
     -32603 and the server keeps serving. The error response MUST NOT crash
     the server or leak internal state (stack traces, file paths, memory
@@ -529,6 +531,7 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   verify unit "error response does not leak internal state"
   verify unit "server remains operational after protocol error"
   verify unit "returns -32600 for invalid request"
+  verify unit "each request method that needs a session refuses before initialize with -32600"
   verify unit "returns -32603 for internal error"
   verify unit "truly unknown tool returns -32602 Invalid params (MCP spec example)"
   verify contract "Handle MCP Protocol Error: MCP protocol error handling holds — mcp_protocol_available, standard_error_returned, no_state_leaked, server_operational, error_handled_emitted"

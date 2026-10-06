@@ -380,7 +380,7 @@ fn the_graph_resource_is_the_export_json() {
 
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
-    verify = "returns -32600 for invalid request"
+    verify = "each request method that needs a session refuses before initialize with -32600"
 )]
 fn every_session_method_needs_initialize() {
     let mut server = McpServer::new();
