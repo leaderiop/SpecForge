@@ -138,6 +138,7 @@ behavior list_mcp_tools "List MCP Tools" {
   ensures {
     complete_list_returned "All registered tool descriptors returned including auto-promoted CLI commands"
     discovery_emitted      "mcp_discovery_invoked event emitted"
+    listed_once            "Every tool listed is the one tools/call dispatches under that name, each name once: core tools first, then explicit extension tools in extension load order, then auto-promoted commands; a contribution not served under its name is reported with I017 saying why"
   }
   contract   """
     The MCP server MUST return all registered tool descriptors,
@@ -160,7 +161,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "returns all registered tool descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects tools from newly loaded extension"
-  verify contract "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted"
+  verify contract "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted, listed_once"
   verify unit "tools have categories"
   verify unit "every listed core tool dispatches to its handler"
   verify unit "each core tool's input schema advertises exactly the arguments its handler reads"
@@ -169,6 +170,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "an extension tool is listed once across recompiles"
   verify unit "an extension tool's declared output_schema is listed as its outputSchema"
   verify unit "every tool that reads path or use_cached declares it in its target"
+  verify unit "every listed extension tool is the one dispatched under its name, listed once"
 }
 
 behavior list_mcp_prompts "List MCP Prompts" {

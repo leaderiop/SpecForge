@@ -359,12 +359,12 @@ fn contract_initialize() {
 
     // surface_contributions_merged: after the core tools and resources come
     // the extension's explicit tool, its promoted command, and its resource.
-    let core_tools = specforge_mcp::registry::default_tools().len();
+    let core_tools = crate::support::core_tools().len();
     assert_eq!(
         tools[core_tools..],
         ["specforge.cmds.check", "specforge.cmds.report"]
     );
-    let core_resources = specforge_mcp::registry::default_resource_count();
+    let core_resources = specforge_mcp::resources::CORE_RESOURCES.len();
     assert_eq!(
         resources[core_resources..],
         ["specforge://ext/cmds/summary"]
@@ -465,7 +465,8 @@ fn contract_shutdown() {
     let state = server.state();
     assert_eq!(state.graph().node_count(), 0);
     assert!(state.registries().declarations().is_empty());
-    assert!(state.surface_entries().next().is_none());
+    assert!(state.surfaces().tools().is_empty());
+    assert!(state.surfaces().resources().is_empty());
     assert!(state.project_root().is_none());
 
     // shutdown_emitted, with what it released.
@@ -831,9 +832,7 @@ fn contract_stats() {
             FieldMap::new(),
         ));
     });
-    state
-        .surface_diagnostics
-        .push(diagnostic("W001", "a warning", None));
+    crate::support::report_also(state, diagnostic("W001", "a warning", None));
     let stats = tool(&mut server, "specforge.stats", json!({}));
     assert_eq!(
         stats["entity_counts"],
@@ -852,18 +851,14 @@ fn contract_stats() {
 fn contract_inspect() {
     let mut server = test_server();
     crate::support::declare_headline_fields(&mut server, "behavior");
-    let diagnostics = &mut server.state_mut().surface_diagnostics;
     // One diagnostic inside alpha's span, one in beta's file.
-    diagnostics.push(diagnostic(
-        "W001",
-        "inside alpha",
-        Some(span_at("test.spec", 2, 4, 2)),
-    ));
-    diagnostics.push(diagnostic(
-        "W002",
-        "inside beta",
-        Some(span_at("feat.spec", 2, 0, 2)),
-    ));
+    crate::support::report(
+        server.state_mut(),
+        vec![
+            diagnostic("W001", "inside alpha", Some(span_at("test.spec", 2, 4, 2))),
+            diagnostic("W002", "inside beta", Some(span_at("feat.spec", 2, 0, 2))),
+        ],
+    );
 
     let details = tool(
         &mut server,
@@ -1374,49 +1369,31 @@ fn contract_explore_prompt() {
     assert_prompt_invoked(&server, "specforge://prompts/explore");
 }
 
-/// Register an extension tool and resource, each with its surface entry.
-fn add_extension_surface(server: &mut McpServer, name: &str) {
-    use specforge_mcp::types::{McpResourceDescriptor, McpToolDescriptor};
-    use specforge_registry::{SurfaceRegistryEntry, SurfaceType};
-    let state = server.state_mut();
-    state.tool_registry.push(McpToolDescriptor {
-        name: format!("ext.{name}"),
-        description: format!("{name} tool"),
-        input_schema: json!({"type": "object"}),
-        category: Some("core".into()),
-        source: Some("@test/ext".into()),
-        ..Default::default()
-    });
-    state.resource_registry.push(McpResourceDescriptor {
-        uri: format!("specforge://ext/{name}"),
-        name: format!("ext-{name}"),
-        description: None,
-        mime_type: Some("application/json".into()),
-    });
-    for (surface_type, contribution) in [
-        (SurfaceType::McpTool, format!("ext.{name}")),
-        (SurfaceType::McpResource, format!("ext-{name}")),
-    ] {
-        let entry = SurfaceRegistryEntry {
-            surface_type,
-            contribution_name: contribution,
-            extension_name: "@test/ext".into(),
-            export_name: format!("export_{name}"),
-        };
-        state.edit_environment(|env| env.registries.surfaces.push(entry));
-    }
+/// `fake` also declaring the MCP tool `ext.<name>` and the resource
+/// `specforge://ext/<name>`.
+fn with_extension_surface(
+    fake: crate::fake_extension::FakeExtension,
+    name: &str,
+) -> crate::fake_extension::FakeExtension {
+    fake.with_tool(
+        json!({"name": format!("ext.{name}"), "description": format!("{name} tool"),
+        "export": format!("export_{name}"), "input_schema": {"type": "object"}}),
+    )
+    .with_resource(json!({"uri_template": format!("specforge://ext/{name}"),
+            "name": format!("ext-{name}"), "export": format!("export_{name}_resource"),
+            "mime_type": "application/json"}))
 }
 
 #[specforge_test(
     behavior = "list_mcp_tools",
-    verify = "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted"
+    verify = "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, discovery_emitted, listed_once"
 )]
 fn contract_list_tools() {
     use crate::fake_extension::{self, FakeExtension};
     // server_initialized: over a project whose extension contributes an
     // MCP tool and two CLI commands.
-    let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
-    add_extension_surface(&mut server, "on");
+    let (mut server, _ext, _dir) =
+        fake_extension::initialized(with_extension_surface(FakeExtension::new(), "on"));
 
     let resp = call(&mut server, "tools/list", json!({}));
     let names: Vec<&str> = resp["result"]["tools"]
@@ -1456,15 +1433,29 @@ fn contract_list_tools() {
         assert!(names.contains(&core), "{core} missing: {names:?}");
     }
     // complete_list_returned: every core tool, then the extension's
-    // auto-promoted commands, and the injected tool.
-    let core: Vec<String> = specforge_mcp::registry::default_tools()
+    // explicit tools, then its auto-promoted commands.
+    let core: Vec<String> = crate::support::core_tools()
         .into_iter()
         .map(|t| t.name)
         .collect();
     assert_eq!(names[..core.len()], core);
     assert_eq!(
         names[core.len()..],
-        ["specforge.cmds.check", "specforge.cmds.report", "ext.on"]
+        ["specforge.cmds.check", "ext.on", "specforge.cmds.report"]
+    );
+    // listed_once: each name once; the command whose tool name the explicit
+    // check has is reported, not listed.
+    let mut unique = names.clone();
+    unique.sort_unstable();
+    unique.dedup();
+    assert_eq!(unique.len(), names.len(), "{names:?}");
+    assert!(
+        server
+            .state()
+            .diagnostics()
+            .iter()
+            .any(|d| d.code == "I017" && d.message.starts_with("command 'check'")),
+        "the shadowed command is reported"
     );
 
     // discovery_emitted: the count is what the client got.
@@ -1476,10 +1467,11 @@ fn contract_list_tools() {
 
 #[specforge_test(
     behavior = "auto_promote_commands_to_mcp_tools",
-    verify = "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted"
+    verify = "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted, schema_is_the_declaration"
 )]
 fn contract_auto_promote_commands() {
     use crate::fake_extension::{self, EXT, FakeExtension};
+    use specforge_mcp::surface_table::ToolKind;
     use specforge_registry::SurfaceType;
     let output = json!({"exit_code": 0, "stdout": "report written", "stderr": ""});
     let (mut server, ext, _dir) =
@@ -1490,7 +1482,9 @@ fn contract_auto_promote_commands() {
     let entries = |ty: SurfaceType| -> Vec<(String, String)> {
         server
             .state()
-            .surface_entries()
+            .registries()
+            .surfaces
+            .iter()
             .filter(|e| e.surface_type == ty)
             .map(|e| (e.contribution_name.clone(), e.export_name.clone()))
             .collect()
@@ -1507,9 +1501,38 @@ fn contract_auto_promote_commands() {
 
     // all_commands_promoted + naming_convention_enforced: every command
     // becomes specforge.cmds.<id> unless an explicit tool has the name.
+    let promoted: Vec<(String, String)> = server
+        .state()
+        .surfaces()
+        .tools()
+        .iter()
+        .filter_map(|tool| match &tool.kind {
+            ToolKind::Command(command) => Some(pair(&tool.name, command.export())),
+            ToolKind::McpTool { .. } => None,
+        })
+        .collect();
+    assert_eq!(promoted, [pair("specforge.cmds.report", "cmd__report")]);
+    // schema_is_the_declaration: each arg's type, values and description;
+    // the required non-flag args; nothing undeclared.
+    let report = find(
+        &call(&mut server, "tools/list", json!({}))["result"]["tools"],
+        "name",
+        "specforge.cmds.report",
+    )
+    .clone();
     assert_eq!(
-        entries(SurfaceType::AutoPromotedTool),
-        [pair("specforge.cmds.report", "cmd__report")]
+        report["inputSchema"],
+        json!({
+            "type": "object",
+            "properties": {
+                "style": {"type": "string", "enum": ["md", "json"], "description": "Output style"},
+                "verbose": {"type": "boolean", "default": false},
+                "limit": {"type": "integer"},
+                "out": {"type": "string"}
+            },
+            "required": ["style"],
+            "additionalProperties": false
+        })
     );
     let resp = call_tool(
         &mut server,
@@ -1799,8 +1822,11 @@ fn event_surface_mcp_resource_dispatched() {
     verify = "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, discovery_emitted"
 )]
 fn contract_list_resources() {
-    let mut server = test_server();
-    add_extension_surface(&mut server, "on");
+    use crate::fake_extension::{self, FakeExtension};
+    let (mut server, _ext, _dir) = fake_extension::initialized(with_extension_surface(
+        FakeExtension::declaring(json!({})),
+        "on",
+    ));
 
     let resp = call(&mut server, "resources/list", json!({}));
     let mut uris: Vec<&str> = resp["result"]["resources"]
@@ -1913,7 +1939,7 @@ fn contract_guard_reinit() {
         .state()
         .project_root()
         .map(std::path::Path::to_path_buf);
-    let tools = server.state().tool_registry.len();
+    let tools = specforge_mcp::registry::listed_tools(server.state()).count();
     let other = tempfile::TempDir::new().unwrap();
 
     // reinit_rejected: -32600, even when naming another project.
@@ -1927,7 +1953,7 @@ fn contract_guard_reinit() {
     // session_unaffected: same project, graph and registries.
     let state = server.state();
     assert_eq!(state.project_root().map(std::path::Path::to_path_buf), root);
-    assert_eq!(state.tool_registry.len(), tools);
+    assert_eq!(specforge_mcp::registry::listed_tools(state).count(), tools);
     assert_eq!(state.graph().node_count(), 2);
     let stats = tool(&mut server, "specforge.stats", json!({}));
     assert_eq!(stats["edge_count"], 1);
@@ -2462,16 +2488,20 @@ fn contract_brief_resource() {
 )]
 fn contract_diagnostics_resource() {
     let mut server = test_server();
-    let diagnostics = &mut server.state_mut().surface_diagnostics;
-    diagnostics.push(Diagnostic {
-        code: "E003".into(),
-        severity: Severity::Error,
-        message: "unresolved reference 'ghost'".into(),
-        span: Some(span_at("feat.spec", 2, 14, 2)),
-        suggestion: None,
-        data: None,
-    });
-    diagnostics.push(diagnostic("W001", "a warning", None));
+    crate::support::report(
+        server.state_mut(),
+        vec![
+            Diagnostic {
+                code: "E003".into(),
+                severity: Severity::Error,
+                message: "unresolved reference 'ghost'".into(),
+                span: Some(span_at("feat.spec", 2, 14, 2)),
+                suggestion: None,
+                data: None,
+            },
+            diagnostic("W001", "a warning", None),
+        ],
+    );
 
     // diagnostics_returned: severity, code, message, file and position.
     let (content, bag) = resource(&mut server, "specforge://diagnostics");
@@ -2490,7 +2520,7 @@ fn contract_diagnostics_resource() {
     );
 
     // Updates with the compilation's diagnostics.
-    server.state_mut().surface_diagnostics.clear();
+    crate::support::report(server.state_mut(), Vec::new());
     let (_, bag) = resource(&mut server, "specforge://diagnostics");
     assert_eq!(bag, json!([]));
 

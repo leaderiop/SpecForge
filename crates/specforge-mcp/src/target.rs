@@ -127,8 +127,8 @@ fn project_runtime(root: &Path) -> SharedRuntime {
 /// What a project's diagnostics are read from.
 #[derive(Clone, Copy)]
 enum Reported<'a> {
-    /// The served session, then what registering its surfaces with MCP
-    /// reported.
+    /// The served session, then the contributions of its extensions MCP
+    /// does not serve under their names (I017).
     Session(&'a ProjectSession, &'a [Diagnostic]),
     /// A one-shot compile.
     Compiled(&'a CompiledProject),
@@ -164,8 +164,8 @@ impl<'a> ProjectRef<'a> {
     }
 
     /// Everything the server reports for this project: what `specforge
-    /// check` reports, then, for the served project, what registering its
-    /// surfaces with MCP reported.
+    /// check` reports, then, for the served project, the contributions of
+    /// its extensions MCP does not serve under their names (I017).
     pub fn diagnostics(&self) -> Vec<Diagnostic> {
         match self.reported {
             Reported::Session(session, surfaces) => {
@@ -275,7 +275,7 @@ impl<'s> Call<'s> {
                     graph: session.graph(),
                     runtime,
                     recorded: session.recorded(),
-                    reported: Reported::Session(session, &self.state.surface_diagnostics),
+                    reported: Reported::Session(session, self.state.surfaces().diagnostics()),
                 })
             }
             CallTarget::Other(other) => Ok(ProjectRef {

@@ -12,6 +12,8 @@ use specforge_test::prelude::*;
 use std::fs;
 use tempfile::TempDir;
 
+use crate::fake_extension::{self, EXT, FakeExtension};
+
 fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
     let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
     let resp = server.handle_message(&req.to_string()).unwrap();
@@ -91,78 +93,30 @@ fn init_server_with_kinds() -> McpServer {
     server
 }
 
-/// Create a server with extension surface contributions injected directly.
-/// Tests MCP surface wiring, not the compile-time extension loading pipeline.
-fn init_server_with_surfaces() -> (McpServer, TempDir) {
-    use specforge_mcp::types::{McpResourceDescriptor, McpToolDescriptor};
-    use specforge_registry::{SurfaceRegistryEntry, SurfaceType};
-
-    let dir = TempDir::new().unwrap();
-    fs::write(
-        dir.path().join("core.spec"),
-        r#"behavior greet "Greet" {
-    status planned
-    contract "greet users"
-}
-"#,
-    )
-    .unwrap();
-    fs::write(
-        dir.path().join("specforge.json"),
-        r#"{
-    "name": "test-surfaces",
-    "version": "0.1.0",
-    "extensions": []
-}
-"#,
-    )
-    .unwrap();
-
-    let mut server = McpServer::new();
-    let project_root = dir.path().to_str().unwrap();
-    call(
-        &mut server,
-        "initialize",
-        json!({"projectRoot": project_root}),
-    );
-
-    // Inject extension surface contributions directly into server state
-    let state = server.state_mut();
-    state.tool_registry.push(McpToolDescriptor {
-        name: "test.list_items".into(),
-        description: "List all items via MCP".into(),
-        input_schema: json!({"type": "object", "properties": {"kind": {"type": "string"}}}),
-        category: Some("core".into()),
-        source: Some("@test/ext".into()),
-        ..Default::default()
-    });
-    state.resource_registry.push(McpResourceDescriptor {
-        uri: "specforge://test/items".into(),
-        name: "test-items".into(),
-        description: Some("All items resource".into()),
-        mime_type: Some("application/json".into()),
-    });
-    state.edit_environment(|env| {
-        env.registries.surfaces.push(SurfaceRegistryEntry {
-            extension_name: "@test/surfaces".into(),
-            surface_type: SurfaceType::McpTool,
-            contribution_name: "test.list_items".into(),
-            export_name: "mcp__list_items".into(),
-        });
-        env.registries.surfaces.push(SurfaceRegistryEntry {
-            extension_name: "@test/surfaces".into(),
-            surface_type: SurfaceType::McpResource,
-            contribution_name: "test-items".into(),
-            export_name: "mcp__test_items".into(),
-        });
-    });
-
-    (server, dir)
+/// A server over a project whose one extension declares an MCP tool
+/// (`test.list_items`) and an MCP resource (`specforge://test/items`) and
+/// no command, served through the runtime seam.
+fn init_server_with_surfaces() -> (McpServer, std::sync::Arc<FakeExtension>, TempDir) {
+    fake_extension::initialized(FakeExtension::declaring(json!({
+        "mcp_tools": [{
+            "name": "test.list_items",
+            "description": "List all items via MCP",
+            "export": "mcp__list_items",
+            "input_schema": {"type": "object", "properties": {"kind": {"type": "string"}}}
+        }],
+        "mcp_resources": [{
+            "uri_template": "specforge://test/items",
+            "name": "test-items",
+            "description": "All items resource",
+            "export": "mcp__test_items",
+            "mime_type": "application/json"
+        }]
+    })))
 }
 
 #[test]
 fn extension_mcp_tools_in_registry() {
-    let (mut server, _dir) = init_server_with_surfaces();
+    let (mut server, _ext, _dir) = init_server_with_surfaces();
     let resp = call(&mut server, "tools/list", json!({}));
     let tools = resp["result"]["tools"].as_array().unwrap();
     let tool_names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
@@ -183,7 +137,7 @@ fn extension_mcp_tools_in_registry() {
 
 #[test]
 fn extension_mcp_resources_in_registry() {
-    let (mut server, _dir) = init_server_with_surfaces();
+    let (mut server, _ext, _dir) = init_server_with_surfaces();
     let resp = call(&mut server, "resources/list", json!({}));
     let resources = resp["result"]["resources"].as_array().unwrap();
     let uris: Vec<&str> = resources
@@ -207,46 +161,39 @@ fn extension_mcp_resources_in_registry() {
 
 #[test]
 fn capabilities_include_extension_counts() {
-    use specforge_mcp::types::McpToolDescriptor;
-
-    let mut server = McpServer::new();
-    call(&mut server, "initialize", json!({}));
-
-    // Inject 2 extension tools directly
-    let state = server.state_mut();
-    state.tool_registry.push(McpToolDescriptor {
-        name: "ext.tool_a".into(),
-        description: "Tool A".into(),
-        input_schema: json!({"type": "object", "properties": {}}),
-        category: Some("core".into()),
-        source: Some("@test/ext".into()),
-        ..Default::default()
-    });
-    state.tool_registry.push(McpToolDescriptor {
-        name: "ext.tool_b".into(),
-        description: "Tool B".into(),
-        input_schema: json!({"type": "object", "properties": {}}),
-        category: Some("core".into()),
-        source: Some("@test/ext".into()),
-        ..Default::default()
-    });
+    let tool = |name: &str| {
+        json!({"name": name, "description": name, "export": format!("mcp__{name}"),
+            "input_schema": {"type": "object", "properties": {}}})
+    };
+    let (mut server, _ext, _dir) = fake_extension::initialized(
+        FakeExtension::declaring(json!({}))
+            .with_tool(tool("ext.tool_a"))
+            .with_tool(tool("ext.tool_b")),
+    );
 
     let resp = call(&mut server, "tools/list", json!({}));
     let tools = resp["result"]["tools"].as_array().unwrap();
-
-    // Should have core tools + 2 extension tools
+    // The core tools, then the 2 extension tools.
     let ext_tools: Vec<_> = tools
         .iter()
-        .filter(|t| {
-            let name = t["name"].as_str().unwrap();
-            name.starts_with("ext.")
-        })
+        .filter(|t| t["name"].as_str().unwrap().starts_with("ext."))
         .collect();
+    assert_eq!(ext_tools.len(), 2, "{ext_tools:?}");
+    let initialized: Vec<&Value> = server
+        .state()
+        .events
+        .iter()
+        .filter(|e| e.name == "mcp_initialized")
+        .map(|e| &e.params)
+        .collect();
+    let [initialized] = initialized.as_slice() else {
+        panic!("{initialized:?}")
+    };
+    assert_eq!(initialized["surface_tools_registered"], 2);
+    assert_eq!(initialized["auto_promoted_tools"], 0);
     assert_eq!(
-        ext_tools.len(),
-        2,
-        "expected 2 extension tools, got: {:?}",
-        ext_tools
+        initialized["tools_registered"],
+        specforge_mcp::tools::CORE_TOOLS.len() + 2
     );
 }
 
@@ -398,7 +345,7 @@ fn list_tool_registered() {
 
 #[test]
 fn extension_tool_dispatches() {
-    let (mut server, _dir) = init_server_with_surfaces();
+    let (mut server, _ext, _dir) = init_server_with_surfaces();
     let resp = call_tool(&mut server, "test.list_items", json!({"kind": "feature"}));
     // Should NOT be METHOD_NOT_FOUND — extension tools should be recognized
     let error_code = resp["error"]["code"].as_i64();
@@ -416,7 +363,7 @@ fn extension_tool_dispatches() {
     verify = "truly unknown tool returns -32602 Invalid params (MCP spec example)"
 )]
 fn unknown_tool_returns_invalid_params() {
-    let (mut server, _dir) = init_server_with_surfaces();
+    let (mut server, _ext, _dir) = init_server_with_surfaces();
     let resp = call_tool(&mut server, "totally.unknown.tool", json!({}));
     assert_eq!(resp["error"]["code"].as_i64(), Some(-32602));
 }
@@ -546,8 +493,6 @@ fn entities_resource_registered() {
 }
 
 // --- Auto-promoted CLI commands (`@test/cmds`, see fake_extension.rs) ---
-
-use crate::fake_extension::{self, EXT, FakeExtension};
 
 /// The listed descriptor called `name`, or `None`.
 fn listed_tool(server: &mut McpServer, name: &str) -> Option<Value> {
@@ -697,14 +642,16 @@ fn auto_promoted_tool_name_follows_pattern() {
     // specforge.cmds.<command id>, dispatched to the command's export.
     let promoted: Vec<(String, String, String)> = server
         .state()
-        .surface_entries()
-        .filter(|e| e.surface_type == specforge_registry::SurfaceType::AutoPromotedTool)
-        .map(|e| {
-            (
-                e.contribution_name.clone(),
-                e.extension_name.clone(),
-                e.export_name.clone(),
-            )
+        .surfaces()
+        .tools()
+        .iter()
+        .filter_map(|tool| match &tool.kind {
+            specforge_mcp::surface_table::ToolKind::Command(command) => Some((
+                tool.name.clone(),
+                tool.extension.clone(),
+                command.export().to_string(),
+            )),
+            specforge_mcp::surface_table::ToolKind::McpTool { .. } => None,
         })
         .collect();
     assert_eq!(
@@ -732,37 +679,41 @@ fn a_command_the_cli_refuses_is_no_tool() {
             .with_command(command("open", "path"))
             .with_command(command("draw", "shape")),
     );
-    // The rule the CLI refuses a command line by is the one MCP promotes by.
+    // The rule the CLI refuses a command line by is the one MCP promotes by,
+    // and MCP says why.
     let refused = |arg: &str| {
-        specforge_ops::command::refusal(&specforge_protocol_types::CommandDescriptor {
-            id: "x".into(),
-            title: "x".into(),
-            description: String::new(),
-            category: None,
-            export: "cmd__x".into(),
-            args: vec![specforge_protocol_types::CommandArgDescriptor {
-                name: arg.into(),
-                arg_type: specforge_protocol_types::CommandArgType::String,
-                required: false,
-                default_value: None,
-                description: None,
-                minimum: None,
-            }],
-            sandbox: None,
-        })
+        let declaration: specforge_protocol_types::CommandDescriptor =
+            serde_json::from_value(command("x", arg)).unwrap();
+        specforge_ops::command::ExtensionCommand::new(EXT, "cmds", &declaration)
+            .refusal()
+            .map(ToString::to_string)
     };
     assert!(refused("format").is_some());
     assert!(refused("shape").is_none());
     assert!(listed_tool(&mut server, "specforge.cmds.render").is_none());
     assert!(listed_tool(&mut server, "specforge.cmds.open").is_none());
     assert!(listed_tool(&mut server, "specforge.cmds.draw").is_some());
+    let i017: Vec<String> = server
+        .state()
+        .diagnostics()
+        .iter()
+        .filter(|d| d.code == "I017" && !d.message.starts_with("command 'check'"))
+        .map(|d| d.message.clone())
+        .collect();
+    assert_eq!(
+        i017,
+        [
+            "command 'render' not auto-promoted: the host refuses it: its arg 'format' takes the host's --format",
+            "command 'open' not auto-promoted: the host refuses it: its arg 'path' takes the host's --path",
+        ]
+    );
 }
 
 #[specforge_test(
     behavior = "auto_promote_commands_to_mcp_tools",
     verify = "derived input_schema computed from command args"
 )]
-fn derived_input_schema_from_command_args() {
+fn a_commands_input_schema_is_derived_from_its_args() {
     let (mut server, _ext, _dir) = fake_extension::initialized(FakeExtension::new());
     let listed = listed_tool(&mut server, "specforge.cmds.report").unwrap();
     assert_eq!(
@@ -771,11 +722,12 @@ fn derived_input_schema_from_command_args() {
             "type": "object",
             "properties": {
                 "style": {"type": "string", "enum": ["md", "json"], "description": "Output style"},
-                "verbose": {"type": "boolean"},
+                "verbose": {"type": "boolean", "default": false},
                 "limit": {"type": "integer"},
                 "out": {"type": "string"}
             },
-            "required": ["style"]
+            "required": ["style"],
+            "additionalProperties": false
         })
     );
 }
@@ -858,7 +810,7 @@ fn event_commands_auto_promoted() {
 
     // A project whose extensions contribute no command promotes nothing
     // and says nothing.
-    let (server, _dir) = init_server_with_surfaces();
+    let (server, _ext, _dir) = init_server_with_surfaces();
     assert!(
         !server
             .state()
@@ -1350,14 +1302,14 @@ fn pinned_args_reaching_cmd_exports_over_mcp() {
         ordered,
         [Some(json!({})), Some(json!({"order": "asc", "all": true}))]
     );
-    // R3: a required flag is required over MCP (the CLI runs it with
-    // strict: false).
+    // R3: a required flag is not required over MCP, as on the command
+    // line, but an unset one is absent (the CLI sends strict: false).
     let strict = args_reaching(
         FakeExtension::new().with_command(strict_command()),
         "specforge.cmds.strict",
         &[json!({}), json!({"strict": true})],
     );
-    assert_eq!(strict, [None, Some(json!({"strict": true}))]);
+    assert_eq!(strict, [Some(json!({})), Some(json!({"strict": true}))]);
     // An undeclared argument passes through to the export.
     let report = args_reaching(
         FakeExtension::new(),
@@ -1385,20 +1337,107 @@ fn pinned_command_tool_argument_errors() {
     insta::assert_json_snapshot!("command_tool_argument_errors", errors);
 }
 
-#[test]
-fn pinned_a_core_named_tool_is_listed_twice_and_the_core_tool_runs() {
+#[specforge_test(
+    behavior = "auto_promote_commands_to_mcp_tools",
+    verify = "an explicit extension tool named as a core tool is not listed, with I017"
+)]
+fn a_core_named_tool_is_not_served() {
     let (mut server, ext, _dir) =
         fake_extension::initialized(FakeExtension::new().with_tool(core_named_tool()));
     let resp = call(&mut server, "tools/list", json!({}));
-    let named = resp["result"]["tools"]
+    let named: Vec<&Value> = resp["result"]["tools"]
         .as_array()
         .unwrap()
         .iter()
         .filter(|t| t["name"] == "specforge.validate")
-        .count();
-    assert_eq!(named, 2, "R5: listed twice");
+        .collect();
+    assert_eq!(named.len(), 1, "listed once: {named:?}");
+    assert_eq!(named[0]["source"], "core");
+    let i017: Vec<String> = server
+        .state()
+        .diagnostics()
+        .iter()
+        .filter(|d| d.code == "I017")
+        .map(|d| d.message.clone())
+        .collect();
+    assert!(
+        i017.contains(
+            &"MCP tool 'specforge.validate' of '@test/cmds' not served: a core tool has that name"
+                .to_string()
+        ),
+        "{i017:?}"
+    );
     call_tool(&mut server, "specforge.validate", json!({}));
     assert!(ext.calls().is_empty(), "the core tool ran, not mcp__v");
+}
+
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "every listed extension tool is the one dispatched under its name, listed once"
+)]
+fn every_listed_extension_tool_is_the_one_dispatched() {
+    // The explicit check takes the name its command would have, and an
+    // explicit tool is named as a core tool.
+    let fake = FakeExtension::new()
+        .with_tool(core_named_tool())
+        .with_command(ordered_command());
+    let fake = ["mcp__check", "mcp__v"]
+        .into_iter()
+        .fold(fake, |fake, export| {
+            fake.with_output(export, json!({"checked": true}))
+        })
+        .with_output(
+            "cmd__report",
+            json!({"exit_code": 0, "stdout": "{}", "stderr": ""}),
+        )
+        .with_output(
+            "cmd__ordered",
+            json!({"exit_code": 0, "stdout": "{}", "stderr": ""}),
+        );
+    let (mut server, ext, _dir) = fake_extension::initialized(fake);
+    let resp = call(&mut server, "tools/list", json!({}));
+    let listed: Vec<String> = resp["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap().to_string())
+        .collect();
+    let mut unique = listed.clone();
+    unique.sort();
+    unique.dedup();
+    assert_eq!(unique.len(), listed.len(), "each name once: {listed:?}");
+
+    let declared = |name: &str| -> Option<&'static str> {
+        match name {
+            "specforge.cmds.check" => Some("mcp__check"),
+            "specforge.cmds.report" => Some("cmd__report"),
+            "specforge.cmds.ordered" => Some("cmd__ordered"),
+            _ => None,
+        }
+    };
+    let extension_tools: Vec<&Value> = resp["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|t| t["source"] == EXT)
+        .collect();
+    assert_eq!(extension_tools.len(), 3, "{extension_tools:?}");
+    for tool in extension_tools {
+        let name = tool["name"].as_str().unwrap();
+        let arguments = if name == "specforge.cmds.report" {
+            json!({"style": "md"})
+        } else {
+            json!({})
+        };
+        let before = ext.calls().len();
+        call_tool(&mut server, name, arguments);
+        let calls = ext.calls();
+        let reached: Vec<&str> = calls[before..]
+            .iter()
+            .map(|(_, export, _)| export.as_str())
+            .collect();
+        assert_eq!(reached, [declared(name).unwrap()], "{name}");
+    }
 }
 
 #[test]

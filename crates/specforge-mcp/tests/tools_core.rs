@@ -1911,11 +1911,14 @@ fn stats_diagnostic_summary_severity_counts() {
         suggestion: None,
         data: None,
     };
-    server.state_mut().surface_diagnostics = vec![
-        diagnostic("E003", Severity::Error),
-        diagnostic("W001", Severity::Warning),
-        diagnostic("W003", Severity::Warning),
-    ];
+    crate::support::report(
+        server.state_mut(),
+        vec![
+            diagnostic("E003", Severity::Error),
+            diagnostic("W001", Severity::Warning),
+            diagnostic("W003", Severity::Warning),
+        ],
+    );
     let resp = call_tool(&mut server, "specforge.stats", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();

@@ -364,7 +364,6 @@ impl CompiledProject {
             diagnostics,
             resolved,
             extension_rules: registries.rules,
-            surface_entries: registries.surfaces,
             declarations,
             passes: registries.passes,
             spec_root: env.spec_root,

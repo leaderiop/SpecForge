@@ -24,12 +24,12 @@ pub(crate) mod trace;
 mod validate;
 
 use serde_json::{Value, json};
-use specforge_registry::{SurfaceRegistryEntry, SurfaceType};
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::surface_table::{ToolEntry, ToolKind};
 use crate::target::{self, Call, CallTarget, Reach, TargetSpec};
-use crate::tool::{Category, Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
+use crate::tool::{Effect, ErrorCode, McpError, ToolOutcome, ToolSpec, envelope};
 pub use table::CORE_TOOLS;
 
 /// The navigator over what the call reads (`specforge_ops::navigate`):
@@ -152,22 +152,6 @@ fn extension_error(diag: &specforge_common::Diagnostic) -> ToolOutcome {
     McpError::from_diagnostic(diag).into()
 }
 
-/// The id of the command an auto-promoted tool runs: the one its extension
-/// declares with the tool's export.
-fn command_id(state: &McpState, entry: &SurfaceRegistryEntry) -> String {
-    state
-        .registries()
-        .declaration(&entry.extension_name)
-        .and_then(|declaration| {
-            declaration
-                .surfaces
-                .commands
-                .iter()
-                .find(|command| command.export == entry.export_name)
-        })
-        .map_or_else(|| entry.contribution_name.clone(), |c| c.id.clone())
-}
-
 /// An auto-promoted command's run as a tool result. The command was asked
 /// for json (ADR 0011): a JSON object on stdout, and nothing on stderr, is
 /// the result's structured payload; a failure that wrote one JSON object
@@ -207,34 +191,9 @@ fn command_tool_result(
     }
 }
 
-/// The `McpToolCategory` an extension tool's invocation reports: the one
-/// it is listed with.
-fn extension_category(state: &McpState, name: &str) -> &'static str {
-    state
-        .tool_registry
-        .iter()
-        .find(|t| t.name == name)
-        .and_then(|t| t.category.as_deref())
-        .and_then(Category::parse)
-        .unwrap_or(Category::Core)
-        .as_str()
-}
-
 /// The core tool named `name`.
 pub fn core_tool(name: &str) -> Option<&'static ToolSpec> {
     CORE_TOOLS.iter().find(|t| t.name == name)
-}
-
-/// The extension tool named `name`.
-fn extension_entry(state: &McpState, name: &str) -> Option<SurfaceRegistryEntry> {
-    state
-        .surface_entries()
-        .find(|e| {
-            (e.surface_type == SurfaceType::McpTool
-                || e.surface_type == SurfaceType::AutoPromotedTool)
-                && e.contribution_name == name
-        })
-        .cloned()
 }
 
 pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
@@ -270,8 +229,8 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
     let spec = core_tool(name);
     let extension = match spec {
         Some(_) => None,
-        None => match extension_entry(state, name) {
-            Some(entry) => Some(entry),
+        None => match state.surfaces().tool(name) {
+            Some(entry) => Some(entry.clone()),
             None => {
                 // MCP spec (tools/call): an unrecognized tool is an Invalid
                 // params protocol error, as its "Unknown tool" example shows.
@@ -284,9 +243,11 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         },
     };
 
-    let category = match spec {
-        Some(spec) => spec.category.as_str(),
-        None => extension_category(state, name),
+    // The category it is listed with: no second lookup.
+    let category = match (spec, &extension) {
+        (Some(spec), _) => spec.category.as_str(),
+        (None, Some(entry)) => entry.category.as_str(),
+        (None, None) => unreachable!("an unknown tool was refused above"),
     };
     let mut event = json!({
         "toolName": name,
@@ -364,12 +325,10 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
 
     // A tool with an outputSchema: a core one, or an extension's that
     // declares one.
-    let typed = match spec {
-        Some(spec) => spec.output.is_some(),
-        None => state
-            .tool_registry
-            .iter()
-            .any(|t| t.name == name && t.output_schema.is_some()),
+    let typed = match (spec, &extension) {
+        (Some(spec), _) => spec.output.is_some(),
+        (None, Some(entry)) => entry.output_schema().is_some(),
+        (None, None) => false,
     };
     envelope(outcome, id, state.sends_structured_content(), typed)
 }
@@ -383,7 +342,7 @@ type Dispatched = Option<(&'static str, Value)>;
 /// is a dispatched tool that failed).
 fn extension_tool(
     call: &mut Call<'_>,
-    entry: &SurfaceRegistryEntry,
+    entry: &ToolEntry,
     arguments: Value,
 ) -> (ToolOutcome, Dispatched) {
     // The project the tool runs over, in the runtime it was compiled in.
@@ -398,14 +357,10 @@ fn extension_tool(
         );
         return (refused, None);
     };
-    let state = &*call.state;
-    let declared = state
-        .tool_registry
-        .iter()
-        .find(|t| t.name == entry.contribution_name);
     // The input the tool declares, checked before its module runs.
-    if let Some(schema) = declared.map(|t| &t.input_schema) {
-        let violations = crate::json_schema::violations(schema, &arguments);
+    {
+        let schema = entry.descriptor().input_schema;
+        let violations = crate::json_schema::violations(&schema, &arguments);
         if !violations.is_empty() {
             let refused = McpError::new(
                 ErrorCode::InvalidInput,
@@ -419,74 +374,50 @@ fn extension_tool(
             return (refused, None);
         }
     }
-    if entry.surface_type == SurfaceType::AutoPromotedTool {
-        // An auto-promoted CLI command runs its cmd__ export over the served
-        // graph, as `specforge <ext> <command>` does over the compiled one.
-        let args = arguments.as_object().cloned().unwrap_or_default();
-        // Over MCP a command is always asked for json: the tool has no
-        // format argument (ADR 0011).
-        let context = specforge_ops::command::CommandContext {
-            format: specforge_ops::command::CommandFormat::Json,
-            today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
-        };
-        let Some(command) = state
-            .registries()
-            .declaration(&entry.extension_name)
-            .and_then(|declaration| {
-                declaration
-                    .surfaces
-                    .commands
-                    .iter()
-                    .find(|command| command.export == entry.export_name)
-                    .map(|command| {
-                        specforge_ops::command::ExtensionCommand::new(
-                            declaration.name(),
-                            &declaration.short(),
-                            command,
-                        )
-                    })
-            })
-        else {
-            let refused = ToolOutcome::error(
-                ErrorCode::InternalError,
-                format!(
-                    "no command of '{}' runs {}",
-                    entry.extension_name, entry.export_name
-                ),
+    let export = match &entry.kind {
+        ToolKind::McpTool { export, .. } => export,
+        ToolKind::Command(command) => {
+            // An auto-promoted CLI command runs its cmd__ export over the served
+            // graph, as `specforge <ext> <command>` does over the compiled one.
+            let args = arguments.as_object().cloned().unwrap_or_default();
+            // Over MCP a command is always asked for json: the tool has no
+            // format argument (ADR 0011).
+            let context = specforge_ops::command::CommandContext {
+                format: specforge_ops::command::CommandFormat::Json,
+                today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+            };
+            let started = std::time::Instant::now();
+            let outcome = specforge_ops::command::run_command(
+                runtime.as_ref(),
+                command,
+                project.graph,
+                &args,
+                project.root,
+                &context,
             );
-            return (refused, None);
-        };
-        let started = std::time::Instant::now();
-        let outcome = specforge_ops::command::run_command(
-            runtime.as_ref(),
-            &command,
-            project.graph,
-            &args,
-            project.root,
-            &context,
-        );
-        // A command whose export returned is a dispatched command; a trap
-        // is the tool's error.
-        let dispatched = outcome.as_ref().ok().map(|output| {
-            json!({
-                "extensionName": entry.extension_name,
-                "commandId": command_id(state, entry),
-                "exitCode": output.exit_code,
-                "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
-            })
-        });
-        return (
-            command_tool_result(outcome),
-            dispatched.map(|event| ("surface_command_dispatched", event)),
-        );
-    }
+            // A command whose export returned is a dispatched command; a trap
+            // is the tool's error.
+            let dispatched = outcome.as_ref().ok().map(|output| {
+                json!({
+                    "extensionName": command.extension(),
+                    "commandId": command.id(),
+                    "exitCode": output.exit_code,
+                    "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+                })
+            });
+            return (
+                command_tool_result(outcome),
+                dispatched.map(|event| ("surface_command_dispatched", event)),
+            );
+        }
+    };
     let started = std::time::Instant::now();
     let result = match specforge_wasm::ExtensionCalls::new(runtime.as_ref()).call_mcp_tool(
-        &entry.extension_name,
-        &entry.export_name,
+        &entry.extension,
+        export,
         &arguments,
     ) {
-        Ok(value) => match declared.and_then(|t| t.output_schema.as_ref()) {
+        Ok(value) => match entry.output_schema() {
             // An output the tool's own schema refuses is never served as
             // its structured result.
             Some(schema) => {
@@ -498,7 +429,7 @@ fn extension_tool(
                         ErrorCode::SchemaMismatch,
                         format!(
                             "extension tool '{}' returned output that does not match its output schema: {}",
-                            entry.contribution_name,
+                            entry.name,
                             violations.join("; ")
                         ),
                     )
@@ -514,8 +445,8 @@ fn extension_tool(
     // A tool whose export returned is a dispatched tool; it succeeded when
     // its output is the tool's result.
     let event = json!({
-        "extensionName": entry.extension_name,
-        "toolName": entry.contribution_name,
+        "extensionName": entry.extension,
+        "toolName": entry.name,
         "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
         "success": result.succeeded(),
     });

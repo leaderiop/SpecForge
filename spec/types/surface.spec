@@ -169,7 +169,7 @@ type SurfaceRegistryEntry {
   verify unit "SurfaceRegistryEntry schema is valid"
 }
 
-type SurfaceType = command | mcp_tool | mcp_resource | auto_promoted_tool
+type SurfaceType = command | mcp_tool | mcp_resource
 
 // ── Surface Errors ──────────────────────────────────────────
 

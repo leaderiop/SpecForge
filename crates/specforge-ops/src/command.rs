@@ -336,18 +336,6 @@ impl ExtensionCommands {
     }
 }
 
-/// The project's routed commands (load order). Kept until the CLI and MCP
-/// read [`ExtensionCommands`] directly.
-pub fn extension_commands(build: &RegistryBuild) -> Vec<ExtensionCommand> {
-    ExtensionCommands::build(build).all().to_vec()
-}
-
-/// Why the host refuses `contribution`, if it does, as both surfaces
-/// write it ([`Refusal`]).
-pub fn refusal(contribution: &CommandDescriptor) -> Option<String> {
-    command_args::refusal(&contribution.args).map(|refused| refused.to_string())
-}
-
 /// What the host passes a command beside its args: the format the caller
 /// asked for, and the host's date when it was called (UTC, `YYYY-MM-DD`),
 /// computed by the caller so a test can pin it.

@@ -128,7 +128,8 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
   verify unit "a command the CLI refuses, such as one declaring an arg named format, is not promoted"
   verify unit "the derived input_schema states each arg's default and minimum and accepts no undeclared argument"
   verify unit "a required flag is not required over MCP, as on the command line"
-  verify contract "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted"
+  verify unit "an explicit extension tool named as a core tool is not listed, with I017"
+  verify contract "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surfaces_registered, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted, schema_is_the_declaration"
 }
 
 // ── Dispatch ────────────────────────────────────────────────

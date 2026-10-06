@@ -308,14 +308,17 @@ fn diagnostics_resource_returns_array() {
         suggestion: None,
         data: None,
     };
-    server.state_mut().surface_diagnostics = vec![
-        diagnostic(
-            "E003",
-            specforge_common::Severity::Error,
-            "unresolved reference",
-        ),
-        diagnostic("W001", specforge_common::Severity::Warning, "orphan entity"),
-    ];
+    crate::support::report(
+        server.state_mut(),
+        vec![
+            diagnostic(
+                "E003",
+                specforge_common::Severity::Error,
+                "unresolved reference",
+            ),
+            diagnostic("W001", specforge_common::Severity::Warning, "orphan entity"),
+        ],
+    );
     let resp = read_resource(&mut server, "specforge://diagnostics");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -579,10 +582,9 @@ fn diagnostics_updates_after_recompilation() {
     let count1 = parsed1.as_array().unwrap().len();
 
     // Add a diagnostic to state
-    server
-        .state_mut()
-        .surface_diagnostics
-        .push(specforge_common::Diagnostic {
+    crate::support::report_also(
+        server.state_mut(),
+        specforge_common::Diagnostic {
             code: "V001".into(),
             severity: specforge_common::Severity::Error,
             message: "test diagnostic".into(),
@@ -595,7 +597,8 @@ fn diagnostics_updates_after_recompilation() {
             }),
             suggestion: None,
             data: None,
-        });
+        },
+    );
 
     let resp2 = read_resource(&mut server, "specforge://diagnostics");
     let text2 = resource_text(&resp2);
@@ -612,10 +615,9 @@ fn diagnostics_updates_after_recompilation() {
 fn diagnostics_fields_present() {
     let mut server = test_server();
 
-    server
-        .state_mut()
-        .surface_diagnostics
-        .push(specforge_common::Diagnostic {
+    crate::support::report_also(
+        server.state_mut(),
+        specforge_common::Diagnostic {
             code: "V001".into(),
             severity: specforge_common::Severity::Error,
             message: "test error".into(),
@@ -628,7 +630,8 @@ fn diagnostics_fields_present() {
             }),
             suggestion: None,
             data: None,
-        });
+        },
+    );
 
     let resp = read_resource(&mut server, "specforge://diagnostics");
     let text = resource_text(&resp);
@@ -879,7 +882,10 @@ fn diagnostics_resource_gives_catalogued_codes_their_title() {
         data: None,
     };
     // W008 is catalogued; W901 is a third-party extension's.
-    server.state_mut().surface_diagnostics = vec![diagnostic("W008"), diagnostic("W901")];
+    crate::support::report(
+        server.state_mut(),
+        vec![diagnostic("W008"), diagnostic("W901")],
+    );
     let bag: Value = serde_json::from_str(&resource_text(&read_resource(
         &mut server,
         "specforge://diagnostics",

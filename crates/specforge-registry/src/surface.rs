@@ -14,7 +14,6 @@ pub enum SurfaceType {
     Command,
     McpTool,
     McpResource,
-    AutoPromotedTool,
 }
 
 #[derive(Debug, Clone)]

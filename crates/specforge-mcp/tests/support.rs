@@ -101,3 +101,31 @@ pub fn obligate(server: &mut McpServer, kind: &str) {
         .state_mut()
         .edit_environment(|env| env.registries.rules.push(obligations_rule(kind)));
 }
+
+/// Make `diagnostics` what the served in-memory project reports last, in
+/// order: its environment's surface registration conflicts, as a registry
+/// build that refused or deduplicated surfaces reports them (check reports
+/// them after everything else).
+pub fn report(
+    state: &mut specforge_mcp::state::McpState,
+    diagnostics: Vec<specforge_common::Diagnostic>,
+) {
+    state.edit_environment(|env| env.registries.surface_diagnostics = diagnostics);
+}
+
+/// Add `diagnostic` to what the served in-memory project reports last
+/// ([`report`]).
+pub fn report_also(
+    state: &mut specforge_mcp::state::McpState,
+    diagnostic: specforge_common::Diagnostic,
+) {
+    state.edit_environment(|env| env.registries.surface_diagnostics.push(diagnostic));
+}
+
+/// The core tools as `tools/list` describes them, in listing order.
+pub fn core_tools() -> Vec<specforge_mcp::types::McpToolDescriptor> {
+    specforge_mcp::tools::CORE_TOOLS
+        .iter()
+        .map(specforge_mcp::tool::ToolSpec::descriptor)
+        .collect()
+}

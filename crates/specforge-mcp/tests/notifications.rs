@@ -21,14 +21,17 @@ fn enqueue_delivers_graph_and_diagnostics_to_subscribers() {
     let mut current = Graph::new();
     current.add_node(node("alpha"));
     state.serve_graph(current, Vec::new());
-    state.surface_diagnostics = vec![Diagnostic {
-        code: "V001".into(),
-        severity: Severity::Error,
-        message: "boom".into(),
-        span: None,
-        suggestion: None,
-        data: None,
-    }];
+    crate::support::report(
+        &mut state,
+        vec![Diagnostic {
+            code: "V001".into(),
+            severity: Severity::Error,
+            message: "boom".into(),
+            span: None,
+            suggestion: None,
+            data: None,
+        }],
+    );
 
     let delta = compute_graph_delta(&previous, state.graph());
     enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &[]);
@@ -68,14 +71,17 @@ fn enqueue_suppresses_unsubscribed_and_unchanged() {
     );
 
     // Diagnostics changed and the channel is subscribed.
-    state.surface_diagnostics = vec![Diagnostic {
-        code: "V001".into(),
-        severity: Severity::Error,
-        message: "boom".into(),
-        span: None,
-        suggestion: None,
-        data: None,
-    }];
+    crate::support::report(
+        &mut state,
+        vec![Diagnostic {
+            code: "V001".into(),
+            severity: Severity::Error,
+            message: "boom".into(),
+            span: None,
+            suggestion: None,
+            data: None,
+        }],
+    );
     let delta = compute_graph_delta(&Graph::new(), state.graph());
     enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &[]);
     assert_eq!(state.notification_outbox.len(), 1);
@@ -280,7 +286,7 @@ fn diagnostics_no_notification_when_unchanged() {
     // diagnostics as they were ...
     let mut state = McpState::new();
     subscriptions::subscribe(&mut state, "c1", DIAGNOSTICS_CHANNEL);
-    state.surface_diagnostics = diags.clone();
+    crate::support::report(&mut state, diags.clone());
     let delta = compute_graph_delta(&Graph::new(), state.graph());
     enqueue_compile_notifications(&mut state, &crate::support::update_of(delta), &diags);
     assert!(

@@ -370,12 +370,15 @@ fn inspect_diagnostics_are_the_entitys_own() {
             })
         }),
     };
-    state.surface_diagnostics = vec![
-        diagnostic("W003", Some(at(30, 34)), None),
-        diagnostic("W100", Some(at(21, 21)), None),
-        diagnostic("W101", None, Some("task")),
-        diagnostic("W102", None, Some("task_id_uniqueness")),
-    ];
+    crate::support::report(
+        state,
+        vec![
+            diagnostic("W003", Some(at(30, 34)), None),
+            diagnostic("W100", Some(at(21, 21)), None),
+            diagnostic("W101", None, Some("task")),
+            diagnostic("W102", None, Some("task_id_uniqueness")),
+        ],
+    );
     let codes = |server: &mut McpServer, id: &str| {
         let resp = call_tool(server, "specforge.inspect", json!({"entity_id": id}));
         let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
@@ -418,10 +421,13 @@ fn inspect_attributes_spanless_diagnostics_by_data() {
 
     // A spanless diagnostic whose message quotes an ID but whose data
     // names none belongs to nobody.
-    server.state_mut().surface_diagnostics = vec![specforge_common::Diagnostic::warning(
-        "W900",
-        "behavior 'gamma' is mentioned here",
-    )];
+    crate::support::report(
+        server.state_mut(),
+        vec![specforge_common::Diagnostic::warning(
+            "W900",
+            "behavior 'gamma' is mentioned here",
+        )],
+    );
     assert!(!codes(&mut server, "gamma").contains(&"W900".to_string()));
 }
 

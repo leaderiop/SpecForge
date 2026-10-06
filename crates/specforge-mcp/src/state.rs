@@ -1,12 +1,13 @@
 use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_graph::Graph;
 use specforge_project::{Environment, Origin, ProjectSession, SharedRuntime, Update, UpdateKind};
-use specforge_registry::{RegistryBuild, SurfaceRegistryEntry};
+use specforge_registry::RegistryBuild;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use crate::types::{McpEvent, McpResourceDescriptor, McpToolDescriptor};
+use crate::surface_table::ExtensionSurfaceTable;
+use crate::types::McpEvent;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServerPhase {
@@ -39,19 +40,14 @@ pub struct McpState {
     generation: u64,
     /// The last update [`Self::ensure_fresh`] applied.
     last_update: Option<Update>,
-    /// What registering the served project's surfaces with MCP reported
-    /// (auto-promotion conflicts), after the project's own diagnostics.
-    pub surface_diagnostics: Vec<Diagnostic>,
-    /// The tools MCP auto-promoted from the served project's extension
-    /// commands, listed after the project's own surfaces.
-    pub promoted_surfaces: Vec<SurfaceRegistryEntry>,
+    /// What MCP serves from the served project's extensions, built from
+    /// their declarations whenever its environment loads.
+    surfaces: ExtensionSurfaceTable,
     /// Project compiled when the client's `initialize` names no `projectRoot`
     /// (the `specforge mcp <path>` argument).
     pub default_project_root: Option<PathBuf>,
     pub subscriptions: HashMap<String, Vec<Subscription>>,
     pub previous_diagnostics: Vec<Diagnostic>,
-    pub tool_registry: Vec<McpToolDescriptor>,
-    pub resource_registry: Vec<McpResourceDescriptor>,
     pub events: Vec<McpEvent>,
     /// Server→client notifications queued for subscribed channels (C9-01),
     /// drained by the host loop via `pending_notifications`.
@@ -94,13 +90,10 @@ impl McpState {
             session: ProjectSession::detached(),
             generation: 0,
             last_update: None,
-            surface_diagnostics: Vec::new(),
-            promoted_surfaces: Vec::new(),
+            surfaces: ExtensionSurfaceTable::empty(),
             default_project_root: None,
             subscriptions: HashMap::new(),
             previous_diagnostics: Vec::new(),
-            tool_registry: Vec::new(),
-            resource_registry: Vec::new(),
             events: Vec::new(),
             notification_outbox: Vec::new(),
             extension_runtime: None,
@@ -152,21 +145,19 @@ impl McpState {
     }
 
     /// Everything the server reports for the served project: what
-    /// `specforge check` reports, then what registering its surfaces with
-    /// MCP reported.
+    /// `specforge check` reports, then the contributions of its extensions
+    /// MCP does not serve under their names (I017).
     pub fn diagnostics(&self) -> Vec<Diagnostic> {
         let mut diagnostics = self.session.diagnostics();
-        diagnostics.extend(self.surface_diagnostics.iter().cloned());
+        diagnostics.extend(self.surfaces.diagnostics().iter().cloned());
         diagnostics
     }
 
-    /// The surfaces the server serves: the project's, then the tools MCP
-    /// auto-promoted from its commands.
-    pub fn surface_entries(&self) -> impl Iterator<Item = &SurfaceRegistryEntry> {
-        self.registries()
-            .surfaces
-            .iter()
-            .chain(&self.promoted_surfaces)
+    /// What MCP serves from the served project's extensions: listed after
+    /// the core tools and resources, and looked up by a call that names no
+    /// core one.
+    pub fn surfaces(&self) -> &ExtensionSurfaceTable {
+        &self.surfaces
     }
 
     /// Whether requests are served: after `initialize`, or for a stateless
@@ -213,9 +204,9 @@ impl McpState {
     /// and rebuilds from the sources (a fresh compile), or a session is
     /// opened when `root` is not the project served. The graph,
     /// diagnostics, registries, config and runtime change together, with
-    /// the session; the tools and resources listed become the defaults
-    /// plus what this project's extensions contribute, so nothing a
-    /// previous load contributed survives, and nothing is listed twice.
+    /// the session; the extension surface table is built again from this
+    /// project's declarations, so nothing a previous load contributed
+    /// survives, and nothing is listed twice.
     /// Subscribed clients learn what changed. The one place the served
     /// project is replaced (initialize, adopting a call's path, a call that
     /// wrote an in-memory project's files).
@@ -266,17 +257,27 @@ impl McpState {
         self.last_update.as_ref()
     }
 
-    /// Record `update`, applied to the served session: the surfaces the
-    /// project's extensions contribute are registered again when its
-    /// environment loaded again, and subscribed clients learn what changed.
+    /// Record `update`, applied to the served session: the extension
+    /// surface table is built again when its environment loaded again, and
+    /// subscribed clients learn what changed.
     fn applied(&mut self, update: Update, previous_diagnostics: &[Diagnostic]) {
         self.generation += 1;
         if update.kind == UpdateKind::Environment {
-            self.surface_diagnostics.clear();
-            self.promoted_surfaces.clear();
-            crate::registry::register_defaults(self);
-            let env = self.session.shared_environment();
-            crate::registry::register_extension_surfaces(self, env.registries.declarations());
+            self.surfaces = ExtensionSurfaceTable::build(
+                self.registries(),
+                crate::tools::CORE_TOOLS,
+                crate::resources::CORE_RESOURCES,
+            );
+            let stats = self.surfaces.stats();
+            if stats.declared > 0 {
+                self.push_event(
+                    "commands_auto_promoted",
+                    serde_json::json!({
+                        "promotedCount": stats.promoted,
+                        "conflictCount": stats.conflicts,
+                    }),
+                );
+            }
         }
         crate::notifications::enqueue_compile_notifications(self, &update, previous_diagnostics);
         self.last_update = Some(update);
@@ -356,7 +357,6 @@ impl McpState {
         self.previous_diagnostics = self.diagnostics();
         self.session = ProjectSession::detached();
         self.generation += 1;
-        self.surface_diagnostics.clear();
-        self.promoted_surfaces.clear();
+        self.surfaces = ExtensionSurfaceTable::empty();
     }
 }

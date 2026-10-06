@@ -12,7 +12,7 @@ expression: extension_listings(&mut server)
   "resourceTemplates": [],
   "resources": [
     {
-      "mime_type": "application/json",
+      "mimeType": "application/json",
       "name": "cmds-summary",
       "uri": "specforge://ext/cmds/summary"
     }
@@ -44,6 +44,7 @@ expression: extension_listings(&mut server)
       "category": "core",
       "description": "Write a coverage report",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "limit": {
             "type": "integer"
@@ -60,6 +61,7 @@ expression: extension_listings(&mut server)
             "type": "string"
           },
           "verbose": {
+            "default": false,
             "type": "boolean"
           }
         },
@@ -75,14 +77,13 @@ expression: extension_listings(&mut server)
       "category": "core",
       "description": "Check strictly",
       "inputSchema": {
+        "additionalProperties": false,
         "properties": {
           "strict": {
+            "default": false,
             "type": "boolean"
           }
         },
-        "required": [
-          "strict"
-        ],
         "type": "object"
       },
       "name": "specforge.cmds.strict",

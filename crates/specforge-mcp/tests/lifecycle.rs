@@ -16,10 +16,15 @@ fn init_server() -> McpServer {
     server
 }
 
-/// Register what an extension's declaration contributes to MCP, as loading
-/// the extension does.
-fn load_extension_surfaces(server: &mut McpServer) {
-    let surfaces: specforge_protocol_types::SurfaceDescriptor = serde_json::from_value(json!({
+/// A server over a project whose one extension declares the MCP tool
+/// `ext.hello` and the resource template `specforge://ext/hello/{name}`,
+/// served through the runtime seam as loading the extension does.
+fn server_with_extension_surfaces() -> (
+    McpServer,
+    std::sync::Arc<crate::fake_extension::FakeExtension>,
+    TempDir,
+) {
+    crate::fake_extension::initialized(crate::fake_extension::FakeExtension::declaring(json!({
         "mcp_tools": [{
             "name": "ext.hello",
             "description": "Say hello",
@@ -32,17 +37,7 @@ fn load_extension_surfaces(server: &mut McpServer) {
             "export": "resource__hello",
             "mime_type": "application/json"
         }]
-    }))
-    .unwrap();
-    let declaration = specforge_protocol_types::ExtensionDeclaration {
-        handshake: specforge_protocol_types::HandshakeResponse {
-            name: "@you/hello".to_string(),
-            ..Default::default()
-        },
-        surfaces,
-        ..Default::default()
-    };
-    specforge_mcp::registry::register_extension_surfaces(server.state_mut(), &[declaration]);
+    })))
 }
 
 /// What a cancellation must leave untouched: the registries, the graph, the
@@ -64,8 +59,8 @@ fn state_snapshot(server: &McpServer) -> Value {
         .collect();
     subscriptions.sort();
     json!({
-        "tools": state.tool_registry,
-        "resources": state.resource_registry,
+        "tools": specforge_mcp::registry::listed_tools(state).collect::<Vec<_>>(),
+        "resources": specforge_mcp::registry::listed_resources(state).collect::<Vec<_>>(),
         "nodes": nodes,
         "edges": state.graph().edge_count(),
         "diagnostics": state.diagnostics().iter().map(|d| d.code.clone()).collect::<Vec<_>>(),
@@ -457,8 +452,13 @@ fn reinit_rejected_session_continues() {
 )]
 fn reinit_rejected_no_resource_leak() {
     let mut server = init_server();
-    let tools_before = server.state().tool_registry.len();
-    let resources_before = server.state().resource_registry.len();
+    let listed = |server: &McpServer| {
+        (
+            specforge_mcp::registry::listed_tools(server.state()).count(),
+            specforge_mcp::registry::listed_resources(server.state()).count(),
+        )
+    };
+    let before = listed(&server);
     let prompts_before = call(&mut server, "prompts/list", json!({}))["result"]["prompts"].clone();
 
     // Attempt duplicate init — should be rejected
@@ -466,8 +466,7 @@ fn reinit_rejected_no_resource_leak() {
     assert!(resp["error"].is_object());
 
     // Counts must remain the same
-    assert_eq!(server.state().tool_registry.len(), tools_before);
-    assert_eq!(server.state().resource_registry.len(), resources_before);
+    assert_eq!(listed(&server), before);
     assert_eq!(
         call(&mut server, "prompts/list", json!({}))["result"]["prompts"],
         prompts_before
@@ -501,8 +500,7 @@ fn list_tools_core_descriptors_no_extensions() {
     verify = "reflects tools from newly loaded extension"
 )]
 fn list_tools_reflects_extension_tools() {
-    let mut server = init_server();
-    load_extension_surfaces(&mut server);
+    let (mut server, _ext, _dir) = server_with_extension_surfaces();
     let resp = call(&mut server, "tools/list", json!({}));
     let tools = resp["result"]["tools"].as_array().unwrap();
     let ext = tools
@@ -540,8 +538,7 @@ fn list_resources_core_descriptors_no_extensions() {
     verify = "reflects resources from newly loaded extension"
 )]
 fn list_resources_reflects_extension_resources() {
-    let mut server = init_server();
-    load_extension_surfaces(&mut server);
+    let (mut server, _ext, _dir) = server_with_extension_surfaces();
     let resp = call(&mut server, "resources/list", json!({}));
     let uris: Vec<&str> = resp["result"]["resources"]
         .as_array()

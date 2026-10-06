@@ -232,41 +232,14 @@ fn read(call: &Call<'_>, uri: &str) -> ReadOutcome {
 /// extension contributes.
 pub(crate) fn is_served(state: &McpState, uri: &str) -> bool {
     CORE_RESOURCES.iter().any(|r| r.matches(uri))
-        || (uri.starts_with("specforge://ext/") && extension_resource_entry(state, uri).is_some())
-}
-
-/// The extension resource whose URI template `uri` matches.
-fn extension_resource_entry<'a>(
-    state: &'a McpState,
-    uri: &str,
-) -> Option<&'a specforge_registry::SurfaceRegistryEntry> {
-    state.surface_entries().find(|e| {
-        e.surface_type == specforge_registry::SurfaceType::McpResource
-            && uri_template(state, e).is_some_and(|template| matches_uri_template(template, uri))
-    })
-}
-
-/// The URI template the extension resource `entry` registers (entries name
-/// a resource by its `name`).
-fn uri_template<'a>(
-    state: &'a McpState,
-    entry: &specforge_registry::SurfaceRegistryEntry,
-) -> Option<&'a str> {
-    state
-        .registries()
-        .declaration(&entry.extension_name)?
-        .surfaces
-        .mcp_resources
-        .iter()
-        .find(|resource| resource.name == entry.contribution_name)
-        .map(|resource| resource.uri_template.as_str())
+        || (uri.starts_with("specforge://ext/") && state.surfaces().resource(uri).is_some())
 }
 
 /// An extension-contributed resource, read through the Wasm runtime
 /// (WASM-only migration, Phase 4).
 fn extension_resource(call: &Call<'_>, uri: &str) -> ReadOutcome {
     let state: &McpState = call.state;
-    let Some(entry) = extension_resource_entry(state, uri) else {
+    let Some(entry) = state.surfaces().resource(uri) else {
         return Err(invalid_params(format!("Unknown resource URI: {uri}")));
     };
     // The project the resource reads, in the runtime it was compiled in.
@@ -278,8 +251,8 @@ fn extension_resource(call: &Call<'_>, uri: &str) -> ReadOutcome {
     };
     let started = std::time::Instant::now();
     match specforge_wasm::ExtensionCalls::new(runtime.as_ref()).read_mcp_resource(
-        &entry.extension_name,
-        &entry.export_name,
+        &entry.extension,
+        &entry.export,
         uri,
     ) {
         // A read whose export answered its content is a dispatched
@@ -288,8 +261,8 @@ fn extension_resource(call: &Call<'_>, uri: &str) -> ReadOutcome {
         // recorded.
         Ok(read) => Ok(ResourceText {
             dispatched: Some(serde_json::json!({
-                "extensionName": entry.extension_name,
-                "uriTemplate": uri_template(state, entry).unwrap_or_default(),
+                "extensionName": entry.extension,
+                "uriTemplate": entry.uri_template,
                 "mimeType": read.mime_type,
                 "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
             })),
@@ -301,16 +274,6 @@ fn extension_resource(call: &Call<'_>, uri: &str) -> ReadOutcome {
             let diag = error.diagnostic();
             Err(invalid_params(format!("{}: {}", diag.code, diag.message)))
         }
-    }
-}
-
-/// Whether `uri` is one `template` names: the template itself when it has
-/// no `{placeholder}`, else its text before the first placeholder followed
-/// by more (`specforge://ext/widgets/{id}` names `specforge://ext/widgets/w1`).
-fn matches_uri_template(template: &str, uri: &str) -> bool {
-    match template.split_once('{') {
-        Some((head, _)) => uri.len() > head.len() && uri.starts_with(head),
-        None => uri == template,
     }
 }
 

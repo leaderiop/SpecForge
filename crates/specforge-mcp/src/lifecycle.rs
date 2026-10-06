@@ -2,7 +2,6 @@ use serde_json::Value;
 use std::path::PathBuf;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
-use crate::registry::register_defaults;
 use crate::state::{McpState, ServerPhase};
 use crate::types::{
     McpCapabilities, McpCapabilityFlags, McpPromptCapability, McpResourceCapability, McpServerInfo,
@@ -67,30 +66,29 @@ pub fn handle_initialize(
         protocol_version: state.protocol_version.into(),
         capabilities: capability_flags(),
         server_info: server_info(),
-        tools: state.tool_registry.clone(),
-        resources: state.resource_registry.clone(),
+        tools: crate::registry::listed_tools(state).collect(),
+        resources: crate::registry::listed_resources(state).collect(),
         prompts: crate::prompts::descriptors(),
     };
 
-    // Extension surfaces are what registration added past the defaults.
-    let default_tools = crate::registry::default_tool_count();
-    let default_resources = crate::registry::default_resource_count();
-    let auto_promoted_tools = state
-        .surface_entries()
-        .filter(|e| e.surface_type == specforge_registry::SurfaceType::AutoPromotedTool)
+    // The extension surfaces are the table's entries.
+    let surfaces = state.surfaces();
+    let surface_tools = surfaces.tools().len();
+    let surface_resources = surfaces.resources().len();
+    let auto_promoted_tools = surfaces
+        .tools()
+        .iter()
+        .filter(|tool| matches!(tool.kind, crate::surface_table::ToolKind::Command(_)))
         .count();
     state.push_event(
         "mcp_initialized",
         serde_json::json!({
-            "tools_registered": state.tool_registry.len(),
-            "resources_registered": state.resource_registry.len(),
+            "tools_registered": crate::tools::CORE_TOOLS.len() + surface_tools,
+            "resources_registered": crate::resources::CORE_RESOURCES.len() + surface_resources,
             "prompts_registered": crate::prompts::CORE_PROMPTS.len(),
             "extensions_loaded": state.registries().extension_info().count(),
-            "surface_tools_registered": state.tool_registry.len().saturating_sub(default_tools),
-            "surface_resources_registered": state
-                .resource_registry
-                .len()
-                .saturating_sub(default_resources),
+            "surface_tools_registered": surface_tools,
+            "surface_resources_registered": surface_resources,
             "auto_promoted_tools": auto_promoted_tools,
         }),
     );
@@ -106,9 +104,8 @@ pub fn handle_initialize(
 /// no config to read: nothing is served (a call's `path` may serve a
 /// project later).
 pub fn serve_project(state: &mut McpState, project_root: Option<PathBuf>) {
-    match &project_root {
-        Some(root) if root.exists() => state.serve(root),
-        _ => register_defaults(state),
+    if let Some(root) = project_root.filter(|root| root.exists()) {
+        state.serve(&root);
     }
     state.served = true;
 }

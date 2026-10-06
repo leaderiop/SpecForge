@@ -94,10 +94,10 @@ fn the_field_tracer_sees_each_args_struct() {
     assert!((stats.fields)().is_empty(), "stats takes no arguments");
 }
 
-/// Advertised property names per tool, extracted from `default_tools()`.
+/// Advertised property names per tool, extracted from the core tool table.
 fn advertised_properties() -> BTreeMap<String, Vec<String>> {
     let mut out = BTreeMap::new();
-    for tool in specforge_mcp::registry::default_tools() {
+    for tool in crate::support::core_tools() {
         let props = tool
             .input_schema
             .get("properties")

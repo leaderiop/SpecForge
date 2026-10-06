@@ -725,28 +725,28 @@ fn doctor_compiles_afresh_unless_use_cached() {
 fn doctor_lists_extension_conflicts_from_the_compile() {
     let mut server = test_server();
     // What the compiler reports when two extensions register one kind.
-    server
-        .state_mut()
-        .surface_diagnostics
-        .push(specforge_common::Diagnostic {
+    crate::support::report_also(
+        server.state_mut(),
+        specforge_common::Diagnostic {
             code: "E026".into(),
             severity: specforge_common::Severity::Error,
             message: "entity kind 'feature' is already registered by '@specforge/product'".into(),
             span: None,
             suggestion: None,
             data: None,
-        });
-    server
-        .state_mut()
-        .surface_diagnostics
-        .push(specforge_common::Diagnostic {
+        },
+    );
+    crate::support::report_also(
+        server.state_mut(),
+        specforge_common::Diagnostic {
             code: "W001".into(),
             severity: specforge_common::Severity::Warning,
             message: "an unrelated warning".into(),
             span: None,
             suggestion: None,
             data: None,
-        });
+        },
+    );
 
     // Over those diagnostics, as the last compile's, not a fresh compile.
     let resp = call_tool(&mut server, "specforge.doctor", json!({"use_cached": true}));

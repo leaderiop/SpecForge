@@ -6,7 +6,7 @@ use specforge_common::{Diagnostic, Severity, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::{
-    DeclaredPass, EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild, SurfaceRegistryEntry,
+    DeclaredPass, EdgeRegistry, FieldRegistry, KindRegistry, RegistryBuild,
     compilation::{
         EntityView, detect_identifier_length_violations, detect_mistyped_references,
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
@@ -33,7 +33,6 @@ pub struct CompilationContext {
     /// host-generated ones), for re-running them on a rebuilt graph.
     pub extension_rules: Vec<(ValidationRulePattern, String)>,
     pub extension_info: Vec<(String, String)>,
-    pub surface_entries: Vec<SurfaceRegistryEntry>,
     /// The loaded declarations, in load order.
     pub declarations: Vec<ExtensionDeclaration>,
     /// The extensions' passes, in the order they run.
@@ -196,7 +195,6 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
         resolved,
         extension_rules: Vec::new(),
         extension_info: Vec::new(),
-        surface_entries: Vec::new(),
         declarations: Vec::new(),
         passes: Vec::new(),
         spec_root,

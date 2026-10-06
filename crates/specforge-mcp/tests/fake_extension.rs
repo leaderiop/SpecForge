@@ -33,6 +33,9 @@ pub struct FakeExtension {
     tools: Vec<Value>,
     /// MCP resources declared beside `cmds-summary`.
     resources: Vec<Value>,
+    /// The surfaces declared before the added ones: [`Self::surfaces`]
+    /// unless [`Self::declaring`] replaced them.
+    base: Value,
     /// The runtime serving it, made on first use.
     runtime: OnceLock<Arc<InProcessRuntime>>,
 }
@@ -46,8 +49,23 @@ impl FakeExtension {
             commands: Vec::new(),
             tools: Vec::new(),
             resources: Vec::new(),
+            base: Self::surfaces(),
             runtime: OnceLock::new(),
         }
+    }
+
+    /// `@test/cmds` declaring `surfaces` (a `SurfaceDescriptor`) instead of
+    /// [`Self::surfaces`]: the commands, tools and resources a test adds
+    /// come after them.
+    pub fn declaring(surfaces: Value) -> Self {
+        let mut fake = Self::new();
+        fake.base = surfaces;
+        for list in ["commands", "mcp_tools", "mcp_resources"] {
+            if fake.base.get(list).is_none() {
+                fake.base[list] = json!([]);
+            }
+        }
+        fake
     }
 
     /// Also declare `command` (a `CommandDescriptor`).
@@ -106,7 +124,7 @@ impl FakeExtension {
     }
 
     fn serve(&self) -> InProcessRuntime {
-        let mut surfaces = Self::surfaces();
+        let mut surfaces = self.base.clone();
         surfaces["commands"]
             .as_array_mut()
             .unwrap()
