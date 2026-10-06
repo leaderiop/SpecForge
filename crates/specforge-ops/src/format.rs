@@ -11,9 +11,7 @@ use specforge_common::{
     Diagnostic, ProjectConfig, SKIP_DIRS, Sym, codes, find_project_root, load_project_config,
 };
 use specforge_formatter::config::{find_config_path, read_config_file};
-use specforge_formatter::{
-    FormatConfig, TextEdit, compute_edits, format_range, format_source, load_config,
-};
+use specforge_formatter::{FormatConfig, TextEdit, compute_edits, format_range, format_source};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -115,14 +113,7 @@ pub fn document<'a>(
 ) -> FormattedDocument<'a> {
     let mut configs = Configs::default();
     let (file, resolved) = match place {
-        Place::File(path) => {
-            let dir = directory_of(path);
-            let resolved = match configs.project_of(&dir) {
-                Some(root) => configs.resolve(&dir, &root),
-                None => Resolved::editor(editor),
-            };
-            (Some(path), resolved)
-        }
+        Place::File(path) => (Some(path), configs.for_file(path, editor)),
         Place::InProject { root, dir } => (None, configs.resolve(dir, root)),
         Place::Detached => (None, Resolved::editor(editor)),
     };
@@ -167,6 +158,17 @@ struct Configs {
 }
 
 impl Configs {
+    /// The configuration of `file`: its own project's (discovery from its
+    /// directory up to that project's root), else outside any project the
+    /// editor's.
+    fn for_file(&mut self, file: &Path, editor: Option<EditorOptions>) -> Resolved {
+        let dir = directory_of(file);
+        match self.project_of(&dir) {
+            Some(root) => self.resolve(&dir, &root),
+            None => Resolved::editor(editor),
+        }
+    }
+
     /// The root of the project `dir` is in.
     fn project_of(&mut self, dir: &Path) -> Option<PathBuf> {
         self.projects
@@ -248,11 +250,11 @@ pub enum Mode {
 }
 
 pub struct Request<'a> {
-    /// The project root (where `specforge.json` lives). `.specforgefmt.toml`
-    /// discovery stops here.
+    /// The project the run starts in (where `specforge.json` lives): its
+    /// sources are the default targets, and paths are shown relative to it.
+    /// It does not bound configuration discovery: each file is formatted
+    /// with the configuration of its own project (D2).
     pub root: &'a Path,
-    /// Where `.specforgefmt.toml` discovery starts, walking up to `root`.
-    pub config_dir: &'a Path,
     /// Files or directories to format; empty means the project's sources
     /// (`ProjectConfig::spec_files`). A named file is always formatted. A
     /// named directory holding `specforge.json` is that project's sources;
@@ -309,11 +311,6 @@ impl Outcome {
 /// The project root `path` is in, else `path` itself.
 pub fn project_root(path: &Path) -> PathBuf {
     specforge_common::find_project_root(path).unwrap_or_else(|| path.to_path_buf())
-}
-
-/// The format configuration for `request`, with what loading it reported.
-pub fn config(request: &Request) -> (FormatConfig, Vec<Diagnostic>) {
-    load_config(request.config_dir, request.root)
 }
 
 /// The files a run from `root` over `paths` formats, de-duplicated, in
@@ -433,11 +430,11 @@ fn is_project(dir: &Path) -> bool {
 
 /// Format every target of `request`.
 pub fn run(request: &Request) -> Outcome {
-    let (config, config_diagnostics) = config(request);
-    let mut outcome = Outcome {
-        config_diagnostics,
-        ..Outcome::default()
-    };
+    // One set of configurations for the run: each file gets the one
+    // `document(Place::File(file), ..)` gives it (no editor: the CLI and
+    // MCP have none), and each configuration file is read once.
+    let mut configs = Configs::default();
+    let mut outcome = Outcome::default();
     for target in targets(request.root, request.paths) {
         let source = match std::fs::read_to_string(&target) {
             Ok(source) => source,
@@ -447,15 +444,24 @@ pub fn run(request: &Request) -> Outcome {
             }
         };
         outcome.checked += 1;
-        let result = format_source(&source, &config);
-        outcome
-            .file_diagnostics
-            .extend(result.diagnostics.into_iter().map(|d| (target.clone(), d)));
-        if result.formatted == source {
+        let resolved = configs.for_file(&target, None);
+        let FormattedDocument {
+            formatted,
+            diagnostics,
+            ..
+        } = format_text(resolved, &source, None, Some(&target));
+        for d in diagnostics {
+            if d.is(codes::W142) {
+                outcome.file_diagnostics.push((target.clone(), d));
+            } else {
+                outcome.config_diagnostics.push(d);
+            }
+        }
+        if formatted == source {
             continue;
         }
         let write_error = match request.mode {
-            Mode::Write => std::fs::write(&target, &result.formatted)
+            Mode::Write => std::fs::write(&target, &formatted)
                 .err()
                 .map(|e| e.to_string()),
             Mode::Check => None,
@@ -463,7 +469,7 @@ pub fn run(request: &Request) -> Outcome {
         outcome.changes.push(FileChange {
             path: target,
             before: source,
-            after: result.formatted,
+            after: formatted,
             write_error,
         });
     }
@@ -488,7 +494,6 @@ mod tests {
     fn request(root: &Path, mode: Mode) -> Request<'_> {
         Request {
             root,
-            config_dir: root,
             paths: &[],
             mode,
         }
@@ -556,7 +561,6 @@ mod tests {
         let paths: Vec<PathBuf> = paths.iter().map(|p| root.join(p)).collect();
         run(&Request {
             root,
-            config_dir: root,
             paths: &paths,
             mode: Mode::Check,
         })
@@ -770,29 +774,84 @@ mod tests {
         assert_eq!(found.len(), sources.len());
         let outcome = run(&Request {
             root: &workspace,
-            config_dir: &workspace,
             paths: &paths,
             mode: Mode::Check,
         });
         assert_eq!(outcome.checked, sources.len());
     }
 
-    /// Pin (plan 03): today's behaviour; flipped by T7.
-    #[test]
-    fn one_config_applies_to_every_file() {
-        let four = "behavior login \"Login\" {\n    contract \"The system MUST log in\"\n}\n";
+    #[specforge_test(
+        behavior = "load_format_config",
+        verify = "a file's configuration does not depend on where format runs"
+    )]
+    fn each_file_uses_its_nearest_config() {
+        let two = "behavior login \"Login\" {\n  contract \"The system MUST log in\"\n}\n";
         let dir = project_with(
             "{}",
             &[
                 ("spec/sub/.specforgefmt.toml", "indent_width = 4\n"),
-                ("spec/sub/a.spec", four),
+                ("spec/sub/a.spec", FOUR),
+                ("spec/b.spec", two),
             ],
         );
 
-        // The run's one config is the root's (the defaults): the nested
-        // file's own config is never read.
-        let changes = changed(dir.path());
-        assert!(changes.contains(&"spec/sub/a.spec".into()), "{changes:?}");
+        // From the root, each file gets its nearest configuration: both are
+        // canonical.
+        assert_eq!(changed(dir.path()), Vec::<String>::new());
+        // Named from the subdirectory, the same.
+        let named = check_paths(dir.path(), &["spec/sub"]);
+        assert_eq!((named.checked, named.changes.len()), (1, 0));
+    }
+
+    #[specforge_test(
+        behavior = "load_format_config",
+        verify = "invalid indent_width produces diagnostic and uses default"
+    )]
+    fn an_invalid_config_is_reported_once_per_run() {
+        let dir = project_with(
+            "{}",
+            &[
+                (".specforgefmt.toml", "indent_width = 99\n"),
+                ("spec/a.spec", MESSY),
+                ("spec/b.spec", MESSY),
+            ],
+        );
+
+        let outcome = run(&request(dir.path(), Mode::Check));
+
+        assert_eq!(outcome.checked, 2);
+        let w141: Vec<_> = outcome
+            .config_diagnostics
+            .iter()
+            .filter(|d| d.is(codes::W141))
+            .collect();
+        assert_eq!(w141.len(), 1, "{w141:?}");
+    }
+
+    #[specforge_test(
+        behavior = "load_format_config",
+        verify = "a file is formatted with the configuration of its own project"
+    )]
+    fn a_nested_projects_file_uses_its_own_projects_config() {
+        let two = "behavior login \"Login\" {\n  contract \"The system MUST log in\"\n}\n";
+        let dir = project_with(
+            "{}",
+            &[
+                (".specforgefmt.toml", "indent_width = 4\n"),
+                ("inner/specforge.json", "{}"),
+                ("inner/spec/a.spec", two),
+            ],
+        );
+        let file = dir.path().join("inner/spec/a.spec");
+
+        // From the outer project, the inner file keeps its own project's
+        // defaults; the outer configuration stops at the inner root.
+        let outcome = check_paths(dir.path(), &["inner"]);
+        assert_eq!((outcome.checked, outcome.changes.len()), (1, 0));
+        // As the editor formats it.
+        let doc = document(Place::File(&file), two, None, None);
+        assert_eq!(doc.config_source, ConfigSource::Defaults);
+        assert!(!doc.changed());
     }
 
     // --- One document (lsp_format_document, lsp_format_range,

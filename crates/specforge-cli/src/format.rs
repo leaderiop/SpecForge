@@ -1,4 +1,4 @@
-use specforge_formatter::{FormatConfig, format_source, unified_diff};
+use specforge_formatter::unified_diff;
 use specforge_ops::format::{self, Mode, Request};
 use std::io::{self, Read as IoRead, Write as IoWrite};
 use std::path::{Path, PathBuf};
@@ -14,7 +14,6 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
     let explicit: Vec<PathBuf> = explicit_paths.iter().map(Into::into).collect();
     let request = Request {
         root: &project_root,
-        config_dir: path,
         paths: &explicit,
         mode: if check || diff {
             Mode::Check
@@ -24,9 +23,7 @@ pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[
     };
 
     if stdin {
-        let (config, config_diags) = format::config(&request);
-        print_config_warnings(&config_diags);
-        return run_stdin(&config);
+        return run_stdin(&project_root, path);
     }
     let outcome = format::run(&request);
     print_config_warnings(&outcome.config_diagnostics);
@@ -77,18 +74,24 @@ fn print_config_warnings(diagnostics: &[specforge_common::Diagnostic]) {
     }
 }
 
-/// Format from stdin, write to stdout.
-fn run_stdin(config: &FormatConfig) -> i32 {
+/// Format stdin, text of the project at `root` in `dir`, and write it to
+/// stdout: it gets the configuration a file in `dir` would.
+fn run_stdin(root: &Path, dir: &Path) -> i32 {
     let mut input = String::new();
     if let Err(e) = io::stdin().read_to_string(&mut input) {
         eprintln!("error: failed to read stdin: {e}");
         return 1;
     }
 
-    let result = format_source(&input, config);
+    let place = format::Place::InProject { root, dir };
+    let result = format::document(place, &input, None, None);
 
     for d in &result.diagnostics {
-        eprintln!("{}", d.message);
+        if d.span.is_some() {
+            eprintln!("{}", d.message);
+        } else {
+            eprintln!("warning: {}", d.message);
+        }
     }
 
     print!("{}", result.formatted);

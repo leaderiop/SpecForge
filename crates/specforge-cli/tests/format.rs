@@ -545,6 +545,41 @@ fn format_from_stdin_contract_requires_ensures() {
     );
 }
 
+#[specforge_test(
+    behavior = "load_format_config",
+    verify = "a file's configuration does not depend on where format runs"
+)]
+fn check_from_a_subdirectory_agrees_with_the_root() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    let sub = root.join("spec/sub");
+    fs::create_dir_all(&sub).unwrap();
+    fs::write(sub.join(".specforgefmt.toml"), "indent_width = 4\n").unwrap();
+    fs::write(
+        sub.join("a.spec"),
+        "behavior login \"Login\" {\n    contract \"The system MUST log in\"\n}\n",
+    )
+    .unwrap();
+
+    // From the project root, and from spec/sub: the file's nearest
+    // configuration decides both times.
+    let (code, stderr) = check_in(root);
+    assert_eq!(code, Some(0), "{stderr}");
+    let output = Command::cargo_bin("specforge")
+        .unwrap()
+        .current_dir(&sub)
+        .args(["format", "--check"])
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 // --- Pins (plan 03) ---
 
 /// `specforge format --check --path <root>`: exit code and stderr.

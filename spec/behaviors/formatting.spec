@@ -208,7 +208,9 @@ behavior load_format_config "Load Format Configuration" {
     project root MUST NOT be discovered. If .specforgefmt.toml is found,
     it MUST be parsed and validated. Invalid values MUST produce
     diagnostics and fall back to defaults. If no config file is found
-    within the project root boundary, defaults MUST be used.
+    within the project root boundary, defaults MUST be used. The walk
+    stops at the file's own project root, the nearest directory holding
+    specforge.json, whichever project the run started in.
   """
   verify unit "config file in project root is loaded"
   verify unit "config file in parent directory is discovered"
@@ -216,6 +218,8 @@ behavior load_format_config "Load Format Configuration" {
   verify unit "config outside project root is not discovered"
   verify unit "invalid indent_width produces diagnostic and uses default"
   verify unit "missing config file uses defaults"
+  verify unit "a file's configuration does not depend on where format runs"
+  verify unit "a file is formatted with the configuration of its own project"
   verify contract "Load Format Configuration: format config loading holds — project_root_available, filesystem_accessible, config_resolved, walk_bounded, invalid_values_diagnosed"
 }
 

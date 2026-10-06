@@ -116,7 +116,6 @@ pub(crate) fn format_op(call: &mut Call<'_>, args: FormatArgs) -> Handled {
     let mode = if write { Mode::Write } else { Mode::Check };
     let outcome = format::run(&Request {
         root: &project_root,
-        config_dir: &project_root,
         paths: &explicit,
         mode,
     });
