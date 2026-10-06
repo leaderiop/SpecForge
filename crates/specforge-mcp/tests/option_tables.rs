@@ -308,3 +308,27 @@ fn coverage_and_find_references_refuse_with_the_table_wording() {
     ));
     assert_eq!(answered["direction"], "incoming", "{answered}");
 }
+
+#[specforge_test_macros::test(
+    behavior = "name_enumerated_options_once",
+    verify = "a refusal's available choices are the names its message lists, an alias never among them"
+)]
+fn a_refusal_offers_one_list_the_tables_names() {
+    let mut server = served();
+    let response = call_tool(&mut server, "specforge.render", json!({"format": "yaml"}));
+    let error = crate::tool_errors::mcp_error(&response);
+    let names: Vec<&str> = FORMAT.names().collect();
+    // The message and the data are the table's names, in its order; the
+    // `json` alias is accepted and in neither.
+    assert_eq!(
+        error["message"],
+        format!("Unknown format: yaml. Expected: {}", names.join(", "))
+    );
+    assert_eq!(error["data"]["available_renderers"], json!(names));
+    assert!(FORMAT.accepted().any(|name| name == "json"));
+    assert!(!names.contains(&"json"));
+    // One failure vocabulary: the refusal is invalid input, with no code of
+    // its own beside the kind.
+    assert_eq!(error["code"], "invalid_input", "{error}");
+    assert!(error["data"].get("code").is_none(), "{error}");
+}

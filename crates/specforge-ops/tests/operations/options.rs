@@ -3,6 +3,7 @@
 
 use specforge_emitter::model::{FieldLevel, GroupBy, ModelFormat, ModelOptions};
 use specforge_emitter::outline::{DependencyDepth, OutlineDetail, OutlineFormat, OutlineOptions};
+use specforge_ops::OpErrorKind;
 use specforge_ops::export::{AGENT_FORMAT, FORMAT, Format};
 use specforge_ops::model::{
     DEPS, GROUP_BY, MODEL_FIELDS, MODEL_FORMAT, OUTLINE_FIELDS, OUTLINE_FORMAT,
@@ -20,7 +21,10 @@ fn a_table_parses_names_and_aliases_and_refuses_others() {
     assert_eq!(DEPS.parse("full"), Ok(DependencyDepth::Full));
 
     let error = MODEL_FORMAT.parse("svg").unwrap_err();
-    assert_eq!(error.code, "unknown_format");
+    // One failure vocabulary: every table refuses as invalid input, a
+    // format no differently from any other argument.
+    assert_eq!(error.kind, OpErrorKind::InvalidInput);
+    assert_eq!(error.code, "invalid_input");
     assert_eq!(
         error.message,
         "Unknown format: svg. Expected: markdown, mermaid, dot, json, dbml"

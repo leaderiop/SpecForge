@@ -691,13 +691,15 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
     use specforge_ops::export::{FORMAT, Format};
 
     // The renderers are the export formats, named as `specforge export
-    // --format` names them (ADR 0027 D8); `json` is `graph`'s alias.
+    // --format` names them (ADR 0027 D8); `json` is `graph`'s alias, which
+    // is accepted and never listed: the refusal's "Expected:" and
+    // `available_renderers` are the one list the table names.
     let format = match FORMAT.parse(&args.format) {
         Ok(format) => format,
         Err(error) => {
             let mut refusal = McpError::from(error).with_argument("format");
             let mut data = refusal.data.take().unwrap_or_else(|| json!({}));
-            data["available_renderers"] = json!(FORMAT.accepted().collect::<Vec<_>>());
+            data["available_renderers"] = json!(FORMAT.names().collect::<Vec<_>>());
             return refusal.with_data(data).into();
         }
     };

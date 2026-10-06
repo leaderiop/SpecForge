@@ -48,7 +48,7 @@ use std::borrow::Cow;
 /// What kind of failure an operation reports: the closed set every surface
 /// maps its own codes from (MCP's `ErrorCode`), decided where the failure is
 /// raised (ADR 0024 D15). [`OpError::code`] stays what the CLI prints
-/// (`error[E027]`, `error[unknown_format]`).
+/// (`error[E027]`, `error[invalid_input]`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OpErrorKind {
     /// The request is wrong: an unknown name or format, a malformed
@@ -114,6 +114,24 @@ impl OpErrorKind {
             .map_or(Self::Internal, |&(_, kind)| kind)
     }
 
+    /// The kind's name, the code an operation reports a failure of this kind
+    /// under when it names none of its own (`invalid_input` for an unknown
+    /// name): MCP's `ErrorCode` carries the same names.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::InvalidInput => "invalid_input",
+            Self::EntityNotFound => "entity_not_found",
+            Self::FileNotFound => "file_not_found",
+            Self::ExtensionNotFound => "extension_not_found",
+            Self::Conflict => "conflict",
+            Self::SchemaMismatch => "schema_mismatch",
+            Self::PreconditionFailed => "precondition_failed",
+            Self::PermissionDenied => "permission_denied",
+            Self::Timeout => "timeout",
+            Self::Internal => "internal_error",
+        }
+    }
+
     /// The kind of a failed file operation: `PermissionDenied` when the OS
     /// refused, `FileNotFound` for `NotFound`, else `Internal`.
     pub fn of_io(error: &std::io::Error) -> Self {
@@ -151,7 +169,7 @@ pub struct OpError {
 
 impl OpError {
     /// A failure the operation names itself: `code` is its own identifier
-    /// (`export_failed`, `unknown_format`), not a catalogued diagnostic
+    /// (`export_failed`, `unknown_pass`), not a catalogued diagnostic
     /// code. A catalogued code goes through [`OpError::diagnostic`] or
     /// [`OpError::coded`], so its constant carries it.
     pub fn new(

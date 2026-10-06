@@ -118,7 +118,6 @@ pub fn row(view: &ProjectView, entity_id: &str) -> Result<Option<CoverageRow>, R
 /// results spell it (its serialized form). A filter, so no default.
 pub const STATUS: OptionTable<Status> = OptionTable {
     argument: "coverage status",
-    code: "invalid_input",
     choices: &[
         Choice {
             name: "covered",

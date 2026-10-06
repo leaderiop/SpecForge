@@ -66,7 +66,6 @@ const DOT: Choice<Format> = Choice {
 /// `specforge export --format`, `specforge.render`'s `format`.
 pub const FORMAT: OptionTable<Format> = OptionTable {
     argument: "format",
-    code: "unknown_format",
     choices: &[GRAPH, CONTEXT, BRIEF, DOT],
     default: Some(Format::Graph),
 };
@@ -76,7 +75,6 @@ pub const FORMAT: OptionTable<Format> = OptionTable {
 /// --format`.
 pub const AGENT_FORMAT: OptionTable<Format> = OptionTable {
     argument: "format",
-    code: "unknown_format",
     choices: &[GRAPH, CONTEXT, BRIEF],
     default: Some(Format::Graph),
 };
@@ -240,7 +238,7 @@ mod tests {
         assert_eq!(FORMAT.parse("json"), Ok(Format::Graph));
         assert_eq!(FORMAT.parse("dot"), Ok(Format::Dot));
         let error = FORMAT.parse("yaml").unwrap_err();
-        assert_eq!(error.code, "unknown_format");
+        assert_eq!(error.code, "invalid_input");
         assert_eq!(
             error.message,
             "Unknown format: yaml. Expected: graph, context, brief, dot"
