@@ -425,13 +425,22 @@ behavior emit_live_diagnostics "Live Diagnostics" {
     within 100ms of the user stopping typing. A diagnostic without a span
     that is about entities (its data names them, as a reference cycle's
     does) MUST be published at the first one's name, with related
-    information at each other's.
+    information at each other's. Each publish sends every file that has
+    diagnostics, and an empty list to each file that had some and has none
+    now. A diagnostic without a span about no entity is published on the
+    document being edited, else on the last one such a diagnostic went on
+    while it is open, else on the first open document. W143 (a define
+    block, which registers nothing) MUST be published with the Unnecessary
+    tag, so editors fade the block.
   """
   verify unit "diagnostics update after file change"
   verify unit "code actions act on the diagnostics last published for the document"
-  verify unit "only changed file diagnostics are refreshed"
+  verify unit "a publish clears the files whose diagnostics are gone"
   verify integration "diagnostics appear within 100ms"
   verify unit "a spanless diagnostic about entities is published at the first one's name"
+  verify unit "a diagnostic is published on the file its span names"
+  verify unit "a diagnostic about no entity is published on the edited document"
+  verify unit "a define block's W143 is published as unnecessary code"
   verify contract "Live Diagnostics: live diagnostics holds — lsp_initialized_fired, graph_available, diagnostics_pushed, latency_enforced"
 }
 

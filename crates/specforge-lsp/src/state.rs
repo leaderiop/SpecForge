@@ -305,4 +305,21 @@ impl LspState {
     pub fn set_anchor(&mut self, uri: Option<String>) {
         self.anchor = uri;
     }
+
+    /// Keep what `publication` sends: each file's placed diagnostics (code
+    /// actions read them back; an empty list forgets the file), and where
+    /// diagnostics about no entity went, when any did.
+    pub fn record(&mut self, publication: &crate::publish::Publication) {
+        if let Some(anchor) = &publication.anchor {
+            self.anchor = Some(anchor.to_string());
+        }
+        for (uri, file) in &publication.files {
+            if file.placed.is_empty() {
+                self.diagnostics.remove(uri.as_str());
+            } else {
+                self.diagnostics
+                    .insert(uri.to_string(), file.placed.clone());
+            }
+        }
+    }
 }

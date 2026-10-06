@@ -5,6 +5,7 @@ mod document;
 pub mod formatting;
 mod hover;
 mod navigation;
+pub mod publish;
 mod state;
 pub mod watchers;
 

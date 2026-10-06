@@ -1,4 +1,3 @@
-use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -15,6 +14,7 @@ use crate::navigation::{
     Ranges, fix_to_code_action, navigator, outline_to_document_symbols, symbol_kind_from_entity,
     uri_of,
 };
+use crate::publish::{Publication, diagnostic_to_lsp};
 use crate::{
     LspState, goto_import_definition, hover_field_info, hover_info_with_registries,
     server_capabilities, server_info,
@@ -343,127 +343,26 @@ impl Backend {
             .await
     }
 
-    /// Publish what the project reports now, each diagnostic on the file
-    /// its span names. One without a span that is about entities (its data
-    /// names them: a reference cycle, a pass's subject) goes at the first
-    /// one's name, with related information at each other's (ADR 0016,
-    /// D8); one about none goes on `edited`, else on the document the last
-    /// one went on while it is open, else on the first open document.
-    /// Files that had diagnostics and have none now, and every `touched`
-    /// file, are published too (an empty list clears them).
+    /// Publish what the project reports now ([`Publication::of`]): each
+    /// diagnostic on the file its span names, a spanless one about entities
+    /// at the first one's name, one about none on `edited` (else the anchor,
+    /// else the first open document); files that had diagnostics and have
+    /// none now, and every `touched` file, get an empty list. What is
+    /// published is kept: code actions act on it.
     async fn publish(
         state: &RwLock<LspState>,
         client: &Client,
         edited: Option<Url>,
         touched: Vec<Url>,
     ) {
-        let mut published: HashMap<Url, Vec<Diagnostic>> = HashMap::new();
-        let mut core: HashMap<Url, Vec<specforge_common::Diagnostic>> = HashMap::new();
-        let mut targets: BTreeSet<Url> = touched.into_iter().collect();
-        let versions: HashMap<Url, Option<i32>>;
-        {
-            let st = state.read().await;
-            let anchor = edited
-                .clone()
-                .or_else(|| st.anchor().and_then(|uri| Url::parse(uri).ok()))
-                .or_else(|| st.open_uris().first().and_then(|uri| Url::parse(uri).ok()));
-            let diagnostics = st.session().map(|s| s.diagnostics()).unwrap_or_default();
-            let nav = navigator(&st);
-            let ranges = Ranges::new(&st);
-            for diagnostic in &diagnostics {
-                let mut related = Vec::new();
-                let placed;
-                let diagnostic = match &diagnostic.span {
-                    Some(_) => diagnostic,
-                    None => match place_at_subjects(&ranges, &nav, diagnostic) {
-                        Some((at, others)) => {
-                            related = others;
-                            placed = at;
-                            &placed
-                        }
-                        None => diagnostic,
-                    },
-                };
-                let uri = match &diagnostic.span {
-                    Some(span) => uri_of(&st, span.file.as_str()),
-                    None => match &anchor {
-                        Some(anchor) => anchor.clone(),
-                        None => continue,
-                    },
-                };
-                let mut lsp = diagnostic_to_lsp(diagnostic, |span| ranges.range(span));
-                if !related.is_empty() {
-                    lsp.related_information = Some(related);
-                }
-                published.entry(uri.clone()).or_default().push(lsp);
-                core.entry(uri).or_default().push(diagnostic.clone());
-            }
-            targets.extend(published.keys().cloned());
-            targets.extend(
-                st.published_uris()
-                    .iter()
-                    .filter_map(|uri| Url::parse(uri).ok()),
-            );
-            targets.extend(edited.clone());
-            versions = targets
-                .iter()
-                .map(|uri| {
-                    let version = st.document(uri.as_str()).and_then(|d| d.version());
-                    (uri.clone(), version)
-                })
-                .collect();
-        }
-        {
-            // Keep what is published: code actions act on it.
-            let mut st = state.write().await;
-            if let Some(edited) = &edited {
-                st.set_anchor(Some(edited.to_string()));
-            }
-            for uri in &targets {
-                match core.remove(uri) {
-                    Some(diagnostics) => st.set_diagnostics(uri.as_str(), diagnostics),
-                    None => st.clear_diagnostics(uri.as_str()),
-                }
-            }
-        }
-        for uri in targets {
-            let diagnostics = published.remove(&uri).unwrap_or_default();
-            let version = versions.get(&uri).copied().flatten();
-            client.publish_diagnostics(uri, diagnostics, version).await;
+        let publication = Publication::of(&*state.read().await, edited.as_ref(), &touched);
+        state.write().await.record(&publication);
+        for (uri, file) in publication.files {
+            client
+                .publish_diagnostics(uri, file.diagnostics, file.version)
+                .await;
         }
     }
-}
-
-/// A spanless diagnostic about entities, placed at the first one's name,
-/// and the related information pointing at each other's name. `None`
-/// when its data names no entity the graph holds.
-fn place_at_subjects<F: Fn(&str) -> Option<String>>(
-    ranges: &Ranges,
-    nav: &specforge_ops::navigate::Navigator<'_, F>,
-    diagnostic: &specforge_common::Diagnostic,
-) -> Option<(
-    specforge_common::Diagnostic,
-    Vec<DiagnosticRelatedInformation>,
-)> {
-    let subjects = specforge_ops::navigate::subjects(ranges.state().graph(), diagnostic);
-    let (first, others) = subjects.split_first()?;
-    let name = |node: &specforge_graph::Node| {
-        nav.definition(node.id.raw.as_str())
-            .map(|d| d.name)
-            .unwrap_or_else(|_| node.source_span.clone())
-    };
-    let placed = specforge_common::Diagnostic {
-        span: Some(name(first)),
-        ..diagnostic.clone()
-    };
-    let related = others
-        .iter()
-        .map(|node| DiagnosticRelatedInformation {
-            location: ranges.location(&name(node)),
-            message: format!("also about '{}'", node.id.raw),
-        })
-        .collect();
-    Some((placed, related))
 }
 
 /// The session file key of a document.
@@ -491,47 +390,6 @@ pub fn uri_to_file_path(uri: &Url) -> String {
     uri.to_file_path()
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_else(|_| uri.to_string())
-}
-
-/// The docs link for `code`, or `None` when the catalog has no entry for it
-/// (a third-party code, or anything outside the catalog).
-fn docs_href(code: &str) -> Option<Url> {
-    specforge_diagnostics::docs_href(code).and_then(|href| Url::parse(&href).ok())
-}
-
-/// A diagnostic as the client receives it; `range_of` converts its span.
-fn diagnostic_to_lsp(
-    diag: &specforge_common::Diagnostic,
-    range_of: impl Fn(&SourceSpan) -> Range,
-) -> Diagnostic {
-    let range = diag.span.as_ref().map(range_of).unwrap_or_default();
-    Diagnostic {
-        range,
-        code: Some(NumberOrString::String(diag.code.clone())),
-        // C4-10: editors can render this as a "view docs" link to the
-        // code's section of docs/diagnostics.md.
-        code_description: docs_href(&diag.code).map(|href| CodeDescription { href }),
-        severity: Some(match diag.severity {
-            specforge_common::Severity::Error => DiagnosticSeverity::ERROR,
-            specforge_common::Severity::Warning => DiagnosticSeverity::WARNING,
-            specforge_common::Severity::Info => DiagnosticSeverity::INFORMATION,
-        }),
-        source: Some("specforge".into()),
-        // C4-08: the suggestion is the actionable half of the diagnostic
-        // ("did you mean X / do Y") — surface it in the editor instead of
-        // dropping it at the LSP boundary.
-        message: match &diag.suggestion {
-            Some(suggestion) => format!("{}\n\nsuggestion: {suggestion}", diag.message),
-            None => diag.message.clone(),
-        },
-        // The typed payload, as the diagnostics JSON presents it: a client
-        // echoes it back in a code-action request's context.
-        data: diag
-            .data
-            .as_deref()
-            .and_then(|data| serde_json::to_value(data).ok()),
-        ..Default::default()
-    }
 }
 
 /// Formatter edits (0-based lines, byte columns of the formatted
@@ -1293,43 +1151,5 @@ impl LanguageServer for Backend {
         }
 
         Ok(Some(formatter_edits_to_lsp(edits, doc.index())))
-    }
-}
-
-#[cfg(test)]
-mod docs_link_tests {
-    use super::*;
-
-    fn href(code: &str) -> Option<String> {
-        let diag = specforge_common::Diagnostic::error(code, "message");
-        diagnostic_to_lsp(&diag, |_| Range::default())
-            .code_description
-            .map(|d| d.href.to_string())
-    }
-
-    /// C6: the "view docs" link points at the code's anchor in
-    /// docs/diagnostics.md on the canonical repository (ADR 0004 D6-b), and
-    /// only for codes that have an anchor there.
-    #[test]
-    fn docs_links_only_codes_with_an_anchor_on_the_canonical_repository() {
-        assert_eq!(
-            href("E001").as_deref(),
-            Some("https://github.com/leaderiop/SpecForge/blob/main/docs/diagnostics.md#e001")
-        );
-        assert!(
-            href("R-RES-005").is_some_and(|h| h.ends_with("#r-res-005")),
-            "catalogued registry codes are linked"
-        );
-        assert_eq!(href("E901"), None, "third-party codes have no anchor");
-        assert_eq!(
-            href("F011"),
-            None,
-            "codes outside the catalog have no anchor"
-        );
-        assert_eq!(
-            href("E047"),
-            None,
-            "retired codes have no anchor of their own"
-        );
     }
 }
