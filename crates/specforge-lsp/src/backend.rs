@@ -15,10 +15,7 @@ use crate::navigation::{
     uri_of,
 };
 use crate::publish::{Publication, diagnostic_to_lsp};
-use crate::{
-    LspState, goto_import_definition, hover_field_info, hover_info_with_registries,
-    server_capabilities, server_info,
-};
+use crate::{LspState, goto_import_definition, hover_field_info, server_capabilities, server_info};
 use specforge_common::{SourceSpan, Sym};
 use specforge_ops::navigate::{
     Direction, EntityQuery, FixQuery, MatchScope, ReferenceQuery, find_entities, outline,
@@ -777,8 +774,8 @@ impl LanguageServer for Backend {
 
         // A diagnostic under the cursor comes first: what it means and how
         // to fix it, from the catalogue.
-        let diagnostic_md =
-            crate::hover::diagnostic_hover(state.diagnostics(uri.as_str()), doc.index(), pos);
+        let shown = crate::hover::diagnostics_at(state.diagnostics(uri.as_str()), doc.index(), pos);
+        let diagnostic_md = crate::hover::diagnostics(&shown);
         let markdown = |md: String| {
             Some(Hover {
                 contents: HoverContents::Markup(MarkupContent {
@@ -789,28 +786,24 @@ impl LanguageServer for Backend {
             })
         };
 
-        let kind_reg = state.kind_registry();
-        let field_reg = state.field_registry();
-        let kr = if kind_reg.is_empty() {
-            None
-        } else {
-            Some(kind_reg)
-        };
-        let fr = if field_reg.is_empty() {
-            None
-        } else {
-            Some(field_reg)
-        };
-        // What the cursor names: the entity's hover, or a field's help.
+        // What the cursor names: the entity's facts (the inspect read view,
+        // reporting what was published), or a field's help.
+        let published: Vec<specforge_common::Diagnostic> =
+            state.published_diagnostics().cloned().collect();
         let nav = navigator(&state);
         let file = key_of(&state, &uri);
         let info = doc
             .at(pos)
             .and_then(|cursor| match cursor.target(&nav, &file)? {
-                Target::Entity { id, .. } => {
-                    hover_info_with_registries(state.graph(), id.as_str(), kr, fr)
+                Target::Entity { id, .. } => specforge_ops::inspect::inspect(
+                    &state.view().reporting(&published),
+                    id.as_str(),
+                )
+                .ok()
+                .map(|facts| crate::hover::entity(&facts)),
+                Target::Field { kind, field } => {
+                    hover_field_info(&field, &kind, state.field_registry())
                 }
-                Target::Field { kind, field } => hover_field_info(&field, &kind, field_reg),
                 Target::Import { .. } => None,
             });
         let combined = match (diagnostic_md, info) {

@@ -1,22 +1,25 @@
+//! The hover's markdown: the diagnostics under the cursor, an entity's
+//! facts (the inspect read view, `specforge_ops::inspect`) and a field's
+//! help. Rendering only: the facts come from the read view, so the hover
+//! and MCP `specforge.inspect` cannot disagree (ADR 0015, "Inspect").
+
 use crate::document::LineIndex;
-use specforge_graph::Graph;
+use specforge_common::Diagnostic;
+use specforge_ops::inspect::EntityFacts;
 use specforge_parser::FieldValue;
-use specforge_registry::{FieldRegistry, KindRegistry};
+use specforge_registry::FieldRegistry;
 use std::collections::BTreeMap;
 use tower_lsp::lsp_types::Position;
 
-/// Markdown for the published diagnostics whose range holds `position`
-/// (in the document `index` indexes): each code with the catalogue's
-/// title, the message, the catalogue's explanation and the docs link; a
-/// code the catalogue doesn't have shows its code and message only. `None`
-/// when no diagnostic covers the position.
-pub fn diagnostic_hover(
-    diagnostics: &[specforge_common::Diagnostic],
+/// The published diagnostics whose range (in the document `index`
+/// indexes) holds `position`, in published order.
+pub fn diagnostics_at<'d>(
+    published: &'d [Diagnostic],
     index: &LineIndex,
     position: Position,
-) -> Option<String> {
+) -> Vec<&'d Diagnostic> {
     let at = (position.line, position.character);
-    let sections: Vec<String> = diagnostics
+    published
         .iter()
         .filter(|diag| {
             diag.span.as_ref().is_some_and(|span| {
@@ -25,6 +28,16 @@ pub fn diagnostic_hover(
                     && at <= (range.end.line, range.end.character)
             })
         })
+        .collect()
+}
+
+/// Markdown for the diagnostics `shown` under the cursor
+/// ([`diagnostics_at`]): each code with the catalogue's title, the message,
+/// the catalogue's explanation and the docs link; a code the catalogue
+/// doesn't have shows its code and message only. `None` when none is.
+pub fn diagnostics(shown: &[&Diagnostic]) -> Option<String> {
+    let sections: Vec<String> = shown
+        .iter()
         .map(|diag| match specforge_diagnostics::lookup(&diag.code) {
             Some(entry) => {
                 let mut section = format!(
@@ -42,27 +55,15 @@ pub fn diagnostic_hover(
     (!sections.is_empty()).then(|| sections.join("\n\n---\n\n"))
 }
 
-/// Returns markdown-formatted hover content for an entity.
-///
-/// Shows:
-/// - Entity kind, ID, and title
-/// - Extension source (from KindRegistry, if available)
-/// - **Refers to** (outgoing edges): grouped by field label, listing target IDs
-/// - **Referenced by** (incoming edges): grouped by "source_kind via label", listing source IDs
-/// - **Fields**: actual field values from the entity
-pub fn hover_info(graph: &Graph, entity_id: &str) -> Option<String> {
-    hover_info_with_registries(graph, entity_id, None, None)
-}
-
-/// Hover with optional registry metadata.
-pub fn hover_info_with_registries(
-    graph: &Graph,
-    entity_id: &str,
-    kind_registry: Option<&KindRegistry>,
-    _field_registry: Option<&FieldRegistry>,
-) -> Option<String> {
-    let node = graph.node(entity_id)?;
-
+/// Markdown for an entity's facts:
+/// - its kind, ID and title; its kind's description, declaring extension
+///   and badges (`testable` is the standing inspect reports);
+/// - **Refers to**: its references, grouped by field;
+/// - **Referenced by**: the references to it, grouped by the referencing
+///   kind and field;
+/// - **Fields**: its field values.
+pub fn entity(facts: &EntityFacts) -> String {
+    let node = facts.node;
     let title = node
         .title
         .as_deref()
@@ -70,26 +71,18 @@ pub fn hover_info_with_registries(
         .unwrap_or_default();
 
     // Section 1: Header + description + extension badges
-    // C4-11: the registry's lsp_icon is authoritative for the client — the
-    // vscode extension only falls back to its static map when the server
-    // did not prepend one.
-    let icon = kind_registry
-        .and_then(|reg| reg.get(node.kind.raw.as_str()))
+    let icon = facts
+        .kind
         .and_then(|entry| entry.declared.lsp_icon.clone())
         .map(|i| format!("{i} "))
         .unwrap_or_default();
-
     let mut header_section = format!("{icon}**{}** `{}`{}", node.kind.raw, node.id.raw, title);
-
-    if let Some(kind_reg) = kind_registry
-        && let Some(entry) = kind_reg.get(node.kind.raw.as_str())
-    {
+    if let Some(entry) = facts.kind {
         if let Some(ref desc) = entry.declared.description {
             header_section.push_str(&format!("\n\n{}", desc));
         }
-
         let mut ext_line = format!("*{}*", entry.source_extension);
-        if entry.testable {
+        if facts.standing.testable {
             ext_line.push_str(" · `testable`");
         }
         if entry.supports_verify {
@@ -103,71 +96,59 @@ pub fn hover_info_with_registries(
 
     let mut sections: Vec<String> = vec![header_section];
 
-    // Section 2: Outgoing edges (Refers to)
-    let outgoing = graph.edges_from(entity_id);
+    // Section 2: its references (Refers to), by field
+    let outgoing = &facts.references.outgoing;
     if !outgoing.is_empty() {
-        let mut by_label: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
-        for edge in &outgoing {
-            by_label
-                .entry(edge.label.as_str())
+        let mut by_field: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+        for reference in outgoing {
+            by_field
+                .entry(reference.field.as_str())
                 .or_default()
-                .push(edge.target.as_str());
+                .push(reference.peer.as_str());
         }
-        let total_count = outgoing.len();
-        let mut section = format!("**Refers to** *({})*", total_count);
-        for (label, targets) in &by_label {
-            let ids: Vec<&str> = targets.to_vec();
-            section.push_str(&format!("\n- `{}` → {}", label, ids.join(", ")));
+        let mut section = format!("**Refers to** *({})*", outgoing.len());
+        for (field, targets) in &by_field {
+            section.push_str(&format!("\n- `{}` → {}", field, targets.join(", ")));
         }
         sections.push(section);
     }
 
-    // Section 3: Incoming edges (Referenced by)
-    let incoming = graph.edges_to(entity_id);
+    // Section 3: the references to it (Referenced by), by kind and field
+    let incoming = &facts.references.incoming;
     if !incoming.is_empty() {
-        let mut by_kind_label: BTreeMap<(String, &str), Vec<&str>> = BTreeMap::new();
-        for edge in &incoming {
-            let source_kind = graph
-                .node(edge.source.as_str())
-                .map(|n| n.kind.raw.to_string())
-                .unwrap_or_else(|| "unknown".to_string());
-            by_kind_label
-                .entry((source_kind, edge.label.as_str()))
+        let mut by_kind_field: BTreeMap<(&str, &str), Vec<&str>> = BTreeMap::new();
+        for reference in incoming {
+            let kind = reference.peer_kind.map_or("unknown", |k| k.as_str());
+            by_kind_field
+                .entry((kind, reference.field.as_str()))
                 .or_default()
-                .push(edge.source.as_str());
+                .push(reference.peer.as_str());
         }
-        let total_count = incoming.len();
-        let mut section = format!("**Referenced by** *({})*", total_count);
-        for ((kind, label), sources) in &by_kind_label {
-            let ids: Vec<&str> = sources.to_vec();
-            section.push_str(&format!("\n- {} via `{}`: {}", kind, label, ids.join(", ")));
+        let mut section = format!("**Referenced by** *({})*", incoming.len());
+        for ((kind, field), sources) in &by_kind_field {
+            section.push_str(&format!(
+                "\n- {} via `{}`: {}",
+                kind,
+                field,
+                sources.join(", ")
+            ));
         }
         sections.push(section);
     }
 
     // Section 4: Fields
-    let field_entries = node.fields.entries();
-    if !field_entries.is_empty() {
-        let mut has_fields = false;
-        let mut section = String::from("**Fields**");
-        for entry in field_entries {
-            let key = entry.key.as_str();
-            if key == "title" {
-                continue;
-            }
-            has_fields = true;
-            section.push_str(&format!(
-                "\n- `{}` = {}",
-                key,
-                format_field_value(&entry.value)
-            ));
-        }
-        if has_fields {
-            sections.push(section);
-        }
+    let fields: Vec<String> = node
+        .fields
+        .entries()
+        .iter()
+        .filter(|entry| entry.key.as_str() != "title")
+        .map(|entry| format!("- `{}` = {}", entry.key, format_field_value(&entry.value)))
+        .collect();
+    if !fields.is_empty() {
+        sections.push(format!("**Fields**\n{}", fields.join("\n")));
     }
 
-    Some(sections.join("\n\n---\n\n"))
+    sections.join("\n\n---\n\n")
 }
 
 /// Returns markdown-formatted hover content for a field name within an entity block.

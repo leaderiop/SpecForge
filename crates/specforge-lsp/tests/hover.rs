@@ -1,11 +1,19 @@
+//! The hover's markdown (`specforge_lsp::hover`): an entity's facts, read
+//! by the inspect read view (`specforge_ops::inspect`) and rendered as the
+//! backend renders them; a field's help; the diagnostics under the cursor.
+
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_lsp::LineIndex;
+use specforge_ops::view::ProjectView;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
+use specforge_project::Environment;
+use specforge_project::coverage::RecordedCoverage;
+use specforge_registry::{KindRegistryEntry, RegistryBuild};
 use specforge_test_macros::test as spec;
 use tower_lsp::lsp_types::Position;
 
-fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
+pub fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
     Node {
         id: EntityId { raw: Sym::new(id) },
         kind: EntityKind {
@@ -32,125 +40,135 @@ fn edge(source: &str, target: &str, label: &str) -> Edge {
     }
 }
 
-#[test]
-fn hover_returns_entity_info() {
-    let mut g = Graph::new();
-    g.add_node(node("user_login", "behavior", Some("User Login")));
-    g.add_node(node("auth_token", "type", Some("Auth Token")));
-    g.add_edge(edge("user_login", "auth_token", "types"));
+/// A kind `extension` declares.
+fn kind(name: &str, extension: &str, testable: bool) -> KindRegistryEntry {
+    KindRegistryEntry {
+        kind_name: name.into(),
+        source_extension: extension.into(),
+        testable,
+        supports_verify: testable,
+        allowed_verify_kinds: vec![],
+        lifecycle_field: None,
+        ..Default::default()
+    }
+}
 
-    let hover = specforge_lsp::hover_info(&g, "user_login");
-    let text = hover.expect("should produce hover");
-    assert!(text.contains("behavior"));
-    assert!(text.contains("user_login"));
-    assert!(text.contains("User Login"));
+/// The registries of `kinds`.
+fn declaring(kinds: Vec<KindRegistryEntry>) -> RegistryBuild {
+    let mut build = RegistryBuild::default();
+    for entry in kinds {
+        build.kinds.register(entry);
+    }
+    build
+}
+
+/// The hover of the entity `id` of `graph`, compiled with `registries`
+/// and no root: the inspect read view rendered as the backend does.
+/// `None` for an entity the graph lacks.
+pub fn entity_hover(graph: &Graph, registries: RegistryBuild, id: &str) -> Option<String> {
+    let env = Environment::with_registries(registries);
+    let recorded = RecordedCoverage::default();
+    let view = ProjectView::new(graph, &env, None, &recorded);
+    let facts = specforge_ops::inspect::inspect(&view, id).ok()?;
+    Some(specforge_lsp::hover::entity(&facts))
+}
+
+/// [`entity_hover`] with no extension loaded.
+pub fn plain_hover(graph: &Graph, id: &str) -> Option<String> {
+    entity_hover(graph, RegistryBuild::default(), id)
 }
 
 #[spec(
     behavior = "hover_information",
     verify = "hover returns markdown-formatted content"
 )]
-fn hover_returns_markdown() {
+fn hover_renders_markdown() {
     let mut g = Graph::new();
     g.add_node(node("my_type", "type", Some("My Type")));
 
-    let hover = specforge_lsp::hover_info(&g, "my_type");
-    let text = hover.expect("should produce hover");
-    assert!(text.contains("**") || text.contains("#"));
+    let text = plain_hover(&g, "my_type").expect("should produce hover");
+    assert!(text.starts_with("**type** `my_type` — My Type"), "{text}");
+    assert!(plain_hover(&g, "nonexistent").is_none());
 }
 
-#[test]
-fn hover_shows_outgoing_edges() {
+#[spec(
+    behavior = "provide_extension_entity_hover",
+    verify = "hover shows entity kind and source extension"
+)]
+fn hover_shows_the_kind_and_its_extension() {
+    let mut g = Graph::new();
+    g.add_node(node("login", "behavior", Some("User Login")));
+    let mut behavior = kind("behavior", "@specforge/software", true);
+    behavior.declared.description = Some("A testable unit of system functionality".into());
+
+    let text = entity_hover(&g, declaring(vec![behavior]), "login").unwrap();
+    assert_eq!(
+        text,
+        "**behavior** `login` — User Login\n\n\
+         A testable unit of system functionality\n\
+         *@specforge/software* · `testable` · `verify`"
+    );
+}
+
+#[spec(
+    behavior = "provide_extension_entity_hover",
+    verify = "hover shows testability for testable kinds"
+)]
+fn hover_shows_testability_from_the_standing() {
+    let mut g = Graph::new();
+    g.add_node(node("login", "behavior", Some("Login")));
+    g.add_node(node("auth", "feature", Some("Auth")));
+    let registries = || {
+        declaring(vec![
+            kind("behavior", "@specforge/software", true),
+            kind("feature", "@specforge/product", false),
+        ])
+    };
+    let env = Environment::with_registries(registries());
+    let recorded = RecordedCoverage::default();
+    let view = ProjectView::new(&g, &env, None, &recorded);
+    for (id, testable) in [("login", true), ("auth", false)] {
+        let facts = specforge_ops::inspect::inspect(&view, id).unwrap();
+        assert_eq!(facts.standing.testable, testable, "{id}");
+        let text = specforge_lsp::hover::entity(&facts);
+        assert_eq!(text.contains("`testable`"), testable, "{id}:\n{text}");
+    }
+    assert!(
+        entity_hover(&g, registries(), "auth")
+            .unwrap()
+            .ends_with("*@specforge/product*")
+    );
+}
+
+#[spec(
+    behavior = "provide_extension_entity_hover",
+    verify = "hover shows reference count from graph"
+)]
+fn hover_shows_reference_counts_and_groups() {
     let mut g = Graph::new();
     g.add_node(node("create_user", "behavior", Some("Create User")));
     g.add_node(node("user_management", "feature", Some("User Management")));
     g.add_node(node("user_type", "type", None));
+    g.add_node(node("data_integrity", "invariant", None));
+    g.add_node(node("v1_launch", "milestone", None));
     g.add_edge(edge("create_user", "user_management", "features"));
     g.add_edge(edge("create_user", "user_type", "types"));
-
-    let text = specforge_lsp::hover_info(&g, "create_user").unwrap();
-    assert!(
-        text.contains("**Refers to** *(2)*"),
-        "should have References section:\n{text}"
-    );
-    assert!(
-        text.contains("`features` → user_management"),
-        "should list feature ref:\n{text}"
-    );
-    assert!(
-        text.contains("`types` → user_type"),
-        "should list type ref:\n{text}"
-    );
-}
-
-#[test]
-fn hover_shows_incoming_edges() {
-    let mut g = Graph::new();
-    g.add_node(node("user_management", "feature", Some("User Management")));
-    g.add_node(node("create_user", "behavior", Some("Create User")));
-    g.add_node(node("delete_user", "behavior", Some("Delete User")));
-    g.add_edge(edge("create_user", "user_management", "features"));
-    g.add_edge(edge("delete_user", "user_management", "features"));
-
-    let text = specforge_lsp::hover_info(&g, "user_management").unwrap();
-    assert!(
-        text.contains("**Referenced by** *(2)*"),
-        "should have Referenced by section:\n{text}"
-    );
-    assert!(
-        text.contains("behavior via `features`:"),
-        "should group by kind+label:\n{text}"
-    );
-    assert!(
-        text.contains("create_user"),
-        "should list source ID:\n{text}"
-    );
-    assert!(
-        text.contains("delete_user"),
-        "should list source ID:\n{text}"
-    );
-}
-
-#[test]
-fn hover_shows_both_directions() {
-    let mut g = Graph::new();
-    g.add_node(node("create_user", "behavior", Some("Create User")));
-    g.add_node(node("user_management", "feature", None));
-    g.add_node(node("data_integrity", "invariant", None));
-    // create_user → user_management (outgoing)
-    g.add_edge(edge("create_user", "user_management", "features"));
-    // data_integrity → create_user (incoming)
     g.add_edge(edge("data_integrity", "create_user", "enforced_by"));
+    g.add_edge(edge("v1_launch", "create_user", "features"));
 
-    let text = specforge_lsp::hover_info(&g, "create_user").unwrap();
-    assert!(
-        text.contains("**Refers to** *(1)*"),
-        "should have outgoing:\n{text}"
+    let text = plain_hover(&g, "create_user").unwrap();
+    assert_eq!(
+        text,
+        "**behavior** `create_user` — Create User\n\n---\n\n\
+         **Refers to** *(2)*\n\
+         - `features` → user_management\n\
+         - `types` → user_type\n\n---\n\n\
+         **Referenced by** *(2)*\n\
+         - invariant via `enforced_by`: data_integrity\n\
+         - milestone via `features`: v1_launch"
     );
-    assert!(
-        text.contains("**Referenced by** *(1)*"),
-        "should have incoming:\n{text}"
-    );
-    assert!(text.contains("`features` → user_management"));
-    assert!(text.contains("invariant via `enforced_by`: data_integrity"));
-}
 
-#[test]
-fn hover_no_edges_shows_no_sections() {
-    let mut g = Graph::new();
-    g.add_node(node("orphan", "type", Some("Orphan Type")));
-
-    let text = specforge_lsp::hover_info(&g, "orphan").unwrap();
-    assert!(!text.contains("References"), "no outgoing section:\n{text}");
-    assert!(
-        !text.contains("Referenced by"),
-        "no incoming section:\n{text}"
-    );
-    assert!(text.contains("**type** `orphan` — Orphan Type"));
-}
-
-#[test]
-fn hover_groups_multiple_incoming_by_kind() {
+    // Several references of one kind through one field are one group.
     let mut g = Graph::new();
     g.add_node(node("auth_feature", "feature", None));
     g.add_node(node("login", "behavior", None));
@@ -159,63 +177,44 @@ fn hover_groups_multiple_incoming_by_kind() {
     g.add_edge(edge("login", "auth_feature", "features"));
     g.add_edge(edge("logout", "auth_feature", "features"));
     g.add_edge(edge("v1_launch", "auth_feature", "features"));
-
-    let text = specforge_lsp::hover_info(&g, "auth_feature").unwrap();
-    // Should have two groups: behavior via `features` and milestone via `features`
+    let text = plain_hover(&g, "auth_feature").unwrap();
     assert!(
-        text.contains("behavior via `features`:"),
-        "should group behaviors:\n{text}"
+        text.ends_with(
+            "**Referenced by** *(3)*\n\
+             - behavior via `features`: login, logout\n\
+             - milestone via `features`: v1_launch"
+        ),
+        "{text}"
     );
-    assert!(
-        text.contains("milestone via `features`:"),
-        "should group milestones:\n{text}"
-    );
-}
 
-#[test]
-fn hover_nonexistent_entity_returns_none() {
-    let g = Graph::new();
-    assert!(specforge_lsp::hover_info(&g, "nonexistent").is_none());
-}
-
-// -- hover_info_with_registries -----------------------------------------------
-
-#[test]
-fn hover_shows_extension_source() {
-    use specforge_registry::{KindRegistry, KindRegistryEntry};
+    // No references, no sections.
     let mut g = Graph::new();
-    g.add_node(node("login", "behavior", Some("User Login")));
-
-    let mut kind_reg = KindRegistry::new();
-    kind_reg.register(KindRegistryEntry {
-        kind_name: "behavior".into(),
-        source_extension: "@specforge/software".into(),
-        testable: true,
-        supports_verify: true,
-        allowed_verify_kinds: vec![],
-        lifecycle_field: None,
-        ..Default::default()
-    });
-
-    let text =
-        specforge_lsp::hover_info_with_registries(&g, "login", Some(&kind_reg), None).unwrap();
-    assert!(
-        text.contains("@specforge/software"),
-        "should show extension source:\n{text}"
-    );
-    assert!(
-        text.contains("**behavior** `login`"),
-        "should still show basic info:\n{text}"
+    g.add_node(node("orphan", "type", Some("Orphan Type")));
+    assert_eq!(
+        plain_hover(&g, "orphan").unwrap(),
+        "**type** `orphan` — Orphan Type"
     );
 }
 
+#[spec(
+    behavior = "provide_extension_entity_hover",
+    verify = "hover content formatted as markdown"
+)]
+fn hover_without_registries_is_plain_markdown() {
+    let mut g = Graph::new();
+    g.add_node(node("g", "gizmo", Some("G")));
+    // No extension line, no sections.
+    assert_eq!(plain_hover(&g, "g").unwrap(), "**gizmo** `g` — G");
+}
+
 #[test]
-fn hover_shows_actual_field_values() {
+fn hover_shows_field_values() {
     use specforge_parser::{FieldValue, SpannedRef};
 
-    let mut g = Graph::new();
-    let mut fields = FieldMap::new();
-    fields.push(Sym::new("status"), FieldValue::Identifier("draft".into()));
+    let mut login = node("login", "behavior", Some("Login"));
+    login
+        .fields
+        .push(Sym::new("status"), FieldValue::Identifier("draft".into()));
     let ref_span = SourceSpan {
         file: Sym::new("test.spec"),
         start_line: 0,
@@ -223,7 +222,7 @@ fn hover_shows_actual_field_values() {
         end_line: 0,
         end_col: 0,
     };
-    fields.push(
+    login.fields.push(
         Sym::new("invariants"),
         FieldValue::ReferenceList(vec![
             SpannedRef {
@@ -236,30 +235,14 @@ fn hover_shows_actual_field_values() {
             },
         ]),
     );
-    fields.push(
+    login.fields.push(
         Sym::new("contract"),
         FieldValue::String("Given valid credentials, the user is authenticated".into()),
     );
-    g.add_node(Node {
-        id: EntityId {
-            raw: Sym::new("login"),
-        },
-        kind: EntityKind {
-            raw: Sym::new("behavior"),
-        },
-        title: Some("Login".into()),
-        fields,
-        source_span: SourceSpan {
-            file: Sym::new("test.spec"),
-            start_line: 0,
-            start_col: 0,
-            end_line: 0,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
+    let mut g = Graph::new();
+    g.add_node(login);
 
-    let text = specforge_lsp::hover_info(&g, "login").unwrap();
+    let text = plain_hover(&g, "login").unwrap();
     assert!(
         text.contains("**Fields**"),
         "should have Fields section:\n{text}"
@@ -276,47 +259,17 @@ fn hover_shows_actual_field_values() {
         text.contains("`contract` = \"Given valid credentials"),
         "should show contract string:\n{text}"
     );
-}
 
-#[test]
-fn hover_no_fields_section_when_entity_has_no_fields() {
     let mut g = Graph::new();
-    g.add_node(node("login", "behavior", Some("Login")));
-
-    let text = specforge_lsp::hover_info(&g, "login").unwrap();
+    g.add_node(node("bare", "behavior", Some("Bare")));
+    let text = plain_hover(&g, "bare").unwrap();
     assert!(
         !text.contains("Fields"),
         "should not show Fields when entity has none:\n{text}"
     );
 }
 
-#[test]
-fn hover_shows_entity_kind_description() {
-    use specforge_registry::{KindRegistry, KindRegistryEntry};
-    let mut g = Graph::new();
-    g.add_node(node("login", "behavior", Some("User Login")));
-
-    let mut kind_reg = KindRegistry::new();
-    kind_reg.register(KindRegistryEntry {
-        kind_name: "behavior".into(),
-        source_extension: "@specforge/software".into(),
-        testable: true,
-        supports_verify: true,
-        allowed_verify_kinds: vec![],
-        lifecycle_field: None,
-        declared: specforge_registry::EntityKindDescriptor {
-            description: Some("A testable unit of system functionality".into()),
-            ..Default::default()
-        },
-    });
-
-    let text =
-        specforge_lsp::hover_info_with_registries(&g, "login", Some(&kind_reg), None).unwrap();
-    assert!(
-        text.contains("A testable unit of system functionality"),
-        "should show entity kind description:\n{text}"
-    );
-}
+// -- hover_field_info (description) -------------------------------------------
 
 #[test]
 fn hover_shows_field_description() {
@@ -338,18 +291,6 @@ fn hover_shows_field_description() {
     assert!(
         text.contains("The behavioral contract this entity fulfills"),
         "should show field description:\n{text}"
-    );
-}
-
-#[test]
-fn hover_no_extension_source_without_registry() {
-    let mut g = Graph::new();
-    g.add_node(node("login", "behavior", Some("Login")));
-
-    let text = specforge_lsp::hover_info(&g, "login").unwrap();
-    assert!(
-        !text.contains("@specforge"),
-        "should not show extension source without registry:\n{text}"
     );
 }
 
@@ -449,6 +390,18 @@ fn diagnostic_at(
     }
 }
 
+/// The cursor section of the hover at `position`: the published
+/// diagnostics there, rendered.
+fn diagnostic_hover(
+    published: &[specforge_common::Diagnostic],
+    index: &LineIndex,
+    position: Position,
+) -> Option<String> {
+    specforge_lsp::hover::diagnostics(&specforge_lsp::hover::diagnostics_at(
+        published, index, position,
+    ))
+}
+
 #[spec(
     behavior = "hover_diagnostic",
     verify = "hovering a diagnostic shows its catalogued title and explanation"
@@ -464,12 +417,8 @@ fn hovering_a_diagnostic_shows_the_catalogue_entry() {
         15,
     )];
 
-    let md = specforge_lsp::diagnostic_hover(
-        &diagnostics,
-        &LineIndex::new(content),
-        Position::new(1, 11),
-    )
-    .unwrap();
+    let md =
+        diagnostic_hover(&diagnostics, &LineIndex::new(content), Position::new(1, 11)).unwrap();
     assert_eq!(
         md,
         "**E003** · Unresolved reference\n\nunresolved reference 'ghost'\n\n\
@@ -480,11 +429,7 @@ fn hovering_a_diagnostic_shows_the_catalogue_entry() {
     );
     // Outside the range, nothing.
     assert_eq!(
-        specforge_lsp::diagnostic_hover(
-            &diagnostics,
-            &LineIndex::new(content),
-            Position::new(0, 3)
-        ),
+        diagnostic_hover(&diagnostics, &LineIndex::new(content), Position::new(0, 3)),
         None
     );
 }
@@ -498,12 +443,7 @@ fn an_uncatalogued_diagnostic_hover_shows_code_and_message() {
     // E901 is a third-party extension's code.
     let diagnostics = [diagnostic_at("E901", "acme says no", 2, 10, 15)];
     assert_eq!(
-        specforge_lsp::diagnostic_hover(
-            &diagnostics,
-            &LineIndex::new(content),
-            Position::new(1, 12)
-        )
-        .as_deref(),
+        diagnostic_hover(&diagnostics, &LineIndex::new(content), Position::new(1, 12)).as_deref(),
         Some("**E901**\n\nacme says no")
     );
 }
@@ -518,7 +458,7 @@ fn contract_line(value: &str) -> String {
     long.fields
         .push(Sym::new("contract"), FieldValue::String(value.to_string()));
     g.add_node(long);
-    let text = specforge_lsp::hover_info(&g, "long_one").unwrap();
+    let text = plain_hover(&g, "long_one").unwrap();
     text.lines()
         .find(|l| l.starts_with("- `contract`"))
         .unwrap_or_else(|| panic!("no contract line:\n{text}"))

@@ -162,6 +162,17 @@ impl LspState {
             .unwrap_or(&[])
     }
 
+    /// Every diagnostic last published, URI by URI in URI order, each list
+    /// in published order: the copies the editor shows (a spanless one
+    /// placed at its first subject's name, its data kept), what the hover
+    /// reports about an entity.
+    pub fn published_diagnostics(&self) -> impl Iterator<Item = &Diagnostic> {
+        let mut uris: Vec<&String> = self.diagnostics.keys().collect();
+        uris.sort();
+        uris.into_iter()
+            .flat_map(|uri| self.diagnostics[uri].iter())
+    }
+
     /// The URIs diagnostics were last published for.
     pub fn published_uris(&self) -> Vec<String> {
         self.diagnostics.keys().cloned().collect()

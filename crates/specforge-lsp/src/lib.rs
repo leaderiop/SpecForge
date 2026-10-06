@@ -3,7 +3,7 @@ mod capabilities;
 pub mod completion;
 mod document;
 pub mod formatting;
-mod hover;
+pub mod hover;
 mod navigation;
 pub mod publish;
 mod state;
@@ -15,7 +15,7 @@ pub use document::{
     CompletionSite, Cursor, Document, EntityAt, LineIndex, MOD_DECLARATION, MOD_REFERENCE, Place,
     SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES, Target, Word, WordEdit,
 };
-pub use hover::{diagnostic_hover, hover_field_info, hover_info, hover_info_with_registries};
+pub use hover::hover_field_info;
 pub use navigation::{goto_import_definition, navigator};
 pub use specforge_graph::rename::RenameEdit;
 pub use state::LspState;

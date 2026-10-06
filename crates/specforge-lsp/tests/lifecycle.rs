@@ -243,9 +243,18 @@ fn graph_update_serves_all_features() {
         "find-all-references must use shared graph: {refs:?}"
     );
 
-    // The same graph serves hover
-    let hover = specforge_lsp::hover_info(state.graph(), "login");
-    assert!(hover.is_some(), "hover must use shared graph");
+    // The same graph serves hover, through the inspect read view
+    let facts = specforge_ops::inspect::inspect(&state.view(), "login")
+        .expect("inspect must use shared graph");
+    assert!(std::ptr::eq(
+        facts.node,
+        state.graph().node("login").unwrap()
+    ));
+    let hover = specforge_lsp::hover::entity(&facts);
+    assert!(
+        hover.contains("`login`"),
+        "hover must use shared graph: {hover}"
+    );
 
     // The same graph serves workspace symbols and completions (one
     // ranking, over ids and titles)
