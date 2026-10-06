@@ -1,13 +1,9 @@
 use specforge_common::{SourceSpan, Sym};
 use specforge_emitter::json::emit_json;
-use specforge_emitter::schema::{
-    emit_brief_scoped_with_schema, emit_brief_with_schema, emit_context_scoped_with_schema,
-    emit_context_with_schema, emit_json_scoped_with_schema, emit_json_with_schema,
-};
 use specforge_emitter::{
-    EmitFormat, GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo,
-    SchemaField, SchemaMigration, SchemaMigrationChange, SchemaVersion, SchemaVersionError,
-    compute_schema_version, diff_schemas, diff_schemas_optional, emit_schema, emit_schema_for_kind,
+    EmitFormat, EmitOptions, EmitterError, GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind,
+    SchemaExtensionInfo, SchemaField, SchemaMigration, SchemaMigrationChange, SchemaVersion,
+    SchemaVersionError, compute_schema_version, diff_schemas, diff_schemas_optional,
     generate_schema, negotiate_version, publish_json_schema_format,
 };
 use specforge_graph::{Edge, FieldValue, Graph, Node};
@@ -17,6 +13,25 @@ use specforge_registry::{
     KindRegistryEntry, ManifestFieldType,
 };
 use specforge_test::prelude::*;
+
+/// `graph` exported as `format` with `schema` attached: embedded, or
+/// referenced when scoped (`emit`, ADR 0007).
+fn with_schema(
+    graph: &Graph,
+    format: EmitFormat,
+    scope: Option<&str>,
+    schema: &GraphProtocolSchema,
+) -> Result<String, EmitterError> {
+    specforge_emitter::emit(
+        graph,
+        &EmitOptions {
+            format,
+            scope,
+            schema: Some(schema),
+            ..EmitOptions::default()
+        },
+    )
+}
 
 fn span() -> SourceSpan {
     SourceSpan {
@@ -386,15 +401,15 @@ fn generate_schema_deterministic_sort() {
 // Slice 3: Embed Schema in Export
 // ===========================================================================
 
-// B:embed_schema_in_export — verify unit "emit_json_with_schema produces format_version 2.0"
+// B:embed_schema_in_export — a graph export with a schema is format 2.0
 #[specforge_test(
     behavior = "embed_schema_in_export",
     verify = "format_version set to 2.0 with schema"
 )]
-fn emit_json_with_schema_has_format_version() {
+fn a_graph_export_with_a_schema_is_format_2_0() {
     let graph = Graph::new();
     let schema = GraphProtocolSchema::empty();
-    let json = emit_json_with_schema(&graph, &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Json, None, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     assert_eq!(parsed["format_version"], "2.0");
@@ -402,16 +417,16 @@ fn emit_json_with_schema_has_format_version() {
     assert!(parsed["schema_version"].is_string());
 }
 
-// B:embed_schema_in_export — verify unit "emit_json_with_schema includes schema key"
+// B:embed_schema_in_export — a graph export embeds the schema as a top-level key
 #[specforge_test(
     behavior = "embed_schema_in_export",
     verify = "schema embedded as top-level key in full JSON export"
 )]
-fn emit_json_with_schema_includes_schema() {
+fn a_graph_export_embeds_the_schema() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha")));
     let schema = sample_schema();
-    let json = emit_json_with_schema(&graph, &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Json, None, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     assert!(parsed["schema"]["entity_kinds"].is_array());
@@ -428,29 +443,29 @@ fn existing_emit_json_has_no_schema_key() {
     assert_eq!(parsed["format_version"], "1.0");
 }
 
-// B:embed_schema_in_export — verify unit "emit_context_with_schema produces format_version 2.0"
+// B:embed_schema_in_export — a context export with a schema is format 2.0
 #[specforge_test(
     behavior = "embed_schema_in_export",
     verify = "format_version set to 2.0 with schema"
 )]
-fn emit_context_with_schema_has_format_version() {
+fn a_context_export_with_a_schema_is_format_2_0() {
     let graph = Graph::new();
     let schema = GraphProtocolSchema::empty();
-    let json = emit_context_with_schema(&graph, &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Context, None, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["format_version"], "2.0");
     assert!(parsed["schema"].is_object());
 }
 
-// B:embed_schema_in_export — verify unit "emit_brief_with_schema produces format_version 2.0"
+// B:embed_schema_in_export — a brief export with a schema is format 2.0
 #[specforge_test(
     behavior = "embed_schema_in_export",
     verify = "format_version set to 2.0 with schema"
 )]
-fn emit_brief_with_schema_has_format_version() {
+fn a_brief_export_with_a_schema_is_format_2_0() {
     let graph = Graph::new();
     let schema = GraphProtocolSchema::empty();
-    let json = emit_brief_with_schema(&graph, &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Brief, None, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["format_version"], "2.0");
     assert!(parsed["schema"].is_object());
@@ -461,10 +476,10 @@ fn emit_brief_with_schema_has_format_version() {
     behavior = "serialize_json_graph",
     verify = "output includes schema_version field"
 )]
-fn emit_json_with_schema_version_consistency() {
+fn the_export_version_is_the_schema_version() {
     let graph = Graph::new();
     let schema = sample_schema();
-    let json = emit_json_with_schema(&graph, &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Json, None, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let top_level = parsed["schema_version"].as_str().unwrap();
@@ -821,80 +836,6 @@ fn schema_version_error_display() {
 }
 
 // ===========================================================================
-// Slice 8: Serve Schema
-// ===========================================================================
-
-// B:serve_schema_resource — verify unit "full schema serializes to JSON"
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "specforge schema outputs full schema as JSON"
-)]
-fn emit_schema_full() {
-    let schema = sample_schema();
-    let json = emit_schema(&schema).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-
-    // Every part of the fixture is in the output.
-    assert_eq!(
-        parsed["schema_version"],
-        serde_json::json!({ "major": 1, "minor": 2, "patch": 3 })
-    );
-    assert_eq!(
-        parsed["extensions"],
-        serde_json::json!([{ "name": "@specforge/software", "version": "1.0.0" }])
-    );
-    let kinds: Vec<&str> = parsed["entity_kinds"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .map(|k| k["name"].as_str().unwrap())
-        .collect();
-    assert_eq!(kinds, vec!["behavior", "feature"]);
-    let behavior = &parsed["entity_kinds"][0];
-    assert_eq!(behavior["source_extension"], "@specforge/software");
-    assert_eq!(behavior["testable"], true);
-    assert_eq!(behavior["fields"][0]["name"], "contract");
-    assert_eq!(behavior["fields"][0]["field_type"], "string");
-    assert_eq!(parsed["entity_kinds"][1]["fields"], serde_json::json!([]));
-    assert_eq!(parsed["edge_types"].as_array().unwrap().len(), 1);
-    let edge = &parsed["edge_types"][0];
-    assert_eq!(edge["label"], "implements");
-    assert_eq!(edge["source_kinds"], serde_json::json!(["behavior"]));
-    assert_eq!(edge["target_kinds"], serde_json::json!(["feature"]));
-
-    // And nothing is lost: it reads back as the same schema.
-    let back: GraphProtocolSchema = serde_json::from_str(&json).unwrap();
-    assert_eq!(back, schema);
-}
-
-// B:serve_schema_resource — verify unit "filter by kind returns single kind"
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "--kind filter restricts to single entity kind"
-)]
-fn emit_schema_for_kind_single() {
-    let schema = sample_schema();
-    let json = emit_schema_for_kind(&schema, "behavior").unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert_eq!(parsed["name"], "behavior");
-    assert!(parsed["fields"].is_array());
-}
-
-// B:serve_schema_resource — verify unit "missing kind returns error"
-#[specforge_test(behavior = "serve_schema_resource", verify = "missing kind error")]
-fn emit_schema_for_kind_missing() {
-    let schema = sample_schema();
-    let result = emit_schema_for_kind(&schema, "nonexistent");
-    assert!(result.is_err());
-    assert!(
-        result
-            .unwrap_err()
-            .to_string()
-            .contains("unknown entity kind")
-    );
-}
-
-// ===========================================================================
 // Slice 9: Publish JSON Schema
 // ===========================================================================
 
@@ -1062,7 +1003,7 @@ fn full_pipeline_registries_to_schema_to_embed() {
         label: Sym::new("implements"),
     });
 
-    let json = emit_json_with_schema(&graph, &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Json, None, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["format_version"], "2.0");
     assert_eq!(parsed["nodes"].as_array().unwrap().len(), 2);
@@ -1162,7 +1103,7 @@ fn compute_version_removed_field_bumps_major() {
     behavior = "export_agent_graph_format",
     verify = "graph format includes all fields and metadata"
 )]
-fn emit_json_with_schema_nodes_have_fields() {
+fn a_graph_export_with_a_schema_keeps_every_field() {
     let mut graph = Graph::new();
     let mut fields = FieldMap::new();
     fields.push(
@@ -1183,7 +1124,7 @@ fn emit_json_with_schema_nodes_have_fields() {
     });
 
     let schema = GraphProtocolSchema::empty();
-    let json = emit_json_with_schema(&graph, &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Json, None, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let node = &parsed["nodes"].as_array().unwrap()[0];
@@ -1197,7 +1138,7 @@ fn emit_json_with_schema_nodes_have_fields() {
     behavior = "export_agent_graph_format",
     verify = "graph format includes all nodes and edges"
 )]
-fn emit_json_with_schema_has_edges() {
+fn a_graph_export_with_a_schema_keeps_the_edges() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior", None));
     graph.add_node(node("b", "feature", None));
@@ -1208,7 +1149,7 @@ fn emit_json_with_schema_has_edges() {
     });
 
     let schema = GraphProtocolSchema::empty();
-    let json = emit_json_with_schema(&graph, &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Json, None, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let edges = parsed["edges"].as_array().unwrap();
@@ -1416,7 +1357,7 @@ fn schema_reflects_current_state() {
                 .map(|(name, version)| (name.to_string(), version.to_string()))
                 .collect::<Vec<_>>(),
         );
-        serde_json::from_str(&emit_schema(&schema).unwrap()).unwrap()
+        serde_json::to_value(&schema).unwrap()
     }
     fn configure(dir: &std::path::Path, extensions: &[&str]) {
         let config = serde_json::json!({
@@ -1470,7 +1411,7 @@ fn published_schema_validates_known_good_export() {
 
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha")));
-    let export = emit_json_with_schema(&graph, &schema).unwrap();
+    let export = with_schema(&graph, EmitFormat::Json, None, &schema).unwrap();
     let export_val: serde_json::Value = serde_json::from_str(&export).unwrap();
 
     // 1. Check required properties
@@ -1633,7 +1574,7 @@ fn embed_schema_contract() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha")));
 
-    let json = emit_json_with_schema(&graph, &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Json, None, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     // ensures: schema_embedded
@@ -1709,28 +1650,6 @@ fn compute_version_contract() {
     assert_eq!(v, SchemaVersion::new(1, 3, 0));
 }
 
-// B:serve_schema_resource — verify contract "requires/ensures consistency for schema resource serving"
-#[specforge_test(
-    behavior = "serve_schema_resource",
-    verify = "Serve Schema Resource: schema resource serving holds — validation_complete_fired, full_schema_output, kind_filter_supported, mcp_resource_available"
-)]
-fn serve_schema_contract() {
-    let schema = sample_schema();
-
-    // ensures: full_schema_output
-    let json = emit_schema(&schema).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed["entity_kinds"].is_array());
-
-    // ensures: kind_filter_supported
-    let filtered = emit_schema_for_kind(&schema, "behavior").unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&filtered).unwrap();
-    assert_eq!(parsed["name"], "behavior");
-
-    // error for unknown kind
-    assert!(emit_schema_for_kind(&schema, "nonexistent").is_err());
-}
-
 // B:publish_schema_specification — verify contract "requires/ensures consistency for schema specification publication"
 #[specforge_test(
     behavior = "publish_schema_specification",
@@ -1757,21 +1676,6 @@ fn publish_schema_contract() {
 }
 
 // ===========================================================================
-// Gap coverage: MCP resource (specforge://schema)
-// ===========================================================================
-
-#[test]
-fn mcp_schema_resource_returns_graph_protocol_schema() {
-    let schema = GraphProtocolSchema::empty();
-    let json = emit_schema(&schema).unwrap();
-    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed["schema_version"].is_object());
-    assert!(parsed["entity_kinds"].is_array());
-    assert!(parsed["edge_types"].is_array());
-    assert!(parsed["extensions"].is_array());
-}
-
-// ===========================================================================
 // Gap coverage: Scoped V2 exports
 // ===========================================================================
 
@@ -1791,7 +1695,7 @@ fn scoped_v2_export_references_schema() {
     });
 
     let schema = sample_schema();
-    let json = emit_json_scoped_with_schema(&graph, "a", &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Json, Some("a"), &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     assert_eq!(parsed["format_version"], "2.0");
@@ -1817,7 +1721,7 @@ fn scoped_context_v2_export() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior", Some("A")));
     let schema = GraphProtocolSchema::empty();
-    let json = emit_context_scoped_with_schema(&graph, "a", &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Context, Some("a"), &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["format_version"], "2.0");
     assert!(parsed.get("schema").is_none());
@@ -1833,7 +1737,7 @@ fn scoped_brief_v2_export() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior", Some("A")));
     let schema = GraphProtocolSchema::empty();
-    let json = emit_brief_scoped_with_schema(&graph, "a", &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Brief, Some("a"), &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["format_version"], "2.0");
     assert!(parsed.get("schema").is_none());
@@ -1850,7 +1754,7 @@ fn scoped_v2_nonexistent_scope_error() {
     graph.add_node(node("a", "behavior", Some("A")));
     let schema = GraphProtocolSchema::empty();
 
-    let err = emit_json_scoped_with_schema(&graph, "nonexistent", &schema).unwrap_err();
+    let err = with_schema(&graph, EmitFormat::Json, Some("nonexistent"), &schema).unwrap_err();
     assert_eq!(
         err.to_string(),
         "E003: unresolved scope entity 'nonexistent' — entity not found in graph"
@@ -1947,7 +1851,7 @@ fn full_v2_export_still_embeds_schema() {
     graph.add_node(node("a", "behavior", Some("A")));
     let schema = sample_schema();
 
-    let json = emit_brief_with_schema(&graph, &schema).unwrap();
+    let json = with_schema(&graph, EmitFormat::Brief, None, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(
         parsed["schema"]["entity_kinds"].as_array().unwrap().len() == 2,

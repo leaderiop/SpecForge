@@ -482,8 +482,10 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
     invoke the matching registered renderer and write output files to out_dir;
     without out_dir it MUST return the rendering inline instead.
     The renderers are the core graph engine's export formats (see P7
-    justification in features/output.spec): json (the full graph, as
-    `specforge export --format graph` writes it), dot, context and brief.
+    justification in features/output.spec), named as `specforge export
+    --format` names them: graph (also accepted as json; the full graph, as
+    `specforge export --format graph` writes it, in graph.json), dot,
+    context and brief. The result's format is the renderer's name.
     Extension renderer contributions are not dispatched by this tool.
     Renderers produce graph diagnostic artifacts: JSON serializations, DOT
     visualizations, traceability matrices, validation summaries. They MUST NOT
@@ -497,5 +499,6 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
   verify unit "specforge.render writes output files to out_dir"
   verify unit "registered renderer invoked for matching format"
   verify unit "unrecognized format returns error listing available renderers"
+  verify unit "graph and its alias json select the full graph renderer"
   verify contract "Provide MCP Render Tool: MCP render tool holds — graph_available, filesystem_available, files_written, files_listed, tool_invoked_emitted"
 }

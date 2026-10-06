@@ -5,6 +5,7 @@
 use serde::Deserialize;
 use serde::de::{self, DeserializeOwned, Deserializer, Visitor};
 use serde_json::Value;
+use specforge_ops::options::OptionTable;
 
 use crate::tool::{ErrorCode, McpError, ToolOutcome};
 
@@ -204,6 +205,90 @@ pub fn lenient<'de, D: Deserializer<'de>, T: DeserializeOwned>(
     deserializer: D,
 ) -> Result<Option<T>, D::Error> {
     Ok(serde_json::from_value(Value::deserialize(deserializer)?).ok())
+}
+
+/// An enumerated argument's input schema (ADR 0027): `type` string, `enum`
+/// every name the table accepts (listed names, then aliases, so a
+/// validating client may send an alias), `default` the table's (none for a
+/// filter), `description` followed by each choice and its help
+/// (`Output format: markdown; mermaid: ER diagram; …`).
+pub fn choice_schema<T: Copy + PartialEq>(table: &OptionTable<T>, description: &str) -> Value {
+    let mut schema = required_choice_schema(table, description);
+    if let Some(default) = table.default_name() {
+        schema["default"] = Value::from(default);
+    }
+    schema
+}
+
+/// [`choice_schema`] of a required argument: no `default`.
+pub fn required_choice_schema<T: Copy + PartialEq>(
+    table: &OptionTable<T>,
+    description: &str,
+) -> Value {
+    let choices: Vec<String> = table
+        .choices
+        .iter()
+        .map(|choice| {
+            let mut text = choice.name.to_string();
+            if !choice.aliases.is_empty() {
+                text.push_str(&format!(" (also {})", choice.aliases.join(", ")));
+            }
+            if !choice.help.is_empty() {
+                text.push_str(": ");
+                text.push_str(choice.help);
+            }
+            text
+        })
+        .collect();
+    serde_json::json!({
+        "type": "string",
+        "enum": table.accepted().collect::<Vec<_>>(),
+        "description": format!("{description}: {}", choices.join("; ")),
+    })
+}
+
+/// The input schema of a name list that is not an option table (severity
+/// and lint profiles, ADR 0018: their typed `CheckError` refusals stay):
+/// `type` string, `enum` the names.
+pub fn names_schema(names: &[&str], description: &str) -> Value {
+    serde_json::json!({
+        "type": "string",
+        "enum": names,
+        "description": description,
+    })
+}
+
+/// An enumerated argument as a handler reads it: absent is the table's
+/// default; an unknown name is the table's refusal, `invalid_input` on
+/// `key` (ADR 0027).
+///
+/// # Panics
+/// When the table has no default: a filter is read with
+/// [`optional_choice`].
+pub fn choice<T: Copy + PartialEq>(
+    table: &OptionTable<T>,
+    key: &str,
+    name: Option<&str>,
+) -> Result<T, ToolOutcome> {
+    table
+        .parse_or_default(name)
+        .map_err(|error| refused(error, key))
+}
+
+/// [`choice`] of a table without a default (a filter): absent is none.
+pub fn optional_choice<T: Copy + PartialEq>(
+    table: &OptionTable<T>,
+    key: &str,
+    name: Option<&str>,
+) -> Result<Option<T>, ToolOutcome> {
+    table
+        .parse_optional(name)
+        .map_err(|error| refused(error, key))
+}
+
+/// A table's refusal as the tool's `invalid_input` result on `key`.
+fn refused(error: specforge_ops::OpError, key: &str) -> ToolOutcome {
+    crate::operations::op_error(error).with_argument(key).into()
 }
 
 /// A list of strings, its other items skipped; anything but a list reads

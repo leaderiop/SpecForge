@@ -17,6 +17,7 @@ mod mcp;
 mod migrate;
 mod model;
 mod new;
+mod options;
 mod outline;
 mod pipeline;
 mod providers;
@@ -53,83 +54,6 @@ enum OutputFormat {
     Json,
 }
 
-/// Export graph resolutions (`specforge export --format`).
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-enum ExportFormat {
-    Graph,
-    Brief,
-    Context,
-    Dot,
-}
-
-/// Export formats a published JSON Schema may describe (`specforge schema --format`).
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-enum SchemaFormat {
-    Graph,
-    Context,
-    Brief,
-}
-
-/// Renderers for the logical data model (`specforge model --format`).
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-enum ModelFormat {
-    Markdown,
-    Mermaid,
-    Dot,
-    Json,
-    Dbml,
-}
-
-/// Renderers for the extension architecture (`specforge outline --format`).
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-enum OutlineFormat {
-    Markdown,
-    Mermaid,
-    Dot,
-    Json,
-}
-
-/// Entity grouping for the data model (`specforge model --group-by`).
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-enum GroupBy {
-    Extension,
-    None,
-}
-
-/// Field detail level shared by `model --fields` and `outline --fields`.
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-enum FieldLevel {
-    None,
-    Keys,
-    All,
-}
-
-/// Dependency visibility for `specforge outline --deps`.
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-enum DepsLevel {
-    Direct,
-    Effective,
-    Full,
-}
-
-/// Static analysis passes for `specforge analyze --pass`.
-#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
-enum AnalysisPass {
-    All,
-    Coverage,
-    Contracts,
-}
-
-impl AnalysisPass {
-    /// The pass name used to select and order built-in/extension passes.
-    fn name(self) -> &'static str {
-        match self {
-            AnalysisPass::All => "all",
-            AnalysisPass::Coverage => "coverage",
-            AnalysisPass::Contracts => "contracts",
-        }
-    }
-}
 impl OutputFormat {
     /// Report diagnostics that don't stop the command (the registry
     /// configuration's E067/W140/I003): `severity[CODE]: message` on
@@ -239,9 +163,13 @@ enum Commands {
         #[arg(default_value = ".")]
         path: PathBuf,
 
-        /// Output format: graph, brief, context, or dot
-        #[arg(long, default_value = "graph")]
-        format: ExportFormat,
+        /// Output format
+        #[arg(
+            long,
+            value_parser = options::choice(&specforge_ops::export::FORMAT),
+            default_value = specforge_ops::export::FORMAT.default_name()
+        )]
+        format: specforge_ops::export::Format,
 
         /// Scope export to subgraph reachable from this entity ID
         #[arg(long)]
@@ -278,17 +206,30 @@ enum Commands {
         #[arg(default_value = ".")]
         path: PathBuf,
 
-        /// Filter output to a single entity kind
-        #[arg(long)]
+        /// That entity kind and the edge types that can start or end at it
+        #[arg(long, conflicts_with = "publish")]
         kind: Option<String>,
+
+        /// Leave the edge types out
+        #[arg(long, conflicts_with = "publish")]
+        no_edges: bool,
+
+        /// Add the validation rules the loaded extensions declare
+        #[arg(long, conflicts_with = "publish")]
+        validation_rules: bool,
 
         /// Publish as standalone JSON Schema (draft 2020-12)
         #[arg(long)]
         publish: bool,
 
-        /// Export format the published schema should describe
-        #[arg(long, default_value = "graph")]
-        format: SchemaFormat,
+        /// Export format the published schema describes
+        #[arg(
+            long,
+            requires = "publish",
+            value_parser = options::choice(&specforge_ops::export::AGENT_FORMAT),
+            default_value = specforge_ops::export::AGENT_FORMAT.default_name()
+        )]
+        format: specforge_ops::export::Format,
     },
     /// Render the logical data model (entity kinds, fields, relationships)
     Model {
@@ -296,17 +237,29 @@ enum Commands {
         #[arg(default_value = ".")]
         path: PathBuf,
 
-        /// Output format: markdown (default), mermaid, dot, json, dbml
-        #[arg(long, default_value = "markdown")]
-        format: ModelFormat,
+        /// Output format
+        #[arg(
+            long,
+            value_parser = options::choice(&specforge_ops::model::MODEL_FORMAT),
+            default_value = specforge_ops::model::MODEL_FORMAT.default_name()
+        )]
+        format: specforge_ops::model::ModelFormat,
 
-        /// Group entities by: extension (default), none
-        #[arg(long, default_value = "extension")]
-        group_by: GroupBy,
+        /// How to group entities
+        #[arg(
+            long,
+            value_parser = options::choice(&specforge_ops::model::GROUP_BY),
+            default_value = specforge_ops::model::GROUP_BY.default_name()
+        )]
+        group_by: specforge_ops::model::GroupBy,
 
-        /// Field detail level: none, keys (default), all
-        #[arg(long, default_value = "keys")]
-        fields: FieldLevel,
+        /// Field detail level
+        #[arg(
+            long,
+            value_parser = options::choice(&specforge_ops::model::MODEL_FIELDS),
+            default_value = specforge_ops::model::MODEL_FIELDS.default_name()
+        )]
+        fields: specforge_ops::model::FieldLevel,
 
         /// Filter to a single extension
         #[arg(long)]
@@ -330,17 +283,29 @@ enum Commands {
         #[arg(default_value = ".")]
         path: PathBuf,
 
-        /// Output format: markdown (default), mermaid, dot, json
-        #[arg(long, default_value = "markdown")]
-        format: OutlineFormat,
+        /// Output format
+        #[arg(
+            long,
+            value_parser = options::choice(&specforge_ops::model::OUTLINE_FORMAT),
+            default_value = specforge_ops::model::OUTLINE_FORMAT.default_name()
+        )]
+        format: specforge_ops::model::OutlineFormat,
 
-        /// Detail level: none (overview only), keys (default), all (full field attribution)
-        #[arg(long, default_value = "keys")]
-        fields: FieldLevel,
+        /// Detail level
+        #[arg(
+            long,
+            value_parser = options::choice(&specforge_ops::model::OUTLINE_FIELDS),
+            default_value = specforge_ops::model::OUTLINE_FIELDS.default_name()
+        )]
+        fields: specforge_ops::model::OutlineDetail,
 
-        /// Dependency visibility: direct (declared only), effective (direct + used transitive), full (all transitive)
-        #[arg(long, default_value = "direct")]
-        deps: DepsLevel,
+        /// Dependency visibility
+        #[arg(
+            long,
+            value_parser = options::choice(&specforge_ops::model::DEPS),
+            default_value = specforge_ops::model::DEPS.default_name()
+        )]
+        deps: specforge_ops::model::DependencyDepth,
     },
     /// Query the graph at multiple resolutions
     Query {
@@ -483,8 +448,9 @@ enum Commands {
     },
     /// Run static analysis passes over the compiled project
     Analyze {
-        /// Analysis pass to run (all, coverage, contracts)
-        pass: Option<AnalysisPass>,
+        /// Analysis pass to run: all (default), coverage, contracts, or a pass
+        /// an extension declares (`<extension>:<pass>`)
+        pass: Option<String>,
 
         /// Project directory (defaults to current directory)
         #[arg(long)]
@@ -811,9 +777,19 @@ fn main() {
         Commands::Schema {
             path,
             kind,
+            no_edges,
+            validation_rules,
             publish,
             format,
-        } => export::run_schema(&path, kind.as_deref(), publish, format),
+        } => export::run_schema(
+            &path,
+            &specforge_ops::schema::SchemaRequest {
+                kind: kind.as_deref(),
+                edges: !no_edges,
+                validation_rules,
+            },
+            publish.then_some(format),
+        ),
         Commands::Model {
             path,
             format,
@@ -825,20 +801,29 @@ fn main() {
             depth,
         } => model::run(
             &path,
-            format,
-            group_by,
-            fields,
-            extension.as_deref(),
-            &kinds,
-            root.as_deref(),
-            depth,
+            &specforge_ops::model::ModelOptions {
+                format,
+                group_by,
+                fields,
+                extension_filter: extension,
+                kind_filter: (!kinds.is_empty()).then_some(kinds),
+                root,
+                depth,
+            },
         ),
         Commands::Outline {
             path,
             format,
             fields,
             deps,
-        } => outline::run(&path, format, fields, deps),
+        } => outline::run(
+            &path,
+            &specforge_ops::model::OutlineOptions {
+                format,
+                detail: fields,
+                deps,
+            },
+        ),
         Commands::Query {
             entity,
             path,

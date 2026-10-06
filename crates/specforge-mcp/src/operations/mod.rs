@@ -685,8 +685,8 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
 
 #[derive(Debug, Deserialize)]
 pub struct RenderArgs {
-    #[serde(default, deserialize_with = "lenient")]
-    format: Option<String>,
+    /// Required: a renderer is named, never assumed.
+    format: String,
     #[serde(default, deserialize_with = "lenient")]
     out_dir: Option<String>,
     #[serde(default, deserialize_with = "lenient")]
@@ -694,33 +694,32 @@ pub struct RenderArgs {
 }
 
 pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
-    let format = args.format.as_deref().unwrap_or("json");
+    use specforge_ops::export::{FORMAT, Format};
 
-    // Each renderer and the file it writes into out_dir.
-    const RENDERERS: [(&str, &str); 4] = [
-        ("json", "graph.json"),
-        ("dot", "graph.dot"),
-        ("context", "context.json"),
-        ("brief", "brief.json"),
-    ];
-    let Some((_, file_name)) = RENDERERS.iter().find(|(name, _)| *name == format) else {
-        let available: Vec<&str> = RENDERERS.iter().map(|(name, _)| *name).collect();
-        return McpError::new(
-            ErrorCode::InvalidInput,
-            format!(
-                "Unrecognized renderer format: {format} (available: {})",
-                available.join(", ")
-            ),
-        )
-        .with_argument("format")
-        .with_data(json!({ "available_renderers": available }))
-        .into();
+    // The renderers are the export formats, named as `specforge export
+    // --format` names them (ADR 0027 D8); `json` is `graph`'s alias.
+    let format = match FORMAT.parse(&args.format) {
+        Ok(format) => format,
+        Err(error) => {
+            let mut refusal = op_error(error).with_argument("format");
+            let mut data = refusal.data.take().unwrap_or_else(|| json!({}));
+            data["available_renderers"] = json!(FORMAT.accepted().collect::<Vec<_>>());
+            return refusal.with_data(data).into();
+        }
     };
+    // The file each renderer writes into out_dir.
+    let file_name = match format {
+        Format::Graph => "graph.json",
+        Format::Dot => "graph.dot",
+        Format::Context => "context.json",
+        Format::Brief => "brief.json",
+    };
+    let name = FORMAT.name_of(format);
 
-    // "json" is the full graph export: Graph Protocol 2.0 with the schema,
+    // `graph` is the full graph export: Graph Protocol 2.0 with the schema,
     // as `specforge export --format graph` writes it.
     let request = specforge_ops::export::Request {
-        format: format.parse().ok(),
+        format: Some(format),
         scope: args.scope.as_deref(),
         ..specforge_ops::export::Request::default()
     };
@@ -731,7 +730,7 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
 
     // With out_dir the rendering lands on disk; without it, inline.
     let Some(out_dir) = args.out_dir.as_deref() else {
-        return ok(json!({ "format": format, "output": output, "output_files": [] }));
+        return ok(json!({ "format": name, "output": output, "output_files": [] }));
     };
     let out_dir = PathBuf::from(out_dir);
     let path = out_dir.join(file_name);
@@ -741,5 +740,5 @@ pub(crate) fn render_op(call: &mut Call<'_>, args: RenderArgs) -> ToolOutcome {
             format!("failed to write {}: {e}", path.display()),
         );
     }
-    ok(json!({ "format": format, "output_files": [path.display().to_string()] }))
+    ok(json!({ "format": name, "output_files": [path.display().to_string()] }))
 }

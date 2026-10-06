@@ -13,12 +13,11 @@ use specforge_ops::analyze::{
 use specforge_ops::view::ProjectView;
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics_colored};
 
-use crate::AnalysisPass;
 use crate::pipeline;
 
 pub fn run(
     path: &Path,
-    pass: Option<AnalysisPass>,
+    pass: Option<String>,
     json: bool,
     strict: bool,
     test_results: Option<&Path>,
@@ -33,7 +32,9 @@ pub fn run(
         None => ReportSource::Recorded,
     };
     let options = AnalyzeOptions {
-        pass: pass.unwrap_or(AnalysisPass::All).name().to_string(),
+        // Any name: the passes are the project's, so the operation refuses
+        // one it does not run (exit 2, as clap refuses a flag's value).
+        pass: pass.unwrap_or_else(|| specforge_ops::analyze::EVERY_PASS.to_string()),
         strict,
         report,
         min,

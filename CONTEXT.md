@@ -77,6 +77,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   (`specforge_coverage::Verdict`).
 - **Operation**: one user-level command (init, add, remove, …) as a typed request and outcome,
   independent of surface. The CLI and MCP are adapters over it (`specforge-ops`).
+- **Option table**: one enumerated argument an operation takes — its listed names in order, the
+  aliases it also accepts, a one-line help per name, and its default — beside that operation
+  (`specforge_ops::options::OptionTable`; `export::FORMAT`, `model::MODEL_FORMAT`, …). The CLI's
+  possible values and MCP's input-schema `enum`/`default` are built from it and both parse with it
+  (ADR 0027). A set the project decides (analysis passes, entity kinds) is not one.
 - **Check**: the operation that turns what a compile reported into what a surface reports: the
   diagnostic policy (lint profiles, then strict), the verdict (no error among everything reported),
   the severity filter (what is shown, never the verdict) and the opt-in build-cache record

@@ -24,6 +24,7 @@ pub mod init;
 pub mod migrate;
 pub mod model;
 pub mod navigate;
+pub mod options;
 pub mod plan;
 pub mod prove;
 pub mod publish;

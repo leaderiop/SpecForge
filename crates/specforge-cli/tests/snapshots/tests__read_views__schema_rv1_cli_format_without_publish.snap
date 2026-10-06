@@ -1,0 +1,12 @@
+---
+source: crates/specforge-cli/tests/read_views.rs
+expression: "format!(\"exit: {:?}\\nstderr:\\n{}\", refused.code,\nnormalized_text(&refused.stderr, root))"
+---
+exit: Some(2)
+stderr:
+error: the following required arguments were not provided:
+  --publish
+
+Usage: specforge schema --publish --format <FORMAT> <PATH>
+
+For more information, try '--help'.

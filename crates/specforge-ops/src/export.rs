@@ -9,9 +9,9 @@
 //! for it. `dot` never carries a schema.
 
 use crate::OpError;
+use crate::options::{Choice, OptionTable};
 use crate::view::ProjectView;
 use specforge_emitter::{EmitFormat, EmitOptions, GraphProtocolSchema, SchemaVersion, emit};
-use std::str::FromStr;
 
 /// An export format.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,26 +22,9 @@ pub enum Format {
     Dot,
 }
 
-impl FromStr for Format {
-    type Err = OpError;
-
-    /// `graph` (alias `json`), `context`, `brief` or `dot`.
-    fn from_str(name: &str) -> Result<Self, OpError> {
-        match name {
-            "graph" | "json" => Ok(Self::Graph),
-            "context" => Ok(Self::Context),
-            "brief" => Ok(Self::Brief),
-            "dot" => Ok(Self::Dot),
-            other => Err(OpError::new(
-                "unknown_format",
-                format!("Unknown format: {other}"),
-            )),
-        }
-    }
-}
-
 impl Format {
-    fn emit_format(self) -> EmitFormat {
+    /// The emitter format this export renders with.
+    pub fn emit_format(self) -> EmitFormat {
         match self {
             Self::Graph => EmitFormat::Json,
             Self::Context => EmitFormat::Context,
@@ -50,6 +33,49 @@ impl Format {
         }
     }
 }
+
+const GRAPH: Choice<Format> = Choice {
+    name: "graph",
+    aliases: &["json"],
+    help: "every entity with its fields, file and line (Graph Protocol)",
+    value: Format::Graph,
+};
+const CONTEXT: Choice<Format> = Choice {
+    name: "context",
+    aliases: &[],
+    help: "headline and normative fields and verify, for an agent",
+    value: Format::Context,
+};
+const BRIEF: Choice<Format> = Choice {
+    name: "brief",
+    aliases: &[],
+    help: "id, kind and title",
+    value: Format::Brief,
+};
+const DOT: Choice<Format> = Choice {
+    name: "dot",
+    aliases: &[],
+    help: "Graphviz",
+    value: Format::Dot,
+};
+
+/// `specforge export --format`, `specforge.render`'s `format`.
+pub const FORMAT: OptionTable<Format> = OptionTable {
+    argument: "format",
+    code: "unknown_format",
+    choices: &[GRAPH, CONTEXT, BRIEF, DOT],
+    default: Some(Format::Graph),
+};
+
+/// The formats an agent reads and a published schema describes:
+/// `specforge.export`, `specforge.query`, `specforge schema --publish
+/// --format`.
+pub const AGENT_FORMAT: OptionTable<Format> = OptionTable {
+    argument: "format",
+    code: "unknown_format",
+    choices: &[GRAPH, CONTEXT, BRIEF],
+    default: Some(Format::Graph),
+};
 
 /// Whether the export carries the schema.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -85,7 +111,9 @@ pub struct Request<'a> {
 
 impl Request<'_> {
     fn format(&self) -> Format {
-        self.format.unwrap_or(Format::Graph)
+        self.format
+            .or(FORMAT.default)
+            .expect("the export format has a default")
     }
 
     /// Whether the export carries the schema, under the policy.
@@ -169,12 +197,18 @@ mod tests {
 
     #[test]
     fn format_names_accept_json_for_graph() {
-        assert_eq!("graph".parse::<Format>(), Ok(Format::Graph));
-        assert_eq!("json".parse::<Format>(), Ok(Format::Graph));
-        assert_eq!("dot".parse::<Format>(), Ok(Format::Dot));
+        assert_eq!(FORMAT.parse("graph"), Ok(Format::Graph));
+        assert_eq!(FORMAT.parse("json"), Ok(Format::Graph));
+        assert_eq!(FORMAT.parse("dot"), Ok(Format::Dot));
+        let error = FORMAT.parse("yaml").unwrap_err();
+        assert_eq!(error.code, "unknown_format");
         assert_eq!(
-            "yaml".parse::<Format>().unwrap_err().message,
-            "Unknown format: yaml"
+            error.message,
+            "Unknown format: yaml. Expected: graph, context, brief, dot"
+        );
+        assert_eq!(
+            AGENT_FORMAT.parse("dot").unwrap_err().message,
+            "Unknown format: dot. Expected: graph, context, brief"
         );
     }
 

@@ -30,6 +30,5 @@ pub use schema::{
     GraphProtocolSchema, SchemaCacheEntry, SchemaCompatibility, SchemaEdgeType, SchemaEntityKind,
     SchemaExtensionInfo, SchemaField, SchemaMigration, SchemaMigrationChange, SchemaVersion,
     SchemaVersionError, compute_schema_version, content_hash, diff_schemas, diff_schemas_optional,
-    emit_schema, emit_schema_for_kind, generate_schema, negotiate_version,
-    publish_json_schema_format,
+    generate_schema, negotiate_version, publish_json_schema_format,
 };

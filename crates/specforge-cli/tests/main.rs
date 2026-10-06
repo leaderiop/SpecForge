@@ -39,6 +39,7 @@ mod mcp_add;
 #[allow(deprecated)]
 mod migrate;
 mod navigation_parity;
+mod options;
 mod parity;
 mod pipeline;
 mod product_commands;
