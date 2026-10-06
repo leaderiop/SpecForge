@@ -16,8 +16,8 @@ use crate::navigation::{
     uri_of,
 };
 use crate::{
-    LspState, classify_tokens, goto_import_definition, hover_field_info,
-    hover_info_with_registries, server_capabilities, server_info,
+    LspState, goto_import_definition, hover_field_info, hover_info_with_registries,
+    server_capabilities, server_info,
 };
 use specforge_common::{SourceSpan, Sym};
 use specforge_ops::navigate::{
@@ -1206,64 +1206,13 @@ impl LanguageServer for Backend {
         params: SemanticTokensParams,
     ) -> Result<Option<SemanticTokensResult>> {
         let uri = params.text_document.uri;
-
         let state = self.state.read().await;
         let Some(doc) = state.document(uri.as_str()) else {
             return Ok(None);
         };
-
-        let kind_keywords: Vec<String> = state.kind_registry().keywords().cloned().collect();
-        let kind_refs: Vec<&str> = kind_keywords.iter().map(|s| s.as_str()).collect();
-        let caps = server_capabilities(&kind_refs);
-        let token_type_index: std::collections::HashMap<&str, u32> = caps
-            .semantic_token_types
-            .iter()
-            .enumerate()
-            .map(|(i, t)| (t.as_str(), i as u32))
-            .collect();
-
-        let tokens = classify_tokens(doc.text(), state.kind_registry());
-
-        // Classification works in byte columns; LSP semantic tokens are
-        // UTF-16: the document's index converts them, then delta-encode.
-        let index = doc.index();
-        let utf16 = |tok: &crate::SemanticToken| -> (u32, u32) {
-            let start = index.position_at(tok.line, tok.col).character;
-            let end = index
-                .position_at(tok.line, tok.col + tok.text.len())
-                .character;
-            (start, end - start)
-        };
-
-        let mut data = Vec::new();
-        let mut prev_line: u32 = 0;
-        let mut prev_col: u32 = 0;
-
-        for tok in &tokens {
-            let line = tok.line as u32;
-            let (col, length) = utf16(tok);
-            let delta_line = line - prev_line;
-            let delta_start = if delta_line == 0 { col - prev_col } else { col };
-            let token_type = token_type_index
-                .get(tok.token_type.as_str())
-                .copied()
-                .unwrap_or(0);
-
-            data.push(tower_lsp::lsp_types::SemanticToken {
-                delta_line,
-                delta_start,
-                length,
-                token_type,
-                token_modifiers_bitset: tok.modifiers,
-            });
-
-            prev_line = line;
-            prev_col = col;
-        }
-
         Ok(Some(SemanticTokensResult::Tokens(SemanticTokens {
             result_id: None,
-            data,
+            data: doc.semantic_tokens(&state.view()),
         })))
     }
 

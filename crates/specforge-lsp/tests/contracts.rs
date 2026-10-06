@@ -610,7 +610,15 @@ fn provide_semantic_tokens_contract() {
     // Requires: source text + registered kinds
     // Ensures: tokens classified with correct types (keyword, property, string for triple-quoted)
     let source = "behavior foo \"Foo\" {\n  contract \"\"\"\n    hello\n  \"\"\"\n}\n";
-    let tokens = specforge_lsp::classify_tokens(source, &verifiable(&["behavior"], &[]));
+    let registries = {
+        let mut registries = specforge_registry::RegistryBuild::default();
+        registries.kinds = verifiable(&["behavior"], &[]);
+        registries
+    };
+    let graph = Graph::new();
+    let recorded = specforge_project::coverage::RecordedCoverage::default();
+    let view = specforge_ops::view::ProjectView::new(&graph, &registries, None, &recorded);
+    let tokens = specforge_lsp::Document::new("file:///t.spec".into(), source.into()).tokens(&view);
 
     assert!(!tokens.is_empty(), "must produce tokens");
     assert!(

@@ -620,12 +620,20 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
     incremental pipeline. The LSP does not subscribe to watch-mode graph
     deltas: it recompiles on its own document changes, and after a
     recompile whose graph differs from the previous one in anything that
-    affects tokens (an entity ID, kind or title, or the KindRegistry's
-    semantic_token classification) it MUST send
+    affects tokens (an entity ID, kind or title, the KindRegistry's
+    semantic_token classification, or a field's declared type) it MUST send
     workspace/semanticTokens/refresh so the client re-requests tokens. It
     MUST send the refresh only to a client that declared
     workspace.semanticTokens.refreshSupport at initialize, and MUST NOT
     send it after a recompile that changed nothing token-relevant.
+    Classification reads the document's lexemes and their block structure:
+    strings and comments hold no other token, a comment after code on its
+    line is a comment, the fields after a nested block are classified like
+    the ones before it, and a define block's name is not a declaration
+    (define blocks register nothing, ADR 0005). A reference is classified
+    as the token type of the kind of the entity it names (an unresolved one
+    as variable), with the reference modifier; an enum field's value is an
+    enumMember and a boolean field's value a keyword.
   """
   verify unit "entity ID declaration uses its kind's semantic_token from the KindRegistry"
   verify unit "structural keywords are classified as keyword"
@@ -646,6 +654,12 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   verify integration "a recompile that changes the graph asks the client to refresh semantic tokens"
   verify integration "a recompile that changes nothing token-relevant sends no semantic token refresh"
   verify integration "no semantic token refresh is sent to a client without refreshSupport"
+  verify unit "every field of an entity body is classified, after a nested block too"
+  verify unit "a comment after code on its line is classified as comment"
+  verify unit "a define block's name is not a declaration"
+  verify unit "classification agrees with the grammar on every spec file of the repository"
+  verify unit "a reference is classified as the kind of the entity it names"
+  verify unit "an enum field's value is an enumMember and a boolean field's value a keyword"
 }
 
 behavior complete_field_names "Complete Field Names" {

@@ -66,7 +66,9 @@ impl LspState {
 
     /// A digest of everything in the graph and registries that semantic
     /// tokens depend on beyond a document's own text: each entity's ID,
-    /// kind and title, and each kind's `semantic_token` classification.
+    /// kind and title, each kind's `semantic_token` classification, and
+    /// each field's declared type (which values are references, enum
+    /// members or booleans).
     /// Spans are left out, so an edit that only moves text (whitespace)
     /// keeps the signature.
     pub fn token_signature(&self) -> u64 {
@@ -84,6 +86,13 @@ impl LspState {
             .collect();
         kinds.sort();
         kinds.hash(&mut hasher);
+        let mut fields: Vec<(&str, &str, String)> = self
+            .field_registry()
+            .iter()
+            .map(|(kind, field, entry)| (kind, field, format!("{:?}", entry.field_type)))
+            .collect();
+        fields.sort();
+        fields.hash(&mut hasher);
         hasher.finish()
     }
 

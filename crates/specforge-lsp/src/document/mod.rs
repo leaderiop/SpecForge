@@ -6,10 +6,13 @@
 mod cursor;
 mod line_index;
 mod syntax;
+mod tokens;
 
 pub use cursor::{CompletionSite, Cursor, EntityAt, Place, Target, Word, WordEdit};
 pub use line_index::LineIndex;
+pub use tokens::{MOD_DECLARATION, MOD_REFERENCE, SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES};
 
+use specforge_ops::view::ProjectView;
 use std::sync::{Arc, OnceLock};
 use syntax::Syntax;
 use tower_lsp::lsp_types::{Position, Range};
@@ -17,7 +20,8 @@ use tower_lsp::lsp_types::{Position, Range};
 /// An open document: the editor's text of one `.spec` file, its version,
 /// its line index, and (read on first use, once per edit) its syntax. Every
 /// question the LSP asks about a buffer's text is asked here: where a
-/// position is (`index`), what is at it (`at`). The graph is never
+/// position is (`index`), what is at it (`at`), how it is highlighted
+/// (`tokens`). The graph is never
 /// consulted for structure: it lags the buffer while the user types
 /// (ADR 0023).
 pub struct Document {
@@ -95,5 +99,22 @@ impl Document {
             offset,
             position,
         })
+    }
+
+    /// The semantic tokens, in document order, one per line of a lexeme
+    /// (a multi-line string or comment is cut at each line end). `view`
+    /// gives each kind's declared token type, each field's declared type
+    /// and the entities a reference may name.
+    pub fn tokens(&self, view: &ProjectView<'_>) -> Vec<SemanticToken> {
+        tokens::tokens(&self.text, &self.index, self.syntax(), view)
+    }
+
+    /// [`Self::tokens`], delta-encoded against [`TOKEN_TYPES`] for
+    /// `textDocument/semanticTokens/full`.
+    pub fn semantic_tokens(
+        &self,
+        view: &ProjectView<'_>,
+    ) -> Vec<tower_lsp::lsp_types::SemanticToken> {
+        tokens::encode(&self.tokens(view))
     }
 }

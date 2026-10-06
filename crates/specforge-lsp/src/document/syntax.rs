@@ -272,10 +272,11 @@ impl Syntax {
     /// Whether lexeme `i` is at a reference position: an entity header's
     /// name; a value or list item, in the entity's own body, of a field
     /// the registry does not type as `Enum`, `Bool`, `Integer`, `String`,
-    /// `StringList` (but for a scheme ref ID item) or `Block`; a `use`
-    /// binding's imported name. The one
-    /// rule the cursor (what a word names), completion (where entity IDs
-    /// complete) and semantic tokens (what is a reference) share.
+    /// `StringList` (but for an unquoted item, which the graph links) or
+    /// `Block`; a `use` binding's imported name. The one rule the cursor
+    /// (what a word names), completion (where entity IDs complete; a string
+    /// list's declared strings complete only refs) and semantic tokens
+    /// (what is a reference) share.
     pub(crate) fn reference_position(&self, text: &str, i: u32, fields: &FieldRegistry) -> bool {
         let lexeme = &self.lexemes[i as usize];
         if !lexeme.is_name() {
@@ -296,9 +297,9 @@ impl Syntax {
                     _ => self.frame_of[i as usize] == self.frame_of[key as usize],
                 };
                 let item = self.roles[i as usize] == Role::Item;
-                own && self.kind_of_key(text, key).is_some_and(|kind| {
-                    may_reference(fields, kind, self.text(text, key), item, lexeme.kind)
-                })
+                own && self
+                    .kind_of_key(text, key)
+                    .is_some_and(|kind| may_reference(fields, kind, self.text(text, key), item))
             }
             _ => false,
         }
@@ -332,21 +333,16 @@ impl Syntax {
     }
 }
 
-/// Whether a name (of lexeme kind `lexeme`) written as a value of a
-/// field, or as an item of its list when `item`, may name an entity: the
-/// registry does not type the field as a value that names none. A string
-/// list's items are strings, except a scheme ref ID, which the core links
-/// to its ref from any list.
-pub(crate) fn may_reference(
-    fields: &FieldRegistry,
-    kind: &str,
-    field: &str,
-    item: bool,
-    lexeme: LexemeKind,
-) -> bool {
+/// Whether a name written as a value of a field, or as an item of its
+/// list when `item`, may name an entity: the registry does not type the
+/// field as a value that names none. A name written unquoted in any list
+/// is linked to the entity it names (the graph reads every such list as
+/// references), so a string list's unquoted items are references too; its
+/// strings are strings.
+pub(crate) fn may_reference(fields: &FieldRegistry, kind: &str, field: &str, item: bool) -> bool {
     match fields.get(kind, field).map(|entry| &entry.field_type) {
         None | Some(ManifestFieldType::Reference | ManifestFieldType::ReferenceList) => true,
-        Some(ManifestFieldType::StringList) => item && lexeme == LexemeKind::RefId,
+        Some(ManifestFieldType::StringList) => item,
         Some(_) => false,
     }
 }
@@ -838,21 +834,22 @@ impl Walk<'_> {
     /// A statement's first lexeme in a body: a closer, `verify`, `method`
     /// or a field's key.
     fn body_statement(&mut self, i: usize, kind: LexemeKind, word: Option<&str>) {
+        // A nested block holds fields only: `verify` and `method` are keys
+        // there (the grammar's `nested_block`).
+        let members = self
+            .top
+            .is_some_and(|f| self.syntax.frames[f as usize].kind != FrameKind::Block);
         match (kind, word) {
             (LexemeKind::Punct('}'), _) => {
                 if !self.close(i, '}') {
                     self.set(i, Role::Other);
                 }
             }
-            (_, Some("verify")) if self.is_verify_statement(i) => {
+            (_, Some("verify")) if members && self.is_verify_statement(i) => {
                 self.set(i, Role::Keyword);
                 self.state = Expect::VerifyKind;
             }
-            (_, Some("method"))
-                if self
-                    .next_on_line(i)
-                    .is_some_and(|next| next.kind == LexemeKind::Ident) =>
-            {
+            (_, Some("method")) if members && self.is_method_statement(i) => {
                 self.set(i, Role::Keyword);
                 self.state = Expect::MethodName;
             }
@@ -1004,6 +1001,23 @@ impl Walk<'_> {
             }
             _ => false,
         }
+    }
+
+    /// Whether `method` (lexeme `i`) starts a method statement, not a field
+    /// named method: a name follows, then `(` (or nothing yet: typed).
+    fn is_method_statement(&self, i: usize) -> bool {
+        let Some(name) = self.next_on_line(i) else {
+            return false;
+        };
+        if name.kind != LexemeKind::Ident {
+            return false;
+        }
+        let at = self.syntax.lexemes[i + 1..]
+            .iter()
+            .position(|l| l.start == name.start)
+            .map_or(i + 1, |p| i + 1 + p);
+        self.next_on_line(at)
+            .is_none_or(|after| after.is_punct('('))
     }
 
     /// Whether `[` (lexeme `i`) is an array suffix: written right after
