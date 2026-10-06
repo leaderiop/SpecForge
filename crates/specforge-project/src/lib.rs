@@ -28,13 +28,14 @@ pub mod passes;
 mod policy;
 mod session;
 pub mod snapshot;
+pub mod verdicts;
 
 use std::sync::Arc;
 
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use compile::{GraphChecks, check_graph, load_extensions, probe_custom_rules};
+use compile::{GraphChecks, check_graph, load_extensions};
 use coverage::RecordedCoverage;
 use snapshot::EntitySnapshot;
 use specforge_common::{
@@ -155,7 +156,9 @@ impl Environment {
         // A custom rule's wasm_function is resolved against its extension
         // now, so a name it does not export is reported once (W112).
         if let Some(runtime) = runtime {
-            let probes = probe_custom_rules(&registries.rules, runtime);
+            let probes = registries
+                .rules
+                .probe(&verdicts::WasmVerdicts::probe_only(runtime));
             registries.registry_diagnostics.extend(probes);
         }
         let mut setup_diagnostics = Vec::new();

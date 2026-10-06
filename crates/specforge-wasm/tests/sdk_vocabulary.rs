@@ -8,7 +8,7 @@ use specforge_extension_sdk::{ContributionsBuilder, ExtensionMeta, prelude::*};
 use specforge_protocol_types::ExtensionDeclaration;
 use specforge_registry::build_registries;
 use specforge_registry::entity::{EntityRecord, RuleInput};
-use specforge_registry::validation_engine::execute_pattern;
+use specforge_registry::rules::NoVerdicts;
 use specforge_wasm::protocol::load_declaration;
 use specforge_wasm::testing::InProcessRuntime;
 
@@ -105,13 +105,20 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
         );
     }
 
-    let rule = |code: &str| {
-        &build
+    for code in ["W900", "G101"] {
+        assert!(
+            build.rules.iter().any(|rule| rule.code() == code),
+            "rule {code} not registered"
+        );
+    }
+    // What the rule `code` reports over `entities`.
+    let fired = |code: &str, entities: &[specforge_registry::entity::EntityRecord]| {
+        build
             .rules
-            .iter()
-            .find(|(p, _)| p.code == code)
-            .unwrap_or_else(|| panic!("rule {code} not registered"))
-            .0
+            .check(&rules_over(entities), &NoVerdicts)
+            .into_iter()
+            .filter(|d| d.code == code)
+            .collect::<Vec<_>>()
     };
     let bare = [entity("bare", &[("style", "loud")])];
     let fine = [entity(
@@ -119,14 +126,14 @@ fn sdk_vocabulary_round_trips_through_the_registry_build() {
         &[("description", "a thing"), ("style", "warm")],
     )];
 
-    let fired = execute_pattern(rule("W900"), &rules_over(&bare), None);
-    assert_eq!(fired.len(), 1, "{fired:?}");
-    assert_eq!(fired[0].message, "thing 'bare' is missing a description");
-    let fired = execute_pattern(rule("G101"), &rules_over(&bare), None);
-    assert_eq!(fired.len(), 1, "{fired:?}");
-    assert_eq!(fired[0].code, "G101");
-    assert!(execute_pattern(rule("W900"), &rules_over(&fine), None).is_empty());
-    assert!(execute_pattern(rule("G101"), &rules_over(&fine), None).is_empty());
+    let w900 = fired("W900", &bare);
+    assert_eq!(w900.len(), 1, "{w900:?}");
+    assert_eq!(w900[0].message, "thing 'bare' is missing a description");
+    let g101 = fired("G101", &bare);
+    assert_eq!(g101.len(), 1, "{g101:?}");
+    assert_eq!(g101[0].code, "G101");
+    assert!(fired("W900", &fine).is_empty());
+    assert!(fired("G101", &fine).is_empty());
 }
 
 /// Rules written by SDK releases before the vocabulary was shared still
@@ -150,8 +157,8 @@ fn older_sdk_check_names_still_load() {
         .filter(|d| d.code == "W019" || d.code == "W112")
         .collect();
     assert!(unread.is_empty(), "host could not read: {unread:?}");
-    assert!(build.rules.iter().any(|(p, _)| p.code == "W900"));
-    assert!(build.rules.iter().any(|(p, _)| p.code == "G101"));
+    assert!(build.rules.iter().any(|rule| rule.code() == "W900"));
+    assert!(build.rules.iter().any(|rule| rule.code() == "G101"));
 }
 
 /// Every constraint kind the SDK can name loads on the check that reads it:
@@ -222,14 +229,14 @@ fn sdk_constraint_kinds_load_for_the_checks_that_read_them() {
     assert!(unread.is_empty(), "host could not read: {unread:?}");
     for (i, (kind, _)) in uses.iter().enumerate() {
         let code = format!("X{i:03}");
-        let (pattern, _) = build
+        let rule = build
             .rules
             .iter()
-            .find(|(p, _)| p.code == code)
+            .find(|rule| rule.code() == code)
             .unwrap_or_else(|| panic!("rule {code} not registered"));
         assert_eq!(
-            pattern.constraint.as_ref().and_then(|c| c.kind),
-            Some(*kind),
+            rule.describe()["constraint"]["kind"],
+            kind.as_str(),
             "rule {code}"
         );
     }

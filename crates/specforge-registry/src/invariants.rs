@@ -77,9 +77,9 @@ mod tests {
         assert!(build.kinds.contains("behavior"));
 
         // The build's rules reference the kind
-        assert!(build.rules.iter().any(|(rule, _)| rule.code == "V001"));
-        for (rule, _) in &build.rules {
-            if let Some(tk) = &rule.target_kind {
+        assert!(build.rules.iter().any(|rule| rule.code() == "V001"));
+        for rule in &build.rules {
+            if let Some(tk) = rule.target_kind() {
                 assert!(
                     build.kinds.contains(tk),
                     "Validation rule references kind '{}' not in registry",

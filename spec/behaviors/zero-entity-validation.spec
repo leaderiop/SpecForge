@@ -122,7 +122,7 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   features   [declarative_validation_rules]
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
   category   command
-  types      [ValidationRulePattern, CustomValidationPattern, ExtensionDeclaration]
+  types      [ValidationRulePattern, CustomCall, ExtensionDeclaration]
   refs       [provide_host_function_query_graph]
   ports      [WasmRuntime]
   consumes   [extension_manifests_loaded]

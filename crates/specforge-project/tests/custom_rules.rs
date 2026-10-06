@@ -7,7 +7,7 @@ use std::fs;
 use specforge_common::{Diagnostic, Severity};
 use specforge_extension_sdk::prelude::*;
 use specforge_project::{CompiledProject, Environment};
-use specforge_registry::validation_engine::ValidationPatternKind;
+use specforge_registry::CheckKind;
 use specforge_test::prelude::*;
 use specforge_wasm::testing::InProcessRuntime;
 use tempfile::TempDir;
@@ -107,23 +107,23 @@ fn a_builtin_custom_rule_is_registered_with_its_wasm_function() {
 
     let env = Environment::load(dir.path(), Some(&runtime));
 
-    let (w010, origin) = env
+    let w010 = env
         .registries
         .rules
         .iter()
-        .find(|(rule, _)| rule.code == "W010")
+        .find(|rule| rule.code() == "W010")
         .expect("W010 is registered");
-    assert_eq!(w010.check, ValidationPatternKind::Custom);
+    assert_eq!(w010.check_kind(), CheckKind::Custom);
     assert_eq!(
-        w010.wasm_function.as_deref(),
-        Some("validate__type_field_annotations")
+        w010.describe()["wasm_function"],
+        "validate__type_field_annotations"
     );
-    assert_eq!(origin, "@specforge/software");
+    assert_eq!(w010.origin().name(), "@specforge/software");
     assert!(
         env.registries
             .rules
             .iter()
-            .any(|(rule, _)| rule.check != ValidationPatternKind::Custom),
+            .any(|rule| rule.check_kind() != CheckKind::Custom),
         "declarative rules are registered beside the custom ones"
     );
     let diagnostics: Vec<Diagnostic> = env.diagnostics().cloned().collect();
@@ -182,7 +182,7 @@ fn a_custom_rule_without_a_wasm_function_is_w112_and_not_registered() {
         !env.registries
             .rules
             .iter()
-            .any(|(rule, _)| rule.code == "E903"),
+            .any(|rule| rule.code() == "E903"),
         "a rule with nothing to dispatch to is not registered"
     );
 }
@@ -211,7 +211,7 @@ fn custom_rules_register_resolve_and_dispatch_through_a_compile() {
         .registries
         .rules
         .iter()
-        .map(|(rule, origin)| (rule.code.as_str(), origin.as_str()))
+        .map(|rule| (rule.code(), rule.origin().name()))
         .collect();
     registered.sort();
     assert_eq!(

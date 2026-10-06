@@ -1,6 +1,5 @@
 use specforge_common::{Diagnostic, Severity};
 use specforge_protocol_types::ExtensionDeclaration;
-use std::collections::HashMap;
 
 /// E027/W062 for every declaration's peers, against the loaded ones.
 pub(crate) fn peer_dependencies(declarations: &[ExtensionDeclaration]) -> Vec<Diagnostic> {
@@ -129,37 +128,5 @@ pub(crate) fn validate_extension_testability(kind_reg: &crate::KindRegistry) -> 
 
     // Sort for deterministic output
     diagnostics.sort_by(|a, b| a.message.cmp(&b.message));
-    diagnostics
-}
-
-/// W023: a validation rule code a later extension declares again, once
-/// per repeat, naming the code, that extension and the first one. A code
-/// one extension repeats is not reported. The build keeps every rule.
-pub(crate) fn duplicate_rule_codes(declarations: &[ExtensionDeclaration]) -> Vec<Diagnostic> {
-    let mut first: HashMap<&str, &str> = HashMap::new();
-    let mut diagnostics = Vec::new();
-    for declaration in declarations {
-        for rule in &declaration.validation_rules {
-            match first.get(rule.code.as_str()) {
-                None => {
-                    first.insert(&rule.code, declaration.name());
-                }
-                Some(owner) if *owner != declaration.name() => diagnostics.push(Diagnostic {
-                    code: "W023".to_string(),
-                    severity: Severity::Warning,
-                    message: format!(
-                        "validation rule code '{}' from '{}' duplicates code from '{}'",
-                        rule.code,
-                        declaration.name(),
-                        owner
-                    ),
-                    span: None,
-                    suggestion: None,
-                    data: None,
-                }),
-                Some(_) => {}
-            }
-        }
-    }
     diagnostics
 }

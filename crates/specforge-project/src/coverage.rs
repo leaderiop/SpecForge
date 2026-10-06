@@ -381,8 +381,11 @@ impl RecordedCoverage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use specforge_protocol_types::{
+        ExtensionDeclaration, ValidationRuleDescriptor, ValidationSeverity,
+    };
     use specforge_registry::KindRegistryEntry;
-    use specforge_registry::validation_engine::{ValidationPatternKind, ValidationRulePattern};
+    use specforge_registry::rules::{Registries, Rules};
     use specforge_test_macros::test as specforge_test;
 
     fn kind(name: &str, testable: bool, supports_verify: bool) -> KindRegistryEntry {
@@ -403,19 +406,30 @@ mod tests {
         graph
     }
 
-    fn w004(kind: &str) -> ValidationRulePattern {
-        ValidationRulePattern {
-            code: "W004".into(),
-            severity: specforge_common::Severity::Warning,
-            message_template: "{kind} '{id}' is testable but declares no verify obligations".into(),
-            check: ValidationPatternKind::NoVerifyStatements,
-            target_kind: Some(kind.into()),
-            edge_type: None,
-            edge_peer_kind: None,
-            field: Some("verify".into()),
-            constraint: None,
-            wasm_function: None,
-        }
+    /// The rule set of one W004 rule on `kind`, over `registries`.
+    fn w004(kind: &str, registries: &RegistryBuild) -> Rules {
+        let declaration = ExtensionDeclaration {
+            validation_rules: vec![ValidationRuleDescriptor {
+                code: "W004".into(),
+                severity: ValidationSeverity::Warning,
+                message_template: "{kind} '{id}' is testable but declares no verify obligations"
+                    .into(),
+                check: "no_verify_statements".into(),
+                target_kind: Some(kind.into()),
+                field: Some("verify".into()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        Rules::build(
+            &[declaration],
+            Registries {
+                kinds: &registries.kinds,
+                fields: &registries.fields,
+                edges: &registries.edges,
+            },
+        )
+        .0
     }
 
     /// A project whose `behavior` kind is testable and must declare
@@ -429,7 +443,7 @@ mod tests {
         fn new() -> Self {
             let mut registries = RegistryBuild::default();
             registries.kinds.register(kind("behavior", true, true));
-            registries.rules = vec![(w004("behavior"), String::new())];
+            registries.rules = w004("behavior", &registries);
             Scored {
                 graph: graph_of(
                     "behavior login \"Login\" {\n  verify unit \"logs in\"\n}\n\n\

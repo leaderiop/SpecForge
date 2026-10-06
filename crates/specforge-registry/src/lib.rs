@@ -7,10 +7,6 @@ pub mod rules;
 #[cfg(test)]
 mod invariants;
 
-// Tests inside the crate name it as its users do.
-#[cfg(test)]
-extern crate self as specforge_registry;
-
 // --- Core registries ---
 pub use registries::{
     EdgeRegistry, EdgeRegistryEntry, FieldRegistry, FieldRegistryEntry, KindRegistry,
@@ -46,7 +42,5 @@ pub use compilation::{
     register_provider_schemes_with_status,
 };
 
-// Module paths external code names directly
-// (`specforge_registry::validation_engine::`, `specforge_registry::surface::`).
-pub use compilation::validation_engine;
+// Module paths external code names directly (`specforge_registry::surface::`).
 pub mod surface;

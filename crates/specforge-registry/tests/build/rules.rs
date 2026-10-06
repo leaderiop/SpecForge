@@ -5,7 +5,7 @@
 use specforge_common::Severity;
 use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;
-use specforge_registry::validation_engine::ValidationPatternKind;
+use specforge_registry::rules::{Origin, Rule};
 use specforge_test_macros::test as spec;
 
 use crate::support::{build, coded, declare, diagnostics, rule_codes, software};
@@ -23,13 +23,24 @@ fn rules(name: &str, declared: &[(&str, &str, CheckKind)]) -> ExtensionDeclarati
     })
 }
 
-/// The build's rules as (code, message template), in order.
-fn templates(build: &specforge_registry::RegistryBuild) -> Vec<(&str, &str)> {
+/// The build's rules as `code: message template`, in order.
+fn templates(build: &specforge_registry::RegistryBuild) -> Vec<String> {
     build
         .rules
         .iter()
-        .map(|(rule, _)| (rule.code.as_str(), rule.message_template.as_str()))
+        .map(|rule| {
+            format!(
+                "{}: {}",
+                rule.code(),
+                rule.describe()["message_template"].as_str().unwrap()
+            )
+        })
         .collect()
+}
+
+/// The build's `i`th rule, in execution order.
+fn nth(build: &specforge_registry::RegistryBuild, i: usize) -> &Rule {
+    build.rules.iter().nth(i).unwrap()
 }
 
 #[spec(
@@ -50,16 +61,13 @@ fn every_declared_rule_is_in_the_build_with_its_extension() {
 
     assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
     assert_eq!(rule_codes(&build), [("W100", "@ext/a"), ("W200", "@ext/b")]);
-    let (w100, _) = &build.rules[0];
-    assert_eq!(w100.check, ValidationPatternKind::NoIncomingEdges);
-    assert_eq!(w100.check.as_str(), "no_incoming_edges");
-    assert_eq!(w100.severity, Severity::Warning);
-    assert_eq!(w100.message_template, "orphan {kind} '{id}'");
-    assert_eq!(w100.target_kind.as_deref(), Some("behavior"));
-    assert_eq!(
-        build.rules[1].0.check,
-        ValidationPatternKind::NoOutgoingEdges
-    );
+    let w100 = nth(&build, 0);
+    assert_eq!(w100.check_kind(), CheckKind::NoIncomingEdges);
+    assert_eq!(w100.check_kind().as_str(), "no_incoming_edges");
+    assert_eq!(w100.severity(), Severity::Warning);
+    assert_eq!(w100.describe()["message_template"], "orphan {kind} '{id}'");
+    assert_eq!(w100.target_kind(), Some("behavior"));
+    assert_eq!(nth(&build, 1).check_kind(), CheckKind::NoOutgoingEdges);
 }
 
 #[spec(
@@ -93,12 +101,7 @@ fn the_extensions_rules_are_ordered_by_code() {
     );
     assert_eq!(
         templates(&build),
-        [
-            ("W100", "a100"),
-            ("W100", "b100"),
-            ("W200", "b200"),
-            ("W300", "a300")
-        ]
+        ["W100: a100", "W100: b100", "W200: b200", "W300: a300"]
     );
 
     // Rules sharing a code keep load order.
@@ -155,14 +158,11 @@ fn the_build_keeps_a_rule_whose_targets_no_extension_declares() {
 
     assert!(diagnostics(&build).is_empty(), "{:?}", diagnostics(&build));
     assert_eq!(rule_codes(&build), [("W101", "@t/e"), ("W102", "@t/e")]);
-    let (w101, _) = &build.rules[0];
-    assert_eq!(w101.target_kind.as_deref(), Some("ghost"));
-    assert_eq!(w101.edge_type.as_deref(), Some("GhostEdge"));
-    assert_eq!(w101.edge_peer_kind, None);
-    assert_eq!(
-        build.rules[1].0.target_kind.as_deref(),
-        Some("nonexistent_kind")
-    );
+    let w101 = nth(&build, 0);
+    assert_eq!(w101.target_kind(), Some("ghost"));
+    assert_eq!(w101.describe()["edge_type"], "GhostEdge");
+    assert!(w101.describe()["edge_peer_kind"].is_null());
+    assert_eq!(nth(&build, 1).target_kind(), Some("nonexistent_kind"));
 }
 
 #[spec(
@@ -190,25 +190,27 @@ fn required_fields_get_e006_rules() {
     let build = build([declared]);
 
     assert_eq!(rule_codes(&build), [("E006", ""), ("E006", "")]);
-    for (rule, origin) in &build.rules {
-        assert_eq!(origin, "", "a host rule is owned by no extension");
-        assert_eq!(rule.severity, Severity::Error);
-        assert_eq!(rule.check, ValidationPatternKind::MissingRequiredField);
+    for rule in &build.rules {
+        assert_eq!(
+            rule.origin(),
+            &Origin::Host,
+            "a host rule is owned by no extension"
+        );
+        assert_eq!(rule.severity(), Severity::Error);
+        assert_eq!(rule.check_kind(), CheckKind::MissingRequiredField);
     }
-    let targets: Vec<(&str, &str)> = build
+    let targets: Vec<String> = build
         .rules
         .iter()
-        .map(|(rule, _)| {
-            (
-                rule.target_kind.as_deref().unwrap(),
-                rule.field.as_deref().unwrap(),
+        .map(|rule| {
+            format!(
+                "{}.{}",
+                rule.target_kind().unwrap(),
+                rule.describe()["field"].as_str().unwrap()
             )
         })
         .collect();
-    assert_eq!(
-        targets,
-        [("behavior", "contract"), ("invariant", "guarantee")]
-    );
+    assert_eq!(targets, ["behavior.contract", "invariant.guarantee"]);
 
     // No required field, no rule.
     assert!(crate::support::build([software()]).rules.is_empty());
@@ -275,9 +277,9 @@ fn rule_collection_holds() {
     assert!(build.registry_diagnostics.contains(w023[0]));
 
     // required_enforced: the required field has its E006 rule.
-    let (e006, _) = build.rules.last().unwrap();
-    assert_eq!(e006.target_kind.as_deref(), Some("task"));
-    assert_eq!(e006.field.as_deref(), Some("owner"));
+    let e006 = build.rules.iter().last().unwrap();
+    assert_eq!(e006.target_kind(), Some("task"));
+    assert_eq!(e006.describe()["field"], "owner");
 
     // unloaded_targets_inert: the rule for `ghost` costs no diagnostic.
     assert_eq!(diagnostics(&build).len(), 1, "{:?}", diagnostics(&build));

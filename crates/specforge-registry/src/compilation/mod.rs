@@ -11,7 +11,6 @@ mod detection;
 mod populate;
 mod provider;
 mod validate;
-pub mod validation_engine;
 
 pub use build::{CHECK_PHASE, DeclaredPass, RegistryBuild, build_registries};
 // The registry checks `check_graph` runs over a built graph.
@@ -24,7 +23,3 @@ pub use provider::{
     ProviderConfig, ProviderSchemeRegistry, ProviderStatus, SchemeRegistryEntry,
     load_provider_configurations, register_provider_schemes, register_provider_schemes_with_status,
 };
-
-// The rule engine's tests, until plan 02 moves them to tests/.
-#[cfg(test)]
-mod tests;

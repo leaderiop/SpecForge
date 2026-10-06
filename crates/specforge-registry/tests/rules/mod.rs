@@ -15,7 +15,7 @@ use specforge_protocol_types::{
     ExtensionDeclaration, FieldConstraintDescriptor, ValidationRuleDescriptor, ValidationSeverity,
 };
 use specforge_registry::entity::{EdgeRecord, EntityRecord, RuleInput};
-use specforge_registry::rules::{NoVerdicts, Registries, Rules};
+use specforge_registry::rules::{NoVerdicts, Rules};
 
 use crate::support::{build, declare};
 
@@ -38,18 +38,21 @@ impl Built {
     }
 }
 
-/// The rule set of `declarations`, built against their registries.
+/// The rule set of `declarations`: the build's rules, and its rules step's
+/// diagnostics (W112 and W023, the only ones of those codes the build
+/// reports).
 pub fn rules_of(declarations: Vec<ExtensionDeclaration>) -> Built {
-    let build = build(declarations.clone());
-    let (rules, diagnostics) = Rules::build(
-        &declarations,
-        Registries {
-            kinds: &build.kinds,
-            fields: &build.fields,
-            edges: &build.edges,
-        },
-    );
-    Built { rules, diagnostics }
+    let build = build(declarations);
+    let diagnostics = build
+        .registry_diagnostics
+        .iter()
+        .filter(|d| d.code == "W112" || d.code == "W023")
+        .cloned()
+        .collect();
+    Built {
+        rules: build.rules,
+        diagnostics,
+    }
 }
 
 /// An extension `@test` declaring `rules` and nothing else.
