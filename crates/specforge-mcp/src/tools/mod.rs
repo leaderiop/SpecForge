@@ -336,88 +336,102 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
 /// A dispatch event: its name and payload.
 type Dispatched = Option<(&'static str, Value)>;
 
-/// A registered extension tool from surface contributions, run through the
-/// Wasm runtime (WASM-only migration, Phase 4), and the dispatch event to
-/// record when its export returned (whatever the result: a schema mismatch
-/// is a dispatched tool that failed).
+/// An extension tool, found in the extension surface table, run by one of
+/// its two adapters over the `WasmRuntime` seam the call's project was
+/// compiled in: an explicit tool's `mcp__` export, or a command's `cmd__`
+/// export. Arguments its declaration refuses are refused first, the
+/// project resolved after; the dispatch event is the one to record when
+/// the export returned (whatever the result: a schema mismatch is a
+/// dispatched tool that failed).
 fn extension_tool(
     call: &mut Call<'_>,
     entry: &ToolEntry,
     arguments: Value,
 ) -> (ToolOutcome, Dispatched) {
-    // The project the tool runs over, in the runtime it was compiled in.
-    let project = match call.project() {
-        Ok(project) => project,
-        Err(refused) => return (refused.into(), None),
-    };
-    let Some(runtime) = project.runtime else {
-        let refused = ToolOutcome::error(
-            ErrorCode::InternalError,
-            "the project has no extension runtime",
-        );
-        return (refused, None);
-    };
-    // The input the tool declares, checked before its module runs.
-    {
-        let schema = entry.descriptor().input_schema;
-        let violations = crate::json_schema::violations(&schema, &arguments);
-        if !violations.is_empty() {
-            let refused = McpError::new(
-                ErrorCode::InvalidInput,
-                format!(
-                    "the arguments do not match the tool's input schema: {}",
-                    violations.join("; ")
-                ),
+    match &entry.kind {
+        ToolKind::McpTool {
+            export,
+            input_schema,
+            output_schema,
+        } => {
+            if let Err(refused) = check_input(input_schema, &arguments) {
+                return (refused, None);
+            }
+            let project = match call.project() {
+                Ok(project) => project,
+                Err(refused) => return (refused.into(), None),
+            };
+            mcp_tool_adapter(
+                project.runtime.as_ref(),
+                entry,
+                export,
+                output_schema.as_ref(),
+                &arguments,
             )
-            .with_data(json!({ "violations": violations }))
-            .into();
-            return (refused, None);
+        }
+        ToolKind::Command(command) => {
+            let given = arguments.as_object().cloned().unwrap_or_default();
+            // The args the command line would send for the same input, or
+            // the command's own INVALID_INPUT object the CLI writes (D5).
+            let args = match command.normalize(&given) {
+                Ok(args) => args,
+                Err(refused) => return (ToolOutcome::failed(refused.to_json()), None),
+            };
+            let project = match call.project() {
+                Ok(project) => project,
+                Err(refused) => return (refused.into(), None),
+            };
+            command_adapter(
+                project.runtime.as_ref(),
+                project.graph,
+                project.root,
+                command,
+                &args,
+            )
         }
     }
-    let export = match &entry.kind {
-        ToolKind::McpTool { export, .. } => export,
-        ToolKind::Command(command) => {
-            // An auto-promoted CLI command runs its cmd__ export over the served
-            // graph, as `specforge <ext> <command>` does over the compiled one.
-            let args = arguments.as_object().cloned().unwrap_or_default();
-            // Over MCP a command is always asked for json: the tool has no
-            // format argument (ADR 0011).
-            let context = specforge_ops::command::CommandContext {
-                format: specforge_ops::command::CommandFormat::Json,
-                today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
-            };
-            let started = std::time::Instant::now();
-            let outcome = specforge_ops::command::run_command(
-                runtime.as_ref(),
-                command,
-                project.graph,
-                &args,
-                project.root,
-                &context,
-            );
-            // A command whose export returned is a dispatched command; a trap
-            // is the tool's error.
-            let dispatched = outcome.as_ref().ok().map(|output| {
-                json!({
-                    "extensionName": command.extension(),
-                    "commandId": command.id(),
-                    "exitCode": output.exit_code,
-                    "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
-                })
-            });
-            return (
-                command_tool_result(outcome),
-                dispatched.map(|event| ("surface_command_dispatched", event)),
-            );
-        }
-    };
+}
+
+/// An explicit tool's arguments checked against the input schema it
+/// declares, before its module runs: `invalid_input` naming each
+/// violation (its schema is opaque JSON to the host, ADR 0004 D4-a).
+fn check_input(schema: &Value, arguments: &Value) -> Result<(), ToolOutcome> {
+    let violations = crate::json_schema::violations(schema, arguments);
+    if violations.is_empty() {
+        return Ok(());
+    }
+    Err(McpError::new(
+        ErrorCode::InvalidInput,
+        format!(
+            "the arguments do not match the tool's input schema: {}",
+            violations.join("; ")
+        ),
+    )
+    .with_data(json!({ "violations": violations }))
+    .into())
+}
+
+/// How long since `started`, in whole milliseconds.
+fn elapsed_ms(started: std::time::Instant) -> u64 {
+    u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
+}
+
+/// An explicit tool: its `mcp__` export called with the arguments, its
+/// output checked against the output schema it declares.
+fn mcp_tool_adapter(
+    runtime: &dyn specforge_wasm::runtime::WasmRuntime,
+    entry: &ToolEntry,
+    export: &str,
+    output_schema: Option<&Value>,
+    arguments: &Value,
+) -> (ToolOutcome, Dispatched) {
     let started = std::time::Instant::now();
-    let result = match specforge_wasm::ExtensionCalls::new(runtime.as_ref()).call_mcp_tool(
+    let result = match specforge_wasm::ExtensionCalls::new(runtime).call_mcp_tool(
         &entry.extension,
         export,
-        &arguments,
+        arguments,
     ) {
-        Ok(value) => match entry.output_schema() {
+        Ok(value) => match output_schema {
             // An output the tool's own schema refuses is never served as
             // its structured result.
             Some(schema) => {
@@ -447,8 +461,40 @@ fn extension_tool(
     let event = json!({
         "extensionName": entry.extension,
         "toolName": entry.name,
-        "durationMs": u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
+        "durationMs": elapsed_ms(started),
         "success": result.succeeded(),
     });
     (result, Some(("surface_mcp_tool_dispatched", event)))
+}
+
+/// An extension command: its `cmd__` export run with `args` (normalized
+/// by its derivation) over the call's graph, as `specforge <ext>
+/// <command>` runs it over the compiled one, always asked for json: the
+/// tool has no format argument (ADR 0011).
+fn command_adapter(
+    runtime: &dyn specforge_wasm::runtime::WasmRuntime,
+    graph: &specforge_graph::Graph,
+    root: &std::path::Path,
+    command: &specforge_ops::command::ExtensionCommand,
+    args: &serde_json::Map<String, Value>,
+) -> (ToolOutcome, Dispatched) {
+    let context = specforge_ops::command::CommandContext {
+        format: specforge_ops::command::CommandFormat::Json,
+        today: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+    };
+    let started = std::time::Instant::now();
+    let outcome =
+        specforge_ops::command::run_command(runtime, command, graph, args, root, &context);
+    // A command whose export returned is a dispatched command; a trap is
+    // the tool's error.
+    let dispatched = outcome.as_ref().ok().map(|output| {
+        let event = json!({
+            "extensionName": command.extension(),
+            "commandId": command.id(),
+            "exitCode": output.exit_code,
+            "durationMs": elapsed_ms(started),
+        });
+        ("surface_command_dispatched", event)
+    });
+    (command_tool_result(outcome), dispatched)
 }

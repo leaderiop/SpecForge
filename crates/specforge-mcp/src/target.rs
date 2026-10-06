@@ -143,8 +143,11 @@ pub struct ProjectRef<'a> {
     pub spec_root: &'a Path,
     pub env: &'a Environment,
     pub graph: &'a Graph,
-    /// The runtime its extensions run in.
-    pub runtime: Option<&'a SharedRuntime>,
+    /// The runtime its extensions run in: every project a call reaches has
+    /// one (the served session's, the host's, or one built for a project
+    /// served in memory; the one-shot compile's for another project), so
+    /// an extension call never finds none (ADR 0017).
+    pub runtime: &'a SharedRuntime,
     /// Its recorded test report and coverage, memoized by its owner: the
     /// served session, or the project compiled for this call.
     recorded: &'a RecordedCoverage,
@@ -260,13 +263,14 @@ impl<'s> Call<'s> {
                 let session = self.state.session();
                 let root = session.root().ok_or_else(no_project)?;
                 let runtime = match session.runtime() {
-                    Some(runtime) => Some(runtime),
-                    None => Some(self.in_memory_runtime.get_or_init(|| {
-                        match &self.state.extension_runtime {
-                            Some(host) => Arc::clone(host),
-                            None => project_runtime(root),
-                        }
-                    })),
+                    Some(runtime) => runtime,
+                    None => {
+                        self.in_memory_runtime
+                            .get_or_init(|| match &self.state.extension_runtime {
+                                Some(host) => Arc::clone(host),
+                                None => project_runtime(root),
+                            })
+                    }
                 };
                 Ok(ProjectRef {
                     root,
@@ -283,7 +287,7 @@ impl<'s> Call<'s> {
                 spec_root: &other.project.env.spec_root,
                 env: &other.project.env,
                 graph: &other.project.graph,
-                runtime: Some(&other.runtime),
+                runtime: &other.runtime,
                 recorded: other.project.recorded(),
                 reported: Reported::Compiled(&other.project),
             }),

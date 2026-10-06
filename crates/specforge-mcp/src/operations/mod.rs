@@ -508,12 +508,7 @@ pub(crate) fn migrate_op(call: &mut Call<'_>, args: MigrateArgs) -> Handled {
             "no specforge.json found in the project root",
         ));
     }
-    let Some(runtime) = project.runtime else {
-        return Err(Box::new(McpError::new(
-            ErrorCode::InternalError,
-            "the project has no extension runtime",
-        )));
-    };
+    let runtime = project.runtime;
     // The migration `specforge migrate` runs, hooks and rollback included.
     let request = specforge_ops::migrate::Request {
         root: path,
@@ -718,12 +713,7 @@ pub(crate) fn collect_op(call: &mut Call<'_>, args: CollectArgs) -> Handled {
     // project up to date, or compiled the project `path` names for this
     // call, in the runtime it collects with.
     let project = call.project()?;
-    let Some(runtime) = project.runtime else {
-        return Err(Box::new(McpError::new(
-            ErrorCode::InternalError,
-            "the project has no extension runtime",
-        )));
-    };
+    let runtime = project.runtime;
     let known = collect::KnownEntities::from_graph(project.graph);
 
     let request = Request {

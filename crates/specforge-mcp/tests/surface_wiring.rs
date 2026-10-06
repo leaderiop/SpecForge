@@ -588,7 +588,8 @@ fn over_mcp_a_commands_output_is_structured_only_when_it_is_one_object() {
         chrono::NaiveDate::parse_from_str(today, "%Y-%m-%d").is_ok(),
         "{input}"
     );
-    assert_eq!(input["args"], json!({"style": "md"}), "only declared args");
+    // The args the command line sends: an unset flag is false.
+    assert_eq!(input["args"], json!({"style": "md", "verbose": false}));
 
     // One object on stdout is the structured result, beside its text.
     let result = ran(0, r#"{"covered": 3}"#, "");
@@ -917,12 +918,6 @@ fn extension_tool_input_is_checked_against_its_schema() {
         error["message"].as_str().unwrap().contains("$.strict"),
         "{error}"
     );
-    // The auto-promoted report requires style, one of md or json.
-    for arguments in [json!({}), json!({"style": "xml"})] {
-        let resp = call_tool(&mut server, "specforge.cmds.report", arguments.clone());
-        let error = crate::tool_errors::mcp_error(&resp);
-        assert_eq!(error["code"], "invalid_input", "{arguments}: {error}");
-    }
     assert!(ext.calls().is_empty(), "no export ran: {:?}", ext.calls());
 
     // Valid input reaches the export.
@@ -1289,10 +1284,21 @@ fn args_reaching(fake: FakeExtension, tool: &str, calls: &[Value]) -> Vec<Option
         .collect()
 }
 
-#[test]
-fn pinned_args_reaching_cmd_exports_over_mcp() {
-    // R2: the declared default does not reach the export, and an unset
-    // flag is absent (the CLI sends {"order": "desc", "all": false}).
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "the CLI and MCP send a command's export the same args for the same input, its declared defaults applied by the host"
+)]
+fn mcp_sends_a_commands_export_the_args_its_derivation_normalizes() {
+    // What `ExtensionCommand::normalize` gives for the same declaration and
+    // input: what the command line sends too (extension_command.rs,
+    // `the_cli_sends_the_args_the_derivation_normalizes`).
+    let normalized = |declaration: Value, given: Value| -> Value {
+        let declaration: specforge_protocol_types::CommandDescriptor =
+            serde_json::from_value(declaration).unwrap();
+        let command = specforge_ops::command::ExtensionCommand::new(EXT, "cmds", &declaration);
+        Value::Object(command.normalize(given.as_object().unwrap()).unwrap())
+    };
+    // R2: the declared default, and an unset flag false.
     let ordered = args_reaching(
         FakeExtension::new().with_command(ordered_command()),
         "specforge.cmds.ordered",
@@ -1300,41 +1306,90 @@ fn pinned_args_reaching_cmd_exports_over_mcp() {
     );
     assert_eq!(
         ordered,
-        [Some(json!({})), Some(json!({"order": "asc", "all": true}))]
+        [
+            Some(json!({"order": "desc", "all": false})),
+            Some(json!({"order": "asc", "all": true}))
+        ]
     );
-    // R3: a required flag is not required over MCP, as on the command
-    // line, but an unset one is absent (the CLI sends strict: false).
+    assert_eq!(ordered[0], Some(normalized(ordered_command(), json!({}))));
+    // R3: a required flag is a flag, false unless set.
     let strict = args_reaching(
         FakeExtension::new().with_command(strict_command()),
         "specforge.cmds.strict",
         &[json!({}), json!({"strict": true})],
     );
-    assert_eq!(strict, [Some(json!({})), Some(json!({"strict": true}))]);
-    // An undeclared argument passes through to the export.
+    assert_eq!(
+        strict,
+        [
+            Some(json!({"strict": false})),
+            Some(json!({"strict": true}))
+        ]
+    );
+    assert_eq!(strict[0], Some(normalized(strict_command(), json!({}))));
+    // Values come typed: an integer or a flag as a string is converted.
     let report = args_reaching(
         FakeExtension::new(),
         "specforge.cmds.report",
-        &[json!({"style": "md", "bogus": 1})],
+        &[json!({"style": "md", "limit": "3", "verbose": "true"})],
     );
-    assert_eq!(report, [Some(json!({"style": "md", "bogus": 1}))]);
+    assert_eq!(
+        report,
+        [Some(json!({"style": "md", "limit": 3, "verbose": true}))]
+    );
 }
 
-#[test]
-fn pinned_command_tool_argument_errors() {
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "over MCP an argument the command's declaration refuses is the INVALID_INPUT error object the CLI writes, and the export is not called"
+)]
+fn over_mcp_a_refused_argument_is_the_commands_invalid_input_object() {
     let (mut server, ext, _dir) = fake_extension::initialized(FakeExtension::new());
-    let mut errors = Vec::new();
-    for arguments in [
-        json!({}),
-        json!({"style": "xml"}),
-        json!({"style": "md", "limit": "x"}),
+    for (arguments, error) in [
+        (
+            json!({}),
+            json!({"code": "INVALID_INPUT", "message": "missing required arg 'style'"}),
+        ),
+        (
+            json!({"style": "xml"}),
+            json!({"code": "INVALID_INPUT", "message": "style must be one of md, json, got 'xml'"}),
+        ),
+        (
+            json!({"style": "jsno"}),
+            json!({"code": "INVALID_INPUT", "message": "style must be one of md, json, got 'jsno'",
+                "suggestion": "json"}),
+        ),
+        (
+            json!({"style": "md", "limit": "x"}),
+            json!({"code": "INVALID_INPUT", "message": "limit must be an integer, got 'x'"}),
+        ),
+        (
+            json!({"style": "md", "bogus": 1}),
+            json!({"code": "INVALID_INPUT", "message": "unknown argument 'bogus'"}),
+        ),
+        (
+            json!({"style": "md", "verbos": true}),
+            json!({"code": "INVALID_INPUT", "message": "unknown argument 'verbos'",
+                "suggestion": "verbose"}),
+        ),
     ] {
         let resp = call_tool(&mut server, "specforge.cmds.report", arguments.clone());
-        assert_eq!(resp["result"]["isError"], true, "{resp}");
-        errors.push(json!({"arguments": arguments,
-            "structuredContent": resp["result"]["structuredContent"]}));
+        let result = &resp["result"];
+        assert_eq!(result["isError"], true, "{arguments}: {resp}");
+        assert_eq!(result["structuredContent"], error, "{arguments}");
+        assert_eq!(
+            serde_json::from_str::<Value>(&tool_text(&resp)).unwrap(),
+            error,
+            "{arguments}"
+        );
     }
-    assert!(ext.calls().is_empty(), "{:?}", ext.calls());
-    insta::assert_json_snapshot!("command_tool_argument_errors", errors);
+    assert!(ext.calls().is_empty(), "no export ran: {:?}", ext.calls());
+    let dispatched = server
+        .state()
+        .events
+        .iter()
+        .filter(|e| e.name == "surface_command_dispatched")
+        .count();
+    assert_eq!(dispatched, 0);
 }
 
 #[specforge_test(

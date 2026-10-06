@@ -722,12 +722,15 @@ mod tests {
         Value::Object(sent_by(&c, argv).unwrap().0)
     }
 
-    /// Characterization (plan 06 T1): what the command line sends for the
-    /// declarations `crates/specforge-mcp/tests/surface_wiring.rs` pins over
-    /// MCP (`ordered_command`, `strict_command`; the JSON is duplicated until
-    /// both surfaces read one derivation).
-    #[test]
-    fn pinned_args_the_cli_sends() {
+    /// What the command line sends for the declarations
+    /// `crates/specforge-mcp/tests/surface_wiring.rs` sends over MCP
+    /// (`ordered_command`, `strict_command`): `ExtensionCommand::normalize`
+    /// of what was typed, as MCP sends `normalize` of its arguments.
+    #[specforge_test(
+        behavior = "dispatch_surface_command",
+        verify = "the CLI and MCP send a command's export the same args for the same input, its declared defaults applied by the host"
+    )]
+    fn the_cli_sends_the_args_the_derivation_normalizes() {
         let ordered = serde_json::json!({"id": "ordered", "title": "Ordered",
             "description": "List in order", "export": "cmd__ordered",
             "args": [{"name": "order", "arg_type": {"enum": {"values": ["asc", "desc"]}},
@@ -736,6 +739,16 @@ mod tests {
         assert_eq!(
             sent(ordered.clone(), &["ordered"]),
             serde_json::json!({"order": "desc", "all": false})
+        );
+        // The same map MCP sends for no arguments.
+        let derived = ExtensionCommand::new(
+            "@test/cmds",
+            "x",
+            &serde_json::from_value(ordered.clone()).unwrap(),
+        );
+        assert_eq!(
+            sent(ordered.clone(), &["ordered"]),
+            Value::Object(derived.normalize(&Map::new()).unwrap())
         );
         assert_eq!(
             sent(ordered, &["ordered", "--order", "asc", "--all"]),

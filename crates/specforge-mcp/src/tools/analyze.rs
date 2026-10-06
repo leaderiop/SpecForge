@@ -47,9 +47,9 @@ pub fn call(call: &mut Call<'_>, args: Args) -> Handled {
         min: None,
         prove: None,
     };
-    // A project built in memory may have no runtime: then no extension
-    // pass runs (plan 04 D13).
-    let runtime: Option<&dyn WasmRuntime> = project.runtime.map(|runtime| runtime.as_ref() as _);
+    // The project's runtime: every project a call reaches has one, so its
+    // extensions' passes run (ADR 0017).
+    let runtime: Option<&dyn WasmRuntime> = Some(project.runtime.as_ref());
     Ok(match analyze(&view, runtime, &options) {
         Ok(outcome) => ToolOutcome::ok(outcome.to_json()),
         Err(e @ AnalyzeError::UnknownPass { .. }) => {

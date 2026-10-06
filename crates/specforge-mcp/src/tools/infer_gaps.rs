@@ -16,12 +16,7 @@ pub fn call(call: &mut Call<'_>, _args: crate::args::NoArgs) -> ToolOutcome {
             "message": "No project root available"
         }));
     };
-    let Some(runtime) = project.runtime else {
-        return ToolOutcome::error(
-            crate::tool::ErrorCode::InternalError,
-            "the project has no extension runtime",
-        );
-    };
+    let runtime = project.runtime;
     match specforge_ops::infer::gaps(
         project.root,
         project.env.registries.declarations(),

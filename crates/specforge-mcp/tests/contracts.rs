@@ -1546,7 +1546,11 @@ fn contract_auto_promote_commands() {
             .iter()
             .map(|(ext, export, input)| (ext.as_str(), export.as_str(), &input["args"]))
             .collect::<Vec<_>>(),
-        [(EXT, "cmd__report", &json!({"style": "json"}))]
+        [(
+            EXT,
+            "cmd__report",
+            &json!({"style": "json", "verbose": false})
+        )]
     );
 
     // explicit_tool_wins: `check` stays the explicit tool, with I017.
@@ -1579,7 +1583,7 @@ fn contract_auto_promote_commands() {
 
 #[specforge_test(
     behavior = "dispatch_surface_command",
-    verify = "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted"
+    verify = "Dispatch Surface Command: surface command dispatch holds — command_declared, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted, args_normalized_by_the_host"
 )]
 fn contract_dispatch_surface_command() {
     // The sandbox probe (fixtures/sandbox-probe), in the component runtime
@@ -1681,6 +1685,30 @@ fn contract_dispatch_surface_command() {
         "{error}"
     );
     assert_eq!(events(&server, "surface_command_dispatched").len(), 1);
+
+    // args_normalized_by_the_host: the export gets the args the command
+    // line would send, each its declared type; an argument the declaration
+    // refuses is the command's INVALID_INPUT object, and it does not run.
+    let resp = call_tool(
+        &mut server,
+        "specforge.probe.probe",
+        json!({"port": port.to_string()}),
+    );
+    assert_eq!(tool_json(&resp)["args"], json!({"port": port}), "{resp}");
+    assert_eq!(events(&server, "surface_command_dispatched").len(), 2);
+    for (arguments, message) in [
+        (json!({"port": "x"}), "port must be an integer, got 'x'"),
+        (json!({"dir": "/"}), "unknown argument 'dir'"),
+    ] {
+        let resp = call_tool(&mut server, "specforge.probe.probe", arguments.clone());
+        assert_eq!(resp["result"]["isError"], true, "{arguments}: {resp}");
+        assert_eq!(
+            resp["result"]["structuredContent"],
+            json!({"code": "INVALID_INPUT", "message": message}),
+            "{arguments}"
+        );
+    }
+    assert_eq!(events(&server, "surface_command_dispatched").len(), 2);
 }
 
 #[specforge_test(

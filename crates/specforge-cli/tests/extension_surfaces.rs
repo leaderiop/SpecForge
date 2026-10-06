@@ -6,6 +6,7 @@ use crate::e2e_fixtures::{find_response, mcp_request};
 use crate::product_commands::{setup_product_project, structured_session};
 use assert_cmd::cargo_bin_cmd;
 use serde_json::Value;
+use specforge_test_macros::test as specforge_test;
 use tempfile::TempDir;
 
 const PRODUCT: &str = "@specforge/product";
@@ -71,5 +72,106 @@ fn pinned_product_command_help() {
     for command in commands {
         let help = product_help(&dir, &[&command, "--help"]);
         insta::assert_snapshot!(format!("help_{command}"), help);
+    }
+}
+
+/// `specforge product <args> --format json`'s stdout, as JSON.
+fn product_json(dir: &TempDir, args: &[&str]) -> Value {
+    let output = cargo_bin_cmd!("specforge")
+        .arg("product")
+        .args(args)
+        .args(["--format", "json", "--path"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0), "{args:?}: {output:?}");
+    serde_json::from_slice(&output.stdout).unwrap()
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "the CLI and MCP send a command's export the same args for the same input, its declared defaults applied by the host"
+)]
+fn the_cli_and_mcp_answer_one_command_alike() {
+    let dir = setup_product_project();
+    let calls = [
+        (vec!["features"], serde_json::json!({})),
+        (
+            vec!["features", "--status", "done", "--limit", "1"],
+            serde_json::json!({"status": "done", "limit": 1}),
+        ),
+        (
+            vec!["milestone-completion", "m1"],
+            serde_json::json!({"milestone": "m1"}),
+        ),
+    ];
+    let requests: Vec<String> = calls
+        .iter()
+        .enumerate()
+        .map(|(i, (argv, arguments))| {
+            let name = format!("specforge.product.{}", argv[0].replace('-', "_"));
+            mcp_request(
+                i as u64 + 1,
+                "tools/call",
+                serde_json::json!({"name": name, "arguments": arguments}),
+            )
+        })
+        .collect();
+    let responses = structured_session(&dir, &requests);
+    for (i, (argv, _)) in calls.iter().enumerate() {
+        let response = find_response(&responses, i as u64 + 1).unwrap();
+        assert_eq!(response["result"]["isError"], false, "{argv:?}: {response}");
+        assert_eq!(
+            response["result"]["structuredContent"],
+            product_json(&dir, argv),
+            "{argv:?}"
+        );
+    }
+}
+
+#[specforge_test(
+    behavior = "dispatch_surface_command",
+    verify = "over MCP an argument the command's declaration refuses is the INVALID_INPUT error object the CLI writes, and the export is not called"
+)]
+fn one_mistake_is_one_error_object_on_both_surfaces() {
+    let dir = setup_product_project();
+    let mistakes = [
+        (
+            vec!["features", "--limit", "-1"],
+            serde_json::json!({"limit": -1}),
+        ),
+        (vec!["milestone-completion"], serde_json::json!({})),
+        (
+            vec!["features", "--status", "bogus"],
+            serde_json::json!({"status": "bogus"}),
+        ),
+    ];
+    let requests: Vec<String> = mistakes
+        .iter()
+        .enumerate()
+        .map(|(i, (argv, arguments))| {
+            let name = format!("specforge.product.{}", argv[0].replace('-', "_"));
+            mcp_request(
+                i as u64 + 1,
+                "tools/call",
+                serde_json::json!({"name": name, "arguments": arguments}),
+            )
+        })
+        .collect();
+    let responses = structured_session(&dir, &requests);
+    for (i, (argv, _)) in mistakes.iter().enumerate() {
+        let output = cargo_bin_cmd!("specforge")
+            .arg("product")
+            .args(argv)
+            .args(["--format", "json", "--path"])
+            .arg(dir.path())
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2), "{argv:?}: {output:?}");
+        let cli: Value = serde_json::from_slice(&output.stderr).unwrap();
+        assert_eq!(cli["code"], "INVALID_INPUT", "{argv:?}: {cli}");
+        let response = find_response(&responses, i as u64 + 1).unwrap();
+        assert_eq!(response["result"]["isError"], true, "{argv:?}: {response}");
+        assert_eq!(response["result"]["structuredContent"], cli, "{argv:?}");
     }
 }

@@ -246,9 +246,7 @@ fn extension_resource(call: &Call<'_>, uri: &str) -> ReadOutcome {
     let project = call
         .project()
         .map_err(|refused| invalid_params(refused.message))?;
-    let Some(runtime) = project.runtime else {
-        return Err(invalid_params("the project has no extension runtime"));
-    };
+    let runtime = project.runtime;
     let started = std::time::Instant::now();
     match specforge_wasm::ExtensionCalls::new(runtime.as_ref()).read_mcp_resource(
         &entry.extension,
