@@ -34,7 +34,8 @@ async fn e2e_initialize_returns_all_capabilities() {
     let trigger_strs: Vec<&str> = triggers.iter().map(|v| v.as_str().unwrap()).collect();
     assert!(trigger_strs.contains(&" "));
     assert!(trigger_strs.contains(&"["));
-    assert!(trigger_strs.contains(&"\""));
+    // Nothing completes inside a string: `"` triggers nothing (ADR 0023).
+    assert!(!trigger_strs.contains(&"\""));
 
     // renameProvider with prepareProvider
     assert_eq!(caps["renameProvider"]["prepareProvider"], true);

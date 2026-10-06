@@ -341,37 +341,43 @@ async fn a_use_binding_names_its_entity() {
     assert_eq!(result["range"]["start"]["character"], 0, "{resp}");
 }
 
-// Flipped by 06-T4.
+#[spec(
+    behavior = "complete_field_names",
+    verify = "a bracket inside a string opens no reference list"
+)]
 #[tokio::test]
-async fn pin_a_bracket_in_a_string_opens_a_list() {
+async fn a_bracket_in_a_string_keeps_field_completion() {
     let (mut client, uri, _dir) = open("comp.spec", COMP).await;
     let found = items(&mut client, &uri, 2, 2).await;
     assert!(!found.is_empty());
-    assert!(found.iter().all(|i| i["kind"] == 18), "{found:?}");
+    assert!(found.iter().all(|i| i["kind"] == 5), "{found:?}");
+    assert!(found.iter().any(|i| i["label"] == "refs"), "{found:?}");
+    // The same answer as the body without the `[`.
+    let beta = items(&mut client, &uri, 7, 2).await;
+    let labels =
+        |items: &[Value]| -> Vec<String> { items.iter().map(|i| i["label"].to_string()).collect() };
+    assert_eq!(labels(&found), labels(&beta));
 }
 
-// Flipped by 06-T4.
+#[spec(
+    behavior = "complete_keywords",
+    verify = "use is always suggested and define never is"
+)]
 #[tokio::test]
-async fn pin_define_is_offered_at_top_level() {
+async fn define_is_not_offered() {
     let (mut client, uri, _dir) = open("comp.spec", COMP).await;
     let found = items(&mut client, &uri, 10, 0).await;
-    assert!(found.iter().any(|i| i["label"] == "define"), "{found:?}");
+    assert!(found.iter().any(|i| i["label"] == "use"), "{found:?}");
+    assert!(!found.iter().any(|i| i["label"] == "define"), "{found:?}");
 }
 
-// Flipped by 06-T4.
+#[spec(
+    behavior = "complete_field_names",
+    verify = "nothing is suggested inside a string, a comment or a nested block"
+)]
 #[tokio::test]
-async fn pin_a_nested_block_offers_entity_ids() {
+async fn nested_blocks_and_strings_complete_nothing() {
     let (mut client, uri, _dir) = open("nest.spec", NEST).await;
-    let found = items(&mut client, &uri, 2, 4).await;
-    assert!(!found.is_empty());
-    assert!(found.iter().all(|i| i["kind"] == 18), "{found:?}");
-}
-
-// Flipped by 06-T4.
-#[tokio::test]
-async fn pin_a_string_offers_field_names() {
-    let (mut client, uri, _dir) = open("nest.spec", NEST).await;
-    let found = items(&mut client, &uri, 4, 19).await;
-    assert!(!found.is_empty());
-    assert!(found.iter().all(|i| i["kind"] == 5), "{found:?}");
+    assert!(items(&mut client, &uri, 2, 4).await.is_empty());
+    assert!(items(&mut client, &uri, 4, 19).await.is_empty());
 }

@@ -182,3 +182,67 @@ async fn e2e_keyword_snippet_scaffolds_required_fields() {
     assert!(snippet.contains("\n  contract "), "{snippet}");
     assert_eq!(behavior["detail"], "@specforge/software", "{behavior}");
 }
+
+#[spec(
+    behavior = "autocomplete_entity_ids",
+    verify = "a single-reference field's value suggests the IDs of its target kind"
+)]
+#[tokio::test]
+async fn a_single_reference_value_completes_ids() {
+    // `extends` is a single reference of a type, to another type.
+    let text = concat!(
+        "type base \"Base\" {}\n",
+        "behavior login \"Login\" {\n  contract \"x\"\n}\n",
+        "type child \"Child\" {\n  extends \n}\n",
+    );
+    let items = items_at(text, 5, 10).await;
+    let names = labels(&items);
+    assert!(names.contains(&"base"), "{names:?}");
+    assert!(!names.contains(&"login"), "only types: {names:?}");
+    assert!(items.iter().all(|i| i["kind"] == 18), "{items:?}");
+}
+
+/// The completion items at `refs [gh.is|]` for a client declaring (or
+/// not) insert-and-replace support.
+async fn scheme_ref_items(insert_replace: bool) -> Vec<Value> {
+    let text = concat!(
+        "ref gh.issue:42 \"Support Wasm\"\n",
+        "\n",
+        "behavior login \"Login\" {\n",
+        "  contract \"x\"\n",
+        "  refs [gh.is]\n",
+        "}\n",
+    );
+    let capabilities = json!({
+        "textDocument": {"completion": {"completionItem": {"insertReplaceSupport": insert_replace}}}
+    });
+    let (mut client, uri, _dir, _) =
+        start_server_with_extensions_as(&["@specforge/software"], "test.spec", text, capabilities)
+            .await;
+    let resp = client.completion(&uri, 4, 13).await;
+    resp["result"].as_array().cloned().unwrap_or_default()
+}
+
+#[spec(
+    behavior = "autocomplete_entity_ids",
+    verify = "accepting an ID replaces the word under the cursor, a scheme ref ID whole"
+)]
+#[tokio::test]
+async fn completion_replaces_the_whole_scheme_ref_id() {
+    let range = |line, start, end| json!({"start": {"line": line, "character": start}, "end": {"line": line, "character": end}});
+    let items = scheme_ref_items(true).await;
+    let item = items
+        .iter()
+        .find(|i| i["label"] == "gh.issue:42")
+        .unwrap_or_else(|| panic!("no ref in {items:?}"));
+    // `  refs [gh.is]`: the word starts at `g`, column 8, the cursor is at 13.
+    assert_eq!(item["textEdit"]["insert"], range(4, 8, 13), "{item}");
+    assert_eq!(item["textEdit"]["replace"], range(4, 8, 13), "{item}");
+    assert_eq!(item["textEdit"]["newText"], "gh.issue:42", "{item}");
+    assert_eq!(item["filterText"], "gh.issue:42", "{item}");
+
+    let items = scheme_ref_items(false).await;
+    let item = items.iter().find(|i| i["label"] == "gh.issue:42").unwrap();
+    assert_eq!(item["textEdit"]["range"], range(4, 8, 13), "{item}");
+    assert_eq!(item["textEdit"]["newText"], "gh.issue:42", "{item}");
+}

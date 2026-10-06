@@ -7,7 +7,7 @@ mod cursor;
 mod line_index;
 mod syntax;
 
-pub use cursor::{Cursor, EntityAt, Place, Target, Word};
+pub use cursor::{CompletionSite, Cursor, EntityAt, Place, Target, Word, WordEdit};
 pub use line_index::LineIndex;
 
 use std::sync::{Arc, OnceLock};

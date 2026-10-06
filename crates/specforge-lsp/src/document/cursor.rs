@@ -6,7 +6,8 @@ use specforge_parser::lex::LexemeKind;
 use tower_lsp::lsp_types::{Position, Range};
 
 use super::LineIndex;
-use super::syntax::{Expect, Role, Syntax, line_end, statement_start};
+use super::syntax::{Expect, FrameKind, Role, Syntax, line_end, statement_start};
+use specforge_parser::lex::Lexeme;
 
 /// What the LSP knows about one position of a document, read from its
 /// syntax. The entity it names is read from navigation, which checks each
@@ -43,6 +44,40 @@ pub struct Word<'d> {
 pub struct EntityAt<'d> {
     pub kind: &'d str,
     pub id: Option<&'d str>,
+}
+
+/// What completing at a cursor means.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CompletionSite<'d> {
+    /// A statement start at the top level: `use` and the registered kinds.
+    Keywords { prefix: &'d str },
+    /// A statement start in an entity's own body: the kind's fields.
+    Fields { kind: &'d str, prefix: &'d str },
+    /// After `verify` in an entity's own body: the verify kinds its kind allows.
+    VerifyKind { kind: &'d str, prefix: &'d str },
+    /// An item of the list a field holds (entity IDs only in a reference list).
+    ListItem {
+        kind: &'d str,
+        field: &'d str,
+        prefix: &'d str,
+    },
+    /// A field's single value (completed from the field's declared type).
+    Value {
+        kind: &'d str,
+        field: &'d str,
+        prefix: &'d str,
+    },
+    /// A string, a comment, a nested block, a header, a define block.
+    Nothing,
+}
+
+/// The ranges a completion item's edit covers: `insert` from the start of
+/// the word under the cursor to the cursor, `replace` the whole word (both
+/// empty at the cursor when there is no word).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct WordEdit {
+    pub insert: Range,
+    pub replace: Range,
 }
 
 /// What a cursor names.
@@ -88,17 +123,143 @@ impl<'d> Cursor<'d> {
         .then_some(before)
     }
 
-    /// The identifier or scheme ref ID under the cursor.
+    /// The bytes of the word under the cursor: its name lexeme, or a
+    /// scheme ref ID being typed (`gh.is`, `gh.issue:`), which lexes as
+    /// several lexemes until it is whole.
+    fn word_bytes(&self) -> Option<(usize, usize)> {
+        let lexemes = &self.syntax.lexemes;
+        let whole = self
+            .word_index()
+            .map(|w| (lexemes[w].start, lexemes[w].end));
+        let part = |l: &Lexeme| {
+            matches!(
+                l.kind,
+                LexemeKind::Ident
+                    | LexemeKind::RefId
+                    | LexemeKind::Number
+                    | LexemeKind::Punct('.' | ':' | '-' | '/')
+            )
+        };
+        let touching = |l: &Lexeme| l.start <= self.offset && self.offset <= l.end;
+        let mut at = self.last_started()?;
+        if !(touching(&lexemes[at]) && part(&lexemes[at])) {
+            match at.checked_sub(1) {
+                Some(before) if lexemes[before].end == self.offset && part(&lexemes[before]) => {
+                    at = before;
+                }
+                _ => return whole,
+            }
+        }
+        let (mut first, mut last) = (at, at);
+        while first > 0
+            && lexemes[first - 1].end == lexemes[first].start
+            && part(&lexemes[first - 1])
+        {
+            first -= 1;
+        }
+        while last + 1 < lexemes.len()
+            && lexemes[last].end == lexemes[last + 1].start
+            && part(&lexemes[last + 1])
+        {
+            last += 1;
+        }
+        let (start, end) = (lexemes[first].start, lexemes[last].end);
+        if first < last && partial_ref_id(&self.text[start..end]) {
+            return Some((start, end));
+        }
+        whole
+    }
+
+    /// The identifier or scheme ref ID under the cursor (a scheme ref ID
+    /// being typed whole).
     pub fn word(&self) -> Option<Word<'d>> {
-        let lexeme = self.syntax.lexemes[self.word_index()?];
+        let (start, end) = self.word_bytes()?;
         Some(Word {
-            text: lexeme.text(self.text),
+            text: &self.text[start..end],
             range: Range {
-                start: self.index.position(lexeme.start),
-                end: self.index.position(lexeme.end),
+                start: self.index.position(start),
+                end: self.index.position(end),
             },
-            prefix: &self.text[lexeme.start..self.offset],
+            prefix: &self.text[start..self.offset],
         })
+    }
+
+    /// The ranges a completion item's edit covers here.
+    pub fn word_edit(&self) -> WordEdit {
+        match self.word() {
+            Some(word) => WordEdit {
+                insert: Range {
+                    start: word.range.start,
+                    end: self.position,
+                },
+                replace: word.range,
+            },
+            None => {
+                let here = Range {
+                    start: self.position,
+                    end: self.position,
+                };
+                WordEdit {
+                    insert: here,
+                    replace: here,
+                }
+            }
+        }
+    }
+
+    /// What completing here means: keywords at a top-level statement start,
+    /// the kind's fields at a statement start in its own body, its verify
+    /// kinds after `verify`, the value or list item of a field of its own
+    /// body; nothing in a string, a comment, a nested block, a header or a
+    /// define block.
+    pub fn completion(&self) -> CompletionSite<'d> {
+        if self.place() != Place::Code {
+            return CompletionSite::Nothing;
+        }
+        let prefix = self.word().map_or("", |word| word.prefix);
+        let syntax = self.syntax;
+        let (state, top) = self.context();
+        let kind_of = |frame: Option<u32>| {
+            let frame = frame?;
+            (syntax.frames[frame as usize].kind == FrameKind::Entity)
+                .then(|| syntax.kind_of_frame(self.text, frame))
+                .flatten()
+        };
+        // The field (its key) a value or list here belongs to, in the
+        // entity's own body.
+        let field = |key: Option<u32>| {
+            let key = key?;
+            let kind = syntax.kind_of_key(self.text, key)?;
+            Some((kind, syntax.text(self.text, key)))
+        };
+        let site = match state {
+            Expect::Top => Some(CompletionSite::Keywords { prefix }),
+            Expect::Body | Expect::AfterValue(_) => {
+                kind_of(top).map(|kind| CompletionSite::Fields { kind, prefix })
+            }
+            Expect::VerifyKind => {
+                kind_of(top).map(|kind| CompletionSite::VerifyKind { kind, prefix })
+            }
+            Expect::Value(ctx) if kind_of(top).is_some() => {
+                field(ctx.key).map(|(kind, field)| CompletionSite::Value {
+                    kind,
+                    field,
+                    prefix,
+                })
+            }
+            Expect::List => top.and_then(|list| {
+                let list = syntax.frames[list as usize];
+                kind_of(list.parent)?;
+                let (kind, field) = field(list.key)?;
+                Some(CompletionSite::ListItem {
+                    kind,
+                    field,
+                    prefix,
+                })
+            }),
+            _ => None,
+        };
+        site.unwrap_or(CompletionSite::Nothing)
     }
 
     /// Whether the cursor is in code, a string or a comment.
@@ -291,6 +452,35 @@ impl<'d> Cursor<'d> {
             });
         }
         None
+    }
+}
+
+/// Whether `text` is a scheme ref ID being typed: `scheme`, `scheme.`,
+/// `scheme.kind`, `scheme.kind:` or `scheme.kind:id` (the grammar's
+/// `scheme_ref_id`, cut short).
+fn partial_ref_id(text: &str) -> bool {
+    let ident = |part: &str| {
+        let mut bytes = part.bytes();
+        bytes
+            .next()
+            .is_some_and(|b| b.is_ascii_alphabetic() || b == b'_')
+            && bytes.all(|b| b.is_ascii_alphanumeric() || b == b'_')
+    };
+    let Some((scheme, rest)) = text.split_once('.') else {
+        return ident(text);
+    };
+    if !ident(scheme) {
+        return false;
+    }
+    match rest.split_once(':') {
+        None => rest.is_empty() || ident(rest),
+        Some((kind, id)) => {
+            ident(kind)
+                && id.bytes().all(|b| {
+                    !b.is_ascii_whitespace()
+                        && !matches!(b, b'"' | b'{' | b'}' | b'(' | b')' | b'[' | b']' | b',')
+                })
+        }
     }
 }
 

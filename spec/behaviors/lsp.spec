@@ -304,12 +304,23 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
     extension-declared field metadata, not a compiler requirement.
     Suggestions are ranked by the shared ranking over IDs and titles
     (exact, prefix, substring, then within the fuzzy threshold), as
-    workspace symbols and MCP specforge.search rank.
+    workspace symbols and MCP specforge.search rank. The value of a
+    single-reference field is completed the same way, filtered by the
+    field's target_kind. Entity IDs are suggested only in a reference
+    list, never in a string list, whose items are strings: there only the
+    scheme ref IDs of refs are suggested, which the core links to their
+    ref from any list. Each suggestion MUST carry an edit over the word
+    under the cursor (a scheme ref ID whole), an insert-and-replace edit
+    when the client supports one, so accepting it replaces exactly that
+    word.
   """
   verify unit "autocomplete suggests matching IDs"
   verify unit "suggestions include entity titles and kinds"
   verify unit "suggestions filtered by target_kind when FieldRegistry has constraint"
   verify unit "all IDs suggested when no target_kind constraint exists"
+  verify unit "a single-reference field's value suggests the IDs of its target kind"
+  verify unit "a string list's items suggest no entity IDs but scheme ref IDs"
+  verify integration "accepting an ID replaces the word under the cursor, a scheme ref ID whole"
   verify contract "Autocomplete Entity IDs: entity ID autocomplete holds — graph_available, field_registry_available, matching_ids_suggested, target_kind_filtering_applied"
 }
 
@@ -657,11 +668,21 @@ behavior complete_field_names "Complete Field Names" {
     and suggest them as completions. Suggestions MUST be filtered to
     fields registered for the entity kind by its extension manifest.
     Field types from the registry MUST inform the completion snippet
-    (e.g., reference fields offer bracket-list scaffolding).
+    (e.g., reference fields offer bracket-list scaffolding). The cursor is
+    in an entity body when the document's lexemes put it there: brackets,
+    braces and quotes inside strings and comments do not count. Inside a
+    string, a comment or a nested block nothing is suggested. A field's
+    value is completed from its declared type: an enum field's declared
+    values, true and false for a boolean field; a string, integer or
+    string-list field's value completes nothing.
   """
   verify unit "field name completion uses FieldRegistry for entity kind"
   verify unit "suggestions are filtered by entity kind"
   verify unit "no field name suggestions outside entity blocks"
+  verify unit "a bracket inside a string opens no reference list"
+  verify unit "nothing is suggested inside a string, a comment or a nested block"
+  verify unit "an enum field's value suggests its declared values"
+  verify unit "a boolean field's value suggests true and false"
   verify contract "Complete Field Names: field name completion holds — field_registry_available, cursor_inside_entity, fields_suggested, snippets_informed"
 }
 
@@ -677,20 +698,25 @@ behavior complete_keywords "Complete Keywords" {
   }
   ensures {
     keywords_delegated           "keyword completion delegates to complete_extension_defined_keywords for extension-aware results"
-    structural_keywords_included "use and define are always included in suggestions regardless of extensions"
+    structural_keywords_included "use is always included in suggestions regardless of extensions; define never is"
   }
   contract   """
     When a user types at the top level of a .spec file (outside any entity
     block), the LSP MUST delegate to complete_extension_defined_keywords
     (behaviors/zero-entity-lsp.spec) for extension-aware keyword completions.
-    Structural keywords (use, define) MUST always be included in addition
-    to extension-defined keywords. Each suggestion SHOULD include a snippet
-    template for block scaffolding based on the kind's field definitions
-    from the FieldRegistry. The detail string MUST show the source extension
-    name for each keyword.
+    The structural keyword use MUST always be included in addition to
+    extension-defined keywords; define MUST NOT be suggested: it is a
+    reserved word whose blocks register nothing (W143, ADR 0005). Each
+    suggestion SHOULD include a snippet template for block scaffolding
+    based on the kind's field definitions from the FieldRegistry. The
+    detail string MUST show the source extension name for each keyword.
+    After verify in an entity's body, the verify kinds the entity's kind
+    allows (its allowed_verify_kinds) MUST be suggested, and nothing when
+    the kind takes no verify statements.
   """
   verify unit "keyword completion includes all registered kinds"
-  verify unit "structural keywords always included"
+  verify unit "use is always suggested and define never is"
+  verify unit "verify suggests the kinds the entity's kind allows"
   verify unit "no keyword suggestions inside entity blocks"
   verify unit "snippet templates based on kind field definitions"
   verify contract "Complete Keywords: keyword completion holds — kind_registry_available, cursor_at_top_level, keywords_delegated, structural_keywords_included"

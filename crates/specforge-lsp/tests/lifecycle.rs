@@ -79,7 +79,7 @@ async fn init_zero_extensions() {
     assert_eq!(caps["renameProvider"]["prepareProvider"], true);
     assert_eq!(
         caps["completionProvider"]["triggerCharacters"],
-        serde_json::json!([" ", "[", "\""])
+        serde_json::json!([" ", "["])
     );
     // ...and nothing else: the legend is the standard LSP list, no entity
     // kind of any extension among it.

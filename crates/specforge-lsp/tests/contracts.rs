@@ -311,25 +311,21 @@ fn autocomplete_entity_ids_contract() {
 fn complete_field_names_contract() {
     // Requires: entity kind name + populated FieldRegistry
     // Ensures: field names appropriate for that kind returned
-    let ext_names: Vec<String> = [
-        "@specforge/software",
-        "@specforge/product",
-        "@specforge/governance",
-        "@specforge/formal",
-    ]
-    .iter()
-    .map(|s| s.to_string())
-    .collect();
-    let runtime = wasm_runtime_for(&ext_names);
-    let mut declarations = Vec::new();
-    for name in &ext_names {
-        if let Ok(loaded) = specforge_wasm::protocol::load_declaration(&runtime, name) {
-            declarations.push(loaded.declaration);
-        }
-    }
-    let field_reg = specforge_registry::build_registries(declarations).fields;
+    let text = "behavior login \"Login\" {\n  \n}\n\ngizmo g \"G\" {\n  \n}\n";
+    let (_dir, project) = crate::completion::compiled(&[("test.spec", text)]);
+    let view = specforge_ops::view::ProjectView::of(&project);
+    let labels_at = |line: u32| -> Vec<String> {
+        let doc = specforge_lsp::Document::new("file:///test.spec".into(), text.into());
+        let cursor = doc
+            .at(tower_lsp::lsp_types::Position::new(line, 2))
+            .unwrap();
+        specforge_lsp::completion::items(&cursor.completion(), &cursor.word_edit(), false, &view)
+            .into_iter()
+            .map(|item| item.label)
+            .collect()
+    };
 
-    let behavior_fields = specforge_lsp::complete_field_names("behavior", Some(&field_reg));
+    let behavior_fields = labels_at(1);
     assert!(
         !behavior_fields.is_empty(),
         "known kind must have field suggestions"
@@ -339,7 +335,7 @@ fn complete_field_names_contract() {
         "behavior must include 'contract'"
     );
 
-    let unknown_fields = specforge_lsp::complete_field_names("__nonexistent__", Some(&field_reg));
+    let unknown_fields = labels_at(5);
     assert!(
         unknown_fields.is_empty(),
         "unknown kind must return no fields"
@@ -354,7 +350,15 @@ fn complete_field_names_contract() {
 fn complete_keywords_contract() {
     // Requires: set of registered extension kinds
     // Ensures: all registered kinds + structural keywords returned, no duplicates
-    let keywords = specforge_lsp::complete_keywords(&["behavior", "type"]);
+    let (_dir, project) = crate::completion::compiled(&[("test.spec", "\n")]);
+    let view = specforge_ops::view::ProjectView::of(&project);
+    let doc = specforge_lsp::Document::new("file:///test.spec".into(), "\n".into());
+    let cursor = doc.at(tower_lsp::lsp_types::Position::new(0, 0)).unwrap();
+    let keywords: Vec<String> =
+        specforge_lsp::completion::items(&cursor.completion(), &cursor.word_edit(), false, &view)
+            .into_iter()
+            .map(|item| item.label)
+            .collect();
 
     assert!(
         keywords.contains(&"behavior".to_string()),
@@ -369,8 +373,8 @@ fn complete_keywords_contract() {
         "structural keyword must be included"
     );
     assert!(
-        keywords.contains(&"define".to_string()),
-        "structural keyword must be included"
+        !keywords.contains(&"define".to_string()),
+        "define is reserved and registers nothing (ADR 0005)"
     );
 
     // No duplicates

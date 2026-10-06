@@ -60,6 +60,7 @@ pub fn server_capabilities(registered_kinds: &[&str]) -> ServerCapabilities {
             .iter()
             .map(|s| s.to_string())
             .collect(),
-        completion_trigger_characters: vec![" ".into(), "[".into(), "\"".into()],
+        // Nothing completes inside a string, so `"` triggers nothing.
+        completion_trigger_characters: vec![" ".into(), "[".into()],
     }
 }

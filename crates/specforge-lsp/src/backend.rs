@@ -16,8 +16,8 @@ use crate::navigation::{
     uri_of,
 };
 use crate::{
-    LspState, classify_tokens, complete_keywords, cursor_context, goto_import_definition,
-    hover_field_info, hover_info_with_registries, server_capabilities, server_info,
+    LspState, classify_tokens, goto_import_definition, hover_field_info,
+    hover_info_with_registries, server_capabilities, server_info,
 };
 use specforge_common::{SourceSpan, Sym};
 use specforge_ops::navigate::{
@@ -57,6 +57,11 @@ pub struct Backend {
     /// `textDocument.documentSymbol.hierarchicalDocumentSymbolSupport`:
     /// then the outline is nested `DocumentSymbol`s, else flat.
     hierarchical_symbols: Arc<AtomicBool>,
+    /// Whether the client declared
+    /// `textDocument.completion.completionItem.insertReplaceSupport`: then
+    /// a completion item's edit inserts over the word's start to the cursor
+    /// and replaces the whole word, else it is a plain edit.
+    insert_replace: Arc<AtomicBool>,
 }
 
 /// A change the project session is asked to apply.
@@ -134,6 +139,7 @@ impl Backend {
             relative_patterns: Arc::new(AtomicBool::new(false)),
             definition_links: Arc::new(AtomicBool::new(false)),
             hierarchical_symbols: Arc::new(AtomicBool::new(false)),
+            insert_replace: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -585,6 +591,15 @@ impl LanguageServer for Backend {
             .unwrap_or(false);
         self.hierarchical_symbols
             .store(hierarchical_symbols, Ordering::Relaxed);
+        let insert_replace = params
+            .capabilities
+            .text_document
+            .as_ref()
+            .and_then(|t| t.completion.as_ref())
+            .and_then(|c| c.completion_item.as_ref())
+            .and_then(|i| i.insert_replace_support)
+            .unwrap_or(false);
+        self.insert_replace.store(insert_replace, Ordering::Relaxed);
         let root = params
             .root_uri
             .as_ref()
@@ -952,117 +967,15 @@ impl LanguageServer for Backend {
         let pos = params.text_document_position.position;
 
         let state = self.state.read().await;
-        let content = match state.document(uri.as_str()) {
-            Some(doc) => doc.text().to_string(),
-            None => return Ok(None),
+        let Some(cursor) = state.document(uri.as_str()).and_then(|doc| doc.at(pos)) else {
+            return Ok(None);
         };
-
-        let prefix = state
-            .document(uri.as_str())
-            .and_then(|doc| doc.at(pos)?.word().map(|word| word.text.to_string()))
-            .unwrap_or_default();
-
-        let mut items: Vec<CompletionItem> = Vec::new();
-
-        // Detect cursor context: if inside a reference list, filter by target_kind
-        let ctx = cursor_context(&content, pos.line as usize, pos.character as usize);
-        let target_kind: Option<String> = ctx.as_ref().and_then(|c| {
-            let field_reg = state.field_registry();
-            field_reg
-                .get(&c.entity_kind, &c.field_name)
-                .and_then(|entry| entry.declared.target_kind.clone())
-        });
-
-        // Outside a reference list the enclosing block decides: its own
-        // body takes field names, the top level takes keywords.
-        let block = if ctx.is_some() {
-            None
-        } else {
-            crate::completion::enclosing_block(&content, pos.line as usize, pos.character as usize)
-        };
-        let lower_prefix = prefix.to_lowercase();
-        if let Some((kind, 1)) = &block {
-            let mut fields = state.field_registry().fields_for_kind(kind);
-            fields.sort_by(|a, b| a.declared.name.cmp(&b.declared.name));
-            for field in fields {
-                if !field
-                    .declared
-                    .name
-                    .to_lowercase()
-                    .starts_with(&lower_prefix)
-                {
-                    continue;
-                }
-                items.push(CompletionItem {
-                    label: field.declared.name.clone(),
-                    kind: Some(CompletionItemKind::FIELD),
-                    detail: field.declared.description.clone(),
-                    insert_text: Some(crate::completion::field_snippet(field, 1)),
-                    insert_text_format: Some(InsertTextFormat::SNIPPET),
-                    ..Default::default()
-                });
-            }
-            return Ok(Some(CompletionResponse::Array(items)));
-        }
-
-        if block.is_some() || ctx.is_some() {
-            // The shared ranking (completion, workspace symbols and MCP
-            // search rank alike), over ids and titles, of the kind the
-            // enclosing field targets when it targets one.
-            let kinds: Vec<&str> = target_kind.as_deref().into_iter().collect();
-            let query = EntityQuery {
-                kinds: &kinds,
-                ..EntityQuery::new(&prefix, MatchScope::Names)
-            };
-            for (rank, found) in find_entities(state.graph(), &query).into_iter().enumerate() {
-                let node = found.node;
-                let kind = node.kind.raw.as_str();
-                let detail = node
-                    .title
-                    .as_ref()
-                    .map(|t| format!("{kind} — {t}"))
-                    .unwrap_or_else(|| kind.to_string());
-                items.push(CompletionItem {
-                    label: node.id.raw.to_string(),
-                    kind: Some(CompletionItemKind::REFERENCE),
-                    detail: Some(detail),
-                    // C4-06: preserve the server's ranking in the editor.
-                    sort_text: Some(format!("{rank:04}")),
-                    ..Default::default()
-                });
-            }
-            return Ok(Some(CompletionResponse::Array(items)));
-        }
-
-        // Top level: structural keywords and every registered kind, each
-        // kind scaffolding its required fields.
-        let kind_reg = state.kind_registry();
-        let dynamic_kinds: Vec<String> = kind_reg.keywords().cloned().collect();
-        let kind_refs: Vec<&str> = dynamic_kinds.iter().map(|s| s.as_str()).collect();
-        for kw in complete_keywords(&kind_refs) {
-            if !(prefix.is_empty() || kw.to_lowercase().starts_with(&lower_prefix)) {
-                continue;
-            }
-            let (detail, snippet) = match kind_reg.get(&kw) {
-                Some(entry) => (
-                    Some(entry.source_extension.clone()),
-                    Some(crate::completion::keyword_snippet(
-                        &kw,
-                        state.field_registry(),
-                    )),
-                ),
-                None => (None, None),
-            };
-            items.push(CompletionItem {
-                label: kw,
-                kind: Some(CompletionItemKind::KEYWORD),
-                detail,
-                insert_text_format: snippet.as_ref().map(|_| InsertTextFormat::SNIPPET),
-                insert_text: snippet,
-                ..Default::default()
-            });
-        }
-
+        let items = crate::completion::items(
+            &cursor.completion(),
+            &cursor.word_edit(),
+            self.insert_replace.load(Ordering::Relaxed),
+            &state.view(),
+        );
         Ok(Some(CompletionResponse::Array(items)))
     }
 

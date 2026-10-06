@@ -272,7 +272,8 @@ impl Syntax {
     /// Whether lexeme `i` is at a reference position: an entity header's
     /// name; a value or list item, in the entity's own body, of a field
     /// the registry does not type as `Enum`, `Bool`, `Integer`, `String`,
-    /// `StringList` or `Block`; a `use` binding's imported name. The one
+    /// `StringList` (but for a scheme ref ID item) or `Block`; a `use`
+    /// binding's imported name. The one
     /// rule the cursor (what a word names), completion (where entity IDs
     /// complete) and semantic tokens (what is a reference) share.
     pub(crate) fn reference_position(&self, text: &str, i: u32, fields: &FieldRegistry) -> bool {
@@ -294,9 +295,10 @@ impl Syntax {
                     }),
                     _ => self.frame_of[i as usize] == self.frame_of[key as usize],
                 };
-                own && self
-                    .kind_of_key(text, key)
-                    .is_some_and(|kind| may_reference(fields, kind, self.text(text, key)))
+                let item = self.roles[i as usize] == Role::Item;
+                own && self.kind_of_key(text, key).is_some_and(|kind| {
+                    may_reference(fields, kind, self.text(text, key), item, lexeme.kind)
+                })
             }
             _ => false,
         }
@@ -330,20 +332,23 @@ impl Syntax {
     }
 }
 
-/// Whether a field may hold references: the registry does not type it as
-/// a value that names no entity.
-pub(crate) fn may_reference(fields: &FieldRegistry, kind: &str, field: &str) -> bool {
-    !fields.get(kind, field).is_some_and(|entry| {
-        matches!(
-            entry.field_type,
-            ManifestFieldType::Enum(_)
-                | ManifestFieldType::Bool
-                | ManifestFieldType::Integer
-                | ManifestFieldType::String
-                | ManifestFieldType::StringList
-                | ManifestFieldType::Block
-        )
-    })
+/// Whether a name (of lexeme kind `lexeme`) written as a value of a
+/// field, or as an item of its list when `item`, may name an entity: the
+/// registry does not type the field as a value that names none. A string
+/// list's items are strings, except a scheme ref ID, which the core links
+/// to its ref from any list.
+pub(crate) fn may_reference(
+    fields: &FieldRegistry,
+    kind: &str,
+    field: &str,
+    item: bool,
+    lexeme: LexemeKind,
+) -> bool {
+    match fields.get(kind, field).map(|entry| &entry.field_type) {
+        None | Some(ManifestFieldType::Reference | ManifestFieldType::ReferenceList) => true,
+        Some(ManifestFieldType::StringList) => item && lexeme == LexemeKind::RefId,
+        Some(_) => false,
+    }
 }
 
 /// The walk over a document's lexemes that assigns roles and frames.
