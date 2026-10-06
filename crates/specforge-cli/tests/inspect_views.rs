@@ -8,6 +8,10 @@
 //! they carry no `specforge_test` link; a change that alters what they pin
 //! re-blesses the snapshot in the same commit, where the diff shows it.
 //!
+//! `hover_and_inspect_agree_on_every_entity` is the linked parity test: on
+//! every entity of both projects the hover and inspect report the same
+//! standing, coverage, references and diagnostics.
+//!
 //! cyc holds two behaviors, `alpha` and `beta`, that depend on each other
 //! (a reference cycle, W061, which names both in its data).
 
@@ -145,4 +149,157 @@ fn hover_today() {
     for (id, markdown) in CYC.iter().zip(markdown) {
         insta::assert_snapshot!(format!("hover_cyc_{id}"), markdown);
     }
+}
+
+// ── Parity ──────────────────────────────────────────────────────────────
+
+/// The code a hover line names: the text between its first `**` pair
+/// (`**W006** · …`, `- [**I048**](…) …`, `- **X900** …`).
+fn code_of(line: &str) -> String {
+    let start = line.find("**").unwrap() + 2;
+    let end = start + line[start..].find("**").unwrap();
+    line[start..end].to_string()
+}
+
+/// The ids a hover reference line lists (`- \`field\` → a, b`, `- kind via
+/// \`field\`: a, b`).
+fn listed_ids(line: &str) -> Vec<String> {
+    let (_, ids) = line
+        .split_once(" → ")
+        .or_else(|| line.split_once("`: "))
+        .unwrap_or_else(|| panic!("not a reference line: {line}"));
+    ids.split(", ").map(str::to_string).collect()
+}
+
+/// A reference section: its count and the distinct ids it lists, sorted.
+fn references(section: Option<&&str>) -> (u64, Vec<String>) {
+    let Some(section) = section else {
+        return (0, Vec::new());
+    };
+    let mut lines = section.lines();
+    let heading = lines.next().unwrap();
+    let count = heading
+        .rsplit_once("*(")
+        .and_then(|(_, n)| n.strip_suffix(")*"))
+        .unwrap()
+        .parse()
+        .unwrap();
+    let mut ids: Vec<String> = lines.flat_map(listed_ids).collect();
+    ids.sort();
+    ids.dedup();
+    (count, ids)
+}
+
+fn strings(value: &Value) -> Vec<String> {
+    value
+        .as_array()
+        .unwrap_or_else(|| panic!("not an array: {value}"))
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect()
+}
+
+/// Every entity of the project at `root` (its spec in `file`): its hover at
+/// its declaration name and `specforge.inspect` report the same facts.
+fn assert_hover_and_inspect_agree(root: &Path, file: &str) {
+    let listed = mcp_calls(root, &[json!({"name": "specforge.list", "arguments": {}})])
+        .pop()
+        .unwrap();
+    let ids: Vec<String> = listed
+        .as_array()
+        .unwrap_or_else(|| panic!("specforge.list: {listed}"))
+        .iter()
+        .map(|e| e["id"].as_str().unwrap().to_string())
+        .collect();
+    assert!(!ids.is_empty());
+    let calls: Vec<Value> = ids.iter().map(|id| inspect(id)).collect();
+    let inspected = mcp_calls(root, &calls);
+    let text = std::fs::read_to_string(root.join(file)).unwrap();
+    let positions: Vec<(u32, u32)> = ids.iter().map(|id| declaration(&text, id)).collect();
+    let hovered = hovers(root, file, &positions);
+
+    for ((id, inspect), hover) in ids.iter().zip(&inspected).zip(&hovered) {
+        let sections: Vec<&str> = hover.split("\n\n---\n\n").collect();
+        let header_at = sections
+            .iter()
+            .position(|s| {
+                s.starts_with(&format!("**{}** `{id}`", inspect["kind"].as_str().unwrap()))
+            })
+            .unwrap_or_else(|| panic!("{id}: no entity header in\n{hover}"));
+        let header = sections[header_at];
+        let section = |heading: &str| sections.iter().find(|s| s.starts_with(heading));
+
+        // The testable badge is inspect's testable.
+        assert_eq!(
+            header.contains("`testable`"),
+            inspect["testable"] == true,
+            "{id}: testable\n{hover}"
+        );
+
+        // The Coverage line is inspect's status, or its exempt standing and
+        // the reason, obligated.
+        match section("**Coverage**") {
+            None => assert!(
+                inspect["testable"] == false && inspect["declared"] == false,
+                "{id}: a hover without coverage\n{hover}"
+            ),
+            Some(line) if inspect["exempt"] == true => {
+                let reason = if inspect["obligated"] == true {
+                    "exempt: it owes none (a union or an exempting field)"
+                } else {
+                    "exempt: its kind need not declare obligations"
+                };
+                assert_eq!(*line, format!("**Coverage** · {reason}"), "{id}");
+            }
+            Some(line) => {
+                let status = inspect["coverage_status"].as_str().unwrap();
+                assert!(
+                    line.starts_with(&format!("**Coverage** · `{status}` · ")),
+                    "{id}: {line} vs {status}"
+                );
+            }
+        }
+
+        // The references: each direction's ids, and their counts together.
+        let (out_count, out_ids) = references(section("**Refers to**"));
+        let (in_count, in_ids) = references(section("**Referenced by**"));
+        assert_eq!(out_ids, strings(&inspect["refers_to"]), "{id}: refers to");
+        assert_eq!(
+            in_ids,
+            strings(&inspect["referenced_by"]),
+            "{id}: referenced by"
+        );
+        assert_eq!(
+            in_count + out_count,
+            inspect["reference_count"].as_u64().unwrap(),
+            "{id}: reference counts"
+        );
+
+        // The diagnostics: those under the cursor and those listed, as a
+        // multiset, are inspect's.
+        let mut shown: Vec<String> = sections[..header_at].iter().map(|s| code_of(s)).collect();
+        if let Some(listed) = section("**Diagnostics**") {
+            shown.extend(listed.lines().skip(1).map(code_of));
+        }
+        shown.sort();
+        let mut reported: Vec<String> = inspect["diagnostics"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|d| d["code"].as_str().unwrap().to_string())
+            .collect();
+        reported.sort();
+        assert_eq!(shown, reported, "{id}: diagnostics\n{hover}");
+    }
+}
+
+#[specforge_test_macros::test(
+    behavior = "read_views_over_the_project_view",
+    verify = "specforge.inspect and the LSP hover report the same facts for an entity"
+)]
+fn hover_and_inspect_agree_on_every_entity() {
+    let fx1 = project("fx1");
+    assert_hover_and_inspect_agree(fx1.path(), "spec/main.spec");
+    let cyc = cyc();
+    assert_hover_and_inspect_agree(cyc.path(), "a.spec");
 }

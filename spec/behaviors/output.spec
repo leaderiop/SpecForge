@@ -195,7 +195,7 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   ensures {
     one_report_rule        "The recorded test report and the schema cache are the view root's, never an ancestor's"
     one_coverage_per_state "Coverage is computed once per compile and per recorded report content"
-    surfaces_agree         "The CLI and MCP report the same numbers, chains, schema version and diagrams for one project"
+    surfaces_agree         "The CLI, MCP and the LSP hover report the same numbers, chains, schema version, diagrams and entity facts for one project"
   }
   contract   """
     Stats, trace (one entity or every entity), the coverage view, the
@@ -228,6 +228,7 @@ behavior read_views_over_the_project_view "Read Views over the Project View" {
   verify integration "specforge schema and specforge.schema carry the same version"
   verify integration "specforge schema --kind and specforge.schema with a kind return the same document"
   verify integration "specforge outline and specforge.outline_extensions render the same text"
+  verify integration "specforge.inspect and the LSP hover report the same facts for an entity"
   verify contract "Read Views over the Project View: read views hold — project_compiled, one_report_rule, one_coverage_per_state, surfaces_agree"
 }
 
