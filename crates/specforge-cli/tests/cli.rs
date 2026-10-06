@@ -154,10 +154,10 @@ fn check_with_every_extension_unavailable_exits_cleanly() {
     assert_eq!(codes, ["E028", "E028", "I002"]);
 }
 
-// === validate_peer_dependencies ===
+// === registry_build_peer_dependencies ===
 
 #[specforge_test(
-    behavior = "validate_peer_dependencies",
+    behavior = "registry_build_peer_dependencies",
     verify = "specforge check reports a missing required peer dependency"
 )]
 fn check_reports_a_missing_required_peer() {

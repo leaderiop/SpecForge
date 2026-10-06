@@ -1,28 +1,19 @@
 //! Integration tests for spec/behaviors/zero-entity-validation.spec
 //!
-//! Covers 9 behaviors, 47 verify statements total:
+//! Covers these behaviors:
 //! - execute_validation_pattern (9)
 //! - detect_unknown_entity_fields (6)
 //! - parse_validation_rule_pattern (5)
 //! - emit_diagnostic_from_pattern (5)
 //! - register_custom_validation_patterns (2; the rest in specforge-project)
-//! - validate_extension_testability (5)
-//! - register_extension_validation_rules (4)
-//! - detect_duplicate_entity_kinds (4)
-//! - validate_peer_dependencies (4)
+//! - registry_build_rules (1; the rest through the build, tests/build/rules.rs)
 
 use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_extension_sdk::prelude::*;
-use specforge_protocol_types::{
-    ExtensionDeclaration, FieldConstraintDescriptor, ValidationRuleDescriptor,
-};
+use specforge_protocol_types::{FieldConstraintDescriptor, ValidationRuleDescriptor};
+use specforge_registry::RegistryBuild;
 use specforge_registry::compilation::EntityView;
-use specforge_registry::compilation::populate::populate;
-use specforge_registry::compilation::tests::support::{
-    declare, extension, kind_collisions, peer, software,
-};
-use specforge_registry::compilation::validate::{peer_dependencies, register_validation_rules};
-use specforge_registry::compilation::validate_extension_testability;
+use specforge_registry::compilation::tests::support::{registries, software};
 use specforge_registry::validation_engine::{
     CustomVerdict, ValidationEntity, ValidationPatternKind, ValidationRulePattern,
     WasmValidationRuntime, execute_pattern, interpolate_template, parse_all_rule_patterns,
@@ -81,52 +72,6 @@ fn make_entity(id: &str, kind: &str, incoming: usize, outgoing: usize) -> Valida
         incoming_kinds: Default::default(),
         obligation_exempt: false,
     }
-}
-
-/// `name` (version 1.0.0), declaring the given rules (code, message
-/// template, check), each a warning.
-fn with_rules(name: &str, rules: &[(&str, &str, CheckKind)]) -> ExtensionDeclaration {
-    declare(name, |c| {
-        for (code, message, check) in rules {
-            c.rule(code, |r| {
-                r.severity(ValidationSeverity::Warning)
-                    .message_template(message)
-                    .check(*check);
-            });
-        }
-    })
-}
-
-/// `@other/ext`, declaring `behavior` again.
-fn other_behavior() -> ExtensionDeclaration {
-    declare("@other/ext", |c| {
-        c.kind("Behavior", |k| {
-            k.keyword("behavior");
-        });
-    })
-}
-
-/// `@specforge/product`, declaring no kinds, whose peer is `name` >=1.0.0.
-fn needs_peer(name: &str) -> ExtensionDeclaration {
-    let mut c = extension("@specforge/product");
-    c.meta.peer_dependencies.push(peer(name, ">=1.0.0"));
-    c.declaration()
-}
-
-/// `@test/ext`, declaring one kind `name` with keyword `keyword`.
-fn one_kind(
-    name: &str,
-    keyword: &str,
-    testable: bool,
-    supports_verify: bool,
-) -> ExtensionDeclaration {
-    declare("@test/ext", |c| {
-        c.kind(name, |k| {
-            k.keyword(keyword)
-                .testable(testable)
-                .supports_verify(supports_verify);
-        });
-    })
 }
 
 // ============================================================================
@@ -654,104 +599,6 @@ fn emit_diagnostic_from_pattern_contract() {
 }
 
 // ============================================================================
-// B:register_extension_validation_rules (4 verifies)
-// ============================================================================
-
-#[specforge_test(
-    behavior = "register_extension_validation_rules",
-    verify = "rules from multiple extensions are collected"
-)]
-fn rules_from_multiple_extensions_are_collected() {
-    let m1 = with_rules("@ext/a", &[("W100", "first", CheckKind::NoIncomingEdges)]);
-    let m2 = with_rules("@ext/b", &[("W200", "second", CheckKind::NoOutgoingEdges)]);
-    let (rules, diags) = register_validation_rules(&[m1, m2]);
-    assert!(diags.is_empty());
-    assert_eq!(rules.len(), 2);
-}
-
-#[specforge_test(
-    behavior = "register_extension_validation_rules",
-    verify = "duplicate codes across extensions produce warning"
-)]
-fn duplicate_codes_across_extensions_produce_warning() {
-    let m1 = with_rules("@ext/a", &[("W100", "a", CheckKind::NoIncomingEdges)]);
-    let m2 = with_rules("@ext/b", &[("W100", "b", CheckKind::NoIncomingEdges)]);
-    let (_, diags) = register_validation_rules(&[m1, m2]);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "W023" && d.message.contains("W100")),
-        "expected W023 for duplicate code, got: {:?}",
-        diags
-    );
-}
-
-// Unlinked: the compile runs rules in manifest order; only this helper sorts.
-#[test]
-fn rules_sorted_by_code_for_deterministic_order() {
-    let m1 = with_rules(
-        "@ext/a",
-        &[
-            ("W300", "third", CheckKind::NoIncomingEdges),
-            ("W100", "first", CheckKind::NoIncomingEdges),
-        ],
-    );
-    let m2 = with_rules("@ext/b", &[("W200", "second", CheckKind::NoOutgoingEdges)]);
-    let (rules, _) = register_validation_rules(&[m1, m2]);
-    let codes: Vec<&str> = rules.iter().map(|r| r.code.as_str()).collect();
-    assert_eq!(codes, vec!["W100", "W200", "W300"]);
-}
-
-// Unlinked: its deterministic_order_enforced part holds for this helper only.
-#[test]
-fn register_extension_validation_rules_contract() {
-    // requires: each extension's rules are parsed, out of code order, and
-    // both extensions declare W100.
-    let a = with_rules(
-        "@ext/a",
-        &[
-            ("W300", "a300", CheckKind::NoIncomingEdges),
-            ("W100", "a100", CheckKind::NoIncomingEdges),
-        ],
-    );
-    let b = with_rules(
-        "@ext/b",
-        &[
-            ("W200", "b200", CheckKind::NoOutgoingEdges),
-            ("W100", "b100", CheckKind::NoOutgoingEdges),
-        ],
-    );
-    let (rules, diags) = register_validation_rules(&[a.clone(), b.clone()]);
-
-    // unified_rule_set_produced + deterministic_order_enforced: one set holding
-    // all four rules, sorted by code.
-    let set: Vec<(&str, &str)> = rules
-        .iter()
-        .map(|r| (r.code.as_str(), r.message_template.as_str()))
-        .collect();
-    assert_eq!(
-        set,
-        [
-            ("W100", "a100"),
-            ("W100", "b100"),
-            ("W200", "b200"),
-            ("W300", "a300")
-        ]
-    );
-    let (swapped, _) = register_validation_rules(&[b, a]);
-    let codes: Vec<&str> = swapped.iter().map(|r| r.code.as_str()).collect();
-    assert_eq!(codes, ["W100", "W100", "W200", "W300"]);
-
-    // duplicate_codes_warned: one warning naming the code and both extensions.
-    assert_eq!(diags.len(), 1, "{diags:?}");
-    assert_eq!(diags[0].code, "W023");
-    assert_eq!(diags[0].severity, Severity::Warning);
-    for part in ["'W100'", "'@ext/a'", "'@ext/b'"] {
-        assert!(diags[0].message.contains(part), "{}", diags[0].message);
-    }
-}
-
-// ============================================================================
 // B:register_custom_validation_patterns (2 of 5 verifies; the load-time
 // registration and wasm_function resolution go through Environment::load in
 // crates/specforge-project/tests/custom_rules.rs)
@@ -844,7 +691,11 @@ fn custom_pattern_failure_emits_configured_diagnostic() {
     verify = "unregistered field name produces W020"
 )]
 fn unregistered_field_name_produces_w020() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     let entities =
         vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["unknown_field"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
@@ -862,7 +713,11 @@ fn unregistered_field_name_produces_w020() {
     verify = "W020 includes field name, entity kind, and source span"
 )]
 fn w020_includes_field_name_entity_kind_and_source_span() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     let s = SourceSpan {
         file: Sym::new("my.spec"),
         start_line: 5,
@@ -892,7 +747,11 @@ fn w020_includes_field_name_entity_kind_and_source_span() {
     verify = "expression is checked like any other field (W020 where undeclared)"
 )]
 fn expression_is_checked_like_any_other_field() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     // software's invariant and behavior declare no `expression`; without an
     // extension that declares it (formal enhances invariant), it is W020.
     let entities = vec![
@@ -936,7 +795,11 @@ fn expression_is_checked_like_any_other_field() {
     verify = "registered field name does not produce W020"
 )]
 fn registered_field_name_does_not_produce_w020() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     let entities =
         vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["contract"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
@@ -950,7 +813,11 @@ fn registered_field_name_does_not_produce_w020() {
     verify = "structural fields (title, verify) not checked against FieldRegistry"
 )]
 fn structural_fields_not_checked_against_field_registry() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     let entities =
         vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["title", "verify"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
@@ -964,7 +831,11 @@ fn structural_fields_not_checked_against_field_registry() {
     verify = "verify on a kind no extension made testable produces W020"
 )]
 fn verify_on_non_testable_kind_produces_w020() {
-    let (mut kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: mut kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     kind_reg.get_mut("behavior").unwrap().supports_verify = false;
     let entities =
         vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["title", "verify"])];
@@ -987,7 +858,11 @@ fn verify_on_non_testable_kind_produces_w020() {
     verify = "field validation skipped when entity kind is unregistered"
 )]
 fn field_validation_skipped_when_entity_kind_is_unregistered() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     let entities = vec![
         EntityView::new("nonexistent_kind", "x1", pinned(span())).with_fields(&["some_field"]),
     ];
@@ -1005,7 +880,11 @@ fn field_validation_skipped_when_entity_kind_is_unregistered() {
     verify = "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, unknown_fields_diagnosed, cascading_avoided"
 )]
 fn detect_unknown_entity_fields_contract() {
-    let (kind_reg, field_reg, _, _) = populate(&[software()]);
+    let RegistryBuild {
+        kinds: kind_reg,
+        fields: field_reg,
+        ..
+    } = registries(&[software()]);
     // ensures: unknown field → W020
     let e1 =
         vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["unknown_field"])];
@@ -1029,218 +908,13 @@ fn detect_unknown_entity_fields_contract() {
 }
 
 // ============================================================================
-// B:detect_duplicate_entity_kinds (4 verifies)
-// ============================================================================
-
-#[specforge_test(
-    behavior = "detect_duplicate_entity_kinds",
-    verify = "duplicate kind from two extensions produces E026"
-)]
-fn duplicate_kind_from_two_extensions_produces_e026() {
-    let m1 = software();
-    let m2 = other_behavior();
-    let diags = kind_collisions(&[m1, m2]);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "E026" && d.message.contains("behavior")),
-        "expected E026 for duplicate 'behavior', got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "detect_duplicate_entity_kinds",
-    verify = "first extension in topological order owns the kind"
-)]
-fn first_extension_in_topological_order_owns_the_kind() {
-    let m1 = software();
-    let m2 = other_behavior();
-    let (kind_reg, _, _, _) = populate(&[m1, m2]);
-    let behavior = kind_reg.get("behavior").unwrap();
-    assert_eq!(behavior.source_extension, "@specforge/software");
-}
-
-#[specforge_test(
-    behavior = "detect_duplicate_entity_kinds",
-    verify = "single extension registering a kind produces no diagnostic"
-)]
-fn single_extension_registering_a_kind_produces_no_diagnostic() {
-    let diags = kind_collisions(&[software()]);
-    assert!(diags.is_empty());
-}
-
-#[specforge_test(
-    behavior = "detect_duplicate_entity_kinds",
-    verify = "Detect Duplicate Entity Kinds: duplicate entity kind detection holds — manifests_loading, collisions_detected, first_wins_enforced"
-)]
-fn detect_duplicate_entity_kinds_contract() {
-    // requires: manifests parsed
-    // ensures: no duplicates → no diagnostics
-    let diags = kind_collisions(&[software()]);
-    assert!(diags.is_empty());
-    // ensures: duplicate → E026 with both extension names
-    let m2 = other_behavior();
-    let dup_diags = kind_collisions(&[software(), m2]);
-    assert!(dup_diags.iter().any(|d| d.code == "E026"));
-}
-
-// ============================================================================
-// B:validate_peer_dependencies (4 verifies)
-// ============================================================================
-
-#[specforge_test(
-    behavior = "validate_peer_dependencies",
-    verify = "satisfied peer dependency passes validation"
-)]
-fn satisfied_peer_dependency_passes_validation() {
-    let m1 = software();
-    let m2 = needs_peer("@specforge/software");
-    let diags = peer_dependencies(&[m1, m2]);
-    assert!(
-        diags.is_empty(),
-        "expected no diagnostics, got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_peer_dependencies",
-    verify = "missing peer dependency produces hard error"
-)]
-fn missing_peer_dependency_produces_hard_error() {
-    let m = needs_peer("@specforge/software");
-    let diags = peer_dependencies(&[m]);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "E027" && d.message.contains("@specforge/software")),
-        "expected E027 for missing peer, got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_peer_dependencies",
-    verify = "incompatible version produces hard error with required range"
-)]
-fn incompatible_version_produces_hard_error_with_required_range() {
-    let m1 =
-        ContributionsBuilder::new(ExtensionMeta::new("@specforge/software", "0.5.0")).declaration();
-    let m2 = needs_peer("@specforge/software");
-    let diags = peer_dependencies(&[m1, m2]);
-    assert!(
-        diags.iter().any(|d| d.code == "E027"
-            && d.message.contains(">=1.0.0")
-            && d.message.contains("0.5.0")),
-        "expected E027 with version info, got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_peer_dependencies",
-    verify = "Validate Peer Dependencies: peer dependency validation holds — manifests_available, dependencies_validated, unsatisfied_blocked, loading_failed_emitted"
-)]
-fn validate_peer_dependencies_contract() {
-    // requires: manifests loaded
-    // ensures: satisfied deps → no error
-    let m1 = software();
-    let m2 = needs_peer("@specforge/software");
-    assert!(peer_dependencies(&[m1, m2]).is_empty());
-    // ensures: missing dep → E027
-    let m3 = needs_peer("@specforge/missing");
-    let diags = peer_dependencies(&[m3]);
-    assert!(diags.iter().any(|d| d.code == "E027"));
-}
-
-// ============================================================================
-// B:validate_extension_testability (5 verifies)
-// ============================================================================
-
-#[specforge_test(
-    behavior = "validate_extension_testability",
-    verify = "testable kind without supportsVerify produces W017"
-)]
-fn testable_kind_without_supports_verify_produces_w017() {
-    let manifest = one_kind("Thing", "thing", true, false);
-    let (kind_reg, _, _, _) = populate(&[manifest]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(
-        diags
-            .iter()
-            .any(|d| d.code == "W017" && d.message.contains("thing")),
-        "expected W017, got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_extension_testability",
-    verify = "testable kind with supportsVerify=true passes"
-)]
-fn testable_kind_with_supports_verify_true_passes() {
-    let (kind_reg, _, _, _) = populate(&[software()]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(
-        !diags.iter().any(|d| d.message.contains("behavior")),
-        "expected no diagnostics for behavior, got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_extension_testability",
-    verify = "a kind that accepts verify statements but is not testable produces no diagnostic"
-)]
-fn kind_with_supports_verify_but_not_testable_is_not_reported() {
-    let manifest = one_kind("Note", "note", false, true);
-    let (kind_reg, _, _, _) = populate(&[manifest]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(diags.is_empty(), "{diags:?}");
-}
-
-#[specforge_test(
-    behavior = "validate_extension_testability",
-    verify = "consistent testable and supportsVerify flags produce no diagnostic"
-)]
-fn consistent_testable_and_supports_verify_flags_produce_no_diagnostic() {
-    let manifest = one_kind("Thing", "thing", false, false);
-    let (kind_reg, _, _, _) = populate(&[manifest]);
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(
-        diags.is_empty(),
-        "expected no diagnostics, got: {:?}",
-        diags
-    );
-}
-
-#[specforge_test(
-    behavior = "validate_extension_testability",
-    verify = "Validate Extension Testability: extension testability validation holds — registries_populated_fired, flag_consistency_checked, advisory_diagnostics_emitted"
-)]
-fn validate_extension_testability_contract() {
-    // requires: KindRegistry populated
-    let (kind_reg, _, _, _) = populate(&[software()]);
-    // ensures: consistent flags → no diagnostics
-    let diags = validate_extension_testability(&kind_reg);
-    assert!(diags.is_empty());
-    // ensures: testable without supportsVerify → W017
-    let mut bad = one_kind("X", "x", true, false);
-    bad.handshake.name = "@t/e".to_string();
-    let (bad_kr, _, _, _) = populate(&[bad]);
-    let bad_diags = validate_extension_testability(&bad_kr);
-    assert!(bad_diags.iter().any(|d| d.code == "W017"));
-}
-
-// ============================================================================
-// B:register_validation_rules_from_manifest
+// B:registry_build_rules (the rule the build keeps, run)
 // ============================================================================
 
 // A rule for a `ghost` kind no loaded extension declares: it runs over the
 // project's behaviors and reports nothing.
 #[specforge_test(
-    behavior = "register_validation_rules_from_manifest",
+    behavior = "registry_build_rules",
     verify = "a rule targeting a kind no loaded extension declares reports nothing"
 )]
 fn a_rule_for_an_unloaded_kind_reports_nothing() {
@@ -1259,37 +933,6 @@ fn a_rule_for_an_unloaded_kind_reports_nothing() {
     rule.target_kind = Some("behavior".to_string());
     let (patterns, _) = parse_all_rule_patterns(&[("@test".to_string(), vec![rule])]);
     assert_eq!(execute_pattern(&patterns[0].0, &orphans, None).len(), 2);
-}
-
-#[specforge_test(
-    behavior = "register_validation_rules_from_manifest",
-    verify = "Register Validation Rules From Manifest: validation rule registration holds — extension_manifests_loaded_fired, rules_registered, unloaded_targets_inert"
-)]
-fn validation_rule_registration_contract() {
-    // extension_manifests_loaded_fired: rules come from parsed manifests.
-    let manifest = declare("@t/e", |c| {
-        c.rule("W101", |r| {
-            r.severity(ValidationSeverity::Warning)
-                .message_template("orphan {id}")
-                .check(CheckKind::NoIncomingEdges)
-                .target_kind("ghost")
-                .edge_type("GhostEdge");
-        });
-    });
-
-    // rules_registered: stored with the raw target_kind and edge_type
-    // strings, although neither is declared by any extension.
-    let (rules, diags) = register_validation_rules(&[manifest]);
-    assert!(diags.is_empty(), "{diags:?}");
-    assert_eq!(rules.len(), 1);
-    assert_eq!(rules[0].code, "W101");
-    assert_eq!(rules[0].target_kind.as_deref(), Some("ghost"));
-    assert_eq!(rules[0].edge_type.as_deref(), Some("GhostEdge"));
-
-    // unloaded_targets_inert: run against the project, it reports nothing.
-    let (patterns, _) = parse_all_rule_patterns(&[("@t/e".to_string(), rules)]);
-    let project = vec![make_entity("b1", "behavior", 0, 0)];
-    assert!(execute_pattern(&patterns[0].0, &project, None).is_empty());
 }
 
 /// A custom rule's failing verdict, with no field or value to name.

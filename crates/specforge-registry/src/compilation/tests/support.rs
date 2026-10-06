@@ -1,5 +1,6 @@
-//! Declarations the registry's tests build from, with the SDK's builders,
-//! as an extension declares itself.
+//! Declarations the registry's engine tests build from, with the SDK's
+//! builders, as an extension declares itself, and the one way they reach
+//! the registries: `registries`, which is `build_registries`.
 
 use specforge_extension_sdk::prelude::*;
 use specforge_protocol_types::ExtensionDeclaration;
@@ -17,15 +18,6 @@ pub(crate) fn declare(
     let mut c = extension(name);
     f(&mut c);
     c.declaration()
-}
-
-/// A required peer dependency on `name` in `version`.
-pub(crate) fn peer(name: &str, version: &str) -> PeerDependency {
-    PeerDependency {
-        name: name.to_string(),
-        version: version.to_string(),
-        optional: false,
-    }
 }
 
 /// `@specforge/software`: the testable `behavior` (enforcing `invariant`s
@@ -64,35 +56,7 @@ pub(crate) fn software() -> ExtensionDeclaration {
     })
 }
 
-/// `@specforge/product`, a peer of `@specforge/software`: the untestable
-/// `feature` kind, composing `behavior`s over the `composes` edge.
-pub(crate) fn product() -> ExtensionDeclaration {
-    let mut c = extension("@specforge/product");
-    c.meta
-        .peer_dependencies
-        .push(peer("@specforge/software", ">=1.0.0"));
-    c.kind("Feature", |k| {
-        k.keyword("feature").testable(false).dot_shape("box");
-        k.field("behaviors", |f| {
-            f.field_type(FieldType::ReferenceList)
-                .edge("composes")
-                .target_kind("behavior");
-        });
-    });
-    c.edge("composes", |e| {
-        e.source_kind("feature").target_kind("behavior");
-    });
-    c.declaration()
-}
-
-/// The kind collisions (E026) populating the registries from
-/// `declarations`, in load order, reports.
-pub(crate) fn kind_collisions(
-    declarations: &[ExtensionDeclaration],
-) -> Vec<specforge_common::Diagnostic> {
-    crate::compilation::populate::populate(declarations)
-        .3
-        .into_iter()
-        .filter(|d| d.code == "E026")
-        .collect()
+/// The registry build of `declarations`, in this load order.
+pub(crate) fn registries(declarations: &[ExtensionDeclaration]) -> crate::RegistryBuild {
+    crate::build_registries(declarations.to_vec())
 }

@@ -178,8 +178,8 @@ fn surface_conflicts_land_in_their_own_bucket() {
 /// Two extensions declaring one rule code: the build warns (W023), after
 /// the rule-parse diagnostics, and keeps both rules.
 #[spec(
-    behavior = "register_extension_validation_rules",
-    verify = "duplicate codes across extensions produce warning"
+    behavior = "registry_build_rules",
+    verify = "a rule code two extensions declare is W023 and both rules are kept"
 )]
 fn a_rule_code_declared_by_two_extensions_warns() {
     let rule = |name: &str| {
@@ -210,13 +210,34 @@ fn a_rule_code_declared_by_two_extensions_warns() {
     );
 }
 
-#[test]
-fn no_manifests_build_empty_registries() {
+/// With no extension loaded the host knows no kind, field or edge: every
+/// registry starts empty and stays so.
+#[spec(
+    behavior = "build_registries_from_declarations",
+    verify = "a build of no declarations has empty registries, no rules and no diagnostics"
+)]
+fn no_declarations_build_empty_registries() {
     let build = build_registries(Vec::new());
 
     assert!(build.kinds.is_empty());
+    assert_eq!(build.kinds.len(), 0);
+    assert_eq!(build.kinds.keywords().count(), 0);
+    assert!(build.kinds.get("behavior").is_none());
+    assert!(build.fields.is_empty());
+    assert!(build.fields.get("behavior", "contract").is_none());
+    assert!(build.fields.fields_for_kind("behavior").is_empty());
+    assert!(build.edges.is_empty());
+    assert!(build.edges.get("enforces").is_none());
+    assert_eq!(build.edges.labels().count(), 0);
     assert!(build.rules.is_empty());
+    assert!(build.surfaces.is_empty());
+    assert!(build.passes.is_empty());
+    assert!(build.body_parser_kinds.is_empty());
     assert!(build.single_reference_fields.is_empty());
+    assert!(build.bidirectional_pairs.is_empty());
+    assert!(build.absent_reference_targets.is_empty());
+    assert!(build.declarations().is_empty());
+    assert!(build.declaration_diagnostics.is_empty());
     assert!(build.registry_diagnostics.is_empty());
     assert!(build.surface_diagnostics.is_empty());
 }

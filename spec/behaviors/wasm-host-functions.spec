@@ -64,8 +64,8 @@ behavior provide_host_function_emit_diagnostic "Provide Host Function: emit_diag
 }
 
 // NOTE: Entity kinds and edge types are registered DECLARATIVELY from
-// extension manifests (see register_entity_kinds_from_manifest and
-// register_edge_types_from_manifest in behaviors/zero-entity-core.spec).
+// extension declarations by the registry build (see registry_build_kinds
+// and registry_build_edges in behaviors/zero-entity-registries.spec).
 // The specforge.add_graph_node and specforge.add_graph_edge host functions
 // allow extensions to add graph node and edge INSTANCES at runtime during
 // contribution exports. These do NOT register new entity kinds or edge types —

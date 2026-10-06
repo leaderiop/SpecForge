@@ -30,9 +30,11 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   category — as the protocol types (`specforge_protocol_types::ExtensionDeclaration`). The SDK
   builds it, the guest serves it, the host loads it once, the Registry build reads it, a package
   registry stores it (ADR 0012).
-- **Registry build**: the pure result of turning extension declarations into kind, field and edge
-  registries, rules, pass order and derived graph inputs, and the diagnostics of those
-  declarations (`specforge_registry::build_registries`).
+- **Registry build**: the pure result of turning extension declarations into kind, field and
+  edge registries, rules, pass order and derived graph inputs, and the diagnostics of those
+  declarations (`specforge_registry::build_registries`). Its outcomes are the `registry_build_*`
+  behaviors. Tests and every caller reach it only through `build_registries`; its steps are
+  private.
 - **Package registry client**: what talks to a package registry: search, resolve and publish over
   HTTP, credentials in the OS keyring, publisher trust and package signing
   (`specforge-registry-client`). Not the Registry build, which is pure and needs none of it.
