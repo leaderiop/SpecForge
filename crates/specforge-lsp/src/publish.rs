@@ -143,9 +143,6 @@ fn docs_href(code: &str, origin: Option<&str>) -> Option<Url> {
         .and_then(|href| Url::parse(&href).ok())
 }
 
-/// The code of a define block (ADR 0005): the block registers nothing.
-const DEFINE_BLOCK: specforge_common::Code = specforge_common::codes::W143;
-
 /// A diagnostic as the client receives it; `range_of` converts its span.
 pub(crate) fn diagnostic_to_lsp(
     diag: &specforge_common::Diagnostic,
@@ -171,10 +168,10 @@ pub(crate) fn diagnostic_to_lsp(
             Some(suggestion) => format!("{}\n\nsuggestion: {suggestion}", diag.message),
             None => diag.message.clone(),
         },
-        // A define block is inert code: editors fade it (as for inactive
-        // code) instead of only underlining it.
+        // A define block (W143, ADR 0005) is inert code: editors fade it
+        // (as for inactive code) instead of only underlining it.
         tags: diag
-            .is(DEFINE_BLOCK)
+            .is(specforge_common::codes::W143)
             .then(|| vec![DiagnosticTag::UNNECESSARY]),
         // The typed payload, as the diagnostics JSON presents it: a client
         // echoes it back in a code-action request's context.

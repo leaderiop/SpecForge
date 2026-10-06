@@ -158,10 +158,11 @@ This page is generated from the catalog table in `crates/specforge-diagnostics/s
 the single registry of diagnostic codes; `specforge explain <CODE>` prints the
 same text. Every code emitted by the compiler, the CLI, or a first-party
 extension has exactly one entry, and each entry names its owner: `core` for the
-compiler and CLI, or the `@specforge/<name>` extension that emits it. The same
-table generates a typed constant for every core code
-(`specforge_diagnostics::codes`). A test fails when an emitted code is missing
-here, is attributed to the wrong owner, or is listed but never emitted.
+compiler and CLI, or the `@specforge/<name>` extension that emits it. The
+compiler and CLI name each code through a typed constant generated from this
+table (`specforge_diagnostics::codes`), and a test fails when a code an
+extension emits is missing here, belongs to another owner, or when a listed
+code is never emitted.
 
 Codes follow the pattern `E###` (error), `W###` (warning) and `I###` (info);
 `A###` codes are `specforge analyze` findings, whose severity the pass sets.
@@ -393,101 +394,6 @@ mod tests {
         );
     }
 
-    /// One code literal found in production source.
-    struct Site {
-        code: String,
-        owner: String,
-        location: String,
-        /// The literal is compared against (`d.code == "E059"`, a
-        /// `matches!` pattern, a `const` list of codes to look for), so it
-        /// doesn't keep a catalog entry alive.
-        consumer: bool,
-        /// The severity the emit site most likely uses (see [`site_level`]).
-        level: Option<Level>,
-    }
-
-    /// Lines searched on each side of a Rust emit site for its severity.
-    /// A struct literal sets `severity:` a line or two from `code:`, and a
-    /// constructor names it on the code's line or the one before; five
-    /// lines covers both without reaching the neighbouring emit site.
-    const SEVERITY_WINDOW: usize = 5;
-
-    /// Severity tokens on one line of Rust: `Severity::X`, a `::error(` /
-    /// `::warning(` / `::info(` constructor, a `"severity": "x"` JSON key,
-    /// or an `error[`/`warning[` prefix printed before a code.
-    fn severity_tokens(line: &str) -> Vec<Level> {
-        let mut found = Vec::new();
-        for (needles, level) in [
-            (
-                &[
-                    "Severity::Error",
-                    "::error(",
-                    "\"error[",
-                    "\"severity\": \"error\"",
-                ][..],
-                Level::Error,
-            ),
-            (
-                &[
-                    "Severity::Warning",
-                    "::warning(",
-                    "\"warning[",
-                    "\"severity\": \"warning\"",
-                ][..],
-                Level::Warning,
-            ),
-            (
-                &["Severity::Info", "::info(", "\"severity\": \"info\""][..],
-                Level::Info,
-            ),
-        ] {
-            if needles.iter().any(|n| line.contains(n)) {
-                found.push(level);
-            }
-        }
-        found
-    }
-
-    /// The severity an emit site at `lines[index]` most likely uses.
-    /// JSON rules: the `"severity"` of the same rule object (up to the next
-    /// `"code"`). Rust: the nearest severity token within
-    /// [`SEVERITY_WINDOW`] lines; `None` when there is none, or when the
-    /// nearest tokens disagree.
-    fn site_level(lines: &[&str], index: usize, is_json: bool) -> Option<Level> {
-        if is_json {
-            for (offset, line) in lines[index..].iter().enumerate() {
-                if offset > 0 && line.contains("\"code\"") {
-                    return None;
-                }
-                if let Some(rest) = line.trim().strip_prefix("\"severity\": ") {
-                    return match rest.trim_end_matches(',') {
-                        "\"error\"" => Some(Level::Error),
-                        "\"warning\"" => Some(Level::Warning),
-                        "\"info\"" => Some(Level::Info),
-                        _ => None,
-                    };
-                }
-            }
-            return None;
-        }
-        for distance in 0..=SEVERITY_WINDOW {
-            let mut levels = Vec::new();
-            if let Some(before) = index.checked_sub(distance) {
-                levels.extend(severity_tokens(lines[before]));
-            }
-            if distance > 0 && index + distance < lines.len() {
-                levels.extend(severity_tokens(lines[index + distance]));
-            }
-            levels.dedup();
-            match levels.as_slice() {
-                [] => continue,
-                [level] => return Some(*level),
-                _ => return None,
-            }
-        }
-        None
-    }
-
     /// Replace test-only items (`#[cfg(test)]` / `#[test]` and the item that
     /// follows, brace-matched) with blank lines so line numbers survive.
     fn strip_test_items(src: &str) -> Vec<&str> {
@@ -590,26 +496,6 @@ mod tests {
         found
     }
 
-    /// Whether the code literal on `line` at `range` is only compared
-    /// against (a consumer) rather than emitted: an operand of `==`/`!=`,
-    /// a match or `matches!` pattern (`"E003" | "E025" =>`), or an item of
-    /// a `const` array of codes to look for (`[&str; N]`). A value after
-    /// `=>`, in a struct field, a call or a `&str` constant is emitted.
-    fn is_consumer(line: &str, range: &std::ops::Range<usize>) -> bool {
-        let before = line[..range.start].trim_end();
-        let after = line[range.end..].trim_start();
-        let alternative = |s: &str| s.starts_with('|') && !s.starts_with("||");
-        before.ends_with("==")
-            || before.ends_with("!=")
-            || after.starts_with("==")
-            || after.starts_with("!=")
-            || (before.ends_with('|') && !before.ends_with("||"))
-            || alternative(after)
-            || (after.starts_with("=>") && !before.ends_with("=>"))
-            || line.contains("matches!(")
-            || (line.contains("const ") && line.contains(": [&str"))
-    }
-
     fn walk(dir: &Path, files: &mut Vec<PathBuf>) {
         const SKIP: &[&str] = &[
             "tests",
@@ -635,83 +521,212 @@ mod tests {
         }
     }
 
-    /// The catalog itself: the table (every code) and this file (the
-    /// retired codes), so the scanner skips them.
-    const CATALOG_FILES: &[&str] = &[
-        "crates/specforge-diagnostics/src/catalog.rs",
-        "crates/specforge-diagnostics/src/lib.rs",
-    ];
-
-    /// Every code literal in production (non-test) source, with the owner
-    /// implied by where it lives.
-    fn emitted_sites() -> Vec<Site> {
+    /// Rust production source under `top`: (path from the workspace root,
+    /// the file's lines with test items blanked). Files named `tests.rs` or
+    /// `*_tests.rs` are test modules and are left out.
+    fn production_source(top: &str) -> Vec<(String, Vec<String>)> {
         let root = workspace_root();
         let mut files = Vec::new();
-        for top in ["crates", "xtask", "integrations", "extensions"] {
-            walk(&root.join(top), &mut files);
-        }
-        let mut sites = Vec::new();
-        // A stale CATALOG_FILES would scan the catalog as an emitter, and
-        // every entry would look emitted: each skip must match one file.
-        let mut catalog_skipped = Vec::new();
+        walk(&root.join(top), &mut files);
+        files.sort();
+        let mut out = Vec::new();
         for path in files {
             let rel = path.strip_prefix(&root).unwrap_or(&path);
-            let rel_str = rel.to_string_lossy().replace('\\', "/");
-            let parts: Vec<&str> = rel_str.split('/').collect();
-            let file_name = *parts.last().unwrap_or(&"");
-            let is_rust = file_name.ends_with(".rs");
-            let owner = if parts[0] == "extensions" {
-                if parts.len() < 3 || parts[2] != "src" {
-                    continue;
-                }
-                if !is_rust {
-                    continue;
-                }
-                format!("@specforge/{}", parts[1])
-            } else {
-                if !is_rust || !parts.contains(&"src") {
-                    continue;
-                }
-                // The coverage rule is a shared crate owned by the testing
-                // extension (ADR 0004, D2-f); its codes are that extension's.
-                if rel_str.starts_with("crates/specforge-coverage/") {
-                    "@specforge/testing".to_string()
-                } else {
-                    "core".to_string()
-                }
-            };
-            if CATALOG_FILES.contains(&rel_str.as_str()) {
-                catalog_skipped.push(rel_str);
-                continue;
-            }
-            if file_name == "tests.rs" || file_name.ends_with("_tests.rs") {
+            let rel = rel.to_string_lossy().replace('\\', "/");
+            let name = rel.rsplit('/').next().unwrap_or("");
+            if !name.ends_with(".rs")
+                || !rel.split('/').any(|part| part == "src")
+                || name == "tests.rs"
+                || name.ends_with("_tests.rs")
+            {
                 continue;
             }
             let Ok(src) = std::fs::read_to_string(&path) else {
                 continue;
             };
-            let lines = strip_test_items(&src);
-            for (index, line) in lines.iter().enumerate() {
-                for (code, range) in code_literals(line) {
-                    if is_third_party(code) {
-                        continue;
-                    }
-                    sites.push(Site {
-                        code: code.to_string(),
-                        owner: owner.clone(),
-                        location: format!("{rel_str}:{}", index + 1),
-                        consumer: is_consumer(line, &range),
-                        level: site_level(&lines, index, !is_rust),
-                    });
-                }
-            }
+            let lines = strip_test_items(&src)
+                .into_iter()
+                .map(str::to_string)
+                .collect();
+            out.push((rel, lines));
         }
+        out
+    }
+
+    /// The catalog itself: the table (every code) and this file (the
+    /// retired codes), so the scanners skip them.
+    const CATALOG_FILES: &[&str] = &[
+        "crates/specforge-diagnostics/src/catalog.rs",
+        "crates/specforge-diagnostics/src/lib.rs",
+    ];
+
+    /// The host's production source: the compiler, the CLI, the servers, the
+    /// build tooling. It names a code only through `codes::*`. A guest's
+    /// source ([`GUEST_OWNERS`]) is read as one.
+    fn host_source() -> Vec<(String, Vec<String>)> {
+        let mut files = Vec::new();
+        for top in ["crates", "xtask", "integrations"] {
+            files.extend(production_source(top));
+        }
+        // A stale CATALOG_FILES would scan the catalog as an emitter, and
+        // every entry would look emitted: each skip must match one file.
+        let mut catalog_skipped = Vec::new();
+        files.retain(|(rel, _)| {
+            if CATALOG_FILES.contains(&rel.as_str()) {
+                catalog_skipped.push(rel.clone());
+                return false;
+            }
+            !GUEST_OWNERS.iter().any(|(dir, _)| rel.starts_with(dir))
+        });
         catalog_skipped.sort();
         assert_eq!(
             catalog_skipped, CATALOG_FILES,
-            "the scanner must skip exactly the catalog files"
+            "the scanners must skip exactly the catalog files"
         );
+        files
+    }
+
+    /// Where an extension's code is written as text, and whose it is. A
+    /// guest has no host constants (it does not link this crate: the
+    /// builtins' blobs would change with every explanation), so its codes
+    /// are string literals, attributed by directory and nothing else. The
+    /// coverage crate is shared source of the testing extension (ADR 0004
+    /// D2-f).
+    const GUEST_OWNERS: &[(&str, &str)] = &[
+        ("crates/specforge-coverage/src", "@specforge/testing"),
+        ("extensions/cargo-test/src", "@specforge/cargo-test"),
+        ("extensions/formal/src", "@specforge/formal"),
+        ("extensions/governance/src", "@specforge/governance"),
+        ("extensions/product/src", "@specforge/product"),
+        ("extensions/rust/src", "@specforge/rust"),
+        ("extensions/software/src", "@specforge/software"),
+        ("extensions/testing/src", "@specforge/testing"),
+        ("extensions/typescript/src", "@specforge/typescript"),
+        ("extensions/vitest/src", "@specforge/vitest"),
+    ];
+
+    /// One code literal an extension's source writes.
+    struct GuestSite {
+        code: String,
+        owner: &'static str,
+        location: String,
+        /// The literal is compared against (`d.code == "E059"`, a `matches!`
+        /// pattern), so it doesn't keep a catalog entry alive.
+        consumer: bool,
+    }
+
+    /// Every code literal in the guests' production source, with its
+    /// directory's owner. The third-party ranges are never catalogued.
+    fn guest_sites() -> Vec<GuestSite> {
+        let mut sites = Vec::new();
+        for (dir, owner) in GUEST_OWNERS {
+            for (rel, lines) in production_source(dir) {
+                for (index, line) in lines.iter().enumerate() {
+                    for (code, range) in code_literals(line) {
+                        if is_third_party(code) {
+                            continue;
+                        }
+                        sites.push(GuestSite {
+                            code: code.to_string(),
+                            owner,
+                            location: format!("{rel}:{}", index + 1),
+                            consumer: is_literal_consumer(line, &range),
+                        });
+                    }
+                }
+            }
+        }
         sites
+    }
+
+    /// Whether the code literal on `line` at `range` is only compared
+    /// against rather than reported: an operand of `==`/`!=`, a match or
+    /// `matches!` pattern (`"E003" | "E025" =>`). A guest's `c.rule("W077", ..)`
+    /// or `PassDiagnostic::new("A001", ..)` reports it.
+    fn is_literal_consumer(line: &str, range: &std::ops::Range<usize>) -> bool {
+        let before = line[..range.start].trim_end();
+        let after = line[range.end..].trim_start();
+        let alternative = |s: &str| s.starts_with('|') && !s.starts_with("||");
+        before.ends_with("==")
+            || before.ends_with("!=")
+            || after.starts_with("==")
+            || after.starts_with("!=")
+            || (before.ends_with('|') && !before.ends_with("||"))
+            || alternative(after)
+            || (after.starts_with("=>") && !before.ends_with("=>"))
+            || line.contains("matches!(")
+    }
+
+    /// The `codes::X` references on a line: the constant's name and whether
+    /// the reference only looks for the code (`d.is(codes::E001)`,
+    /// `codes::E003.matches(..)`, an operand of `==`) rather than reports
+    /// it. A reference inside a table of codes to look for (`[Code; N]`,
+    /// `&[(Code, _)]`) is a consumer too: `in_table` says the line is
+    /// inside one.
+    fn code_references(line: &str, in_table: bool) -> Vec<(String, bool)> {
+        let b = line.as_bytes();
+        let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+        let mut found = Vec::new();
+        let mut from = 0;
+        while let Some(at) = line[from..].find("codes::") {
+            let start = from + at;
+            from = start + "codes::".len();
+            if start > 0 && word(b[start - 1]) {
+                continue;
+            }
+            let end = from
+                + line[from..]
+                    .bytes()
+                    .take_while(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || *c == b'_')
+                    .count();
+            if end == from {
+                continue;
+            }
+            let before = line[..start].trim_end();
+            let after = line[end..].trim_start();
+            let consumer = in_table
+                || before.ends_with(".is(")
+                || before.ends_with("==")
+                || before.ends_with("!=")
+                || after.starts_with("==")
+                || after.starts_with("!=")
+                || after.starts_with(".matches(");
+            found.push((line[from..end].to_string(), consumer));
+        }
+        found
+    }
+
+    /// Whether `line` opens a table of codes to look for (it ends at the
+    /// line that closes the array with `];`).
+    fn opens_table(line: &str) -> bool {
+        line.contains(": [Code;") || line.contains("&[(Code,")
+    }
+
+    /// Every host reference to a code constant, with where it is and
+    /// whether it is a consumer. The constant's name is the code with `-`
+    /// spelled `_`.
+    fn host_references() -> Vec<(String, String, bool)> {
+        let mut references = Vec::new();
+        for (rel, lines) in host_source() {
+            let mut in_table = false;
+            for (index, line) in lines.iter().enumerate() {
+                if line.trim_start().starts_with("//") {
+                    continue;
+                }
+                in_table |= opens_table(line);
+                for (ident, consumer) in code_references(line, in_table) {
+                    references.push((
+                        ident.replace('_', "-"),
+                        format!("{rel}:{}", index + 1),
+                        consumer,
+                    ));
+                }
+                if in_table && line.trim_end().ends_with("];") {
+                    in_table = false;
+                }
+            }
+        }
+        references
     }
 
     /// Every code-shaped word in `text` (see [`code_shape_end`]; single-letter
@@ -768,137 +783,261 @@ mod tests {
         );
     }
 
+    /// The host names a core code only through its constant
+    /// (`codes::W112`), so its severity is the catalog's and a wrong
+    /// prefix/level pair does not compile. A code-shaped string literal in
+    /// the host's production source (outside test items and comments) is
+    /// that rule broken: `Code::catalogued("W999", ..)`, `"E003: ..."` in a
+    /// message, `severity[E048]` in a format string. The third-party ranges
+    /// (a scaffold's `W900`) are never catalogued and are not codes of
+    /// the host's.
+    #[test]
+    fn host_source_names_codes_through_constants() {
+        let files = host_source();
+        assert!(
+            files.len() >= 100,
+            "scanned {} host files; is the workspace root right?",
+            files.len()
+        );
+        let mut problems = Vec::new();
+        for (rel, lines) in &files {
+            for (index, line) in lines.iter().enumerate() {
+                if line.trim_start().starts_with("//") {
+                    continue;
+                }
+                for (code, _) in code_literals(line) {
+                    if !is_third_party(code) {
+                        problems.push(format!(
+                            "{rel}:{} writes {code} as text; name it `codes::{}`",
+                            index + 1,
+                            code.replace('-', "_")
+                        ));
+                    }
+                }
+            }
+        }
+        assert!(
+            problems.is_empty(),
+            "host source writes diagnostic codes as text ({} sites):\n  {}",
+            problems.len(),
+            problems.join("\n  ")
+        );
+    }
+
+    /// `Diagnostic::untyped` is the narrow door for a code that arrives as
+    /// text: an extension's code a host crossing point did not build from a
+    /// constant, an `OpError` turned back into a diagnostic. Only the files
+    /// that convert such values call it, so a new call site is a decision
+    /// this list shows.
+    #[test]
+    fn untyped_is_called_only_where_codes_cross() {
+        const UNTYPED_FILES: &[&str] = &[
+            // An operation's failure back to a diagnostic: `error[CODE]` on stderr.
+            "crates/specforge-cli/src/export.rs",
+            // The definition (`new`, `graded` and `from_extension` build through it).
+            "crates/specforge-common/src/diagnostic.rs",
+            // An MCP failure's code is text from an `OpError` or a message.
+            "crates/specforge-mcp/src/tool.rs",
+            // The host's own E006 rules carry their code as text, like an extension's.
+            "crates/specforge-registry/src/rules/check.rs",
+        ];
+        let mut calling: Vec<String> = host_source()
+            .into_iter()
+            .filter(|(_, lines)| {
+                lines
+                    .iter()
+                    .any(|l| !l.trim_start().starts_with("//") && l.contains("untyped("))
+            })
+            .map(|(rel, _)| rel)
+            .collect();
+        calling.sort();
+        assert_eq!(
+            calling, UNTYPED_FILES,
+            "`Diagnostic::untyped` is called from these files only (a code that arrives as \
+             text); a core code is built with `Diagnostic::new(codes::X, ..)`"
+        );
+    }
+
+    /// Every directory an extension's guest code lives in is attributed to
+    /// its extension, by name and nothing else.
+    #[test]
+    fn guest_sources_are_attributed_exactly() {
+        let root = workspace_root();
+        let mut with_source: Vec<String> = std::fs::read_dir(root.join("extensions"))
+            .expect("extensions/")
+            .flatten()
+            .filter(|entry| entry.path().join("src").is_dir())
+            .map(|entry| format!("extensions/{}/src", entry.file_name().to_string_lossy()))
+            .collect();
+        with_source.sort();
+        let mut listed: Vec<&str> = GUEST_OWNERS
+            .iter()
+            .map(|(dir, _)| *dir)
+            .filter(|dir| dir.starts_with("extensions/"))
+            .collect();
+        listed.sort();
+        assert_eq!(
+            with_source, listed,
+            "GUEST_OWNERS lists exactly the extensions' source directories"
+        );
+        for (dir, owner) in GUEST_OWNERS {
+            assert!(root.join(dir).is_dir(), "{dir} exists");
+            if let Some(name) = dir.strip_prefix("extensions/") {
+                let name = name.trim_end_matches("/src");
+                assert_eq!(*owner, format!("@specforge/{name}"), "{dir}");
+            }
+        }
+    }
+
     /// C2: a code that is only compared against isn't emitted, so a catalog
     /// entry can't outlive its last emitter through a consumer.
     #[test]
     fn consumer_references_do_not_count_as_emitting() {
         let consumers = [
+            (r#"            if !d.is(codes::E001) {"#, false),
+            (
+                r#"        Err(e) if e.is(codes::E059) => err_invalid("#,
+                false,
+            ),
+            (r#"        .filter(|d| !d.is(codes::E027))"#, false),
+            (r#"        if codes::E003.matches(&diag.code) {"#, false),
+            (r#"        if diag.code == codes::E003.id() {"#, false),
+            (
+                r#"pub const CONFLICT_CODES: [Code; 2] = [codes::E017, codes::W018];"#,
+                false,
+            ),
+            (r#"    (codes::E003, ErrorCode::EntityNotFound),"#, true),
+            (r#"            codes::E026,"#, true),
+        ];
+        for (line, in_table) in consumers {
+            let found = code_references(line, in_table || opens_table(line));
+            assert!(!found.is_empty(), "`{line}` has a reference");
+            for (ident, consumer) in found {
+                assert!(consumer, "{ident} in `{line}` is a consumer");
+            }
+        }
+        let emitters = [
+            r#"            Diagnostic::new(codes::W139, format!("claim"))"#,
+            r#"        return Err(fail(codes::E034, "bad"))"#,
+            r#"const BUDGET_TOO_SMALL: Code = codes::E062;"#,
+            r#"    Diagnostic::graded(codes::A010, Severity::Info, "m")"#,
+            r#"            Kind::Missing => codes::E025,"#,
+            r#"            let code = specforge_common::codes::R_TRUST_002;"#,
+        ];
+        for line in emitters {
+            let found = code_references(line, opens_table(line));
+            assert!(!found.is_empty(), "`{line}` has a reference");
+            for (ident, consumer) in found {
+                assert!(!consumer, "{ident} in `{line}` is emitted");
+            }
+        }
+        let guest_consumers = [
             r#"        Err(e) if e.code == "E059" => err_invalid("#,
             r#"            if d.code != "E001" {"#,
             r#"        if !matches!(diag.code.as_str(), "E003" | "E025") {"#,
-            r#"        if matches!(diag.code.as_str(), "E003") {"#,
             r#"            "E003" | "E025" => fix(diag),"#,
-            r#"pub const CONFLICT_CODES: [&str; 2] = ["E017", "W018"];"#,
         ];
-        for line in consumers {
+        for line in guest_consumers {
             for (code, range) in code_literals(line) {
                 assert!(
-                    is_consumer(line, &range),
+                    is_literal_consumer(line, &range),
                     "{code} in `{line}` is a consumer"
                 );
             }
         }
-        let emitters = [
-            r#"            Diagnostic::warning("W139", format!("claim"))"#,
+        let guest_emitters = [
+            r#"        c.rule("W077", |r| {"#,
             r#"                code: "E028".to_string(),"#,
             r#"      "code": "W041","#,
-            r#"const BUDGET_TOO_SMALL: &str = "E062";"#,
             r#"            Kind::Missing => "E025","#,
-            r#"        fail("E034", "bad")"#,
         ];
-        for line in emitters {
+        for line in guest_emitters {
             for (code, range) in code_literals(line) {
-                assert!(!is_consumer(line, &range), "{code} in `{line}` is emitted");
+                assert!(
+                    !is_literal_consumer(line, &range),
+                    "{code} in `{line}` is emitted"
+                );
             }
         }
     }
 
-    /// The catalog is enforced: every emitted code is registered under the
-    /// right owner, and every registered code is emitted somewhere.
+    /// The catalog is enforced: every code a guest reports is registered
+    /// under its extension, every core code is built by the host, and every
+    /// registered code is reported somewhere. The host's reports are its
+    /// `codes::X` references (a constant exists only for a core code, so the
+    /// owner needs no guess); the guests' are string literals, owned by
+    /// their directory ([`GUEST_OWNERS`]).
     #[specforge_test(
         invariant = "diagnostic_code_uniqueness",
         verify = "Diagnostic Code Uniqueness guarantee holds"
     )]
     fn explain_catalog_matches_emitted_codes() {
         let catalog: BTreeMap<&str, &CodeEntry> = CATALOG.iter().map(|e| (e.code, e)).collect();
-        let sites = emitted_sites();
+        let host = host_references();
+        let guests = guest_sites();
         assert!(
-            !sites.is_empty(),
-            "scanner found no diagnostic codes; is the workspace root right?"
+            host.len() >= 150,
+            "scanner found {} host code references; is the workspace root right?",
+            host.len()
+        );
+        assert!(
+            guests.len() >= 90,
+            "scanner found {} guest code literals; is the workspace root right?",
+            guests.len()
         );
 
         let mut problems = Vec::new();
         let mut emitted = BTreeSet::new();
-        for site in &sites {
-            if site.consumer {
-                // A consumer may test for another owner's code, but the code
-                // it looks for must exist.
-                if !catalog.contains_key(site.code.as_str()) {
-                    problems.push(format!(
-                        "{} compared against at {} is not in the CATALOG; nothing emits it",
-                        site.code, site.location
-                    ));
+        for (code, location, consumer) in &host {
+            match catalog.get(code.as_str()) {
+                None => problems.push(format!(
+                    "{code} referenced at {location} is not in the CATALOG"
+                )),
+                // A consumer looks for a code some other site reports.
+                Some(_) if *consumer => {}
+                Some(entry) => {
+                    if entry.owner != "core" {
+                        problems.push(format!(
+                            "{code} built at {location} belongs to `{}`, not core",
+                            entry.owner
+                        ));
+                    }
+                    emitted.insert(code.as_str());
                 }
-                continue;
             }
-            emitted.insert(site.code.as_str());
+        }
+        for site in &guests {
             match catalog.get(site.code.as_str()) {
                 None => problems.push(format!(
-                    "{} emitted at {} is not in the CATALOG; add a CodeEntry with owner `{}`",
+                    "{} reported at {} is not in the CATALOG; add a table entry with owner `{}`",
                     site.code, site.location, site.owner
                 )),
+                // A consumer may test for another owner's code, but the code
+                // it looks for must exist.
+                Some(_) if site.consumer => {}
                 Some(entry) if entry.owner != site.owner => problems.push(format!(
-                    "{} emitted at {} belongs to `{}`, but CATALOG says owner `{}`; each code has one \
-                     owner, so pick a free code for this emitter or fix the entry",
+                    "{} reported at {} belongs to `{}`, but the CATALOG says owner `{}`; each code \
+                     has one owner, so pick a free code for this extension or fix the entry",
                     site.code, site.location, site.owner, entry.owner
                 )),
-                Some(_) => {}
+                Some(_) => {
+                    emitted.insert(site.code.as_str());
+                }
             }
         }
         for code in catalog.keys() {
             if !emitted.contains(code) {
                 problems.push(format!(
-                    "{code} is in CATALOG but nothing emits it any more; remove the entry"
+                    "{code} is in CATALOG but nothing reports it any more; remove the entry"
                 ));
             }
         }
         assert!(
             problems.is_empty(),
-            "diagnostic catalog out of sync with emitters ({} problems):\n  {}\n\nThen regenerate \
-             docs with `SPECFORGE_BLESS=1 cargo test -p specforge-diagnostics explain_docs_sync`.",
+            "diagnostic catalog out of sync with its reporters ({} problems):\n  {}\n\nThen \
+             regenerate docs with `SPECFORGE_BLESS=1 cargo test -p specforge-diagnostics \
+             explain_docs_sync`.",
             problems.len(),
-            problems.join("\n  ")
-        );
-    }
-
-    /// C4: no emit site uses a severity its catalog entry contradicts. The
-    /// site's severity is a heuristic (see [`site_level`]): the rule
-    /// object's `"severity"` for JSON rules, else the nearest severity
-    /// token within [`SEVERITY_WINDOW`] lines. Sites where it finds none
-    /// are skipped; the test also requires most sites to be decided, so the
-    /// heuristic can't quietly stop working.
-    #[test]
-    fn emit_sites_use_the_catalogued_level() {
-        let sites = emitted_sites();
-        let mut problems = Vec::new();
-        let (mut decided, mut total) = (0, 0);
-        for site in sites.iter().filter(|s| !s.consumer) {
-            let Some(entry) = lookup(&site.code) else {
-                continue;
-            };
-            if entry.level == Level::SetByPass {
-                continue;
-            }
-            total += 1;
-            let Some(level) = site.level else {
-                continue;
-            };
-            decided += 1;
-            if level != entry.level {
-                problems.push(format!(
-                    "{} at {} is emitted as {:?}, but the catalog level is {:?}",
-                    site.code, site.location, level, entry.level
-                ));
-            }
-        }
-        assert!(
-            decided * 3 >= total * 2,
-            "the severity heuristic decided only {decided} of {total} emit sites"
-        );
-        assert!(
-            problems.is_empty(),
-            "emit sites contradict the catalog level; emit the catalogued severity or \
-             move the code to the prefix of the severity it has:\n  {}",
             problems.join("\n  ")
         );
     }
