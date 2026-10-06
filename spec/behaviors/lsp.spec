@@ -387,11 +387,15 @@ behavior rename_entity_id "Rename Entity ID" {
     with an error saying why. The edits are exactly the entity's
     declaration name and its references, as find-references returns them;
     text in strings, comments and verify statements that mentions the ID
-    is not a reference and is not edited.
+    is not a reference and is not edited. The edits are positions in the
+    text the project was compiled from: a rename over a file whose text (an
+    open buffer, else the file on disk) is no longer that text MUST be
+    refused as ContentModified (-32801), never applied from stale positions.
   """
   verify unit "rename updates declaration and all references"
   verify unit "rename leaves strings, comments and verify texts alone"
   verify unit "rename is atomic — all or nothing"
+  verify unit "rename is refused as content modified when a file it edits changed since the compile"
   verify unit "rename across multiple files"
   verify unit "rename rejects new name that duplicates existing entity ID"
   verify unit "rename to an illegal entity ID is refused with why"

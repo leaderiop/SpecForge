@@ -224,8 +224,10 @@ Terms the code, the specs and the docs use with one meaning. Architecture decisi
   only on request (`specforge_ops::navigate`).
 - **Navigation**: where an entity is declared, its references, entity lookup and ranking, which
   entities a diagnostic is about, and the fixes a diagnostic's data names. The LSP and MCP answer
-  from one module (`specforge_ops::navigate`) in source spans. The LSP converts them to UTF-16
-  ranges through each text's line index, MCP renders them as JSON (ADR 0016, ADR 0023).
+  from one module (`specforge_ops::navigate`) in source spans. A span is a position in the text the
+  project was compiled from (`ProjectSession::source_text`), not in the buffer typed since nor the disk
+  now. The LSP converts spans to UTF-16 ranges through that text's line index (a file the compile holds
+  no text of has no range), MCP renders them as JSON (ADR 0016, ADR 0023).
 - **Cursor**: what the LSP knows about a position in an open document, read from the document's lexemes
   (`specforge_parser::lex`) and their block structure, never from the graph: the word under it, whether
   it is in code, a string or a comment, the entity block, field and reference list around it, and the

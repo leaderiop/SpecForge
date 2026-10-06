@@ -1,5 +1,6 @@
 //! A long-lived compiled project: what watch, the LSP and MCP hold.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -143,8 +144,19 @@ impl ProjectSession {
         // The one cold build seeds the incremental one.
         let (graph, graph_diagnostics) = build_graph_with_config(&specs, &graph_config);
         let files: Vec<(String, SpecFile)> = paths.into_iter().zip(specs).collect();
-        let build =
-            IncrementalBuild::from_cold_build(files, graph, &graph_diagnostics, graph_config);
+        // The text each file was parsed from (the resolver kept it).
+        let sources: HashMap<String, Arc<str>> = resolved
+            .files
+            .iter()
+            .map(|file| (file.path.clone(), Arc::from(file.source.as_str())))
+            .collect();
+        let build = IncrementalBuild::from_cold_build(
+            files,
+            sources,
+            graph,
+            &graph_diagnostics,
+            graph_config,
+        );
 
         let mut session = ProjectSession {
             env: Arc::new(env),
@@ -287,6 +299,21 @@ impl ProjectSession {
 
     pub fn graph(&self) -> &Graph {
         self.build.graph()
+    }
+
+    /// The text the session's current build parsed `path` (relative to the
+    /// spec root) from: the file as it was read, or the buffer as it was
+    /// given, at the last update that touched it. A span of the graph or of
+    /// a diagnostic is a position in this text, not in the file on disk or
+    /// the buffer now. `None` for a file the session does not hold.
+    pub fn source_text(&self, path: &str) -> Option<Arc<str>> {
+        self.build.source_text(path).cloned()
+    }
+
+    /// [`Self::source_text`] of every file, shared rather than copied: what
+    /// a reader keeps while the session is out for an update.
+    pub fn source_texts(&self) -> HashMap<String, Arc<str>> {
+        self.build.source_texts()
     }
 
     /// Where the project comes from: disk, or nowhere.

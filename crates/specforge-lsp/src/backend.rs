@@ -362,6 +362,17 @@ impl Backend {
     }
 }
 
+/// A request refused because the editor's buffer is not the text the
+/// project was compiled from (LSP's `ContentModified`, -32801): the answer
+/// would be computed on a text the editor no longer has.
+fn content_modified(file: &str) -> tower_lsp::jsonrpc::Error {
+    tower_lsp::jsonrpc::Error {
+        code: tower_lsp::jsonrpc::ErrorCode::ServerError(-32801),
+        message: format!("{file} changed since the project was compiled; try again").into(),
+        data: None,
+    }
+}
+
 /// The session file key of a document.
 fn key_of(state: &LspState, uri: &Url) -> String {
     state.source_key(&uri_to_file_path(uri))
@@ -774,7 +785,11 @@ impl LanguageServer for Backend {
 
         // A diagnostic under the cursor comes first: what it means and how
         // to fix it, from the catalogue.
-        let shown = crate::hover::diagnostics_at(state.diagnostics(uri.as_str()), doc.index(), pos);
+        // Published ranges are positions in the compiled text.
+        let shown = Ranges::new(&state)
+            .index_of(&key_of(&state, &uri))
+            .map(|index| crate::hover::diagnostics_at(state.diagnostics(uri.as_str()), &index, pos))
+            .unwrap_or_default();
         let diagnostic_md = crate::hover::diagnostics(&shown);
         let markdown = |md: String| {
             Some(Hover {
@@ -852,29 +867,43 @@ impl LanguageServer for Backend {
                 if state.spec_root().as_os_str().is_empty() {
                     return Ok(None);
                 }
+                // The imported file, from its first line: no text needed.
                 let span = goto_import_definition(
                     &path,
                     &file,
                     state.spec_root(),
                     &state.environment().resolve_config(),
                 );
-                Ok(span.map(|s| GotoDefinitionResponse::Scalar(ranges.location(&s))))
+                Ok(span.map(|s| {
+                    GotoDefinitionResponse::Scalar(Location {
+                        uri: uri_of(&state, s.file.as_str()),
+                        range: Range::default(),
+                    })
+                }))
             }
             Some(Target::Entity { id, origin }) => {
                 let Ok(definition) = nav.definition(id.as_str()) else {
                     return Ok(None);
                 };
+                // A definition whose file's text is unknown is not answered
+                // (no range of it is honest).
                 if self.definition_links.load(Ordering::Relaxed) {
+                    let (Some(target_range), Some(target_selection_range)) = (
+                        ranges.range(&definition.block),
+                        ranges.range(&definition.name),
+                    ) else {
+                        return Ok(None);
+                    };
                     return Ok(Some(GotoDefinitionResponse::Link(vec![LocationLink {
                         origin_selection_range: Some(origin),
                         target_uri: uri_of(&state, definition.block.file.as_str()),
-                        target_range: ranges.range(&definition.block),
-                        target_selection_range: ranges.range(&definition.name),
+                        target_range,
+                        target_selection_range,
                     }])));
                 }
-                Ok(Some(GotoDefinitionResponse::Scalar(
-                    ranges.location(&definition.name),
-                )))
+                Ok(ranges
+                    .location(&definition.name)
+                    .map(GotoDefinitionResponse::Scalar))
             }
             _ => Ok(None),
         }
@@ -901,9 +930,12 @@ impl LanguageServer for Backend {
         if refs.is_empty() {
             return Ok(None);
         }
-        Ok(Some(
-            refs.iter().map(|o| ranges.location(&o.span)).collect(),
-        ))
+        // An occurrence whose file's text is unknown is left out.
+        let locations: Vec<Location> = refs
+            .iter()
+            .filter_map(|o| ranges.location(&o.span))
+            .collect();
+        Ok((!locations.is_empty()).then_some(locations))
     }
 
     async fn prepare_rename(
@@ -922,7 +954,9 @@ impl LanguageServer for Backend {
         // reference; nothing else renames.
         let ranges = Ranges::new(&state);
         let occurrence = cursor.occurrence(&navigator(&state), &key_of(&state, &uri));
-        Ok(occurrence.map(|o| PrepareRenameResponse::Range(ranges.range(&o.span))))
+        Ok(occurrence
+            .and_then(|o| ranges.range(&o.span))
+            .map(PrepareRenameResponse::Range))
     }
 
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
@@ -949,6 +983,13 @@ impl LanguageServer for Backend {
         let mut changes: std::collections::HashMap<Url, Vec<TextEdit>> =
             std::collections::HashMap::new();
         for edit in edits {
+            // The edits are positions in the compiled text, and apply to
+            // the editor's buffer: a buffer typed in since the compile is
+            // not that text, so the rename waits for the compile (LSP's
+            // ContentModified).
+            if ranges.is_stale(&edit.file) {
+                return Err(content_modified(&edit.file));
+            }
             let file_uri = uri_of(&state, &edit.file);
             // A 1-based line and byte columns of the file's text.
             let span = SourceSpan {
@@ -958,8 +999,16 @@ impl LanguageServer for Backend {
                 end_line: edit.line,
                 end_col: edit.end_col + 1,
             };
+            // A rename is all or nothing: an edit that cannot be placed
+            // refuses it.
+            let Some(range) = ranges.range(&span) else {
+                return Err(tower_lsp::jsonrpc::Error::invalid_params(format!(
+                    "cannot rename: the text of {} is not known",
+                    edit.file
+                )));
+            };
             changes.entry(file_uri).or_default().push(TextEdit {
-                range: ranges.range(&span),
+                range,
                 new_text: new_name.clone(),
             });
         }
@@ -979,24 +1028,24 @@ impl LanguageServer for Backend {
         let state = self.state.read().await;
         let file = key_of(&state, &uri);
         let ranges = Ranges::new(&state);
-        let within = ranges
-            .index_of(&file)
-            .map(|index| index.span(Sym::new(&file), params.range));
+        // The request's range is the editor's own: positions in its buffer.
+        let within = state
+            .document(uri.as_str())
+            .map(|doc| doc.index().span(Sym::new(&file), params.range));
         let query = FixQuery {
             file: Some(&file),
             within: within.as_ref(),
             ..FixQuery::default()
         };
         let fixes = navigator(&state).fixes(state.diagnostics(uri.as_str()), &query);
-        if fixes.is_empty() {
-            return Ok(None);
-        }
-        Ok(Some(
-            fixes
-                .into_iter()
-                .map(|fix| CodeActionOrCommand::CodeAction(fix_to_code_action(&ranges, fix)))
-                .collect(),
-        ))
+        // A fix that cannot be placed whole (see `fix_to_code_action`) is
+        // not offered.
+        let actions: Vec<CodeActionOrCommand> = fixes
+            .into_iter()
+            .filter_map(|fix| fix_to_code_action(&ranges, fix))
+            .map(CodeActionOrCommand::CodeAction)
+            .collect();
+        Ok((!actions.is_empty()).then_some(actions))
     }
 
     /// The document's outline (`specforge_ops::navigate::outline`, what MCP
@@ -1040,19 +1089,22 @@ impl LanguageServer for Backend {
         #[allow(deprecated)]
         let lsp_symbols: Vec<SymbolInformation> = found
             .into_iter()
-            .map(|m| SymbolInformation {
-                // Graph byte columns convert to UTF-16 against the file
-                // text when the file is readable; byte passthrough otherwise.
-                location: ranges.location(&m.node.source_span),
-                name: m.node.id.raw.to_string(),
-                kind: symbol_kind_from_entity(m.node.kind.raw.as_str(), kind_reg),
-                tags: None,
-                deprecated: None,
-                container_name: Some(m.node.kind.raw.to_string()),
+            .filter_map(|m| {
+                Some(SymbolInformation {
+                    // Graph byte columns convert to UTF-16 against the text
+                    // the graph was compiled from; an entity whose file's
+                    // text is unknown is left out.
+                    location: ranges.location(&m.node.source_span)?,
+                    name: m.node.id.raw.to_string(),
+                    kind: symbol_kind_from_entity(m.node.kind.raw.as_str(), kind_reg),
+                    tags: None,
+                    deprecated: None,
+                    container_name: Some(m.node.kind.raw.to_string()),
+                })
             })
             .collect();
 
-        Ok(Some(lsp_symbols))
+        Ok((!lsp_symbols.is_empty()).then_some(lsp_symbols))
     }
 
     async fn semantic_tokens_full(
@@ -1103,36 +1155,43 @@ impl Backend {
             tab_size: options.tab_size as usize,
             insert_spaces: options.insert_spaces,
         };
-        let (edits, notice) = {
-            let state = self.state.read().await;
-            let Some(doc) = state.document(uri.as_str()) else {
-                return Ok(None);
+        let (edits, notice) =
+            {
+                let state = self.state.read().await;
+                let Some(doc) = state.document(uri.as_str()) else {
+                    return Ok(None);
+                };
+                let file = uri.to_file_path().ok();
+                let place = file
+                    .as_deref()
+                    .map_or(format::Place::Detached, format::Place::File);
+                let formatted = format::document(place, doc.text(), lines, Some(editor));
+                if !formatted.diagnostics.is_empty() {
+                    // A publish replaces the document's list: the formatter's
+                    // diagnostics go alongside the compile ones, not in their
+                    // place.
+                    // The compile's are positions in the text it compiled, the
+                    // formatter's in the document it formatted.
+                    let ranges = Ranges::new(&state);
+                    let lsp_diags: Vec<Diagnostic> =
+                        state
+                            .diagnostics(uri.as_str())
+                            .iter()
+                            .map(|d| diagnostic_to_lsp(d, |span| ranges.range(span)))
+                            .chain(formatted.diagnostics.iter().map(|d| {
+                                diagnostic_to_lsp(d, |span| Some(doc.index().range(span)))
+                            }))
+                            .collect();
+                    self.client
+                        .publish_diagnostics(uri.clone(), lsp_diags, doc.version())
+                        .await;
+                }
+                let notice = overridden_editor_options(&formatted, editor);
+                (
+                    formatter_edits_to_lsp(formatted.edits(), doc.index()),
+                    notice,
+                )
             };
-            let file = uri.to_file_path().ok();
-            let place = file
-                .as_deref()
-                .map_or(format::Place::Detached, format::Place::File);
-            let formatted = format::document(place, doc.text(), lines, Some(editor));
-            if !formatted.diagnostics.is_empty() {
-                // A publish replaces the document's list: the formatter's
-                // diagnostics go alongside the compile ones, not in their
-                // place.
-                let lsp_diags: Vec<Diagnostic> = state
-                    .diagnostics(uri.as_str())
-                    .iter()
-                    .chain(&formatted.diagnostics)
-                    .map(|d| diagnostic_to_lsp(d, |span| doc.index().range(span)))
-                    .collect();
-                self.client
-                    .publish_diagnostics(uri.clone(), lsp_diags, doc.version())
-                    .await;
-            }
-            let notice = overridden_editor_options(&formatted, editor);
-            (
-                formatter_edits_to_lsp(formatted.edits(), doc.index()),
-                notice,
-            )
-        };
         if let Some((configuration, message)) = notice
             && self.state.write().await.first_format_notice(&configuration)
         {

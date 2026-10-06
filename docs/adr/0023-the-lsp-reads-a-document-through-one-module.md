@@ -31,8 +31,14 @@ the LSP, not in ops: UTF-16 is the protocol's unit and no MCP tool asks about a 
 "editor-only navigation need").
 
 **D3. One line index.** `LineIndex` is the only conversion between byte offsets and UTF-16 positions,
-both ways; spans of closed files convert through a per-request cache of their indexes. A file that cannot
-be read keeps its byte columns, in that one place.
+both ways. A span of the graph or of a diagnostic is a position in the text the project was compiled
+from (`ProjectSession::source_text`, the text the compile parsed: the resolver keeps it, ADR 0018 D5), so
+it converts against that text through a per-request cache of indexes, reusing an open document's own index
+when the document is that text; never against the buffer typed since, nor the disk now. Navigation reads
+the same text. A file the compile holds no text of has no range: its location or symbol is left out, a
+diagnostic stays at its file's start as one without a span does, a code action with such an edit, or over
+a buffer typed since the compile, is not offered, and a rename over a stale buffer is refused as
+`ContentModified` (-32801). There is no byte-column fallback.
 
 **D4. Structure from the text, identity from navigation.** The graph lags the buffer while the user
 types, and loses a block the parser rejects, so where the cursor is (entity body, field, list, string,
