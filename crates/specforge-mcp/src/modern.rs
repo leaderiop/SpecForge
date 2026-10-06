@@ -164,14 +164,17 @@ fn listen(state: &mut McpState, params: &Value, id: Option<Value>) -> Option<Jso
         ));
     };
     let id = id.expect("a request has an id");
-    let uris: Vec<String> = filter["resourceSubscriptions"]
+    let mut uris: Vec<String> = Vec::new();
+    for uri in filter["resourceSubscriptions"]
         .as_array()
         .into_iter()
         .flatten()
         .filter_map(Value::as_str)
-        .filter(|uri| crate::resources::is_served(state, uri))
-        .map(str::to_string)
-        .collect();
+    {
+        if crate::resources::is_served(state, uri) {
+            uris.push(uri.to_string());
+        }
+    }
     state.notification_outbox.push(json!({
         "jsonrpc": "2.0",
         "method": "notifications/subscriptions/acknowledged",

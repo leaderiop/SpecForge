@@ -279,9 +279,10 @@ pub static CORE_RESOURCES: &[ResourceSpec] = &[
 ];
 
 /// Whether `uri` names a resource the server serves: a core one, or one an
-/// extension contributes.
-pub(crate) fn is_served(state: &McpState, uri: &str) -> bool {
-    CORE_RESOURCES.iter().any(|r| r.matches(uri)) || state.surfaces().resource(uri).is_some()
+/// extension contributes. The lookup `resources/read` makes
+/// ([`crate::surface_call::find`]), so the freshness decision is its.
+pub(crate) fn is_served(state: &mut McpState, uri: &str) -> bool {
+    crate::surface_call::find::<Resources>(state, uri).is_some()
 }
 
 /// The resource adapter: an extension resource read through its `mcp__`
@@ -345,11 +346,9 @@ pub fn handle_resource_subscribe(
         Err(error) => return JsonRpcResponse::from_error(id, error),
     };
     let uri = invocation.name.as_str();
-    // An extension enabled on disk since the last request serves its
-    // resources from now on (ADR 0014 D12).
-    if !is_served(state, uri) && state.project_root().is_some() {
-        state.ensure_fresh();
-    }
+    // Served by the rule `resources/read` applies: a core resource, or an
+    // extension's, the project brought up to date first (ADR 0014 D12,
+    // ADR 0024 D2).
     if !is_served(state, uri) {
         return JsonRpcResponse::from_error(
             id,

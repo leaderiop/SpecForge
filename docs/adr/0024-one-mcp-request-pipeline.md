@@ -37,7 +37,13 @@ router guards initialization once for every method that needs a session. The no-
 
 **D2. Extension entries are looked up in an up-to-date project.** A name no core table has brings the
 served project up to date before the extension surface table is asked (ADR 0014 D12 for extension
-names). `resources/subscribe` does the same before it refuses a URI.
+names). This is one decision with one owner: `surface_call` (`find` for a lookup, `listed` for a
+listing, both through one private `bring_surface_up_to_date`). `resources/subscribe` and
+`subscriptions/listen` ask `find::<Resources>` before they refuse or honour a URI, and the four
+listings run inside `listed::<S>`, so no other code calls `ensure_fresh` to decide whether an
+extension entry exists. (A call's *target* still brings its project up to date, D5: that is a
+project's freshness, not the table's.) `prompts/list` no longer reloads: no extension declares a
+prompt.
 
 **D3. A resource read refuses like a prompt.** Every refusal is an McpError, sent as the JSON-RPC
 error's `data`; McpError gains `uri`, the URI read. One code rule for both
@@ -91,8 +97,9 @@ MCP maps it totally to its McpErrorCode. Diagnostic codes map through one table 
   to keep one resource case.
 - **Refusing `resources/unsubscribe` of an unserved URI**: a client could not drop a subscription to a
   resource its extension stopped serving.
-- **Listings folded into the pipeline**: ADR 0017 already makes listing and dispatch one table; the
-  listings differ in ways a shared method would have to special-case.
+- **Listings folded into the pipeline's `serve`**: ADR 0017 already makes listing and dispatch one
+  table; the listings differ in ways a shared method would have to special-case. Only their freshness
+  decision is shared (`listed`).
 - **Ignoring what a resource query does not read** (partial queries still serving): an agent that
   sends `graph?scop=a` got the full graph and could not tell; the export tool refuses an undeclared
   argument, and the resource over the same function now does too.

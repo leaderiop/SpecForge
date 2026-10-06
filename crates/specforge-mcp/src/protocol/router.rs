@@ -4,7 +4,7 @@ use crate::prompts::Prompts;
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::resources::Resources;
 use crate::state::McpState;
-use crate::surface_call::serve;
+use crate::surface_call::{listed, serve};
 use crate::tools::Tools;
 
 /// The methods that need a session: every request but the lifecycle's. The
@@ -88,22 +88,20 @@ fn session_method(
 ) -> JsonRpcResponse {
     match method {
         // Listing: an environment change on disk changes the extension
-        // tools, resources and prompts listed.
+        // tools and resources listed (the pipeline brings the served project
+        // up to date; no extension declares a prompt).
         SessionMethod::ListTools => {
-            state.ensure_fresh();
-            crate::registry::handle_list_tools(state, id)
+            listed::<Tools, _>(state, |state| crate::registry::handle_list_tools(state, id))
         }
-        SessionMethod::ListResources => {
-            state.ensure_fresh();
+        SessionMethod::ListResources => listed::<Resources, _>(state, |state| {
             crate::registry::handle_list_resources(state, id)
-        }
-        SessionMethod::ListResourceTemplates => {
+        }),
+        SessionMethod::ListResourceTemplates => listed::<Resources, _>(state, |state| {
             crate::registry::handle_list_resource_templates(state, id)
-        }
-        SessionMethod::ListPrompts => {
-            state.ensure_fresh();
+        }),
+        SessionMethod::ListPrompts => listed::<Prompts, _>(state, |state| {
             crate::registry::handle_list_prompts(state, id)
-        }
+        }),
 
         // Calls and reads: the target of each brings the project up to
         // date.
