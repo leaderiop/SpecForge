@@ -259,7 +259,8 @@ behavior apply_format_rules "Apply Format Rules" {
     The formatting rule engine MUST walk the CST and emit formatting
     decisions for each whitespace region: keep, replace, insert, or remove.
     Rules cover indentation, spacing, alignment, wrapping, blank lines,
-    comments, imports, and string formatting. Statements keep their source
+    comments and imports. String literals, triple-quoted ones included, are
+    kept byte-for-byte: their text is a field's value. Statements keep their source
     order; only runs of imports are sorted. Field keys align to the longest
     key plus one; annotations of single-line values align in one column;
     `verify [kind] "..."` statements are single-spaced. A list that does
@@ -283,7 +284,7 @@ behavior apply_format_rules "Apply Format Rules" {
   verify unit "import sorting produces alphabetical order"
   verify unit "blank line rules enforce exactly one between blocks"
   verify unit "comment rules normalize spacing around inline comments"
-  verify unit "string rules normalize multiline string literal indentation"
+  verify unit "multiline string literals are kept byte-for-byte"
   verify property "two files differing only in whitespace produce identical output after formatting"
   verify contract "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
 }

@@ -1,5 +1,4 @@
 use crate::config::FormatConfig;
-use crate::rules;
 use specforge_common::Diagnostic;
 use tree_sitter::{Node, Parser};
 
@@ -459,7 +458,27 @@ fn collapse_whitespace(text: &str) -> String {
 /// `//text`. Anything else is kept as written (`///`, `//!`, indentation
 /// after `//`).
 fn comment_text(node: Node, source: &str) -> String {
-    rules::normalize_comment(node_text(node, source).trim_end())
+    normalize_comment(node_text(node, source).trim_end())
+}
+
+/// Normalize comment spacing: `//text` gets one space after `//`, and
+/// trailing whitespace goes. Everything else is the author's: `///` and
+/// `//!` stay, and so does indentation after `//` (nested bullets, tables).
+fn normalize_comment(line: &str) -> String {
+    let line = line.trim_end();
+    let trimmed = line.trim_start();
+    let leading_ws = &line[..line.len() - trimmed.len()];
+    match trimmed.strip_prefix("//") {
+        Some(rest)
+            if rest
+                .chars()
+                .next()
+                .is_some_and(|c| !c.is_whitespace() && c != '/' && c != '!') =>
+        {
+            format!("{leading_ws}// {rest}")
+        }
+        _ => line.to_string(),
+    }
 }
 
 /// Format one top-level block.
@@ -983,13 +1002,63 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "apply_format_rules",
-        verify = "string rules normalize multiline string literal indentation"
+        verify = "comment rules normalize spacing around inline comments"
     )]
-    fn test_string_multiline_normalization() {
-        let input = "behavior foo \"Foo\" {\n  contract \"\"\"\n      First line\n      Second line\n  \"\"\"\n}\n";
+    fn test_normalize_comment_spacing() {
+        assert_eq!(normalize_comment("//comment"), "// comment");
+        assert_eq!(normalize_comment("// already good  "), "// already good");
+        assert_eq!(normalize_comment("//"), "//");
+        // The author's layout inside a comment is kept verbatim.
+        assert_eq!(
+            normalize_comment("//   - nested bullet"),
+            "//   - nested bullet"
+        );
+        assert_eq!(normalize_comment("  //  indented"), "  //  indented");
+        assert_eq!(normalize_comment("/// doc"), "/// doc");
+        assert_eq!(normalize_comment("//! inner"), "//! inner");
+        // Through the engine: a comment inside a block.
+        let result = fmt("behavior a \"A\" {\n  //x\n  contract \"c\"\n}\n");
+        assert!(result.contains("  // x"), "got: {result}");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "indentation rules normalize to configured indent style"
+    )]
+    fn indent_follows_the_configured_width_and_tabs() {
+        let input = "behavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n";
+        let four = FormatConfig {
+            indent_width: 4,
+            ..FormatConfig::default()
+        };
+        let tabs = FormatConfig {
+            use_tabs: true,
+            ..FormatConfig::default()
+        };
+
+        assert!(
+            fmt_with(input, &four).contains("\n    contract"),
+            "{}",
+            fmt_with(input, &four)
+        );
+        assert!(
+            fmt_with(input, &tabs).contains("\n\tcontract"),
+            "{}",
+            fmt_with(input, &tabs)
+        );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "multiline string literals are kept byte-for-byte"
+    )]
+    fn multiline_strings_are_kept_byte_for_byte() {
+        let input = "behavior foo \"Foo\" {\n  contract \"\"\"\n      First line\n        Second line\n  \"\"\"\n}\n";
         let result = fmt(input);
-        assert!(result.contains("First line"), "got: {result}");
-        assert!(result.contains("Second line"), "got: {result}");
+        assert!(
+            result.contains("contract \"\"\"\n      First line\n        Second line\n  \"\"\""),
+            "got: {result}"
+        );
     }
 
     // --- Slice 5: Idempotency ---

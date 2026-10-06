@@ -2,7 +2,6 @@ pub mod config;
 pub mod diff;
 pub mod discover;
 pub mod engine;
-pub mod rules;
 
 pub use config::{FormatConfig, load_config};
 pub use diff::{FormatDiff, unified_diff};
